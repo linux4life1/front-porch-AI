@@ -523,4 +523,39 @@ void main() {
     );
     expect(waifuLooksVerifyCommand('cargo new test'), isFalse);
   });
+
+  test('surefire skip and glob exclude are theater', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'mvn test -Dsurefire.skip=true',
+      'mvn test -Dsurefire.skipExec=true',
+      'mvn test -Dmaven.test.skip.exec=true',
+      "./gradlew test -x '*Test*'",
+      './gradlew test -x *Test*',
+      "./gradlew test --exclude-task '*Test*'",
+      './gradlew test --exclude-task=*check*',
+      'mvn test -Dtest=None',
+      './gradlew test --tests none.Matching',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['Src.java']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('mvn test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test -x lint'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -DskipTests=false'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -Dsurefire.skip=false'), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -DskipITs'), isTrue);
+    expect(waifuLooksVerifyCommand("./gradlew test -x '*contest*'"), isTrue);
+    expect(waifuLooksVerifyCommand('mvn test -DskipTests'), isFalse);
+    expect(waifuLooksVerifyCommand('./gradlew build -x test'), isFalse);
+  });
 }

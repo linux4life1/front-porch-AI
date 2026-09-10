@@ -36,6 +36,16 @@ bool _verifyTheater(String lowered) {
     if (cmd == 'go' && args.contains('-c')) return true;
     if (cmd == 'gradle' && _gradleInventoryTheater(args)) return true;
     if (cmd == 'gradle' && _excludesKnownCheck(cmd, args)) return true;
+    if (cmd == 'gradle') {
+      for (var i = 0; i < args.length; i++) {
+        if (args[i] == '--tests=none.matching') return true;
+        if (args[i] == '--tests' &&
+            i + 1 < args.length &&
+            args[i + 1] == 'none.matching') {
+          return true;
+        }
+      }
+    }
     if (cmd == 'go') {
       for (var i = 0; i < args.length; i++) {
         final t = args[i];
@@ -75,19 +85,29 @@ bool _isTheaterFlag(String w) {
       w.startsWith('--dry_run');
 }
 
-/// `-DskipTests` / `-Dmaven.test.skip` skip the suite. `=false` still runs.
+/// Maven `-D` keys that skip the unit suite. `=false` still runs.
+/// `-DskipITs` is not here — that only skips integration tests.
+const _kMavenSkipProps = {
+  'skiptests',
+  'maven.test.skip',
+  'maven.test.skip.exec',
+  'surefire.skip',
+  'surefire.skipexec',
+};
+
 bool _mavenSkipProperty(String w) {
-  if (w == '-dskiptests' || w.startsWith('-dskiptests=')) {
-    return !w.endsWith('=false');
-  }
-  if (w == '-dmaven.test.skip' || w.startsWith('-dmaven.test.skip=')) {
-    return !w.endsWith('=false');
-  }
-  return false;
+  if (!w.startsWith('-d')) return false;
+  final body = w.substring(2);
+  final eq = body.indexOf('=');
+  final key = eq < 0 ? body : body.substring(0, eq);
+  if (w == '-dtest=none') return true;
+  if (!_kMavenSkipProps.contains(key)) return false;
+  return eq < 0 || body.substring(eq + 1) != 'false';
 }
 
 /// Gradle `-x test` / `--exclude-task test` (or `:app:test`, unit-test
-/// tasks). Excluding a non-check (`-x lint`) does not kill `test`.
+/// tasks, or a glob that matches `test`/`check`). `-x lint` and
+/// `*contest*` do not kill a real `test`.
 bool _excludesKnownCheck(String cmd, List<String> args) {
   for (var i = 0; i < args.length; i++) {
     final t = args[i];
@@ -99,9 +119,30 @@ bool _excludesKnownCheck(String cmd, List<String> args) {
     } else if (t.startsWith('--exclude-task=')) {
       excluded = t.substring('--exclude-task='.length);
     }
-    if (excluded != null && _runnerTaskMatches(cmd, excluded)) return true;
+    if (excluded == null) continue;
+    if (_runnerTaskMatches(cmd, excluded)) return true;
+    if (!excluded.contains('*') && !excluded.contains('?')) continue;
+    final checks = _kRunnerChecks[cmd];
+    if (checks != null && checks.any((n) => _globMatches(excluded, n))) {
+      return true;
+    }
   }
   return false;
+}
+
+bool _globMatches(String glob, String name) {
+  final buf = StringBuffer('^');
+  for (final c in glob.split('')) {
+    if (c == '*') {
+      buf.write('.*');
+    } else if (c == '?') {
+      buf.write('.');
+    } else {
+      buf.write(RegExp.escape(c));
+    }
+  }
+  buf.write(r'$');
+  return RegExp(buf.toString(), caseSensitive: false).hasMatch(name);
 }
 
 /// Gradle `help` / `dependencies` / `components`, including `:app:help`.

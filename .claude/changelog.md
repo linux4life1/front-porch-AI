@@ -10,6 +10,20 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): surefire skip and glob exclude are theater
+- **Why:** `mvn test -Dsurefire.skip=true` / `skipExec` /
+  `maven.test.skip.exec` and `./gradlew test -x '*Test*'` skipped the
+  suite then receipted. Exact-name `-x` missed globs.
+- **What:** Same theater. Maven skip keys add surefire.skip,
+  surefire.skipExec, maven.test.skip.exec (`=false` still runs;
+  `-DskipITs` does not skip units). Gradle `-x` / `--exclude-task`
+  globs match known check names (`*test*` / `*check*`), not
+  `*contest*` or `-x lint`. `-Dtest=None` and `--tests none.Matching`
+  join.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): skip/exclude a check is theater
 - **Why:** `mvn test -DskipTests` and `./gradlew build -x test` /
   `--exclude-task test` skipped the suite then receipted and stamped
