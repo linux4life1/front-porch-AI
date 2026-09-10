@@ -32,7 +32,7 @@
   Bare hosts / `make test` / `jest --watchAll=false` stay full.
 - **Files:** `waifu_verify_theater.dart`, `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:**
+- **Commit:** 95460f88 (body 92b130ea)
 
 ## 2026-09-10 — fix(waifu): rspec tag + JS shard/watch + go fuzz
 - **Why:** Tip 24c0f315 still receipted `rspec --tag=slow` / `-t`,
