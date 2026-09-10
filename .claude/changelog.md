@@ -10,6 +10,16 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): --filter * is theater except Go/JVM
+- **Why:** Suite VIP `*` still soft-receipted
+  `swift`/`dotnet`/`phpunit`/`deno`/`bun` `--filter *` / `=*`.
+- **What:** Same theater. Those (and other non-keeper suite flags)
+  use presence (`all: {}`). Gradle `--tests *` and Go `-run=*` stay
+  VIP. Zig/cargo pins unchanged. No second club.
+- **Files:** `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): zig --test-filter * is theater
 - **Why:** Zig used default suite VIP `*`, so
   `zig test --test-filter *` / `=*` and `zig build test --test-filter

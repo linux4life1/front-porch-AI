@@ -184,6 +184,9 @@ const _kFilterValueFlags = <String, Set<String>>{
 };
 
 /// Name / marker / package flags — not “skip the next token”.
+/// Gradle `--tests` is the JVM VIP keeper (`*`). Everyone else here
+/// is presence — `swift`/`dotnet`/`phpunit`/`deno`/`bun` `--filter *`
+/// is theater.
 const _kSuiteFilterFlags = <String, Set<String>>{
   'gradle': {'--tests'},
   'dotnet': {'--filter'},
@@ -292,7 +295,7 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
     return (_kFilterValueFlags[cmd] ?? const <String>{}).contains(bare);
   }
 
-  bool suiteFlags({Set<String> all = const {'*'}}) {
+  bool suiteFlags({Set<String> all = const {}}) {
     for (final f in _kSuiteFilterFlags[cmd] ?? const <String>{}) {
       final v = flagVal(f);
       if (v != null && _filteredSuiteTheater(v, all: all)) return true;
@@ -347,7 +350,11 @@ bool _runnerFilterTheater(String cmd, List<String> args) {
     }
     return paths(after('test'), all: const {'.', './...'});
   }
-  if (suiteFlags()) return true;
+  // Gradle `--tests *` is the JVM VIP keeper. Other suite flags
+  // (`--filter`, `-k`, `-t`, `--name`) are presence — `*` is theater.
+  if (suiteFlags(all: cmd == 'gradle' ? const {'*'} : const {})) {
+    return true;
+  }
   if (cmd == 'dotnet') {
     return args.any((t) => t.startsWith('--filter:'));
   }

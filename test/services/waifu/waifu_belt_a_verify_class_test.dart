@@ -1283,4 +1283,41 @@ void main() {
     expect(waifuLooksVerifyCommand('cargo test -- --exact *'), isFalse);
     expect(waifuLooksVerifyCommand('cargo test'), isTrue);
   });
+
+  test('--filter * is theater except Go/JVM VIP keepers', () {
+    final p = WaifuPermissions(mode: WaifuMode.build);
+    for (final cmd in [
+      'swift test --filter *',
+      'swift test --filter=*',
+      'dotnet test --filter *',
+      'dotnet test --filter=*',
+      'phpunit --filter *',
+      'phpunit --filter=*',
+      'deno test --filter *',
+      'deno test --filter=*',
+      'bun test --filter *',
+      'bun test --filter=*',
+    ]) {
+      expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
+      expect(waifuBashMutates(cmd), isTrue, reason: cmd);
+      expect(
+        p.needsAsk(name: 'bash', args: {'command': cmd}),
+        isTrue,
+        reason: cmd,
+      );
+      final turn = _afterWrites(['mod.rs']);
+      _bash(turn, cmd);
+      expect(turn.tested, isFalse, reason: cmd);
+    }
+    expect(waifuLooksVerifyCommand('swift test'), isTrue);
+    expect(waifuLooksVerifyCommand('dotnet test'), isTrue);
+    expect(waifuLooksVerifyCommand('phpunit'), isTrue);
+    expect(waifuLooksVerifyCommand('deno test'), isTrue);
+    expect(waifuLooksVerifyCommand('bun test'), isTrue);
+    expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
+    expect(waifuLooksVerifyCommand('./gradlew test --tests *'), isTrue);
+    expect(waifuLooksVerifyCommand('zig test --test-filter=*'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test *'), isFalse);
+    expect(waifuLooksVerifyCommand('cargo test'), isTrue);
+  });
 }
