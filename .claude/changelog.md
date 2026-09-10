@@ -19,7 +19,7 @@
   `ctest` unchanged.
 - **Files:** `waifu_verify.dart`, `waifu_verify_maven.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** TBD
+- **Commit:** 6e5ca28b
 
 ## 2026-09-10 — fix(waifu): ctest -FS/-FC + TESTS_ENVIRONMENT
 - **Why:** Tip ff739407 still receipted `ctest -FS` / `-FC`
