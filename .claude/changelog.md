@@ -19,7 +19,7 @@
   unchanged. No second club.
 - **Files:** `waifu_verify_theater.dart`,
   `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
-- **Commit:** (pending)
+- **Commit:** 76f5122c
 
 ## 2026-09-10 — fix(waifu): cargo --exact=* / positional * theater
 - **Why:** `--exact=*` / `cargo test --exact *` could still VIP-star
