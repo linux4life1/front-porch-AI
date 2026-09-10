@@ -10,6 +10,19 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): Surefire suite XML / scan-subset are theater
+- **Why:** Unprefixed `includesFile` / JUnit5 engines were closed, but
+  `-DsuiteXmlFiles=*` / `=testng.xml` / `-Dsurefire.suiteXmlFiles=`
+  / `-Dfailsafe.suiteXmlFiles=*` and `-DdependenciesToScan=*` still
+  receipted.
+- **What:** Same theater. Those keys (plus singular `suiteXmlFile`
+  and Failsafe `failsafe.dependenciesToScan`) join
+  `_kMavenFilterProps` presence. Gradle/Go VIP unchanged. No second
+  club.
+- **Files:** `waifu_verify.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): unprefixed Surefire -D aliases are theater
 - **Why:** `_kMavenFilterProps` had `surefire.includesFile` /
   `surefire.excludeJUnit5Engines` but not the unprefixed aliases,

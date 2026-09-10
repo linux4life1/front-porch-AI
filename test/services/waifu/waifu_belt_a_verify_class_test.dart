@@ -1451,6 +1451,15 @@ void main() {
       './mvnw test -DincludesFile=*',
       './mvnw test -Dgroups=*',
       './mvnw verify -Dit.test=*',
+      'mvn test -DsuiteXmlFiles=*',
+      'mvn test -DsuiteXmlFiles=testng.xml',
+      'mvn test -Dsurefire.suiteXmlFiles=*',
+      'mvn test -Dsurefire.suiteXmlFiles=testng.xml',
+      'mvn verify -Dfailsafe.suiteXmlFiles=*',
+      'mvn test -DsuiteXmlFile=testng.xml',
+      'mvn test -DdependenciesToScan=*',
+      'mvn test -Dsurefire.dependenciesToScan=*',
+      'mvn verify -Dfailsafe.dependenciesToScan=*',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);

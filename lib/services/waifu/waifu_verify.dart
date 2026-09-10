@@ -112,8 +112,10 @@ const _kBuildOnly = {
 
 const _kDenyCmds = {'echo', 'ls', 'printf', 'true', 'false', 'cat', 'pwd'};
 
-/// Surefire / Failsafe name or category filters. Presence: `*` is theater.
-/// Keys are lowered (`excludedGroups` → `excludedgroups`).
+/// Surefire / Failsafe name, category, suite-XML, or scan-subset
+/// filters. Presence: any value is theater. Keys are lowered
+/// (`excludedGroups` → `excludedgroups`, `suiteXmlFiles` →
+/// `suitexmlfiles`).
 const _kMavenFilterProps = {
   'test',
   'groups',
@@ -124,6 +126,9 @@ const _kMavenFilterProps = {
   'excludesfile',
   'includejunit5engines',
   'excludejunit5engines',
+  'suitexmlfiles',
+  'suitexmlfile',
+  'dependenciestoscan',
   'surefire.includes',
   'surefire.excludes',
   'surefire.groups',
@@ -133,6 +138,9 @@ const _kMavenFilterProps = {
   'surefire.excludejunit5engines',
   'surefire.includesfile',
   'surefire.excludesfile',
+  'surefire.suitexmlfiles',
+  'surefire.suitexmlfile',
+  'surefire.dependenciestoscan',
   'it.test',
   'failsafe.test',
   'failsafe.groups',
@@ -143,6 +151,9 @@ const _kMavenFilterProps = {
   'failsafe.excludejunit5engines',
   'failsafe.includesfile',
   'failsafe.excludesfile',
+  'failsafe.suitexmlfiles',
+  'failsafe.suitexmlfile',
+  'failsafe.dependenciestoscan',
 };
 
 /// Unix utilities that are never a project check — even if argv[1] is
