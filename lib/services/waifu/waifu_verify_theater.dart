@@ -102,6 +102,9 @@ bool _mavenSkipProperty(String w) {
     return eq < 0 ||
         _filteredSuiteTheater(body.substring(eq + 1), all: const {});
   }
+  if (_kMavenWhenFalseProps.contains(key)) {
+    return _gradlePropWhenFalse(w, '-d$key');
+  }
   if (!_kMavenSkipProps.contains(key)) return false;
   return eq < 0 || body.substring(eq + 1) != 'false';
 }

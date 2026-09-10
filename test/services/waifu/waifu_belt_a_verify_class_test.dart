@@ -1583,12 +1583,24 @@ void main() {
       './gradlew test -Dtest.include=Foo',
       './gradlew test -Dtest.exclude=Bar',
       './gradlew test -Dtest.include=',
+      './gradlew test -Ptest.single=Foo',
+      './gradlew test -Ptest.include=Foo',
+      './gradlew test -Ptest.exclude=Bar',
       'cargo test --no-fail-fast',
       'jest --passWithNoTests',
       'npm test -- --passWithNoTests',
       'mvn -f /home/vsts/work/1/s/module/pom.xml test',
       'mvn test -Dmaven.multiModuleProjectDirectory=/other',
       'mvn test -Dsession.executionRootDirectory=/other',
+      'mvn test -DfailIfNoTests=false',
+      'mvn test -Dsurefire.failIfNoTests=false',
+      'mvn verify -DfailIfNoTests=false',
+      'mvn test -DfailIfNoSpecifiedTests=false',
+      'mvn test -Dsurefire.failIfNoSpecifiedTests=false',
+      'mvn verify -Dfailsafe.failIfNoTests=false',
+      'mvn verify -Dfailsafe.failIfNoSpecifiedTests=false',
+      'mvn test -DfailIfNoTests',
+      'mvn test -DfailIfNoTests=',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1723,6 +1735,7 @@ void main() {
       waifuLooksVerifyCommand('mvn test -DtestFailureIgnore=false'),
       isTrue,
     );
+    expect(waifuLooksVerifyCommand('mvn test -DfailIfNoTests=true'), isTrue);
     expect(
       waifuLooksVerifyCommand('mvn test -Dmaven.test.error.ignore=false'),
       isTrue,

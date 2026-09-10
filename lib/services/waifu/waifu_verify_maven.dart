@@ -123,6 +123,19 @@ const _kMavenSkipProps = {
   'failsafe.testerrorignore',
 };
 
+/// Maven `-D` empty-suite soft Done. Theater when bare, empty, or
+/// `=false` (Gradle `failOnNoMatchingTests` twin). `=true` is a
+/// hard-fail receipt. Not [_kMavenSkipProps] — that floor is
+/// inverted (`=false` full).
+const _kMavenWhenFalseProps = {
+  'failifnotests',
+  'surefire.failifnotests',
+  'failifnospecifiedtests',
+  'surefire.failifnospecifiedtests',
+  'failsafe.failifnotests',
+  'failsafe.failifnospecifiedtests',
+};
+
 /// Maven argv theater: reactor subset, settings/profiles/toolchains,
 /// and non-root `-f`/`--file`.
 ///
@@ -305,8 +318,9 @@ const _kGradleCwdScripts = {
 /// and `ignoreFailures` / `test.ignoreFailures` (`-D` / `-P`)
 /// theater unless `=false`. `failOnNoMatchingTests` /
 /// `failOnNoDiscoveredTests` theater when `=false` / bare /
-/// empty (`-D` / `-P`, raw `P`) — inverted floor. `-Dtest.single`
-/// / `include` / `exclude` are presence filter theater.
+/// empty (`-D` / `-P`, raw `P`) — inverted floor. `-D`/`-P`
+/// `test.single` / `include` / `exclude` are presence filter
+/// theater (raw `P` on the `-p…` keys).
 /// `-g` / `--gradle-user-home` is presence theater (init.d
 /// inject); raw argv keeps unrelated shorts. Short `-c` is
 /// `--settings-file`; long `--console` is not.
@@ -339,7 +353,12 @@ bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
     }
     if (_kGradleTestFilterProps.contains(t) ||
         _kGradleTestFilterProps.any((k) => t.startsWith('$k='))) {
-      return true;
+      if (!t.startsWith('-p') ||
+          (i < rawArgs.length &&
+              rawArgs[i].length >= 2 &&
+              rawArgs[i][1] == 'P')) {
+        return true;
+      }
     }
     if (t == '--gradle-user-home' || t.startsWith('--gradle-user-home')) {
       return true;
@@ -446,11 +465,15 @@ bool _gradleArgvTheater(List<String> args, List<String> rawArgs) {
 bool _polyglotSoftDone(String w) =>
     w.startsWith('--no-fail-fast') || w.startsWith('--passwithnotests');
 
-/// Legacy Gradle test select (`-Dtest.single` / `include` / `exclude`).
+/// Legacy Gradle test select (`-D` / `-P` `test.single` / `include` /
+/// `exclude`). `-p…` keys require raw `P`.
 const _kGradleTestFilterProps = {
   '-dtest.single',
   '-dtest.include',
   '-dtest.exclude',
+  '-ptest.single',
+  '-ptest.include',
+  '-ptest.exclude',
 };
 
 /// `-Dkey` / `-Pkey` token theater unless `=false`.

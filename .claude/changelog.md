@@ -10,6 +10,20 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): -Ptest filters + Maven failIfNoTests theater
+- **Why:** Tip 63ce60bc theatered `-Dtest.single` / `include` /
+  `exclude` but still receipted the `-P` twins, and receipted
+  `mvn test -DfailIfNoTests=false` (empty-suite soft Done).
+- **What:** Same `_verifyTheater` path. Gradle filter set adds
+  `-ptest.single` / `include` / `exclude` with a raw `P` gate.
+  Maven `failIfNoTests` / `failIfNoSpecifiedTests` (+ surefire /
+  failsafe) join `_kMavenWhenFalseProps` — inverted floor
+  (bare / empty / `=false` theater; `=true` full). Skip-prop
+  `=false` and `-PenableFoo` unchanged.
+- **Files:** `waifu_verify_maven.dart`, `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): empty-suite / test.single / cargo no-fail-fast
 - **Why:** Tip d93560fa still receipted
   `-DfailOnNoMatchingTests=false` / `-DfailOnNoDiscoveredTests=false`
