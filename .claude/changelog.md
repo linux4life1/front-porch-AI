@@ -1,14 +1,17 @@
-## 2026-09-10 — docs: restack Belt B onto A tip 139f50f8
-- **Why:** A moved to `139f50f8` (Belt A harness contract). B tip
-  `b57d7b9e` was 2 commits behind and diverged.
-- **What:** Rebased B onto that tip. Shared contract files stay A's
+## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e
+- **Why:** Belt A #246 squashed to Rawhide as `90dcb76e` (old A tip
+  `139f50f8`). B tip `d186c35a` was stacked on that A tip, so GitHub
+  showed dirty vs Rawhide.
+- **What:** `rebase --onto origin/Rawhide 139f50f8` replayed the 21
+  B-only commits. A tip tree equals the squash (empty diff), so no
+  conflict and no theater replay. Shared contract stays A's
   (send-first, denied Plan as attempt, wipe ancestor/case, `/tmp`
   children, Build asks, `webSearch` bind, Jail/Disk chips, Disk
-  confirm persist). Theater file is byte-identical to A `139f50f8`.
-  Widget Golden on `b57d7b9e` (job 102992218608) was the 10-minute
-  timeout flake, not a pixel mismatch — no PNG regen.
-- **Restack:** onto Belt A `139f50f8`
-- **Commit:** b3055901
+  confirm persist). `waifu_verify.dart` / `waifu_verify_maven.dart` /
+  `waifu_verify_theater.dart` are byte-identical to Rawhide
+  `90dcb76e`. No lying gates reintroduced. No golden PNG regen.
+- **Restack:** onto Rawhide `90dcb76e` (A squash of `139f50f8`)
+- **Commit:**
 
 ## 2026-09-10 — fix(waifu): Belt A harness contract — rip lying gates
 - **Why:** Tip f36976dc was MERGEABLE vs Rawhide but unit+integration
