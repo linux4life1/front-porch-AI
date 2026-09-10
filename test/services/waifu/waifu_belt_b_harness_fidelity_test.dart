@@ -145,7 +145,7 @@ void main() {
         name: kWaifuToolBash,
         output: 'ok',
         ok: true,
-        args: {'command': 'cargo test --lib'},
+        args: {'command': 'cargo test'},
       ),
       WaifuMessage.tool(
         name: kWaifuToolBash,
@@ -162,7 +162,7 @@ void main() {
     );
     expect(ledger, contains(kWaifuMachineLedgerTitle));
     expect(ledger, contains('src/main.rs'));
-    expect(ledger, contains('cargo test --lib'));
+    expect(ledger, contains('cargo test'));
     expect(ledger, contains('.waifu/plans/parser.md'));
     expect(ledger, contains('s1 [pending] Add failing test'));
     expect(ledger, isNot(contains('lib/invented.dart')));
@@ -172,7 +172,7 @@ void main() {
         .last
         .split('plan:')
         .first;
-    expect(verifyBlock, contains('cargo test --lib'));
+    expect(verifyBlock, contains('cargo test'));
     expect(verifyBlock, isNot(contains('ls')));
 
     final recap = waifuInjectMachineLedger(
@@ -191,7 +191,7 @@ void main() {
       ledger,
     );
     expect(poisoned, contains('src/main.rs'));
-    expect(poisoned, contains('cargo test --lib'));
+    expect(poisoned, contains('cargo test'));
 
     final msgs = <WaifuMessage>[
       for (var i = 0; i < 12; i++)

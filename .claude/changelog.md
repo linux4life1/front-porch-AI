@@ -43,6 +43,15 @@
 - **What:** Same path. JS hosts apply the pytest+jest failed-only
   set to argv after `--` (`npm run test` peels to `test`).
   Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): Belt B fold fixture is a full as-run
+- **Why:** After A's frozen `--lib` theater, the B2 fold example
+  still receipted `cargo test --lib` as as-run. That is a lying
+  ledger fixture, not a new flag mole.
+- **What:** Same ledger helper. The fold example is full
+  `cargo test`. Plan-step `--lib` text stays verbatim injection.
+- **Files:** `waifu_belt_b_harness_fidelity_test.dart`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): Belt B harness fidelity — queue photos, ledger, nested ok
 - **Why:** Belt A told the truth about wrap-up and verify. Belt B rips the
   remaining lying harness contracts: the follow-up queue dropped photo
