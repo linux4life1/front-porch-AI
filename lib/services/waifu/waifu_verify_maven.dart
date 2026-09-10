@@ -99,22 +99,29 @@ const _kMavenFilterProps = {
   'failsafe.classesdirectory',
 };
 
-/// Maven `-D` keys that skip the *unit* suite. `=false` still runs.
-/// Failsafe / `-DskipITs` only skip ITs — Surefire still runs.
+/// Maven `-D` keys that skip the *unit* suite or ignore its failures.
+/// `=false` still runs / still hard-fails. Failsafe / `-DskipITs`
+/// only skip ITs — Surefire still runs. Failure-ignore twins live
+/// here (not the filter set) so `=false` stays a hard receipt.
 const _kMavenSkipProps = {
   'skiptests',
   'maven.test.skip',
   'maven.test.skip.exec',
   'surefire.skip',
   'surefire.skipexec',
+  'testfailureignore',
+  'maven.test.failure.ignore',
+  'surefire.testfailureignore',
+  'failsafe.testfailureignore',
 };
 
 /// Maven argv theater: reactor subset, settings/profiles/toolchains,
 /// and non-root `-f`/`--file`.
 ///
 /// `-f` / `--file` is a full receipt when the basename is `pom.xml`
-/// and the parent is empty / `.` **or** exactly one absolute segment
-/// (`/workspace/pom.xml`, `C:/proj/pom.xml`). Nested absolute
+/// and the parent is empty / `.`, exactly one absolute segment
+/// (`/workspace/pom.xml`, `C:/proj/pom.xml`), or a known CI
+/// checkout root (see [_mavenNonRootPom]). Nested absolute
 /// (`/workspace/module/pom.xml`) and relative (`other/pom.xml`) are
 /// theater. Fail-policy shorts (`-fae`/`-ff`/`-fn`) are not glued
 /// `-fPATH`.
@@ -184,7 +191,19 @@ bool _mavenArgvTheater(List<String> args) {
   return false;
 }
 
-/// Basename + single-segment absolute parent for Maven `-f` / `--file`.
+/// Basename + allowlisted parent for Maven `-f` / `--file`.
+///
+/// Full receipt when basename is `pom.xml` and parent is:
+/// - empty / `.` (cwd `pom.xml` / `./pom.xml`)
+/// - exactly one absolute segment (`/workspace/pom.xml`,
+///   `C:/proj/pom.xml`)
+/// - GitHub Actions checkout `/home/runner/work/<repo>/<repo>`
+///   (the two repo segments must be identical)
+/// - container checkout `/github/workspace`
+///
+/// Nested modules stay theater (`/workspace/module/pom.xml`,
+/// `/home/runner/work/repo/module/pom.xml`). Not a GHA layout:
+/// `/home/user/proj/pom.xml`.
 bool _mavenNonRootPom(String raw) {
   var path = raw.replaceAll(r'\', '/');
   while (path.length > 1 && path.endsWith('/')) {
@@ -200,7 +219,18 @@ bool _mavenNonRootPom(String raw) {
   if (parent.isEmpty || parent == '.') return false;
   if (parent.startsWith('/')) {
     final segs = parent.split('/').where((s) => s.isNotEmpty).toList();
-    return segs.length != 1;
+    if (segs.length == 1) return false;
+    if (segs.length == 2 && segs[0] == 'github' && segs[1] == 'workspace') {
+      return false;
+    }
+    if (segs.length == 5 &&
+        segs[0] == 'home' &&
+        segs[1] == 'runner' &&
+        segs[2] == 'work' &&
+        segs[3] == segs[4]) {
+      return false;
+    }
+    return true;
   }
   if (parent.length >= 2 && parent[1] == ':') {
     final rest = parent.length > 2 && parent[2] == '/'

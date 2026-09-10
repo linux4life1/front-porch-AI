@@ -10,6 +10,21 @@
   `edit_character_add_greeting_test.dart`,
   `group_alternate_greetings_editor_test.dart`
 - **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): GHA -f checkout root is a full run; failure-ignore is theater
+- **Why:** Tip 68045b10's single-segment absolute allowlist rejected
+  GitHub Actions `/home/runner/work/<repo>/<repo>/pom.xml`.
+  `-DtestFailureIgnore=true` / `-Dmaven.test.failure.ignore=true`
+  still receipted a suite that treats red as green.
+- **What:** Same clubs. Absolute `-f` still receipts `/<one>/pom.xml`
+  and now the GHA checkout (identical repo segments) plus
+  `/github/workspace/pom.xml`. Nested modules stay theater.
+  Failure-ignore keys join `_kMavenSkipProps` (`=false` still hard).
+  Gradle/Go VIP unchanged. No second club.
+- **Files:** `waifu_verify_maven.dart`,
+  `waifu_verify_theater.dart`,
+  `waifu_belt_a_verify_class_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — fix(waifu): nested absolute -f …/module/pom.xml and -t are theater
 - **Why:** Tip 0a5c1a95 treated any absolute `…/pom.xml` as a full
   run, so `mvn -f /workspace/module/pom.xml test` soft-receipted a

@@ -1516,6 +1516,11 @@ void main() {
       'mvn --toolchains=ci-toolchains.xml test',
       'mvn -gt toolchains.xml test',
       'mvn --global-toolchains=ci-toolchains.xml test',
+      'mvn -f /home/runner/work/repo/module/pom.xml test',
+      'mvn test -DtestFailureIgnore=true',
+      'mvn test -Dmaven.test.failure.ignore=true',
+      'mvn test -Dsurefire.testFailureIgnore=true',
+      'mvn verify -Dfailsafe.testFailureIgnore=true',
     ]) {
       expect(waifuLooksVerifyCommand(cmd), isFalse, reason: cmd);
       expect(waifuBashMutates(cmd), isTrue, reason: cmd);
@@ -1540,7 +1545,21 @@ void main() {
     expect(waifuLooksVerifyCommand('mvn -fpom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -f /workspace/pom.xml test'), isTrue);
     expect(waifuLooksVerifyCommand('mvn -f C:/proj/pom.xml test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand(
+        'mvn -f /home/runner/work/repo/repo/pom.xml test',
+      ),
+      isTrue,
+    );
+    expect(
+      waifuLooksVerifyCommand('mvn -f /github/workspace/pom.xml test'),
+      isTrue,
+    );
     expect(waifuLooksVerifyCommand('mvn -T 1C test'), isTrue);
+    expect(
+      waifuLooksVerifyCommand('mvn test -DtestFailureIgnore=false'),
+      isTrue,
+    );
     expect(waifuLooksVerifyCommand('./gradlew test --tests=*'), isTrue);
     expect(waifuLooksVerifyCommand('go test -run=*'), isTrue);
     expect(waifuLooksVerifyCommand('mvn test -Dtest=*'), isFalse);
