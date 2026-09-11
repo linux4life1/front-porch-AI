@@ -66,6 +66,7 @@ class WaifuHarness implements OpenCodeEventSink {
   int? _liveIndex;
   String? _lastAssistantMessageId;
   var _canRedo = false;
+  var _afterTool = false;
 
   WaifuTodos get todos => session.todos;
   bool get isRunning => session.running;
@@ -152,6 +153,7 @@ class WaifuHarness implements OpenCodeEventSink {
     _aborted = false;
     _liveIndex = null;
     _canRedo = false;
+    _afterTool = false;
     session.running = true;
     session.transcript.add(WaifuMessage.user(text, imagePath: imagePath));
     if (session.title.isEmpty) session.title = waifuTitleFrom(text);
@@ -255,9 +257,9 @@ class WaifuHarness implements OpenCodeEventSink {
     );
     final cur = session.transcript[idx];
     final asThink =
-        thinking ||
-        (cur.text.isEmpty &&
-            (cur.reasoning.isNotEmpty || waifuLooksLikeThinkingDump(delta)));
+        !waifuLooksLikeSpoken(delta) &&
+        (!_afterTool || thinking) &&
+        (thinking || (cur.text.isEmpty && waifuLooksLikeThinkingDump(delta)));
     if (asThink) {
       if (waifuThinkingNoise(delta)) return;
       var next = '${cur.reasoning}$delta';
@@ -288,6 +290,7 @@ class WaifuHarness implements OpenCodeEventSink {
     bool pending = false,
     String callId = '',
   }) {
+    if (!pending) _afterTool = true;
     session.transcript.add(
       WaifuMessage.tool(name: name, output: detail, ok: pending ? true : ok),
     );
@@ -440,4 +443,14 @@ bool waifuThinkingNoise(String raw) {
   final t = raw.trim().toLowerCase();
   if (t.isEmpty) return true;
   return t == 'thought' || t == 'thinking' || t == '...' || t == '…';
+}
+
+/// Victory speech, quotes, markdown — not CoT.
+bool waifuLooksLikeSpoken(String raw) {
+  final t = raw.trimLeft();
+  if (t.isEmpty) return false;
+  if (t.startsWith('"') || t.startsWith('*') || t.startsWith('#')) return true;
+  if (t.startsWith('YES') || t.startsWith('Done')) return true;
+  if (t.contains('Mission Accomplished')) return true;
+  return false;
 }
