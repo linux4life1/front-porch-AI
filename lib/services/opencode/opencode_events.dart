@@ -23,8 +23,13 @@ sealed class OpenCodeBusEvent {
 }
 
 class OpenCodeTextDelta extends OpenCodeBusEvent {
-  const OpenCodeTextDelta({required this.sessionId, required this.delta});
+  const OpenCodeTextDelta({
+    required this.sessionId,
+    required this.delta,
+    this.messageId = '',
+  });
   final String sessionId;
+  final String messageId;
   final String delta;
 }
 
@@ -85,7 +90,7 @@ class OpenCodeErrorEvent extends OpenCodeBusEvent {
 
 /// Dumb consumer the UI/harness implements. No Dart gym, no ledger.
 abstract class OpenCodeEventSink {
-  void onTextDelta(String delta);
+  void onTextDelta(String delta, {String messageId = ''});
   void onTool({
     required String name,
     required String detail,
@@ -100,8 +105,10 @@ abstract class OpenCodeEventSink {
 
 void dispatchOpenCodeEvent(OpenCodeBusEvent event, OpenCodeEventSink sink) {
   switch (event) {
-    case OpenCodeTextDelta(:final delta):
-      if (delta.isNotEmpty) sink.onTextDelta(delta);
+    case OpenCodeTextDelta(:final delta, :final messageId):
+      if (delta.isNotEmpty) {
+        sink.onTextDelta(delta, messageId: messageId);
+      }
     case OpenCodeToolEvent():
       sink.onTool(
         name: event.name,
@@ -157,6 +164,7 @@ OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
       if (field != 'text') return null;
       return OpenCodeTextDelta(
         sessionId: map['sessionID']?.toString() ?? '',
+        messageId: map['messageID']?.toString() ?? '',
         delta: map['delta']?.toString() ?? '',
       );
     case 'message.part.updated':

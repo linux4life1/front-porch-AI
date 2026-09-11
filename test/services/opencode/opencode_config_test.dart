@@ -57,4 +57,23 @@ void main() {
     expect(openCodeAgentForMode(WaifuMode.build), 'waifu');
     expect(openCodeAgentForMode(WaifuMode.yolo), 'waifu');
   });
+
+  test('mcp servers are written into isolated config, not a Dart gym', () {
+    final map = buildOpenCodeConfigMap(
+      agentPrompt: 'Name: Mira',
+      baseUrl: 'http://127.0.0.1:5001/v1',
+      apiKey: 'x',
+      modelId: 'local',
+      permission: openCodePermissionMap(folderJail: true, yolo: false),
+      mcp: {
+        'docs': {
+          'type': 'local',
+          'command': ['npx', '-y', 'docs'],
+          'enabled': true,
+        },
+      },
+    );
+    expect((map['mcp'] as Map)['docs']['type'], 'local');
+    expect(map.containsKey('mcp'), isTrue);
+  });
 }

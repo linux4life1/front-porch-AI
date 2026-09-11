@@ -35,6 +35,12 @@ class OpenCodeSessionInfo {
   final String title;
 }
 
+class OpenCodeMessageInfo {
+  const OpenCodeMessageInfo({required this.id, required this.role});
+  final String id;
+  final String role;
+}
+
 /// Thin HTTP client for `opencode serve`. Not a second agent.
 class OpenCodeClient {
   OpenCodeClient({required this.baseUri, this.directory, this.clientFactory});
@@ -103,16 +109,71 @@ class OpenCodeClient {
       final resp = await client.post(
         _uri('/session/$sessionId/prompt_async'),
         headers: {'content-type': 'application/json'},
-        body: jsonEncode({
-          'parts': parts,
-          'agent': ?agent,
-          'system': ?system,
-        }),
+        body: jsonEncode({'parts': parts, 'agent': ?agent, 'system': ?system}),
       );
       if (resp.statusCode != 204 &&
           (resp.statusCode < 200 || resp.statusCode >= 300)) {
         throw StateError('OpenCode prompt failed: ${resp.statusCode}');
       }
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Revert an assistant message and the file changes it made.
+  Future<void> revert({
+    required String sessionId,
+    required String messageId,
+  }) async {
+    final client = _newClient();
+    try {
+      final resp = await client.post(
+        _uri('/session/$sessionId/revert'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({'messageID': messageId}),
+      );
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        throw StateError('OpenCode revert failed: ${resp.statusCode}');
+      }
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Restore every message the last revert hid.
+  Future<void> unrevert(String sessionId) async {
+    final client = _newClient();
+    try {
+      final resp = await client.post(_uri('/session/$sessionId/unrevert'));
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        throw StateError('OpenCode unrevert failed: ${resp.statusCode}');
+      }
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<List<OpenCodeMessageInfo>> listMessages(String sessionId) async {
+    final client = _newClient();
+    try {
+      final resp = await client.get(_uri('/session/$sessionId/message'));
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        return const [];
+      }
+      final json = jsonDecode(resp.body);
+      if (json is! List) return const [];
+      final out = <OpenCodeMessageInfo>[];
+      for (final row in json) {
+        if (row is! Map) continue;
+        final info = row['info'];
+        final map = info is Map ? info : row;
+        final id = map['id']?.toString() ?? '';
+        if (id.isEmpty) continue;
+        out.add(
+          OpenCodeMessageInfo(id: id, role: map['role']?.toString() ?? ''),
+        );
+      }
+      return out;
     } finally {
       client.close();
     }

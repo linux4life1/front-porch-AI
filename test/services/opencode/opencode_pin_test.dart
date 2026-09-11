@@ -51,4 +51,39 @@ void main() {
       isFalse,
     );
   });
+
+  test('honesty names pin vs disk vs GitHub and never brew', () {
+    expect(
+      openCodeUpgradeHonesty(installed: null, pinned: '1.18.30'),
+      contains('not in the closet'),
+    );
+    expect(
+      openCodeUpgradeHonesty(
+        installed: '1.0.0',
+        pinned: '1.18.30',
+        remote: '1.19.0',
+      ),
+      contains('1.0.0 → 1.18.30'),
+    );
+    expect(
+      openCodeUpgradeHonesty(
+        installed: '1.0.0',
+        pinned: '1.18.30',
+        remote: '1.19.0',
+      ),
+      contains('GitHub latest is 1.19.0'),
+    );
+    expect(
+      openCodeUpgradeHonesty(installed: '1.18.30', pinned: '1.18.30'),
+      contains('current (pin)'),
+    );
+    expect(
+      openCodeUpgradeButtonLabel(installed: null, pinned: '1.18.30'),
+      contains('Download 1.18.30'),
+    );
+    expect(
+      openCodeUpgradeButtonLabel(installed: '1.18.30', pinned: '1.18.30'),
+      'Up to date',
+    );
+  });
 }

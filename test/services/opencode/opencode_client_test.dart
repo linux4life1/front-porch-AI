@@ -20,6 +20,7 @@ void main() {
     expect(events, hasLength(2));
     expect(events[0], isA<OpenCodeTextDelta>());
     expect((events[0] as OpenCodeTextDelta).delta, 'Hi');
+    expect((events[0] as OpenCodeTextDelta).messageId, 'msg_1');
     expect(events[1], isA<OpenCodeSessionIdle>());
     expect((events[1] as OpenCodeSessionIdle).sessionId, 'ses_1');
   });
@@ -140,6 +141,49 @@ void main() {
       expect(sink.idle, isTrue);
     },
   );
+
+  test('revert posts messageID; unrevert posts empty body', () async {
+    final hits = <http.Request>[];
+    final client = OpenCodeClient(
+      baseUri: Uri.parse('http://127.0.0.1:4096'),
+      directory: '/tmp/porch',
+      clientFactory: () => MockClient((req) async {
+        hits.add(req);
+        return http.Response('true', 200);
+      }),
+    );
+    await client.revert(sessionId: 'ses_1', messageId: 'msg_9');
+    await client.unrevert('ses_1');
+    expect(hits[0].method, 'POST');
+    expect(hits[0].url.path, '/session/ses_1/revert');
+    expect(jsonDecode(hits[0].body)['messageID'], 'msg_9');
+    expect(hits[1].url.path, '/session/ses_1/unrevert');
+  });
+
+  test('listMessages reads role and id from info rows', () async {
+    final client = OpenCodeClient(
+      baseUri: Uri.parse('http://127.0.0.1:4096'),
+      clientFactory: () => MockClient((req) async {
+        expect(req.url.path, '/session/ses_1/message');
+        return http.Response(
+          jsonEncode([
+            {
+              'info': {'id': 'msg_u', 'role': 'user'},
+              'parts': [],
+            },
+            {
+              'info': {'id': 'msg_a', 'role': 'assistant'},
+              'parts': [],
+            },
+          ]),
+          200,
+        );
+      }),
+    );
+    final msgs = await client.listMessages('ses_1');
+    expect(msgs.map((m) => m.id), ['msg_u', 'msg_a']);
+    expect(msgs.last.role, 'assistant');
+  });
 }
 
 class _RecordingSink implements OpenCodeEventSink {
@@ -147,7 +191,7 @@ class _RecordingSink implements OpenCodeEventSink {
   var idle = false;
 
   @override
-  void onTextDelta(String delta) => deltas.add(delta);
+  void onTextDelta(String delta, {String messageId = ''}) => deltas.add(delta);
 
   @override
   void onTool({

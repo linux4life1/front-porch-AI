@@ -173,4 +173,91 @@ void main() {
     await mgr.stop();
     expect(killed, 1);
   });
+
+  test('stale stamp re-downloads the pin; matching pin does not', () async {
+    var downloads = 0;
+    final mgr = OpenCodeManager(
+      rootPath: root.path,
+      downloader: (url, {onProgress}) async {
+        downloads++;
+        return utf8.encode('zip');
+      },
+      unpack: (bytes, dest) async {
+        final bin = File(
+          p.join(dest.path, OpenCodeCloset(root.path).binaryName),
+        );
+        await bin.writeAsString('PIN');
+        return bin;
+      },
+    );
+    await mgr.ensureInstalled();
+    expect(downloads, 1);
+    await OpenCodeBinaryVersion.write(
+      mgr.closet.binDir,
+      version: '1.0.0',
+      size: 1,
+    );
+    await mgr.ensureInstalled();
+    expect(downloads, 2);
+    expect(mgr.installedVersion, kOpenCodePinnedVersion);
+    await mgr.ensureInstalled();
+    expect(downloads, 2);
+  });
+
+  test(
+    'checkRemoteVersion records GitHub latest and never downloads',
+    () async {
+      var downloads = 0;
+      final mgr = OpenCodeManager(
+        rootPath: root.path,
+        downloader: (url, {onProgress}) async {
+          downloads++;
+          return utf8.encode('zip');
+        },
+        remoteLookup: () async =>
+            (tag: '1.19.99', assetBytes: 44 * 1024 * 1024),
+      );
+      await mgr.checkRemoteVersion();
+      expect(mgr.remoteVersion, '1.19.99');
+      expect(downloads, 0);
+      expect(mgr.needsPinDownload, isTrue);
+    },
+  );
+
+  test('upgradeToPin stops a running serve then installs the pin', () async {
+    var killed = 0;
+    var downloads = 0;
+    final mgr = OpenCodeManager(
+      rootPath: root.path,
+      downloader: (url, {onProgress}) async {
+        downloads++;
+        return utf8.encode('zip');
+      },
+      unpack: (bytes, dest) async {
+        final bin = File(
+          p.join(dest.path, OpenCodeCloset(root.path).binaryName),
+        );
+        await bin.writeAsString('NEW');
+        return bin;
+      },
+      pickPort: () async => 18979,
+      healthGet: (base) async => (healthy: true, version: '1.18.30'),
+      spawn: (req) async =>
+          OpenCodeProcessHandle.fake(pid: 7, onKill: () => killed++),
+    );
+    await mgr.start();
+    expect(mgr.isRunning, isTrue);
+    await OpenCodeBinaryVersion.write(
+      mgr.closet.binDir,
+      version: '1.0.0',
+      size: 1,
+    );
+    await mgr.refreshInstalled();
+    expect(mgr.needsPinDownload, isTrue);
+    await mgr.upgradeToPin();
+    expect(killed, greaterThanOrEqualTo(1));
+    expect(downloads, greaterThanOrEqualTo(1));
+    expect(mgr.isRunning, isFalse);
+    expect(mgr.installedVersion, kOpenCodePinnedVersion);
+  });
 }

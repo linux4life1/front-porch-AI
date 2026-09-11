@@ -30,6 +30,7 @@ Map<String, dynamic> buildOpenCodeConfigMap({
   required String modelId,
   required Map<String, dynamic> permission,
   String defaultAgent = 'waifu',
+  Map<String, dynamic>? mcp,
 }) {
   return {
     '\$schema': 'https://opencode.ai/config.json',
@@ -63,6 +64,7 @@ Map<String, dynamic> buildOpenCodeConfigMap({
       },
     },
     'permission': permission,
+    if (mcp != null && mcp.isNotEmpty) 'mcp': mcp,
   };
 }
 

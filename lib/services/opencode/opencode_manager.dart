@@ -41,6 +41,9 @@ typedef OpenCodePortPick = Future<int> Function();
 typedef OpenCodeHealthGet =
     Future<({bool healthy, String version})> Function(Uri base);
 
+typedef OpenCodeRemoteLookup =
+    Future<({String tag, int? assetBytes})?> Function();
+
 /// Downloads, starts, and stops a private OpenCode the way Porch owns Kobold.
 /// Never uses the Homebrew binary or `~/.config/opencode`.
 class OpenCodeManager extends ChangeNotifier {
@@ -51,13 +54,15 @@ class OpenCodeManager extends ChangeNotifier {
     OpenCodePortPick? pickPort,
     OpenCodeSpawn? spawn,
     OpenCodeHealthGet? healthGet,
+    OpenCodeRemoteLookup? remoteLookup,
     this.writeConfig,
   }) : closet = OpenCodeCloset(rootPath),
        _downloader = downloader ?? openCodeHttpDownload,
        _unpack = unpack ?? openCodeUnpackZip,
        _pickPort = pickPort ?? openCodePickFreePort,
        _spawn = spawn ?? openCodeSpawnProcess,
-       _healthGet = healthGet ?? openCodeGetHealth;
+       _healthGet = healthGet ?? openCodeGetHealth,
+       _remoteLookup = remoteLookup ?? openCodeFetchRemoteLatest;
 
   final OpenCodeCloset closet;
   final OpenCodeDownloader _downloader;
@@ -65,6 +70,7 @@ class OpenCodeManager extends ChangeNotifier {
   final OpenCodePortPick _pickPort;
   final OpenCodeSpawn _spawn;
   final OpenCodeHealthGet _healthGet;
+  final OpenCodeRemoteLookup _remoteLookup;
   final Future<void> Function(OpenCodeCloset closet)? writeConfig;
 
   bool _isDownloading = false;
@@ -74,12 +80,31 @@ class OpenCodeManager extends ChangeNotifier {
   bool _isRunning = false;
   Uri? _baseUri;
   OpenCodeProcessHandle? _handle;
+  String? _installedVersion;
+  String? _remoteVersion;
+  int? _remoteAssetBytes;
+  bool _isCheckingVersion = false;
+  String? _versionError;
 
   bool get isDownloading => _isDownloading;
   double get downloadProgress => _downloadProgress;
   String get statusMessage => _statusMessage;
   String? get error => _error;
   bool get isRunning => _isRunning;
+  String? get installedVersion => _installedVersion;
+  String get pinnedVersion => kOpenCodePinnedVersion;
+  String? get remoteVersion => _remoteVersion;
+  bool get isCheckingVersion => _isCheckingVersion;
+  String? get versionError => _versionError;
+  bool get needsPinDownload => _installedVersion != kOpenCodePinnedVersion;
+  int get pinDownloadMegabytes {
+    final b = _remoteAssetBytes;
+    if (b != null && b > 0) {
+      return (b / (1024 * 1024)).round().clamp(1, 999);
+    }
+    return kOpenCodePinMegabytes;
+  }
+
   Uri get baseUri =>
       _baseUri ?? (throw StateError('OpenCode serve is not running'));
   int? get pid => _handle?.pid;
@@ -95,7 +120,11 @@ class OpenCodeManager extends ChangeNotifier {
     if (openCodeLooksLikeBrewPath(closet.binaryPath)) {
       throw StateError('OpenCode closet resolved to a brew path');
     }
-    if (await isPinnedInstalled) return;
+    if (await isPinnedInstalled) {
+      _installedVersion = kOpenCodePinnedVersion;
+      notifyListeners();
+      return;
+    }
 
     _isDownloading = true;
     _downloadProgress = 0;
@@ -138,6 +167,7 @@ class OpenCodeManager extends ChangeNotifier {
       try {
         await unpack.delete(recursive: true);
       } catch (_) {}
+      _installedVersion = kOpenCodePinnedVersion;
       _downloadProgress = 1;
       _statusMessage = 'OpenCode $kOpenCodePinnedVersion ready';
     } catch (e) {
@@ -148,6 +178,41 @@ class OpenCodeManager extends ChangeNotifier {
       _isDownloading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> refreshInstalled() async {
+    final v = await OpenCodeBinaryVersion.read(closet.binDir);
+    _installedVersion = v.version;
+    notifyListeners();
+  }
+
+  /// Looks up GitHub latest for honesty only. Never downloads it.
+  Future<void> checkRemoteVersion() async {
+    if (_isCheckingVersion) return;
+    _isCheckingVersion = true;
+    _versionError = null;
+    notifyListeners();
+    try {
+      final hit = await _remoteLookup();
+      if (hit == null) {
+        _versionError = 'Could not check GitHub';
+      } else {
+        _remoteVersion = hit.tag;
+        _remoteAssetBytes = hit.assetBytes;
+      }
+    } catch (_) {
+      _versionError = 'Could not check GitHub';
+    } finally {
+      _isCheckingVersion = false;
+      notifyListeners();
+    }
+  }
+
+  /// Tap-to-swap: stop our PID if running, then install the pin. Never
+  /// Homebrew, never `~/.config/opencode`, never auto-latest.
+  Future<void> upgradeToPin({void Function(double p)? onProgress}) async {
+    if (_isRunning) await stop();
+    await ensureInstalled(onProgress: onProgress);
   }
 
   Future<void> start({String? workingDirectory}) async {
@@ -306,6 +371,41 @@ Future<int> openCodePickFreePort() async {
   final port = socket.port;
   await socket.close();
   return port;
+}
+
+Future<({String tag, int? assetBytes})?> openCodeFetchRemoteLatest() async {
+  final client = http.Client();
+  try {
+    final resp = await client
+        .get(
+          Uri.parse(kOpenCodeGitHubLatestUrl),
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'FrontPorchAI',
+          },
+        )
+        .timeout(const Duration(seconds: 10));
+    if (resp.statusCode != 200) return null;
+    final json = jsonDecode(resp.body);
+    if (json is! Map) return null;
+    final tag =
+        (json['tag_name'] as String?)?.replaceFirst(RegExp(r'^[vV]'), '') ?? '';
+    if (tag.isEmpty) return null;
+    int? size;
+    final want = openCodeReleaseAssetName(
+      os: openCodeCurrentOs(),
+      arch: openCodeCurrentArch(),
+    );
+    for (final a in json['assets'] as List? ?? []) {
+      if (a is Map && a['name'] == want) {
+        size = a['size'] as int?;
+        break;
+      }
+    }
+    return (tag: tag, assetBytes: size);
+  } finally {
+    client.close();
+  }
 }
 
 Future<({bool healthy, String version})> openCodeGetHealth(Uri base) async {

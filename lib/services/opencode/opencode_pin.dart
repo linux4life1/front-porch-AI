@@ -22,9 +22,16 @@ import 'dart:io';
 /// Known-good OpenCode CLI. Upgrades are a tap, never auto-latest on launch.
 const kOpenCodePinnedVersion = '1.18.30';
 
+/// Published zip is ~44MB. Honesty copy; GitHub asset size wins when known.
+const kOpenCodePinMegabytes = 44;
+
 const kOpenCodeGitHubOwner = 'anomalyco';
 const kOpenCodeGitHubRepo = 'opencode';
 const kOpenCodeVersionFileName = '.opencode_version';
+
+const kOpenCodeGitHubLatestUrl =
+    'https://api.github.com/repos/$kOpenCodeGitHubOwner/$kOpenCodeGitHubRepo/'
+    'releases/latest';
 
 String openCodeCurrentOs() {
   if (Platform.isMacOS) return 'darwin';
@@ -82,4 +89,39 @@ bool openCodeLooksLikeUserConfigPath(String path) {
   if (n.contains('/.config/opencode')) return true;
   if (n.toLowerCase().contains('/appdata/roaming/opencode')) return true;
   return false;
+}
+
+/// Settings / Waifu honesty: on-disk vs pin vs GitHub latest. Tap still
+/// installs the pin, never auto-latest.
+String openCodeUpgradeHonesty({
+  required String? installed,
+  required String pinned,
+  String? remote,
+  int megabytes = kOpenCodePinMegabytes,
+}) {
+  final remoteBit = (remote == null || remote.isEmpty)
+      ? ''
+      : ' GitHub latest is $remote.';
+  if (installed == null || installed.isEmpty) {
+    return 'OpenCode $pinned is not in the closet yet (~${megabytes}MB).'
+        '$remoteBit Homebrew is not used.';
+  }
+  if (installed != pinned) {
+    return 'OpenCode $installed → $pinned, ~${megabytes}MB.$remoteBit';
+  }
+  return 'OpenCode $pinned is current (pin).$remoteBit '
+      'Homebrew and ~/.config/opencode are not the product copy.';
+}
+
+String openCodeUpgradeButtonLabel({
+  required String? installed,
+  required String pinned,
+}) {
+  if (installed == null || installed.isEmpty) {
+    return 'Download $pinned (~${kOpenCodePinMegabytes}MB)';
+  }
+  if (installed != pinned) {
+    return 'Update to $pinned (~${kOpenCodePinMegabytes}MB)';
+  }
+  return 'Up to date';
 }
