@@ -15,6 +15,7 @@
   print secrets.
 - **Files:** `lib/ui/waifu/**`, `lib/services/waifu/**`, `lib/services/opencode/opencode_config.dart`,
   theater tests deleted.
+- **Commit:** cbba8ab2 / a1faf981 / 83454dac
 
 ## 2026-09-11 — Rip leftover Dart gym; OpenCode upgrade + revert
 - **Why:** Send already talked to OpenCode, but verify theater, bash/fs/deny,
