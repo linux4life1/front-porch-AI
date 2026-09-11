@@ -160,7 +160,8 @@ OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
   final map = props is Map ? Map<String, dynamic>.from(props) : json;
   switch (type) {
     case 'message.part.delta':
-      final field = map['field']?.toString() ?? 'text';
+      final field = map['field']?.toString().toLowerCase() ?? 'text';
+      // Nano-GPT / OpenCode CoT — never paint as the coworker bubble.
       if (field != 'text') return null;
       return OpenCodeTextDelta(
         sessionId: map['sessionID']?.toString() ?? '',
@@ -203,7 +204,9 @@ OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
 OpenCodeToolEvent? _toolFromPart(Map<String, dynamic> map) {
   final part = map['part'];
   if (part is! Map) return null;
-  if (part['type']?.toString() != 'tool') return null;
+  final partType = part['type']?.toString() ?? '';
+  if (partType == 'reasoning' || partType == 'thinking') return null;
+  if (partType != 'tool') return null;
   final state = part['state'];
   final status = state is Map
       ? state['status']?.toString() ?? ''

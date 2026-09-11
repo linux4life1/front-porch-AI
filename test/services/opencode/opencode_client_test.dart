@@ -25,6 +25,19 @@ void main() {
     expect((events[1] as OpenCodeSessionIdle).sessionId, 'ses_1');
   });
 
+  test('SSE parser drops reasoning/thinking, not coworker text', () {
+    const raw =
+        'data: {"type":"message.part.delta","properties":{"sessionID":"ses_1","field":"reasoning","delta":"I should glob"}}\n'
+        '\n'
+        'data: {"type":"message.part.updated","properties":{"sessionID":"ses_1","part":{"type":"thinking","text":"plan"}}}\n'
+        '\n'
+        'data: {"type":"message.part.delta","properties":{"sessionID":"ses_1","field":"text","delta":"Hi"}}\n'
+        '\n';
+    final events = parseOpenCodeSse(raw);
+    expect(events, hasLength(1));
+    expect((events.single as OpenCodeTextDelta).delta, 'Hi');
+  });
+
   test('SSE parser maps tool and permission events', () {
     const raw =
         'data: {"type":"message.part.updated","properties":{"sessionID":"ses_1","time":1,"part":{"type":"tool","tool":"write","callID":"c1","state":{"status":"completed","output":"ok"}}}}\n'

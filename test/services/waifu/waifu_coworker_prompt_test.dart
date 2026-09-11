@@ -60,7 +60,8 @@ void main() {
     expect(prompt, contains('Today: 2026-09-06'));
     expect(prompt, contains(kWaifuOpenCodePreamble));
     expect(kWaifuOpenCodePreamble, contains('If a joke and a write'));
-    expect(kWaifuOpenCodePreamble.length, lessThan(1000));
+    expect(kWaifuOpenCodePreamble, contains('.waifu/todos.json'));
+    expect(kWaifuOpenCodePreamble, contains('Do not paste thinking'));
   });
 
   test('talk samples expand macros and stay out of the scene', () {

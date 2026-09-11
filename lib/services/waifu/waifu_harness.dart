@@ -236,6 +236,8 @@ class WaifuHarness implements OpenCodeEventSink {
       baseUri: mgr.baseUri,
       directory: session.folderRoot,
     );
+    await waifuLoadTodos(session.folderRoot, session.todos);
+    _emit();
     return _client;
   }
 
@@ -283,6 +285,7 @@ class WaifuHarness implements OpenCodeEventSink {
 
   @override
   void onTodo(List<OpenCodeTodoItem> todos) {
+    if (todos.isEmpty) return;
     session.todos.write([
       for (var i = 0; i < todos.length; i++)
         {
@@ -291,6 +294,7 @@ class WaifuHarness implements OpenCodeEventSink {
           'status': todos[i].status,
         },
     ]);
+    unawaited(waifuSaveTodos(session.folderRoot, session.todos));
     _emit();
   }
 
