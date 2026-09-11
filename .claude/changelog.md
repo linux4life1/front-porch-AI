@@ -1,3 +1,18 @@
+## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e
+- **Why:** Belt A #246 squashed to Rawhide as `90dcb76e` (old A tip
+  `139f50f8`). B tip `d186c35a` was stacked on that A tip, so GitHub
+  showed dirty vs Rawhide.
+- **What:** `rebase --onto origin/Rawhide 139f50f8` replayed the 21
+  B-only commits. A tip tree equals the squash (empty diff), so no
+  conflict and no theater replay. Shared contract stays A's
+  (send-first, denied Plan as attempt, wipe ancestor/case, `/tmp`
+  children, Build asks, `webSearch` bind, Jail/Disk chips, Disk
+  confirm persist). `waifu_verify.dart` / `waifu_verify_maven.dart` /
+  `waifu_verify_theater.dart` are byte-identical to Rawhide
+  `90dcb76e`. No lying gates reintroduced. No golden PNG regen.
+- **Restack:** onto Rawhide `90dcb76e` (A squash of `139f50f8`)
+- **Commit:** fdb31413
+
 ## 2026-09-10 — fix(waifu): Belt A harness contract — rip lying gates
 - **Why:** Tip f36976dc was MERGEABLE vs Rawhide but unit+integration
   red. Send awaited verify-context before recording the user line.
@@ -23,6 +38,220 @@
   `waifu_wizard_sit_down_step.dart`,
   `waifu_path_mode_switch_test.dart`, `docs/Rawhide.md`
 - **Commit:** b01fa382
+
+## 2026-09-10 — fix(waifu): Belt B wipe tokens keep case; Disk persist
+- **Why:** Wipe-target tokenize lowercased the whole command, so Linux
+  resolve missed the real sit-down parent behind a path alias.
+  Disk-confirm hung because the widget test awaited real IO under
+  fake-async, and `_setPathMode` fired-and-forgot persist.
+- **What:** Shell words keep typed path case; verb match folds case.
+  Path-mode switch awaits the store write. Confirm test uses sync temp
+  + `runAsync` like sit-saves. B7 empty wrap stays stuck (not leftover
+  tool-step speech). A's theater file stays byte-identical to
+  `139f50f8`; naming scan skips that A-owned file.
+- **Files:** `waifu_deny.dart`, `waifu_bash.dart`, `waifu_page.dart`,
+  `waifu_path_mode_switch_test.dart`, `waifu_naming_test.dart`
+
+## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
+- **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable
+  list`. `alignGreetingSeeds` returned `const []` when the card had no alts,
+  and the editor then `_altGreetingSeeds.add(null)`. Same path in the group
+  alt-greetings editor and the AI creator review step.
+- **What:** Empty align result is a growable list. Guards: unit + Edit Character
+  tap + group editor tap.
+- **Files:** `greeting_realism_seed.dart`,
+  `greeting_align_growable_test.dart`,
+  `edit_character_add_greeting_test.dart`,
+  `group_alternate_greetings_editor_test.dart`
+- **Commit:** 05ec1d15
+## 2026-09-10 — fix(waifu): npm/pnpm/yarn failed-only + jest -o
+- **Why:** Tip a7731966 still receipted `npm test -- --lf` /
+  `pnpm`/`yarn test -- --onlyFailures` and `jest -o` /
+  `--onlyChanged`.
+- **What:** Same path. JS hosts apply the pytest+jest failed-only
+  set to argv after `--` (`npm run test` peels to `test`).
+  Jest `--onlyChanged`/`-o` join the club. Bare hosts stay full.
+## 2026-09-10 — fix(waifu): Belt B empty wrap stays stuck, not leftover speech
+- **Why:** A parallel pass restored remembered tool-step speech as
+  the wrap-up and renamed an A theater helper. That is B7 theater
+  and it edits A's verify file.
+- **What:** Empty wrap after retries is `That's as far as I got.`
+  A verify theater is byte-identical to A tip again. Send still
+  records the user line before verify I/O.
+- **Files:** `waifu_turn.dart`, `waifu_verify_theater.dart`,
+  `waifu_turn_contract_test.dart`
+- **Commit:** 0e38671d
+
+## 2026-09-10 — fix(waifu): Belt B harness contract — one path, no lying gates
+- **Why:** Unit+integration on #247 was red (job 102966040004). The
+  listed fails were one contract, not twelve bolts: send awaited
+  verify-context before recording the user line; Plan treated a
+  denied project write as “could not write a plan file”; empty
+  wrap-up was recycled as card speech; `/tmp` scratch writes were OS-denied;
+  named-temp wipe allowed the sit-down parent; Build `needsAsk`
+  lied on `/etc/hosts`; a theater helper name contained the retired
+  product name; WaifuPage bound lookup without `webSearch: webSearch`;
+  sit-down Jail/Disk radios were untappable after honesty reopened.
+- **What:** Record send before any await. Mutation-attempt tracking
+  again — a denied Plan write is an attempt, not a missing plan file.
+  Empty wrap-up keeps remembered card speech. Sit-down ancestor wipe
+  beats named-temp allow; `/tmp` children are writable, OS trees
+  still fail at FS. Build asks for off-porch writes (no decide()
+  hard-deny). Theater helper renamed so the retired product name is
+  gone. Page binds `webSearch: webSearch`. Sit-down Jail/Disk are
+  chips so both stay hittable when honesty returns.
+  lied on `/etc/hosts`; WaifuPage bound lookup without `webSearch: webSearch`;
+  sit-down Jail/Disk radios were untappable after honesty reopened.
+- **What:** Record send before any await. Mutation-attempt tracking
+  again — a denied Plan write is an attempt, not a missing plan file.
+  Sit-down ancestor wipe beats named-temp allow; `/tmp` children are
+  writable, OS trees still fail at FS. Build asks for off-porch
+  writes. Page binds `webSearch: webSearch`. Sit-down Jail/Disk are
+  chips so both stay hittable when honesty returns. Did not edit
+  A verify theater — the retired-name leak in that helper stays A's.
+- **Files:** `waifu_harness.dart`, `waifu_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_deny.dart`,
+  `waifu_permissions.dart`, `waifu_page.dart`,
+  `waifu_wizard_sit_down_step.dart`
+- **Commit:** 98d09002
+- **Restack:** onto Belt A `f36976dc` (Rawhide `2b073e86`)
+
+## 2026-09-10 — fix(waifu): Belt B fold fixture is a full as-run
+- **Why:** After A's frozen `--lib` theater, the B2 fold example
+  still receipted `cargo test --lib` as as-run. That is a lying
+  ledger fixture, not a new flag mole.
+- **What:** Same ledger helper. The fold example is full
+  `cargo test`. Plan-step `--lib` text stays verbatim injection.
+- **Files:** `waifu_belt_b_harness_fidelity_test.dart`
+- **Commit:** 6da98a1d
+
+## 2026-09-10 — fix(waifu): Belt B harness fidelity — queue photos, ledger, nested ok
+- **Why:** Belt A told the truth about wrap-up and verify. Belt B rips the
+  remaining lying harness contracts: the follow-up queue dropped photo
+  bytes, compact recaps could invent paths, prune stripped tool args,
+  nested `task` always said ok, plan discover activated discarded mtime
+  winners, and the fuse hid its reason on a chip.
+- **What:** Queue holds `{text, imagePng?, imagePath?}` and drain restores
+  `_turnImages`. Every fold injects a non-LLM machine ledger (paths,
+  verify commands as-run, plan pin, todos); prune keeps path+status+args.
+  Generate still meters serialized OpenAI messages. Provider `tool_call`
+  ids persist when present. Child `ok` follows child receipts; children
+  share parent todos; `run-plan-step` injects the next step verbatim;
+  workflow docs say serial. Discover prefers accepted, never discarded;
+  pin beats mtime. Fuse reason is spoken; empty wrap after retries fails.
+  Leftover wrap-up `tool_calls` use the same `onEmptyCalls` authority —
+  no remembered-speech theater. Catch/abort tool history keeps the same
+  args as success (no rebuild `{}`). Attach/drop stay live while she is
+  working so a queued follow-up can carry a photo. The waiting chip shows
+  a photo mark when bytes ride along. Ledger “verify as-run” keeps the
+  command string that ran and skips theater (`ls` / `echo` / dry-run /
+  `cargo new test` / `:app:dependencies` / `cargo test --no-run` /
+  `mvn -DskipTests` / `mvn test -Dtest=*` / `./mvnw test -Dtest=*` /
+  `mvn test -Dgroups=*` / `-DexcludedGroups=*` /
+  `-Dsurefire.includes=*` / `mvn verify -Dit.test=*` /
+  `./mvnw test -Dgroups=*` / `./mvnw verify -Dit.test=*` /
+  `-DincludesFile=*` / `-DexcludesFile=*` /
+  `-DincludeJUnit5Engines=*` / `-DexcludeJUnit5Engines=*` /
+  `-DsuiteXmlFiles=*` / `=testng.xml` / `-Dsurefire.suiteXmlFiles=` /
+  `-Dfailsafe.suiteXmlFiles=*` / `-DdependenciesToScan=*` /
+  `-DclasspathDependencyExcludes=*` / `-DclasspathDependencyIncludes=*` /
+  `-Dsurefire.classpathDependencyExcludes=*` /
+  `-Dfailsafe.classpathDependencyIncludes=*` /
+  `-Dmaven.test.dependency.excludes=*` /
+  `-DclasspathDependencyScopeExclude=*` /
+  `-DtestClassesDirectory=` / `-DtestSourceDirectory=` /
+  `-Dsurefire.testClassesDirectory=` /
+  `-Dfailsafe.testSourceDirectory=` /
+  `-Dproject.build.testOutputDirectory=` /
+  `-DtestClasspathElements=` /
+  `-DadditionalClasspathElements=` /
+  `-DgeneratedTestSourcesDirectory=` /
+  `-DclassesDirectory=` /
+  `-Dproject.build.outputDirectory=` /
+  `mvn -f other/pom.xml test` / `mvn --file` /
+  `-fother/pom.xml` / `-pl` / `-rf` / `-N` /
+  `-Dproject.build.generatedSourcesDirectory=` /
+  `-s` / `--settings` / `-P` /
+  `-t` / `--toolchains` / `/workspace/module/pom.xml` /
+  `-DtestFailureIgnore=` /
+  `--fail-never` / `-fn` / `-Dmaven.test.error.ignore=` /
+  `D:/a/repo/module/pom.xml` /
+  `D:/a/1/s/module/pom.xml` /
+  `./gradlew test --continue` / `-p other` / `--project-dir` /
+  empty `-p` / `--project-dir=` / `-p=` / `-b other.gradle` /
+  `-c other.settings.gradle` / `--include-build` /
+  `--init-script` / `-I` / `-Dorg.gradle.continue` /
+  `-g` / `--gradle-user-home` /
+  `-DignoreFailures` / `-PignoreFailures` /
+  `-DfailOnNoMatchingTests=false` / `-DfailOnNoDiscoveredTests=false` /
+  `-Dtest.single` / `-Dtest.include` /
+  `-Ptest.single` / `-Ptest.include` /
+  `-DfailIfNoTests=false` /
+  `make -i` / `make -k` / `--ignore-errors` / `--keep-going` /
+  `make -ik` / `make -ki` / `make -ikj2` /
+  `-Dtest.failOnNoMatchingTests=false` /
+  `commandLineIncludePatterns` /
+  `cargo test --no-fail-fast` / `jest --passWithNoTests` /
+  `-b /workspace/module/build.gradle` / `-p /workspace` /
+  `-Dbasedir=` / `-Dbasedir` /
+  `-Dmaven.multiModuleProjectDirectory=` /
+  `/home/vsts/work/1/s/module/pom.xml` /
+  `gradle -x test` / `surefire.skip` /
+  `-x '*Test*'` / name/path filters / `flutter test --name Foo` /
+  `pytest -k=*` / `pytest -m` / `cargo test -p` / `cargo test -p *` /
+  `cargo test --features` / `cargo test -F` / `cargo test --target` /
+  `cargo test --no-default-features` / `cargo test --exclude *` /
+  `cargo test *` / `cargo test -- *` / `cargo test --exact *` /
+  `cargo test --exact=*` / `cargo test -- --exact *` /
+  `cargo test -- --exact=*` / `cargo test -- --ignored` / `-- --skip` /
+  `-- --list` / `-- --exclude-should-panic` / `--lib` / `--bin` /
+  `--doc` / `--bins` / `--workspace` / `--bench` / `--exclude` /
+  `--all` / `cargo clippy --lib` / `--bins` / `--exclude` /
+  `--exclude *` / `--doc` / `--features` / `--features *` / `-F` /
+  `-F=` / `-Ffoo` / `-F*` / `-p *` / `--target` / `--target *` /
+  `--no-default-features` (even with `--workspace`) / `go test ./pkg`
+  / `zig --test-filter *` / `--test-filter=*` / `-Dtest-filter=*`
+  / `-Dtest-filter` / `swift`/`dotnet`/`phpunit`/`deno`/`bun`
+  `--filter *` / `--filter=*`). `mvn verify` /
+  `mvn verify -Dfailsafe.skip`, `mvn test`, `./mvnw test`,
+  `mvn -fae test` / `mvn --fail-at-end` / `mvn -ff test`,
+  `mvn -f pom.xml test` / `mvn --file=pom.xml`,
+  `mvn -f /workspace/pom.xml test`,
+  `mvn -T 1C test`,
+  `mvn -f /home/runner/work/repo/repo/pom.xml test` /
+  `mvn -f /github/workspace/pom.xml` /
+  `mvn -f D:/a/repo/repo/pom.xml test` /
+  `mvn -f D:/a/1/s/pom.xml test` /
+  `mvn -f /home/vsts/work/1/s/pom.xml test`,
+  `./gradlew test --continuous` /
+  `./gradlew test -PenableFoo` /
+  `./gradlew -b build.gradle test` /
+  `./gradlew -b /workspace/build.gradle test` /
+  `./gradlew test -i` /
+  `make test` / `make -I extras` / `make -j8 test`,
+  full-suite `cargo test`, `cargo test --
+  --test-threads` / `--format` / `--shuffle-seed` / `--logfile` /
+  `--include-ignored` / `--nocapture`, `cargo clippy` /
+  `clippy -p foo` / `clippy --package foo` / `clippy --workspace`,
+  `./gradlew test --tests *` / `--tests=*`, `go test -run=*`,
+  `swift test`, `dotnet test`, `phpunit`, `deno test`, `bun test`,
+  `pytest`, `flutter test`, `jest`, `zig build test`, and `zig test`
+  stay as-run. Flags-before-task and `cargo +nightly test` stay in
+  the as-run list. Fold uses the same verify context as ask/tested,
+  so a named `tox -e py` stays as-run. A recap that only names
+  “MACHINE LEDGER” still gets the as-run facts. A lost wrap-up
+  after disk work does not replay remembered tool-step speech.
+- **Files:** `waifu_session.dart`, `waifu_harness.dart`,
+  `waifu_harness_turn.dart`, `waifu_harness_compact.dart`,
+  `waifu_harness_spawn.dart`, `waifu_compact.dart`,
+  `waifu_compact_ledger.dart` (NEW), `waifu_turn.dart`,
+  `waifu_turn_contract.dart`, `waifu_plan.dart`,
+  `waifu_plan_codec.dart`, `waifu_workflow.dart`, `waifu_composer.dart`,
+  `llm_service.dart`, `llm_tool_parsing.dart`, `openai_tool_stream.dart`,
+  `waifu_belt_b_harness_fidelity_test.dart` (NEW),
+  `waifu_belt_b_queue_photo_test.dart` (NEW),
+  `waifu_belt_b_ledger_context_test.dart` (NEW)
+- **Commit:** f0fb1dd4
 
 ## 2026-09-10 — fix(editor): Add alternate greeting crashed on cards with none
 - **Why:** Edit Character → Dialogue → Add threw `Cannot add to an unmodifiable

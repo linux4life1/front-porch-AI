@@ -86,7 +86,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
         _turn.rememberToolSpeech(body);
         for (final call in calls) {
           if (_aborted) return;
-          await _runTool(call.name, call.arguments);
+          await _runTool(call.name, call.arguments, callId: call.id);
         }
         if (depth == 0 && waifuCheckInDue(_turn.mutationsSinceCheckIn)) {
           _turn.requestCheckInSpeech();
@@ -109,7 +109,7 @@ extension _WaifuHarnessTurn on WaifuHarness {
 
     if (_aborted) return;
     _reject('turn', 'runaway fuse stopped this turn');
-    _say(_turn.failureLine(''));
+    _say(_turn.fuseSpeech());
   }
 
   void _clearTurnReceipts() {
@@ -229,13 +229,17 @@ extension _WaifuHarnessTurn on WaifuHarness {
     bool ok, {
     String? path,
     Map<String, dynamic>? args,
+    String? callId,
   }) {
+    final providerId = (callId ?? _toolCallId)?.trim() ?? '';
     final msg = WaifuMessage.tool(
       name: name,
       output: output,
       ok: ok,
       path: path,
-      callId: 'waifu_${name}_${session.transcript.length}',
+      callId: providerId.isNotEmpty
+          ? providerId
+          : 'waifu_${name}_${session.transcript.length}',
       args: args,
     );
     final live = _turn.live;

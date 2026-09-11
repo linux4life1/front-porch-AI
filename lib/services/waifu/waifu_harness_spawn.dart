@@ -20,14 +20,16 @@ part of 'waifu_harness.dart';
 
 extension _WaifuHarnessSpawn on WaifuHarness {
   WaifuHarness _makeChild({required bool exploreOnly}) {
-    final childScope =
-        exploreOnly ? WaifuPathMode.folderJail : session.pathMode;
+    final childScope = exploreOnly
+        ? WaifuPathMode.folderJail
+        : session.pathMode;
     final childSession = WaifuSession(
       folderRoot: session.folderRoot,
       coworker: session.coworker,
       mode: session.mode,
       pathMode: childScope,
       preserveThinking: session.preserveThinking,
+      todos: session.todos,
     );
     final childPerms = permissions.fork(mode: childSession.mode)
       ..pathMode = childScope;
@@ -81,6 +83,10 @@ extension _WaifuHarnessSpawn on WaifuHarness {
     final receipt = WaifuTurnReceipt(
       speech: _childSpeech(child),
       turn: child._turn,
+      ok:
+          !child._aborted &&
+          child._turn.failReason.isEmpty &&
+          child._turn.receiptsReady,
     );
     _turn.absorbChild(receipt.turn);
     return receipt;
@@ -104,7 +110,7 @@ extension _WaifuHarnessSpawn on WaifuHarness {
       return WaifuToolResult.error('task: prompt is empty');
     }
     final out = await _runNested(kind!, prompt);
-    return WaifuToolResult(ok: true, output: out.speech);
+    return WaifuToolResult(ok: out.ok, output: out.speech);
   }
 
   Future<WaifuToolResult> _runWorkflow(Map<String, dynamic> args) async {
@@ -121,7 +127,12 @@ extension _WaifuHarnessSpawn on WaifuHarness {
     if (parsed.error != null) {
       return WaifuToolResult.error(parsed.error!);
     }
-    final wf = parsed.workflow!;
+    var wf = parsed.workflow!;
+    if (wf.name == kWaifuBuiltinRunPlanStep) {
+      wf = waifuMaterializeRunPlanStepWorkflow(
+        await waifuLoadActivePlan(session),
+      );
+    }
     final buf = StringBuffer('workflow ${wf.name}\n');
     var prev = '';
     var spent = 0;
@@ -137,32 +148,42 @@ extension _WaifuHarnessSpawn on WaifuHarness {
         return WaifuToolResult(ok: false, output: buf.toString().trim());
       }
       buf.writeln('step ${i + 1}/${wf.steps.length}');
-      prev = await _runStep(step, prev);
+      final out = await _runStep(step, prev);
+      prev = out.speech;
       buf.writeln(prev);
+      if (!out.ok) {
+        return WaifuToolResult(ok: false, output: buf.toString().trim());
+      }
     }
     return WaifuToolResult(ok: true, output: buf.toString().trim());
   }
 
-  Future<String> _runStep(WaifuWorkflowStep step, String prev) async {
+  Future<({String speech, bool ok})> _runStep(
+    WaifuWorkflowStep step,
+    String prev,
+  ) async {
     if (step.agents.length == 1) {
       final a = step.agents.first;
-      return (await _runNested(
-        a.subagent,
-        waifuFillPrev(a.prompt, prev),
-      )).speech;
+      final out = await _runNested(a.subagent, waifuFillPrev(a.prompt, prev));
+      return (speech: out.speech, ok: out.ok);
     }
-    // Independent prompts, same {{prev}}. One local model — run in
-    // series so generates do not collide.
+    // Listed as parallel in JSON; one local model runs them in series.
+    // Do not claim concurrent execution until a real parallel engine exists.
     final buf = StringBuffer();
+    var ok = true;
     for (var i = 0; i < step.agents.length; i++) {
-      if (_aborted) break;
+      if (_aborted) {
+        ok = false;
+        break;
+      }
       final a = step.agents[i];
       final out = await _runNested(a.subagent, waifuFillPrev(a.prompt, prev));
+      ok = ok && out.ok;
       buf
         ..writeln('--- ${a.subagent} ${i + 1} ---')
         ..writeln(out.speech);
     }
-    return buf.toString().trim();
+    return (speech: buf.toString().trim(), ok: ok);
   }
 
   Future<WaifuToolResult> _answerQuestion(Map<String, dynamic> args) async {

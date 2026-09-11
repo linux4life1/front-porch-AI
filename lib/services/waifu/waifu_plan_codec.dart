@@ -211,7 +211,7 @@ Future<WaifuPlan?> waifuLoadActivePlan(WaifuSession session) async {
   final pinned = session.activePlanPath?.trim();
   if (pinned != null && pinned.isNotEmpty) {
     final hit = await waifuReadPlanFile(session.folderRoot, pinned);
-    if (hit != null) return hit;
+    if (hit != null && hit.status != WaifuPlanStatus.discarded) return hit;
   }
   return waifuDiscoverLatestPlan(session.folderRoot);
 }
@@ -219,25 +219,24 @@ Future<WaifuPlan?> waifuLoadActivePlan(WaifuSession session) async {
 Future<WaifuPlan?> waifuDiscoverLatestPlan(String root) async {
   final dir = Directory(waifuPlansDir(root));
   if (!await dir.exists()) return null;
-  final files = <File>[];
+  final found = <({WaifuPlan plan, DateTime stamp})>[];
   await for (final entity in dir.list(followLinks: false)) {
-    if (entity is File && entity.path.toLowerCase().endsWith('.md')) {
-      files.add(entity);
+    if (entity is! File || !entity.path.toLowerCase().endsWith('.md')) {
+      continue;
     }
+    final rel = p.relative(entity.path, from: root).replaceAll('\\', '/');
+    final plan = waifuPlanParse(await entity.readAsString(), relativePath: rel);
+    if (plan.status == WaifuPlanStatus.discarded) continue;
+    found.add((plan: plan, stamp: await entity.lastModified()));
   }
-  if (files.isEmpty) return null;
-  DateTime newestStamp = DateTime.fromMillisecondsSinceEpoch(0);
-  File? newest;
-  for (final file in files) {
-    final stamp = await file.lastModified();
-    if (newest == null || stamp.isAfter(newestStamp)) {
-      newest = file;
-      newestStamp = stamp;
-    }
-  }
-  if (newest == null) return null;
-  final rel = p.relative(newest.path, from: root).replaceAll('\\', '/');
-  return waifuPlanParse(await newest.readAsString(), relativePath: rel);
+  if (found.isEmpty) return null;
+  final accepted = [
+    for (final e in found)
+      if (e.plan.status == WaifuPlanStatus.accepted) e,
+  ];
+  final pool = accepted.isNotEmpty ? accepted : found;
+  pool.sort((a, b) => a.stamp.compareTo(b.stamp));
+  return pool.last.plan;
 }
 
 void waifuSyncPlanTodos(WaifuTodos todos, WaifuPlan plan) {

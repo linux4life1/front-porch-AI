@@ -22,6 +22,7 @@ library;
 export 'waifu_brand.dart';
 export 'waifu_bash.dart';
 export 'waifu_compact.dart';
+export 'waifu_compact_ledger.dart';
 export 'waifu_coworker_prompt.dart';
 export 'waifu_emphasis.dart';
 export 'waifu_folder_listing.dart';

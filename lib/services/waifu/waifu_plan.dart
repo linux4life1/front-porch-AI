@@ -144,6 +144,25 @@ class WaifuPlanStep {
   );
 }
 
+bool waifuPlanStepIsOpen(WaifuPlanStep step) {
+  switch (step.status.trim().toLowerCase()) {
+    case 'completed':
+    case 'complete':
+    case 'done':
+      return false;
+    default:
+      return true;
+  }
+}
+
+WaifuPlanStep? waifuNextPendingPlanStep(WaifuPlan? plan) {
+  if (plan == null) return null;
+  for (final step in plan.steps) {
+    if (waifuPlanStepIsOpen(step)) return step;
+  }
+  return null;
+}
+
 class WaifuPlan {
   const WaifuPlan({
     required this.id,

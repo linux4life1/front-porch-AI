@@ -149,6 +149,14 @@ extension _WaifuHarnessCompact on WaifuHarness {
     final folded = cut > 0 ? msgs.sublist(0, cut) : <WaifuMessage>[];
     final recent = cut > 0 ? msgs.sublist(cut) : List<WaifuMessage>.from(msgs);
     var recap = '';
+    final ledger = folded.isEmpty
+        ? ''
+        : waifuMachineLedger(
+            folded: folded,
+            context: permissions.verifyContext,
+            planPin: session.activePlanPath,
+            todos: todos.read(),
+          );
     if (folded.isNotEmpty) {
       final prev = folded
           .where((m) => m.text.startsWith(kWaifuCompactPrefix))
@@ -171,6 +179,7 @@ extension _WaifuHarnessCompact on WaifuHarness {
           prompt: waifuCompactUserPrompt(
             foldedSpeech: speech,
             previousRecap: prev,
+            ledger: ledger,
           ),
           tools: const [],
           maxTokens: kWaifuCompactOutputTokens,
@@ -182,15 +191,15 @@ extension _WaifuHarnessCompact on WaifuHarness {
         recap = '';
       }
     }
+    if (folded.isNotEmpty && recap.isEmpty) {
+      recap = waifuCompactTranscript(folded, force: true, keep: 0).first.text;
+    }
+    if (folded.isNotEmpty) {
+      recap = waifuInjectMachineLedger(recap, ledger);
+    }
     session.transcript
       ..clear()
-      ..addAll([
-        if (folded.isNotEmpty)
-          recap.isNotEmpty
-              ? WaifuMessage.recap(recap)
-              : waifuCompactTranscript(folded, force: true, keep: 0).first,
-        ...recent,
-      ]);
+      ..addAll([if (folded.isNotEmpty) WaifuMessage.recap(recap), ...recent]);
     session.compactPasses++;
     try {
       _turn.live = null;

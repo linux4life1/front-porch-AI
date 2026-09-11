@@ -213,7 +213,14 @@ class LlmToolCall {
   final String name;
   final Map<String, dynamic> arguments;
 
-  const LlmToolCall({required this.name, required this.arguments});
+  /// Provider `tool_calls[].id` when the host sent one. Empty means synthesize.
+  final String id;
+
+  const LlmToolCall({
+    required this.name,
+    required this.arguments,
+    this.id = '',
+  });
 }
 
 /// OpenAI-style `usage` block. Null fields mean the server omitted them.

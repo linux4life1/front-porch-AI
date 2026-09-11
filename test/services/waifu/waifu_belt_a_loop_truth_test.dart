@@ -111,9 +111,8 @@ void main() {
       isFalse,
     );
     expect(
-      WaifuPermissions(
-        mode: WaifuMode.build,
-      ).needsAsk(name: 'bash', args: {'command': 'tox -e py'}),
+      WaifuPermissions(mode: WaifuMode.build)
+          .needsAsk(name: 'bash', args: {'command': 'tox -e py'}),
       isTrue,
     );
     final toxTurn = _afterWrites(['mod.py'])..verifyContext = tox;
@@ -247,7 +246,7 @@ void main() {
       }
       expect(session.running, isTrue);
       await harness.send('second');
-      expect(session.queued, ['second']);
+      expect(session.queued.map((e) => e.text), ['second']);
       harness.abort();
       expect(session.queued, isEmpty);
       gate.complete();
@@ -315,9 +314,8 @@ void main() {
       bash: WaifuAnalyzeBash(root.path),
     ).send('build the app');
     expect(
-      await File(
-        p.join(root.path, 'f${kWaifuCheckInEvery + 1}.txt'),
-      ).readAsString(),
+      await File(p.join(root.path, 'f${kWaifuCheckInEvery + 1}.txt'))
+          .readAsString(),
       'body ${kWaifuCheckInEvery + 1}',
     );
     final spoken = session.transcript
@@ -449,9 +447,8 @@ void main() {
         if (await storeDir.exists()) await storeDir.delete(recursive: true);
       });
       final rel = '.waifu/plans/empty-email.md';
-      await Directory(
-        p.join(root.path, '.waifu', 'plans'),
-      ).create(recursive: true);
+      await Directory(p.join(root.path, '.waifu', 'plans'))
+          .create(recursive: true);
       await File(p.join(root.path, rel)).writeAsString('''
 ---
 id: empty-email

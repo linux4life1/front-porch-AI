@@ -191,53 +191,53 @@ void main() {
     },
   );
 
-  test(
-    'character speech beside a patch survives an empty final response',
-    () async {
-      final llm = ScriptedWaifuLlm([
-        const LlmToolResponse(
-          calls: [
-            LlmToolCall(
-              name: 'apply_patch',
-              arguments: {
-                'path': 'parser.dart',
-                'patch':
-                    '@@\n-String parse() => "old";\n'
-                    '+String parse() => "kept";\n',
-              },
-            ),
-          ],
-          text: 'Hmph. I am cleaning up your parser. Obviously.',
-        ),
-        const LlmToolResponse(
-          calls: [
-            LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
-          ],
-          text: '',
-        ),
-        const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
-        const LlmToolResponse(calls: [], text: ''),
-      ]);
-      final session = WaifuSession(
-        folderRoot: root.path,
-        coworker: iris(),
-        mode: WaifuMode.yolo,
-      );
+  test('empty wrap after a patch does not recycle tool-step speech', () async {
+    final llm = ScriptedWaifuLlm([
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(
+            name: 'apply_patch',
+            arguments: {
+              'path': 'parser.dart',
+              'patch':
+                  '@@\n-String parse() => "old";\n'
+                  '+String parse() => "kept";\n',
+            },
+          ),
+        ],
+        text: 'Hmph. I am cleaning up your parser. Obviously.',
+      ),
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(calls: [kWaifuAnalyzeCall], text: ''),
+      const LlmToolResponse(calls: [], text: ''),
+      const LlmToolResponse(calls: [], text: ''),
+      const LlmToolResponse(calls: [], text: ''),
+    ]);
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: iris(),
+      mode: WaifuMode.yolo,
+    );
 
-      await WaifuHarness(
-        session: session,
-        llm: llm,
-        bash: WaifuAnalyzeBash(root.path),
-      ).send('patch parser.dart');
+    await WaifuHarness(
+      session: session,
+      llm: llm,
+      bash: WaifuAnalyzeBash(root.path),
+    ).send('patch parser.dart');
 
-      expect(await source.readAsString(), 'String parse() => "kept";\n');
-      final reply = session.transcript
-          .where((message) => message.kind == WaifuMsgKind.assistant)
-          .single;
-      expect(reply.text, 'Hmph. I am cleaning up your parser. Obviously.');
-      expect(llm.calls, hasLength(4));
-    },
-  );
+    expect(await source.readAsString(), 'String parse() => "kept";\n');
+    final reply = session.transcript
+        .where((message) => message.kind == WaifuMsgKind.assistant)
+        .single;
+    expect(reply.text, kWaifuStuckWrap);
+    expect(reply.text, isNot(contains('cleaning up your parser')));
+    expect(llm.calls, hasLength(6));
+  });
 
   test(
     'Build mode sass without a requested code change receipt is a red failure',

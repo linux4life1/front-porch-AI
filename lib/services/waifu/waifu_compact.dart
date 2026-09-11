@@ -229,6 +229,8 @@ void waifuPruneOldToolMessages(
       output: '$name\n(pruned, was $tokens tokens)',
       ok: msgs[i].toolOk == true,
       path: msgs[i].toolPath,
+      callId: msgs[i].toolCallId,
+      args: msgs[i].toolArgs,
     );
   }
   if (saved < kWaifuPruneMinimumTokens) {
@@ -310,6 +312,7 @@ const kWaifuCompactSystem =
 String waifuCompactUserPrompt({
   required String foldedSpeech,
   String previousRecap = '',
+  String ledger = '',
 }) {
   final buf = StringBuffer();
   if (previousRecap.trim().isNotEmpty) {
@@ -320,6 +323,14 @@ String waifuCompactUserPrompt({
       ..writeln('Update that recap with the folded turns below.');
   } else {
     buf.writeln('Fold these turns into a recap for continuing the work.');
+  }
+  if (ledger.trim().isNotEmpty) {
+    buf
+      ..writeln()
+      ..writeln(
+        'Machine ledger (facts only — do not invent paths or commands):',
+      )
+      ..writeln(ledger.trim());
   }
   buf
     ..writeln()

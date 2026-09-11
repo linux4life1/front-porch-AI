@@ -76,7 +76,9 @@ LlmToolResponse? parseOpenAiToolResponse(String body) {
         if (decoded is Map) args = Map<String, dynamic>.from(decoded);
       } catch (_) {}
     }
-    calls.add(LlmToolCall(name: name, arguments: args));
+    final rawId = tc is Map ? tc['id'] : null;
+    final id = rawId is String ? rawId.trim() : '';
+    calls.add(LlmToolCall(name: name, arguments: args, id: id));
   }
   final reasoningRaw = message['reasoning_content'] ?? message['reasoning'];
   final usage = parseLlmTokenUsage(json);
