@@ -86,7 +86,7 @@ void main() {
       waifuSpeechKindCue(WaifuSpeechKind.stuck),
       contains(kWaifuSpeechHonestyCue),
     );
-    expect(kWaifuPreamble, contains('without a receipt this turn'));
+    expect(kWaifuPreamble, contains('tell the truth about'));
     expect(kWaifuCheckInCue, contains('no receipt'));
     expect(kWaifuCheckInTurnCue, contains('no receipt'));
     final prompt = waifuLoopUserPrompt(
@@ -147,8 +147,10 @@ void main() {
 
     WaifuTurnStep o1(bool personality) {
       final turn = _o1Ready();
-      expect(personality ? _iris(personality: true).personality : '',
-          personality ? isNotEmpty : isEmpty);
+      expect(
+        personality ? _iris(personality: true).personality : '',
+        personality ? isNotEmpty : isEmpty,
+      );
       return turn.onEmptyCalls(wrap);
     }
 
@@ -160,7 +162,10 @@ void main() {
         null,
         args: {'pattern': '*'},
       );
-      expect(_iris(personality: personality).personality.isNotEmpty, personality);
+      expect(
+        _iris(personality: personality).personality.isNotEmpty,
+        personality,
+      );
       final out = _driveUntilSettled(turn, invented);
       return (last: out.last, reason: turn.failReason);
     }
@@ -191,7 +196,10 @@ void main() {
 
   test('E3 hostile: personality cannot invent success without receipts', () {
     expect(waifuLooksMutateSuccessClaim('Hmph. Parser is fixed.'), isTrue);
-    expect(waifuLooksVerifySuccessClaim('Hmph. Tests passed. Obviously.'), isTrue);
+    expect(
+      waifuLooksVerifySuccessClaim('Hmph. Tests passed. Obviously.'),
+      isTrue,
+    );
     expect(
       waifuLooksMutateSuccessClaim(
         'I could not put a real change on disk, so I stopped.',
@@ -236,11 +244,7 @@ void main() {
       (kWaifuWebSearchToolSchema['function'] as Map)['description'] as String,
     ];
     for (final cue in cues) {
-      expect(
-        waifuCoachingLeaksHostStack(cue),
-        isFalse,
-        reason: cue,
-      );
+      expect(waifuCoachingLeaksHostStack(cue), isFalse, reason: cue);
     }
     final rust = waifuLoopUserPrompt(
       folderName: 'crates/parser',
@@ -259,28 +263,74 @@ void main() {
     );
   });
 
+  test('E2 harness: denied mutate + card wrap-up cannot soft-accept', () async {
+    final root = await Directory.systemTemp.createTemp('waifu_belt_e_');
+    addTearDown(() async {
+      if (await root.exists()) await root.delete(recursive: true);
+    });
+    await File(p.join(root.path, 'parser.rs')).writeAsString('old\n');
+    const sass = 'Hmph. Parser is fixed. Try to keep up. Obviously.';
+    final llm = ScriptedWaifuLlm([
+      const LlmToolResponse(
+        calls: [
+          LlmToolCall(
+            name: 'write',
+            arguments: {'path': '../pwned.rs', 'contents': 'new\n'},
+          ),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(calls: [], text: sass),
+      const LlmToolResponse(calls: [], text: sass),
+      const LlmToolResponse(calls: [], text: sass),
+    ]);
+    final session = WaifuSession(
+      folderRoot: root.path,
+      coworker: _iris(personality: true),
+      mode: WaifuMode.yolo,
+    );
+    await WaifuHarness(session: session, llm: llm).send('fix parser.rs');
+    expect(await File(p.join(root.path, 'parser.rs')).readAsString(), 'old\n');
+    final reply = session.transcript
+        .where((m) => m.kind == WaifuMsgKind.assistant)
+        .last;
+    expect(reply.chips.any((c) => !c.ok), isTrue);
+    expect(reply.text.toLowerCase(), isNot(contains('is fixed')));
+    expect(reply.text, isNot(equals(sass)));
+    expect(llm.calls.first.systemPrompt, contains('Persona: proud, sharp'));
+    expect(
+      llm.calls.any((c) => c.prompt.contains(kWaifuSpeechHonestyCue)),
+      isTrue,
+    );
+  });
+
   test(
-    'E2 harness: denied mutate + card wrap-up cannot soft-accept',
+    'E3 harness: personality O1 wrap-up still accepts with receipts',
     () async {
-      final root = await Directory.systemTemp.createTemp('waifu_belt_e_');
+      final root = await Directory.systemTemp.createTemp('waifu_belt_e_ok_');
       addTearDown(() async {
         if (await root.exists()) await root.delete(recursive: true);
       });
-      await File(p.join(root.path, 'parser.rs')).writeAsString('old\n');
-      const sass = 'Hmph. Parser is fixed. Try to keep up. Obviously.';
+      await File(p.join(root.path, 'parser.dart')).writeAsString('old\n');
+      const wrap = 'Hmph. Parser is fixed. Try to keep up. Obviously.';
       final llm = ScriptedWaifuLlm([
         const LlmToolResponse(
           calls: [
             LlmToolCall(
               name: 'write',
-              arguments: {'path': 'parser.rs', 'contents': 'new\n'},
+              arguments: {'path': 'parser.dart', 'contents': 'ok\n'},
             ),
           ],
           text: '',
         ),
-        const LlmToolResponse(calls: [], text: sass),
-        const LlmToolResponse(calls: [], text: sass),
-        const LlmToolResponse(calls: [], text: sass),
+        const LlmToolResponse(
+          calls: [
+            LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
+            kWaifuAnalyzeCall,
+          ],
+          text: '',
+        ),
+        const LlmToolResponse(calls: [], text: wrap),
       ]);
       final session = WaifuSession(
         folderRoot: root.path,
@@ -290,61 +340,14 @@ void main() {
       await WaifuHarness(
         session: session,
         llm: llm,
-        onAsk: (_) async => WaifuAskDecision.deny,
-      ).send('fix parser.rs');
-      expect(await File(p.join(root.path, 'parser.rs')).readAsString(), 'old\n');
-      final reply = session.transcript
-          .where((m) => m.kind == WaifuMsgKind.assistant)
-          .last;
-      expect(reply.chips.any((c) => !c.ok), isTrue);
-      expect(reply.text.toLowerCase(), isNot(contains('is fixed')));
-      expect(reply.text, isNot(equals(sass)));
-      expect(llm.calls.first.systemPrompt, contains('Persona: proud, sharp'));
+        bash: WaifuAnalyzeBash(root.path),
+        onAsk: (_) async => WaifuAskDecision.allowAlways,
+      ).send('fix parser.dart');
+      expect(session.transcript.last.text, wrap);
       expect(
-        llm.calls.any((c) => c.prompt.contains(kWaifuSpeechHonestyCue)),
-        isTrue,
+        await File(p.join(root.path, 'parser.dart')).readAsString(),
+        'ok\n',
       );
     },
   );
-
-  test('E3 harness: personality O1 wrap-up still accepts with receipts', () async {
-    final root = await Directory.systemTemp.createTemp('waifu_belt_e_ok_');
-    addTearDown(() async {
-      if (await root.exists()) await root.delete(recursive: true);
-    });
-    await File(p.join(root.path, 'parser.dart')).writeAsString('old\n');
-    const wrap = 'Hmph. Parser is fixed. Try to keep up. Obviously.';
-    final llm = ScriptedWaifuLlm([
-      const LlmToolResponse(
-        calls: [
-          LlmToolCall(
-            name: 'write',
-            arguments: {'path': 'parser.dart', 'contents': 'ok\n'},
-          ),
-        ],
-        text: '',
-      ),
-      const LlmToolResponse(
-        calls: [
-          LlmToolCall(name: 'read', arguments: {'path': 'parser.dart'}),
-          kWaifuAnalyzeCall,
-        ],
-        text: '',
-      ),
-      const LlmToolResponse(calls: [], text: wrap),
-    ]);
-    final session = WaifuSession(
-      folderRoot: root.path,
-      coworker: _iris(personality: true),
-      mode: WaifuMode.build,
-    );
-    await WaifuHarness(
-      session: session,
-      llm: llm,
-      bash: WaifuAnalyzeBash(root.path),
-      onAsk: (_) async => WaifuAskDecision.allowAlways,
-    ).send('fix parser.dart');
-    expect(session.transcript.last.text, wrap);
-    expect(await File(p.join(root.path, 'parser.dart')).readAsString(), 'ok\n');
-  });
 }

@@ -16,8 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// Speech-only honesty. Card diction is the model's job; this layer
-/// forbids wrap-up from inventing tool or verify success.
+// Speech-only honesty. Card diction is the model's job; this layer
+// forbids wrap-up from inventing tool or verify success.
 
 enum WaifuSpeechKind { wrapUp, checkIn, stuck }
 

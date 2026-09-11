@@ -16,6 +16,17 @@
   `waifu_turn_contract.dart`, `waifu_turn.dart`, `waifu_checkin.dart`,
   `waifu_webfetch.dart`, `waifu.dart`,
   `waifu_belt_e_card_speech_test.dart`, `docs/Rawhide.md`
+- **Commit:** 8ae9ecf5
+
+## 2026-09-11 — test(waifu): Belt E pins jail-deny + preamble floor
+- **Why:** Build-mode on-porch write is allow, so “deny the write”
+  never happened. Preamble honesty sentence broke the existing
+  <1000-char pin — honesty belongs on the speech cue, not there.
+- **What:** Harness pin writes `../pwned.rs` (folder-jail deny).
+  Preamble unchanged. Format nibble on the new leaf + contract.
+- **Files:** `waifu_belt_e_card_speech_test.dart`,
+  `waifu_coworker_prompt.dart`, `waifu_card_speech.dart`,
+  `waifu_turn.dart`, `waifu_turn_contract.dart`
 - **Commit:** (pending)
 
 ## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e

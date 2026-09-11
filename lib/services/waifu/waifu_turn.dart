@@ -195,8 +195,7 @@ class WaifuTurn {
     }
     final inventedMutate =
         waifuLooksMutateSuccessClaim(trimmed) && !mutationSucceeded;
-    final inventedVerify =
-        waifuLooksVerifySuccessClaim(trimmed) && !verified;
+    final inventedVerify = waifuLooksVerifySuccessClaim(trimmed) && !verified;
     if (inventedMutate || inventedVerify) {
       if (canRetrySpeech) {
         requestSpeech();

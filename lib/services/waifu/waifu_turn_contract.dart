@@ -83,8 +83,9 @@ bool waifuLooksTodoReceiptClaim(String body) {
   final lower = body.toLowerCase();
   if (RegExp(r'\btodowrite\b').hasMatch(lower)) return true;
   final list = RegExp(r'\b(?:todo|to-do|task) lists?\b').hasMatch(lower);
-  final updated = RegExp(r'\b(?:updated?|wrote|replaced|rewrote|changed)\b')
-      .hasMatch(lower);
+  final updated = RegExp(
+    r'\b(?:updated?|wrote|replaced|rewrote|changed)\b',
+  ).hasMatch(lower);
   final todo = RegExp(r'\b(?:todos?|to-dos?)\b').hasMatch(lower);
   if ((list || todo) && updated) return true;
   final done = RegExp(
