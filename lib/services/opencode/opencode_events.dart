@@ -27,10 +27,12 @@ class OpenCodeTextDelta extends OpenCodeBusEvent {
     required this.sessionId,
     required this.delta,
     this.messageId = '',
+    this.thinking = false,
   });
   final String sessionId;
   final String messageId;
   final String delta;
+  final bool thinking;
 }
 
 class OpenCodeToolEvent extends OpenCodeBusEvent {
@@ -40,12 +42,14 @@ class OpenCodeToolEvent extends OpenCodeBusEvent {
     required this.detail,
     required this.ok,
     this.pending = false,
+    this.callId = '',
   });
   final String sessionId;
   final String name;
   final String detail;
   final bool ok;
   final bool pending;
+  final String callId;
 }
 
 class OpenCodeSessionIdle extends OpenCodeBusEvent {
@@ -90,12 +94,17 @@ class OpenCodeErrorEvent extends OpenCodeBusEvent {
 
 /// Dumb consumer the UI/harness implements. No Dart gym, no ledger.
 abstract class OpenCodeEventSink {
-  void onTextDelta(String delta, {String messageId = ''});
+  void onTextDelta(
+    String delta, {
+    String messageId = '',
+    bool thinking = false,
+  });
   void onTool({
     required String name,
     required String detail,
     required bool ok,
     bool pending = false,
+    String callId = '',
   });
   void onPermissionAsk(OpenCodePermissionAsked ask);
   void onTodo(List<OpenCodeTodoItem> todos);
@@ -105,9 +114,9 @@ abstract class OpenCodeEventSink {
 
 void dispatchOpenCodeEvent(OpenCodeBusEvent event, OpenCodeEventSink sink) {
   switch (event) {
-    case OpenCodeTextDelta(:final delta, :final messageId):
+    case OpenCodeTextDelta(:final delta, :final messageId, :final thinking):
       if (delta.isNotEmpty) {
-        sink.onTextDelta(delta, messageId: messageId);
+        sink.onTextDelta(delta, messageId: messageId, thinking: thinking);
       }
     case OpenCodeToolEvent():
       sink.onTool(
@@ -115,6 +124,7 @@ void dispatchOpenCodeEvent(OpenCodeBusEvent event, OpenCodeEventSink sink) {
         detail: event.detail,
         ok: event.ok,
         pending: event.pending,
+        callId: event.callId,
       );
     case OpenCodePermissionAsked():
       sink.onPermissionAsk(event);
@@ -169,15 +179,16 @@ OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
   switch (type) {
     case 'message.part.delta':
       final field = map['field']?.toString().toLowerCase() ?? 'text';
-      // Nano-GPT / OpenCode CoT — never paint as the coworker bubble.
-      if (field != 'text') return null;
+      final think = field == 'reasoning' || field == 'thinking';
+      if (!think && field != 'text') return null;
       return OpenCodeTextDelta(
         sessionId: map['sessionID']?.toString() ?? '',
         messageId: map['messageID']?.toString() ?? '',
         delta: map['delta']?.toString() ?? '',
+        thinking: think,
       );
     case 'message.part.updated':
-      return _toolFromPart(map);
+      return _partUpdated(map);
     case 'session.idle':
       return OpenCodeSessionIdle(map['sessionID']?.toString() ?? '');
     case 'permission.asked':
@@ -221,11 +232,27 @@ OpenCodePermissionAsked? _permissionAsked(Map<String, dynamic> map) {
   );
 }
 
+OpenCodeBusEvent? _partUpdated(Map<String, dynamic> map) {
+  final part = map['part'];
+  if (part is! Map) return null;
+  final partType = part['type']?.toString() ?? '';
+  if (partType == 'reasoning' || partType == 'thinking') {
+    final text = part['text']?.toString() ?? part['delta']?.toString() ?? '';
+    if (text.isEmpty) return null;
+    return OpenCodeTextDelta(
+      sessionId: map['sessionID']?.toString() ?? '',
+      messageId: map['messageID']?.toString() ?? '',
+      delta: text,
+      thinking: true,
+    );
+  }
+  return _toolFromPart(map);
+}
+
 OpenCodeToolEvent? _toolFromPart(Map<String, dynamic> map) {
   final part = map['part'];
   if (part is! Map) return null;
   final partType = part['type']?.toString() ?? '';
-  if (partType == 'reasoning' || partType == 'thinking') return null;
   if (partType != 'tool') return null;
   final state = part['state'];
   final status = state is Map
@@ -242,6 +269,7 @@ OpenCodeToolEvent? _toolFromPart(Map<String, dynamic> map) {
     detail: detail,
     ok: ok,
     pending: pending,
+    callId: part['callID']?.toString() ?? '',
   );
 }
 

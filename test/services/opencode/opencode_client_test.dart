@@ -25,7 +25,7 @@ void main() {
     expect((events[1] as OpenCodeSessionIdle).sessionId, 'ses_1');
   });
 
-  test('SSE parser drops reasoning/thinking, not coworker text', () {
+  test('SSE parser routes reasoning into thinking deltas', () {
     const raw =
         'data: {"type":"message.part.delta","properties":{"sessionID":"ses_1","field":"reasoning","delta":"I should glob"}}\n'
         '\n'
@@ -34,8 +34,11 @@ void main() {
         'data: {"type":"message.part.delta","properties":{"sessionID":"ses_1","field":"text","delta":"Hi"}}\n'
         '\n';
     final events = parseOpenCodeSse(raw);
-    expect(events, hasLength(1));
-    expect((events.single as OpenCodeTextDelta).delta, 'Hi');
+    expect(events, hasLength(3));
+    expect((events[0] as OpenCodeTextDelta).thinking, isTrue);
+    expect((events[1] as OpenCodeTextDelta).thinking, isTrue);
+    expect((events[2] as OpenCodeTextDelta).thinking, isFalse);
+    expect((events[2] as OpenCodeTextDelta).delta, 'Hi');
   });
 
   test('SSE parser maps tool and permission events', () {
@@ -215,7 +218,11 @@ class _RecordingSink implements OpenCodeEventSink {
   var idle = false;
 
   @override
-  void onTextDelta(String delta, {String messageId = ''}) => deltas.add(delta);
+  void onTextDelta(
+    String delta, {
+    String messageId = '',
+    bool thinking = false,
+  }) => deltas.add(delta);
 
   @override
   void onTool({
@@ -223,6 +230,7 @@ class _RecordingSink implements OpenCodeEventSink {
     required String detail,
     required bool ok,
     bool pending = false,
+    String callId = '',
   }) {}
 
   @override

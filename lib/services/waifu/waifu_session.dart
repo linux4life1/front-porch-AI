@@ -41,14 +41,14 @@ class WaifuToolChip {
     required this.detail,
     required this.ok,
     this.pending = false,
+    this.callId = '',
   });
 
   final String name;
   final String detail;
   final bool ok;
-
-  /// Live attempt — [ok] is ignored until the tool settles.
   final bool pending;
+  final String callId;
 }
 
 class WaifuWriteRecord {

@@ -242,14 +242,40 @@ class WaifuHarness implements OpenCodeEventSink {
   }
 
   @override
-  void onTextDelta(String delta, {String messageId = ''}) {
+  void onTextDelta(
+    String delta, {
+    String messageId = '',
+    bool thinking = false,
+  }) {
     if (messageId.isNotEmpty) _lastAssistantMessageId = messageId;
     if (delta.isEmpty) return;
     if (_liveIndex == null) {
-      session.transcript.add(WaifuMessage.assistant(delta));
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final asThink = thinking || waifuLooksLikeThinkingDump(delta);
+      session.transcript.add(
+        WaifuMessage.assistant(
+          asThink ? '' : delta,
+          reasoning: asThink ? delta : '',
+          thinkingStartMs: asThink ? now : null,
+        ),
+      );
       _liveIndex = session.transcript.length - 1;
+      _emit();
+      return;
+    }
+    final cur = session.transcript[_liveIndex!];
+    final asThink =
+        thinking ||
+        (cur.text.isEmpty &&
+            (cur.reasoning.isNotEmpty || waifuLooksLikeThinkingDump(delta)));
+    if (asThink) {
+      final start =
+          cur.thinkingStartMs ?? DateTime.now().millisecondsSinceEpoch;
+      session.transcript[_liveIndex!] = cur.copyWith(
+        reasoning: '${cur.reasoning}$delta',
+        thinkingStartMs: start,
+      );
     } else {
-      final cur = session.transcript[_liveIndex!];
       session.transcript[_liveIndex!] = cur.copyWith(text: '${cur.text}$delta');
     }
     _emit();
@@ -261,6 +287,7 @@ class WaifuHarness implements OpenCodeEventSink {
     required String detail,
     required bool ok,
     bool pending = false,
+    String callId = '',
   }) {
     session.transcript.add(
       WaifuMessage.tool(name: name, output: detail, ok: pending ? true : ok),
@@ -268,12 +295,27 @@ class WaifuHarness implements OpenCodeEventSink {
     final idx = _liveIndex;
     if (idx != null) {
       final cur = session.transcript[idx];
-      session.transcript[idx] = cur.copyWith(
-        chips: [
-          ...cur.chips,
-          WaifuToolChip(name: name, detail: detail, ok: ok, pending: pending),
-        ],
+      final chips = [...cur.chips];
+      var i = -1;
+      if (callId.isNotEmpty) {
+        i = chips.indexWhere((c) => c.callId == callId);
+      }
+      if (i < 0) {
+        i = chips.indexWhere((c) => c.pending && c.name == name);
+      }
+      final chip = WaifuToolChip(
+        name: name,
+        detail: detail,
+        ok: ok,
+        pending: pending,
+        callId: callId,
       );
+      if (i >= 0) {
+        chips[i] = chip;
+      } else {
+        chips.add(chip);
+      }
+      session.transcript[idx] = cur.copyWith(chips: chips);
     }
     _emit();
   }
@@ -300,6 +342,16 @@ class WaifuHarness implements OpenCodeEventSink {
 
   @override
   void onIdle() {
+    final idx = _liveIndex;
+    if (idx != null) {
+      final cur = session.transcript[idx];
+      final start = cur.thinkingStartMs;
+      if (start != null && cur.thinkingMs == 0) {
+        session.transcript[idx] = cur.copyWith(
+          thinkingMs: DateTime.now().millisecondsSinceEpoch - start,
+        );
+      }
+    }
     _liveIndex = null;
     _emit();
   }
@@ -348,4 +400,16 @@ class WaifuHarness implements OpenCodeEventSink {
   }
 
   void _emit() => onChanged?.call();
+}
+
+/// Nano-GPT dumps CoT as normal text. Same porch as chat think chips.
+bool waifuLooksLikeThinkingDump(String raw) {
+  final t = raw.trimLeft().toLowerCase();
+  if (t.startsWith('<think')) return true;
+  if (t.startsWith('the user wants')) return true;
+  if (t.startsWith('let me ')) return true;
+  if (t.startsWith("i'll read")) return true;
+  if (t.contains('i have the todo list')) return true;
+  if (t.contains('the todos are:')) return true;
+  return false;
 }
