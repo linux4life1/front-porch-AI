@@ -5,7 +5,7 @@
   to the composer, so live actions stay on screen.
 - **Files:** `lib/ui/waifu/waifu_transcript.dart`,
   `test/ui/waifu/waifu_tool_log_below_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 2b8dd3d3
 
 ## 2026-09-11 — Waifu Thought folded like chat; OpenCode pin probed on launch
 - **Why:** Waifu passed `session.running` as `isGenerating`, which auto-opens
@@ -21,7 +21,7 @@
   `lib/services/opencode/opencode_manager.dart`,
   `test/ui/waifu/waifu_thought_collapsed_test.dart`,
   `test/services/opencode/opencode_probe_installed_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 2b8dd3d3
 
 ## 2026-09-11 — OpenCode SSE keys thinking off part type, not delta field
 - **Why:** OpenCode 1.18 writes `message.part.delta` with `field:"text"` for
@@ -34,7 +34,7 @@
   `field:text` deltas accordingly. Text snapshots are not concatenated.
 - **Files:** `lib/services/opencode/opencode_events.dart`,
   `test/services/opencode/opencode_part_routing_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 2b8dd3d3
 
 ## 2026-09-11 — Waifu Thought vs speech; 18+ work; reseat OpenCode on model switch
 - **Why:** Nano-GPT dumped chain-of-thought ("The user is asking…") into the
@@ -55,7 +55,7 @@
   `lib/ui/waifu/waifu_session_scope.dart`,
   `test/services/waifu/waifu_speech_test.dart`,
   `test/services/waifu/waifu_backend_reseat_test.dart`
-- **Commit:** (uncommitted)
+- **Commit:** 2b8dd3d3
 
 ## 2026-09-10 — Strip leftover Waifu chrome; Nano-GPT drives OpenCode
 - **Why:** Skills marketplace, slash palette, and Dart plan-accept were a
