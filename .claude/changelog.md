@@ -1,3 +1,21 @@
+## 2026-09-10 — Strip leftover Waifu chrome; Nano-GPT drives OpenCode
+- **Why:** Skills marketplace, slash palette, and Dart plan-accept were a
+  second coach next to OpenCode. Nano-GPT (same OpenRouterService, nano-gpt
+  URL) wrote a custom `porch` provider with `api: openai` and no npm, which
+  OpenCode 1.18.30 can skip or mis-route. A farm of ScriptedWaifuLlm /
+  source-grep / deleted-chrome key tests was theater, not a pin.
+- **What:** Deleted skills hub / slash menu / plan markdown stage and the
+  unused `WaifuLlm` / `ScriptedWaifuLlm` seam. Plan/Build/Yolo chips still
+  pick OpenCode agents. Isolated config is openai-compatible:
+  `provider.porch.npm = @ai-sdk/openai-compatible`, `options.baseURL` is the
+  Porch remote URL (`kNanoGptApiV1` or OpenRouter), `models.current.id` is
+  the live model name (slash ids stay one `porch/current` token). Remaining
+  tests pin live functions only (closet, brew refuse, pin URL, Nano-GPT
+  config, send-before-await, OpenCode HTTP contract). Fake keys only; never
+  print secrets.
+- **Files:** `lib/ui/waifu/**`, `lib/services/waifu/**`, `lib/services/opencode/opencode_config.dart`,
+  theater tests deleted.
+
 ## 2026-09-11 — Rip leftover Dart gym; OpenCode upgrade + revert
 - **Why:** Send already talked to OpenCode, but verify theater, bash/fs/deny,
   tools, workflow, and the turn loop were still on disk — a second coach.

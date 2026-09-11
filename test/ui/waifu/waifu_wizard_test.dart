@@ -169,12 +169,4 @@ void main() {
     );
     expect(confirm.onPressed, isNull);
   });
-
-  test('project step does not import or call FilePicker', () {
-    final src = File(
-      'lib/ui/waifu/waifu_wizard_project_step.dart',
-    ).readAsStringSync();
-    expect(src, isNot(contains('FilePicker')));
-    expect(src, isNot(contains('file_picker')));
-  });
 }

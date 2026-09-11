@@ -37,7 +37,7 @@ void main() {
 
   test('persona sits on top of the coding preamble', () {
     final now = DateTime(2026, 9, 6);
-    final prompt = buildWaifuCoworkerPrompt(tsundere(), now: now);
+    final prompt = buildWaifuOpenCodeAgentPrompt(tsundere(), now: now);
     expect(prompt.indexOf('Name: Mira'), 0);
     expect(
       prompt,
@@ -64,7 +64,7 @@ void main() {
   });
 
   test('talk samples expand macros and stay out of the scene', () {
-    final prompt = buildWaifuCoworkerPrompt(tsundere());
+    final prompt = buildWaifuOpenCodeAgentPrompt(tsundere());
     expect(prompt, contains('Mira: Hmph. Fine. I will look at the test.'));
     expect(prompt, contains('User: thanks'));
     expect(prompt, contains('diction only'));
@@ -74,7 +74,7 @@ void main() {
   test(
     'author voice and vibe stay in; scene, greeting, extensions stay out',
     () {
-      final prompt = buildWaifuCoworkerPrompt(tsundere());
+      final prompt = buildWaifuOpenCodeAgentPrompt(tsundere());
       expect(prompt, contains('You speak in short, pointed sentences.'));
       expect(prompt, contains('voice and values only'));
       expect(prompt, contains('sharp-tongued engineer'));
@@ -109,7 +109,7 @@ void main() {
       description: 'calm, precise, hates wasted motion',
       systemPrompt: 'Keep every sentence exact.',
     );
-    final prompt = buildWaifuCoworkerPrompt(card);
+    final prompt = buildWaifuOpenCodeAgentPrompt(card);
     expect(prompt, isNot(contains('Persona:')));
     expect(prompt, contains('Vibe: calm, precise, hates wasted motion'));
     expect(prompt, contains('Keep every sentence exact.'));
@@ -133,7 +133,7 @@ void main() {
   });
 
   test('Vibe is capped at 400 characters even beside a Persona', () {
-    final prompt = buildWaifuCoworkerPrompt(
+    final prompt = buildWaifuOpenCodeAgentPrompt(
       CharacterCard(
         name: 'Ada',
         personality: 'precise',
