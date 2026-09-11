@@ -20,7 +20,7 @@
 /// `Waifu*` / `waifu_*` too, so the product has one name at every layer.
 const kWaifuCoderName = 'Waifu Coder';
 
-/// New skills, workflows, inbox photos, and language data write here.
+/// Inbox photos and language data write here.
 const kWaifuDotDir = '.waifu';
 
 /// Legacy on-disk folder only. Read for migration; never used for new writes.

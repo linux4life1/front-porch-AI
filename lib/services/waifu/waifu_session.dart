@@ -229,7 +229,6 @@ class WaifuSession {
     this.mcpOptIn = false,
     this.preserveThinking = false,
     this.toolsSupported = true,
-    this.activePlanPath,
     ChatThemeOverrides? themeOverrides,
     Set<String>? suggestedLangs,
     List<WaifuMessage>? transcript,
@@ -265,7 +264,6 @@ class WaifuSession {
 
   /// Sit-down / live probe. False fail-closes the loop — no silent coding.
   bool toolsSupported;
-  String? activePlanPath;
   ChatThemeOverrides themeOverrides;
   final ChatGenerationSettings genSettings = ChatGenerationSettings();
   int contextBudget = 8192;

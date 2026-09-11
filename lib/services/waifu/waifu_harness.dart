@@ -19,17 +19,13 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:front_porch_ai/services/opencode/opencode.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu_honesty.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
-import 'package:front_porch_ai/services/waifu/waifu_llm.dart';
 import 'package:front_porch_ai/services/waifu/waifu_opencode.dart';
 import 'package:front_porch_ai/services/waifu/waifu_permissions.dart';
-import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
-import 'package:front_porch_ai/services/waifu/waifu_plan_codec.dart';
 import 'package:front_porch_ai/services/waifu/waifu_question.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
-import 'package:front_porch_ai/services/waifu/waifu_skill_market.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_store.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
@@ -41,7 +37,6 @@ const kWaifuPhotosUnsupported =
 class WaifuHarness implements OpenCodeEventSink {
   WaifuHarness({
     required this.session,
-    this.llm,
     this.manager,
     OpenCodeClient? client,
     String? sessionId,
@@ -52,17 +47,13 @@ class WaifuHarness implements OpenCodeEventSink {
     this.store,
     this.mcpOptIn = false,
     this.mcpConfigOf,
-    WaifuSkillHub? skills,
   }) : _client = client,
-       _sessionId = sessionId,
-       skills = skills ?? WaifuSkillHub(projectRoot: session.folderRoot);
+       _sessionId = sessionId;
 
   final WaifuSession session;
-  final WaifuLlm? llm;
   final OpenCodeManager? manager;
   final OpenCodePorchBackend? backend;
   final WaifuStore? store;
-  final WaifuSkillHub skills;
   void Function()? onChanged;
   WaifuAskFn? onAsk;
   WaifuQuestionFn? onQuestion;
@@ -135,33 +126,6 @@ class WaifuHarness implements OpenCodeEventSink {
   }
 
   Future<void> compact() async {
-    await store?.saveLast(session);
-    _emit();
-  }
-
-  Future<WaifuPlan?> acceptActivePlan({String? editedBody}) async {
-    final plan = await waifuAcceptPlan(
-      session: session,
-      todos: todos,
-      editedBody: editedBody,
-    );
-    await store?.saveLast(session);
-    _emit();
-    return plan;
-  }
-
-  Future<WaifuPlan?> reviseActivePlan({String? editedBody}) async {
-    final plan = await waifuRevisePlan(
-      session: session,
-      editedBody: editedBody,
-    );
-    await store?.saveLast(session);
-    _emit();
-    return plan;
-  }
-
-  Future<void> discardActivePlan() async {
-    await waifuDiscardPlan(session);
     await store?.saveLast(session);
     _emit();
   }

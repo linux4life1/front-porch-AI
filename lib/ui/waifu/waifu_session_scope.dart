@@ -55,11 +55,9 @@ void waifuArmSessionMeter({
   store?.saveLast(session);
 }
 
-/// Both production constructor copies live here so the page never writes
-/// `WaifuHarness(`.
+/// Bind OpenCode manager + Porch backend. Null when neither is available.
 WaifuHarness? waifuBindSessionHarness({
   required WaifuSession session,
-  WaifuLlm? llm,
   LLMProvider? provider,
   OpenCodeManager? manager,
   WaifuStore? store,
@@ -67,18 +65,16 @@ WaifuHarness? waifuBindSessionHarness({
   WaifuAskFn? onAsk,
   WaifuQuestionFn? onQuestion,
   Map<String, dynamic> Function()? mcpConfigOf,
-  WaifuSkillHub? skills,
 }) {
   OpenCodePorchBackend? backend;
   if (provider != null) {
     try {
-      backend = openCodeBackendFromProvider(provider);
+      backend = openCodeBackendFromProvider(provider.activeService);
     } catch (_) {}
   }
-  if (llm == null && manager == null && backend == null) return null;
+  if (manager == null && backend == null) return null;
   return WaifuHarness(
     session: session,
-    llm: llm,
     manager: manager,
     backend: backend,
     store: store,
@@ -87,6 +83,5 @@ WaifuHarness? waifuBindSessionHarness({
     onQuestion: onQuestion,
     mcpOptIn: session.mcpOptIn,
     mcpConfigOf: mcpConfigOf,
-    skills: skills,
   );
 }

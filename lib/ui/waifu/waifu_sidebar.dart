@@ -28,7 +28,6 @@ import 'package:front_porch_ai/ui/waifu/waifu_context_bar.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mcp_panel.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_opencode_status.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mode_bar.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_skills_panel.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_todo_list.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -48,8 +47,6 @@ class WaifuSidebar extends StatelessWidget {
     this.onPreserveThinking,
     this.harness,
     this.mcpLine,
-    this.skills,
-    this.onSkillsChanged,
     this.onThemeChanged,
     this.onCompact,
   });
@@ -64,8 +61,6 @@ class WaifuSidebar extends StatelessWidget {
   final WaifuHarness? harness;
   WaifuTodos? get todos => harness?.todos;
   final String? mcpLine;
-  final WaifuSkillHub? skills;
-  final VoidCallback? onSkillsChanged;
   final VoidCallback? onThemeChanged;
   final VoidCallback? onCompact;
 
@@ -131,23 +126,6 @@ class WaifuSidebar extends StatelessWidget {
                 children: [
                   WaifuContextBar(session: session, onCompact: onCompact),
                   const WaifuOpenCodeStatus(),
-                  if (skills != null) ...[
-                    PorchAccordion(
-                      id: 'waifu_skills',
-                      emoji: '✨',
-                      title: 'Skills',
-                      subtitle: skills!.market.catalog.isEmpty
-                          ? 'official catalog'
-                          : '${skills!.market.catalog.length} official',
-                      accent: amber,
-                      initiallyExpanded: false,
-                      child: WaifuSkillsPanel(
-                        hub: skills!,
-                        onChanged: onSkillsChanged,
-                      ),
-                    ),
-                    const SizedBox(height: SidebarTokens.sectionGap),
-                  ],
                   PorchAccordion(
                     id: 'waifu_harness',
                     emoji: '🛠️',

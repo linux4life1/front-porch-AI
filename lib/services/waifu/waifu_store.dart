@@ -169,8 +169,6 @@ class WaifuStore {
     'mcpOptIn': session.mcpOptIn,
     'preserveThinking': session.preserveThinking,
     'toolsSupported': session.toolsSupported,
-    if (session.activePlanPath != null && session.activePlanPath!.isNotEmpty)
-      'activePlanPath': session.activePlanPath,
     'tokensUsed': session.tokensUsed,
     'contextBudget': session.contextBudget,
     'tokensFromApi': session.tokensFromApi,
@@ -348,7 +346,6 @@ class WaifuStore {
               mcpOptIn: map['mcpOptIn'] == true,
               preserveThinking: map['preserveThinking'] == true,
               toolsSupported: map['toolsSupported'] != false,
-              activePlanPath: map['activePlanPath']?.toString(),
               themeOverrides: rawTheme is Map
                   ? ChatThemeOverrides.fromJson(
                       Map<String, dynamic>.from(rawTheme),
