@@ -19,10 +19,18 @@
 import 'dart:typed_data';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_lang_runtime.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
+
+String waifuTitleFrom(String task) {
+  final t = task.trim().replaceAll(RegExp(r'\s+'), ' ');
+  if (t.isEmpty) return kWaifuCoderName;
+  if (t.length <= 48) return t;
+  return '${t.substring(0, 48).trimRight()}…';
+}
 
 class WaifuToolChip {
   const WaifuToolChip({

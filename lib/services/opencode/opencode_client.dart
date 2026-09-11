@@ -74,7 +74,7 @@ class OpenCodeClient {
       final resp = await client.post(
         _uri('/session'),
         headers: {'content-type': 'application/json'},
-        body: jsonEncode({?'title': title, ?'agent': agent}),
+        body: jsonEncode({'title': ?title, 'agent': ?agent}),
       );
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         throw StateError('OpenCode session create failed: ${resp.statusCode}');
@@ -103,7 +103,11 @@ class OpenCodeClient {
       final resp = await client.post(
         _uri('/session/$sessionId/prompt_async'),
         headers: {'content-type': 'application/json'},
-        body: jsonEncode({'parts': parts, ?'agent': agent, ?'system': system}),
+        body: jsonEncode({
+          'parts': parts,
+          'agent': ?agent,
+          'system': ?system,
+        }),
       );
       if (resp.statusCode != 204 &&
           (resp.statusCode < 200 || resp.statusCode >= 300)) {

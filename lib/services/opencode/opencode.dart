@@ -20,6 +20,7 @@
 library;
 
 export 'opencode_client.dart';
+export 'opencode_config.dart';
 export 'opencode_events.dart';
 export 'opencode_manager.dart';
 export 'opencode_paths.dart';

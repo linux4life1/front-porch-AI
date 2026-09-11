@@ -44,7 +44,7 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 
 part 'waifu_page_image.dart';
 
-/// Waifu Coder session. Send runs the in-process tool loop. No Continue, no regen.
+/// Waifu Coder session. Send forwards to managed OpenCode. No Continue, no regen.
 class WaifuPage extends StatefulWidget {
   const WaifuPage({
     super.key,
@@ -156,14 +156,18 @@ class _WaifuPageState extends State<WaifuPage> {
     if (_created != null) return _created;
     LLMProvider? provider;
     StorageService? storage;
+    OpenCodeManager? oc;
     try {
       storage = Provider.of<StorageService>(context, listen: false);
+    } catch (_) {}
+    try {
+      oc = Provider.of<OpenCodeManager>(context, listen: false);
     } catch (_) {}
     if (widget.llm == null) {
       try {
         provider = Provider.of<LLMProvider>(context, listen: false);
       } catch (_) {
-        return null;
+        if (oc == null) return null;
       }
     }
     final webSearch = waifuWebSearchBind(context);
@@ -172,6 +176,7 @@ class _WaifuPageState extends State<WaifuPage> {
       llm: widget.llm,
       provider: provider,
       storage: storage,
+      manager: oc,
       store: _storeOf(context),
       onChanged: _refresh,
       onAsk: _ask,

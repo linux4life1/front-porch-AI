@@ -141,12 +141,9 @@ String? waifuTalkFeel(String mesExample, String name) {
   return out.isEmpty ? null : out;
 }
 
-/// Selected V2 card as persona, then the coding constitution.
-///
-/// On top: name, personality, clipped description, fenced author voice rules,
-/// talk samples, and today's date. Never: scenario, first message, lorebook,
-/// or Front Porch extensions.
-String buildWaifuCoworkerPrompt(CharacterCard card, {DateTime? now}) {
+/// Card identity only. Never: scenario, first message, lorebook, Needs,
+/// weather, or Front Porch extensions.
+String buildWaifuCardPersona(CharacterCard card, {DateTime? now}) {
   final buf = StringBuffer()..writeln('Name: ${card.name}');
   final personality = card.personality.trim();
   final description = card.description.trim();
@@ -182,9 +179,24 @@ String buildWaifuCoworkerPrompt(CharacterCard card, {DateTime? now}) {
   }
   buf
     ..writeln()
-    ..writeln('Today: ${waifuTodayStamp(now)}')
-    ..writeln(kWaifuPreamble);
+    ..writeln('Today: ${waifuTodayStamp(now)}');
   return buf.toString().trimRight();
+}
+
+/// Selected V2 card as persona, then the coding constitution.
+String buildWaifuCoworkerPrompt(CharacterCard card, {DateTime? now}) {
+  return '${buildWaifuCardPersona(card, now: now)}\n$kWaifuPreamble';
+}
+
+/// OpenCode primary-agent prompt. Tools stay allowed. One line: write.
+const kWaifuOpenCodePreamble =
+    'You are a coding agent. Use your tools. If a joke and a write are both '
+    'possible, write. Do not roleplay skipping edits. Stay in this '
+    'character’s voice. Do not mix lorebook, Needs, weather, or chat '
+    'realism into this work.';
+
+String buildWaifuOpenCodeAgentPrompt(CharacterCard card, {DateTime? now}) {
+  return '${buildWaifuCardPersona(card, now: now)}\n$kWaifuOpenCodePreamble';
 }
 
 /// User-side loop prompt. Persona is in the system preamble; this is

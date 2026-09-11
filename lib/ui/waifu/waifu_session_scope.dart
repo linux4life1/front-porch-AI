@@ -74,11 +74,10 @@ void waifuArmSessionMeter({
   WaifuHarness? harness,
   WaifuStore? store,
 }) {
-  if (harness != null) {
-    harness.refreshMeter();
-  } else if (session.tokensUsed == 0 && !session.tokensFromApi) {
+  if (session.tokensUsed == 0 && !session.tokensFromApi) {
     session.tokensUsed = waifuIdleRequestTokens(session);
   }
+  harness?.refreshMeter();
   store?.saveLast(session);
 }
 
@@ -89,6 +88,7 @@ WaifuHarness? waifuBindSessionHarness({
   WaifuLlm? llm,
   LLMProvider? provider,
   StorageService? storage,
+  OpenCodeManager? manager,
   WaifuStore? store,
   void Function()? onChanged,
   WaifuAskFn? onAsk,
@@ -97,23 +97,18 @@ WaifuHarness? waifuBindSessionHarness({
   WaifuWebSearchFn? webSearch,
   WaifuSkillHub? skills,
 }) {
-  final resolved =
-      llm ??
-      (provider == null
-          ? null
-          : LlmServiceWaifuLlm(
-              () => provider.activeService,
-              settingsOf: () => session.genSettings,
-              storage: storage,
-              remainingTokensOf: () => waifuOutputTokenBudget(
-                budget: session.contextBudget,
-                used: session.tokensUsed,
-              ),
-            ));
-  if (resolved == null) return null;
+  OpenCodePorchBackend? backend;
+  if (provider != null) {
+    try {
+      backend = openCodeBackendFromProvider(provider);
+    } catch (_) {}
+  }
+  if (llm == null && manager == null && backend == null) return null;
   return WaifuHarness(
     session: session,
-    llm: resolved,
+    llm: llm,
+    manager: manager,
+    backend: backend,
     store: store,
     onChanged: onChanged,
     onAsk: onAsk,

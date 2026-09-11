@@ -17,103 +17,54 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:front_porch_ai/services/services.dart' show LlmToolResponse;
-import 'package:front_porch_ai/services/waifu/waifu_bash.dart';
-import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
-import 'package:front_porch_ai/services/waifu/waifu_compact_ledger.dart';
-import 'package:front_porch_ai/services/waifu/waifu_coworker_prompt.dart';
-import 'package:front_porch_ai/services/waifu/waifu_fs.dart';
-import 'package:front_porch_ai/services/waifu/waifu_honesty.dart';
+import 'package:front_porch_ai/services/opencode/opencode.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_llm.dart';
-import 'package:front_porch_ai/services/waifu/waifu_mcp_filter.dart';
-import 'package:front_porch_ai/services/waifu/waifu_mentions.dart';
-import 'package:front_porch_ai/services/waifu/waifu_openai_messages.dart';
+import 'package:front_porch_ai/services/waifu/waifu_opencode.dart';
 import 'package:front_porch_ai/services/waifu/waifu_permissions.dart';
 import 'package:front_porch_ai/services/waifu/waifu_plan.dart';
 import 'package:front_porch_ai/services/waifu/waifu_plan_codec.dart';
 import 'package:front_porch_ai/services/waifu/waifu_question.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_skill_market.dart';
-import 'package:front_porch_ai/services/waifu/waifu_skills.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
-import 'package:front_porch_ai/services/waifu/waifu_slash.dart';
 import 'package:front_porch_ai/services/waifu/waifu_store.dart';
-import 'package:front_porch_ai/services/waifu/waifu_stream.dart';
-import 'package:front_porch_ai/services/waifu/waifu_subagent.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
-import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
-import 'package:front_porch_ai/services/waifu/waifu_turn.dart';
-import 'package:front_porch_ai/services/waifu/waifu_undo.dart';
-import 'package:front_porch_ai/services/waifu/waifu_verify.dart';
 import 'package:front_porch_ai/services/waifu/waifu_webfetch.dart';
-import 'package:front_porch_ai/services/waifu/waifu_workflow.dart';
 
-part 'waifu_harness_dispatch.dart';
-part 'waifu_harness_plan.dart';
-part 'waifu_harness_spawn.dart';
-part 'waifu_harness_turn.dart';
-part 'waifu_harness_compact.dart';
+const kWaifuPhotosUnsupported =
+    'Photos are not in this OpenCode version — the text still went through.';
 
-/// In-process generateWithTools loop. Max [kWaifuMaxSteps]. Abort stops
-/// further tools; disk is left as the last successful write.
-class WaifuHarness {
+/// OpenCode client facade. Send records the user line first, then forwards.
+class WaifuHarness implements OpenCodeEventSink {
   WaifuHarness({
     required this.session,
-    required this.llm,
-    WaifuFs? fs,
+    this.llm,
+    this.manager,
+    OpenCodeClient? client,
+    this.backend,
     this.onChanged,
     this.onAsk,
-    WaifuPermissions? permissions,
-    WaifuBash? bash,
-    WaifuUndo? undo,
-    WaifuTodos? todos,
     this.onQuestion,
-    WaifuWebFetch? webfetch,
-    this.webSearch,
+    this.store,
+    this.mcpOptIn = false,
     this.mcpTools = const [],
     this.mcpToolsOf,
-    this.mcpOptIn = false,
     this.mcpCall,
     this.mcpCallOf,
-    this.store,
+    this.webSearch,
     this.depth = 0,
     this.exploreOnly = false,
     WaifuSkillHub? skills,
-  }) : fs = fs ?? WaifuFs(session.folderRoot, pathMode: session.pathMode),
-       webfetch = webfetch ?? WaifuWebFetch(),
-       permissions =
-           permissions ??
-           WaifuPermissions(
-             mode: session.mode,
-             workingDirectory: session.folderRoot,
-             pathMode: session.pathMode,
-           ),
-       bash = bash ?? WaifuBash(session.folderRoot, pathMode: session.pathMode),
-       undoLog = undo ?? WaifuUndo(),
-       todos = todos ?? session.todos,
-       skills = skills ?? WaifuSkillHub(projectRoot: session.folderRoot) {
-    _armBudget();
-    unawaited(_warmIdleMeter());
-  }
+  }) : _client = client,
+       skills = skills ?? WaifuSkillHub(projectRoot: session.folderRoot);
 
   final WaifuSession session;
-  final WaifuLlm llm;
-  final WaifuFs fs;
-  final WaifuPermissions permissions;
-  final WaifuBash bash;
-  final WaifuUndo undoLog;
-  final WaifuTodos todos;
-  final WaifuWebFetch webfetch;
-  final WaifuWebSearchFn? webSearch;
-  final List<Map<String, dynamic>> mcpTools;
-  final List<Map<String, dynamic>> Function()? mcpToolsOf;
-  bool mcpOptIn;
-  final WaifuMcpCallFn? mcpCall;
-  final WaifuMcpCallFn? Function()? mcpCallOf;
+  final WaifuLlm? llm;
+  final OpenCodeManager? manager;
+  final OpenCodePorchBackend? backend;
   final WaifuStore? store;
   final int depth;
   final bool exploreOnly;
@@ -121,56 +72,63 @@ class WaifuHarness {
   void Function()? onChanged;
   WaifuAskFn? onAsk;
   WaifuQuestionFn? onQuestion;
+  bool mcpOptIn;
+  final List<Map<String, dynamic>> mcpTools;
+  final List<Map<String, dynamic>> Function()? mcpToolsOf;
+  final WaifuMcpCallFn? mcpCall;
+  final WaifuMcpCallFn? Function()? mcpCallOf;
+  final WaifuWebSearchFn? webSearch;
 
+  OpenCodeClient? _client;
+  String? _sessionId;
   bool _aborted = false;
-  String _streamBuf = '';
-  String _priorReasoning = '';
-  Completer<WaifuAskDecision>? _askWait;
-  Completer<String>? _questionWait;
-  String _mentionBlock = '';
-  String _planBlock = '';
-  List<String>? _turnImages;
-  String? _toolCallId;
-  final _children = <WaifuHarness>[];
-  late WaifuTurn _turn;
-  var _hasTurn = false;
+  int? _liveIndex;
 
+  WaifuTodos get todos => session.todos;
   bool get isRunning => session.running;
-  bool get canUndo => undoLog.canUndo;
-  bool get canRedo => undoLog.canRedo;
+  bool get canUndo => false;
+  bool get canRedo => false;
 
-  /// Live Jail/Disk switch. File tools, bash, and decide() all read these.
   void applyPathMode(WaifuPathMode next) {
     session.pathMode = next;
-    fs.pathMode = next;
-    bash.pathMode = next;
-    permissions.pathMode = next;
-    _armBudget();
-  }
-
-  /// Re-count system + tools + prompt for the context bar.
-  void refreshMeter() {
-    _armBudget();
     _emit();
   }
 
-  Future<void> undo() async {
-    final rec = await undoLog.undo(
-      session.folderRoot,
-      pathMode: session.pathMode,
-    );
-    if (rec == null) return;
-    session.lastWrite = rec;
+  void refreshMeter() => _emit();
+
+  Future<void> undo() async {}
+
+  Future<void> redo() async {}
+
+  Future<void> compact() async {
+    await store?.saveLast(session);
     _emit();
   }
 
-  Future<void> redo() async {
-    final rec = await undoLog.redo(
-      session.folderRoot,
-      pathMode: session.pathMode,
+  Future<WaifuPlan?> acceptActivePlan({String? editedBody}) async {
+    final plan = await waifuAcceptPlan(
+      session: session,
+      todos: todos,
+      editedBody: editedBody,
     );
-    if (rec == null) return;
-    session.lastWrite = rec;
+    await store?.saveLast(session);
+    _emit();
+    return plan;
+  }
+
+  Future<WaifuPlan?> reviseActivePlan({String? editedBody}) async {
+    final plan = await waifuRevisePlan(
+      session: session,
+      editedBody: editedBody,
+    );
+    await store?.saveLast(session);
+    _emit();
+    return plan;
+  }
+
+  Future<void> discardActivePlan() async {
+    await waifuDiscardPlan(session);
+    await store?.saveLast(session);
     _emit();
   }
 
@@ -194,52 +152,17 @@ class WaifuHarness {
     }
     if (text.isEmpty) text = '(photo)';
     _aborted = false;
-    _turnImages = imagePng == null ? null : [base64Encode(imagePng)];
-    _turn = WaifuTurn.start(
-      text,
-      session.lastWrite,
-      mode: session.mode,
-      exploreOnly: exploreOnly,
-      enforceVerify: depth == 0 && !exploreOnly,
-    );
-    _hasTurn = true;
-    _clearTurnReceipts();
-    // Record the send before any await so live thought chrome can paint.
+    _liveIndex = null;
     session.running = true;
     session.transcript.add(WaifuMessage.user(text, imagePath: imagePath));
     if (session.title.isEmpty) session.title = waifuTitleFrom(text);
     _emit();
-    _turn.contract.verifyContext = await waifuBuildVerifyContext(
-      folderRoot: session.folderRoot,
-      task: text,
-      plan: await waifuLoadActivePlan(session),
-    );
-    permissions.verifyContext = _turn.contract.verifyContext;
-    await _refreshPlanBlock();
-    _mentionBlock = await waifuExpandMentions(text, session.folderRoot);
-    waifuRewriteSlashUser(session.transcript, text);
-    await skills.refreshLocal();
-    _armBudget();
-    _emit();
     try {
-      if (_refuseIfToolsUnsupported()) return;
-      if (text == '/init' || text.startsWith('/init ')) {
-        await _runTool(kWaifuToolWrite, {
-          'path': kWaifuAgentsPath,
-          'contents': kWaifuAgentsTemplate,
-        });
-      }
-      final wf = waifuWorkflowSlashArgs(text);
-      if (wf != null) {
-        await _runTool(kWaifuToolWorkflow, wf);
-      }
-      await _loop();
-      await _maybeCompact();
-      _armBudget();
+      await _forward(text, imagePng: imagePng);
       await store?.saveLast(session);
     } finally {
-      _turnImages = null;
       session.running = false;
+      _liveIndex = null;
       _emit();
     }
     if (_aborted || session.queued.isEmpty) return;
@@ -247,248 +170,167 @@ class WaifuHarness {
     await send(next.text, imagePng: next.imagePng, imagePath: next.imagePath);
   }
 
-  /// `/compact`. Always remeters. Folds older turns and stubs old tools
-  /// even when the bar is API-stuck over the cap.
-  Future<void> compact() async {
-    if (session.running) abort();
-    await _maybeCompact(force: true);
-    session.tokensFromApi = false;
-    _armBudget();
-    await store?.saveLast(session);
-    _emit();
-  }
-
   void abort() {
     _aborted = true;
     session.queued.clear();
-    for (final c in List<WaifuHarness>.from(_children)) {
-      c.abort();
+    final id = _sessionId;
+    final client = _client;
+    if (id != null && client != null) {
+      unawaited(client.abort(id));
     }
-    llm.abort();
-    bash.abort();
-    final waiting = _askWait;
-    if (waiting != null && !waiting.isCompleted) {
-      waiting.complete(WaifuAskDecision.deny);
-    }
-    final q = _questionWait;
-    if (q != null && !q.isCompleted) q.complete('');
-    if (session.running && _hasTurn) {
-      final live = _turn.live;
-      if (live != null && live.text.trim().isNotEmpty) {
-        _turn.live = null;
-      }
-      _say('Stopped.');
+    if (session.running) {
+      session.transcript.add(const WaifuMessage.assistant('Stopped.'));
     }
     _emit();
   }
 
-  Future<void> _runTool(
-    String name,
-    Map<String, dynamic> args, {
-    String? callId,
-  }) async {
-    _toolCallId = callId;
-    permissions.mode = session.mode;
-    permissions.pathMode = session.pathMode;
-    final call = WaifuCall.parse(
-      name,
-      args,
-      mcpMutates: waifuMcpMutationHint(name, _mcpToolsNow()),
-      verifyContext: permissions.verifyContext,
-    );
-    final work = call.args;
-    final kind = waifuSubagentKind(name, work);
-    final canon = call.name;
-    _turn.noteAttempt(canon);
-    _pushChip(
-      WaifuToolChip(
-        name: canon,
-        detail: waifuChipDetail(canon, work),
-        ok: false,
-        pending: true,
-      ),
-    );
+  Future<void> _forward(String text, {Uint8List? imagePng}) async {
+    final client = await _ensureClient();
+    if (client == null || _sessionId == null) return;
     try {
-      if (exploreOnly &&
-          !kWaifuExploreToolNames.contains(canon) &&
-          canon != kWaifuToolTask) {
-        permissions.record(name: name, args: work);
-        _reject(canon, 'explore is read-only', args: work, path: call.path);
-        return;
-      }
-      final verdict = permissions.decide(call, pathMode: session.pathMode);
-      switch (verdict.kind) {
-        case WaifuDecisionKind.deny:
-          permissions.record(name: name, args: work);
-          _reject(canon, verdict.reason, args: work, path: call.path);
-          return;
-        case WaifuDecisionKind.ask:
-          final doom = permissions.isDoom(name, work);
-          final decision = await _decide(
-            WaifuAskRequest(
-              toolName: canon,
-              summary: permissions.summaryFor(name, work),
-              why: permissions.whyFor(name: name, args: work, doomLoop: doom),
-              doomLoop: doom,
-            ),
-          );
-          if (_aborted) {
-            _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
-            _noteToolHistory(
-              canon,
-              'stopped',
-              false,
-              path: call.path,
-              args: work,
-            );
-            return;
-          }
-          if (decision == WaifuAskDecision.deny) {
-            permissions.record(name: name, args: work);
-            _reject(canon, 'denied by user', args: work, path: call.path);
-            return;
-          }
-          if (decision == WaifuAskDecision.allowAlways) {
-            permissions.allowAlways();
-          }
-        case WaifuDecisionKind.allow:
-          break;
-      }
-      if (session.mode == WaifuMode.plan &&
-          (canon == kWaifuToolWrite ||
-              canon == kWaifuToolEdit ||
-              canon == kWaifuToolApplyPatch)) {
-        final path = call.path;
-        final live = path == null
-            ? 'plan mode can only write under $kWaifuPlansDir'
-            : await waifuPlanWriteLiveBlock(session.folderRoot, path);
-        if (live != null) {
-          permissions.record(name: name, args: work);
-          _reject(canon, live, args: work, path: call.path);
-          return;
-        }
-      }
-      permissions.record(name: name, args: work);
-      final result = switch (canon) {
-        kWaifuToolTask => await _runTask(kind, work),
-        kWaifuToolWorkflow => await _runWorkflow(work),
-        _ => await _dispatch(canon, work, original: name),
-      };
-      if (_aborted) {
-        _pushChip(WaifuToolChip(name: canon, detail: 'stopped', ok: false));
-        _noteToolHistory(
-          canon,
-          result.output,
-          false,
-          path: call.path,
-          args: work,
-        );
-        return;
-      }
-      if (result.write != null) {
-        _noteDiskWrite(result.write!);
-      }
-      if (session.mode == WaifuMode.plan &&
-          result.write != null &&
-          waifuRelativeIsPlanArtifact(result.write!.relativePath)) {
-        session.activePlanPath = result.write!.relativePath;
-      }
-      _turn.noteResult(canon, result, session.lastWrite, args: work);
-      _noteVerifyReceipt();
-      final detail = !result.ok
-          ? waifuClipChipError(result.output)
-          : waifuIsDuplicateToolStub(result.output)
-          ? kWaifuDuplicateInHistory
-          : waifuChipDetail(canon, work);
-      _pushChip(WaifuToolChip(name: canon, detail: detail, ok: result.ok));
-      _noteToolHistory(
-        canon,
-        result.output,
-        result.ok,
-        path: call.path,
-        args: work,
+      await client.promptAndPump(
+        sessionId: _sessionId!,
+        parts: openCodePromptParts(text: text, imagePng: imagePng),
+        agent: openCodeAgentForMode(session.mode),
+        sink: this,
       );
     } catch (e) {
-      _reject(canon, '$e', args: work, path: call.path);
-    } finally {
-      _toolCallId = null;
-      _settlePendingChip(canon);
-    }
-  }
-
-  Set<String> get _mcpNames => {
-    for (final t in waifuKeepMcpTools(_mcpToolsNow()))
-      ((t['function'] as Map?)?['name'] ?? '').toString(),
-  }.difference({''});
-
-  Future<WaifuAskDecision> _decide(WaifuAskRequest req) async {
-    final ask = onAsk;
-    if (ask == null) {
-      return req.doomLoop ? WaifuAskDecision.deny : WaifuAskDecision.allowOnce;
-    }
-    final wait = Completer<WaifuAskDecision>();
-    _askWait = wait;
-    ask(req).then((d) {
-      if (!wait.isCompleted) wait.complete(d);
-    });
-    final decision = await wait.future;
-    if (identical(_askWait, wait)) _askWait = null;
-    return decision;
-  }
-
-  void _reject(
-    String name,
-    String message, {
-    String? path,
-    Map<String, dynamic>? args,
-  }) {
-    _pushChip(
-      WaifuToolChip(name: name, detail: waifuClipChipError(message), ok: false),
-    );
-    _noteToolHistory(name, message, false, path: path, args: args);
-  }
-
-  void _pushChip(WaifuToolChip chip) {
-    final last = _liveAssistant();
-    final chips = List<WaifuToolChip>.from(last.chips);
-    if (!chip.pending) {
-      final i = chips.lastIndexWhere((c) => c.pending && c.name == chip.name);
-      if (i >= 0) {
-        chips[i] = chip;
+      if (imagePng != null) {
+        session.transcript.add(
+          const WaifuMessage.assistant(kWaifuPhotosUnsupported),
+        );
+        try {
+          await client.promptAndPump(
+            sessionId: _sessionId!,
+            parts: openCodePromptParts(text: text),
+            agent: openCodeAgentForMode(session.mode),
+            sink: this,
+          );
+        } catch (e2) {
+          session.transcript.add(WaifuMessage.assistant('$e2'));
+        }
       } else {
-        chips.add(chip);
+        session.transcript.add(WaifuMessage.assistant('$e'));
       }
-    } else {
-      chips.add(chip);
     }
-    _writeLive(last.copyWith(chips: chips));
+  }
+
+  Future<OpenCodeClient?> _ensureClient() async {
+    if (_client != null && _sessionId != null) return _client;
+    final mgr = manager;
+    final back = backend;
+    if (mgr == null || back == null) return _client;
+    final info = await waifuOpenCodeSitDown(
+      manager: mgr,
+      clientOf: (base, directory) {
+        return _client = OpenCodeClient(baseUri: base, directory: directory);
+      },
+      coworker: session.coworker,
+      folderRoot: session.folderRoot,
+      pathMode: session.pathMode,
+      mode: session.mode,
+      backend: back,
+    );
+    _sessionId = info.id;
+    _client ??= OpenCodeClient(
+      baseUri: mgr.baseUri,
+      directory: session.folderRoot,
+    );
+    return _client;
+  }
+
+  @override
+  void onTextDelta(String delta) {
+    if (delta.isEmpty) return;
+    if (_liveIndex == null) {
+      session.transcript.add(WaifuMessage.assistant(delta));
+      _liveIndex = session.transcript.length - 1;
+    } else {
+      final cur = session.transcript[_liveIndex!];
+      session.transcript[_liveIndex!] = cur.copyWith(text: '${cur.text}$delta');
+    }
     _emit();
   }
 
-  String _system() => buildWaifuCoworkerPrompt(session.coworker);
+  @override
+  void onTool({
+    required String name,
+    required String detail,
+    required bool ok,
+    bool pending = false,
+  }) {
+    session.transcript.add(
+      WaifuMessage.tool(name: name, output: detail, ok: pending ? true : ok),
+    );
+    final idx = _liveIndex;
+    if (idx != null) {
+      final cur = session.transcript[idx];
+      session.transcript[idx] = cur.copyWith(
+        chips: [
+          ...cur.chips,
+          WaifuToolChip(name: name, detail: detail, ok: ok, pending: pending),
+        ],
+      );
+    }
+    _emit();
+  }
 
-  Map<String, String> _loopBlocks() => {
-    'todos': todos.items.isEmpty ? '' : todos.read(),
-    'skills': skills.catalogPrompt,
-    'mcp': mcpOptIn ? waifuMcpToolsLine(waifuKeepMcpTools(_mcpToolsNow())) : '',
-  };
+  @override
+  void onPermissionAsk(OpenCodePermissionAsked ask) {
+    unawaited(_replyPermission(ask));
+  }
 
-  List<Map<String, Object>> _openaiMessages() {
-    final blocks = _loopBlocks();
-    return waifuOpenAiMessages(
-      folderName: session.folderRoot,
-      coworkerName: session.coworker.name,
-      transcript: session.transcript,
-      todos: blocks['todos']!,
-      mentionBlock: _mentionBlock,
-      skillBlock: blocks['skills']!,
-      mcpBlock: blocks['mcp']!,
-      preserveThinking: session.preserveThinking,
-      pathMode: session.pathMode,
-      taskDepthRemaining: kWaifuMaxTaskDepth - depth,
-      turnContractCue: _safeCue(),
-      mode: session.mode,
-      planBlock: _planBlock,
+  @override
+  void onTodo(List<OpenCodeTodoItem> todos) {
+    session.todos.write([
+      for (var i = 0; i < todos.length; i++)
+        {
+          'id': '${i + 1}',
+          'content': todos[i].content,
+          'status': todos[i].status,
+        },
+    ]);
+    _emit();
+  }
+
+  @override
+  void onIdle() {
+    _liveIndex = null;
+    _emit();
+  }
+
+  @override
+  void onError(String message) {
+    session.transcript.add(WaifuMessage.assistant(message));
+    _emit();
+  }
+
+  Future<void> _replyPermission(OpenCodePermissionAsked ask) async {
+    final client = _client;
+    final id = _sessionId;
+    if (client == null || id == null) return;
+    String response;
+    if (session.mode == WaifuMode.yolo) {
+      response = 'once';
+    } else {
+      final decision =
+          await onAsk?.call(
+            WaifuAskRequest(
+              toolName: ask.permission,
+              summary: ask.patterns.join(', '),
+            ),
+          ) ??
+          WaifuAskDecision.deny;
+      response = switch (decision) {
+        WaifuAskDecision.allowOnce => 'once',
+        WaifuAskDecision.allowAlways => 'always',
+        WaifuAskDecision.deny => 'reject',
+      };
+    }
+    await client.respondPermission(
+      sessionId: id,
+      permissionId: ask.permissionId,
+      response: response,
     );
   }
 
