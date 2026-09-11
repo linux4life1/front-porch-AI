@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🖥️ **Waifu Coder sounds like the card without lying** — wrap-up, check-in, and stuck lines stay in the selected coworker’s voice, but they cannot claim a write or a passing test that this turn has no receipt for. “Hmph. Done.” is still not done. Sitting down on a Rust crate does not get Flutter coaching.
+
 - 🖥️ **Waifu Coder Jail / Disk stay honest** — sit-down scope is chips, not stuck radios. Picking Disk after a jail sit-down asks honesty again; confirm actually opens the disk. A denied Plan write says it did not write. Wiping the folder above the sit-down is still denied.
 
 - 💬 **Add Greeting works again** — editing a character (or group) that had no alternate greetings used to crash the moment you tapped Add.

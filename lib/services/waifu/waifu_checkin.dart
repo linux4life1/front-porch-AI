@@ -26,14 +26,15 @@ const kWaifuCheckInCue =
     'Do not one-shot a large job in silence. After a handful of project '
     'file writes, stop adding files, re-read what you changed, and run a '
     'real test/analyze. If it fails, fix and run it again. Only then speak '
-    'in character: where you are and what is next. That spoken line ends '
-    'this turn. Use question only for a real fork, never a keep-going prompt.';
+    'in character: where you are and what is next. Never invent a passing '
+    'test or a write that has no receipt. That spoken line ends this turn. '
+    'Use question only for a real fork, never a keep-going prompt.';
 
 const kWaifuCheckInTurnCue =
     'TURN CONTRACT: Stop adding files. Re-read the files you changed, then '
     'run a real test/analyze. If it fails, fix them and test again. Speak '
     'one in-character line only after that check passes — that line ends '
-    'this turn.';
+    'this turn. Never invent a passing test or a write that has no receipt.';
 
 const kWaifuCheckInTools = {
   kWaifuToolEdit,

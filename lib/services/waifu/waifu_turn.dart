@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/waifu/waifu_card_speech.dart';
 import 'package:front_porch_ai/services/waifu/waifu_fs.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
@@ -138,7 +139,7 @@ class WaifuTurn {
     final tail = mutationSucceeded
         ? 'The work reached disk, but I lost the words for the porch report.'
         : kWaifuStuckWrap;
-    return '$failReason. $tail';
+    return waifuHonestFallbackSpeech('$failReason. $tail', kWaifuStuckWrap);
   }
 
   /// Empty-calls wrap-up. Sole authority — no decideFinal, no generic Done.
@@ -149,7 +150,7 @@ class WaifuTurn {
     rememberToolSpeech(body);
     final trimmed = body.trim();
     final generic = waifuLooksGenericCompletion(trimmed);
-    if (mutationRequired && !mutationSucceeded && !mutationAttempted) {
+    if (mutationRequired && !mutationSucceeded) {
       if (contract.mutationCorrectionAttempts < kWaifuTurnCorrectionAttempts) {
         requestMutation();
         return WaifuTurnStep.retry;
@@ -169,7 +170,7 @@ class WaifuTurn {
       phase = WaifuPhase.done;
       return WaifuTurnStep.fail;
     }
-    if (trimmed.isEmpty || (generic && successfulTool)) {
+    if (trimmed.isEmpty || generic) {
       if (canRetrySpeech) {
         requestSpeech();
         return WaifuTurnStep.retry;
@@ -188,6 +189,22 @@ class WaifuTurn {
         return WaifuTurnStep.retry;
       }
       failReason = 'no todowrite receipt for a claimed todo update';
+      pendingSpeech = failureLine(body);
+      phase = WaifuPhase.done;
+      return WaifuTurnStep.fail;
+    }
+    final inventedMutate =
+        waifuLooksMutateSuccessClaim(trimmed) && !mutationSucceeded;
+    final inventedVerify =
+        waifuLooksVerifySuccessClaim(trimmed) && !verified;
+    if (inventedMutate || inventedVerify) {
+      if (canRetrySpeech) {
+        requestSpeech();
+        return WaifuTurnStep.retry;
+      }
+      failReason = inventedMutate
+          ? 'wrap-up claimed a file change with no receipt'
+          : 'wrap-up claimed a passing check with no receipt';
       pendingSpeech = failureLine(body);
       phase = WaifuPhase.done;
       return WaifuTurnStep.fail;

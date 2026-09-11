@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/waifu/waifu_card_speech.dart';
 import 'package:front_porch_ai/services/waifu/waifu_checkin.dart';
 import 'package:front_porch_ai/services/waifu/waifu_fs.dart';
 import 'package:front_porch_ai/services/waifu/waifu_verify.dart';
@@ -100,7 +101,7 @@ bool waifuTurnHasTodoWriteReceipt(Iterable<WaifuToolChip> chips) {
   return false;
 }
 
-bool waifuLooksGenericCompletion(String body) {
+bool _waifuLooksBareGeneric(String body) {
   final normalized = body.trim().toLowerCase().replaceAll(
     RegExp(r'[.!…\s]+$'),
     '',
@@ -113,6 +114,12 @@ bool waifuLooksGenericCompletion(String body) {
         r"(?:the )?[\w./-]+|applied (?:the )?(?:patch|changes)|"
         r"changes? (?:applied|saved))$",
       ).hasMatch(normalized);
+}
+
+bool waifuLooksGenericCompletion(String body) {
+  if (_waifuLooksBareGeneric(body)) return true;
+  final stripped = waifuStripCardWrappers(body);
+  return stripped != body.trim() && _waifuLooksBareGeneric(stripped);
 }
 
 class WaifuTurnContract {
@@ -292,7 +299,7 @@ class WaifuTurnContract {
     cue =
         'TURN CONTRACT: Tool work is over. Give one short spoken wrap-up in '
         'the selected card’s diction now. No tool call, source dump, generic '
-        '“Done”, or empty answer.';
+        '“Done”, or empty answer. ${waifuSpeechKindCue(WaifuSpeechKind.wrapUp)}';
   }
 
   void requestCheckInSpeech() {
@@ -337,6 +344,14 @@ class WaifuTurnContract {
     if (enforceVerify && verifyRequired && !verified) {
       return 'I put a change on disk but did not re-read the files and pass '
           'a test, so I stopped instead of pretending the work was done.';
+    }
+    if (waifuLooksMutateSuccessClaim(body) && !mutationSucceeded) {
+      return 'I did not actually change a file, so I stopped instead of '
+          'pretending I did.';
+    }
+    if (waifuLooksVerifySuccessClaim(body) && !verified) {
+      return 'I did not actually run a passing check, so I stopped instead of '
+          'pretending I did.';
     }
     final trimmed = body.trim();
     if (trimmed.isNotEmpty && !waifuLooksGenericCompletion(trimmed)) {

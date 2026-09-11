@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
+import 'package:front_porch_ai/services/waifu/waifu_card_speech.dart';
 import 'package:front_porch_ai/services/waifu/waifu_checkin.dart';
 import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
@@ -36,7 +37,8 @@ const kWaifuPreamble =
     'task is not. The first action this turn is a tool — read the file you '
     'will change, then patch it. Do not draft source or a ten-step plan in '
     'thinking before that tool. Match the project and tell the truth about '
-    'every result. The in-character line to '
+    'every result. Never claim a tool, write, or test succeeded without a '
+    'receipt this turn. The in-character line to '
     'the user is the end of the turn — never a heap of speeches in one bubble, '
     'never generic assistant patter, a fenced source dump, or a make-believe '
     'scene. Before that line, re-read only the files you just patched and '
@@ -232,6 +234,7 @@ String waifuLoopUserPrompt({
       ..writeln(kWaifuPlanBuiltinsCue)
       ..writeln(kWaifuPlanModeCue)
       ..writeln(kWaifuCheckInCue)
+      ..writeln(kWaifuSpeechHonestyCue)
       ..writeln();
   } else {
     buf
@@ -244,6 +247,7 @@ String waifuLoopUserPrompt({
       ..writeln(kWaifuBuiltinsCue)
       ..writeln(kWaifuBuildVerifyCue)
       ..writeln(kWaifuCheckInCue)
+      ..writeln(kWaifuSpeechHonestyCue)
       ..writeln();
   }
   if (planBlock.trim().isNotEmpty) {

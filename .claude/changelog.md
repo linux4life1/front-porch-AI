@@ -1,3 +1,23 @@
+## 2026-09-11 — feat(waifu): Belt E character card on top (speech + turn-contract)
+- **Why:** OpenCode-class power still needed a real V2 personality on
+  wrap-up / check-in / stuck without reopening Belt A theater. Card
+  diction was already in the system prompt, but fallback speech and
+  wrap-up could still soft-accept Done, empty, or a denied write when
+  the model sassed “it’s fixed.” Web-search coaching named Flutter/Dart
+  even on a foreign sit-down.
+- **What:** Thin speech-honesty layer (`waifu_card_speech.dart`). Cues
+  tell the model to speak as the card and forbid inventing receipts.
+  Turn contract rips the `!mutationAttempted` hole so a denied write
+  cannot wrap up as done; generic Done with card wrappers is still
+  Done; mutate/verify success claims without receipts retry then fail.
+  Web-search tool copy is stack-agnostic. No loop rewrite, no verify
+  family/mole changes, no Belt B harness rebuild.
+- **Files:** `waifu_card_speech.dart`, `waifu_coworker_prompt.dart`,
+  `waifu_turn_contract.dart`, `waifu_turn.dart`, `waifu_checkin.dart`,
+  `waifu_webfetch.dart`, `waifu.dart`,
+  `waifu_belt_e_card_speech_test.dart`, `docs/Rawhide.md`
+- **Commit:** (pending)
+
 ## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e
 - **Why:** Belt A #246 squashed to Rawhide as `90dcb76e` (old A tip
   `139f50f8`). B tip `d186c35a` was stacked on that A tip, so GitHub
