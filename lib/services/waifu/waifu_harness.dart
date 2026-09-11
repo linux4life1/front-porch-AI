@@ -249,34 +249,33 @@ class WaifuHarness implements OpenCodeEventSink {
   }) {
     if (messageId.isNotEmpty) _lastAssistantMessageId = messageId;
     if (delta.isEmpty) return;
-    if (_liveIndex == null) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final asThink = thinking || waifuLooksLikeThinkingDump(delta);
-      session.transcript.add(
-        WaifuMessage.assistant(
-          asThink ? '' : delta,
-          reasoning: asThink ? delta : '',
-          thinkingStartMs: asThink ? now : null,
-        ),
-      );
-      _liveIndex = session.transcript.length - 1;
-      _emit();
-      return;
-    }
-    final cur = session.transcript[_liveIndex!];
+    if (thinking && waifuThinkingNoise(delta)) return;
+    final idx = _ensureLiveAssistant(
+      thinking: thinking || waifuLooksLikeThinkingDump(delta),
+    );
+    final cur = session.transcript[idx];
     final asThink =
         thinking ||
         (cur.text.isEmpty &&
             (cur.reasoning.isNotEmpty || waifuLooksLikeThinkingDump(delta)));
     if (asThink) {
+      if (waifuThinkingNoise(delta)) return;
+      var next = '${cur.reasoning}$delta';
+      if (thinking &&
+          cur.reasoning.isNotEmpty &&
+          (delta.startsWith(cur.reasoning) ||
+              cur.reasoning.startsWith(delta))) {
+        next = delta.length >= cur.reasoning.length ? delta : cur.reasoning;
+      }
+      if (waifuThinkingNoise(next)) return;
       final start =
           cur.thinkingStartMs ?? DateTime.now().millisecondsSinceEpoch;
-      session.transcript[_liveIndex!] = cur.copyWith(
-        reasoning: '${cur.reasoning}$delta',
+      session.transcript[idx] = cur.copyWith(
+        reasoning: next,
         thinkingStartMs: start,
       );
     } else {
-      session.transcript[_liveIndex!] = cur.copyWith(text: '${cur.text}$delta');
+      session.transcript[idx] = cur.copyWith(text: '${cur.text}$delta');
     }
     _emit();
   }
@@ -292,6 +291,7 @@ class WaifuHarness implements OpenCodeEventSink {
     session.transcript.add(
       WaifuMessage.tool(name: name, output: detail, ok: pending ? true : ok),
     );
+    _ensureLiveAssistant(thinking: false);
     final idx = _liveIndex;
     if (idx != null) {
       final cur = session.transcript[idx];
@@ -343,7 +343,7 @@ class WaifuHarness implements OpenCodeEventSink {
   @override
   void onIdle() {
     final idx = _liveIndex;
-    if (idx != null) {
+    if (idx != null && idx < session.transcript.length) {
       final cur = session.transcript[idx];
       final start = cur.thinkingStartMs;
       if (start != null && cur.thinkingMs == 0) {
@@ -352,8 +352,30 @@ class WaifuHarness implements OpenCodeEventSink {
         );
       }
     }
-    _liveIndex = null;
     _emit();
+  }
+
+  int _ensureLiveAssistant({required bool thinking}) {
+    if (_liveIndex != null &&
+        _liveIndex! >= 0 &&
+        _liveIndex! < session.transcript.length &&
+        session.transcript[_liveIndex!].kind == WaifuMsgKind.assistant) {
+      return _liveIndex!;
+    }
+    for (var i = session.transcript.length - 1; i >= 0; i--) {
+      final k = session.transcript[i].kind;
+      if (k == WaifuMsgKind.user) break;
+      if (k == WaifuMsgKind.assistant) {
+        _liveIndex = i;
+        return i;
+      }
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    session.transcript.add(
+      WaifuMessage.assistant('', thinkingStartMs: thinking ? now : null),
+    );
+    _liveIndex = session.transcript.length - 1;
+    return _liveIndex!;
   }
 
   @override
@@ -412,4 +434,10 @@ bool waifuLooksLikeThinkingDump(String raw) {
   if (t.contains('i have the todo list')) return true;
   if (t.contains('the todos are:')) return true;
   return false;
+}
+
+bool waifuThinkingNoise(String raw) {
+  final t = raw.trim().toLowerCase();
+  if (t.isEmpty) return true;
+  return t == 'thought' || t == 'thinking' || t == '...' || t == '…';
 }
