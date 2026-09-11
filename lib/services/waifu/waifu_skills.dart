@@ -20,7 +20,7 @@ import 'dart:io';
 
 import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
-import 'package:front_porch_ai/services/waifu/waifu_tools.dart';
+import 'package:front_porch_ai/services/waifu/waifu_tokens.dart';
 import 'package:path/path.dart' as p;
 
 const kWaifuSkillScanMaxDepth = 4;

@@ -25,9 +25,7 @@ void main() {
         Directory(root)
             .listSync(recursive: true)
             .whereType<File>()
-            .where((file) => file.path.endsWith('.dart'))
-            // Belt A owns this file byte-identical. B does not rename it.
-            .where((file) => !file.path.endsWith('waifu_verify_theater.dart')),
+            .where((file) => file.path.endsWith('.dart')),
       );
     }
     files.addAll([

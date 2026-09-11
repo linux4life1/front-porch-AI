@@ -82,6 +82,7 @@ Future<void> writeWaifuOpenCodeConfig({
   required OpenCodePorchBackend backend,
   required WaifuPathMode pathMode,
   required WaifuMode mode,
+  Map<String, dynamic>? mcp,
 }) {
   return writeOpenCodeConfigFile(
     closet,
@@ -95,6 +96,7 @@ Future<void> writeWaifuOpenCodeConfig({
         yolo: mode == WaifuMode.yolo,
       ),
       defaultAgent: 'waifu',
+      mcp: mcp,
     ),
   );
 }
@@ -108,6 +110,7 @@ Future<OpenCodeSessionInfo> waifuOpenCodeSitDown({
   required WaifuPathMode pathMode,
   required WaifuMode mode,
   required OpenCodePorchBackend backend,
+  Map<String, dynamic>? mcp,
 }) async {
   await writeWaifuOpenCodeConfig(
     closet: manager.closet,
@@ -115,6 +118,7 @@ Future<OpenCodeSessionInfo> waifuOpenCodeSitDown({
     backend: backend,
     pathMode: pathMode,
     mode: mode,
+    mcp: mcp,
   );
   await manager.start(workingDirectory: folderRoot);
   final client = clientOf(manager.baseUri, folderRoot);

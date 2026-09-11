@@ -155,11 +155,7 @@ class _WaifuPageState extends State<WaifuPage> {
     if (injected != null) return injected;
     if (_created != null) return _created;
     LLMProvider? provider;
-    StorageService? storage;
     OpenCodeManager? oc;
-    try {
-      storage = Provider.of<StorageService>(context, listen: false);
-    } catch (_) {}
     try {
       oc = Provider.of<OpenCodeManager>(context, listen: false);
     } catch (_) {}
@@ -170,19 +166,17 @@ class _WaifuPageState extends State<WaifuPage> {
         if (oc == null) return null;
       }
     }
-    final webSearch = waifuWebSearchBind(context);
     return _created = waifuBindSessionHarness(
       session: widget.session,
       llm: widget.llm,
       provider: provider,
-      storage: storage,
       manager: oc,
       store: _storeOf(context),
       onChanged: _refresh,
       onAsk: _ask,
       onQuestion: _askQuestion,
-      mcpOf: waifuLiveMcpOf(context),
-      webSearch: webSearch,
+      mcpConfigOf: () =>
+          waifuOpenCodeMcpMap(context, optIn: widget.session.mcpOptIn),
       skills: _skillsOf(),
     );
   }

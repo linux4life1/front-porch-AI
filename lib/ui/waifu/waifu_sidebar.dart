@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_context_bar.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mcp_panel.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_opencode_status.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mode_bar.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_skills_panel.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_todo_list.dart';
@@ -129,6 +130,7 @@ class WaifuSidebar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   WaifuContextBar(session: session, onCompact: onCompact),
+                  const WaifuOpenCodeStatus(),
                   if (skills != null) ...[
                     PorchAccordion(
                       id: 'waifu_skills',

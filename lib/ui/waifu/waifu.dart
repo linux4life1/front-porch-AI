@@ -35,6 +35,7 @@ export 'waifu_language_help.dart';
 export 'waifu_mcp_bind.dart';
 export 'waifu_mcp_opt_in.dart';
 export 'waifu_mcp_panel.dart';
+export 'waifu_opencode_status.dart';
 export 'waifu_skills_panel.dart';
 export 'waifu_mode_bar.dart';
 export 'waifu_plan_panel.dart';

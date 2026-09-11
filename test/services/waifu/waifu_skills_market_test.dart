@@ -5,9 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
@@ -75,5 +73,4 @@ void main() {
     expect(hub.catalogPrompt, contains('pdf'));
     expect(hub.listing(), contains('pdf (installed)'));
   });
-
 }

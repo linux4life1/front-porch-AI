@@ -16,23 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/waifu/waifu_compact.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 
-/// Think budget for a coding turn. `0` is unlimited on several hosts.
-/// `enabled: false` adds `exclude: true`, which hides thoughts and does
-/// not stop GLM 5.3. 8192 tokens at ~20 tok/s is ~400s — a novel, not a
-/// patch. 512 is enough to look at a screenshot and pick a tool.
-/// Do not send `effort`: GLM 5.3 remaps `low`→`high` and then fills the
-/// whole budget.
-const kWaifuThinkCapTokens = 512;
-
-/// Wrap-up (no tools). A 512-token think on Nano-GPT is ~2 minutes.
-const kWaifuWrapThinkCapTokens = 64;
-
+/// Test-seam LLM. Production send talks to OpenCode, not this door.
 class WaifuLlmTurn {
   const WaifuLlmTurn({
     required this.systemPrompt,
@@ -53,8 +39,6 @@ class WaifuLlmTurn {
   final List<Map<String, Object>>? messages;
 }
 
-/// Thin generateWithTools door. Production wraps [LLMService]; tests inject
-/// [ScriptedWaifuLlm]. Waifu Coder does not construct ChatService.
 abstract class WaifuLlm {
   Future<LlmToolResponse?> generate({
     required String systemPrompt,
@@ -69,82 +53,10 @@ abstract class WaifuLlm {
 
   void abort() {}
 
-  /// Fail-closed door. Scripted tests default true; `.unsupported()` stays
-  /// a generate-null path so that receipt is still covered.
   bool get toolsSupported => true;
 }
 
-class LlmServiceWaifuLlm implements WaifuLlm {
-  LlmServiceWaifuLlm(
-    this._serviceOf, {
-    this.settingsOf,
-    this.storage,
-    this.remainingTokensOf,
-  });
-
-  /// Fresh each call so Model Settings swapping backends takes effect.
-  final LLMService Function() _serviceOf;
-  final ChatGenerationSettings Function()? settingsOf;
-  final StorageService? storage;
-
-  /// Remaining context for this turn. Chat Max Output Tokens is ignored.
-  final int Function()? remainingTokensOf;
-
-  @override
-  Future<LlmToolResponse?> generate({
-    required String systemPrompt,
-    required String prompt,
-    required List<Map<String, dynamic>> tools,
-    List<String>? images,
-    void Function(String chunk)? onChunk,
-    int? maxTokens,
-    bool forceTool = true,
-    List<Map<String, Object>>? messages,
-  }) {
-    final g = settingsOf?.call();
-    final s = storage;
-    final toolsOn = tools.isNotEmpty;
-    return _serviceOf().generateWithTools(
-      GenerationParams(
-        prompt: prompt,
-        systemPrompt: systemPrompt,
-        chatMessages: messages,
-        maxLength:
-            maxTokens ??
-            remainingTokensOf?.call() ??
-            waifuOutputTokenBudget(budget: kWaifuDefaultContextTokens, used: 0),
-        minLength: 0,
-        temperature: g != null && s != null ? g.resolveTemperature(s) : 0.7,
-        minP: g != null && s != null ? g.resolveMinP(s) : 0.0,
-        topP: g != null && s != null ? g.resolveTopP(s) : 0.9,
-        topK: g != null && s != null ? g.resolveTopK(s) : 0,
-        // Visible short think, then a tool. Off+exclude hides the chevron
-        // and does not stop GLM 5.3. Empty effort: do not remap Low→High.
-        // Required only when the harness asks — after the first tool, auto.
-        reasoningEnabled: true,
-        reasoningEffort: '',
-        reasoningMaxTokens: toolsOn
-            ? kWaifuThinkCapTokens
-            : kWaifuWrapThinkCapTokens,
-        toolChoice: toolsOn && forceTool ? kToolChoiceRequired : null,
-        images: images,
-        onChunk: onChunk,
-      ),
-      tools,
-    );
-  }
-
-  @override
-  void abort() => _serviceOf().abortGeneration();
-
-  /// Production wrap has no probe of its own. Session / ChatService stamp
-  /// the fail-closed verdict; this door stays open unless a test injects
-  /// [ScriptedWaifuLlm] with `toolsSupported: false`.
-  @override
-  bool get toolsSupported => true;
-}
-
-/// Deterministic LLM for harness tests and widget pumps.
+/// Deterministic LLM so chrome tests can bind a harness without OpenCode.
 class ScriptedWaifuLlm implements WaifuLlm {
   ScriptedWaifuLlm(
     List<LlmToolResponse?> script, {

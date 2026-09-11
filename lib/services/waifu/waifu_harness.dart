@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:front_porch_ai/services/opencode/opencode.dart';
+import 'package:front_porch_ai/services/waifu/waifu_honesty.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_llm.dart';
 import 'package:front_porch_ai/services/waifu/waifu_opencode.dart';
@@ -32,7 +33,6 @@ import 'package:front_porch_ai/services/waifu/waifu_skill_market.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_store.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
-import 'package:front_porch_ai/services/waifu/waifu_webfetch.dart';
 
 const kWaifuPhotosUnsupported =
     'Photos are not in this OpenCode version — the text still went through.';
@@ -44,21 +44,17 @@ class WaifuHarness implements OpenCodeEventSink {
     this.llm,
     this.manager,
     OpenCodeClient? client,
+    String? sessionId,
     this.backend,
     this.onChanged,
     this.onAsk,
     this.onQuestion,
     this.store,
     this.mcpOptIn = false,
-    this.mcpTools = const [],
-    this.mcpToolsOf,
-    this.mcpCall,
-    this.mcpCallOf,
-    this.webSearch,
-    this.depth = 0,
-    this.exploreOnly = false,
+    this.mcpConfigOf,
     WaifuSkillHub? skills,
   }) : _client = client,
+       _sessionId = sessionId,
        skills = skills ?? WaifuSkillHub(projectRoot: session.folderRoot);
 
   final WaifuSession session;
@@ -66,28 +62,28 @@ class WaifuHarness implements OpenCodeEventSink {
   final OpenCodeManager? manager;
   final OpenCodePorchBackend? backend;
   final WaifuStore? store;
-  final int depth;
-  final bool exploreOnly;
   final WaifuSkillHub skills;
   void Function()? onChanged;
   WaifuAskFn? onAsk;
   WaifuQuestionFn? onQuestion;
   bool mcpOptIn;
-  final List<Map<String, dynamic>> mcpTools;
-  final List<Map<String, dynamic>> Function()? mcpToolsOf;
-  final WaifuMcpCallFn? mcpCall;
-  final WaifuMcpCallFn? Function()? mcpCallOf;
-  final WaifuWebSearchFn? webSearch;
+  final Map<String, dynamic> Function()? mcpConfigOf;
 
   OpenCodeClient? _client;
   String? _sessionId;
   bool _aborted = false;
   int? _liveIndex;
+  String? _lastAssistantMessageId;
+  var _canRedo = false;
 
   WaifuTodos get todos => session.todos;
   bool get isRunning => session.running;
-  bool get canUndo => false;
-  bool get canRedo => false;
+  bool get canUndo =>
+      !session.running &&
+      _sessionId != null &&
+      _lastAssistantMessageId != null &&
+      !_canRedo;
+  bool get canRedo => !session.running && _sessionId != null && _canRedo;
 
   void applyPathMode(WaifuPathMode next) {
     session.pathMode = next;
@@ -96,9 +92,47 @@ class WaifuHarness implements OpenCodeEventSink {
 
   void refreshMeter() => _emit();
 
-  Future<void> undo() async {}
+  Future<void> undo() async {
+    final client = _client;
+    final sid = _sessionId;
+    var mid = _lastAssistantMessageId;
+    if (client == null || sid == null || session.running) return;
+    mid ??= await _lastAssistantId(client, sid);
+    if (mid == null || mid.isEmpty) {
+      session.transcript.add(const WaifuMessage.assistant(kWaifuUndoNeedsTurn));
+      _emit();
+      return;
+    }
+    try {
+      await client.revert(sessionId: sid, messageId: mid);
+      _lastAssistantMessageId = mid;
+      _canRedo = true;
+      session.transcript.add(
+        const WaifuMessage.assistant('Reverted the last OpenCode turn.'),
+      );
+    } catch (e) {
+      session.transcript.add(WaifuMessage.assistant('$e'));
+    }
+    _emit();
+    await store?.saveLast(session);
+  }
 
-  Future<void> redo() async {}
+  Future<void> redo() async {
+    final client = _client;
+    final sid = _sessionId;
+    if (client == null || sid == null || !_canRedo || session.running) return;
+    try {
+      await client.unrevert(sid);
+      _canRedo = false;
+      session.transcript.add(
+        const WaifuMessage.assistant('Restored the reverted OpenCode turn.'),
+      );
+    } catch (e) {
+      session.transcript.add(WaifuMessage.assistant('$e'));
+    }
+    _emit();
+    await store?.saveLast(session);
+  }
 
   Future<void> compact() async {
     await store?.saveLast(session);
@@ -153,6 +187,7 @@ class WaifuHarness implements OpenCodeEventSink {
     if (text.isEmpty) text = '(photo)';
     _aborted = false;
     _liveIndex = null;
+    _canRedo = false;
     session.running = true;
     session.transcript.add(WaifuMessage.user(text, imagePath: imagePath));
     if (session.title.isEmpty) session.title = waifuTitleFrom(text);
@@ -230,6 +265,7 @@ class WaifuHarness implements OpenCodeEventSink {
       pathMode: session.pathMode,
       mode: session.mode,
       backend: back,
+      mcp: session.mcpOptIn ? mcpConfigOf?.call() : null,
     );
     _sessionId = info.id;
     _client ??= OpenCodeClient(
@@ -240,7 +276,8 @@ class WaifuHarness implements OpenCodeEventSink {
   }
 
   @override
-  void onTextDelta(String delta) {
+  void onTextDelta(String delta, {String messageId = ''}) {
+    if (messageId.isNotEmpty) _lastAssistantMessageId = messageId;
     if (delta.isEmpty) return;
     if (_liveIndex == null) {
       session.transcript.add(WaifuMessage.assistant(delta));
@@ -332,6 +369,14 @@ class WaifuHarness implements OpenCodeEventSink {
       permissionId: ask.permissionId,
       response: response,
     );
+  }
+
+  Future<String?> _lastAssistantId(OpenCodeClient client, String sid) async {
+    final msgs = await client.listMessages(sid);
+    for (final m in msgs.reversed) {
+      if (m.role == 'assistant' && m.id.isNotEmpty) return m.id;
+    }
+    return null;
   }
 
   void _emit() => onChanged?.call();

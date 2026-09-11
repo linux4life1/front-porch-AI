@@ -51,18 +51,16 @@ void main() {
     expect(prompt, contains('You speak in short, pointed sentences.'));
     expect(
       prompt.indexOf('Name: Mira'),
-      lessThan(prompt.indexOf(kWaifuPreamble)),
+      lessThan(prompt.indexOf(kWaifuOpenCodePreamble)),
     );
     expect(
       prompt.indexOf('Persona:'),
-      lessThan(prompt.indexOf(kWaifuPreamble)),
+      lessThan(prompt.indexOf(kWaifuOpenCodePreamble)),
     );
     expect(prompt, contains('Today: 2026-09-06'));
-    expect(prompt, contains(kWaifuPreamble));
-    expect(kWaifuPreamble, contains('Sass is welcome'));
-    expect(kWaifuPreamble.length, lessThan(1000));
-    expect(prompt, isNot(contains(kWaifuLookupCue)));
-    expect(prompt, isNot(contains(kWaifuBuiltinsCue)));
+    expect(prompt, contains(kWaifuOpenCodePreamble));
+    expect(kWaifuOpenCodePreamble, contains('If a joke and a write'));
+    expect(kWaifuOpenCodePreamble.length, lessThan(1000));
   });
 
   test('talk samples expand macros and stay out of the scene', () {
@@ -89,15 +87,18 @@ void main() {
 
   test('preamble does not assume gender', () {
     expect(
-      RegExp(r'\bshe\b', caseSensitive: false).hasMatch(kWaifuPreamble),
+      RegExp(r'\bshe\b', caseSensitive: false).hasMatch(kWaifuOpenCodePreamble),
       isFalse,
     );
     expect(
-      RegExp(r'\bher\b', caseSensitive: false).hasMatch(kWaifuPreamble),
+      RegExp(r'\bher\b', caseSensitive: false).hasMatch(kWaifuOpenCodePreamble),
       isFalse,
     );
     expect(
-      RegExp(r'\bhers\b', caseSensitive: false).hasMatch(kWaifuPreamble),
+      RegExp(
+        r'\bhers\b',
+        caseSensitive: false,
+      ).hasMatch(kWaifuOpenCodePreamble),
       isFalse,
     );
   });

@@ -26,6 +26,7 @@ import 'package:front_porch_ai/ui/settings/tabs/backend/backend_mode_selector.da
 import 'package:front_porch_ai/ui/settings/tabs/backend/remote_api_section.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/omlx_section.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/managed_backend_section.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/opencode_managed_section.dart';
 
 /// Backend tab: backend-mode selector followed by the config section for the
 /// active backend (remote OpenAI-compatible, oMLX, or managed KoboldCPP).
@@ -94,6 +95,7 @@ class BackendTab extends StatelessWidget {
               availableModels: availableModels,
               onModelsFetched: onModelsFetched,
             ),
+          const OpenCodeManagedSection(),
           if (llmProvider.hasManagedProcess && !backendManager.isIntelMac)
             ManagedBackendSection(
               selectedModelPath: selectedModelPath,

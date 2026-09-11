@@ -25,6 +25,9 @@ import 'package:front_porch_ai/services/waifu/waifu_lang_runtime.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 
+/// Recap lines are not spoken by the user or the coworker.
+bool waifuIsPromptRecap(WaifuMessage m) => m.kind == WaifuMsgKind.recap;
+
 String waifuTitleFrom(String task) {
   final t = task.trim().replaceAll(RegExp(r'\s+'), ' ');
   if (t.isEmpty) return kWaifuCoderName;

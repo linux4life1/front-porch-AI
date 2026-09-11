@@ -198,17 +198,6 @@ void waifuRewriteSlashUser(List<WaifuMessage> transcript, String text) {
   transcript[transcript.length - 1] = WaifuMessage.user(expanded);
 }
 
-Map<String, dynamic>? waifuWorkflowSlashArgs(String text) {
-  final cmd = waifuSlashExact(text);
-  if (cmd == null || cmd.name != 'workflow') return null;
-  final rest = text
-      .trim()
-      .replaceFirst(RegExp(r'^/workflow\s*', caseSensitive: false), '')
-      .trim();
-  if (rest.isEmpty) return <String, dynamic>{};
-  return {'name': rest.split(RegExp(r'\s+')).first};
-}
-
 WaifuMode? waifuSlashMode(String name) {
   switch (name) {
     case 'plan':

@@ -72,10 +72,6 @@ void main() {
         expect(hit.ok, isTrue, reason: path);
         expect(hit.path, canonicalOutside, reason: path);
       }
-      final fs = WaifuFs(root.path, pathMode: WaifuPathMode.wholeDisk);
-      final read = await fs.dispatch('read', {'path': '../outside.txt'});
-      expect(read.ok, isTrue);
-      expect(read.output, contains('ordinary outside file'));
       final home =
           Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
       if (home != null && home.isNotEmpty) {
@@ -124,10 +120,5 @@ void main() {
       waifuMcpScopeWarning(WaifuPathMode.wholeDisk),
       contains('Whole-disk access is already open'),
     );
-
-    final jailedTools = waifuFileToolsFor(WaifuPathMode.folderJail).toString();
-    final openTools = waifuFileToolsFor(WaifuPathMode.wholeDisk).toString();
-    expect(jailedTools, contains('paths and cd cannot leave'));
-    expect(openTools, contains('cd elsewhere is allowed'));
   });
 }

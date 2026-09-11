@@ -137,3 +137,14 @@ String waifuMcpScopeWarning(WaifuPathMode pathMode) => switch (pathMode) {
 const kWaifuToolsUnsupported =
     'This model cannot do $kWaifuCoderName. Tool calling is unsupported. '
     'Sit down is blocked — pick a tool-fluent backend in Settings.';
+
+const kWaifuUndoNeedsTurn =
+    'Undo uses OpenCode revert after a finished turn — nothing to revert yet.';
+
+const kWaifuRedoNeedsRevert =
+    'Redo restores the last OpenCode revert — nothing is waiting.';
+
+const kWaifuMcpOpenCodeHonesty =
+    'MCP servers you invite here are written into Porch’s isolated OpenCode '
+    'config at sit-down. They are not a Dart tool gym. Character-chat MCP '
+    'is a separate catalog.';

@@ -217,13 +217,17 @@ class WaifuComposer extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   key: const Key('waifu-undo'),
-                  tooltip: 'Undo her last write',
+                  tooltip: canUndo
+                      ? 'Undo last OpenCode turn'
+                      : kWaifuUndoNeedsTurn,
                   onPressed: session.running || !canUndo ? null : onUndo,
                   icon: Icon(Icons.undo, color: amber),
                 ),
                 IconButton(
                   key: const Key('waifu-redo'),
-                  tooltip: 'Redo her last write',
+                  tooltip: canRedo
+                      ? 'Redo last OpenCode revert'
+                      : kWaifuRedoNeedsRevert,
                   onPressed: session.running || !canRedo ? null : onRedo,
                   icon: Icon(Icons.redo, color: amber),
                 ),
