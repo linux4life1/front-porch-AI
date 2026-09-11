@@ -11,7 +11,7 @@
   `lib/ui/waifu/waifu_page.dart`, `waifu_session_scope.dart`,
   `lib/main.providers.dart`, `lib/main.lifecycle.dart`, `CLAUDE.md`,
   belt/gym tests removed.
-- **Commit:** (this slice)
+- **Commit:** 4d35151b / ebb0cec6
 
 ## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e
 - **Why:** Belt A #246 squashed to Rawhide as `90dcb76e` (old A tip
