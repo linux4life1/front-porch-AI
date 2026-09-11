@@ -98,7 +98,13 @@ Map<String, dynamic> openCodePermissionMap({
 }) {
   final askOrAllow = yolo ? 'allow' : 'ask';
   return {
+    'read': askOrAllow,
     'edit': askOrAllow,
+    'glob': askOrAllow,
+    'grep': askOrAllow,
+    'list': askOrAllow,
+    'todowrite': askOrAllow,
+    'skill': askOrAllow,
     'bash': {
       '*': askOrAllow,
       'rm -rf *': 'deny',

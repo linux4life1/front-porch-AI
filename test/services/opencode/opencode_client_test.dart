@@ -53,6 +53,17 @@ void main() {
     expect((events[1] as OpenCodePermissionAsked).permissionId, 'per_1');
   });
 
+  test('v2 permission.asked uses per_ id not evt_ id', () {
+    const raw =
+        'data: {"type":"permission.v2.asked","id":"evt_1","properties":{"id":"per_99","sessionID":"ses_1","action":"glob","resources":["**/*"]}}\n'
+        '\n';
+    final events = parseOpenCodeSse(raw);
+    expect(events, hasLength(1));
+    final ask = events[0] as OpenCodePermissionAsked;
+    expect(ask.permissionId, 'per_99');
+    expect(ask.permission, 'glob');
+  });
+
   test('health hits GET /global/health', () async {
     final hits = <http.Request>[];
     final client = OpenCodeClient(

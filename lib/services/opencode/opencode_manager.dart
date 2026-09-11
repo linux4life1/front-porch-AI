@@ -80,6 +80,7 @@ class OpenCodeManager extends ChangeNotifier {
   bool _isRunning = false;
   Uri? _baseUri;
   OpenCodeProcessHandle? _handle;
+  String? _workDir;
   String? _installedVersion;
   String? _remoteVersion;
   int? _remoteAssetBytes;
@@ -216,9 +217,10 @@ class OpenCodeManager extends ChangeNotifier {
   }
 
   Future<void> start({String? workingDirectory}) async {
+    final cwd = workingDirectory ?? closet.binDir;
     if (_isRunning && _baseUri != null) {
       final health = await _healthGet(_baseUri!);
-      if (health.healthy) return;
+      if (health.healthy && _workDir == cwd) return;
       await stop();
     }
     await ensureInstalled();
@@ -232,8 +234,8 @@ class OpenCodeManager extends ChangeNotifier {
     final req = OpenCodeSpawnRequest(
       executable: closet.binaryPath,
       arguments: openCodeServeArgs(port),
-      environment: openCodeIsolatedEnvironment(closet),
-      workingDirectory: workingDirectory ?? closet.binDir,
+      environment: openCodeIsolatedEnvironment(closet, pwd: cwd),
+      workingDirectory: cwd,
     );
     if (openCodeLooksLikeBrewPath(req.executable)) {
       throw StateError('Refusing to spawn a brew OpenCode');
@@ -245,6 +247,7 @@ class OpenCodeManager extends ChangeNotifier {
       await stop();
       throw StateError('OpenCode serve did not become healthy');
     }
+    _workDir = cwd;
     _isRunning = true;
     _statusMessage = 'OpenCode listening on 127.0.0.1:$port';
     notifyListeners();
@@ -255,6 +258,7 @@ class OpenCodeManager extends ChangeNotifier {
     _handle = null;
     _isRunning = false;
     _baseUri = null;
+    _workDir = null;
     if (handle != null) {
       handle.kill(ProcessSignal.sigterm);
       try {

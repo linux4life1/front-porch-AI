@@ -55,6 +55,8 @@ void main() {
   test('yolo allows edits; disk does not deny external_directory', () {
     final yolo = openCodePermissionMap(folderJail: false, yolo: true);
     expect(yolo['edit'], 'allow');
+    expect(yolo['glob'], 'allow');
+    expect(yolo['list'], 'allow');
     expect(yolo['external_directory'], 'allow');
   });
 

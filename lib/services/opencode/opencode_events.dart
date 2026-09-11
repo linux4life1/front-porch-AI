@@ -157,7 +157,15 @@ List<OpenCodeBusEvent> parseOpenCodeSse(String raw) {
 OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
   final type = json['type']?.toString() ?? '';
   final props = json['properties'];
-  final map = props is Map ? Map<String, dynamic>.from(props) : json;
+  final data = json['data'];
+  Map<String, dynamic> map;
+  if (props is Map) {
+    map = Map<String, dynamic>.from(props);
+  } else if (data is Map) {
+    map = Map<String, dynamic>.from(data);
+  } else {
+    map = json;
+  }
   switch (type) {
     case 'message.part.delta':
       final field = map['field']?.toString().toLowerCase() ?? 'text';
@@ -173,14 +181,8 @@ OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
     case 'session.idle':
       return OpenCodeSessionIdle(map['sessionID']?.toString() ?? '');
     case 'permission.asked':
-      return OpenCodePermissionAsked(
-        permissionId: map['id']?.toString() ?? '',
-        sessionId: map['sessionID']?.toString() ?? '',
-        permission: map['permission']?.toString() ?? '',
-        patterns: [
-          for (final p in map['patterns'] as List? ?? const []) p.toString(),
-        ],
-      );
+    case 'permission.v2.asked':
+      return _permissionAsked(map);
     case 'todo.updated':
       return OpenCodeTodoUpdated(
         sessionId: map['sessionID']?.toString() ?? '',
@@ -199,6 +201,24 @@ OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
     default:
       return null;
   }
+}
+
+OpenCodePermissionAsked? _permissionAsked(Map<String, dynamic> map) {
+  final nested = map['data'];
+  final inner = nested is Map ? Map<String, dynamic>.from(nested) : map;
+  var id = inner['id']?.toString() ?? '';
+  if (!id.startsWith('per')) {
+    id = inner['requestID']?.toString() ?? map['requestID']?.toString() ?? '';
+  }
+  if (!id.startsWith('per')) return null;
+  final patterns = inner['patterns'] ?? inner['resources'] ?? map['patterns'];
+  return OpenCodePermissionAsked(
+    permissionId: id,
+    sessionId: inner['sessionID']?.toString() ?? '',
+    permission:
+        inner['permission']?.toString() ?? inner['action']?.toString() ?? '',
+    patterns: [for (final p in patterns as List? ?? const []) p.toString()],
+  );
 }
 
 OpenCodeToolEvent? _toolFromPart(Map<String, dynamic> map) {

@@ -65,8 +65,12 @@ class OpenCodeCloset {
   }
 }
 
-Map<String, String> openCodeIsolatedEnvironment(OpenCodeCloset closet) {
+Map<String, String> openCodeIsolatedEnvironment(
+  OpenCodeCloset closet, {
+  String? pwd,
+}) {
   return {
+    if (pwd != null && pwd.isNotEmpty) 'PWD': pwd,
     'OPENCODE_CONFIG': closet.configFilePath,
     'OPENCODE_CONFIG_DIR': closet.configDir,
     'OPENCODE_DATA_DIR': closet.dataDir,
