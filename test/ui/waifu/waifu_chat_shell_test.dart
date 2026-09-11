@@ -1,7 +1,6 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -68,53 +67,4 @@ void main() {
       expect(find.text('UI Settings'), findsOneWidget);
     },
   );
-
-  testWidgets('Thought tokens appear while generate is still running', (
-    tester,
-  ) async {
-    final gate = Completer<void>();
-    final s = session();
-    final llm = ScriptedWaifuLlm(
-      const [LlmToolResponse(calls: [], text: 'Hmph. Counted.')],
-      streamDuring: (i, onChunk) async {
-        onChunk('<think>one two three');
-        await gate.future;
-      },
-    );
-    final harness = WaifuHarness(session: s, llm: llm);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: WaifuPage(session: s, harness: harness),
-      ),
-    );
-
-    var done = Future<void>.value();
-    try {
-      await tester.runAsync(() async {
-        done = harness.send('count');
-        final deadline = DateTime.now().add(const Duration(seconds: 2));
-        while (DateTime.now().isBefore(deadline)) {
-          if (s.transcript.any(
-            (m) => !m.isUser && m.reasoning.contains('one two three'),
-          )) {
-            break;
-          }
-          await Future<void>.delayed(const Duration(milliseconds: 10));
-        }
-      });
-      await tester.pump();
-      expect(
-        s.transcript.any(
-          (m) => !m.isUser && m.reasoning.contains('one two three'),
-        ),
-        isTrue,
-      );
-      expect(find.textContaining('one two three'), findsWidgets);
-      expect(find.textContaining('Thinking'), findsWidgets);
-    } finally {
-      if (!gate.isCompleted) gate.complete();
-      await tester.runAsync(() => done);
-      await tester.pump();
-    }
-  });
 }

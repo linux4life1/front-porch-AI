@@ -22,7 +22,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_page.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_question_dialog.dart';
 
@@ -37,29 +36,12 @@ void main() {
     if (await root.exists()) await root.delete(recursive: true);
   });
 
-  testWidgets('todo list appears after todowrite; no Continue', (tester) async {
+  testWidgets('session chrome has no Continue or Regen', (tester) async {
     final session = WaifuSession(
       folderRoot: root.path,
       coworker: CharacterCard(name: 'Mira', personality: 'tsundere'),
-      mode: WaifuMode.yolo,
     );
-    final llm = ScriptedWaifuLlm([
-      const LlmToolResponse(
-        calls: [
-          LlmToolCall(
-            name: 'todowrite',
-            arguments: {
-              'todos': [
-                {'id': '1', 'content': 'add helper', 'status': 'pending'},
-              ],
-            },
-          ),
-        ],
-        text: '',
-      ),
-      const LlmToolResponse(calls: [], text: 'Tracked.'),
-    ]);
-    final harness = WaifuHarness(session: session, llm: llm);
+    final harness = WaifuHarness(session: session);
     await tester.pumpWidget(
       MaterialApp(
         home: WaifuPage(session: session, harness: harness),
@@ -67,11 +49,6 @@ void main() {
     );
     expect(find.text('Continue'), findsNothing);
     expect(find.text('Regenerate'), findsNothing);
-
-    await tester.runAsync(() => harness.send('track it'));
-    await tester.pump();
-    expect(find.byKey(const Key('waifu-todos')), findsOneWidget);
-    expect(find.textContaining('add helper'), findsOneWidget);
   });
 
   testWidgets('question dialog has choice keys', (tester) async {

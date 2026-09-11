@@ -76,39 +76,4 @@ void main() {
     expect(hub.listing(), contains('pdf (installed)'));
   });
 
-  test(
-    'harness skill_install writes the skill and the next prompt sees it',
-    () async {
-      final hub = WaifuSkillHub(
-        projectRoot: root.path,
-        market: WaifuSkillMarket(get: _fakeGet()),
-      );
-      final llm = ScriptedWaifuLlm([
-        const LlmToolResponse(
-          calls: [
-            LlmToolCall(name: 'skill_install', arguments: {'name': 'pdf'}),
-          ],
-          text: '',
-        ),
-        const LlmToolResponse(calls: [], text: 'Installed pdf.'),
-      ]);
-      final session = WaifuSession(
-        folderRoot: root.path,
-        coworker: CharacterCard(name: 'Iris'),
-        mode: WaifuMode.yolo,
-      );
-      final harness = WaifuHarness(session: session, llm: llm, skills: hub);
-      await harness.send('install the pdf skill');
-      expect(
-        await File(
-          p.join(root.path, '.waifu', 'skills', 'pdf', 'SKILL.md'),
-        ).exists(),
-        isTrue,
-      );
-      expect(llm.calls, hasLength(2));
-      expect(llm.calls.last.prompt, contains('pdf'));
-      expect(llm.calls.last.prompt, contains('PDF forms'));
-      expect(session.toolChips.single.name, 'skill_install');
-    },
-  );
 }

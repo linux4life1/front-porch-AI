@@ -1,3 +1,18 @@
+## 2026-09-11 — Waifu Coder uses managed OpenCode; Dart gym retired
+- **Why:** The in-process Dart tool loop (verify theater, belt moles) was
+  the wrong gym. Porch already knows how to own an engine (Kobold).
+- **What:** Download a pinned OpenCode zip into the app-support closet,
+  start `opencode serve` on 127.0.0.1 with isolated config, HTTP client
+  for session/prompt/SSE/abort/permissions. V2 card becomes the OpenCode
+  `waifu` agent prompt. UI kept. Homebrew and `~/.config/opencode` are
+  not the product copy. Dart harness loop parts deleted.
+- **Files:** `lib/services/opencode/**`, `lib/services/waifu/waifu_harness.dart`,
+  `waifu_opencode.dart`, `waifu_honesty.dart`, `waifu_coworker_prompt.dart`,
+  `lib/ui/waifu/waifu_page.dart`, `waifu_session_scope.dart`,
+  `lib/main.providers.dart`, `lib/main.lifecycle.dart`, `CLAUDE.md`,
+  belt/gym tests removed.
+- **Commit:** (this slice)
+
 ## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e
 - **Why:** Belt A #246 squashed to Rawhide as `90dcb76e` (old A tip
   `139f50f8`). B tip `d186c35a` was stacked on that A tip, so GitHub

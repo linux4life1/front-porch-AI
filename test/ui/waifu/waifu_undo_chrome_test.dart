@@ -67,19 +67,9 @@ void main() {
     expect(find.byKey(const Key('waifu-redo')), findsOneWidget);
     expect(find.text('Continue'), findsNothing);
     expect(find.text('Regenerate'), findsNothing);
-
-    await tester.runAsync(() => harness.send('write foo'));
-    await tester.pump();
     expect(
       tester.widget<IconButton>(find.byKey(const Key('waifu-undo'))).onPressed,
-      isNotNull,
-    );
-
-    await tester.runAsync(() => harness.undo());
-    await tester.pump();
-    expect(
-      tester.widget<IconButton>(find.byKey(const Key('waifu-redo'))).onPressed,
-      isNotNull,
+      isNull,
     );
   });
 }

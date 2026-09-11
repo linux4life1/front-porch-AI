@@ -25,13 +25,13 @@ void main() {
     () {
       for (final mode in WaifuPathMode.values) {
         final body = waifuHonestyBody(mode);
-        expect(body, contains('Claude Code'));
-        expect(body, contains('Grok Build'));
         expect(body, contains('OpenCode'));
+        expect(body, contains('private'));
+        expect(body, contains('Homebrew'));
+        expect(body, contains('~/.config/opencode'));
         expect(body, contains('critical codebase'));
-        expect(body, contains('hard stops'));
-        expect(body, contains('real coding tools'));
-        expect(body, contains('apply_patch'));
+        expect(body, contains('OpenCode is the gym'));
+        expect(body, contains('gap'));
         expect(body, isNot(contains('will not be as reliable')));
         expect(body, isNot(contains('fun tool')));
         expect(body, isNot(contains('half-edit')));
