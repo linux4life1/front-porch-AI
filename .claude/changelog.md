@@ -1,3 +1,18 @@
+## 2026-09-11 — Rip leftover Dart gym; OpenCode upgrade + revert
+- **Why:** Send already talked to OpenCode, but verify theater, bash/fs/deny,
+  tools, workflow, and the turn loop were still on disk — a second coach.
+  Undo keys were dead. MCP still bound Dart tool dispatch. Upgrade was
+  missing.
+- **What:** Deleted leftover gym files. Settings + Waifu sidebar show pin vs
+  disk vs GitHub latest; tap swaps the ~44MB pin into the closet. Undo/Redo
+  POST `/session/:id/revert` and `/unrevert`. MCP catalog writes into isolated
+  OpenCode config at sit-down. Mole tests that only compiled because gym
+  files existed are gone.
+- **Files:** `lib/services/opencode/**`, `lib/services/waifu/**` (gym deleted),
+  `lib/ui/waifu/**`, `lib/ui/settings/tabs/backend/opencode_managed_section.dart`,
+  belt/gym tests removed.
+- **Commit:** 5fca0080 / 1b4f4364
+
 ## 2026-09-11 — Waifu Coder uses managed OpenCode; Dart gym retired
 - **Why:** The in-process Dart tool loop (verify theater, belt moles) was
   the wrong gym. Porch already knows how to own an engine (Kobold).

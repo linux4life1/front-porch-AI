@@ -7,6 +7,10 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🖥️ **OpenCode upgrades like Kobold** — Settings (and the Waifu sidebar) show the pin vs what’s on disk vs GitHub latest. Tap downloads the pin (~44MB) into Porch’s closet. Never Homebrew, never your `~/.config/opencode`, never auto-latest on launch.
+
+- 🖥️ **Undo/Redo and MCP stay honest** — Undo/Redo call OpenCode revert/unrevert after a finished turn; the keys stay dark until then. MCP servers you invite are written into that isolated OpenCode config at sit-down, not a Dart tool gym.
+
 - 🖥️ **Waifu Coder uses OpenCode as the gym** — Porch downloads a private OpenCode (not Homebrew, not your existing OpenCode config), starts it, and your coworker tools through it. The old Dart tool loop is gone.
 
 - 🖥️ **Waifu Coder Jail / Disk stay honest** — sit-down scope is chips, not stuck radios. Picking Disk after a jail sit-down asks honesty again; confirm actually opens the disk. A denied Plan write says it did not write. Wiping the folder above the sit-down is still denied.
