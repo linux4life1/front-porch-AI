@@ -35,6 +35,7 @@ export 'waifu_permissions.dart';
 export 'waifu_question.dart';
 export 'waifu_session.dart';
 export 'waifu_sit_down.dart';
+export 'waifu_speech.dart';
 export 'waifu_store.dart';
 export 'waifu_todos.dart';
 export 'waifu_tokens.dart';

@@ -67,16 +67,25 @@ WaifuHarness? waifuBindSessionHarness({
   Map<String, dynamic> Function()? mcpConfigOf,
 }) {
   OpenCodePorchBackend? backend;
+  OpenCodePorchBackend? Function()? backendOf;
   if (provider != null) {
     try {
       backend = openCodeBackendFromProvider(provider.activeService);
     } catch (_) {}
+    backendOf = () {
+      try {
+        return openCodeBackendFromProvider(provider.activeService);
+      } catch (_) {
+        return null;
+      }
+    };
   }
   if (manager == null && backend == null) return null;
   return WaifuHarness(
     session: session,
     manager: manager,
     backend: backend,
+    backendOf: backendOf,
     store: store,
     onChanged: onChanged,
     onAsk: onAsk,

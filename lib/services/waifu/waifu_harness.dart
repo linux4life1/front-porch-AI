@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/waifu/waifu_permissions.dart';
 import 'package:front_porch_ai/services/waifu/waifu_question.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
+import 'package:front_porch_ai/services/waifu/waifu_speech.dart';
 import 'package:front_porch_ai/services/waifu/waifu_store.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 
@@ -41,6 +42,7 @@ class WaifuHarness implements OpenCodeEventSink {
     OpenCodeClient? client,
     String? sessionId,
     this.backend,
+    this.backendOf,
     this.onChanged,
     this.onAsk,
     this.onQuestion,
@@ -48,11 +50,13 @@ class WaifuHarness implements OpenCodeEventSink {
     this.mcpOptIn = false,
     this.mcpConfigOf,
   }) : _client = client,
-       _sessionId = sessionId;
+       _sessionId = sessionId,
+       _seatedBackend = backend;
 
   final WaifuSession session;
   final OpenCodeManager? manager;
   final OpenCodePorchBackend? backend;
+  final OpenCodePorchBackend? Function()? backendOf;
   final WaifuStore? store;
   void Function()? onChanged;
   WaifuAskFn? onAsk;
@@ -66,7 +70,8 @@ class WaifuHarness implements OpenCodeEventSink {
   int? _liveIndex;
   String? _lastAssistantMessageId;
   var _canRedo = false;
-  var _afterTool = false;
+  final _think = WaifuThinkGate();
+  OpenCodePorchBackend? _seatedBackend;
 
   WaifuTodos get todos => session.todos;
   bool get isRunning => session.running;
@@ -153,7 +158,7 @@ class WaifuHarness implements OpenCodeEventSink {
     _aborted = false;
     _liveIndex = null;
     _canRedo = false;
-    _afterTool = false;
+    _think.resetTurn();
     session.running = true;
     session.transcript.add(WaifuMessage.user(text, imagePath: imagePath));
     if (session.title.isEmpty) session.title = waifuTitleFrom(text);
@@ -193,6 +198,8 @@ class WaifuHarness implements OpenCodeEventSink {
         sessionId: _sessionId!,
         parts: openCodePromptParts(text: text, imagePng: imagePng),
         agent: openCodeAgentForMode(session.mode),
+        providerID: kOpenCodePorchProvider,
+        modelID: kOpenCodePorchModelSlot,
         sink: this,
       );
     } catch (e) {
@@ -205,6 +212,8 @@ class WaifuHarness implements OpenCodeEventSink {
             sessionId: _sessionId!,
             parts: openCodePromptParts(text: text),
             agent: openCodeAgentForMode(session.mode),
+            providerID: kOpenCodePorchProvider,
+            modelID: kOpenCodePorchModelSlot,
             sink: this,
           );
         } catch (e2) {
@@ -216,10 +225,31 @@ class WaifuHarness implements OpenCodeEventSink {
     }
   }
 
+  OpenCodePorchBackend? get _liveBackend => backendOf?.call() ?? backend;
+
   Future<OpenCodeClient?> _ensureClient() async {
-    if (_client != null && _sessionId != null) return _client;
+    final back = _liveBackend;
     final mgr = manager;
-    final back = backend;
+    final client = _client;
+    final sid = _sessionId;
+    if (client != null && sid != null && sid.isNotEmpty) {
+      if (back != null &&
+          waifuBackendNeedsReseat(seated: _seatedBackend, live: back)) {
+        if (mgr != null) {
+          await waifuRetargetOpenCode(
+            closet: mgr.closet,
+            client: client,
+            coworker: session.coworker,
+            pathMode: session.pathMode,
+            mode: session.mode,
+            backend: back,
+            mcp: session.mcpOptIn ? mcpConfigOf?.call() : null,
+          );
+        }
+        _seatedBackend = back;
+      }
+      return client;
+    }
     if (mgr == null || back == null) return _client;
     final info = await waifuOpenCodeSitDown(
       manager: mgr,
@@ -234,6 +264,7 @@ class WaifuHarness implements OpenCodeEventSink {
       mcp: session.mcpOptIn ? mcpConfigOf?.call() : null,
     );
     _sessionId = info.id;
+    _seatedBackend = back;
     _client ??= OpenCodeClient(
       baseUri: mgr.baseUri,
       directory: session.folderRoot,
@@ -255,30 +286,11 @@ class WaifuHarness implements OpenCodeEventSink {
     final idx = _ensureLiveAssistant(
       thinking: thinking || waifuLooksLikeThinkingDump(delta),
     );
-    final cur = session.transcript[idx];
-    final asThink =
-        !waifuLooksLikeSpoken(delta) &&
-        (!_afterTool || thinking) &&
-        (thinking || (cur.text.isEmpty && waifuLooksLikeThinkingDump(delta)));
-    if (asThink) {
-      if (waifuThinkingNoise(delta)) return;
-      var next = '${cur.reasoning}$delta';
-      if (thinking &&
-          cur.reasoning.isNotEmpty &&
-          (delta.startsWith(cur.reasoning) ||
-              cur.reasoning.startsWith(delta))) {
-        next = delta.length >= cur.reasoning.length ? delta : cur.reasoning;
-      }
-      if (waifuThinkingNoise(next)) return;
-      final start =
-          cur.thinkingStartMs ?? DateTime.now().millisecondsSinceEpoch;
-      session.transcript[idx] = cur.copyWith(
-        reasoning: next,
-        thinkingStartMs: start,
-      );
-    } else {
-      session.transcript[idx] = cur.copyWith(text: '${cur.text}$delta');
-    }
+    session.transcript[idx] = _think.applyDelta(
+      session.transcript[idx],
+      delta,
+      thinking: thinking,
+    );
     _emit();
   }
 
@@ -290,7 +302,7 @@ class WaifuHarness implements OpenCodeEventSink {
     bool pending = false,
     String callId = '',
   }) {
-    if (!pending) _afterTool = true;
+    _think.noteTool(pending: pending);
     session.transcript.add(
       WaifuMessage.tool(name: name, output: detail, ok: pending ? true : ok),
     );
@@ -349,11 +361,13 @@ class WaifuHarness implements OpenCodeEventSink {
     if (idx != null && idx < session.transcript.length) {
       final cur = session.transcript[idx];
       final start = cur.thinkingStartMs;
+      var next = cur;
       if (start != null && cur.thinkingMs == 0) {
-        session.transcript[idx] = cur.copyWith(
+        next = next.copyWith(
           thinkingMs: DateTime.now().millisecondsSinceEpoch - start,
         );
       }
+      session.transcript[idx] = _think.salvage(next);
     }
     _emit();
   }
@@ -425,32 +439,4 @@ class WaifuHarness implements OpenCodeEventSink {
   }
 
   void _emit() => onChanged?.call();
-}
-
-/// Nano-GPT dumps CoT as normal text. Same porch as chat think chips.
-bool waifuLooksLikeThinkingDump(String raw) {
-  final t = raw.trimLeft().toLowerCase();
-  if (t.startsWith('<think')) return true;
-  if (t.startsWith('the user wants')) return true;
-  if (t.startsWith('let me ')) return true;
-  if (t.startsWith("i'll read")) return true;
-  if (t.contains('i have the todo list')) return true;
-  if (t.contains('the todos are:')) return true;
-  return false;
-}
-
-bool waifuThinkingNoise(String raw) {
-  final t = raw.trim().toLowerCase();
-  if (t.isEmpty) return true;
-  return t == 'thought' || t == 'thinking' || t == '...' || t == '…';
-}
-
-/// Victory speech, quotes, markdown — not CoT.
-bool waifuLooksLikeSpoken(String raw) {
-  final t = raw.trimLeft();
-  if (t.isEmpty) return false;
-  if (t.startsWith('"') || t.startsWith('*') || t.startsWith('#')) return true;
-  if (t.startsWith('YES') || t.startsWith('Done')) return true;
-  if (t.contains('Mission Accomplished')) return true;
-  return false;
 }

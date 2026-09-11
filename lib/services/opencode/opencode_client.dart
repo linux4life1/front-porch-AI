@@ -103,13 +103,24 @@ class OpenCodeClient {
     required List<Map<String, dynamic>> parts,
     String? agent,
     String? system,
+    String? providerID,
+    String? modelID,
   }) async {
     final client = _newClient();
     try {
       final resp = await client.post(
         _uri('/session/$sessionId/prompt_async'),
         headers: {'content-type': 'application/json'},
-        body: jsonEncode({'parts': parts, 'agent': ?agent, 'system': ?system}),
+        body: jsonEncode({
+          'parts': parts,
+          'agent': ?agent,
+          'system': ?system,
+          if (providerID != null &&
+              providerID.isNotEmpty &&
+              modelID != null &&
+              modelID.isNotEmpty)
+            'model': {'providerID': providerID, 'modelID': modelID},
+        }),
       );
       if (resp.statusCode != 204 &&
           (resp.statusCode < 200 || resp.statusCode >= 300)) {
@@ -179,6 +190,23 @@ class OpenCodeClient {
     }
   }
 
+  /// Hot-update isolated config. Does not create a session.
+  Future<void> patchConfig(Map<String, dynamic> config) async {
+    final client = _newClient();
+    try {
+      final resp = await client.patch(
+        _uri('/config'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode(config),
+      );
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        throw StateError('OpenCode config patch failed: ${resp.statusCode}');
+      }
+    } finally {
+      client.close();
+    }
+  }
+
   Future<void> abort(String sessionId) async {
     final client = _newClient();
     try {
@@ -212,6 +240,8 @@ class OpenCodeClient {
     required OpenCodeEventSink sink,
     String? agent,
     String? system,
+    String? providerID,
+    String? modelID,
   }) async {
     final client = _newClient();
     final idle = Completer<void>();
@@ -251,6 +281,8 @@ class OpenCodeClient {
         parts: parts,
         agent: agent,
         system: system,
+        providerID: providerID,
+        modelID: modelID,
       );
       await idle.future;
     } finally {

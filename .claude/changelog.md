@@ -1,3 +1,62 @@
+## 2026-09-11 — Waifu tool rows sit below the bubble
+- **Why:** A long Thought grew the reverse-list item upward, so bash/write
+  chips above the bubble scrolled off the top while you were still reading.
+- **What:** `WaifuTranscript` paints `WaifuToolLog` via `belowBubble`, next
+  to the composer, so live actions stay on screen.
+- **Files:** `lib/ui/waifu/waifu_transcript.dart`,
+  `test/ui/waifu/waifu_tool_log_below_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-11 — Waifu Thought folded like chat; OpenCode pin probed on launch
+- **Why:** Waifu passed `session.running` as `isGenerating`, which auto-opens
+  Thought. A tool chip wrapping the bubble in a new Column reset that
+  State so the chevron could not keep it closed. OpenCodeManager started
+  with `_installedVersion == null`, so every `flutter run` showed
+  Download until Settings refreshed the pin.
+- **What:** Waifu no longer auto-opens Thought. ChatMessageList always
+  uses a Column + bubble key so toggle state survives a tool row.
+  OpenCodeManager probes the closet on construct.
+- **Files:** `lib/ui/waifu/waifu_transcript.dart`,
+  `lib/ui/chat_components/stage/chat_message_list.dart`,
+  `lib/services/opencode/opencode_manager.dart`,
+  `test/ui/waifu/waifu_thought_collapsed_test.dart`,
+  `test/services/opencode/opencode_probe_installed_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-11 — OpenCode SSE keys thinking off part type, not delta field
+- **Why:** OpenCode 1.18 writes `message.part.delta` with `field:"text"` for
+  BOTH reasoning-delta and text-delta. The TUI stores parts by id and
+  renders `part.type`. Our parser ignored partID and treated every
+  `field:text` as speech, so CoT landed in the bubble. Prefix heuristics
+  were a bandage on that.
+- **What:** `OpenCodeSseParser` remembers whether each partID is
+  reasoning or text from `message.part.updated`, then routes later
+  `field:text` deltas accordingly. Text snapshots are not concatenated.
+- **Files:** `lib/services/opencode/opencode_events.dart`,
+  `test/services/opencode/opencode_part_routing_test.dart`
+- **Commit:** (uncommitted)
+
+## 2026-09-11 — Waifu Thought vs speech; 18+ work; reseat OpenCode on model switch
+- **Why:** Nano-GPT dumped chain-of-thought ("The user is asking…") into the
+  spoken bubble. A same-day "don't swallow wrap-up" fix dropped dump
+  continuation and blocked dumps after a tool. OpenCode was also seated once
+  on the first send, so switching Settings from Nano-GPT to oMLX never
+  rewrote the isolated config — oMLX looked dead. The coworker preamble did
+  not say this porch is 18+, so models invented a safety lecture.
+- **What:** Route content-side dumps into Thought (prefix + continuation +
+  idle salvage); keep quoted/unquoted wrap-up as the bubble. Preamble: do
+  the asked work, including adult/erotic games; no safety lecture. Live
+  backendOf retargets the same OpenCode session (PATCH config + porch
+  model on prompt_async). A model/URL swap does not create a new session.
+- **Files:** `lib/services/waifu/waifu_speech.dart` (new),
+  `lib/services/waifu/waifu_harness.dart`,
+  `lib/services/waifu/waifu_opencode.dart`,
+  `lib/services/waifu/waifu_coworker_prompt.dart`,
+  `lib/ui/waifu/waifu_session_scope.dart`,
+  `test/services/waifu/waifu_speech_test.dart`,
+  `test/services/waifu/waifu_backend_reseat_test.dart`
+- **Commit:** (uncommitted)
+
 ## 2026-09-10 — Strip leftover Waifu chrome; Nano-GPT drives OpenCode
 - **Why:** Skills marketplace, slash palette, and Dart plan-accept were a
   second coach next to OpenCode. Nano-GPT (same OpenRouterService, nano-gpt

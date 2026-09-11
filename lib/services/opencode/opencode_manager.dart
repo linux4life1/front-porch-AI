@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -62,7 +63,9 @@ class OpenCodeManager extends ChangeNotifier {
        _pickPort = pickPort ?? openCodePickFreePort,
        _spawn = spawn ?? openCodeSpawnProcess,
        _healthGet = healthGet ?? openCodeGetHealth,
-       _remoteLookup = remoteLookup ?? openCodeFetchRemoteLatest;
+       _remoteLookup = remoteLookup ?? openCodeFetchRemoteLatest {
+    if (rootPath.isNotEmpty) unawaited(refreshInstalled());
+  }
 
   final OpenCodeCloset closet;
   final OpenCodeDownloader _downloader;

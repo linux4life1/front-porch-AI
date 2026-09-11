@@ -87,26 +87,30 @@ class ChatMessageList extends StatelessWidget {
         final reversedIndex = messages.length - 1 - index;
         final msg = messages[reversedIndex];
         final (senderImage, senderColor) = resolveSpeaker(msg);
-        Widget bubble = MessageBubble(
-          message: msg,
-          characterImage: senderImage,
-          index: reversedIndex,
-          senderColor: senderColor,
-          externalImagesAllowed: externalImagesAllowed,
-          onRequestImagePermission: onRequestImagePermission,
-          character: characterFor?.call(msg),
-          chatService: chatService,
-          isGenerating: generatingAt?.call(reversedIndex) ?? isGenerating,
-          themeOverrides: themeOverrides,
-        );
         final above = aboveBubble?.call(msg, reversedIndex);
         final extra = belowBubble?.call(msg, reversedIndex);
-        if (above != null || extra != null) {
-          bubble = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [?above, bubble, ?extra],
-          );
-        }
+        // Always a Column so a tool-chip appearing beside the bubble does
+        // not swap MessageBubble's parent and reset Thought toggle state.
+        final bubble = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ?above,
+            MessageBubble(
+              key: ValueKey('bubble-$reversedIndex-${msg.isUser}'),
+              message: msg,
+              characterImage: senderImage,
+              index: reversedIndex,
+              senderColor: senderColor,
+              externalImagesAllowed: externalImagesAllowed,
+              onRequestImagePermission: onRequestImagePermission,
+              character: characterFor?.call(msg),
+              chatService: chatService,
+              isGenerating: generatingAt?.call(reversedIndex) ?? isGenerating,
+              themeOverrides: themeOverrides,
+            ),
+            ?extra,
+          ],
+        );
         final key = bubbleKeyOf?.call(msg);
         return JumpFlash(
           key: key,

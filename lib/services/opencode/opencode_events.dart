@@ -137,7 +137,10 @@ void dispatchOpenCodeEvent(OpenCodeBusEvent event, OpenCodeEventSink sink) {
   }
 }
 
-List<OpenCodeBusEvent> parseOpenCodeSse(String raw) {
+List<OpenCodeBusEvent> parseOpenCodeSse(
+  String raw, {
+  Map<String, bool>? thinkByPart,
+}) {
   final out = <OpenCodeBusEvent>[];
   final blocks = raw.replaceAll('\r\n', '\n').split('\n\n');
   for (final block in blocks) {
@@ -152,19 +155,24 @@ List<OpenCodeBusEvent> parseOpenCodeSse(String raw) {
     if (payload.isEmpty || payload == '[DONE]') continue;
     try {
       final json = jsonDecode(payload);
+      Map<String, dynamic>? map;
       if (json is Map<String, dynamic>) {
-        final event = openCodeEventFromJson(json);
-        if (event != null) out.add(event);
+        map = json;
       } else if (json is Map) {
-        final event = openCodeEventFromJson(Map<String, dynamic>.from(json));
-        if (event != null) out.add(event);
+        map = Map<String, dynamic>.from(json);
       }
+      if (map == null) continue;
+      final event = openCodeEventFromJson(map, thinkByPart: thinkByPart);
+      if (event != null) out.add(event);
     } catch (_) {}
   }
   return out;
 }
 
-OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
+OpenCodeBusEvent? openCodeEventFromJson(
+  Map<String, dynamic> json, {
+  Map<String, bool>? thinkByPart,
+}) {
   final type = json['type']?.toString() ?? '';
   final props = json['properties'];
   final data = json['data'];
@@ -178,9 +186,13 @@ OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
   }
   switch (type) {
     case 'message.part.delta':
+      final partId = map['partID']?.toString() ?? '';
       final field = map['field']?.toString().toLowerCase() ?? 'text';
-      final think = field == 'reasoning' || field == 'thinking';
-      if (!think && field != 'text') return null;
+      final fieldThink = field == 'reasoning' || field == 'thinking';
+      // OpenCode 1.18 writes field:"text" for BOTH reasoning-delta and
+      // text-delta. The TUI keys off part.type via partID, not field.
+      final think = thinkByPart?[partId] ?? fieldThink;
+      if (!think && field != 'text' && !fieldThink) return null;
       return OpenCodeTextDelta(
         sessionId: map['sessionID']?.toString() ?? '',
         messageId: map['messageID']?.toString() ?? '',
@@ -188,7 +200,7 @@ OpenCodeBusEvent? openCodeEventFromJson(Map<String, dynamic> json) {
         thinking: think,
       );
     case 'message.part.updated':
-      return _partUpdated(map);
+      return _partUpdated(map, thinkByPart);
     case 'session.idle':
       return OpenCodeSessionIdle(map['sessionID']?.toString() ?? '');
     case 'permission.asked':
@@ -232,18 +244,42 @@ OpenCodePermissionAsked? _permissionAsked(Map<String, dynamic> map) {
   );
 }
 
-OpenCodeBusEvent? _partUpdated(Map<String, dynamic> map) {
+OpenCodeBusEvent? _partUpdated(
+  Map<String, dynamic> map,
+  Map<String, bool>? thinkByPart,
+) {
   final part = map['part'];
   if (part is! Map) return null;
   final partType = part['type']?.toString() ?? '';
+  final partId = part['id']?.toString() ?? '';
+  final messageId =
+      part['messageID']?.toString() ?? map['messageID']?.toString() ?? '';
+  final sessionId = map['sessionID']?.toString() ?? '';
   if (partType == 'reasoning' || partType == 'thinking') {
-    final text = part['text']?.toString() ?? part['delta']?.toString() ?? '';
+    if (partId.isNotEmpty) thinkByPart?[partId] = true;
+    final delta = map['delta']?.toString() ?? '';
+    final text = delta.isNotEmpty
+        ? delta
+        : (part['text']?.toString() ?? part['delta']?.toString() ?? '');
     if (text.isEmpty) return null;
     return OpenCodeTextDelta(
-      sessionId: map['sessionID']?.toString() ?? '',
-      messageId: map['messageID']?.toString() ?? '',
+      sessionId: sessionId,
+      messageId: messageId,
       delta: text,
       thinking: true,
+    );
+  }
+  if (partType == 'text') {
+    if (partId.isNotEmpty) thinkByPart?[partId] = false;
+    // Full part.text is a snapshot. Emitting it as a delta concatenates
+    // "H"+"Hi"+"Hi.". The TUI replaces the part; we only take `delta`.
+    final delta = map['delta']?.toString() ?? '';
+    if (delta.isEmpty) return null;
+    return OpenCodeTextDelta(
+      sessionId: sessionId,
+      messageId: messageId,
+      delta: delta,
+      thinking: false,
     );
   }
   return _toolFromPart(map);
@@ -275,6 +311,7 @@ OpenCodeToolEvent? _toolFromPart(Map<String, dynamic> map) {
 
 class OpenCodeSseParser {
   String _buf = '';
+  final _thinkByPart = <String, bool>{};
 
   List<OpenCodeBusEvent> add(String chunk) {
     _buf += chunk.replaceAll('\r\n', '\n');
@@ -284,7 +321,7 @@ class OpenCodeSseParser {
       if (idx < 0) break;
       final block = _buf.substring(0, idx);
       _buf = _buf.substring(idx + 2);
-      out.addAll(parseOpenCodeSse('$block\n\n'));
+      out.addAll(parseOpenCodeSse('$block\n\n', thinkByPart: _thinkByPart));
     }
     return out;
   }
