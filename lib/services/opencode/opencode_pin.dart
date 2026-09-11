@@ -50,7 +50,9 @@ String openCodeCurrentArch() {
   }
 }
 
+/// GitHub 1.18.30 layout: Mac/Windows zip, Linux tar.gz. Not musl/baseline.
 String openCodeReleaseAssetName({required String os, required String arch}) {
+  if (os == 'linux') return 'opencode-linux-$arch.tar.gz';
   return 'opencode-$os-$arch.zip';
 }
 

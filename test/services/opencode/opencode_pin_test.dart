@@ -10,18 +10,30 @@ void main() {
     expect(kOpenCodePinnedVersion, isNot(contains('latest')));
   });
 
-  test('GitHub asset names match the published zip layout', () {
+  test('GitHub asset names match Mac zip, Linux tar.gz, Windows zip', () {
     expect(
       openCodeReleaseAssetName(os: 'darwin', arch: 'arm64'),
       'opencode-darwin-arm64.zip',
     );
     expect(
+      openCodeReleaseAssetName(os: 'darwin', arch: 'x64'),
+      'opencode-darwin-x64.zip',
+    );
+    expect(
       openCodeReleaseAssetName(os: 'linux', arch: 'x64'),
-      'opencode-linux-x64.zip',
+      'opencode-linux-x64.tar.gz',
+    );
+    expect(
+      openCodeReleaseAssetName(os: 'linux', arch: 'arm64'),
+      'opencode-linux-arm64.tar.gz',
     );
     expect(
       openCodeReleaseAssetName(os: 'windows', arch: 'x64'),
       'opencode-windows-x64.zip',
+    );
+    expect(
+      openCodeReleaseAssetName(os: 'windows', arch: 'arm64'),
+      'opencode-windows-arm64.zip',
     );
   });
 
@@ -35,6 +47,14 @@ void main() {
     expect(url, contains('v$kOpenCodePinnedVersion/'));
     expect(url, endsWith('opencode-darwin-arm64.zip'));
     expect(url, isNot(contains('homebrew')));
+    expect(
+      openCodeDownloadUrl(
+        version: kOpenCodePinnedVersion,
+        os: 'linux',
+        arch: 'x64',
+      ),
+      endsWith('opencode-linux-x64.tar.gz'),
+    );
   });
 
   test('brew and user-config paths are rejected as the product copy', () {

@@ -327,21 +327,39 @@ Future<List<int>> openCodeHttpDownload(
 
 Future<File> openCodeUnpackZip(List<int> bytes, Directory dest) async {
   await dest.create(recursive: true);
-  final zip = File('${dest.path}.zip');
-  await zip.writeAsBytes(bytes, flush: true);
+  final linuxTar = bytes.length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b;
+  final archive = File(linuxTar ? '${dest.path}.tar.gz' : '${dest.path}.zip');
+  await archive.writeAsBytes(bytes, flush: true);
   try {
+    if (linuxTar) {
+      final r = await Process.run('tar', [
+        '-xzf',
+        archive.path,
+        '-C',
+        dest.path,
+      ]);
+      if (r.exitCode != 0) {
+        throw Exception('Unpack failed: ${r.stderr}');
+      }
+      return openCodeFindUnpackedBinary(dest);
+    }
     if (Platform.isWindows) {
       final r = await Process.run('powershell', [
         '-NoProfile',
         '-Command',
-        'Expand-Archive -Force -Path "${zip.path}" '
+        'Expand-Archive -Force -Path "${archive.path}" '
             '-DestinationPath "${dest.path}"',
       ]);
       if (r.exitCode != 0) {
         throw Exception('Unpack failed: ${r.stderr}');
       }
     } else {
-      final r = await Process.run('unzip', ['-o', zip.path, '-d', dest.path]);
+      final r = await Process.run('unzip', [
+        '-o',
+        archive.path,
+        '-d',
+        dest.path,
+      ]);
       if (r.exitCode != 0) {
         throw Exception('Unpack failed: ${r.stderr}');
       }
@@ -349,7 +367,7 @@ Future<File> openCodeUnpackZip(List<int> bytes, Directory dest) async {
     return openCodeFindUnpackedBinary(dest);
   } finally {
     try {
-      await zip.delete();
+      await archive.delete();
     } catch (_) {}
   }
 }
