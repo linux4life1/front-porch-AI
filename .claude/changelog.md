@@ -27,7 +27,7 @@
 - **Files:** `waifu_belt_e_card_speech_test.dart`,
   `waifu_coworker_prompt.dart`, `waifu_card_speech.dart`,
   `waifu_turn.dart`, `waifu_turn_contract.dart`
-- **Commit:** (pending)
+- **Commit:** 4b989140
 
 ## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e
 - **Why:** Belt A #246 squashed to Rawhide as `90dcb76e` (old A tip
