@@ -21,8 +21,17 @@ import 'dart:io';
 
 import 'package:front_porch_ai/services/opencode/opencode_paths.dart';
 
+/// OpenCode 1.18.30 custom OpenAI-compatible adapter. Without this npm
+/// field a `porch` provider is ignored (models.dev has no such catalog).
+const kOpenCodeCompatibleNpm = '@ai-sdk/openai-compatible';
+
+/// Isolated provider id. Model slot is always `current`; the live API id
+/// is `models.current.id` so OpenRouter-style slashes stay one token.
+const kOpenCodePorchProvider = 'porch';
+const kOpenCodePorchModelSlot = 'current';
+
 /// Isolated OpenCode config. Model is Porch's current OpenAI-compatible
-/// backend. Default agent is `waifu`.
+/// backend (oMLX, OpenRouter, or Nano-GPT). Default agent is `waifu`.
 Map<String, dynamic> buildOpenCodeConfigMap({
   required String agentPrompt,
   required String baseUrl,
@@ -32,21 +41,26 @@ Map<String, dynamic> buildOpenCodeConfigMap({
   String defaultAgent = 'waifu',
   Map<String, dynamic>? mcp,
 }) {
+  final slot = modelId.isEmpty ? kOpenCodePorchModelSlot : modelId;
   return {
     '\$schema': 'https://opencode.ai/config.json',
     'autoupdate': false,
     'share': 'disabled',
     'plugin': <String>[],
     'default_agent': defaultAgent,
-    'model': 'porch/current',
-    'enabled_providers': ['porch'],
+    'model': '$kOpenCodePorchProvider/$kOpenCodePorchModelSlot',
+    'enabled_providers': [kOpenCodePorchProvider],
     'provider': {
-      'porch': {
+      kOpenCodePorchProvider: {
+        'npm': kOpenCodeCompatibleNpm,
         'name': 'Front Porch',
-        'api': 'openai',
         'options': {'baseURL': baseUrl, 'apiKey': apiKey},
         'models': {
-          'current': {'id': modelId, 'name': modelId, 'tool_call': true},
+          kOpenCodePorchModelSlot: {
+            'id': slot,
+            'name': slot,
+            'tool_call': true,
+          },
         },
       },
     },

@@ -20,10 +20,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/kobold_service.dart';
-import 'package:front_porch_ai/services/llm_provider.dart';
-import 'package:front_porch_ai/services/open_router_service.dart';
-import 'package:front_porch_ai/services/opencode/opencode.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu_coworker_prompt.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
@@ -40,8 +37,7 @@ class OpenCodePorchBackend {
   final String modelId;
 }
 
-OpenCodePorchBackend openCodeBackendFromProvider(LLMProvider provider) {
-  final svc = provider.activeService;
+OpenCodePorchBackend openCodeBackendFromProvider(LLMService svc) {
   if (svc is OpenRouterService) {
     return OpenCodePorchBackend(
       baseUrl: svc.apiUrl,

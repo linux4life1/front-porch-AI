@@ -7,6 +7,10 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🖥️ **Waifu Coder is the OpenCode session** — Skills marketplace, slash-command palette, and the Dart “Accept plan” markdown stage are gone. Plan / Build / Yolo stay as chips that pick OpenCode agents. Sit-down, composer, transcript, tool log, todos, Jail/Disk, ask dialogs, OpenCode upgrade, and Undo/Redo stay.
+
+- 🖥️ **Nano-GPT is the OpenCode model when that’s your Remote API** — same picker as chat. OpenCode talks to `https://nano-gpt.com/api/v1` as an openai-compatible provider with the model you already chose. No second model UI.
+
 - 🖥️ **OpenCode upgrades like Kobold** — Settings (and the Waifu sidebar) show the pin vs what’s on disk vs GitHub latest. Tap downloads the pin (~44MB) into Porch’s closet. Never Homebrew, never your `~/.config/opencode`, never auto-latest on launch.
 
 - 🖥️ **Undo/Redo and MCP stay honest** — Undo/Redo call OpenCode revert/unrevert after a finished turn; the keys stay dark until then. MCP servers you invite are written into that isolated OpenCode config at sit-down, not a Dart tool gym.
