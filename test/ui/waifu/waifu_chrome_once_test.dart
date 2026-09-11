@@ -53,27 +53,17 @@ void main() {
     expect(find.text('MCP tools from Settings'), findsNothing);
   });
 
-  testWidgets('empty Plan stage is a one-line hint, not a 280px card', (
-    tester,
-  ) async {
-    final session = WaifuSession(
-      folderRoot: '/tmp/throwaway-waifu',
-      coworker: CharacterCard(name: 'Iris'),
-      mode: WaifuMode.plan,
-    );
+  testWidgets('sidebar shows used vs max context', (tester) async {
+    final session =
+        WaifuSession(
+            folderRoot: '/tmp/throwaway-waifu',
+            coworker: CharacterCard(name: 'Iris'),
+          )
+          ..tokensUsed = 1200
+          ..contextBudget = 8192;
     await tester.pumpWidget(MaterialApp(home: WaifuPage(session: session)));
-    expect(find.byKey(const Key('waifu-plan-stage-hint')), findsOneWidget);
-    expect(find.byKey(const Key('waifu-plan-stage')), findsNothing);
-  });
-
-  test('page factory owns WaifuHarness and dispose Stop-aborts', () {
-    final page = File('lib/ui/waifu/waifu_page.dart').readAsStringSync();
-    expect(page.contains('WaifuHarness('), isFalse);
-    expect(page.contains('h.abort()'), isTrue);
-    expect(
-      File('lib/ui/waifu/waifu_session_scope.dart').readAsStringSync(),
-      contains('WaifuHarness('),
-    );
+    expect(find.byKey(const Key('waifu-context-bar')), findsOneWidget);
+    expect(find.text('1200 / 8192'), findsOneWidget);
   });
 
   testWidgets('consented sit-down skips the honesty re-quiz', (tester) async {

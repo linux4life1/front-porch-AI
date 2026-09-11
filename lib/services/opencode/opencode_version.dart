@@ -1,0 +1,46 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:front_porch_ai/services/opencode/opencode_pin.dart';
+import 'package:path/path.dart' as p;
+
+class OpenCodeBinaryVersion {
+  static Future<({String? version, int? size})> read(String binDir) async {
+    final file = File(p.join(binDir, kOpenCodeVersionFileName));
+    try {
+      if (!await file.exists()) return (version: null, size: null);
+      final json = jsonDecode(await file.readAsString());
+      if (json is! Map) return (version: null, size: null);
+      return (version: json['version'] as String?, size: json['size'] as int?);
+    } catch (_) {
+      return (version: null, size: null);
+    }
+  }
+
+  static Future<void> write(
+    String binDir, {
+    required String version,
+    required int size,
+  }) async {
+    final file = File(p.join(binDir, kOpenCodeVersionFileName));
+    await file.writeAsString(jsonEncode({'version': version, 'size': size}));
+  }
+}

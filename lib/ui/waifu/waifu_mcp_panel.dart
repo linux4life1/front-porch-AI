@@ -66,6 +66,17 @@ class _WaifuMcpPanelState extends State<WaifuMcpPanel> {
           pathMode: widget.session.pathMode,
           onChanged: widget.onMcpOptIn,
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(
+            kWaifuMcpOpenCodeHonesty,
+            key: const Key('waifu-mcp-opencode-honesty'),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary(context),
+            ),
+          ),
+        ),
         if (widget.mcpLine != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),

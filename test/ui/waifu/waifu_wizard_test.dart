@@ -96,9 +96,8 @@ void main() {
     await pumpWizard(tester, onSatDown: (s) => sat = s);
     await reachSitDown(tester);
 
-    expect(find.textContaining('Claude Code'), findsOneWidget);
-    expect(find.textContaining('Grok Build'), findsOneWidget);
-    expect(find.textContaining('OpenCode'), findsOneWidget);
+    expect(find.textContaining('OpenCode is the gym'), findsWidgets);
+    expect(find.textContaining('Homebrew'), findsWidgets);
 
     final confirm = find.byKey(const Key('waifu-sit-down-confirm'));
     await tester.scrollUntilVisible(confirm, 300);
@@ -169,13 +168,5 @@ void main() {
       find.byKey(const Key('waifu-sit-down-confirm')),
     );
     expect(confirm.onPressed, isNull);
-  });
-
-  test('project step does not import or call FilePicker', () {
-    final src = File(
-      'lib/ui/waifu/waifu_wizard_project_step.dart',
-    ).readAsStringSync();
-    expect(src, isNot(contains('FilePicker')));
-    expect(src, isNot(contains('file_picker')));
   });
 }

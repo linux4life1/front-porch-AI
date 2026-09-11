@@ -58,9 +58,12 @@ class WaifuTranscript extends StatelessWidget {
           : (waifuCoworkerFace(context, session.coworker), null),
       characterFor: (_) => session.coworker,
       themeOverrides: session.themeOverrides,
-      isGenerating: session.running,
-      generatingAt: (i) => session.running && i == chats.length - 1,
-      aboveBubble: (msg, index) {
+      // Same as chat: Thought stays folded until the chevron. Passing
+      // session.running as isGenerating auto-opened the live block and
+      // a tool-chip rebuild wiped the pin, so it could not be closed.
+      // Tool rows sit below the bubble so a long Thought does not
+      // scroll the live actions off the top of the reverse list.
+      belowBubble: (msg, index) {
         if (msg.isUser) return null;
         if (index < 0 || index >= visible.length) return null;
         final chips = visible[index].chips;

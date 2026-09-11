@@ -21,11 +21,6 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_mcp_bind.dart';
-
-/// Snapshot of MCP tools + dispatch. Re-read each generate; do not freeze.
-typedef WaifuMcpOf =
-    ({List<Map<String, dynamic>> tools, WaifuMcpCallFn? call}) Function();
 
 /// Data-dir store for this page. Injected in tests; live from StorageService.
 WaifuStore? waifuStoreForContext(BuildContext context, {WaifuStore? injected}) {
@@ -40,32 +35,11 @@ WaifuStore? waifuStoreForContext(BuildContext context, {WaifuStore? injected}) {
   }
 }
 
-/// Sit-down estimate when no harness is bound (system + advertised tools).
+/// Sit-down estimate. OpenCode owns the real window; this is chrome only.
 int waifuIdleRequestTokens(WaifuSession session) {
-  final messages = waifuOpenAiMessages(
-    folderName: session.folderRoot,
-    coworkerName: session.coworker.name,
-    transcript: session.transcript,
-    todos: session.todos.items.isEmpty ? '' : session.todos.read(),
-    mentionBlock: '',
-    preserveThinking: session.preserveThinking,
-    pathMode: session.pathMode,
-    mode: session.mode,
-  );
-  return waifuMeasureRequest(
-    systemPrompt: buildWaifuCoworkerPrompt(session.coworker),
-    prompt: waifuMessagesMeterText(messages),
-    budget: session.contextBudget,
-    tools: waifuAdvertisedTools(
-      exploreOnly: false,
-      includeWebSearch: false,
-      mcpOptIn: session.mcpOptIn,
-      mcpTools: const [],
-      includeTask: true,
-      pathMode: session.pathMode,
-      mode: session.mode,
-    ),
-  ).used;
+  final sys = buildWaifuOpenCodeAgentPrompt(session.coworker);
+  final speech = [for (final m in session.transcript) m.text].join('\n');
+  return waifuEstimateTokens(sys) + waifuEstimateTokens(speech);
 }
 
 /// Remeter then persist so sit-down is never saved as 0/N.
@@ -74,57 +48,49 @@ void waifuArmSessionMeter({
   WaifuHarness? harness,
   WaifuStore? store,
 }) {
-  if (harness != null) {
-    harness.refreshMeter();
-  } else if (session.tokensUsed == 0 && !session.tokensFromApi) {
+  if (session.tokensUsed == 0 && !session.tokensFromApi) {
     session.tokensUsed = waifuIdleRequestTokens(session);
   }
+  harness?.refreshMeter();
   store?.saveLast(session);
 }
 
-/// Both production constructor copies live here so the page never writes
-/// `WaifuHarness(`.
+/// Bind OpenCode manager + Porch backend. Null when neither is available.
 WaifuHarness? waifuBindSessionHarness({
   required WaifuSession session,
-  WaifuLlm? llm,
   LLMProvider? provider,
-  StorageService? storage,
+  OpenCodeManager? manager,
   WaifuStore? store,
   void Function()? onChanged,
   WaifuAskFn? onAsk,
   WaifuQuestionFn? onQuestion,
-  WaifuMcpOf? mcpOf,
-  WaifuWebSearchFn? webSearch,
-  WaifuSkillHub? skills,
+  Map<String, dynamic> Function()? mcpConfigOf,
 }) {
-  final resolved =
-      llm ??
-      (provider == null
-          ? null
-          : LlmServiceWaifuLlm(
-              () => provider.activeService,
-              settingsOf: () => session.genSettings,
-              storage: storage,
-              remainingTokensOf: () => waifuOutputTokenBudget(
-                budget: session.contextBudget,
-                used: session.tokensUsed,
-              ),
-            ));
-  if (resolved == null) return null;
+  OpenCodePorchBackend? backend;
+  OpenCodePorchBackend? Function()? backendOf;
+  if (provider != null) {
+    try {
+      backend = openCodeBackendFromProvider(provider.activeService);
+    } catch (_) {}
+    backendOf = () {
+      try {
+        return openCodeBackendFromProvider(provider.activeService);
+      } catch (_) {
+        return null;
+      }
+    };
+  }
+  if (manager == null && backend == null) return null;
   return WaifuHarness(
     session: session,
-    llm: resolved,
+    manager: manager,
+    backend: backend,
+    backendOf: backendOf,
     store: store,
     onChanged: onChanged,
     onAsk: onAsk,
     onQuestion: onQuestion,
-    mcpToolsOf: mcpOf == null ? null : () => mcpOf().tools,
-    mcpCallOf: mcpOf == null ? null : () => mcpOf().call,
     mcpOptIn: session.mcpOptIn,
-    webSearch: webSearch,
-    skills: skills,
+    mcpConfigOf: mcpConfigOf,
   );
 }
-
-WaifuMcpOf waifuLiveMcpOf(BuildContext context) =>
-    () => waifuMcpBind(context);

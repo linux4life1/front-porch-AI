@@ -1,3 +1,111 @@
+## 2026-09-11 — Waifu tool rows sit below the bubble
+- **Why:** A long Thought grew the reverse-list item upward, so bash/write
+  chips above the bubble scrolled off the top while you were still reading.
+- **What:** `WaifuTranscript` paints `WaifuToolLog` via `belowBubble`, next
+  to the composer, so live actions stay on screen.
+- **Files:** `lib/ui/waifu/waifu_transcript.dart`,
+  `test/ui/waifu/waifu_tool_log_below_test.dart`
+- **Commit:** 2b8dd3d3
+
+## 2026-09-11 — Waifu Thought folded like chat; OpenCode pin probed on launch
+- **Why:** Waifu passed `session.running` as `isGenerating`, which auto-opens
+  Thought. A tool chip wrapping the bubble in a new Column reset that
+  State so the chevron could not keep it closed. OpenCodeManager started
+  with `_installedVersion == null`, so every `flutter run` showed
+  Download until Settings refreshed the pin.
+- **What:** Waifu no longer auto-opens Thought. ChatMessageList always
+  uses a Column + bubble key so toggle state survives a tool row.
+  OpenCodeManager probes the closet on construct.
+- **Files:** `lib/ui/waifu/waifu_transcript.dart`,
+  `lib/ui/chat_components/stage/chat_message_list.dart`,
+  `lib/services/opencode/opencode_manager.dart`,
+  `test/ui/waifu/waifu_thought_collapsed_test.dart`,
+  `test/services/opencode/opencode_probe_installed_test.dart`
+- **Commit:** 2b8dd3d3
+
+## 2026-09-11 — OpenCode SSE keys thinking off part type, not delta field
+- **Why:** OpenCode 1.18 writes `message.part.delta` with `field:"text"` for
+  BOTH reasoning-delta and text-delta. The TUI stores parts by id and
+  renders `part.type`. Our parser ignored partID and treated every
+  `field:text` as speech, so CoT landed in the bubble. Prefix heuristics
+  were a bandage on that.
+- **What:** `OpenCodeSseParser` remembers whether each partID is
+  reasoning or text from `message.part.updated`, then routes later
+  `field:text` deltas accordingly. Text snapshots are not concatenated.
+- **Files:** `lib/services/opencode/opencode_events.dart`,
+  `test/services/opencode/opencode_part_routing_test.dart`
+- **Commit:** 2b8dd3d3
+
+## 2026-09-11 — Waifu Thought vs speech; 18+ work; reseat OpenCode on model switch
+- **Why:** Nano-GPT dumped chain-of-thought ("The user is asking…") into the
+  spoken bubble. A same-day "don't swallow wrap-up" fix dropped dump
+  continuation and blocked dumps after a tool. OpenCode was also seated once
+  on the first send, so switching Settings from Nano-GPT to oMLX never
+  rewrote the isolated config — oMLX looked dead. The coworker preamble did
+  not say this porch is 18+, so models invented a safety lecture.
+- **What:** Route content-side dumps into Thought (prefix + continuation +
+  idle salvage); keep quoted/unquoted wrap-up as the bubble. Preamble: do
+  the asked work, including adult/erotic games; no safety lecture. Live
+  backendOf retargets the same OpenCode session (PATCH config + porch
+  model on prompt_async). A model/URL swap does not create a new session.
+- **Files:** `lib/services/waifu/waifu_speech.dart` (new),
+  `lib/services/waifu/waifu_harness.dart`,
+  `lib/services/waifu/waifu_opencode.dart`,
+  `lib/services/waifu/waifu_coworker_prompt.dart`,
+  `lib/ui/waifu/waifu_session_scope.dart`,
+  `test/services/waifu/waifu_speech_test.dart`,
+  `test/services/waifu/waifu_backend_reseat_test.dart`
+- **Commit:** 2b8dd3d3
+
+## 2026-09-10 — Strip leftover Waifu chrome; Nano-GPT drives OpenCode
+- **Why:** Skills marketplace, slash palette, and Dart plan-accept were a
+  second coach next to OpenCode. Nano-GPT (same OpenRouterService, nano-gpt
+  URL) wrote a custom `porch` provider with `api: openai` and no npm, which
+  OpenCode 1.18.30 can skip or mis-route. A farm of ScriptedWaifuLlm /
+  source-grep / deleted-chrome key tests was theater, not a pin.
+- **What:** Deleted skills hub / slash menu / plan markdown stage and the
+  unused `WaifuLlm` / `ScriptedWaifuLlm` seam. Plan/Build/Yolo chips still
+  pick OpenCode agents. Isolated config is openai-compatible:
+  `provider.porch.npm = @ai-sdk/openai-compatible`, `options.baseURL` is the
+  Porch remote URL (`kNanoGptApiV1` or OpenRouter), `models.current.id` is
+  the live model name (slash ids stay one `porch/current` token). Remaining
+  tests pin live functions only (closet, brew refuse, pin URL, Nano-GPT
+  config, send-before-await, OpenCode HTTP contract). Fake keys only; never
+  print secrets.
+- **Files:** `lib/ui/waifu/**`, `lib/services/waifu/**`, `lib/services/opencode/opencode_config.dart`,
+  theater tests deleted.
+- **Commit:** cbba8ab2 / a1faf981 / 83454dac
+
+## 2026-09-11 — Rip leftover Dart gym; OpenCode upgrade + revert
+- **Why:** Send already talked to OpenCode, but verify theater, bash/fs/deny,
+  tools, workflow, and the turn loop were still on disk — a second coach.
+  Undo keys were dead. MCP still bound Dart tool dispatch. Upgrade was
+  missing.
+- **What:** Deleted leftover gym files. Settings + Waifu sidebar show pin vs
+  disk vs GitHub latest; tap swaps the ~44MB pin into the closet. Undo/Redo
+  POST `/session/:id/revert` and `/unrevert`. MCP catalog writes into isolated
+  OpenCode config at sit-down. Mole tests that only compiled because gym
+  files existed are gone.
+- **Files:** `lib/services/opencode/**`, `lib/services/waifu/**` (gym deleted),
+  `lib/ui/waifu/**`, `lib/ui/settings/tabs/backend/opencode_managed_section.dart`,
+  belt/gym tests removed.
+- **Commit:** 5fca0080 / 1b4f4364
+
+## 2026-09-11 — Waifu Coder uses managed OpenCode; Dart gym retired
+- **Why:** The in-process Dart tool loop (verify theater, belt moles) was
+  the wrong gym. Porch already knows how to own an engine (Kobold).
+- **What:** Download a pinned OpenCode zip into the app-support closet,
+  start `opencode serve` on 127.0.0.1 with isolated config, HTTP client
+  for session/prompt/SSE/abort/permissions. V2 card becomes the OpenCode
+  `waifu` agent prompt. UI kept. Homebrew and `~/.config/opencode` are
+  not the product copy. Dart harness loop parts deleted.
+- **Files:** `lib/services/opencode/**`, `lib/services/waifu/waifu_harness.dart`,
+  `waifu_opencode.dart`, `waifu_honesty.dart`, `waifu_coworker_prompt.dart`,
+  `lib/ui/waifu/waifu_page.dart`, `waifu_session_scope.dart`,
+  `lib/main.providers.dart`, `lib/main.lifecycle.dart`, `CLAUDE.md`,
+  belt/gym tests removed.
+- **Commit:** 4d35151b / ebb0cec6
+
 ## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e
 - **Why:** Belt A #246 squashed to Rawhide as `90dcb76e` (old A tip
   `139f50f8`). B tip `d186c35a` was stacked on that A tip, so GitHub

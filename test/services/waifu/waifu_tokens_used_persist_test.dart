@@ -26,7 +26,6 @@ void main() {
       folderRoot: folder,
       coworker: CharacterCard(name: 'Iris'),
       title: 'what does this project do',
-      activePlanPath: '.waifu/plans/empty-email.md',
     )..tokensUsed = 4321;
     session.transcript.add(
       const WaifuMessage(isUser: true, text: 'what does this project do'),
@@ -36,13 +35,11 @@ void main() {
     final loaded = await store.loadSession(folder);
     expect(loaded, isNotNull);
     expect(loaded!.tokensUsed, 4321);
-    expect(loaded.activePlanPath, '.waifu/plans/empty-email.md');
     expect(loaded.transcript, isNotEmpty);
 
     final last = await store.loadLast();
     expect(last, isNotNull);
     expect(last!.tokensUsed, 4321);
-    expect(last.activePlanPath, '.waifu/plans/empty-email.md');
   });
 
   test('resume restores chat theme overrides', () async {

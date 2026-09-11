@@ -33,18 +33,21 @@ String waifuHonestyBody(WaifuPathMode pathMode) {
           'They can follow absolute paths, ~, .., and cd to read or change '
           'other files anywhere your account can reach.',
   };
-  return '$kWaifuCoderName puts real coding tools in your selected coworker’s '
-      'hands: read, search, apply_patch, write, bash, tests, and visible '
-      'receipts. They work on disk while speaking as the card — not as a '
-      'generic assistant.\n'
+  return '$kWaifuCoderName puts OpenCode in your selected coworker’s hands. '
+      'Porch downloads a private OpenCode into its own closet, starts it, '
+      'and talks to it over HTTP — not the Homebrew binary, not '
+      '~/.config/opencode.\n'
       '$scope\n'
-      'In either mode, hard stops still block secrets, destructive Git, '
-      'force-pushes, and wipe-the-machine commands. They are guardrails, not '
-      'a backup.\n'
-      'This is its own harness — not a promise to match Claude Code, Grok '
-      'Build, OpenCode, or Cursor on every model. A model can still be '
-      'confidently wrong. **Never use it on a critical codebase**; keep a '
-      'throwaway branch, a backup, and an eye on the receipts.';
+      'OpenCode is the gym: read, search, patch, write, bash, tests, and '
+      'visible receipts. They work on disk while speaking as the card — not '
+      'as a generic assistant.\n'
+      'Porch asks OpenCode to deny wipe-class bash and force-push. Secret-file '
+      'and wipe hard stops from the old Dart loop are **not** reimplemented '
+      'here — if OpenCode does not expose the same deny, that is a gap, not a '
+      'pretend fence. Guardrails are not a backup.\n'
+      'A model can still be confidently wrong. **Never use it on a critical '
+      'codebase**; keep a throwaway branch, a backup, and an eye on the '
+      'receipts.';
 }
 
 String waifuHonestyCheckbox(WaifuPathMode pathMode) {
@@ -134,3 +137,14 @@ String waifuMcpScopeWarning(WaifuPathMode pathMode) => switch (pathMode) {
 const kWaifuToolsUnsupported =
     'This model cannot do $kWaifuCoderName. Tool calling is unsupported. '
     'Sit down is blocked — pick a tool-fluent backend in Settings.';
+
+const kWaifuUndoNeedsTurn =
+    'Undo uses OpenCode revert after a finished turn — nothing to revert yet.';
+
+const kWaifuRedoNeedsRevert =
+    'Redo restores the last OpenCode revert — nothing is waiting.';
+
+const kWaifuMcpOpenCodeHonesty =
+    'MCP servers you invite here are written into Porch’s isolated OpenCode '
+    'config at sit-down. They are not a Dart tool gym. Character-chat MCP '
+    'is a separate catalog.';

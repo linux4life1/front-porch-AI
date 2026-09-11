@@ -14,45 +14,12 @@ void main() {
     const typed = WaifuMessage.user(
       '$kWaifuCompactPrefix\nI typed this myself.',
     );
-    const user = WaifuMessage.user('keep going');
-    const iris = WaifuMessage.assistant('On it.');
     expect(recap.kind, WaifuMsgKind.recap);
     expect(recap.hidden, isTrue);
     expect(recap.isUser, isFalse);
     expect(waifuIsPromptRecap(recap), isTrue);
     expect(typed.kind, WaifuMsgKind.user);
     expect(waifuIsPromptRecap(typed), isFalse);
-    expect(
-      waifuPromptSpeech(recap, 'Iris', preserveThinking: false),
-      startsWith('Session recap'),
-    );
-    expect(
-      waifuPromptSpeech(typed, 'Iris', preserveThinking: false),
-      startsWith('User:'),
-    );
-    expect(
-      waifuPromptSpeech(user, 'Iris', preserveThinking: false),
-      'User: keep going',
-    );
-    expect(
-      waifuPromptSpeech(iris, 'Iris', preserveThinking: false),
-      'Iris: On it.',
-    );
-  });
-
-  test('tool kind is tagged, not spoken as Iris', () {
-    const tool = WaifuMessage.tool(
-      name: 'write',
-      output: 'wrote PageTurn.swift',
-      ok: true,
-    );
-    expect(tool.kind, WaifuMsgKind.tool);
-    expect(tool.isUser, isFalse);
-    expect(tool.hidden, isFalse);
-    expect(
-      waifuPromptSpeech(tool, 'Iris', preserveThinking: false),
-      '[tool write ok]\nwrote PageTurn.swift',
-    );
   });
 
   test('load heals hidden recap but not a typed compact prefix', () async {
@@ -83,19 +50,5 @@ void main() {
     expect(loaded.transcript[1].isUser, isTrue);
     expect(waifuIsPromptRecap(loaded.transcript[1]), isFalse);
     expect(loaded.transcript[2].kind, WaifuMsgKind.recap);
-    expect(
-      waifuPromptSpeech(loaded.transcript[1], 'Iris', preserveThinking: false),
-      startsWith('User:'),
-    );
-  });
-
-  test('hidden ctor still builds a recap so old tests keep compiling', () {
-    const recap = WaifuMessage(
-      isUser: true,
-      hidden: true,
-      text: '$kWaifuCompactPrefix\nEdited.',
-    );
-    expect(recap.kind, WaifuMsgKind.recap);
-    expect(recap.isUser, isFalse);
   });
 }

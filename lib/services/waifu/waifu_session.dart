@@ -19,10 +19,21 @@
 import 'dart:typed_data';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_lang_runtime.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
+
+/// Recap lines are not spoken by the user or the coworker.
+bool waifuIsPromptRecap(WaifuMessage m) => m.kind == WaifuMsgKind.recap;
+
+String waifuTitleFrom(String task) {
+  final t = task.trim().replaceAll(RegExp(r'\s+'), ' ');
+  if (t.isEmpty) return kWaifuCoderName;
+  if (t.length <= 48) return t;
+  return '${t.substring(0, 48).trimRight()}…';
+}
 
 class WaifuToolChip {
   const WaifuToolChip({
@@ -30,14 +41,14 @@ class WaifuToolChip {
     required this.detail,
     required this.ok,
     this.pending = false,
+    this.callId = '',
   });
 
   final String name;
   final String detail;
   final bool ok;
-
-  /// Live attempt — [ok] is ignored until the tool settles.
   final bool pending;
+  final String callId;
 }
 
 class WaifuWriteRecord {
@@ -218,7 +229,6 @@ class WaifuSession {
     this.mcpOptIn = false,
     this.preserveThinking = false,
     this.toolsSupported = true,
-    this.activePlanPath,
     ChatThemeOverrides? themeOverrides,
     Set<String>? suggestedLangs,
     List<WaifuMessage>? transcript,
@@ -254,7 +264,6 @@ class WaifuSession {
 
   /// Sit-down / live probe. False fail-closes the loop — no silent coding.
   bool toolsSupported;
-  String? activePlanPath;
   ChatThemeOverrides themeOverrides;
   final ChatGenerationSettings genSettings = ChatGenerationSettings();
   int contextBudget = 8192;

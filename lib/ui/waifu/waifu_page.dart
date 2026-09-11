@@ -32,7 +32,6 @@ import 'package:front_porch_ai/ui/waifu/waifu_language_help.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mcp_bind.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_question_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_composer.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_plan_stage.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_chrome.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_sidebar.dart';
@@ -44,26 +43,15 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 
 part 'waifu_page_image.dart';
 
-/// Waifu Coder session. Send runs the in-process tool loop. No Continue, no regen.
+/// Waifu Coder session. Send forwards to managed OpenCode. No Continue, no regen.
 class WaifuPage extends StatefulWidget {
-  const WaifuPage({
-    super.key,
-    required this.session,
-    this.harness,
-    this.llm,
-    this.store,
-    this.skills,
-  });
+  const WaifuPage({super.key, required this.session, this.harness, this.store});
 
   final WaifuSession session;
   final WaifuHarness? harness;
-  final WaifuLlm? llm;
 
   /// Test seam. Production uses [StorageService.rootPath]/waifu.
   final WaifuStore? store;
-
-  /// Test seam. Production builds a hub for the sit-down folder.
-  final WaifuSkillHub? skills;
 
   @override
   State<WaifuPage> createState() => _WaifuPageState();
@@ -72,7 +60,6 @@ class WaifuPage extends StatefulWidget {
 class _WaifuPageState extends State<WaifuPage> {
   final _composer = TextEditingController();
   WaifuHarness? _created;
-  WaifuSkillHub? _skills;
   double _sidebarWidth = SidebarTokens.widthFromEnvironment();
   var _parked = false;
   Uint8List? _pendingImage;
@@ -140,45 +127,30 @@ class _WaifuPageState extends State<WaifuPage> {
   WaifuStore? _storeOf(BuildContext context) =>
       waifuStoreForContext(context, injected: widget.store);
 
-  WaifuSkillHub _skillsOf() {
-    final fromHarness = (widget.harness ?? _created)?.skills;
-    if (fromHarness != null) return fromHarness;
-    if (widget.skills != null) return widget.skills!;
-    return _skills ??= WaifuSkillHub(
-      projectRoot: widget.session.folderRoot,
-      userSkillsDir: waifuUserSkillsDir(),
-    );
-  }
-
   WaifuHarness? _harnessOf(BuildContext context) {
     final injected = widget.harness;
     if (injected != null) return injected;
     if (_created != null) return _created;
     LLMProvider? provider;
-    StorageService? storage;
+    OpenCodeManager? oc;
     try {
-      storage = Provider.of<StorageService>(context, listen: false);
+      oc = Provider.of<OpenCodeManager>(context, listen: false);
     } catch (_) {}
-    if (widget.llm == null) {
-      try {
-        provider = Provider.of<LLMProvider>(context, listen: false);
-      } catch (_) {
-        return null;
-      }
+    try {
+      provider = Provider.of<LLMProvider>(context, listen: false);
+    } catch (_) {
+      if (oc == null) return null;
     }
-    final webSearch = waifuWebSearchBind(context);
     return _created = waifuBindSessionHarness(
       session: widget.session,
-      llm: widget.llm,
       provider: provider,
-      storage: storage,
+      manager: oc,
       store: _storeOf(context),
       onChanged: _refresh,
       onAsk: _ask,
       onQuestion: _askQuestion,
-      mcpOf: waifuLiveMcpOf(context),
-      webSearch: webSearch,
-      skills: _skillsOf(),
+      mcpConfigOf: () =>
+          waifuOpenCodeMcpMap(context, optIn: widget.session.mcpOptIn),
     );
   }
 
@@ -202,20 +174,9 @@ class _WaifuPageState extends State<WaifuPage> {
     return result ?? '';
   }
 
-  Future<void> _setMode(WaifuMode mode, {bool announce = false}) async {
-    final result = await waifuTrySetMode(session: widget.session, next: mode);
-    if (!mounted) return;
-    setState(() {
-      if (result == WaifuModeApply.blockedDraft) {
-        widget.session.transcript.add(
-          const WaifuMessage.assistant(kWaifuPlanBuildGateCue),
-        );
-      } else if (announce) {
-        widget.session.transcript.add(
-          WaifuMessage.assistant('Mode is ${mode.name}.'),
-        );
-      }
-    });
+  Future<void> _setMode(WaifuMode mode) async {
+    if (widget.session.mode == mode) return;
+    setState(() => widget.session.mode = mode);
     (widget.harness ?? _created)?.refreshMeter();
   }
 
@@ -233,26 +194,6 @@ class _WaifuPageState extends State<WaifuPage> {
     }
     await _storeOf(context)?.saveLast(widget.session);
     if (mounted) setState(() {});
-  }
-
-  Future<void> _slashSkills(String text) async {
-    final hub = _skillsOf();
-    final rest = text
-        .trim()
-        .replaceFirst(RegExp(r'^/skills\s*', caseSensitive: false), '')
-        .trim();
-    late final String line;
-    if (rest.isEmpty) {
-      await hub.refreshLocal();
-      await hub.refreshMarket();
-      line = hub.listing();
-    } else {
-      line = await hub.install(rest);
-    }
-    if (!mounted) return;
-    setState(() {
-      widget.session.transcript.add(WaifuMessage.assistant(line));
-    });
   }
 
   WaifuLangRuntime _langsOf(BuildContext context) {
@@ -285,7 +226,6 @@ class _WaifuPageState extends State<WaifuPage> {
     final photo = _pendingImage;
     if (text.isEmpty && photo == null) return;
     _composer.clear();
-    if (photo == null && _applyLocalSlash(text)) return;
     String? imagePath;
     if (photo != null) {
       imagePath = await waifuSaveInboxPhoto(widget.session.folderRoot, photo);
@@ -308,52 +248,6 @@ class _WaifuPageState extends State<WaifuPage> {
       return;
     }
     await harness.send(text, imagePng: photo, imagePath: imagePath);
-  }
-
-  void _pickSlash(WaifuSlashCommand cmd) {
-    if (!cmd.runOnPick) {
-      final fill = '/${cmd.name} ';
-      _composer.value = TextEditingValue(
-        text: fill,
-        selection: TextSelection.collapsed(offset: fill.length),
-      );
-      return;
-    }
-    _composer.clear();
-    if (_applyLocalSlash('/${cmd.name}')) return;
-    _harnessOf(context)?.send('/${cmd.name}');
-  }
-
-  bool _applyLocalSlash(String text) {
-    final cmd = waifuSlashExact(text);
-    if (cmd == null || !cmd.local) return false;
-    final session = widget.session;
-    final mode = waifuSlashMode(cmd.name);
-    if (mode != null) {
-      unawaited(_setMode(mode, announce: true));
-      return true;
-    }
-    switch (cmd.name) {
-      case 'help':
-        setState(() {
-          session.transcript.add(WaifuMessage.assistant(waifuSlashHelpText()));
-        });
-        return true;
-      case 'undo':
-        _harnessOf(context)?.undo();
-        return true;
-      case 'stop':
-        _harnessOf(context)?.abort();
-        return true;
-      case 'compact':
-        unawaited(_harnessOf(context)?.compact());
-        return true;
-      case 'skills':
-        unawaited(_slashSkills(text));
-        return true;
-      default:
-        return false;
-    }
   }
 
   @override
@@ -407,11 +301,6 @@ class _WaifuPageState extends State<WaifuPage> {
                 Expanded(
                   child: WaifuTranscript(session: session, coworker: coworker),
                 ),
-                WaifuPlanStage(
-                  session: session,
-                  harness: harness,
-                  onChanged: _refresh,
-                ),
                 if (waifuTurnReceiptVisible(
                   lastWrite: session.lastWrite,
                   writes: session.turnWrites,
@@ -430,7 +319,6 @@ class _WaifuPageState extends State<WaifuPage> {
                   controller: _composer,
                   session: session,
                   onSend: _send,
-                  onPickSlash: _pickSlash,
                   onStop: () => _harnessOf(context)?.abort(),
                   onQueueChanged: _refresh,
                   onUndo: () => (widget.harness ?? _created)?.undo(),
@@ -477,11 +365,6 @@ class _WaifuPageState extends State<WaifuPage> {
               },
               harness: harness,
               mcpLine: mcpLine,
-              skills: _skillsOf(),
-              onSkillsChanged: () {
-                (widget.harness ?? _created)?.refreshMeter();
-                _refresh();
-              },
               onThemeChanged: _onThemeChanged,
               onCompact: harness == null
                   ? null

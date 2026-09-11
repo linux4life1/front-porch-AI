@@ -25,7 +25,6 @@ import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
-import 'package:front_porch_ai/ui/waifu/waifu_slash_menu.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_stop_bar.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -47,14 +46,13 @@ KeyEventResult waifuComposerKeyEvent(
   return KeyEventResult.handled;
 }
 
-/// Slash palette, Stop bar, and the growing prompt field.
+/// Stop bar and the growing prompt field.
 class WaifuComposer extends StatelessWidget {
   const WaifuComposer({
     super.key,
     required this.controller,
     required this.session,
     required this.onSend,
-    required this.onPickSlash,
     required this.onStop,
     this.onQueueChanged,
     required this.onUndo,
@@ -72,7 +70,6 @@ class WaifuComposer extends StatelessWidget {
   final TextEditingController controller;
   final WaifuSession session;
   final VoidCallback onSend;
-  final ValueChanged<WaifuSlashCommand> onPickSlash;
   final VoidCallback onStop;
   final VoidCallback? onQueueChanged;
   final VoidCallback onUndo;
@@ -95,18 +92,6 @@ class WaifuComposer extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              final matches = waifuSlashMatches(value.text);
-              if (matches.isEmpty) return const SizedBox.shrink();
-              return WaifuSlashMenu(
-                matches: matches,
-                prefix: waifuSlashPrefix(value.text) ?? '',
-                onPick: onPickSlash,
-              );
-            },
-          ),
           if (session.running) WaifuStopBar(onStop: onStop),
           if (session.queued.isNotEmpty)
             Padding(
@@ -217,13 +202,17 @@ class WaifuComposer extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   key: const Key('waifu-undo'),
-                  tooltip: 'Undo her last write',
+                  tooltip: canUndo
+                      ? 'Undo last OpenCode turn'
+                      : kWaifuUndoNeedsTurn,
                   onPressed: session.running || !canUndo ? null : onUndo,
                   icon: Icon(Icons.undo, color: amber),
                 ),
                 IconButton(
                   key: const Key('waifu-redo'),
-                  tooltip: 'Redo her last write',
+                  tooltip: canRedo
+                      ? 'Redo last OpenCode revert'
+                      : kWaifuRedoNeedsRevert,
                   onPressed: session.running || !canRedo ? null : onRedo,
                   icon: Icon(Icons.redo, color: amber),
                 ),

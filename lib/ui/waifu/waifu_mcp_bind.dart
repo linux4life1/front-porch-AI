@@ -19,64 +19,66 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/services/services.dart';
 
-({List<Map<String, dynamic>> tools, WaifuMcpCallFn? call}) waifuMcpBind(
-  BuildContext context,
-) {
-  try {
-    final chat = Provider.of<ChatService>(context, listen: false);
-    final snaps = chat.mcpHub.snapshots();
-    final enabled = Set<String>.from(chat.mcpEnabledServerIds);
-    final catalog = buildMcpCatalog(
-      inProcess: const [],
-      servers: snaps,
-      enabledForChat: enabled,
-    );
-    return (
-      tools: waifuKeepMcpTools(catalog.toOpenAiTools()),
-      call: (name, args) async {
-        CatalogTool? tool;
-        for (final t in catalog.tools) {
-          if (t.name == name) {
-            tool = t;
-            break;
-          }
-        }
-        final serverId = tool?.serverId;
-        if (serverId == null) {
-          return WaifuToolResult.error('mcp: unknown tool $name');
-        }
-        final result = await chat.mcpHub.callTool(
-          serverId: serverId,
-          toolName: name,
-          arguments: args,
-          enabledForChat: enabled,
-        );
-        return WaifuToolResult(
-          ok: result.ok && !result.isError,
-          output: waifuSanitizeMcpOutput(result.text),
-        );
-      },
-    );
-  } on ProviderNotFoundException {
-    return (tools: const <Map<String, dynamic>>[], call: null);
+/// Map Porch MCP catalog rows into isolated OpenCode `mcp` config.
+/// OpenCode 1.18: `{ name: { type: local|remote, ... } }`.
+Map<String, dynamic> openCodeMcpFromServers(Iterable<McpServerConfig> servers) {
+  final mcp = <String, dynamic>{};
+  for (final s in servers) {
+    if (!s.enabledGlobal) continue;
+    final name = _openCodeMcpName(s);
+    if (s.isStdio) {
+      final cmd = s.command.trim();
+      if (cmd.isEmpty) continue;
+      mcp[name] = {
+        'type': 'local',
+        'command': [cmd, ...s.args],
+        'enabled': true,
+        if (s.env.isNotEmpty) 'environment': s.env,
+      };
+    } else if (s.url.trim().isNotEmpty) {
+      mcp[name] = {
+        'type': 'remote',
+        'url': s.url.trim(),
+        'enabled': true,
+        if (s.headers.isNotEmpty) 'headers': s.headers,
+      };
+    }
   }
+  return mcp;
 }
 
-/// Wikipedia/Tavily via the same client character chat uses. Each waifu
-/// tool call resets the per-send HTTP cap so a turn can look up more
-/// than once (Flutter version AND a package).
-WaifuWebSearchFn? waifuWebSearchBind(BuildContext context) {
+String _openCodeMcpName(McpServerConfig s) {
+  final raw = s.displayName.trim().isEmpty ? s.id : s.displayName.trim();
+  final slug = raw
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+  return slug.isEmpty ? s.id : slug;
+}
+
+/// Enabled chat servers → OpenCode mcp map. Empty when opt-in is off.
+Map<String, dynamic> waifuOpenCodeMcpMap(
+  BuildContext context, {
+  required bool optIn,
+}) {
+  if (!optIn) return const {};
   try {
-    final chat = Provider.of<ChatService>(context, listen: false);
-    return (q) async {
-      chat.webSearchService.beginUserSend();
-      final r = await chat.webSearchService.lookup(q);
-      return r.snippet;
-    };
+    final storage = Provider.of<StorageService>(context, listen: false);
+    ChatService? chat;
+    try {
+      chat = Provider.of<ChatService>(context, listen: false);
+    } on ProviderNotFoundException {
+      chat = null;
+    }
+    final enabled =
+        chat?.mcpEnabledServerIds ??
+        {for (final s in storage.mcpSettings.servers) s.id};
+    return openCodeMcpFromServers(
+      storage.mcpSettings.servers.where((s) => enabled.contains(s.id)),
+    );
   } on ProviderNotFoundException {
-    return null;
+    return const {};
   }
 }
