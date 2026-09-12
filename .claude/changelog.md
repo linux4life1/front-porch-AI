@@ -123,7 +123,7 @@
   `waifu_slash.dart`, `waifu_mcp_opt_in.dart`, `waifu_composer.dart`,
   `waifu_home_view.dart`, `waifu_ask_why.dart`, plus comment-only
   files under `lib/services/chat/`, tests, `docs/Rawhide.md`
-- **Commit:** (this commit)
+- **Commit:** c3f35335
 
 ## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e
 - **Why:** Belt A #246 squashed to Rawhide as `90dcb76e` (old A tip
