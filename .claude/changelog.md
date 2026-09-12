@@ -1,3 +1,13 @@
+## 2026-09-12 — Notarization uses App Store Connect API key
+- **Why:** Changing the Apple ID password revoked the app-specific password
+  in `APPLE_ID_PASSWORD`. Nightlies 214–216 all 401'd at `notarytool submit`
+  even after minting a new ASP. API keys survive password resets.
+- **What:** nightly.yml + release.yml now write `APPLE_API_KEY` to a temp
+  `.p8` and call `notarytool --key/--key-id/--issuer`. ASP secrets are no
+  longer read. Local `scripts/build-macos.sh` already preferred this path.
+- **Files:** `.github/workflows/nightly.yml`, `.github/workflows/release.yml`
+- **Commit:** (this commit)
+
 ## 2026-09-11 — Dedicated OpenRouter tools path (no json_schema double bill)
 - **Why:** OpenRouter activity for grok-4.6 showed 20+ billed calls in
   minutes. Named evals tried json_schema then tools (2 POSTs), style-probed
