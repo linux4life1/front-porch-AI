@@ -92,7 +92,7 @@ class OpenCodeErrorEvent extends OpenCodeBusEvent {
   final String message;
 }
 
-/// Dumb consumer the UI/harness implements. No Dart gym, no ledger.
+/// Dumb consumer the UI/harness implements. OpenCode owns tools; no Dart ledger.
 abstract class OpenCodeEventSink {
   void onTextDelta(
     String delta, {

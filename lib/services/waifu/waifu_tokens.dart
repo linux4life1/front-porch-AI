@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// Chrome meter helpers. Not a Dart compact gym.
+/// Chrome meter helpers. Not an in-process Dart compact loop.
 const kWaifuCompactAt = 0.75;
 const kWaifuDefaultContextTokens = 8192;
 const kWaifuCompactPrefix = '[Session compact]';

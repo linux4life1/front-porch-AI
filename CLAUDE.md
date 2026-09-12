@@ -201,7 +201,7 @@ lib/
 
 Every sidecar was retired in 2026-07. TTS (Kokoro/Piper via sherpa-onnx), STT (Whisper via sherpa-onnx), expression classification (onnxruntime), RAG embeddings (nomic via onnxruntime, golden-pinned to the old Rust server's vectors), and Draw Things (pure-Dart gRPC + fpzip FFI) all run **in-process** — the app spawns no helper processes. Engine successes/failures report to `EngineHealth` (`lib/services/engine_health.dart`); pre-release builds surface the first unexpected failure loudly. Do not reintroduce sidecar processes.
 
-**Waifu Coder** may manage an OpenCode binary the way Porch manages Kobold (download a pinned GitHub zip into the app-support closet, start `opencode serve` on 127.0.0.1, stop our PID). That is not a chat sidecar and not a Dart coding loop. Do not reintroduce an in-process Waifu tool gym. Do not use the user's Homebrew OpenCode or `~/.config/opencode` as the product copy.
+**Waifu Coder** may manage an OpenCode binary the way Porch manages Kobold (download a pinned GitHub zip into the app-support closet, start `opencode serve` on 127.0.0.1, stop our PID). That is not a chat sidecar and not a Dart coding loop. Do not reintroduce an in-process Waifu coding loop. Do not use the user's Homebrew OpenCode or `~/.config/opencode` as the product copy.
 
 ### Database
 

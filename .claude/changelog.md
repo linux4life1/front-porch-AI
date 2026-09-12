@@ -1,3 +1,24 @@
+## 2026-09-11 — Waifu honesty: OpenCode does the coding (no gym copy)
+- **Why:** Sit-down honesty and MCP copy called OpenCode a "gym". The
+  owner asked that user-facing and coworker prompt never say gym,
+  Dart gym, tool gym, permission gym, verify theater, or belts.
+  The first-pass pronoun test still called deleted slash/ask-why APIs
+  (`kWaifuSlashCommands`, `waifuAskWhy`) after #250.
+- **What:** Honesty reads "OpenCode does the coding: read, search,
+  patch…". MCP honesty says OpenCode owns those tools, not an
+  in-process Dart loop. Comments in permissions/tokens/events match.
+  Pronoun guard now pins live Waifu copy (honesty, MCP, home view).
+  Female Sex still maps to she/her. Story-clock "Gym video" fixture
+  and belt-and-suspenders chat/DB comments are untouched.
+- **Files:** `lib/services/waifu/waifu_honesty.dart`,
+  `waifu_permissions.dart`, `waifu_tokens.dart`,
+  `lib/services/opencode/opencode_events.dart`, `CLAUDE.md`,
+  `test/services/waifu/waifu_sit_down_test.dart`,
+  `test/ui/waifu/waifu_wizard_test.dart`,
+  `test/services/opencode/opencode_config_test.dart`,
+  `test/services/chat/neutral_character_pronouns_test.dart`
+- **Commit:** 43679ba7
+
 ## 2026-09-11 — Waifu tool rows sit below the bubble
 - **Why:** A long Thought grew the reverse-list item upward, so bash/write
   chips above the bubble scrolled off the top while you were still reading.

@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// Ask-dialog types. OpenCode is the permission gym; Dart does not decide.
+/// Ask-dialog types. OpenCode owns permissions; Dart does not decide.
 enum WaifuAskDecision { allowOnce, allowAlways, deny }
 
 class WaifuAskRequest {

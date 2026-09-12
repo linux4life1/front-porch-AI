@@ -38,7 +38,7 @@ String waifuHonestyBody(WaifuPathMode pathMode) {
       'and talks to it over HTTP — not the Homebrew binary, not '
       '~/.config/opencode.\n'
       '$scope\n'
-      'OpenCode is the gym: read, search, patch, write, bash, tests, and '
+      'OpenCode does the coding: read, search, patch, write, bash, tests, and '
       'visible receipts. They work on disk while speaking as the card — not '
       'as a generic assistant.\n'
       'Porch asks OpenCode to deny wipe-class bash and force-push. Secret-file '
@@ -146,5 +146,5 @@ const kWaifuRedoNeedsRevert =
 
 const kWaifuMcpOpenCodeHonesty =
     'MCP servers you invite here are written into Porch’s isolated OpenCode '
-    'config at sit-down. They are not a Dart tool gym. Character-chat MCP '
-    'is a separate catalog.';
+    'config at sit-down. OpenCode owns those tools — they are not an '
+    'in-process Dart loop. Character-chat MCP is a separate catalog.';

@@ -96,7 +96,7 @@ void main() {
     await pumpWizard(tester, onSatDown: (s) => sat = s);
     await reachSitDown(tester);
 
-    expect(find.textContaining('OpenCode is the gym'), findsWidgets);
+    expect(find.textContaining('OpenCode does the coding'), findsWidgets);
     expect(find.textContaining('Homebrew'), findsWidgets);
 
     final confirm = find.byKey(const Key('waifu-sit-down-confirm'));

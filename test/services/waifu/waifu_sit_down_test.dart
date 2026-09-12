@@ -30,7 +30,9 @@ void main() {
         expect(body, contains('Homebrew'));
         expect(body, contains('~/.config/opencode'));
         expect(body, contains('critical codebase'));
-        expect(body, contains('OpenCode is the gym'));
+        expect(body, contains('OpenCode does the coding'));
+        expect(body.toLowerCase(), isNot(contains('gym')));
+        expect(body.toLowerCase(), isNot(contains('belt')));
         expect(body, contains('gap'));
         expect(body, isNot(contains('will not be as reliable')));
         expect(body, isNot(contains('fun tool')));
@@ -47,6 +49,10 @@ void main() {
           contains('code I cannot afford to lose'),
         );
       }
+      expect(kWaifuOpenCodePreamble.toLowerCase(), isNot(contains('gym')));
+      expect(kWaifuOpenCodePreamble.toLowerCase(), isNot(contains('belt')));
+      expect(kWaifuMcpOpenCodeHonesty, contains('OpenCode owns those tools'));
+      expect(kWaifuMcpOpenCodeHonesty.toLowerCase(), isNot(contains('gym')));
     },
   );
 

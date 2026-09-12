@@ -6,6 +6,8 @@
 // Proven red: defaultApiSystemPrompt, the intimate-agency line, the
 // standing-mood chip, the chargen quirk example, and the needs-eval
 // prompt all hardcoded she/her for every character.
+// Waifu Coder: slash/ask-why files were deleted in #250; this file now
+// pins live honesty, MCP, coworker preamble, and home-view copy.
 
 import 'dart:io';
 
@@ -118,24 +120,26 @@ void main() {
   });
 
   group('Waifu Coder copy is they/them, not she/her', () {
-    test('slash blurbs never call the coder she', () {
-      for (final c in kWaifuSlashCommands) {
-        expect(
-          _she.hasMatch(c.blurb),
-          isFalse,
-          reason: '/${c.name}: ${c.blurb}',
-        );
-      }
-    });
+    test(
+      'honesty, MCP, empty-prompt, and coworker preamble stay they/them',
+      () {
+        for (final mode in WaifuPathMode.values) {
+          expect(_she.hasMatch(waifuHonestyBody(mode)), isFalse);
+          expect(_she.hasMatch(waifuPathModeBlurb(mode)), isFalse);
+          expect(_she.hasMatch(waifuEmptyPrompt(mode, 'Mira')), isFalse);
+        }
+        expect(_she.hasMatch(kWaifuOpenCodePreamble), isFalse);
+        expect(_she.hasMatch(kWaifuMcpOpenCodeHonesty), isFalse);
+      },
+    );
 
-    test('doom-loop ask copy uses they', () {
-      final why = waifuAskWhy(
-        name: 'bash',
-        args: const {'command': 'true'},
-        doomLoop: true,
-      );
-      expect(why, startsWith('They already ran'));
-      expect(_she.hasMatch(why), isFalse);
+    test('home view and MCP opt-in stay they/them', () {
+      final home = File('lib/ui/waifu/waifu_home_view.dart').readAsStringSync();
+      expect(home, contains('They code in character.'));
+      expect(home, isNot(contains('She codes in character.')));
+      final mcp = File('lib/ui/waifu/waifu_mcp_opt_in.dart').readAsStringSync();
+      expect(mcp, contains('Let them use MCP'));
+      expect(mcp, isNot(contains('Let her use MCP')));
     });
   });
 }
