@@ -25,7 +25,9 @@ import 'package:front_porch_ai/services/llm_tool_parsing.dart';
 import 'package:front_porch_ai/services/openai_completions_fallback.dart';
 import 'package:front_porch_ai/services/openai_tool_payload.dart';
 import 'package:front_porch_ai/services/openai_tool_stream.dart';
+import 'package:front_porch_ai/services/openrouter_native_tools.dart';
 import 'package:front_porch_ai/services/openrouter_structured_eval.dart';
+import 'package:front_porch_ai/services/openrouter_tool_support.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
 import 'package:front_porch_ai/services/remote_model_info.dart';
@@ -33,28 +35,6 @@ import 'package:front_porch_ai/services/remote_reachability.dart';
 
 // RemoteModelInfo lived here for years — re-export so importers keep working.
 export 'package:front_porch_ai/services/remote_model_info.dart';
-
-/// Pull a human error string out of a provider JSON body (or the raw body).
-/// Several Nano/OpenRouter shapes exist; we try them all so the effort
-/// learn-path is not skipped just because the envelope moved.
-String _remoteApiErrorMessage(String body, int statusCode) {
-  final fallback = 'HTTP $statusCode';
-  if (body.isEmpty) return fallback;
-  try {
-    final decoded = jsonDecode(body);
-    if (decoded is Map) {
-      final err = decoded['error'];
-      if (err is Map && err['message'] != null) {
-        return err['message'].toString();
-      }
-      if (err is String && err.isNotEmpty) return err;
-      if (decoded['message'] != null) return decoded['message'].toString();
-    }
-    if (decoded is String && decoded.isNotEmpty) return decoded;
-  } catch (_) {}
-  // Plain-text / HTML body still carries the effort rejection wording.
-  return body.length > 800 ? '${body.substring(0, 800)}…' : body;
-}
 
 /// LLM backend for OpenAI-compatible APIs (OpenRouter, Nano-GPT, vLLM, …).
 class OpenRouterService extends LLMService implements LlmApiEndpoint {
@@ -255,6 +235,17 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         if (id.isEmpty) continue;
         if (m is Map) {
           rememberReasoningProfileFromCatalog(id, m['reasoning']);
+          if (isOpenRouterApiUrl(url)) {
+            final advertised = toolsAdvertisedFromParameters(
+              m['supported_parameters'],
+            );
+            if (advertised != null) {
+              OpenRouterToolSupport.instance.rememberFromCatalog(
+                id,
+                advertised: advertised,
+              );
+            }
+          }
         }
         // `m` is dynamic, so indexing a plain-String entry dispatches to
         // String.operator[](int) and THROWS — which aborted the whole loop and
@@ -453,105 +444,12 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   /// Test seam: the exact headers [generateStream] puts on chat/completions.
   Map<String, String> get chatRequestHeaders => _chatHeaders;
 
-  /// OpenRouter named evals: `response_format` json_schema first, then tools.
+  /// Named evals share [generateWithTools]. Public OpenRouter is the
+  /// dedicated tools path (no json_schema-then-tools double bill).
   Future<LlmToolResponse?> generateStructuredJson(
     GenerationParams params,
     List<Map<String, dynamic>> tools,
-  ) async {
-    final toolName = params.toolChoice;
-    final schema = openRouterEvalJsonSchema(tools: tools, toolChoice: toolName);
-    if (!isOpenRouterApiUrl(_apiUrl) || schema == null || toolName == null) {
-      return generateWithTools(params, tools);
-    }
-    if (!isReady) return null;
-    final client = httpClientFactory?.call() ?? http.Client();
-    _activeClients.add(client);
-    try {
-      final streaming = params.onChunk != null;
-      final payload = applyOpenRouterStructuredEvalRouting(
-        _chatPayload(
-          GenerationParams(
-            prompt: params.prompt,
-            maxLength: params.maxLength,
-            temperature: params.temperature,
-            topP: params.topP,
-            repeatPenalty: 1.0,
-            reasoningEnabled: false,
-            salvageReasoning: true,
-            stopSequences: params.stopSequences ?? const [],
-            toolChoice: toolName,
-            backendIdentity: params.backendIdentity,
-            onChunk: params.onChunk,
-          ),
-          stream: streaming,
-        ),
-        jsonSchema: schema,
-        mandatoryReasoning: reasoningCannotDisable(modelName),
-      );
-      if (streaming) {
-        final streamed = await streamOpenAiChatTools(
-          uri: Uri.parse('$_apiUrl/chat/completions'),
-          headers: _chatHeaders,
-          payload: payload,
-          client: client,
-          wrapReasoning: false,
-          salvage: true,
-          onChunk: params.onChunk,
-        );
-        if (streamed != null) {
-          if (streamed.calls.isNotEmpty) return streamed;
-          final fromSchema = toolResponseFromStructuredEvalContent(
-            content: streamed.text,
-            reasoning: streamed.reasoning,
-            toolName: toolName,
-          );
-          if (fromSchema != null) return fromSchema;
-        }
-        debugPrint(
-          '[RemoteAPI] Structured eval stream unusable — '
-          'falling back to tools',
-        );
-        return await generateWithTools(params, tools);
-      }
-      final response = await client.post(
-        Uri.parse('$_apiUrl/chat/completions'),
-        headers: _chatHeaders,
-        body: jsonEncode(payload),
-      );
-      if (response.statusCode == 429 || response.statusCode >= 500) {
-        throw LlmToolTransportException(
-          'structured eval HTTP ${response.statusCode} '
-          '(server busy/unavailable)',
-        );
-      }
-      if (response.statusCode != 200) {
-        debugPrint(
-          '[RemoteAPI] Structured eval rejected '
-          '(HTTP ${response.statusCode}) — falling back to tools',
-        );
-        return await generateWithTools(params, tools);
-      }
-      final parsed = parseOpenAiToolResponse(response.body);
-      if (parsed != null && parsed.calls.isNotEmpty) return parsed;
-      final fromSchema = toolResponseFromStructuredEvalContent(
-        content: parsed?.text,
-        reasoning: parsed?.reasoning,
-        toolName: toolName,
-      );
-      if (fromSchema != null) return fromSchema;
-      debugPrint(
-        '[RemoteAPI] Structured eval returned unusable JSON — '
-        'falling back to tools',
-      );
-      return await generateWithTools(params, tools);
-    } catch (e) {
-      debugPrint('[RemoteAPI] Structured eval transport failure: $e');
-      rethrow;
-    } finally {
-      _activeClients.remove(client);
-      client.close();
-    }
-  }
+  ) => generateWithTools(params, tools);
 
   /// OpenAI tools: null = unusable; throw = transport failure.
   @override
@@ -563,22 +461,22 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     final client = httpClientFactory?.call() ?? http.Client();
     _activeClients.add(client);
     try {
+      if (isOpenRouterApiUrl(_apiUrl)) {
+        return await runOpenRouterNativeTools(
+          apiUrl: _apiUrl,
+          modelName: _modelName,
+          params: params,
+          tools: tools,
+          client: client,
+          headers: _chatHeaders,
+          chatPayload: _chatPayload,
+        );
+      }
       final identity = params.backendIdentity.isEmpty
           ? '$backendName|$_modelName|'
           : params.backendIdentity;
       final streaming = params.onChunk != null;
-      var payload = _chatPayload(params, stream: streaming);
-      if (isOpenRouterApiUrl(_apiUrl) &&
-          shouldApplyOpenRouterEvalToolRouting(
-            reasoningEnabled: params.reasoningEnabled,
-            reasoningMaxTokens: params.reasoningMaxTokens,
-            toolChoice: params.toolChoice,
-          )) {
-        payload = applyOpenRouterToolRouting(
-          payload,
-          mandatoryReasoning: reasoningCannotDisable(modelName),
-        );
-      }
+      final payload = _chatPayload(params, stream: streaming);
       if (streaming) {
         String? streamErr;
         int? streamStatus;
@@ -616,7 +514,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         if (rejected != null &&
             learnReasoningEffortFromError(
               model: modelName,
-              errorMessage: _remoteApiErrorMessage(rejected, status),
+              errorMessage: openRouterApiErrorMessage(rejected, status),
               body: rejected,
             )) {
           debugPrint(
@@ -647,7 +545,10 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         );
       }
       if (response.statusCode != 200) {
-        final err = _remoteApiErrorMessage(response.body, response.statusCode);
+        final err = openRouterApiErrorMessage(
+          response.body,
+          response.statusCode,
+        );
         if (_thinkingOffRejected(response.statusCode, params, err)) {
           rememberMandatoryReasoning(modelName);
           debugPrint(
@@ -693,7 +594,10 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   }
 
   @override
-  Stream<String> generateStream(GenerationParams params) async* {
+  Stream<String> generateStream(
+    GenerationParams params, {
+    int payloadRetries = 0,
+  }) async* {
     if (!isReady) {
       throw Exception(
         'Remote API not configured. Please set API key and model.',
@@ -743,19 +647,20 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
 
       if (response.statusCode != 200) {
         final body = await response.stream.bytesToString();
-        final errorMsg = _remoteApiErrorMessage(body, response.statusCode);
+        final errorMsg = openRouterApiErrorMessage(body, response.statusCode);
         // A mandatory-reasoning model refusing `reasoning:{enabled:false}`.
         // Remember it and RETRY ONCE right here rather than just throwing:
         // without the retry the caller still loses this eval, and for the
         // reported case that is every judge on the turn the user is waiting on.
         // The rejection then costs one round trip for the life of the process.
-        if (_thinkingOffRejected(response.statusCode, params, errorMsg)) {
+        if (payloadRetries < 1 &&
+            _thinkingOffRejected(response.statusCode, params, errorMsg)) {
           rememberMandatoryReasoning(modelName);
           debugPrint(
             '[RemoteAPI] $modelName cannot disable reasoning — retrying with '
             'Kimi salvage (remembered for this session)',
           );
-          yield* generateStream(params);
+          yield* generateStream(params, payloadRetries: payloadRetries + 1);
           return;
         }
         // The provider re-tiered this model's reasoning.effort values under
@@ -764,18 +669,19 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         // as generateWithTools: remember the supported set, remap on the
         // payload, retry this turn. A second rejection of the same listing
         // does not loop.
-        if (learnReasoningEffortFromError(
-          model: modelName,
-          errorMessage: errorMsg,
-          body: body,
-        )) {
+        if (payloadRetries < 1 &&
+            learnReasoningEffortFromError(
+              model: modelName,
+              errorMessage: errorMsg,
+              body: body,
+            )) {
           debugPrint(
             '[RemoteAPI] $modelName rejected reasoning.effort '
             '"${params.reasoningEffort}" — retrying with '
             '"${wireReasoningEffort(modelName, params.reasoningEffort)}" '
             '(remembered for this session)',
           );
-          yield* generateStream(params);
+          yield* generateStream(params, payloadRetries: payloadRetries + 1);
           return;
         }
         if (isChatCompletionsUnsupportedError(errorMsg)) {
@@ -910,7 +816,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       if (response.statusCode != 200) {
         final body = await response.stream.bytesToString();
         throw Exception(
-          'API error: ${_remoteApiErrorMessage(body, response.statusCode)}',
+          'API error: ${openRouterApiErrorMessage(body, response.statusCode)}',
         );
       }
       yield* parseCompletionsSse(response.stream);

@@ -421,9 +421,11 @@ class GrowthService {
         }
         if (ops.isNotEmpty) return ops;
         if (resp.calls.isNotEmpty) {
-          // It spoke tools, they just validated to nothing — an honest
-          // "no growth" result, not a transport failure.
           return const [];
+        }
+        if (resp.isUnusableNativeToolCall) {
+          probe.noteInconclusive(backend);
+          return null;
         }
         if (resp.text.trim().isNotEmpty) {
           // Prose with no tool call and no parseable tags: the model

@@ -436,6 +436,14 @@ Future<String?> fireStructuredEval({
           onChunk?.call('$salvaged\n');
           return salvaged;
         }
+        if (resp.isUnusableNativeToolCall) {
+          debugPrint(
+            '[Eval:Tools] $debugLabel empty tool_calls '
+            '(finish_reason=tool_calls) — unusable, no text retry',
+          );
+          probe.noteInconclusive(backendIdentity);
+          return null;
+        }
         if (resp.text.trim().isNotEmpty || resp.reasoning.trim().isNotEmpty) {
           debugPrint(
             '[Eval:Tools] $debugLabel returned prose or incomplete JSON — '

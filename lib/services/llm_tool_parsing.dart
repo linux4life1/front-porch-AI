@@ -61,6 +61,11 @@ LlmToolResponse? parseOpenAiToolResponse(String body) {
   final message = first is Map ? first['message'] : null;
   if (message is! Map) return null;
 
+  final finishRaw = first is Map ? first['finish_reason'] : null;
+  final finishReason = finishRaw is String && finishRaw.isNotEmpty
+      ? finishRaw
+      : null;
+
   final calls = <LlmToolCall>[];
   for (final tc in (message['tool_calls'] as List? ?? const [])) {
     final fn = tc is Map ? tc['function'] : null;
@@ -89,5 +94,6 @@ LlmToolResponse? parseOpenAiToolResponse(String body) {
     promptTokens: usage?.promptTokens,
     completionTokens: usage?.completionTokens,
     totalTokens: usage?.totalTokens,
+    finishReason: finishReason,
   );
 }

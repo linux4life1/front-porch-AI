@@ -40,6 +40,7 @@ class OpenAiToolStreamParser {
   int? promptTokens;
   int? completionTokens;
   int? totalTokens;
+  String? finishReason;
 
   /// Returns text the UI should append (think-wrapped), or empty.
   String onDelta(Map<dynamic, dynamic> delta) {
@@ -117,6 +118,7 @@ class OpenAiToolStreamParser {
       promptTokens: promptTokens,
       completionTokens: completionTokens,
       totalTokens: totalTokens,
+      finishReason: finishReason,
     );
   }
 }
@@ -180,7 +182,11 @@ void _ingestDataLine(
     final choices = json['choices'];
     final choice = choices is List && choices.isNotEmpty ? choices.first : null;
     if (choice is! Map) return;
-    if (choice['finish_reason'] == 'length') {
+    final finish = choice['finish_reason'];
+    if (finish is String && finish.isNotEmpty) {
+      parser.finishReason = finish;
+    }
+    if (finish == 'length') {
       debugPrint(
         '[OpenAiChat] streamed tool call hit max_tokens '
         '(finish_reason=length)',

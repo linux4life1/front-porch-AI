@@ -408,10 +408,11 @@ class JournalMaintenance {
         }
         if (ops.isNotEmpty || recap != null) return (ops, recap);
         if (resp.calls.isNotEmpty) {
-          // It spoke tools; the calls just validated to nothing — an honest
-          // "nothing worth journaling" result, not a transport failure.
-          // Do NOT skip. Do NOT brand. Do NOT fall through to XML.
           return (const <JournalOp>[], null);
+        }
+        if (resp.isUnusableNativeToolCall) {
+          probe.noteInconclusive(backend);
+          return null;
         }
         if (resp.text.trim().isNotEmpty) {
           // Prose with no tool call and no parseable tags: the model

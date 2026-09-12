@@ -563,8 +563,9 @@ extension ChatServiceWiringEvals on ChatService {
         ? kEvalToolCallTimeout
         : kEvalStreamChunkTimeout;
     try {
-      // OpenRouter named evals use json_schema; Kobold / fakes stay on tools.
-      // Kept off LLMService so implementers do not need a stub.
+      // OpenRouterService.generateStructuredJson is generateWithTools (public
+      // OR = dedicated tools path; Nano keeps the probe soup). Kobold / fakes
+      // stay on generateWithTools. Kept off LLMService so fakes need no stub.
       final evalCall = service is OpenRouterService
           ? service.generateStructuredJson
           : service.generateWithTools;

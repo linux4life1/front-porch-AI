@@ -257,6 +257,9 @@ class LlmToolResponse {
   final int? completionTokens;
   final int? totalTokens;
 
+  /// OpenAI `choices[0].finish_reason` when the body carried one.
+  final String? finishReason;
+
   const LlmToolResponse({
     required this.calls,
     required this.text,
@@ -264,7 +267,13 @@ class LlmToolResponse {
     this.promptTokens,
     this.completionTokens,
     this.totalTokens,
+    this.finishReason,
   });
+
+  /// Empty parse after the model committed to `tool_calls`. Callers must
+  /// not fire a second text/XML generate for this turn.
+  bool get isUnusableNativeToolCall =>
+      calls.isEmpty && finishReason == 'tool_calls';
 
   int? get usedTokens => LlmTokenUsage(
     promptTokens: promptTokens,

@@ -231,7 +231,7 @@ void main() {
       },
     );
 
-    test('OpenRouter constraint survives a tool-choice style retry', () async {
+    test('OpenRouter tool_choice 400 does not style-retry', () async {
       final payloads = <Map<String, dynamic>>[];
       final remote = OpenRouterService(
         apiUrl: 'https://openrouter.ai/api/v1',
@@ -240,29 +240,11 @@ void main() {
       );
       remote.httpClientFactory = () => MockClient((request) async {
         payloads.add(jsonDecode(request.body) as Map<String, dynamic>);
-        if (payloads.length == 1) {
-          return http.Response(
-            jsonEncode({
-              'error': {'message': 'unsupported tool_choice object'},
-            }),
-            400,
-          );
-        }
         return http.Response(
           jsonEncode({
-            'choices': [
-              {
-                'message': {
-                  'tool_calls': [
-                    {
-                      'function': {'name': 'add_memory', 'arguments': '{}'},
-                    },
-                  ],
-                },
-              },
-            ],
+            'error': {'message': 'unsupported tool_choice object'},
           }),
-          200,
+          400,
         );
       });
 
@@ -276,16 +258,13 @@ void main() {
         tools,
       );
 
-      expect(payloads, hasLength(2));
-      expect(
-        payloads.every(
-          (payload) =>
-              (payload['provider'] as Map?)?['require_parameters'] == true,
-        ),
-        isTrue,
-      );
-      expect(payloads[1]['tool_choice'], 'required');
-      expect(resp!.calls.single.name, 'add_memory');
+      expect(payloads, hasLength(1));
+      expect(payloads.single['provider'], {'require_parameters': true});
+      expect(payloads.single['tool_choice'], {
+        'type': 'function',
+        'function': {'name': 'add_memory'},
+      });
+      expect(resp, isNull);
     });
 
     test('non-200 (provider without tool support) returns null', () async {

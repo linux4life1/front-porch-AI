@@ -119,14 +119,22 @@ class ModelApiCapabilities {
   final bool vision;
   final bool toolCalling;
 
-  const ModelApiCapabilities({this.vision = false, this.toolCalling = false});
+  /// OpenRouter `supported_parameters` contains `"tools"` (the dedicated
+  /// public-OR path). [toolCalling] still requires `tool_choice` as well —
+  /// that AND is the sidebar-pill seed, not the catalog advertisement.
+  final bool advertisesTools;
+
+  const ModelApiCapabilities({
+    this.vision = false,
+    this.toolCalling = false,
+    bool? advertisesTools,
+  }) : advertisesTools = advertisesTools ?? toolCalling;
 
   /// Parse an OpenRouter `/models` entry.
   ///
   /// Vision: `architecture.input_modalities` contains `"image"`.
-  /// Tools:  `supported_parameters` contains both `"tools"` and
-  /// `"tool_choice"`. Advertising schemas without the ability to force the
-  /// selected function is not reliable enough for state-changing evals.
+  /// Tools:  `supported_parameters` contains `"tools"`. Forced `tool_choice`
+  /// is recorded separately on [toolCalling] for the eval-pill seed.
   factory ModelApiCapabilities.fromOpenRouterEntry(
     Map<dynamic, dynamic> entry,
   ) {
@@ -141,14 +149,20 @@ class ModelApiCapabilities {
       }
     }
 
-    bool tools = false;
+    var advertisesTools = false;
+    var tools = false;
     final params = entry['supported_parameters'];
     if (params is List) {
       final supported = params.map((e) => e.toString().toLowerCase()).toSet();
-      tools = supported.contains('tools') && supported.contains('tool_choice');
+      advertisesTools = supported.contains('tools');
+      tools = advertisesTools && supported.contains('tool_choice');
     }
 
-    return ModelApiCapabilities(vision: vision, toolCalling: tools);
+    return ModelApiCapabilities(
+      vision: vision,
+      toolCalling: tools,
+      advertisesTools: advertisesTools,
+    );
   }
 
   /// Parse a Nano-GPT `/models?detailed=true` entry, whose `capabilities`
@@ -157,9 +171,11 @@ class ModelApiCapabilities {
   factory ModelApiCapabilities.fromNanoGptEntry(Map<dynamic, dynamic> entry) {
     final caps = entry['capabilities'];
     if (caps is Map) {
+      final tools = caps['tool_calling'] == true;
       return ModelApiCapabilities(
         vision: caps['vision'] == true,
-        toolCalling: caps['tool_calling'] == true,
+        toolCalling: tools,
+        advertisesTools: tools,
       );
     }
     return const ModelApiCapabilities();
@@ -181,9 +197,11 @@ class ModelApiCapabilities {
     final vision =
         entry['type']?.toString().toLowerCase() == 'vlm' ||
         capList.contains('vision');
+    final tools = capList.contains('tool_use');
     return ModelApiCapabilities(
       vision: vision,
-      toolCalling: capList.contains('tool_use'),
+      toolCalling: tools,
+      advertisesTools: tools,
     );
   }
 }
