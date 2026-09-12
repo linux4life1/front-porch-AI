@@ -1,3 +1,19 @@
+## 2026-09-11 — Dedicated OpenRouter tools path (no json_schema double bill)
+- **Why:** OpenRouter activity for grok-4.6 showed 20+ billed calls in
+  minutes. Named evals tried json_schema then tools (2 POSTs), style-probed
+  named→required→auto, and treated any thinking-off 400 as a mandatory-
+  reasoning retry. 6 judges × 2–3 attempts was the screenshot.
+- **What:** Public openrouter.ai only: nested OpenAI tools, one POST per
+  named eval, catalog `supported_parameters` + per-model-id 400 memory.
+  No vendor allowlists. Empty tool_calls + finish_reason=tool_calls does
+  not fire a second generate. Nano/oMLX/LM Studio keep the probe soup.
+- **Files:** `lib/services/openrouter_native_tools.dart`,
+  `openrouter_tool_support.dart`, `open_router_service.dart`,
+  `openrouter_structured_eval.dart`, `pass_support.dart`,
+  `journal_maintenance.dart`, `growth_service.dart`,
+  `test/services/openrouter_native_tools_test.dart`
+- **Commit:** e82f7b6e
+
 ## 2026-09-11 — Waifu honesty: OpenCode does the coding (no gym copy)
 - **Why:** Sit-down honesty and MCP copy called OpenCode a "gym". The
   owner asked that user-facing and coworker prompt never say gym,
