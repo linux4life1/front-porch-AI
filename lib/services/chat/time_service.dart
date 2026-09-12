@@ -499,7 +499,7 @@ class TimeService {
     await _ifDayChanged(dayBefore);
   }
 
-  /// Post-reply: she named a time, so the live clock follows. Not a user
+  /// Post-reply: they named a time, so the live clock follows. Not a user
   /// nudge — swipe/regen still rewind from the previous snapshot.
   Future<void> applyReconciledClock(DateTime newClock) async {
     final dayBefore = dayCount;
@@ -708,21 +708,21 @@ class TimeService {
   /// room between turns: the position is injected imperatively into the next
   /// reply ("Position: X — ground actions in this",
   /// prompt_injection/behavioral_injection.dart). But a position a character
-  /// establishes IN her reply — she crosses the room and sits on the
+  /// establishes IN their reply — they cross the room and sit on the
   /// windowsill — could not possibly be seen by a judge that ran before that
   /// reply existed, and the next turn's pre-generation judge simply
   /// re-derived a fresh guess and overwrote it. The prompt then asserted the
   /// stale position as fact. Maintainer ruling, verbatim: "spatial awareness
   /// check should run post character message, otherwise how could it check
-  /// where she moved or what she is doing".
+  /// where they moved or what they are doing".
   ///
   /// So posture is now exactly the kind of fact Pockets and Afterglow are —
   /// something the REPLY changed — and it runs where they run, reading the
   /// text that was just written (chat_service_generation_postgen.dart).
   /// TIME now moves AFTER the reply, same family as posture: the prompt
-  /// already announced the current clock, she wrote at that time, and this
+  /// already announced the current clock, they wrote at that time, and this
   /// call decides what the NEXT speaker will be told. Pre-gen application
-  /// made At work / Today lie (the strip jumped before she opened her mouth).
+  /// made At work / Today lie (the strip jumped before they opened their mouth).
   ///
   /// [postureOnly] is that pass. It is the SAME branch that used to serve
   /// "passage of time is off, so ask about posture alone" — promoted to a
@@ -778,7 +778,7 @@ class TimeService {
         : '';
 
     if (postureOnly) {
-      // Where she ended up. [recent] here is the window AFTER the reply was
+      // Where they ended up. [recent] here is the window AFTER the reply was
       // appended, so the exchange this reads is the one the character just
       // wrote — the whole reason the pass moved. Deliberately NOT gated on
       // _passageOfTimeEnabled: a frozen clock does not freeze a room.

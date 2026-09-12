@@ -19,7 +19,7 @@
 /// Item-memory journal cards — the pure mapper from applied pocket events to
 /// diary lines (maintainer design, 2026-08-11).
 ///
-/// "She put her keys on the hallway table" is not STATE — it is an event she
+/// "They put their keys on the hallway table" is not STATE — it is an event they
 /// should REMEMBER, and remembering is the Journal's whole trade: heat while
 /// fresh, cooling as the scene moves on, keyword/semantic resurfacing when
 /// the conversation drifts back near it. This mapper is the feed's editorial
@@ -100,13 +100,11 @@ List<ItemCardDraft> itemCardsFrom(List<PocketEvent> events) {
       if (e.kind == PocketOpKind.remove && e.clothing) e.item,
   ];
   if (wears.isNotEmpty && removes.isNotEmpty) {
-    String short(List<String> names) => names.length <= 3
-        ? names.join(', ')
-        : '${names.take(3).join(', ')}, …';
+    String short(List<String> names) =>
+        names.length <= 3 ? names.join(', ') : '${names.take(3).join(', ')}, …';
     drafts.add((
       item: wears.first,
-      content:
-          'I changed into ${short(wears)} (out of ${short(removes)}).',
+      content: 'I changed into ${short(wears)} (out of ${short(removes)}).',
     ));
   }
 

@@ -235,11 +235,11 @@ extension ChatServiceCast on ChatService {
     final bool soleNsfwEnabled =
         _groupRealism[soleId]?.nsfwCooldownEnabled ??
         _nsfwService.nsfwCooldownEnabled;
-    // Same reasoning for her Pockets record, and read here for the same reason:
+    // Same reasoning for their Pockets record, and read here for the same reason:
     // step 4 re-enters as a 1:1, which clears _groupRealism. Carried regardless
     // of realism because Pockets does not depend on it — the pass is gated on
-    // pocketsEnabled alone, so a survivor can be holding her keys with the
-    // engine off. Dropping this is how a collapse would empty her hands.
+    // pocketsEnabled alone, so a survivor can be holding their keys with the
+    // engine off. Dropping this is how a collapse would empty their hands.
     final Pockets? solePockets = _groupRealism[soleId]?.pockets;
     final bool solePassageEnabled = _timeService.passageOfTimeEnabled;
     final bool soleChaosEnabled = _chaosModeService.chaosModeEnabled;
@@ -306,7 +306,7 @@ extension ChatServiceCast on ChatService {
       // The diary re-keys with everything else. Journal cards (memories, item
       // placements, promises) are stored under the MEMBER instance id, and the
       // collapsed 1:1 reads them under originId — without this the survivor
-      // keeps her quests and rings but opens with an empty Journal while the
+      // keeps their quests and rings but opens with an empty Journal while the
       // rows sit unreachable in the very same session.
       await _moveJournalCards(sessionId, soleId, originId);
       await _db.deleteDataBankEntriesForCharacter(soleId);

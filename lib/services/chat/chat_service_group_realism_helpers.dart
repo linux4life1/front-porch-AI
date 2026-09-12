@@ -226,12 +226,12 @@ extension ChatServiceGroupRealismHelpers on ChatService {
   /// SPATIAL STANCE joined them on 2026-08-08, when the posture eval moved to
   /// the post-generation phase so it could read the reply. That moved a WRITE
   /// across the snapshot boundary: without this line every message would
-  /// carry the position the character was in BEFORE her reply, and the regen
+  /// carry the position the character was in BEFORE their reply, and the regen
   /// revert (which rebuilds its baseline from the previous accepted message's
   /// snapshot) would hand the replacement turn a position one exchange stale
   /// — the exact teleport the move was made to stop, reintroduced through the
   /// rewind door. It is also what makes swiping between alternatives move the
-  /// character to where THAT alternative left her.
+  /// character to where THAT alternative left them.
   ///
   /// SPATIAL STANCE ALSO LEAVES A PRE-TURN RECEIPT HERE, and that is not
   /// bookkeeping — it is the other half of moving the write.
@@ -272,7 +272,7 @@ extension ChatServiceGroupRealismHelpers on ChatService {
   /// realism_state, so this no-ops for them.
   Future<void> _restampRealismSnapshotPostGen(ChatMessage msg) async {
     if (msg.isUser) return;
-    // She named a time ("six in the morning") that disagrees with the
+    // They named a time ("six in the morning") that disagrees with the
     // pre-gen snap (new_day → 08:00). Fiction wins so the sidebar matches
     // the line you just read. Gated on a moving clock — a frozen clock
     // must not start chasing dialogue.

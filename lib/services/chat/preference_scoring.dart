@@ -36,7 +36,7 @@ class PreferenceScoring {
   /// [intimateInto]/[intimateNotInto] are already NSFW-filtered by the caller.
   ///
   /// [intimateAgency] adds the refusal clause — omitted when off, because a
-  /// judge told to weigh "she asked and was refused" against a character who
+  /// judge told to weigh "they asked and were refused" against a character who
   /// never asks is being asked to score something that did not happen.
   static String block({
     required String charName,

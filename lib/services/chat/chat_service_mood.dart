@@ -45,14 +45,14 @@ extension ChatServiceMood on ChatService {
     return deriveMoodBaseline(
       // Empty when the simulation is off, and that is correct rather than
       // degraded: the clock and the weather still have something to say about
-      // her day.
+      // their day.
       needs: _needsSimEnabled ? _needsSimulation.vector : const {},
       timeOfDay: _clockRunning ? _timeService.timeOfDay : '',
       weather: currentWeather,
     );
   }
 
-  /// What she walked in carrying, for display. Empty when the feature is off
+  /// What they walked in carrying, for display. Empty when the feature is off
   /// or the day is unremarkable.
   ///
   /// The class member is a one-line forwarder in the shell, NOT this getter,
@@ -78,8 +78,8 @@ extension ChatServiceMood on ChatService {
   /// before: the emotional eval returns a label and an intensity, never a
   /// cause, and adding an `emotion_reason` field would have changed the eval
   /// (and its cost) on every path. The standing mood supplies the honest
-  /// answer for free — not "why she feels this", which nothing knows, but what
-  /// she walked in carrying, which is exactly the missing half.
+  /// answer for free — not "why they feel this", which nothing knows, but what
+  /// they walked in carrying, which is exactly the missing half.
   ///
   /// Absent when neutral, so the chip renders unchanged rather than showing an
   /// empty tooltip.

@@ -76,7 +76,7 @@ void main() {
       expect(
         m.isNeutral,
         isTrue,
-        reason: 'an absent vector means the feature is off, not that she is '
+        reason: 'an absent vector means the feature is off, not that they are '
             'starving, exhausted and filthy',
       );
     });
@@ -100,7 +100,7 @@ void main() {
       expect(m.causes, contains('they are exhausted'));
       expect(
         m.summary,
-        'not at her best — they are exhausted',
+        'not at their best — they are exhausted',
         reason: 'this exact string is what the mood chip shows on hover; if it '
             'is empty the chip is back to explaining nothing',
       );

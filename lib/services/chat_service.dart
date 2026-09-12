@@ -672,7 +672,7 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   /// This HIDES, it never erases. `_pockets` and the per-member records are left
   /// exactly as they were, the v47 save wire writes `_pockets` directly, and the
   /// load wire restores it directly — all deliberately outside this gate — so
-  /// switching Pockets off and back on finds everything she was carrying still
+  /// switching Pockets off and back on finds everything they were carrying still
   /// there. The rewind path likewise writes through `setPocketsFor`, not here.
   Pockets? pocketsFor(String characterId) {
     if (!_storageService.realismSettings.pocketsEnabled) return null;

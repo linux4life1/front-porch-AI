@@ -80,7 +80,7 @@ class RealismSettings with SettingsBase {
 
   /// Standing Mood (docs/design/pockets-and-preferences.md is not its home —
   /// see the class doc on MoodBaseline). Lets a character arrive already
-  /// tired, hungry or cheered by the weather, so not every shift in her mood
+  /// tired, hungry or cheered by the weather, so not every shift in their mood
   /// is something the user did.
   ///
   /// Defaults OFF because it changes the felt behaviour of every reply, and
@@ -89,21 +89,21 @@ class RealismSettings with SettingsBase {
   /// about caution, not cost.
   bool _standingMoodEnabled = false;
 
-  /// Whether a character ACTS on her authored intimate preferences — pursues
-  /// what she warms to, in her own register, and turns down what she is not.
+  /// Whether a character ACTS on their authored intimate preferences — pursues
+  /// what they warm to, in their own register, and turns down what they are not.
   ///
   /// HARD DEPENDENCY ON THE REALISM ENGINE, and unusually it is a real one
-  /// rather than an inherited gate. The feature is a loop: she asks, the user
-  /// answers, and being refused or indulged moves her mood, which is what she
-  /// carries into the next reply. The judge that scores that answer IS the
+  /// rather than an inherited gate. The feature is a loop: they ask, the user
+  /// answers, and being refused or indulged moves their mood, which is what they
+  /// carry into the next reply. The judge that scores that answer IS the
   /// engine (`realism_prompt_builder.preferencesBlock` reaches the relationship
-  /// AND emotional-state evals). With the engine off she would ask for things
+  /// AND emotional-state evals). With the engine off they would ask for things
   /// and nothing would ever come of it — half a feature, and the worse half.
   /// So this is gated on realism at the point of use, not merely chipped as
   /// depending on it.
   ///
   /// Defaults OFF. It changes how a character behaves in intimate scenes quite
-  /// noticeably — she initiates, where before she only responded — and that is
+  /// noticeably — they initiate, where before they only responded — and that is
   /// the user's call to make, not a default to inherit. Costs NOTHING per turn:
   /// two prompt sentences, no extra model call.
   bool _intimateAgencyEnabled = false;

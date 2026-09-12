@@ -98,7 +98,7 @@ $descriptionSpec- "personality": (string) 2-3 paragraphs, $fieldVoice. Go beyond
   * Speech patterns — do they ramble, speak tersely, use slang, swear, use formal language, have verbal tics or catchphrases?
   * Emotional triggers — what makes them angry, what softens them, what shuts them down, what makes them laugh?
   * How they treat strangers vs. people they trust — what changes?
-  * A distinctive quirk or habit that makes them memorable (e.g. "fidgets with a coin when nervous", "always offers food to people she's just met")
+  * A distinctive quirk or habit that makes them memorable (e.g. "fidgets with a coin when nervous", "always offers food to people they've just met")
   Do NOT repeat physical appearance or scenario/setting info here — those belong in other fields
 - "scenario": (string) 3-5 sentences. Synthesize a vivid opening scene that naturally emerges from the character's concept, backstory, personality, and relationship to {{user}}. Ground it in a specific place, time, and situation — include sensory details (lighting, sounds, atmosphere). Establish dramatic tension: what's at stake, what just happened, or what's about to happen that forces {{user}} and {{char}} to interact. The scenario MUST establish a clear dramatic question or tension that gives {{user}} a compelling reason to respond — a static scene with no hook is a failure. This is stage direction for the opening moment, NOT a character summary. Do NOT restate personality traits or backstory — only the immediate scene
 $sysSpec

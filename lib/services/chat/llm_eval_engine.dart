@@ -747,7 +747,7 @@ class LlmEvalEngine {
                 // the state block hands the model lines like "sharp, gnawing
                 // hunger cramps… thoughts drifting uncontrollably to food", the
                 // model narrates exactly that, and this eval then read the
-                // narration as evidence she had BECOME hungrier. Describing a
+                // narration as evidence they had BECOME hungrier. Describing a
                 // state was being scored as changing it, and the lower a need
                 // went the more vivid the prose and the harder the next hit.
                 //
@@ -756,10 +756,10 @@ class LlmEvalEngine {
                 // reply" — and the rule had simply never been applied here.
                 'DEPLETION IS HANDLED SEPARATELY. Needs drift downward on their own every turn; '
                 'that is already accounted for and is not your job. The scene text above was WRITTEN FROM '
-                'the current needs listed below — a character mentioning her empty stomach, dragging her feet, '
+                'the current needs listed below — a character mentioning their empty stomach, dragging their feet, '
                 'or squirming is DESCRIBING the state you are being shown, not becoming worse. Do not charge '
-                'her for it.\n'
-                'Report a NEGATIVE delta only when the scene explicitly describes something that COST her: '
+                'them for it.\n'
+                'Report a NEGATIVE delta only when the scene explicitly describes something that COST them: '
                 'hard exertion, sex, a soaking or a mess, being kept awake, going without, or drinking a '
                 'lot (which fills the bladder rather than emptying it). A described event SHOULD register '
                 'clearly — a soda is a real hit to bladder, a long walk a real hit to energy — it is the '
@@ -780,9 +780,9 @@ class LlmEvalEngine {
                 'Partial or interrupted versions get proportionally smaller deltas. Reserve small numbers (±1 to ±8) for INCIDENTAL effects, never for a complete relief or restoration. (These are 1x baselines — scale by the strength factor above.)\n\n' +
             flatJsonAsk +
             (toolsMode
-                ? 'Individual needs may be 0. All seven 0 is a failed eval — score what the beat did to her body and mood.'
+                ? 'Individual needs may be 0. All seven 0 is a failed eval — score what the beat did to their body and mood.'
                 : '"reason": "<brief grounded reason for the deltas>" }\n'
-                      'Individual needs may be 0. All seven 0 is a failed eval — score what the beat did to her body and mood.');
+                      'Individual needs may be 0. All seven 0 is a failed eval — score what the beat did to their body and mood.');
       }
     }
 

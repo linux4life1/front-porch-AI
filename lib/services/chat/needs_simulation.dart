@@ -216,7 +216,7 @@ class NeedsSimulation {
   /// clean → index 4 = only faintly too fresh). This is an ODOR/MUSK preference
   /// ONLY: the character is soothed by their own unwashed body scent and put off
   /// by feeling soap-clean. It is NOT a drive to make a mess — no seeking dirt,
-  /// mud, or filth acts (a character once dumped a mop bucket over herself off
+  /// mud, or filth acts (a character once dumped a mop bucket over themselves off
   /// the old wording). The distress is missing their natural scent; the comfort
   /// is simply remaining unwashed and musky. Pronoun-free like
   /// [needSteppedText] (rendered right after a named header).
@@ -409,7 +409,7 @@ class NeedsSimulation {
   ///
   /// What this is NOT: a licence for the eval to drive the simulation. Decay
   /// still owns the ambient slide, and the prompt now tells the eval to report
-  /// a negative ONLY for something the scene explicitly describes costing her.
+  /// a negative ONLY for something the scene explicitly describes costing them.
   /// These are the ceiling on a real event, not a per-turn expectation.
   static const Map<String, int> sceneDepletionAt1x = {
     'hunger': 12,

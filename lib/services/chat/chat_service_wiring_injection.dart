@@ -232,8 +232,9 @@ extension ChatServiceWiringInjection on ChatService {
       primaryId: primaryId,
       loreIds: loreIds,
     );
-    final resolvedPrimary =
-        (primaryId != null && primaryId.isNotEmpty) ? primaryId : null;
+    final resolvedPrimary = (primaryId != null && primaryId.isNotEmpty)
+        ? primaryId
+        : null;
     _chatPlaceSlots = ChatPlaceSlots(
       primaryId: resolvedPrimary,
       loreIds: List.unmodifiable([
@@ -483,9 +484,9 @@ extension ChatServiceWiringInjection on ChatService {
       getNsfwEnabled: () => _storageService.realismSettings.adultThemesEnabled,
       // BOTH halves resolved here, so there is exactly one place the decision
       // is made. The engine half is a HARD dependency and not the usual
-      // inherited gate: the feature is a loop — she asks, the user answers,
-      // and being refused moves her mood into the next reply — and the judge
-      // that scores the answer IS the engine. With realism off she would ask
+      // inherited gate: the feature is a loop — they ask, the user answers,
+      // and being refused moves their mood into the next reply — and the judge
+      // that scores the answer IS the engine. With realism off they would ask
       // for things and nothing would ever come of it.
       getIntimateAgencyEnabled: () =>
           _storageService.realismSettings.intimateAgencyEnabled &&

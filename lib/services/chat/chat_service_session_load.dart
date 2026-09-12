@@ -98,13 +98,19 @@ extension ChatServiceSessionLoad on ChatService {
       _lorebookScanner.resetLorebookTriggerState();
       _activeObjectives = [];
       _messagesSinceLastCheck = 0;
-      _isCheckingCompletion = false; // zero in _loadLast empty early return (0-session path hygiene)
-      _summaryPaused = false; // explicit secondary zero for _summaryPaused (symmetric; _loadLast empty early return 0-session)
-      _isSummaryGenerating = false; // secondary zero in _loadLast empty (0-session for summary flag)
-      _isGrowthPassRunning = false; // growth-pass flag zero in _loadLast empty early return (0-session path hygiene; keep reset blocks in sync)
+      _isCheckingCompletion =
+          false; // zero in _loadLast empty early return (0-session path hygiene)
+      _summaryPaused =
+          false; // explicit secondary zero for _summaryPaused (symmetric; _loadLast empty early return 0-session)
+      _isSummaryGenerating =
+          false; // secondary zero in _loadLast empty (0-session for summary flag)
+      _isGrowthPassRunning =
+          false; // growth-pass flag zero in _loadLast empty early return (0-session path hygiene; keep reset blocks in sync)
       _growthStore.invalidate(); // no session — nothing to inject
-      _selectedLooks.clear(); // 0-session: no per-chat look selection (keep reset blocks in sync)
-      _sessionGenSettings = ChatGenerationSettings(); // 0-session: no per-chat gen overrides — without this, character B's first chat ran (and could SAVE) character A's temp/stops/sanitizer (keep reset blocks in sync)
+      _selectedLooks
+          .clear(); // 0-session: no per-chat look selection (keep reset blocks in sync)
+      _sessionGenSettings =
+          ChatGenerationSettings(); // 0-session: no per-chat gen overrides — without this, character B's first chat ran (and could SAVE) character A's temp/stops/sanitizer (keep reset blocks in sync)
       _clearContextBudget();
       return;
     }
@@ -459,13 +465,13 @@ extension ChatServiceSessionLoad on ChatService {
     //
     // Restored regardless of whether Pockets is currently switched on: a
     // record only exists because it was on at the time, and rolling a chat
-    // open must not be the thing that empties her hands.
+    // open must not be the thing that empties their hands.
     final pj = s.pockets;
     _pockets = (pj is String && pj.isNotEmpty)
         ? Pockets.fromJson(jsonDecode(pj))
         : null;
     // No saved record means this chat has never run the pass, so fall back to
-    // what the card starts her with — otherwise the sidebar reads empty until
+    // what the card starts them with — otherwise the sidebar reads empty until
     // after the first reply and an author who just set a wardrobe concludes it
     // did not save. Skipped when a record exists: the chat has moved on.
     seedPocketsFromCards();

@@ -45,7 +45,7 @@ extension ChatServicePromptBlocks on ChatService {
 
   /// Build the user persona block for the generation prompt.
   /// The user's self-description is ground truth. (What the character has
-  /// *learned* about the user now lives in her per-chat Journal cards —
+  /// *learned* about the user now lives in their per-chat Journal cards —
   /// injected separately via journal_injection — not here.)
   Future<String> _buildUserPersonaBlock(String userName) async {
     final persona = _userPersonaService.persona;

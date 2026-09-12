@@ -23,7 +23,7 @@
 // and the result was never read as one piece — so it told a character she was
 // starving four lines before telling her what was in her pocket, staged her
 // physical position dead last after everything she might do from it, said "she
-// came in not at her best" before any of the weather or needs that explain why,
+// came in not at their best" before any of the weather or needs that explain why,
 // and split how-she-feels-about-people across the very top and the very bottom.
 //
 // Every one of those is invisible to a per-fragment test, because every

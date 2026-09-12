@@ -56,16 +56,16 @@ class PreferencesInjection with SpeakerCardResolver {
   /// consults it; the everyday lists are always available.
   final bool Function() getNsfwEnabled;
 
-  /// Whether she ACTS on her intimate preferences rather than merely holding
+  /// Whether they ACT on their intimate preferences rather than merely holding
   /// them — the After Dark "Acts on desires" switch AND the Realism Engine,
   /// resolved by the caller so there is one place that decision is made.
   ///
   /// The engine half is a HARD dependency, not an inherited gate, and it is
   /// the one exception to this class's no-realism rule above. The everyday
   /// lists stay ungated for the reason stated there. This one cannot: the
-  /// feature is a loop — she asks, she is answered, and being refused moves
-  /// her mood into the next reply — and the judge that scores the answer is
-  /// the engine. Without it she would ask and nothing would ever come of it.
+  /// feature is a loop — they ask, they are answered, and being refused moves
+  /// their mood into the next reply — and the judge that scores the answer is
+  /// the engine. Without it they would ask and nothing would ever come of it.
   ///
   /// Absent means off, so the surfaces that predate this (and the tests next
   /// door) keep the older, purely descriptive line.
@@ -115,8 +115,7 @@ class PreferencesInjection with SpeakerCardResolver {
     ];
     final share = maxPhraseChars ~/ (lists.isEmpty ? 1 : lists.length);
     final trimmed = [
-      for (final l in lists)
-        sanitizePreferencePhrases(l, maxTotalChars: share),
+      for (final l in lists) sanitizePreferencePhrases(l, maxTotalChars: share),
     ];
 
     final likes = trimmed[0];
@@ -152,43 +151,43 @@ class PreferencesInjection with SpeakerCardResolver {
       // (realism_prompt_builder.preferencesBlock) has always had a directive
       // block — weigh the exchange against these, name the one that moved a
       // score. Bond, trust and emotion were therefore already moving on whether
-      // a scene hit her preferences while she never voiced them: silently
-      // rewarding and penalising the user over things she would not say aloud.
+      // a scene hit their preferences while they never voiced them: silently
+      // rewarding and penalising the user over things they would not say aloud.
       //
       // Three things the maintainer asked for, and each is a clause here:
-      //   * ACT, not merely feel — she pursues, and may raise it herself.
-      //   * IN HER OWN REGISTER — a dominant character presses where a
+      //   * ACT, not merely feel — they pursue, and may raise it themselves.
+      //   * IN THEIR OWN REGISTER — a dominant character presses where a
       //     soft-spoken one suggests. The full personality is already in the
-      //     prompt; this points at it so the desire is expressed AS her rather
+      //     prompt; this points at it so the desire is expressed AS them rather
       //     than in one generic voice.
-      //   * IT COLOURS HER MOOD — being turned down is an event, not a shrug.
+      //   * IT COLOURS THEIR MOOD — being turned down is an event, not a shrug.
       //     The other half of that lives in preferencesBlock, which is what the
-      //     emotion judge reads; this half is what makes her ask in the first
+      //     emotion judge reads; this half is what makes them ask in the first
       //     place, and without it there is nothing to refuse.
       //
       // "Rather than going along with it" is the refusal half, and it matters
       // as much as the wanting: a character who never declines anything is a
       // doormat, and an author who typed "not interested in an audience" meant
-      // she would say so.
+      // they would say so.
       //
       // The closing clause replaces the old "never raise them to start one".
-      // It is deliberately proportionality rather than prohibition — she can
+      // It is deliberately proportionality rather than prohibition — they can
       // initiate now, which is the point, but a model told to pursue with no
       // counterweight will steer every scene into the same place.
       lines.add(
         (getIntimateAgencyEnabled?.call() ?? false)
-            ? 'In intimate moments: ${parts.join('; ')} — hers to ACT on, not '
-                  'just to feel. She pursues what she warms to and can raise '
-                  'it herself, in her own register: a dominant character '
+            ? 'In intimate moments: ${parts.join('; ')} — theirs to ACT on, not '
+                  'just to feel. They pursue what they warm to and can raise '
+                  'it themselves, in their own register: a dominant character '
                   'presses for it, a soft-spoken one suggests or waits to be '
-                  'noticed. She turns down what she is not interested in '
+                  'noticed. They turn down what they are not interested in '
                   'rather than going along with it. Being refused something '
-                  'she wanted marks her mood — sharper, or hurt, or cooler '
-                  'than before, as fits who she is. Still one thread of her, '
-                  'not the only thing she wants.'
+                  'they wanted marks their mood — sharper, or hurt, or cooler '
+                  'than before, as fits who they are. Still one thread of who '
+                  'they are, not the only thing they want.'
             // Switch off, or the engine off: the original line, unchanged.
-            // Preferences still reach the model and still colour a scene she
-            // is already in; what she does not do is initiate or push.
+            // Preferences still reach the model and still colour a scene they
+            // are already in; what they do not do is initiate or push.
             : 'In intimate moments: ${parts.join('; ')} — only relevant when '
                   'the scene is already there.',
       );

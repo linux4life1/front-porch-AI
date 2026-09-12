@@ -165,7 +165,7 @@ class RealismPromptBuilder {
   /// One-line snapshot of where the relationship currently stands, so the
   /// judge can tell wanted intimacy from premature intimacy. Used by the
   /// relationship, emotional, and one-shot prompts. [posture] is read-only
-  /// CONTEXT ("where she currently is"); no prompt here asks the judge to
+  /// CONTEXT ("where they currently are"); no prompt here asks the judge to
   /// produce a posture any more — that moved to the post-generation pass.
   static String standingContext({
     required String charName,
@@ -307,7 +307,7 @@ class RealismPromptBuilder {
 
   // (There is no posture section here any more. Posture left the fused
   // one-shot call on 2026-08-08 along with the four-call path's copy: it is a
-  // POST-generation question now — "where did this reply leave her" — and its
+  // POST-generation question now — "where did this reply leave them" — and its
   // one remaining prompt lives with the pass that asks it, in
   // TimeService.evaluateTimeProgressAndPostureIfNeeded. Keeping a second
   // rubric here would have been a rubric nobody fires.)
@@ -344,7 +344,7 @@ class RealismPromptBuilder {
   /// thing downstream: this quest serves no ambition.
   ///
   /// Forgiving on purpose (local-model floor): a model that answers "2",
-  /// "ambition 2", or "2 — open her own bakery" all resolve the same way.
+  /// "ambition 2", or "2 — open their own bakery" all resolve the same way.
   static String? resolveServedAmbition(
     String? raw,
     List<({String text, int progress})> ambitions,
@@ -460,7 +460,7 @@ class RealismPromptBuilder {
   /// deliberate: identical context is the price of a shared prefix, the
   /// blocks are self-omitting when empty (an ambition-less, preference-less
   /// card still costs what it did), and each is judge-relevant — the frame
-  /// is the "real person" rule and the roster is who she is trying to
+  /// is the "real person" rule and the roster is who they are trying to
   /// become.
   static String judgePrefix({
     required String charName,

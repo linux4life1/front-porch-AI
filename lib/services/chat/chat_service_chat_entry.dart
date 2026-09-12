@@ -214,9 +214,12 @@ extension ChatServiceChatEntry on ChatService {
       _clearTodayPointer();
       _summary = '';
       _summaryLastIndex = 0;
-      _selectedLooks.clear(); // fresh 1:1: drop prior chat's per-chat look selection (keep reset blocks in sync)
-      _summaryPaused = false; // explicit secondary zero for _summaryPaused (symmetric to _isSummaryGenerating; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
-      _isSummaryGenerating = false; // explicit secondary zero on setActiveCharacter (incomplete zeroing of secondary config on ... now complete; see keep-sync + journal_maintenance)
+      _selectedLooks
+          .clear(); // fresh 1:1: drop prior chat's per-chat look selection (keep reset blocks in sync)
+      _summaryPaused =
+          false; // explicit secondary zero for _summaryPaused (symmetric to _isSummaryGenerating; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
+      _isSummaryGenerating =
+          false; // explicit secondary zero on setActiveCharacter (incomplete zeroing of secondary config on ... now complete; see keep-sync + journal_maintenance)
       // Clear fork/branch state so it doesn't leak from previous character
       // into a fresh character's first session (see startNewChat for details).
       _parentSessionId = null;
@@ -243,7 +246,7 @@ extension ChatServiceChatEntry on ChatService {
         _needsSimulation.clearVector();
         _needsSimulation.resetBuffers();
         // v47: clear the 1:1 Pockets record too. A fresh chat re-seeds from the
-        // card, and leaving the previous chat's record in the scalar meant she
+        // card, and leaving the previous chat's record in the scalar meant they
         // walked into the new conversation still holding the last one's props.
         // Harmless while the record was memory-only; now that it is saved, the
         // bleed would be written to the new chat's row and become permanent.
@@ -270,8 +273,10 @@ extension ChatServiceChatEntry on ChatService {
         _pendingRealismMetadata = null;
         _activeObjectives = [];
         _messagesSinceLastCheck = 0;
-        _isCheckingCompletion = false; // secondary objective flag zero on setActiveCharacter main path (incomplete zeroing hygiene; keep reset blocks)
-        _isGrowthPassRunning = false; // explicit growth-pass flag zero on setActiveCharacter main path (transient guard; keep reset blocks in sync — growth cache itself is session-scoped and re-cached by _refreshGrowthCache in _loadLastSession)
+        _isCheckingCompletion =
+            false; // secondary objective flag zero on setActiveCharacter main path (incomplete zeroing hygiene; keep reset blocks)
+        _isGrowthPassRunning =
+            false; // explicit growth-pass flag zero on setActiveCharacter main path (transient guard; keep reset blocks in sync — growth cache itself is session-scoped and re-cached by _refreshGrowthCache in _loadLastSession)
         debugPrint(
           '[ChatService] setActiveCharacter: Reset realism state (baseline + runtime transients cleared; was: arousal=$prevArousal, fixation=$prevFixation/$prevFixationLife)',
         );
@@ -279,7 +284,7 @@ extension ChatServiceChatEntry on ChatService {
         // Try to load last session
         await _loadLastSession();
 
-        // Message 0 needs her wardrobe too. AFTER the load, so a restored
+        // Message 0 needs their wardrobe too. AFTER the load, so a restored
         // session's own record always wins — this only fills a gap. With no
         // prior session there is nothing to load and this is the only thing
         // standing between an authored wardrobe and a sidebar that draws
@@ -450,9 +455,12 @@ extension ChatServiceChatEntry on ChatService {
           await _saveChat();
           _activeObjectives = [];
           _messagesSinceLastCheck = 0;
-          _isCheckingCompletion = false; // zero secondary in empty session subpath of setActiveCharacter (per incomplete zeroing fix)
-          _isSummaryGenerating = false; // secondary zero in empty subpath of setActiveCharacter (incomplete zeroing... now complete (see CLAUDE.md))
-          _isGrowthPassRunning = false; // growth-pass flag zero in empty subpath of setActiveCharacter (transient guard; keep reset blocks in sync)
+          _isCheckingCompletion =
+              false; // zero secondary in empty session subpath of setActiveCharacter (per incomplete zeroing fix)
+          _isSummaryGenerating =
+              false; // secondary zero in empty subpath of setActiveCharacter (incomplete zeroing... now complete (see CLAUDE.md))
+          _isGrowthPassRunning =
+              false; // growth-pass flag zero in empty subpath of setActiveCharacter (transient guard; keep reset blocks in sync)
           await _refreshGrowthCache(); // fresh session id → scope the injection cache to it
         }
         // Load active objectives for this session (must be after _loadLastSession

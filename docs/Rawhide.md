@@ -8,6 +8,9 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 ## Recent improvements (unreleased — ships in the next build)
 
 - 🖥️ **Waifu Coder is powered by OpenCode** — the custom coding engine is gone; your coworker now tools through OpenCode.
+- 🎭 **Characters are not “she” by default** — generic prompts, mood copy, and Waifu Coder blurbs use they/them unless the card’s Sex field is actually female (woman / she / her still maps to she/her).
+
+- 🖥️ **Waifu Coder Jail / Disk stay honest** — sit-down scope is chips, not stuck radios. Picking Disk after a jail sit-down asks honesty again; confirm actually opens the disk. A denied Plan write says it did not write. Wiping the folder above the sit-down is still denied.
 
 - 💬 **Add Greeting works again** — editing a character (or group) that had no alternate greetings used to crash the moment you tapped Add.
 

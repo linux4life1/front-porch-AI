@@ -47,7 +47,7 @@ class WaifuMcpOptIn extends StatelessWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             title: Text(
-              'Let her use MCP',
+              'Let them use MCP',
               style: TextStyle(color: AppColors.textPrimary(context)),
             ),
             controlAffinity: ListTileControlAffinity.leading,

@@ -25,7 +25,7 @@ import 'speaker_resolution.dart';
 ///
 /// This is the half that makes the record worth keeping. An inventory nobody
 /// reads is a database; injected, it is the difference between a character who
-/// is still holding the keys she picked up forty messages ago and one who is
+/// is still holding the keys they picked up forty messages ago and one who is
 /// mysteriously empty-handed the moment the prose scrolled away.
 ///
 /// Gated by the caller on the Pockets switch alone — no Realism, no Needs, no
@@ -57,7 +57,7 @@ class InventoryInjection with SpeakerCardResolver {
   final int Function() getCurrentDay;
 
   /// One-shot reactions to items the USER hand-added from the panel — a gift
-  /// she accepts knowingly, or a conjured thing she is surprised by (the
+  /// they accept knowingly, or a conjured thing they are surprised by (the
   /// Easter egg). GET-AND-MARK: the wiring flags returned intros as included
   /// so the turn after the reaction drops them; a regen rebuild returns the
   /// same list again (still queued), which is what makes the reaction
@@ -107,10 +107,10 @@ class InventoryInjection with SpeakerCardResolver {
       if (p.carrying.isNotEmpty)
         'carrying ${p.carrying.map((i) => i.display).join(', ')}',
     ];
-    // Fact, not instruction, and deliberately non-committal about what she
-    // does next: "set aside nearby" lets the model have her pull the same
+    // Fact, not instruction, and deliberately non-committal about what they
+    // do next: "set aside nearby" lets the model have them pull the same
     // clothes back on after the shower OR reach for something else — never
-    // "she should re-dress in X".
+    // "they should re-dress in X".
     final aside = p.setAsideOn(getCurrentDay());
 
     final sentences = [
@@ -122,7 +122,7 @@ class InventoryInjection with SpeakerCardResolver {
     if (sentences.isEmpty) return '';
 
     // Stated as fact rather than instruction. "Keep this consistent" invites a
-    // model to narrate an inventory check; naming what she has lets it simply
+    // model to narrate an inventory check; naming what they have lets it simply
     // be true, which is what the feature is for.
     final out = sentences.join(' ');
     return out.length <= maxChars ? out : '${out.substring(0, maxChars)}…';

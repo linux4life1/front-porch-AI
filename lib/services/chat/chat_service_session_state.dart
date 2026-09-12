@@ -384,7 +384,7 @@ extension ChatServiceSessionState on ChatService {
         // groupRealismState above, which is why groups always survived a
         // reload and 1:1 chats did not: the scalar had nowhere to go. Written
         // unconditionally rather than behind the Pockets switch, because
-        // toggling the feature off mid-chat must not erase what she was
+        // toggling the feature off mid-chat must not erase what they were
         // already carrying — turning it back on should find the record intact.
         //
         // Empty ≠ absent (audit P1.8): an emptied inventory is still a

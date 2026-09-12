@@ -127,7 +127,7 @@ extension ChatServiceSend on ChatService {
     // Before ANY prompt is built for this turn. Counting the greeting as
     // turn 0, this is what puts an authored wardrobe into turn 1's prompt —
     // the pass that used to do it runs after the reply exists, so the first
-    // real answer was generated blind to what she was wearing.
+    // real answer was generated blind to what they were wearing.
     seedPocketsFromCards();
     // Hand-added item reactions the previous reply already played out are
     // done; ones still pending (never made it into a prompt) stay queued for

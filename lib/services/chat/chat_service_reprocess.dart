@@ -228,7 +228,7 @@ extension ChatServiceReprocess on ChatService {
         await _revertObjectiveTurnOps(lastMsg);
         // Rewind the rejected turn's pockets ops to the pre-turn record, so
         // the regenerated reply's own pass re-applies from the same base
-        // instead of stacking — "she hands you her keys", regenerate, she
+        // instead of stacking — "they hand you their keys", regenerate, they
         // keeps knitting, and the keys used to be gone anyway (hostile
         // review 2026-08-11). Group-safe: the stamp carries the speaker's
         // own charId. The journal invalidation above already took the
@@ -465,13 +465,13 @@ extension ChatServiceReprocess on ChatService {
         // rewinds above and then re-runs the scene-time eval with the
         // default (advance), so time does not walk backward.
 
-        // ── Where she was BEFORE the reply being discarded ────────────────
+        // ── Where they were BEFORE the reply being discarded ──────────────
         //
         // Last, so it wins: everything above rebuilds the baseline from the
         // PREVIOUS accepted message, and for spatial stance that is a
         // second-hand copy at best and missing entirely at worst. Posture is
         // written after generation, so the rejected message's own snapshot
-        // was overwritten with where its reply left her — the receipt stamped
+        // was overwritten with where its reply left them — the receipt stamped
         // beside it (see kSpatialStancePreTurn) is the only surviving record
         // of where the turn began, and it belongs to THIS turn rather than
         // the one before it.

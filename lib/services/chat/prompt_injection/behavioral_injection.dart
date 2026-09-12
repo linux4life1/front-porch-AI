@@ -76,7 +76,7 @@ class BehavioralInjection {
         'naturally touches it.';
   }
 
-  /// Where she physically is — SCENE staging, and it says so itself: "ground
+  /// Where they physically are — SCENE staging, and it says so itself: "ground
   /// actions in this". It belongs with the time and weather lines, because the
   /// model needs to know where everyone is standing before it decides what
   /// happens, not after it has already written the scene.

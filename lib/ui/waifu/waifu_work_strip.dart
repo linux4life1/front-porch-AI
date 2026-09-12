@@ -39,7 +39,7 @@ String waifuClipWorkPreview(String raw) {
   return t;
 }
 
-/// Last write this turn — before/after so the user can see what she did.
+/// Last write this turn — before/after so the user can see what they did.
 class WaifuWorkStrip extends StatelessWidget {
   const WaifuWorkStrip({
     super.key,

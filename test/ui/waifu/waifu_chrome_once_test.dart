@@ -40,7 +40,7 @@ void main() {
     expect(session.pathMode, WaifuPathMode.folderJail);
   });
 
-  testWidgets('MCP consent is Let her use MCP', (tester) async {
+  testWidgets('MCP consent is Let them use MCP', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final session = WaifuSession(
@@ -49,7 +49,7 @@ void main() {
     );
     await tester.pumpWidget(MaterialApp(home: WaifuPage(session: session)));
     await tester.ensureVisible(find.byKey(const Key('waifu-mcp-opt-in')));
-    expect(find.text('Let her use MCP'), findsOneWidget);
+    expect(find.text('Let them use MCP'), findsOneWidget);
     expect(find.text('MCP tools from Settings'), findsNothing);
   });
 

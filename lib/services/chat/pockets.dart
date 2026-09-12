@@ -148,8 +148,8 @@ String _tidy(String s, int cap) {
 /// set of carried things, since a bulk undress can park both in one op.
 const kMaxSetAside = kMaxWorn + kMaxCarrying;
 
-/// One thing set aside — still hers, still in the scene, just not on her
-/// body or in her hands. The nightstand, the chair, the doorway table.
+/// One thing set aside — still theirs, still in the scene, just not on their
+/// body or in their hands. The nightstand, the chair, the doorway table.
 ///
 /// The [clothing] flag is the whole asymmetry of the feature (maintainer
 /// design, 2026-08-11): clothes and possessions have OPPOSITE memory rules.
@@ -291,7 +291,7 @@ class PocketEvent {
   /// The item was clothing (came from / went onto the worn list).
   final bool clothing;
 
-  /// Part of a generic whole-outfit remove ("she undresses") rather than a
+  /// Part of a generic whole-outfit remove ("they undress") rather than a
   /// named single-item op — lets the card writer keep routine undressing
   /// out of the diary.
   final bool bulk;
@@ -436,7 +436,7 @@ class Pockets {
 /// Did two item names mean the same thing?
 ///
 /// The model will not say "car keys" twice running — it says "the keys", then
-/// "her car keys". Exact matching would leave a character carrying three sets
+/// "their car keys". Exact matching would leave a character carrying three sets
 /// of keys, which is the failure that makes an inventory feature worse than no
 /// inventory feature. Token overlap is the same rule the promise ledger uses to
 /// decide whether a promise is the one already on file.
@@ -490,14 +490,14 @@ Set<String> _contentTokens(String s) => _norm(
 
 /// Did the model mean the whole outfit rather than one garment?
 ///
-/// "She undresses for bed" arrives as ONE remove op naming "clothes" or
+/// "They undress for bed" arrives as ONE remove op naming "clothes" or
 /// "everything" — never an enumeration of the worn list. Before this existed
 /// that op matched nothing and silently no-opped, which is exactly the
-/// maintainer's report: she is in the shower and the sidebar still shows her
-/// fully dressed (2026-08-11).
+/// maintainer's report: they are in the shower and the sidebar still shows
+/// them fully dressed (2026-08-11).
 ///
 /// A phrase counts as generic only when EVERY content token is a whole-outfit
-/// word: "her clothes" and "all of her clothes" qualify; "wet dress" has a
+/// word: "their clothes" and "all of their clothes" qualify; "wet dress" has a
 /// garment token and falls through to ordinary item matching. Real garment
 /// names ("dress", "pajamas") are deliberately absent from this set.
 bool isGenericClothingRef(String raw) {
@@ -513,7 +513,7 @@ bool isGenericClothingRef(String raw) {
   return toks.isNotEmpty && toks.every(generic.contains);
 }
 
-/// Did the model mean "she is wearing nothing" rather than a garment?
+/// Did the model mean "they are wearing nothing" rather than a garment?
 ///
 /// `wear "nothing"` is how local models report undressing. Without this the
 /// applier mints a literal item named "nothing" — the sidebar chip and the
@@ -534,9 +534,9 @@ bool isEmptyWardrobeRef(String raw) {
   return toks.isNotEmpty && toks.every(empty.contains);
 }
 
-/// Did the model mean everything she is CARRYING? The setdown sibling of
-/// [isGenericClothingRef]: "she sets her things down" arrives as one op
-/// naming "her things"/"her belongings", which matched no single item and
+/// Did the model mean everything they are CARRYING? The setdown sibling of
+/// [isGenericClothingRef]: "they set their things down" arrives as one op
+/// naming "their things"/"their belongings", which matched no single item and
 /// silently no-opped (hostile review, 2026-08-11 — the mid-scene half of
 /// the same bulk gap the undress fix closed).
 bool isGenericThingsRef(String raw) {
@@ -561,8 +561,8 @@ bool sameItem(String a, String b) {
   // which is half of two, so a character could never hold both. Caught by the
   // applier tests before any of this was wired to anything.
   //
-  // Containment covers what actually needs covering — "the car keys" and "her
-  // car keys" reduce to the same token set, and "satchel" is contained by
+  // Containment covers what actually needs covering — "the car keys" and
+  // "their car keys" reduce to the same token set, and "satchel" is contained by
   // "worn leather satchel" — while leaving genuinely different things apart.
   // A bare "keys" said while holding two kinds resolves to whichever is
   // listed first; ambiguous, but far better than inventing a third set.
@@ -576,7 +576,7 @@ bool sameItem(String a, String b) {
 ///
 /// Returns a human-readable receipt line per applied op ("picked up: car
 /// keys"), in order, for the message chips. An op that changes nothing returns
-/// nothing — a model reporting that she is still wearing the dress she was
+/// nothing — a model reporting that they are still wearing the dress they were
 /// already wearing should not produce a chip.
 /// Apply [ops] to [p] in place and return the receipt lines for the chips.
 ///
@@ -589,7 +589,7 @@ bool sameItem(String a, String b) {
 ///
 /// A `give` with no recipient, or with one nobody can resolve, still removes
 /// the item from the giver. That is the floor and it is deliberate: the giver
-/// no longer holding what she handed over is true regardless of whether the
+/// no longer holding what they handed over is true regardless of whether the
 /// app can work out who took it.
 /// [day] is the current story day, used to stamp newly parked set-aside
 /// entries and to expire yesterday's clothing before any op can match it.
@@ -662,7 +662,7 @@ List<String> applyPocketOps(
   for (final op in ops) {
     switch (op.kind) {
       case PocketOpKind.wear:
-        // Bulk-out, mirroring remove's bulk-in: "she gets dressed" arrives
+        // Bulk-out, mirroring remove's bulk-in: "they get dressed" arrives
         // as ONE wear op naming "clothes", and the rubric's own "remove of
         // 'clothes' means all of it" teaches models the symmetric report.
         // Without this branch the applier minted a literal garment named
@@ -695,7 +695,7 @@ List<String> applyPocketOps(
         }
         final alreadyWorn = find(p.worn, op.item);
         if (alreadyWorn != -1) {
-          // Already on — but the model may be reporting a CHANGE to it ("her
+          // Already on — but the model may be reporting a CHANGE to it ("their
           // dress is now torn"), and dropping that on the floor was silent
           // data loss (Grok, 2026-08-07). Nothing to say without a state.
           if (op.state.isNotEmpty && p.worn[alreadyWorn].state != op.state) {
@@ -706,7 +706,7 @@ List<String> applyPocketOps(
         }
         final c = find(p.carrying, op.item);
         final s = c == -1 ? findAside(op.item) : -1;
-        // Carrying first, then the set-aside pile (the shower case: her
+        // Carrying first, then the set-aside pile (the shower case: their
         // clothes are right there), then a genuinely new garment.
         final item = c != -1
             ? p.carrying.removeAt(c)
@@ -724,12 +724,12 @@ List<String> applyPocketOps(
         // Clothing taken off goes to SET ASIDE, not to carrying and not
         // into thin air. The 2026-08-11 morning ruling ("remove deletes")
         // was superseded the same day by the approved set-aside design: a
-        // mid-scene shower needs the outfit recoverable ("her clothes are
+        // mid-scene shower needs the outfit recoverable ("their clothes are
         // right there"), while the overnight case still honours the ruling
         // — clothing entries expire at the next story morning, so tomorrow
-        // she dresses fresh via wear ops and yesterday's shirt is gone.
+        // they dress fresh via wear ops and yesterday's shirt is gone.
         if (isGenericClothingRef(op.item)) {
-          // "She undresses" — the whole outfit comes off, and what she was
+          // "They undress" — the whole outfit comes off, and what they were
           // carrying lands beside it (pockets are in the clothes; nobody
           // showers holding their phone). Possessions park as
           // non-expiring: the keys are still on the nightstand tomorrow.
@@ -746,14 +746,14 @@ List<String> applyPocketOps(
         );
 
       case PocketOpKind.setdown:
-        // Put down nearby, still hers — the mid-scene sibling of the bulk
-        // undress ("she sets her bag by the door"). Before this op existed
+        // Put down nearby, still theirs — the mid-scene sibling of the bulk
+        // undress ("they set their bag by the door"). Before this op existed
         // the model's only honest choices were `drop` (which DELETES the
-        // bag) or silence (she "carries" it all evening) — the same
+        // bag) or silence (they "carry" it all evening) — the same
         // data-loss shape as the undress bug, in miniature.
         if (isGenericThingsRef(op.item)) {
-          // "She sets her things down" — everything in hand goes beside
-          // her. Carried only: undressing is remove's business.
+          // "They set their things down" — everything in hand goes beside
+          // them. Carried only: undressing is remove's business.
           for (final it in p.carrying) {
             park(it, clothing: false);
             receipts.add('set aside: ${it.name}');
@@ -793,7 +793,7 @@ List<String> applyPocketOps(
         if (find(p.carrying, op.item) != -1 || find(p.worn, op.item) != -1) {
           break;
         }
-        // The set-aside pile first — taking back her own keys is not
+        // The set-aside pile first — taking back their own keys is not
         // acquiring new ones, and the condition rides along. A NEW state on
         // the op updates it, the same rule wear's retrieval follows (the
         // two paths disagreed for no reason — hostile review 2026-08-11).
@@ -815,9 +815,9 @@ List<String> applyPocketOps(
       // caller can match to a real member, and otherwise keep the old floor.
       case PocketOpKind.drop:
       case PocketOpKind.give:
-        // All three locations: she can hand over or throw away something
-        // she set down five minutes ago ("gives Bob the keys from the
-        // nightstand") just as naturally as something in her hands.
+        // All three locations: they can hand over or throw away something
+        // they set down five minutes ago ("gives Bob the keys from the
+        // nightstand") just as naturally as something in their hands.
         final c = find(p.carrying, op.item);
         final w = c == -1 ? find(p.worn, op.item) : -1;
         final sa = c == -1 && w == -1 ? findAside(op.item) : -1;
@@ -868,7 +868,7 @@ List<String> applyPocketOps(
 
       case PocketOpKind.transform:
         // A candy bar becomes a wrapper. The item is REPLACED, not annotated,
-        // because what she is holding is genuinely a different thing now.
+        // because what they are holding is genuinely a different thing now.
         if (op.state.isEmpty) break;
         bool morph(List<PocketItem> list) {
           final i = find(list, op.item);

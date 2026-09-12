@@ -240,7 +240,7 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
                       ),
                       Text(
                         projects.isEmpty
-                            ? 'Pick a throwaway folder. She codes in character.'
+                            ? 'Pick a throwaway folder. They code in character.'
                             : 'Your porches. Tap to sit back down.',
                         style: TextStyle(
                           color: AppColors.textSecondary(context),

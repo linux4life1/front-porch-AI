@@ -25,7 +25,7 @@ part of '../chat_service.dart';
 ///  * [gift] — the user handed it over in-scene. The character accepts it
 ///    KNOWING where it came from.
 ///  * not a gift — the user conjured it out-of-band (the Easter egg): the
-///    character notices something she cannot account for and reacts with
+///    character notices something they cannot account for and reacts with
 ///    surprise ("how did I end up with this?").
 ///
 /// Injected once beside the inventory fragment; `included` is set when a
@@ -230,7 +230,7 @@ extension ChatServicePockets on ChatService {
   ///
   /// One expression, named once, because three places need it and a card that
   /// disagrees with itself about its own starting kit is the kind of bug that
-  /// only shows up as "sometimes she has the keys".
+  /// only shows up as "sometimes they have the keys".
   Pockets startingPocketsFor(CharacterCard c) =>
       Pockets.fromJson(c.frontPorchExtensions?.inventory);
 
@@ -241,7 +241,7 @@ extension ChatServicePockets on ChatService {
   /// [_runPocketsPass], which runs AFTER a reply is generated. Counting the
   /// greeting as turn 0, that meant the character's first real reply — turn 1 —
   /// was generated with no inventory fragment in its prompt at all: an author
-  /// could dress a character in a flour-dusted apron and she would answer the
+  /// could dress a character in a flour-dusted apron and they would answer the
   /// first message knowing nothing about it, then be wearing it from turn 2
   /// onward. The sidebar was blank for exactly as long. Authoring made that
   /// visible; before there was an editor, nobody could hit it.
@@ -272,7 +272,7 @@ extension ChatServicePockets on ChatService {
   /// would "re-seed from the card on the first pass". That was true when the
   /// seed lived inside [_runPocketsPass] and false the moment it moved earlier.
   /// So a freshly dressed character stood there empty-handed until the user
-  /// typed something — precisely when her author was looking to check the
+  /// typed something — precisely when their author was looking to check the
   /// wardrobe had saved.
   ///
   /// If you add a sixth entry path, call this from it.
@@ -290,7 +290,7 @@ extension ChatServicePockets on ChatService {
     for (final c in speakers) {
       final id = _getCharacterIdFromCard(c);
       // Already has a record: this chat has moved on from whatever the card
-      // said, and re-seeding would hand back things she put down.
+      // said, and re-seeding would hand back things they put down.
       if (pocketsFor(id) != null) continue;
       final seed = startingPocketsFor(c);
       // Nothing authored — leave the record ABSENT rather than empty. Every
@@ -329,7 +329,7 @@ extension ChatServicePockets on ChatService {
     final charId = _getCharacterIdFromCard(speaker);
 
     // Seed from the card the first time this chat asks: an author who wrote
-    // `frontPorchExtensions.inventory` expects her to START with those things,
+    // `frontPorchExtensions.inventory` expects them to START with those things,
     // not to acquire them by accident later.
     // Still `??`-lazy, and still load-bearing: seedPocketsFromCards runs at
     // the top of a user turn, so a character who ARRIVES mid-turn (a Scene
@@ -359,7 +359,7 @@ extension ChatServicePockets on ChatService {
           ]
         : const <String>[];
 
-    // A LIST of (recipient, item), not a map keyed by recipient: "she hands
+    // A LIST of (recipient, item), not a map keyed by recipient: "they hand
     // Sam the keys and the letter" is two transfers to one name, and the
     // map silently kept only the last while both receipts claimed delivery
     // (hostile review, 2026-08-11).
@@ -403,7 +403,7 @@ extension ChatServicePockets on ChatService {
         // bookkeeping passes — a 20k-char novella reply rode this prompt
         // raw, hostile review 2026-08-11).
         reply: clampEvalMessage(reply),
-        // Without this a change the USER narrated — walking her out into the
+        // Without this a change the USER narrated — walking them out into the
         // rain — is invisible to the eval, and the dress stays recorded dry.
         recentExchange: recentExchange(_messages),
         others: others,

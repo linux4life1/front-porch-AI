@@ -46,9 +46,12 @@ extension ChatServiceGroupEntry on ChatService {
       _authorNoteStrength = 4;
       _summary = '';
       _summaryLastIndex = 0;
-      _selectedLooks.clear(); // fresh group: drop prior chat's per-chat look selection (keep reset blocks in sync)
-      _summaryPaused = false; // explicit secondary zero for _summaryPaused (symmetric; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
-      _isSummaryGenerating = false; // explicit secondary zero on setActiveGroup (incomplete zeroing ... now complete; keep-sync lists + journal_maintenance + " ; authority for needs deltas thin path)") + "needsSimulation. (reason support kept for Director chips) ; cleared via sim initializeFresh/clearVector/resetBuffers on all paths; now complete)"
+      _selectedLooks
+          .clear(); // fresh group: drop prior chat's per-chat look selection (keep reset blocks in sync)
+      _summaryPaused =
+          false; // explicit secondary zero for _summaryPaused (symmetric; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
+      _isSummaryGenerating =
+          false; // explicit secondary zero on setActiveGroup (incomplete zeroing ... now complete; keep-sync lists + journal_maintenance + " ; authority for needs deltas thin path)") + "needsSimulation. (reason support kept for Director chips) ; cleared via sim initializeFresh/clearVector/resetBuffers on all paths; now complete)"
       _groupRealism = {};
       _groupDecayRates = {};
       _groupAuthorNotes = {};
@@ -274,17 +277,20 @@ extension ChatServiceGroupEntry on ChatService {
       _activeObjectives = [];
       _messagesSinceLastCheck = 0;
       _isCheckingCompletion = false;
-      _summaryPaused = false; // explicit secondary zero for _summaryPaused (symmetric; group fresh entry zero)
-      _isSummaryGenerating = false; // secondary flag zero for the journal recap state (stateless/prompt-only; see incomplete zeroing ... now complete + keep-sync lists)
-      _isGrowthPassRunning = false; // growth-pass flag zero on group fresh entry (transient guard; keep reset blocks in sync)
+      _summaryPaused =
+          false; // explicit secondary zero for _summaryPaused (symmetric; group fresh entry zero)
+      _isSummaryGenerating =
+          false; // secondary flag zero for the journal recap state (stateless/prompt-only; see incomplete zeroing ... now complete + keep-sync lists)
+      _isGrowthPassRunning =
+          false; // growth-pass flag zero on group fresh entry (transient guard; keep reset blocks in sync)
 
       // Try to load last session for this group
       await _loadLastSession();
 
       // Same as the 1:1 twin in chat_service_chat_entry: message 0 needs every
       // member's authored wardrobe in place, and after the load so a restored
-      // session wins. Parity is not optional here — a group member dressed by her
-      // author must arrive dressed exactly as she would in a 1:1.
+      // session wins. Parity is not optional here — a group member dressed by their
+      // author must arrive dressed exactly as they would in a 1:1.
       seedPocketsFromCards();
 
       // Load the objectives for whoever is the initial next speaker (or first char)

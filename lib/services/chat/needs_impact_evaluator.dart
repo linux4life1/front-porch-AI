@@ -48,7 +48,7 @@ class NeedsImpactEvaluator {
   /// falling is slow and ambient and `tickDecay` models it; a scene may take
   /// only [NeedsSimulation.sceneDepletionCapFor] extra, and the prompt now tells
   /// the eval to report a negative ONLY for something the scene explicitly
-  /// describes costing her. Positives stay wide open: eating a meal really does
+  /// describes costing them. Positives stay wide open: eating a meal really does
   /// fill you in one go, and the prompt spends a paragraph fighting models that
   /// lowball exactly that. Capping the fill would be a worse bug than the one
   /// this fixes.
@@ -216,17 +216,27 @@ class NeedsImpactEvaluator {
     check(
       [
         'washed her face',
+        'washed his face',
+        'washed their face',
         'washed up',
         'washed herself',
+        'washed himself',
+        'washed themselves',
         'dish',
         'brushed her teeth',
+        'brushed his teeth',
+        'brushed their teeth',
         'brushing her teeth',
+        'brushing his teeth',
+        'brushing their teeth',
       ],
       {'hygiene': 20},
     );
     check(
       [
         'splashed water on her face',
+        'splashed water on his face',
+        'splashed water on their face',
         'splashed some water',
         'freshened up',
         'freshening up',

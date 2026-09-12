@@ -278,7 +278,7 @@ final Map<String, Map<String, dynamic>> _sceneTimeFields = {
 /// model that volunteers the others costs nothing — but posture is the only
 /// field that pass reads. Until 2026-08-08 this was the fused pre-generation
 /// scene-time+posture schema; posture moved out of that call because the
-/// question ("where did this reply leave her") is unanswerable before the
+/// question ("where did this reply leave them") is unanswerable before the
 /// reply exists.
 final List<Map<String, dynamic>> kSceneTimeEvalTools = [
   _tool(

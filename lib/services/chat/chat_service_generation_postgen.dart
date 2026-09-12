@@ -221,7 +221,7 @@ extension ChatServiceGenerationPostGen on ChatService {
           // re-reading the FULL reply applied the first half's deltas a
           // second time; scoring only the continuation makes a double-apply
           // impossible by construction while events the user paid a
-          // Continue for — she sets the keys down, moves to the swing,
+          // Continue for — they set the keys down, move to the swing,
           // finishes the meal — finally reach the bookkeeping. The evals
           // keep full context either way: each gets recentExchange(), and
           // the write-back above already put the whole continued reply into
@@ -281,9 +281,9 @@ extension ChatServiceGenerationPostGen on ChatService {
                 scoredReply,
                 asContinuation: t.mode == GenerationMode.continue_,
               );
-              // Spatial stance — where this reply LEFT her. Third of the same
+              // Spatial stance — where this reply LEFT them. Third of the same
               // family, and it belongs here for the identical reason: a
-              // position the character establishes in her own words cannot be
+              // position the character establishes in their own words cannot be
               // known by a judge that ran before those words existed. It used
               // to ride the pre-generation scene-time eval, which is why
               // characters teleported: the prompt asserted a position derived
@@ -311,7 +311,7 @@ extension ChatServiceGenerationPostGen on ChatService {
                 final fused = _replyFactsRaw;
                 if (fused != null) {
                   // The fused call already asked "where did this reply leave
-                  // her" — consume its answer through the ONE posture parser
+                  // them" — consume its answer through the ONE posture parser
                   // instead of paying a second call. An absent or unparseable
                   // answer skips, exactly as a failed standalone pass does:
                   // the stance keeps its last value.
@@ -403,7 +403,7 @@ extension ChatServiceGenerationPostGen on ChatService {
             // the PREVIOUS turn's spatial stance, and the character teleported
             // back one exchange on every reload. It also meant a user's answer
             // to "do I want the Sims needs simulation?" silently decided
-            // whether her position survived — two unrelated features wired
+            // whether their position survived — two unrelated features wired
             // together (docs/design/feature-independence.md).
             //
             // Moving the save out of the chip helper and putting it here costs

@@ -128,7 +128,7 @@ class ChatToolsFacade {
       // otherwise show a stage word frozen for the life of the chat.
       // Standing Mood — the same string the desktop sidebar puts under the
       // portrait, from the same getter, so the two can never disagree about
-      // what she walked in carrying. '' when the feature is off or the day is
+      // what they walked in carrying. '' when the feature is off or the day is
       // unremarkable.
       'standingMood': _chat.standingMoodSummary,
       'ambitions':
@@ -158,7 +158,7 @@ class ChatToolsFacade {
             }(),
       // Pockets & Wardrobe for the focused participant. Same record and same
       // per-character resolution the desktop sidebar reads, so the two
-      // surfaces cannot disagree about what she is holding. Absent (null)
+      // surfaces cannot disagree about what they are holding. Absent (null)
       // when the switch is off or nothing is focused, so the web panel
       // vanishes rather than going stale. Feature ON with no record sends an
       // EMPTY record instead of null (2026-08-13, add-by-hand parity): the

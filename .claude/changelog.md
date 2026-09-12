@@ -105,6 +105,25 @@
   `lib/main.providers.dart`, `lib/main.lifecycle.dart`, `CLAUDE.md`,
   belt/gym tests removed.
 - **Commit:** 4d35151b / ebb0cec6
+## 2026-09-11 — fix(chat): stop defaulting generic characters to she/her
+- **Why:** Runtime prompts, mood copy, chargen examples, and Waifu Coder
+  blurbs taught every character as she/her even when Sex was blank.
+  Female cards still need she/her when the Sex field maps that way.
+- **What:** Default system-prompt examples, intimate-agency injection,
+  standing-mood chip, needs-eval prompt, and chargen quirk example now
+  use they/them. `resolveNarrativePronouns` mapping is unchanged
+  (empty/unknown → they; female → she; male → he). Waifu Coder UI
+  copy is they/them. Hygiene activity matchers still accept her/his/
+  their. Developer comments that assumed a generic "she" were
+  neutralized. New test: `test/services/chat/neutral_character_pronouns_test.dart`
+  (proven red on the old she/her defaults, then green).
+- **Files:** `chat_service_defaults.dart`, `preferences_injection.dart`,
+  `mood_baseline.dart`, `llm_eval_engine.dart`,
+  `character_gen_prompts.dart`, `needs_impact_evaluator.dart`,
+  `waifu_slash.dart`, `waifu_mcp_opt_in.dart`, `waifu_composer.dart`,
+  `waifu_home_view.dart`, `waifu_ask_why.dart`, plus comment-only
+  files under `lib/services/chat/`, tests, `docs/Rawhide.md`
+- **Commit:** (this commit)
 
 ## 2026-09-10 — docs: restack Belt B onto Rawhide 90dcb76e
 - **Why:** Belt A #246 squashed to Rawhide as `90dcb76e` (old A tip

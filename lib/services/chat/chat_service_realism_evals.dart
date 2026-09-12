@@ -208,7 +208,7 @@ extension ChatServiceRealismEvals on ChatService {
       // Pockets & Wardrobe rides the rewind contract like every other
       // per-turn scalar. Without this a regenerate re-runs the detection pass
       // on a NEW reply while the record still carries the discarded reply's
-      // changes — she picks the keys up twice, or is left holding something
+      // changes — they pick the keys up twice, or are left holding something
       // from a version of the scene that no longer exists. Found in review by
       // Grok, 2026-08-07, and required by the design doc in as many words.
       ...(() {

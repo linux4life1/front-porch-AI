@@ -793,7 +793,7 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
       // objective that already exists was proposed before ambitions steered
       // anything, so "which ambition does it serve" has no honest answer for
       // them. NULL says exactly that. Backfilling a guess here would put a
-      // wrong "→ open her own bakery" chip under quests the character never
+      // wrong "→ open their own bakery" chip under quests the character never
       // took for that reason.
       //
       // Additive and nullable, so a downgrade to a v45 build keeps reading
@@ -813,7 +813,7 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
       //
       // Group chats already persisted theirs inside group_realism_state, so
       // this closes a parity hole rather than adding a feature: a 1:1 chat
-      // had nowhere to keep the record, so reopening the chat emptied her
+      // had nowhere to keep the record, so reopening the chat emptied their
       // pockets. NULL for every existing row is exactly right — nothing was
       // ever saved, so there is nothing to claim otherwise, and the pass
       // simply re-seeds from the card as it does for a brand new chat.

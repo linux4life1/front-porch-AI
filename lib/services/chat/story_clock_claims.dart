@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Pure: pull a PRESENT story-clock time out of a reply. Used after
-// generation so the sidebar matches what she just said (the Senjumaru
+// generation so the sidebar matches what they just said (the Senjumaru
 // 8:05-vs-6am class). Think-blocks are stripped — those quote the
 // injection, not the fiction.
 
@@ -41,16 +41,13 @@ DateTime? clockNamedInReply(String reply, DateTime current) {
     final minute = int.tryParse(m.group(2) ?? '0') ?? 0;
     if (minute > 59) continue;
     final pm = m.group(3)!.toLowerCase().startsWith('p');
-    claims.add((
-      hour: _to24(hourRaw, pm: pm),
-      minute: minute,
-      index: m.start,
-    ));
+    claims.add((hour: _to24(hourRaw, pm: pm), minute: minute, index: m.start));
   }
 
   for (final m in _spokenInPeriod.allMatches(text)) {
     if (_boundIsNotPresent(text, m.start)) continue;
-    final hourRaw = int.tryParse(m.group(1) ?? '') ??
+    final hourRaw =
+        int.tryParse(m.group(1) ?? '') ??
         _kSpokenHour[m.group(2)!.toLowerCase()];
     if (hourRaw == null || hourRaw < 1 || hourRaw > 12) continue;
     final minute = int.tryParse(m.group(3) ?? '0') ?? 0;
@@ -95,7 +92,7 @@ final _bareDawn = RegExp(
 
 /// Leads that mean the named hour is an appointment, a plan or a memory —
 /// NOT the present moment. "at" is the one that mattered: "I'll pick you up
-/// at 5 p.m." / "she remembered the call at 9 a.m." were read as clock claims
+/// at 5 p.m." / "they remembered the call at 9 a.m." were read as clock claims
 /// and teleported the story clock up to ±6h off one line of ordinary
 /// dialogue. The `(?:^|\W)` boundary is load-bearing, not tidiness: without
 /// it "footpath " ends in "at " and would reject the very Senjumaru
@@ -125,7 +122,8 @@ int _to24(int hour12, {required bool pm}) {
 int _hourInPeriod(int hour12, String period) {
   return switch (period) {
     'afternoon' || 'evening' => hour12 == 12 ? 12 : hour12 + 12,
-    'night' => hour12 >= 6 && hour12 < 12 ? hour12 + 12 : (hour12 == 12 ? 0 : hour12),
+    'night' =>
+      hour12 >= 6 && hour12 < 12 ? hour12 + 12 : (hour12 == 12 ? 0 : hour12),
     _ => hour12 == 12 ? 0 : hour12,
   };
 }
