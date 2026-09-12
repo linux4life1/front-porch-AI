@@ -17,7 +17,7 @@
   `test/ui/waifu/waifu_wizard_test.dart`,
   `test/services/opencode/opencode_config_test.dart`,
   `test/services/chat/neutral_character_pronouns_test.dart`
-- **Commit:** 43679ba7
+- **Commit:** 86303a91
 
 ## 2026-09-11 — Waifu tool rows sit below the bubble
 - **Why:** A long Thought grew the reverse-list item upward, so bash/write
