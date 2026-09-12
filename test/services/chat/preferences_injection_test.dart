@@ -221,7 +221,7 @@ void main() {
       );
       expect(
         txt,
-        contains('not the only thing she wants'),
+        contains('not the only thing they want'),
         reason: 'the 18+ line used to be deleted whole in exactly this case, '
             'and its closing clause is the proportionality guard — the one '
             'part a model most needs when it has been told to pursue',
