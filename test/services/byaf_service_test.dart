@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/byaf_service.dart';
 Future<String> _writeByaf(
   Directory dir, {
   Map<String, dynamic> scenario = const {},
+  List<Map<String, String>> images = const [],
 }) async {
   final scenarioJson = <String, dynamic>{
     'schemaVersion': 1,
@@ -64,12 +65,20 @@ Future<String> _writeByaf(
         jsonEncode({
           'displayName': 'Aria',
           'persona': '{character} is a lighthouse keeper.',
+          'images': images,
         }),
       ),
     )
     ..addFile(
       ArchiveFile.string('scenarios/scenario1.json', jsonEncode(scenarioJson)),
     );
+
+  for (final image in images) {
+    final relPath = image['path'];
+    if (relPath == null || relPath.isEmpty) continue;
+    final filePath = 'characters/char1/$relPath';
+    archive.addFile(ArchiveFile(filePath, 0, const <int>[]));
+  }
   final path = '${dir.path}/test.byaf';
   await File(path).writeAsBytes(ZipEncoder().encode(archive));
   return path;
@@ -190,5 +199,28 @@ void main() {
       await service.parseByaf(path),
     );
     expect(settings, isNull);
+  });
+
+  test('parseByaf keeps every image for the avatar gallery', () async {
+    final path = await _writeByaf(
+      tempDir,
+      images: [
+        {'path': 'portrait.png'},
+        {'path': 'scene_1.png'},
+        {'path': 'scene_2.png'},
+      ],
+    );
+
+    final preview = await service.parseByaf(path);
+
+    expect(preview.galleryImagePaths, hasLength(3));
+    expect(preview.galleryImagePaths.first, isNotNull);
+    expect(
+      preview.galleryImagePaths.every((p) => File(p).existsSync()),
+      isTrue,
+    );
+
+    final card = service.toCharacterCard(preview);
+    expect(card.imagePath, preview.galleryImagePaths.first);
   });
 }

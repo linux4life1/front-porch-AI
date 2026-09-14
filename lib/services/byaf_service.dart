@@ -23,6 +23,7 @@ import 'package:drift/drift.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/database/database.dart';
 
 /// Preview data from a parsed .byaf file.
@@ -30,7 +31,7 @@ class ByafImportPreview {
   final String name;
   final String persona;
   final List<ByafLoreItem> loreItems;
-  final String? extractedImagePath; // Temp path to extracted image
+  final List<String> galleryImagePaths; // Every image in the BYAF archive (first is the portrait)
   final String? firstMessage;
   final String? narrative;
   final String? formattingInstructions;
@@ -42,7 +43,7 @@ class ByafImportPreview {
     required this.name,
     required this.persona,
     this.loreItems = const [],
-    this.extractedImagePath,
+    this.galleryImagePaths = const [],
     this.firstMessage,
     this.narrative,
     this.formattingInstructions,
@@ -67,6 +68,38 @@ class ByafChatMessage {
 
 /// Service to parse and import Backyard AI .byaf archive files.
 class ByafService {
+  Future<List<String>> _extractGalleryImages(
+    Archive archive,
+    String characterPath,
+    List<dynamic> rawImages,
+  ) async {
+    final galleryPaths = <String>[];
+    if (rawImages.isEmpty) return galleryPaths;
+
+    final tempDir = await Directory.systemTemp.createTemp('byaf_import_');
+
+    final charDir = path.dirname(characterPath);
+    for (int index = 0; index < rawImages.length; index++) {
+      final item = rawImages[index];
+      if (item is! Map<String, dynamic>) continue;
+      final relPath = item['path']?.toString();
+      if (relPath == null || relPath.trim().isEmpty) continue;
+
+      final fullImgPath = charDir.isEmpty ? relPath : '$charDir/$relPath';
+      final imgFile = archive.findFile(fullImgPath);
+      if (imgFile == null) continue;
+
+      final extension = path.extension(relPath).isNotEmpty
+          ? path.extension(relPath)
+          : '.png';
+      final tempPath =
+          '${tempDir.path}/byaf_import_${DateTime.now().millisecondsSinceEpoch}_$index$extension';
+      await File(tempPath).writeAsBytes(imgFile.content as List<int>);
+      galleryPaths.add(tempPath);
+    }
+    return galleryPaths;
+  }
+
   /// Parse a .byaf file and return a preview of the character data.
   Future<ByafImportPreview> parseByaf(String filePath) async {
     final bytes = await File(filePath).readAsBytes();
@@ -118,32 +151,15 @@ class ByafService {
       }
     }
 
-    // 4. Extract first image
-    String? extractedImagePath;
-    if (charJson['images'] is List && (charJson['images'] as List).isNotEmpty) {
-      final firstImage = (charJson['images'] as List).first;
-      if (firstImage is Map<String, dynamic>) {
-        final imgRelPath = firstImage['path']?.toString();
-        if (imgRelPath != null) {
-          // Image path is relative to the character directory
-          final charDir = path.dirname(characterPath);
-          final fullImgPath = '$charDir/$imgRelPath';
-          final imgFile = archive.findFile(fullImgPath);
-          if (imgFile != null) {
-            // Save to temp
-            final tempDir = await getTemporaryDirectory();
-            if (!await tempDir.exists()) await tempDir.create(recursive: true);
-            final ext = path.extension(imgRelPath).isNotEmpty
-                ? path.extension(imgRelPath)
-                : '.png';
-            final tempPath =
-                '${tempDir.path}/byaf_import_${DateTime.now().millisecondsSinceEpoch}$ext';
-            await File(tempPath).writeAsBytes(imgFile.content as List<int>);
-            extractedImagePath = tempPath;
-          }
-        }
-      }
-    }
+    // 4. Extract the archive's image set. The first image remains the
+    // portrait/cover, and the rest become gallery "looks" for the imported card.
+    final galleryImagePaths = charJson['images'] is List
+        ? await _extractGalleryImages(
+            archive,
+            characterPath,
+            (charJson['images'] as List).cast<dynamic>(),
+          )
+        : <String>[];
 
     // 5. Read scenarios
     String? firstMessage;
@@ -248,7 +264,7 @@ class ByafService {
       name: name,
       persona: persona,
       loreItems: loreItems,
-      extractedImagePath: extractedImagePath,
+      galleryImagePaths: galleryImagePaths,
       firstMessage: firstMessage,
       narrative: narrative,
       formattingInstructions: formattingInstructions,
@@ -337,9 +353,31 @@ class ByafService {
       postHistoryInstructions: '',
       alternateGreetings: [],
       tags: [],
-      imagePath: preview.extractedImagePath,
+      imagePath: preview.galleryImagePaths.isNotEmpty
+          ? preview.galleryImagePaths.first
+          : null,
       lorebook: lorebook,
     );
+  }
+
+  /// Add the remaining BYAF images to the imported character's avatar gallery.
+  /// The first image stays as the portrait on the card; subsequent images are
+  /// stored as gallery looks so the user can browse the full BYAF pack.
+  Future<void> importGalleryImages({
+    required CharacterRepository repo,
+    required CharacterCard importedCard,
+    required ByafImportPreview preview,
+  }) async {
+    if (importedCard.dbId == null || preview.galleryImagePaths.length <= 1) {
+      return;
+    }
+
+    for (int i = 1; i < preview.galleryImagePaths.length; i++) {
+      final imagePath = preview.galleryImagePaths[i];
+      if (!File(imagePath).existsSync()) continue;
+      final bytes = await File(imagePath).readAsBytes();
+      await repo.addLook(importedCard.dbId!, importedCard.name, bytes);
+    }
   }
 
   /// Save the character card as a PNG with embedded V2 metadata.
