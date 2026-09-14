@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/byaf_service.dart';
 Future<String> _writeByaf(
   Directory dir, {
   Map<String, dynamic> scenario = const {},
+  List<Map<String, String>> images = const [],
 }) async {
   final scenarioJson = <String, dynamic>{
     'schemaVersion': 1,
@@ -64,12 +65,21 @@ Future<String> _writeByaf(
         jsonEncode({
           'displayName': 'Aria',
           'persona': '{character} is a lighthouse keeper.',
+          'images': images,
         }),
       ),
     )
     ..addFile(
       ArchiveFile.string('scenarios/scenario1.json', jsonEncode(scenarioJson)),
     );
+
+  for (int i = 0; i < images.length; i++) {
+    final image = images[i];
+    final relPath = image['path'];
+    if (relPath == null || relPath.isEmpty) continue;
+    final filePath = 'characters/char1/$relPath';
+    archive.addFile(ArchiveFile(filePath, 0, [i]));
+  }
   final path = '${dir.path}/test.byaf';
   await File(path).writeAsBytes(ZipEncoder().encode(archive));
   return path;
@@ -77,10 +87,13 @@ Future<String> _writeByaf(
 
 void main() {
   late Directory tempDir;
-  final service = ByafService();
+  late ByafService service;
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('byaf_test');
+    service = ByafService(
+      getTemporaryDirectory: () async => tempDir,
+    );
   });
 
   tearDown(() async {
@@ -190,5 +203,37 @@ void main() {
       await service.parseByaf(path),
     );
     expect(settings, isNull);
+  });
+
+  test('parseByaf keeps every image (in order) for the avatar gallery', () async {
+    final path = await _writeByaf(
+      tempDir,
+      images: [
+        {'path': 'portrait.png'},
+        {'path': 'scene_1.png'},
+        {'path': 'scene_2.png'},
+      ],
+    );
+
+    final preview = await service.parseByaf(path);
+
+    expect(preview.galleryImagePaths, hasLength(3));
+
+    expect(
+      preview.galleryImagePaths.every((p) => File(p).existsSync()),
+      isTrue,
+    );
+
+    for (int i = 0; i < 3; i++) {
+      final extractedPath = preview.galleryImagePaths[i];
+      expect(
+        await File(extractedPath).readAsBytes(),
+        equals([i]),
+        reason: 'Image at gallery index $i should have contain byte $i',
+      );
+    }
+
+    final card = service.toCharacterCard(preview);
+    expect(card.imagePath, preview.galleryImagePaths.first);
   });
 }

@@ -21,7 +21,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/database/database.dart';
 
@@ -30,7 +30,7 @@ class ByafImportPreview {
   final String name;
   final String persona;
   final List<ByafLoreItem> loreItems;
-  final String? extractedImagePath; // Temp path to extracted image
+  final List<String> galleryImagePaths; // Every image in the BYAF archive (first is the portrait)
   final String? firstMessage;
   final String? narrative;
   final String? formattingInstructions;
@@ -42,7 +42,7 @@ class ByafImportPreview {
     required this.name,
     required this.persona,
     this.loreItems = const [],
-    this.extractedImagePath,
+    this.galleryImagePaths = const [],
     this.firstMessage,
     this.narrative,
     this.formattingInstructions,
@@ -65,8 +65,17 @@ class ByafChatMessage {
   ByafChatMessage({required this.type, required this.text, this.createdAt});
 }
 
+typedef TemporaryDirectoryProvider = Future<Directory> Function();
+
 /// Service to parse and import Backyard AI .byaf archive files.
 class ByafService {
+  final TemporaryDirectoryProvider _getTemporaryDirectory;
+
+  ByafService({
+    TemporaryDirectoryProvider? getTemporaryDirectory,
+  }) : _getTemporaryDirectory =
+           getTemporaryDirectory ?? path_provider.getTemporaryDirectory;
+
   /// Parse a .byaf file and return a preview of the character data.
   Future<ByafImportPreview> parseByaf(String filePath) async {
     final bytes = await File(filePath).readAsBytes();
@@ -118,28 +127,32 @@ class ByafService {
       }
     }
 
-    // 4. Extract first image
-    String? extractedImagePath;
+    // 4. Extract the archive's image set. The first image remains the
+    // portrait/cover, and the rest become gallery "looks" for the imported card.
+    List<String> galleryImagePaths = [];
     if (charJson['images'] is List && (charJson['images'] as List).isNotEmpty) {
-      final firstImage = (charJson['images'] as List).first;
-      if (firstImage is Map<String, dynamic>) {
-        final imgRelPath = firstImage['path']?.toString();
-        if (imgRelPath != null) {
-          // Image path is relative to the character directory
-          final charDir = path.dirname(characterPath);
-          final fullImgPath = '$charDir/$imgRelPath';
-          final imgFile = archive.findFile(fullImgPath);
-          if (imgFile != null) {
-            // Save to temp
-            final tempDir = await getTemporaryDirectory();
-            if (!await tempDir.exists()) await tempDir.create(recursive: true);
-            final ext = path.extension(imgRelPath).isNotEmpty
-                ? path.extension(imgRelPath)
-                : '.png';
-            final tempPath =
-                '${tempDir.path}/byaf_import_${DateTime.now().millisecondsSinceEpoch}$ext';
-            await File(tempPath).writeAsBytes(imgFile.content as List<int>);
-            extractedImagePath = tempPath;
+      final tempDir = await _getTemporaryDirectory();
+      if (!await tempDir.exists()) await tempDir.create(recursive: true);
+      final rawImages = (charJson['images'] as List);
+      for (int i = 0; i < rawImages.length; i++) {
+        final img = rawImages[i];
+        if (img is Map<String, dynamic>) {
+          final imgRelPath = img['path']?.toString();
+          if (imgRelPath != null) {
+            // Image path is relative to the character directory
+            final charDir = path.dirname(characterPath);
+            final fullImgPath = '$charDir/$imgRelPath';
+            final imgFile = archive.findFile(fullImgPath);
+            if (imgFile != null) {
+              // Save to temp
+              final ext = path.extension(imgRelPath).isNotEmpty
+                  ? path.extension(imgRelPath)
+                  : '.png';
+              final tempPath =
+                  '${tempDir.path}/byaf_import_${i}_${DateTime.now().millisecondsSinceEpoch}$ext';
+              await File(tempPath).writeAsBytes(imgFile.content as List<int>);
+              galleryImagePaths.add(tempPath);
+            }
           }
         }
       }
@@ -248,7 +261,7 @@ class ByafService {
       name: name,
       persona: persona,
       loreItems: loreItems,
-      extractedImagePath: extractedImagePath,
+      galleryImagePaths: galleryImagePaths,
       firstMessage: firstMessage,
       narrative: narrative,
       formattingInstructions: formattingInstructions,
@@ -337,7 +350,9 @@ class ByafService {
       postHistoryInstructions: '',
       alternateGreetings: [],
       tags: [],
-      imagePath: preview.extractedImagePath,
+      imagePath: preview.galleryImagePaths.isNotEmpty
+          ? preview.galleryImagePaths.first
+          : null,
       lorebook: lorebook,
     );
   }
@@ -353,7 +368,7 @@ class ByafService {
     if (charactersDirPath != null) {
       charDirPath = charactersDirPath;
     } else {
-      final directory = await getApplicationDocumentsDirectory();
+      final directory = await path_provider.getApplicationDocumentsDirectory();
       charDirPath = '${directory.path}/KoboldManager/Characters';
     }
     final charDir = Directory(charDirPath);

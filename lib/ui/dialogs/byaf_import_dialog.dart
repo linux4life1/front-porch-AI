@@ -25,10 +25,12 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 class ByafImportResult {
   final bool confirmed;
   final bool importChatHistory;
+  final bool importGalleryImages;
   final bool applySettings;
   ByafImportResult({
     required this.confirmed,
     required this.importChatHistory,
+    this.importGalleryImages = true,
     this.applySettings = false,
   });
 }
@@ -46,9 +48,10 @@ class ByafImportDialog extends StatefulWidget {
 class _ByafImportDialogState extends State<ByafImportDialog> {
   bool _importChat = true;
   bool _applySettings = true;
+  bool _importGallery = true;
 
   ByafImportResult get _cancelResult =>
-      ByafImportResult(confirmed: false, importChatHistory: false);
+      ByafImportResult(confirmed: false, importChatHistory: false, importGalleryImages: false);
 
   @override
   Widget build(BuildContext context) {
@@ -114,9 +117,9 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                             width: 100,
                             height: 100,
                             color: AppColors.surfaceContainerOf(context),
-                            child: preview.extractedImagePath != null
+                            child: preview.galleryImagePaths.isNotEmpty
                                 ? Image.file(
-                                    File(preview.extractedImagePath!),
+                                    File(preview.galleryImagePaths.first),
                                     fit: BoxFit.cover,
                                     alignment: Alignment.topCenter,
                                     errorBuilder: (_, _, _) => Icon(
@@ -271,6 +274,19 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                         subtitle:
                             'Creates a chat session with the imported messages',
                       ),
+                    const SizedBox(height: 8),
+                    // Gallery import toggle (only show when there are extra images)
+                    if (preview.galleryImagePaths.length > 1)
+                      _buildToggleTile(
+                        value: _importGallery,
+                        onChanged: (v) =>
+                            setState(() => _importGallery = v ?? true),
+                        title:
+                            'Import gallery images '
+                            '(${preview.galleryImagePaths.length - 1} extra looks)',
+                        subtitle:
+                            'Adds the pack images as gallery looks (keeps the first image as the portrait)',
+                      ),
                   ],
                 ),
               ),
@@ -296,6 +312,7 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                     ByafImportResult(
                       confirmed: true,
                       importChatHistory: _importChat,
+                      importGalleryImages: _importGallery,
                       applySettings: _applySettings,
                     ),
                   ),

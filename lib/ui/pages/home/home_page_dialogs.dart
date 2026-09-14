@@ -339,7 +339,13 @@ extension _HomePageDialogs on _HomePageState {
         builder: (context) => ByafImportDialog(preview: preview),
       );
 
-      if (result2 == null || !result2.confirmed || !context.mounted) return;
+      if (result2 == null || !result2.confirmed || !context.mounted) {
+        for (final imgPath in preview.galleryImagePaths) {
+          final img = File(imgPath);
+          if (img.existsSync()) img.delete();
+        }
+        return;
+      }
 
       // Convert to CharacterCard
       final card = byafService.toCharacterCard(preview);
@@ -356,7 +362,10 @@ extension _HomePageDialogs on _HomePageState {
 
       // Now use V2CardService to embed character data into the PNG
       final v2Service = V2CardService();
-      await v2Service.saveCardAsPng(card, pngPath, preview.extractedImagePath);
+      final portraitPath = preview.galleryImagePaths.isNotEmpty
+          ? preview.galleryImagePaths.first
+          : null;
+      await v2Service.saveCardAsPng(card, pngPath, portraitPath);
 
       // Import via CharacterRepository (reads PNG metadata + inserts into DB).
       // Single-file BYAF: same name-collision prompt as V2 PNG import.
@@ -370,6 +379,16 @@ extension _HomePageDialogs on _HomePageState {
       // Create the imported session: chat history and/or Backyard sampler
       // settings, per the dialog toggles.
       if (importedCard != null) {
+        for (int i = 1; i < preview.galleryImagePaths.length; i++) {
+          final imagePath = preview.galleryImagePaths[i];
+          final imgFile = File(imagePath);
+          if (!imgFile.existsSync()) continue;
+          if (result2.importGalleryImages) {
+            final bytes = await imgFile.readAsBytes();
+            await repo.addLook(importedCard.dbId!, importedCard.name, bytes);
+          }
+          imgFile.delete();
+        }
         final genSettings = result2.applySettings
             ? byafService.toGenerationSettings(preview)
             : null;
@@ -541,13 +560,24 @@ extension _HomePageDialogs on _HomePageState {
           card,
           charactersDirPath: storage.charactersDir.path,
         );
+        final portraitPath = preview.galleryImagePaths.isNotEmpty
+            ? preview.galleryImagePaths.first
+            : null;
         await v2Service.saveCardAsPng(
           card,
           pngPath,
-          preview.extractedImagePath,
+          portraitPath,
         );
         final imported = await repo.importCharacter(File(pngPath));
         if (imported != null) {
+          for (int i = 1; i < preview.galleryImagePaths.length; i++) {
+            final imagePath = preview.galleryImagePaths[i];
+            final imgFile = File(imagePath);
+            if (!imgFile.existsSync()) continue;
+            final bytes = await imgFile.readAsBytes();
+            await repo.addLook(imported.dbId!, imported.name, bytes);
+            imgFile.delete();
+          }
           final genSettings = applySettings
               ? byafService.toGenerationSettings(preview)
               : null;
