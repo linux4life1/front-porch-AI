@@ -114,9 +114,9 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                             width: 100,
                             height: 100,
                             color: AppColors.surfaceContainerOf(context),
-                            child: preview.extractedImagePath != null
+                            child: preview.galleryImagePaths.isNotEmpty
                                 ? Image.file(
-                                    File(preview.extractedImagePath!),
+                                    File(preview.galleryImagePaths.first),
                                     fit: BoxFit.cover,
                                     alignment: Alignment.topCenter,
                                     errorBuilder: (_, _, _) => Icon(

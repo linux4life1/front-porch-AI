@@ -356,7 +356,10 @@ extension _HomePageDialogs on _HomePageState {
 
       // Now use V2CardService to embed character data into the PNG
       final v2Service = V2CardService();
-      await v2Service.saveCardAsPng(card, pngPath, preview.extractedImagePath);
+      final portraitPath = preview.galleryImagePaths.isNotEmpty
+          ? preview.galleryImagePaths.first
+          : null;
+      await v2Service.saveCardAsPng(card, pngPath, portraitPath);
 
       // Import via CharacterRepository (reads PNG metadata + inserts into DB).
       // Single-file BYAF: same name-collision prompt as V2 PNG import.
@@ -370,6 +373,11 @@ extension _HomePageDialogs on _HomePageState {
       // Create the imported session: chat history and/or Backyard sampler
       // settings, per the dialog toggles.
       if (importedCard != null) {
+        await byafService.importGalleryImages(
+          repo: repo,
+          importedCard: importedCard,
+          preview: preview,
+        );
         final genSettings = result2.applySettings
             ? byafService.toGenerationSettings(preview)
             : null;
@@ -541,13 +549,21 @@ extension _HomePageDialogs on _HomePageState {
           card,
           charactersDirPath: storage.charactersDir.path,
         );
+        final portraitPath = preview.galleryImagePaths.isNotEmpty
+            ? preview.galleryImagePaths.first
+            : null;
         await v2Service.saveCardAsPng(
           card,
           pngPath,
-          preview.extractedImagePath,
+          portraitPath,
         );
         final imported = await repo.importCharacter(File(pngPath));
         if (imported != null) {
+          await byafService.importGalleryImages(
+            repo: repo,
+            importedCard: imported,
+            preview: preview,
+          );
           final genSettings = applySettings
               ? byafService.toGenerationSettings(preview)
               : null;
