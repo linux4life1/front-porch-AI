@@ -160,8 +160,10 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 
 function wikiHostLabel(url: string): string {
   try {
-    const host = new URL(url.includes('://') ? url : `https://${url}`).host;
-    return host || url;
+    const u = new URL(url.includes('://') ? url : `https://${url}`);
+    const path = u.pathname.replace(/\/$/, '');
+    if (!path) return u.host || url;
+    return `${u.host}${path}`;
   } catch {
     return url;
   }

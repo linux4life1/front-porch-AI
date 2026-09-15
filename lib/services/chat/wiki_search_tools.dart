@@ -30,7 +30,8 @@ const List<Map<String, dynamic>> kWikiSearchTools = [
       'description':
           'Look up a person, place, ritual, or term from this chat\'s '
           'wiki — fiction and lore included. Call when you are not certain. '
-          'Never invent. Returns a short clip as plain text. '
+          'Never invent. Returns matching titles and short clips as plain '
+          'text. Then call wiki_page with a title to open the article. '
           'Put a short search-box query in `query` (the title or name, '
           'plus at most one extra word). Do not paste the scene or dialogue.',
       'parameters': {
@@ -45,6 +46,39 @@ const List<Map<String, dynamic>> kWikiSearchTools = [
           },
         },
         'required': ['query'],
+      },
+    },
+  },
+];
+
+/// OpenAI-shaped `wiki_page` (get_article). Same catalog window as
+/// `wiki_search`. One tool, MediaWiki or Tiddly backend.
+const String kWikiPageToolName = 'wiki_page';
+
+const List<Map<String, dynamic>> kWikiPageTools = [
+  {
+    'type': 'function',
+    'function': {
+      'name': kWikiPageToolName,
+      'description':
+          'Open one article from this chat\'s wiki by title. Use after '
+          'wiki_search when you have the page name. Fiction and lore '
+          'included. Never invent. Returns the article clip as plain text. '
+          'Pass `title` (or `page`).',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'title': {
+            'type': 'string',
+            'maxLength': kWebSearchQueryMaxChars,
+            'description': 'Exact article / tiddler title to open.',
+          },
+          'page': {
+            'type': 'string',
+            'maxLength': kWebSearchQueryMaxChars,
+            'description': 'Alias for title.',
+          },
+        },
       },
     },
   },

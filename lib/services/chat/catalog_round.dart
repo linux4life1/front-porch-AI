@@ -217,6 +217,9 @@ Future<CatalogRound> _dispatchCall({
       entry.name == kWikiSearchToolName) {
     return _dispatchWiki(call, wiki);
   }
+  if (entry.source == ToolSource.inProcess && entry.name == kWikiPageToolName) {
+    return _dispatchWikiPage(call, wiki);
+  }
   if (entry.source == ToolSource.userCard) {
     return _dispatchUserCard(
       call: call,
@@ -247,6 +250,31 @@ Future<CatalogRound> _dispatchWiki(
   );
   debugPrint('[Tools] dispatch in-process wiki_search query="$query"');
   final outcome = await wiki.lookup(query);
+  return _wikiRound(wiki, outcome);
+}
+
+Future<CatalogRound> _dispatchWikiPage(
+  LlmToolCall call,
+  WikiSearchService? wiki,
+) async {
+  final title = WebSearchService.prepareQuery(
+    call.arguments['title']?.toString() ??
+        call.arguments['page']?.toString() ??
+        '',
+  );
+  if (wiki == null || !wiki.isActive) {
+    return CatalogRound(
+      injection: SearchInjection.emptyResultFragment(title),
+      searchReceipt: {'query': title, 'ok': false, 'source': 'wiki'},
+      wikiReceipt: {'query': title, 'ok': false, 'source': 'wiki'},
+    );
+  }
+  debugPrint('[Tools] dispatch in-process wiki_page title="$title"');
+  final outcome = await wiki.getArticle(title);
+  return _wikiRound(wiki, outcome);
+}
+
+CatalogRound _wikiRound(WikiSearchService wiki, WebSearchResult outcome) {
   final injection = outcome.ok
       ? SearchInjection.wikiResultFragment(outcome.snippet)
       : SearchInjection.emptyResultFragment(outcome.query);
@@ -256,7 +284,10 @@ Future<CatalogRound> _dispatchWiki(
     'ok': outcome.ok,
     'cached': outcome.fromCache,
     'source': 'wiki',
-    if (base != null) 'url': base.origin,
+    if (base != null)
+      'url': (base.path.isEmpty || base.path == '/')
+          ? base.origin
+          : '${base.origin}${base.path}',
   };
   return CatalogRound(
     injection: injection,

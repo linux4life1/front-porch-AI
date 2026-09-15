@@ -31,7 +31,23 @@ const int kWikiExtractCharCap = 3500;
 
 /// Origin of a pasted MediaWiki / Fandom / Wikipedia URL, or null if the
 /// string is empty, not http(s), or otherwise unsafe to fetch.
+///
+/// MediaWiki-looking hosts keep origin only (`/wiki/Aizen` is an article).
+/// Everything else keeps the path so a TiddlyWiki on GitHub Pages
+/// (`https://quietoak.github.io/NeokosmosWiki/`) is fetchable.
 final _hostOnly = RegExp(r'^[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z0-9.-]+(/.*)?$');
+
+const String kWikiUserAgent = 'FrontPorchAI/wiki';
+
+bool looksLikeMediaWikiHost(String host) {
+  final h = host.toLowerCase();
+  if (h == 'wikipedia.org' || h.endsWith('.wikipedia.org')) return true;
+  if (h == 'fandom.com' || h.endsWith('.fandom.com')) return true;
+  if (h == 'wiki.gg' || h.endsWith('.wiki.gg')) return true;
+  if (h == 'wikimedia.org' || h.endsWith('.wikimedia.org')) return true;
+  if (h == 'mediawiki.org' || h.endsWith('.mediawiki.org')) return true;
+  return false;
+}
 
 Uri? parseWikiBaseUrl(String raw) {
   var s = raw.trim();
@@ -43,10 +59,28 @@ Uri? parseWikiBaseUrl(String raw) {
   final uri = Uri.tryParse(s);
   if (uri == null || !isSafeOutboundUrl(uri)) return null;
   if (uri.host.contains(' ') || uri.host.contains('%20')) return null;
+  if (looksLikeMediaWikiHost(uri.host)) {
+    return Uri(
+      scheme: uri.scheme,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+    );
+  }
+  var path = uri.path.isEmpty ? '/' : uri.path;
+  if (path.endsWith('/index.html')) {
+    path = path.substring(0, path.length - 'index.html'.length);
+  }
+  final segs = [
+    for (final p in path.split('/'))
+      if (p.isNotEmpty) p,
+  ];
+  final looksFile = segs.isNotEmpty && segs.last.contains('.');
+  if (!looksFile && !path.endsWith('/')) path = '$path/';
   return Uri(
     scheme: uri.scheme,
     host: uri.host,
     port: uri.hasPort ? uri.port : null,
+    path: path,
   );
 }
 
@@ -190,7 +224,16 @@ String parseMediaWikiParseHtml(String body) {
     html = text;
   }
   if (html.trim().isEmpty) return '';
-  var plain = html
+  var plain = wikiHtmlToPlain(html);
+  if (plain.isEmpty) return '';
+  if (title.isNotEmpty) plain = '$title\n$plain';
+  if (plain.length <= kWikiExtractCharCap) return plain;
+  return plain.substring(0, kWikiExtractCharCap).trim();
+}
+
+/// Tags out of wiki HTML. Shared by MediaWiki parse and Tiddly tiddlers.
+String wikiHtmlToPlain(String html) {
+  return html
       .replaceAll(_scriptRe, ' ')
       .replaceAll(_styleRe, ' ')
       .replaceAll(_tagRe, ' ')
@@ -199,10 +242,6 @@ String parseMediaWikiParseHtml(String body) {
       .replaceAll('&#8212;', '—')
       .replaceAll(_wsRe, ' ')
       .trim();
-  if (plain.isEmpty) return '';
-  if (title.isNotEmpty) plain = '$title\n$plain';
-  if (plain.length <= kWikiExtractCharCap) return plain;
-  return plain.substring(0, kWikiExtractCharCap).trim();
 }
 
 /// REST `pages` or Action API `query.search`. Empty on junk JSON.

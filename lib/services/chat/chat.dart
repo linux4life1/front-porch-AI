@@ -110,6 +110,7 @@ export 'weather_skins.dart';
 export 'web_search_service.dart';
 export 'web_search_tools.dart';
 export 'mediawiki_search.dart';
+export 'tiddly_wiki.dart';
 export 'wiki_search_service.dart';
 export 'wiki_search_tools.dart';
 export 'tool_catalog.dart';

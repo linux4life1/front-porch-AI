@@ -1,3 +1,9 @@
+## 2026-09-15 — TiddlyWiki adapter + wiki_page
+- **Why:** wiki_search was MediaWiki `api.php` only. Neokosmos is a TiddlyWiki on GH Pages (~4.1MB notebook, path `/NeokosmosWiki/`), not Fandom. Origin-only canonicalize fetched the GitHub user site. Same picker, two backends; not a lore cloud and not a special `neokosmos_search` tool.
+- **What:** Detect MW host vs Tiddly tiddler store after `parseWikiBaseUrl`. Session-cached tiddler index. `wiki_search` still search; new `wiki_page` (title or page) opens the article, clipped to 3500, `wikiResultFragment`. Fandom `wiki_page` uses parse URI. Skip `$:/`, images, mp3, Media Library. 8MB Tiddly fetch cap. User-Agent `FrontPorchAI/wiki`. Debug `[Wiki]` / `[Tiddly]` / `[WikiPage]`. Catalog advertises `wiki_page` when a wiki URL is set.
+- **Files:** `tiddly_wiki.dart`, `wiki_search_service.dart`, `wiki_search_tools.dart`, `mediawiki_search.dart`, `catalog_round.dart`, `tool_catalog.dart`, `chat_service_generation_request.dart`, `web_search_settings.dart`, `wiki_page_tiddly_test.dart`, web picker labels
+- **Commit:** (this commit)
+
 ## 2026-09-15 — Optional regen critique (reject reason)
 - **Why:** Regen was only "try again". Users needed a way to say why this take was wrong without chips or an Ash line in the transcript.
 - **What:** Optional field on last-bot regen chrome (desktop + web). Empty = today's regen. Non-empty injects a one-shot director slip (think-stripped ~800-char clip + ~500-char reason) before `Name:`. Not stored in messages. Continue strips it. Tools/clerk unchanged (`directUserSend: true`); critique does not force a lookup.

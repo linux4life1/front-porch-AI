@@ -83,7 +83,9 @@ class CatalogBuildResult {
 
   bool get isEmpty => tools.isEmpty;
   bool get hasSearch => tools.any((t) => t.name == kWebSearchToolName);
-  bool get hasWiki => tools.any((t) => t.name == kWikiSearchToolName);
+  bool get hasWiki => tools.any(
+    (t) => t.name == kWikiSearchToolName || t.name == kWikiPageToolName,
+  );
 }
 
 /// In-process `web_search` as a catalog entry. Source is never shown to the model.
@@ -103,6 +105,17 @@ CatalogTool inProcessWikiSearchTool() {
   final fn = kWikiSearchTools.first['function'] as Map<String, dynamic>;
   return CatalogTool(
     name: kWikiSearchToolName,
+    description: fn['description']?.toString() ?? '',
+    parameters: Map<String, dynamic>.from(fn['parameters'] as Map),
+    source: ToolSource.inProcess,
+  );
+}
+
+/// In-process `wiki_page` (get_article). Same gate as wiki_search.
+CatalogTool inProcessWikiPageTool() {
+  final fn = kWikiPageTools.first['function'] as Map<String, dynamic>;
+  return CatalogTool(
+    name: kWikiPageToolName,
     description: fn['description']?.toString() ?? '',
     parameters: Map<String, dynamic>.from(fn['parameters'] as Map),
     source: ToolSource.inProcess,

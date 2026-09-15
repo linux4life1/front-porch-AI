@@ -241,6 +241,7 @@ extension ChatServiceGenerationRequest on ChatService {
       inProcess: [
         if (includeSearch) inProcessWebSearchTool(),
         if (includeWiki) inProcessWikiSearchTool(),
+        if (includeWiki) inProcessWikiPageTool(),
       ],
       userCards: [
         if (includeUser)

@@ -21,18 +21,28 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'package:front_porch_ai/services/chat/mediawiki_search.dart';
+import 'package:front_porch_ai/services/chat/chat.dart' show parseWikiBaseUrl;
 
 import 'settings_base.dart';
 
-/// Origin (`https://host`) of a pasted wiki URL, or null if unsafe.
-String? canonicalizeWikiUrl(String raw) => parseWikiBaseUrl(raw)?.origin;
+/// Canonical wiki URL, or null if unsafe. MediaWiki hosts → origin.
+/// Tiddly / other hosts keep the path (`…/NeokosmosWiki/`).
+String? canonicalizeWikiUrl(String raw) {
+  final u = parseWikiBaseUrl(raw);
+  if (u == null) return null;
+  if (u.path.isEmpty || u.path == '/') return u.origin;
+  return '${u.origin}${u.path}';
+}
 
 /// Host label for a saved wiki row (`bleach.fandom.com`).
+/// Path-hosted notebooks include the folder (`quietoak.github.io/NeokosmosWiki`).
 String wikiHostLabel(String url) {
-  final host = parseWikiBaseUrl(url)?.host;
-  if (host != null && host.isNotEmpty) return host;
-  return url.trim();
+  final u = parseWikiBaseUrl(url);
+  if (u == null) return url.trim();
+  if (u.path.isEmpty || u.path == '/') return u.host;
+  var path = u.path;
+  if (path.endsWith('/')) path = path.substring(0, path.length - 1);
+  return '${u.host}$path';
 }
 
 /// Global default + Tavily API key for model-initiated web search.
