@@ -1,3 +1,9 @@
+## 2026-09-16 — Worker V2: keep mouth generateStream seam + occupancy wait
+- **Why:** Source-grep pins require the request seam to call `llmService.generateStream(genParams)`. Wrapping that in `_mouthGenerateStream` went red in CI. Occupancy wait still has to run after catalog (catalog can nest under a journal hold).
+- **What:** Catalog round unchanged; then `waitForWorkerLaneIdle` then the original `llmService.generateStream(genParams)` seam. Impersonate/actions still use the wrapper. Existing pins not edited. SWITCH_CANCEL stays parked.
+- **Files:** `chat_service_generation_request.dart`
+- **Commit:** (this commit)
+
 ## 2026-09-16 — Worker V2 HOLD: immortal occupancy + fail-closed restore
 - **Why:** Mid-hold `_rebuildGpuSwap` could mint a second Expando occupancy and orphan restore. Kobold admin `initial_model` miss left the process up so ensure-running no-op'd a model-less mouth. oMLX load miss soft-returned so occupancy faked success. Cancel/stop pins skipped live occupancy. Next mouth generate could start while a journal hold still had the mouth unloaded.
 - **What:** Held-token pin so open/close/nested holds keep one occupancy; `_rebuildGpuSwap` does not replace the Expando while pins/depth > 0. Kobold restore fail-closed: stop-then-start when admin load fails and the process is still up; wait-until-ready after reload or restart. oMLX load miss throws. Cancel/stop pins use a live swapped hold (hang-until-abort worker, no `testWorkerLlmServiceOverride`). Mouth generate (send, impersonate, action suggestions) waits for occupancy idle. SWITCH_CANCEL stays parked.

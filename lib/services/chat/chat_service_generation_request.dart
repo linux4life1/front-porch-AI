@@ -271,10 +271,12 @@ extension ChatServiceGenerationRequest on ChatService {
           '[Tools] dispatch no tool result — stream in-character reply',
         );
       }
-      t.stream = _mouthGenerateStream(genParams);
-    } else {
-      t.stream = _mouthGenerateStream(genParams);
     }
+    // Occupancy wait is load-bearing: catalog `_withWorkerLane` can nest
+    // under a journal hold, and releasing the catalog depth must not let
+    // speech start while the mouth is still unloaded.
+    await _llmProvider?.waitForWorkerLaneIdle();
+    t.stream = llmService.generateStream(genParams);
 
     // ── Phase: Prefilling ──
     // The HTTP request is now in flight. For KoboldCPP, the model is
