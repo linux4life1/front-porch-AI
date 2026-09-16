@@ -1,3 +1,9 @@
+## 2026-09-16 — Worker V2 HOLD: immortal occupancy + fail-closed restore
+- **Why:** Mid-hold `_rebuildGpuSwap` could mint a second Expando occupancy and orphan restore. Kobold admin `initial_model` miss left the process up so ensure-running no-op'd a model-less mouth. oMLX load miss soft-returned so occupancy faked success. Cancel/stop pins skipped live occupancy. Next mouth generate could start while a journal hold still had the mouth unloaded.
+- **What:** Held-token pin so open/close/nested holds keep one occupancy; `_rebuildGpuSwap` does not replace the Expando while pins/depth > 0. Kobold restore fail-closed: stop-then-start when admin load fails and the process is still up; wait-until-ready after reload or restart. oMLX load miss throws. Cancel/stop pins use a live swapped hold (hang-until-abort worker, no `testWorkerLlmServiceOverride`). Mouth generate (send, impersonate, action suggestions) waits for occupancy idle. SWITCH_CANCEL stays parked.
+- **Files:** `llm_provider.worker.dart`, `worker_gpu_hosts.dart`, chat lanes/generation/impersonate/actions, new/extended swap tests
+- **Commit:** (this commit)
+
 ## 2026-09-16 — Worker backend V2: dual-local unload/swap
 - **Why:** V1 refused two local engines (GPU fight). Mouth and worker can take turns when each host has a real unload/restore lever.
 - **What:** One occupancy contract: unload mouth → prepare worker → run side-lane work → unload worker → restore mouth. oMLX `POST /v1/models/{id}/unload|load` (+ admin twin). LM Studio `GET /api/v1/models` then `POST /api/v1/models/unload` (`instance_id`) + `/load`. Kobold admin `reload_config` `unload_model`/`initial_model`, else process stop/start. Generic local OpenAI stays refused. Cancel/stop still abort both lanes. Widget tests stay V1 fail-closed unless a test injects a swap (`runningUnderFlutterTestBinding`). Occupancy order pin proven red then green.

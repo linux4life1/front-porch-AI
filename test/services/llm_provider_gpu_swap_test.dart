@@ -92,6 +92,48 @@ void main() {
     expect(occ.steps.last, 'restore-mouth:mouth');
   });
 
+  test(
+    'mid-hold occupancy replace still restores the acquired instance',
+    () async {
+      await storage.setWorkerBackendType('omlx');
+      await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
+      await storage.setWorkerRemoteModelName('mlx-qwen');
+      final p = provider();
+      addTearDown(p.dispose);
+      final first = GpuSwapOccupancy(
+        mouth: _RecHost('mouth'),
+        worker: _RecHost('worker'),
+      );
+      p.debugGpuSwap = first;
+      await p.openWorkerLane();
+      expect(first.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
+      expect(first.isHeld, isTrue);
+      final expandoBefore = p.debugGpuSwapExpando;
+
+      await storage.setWorkerRemoteModelName('other-mlx');
+      expect(
+        identical(p.debugGpuSwapExpando, expandoBefore),
+        isTrue,
+        reason: 'mid-hold _rebuildGpuSwap must not mint a second occupancy',
+      );
+      expect(identical(p.debugGpuSwap, first), isTrue);
+
+      final second = GpuSwapOccupancy(
+        mouth: _RecHost('mouth2'),
+        worker: _RecHost('worker2'),
+      );
+      p.debugGpuSwap = second;
+
+      await p.withWorkerLane(() async {});
+      await p.closeWorkerLane();
+
+      expect(second.steps, isEmpty, reason: 'replacement must not swap');
+      expect(first.steps.where((s) => s.startsWith('unload-mouth')).length, 1);
+      expect(first.steps.last, 'restore-mouth:mouth');
+      expect(first.isHeld, isFalse);
+    },
+  );
+
   test('V1 pairs still expose a worker without needing a swap', () async {
     await storage.setBackendType('openRouter');
     await storage.setRemoteApiUrl(kOpenRouterApiV1);

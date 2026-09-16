@@ -98,12 +98,6 @@ class HttpGpuSwapHost implements GpuSwapHost {
     if (ok) return;
     final admin = _omlxUri(['admin', 'api', 'models', id, action]);
     if (admin != null && await _postEmpty(admin)) return;
-    if (action == 'load') {
-      debugPrint(
-        '[GpuSwap] oMLX load POST missed — next chat request auto-loads',
-      );
-      return;
-    }
     throw StateError('oMLX $action failed for $modelId');
   }
 
@@ -212,12 +206,16 @@ class KoboldProcessHost implements GpuSwapHost {
     required this.baseUrl,
     required this.stopProcess,
     required this.startProcess,
+    this.isProcessRunning,
+    this.waitUntilReady,
     HttpGpuSwapHost? admin,
   }) : _admin = admin;
 
   final String baseUrl;
   final Future<void> Function() stopProcess;
   final Future<void> Function() startProcess;
+  final bool Function()? isProcessRunning;
+  final Future<void> Function()? waitUntilReady;
   final HttpGpuSwapHost? _admin;
   bool _usedAdmin = false;
 
@@ -244,16 +242,23 @@ class KoboldProcessHost implements GpuSwapHost {
 
   @override
   Future<void> restore() async {
+    var reloaded = false;
     if (_usedAdmin && _admin != null) {
       try {
         await _admin.restore();
-        return;
+        reloaded = true;
       } catch (e) {
         debugPrint(
-          '[GpuSwap] Kobold admin restore missed, starting process: $e',
+          '[GpuSwap] Kobold admin restore missed, restarting process: $e',
         );
       }
     }
-    await startProcess();
+    if (!reloaded) {
+      if (isProcessRunning?.call() == true) {
+        await stopProcess();
+      }
+      await startProcess();
+    }
+    await waitUntilReady?.call();
   }
 }

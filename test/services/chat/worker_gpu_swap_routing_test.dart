@@ -97,15 +97,107 @@ void main() {
     },
   );
 
-  test('cancel during a swapped hold still restores mouth', () async {
+  test(
+    'cancel during a live swapped eval restores mouth and aborts both',
+    () async {
+      chat.testLlmServiceOverride = null;
+      chat.testWorkerLlmServiceOverride = null;
+      await storage.setBackendType('kobold');
+      await storage.setWorkerBackendType('omlx');
+      await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
+      await storage.setWorkerRemoteModelName('mlx-qwen');
+      final mouthKobold = _RecordingMouthKobold(storage);
+      final hangWorker = _HangUntilAbort('worker');
+      final llm = LLMProvider(
+        mouthKobold,
+        OpenRouterService(),
+        storage,
+        _QuietBackend(storage),
+      );
+      addTearDown(llm.dispose);
+      final occ = GpuSwapOccupancy(
+        mouth: _RecHost('mouth'),
+        worker: _RecHost('worker'),
+      );
+      llm.debugGpuSwap = occ;
+      llm.debugWorkerService = hangWorker;
+      chat.setLLMProvider(llm);
+
+      final eval = chat.debugFireSideLaneEval('{"ping":true}');
+      for (var i = 0; i < 200 && !occ.isHeld; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(occ.isHeld, isTrue);
+      await chat.cancelRealismEval();
+      await eval;
+      expect(hangWorker.abortCalls, greaterThan(0));
+      expect(mouthKobold.abortCalls, greaterThan(0));
+      expect(occ.steps.last, 'restore-mouth:mouth');
+      expect(occ.isHeld, isFalse);
+    },
+  );
+
+  test(
+    'stop during a live swapped hold restores mouth and aborts both',
+    () async {
+      chat.testLlmServiceOverride = null;
+      chat.testWorkerLlmServiceOverride = null;
+      await storage.setBackendType('kobold');
+      await storage.setWorkerBackendType('omlx');
+      await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
+      await storage.setWorkerRemoteModelName('mlx-qwen');
+      await storage.webSearchSettings.setWebSearchDefault(true);
+      final hangMouth = _RecordingMouthKobold(storage);
+      final hangWorker = _HangUntilAbort('worker');
+      final llm = LLMProvider(
+        hangMouth,
+        OpenRouterService(),
+        storage,
+        _QuietBackend(storage),
+      );
+      addTearDown(llm.dispose);
+      final occ = GpuSwapOccupancy(
+        mouth: _RecHost('mouth'),
+        worker: _RecHost('worker'),
+      );
+      llm.debugGpuSwap = occ;
+      llm.debugWorkerService = hangWorker;
+      chat.setLLMProvider(llm);
+      await chat.setActiveCharacter(
+        CharacterCard(
+          name: 'Mara',
+          description: 'Swap stop.',
+          firstMessage: 'Hi.',
+          frontPorchExtensions: FrontPorchExtensions(
+            realismEnabled: false,
+            needsSimEnabled: false,
+            chaosModeEnabled: false,
+          ),
+        )..dbId = 'char-swap-stop',
+      );
+      final send = chat.sendMessage('Hello there.');
+      for (var i = 0; i < 400 && !occ.isHeld; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(occ.isHeld, isTrue);
+      chat.stopGeneration();
+      await send;
+      expect(hangMouth.abortCalls, greaterThan(0));
+      expect(hangWorker.abortCalls, greaterThan(0));
+      expect(occ.steps.last, 'restore-mouth:mouth');
+    },
+  );
+
+  test('mouth generate waits until a held occupancy restores', () async {
     chat.testLlmServiceOverride = null;
     chat.testWorkerLlmServiceOverride = null;
     await storage.setBackendType('kobold');
     await storage.setWorkerBackendType('omlx');
     await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
     await storage.setWorkerRemoteModelName('mlx-qwen');
+    final mouthKobold = _RecordingMouthKobold(storage);
     final llm = LLMProvider(
-      _RecordingMouthKobold(storage),
+      mouthKobold,
       OpenRouterService(),
       storage,
       _QuietBackend(storage),
@@ -117,46 +209,27 @@ void main() {
     );
     llm.debugGpuSwap = occ;
     chat.setLLMProvider(llm);
-
-    final started = Completer<void>();
-    final released = Completer<void>();
-    final hold = llm.withWorkerLane(() async {
-      started.complete();
-      await released.future;
-    });
-    await started.future;
-    expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
-    await chat.cancelRealismEval();
-    released.complete();
-    await hold;
-    expect(occ.steps.last, 'restore-mouth:mouth');
-  });
-
-  test('stop still aborts mouth and worker when a swap is armed', () async {
-    final hangMouth = _HangUntilAbort('mouth');
-    final hangWorker = _HangUntilAbort('worker');
-    chat.testLlmServiceOverride = hangMouth;
-    chat.testWorkerLlmServiceOverride = hangWorker;
     await chat.setActiveCharacter(
       CharacterCard(
         name: 'Mara',
-        description: 'Swap cancel.',
+        description: 'Swap wait.',
         firstMessage: 'Hi.',
         frontPorchExtensions: FrontPorchExtensions(
           realismEnabled: false,
           needsSimEnabled: false,
           chaosModeEnabled: false,
         ),
-      )..dbId = 'char-swap-1',
+      )..dbId = 'char-swap-wait',
     );
+    await llm.openWorkerLane();
+    expect(occ.isHeld, isTrue);
     final send = chat.sendMessage('Hello there.');
-    for (var i = 0; i < 200 && !chat.isGenerating; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-    }
-    chat.stopGeneration();
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    expect(mouthKobold.generateStarts, 0);
+    await llm.closeWorkerLane();
     await send;
-    expect(hangMouth.abortCalls, greaterThan(0));
-    expect(hangWorker.abortCalls, greaterThan(0));
+    expect(mouthKobold.generateStarts, greaterThan(0));
+    expect(occ.steps.last, 'restore-mouth:mouth');
   });
 }
 
@@ -176,11 +249,23 @@ class _QuietBackend extends BackendManager {
 class _RecordingMouthKobold extends KoboldService {
   _RecordingMouthKobold(super.storage);
 
+  int abortCalls = 0;
+  int generateStarts = 0;
+
   @override
   bool get isReady => true;
 
   @override
   bool get isProcessRunning => true;
+
+  @override
+  void abortGeneration() => abortCalls++;
+
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    generateStarts++;
+    yield 'Hi from mouth.';
+  }
 
   @override
   Future<void> reconnectIfAlive() async {}
@@ -226,6 +311,15 @@ class _HangUntilAbort extends _RecordingLlm {
   @override
   Stream<String> generateStream(GenerationParams params) async* {
     await _released.future;
+  }
+
+  @override
+  Future<LlmToolResponse?> generateWithTools(
+    GenerationParams params,
+    List<Map<String, dynamic>> tools,
+  ) async {
+    await _released.future;
+    return const LlmToolResponse(calls: [], text: '');
   }
 }
 

@@ -21,6 +21,16 @@ part of 'llm_provider.dart';
 extension LLMProviderWorker on LLMProvider {
   OpenRouterService get workerRemoteService => _workerRemote;
 
+  LLMService? _liveWorkerService() {
+    if (!workerConfigured || workerRefusedDualLocal) return null;
+    return _providerWorkerOverride[this] ??
+        switch (workerBackend) {
+          BackendType.kobold => _koboldService,
+          BackendType.openRouter || BackendType.omlx => _workerRemote,
+          null => null,
+        };
+  }
+
   @visibleForTesting
   bool get debugOmlxPollerStarted => _omlxPoller.isStarted;
 
@@ -77,21 +87,81 @@ extension LLMProviderWorker on LLMProvider {
   }
 
   @visibleForTesting
+  set debugWorkerService(LLMService? service) {
+    _providerWorkerOverride[this] = service;
+  }
+
+  @visibleForTesting
   GpuSwapOccupancy? get debugGpuSwap =>
-      _providerSwapOverride[this] ?? _providerSwap[this];
+      _providerHeldSwap[this] ??
+      _providerSwapOverride[this] ??
+      _providerSwap[this];
+
+  /// Production Expando only. Mid-hold rebuild must not write here.
+  @visibleForTesting
+  GpuSwapOccupancy? get debugGpuSwapExpando => _providerSwap[this];
 
   Future<T> withWorkerLane<T>(Future<T> Function() work) {
     final occupancy = _occupancyForLane();
     if (occupancy == null) return work();
-    return occupancy.hold(work);
+    _pinHeldSwap(occupancy);
+    return occupancy.hold(work).whenComplete(() {
+      _releaseHeldSwapIfIdle(occupancy);
+    });
   }
 
   Future<void> openWorkerLane() async {
-    await _occupancyForLane()?.open();
+    final occupancy = _occupancyForLane();
+    if (occupancy == null) return;
+    _pinHeldSwap(occupancy);
+    try {
+      await occupancy.open();
+    } catch (_) {
+      _releaseHeldSwapIfIdle(occupancy);
+      rethrow;
+    }
   }
 
   Future<void> closeWorkerLane() async {
-    await _occupancyForLane()?.close();
+    final occupancy = _occupancyForLane();
+    if (occupancy == null) return;
+    try {
+      await occupancy.close();
+    } finally {
+      _releaseHeldSwapIfIdle(occupancy);
+    }
+  }
+
+  bool get isWorkerLaneHeld =>
+      _providerHeldSwap[this]?.isHeld ??
+      _providerSwapOverride[this]?.isHeld ??
+      _providerSwap[this]?.isHeld ??
+      false;
+
+  Future<void> waitForWorkerLaneIdle() async {
+    while (isWorkerLaneHeld) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+  }
+
+  void _pinHeldSwap(GpuSwapOccupancy occupancy) {
+    _providerHeldSwap[this] ??= occupancy;
+    _providerHeldPins[this] = (_providerHeldPins[this] ?? 0) + 1;
+  }
+
+  void _releaseHeldSwapIfIdle(GpuSwapOccupancy occupancy) {
+    if (!identical(_providerHeldSwap[this], occupancy)) return;
+    final pins = (_providerHeldPins[this] ?? 1) - 1;
+    if (pins > 0) {
+      _providerHeldPins[this] = pins;
+      return;
+    }
+    _providerHeldSwap[this] = null;
+    _providerHeldPins[this] = null;
+    if (_providerSwapDirty[this] == true) {
+      _providerSwapDirty[this] = null;
+      _rebuildGpuSwap();
+    }
   }
 
   bool _pairSupportsGpuSwap() {
@@ -121,6 +191,8 @@ extension LLMProviderWorker on LLMProvider {
   }
 
   GpuSwapOccupancy? _occupancyForLane() {
+    final held = _providerHeldSwap[this];
+    if (held != null) return held;
     final injected = _providerSwapOverride[this];
     if (injected != null) return injected;
     if (!workerGpuSwapAvailable) return null;
@@ -129,6 +201,14 @@ extension LLMProviderWorker on LLMProvider {
   }
 
   GpuSwapOccupancy? _rebuildGpuSwap() {
+    final live = _providerSwap[this];
+    final held = _providerHeldSwap[this];
+    if (held != null ||
+        (_providerHeldPins[this] ?? 0) > 0 ||
+        (live != null && live.isHeld)) {
+      _providerSwapDirty[this] = true;
+      return held ?? live;
+    }
     if (!_pairSupportsGpuSwap()) {
       _providerSwap[this] = null;
       return null;
@@ -188,6 +268,15 @@ extension LLMProviderWorker on LLMProvider {
         baseUrl: _koboldService.baseUrl,
         stopProcess: _koboldService.stopKobold,
         startProcess: () => ensureManagedBackendIsRunning(forGpuSwap: true),
+        isProcessRunning: () => _koboldService.isProcessRunning,
+        waitUntilReady: () async {
+          for (var i = 0; i < 200 && !_koboldService.isReady; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+          }
+          if (!_koboldService.isReady) {
+            throw StateError('Kobold was not ready after GPU swap restore');
+          }
+        },
         admin: HttpGpuSwapHost(
           kind: LocalSwapKind.koboldProcess,
           apiUrl: _koboldService.baseUrl,
@@ -210,3 +299,11 @@ final Expando<GpuSwapOccupancy> _providerSwap = Expando<GpuSwapOccupancy>(
 );
 final Expando<GpuSwapOccupancy> _providerSwapOverride =
     Expando<GpuSwapOccupancy>('fpai.gpuSwapOverride');
+final Expando<GpuSwapOccupancy> _providerHeldSwap = Expando<GpuSwapOccupancy>(
+  'fpai.gpuSwapHeld',
+);
+final Expando<int> _providerHeldPins = Expando<int>('fpai.gpuSwapHeldPins');
+final Expando<bool> _providerSwapDirty = Expando<bool>('fpai.gpuSwapDirty');
+final Expando<LLMService> _providerWorkerOverride = Expando<LLMService>(
+  'fpai.workerServiceOverride',
+);

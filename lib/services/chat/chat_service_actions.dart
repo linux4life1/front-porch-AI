@@ -84,7 +84,7 @@ extension ChatServiceActions on ChatService {
       );
 
       String responseText = '';
-      await for (final chunk in llmService.generateStream(params)) {
+      await for (final chunk in _mouthGenerateStream(params)) {
         responseText += chunk;
       }
       responseText = responseText.trim();

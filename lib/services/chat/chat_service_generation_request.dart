@@ -271,9 +271,9 @@ extension ChatServiceGenerationRequest on ChatService {
           '[Tools] dispatch no tool result — stream in-character reply',
         );
       }
-      t.stream = llmService.generateStream(genParams);
+      t.stream = _mouthGenerateStream(genParams);
     } else {
-      t.stream = llmService.generateStream(genParams);
+      t.stream = _mouthGenerateStream(genParams);
     }
 
     // ── Phase: Prefilling ──

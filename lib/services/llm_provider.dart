@@ -179,14 +179,7 @@ class LLMProvider extends ChangeNotifier {
       );
 
   /// Side-lane service when the worker is on and the pair is allowed.
-  LLMService? get workerService {
-    if (!workerConfigured || workerRefusedDualLocal) return null;
-    return switch (workerBackend) {
-      BackendType.kobold => _koboldService,
-      BackendType.openRouter || BackendType.omlx => _workerRemote,
-      null => null,
-    };
-  }
+  LLMService? get workerService => _liveWorkerService();
 
   /// Evals / clerk / journal / growth. Mouth stays [activeService].
   LLMService get sideLaneService => workerService ?? activeService;

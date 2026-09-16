@@ -138,6 +138,82 @@ void main() {
     expect(starts, 0);
   });
 
+  test('Kobold admin success still waits until the process is ready', () async {
+    var readyWaits = 0;
+    final host = KoboldProcessHost(
+      baseUrl: 'http://127.0.0.1:5001',
+      stopProcess: () async {},
+      startProcess: () async {},
+      waitUntilReady: () async => readyWaits++,
+      admin: HttpGpuSwapHost(
+        kind: LocalSwapKind.koboldProcess,
+        apiUrl: 'http://127.0.0.1:5001',
+        modelId: 'unused',
+        send: (method, uri, headers, body) async {
+          return http.Response('{"success":true}', 200);
+        },
+      ),
+    );
+    await host.unload();
+    await host.restore();
+    expect(readyWaits, 1);
+  });
+
+  test('oMLX load miss throws so occupancy cannot fake a restore', () async {
+    final host = HttpGpuSwapHost(
+      kind: LocalSwapKind.omlx,
+      apiUrl: kOmlxApiV1,
+      modelId: 'mlx-qwen',
+      send: (method, uri, headers, body) async => http.Response('nope', 404),
+    );
+    await expectLater(host.restore(), throwsStateError);
+  });
+
+  test(
+    'Kobold admin restore-fail while process is up force-restarts',
+    () async {
+      var running = true;
+      var stops = 0;
+      var starts = 0;
+      var readyWaits = 0;
+      final host = KoboldProcessHost(
+        baseUrl: 'http://127.0.0.1:5001',
+        stopProcess: () async {
+          stops++;
+          running = false;
+        },
+        startProcess: () async {
+          starts++;
+          running = true;
+        },
+        isProcessRunning: () => running,
+        waitUntilReady: () async => readyWaits++,
+        admin: HttpGpuSwapHost(
+          kind: LocalSwapKind.koboldProcess,
+          apiUrl: 'http://127.0.0.1:5001',
+          modelId: 'unused',
+          send: (method, uri, headers, body) async {
+            if (body != null && body.contains('unload_model')) {
+              return http.Response('{"success":true}', 200);
+            }
+            return http.Response('{"success":false}', 200);
+          },
+        ),
+      );
+      await host.unload();
+      expect(stops, 0);
+      expect(running, isTrue);
+      await host.restore();
+      expect(
+        stops,
+        1,
+        reason: 'admin load miss must not no-op on a live process',
+      );
+      expect(starts, 1);
+      expect(readyWaits, 1);
+    },
+  );
+
   test('Kobold process stop/start is the lever when admin is off', () async {
     var stops = 0;
     var starts = 0;

@@ -270,10 +270,6 @@ extension ChatServiceImpersonate on ChatService {
             : [_activeCharacter!.name],
       );
 
-      final llmService =
-          testLlmServiceOverride ??
-          _llmProvider?.activeService ??
-          _koboldService;
       final genParams = GenerationParams(
         prompt: prompt,
         systemPrompt: chatSystemPrompt,
@@ -299,7 +295,7 @@ extension ChatServiceImpersonate on ChatService {
             : null,
       );
 
-      final stream = llmService.generateStream(genParams);
+      final stream = _mouthGenerateStream(genParams);
       String accumulated = prefix;
       bool inThinkBlock = false;
 
@@ -331,7 +327,9 @@ extension ChatServiceImpersonate on ChatService {
       // user can only edit AFTER generation finishes, at which point
       // the sanitized form is presented.
       if (_sessionGenSettings.resolveOutputSanitizerEnabled(_storageService)) {
-        final rules = _sessionGenSettings.resolveOutputSanitizerRules(_storageService);
+        final rules = _sessionGenSettings.resolveOutputSanitizerRules(
+          _storageService,
+        );
         final sanitized = sanitizeOutput(accumulated, rules);
         if (sanitized != accumulated) {
           onToken(sanitized);

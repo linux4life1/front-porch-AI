@@ -52,6 +52,13 @@ extension ChatServiceLlmLanes on ChatService {
   Future<String?> debugFireSideLaneEval(String prompt) =>
       _fireLLMEval(prompt, label: 'test-worker');
 
+  /// Spoken reply stream. Waits until a GPU swap has restored the mouth.
+  Stream<String> _mouthGenerateStream(GenerationParams params) async* {
+    final p = _llmProvider;
+    if (p != null) await p.waitForWorkerLaneIdle();
+    yield* _mouthLlm.generateStream(params);
+  }
+
   /// Unload mouth → run side-lane work → restore mouth. No-op when the
   /// worker is off, refused, or a test override owns the lane.
   Future<T> _withWorkerLane<T>(Future<T> Function() work) {
