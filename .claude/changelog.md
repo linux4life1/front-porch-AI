@@ -2,7 +2,7 @@
 - **Why:** FakeLLMProvider and Settings/idle doubles crashed: extension getters read library-private `_storageService`.
 - **What:** Worker service / side lane / unready / dual-local refuse are instance getters on LLMProvider. Fakes default to worker-off. Unready copy is a pure helper.
 - **Files:** `llm_provider.dart`, `llm_provider.worker.dart`, `worker_backend.dart`, `test/golden/support/fakes.dart`
-- **Commit:** (this commit)
+- **Commit:** ba3b82c6
 
 ## 2026-09-16 — Worker tests: clerk/eval dual-local pin + picker vitest
 - **Why:** Review wanted behavioral dual-local routing (not getters), a banner pin, and web picker parity. Source-grep asserts were already gone.
