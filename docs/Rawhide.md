@@ -7,7 +7,7 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 🌍 **World from Wiki** — a studio wizard that scouts a saved wiki (Fandom or Tiddly) and proposes a short shelf of cards — era, hub, leaf, crown — instead of one card per page. You sign the ones to write. Climate stays off unless you turn it on. Needs a tool-calling model. Same on the phone.
+- 🌍 **World from Wiki** — a studio wizard that scouts a saved wiki (Fandom or Tiddly) and proposes a short shelf of cards — era, hub, leaf, crown — instead of one card per page. You sign the ones to write. Climate stays off unless you turn it on; if climate write misses, it stays off (no stock Temperate). Stop is on the write step. Needs a tool-calling model. Same on the phone.
 
 - 📖 **Neokosmos works in the same Wiki picker as Bleach** — paste a TiddlyWiki URL (GitHub Pages path is kept). She can search, then open a named page. Fandom / MediaWiki is unchanged.
 

@@ -7,6 +7,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/world_from_wiki/world_craft_mechanics.dart';
+import 'package:front_porch_ai/services/world_from_wiki/world_from_wiki_ops.dart';
 import 'package:front_porch_ai/services/world_from_wiki/world_from_wiki_tools.dart';
 
 /// Scout result: index size plus proposed cards (default unsigned).
@@ -131,7 +132,7 @@ class WorldFromWikiEngine {
         premise: premise,
         extraLore: extraLore,
       );
-      drafts.addAll(_matchBatch(ready, generated));
+      drafts.addAll(matchWorldWriteBatch(ready, generated));
     }
     if (climateEnabled && !_aborted) {
       final climate = await _writeClimate(
@@ -156,6 +157,10 @@ class WorldFromWikiEngine {
           );
         }
       }
+    }
+    if (_aborted) {
+      entries.clear();
+      return List<LorebookEntry>.unmodifiable(entries);
     }
     entries.addAll(applyWorldCraftMechanics(drafts));
     return List<LorebookEntry>.unmodifiable(entries);
@@ -265,38 +270,6 @@ class WorldFromWikiEngine {
       debugPrint('[World] write batch miss ($e)');
       return const [];
     }
-  }
-
-  List<WorldCraftDraft> _matchBatch(
-    List<WorldProposedCard> cards,
-    List<WorldLoreWrite> generated,
-  ) {
-    final leftover = [...generated];
-    final out = <WorldCraftDraft>[];
-    for (var i = 0; i < cards.length; i++) {
-      final card = cards[i];
-      final want = card.name.toLowerCase();
-      var hit = -1;
-      for (var j = 0; j < leftover.length; j++) {
-        if (leftover[j].name.toLowerCase() == want) {
-          hit = j;
-          break;
-        }
-      }
-      if (hit < 0 && leftover.isNotEmpty) hit = 0;
-      if (hit < 0) continue;
-      final g = leftover.removeAt(hit);
-      out.add(
-        WorldCraftDraft(
-          name: g.name == 'Untitled' ? card.name : g.name,
-          keys: g.keys.isEmpty ? card.keys : g.keys,
-          content: g.content,
-          role: card.role,
-          group: card.group,
-        ),
-      );
-    }
-    return out;
   }
 
   Future<WorldClimateWrite?> _writeClimate({

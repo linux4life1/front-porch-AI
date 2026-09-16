@@ -69,7 +69,7 @@ class WorldFromWikiFacade {
     if (parseWikiBaseUrl(wikiUrl) == null) {
       return {'ok': false, 'error': 'wikiUrl is required'};
     }
-    final cards = _cardsOf(body['cards'] ?? body['signed']);
+    final cards = parseSignedWorldWriteCards(body['cards'] ?? body['signed']);
     if (cards.isEmpty) {
       return {'ok': false, 'error': 'signed cards are required'};
     }
@@ -124,12 +124,13 @@ class WorldFromWikiFacade {
         scanDepth: kWorldFromWikiScanDepth,
         tokenBudget: kWorldFromWikiTokenBudget,
       );
+      final climateOn = body['climateEnabled'] == true && engine.biome != null;
       _hub?.broadcast({
         'event': 'world_wiki_done',
         'name': body['name']?.toString() ?? '',
         'description': body['premise']?.toString() ?? '',
-        'climateEnabled': body['climateEnabled'] == true,
-        if (engine.biome != null) 'biome': engine.biome,
+        'climateEnabled': climateOn,
+        if (climateOn) 'biome': engine.biome,
         'recursiveScanning': true,
         'scanDepth': kWorldFromWikiScanDepth,
         'tokenBudget': kWorldFromWikiTokenBudget,
@@ -141,14 +142,6 @@ class WorldFromWikiFacade {
       _writing = false;
       _live = null;
     }
-  }
-
-  List<WorldProposedCard> _cardsOf(dynamic raw) {
-    if (raw is! List) return const [];
-    return [
-      for (final e in raw)
-        if (e is Map) ?WorldProposedCard.tryParse(Map<String, dynamic>.from(e)),
-    ];
   }
 
   Future<bool> _toolsOk() async {

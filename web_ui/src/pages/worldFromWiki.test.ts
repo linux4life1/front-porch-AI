@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { describe, expect, it } from 'vitest';
-import { parseProposedCards, signedCards } from './worldFromWiki';
+import {
+  canOpenWorldFromWikiPreview,
+  jumpWorldFromWikiStep,
+  parseProposedCards,
+  signedCards,
+} from './worldFromWiki';
 
 describe('world-from-wiki review shelf', () => {
   it('is proposed cards, not 211 wiki titles', () => {
@@ -57,5 +62,43 @@ describe('world-from-wiki review shelf', () => {
       { name: 'The Crown Oven', role: 'crown', sourceTitles: ['The Crown Oven'] },
     ]);
     expect(proposed.map((c) => c.name)).toEqual(['The Crown Oven']);
+  });
+
+  it('blocks jump-to-Preview without a written shelf', () => {
+    expect(
+      canOpenWorldFromWikiPreview({
+        lorebooksOn: true,
+        aborted: false,
+        entryCount: 0,
+      }),
+    ).toBe(false);
+    expect(
+      jumpWorldFromWikiStep(3, 1, {
+        lorebooksOn: true,
+        aborted: false,
+        entryCount: 0,
+      }),
+    ).toBe(1);
+    expect(
+      jumpWorldFromWikiStep(3, 2, {
+        lorebooksOn: true,
+        aborted: true,
+        entryCount: 2,
+      }),
+    ).toBe(2);
+    expect(
+      jumpWorldFromWikiStep(3, 2, {
+        lorebooksOn: true,
+        aborted: false,
+        entryCount: 2,
+      }),
+    ).toBe(3);
+    expect(
+      canOpenWorldFromWikiPreview({
+        lorebooksOn: false,
+        aborted: false,
+        entryCount: 0,
+      }),
+    ).toBe(true);
   });
 });

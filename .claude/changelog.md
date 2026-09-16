@@ -1,3 +1,9 @@
+## 2026-09-16 — World from wiki Hold punch list
+- **Why:** Climate-on miss still saved climateEnabled with no biome (Temperate fallback). Stop/abort existed on the engine but the write UI never called it. Abort test was a stub. Path-hosted MediaWiki never reached the Action API. Web step jump/save could persist an empty unsigned shelf.
+- **What:** Fail-closed climate (no biome → climate off). Stop on desktop write + AppBar and web write; abort discards the shelf. Real canSave receipt. MediaWiki `api.php` under the pasted path. Web jump/save gated on a written shelf. Name-miss leftover no longer force-picked. Web write rejects unsigned/ToC card lists.
+- **Files:** `world_from_wiki_ops.dart`, engine, write UI, facade, `mediawiki_search.dart`, `wiki_search_service.dart`, `WorldFromWikiPage.tsx`, focused tests
+- **Commit:** (this commit)
+
 ## 2026-09-15 — World from wiki is wiki-agnostic (scout / review / write)
 - **Why:** One lorebook card per ticked wiki page made a 200-row checklist and a table of contents, not a cast list. The studio must run on any saved wiki (MediaWiki/Fandom and Tiddly), not a series-specific schema.
 - **What:** Book (name, premise, saved wiki, climate off) → Scout sees index titles and proposes 20–40 cards (name, keys, role era/hub/leaf/crown, 1–3 sourceTitles, optional group slug from this book) → Review signs a shelf (default unchecked, no select-all) → Write signed cards only (`getArticleFull` on sources, 160–330 chars, alias keys) → role mechanics in `world_craft_mechanics.dart` (not chargen `assignLoreMechanics`) → Preview/Save with recursiveScanning, scanDepth 10, tokenBudget 2800. Tools gate stays. Desktop + web.

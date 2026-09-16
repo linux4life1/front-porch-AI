@@ -246,7 +246,7 @@ class WikiSearchService with _WikiHttp {
       );
       return _backend[key] = WikiBackend.tiddly;
     }
-    if (_pathIsRoot(base) && await _apiPhpWorks(base)) {
+    if (await _apiPhpWorks(base)) {
       debugPrint('[Wiki] picker url=$key detected backend=mediawiki');
       return _backend[key] = WikiBackend.mediawiki;
     }
@@ -256,8 +256,6 @@ class WikiSearchService with _WikiHttp {
     );
     return _backend[key] = WikiBackend.unknown;
   }
-
-  bool _pathIsRoot(Uri base) => base.path.isEmpty || base.path == '/';
 
   Future<TiddlyIndex?> _loadTiddlyIndex(
     Uri base, {
@@ -297,7 +295,7 @@ class WikiSearchService with _WikiHttp {
 
   Future<bool> _apiPhpWorks(Uri wikiBase) async {
     if (_httpThisSend >= 6) return false;
-    final uri = Uri.parse('${wikiBase.origin}/api.php').replace(
+    final uri = mediawikiActionApiUri(wikiBase).replace(
       queryParameters: {
         'action': 'query',
         'meta': 'siteinfo',

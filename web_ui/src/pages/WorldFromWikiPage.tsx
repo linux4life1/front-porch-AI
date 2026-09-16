@@ -13,6 +13,8 @@ import type { LoreEntry } from '../components/LoreEntriesEditor';
 import {
   WORLD_FROM_WIKI_STEPS,
   WORLD_FROM_WIKI_TOOLS_COPY,
+  canOpenWorldFromWikiPreview,
+  jumpWorldFromWikiStep,
   parseProposedCards,
   signedCards,
   type ProposedWorldCard,
@@ -41,6 +43,7 @@ export function WorldFromWikiPage() {
   const [writeStatus, setWriteStatus] = useState('');
   const [error, setError] = useState('');
   const [entries, setEntries] = useState<LoreEntry[]>([]);
+  const [aborted, setAborted] = useState(false);
   const [description, setDescription] = useState('');
   const [bookFields, setBookFields] = useState({
     recursiveScanning: true,
@@ -81,9 +84,12 @@ export function WorldFromWikiPage() {
           scanDepth: typeof e.scanDepth === 'number' ? e.scanDepth : 10,
           tokenBudget: typeof e.tokenBudget === 'number' ? e.tokenBudget : 2800,
         });
+        setAborted(false);
         setStep(3);
       } else if (e.event === 'world_wiki_abort') {
         setBusy(false);
+        setAborted(true);
+        setEntries([]);
         setWriteStatus(e.data || 'Stopped.');
       } else if (e.event === 'world_wiki_error') {
         setBusy(false);
@@ -129,13 +135,14 @@ export function WorldFromWikiPage() {
       return;
     }
     setBusy(true);
+    setAborted(false);
     setError('');
     setWriteStatus('Writing…');
     setStep(2);
     try {
       await api.post('/api/worlds/from-wiki/write', {
         wikiUrl,
-        cards: picked,
+        cards: picked.map((c) => ({ ...c, signed: true })),
         name,
         premise,
         climateEnabled,
@@ -146,22 +153,33 @@ export function WorldFromWikiPage() {
     }
   };
 
+  const abortWrite = async () => {
+    try {
+      await api.post('/api/worlds/from-wiki/abort');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not stop');
+    }
+  };
+
   const save = async () => {
+    if (!canOpenWorldFromWikiPreview({ lorebooksOn, aborted, entryCount: entries.length })) {
+      setError('Write a signed shelf first.');
+      return;
+    }
+    const climateOn = climateEnabled && biome != null;
     setBusy(true);
     setError('');
     try {
       await api.post('/api/worlds', {
         name,
         description: description || premise,
-        climateEnabled,
+        climateEnabled: climateOn,
         injectDescription: true,
         entries,
         recursiveScanning: bookFields.recursiveScanning,
         scanDepth: bookFields.scanDepth,
         tokenBudget: bookFields.tokenBudget,
-        ...(climateEnabled && biome
-          ? { biomeId: 'custom', biome }
-          : {}),
+        ...(climateOn ? { biomeId: 'custom', biome } : {}),
       });
       navigate('/worlds');
     } catch (e) {
@@ -181,7 +199,15 @@ export function WorldFromWikiPage() {
         <h2>📖 World from Wiki</h2>
       </header>
 
-      <StepIndicator steps={WORLD_FROM_WIKI_STEPS} current={step} onJump={busy ? undefined : setStep} />
+      <StepIndicator
+        steps={WORLD_FROM_WIKI_STEPS}
+        current={step}
+        onJump={busy ? undefined : (i) => setStep(jumpWorldFromWikiStep(i, step, {
+          lorebooksOn,
+          aborted,
+          entryCount: entries.length,
+        }))}
+      />
 
       {!available && (
         <p className="muted">No LLM backend is ready — start or connect a model first.</p>
@@ -275,6 +301,9 @@ export function WorldFromWikiPage() {
           <div className="cg-config">
             <p>{writeStatus || 'Writing lorebook cards…'}</p>
             <p className="muted small">Nothing is saved until Preview.</p>
+            <button type="button" disabled={!busy} onClick={() => void abortWrite()}>
+              Stop
+            </button>
           </div>
         )}
 
@@ -309,7 +338,7 @@ export function WorldFromWikiPage() {
       </div>
 
       <div className="wizard-nav">
-        <button disabled={step === 0 || busy || step === 2} onClick={() => setStep(step - 1)}>← Back</button>
+        <button disabled={step === 0 || busy} onClick={() => setStep(step - 1)}>← Back</button>
         {step === 0 && (
           <button className="primary" disabled={busy || !toolsOk || !wikiUrl} onClick={() => void scout()}>
             {busy ? 'Scouting…' : lorebooksOn ? 'Scout wiki' : 'Next: Preview'}
@@ -320,8 +349,19 @@ export function WorldFromWikiPage() {
             Write {signed.size} cards
           </button>
         )}
+        {step === 2 && (
+          <button disabled={!busy} onClick={() => void abortWrite()}>Stop</button>
+        )}
         {step === 3 && (
-          <button className="primary" disabled={busy || !name.trim()} onClick={() => void save()}>
+          <button
+            className="primary"
+            disabled={busy || !name.trim() || !canOpenWorldFromWikiPreview({
+              lorebooksOn,
+              aborted,
+              entryCount: entries.length,
+            })}
+            onClick={() => void save()}
+          >
             Save World
           </button>
         )}

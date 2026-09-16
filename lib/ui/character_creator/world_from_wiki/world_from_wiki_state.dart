@@ -48,6 +48,18 @@ class WorldFromWikiState extends ChangeNotifier {
 
   bool get busy => scouting || writing;
 
+  bool get canSave => worldFromWikiCanSave(
+    aborted: engine?.aborted ?? false,
+    lorebooksOn: lorebooksOn,
+    entries: entries,
+  );
+
+  void abortWrite() {
+    engine?.abort();
+    status = 'Stopped.';
+    notify();
+  }
+
   List<WorldProposedCard> get signedCards => [
     for (var i = 0; i < proposed.length; i++)
       if (signed.contains(i)) proposed[i],
@@ -209,17 +221,23 @@ class WorldFromWikiState extends ChangeNotifier {
       },
     );
     try {
-      entries = await engine!.write(
+      final written = await engine!.write(
         picked,
         worldName: nameController.text,
         premise: premiseController.text,
         extraLore: extraLore,
         climateEnabled: climateEnabled,
       );
-      if (descController.text.trim().isEmpty) {
-        descController.text = premiseController.text.trim();
+      if (engine!.aborted) {
+        entries = [];
+        status = 'Stopped.';
+      } else {
+        entries = written;
+        if (descController.text.trim().isEmpty) {
+          descController.text = premiseController.text.trim();
+        }
+        currentStep = 4;
       }
-      if (!engine!.aborted) currentStep = 4;
     } catch (e) {
       error = 'Write failed: $e';
       debugPrint('[World] write miss/fail reason=$e');
@@ -240,6 +258,11 @@ class WorldFromWikiState extends ChangeNotifier {
   }
 
   Future<bool> save(WorldRepository repo) async {
+    if (!canSave) {
+      error = 'Write a signed shelf first.';
+      notify();
+      return false;
+    }
     final world = previewWorld();
     try {
       await repo.saveWorld(world);

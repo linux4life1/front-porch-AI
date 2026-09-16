@@ -193,7 +193,34 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
                 );
               };
       case 3:
-        return const SizedBox(height: 16);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (worldState.writing)
+                ElevatedButton.icon(
+                  key: const Key('world-from-wiki-stop-nav'),
+                  onPressed: worldState.abortWrite,
+                  icon: const Icon(Icons.stop, size: 18),
+                  label: const Text('Stop'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.porchAmberOf(context),
+                    foregroundColor: AppColors.onChaosAccent,
+                  ),
+                )
+              else
+                OutlinedButton.icon(
+                  onPressed: () {
+                    worldState.currentStep = 2;
+                    worldState.notify();
+                  },
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back'),
+                ),
+            ],
+          ),
+        );
       default:
         nextLabel = 'Save World';
         onNext = busy ? null : _saveAndFinish;
@@ -241,9 +268,10 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
       appBar: AppBar(
         backgroundColor: AppColors.surfaceOf(context),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(worldState.writing ? Icons.stop : Icons.arrow_back),
+          tooltip: worldState.writing ? 'Stop' : 'Back',
           onPressed: worldState.writing
-              ? null
+              ? worldState.abortWrite
               : () => Navigator.of(context).pop(),
         ),
         title: Row(

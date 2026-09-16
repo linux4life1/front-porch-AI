@@ -101,7 +101,7 @@ bool usesMediaWikiActionApi(Uri wikiBase) {
 /// Search URI against [wikiBase]'s host. Query is already prepared.
 Uri mediawikiSearchUri(Uri wikiBase, String query) {
   if (usesMediaWikiActionApi(wikiBase)) {
-    return Uri.parse('${wikiBase.origin}/api.php').replace(
+    return mediawikiActionApiUri(wikiBase).replace(
       queryParameters: {
         'action': 'query',
         'list': 'search',
@@ -152,7 +152,7 @@ List<String> parseMediaWikiSearchTitles(String body, {int maxTitles = 2}) {
 /// Plain-text extracts for [titles] on an Action API wiki.
 Uri mediawikiExtractUri(Uri wikiBase, List<String> titles) {
   final joined = titles.where((t) => t.trim().isNotEmpty).take(2).join('|');
-  return Uri.parse('${wikiBase.origin}/api.php').replace(
+  return mediawikiActionApiUri(wikiBase).replace(
     queryParameters: {
       'action': 'query',
       'prop': 'extracts',
@@ -195,7 +195,7 @@ String parseMediaWikiExtracts(String body) {
 
 /// Fandom (and many MW farms) have no TextExtracts. Parse HTML instead.
 Uri mediawikiParseUri(Uri wikiBase, String title) {
-  return Uri.parse('${wikiBase.origin}/api.php').replace(
+  return mediawikiActionApiUri(wikiBase).replace(
     queryParameters: {
       'action': 'parse',
       'page': title,
@@ -293,10 +293,29 @@ bool skipWikiStudioTitle(String title) {
 }
 
 Uri mediawikiActionApiUri(Uri wikiBase) {
-  if (usesMediaWikiActionApi(wikiBase)) {
-    return Uri.parse('${wikiBase.origin}/api.php');
+  if (looksLikeMediaWikiHost(wikiBase.host)) {
+    if (usesMediaWikiActionApi(wikiBase)) {
+      return Uri.parse('${wikiBase.origin}/api.php');
+    }
+    return Uri.parse('${wikiBase.origin}/w/api.php');
   }
-  return Uri.parse('${wikiBase.origin}/w/api.php');
+  final segs = [
+    for (final p in wikiBase.path.split('/'))
+      if (p.isNotEmpty &&
+          p != 'api.php' &&
+          p != 'index.php' &&
+          p != 'index.html')
+        p,
+  ];
+  if (segs.isNotEmpty) {
+    return Uri(
+      scheme: wikiBase.scheme,
+      host: wikiBase.host,
+      port: wikiBase.hasPort ? wikiBase.port : null,
+      path: '/${segs.join('/')}/api.php',
+    );
+  }
+  return Uri.parse('${wikiBase.origin}/api.php');
 }
 
 Uri mediawikiAllPagesUri(Uri wikiBase, {String? apcontinue}) {

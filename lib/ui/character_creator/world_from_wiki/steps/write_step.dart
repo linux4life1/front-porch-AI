@@ -50,6 +50,19 @@ class WorldFromWikiWriteStep extends StatelessWidget {
                   style: TextStyle(color: AppColors.taskAccentOf(context)),
                 ),
               ],
+              if (state.writing || state.engine?.aborted == true) ...[
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  key: const Key('world-from-wiki-stop'),
+                  onPressed: state.writing ? state.abortWrite : null,
+                  icon: const Icon(Icons.stop, size: 18),
+                  label: const Text('Stop'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.porchAmberOf(context),
+                    foregroundColor: AppColors.onChaosAccent,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

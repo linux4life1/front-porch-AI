@@ -48,6 +48,34 @@ export function signedCards(
   return proposed.filter((_, i) => signed.has(i));
 }
 
+const PREVIEW_STEP = 3;
+
+export function canOpenWorldFromWikiPreview(opts: {
+  lorebooksOn: boolean;
+  aborted: boolean;
+  entryCount: number;
+}): boolean {
+  if (opts.aborted) return false;
+  if (!opts.lorebooksOn) return true;
+  return opts.entryCount > 0;
+}
+
+/** Refuse Preview unless a signed shelf was written (or lorebooks are off). */
+export function jumpWorldFromWikiStep(
+  next: number,
+  current: number,
+  opts: {
+    lorebooksOn: boolean;
+    aborted: boolean;
+    entryCount: number;
+    previewStep?: number;
+  },
+): number {
+  const preview = opts.previewStep ?? PREVIEW_STEP;
+  if (next === preview && !canOpenWorldFromWikiPreview(opts)) return current;
+  return next;
+}
+
 function stringList(raw: unknown): string[] {
   if (Array.isArray(raw)) {
     return raw.map((e) => String(e).trim()).filter(Boolean);

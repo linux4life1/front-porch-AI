@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
@@ -101,6 +102,7 @@ class _ToolsLlm extends LLMService {
   int writeCalls = 0;
   int scoutCalls = 0;
   bool returnNull = false;
+  bool climateNull = false;
   String lastPrompt = '';
 
   @override
@@ -129,6 +131,7 @@ class _ToolsLlm extends LLMService {
     }
     if (names.contains(kWorldClimateToolName)) {
       writeCalls++;
+      if (climateNull) return null;
       return LlmToolResponse(
         calls: [
           LlmToolCall(
@@ -351,7 +354,6 @@ void main() {
       llm: llm,
     ).scout(worldName: 'The quay', premise: 'x');
     late WorldFromWikiEngine engine;
-    var saved = false;
     engine = WorldFromWikiEngine(
       wiki: _wiki(),
       llm: llm,
@@ -363,8 +365,47 @@ void main() {
       premise: 'x',
     );
     expect(engine.aborted, isTrue);
-    expect(entries.length, lessThan(scout.proposed.length));
-    expect(saved, isFalse);
+    expect(entries, isEmpty);
+    expect(
+      worldFromWikiCanSave(
+        aborted: engine.aborted,
+        lorebooksOn: true,
+        entries: entries,
+      ),
+      isFalse,
+    );
+    final leftover = [
+      LorebookEntry(name: 'Partial', keys: const ['partial'], content: 'x'),
+    ];
+    expect(
+      worldFromWikiCanSave(aborted: true, lorebooksOn: true, entries: leftover),
+      isFalse,
+      reason: 'abort refuses save even if a batch already produced cards',
+    );
+  });
+
+  test('climate on + miss does not enable climate on the World', () async {
+    final llm = _ToolsLlm()..climateNull = true;
+    final engine = WorldFromWikiEngine(wiki: _wiki(), llm: llm);
+    final scout = await engine.scout(worldName: 'The quay', premise: 'x');
+    final entries = await engine.write(
+      _signed(scout, [0]),
+      worldName: 'The quay',
+      premise: 'x',
+      climateEnabled: true,
+    );
+    expect(entries, isNotEmpty);
+    expect(engine.biome, isNull);
+    final world = worldFromWikiDraft(
+      name: 'The quay',
+      description: 'x',
+      entries: entries,
+      climateEnabled: true,
+      biome: engine.biome,
+    );
+    expect(world.climateEnabled, isFalse);
+    expect(world.biomeId, isNull);
+    expect(world.biomeJson, isNull);
   });
 
   test('tools miss does not dump the article as a lorebook card', () async {
