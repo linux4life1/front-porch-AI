@@ -66,6 +66,9 @@ class FakeStorageService extends ChangeNotifier implements StorageService {
   @override
   String? get customModelsPath => null;
 
+  @override
+  String get backendType => 'openRouter';
+
   // Chat background
   @override
   String get chatBackground => 'none';

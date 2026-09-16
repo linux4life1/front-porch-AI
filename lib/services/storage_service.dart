@@ -933,7 +933,6 @@ class StorageService extends ChangeNotifier {
       _lorebookSettings.load();
       attachReasoningEffortMenuStore(_prefs);
 
-      // Ensure default immersive prompt (was in god init; now on preset)
       if (!_presetSettings.savedPrompts.any(
         (p) => p['name'] == 'Immersive Roleplay',
       )) {
@@ -943,17 +942,11 @@ class StorageService extends ChangeNotifier {
         );
       }
 
-      // Load settings (DELETED in Stage 7 — bodies lifted to the *Settings.load(); see above + shims)
-      // Original load code excised (deletion part of task).
       final loadedCustom = _prefs?.getString(_k('custom_models_path'));
       _customModelsPath = (loadedCustom != null && loadedCustom.isNotEmpty)
           ? loadedCustom
           : null;
 
-      // Push the stored spell check language into the service before any text
-      // field can ask for a check. Absent (a fresh install, or an upgrade from
-      // before this setting existed) leaves the English default in place rather
-      // than adopting the OS locale.
       final loadedSpell = _prefs?.getString(_k('spell_check_language'));
       if (loadedSpell != null && loadedSpell.isNotEmpty) {
         DesktopSpellCheckService.activeLanguage = loadedSpell;
@@ -970,28 +963,11 @@ class StorageService extends ChangeNotifier {
   }
 
   /// Change the root installation directory and relocate all data files.
-  /// Moves KoboldManager/ (DB + characters), chats/, worlds/, models/,
-  /// koboldcpp_bin/, groups/ (group member portraits) and custom_backgrounds/
-  /// from the old root to the new one. Closes and reopens the database.
-  ///
-  /// ALL OR NOTHING, and it reports. Every copy runs BEFORE any source is
-  /// deleted, and the root (plus its persisted key) is committed only once all
-  /// of them have landed. A half-move the app then points at is
-  /// indistinguishable from "my whole library vanished": the DB path is
-  /// `<root>/KoboldManager/front_porch.db`, so committing a root whose data
-  /// never arrived opens an empty database while the real one sits under a
-  /// folder the app no longer names.
-  ///
-  /// Returns null on success, or a human-readable reason on refusal — nothing
-  /// was moved and the old root still stands in that case.
+  /// Returns null on success, or a human-readable reason on refusal.
   Future<String?> setRootPath(String pathStr) async {
     final oldRoot = _rootPath;
-    if (oldRoot == pathStr) return null; // No-op if same path
+    if (oldRoot == pathStr) return null;
 
-    // The move half is a pure leaf (storage/root_relocation.dart): refuse
-    // when the destination already holds data, copy everything BEFORE any
-    // source is deleted, roll back a partial copy. A refusal reason means
-    // nothing moved and the old root still stands.
     final refusal = await relocateRootDirectories(oldRoot, pathStr);
     if (refusal != null) return refusal;
 
@@ -999,7 +975,6 @@ class StorageService extends ChangeNotifier {
     _binDir = Directory(path.join(_rootPath!, 'koboldcpp_bin'));
     await _prefs?.setString(_rootPathKey, pathStr);
 
-    // Ensure directories exist at the new location
     await chatsDir.create(recursive: true);
     await modelsDir.create(recursive: true);
     await worldsDir.create(recursive: true);
@@ -1008,38 +983,17 @@ class StorageService extends ChangeNotifier {
     await groupsDir.create(recursive: true);
     await customBackgroundDir.create(recursive: true);
 
-    // Custom chat backgrounds are the one thing under the root that remembers
-    // an ABSOLUTE path (prefs, not the DB), so the files moving is only half
-    // the job — repoint them or every one of them dangles. Rebuilt in place so
-    // the picker keeps its order.
     if (oldRoot != null) {
-      final backgrounds = customBackgrounds;
-      final moved = backgrounds
-          .where((bg) => path.isWithin(oldRoot, bg['filePath'] ?? ''))
-          .isNotEmpty;
-      if (moved) {
-        for (final bg in backgrounds) {
-          await removeCustomBackground(bg['id'] ?? '');
-        }
-        for (final bg in backgrounds) {
-          final filePath = bg['filePath'] ?? '';
-          await addCustomBackground(
-            bg['id'] ?? '',
-            bg['name'] ?? '',
-            path.isWithin(oldRoot, filePath)
-                ? path.join(pathStr, path.relative(filePath, from: oldRoot))
-                : filePath,
-          );
-        }
-      }
+      await repointCustomBackgroundsAfterRootMove(
+        oldRoot: oldRoot,
+        newRoot: pathStr,
+        backgrounds: customBackgrounds,
+        remove: removeCustomBackground,
+        add: addCustomBackground,
+      );
     }
 
     notifyListeners();
     return null;
   }
-
-  // (Recursive directory copy moved to storage/root_relocation.dart —
-  // copyDirectoryRecursive — with the rest of the move half.)
-
-  // (final shim migration cleanup complete IMPL_ID=29bbf59d; all @Deprecated + flat shims excised for tts/stt/image/expression/web/cloud/realism/memory/preset + all flats. Storage is pure directory management (rootPath, dirs, resolveCharacterImage, setRootPath, _copyDirectory, init for dirs + beta/dev override, _initCompleter, _prefs for dir keys only) + public *Settings wiring (late finals for init/single-notifier/beta isolation) only. No _prefs for settings, no notify for settings changes, no flat settings API. Deletion part complete; live post-edit dead grep for old shim symbols in *_service.dart exec =0 outside comments/MD. Corrective COMPAT FLAT ACCESSORS bridge re-inserted post-excision at the COMPAT block; see its header for details + keep in sync with refactoring-guide Stage 7 precedent.)
 }

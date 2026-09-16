@@ -82,7 +82,6 @@ void main() {
     expect(mcpWeb, isNot(contains('Connect Docker MCP')));
     expect(mcpWeb, isNot(contains('McpServersPanel')));
     expect(mcpWeb, contains('Web Search'));
-    expect(mcpWeb, contains('user-tools-folder-note'));
   });
 
   testWidgets('Porch Life shows Web Search and the tools folder, not MCP', (

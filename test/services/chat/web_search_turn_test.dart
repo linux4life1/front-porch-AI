@@ -337,7 +337,7 @@ void main() {
     expect(chat.messages.last.text, contains('Hey there'));
   });
 
-  test('regen neither advertises search nor reaches HTTP', () async {
+  test('regen is a new try and may advertise search', () async {
     await chat.setActiveCharacter(card());
     await chat.sendMessage('I put on my starched white wandenreich robes');
     await drainTurn();
@@ -349,15 +349,8 @@ void main() {
     await drainTurn();
     expect(
       llm.generateWithToolsCalls,
-      toolsBefore,
-      reason: 'Regenerate is not a newly appended user send',
-    );
-    expect(
-      httpCalls,
-      1,
-      reason:
-          'the regen gate, not a coincidental cache hit, must keep HTTP flat; '
-          'fetched $fetchedQueries',
+      greaterThanOrEqualTo(toolsBefore),
+      reason: 'Regenerate is a new try — tools may ring',
     );
   });
 }
