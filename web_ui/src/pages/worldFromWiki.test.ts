@@ -77,6 +77,8 @@ describe('world-from-wiki review shelf', () => {
         lorebooksOn: true,
         aborted: false,
         entryCount: 0,
+        proposedCount: 3,
+        signedCount: 1,
       }),
     ).toBe(1);
     expect(
@@ -84,6 +86,8 @@ describe('world-from-wiki review shelf', () => {
         lorebooksOn: true,
         aborted: true,
         entryCount: 2,
+        proposedCount: 3,
+        signedCount: 1,
       }),
     ).toBe(2);
     expect(
@@ -91,6 +95,8 @@ describe('world-from-wiki review shelf', () => {
         lorebooksOn: true,
         aborted: false,
         entryCount: 2,
+        proposedCount: 3,
+        signedCount: 1,
       }),
     ).toBe(3);
     expect(
@@ -100,5 +106,65 @@ describe('world-from-wiki review shelf', () => {
         entryCount: 0,
       }),
     ).toBe(true);
+  });
+
+  it('blocks jump-to-Review without a scouted shelf', () => {
+    expect(
+      jumpWorldFromWikiStep(1, 3, {
+        lorebooksOn: true,
+        aborted: false,
+        entryCount: 2,
+        proposedCount: 0,
+        signedCount: 0,
+      }),
+    ).toBe(3);
+    expect(
+      jumpWorldFromWikiStep(1, 3, {
+        lorebooksOn: true,
+        aborted: false,
+        entryCount: 2,
+        proposedCount: 3,
+        signedCount: 1,
+      }),
+    ).toBe(1);
+    expect(
+      jumpWorldFromWikiStep(1, 3, {
+        lorebooksOn: false,
+        aborted: false,
+        entryCount: 0,
+        proposedCount: 0,
+        signedCount: 0,
+      }),
+    ).toBe(3);
+  });
+
+  it('blocks jump-to-Write without signed cards', () => {
+    expect(
+      jumpWorldFromWikiStep(2, 3, {
+        lorebooksOn: true,
+        aborted: false,
+        entryCount: 2,
+        proposedCount: 3,
+        signedCount: 0,
+      }),
+    ).toBe(3);
+    expect(
+      jumpWorldFromWikiStep(2, 1, {
+        lorebooksOn: true,
+        aborted: false,
+        entryCount: 0,
+        proposedCount: 3,
+        signedCount: 0,
+      }),
+    ).toBe(1);
+    expect(
+      jumpWorldFromWikiStep(2, 3, {
+        lorebooksOn: true,
+        aborted: false,
+        entryCount: 2,
+        proposedCount: 3,
+        signedCount: 2,
+      }),
+    ).toBe(2);
   });
 });

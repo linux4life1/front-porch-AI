@@ -206,6 +206,8 @@ export function WorldFromWikiPage() {
           lorebooksOn,
           aborted,
           entryCount: entries.length,
+          proposedCount: proposed.length,
+          signedCount: signed.size,
         }))}
       />
 
@@ -345,7 +347,7 @@ export function WorldFromWikiPage() {
           </button>
         )}
         {step === 1 && (
-          <button className="primary" disabled={busy || !toolsOk} onClick={() => void write()}>
+          <button className="primary" disabled={busy || !toolsOk || signed.size === 0} onClick={() => void write()}>
             Write {signed.size} cards
           </button>
         )}

@@ -48,7 +48,23 @@ export function signedCards(
   return proposed.filter((_, i) => signed.has(i));
 }
 
+const REVIEW_STEP = 1;
+const WRITE_STEP = 2;
 const PREVIEW_STEP = 3;
+
+export function canOpenWorldFromWikiReview(opts: {
+  lorebooksOn: boolean;
+  proposedCount: number;
+}): boolean {
+  return opts.lorebooksOn && opts.proposedCount > 0;
+}
+
+export function canOpenWorldFromWikiWrite(opts: {
+  lorebooksOn: boolean;
+  signedCount: number;
+}): boolean {
+  return opts.lorebooksOn && opts.signedCount > 0;
+}
 
 export function canOpenWorldFromWikiPreview(opts: {
   lorebooksOn: boolean;
@@ -60,7 +76,7 @@ export function canOpenWorldFromWikiPreview(opts: {
   return opts.entryCount > 0;
 }
 
-/** Refuse Preview unless a signed shelf was written (or lorebooks are off). */
+/** Linear safety: Review needs a scout, Write needs a signed shelf, Preview needs a write. */
 export function jumpWorldFromWikiStep(
   next: number,
   current: number,
@@ -68,10 +84,32 @@ export function jumpWorldFromWikiStep(
     lorebooksOn: boolean;
     aborted: boolean;
     entryCount: number;
+    proposedCount?: number;
+    signedCount?: number;
     previewStep?: number;
   },
 ): number {
+  const proposedCount = opts.proposedCount ?? 0;
+  const signedCount = opts.signedCount ?? 0;
   const preview = opts.previewStep ?? PREVIEW_STEP;
+  if (
+    next === REVIEW_STEP &&
+    !canOpenWorldFromWikiReview({
+      lorebooksOn: opts.lorebooksOn,
+      proposedCount,
+    })
+  ) {
+    return current;
+  }
+  if (
+    next === WRITE_STEP &&
+    !canOpenWorldFromWikiWrite({
+      lorebooksOn: opts.lorebooksOn,
+      signedCount,
+    })
+  ) {
+    return current;
+  }
   if (next === preview && !canOpenWorldFromWikiPreview(opts)) return current;
   return next;
 }

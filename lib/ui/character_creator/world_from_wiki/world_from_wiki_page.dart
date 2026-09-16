@@ -184,7 +184,7 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
               };
       case 2:
         nextLabel = 'Write ${worldState.signed.length} cards';
-        onNext = busy
+        onNext = busy || worldState.signed.isEmpty
             ? null
             : () {
                 worldState.write(

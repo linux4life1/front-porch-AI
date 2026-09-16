@@ -1,3 +1,9 @@
+## 2026-09-16 — World from wiki goldens + linear jump
+- **Why:** Empty Worlds goldens still lacked the From Wiki header button. Phone step dots could jump to Review/Write without a scout or a signed shelf.
+- **What:** Regenerated world_management dark/light goldens. Jump helper now requires scouted cards for Review and signed cards for Write (Preview gate unchanged). Write Next stays disabled until something is signed.
+- **Files:** `world_management.*.png`, `worldFromWiki.ts` + page, `world_from_wiki_page.dart`, web bundle
+- **Commit:** (this commit)
+
 ## 2026-09-16 — World from wiki Hold punch list
 - **Why:** Climate-on miss still saved climateEnabled with no biome (Temperate fallback). Stop/abort existed on the engine but the write UI never called it. Abort test was a stub. Path-hosted MediaWiki never reached the Action API. Web step jump/save could persist an empty unsigned shelf.
 - **What:** Fail-closed climate (no biome → climate off). Stop on desktop write + AppBar and web write; abort discards the shelf. Real canSave receipt. MediaWiki `api.php` under the pasted path. Web jump/save gated on a written shelf. Name-miss leftover no longer force-picked. Web write rejects unsigned/ToC card lists.
