@@ -22,6 +22,7 @@ import 'dart:async';
 import 'dart:ffi' hide Size;
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
@@ -39,6 +40,7 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/providers/auth_state.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/window_chrome.dart';
 import 'package:front_porch_ai/ui/window_size_env.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart'; // Keep original import for MainLayout
@@ -423,9 +425,8 @@ class _MyAppState extends State<MyApp> with WindowListener {
                   responsiveScale * storage.uiSettings.textScale;
 
               return MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(effectiveScale)),
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(effectiveScale)),
                 child: Stack(
                   children: [
                     const MainLayout(),

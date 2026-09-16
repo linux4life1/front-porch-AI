@@ -1,3 +1,18 @@
+## 2026-09-16 — fix(macos): opaque title bar after Flutter 3.47
+- **Why:** After the 3.47 Impeller/wide-gamut desktop default, the Mac title
+  bar went clear. Traffic lights sat on the same charcoal as the body.
+  `TitleBarStyle.normal` was already set; `WindowOptions.backgroundColor`
+  was `Colors.transparent`, and window_manager's macOS `setTitleBarStyle`
+  always writes `isOpaque = false`. Together that made AppKit treat the
+  title bar as a clear strip.
+- **What:** Opaque porch background + `TitleBarStyle.normal` via
+  `mainWindowOptions`. Native `MainFlutterWindow` refuses transparent
+  title bar / `fullSizeContentView`. Windows/Linux keep the same decorated
+  options. Not a sidebar-glow or wiki change.
+- **Files:** `lib/ui/window_chrome.dart`, `lib/main.startup.dart`,
+  `macos/Runner/MainFlutterWindow.swift`, `test/ui/window_chrome_test.dart`
+- **Commit:** (this commit)
+
 ## 2026-09-15 — Optional regen critique (reject reason)
 - **Why:** Regen was only "try again". Users needed a way to say why this take was wrong without chips or an Ash line in the transcript.
 - **What:** Optional field on last-bot regen chrome (desktop + web). Empty = today's regen. Non-empty injects a one-shot director slip (think-stripped ~800-char clip + ~500-char reason) before `Name:`. Not stored in messages. Continue strips it. Tools/clerk unchanged (`directUserSend: true`); critique does not force a lookup.
