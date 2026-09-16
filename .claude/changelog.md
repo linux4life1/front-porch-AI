@@ -1,3 +1,9 @@
+## 2026-09-16 — Worker tests: clerk/eval dual-local pin + picker vitest
+- **Why:** Review wanted behavioral dual-local routing (not getters), a banner pin, and web picker parity. Source-grep asserts were already gone.
+- **What:** ChatService dual-local refuse now fires an eval and the clerk doorbell on the mouth Kobold. Desktop banner has a stable key. Web card lists the same picker families as desktop.
+- **Files:** `worker_backend_routing_test.dart`, `worker_backend_section.dart`, `WorkerBackendCard.test.tsx`
+- **Commit:** (this commit)
+
 ## 2026-09-16 — Worker: start local, apply key, abort both lanes
 - **Why:** API mouth + Kobold/oMLX worker never started the local engine. A key typed last did not reconfigure the worker. Cancel/stop aborted only the mouth.
 - **What:** ensureManagedBackendIsRunning and the oMLX poller also follow an allowed worker. Worker sync identity includes the vault key. Cancel/stop/yield abort mouth and worker. Dual-local banner is live on web. Honest Kobold worker copy.

@@ -327,7 +327,15 @@ class WorkerLaneStatusBanners extends StatelessWidget {
         : (unreadyMessage ?? '');
     if (text.isEmpty) return const SizedBox.shrink();
     return Column(
-      children: [WorkerLaneWarnBanner(text), const SizedBox(height: 10)],
+      children: [
+        WorkerLaneWarnBanner(
+          text,
+          key: refusedDualLocal
+              ? const Key('worker-dual-local-banner')
+              : const Key('worker-unready-banner'),
+        ),
+        const SizedBox(height: 10),
+      ],
     );
   }
 }

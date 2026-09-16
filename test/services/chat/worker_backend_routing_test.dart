@@ -206,25 +206,101 @@ void main() {
   });
 
   test(
-    'dual-local refuse: side lane and identity fall back to the mouth',
+    'dual-local refuse: clerk and evals hit the mouth, not a worker',
     () async {
       chat.testLlmServiceOverride = null;
       chat.testWorkerLlmServiceOverride = null;
       await storage.setBackendType('kobold');
       await storage.setWorkerBackendType('omlx');
       await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
+      final mouthKobold = _RecordingMouthKobold(storage);
       final llm = LLMProvider(
-        KoboldService(storage),
+        mouthKobold,
         OpenRouterService(),
         storage,
-        BackendManager(storage),
+        _QuietBackend(storage),
       );
       addTearDown(llm.dispose);
       chat.setLLMProvider(llm);
 
+      expect(llm.workerService, isNull);
       expect(llm.workerRefusedDualLocal, isTrue);
-      expect(identical(chat.debugSideLaneLlm, chat.debugMouthLlm), isTrue);
+      expect(identical(chat.debugSideLaneLlm, mouthKobold), isTrue);
+      expect(identical(chat.debugMouthLlm, mouthKobold), isTrue);
       expect(chat.debugEvalBackendIdentity, isNot(startsWith('worker|')));
+
+      final raw = await chat.debugFireSideLaneEval('{"bond_delta":0}');
+      expect(raw, isNotNull);
+      expect(
+        mouthKobold.streamCalls,
+        greaterThan(0),
+        reason: 'refused worker must not steal evals from the mouth',
+      );
+
+      await chat.setActiveCharacter(card());
+      await chat.sendMessage('Who is the Wandenreich?');
+      await drainTurn();
+      expect(
+        mouthKobold.toolsCalls,
+        greaterThan(0),
+        reason: 'clerk stays on the mouth when the worker pair is refused',
+      );
+      expect(
+        mouthKobold.toolsIdentities,
+        everyElement(isNot(startsWith('worker|'))),
+      );
     },
   );
+}
+
+class _QuietBackend extends BackendManager {
+  _QuietBackend(super.storage);
+
+  @override
+  String? get backendPath => '/tmp/fake-koboldcpp';
+
+  @override
+  Future<void> checkBackendAvailability() async {}
+
+  @override
+  Future<void> ensureEngineInstalled() async {}
+}
+
+class _RecordingMouthKobold extends KoboldService {
+  _RecordingMouthKobold(super.storage);
+
+  int streamCalls = 0;
+  int toolsCalls = 0;
+  final List<String> toolsIdentities = [];
+
+  @override
+  bool get isReady => true;
+
+  @override
+  bool get isProcessRunning => true;
+
+  @override
+  Future<void> reconnectIfAlive() async {}
+
+  @override
+  Future<void> ensureServerIdle() async {}
+
+  @override
+  Future<void> waitForIdle() async {}
+
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    streamCalls++;
+    yield '{"ok":true} Hello from mouth.';
+  }
+
+  @override
+  Future<LlmToolResponse?> generateWithTools(
+    GenerationParams params,
+    List<Map<String, dynamic>> tools,
+  ) async {
+    toolsCalls++;
+    toolsIdentities.add(params.backendIdentity);
+    return const LlmToolResponse(calls: [], text: '');
+  }
 }

@@ -85,6 +85,37 @@ describe('WorkerBackendCard', () => {
     expect(banner?.textContent).toContain('waiting for KoboldCPP');
   });
 
+  it('lists the same picker families as desktop when oMLX is available', () => {
+    render({
+      backend: 'openRouter',
+      remoteApiUrl: 'https://nano-gpt.com/api/v1',
+      omlxAvailable: true,
+    });
+    const labels = [...container.querySelectorAll('option')].map((o) => o.textContent);
+    expect(labels).toEqual([
+      'Off — same as chat',
+      'KoboldCpp',
+      'OpenRouter',
+      'Nano-GPT',
+      'LM Studio',
+      'oMLX',
+      'Custom',
+    ]);
+  });
+
+  it('hides oMLX when the host does not offer it', () => {
+    render({
+      backend: 'openRouter',
+      remoteApiUrl: 'https://nano-gpt.com/api/v1',
+      omlxAvailable: false,
+    });
+    const labels = [...container.querySelectorAll('option')].map((o) => o.textContent);
+    expect(labels).not.toContain('oMLX');
+    expect(labels).toContain('Off — same as chat');
+    expect(labels).toContain('KoboldCpp');
+    expect(labels).toContain('Custom');
+  });
+
   it('keeps Nano + Nano (same host, different model) without a warning', () => {
     render({
       backend: 'openRouter',

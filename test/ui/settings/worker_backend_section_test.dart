@@ -15,6 +15,7 @@ void main() {
       ),
     );
 
+    expect(find.byKey(const Key('worker-dual-local-banner')), findsOneWidget);
     expect(find.textContaining('fight over the GPU'), findsOneWidget);
     expect(find.text(kWorkerDualLocalMessage), findsOneWidget);
   });
