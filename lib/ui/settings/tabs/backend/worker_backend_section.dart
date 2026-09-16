@@ -91,8 +91,9 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
           'Side jobs (feelings, wiki/web lookup, journal, growth) can use a '
           'different host so chat speech stays on your main model. Leave this '
           'off to keep everything on the backend above. Two cloud hosts, or '
-          'one cloud and one local, are fine. Two local engines at once are '
-          'not — they would fight over the GPU.',
+          'one cloud and one local, are fine. Two local engines take turns '
+          'on the GPU when this app can unload one model before the other '
+          'runs. A local host with no unload path stays on chat speech.',
           style: theme.textTheme.bodySmall?.copyWith(color: muted),
         ),
         const SizedBox(height: 10),

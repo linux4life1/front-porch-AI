@@ -29,6 +29,7 @@ Map<String, dynamic> readWorkerSettings(
     'workerRemoteModelName': storage.workerRemoteModelName,
     'workerEnabled': llm.workerService != null,
     'workerRefusedDualLocal': llm.workerRefusedDualLocal,
+    'workerGpuSwapAvailable': llm.workerGpuSwapAvailable,
     'workerDualLocalMessage': llm.workerRefusedDualLocal
         ? kWorkerDualLocalMessage
         : '',

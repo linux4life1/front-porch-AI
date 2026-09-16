@@ -547,6 +547,10 @@ extension ChatServiceWiringEvals on ChatService {
   /// KoboldCpp included (Qwen3 etc. call tools fine); incapable models fall
   /// back to the XML floor.
   Future<LlmToolResponse?> _fireToolEval(ToolEvalSpec spec) async {
+    return _withWorkerLane(() => _fireToolEvalUnheld(spec));
+  }
+
+  Future<LlmToolResponse?> _fireToolEvalUnheld(ToolEvalSpec spec) async {
     final service = _sideLaneLlm;
     // [EvalTraffic]: label from the named choice, never tools.first — after
     // kJudgeEvalTools that would always be report_relationship.

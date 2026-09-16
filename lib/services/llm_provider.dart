@@ -31,8 +31,10 @@ import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/omlx_status_poller.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/worker_backend.dart';
+import 'package:front_porch_ai/services/worker_gpu_swap.dart';
 
 part 'llm_provider.worker.dart';
 
@@ -173,6 +175,7 @@ class LLMProvider extends ChangeNotifier {
         mouthUrl: _storageService.remoteApiUrl,
         workerType: _storageService.workerBackendType,
         workerUrl: _storageService.workerRemoteApiUrl,
+        gpuSwapAvailable: workerGpuSwapAvailable,
       );
 
   /// Side-lane service when the worker is on and the pair is allowed.
@@ -245,13 +248,18 @@ class LLMProvider extends ChangeNotifier {
   /// Ensures the local Kobold backend is running when the user enters a chat —
   /// including when a .kcpps preset owns the model, and when Kobold is the
   /// worker while chat speech stays on a remote host.
-  Future<void> ensureManagedBackendIsRunning() async {
+  Future<void> ensureManagedBackendIsRunning({bool forGpuSwap = false}) async {
     if (hasAnyManagedProcessRunning) return;
-    if (!shouldEnsureKoboldProcess(
-      mouthType: _storageService.backendType,
-      workerType: _storageService.workerBackendType,
-      pairAllowed: !workerRefusedDualLocal,
-    )) {
+    if (!forGpuSwap &&
+        !shouldEnsureKoboldProcess(
+          mouthType: _storageService.backendType,
+          workerType: _storageService.workerBackendType,
+          pairAllowed: !workerRefusedDualLocal,
+          mouthIsLocal: backendLaneIsLocal(
+            _storageService.backendType,
+            _storageService.remoteApiUrl,
+          ),
+        )) {
       return;
     }
 

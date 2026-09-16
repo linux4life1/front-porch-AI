@@ -1,3 +1,9 @@
+## 2026-09-16 — Worker backend V2: dual-local unload/swap
+- **Why:** V1 refused two local engines (GPU fight). Mouth and worker can take turns when each host has a real unload/restore lever.
+- **What:** One occupancy contract: unload mouth → prepare worker → run side-lane work → unload worker → restore mouth. oMLX `POST /v1/models/{id}/unload|load` (+ admin twin). LM Studio `POST /api/v1/models/unload|load`. Kobold admin `reload_config` `unload_model`/`initial_model`, else process stop/start. Generic local OpenAI stays refused. Cancel/stop still abort both lanes. flutter test stays V1 fail-closed unless a test injects a swap (existing pins stay green).
+- **Files:** `worker_gpu_swap.dart`, `worker_gpu_hosts.dart`, `worker_backend.dart`, `llm_provider.dart` + worker part, ChatService lanes/evals/postgen/catalog, Settings + web card, new swap tests
+- **Commit:** (pending)
+
 ## 2026-09-16 — Worker lane is an LLMProvider instance contract
 - **Why:** FakeLLMProvider and Settings/idle doubles crashed: extension getters read library-private `_storageService`.
 - **What:** Worker service / side lane / unready / dual-local refuse are instance getters on LLMProvider. Fakes default to worker-off. Unready copy is a pure helper.

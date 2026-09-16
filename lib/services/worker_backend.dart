@@ -70,12 +70,14 @@ bool backendLaneIsLocal(String backendType, String apiUrl) {
 }
 
 /// Allowed pairs: API+API, API+local, local+API. Off is always allowed.
-/// Local+local is refused until an unload/swap lever exists.
+/// Local+local is allowed only when [gpuSwapAvailable] is true (V2
+/// unload/swap). Existing callers that omit the flag stay fail-closed.
 bool workerPairAllowed({
   required String mouthType,
   required String mouthUrl,
   required String workerType,
   required String workerUrl,
+  bool gpuSwapAvailable = false,
 }) {
   if (workerBackendIsOff(workerType)) return true;
   final mouthLocal = backendLaneIsLocal(
@@ -86,7 +88,8 @@ bool workerPairAllowed({
     workerType,
     resolvedLaneApiUrl(workerType, workerUrl),
   );
-  return !(mouthLocal && workerLocal);
+  if (!(mouthLocal && workerLocal)) return true;
+  return gpuSwapAvailable;
 }
 
 /// Plain-English reason a picked worker host is not ready yet.
@@ -104,13 +107,18 @@ String? workerLaneUnreadyMessage(String workerType) {
 }
 
 /// Start Kobold when the mouth is Kobold, or when an allowed worker is.
+/// A local mouth + Kobold worker must not launch at chat entry — that
+/// would load both engines before the swap window. The occupancy starts
+/// the worker after the mouth unloads.
 bool shouldEnsureKoboldProcess({
   required String mouthType,
   required String workerType,
   required bool pairAllowed,
+  bool mouthIsLocal = false,
 }) {
   if (mouthType == 'kobold') return true;
-  return pairAllowed && workerType == 'kobold';
+  if (!pairAllowed || workerType != 'kobold') return false;
+  return !mouthIsLocal;
 }
 
 /// Poll oMLX when the mouth is oMLX, or when an allowed worker is.

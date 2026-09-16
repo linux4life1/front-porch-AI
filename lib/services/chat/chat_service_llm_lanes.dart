@@ -52,6 +52,29 @@ extension ChatServiceLlmLanes on ChatService {
   Future<String?> debugFireSideLaneEval(String prompt) =>
       _fireLLMEval(prompt, label: 'test-worker');
 
+  /// Unload mouth → run side-lane work → restore mouth. No-op when the
+  /// worker is off, refused, or a test override owns the lane.
+  Future<T> _withWorkerLane<T>(Future<T> Function() work) {
+    if (testWorkerLlmServiceOverride != null) return work();
+    final p = _llmProvider;
+    if (p == null || p.workerService == null) return work();
+    return p.withWorkerLane(work);
+  }
+
+  Future<void> _openWorkerLane() {
+    if (testWorkerLlmServiceOverride != null) return Future<void>.value();
+    final p = _llmProvider;
+    if (p == null || p.workerService == null) return Future<void>.value();
+    return p.openWorkerLane();
+  }
+
+  Future<void> _closeWorkerLane() {
+    if (testWorkerLlmServiceOverride != null) return Future<void>.value();
+    final p = _llmProvider;
+    if (p == null || p.workerService == null) return Future<void>.value();
+    return p.closeWorkerLane();
+  }
+
   /// Stop mouth speech and side-lane evals/clerk/journal together.
   void _abortAllLanes() {
     final mouth = _mouthLlm;

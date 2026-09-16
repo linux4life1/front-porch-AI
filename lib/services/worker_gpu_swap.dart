@@ -1,0 +1,219 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
+import 'package:front_porch_ai/services/worker_backend.dart';
+
+export 'worker_gpu_hosts.dart';
+
+/// Local engine that has a real unload / restore lever.
+enum LocalSwapKind {
+  /// `POST /v1/models/{id}/unload` (+ admin twin) and matching load.
+  omlx,
+
+  /// `POST /api/v1/models/unload` + `POST /api/v1/models/load`.
+  lmStudio,
+
+  /// Admin `reload_config` `unload_model` / `initial_model`, or process stop.
+  koboldProcess,
+}
+
+/// One local host's unload / restore lever. Real APIs only — no invented paths.
+abstract class GpuSwapHost {
+  String get label;
+
+  /// Free this host's VRAM (HTTP unload or stop the managed process).
+  Future<void> unload();
+
+  /// Put the model back (HTTP load, admin `initial_model`, or start process).
+  Future<void> restore();
+}
+
+/// How a configured lane maps onto a swap driver, or null if we cannot.
+LocalSwapKind? localSwapKindFor({
+  required String backendType,
+  required String apiUrl,
+}) {
+  switch (backendType.trim()) {
+    case 'omlx':
+      return LocalSwapKind.omlx;
+    case 'kobold':
+      return LocalSwapKind.koboldProcess;
+    case 'openRouter':
+      final url = resolvedLaneApiUrl('openRouter', apiUrl);
+      if (!backendLaneIsLocal('openRouter', url)) return null;
+      if (remoteApiUrlIsLmStudio(url)) return LocalSwapKind.lmStudio;
+      return null;
+    default:
+      return null;
+  }
+}
+
+/// Same process or same loaded model — two clients, one resident engine.
+bool workerLanesShareResident({
+  required String mouthType,
+  required String mouthUrl,
+  required String mouthModel,
+  required String workerType,
+  required String workerUrl,
+  required String workerModel,
+}) {
+  if (mouthType == 'kobold' && workerType == 'kobold') return true;
+  if (mouthType.trim() != workerType.trim()) return false;
+  final mUrl = resolvedLaneApiUrl(mouthType, mouthUrl);
+  final wUrl = resolvedLaneApiUrl(workerType, workerUrl);
+  if (normalizeRemoteApiUrl(mUrl) != normalizeRemoteApiUrl(wUrl)) {
+    return false;
+  }
+  return mouthModel.trim() == workerModel.trim();
+}
+
+/// Dual-local is allowed when both hosts have a driver, or they share one
+/// resident model (no GPU fight).
+bool workerGpuSwapSupported({
+  required String mouthType,
+  required String mouthUrl,
+  required String mouthModel,
+  required String workerType,
+  required String workerUrl,
+  required String workerModel,
+}) {
+  if (workerBackendIsOff(workerType)) return false;
+  final mouthLocal = backendLaneIsLocal(
+    mouthType,
+    resolvedLaneApiUrl(mouthType, mouthUrl),
+  );
+  final workerLocal = backendLaneIsLocal(
+    workerType,
+    resolvedLaneApiUrl(workerType, workerUrl),
+  );
+  if (!mouthLocal || !workerLocal) return false;
+  if (workerLanesShareResident(
+    mouthType: mouthType,
+    mouthUrl: mouthUrl,
+    mouthModel: mouthModel,
+    workerType: workerType,
+    workerUrl: workerUrl,
+    workerModel: workerModel,
+  )) {
+    return true;
+  }
+  return localSwapKindFor(backendType: mouthType, apiUrl: mouthUrl) != null &&
+      localSwapKindFor(backendType: workerType, apiUrl: workerUrl) != null;
+}
+
+/// Refcounted GPU occupancy: unload mouth → prepare worker → run → unload
+/// worker → restore mouth. Nested / concurrent holds share one swap.
+class GpuSwapOccupancy {
+  GpuSwapOccupancy({
+    required this.mouth,
+    required this.worker,
+    this.sameResident = false,
+    this.onStep,
+  });
+
+  final GpuSwapHost mouth;
+  final GpuSwapHost worker;
+  final bool sameResident;
+  final void Function(String step)? onStep;
+
+  /// Ordered steps for behavioral tests (unload-mouth → … → restore-mouth).
+  final List<String> steps = [];
+
+  int _depth = 0;
+  bool _mouthDown = false;
+  Future<void> _tail = Future<void>.value();
+
+  bool get isHeld => _depth > 0;
+
+  void _record(String step) {
+    steps.add(step);
+    onStep?.call(step);
+    debugPrint('[GpuSwap] $step');
+  }
+
+  Future<T> hold<T>(Future<T> Function() work) async {
+    if (sameResident) return work();
+    await _acquire();
+    try {
+      return await work();
+    } finally {
+      await _release();
+    }
+  }
+
+  Future<void> open() => sameResident ? Future<void>.value() : _acquire();
+
+  Future<void> close() => sameResident ? Future<void>.value() : _release();
+
+  Future<void> _acquire() {
+    final done = _tail.then((_) => _acquireLocked());
+    _tail = done.catchError((_) {});
+    return done;
+  }
+
+  Future<void> _release() {
+    final done = _tail.then((_) => _releaseLocked());
+    _tail = done.catchError((_) {});
+    return done;
+  }
+
+  Future<void> _acquireLocked() async {
+    _depth++;
+    if (_depth != 1) return;
+    try {
+      _record('unload-mouth:${mouth.label}');
+      await mouth.unload();
+      _mouthDown = true;
+      _record('prepare-worker:${worker.label}');
+      await worker.restore();
+    } catch (e) {
+      _depth--;
+      if (_mouthDown) {
+        try {
+          _record('restore-mouth:${mouth.label}');
+          await mouth.restore();
+        } catch (restoreErr) {
+          debugPrint('[GpuSwap] mouth restore after failed acquire: $restoreErr');
+        }
+        _mouthDown = false;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _releaseLocked() async {
+    if (_depth == 0) return;
+    _depth--;
+    if (_depth != 0 || !_mouthDown) return;
+    try {
+      _record('unload-worker:${worker.label}');
+      await worker.unload();
+    } catch (e) {
+      debugPrint('[GpuSwap] worker unload failed (mouth still restores): $e');
+    } finally {
+      try {
+        _record('restore-mouth:${mouth.label}');
+        await mouth.restore();
+      } finally {
+        _mouthDown = false;
+      }
+    }
+  }
+}

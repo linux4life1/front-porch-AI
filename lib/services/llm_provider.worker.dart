@@ -57,6 +57,156 @@ extension LLMProviderWorker on LLMProvider {
       _workerRemote.configure(apiUrl: url, apiKey: key, modelName: model);
     }
     _syncLiveStatusSources();
+    _rebuildGpuSwap();
     return true;
   }
+
+  /// Dual-local unload/swap is available for this pair. `flutter test`
+  /// stays fail-closed unless a test injects [debugGpuSwap] (V1 pins).
+  bool get workerGpuSwapAvailable {
+    if (_providerSwapOverride[this] != null) return true;
+    if (kSkipRemoteAutoPing) return false;
+    return _pairSupportsGpuSwap();
+  }
+
+  @visibleForTesting
+  set debugGpuSwap(GpuSwapOccupancy? occupancy) {
+    _providerSwapOverride[this] = occupancy;
+  }
+
+  @visibleForTesting
+  GpuSwapOccupancy? get debugGpuSwap =>
+      _providerSwapOverride[this] ?? _providerSwap[this];
+
+  Future<T> withWorkerLane<T>(Future<T> Function() work) {
+    final occupancy = _occupancyForLane();
+    if (occupancy == null) return work();
+    return occupancy.hold(work);
+  }
+
+  Future<void> openWorkerLane() async {
+    await _occupancyForLane()?.open();
+  }
+
+  Future<void> closeWorkerLane() async {
+    await _occupancyForLane()?.close();
+  }
+
+  bool _pairSupportsGpuSwap() {
+    if (!workerConfigured) return false;
+    return workerGpuSwapSupported(
+      mouthType: _storageService.backendType,
+      mouthUrl: _storageService.remoteApiUrl,
+      mouthModel: _mouthSwapModelId(),
+      workerType: _storageService.workerBackendType,
+      workerUrl: _storageService.workerRemoteApiUrl,
+      workerModel: _workerSwapModelId(),
+    );
+  }
+
+  String _mouthSwapModelId() {
+    if (_storageService.backendType == 'kobold') {
+      return _storageService.lastUsedModelPath ?? 'kobold';
+    }
+    return _storageService.remoteModelName;
+  }
+
+  String _workerSwapModelId() {
+    if (_storageService.workerBackendType == 'kobold') {
+      return _storageService.lastUsedModelPath ?? 'kobold';
+    }
+    return _storageService.workerRemoteModelName;
+  }
+
+  GpuSwapOccupancy? _occupancyForLane() {
+    final injected = _providerSwapOverride[this];
+    if (injected != null) return injected;
+    if (!workerGpuSwapAvailable) return null;
+    if (!_pairSupportsGpuSwap()) return null;
+    return _providerSwap[this] ?? _rebuildGpuSwap();
+  }
+
+  GpuSwapOccupancy? _rebuildGpuSwap() {
+    if (!_pairSupportsGpuSwap()) {
+      _providerSwap[this] = null;
+      return null;
+    }
+    final mouth = _hostForLane(
+      type: _storageService.backendType,
+      url: _storageService.remoteApiUrl,
+      model: _mouthSwapModelId(),
+      key: _storageService.remoteApiKeyFor(
+        resolvedLaneApiUrl(
+          _storageService.backendType,
+          _storageService.remoteApiUrl,
+        ),
+      ),
+    );
+    final worker = _hostForLane(
+      type: _storageService.workerBackendType,
+      url: _storageService.workerRemoteApiUrl,
+      model: _workerSwapModelId(),
+      key: _storageService.remoteApiKeyFor(
+        resolvedLaneApiUrl(
+          _storageService.workerBackendType,
+          _storageService.workerRemoteApiUrl,
+        ),
+      ),
+    );
+    if (mouth == null || worker == null) {
+      _providerSwap[this] = null;
+      return null;
+    }
+    final occupancy = GpuSwapOccupancy(
+      mouth: mouth,
+      worker: worker,
+      sameResident: workerLanesShareResident(
+        mouthType: _storageService.backendType,
+        mouthUrl: _storageService.remoteApiUrl,
+        mouthModel: _mouthSwapModelId(),
+        workerType: _storageService.workerBackendType,
+        workerUrl: _storageService.workerRemoteApiUrl,
+        workerModel: _workerSwapModelId(),
+      ),
+    );
+    _providerSwap[this] = occupancy;
+    return occupancy;
+  }
+
+  GpuSwapHost? _hostForLane({
+    required String type,
+    required String url,
+    required String model,
+    required String key,
+  }) {
+    final kind = localSwapKindFor(backendType: type, apiUrl: url);
+    if (kind == null) return null;
+    if (kind == LocalSwapKind.koboldProcess) {
+      return KoboldProcessHost(
+        baseUrl: _koboldService.baseUrl,
+        stopProcess: _koboldService.stopKobold,
+        startProcess: () => ensureManagedBackendIsRunning(forGpuSwap: true),
+        admin: HttpGpuSwapHost(
+          kind: LocalSwapKind.koboldProcess,
+          apiUrl: _koboldService.baseUrl,
+          modelId: model,
+        ),
+      );
+    }
+    final apiUrl = type == 'omlx'
+        ? kOmlxApiV1
+        : resolvedLaneApiUrl(type, url);
+    return HttpGpuSwapHost(
+      kind: kind,
+      apiUrl: apiUrl,
+      modelId: model,
+      apiKey: key,
+    );
+  }
 }
+
+final Expando<GpuSwapOccupancy> _providerSwap = Expando<GpuSwapOccupancy>(
+  'fpai.gpuSwap',
+);
+final Expando<GpuSwapOccupancy> _providerSwapOverride =
+    Expando<GpuSwapOccupancy>('fpai.gpuSwapOverride');

@@ -46,7 +46,8 @@ extension ChatServiceRealismEvals on ChatService {
     bool abortClientOnStop = false,
     bool Function(String accumulated)? stopWhen,
     void Function()? onGuardAbort,
-  }) => _llmEvalEngine.fireLLMEval(
+  }) => _withWorkerLane(
+    () => _llmEvalEngine.fireLLMEval(
     prompt,
     onChunk: onChunk,
     repeatPenalty: repeatPenalty,
@@ -57,6 +58,7 @@ extension ChatServiceRealismEvals on ChatService {
     abortClientOnStop: abortClientOnStop,
     stopWhen: stopWhen,
     onGuardAbort: onGuardAbort,
+  ),
   );
 
   String _stripThinkBlocks(String text) =>

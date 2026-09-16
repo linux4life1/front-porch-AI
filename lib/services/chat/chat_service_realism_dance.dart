@@ -62,6 +62,12 @@ extension ChatServiceRealismDance on ChatService {
     // skips group observer mode and realism-off. This is the single realism eval
     // path — the former centralized 1:1 block was removed in favour of this.
     if (!_realismActiveThisMode) return;
+    return _withWorkerLane(() => _evaluateRealismForUpcomingSpeakerUnheld(speaker));
+  }
+
+  Future<void> _evaluateRealismForUpcomingSpeakerUnheld(
+    CharacterCard speaker,
+  ) async {
 
     final charId = _getCharacterIdFromCard(speaker);
     if (charId.isEmpty) return;

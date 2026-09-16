@@ -15,6 +15,7 @@ export interface WorkerBackendFields {
   workerRefusedDualLocal?: boolean;
   workerDualLocalMessage?: string;
   workerUnreadyMessage?: string;
+  workerGpuSwapAvailable?: boolean;
   omlxAvailable?: boolean;
   backend?: string;
   remoteApiUrl?: string;
@@ -62,6 +63,7 @@ export function WorkerBackendCard({
     s.remoteApiUrl ?? '',
     s.workerBackend ?? '',
     s.workerRemoteApiUrl ?? '',
+    s.workerGpuSwapAvailable === true,
   );
   const refused = !pairOk || s.workerRefusedDualLocal === true;
   const banner = refused
@@ -89,7 +91,7 @@ export function WorkerBackendCard({
         Side jobs (feelings, wiki/web lookup, journal, growth) can use a different
         host so chat speech stays on your main model. Off keeps everything on the
         backend above. Two cloud hosts — or one cloud and one local — are fine.
-        Two local engines at once are not.
+        Two local engines take turns on the GPU when unload/swap is available.
       </p>
       {banner && (
         <p className="error" data-testid="worker-dual-local-banner">{banner}</p>

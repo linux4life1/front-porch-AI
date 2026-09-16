@@ -1,0 +1,201 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
+
+void main() {
+  test('known local pairs can swap; generic local OpenAI cannot', () {
+    expect(
+      workerGpuSwapSupported(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/a.gguf',
+        workerType: 'omlx',
+        workerUrl: kOmlxApiV1,
+        workerModel: 'mlx-qwen',
+      ),
+      isTrue,
+    );
+    expect(
+      workerGpuSwapSupported(
+        mouthType: 'omlx',
+        mouthUrl: kOmlxApiV1,
+        mouthModel: 'mlx-chat',
+        workerType: 'openRouter',
+        workerUrl: kLmStudioApiV1,
+        workerModel: 'qwen/qwen3',
+      ),
+      isTrue,
+    );
+    expect(
+      workerGpuSwapSupported(
+        mouthType: 'openRouter',
+        mouthUrl: 'http://127.0.0.1:8080/v1',
+        mouthModel: 'llama',
+        workerType: 'omlx',
+        workerUrl: kOmlxApiV1,
+        workerModel: 'mlx-qwen',
+      ),
+      isFalse,
+      reason: 'llama.cpp has no documented unload we may call',
+    );
+  });
+
+  test('same resident engine is supported without a second process', () {
+    expect(
+      workerLanesShareResident(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/a.gguf',
+        workerType: 'kobold',
+        workerUrl: '',
+        workerModel: '/tmp/a.gguf',
+      ),
+      isTrue,
+    );
+    expect(
+      workerGpuSwapSupported(
+        mouthType: 'omlx',
+        mouthUrl: kOmlxApiV1,
+        mouthModel: 'same-mlx',
+        workerType: 'omlx',
+        workerUrl: kOmlxApiV1,
+        workerModel: 'same-mlx',
+      ),
+      isTrue,
+    );
+  });
+
+  test('workerPairAllowed stays refused until swap is available', () {
+    expect(
+      workerPairAllowed(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        workerType: 'omlx',
+        workerUrl: kOmlxApiV1,
+      ),
+      isFalse,
+    );
+    expect(
+      workerPairAllowed(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        workerType: 'omlx',
+        workerUrl: kOmlxApiV1,
+        gpuSwapAvailable: true,
+      ),
+      isTrue,
+    );
+  });
+
+  test('API+API and local+API stay allowed without a swap flag', () {
+    expect(
+      workerPairAllowed(
+        mouthType: 'openRouter',
+        mouthUrl: kNanoGptApiV1,
+        workerType: 'openRouter',
+        workerUrl: kNanoGptApiV1,
+      ),
+      isTrue,
+    );
+    expect(
+      workerPairAllowed(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        workerType: 'openRouter',
+        workerUrl: kOpenRouterApiV1,
+      ),
+      isTrue,
+    );
+  });
+
+  test('Kobold worker does not autostart beside a local mouth', () {
+    expect(
+      shouldEnsureKoboldProcess(
+        mouthType: 'omlx',
+        workerType: 'kobold',
+        pairAllowed: true,
+        mouthIsLocal: true,
+      ),
+      isFalse,
+    );
+    expect(
+      shouldEnsureKoboldProcess(
+        mouthType: 'openRouter',
+        workerType: 'kobold',
+        pairAllowed: true,
+        mouthIsLocal: false,
+      ),
+      isTrue,
+    );
+  });
+
+  test('occupancy unloads mouth, prepares worker, then restores mouth', () async {
+    final occ = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+    );
+    var workRan = false;
+    await occ.hold(() async {
+      expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
+      workRan = true;
+    });
+    expect(workRan, isTrue);
+    expect(occ.steps, [
+      'unload-mouth:mouth',
+      'prepare-worker:worker',
+      'unload-worker:worker',
+      'restore-mouth:mouth',
+    ]);
+  });
+
+  test('nested holds swap once; cancel/error still restores mouth', () async {
+    final occ = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+    );
+    await occ.hold(() async {
+      await occ.hold(() async {});
+    });
+    expect(
+      occ.steps.where((s) => s.startsWith('unload-mouth')).length,
+      1,
+    );
+    expect(occ.steps.last, 'restore-mouth:mouth');
+
+    final failing = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+    );
+    await expectLater(
+      failing.hold(() async => throw StateError('aborted')),
+      throwsStateError,
+    );
+    expect(failing.steps.last, 'restore-mouth:mouth');
+  });
+
+  test('same-resident occupancy is a no-op', () async {
+    final occ = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+      sameResident: true,
+    );
+    await occ.hold(() async {});
+    expect(occ.steps, isEmpty);
+  });
+}
+
+class _RecHost implements GpuSwapHost {
+  _RecHost(this.label);
+
+  @override
+  final String label;
+
+  @override
+  Future<void> unload() async {}
+
+  @override
+  Future<void> restore() async {}
+}

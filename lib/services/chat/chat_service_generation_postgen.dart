@@ -206,6 +206,7 @@ extension ChatServiceGenerationPostGen on ChatService {
         // throws, the inline restore below is skipped and the next turn's
         // save would write to the wrong member.
         try {
+          await _openWorkerLane();
           if (_activeGroup != null && !_observerMode) {
             prePostActiveChar = _activeCharacter;
             _activeCharacter = t.speakingCharacter;
@@ -418,6 +419,7 @@ extension ChatServiceGenerationPostGen on ChatService {
             }
           }
         } finally {
+          await _closeWorkerLane();
           // Unconditional pointer restore on a throw. The settling flag is
           // cleared in the OUTER finally so guest turns, stale epochs and
           // earlier errors are covered too.

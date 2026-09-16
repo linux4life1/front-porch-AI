@@ -51,10 +51,12 @@ export function workerPairAllowed(
   mouthUrl: string,
   workerType: string,
   workerUrl: string,
+  gpuSwapAvailable = false,
 ): boolean {
   if (workerBackendIsOff(workerType)) return true;
-  return !(
+  const dual =
     backendLaneIsLocal(mouthType, mouthUrl) &&
-    backendLaneIsLocal(workerType, workerUrl)
-  );
+    backendLaneIsLocal(workerType, workerUrl);
+  if (!dual) return true;
+  return gpuSwapAvailable;
 }
