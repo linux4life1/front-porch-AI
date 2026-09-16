@@ -23,3 +23,4 @@ export 'story_structure_page.dart';
 export 'story_writer_page.dart';
 export 'user_persona_page.dart';
 export 'world_management_page.dart';
+export 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_page.dart';

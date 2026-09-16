@@ -51,8 +51,17 @@ describe('MessageActions regen critique', () => {
     container.remove();
   });
 
-  it('shows the optional field on last-bot regen chrome', () => {
+  it('hides the field until Regen is clicked', () => {
     render();
+    expect(
+      container.querySelector('input[data-testid="regen-critique-field"]'),
+    ).toBeNull();
+    const regen = container.querySelector(
+      'button[title="Regenerate"]',
+    ) as HTMLButtonElement;
+    act(() => {
+      regen.click();
+    });
     const input = container.querySelector(
       'input[data-testid="regen-critique-field"]',
     ) as HTMLInputElement | null;
@@ -62,14 +71,51 @@ describe('MessageActions regen critique', () => {
 
   it('passes the typed reason to regenerate', () => {
     const onRegenerate = render();
-    const input = container.querySelector(
-      'input[data-testid="regen-critique-field"]',
-    ) as HTMLInputElement;
-    input.value = 'too much lecture';
-    const regen = container.querySelector('button[title="Regenerate"]') as HTMLButtonElement;
+    const regen = container.querySelector(
+      'button[title="Regenerate"]',
+    ) as HTMLButtonElement;
     act(() => {
       regen.click();
     });
+    const input = container.querySelector(
+      'input[data-testid="regen-critique-field"]',
+    ) as HTMLInputElement;
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(input, 'too much lecture');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const form = container.querySelector(
+      '[data-testid="regen-critique-dialog"]',
+    ) as HTMLFormElement;
+    act(() => {
+      form.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      );
+    });
     expect(onRegenerate).toHaveBeenCalledWith('too much lecture');
+  });
+
+  it('cancel does not regenerate', () => {
+    const onRegenerate = render();
+    const regen = container.querySelector(
+      'button[title="Regenerate"]',
+    ) as HTMLButtonElement;
+    act(() => {
+      regen.click();
+    });
+    const cancel = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Cancel',
+    ) as HTMLButtonElement;
+    act(() => {
+      cancel.click();
+    });
+    expect(onRegenerate).not.toHaveBeenCalled();
+    expect(
+      container.querySelector('input[data-testid="regen-critique-field"]'),
+    ).toBeNull();
   });
 });

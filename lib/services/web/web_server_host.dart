@@ -625,6 +625,10 @@ class WebServerHost extends ChangeNotifier {
           )
         : null;
 
+    final worldFromWikiFacade = _llmProvider != null
+        ? WorldFromWikiFacade(_llmProvider!, _storage, streamHub)
+        : null;
+
     final backendFacade = (_llmProvider != null && _modelManager != null)
         ? BackendFacade(
             _llmProvider!,
@@ -687,6 +691,7 @@ class WebServerHost extends ChangeNotifier {
       settingsFacade: settingsFacade,
       stoopFacade: stoopFacade,
       worldFacade: worldFacade,
+      worldFromWikiFacade: worldFromWikiFacade,
       backendFacade: backendFacade,
       imageFacade: imageFacade,
       voiceFacade: voiceFacade,

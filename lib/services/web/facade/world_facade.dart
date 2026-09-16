@@ -161,7 +161,8 @@ class WorldFacade {
     }
     if (f['entries'] != null) {
       world.lorebook =
-          buildLorebookFromJson(f['entries']) ?? Lorebook(entries: []);
+          buildLorebookFromJson(f['entries'], bookFields: f) ??
+          Lorebook(entries: []);
     }
     await _worlds.saveWorld(world);
     return true;
@@ -365,8 +366,9 @@ class WorldFacade {
     }
 
     Map<String, dynamic>? primaryPlace;
-    final primaryWorld =
-        primaryId == null ? null : _worlds.resolveWorld(primaryId);
+    final primaryWorld = primaryId == null
+        ? null
+        : _worlds.resolveWorld(primaryId);
     if (primaryWorld != null) {
       primaryPlace = placeJson(primaryWorld, role: 'primary');
     }
@@ -379,10 +381,7 @@ class WorldFacade {
     }
 
     // Older clients: flat places list (primary first, then lore).
-    final places = <Map<String, dynamic>>[
-      ?primaryPlace,
-      ...lorePlaces,
-    ];
+    final places = <Map<String, dynamic>>[?primaryPlace, ...lorePlaces];
 
     final climateAuthors = primaryWorldAllowsClimate(primaryWorld);
     final String? weatherOff = primaryId == null
@@ -465,8 +464,7 @@ class WorldFacade {
       return {'ok': false, 'error': 'No active chat'};
     }
     final primaryId = chat.chatPrimaryWorldId;
-    final primary =
-        primaryId == null ? null : _worlds.resolveWorld(primaryId);
+    final primary = primaryId == null ? null : _worlds.resolveWorld(primaryId);
     if (!primaryWorldAllowsClimate(primary)) {
       return {
         'ok': false,

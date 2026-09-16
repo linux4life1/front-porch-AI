@@ -50,6 +50,7 @@ class WebServerDeps {
     this.settingsFacade,
     this.stoopFacade,
     this.worldFacade,
+    this.worldFromWikiFacade,
     this.backendFacade,
     this.imageFacade,
     this.voiceFacade,
@@ -107,6 +108,9 @@ class WebServerDeps {
   /// World (shared lorebook) CRUD adapter — null until the WorldRepository is
   /// injected.
   final WorldFacade? worldFacade;
+
+  /// World-from-wiki studio — null until the LLM provider is wired.
+  final WorldFromWikiFacade? worldFromWikiFacade;
 
   /// Backend lifecycle + model management adapter — null until the ModelManager
   /// is injected.

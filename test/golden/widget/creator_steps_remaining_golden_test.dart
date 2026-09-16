@@ -53,6 +53,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/automated_config_step.dart';
@@ -82,10 +83,12 @@ CreatorState _seedState() {
     personality: 'Patient, observant, dry-humored.',
     scenario: '{{user}} climbs the tower stairs at dusk.',
     firstMessage: 'The lamp turns. "You came, {{user}}."',
-    lorebook: Lorebook(entries: [
-      LorebookEntry(key: 'lighthouse', content: 'The lamp never goes dark.'),
-      LorebookEntry(key: 'storm', content: 'A wreck washed in last winter.'),
-    ]),
+    lorebook: Lorebook(
+      entries: [
+        LorebookEntry(key: 'lighthouse', content: 'The lamp never goes dark.'),
+        LorebookEntry(key: 'storm', content: 'A wreck washed in last winter.'),
+      ],
+    ),
   );
   state.generatedCard = card;
   state.descController.text = card.description;
@@ -99,8 +102,11 @@ CreatorState _seedState() {
 void main() {
   setupPathProviderMock();
 
-  testWidgets('SetupStep — openRouter backend (remote model section)',
-      (tester) async {
+  testWidgets('SetupStep — openRouter backend (remote model section)', (
+    tester,
+  ) async {
+    final storage = await makeGoldenStorage();
+    addTearDown(storage.dispose);
     final llm = FakeLLMProvider(activeBackend: BackendType.openRouter);
     addTearDown(llm.dispose);
     final state = _seedState();
@@ -108,8 +114,11 @@ void main() {
 
     await expectThemedGoldens(
       tester,
-      child: ChangeNotifierProvider<LLMProvider>.value(
-        value: llm,
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider<LLMProvider>.value(value: llm),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+        ],
         child: SizedBox(
           width: 860,
           height: 720,
@@ -146,8 +155,9 @@ void main() {
     );
   });
 
-  testWidgets('GuidedOutputSettings — seeded state, empty persona list',
-      (tester) async {
+  testWidgets('GuidedOutputSettings — seeded state, empty persona list', (
+    tester,
+  ) async {
     final personas = FakeUserPersonaService();
     addTearDown(personas.dispose);
     final state = _seedState();
@@ -171,8 +181,9 @@ void main() {
     );
   });
 
-  testWidgets('AutomatedConfigStep — seeded state, empty persona list',
-      (tester) async {
+  testWidgets('AutomatedConfigStep — seeded state, empty persona list', (
+    tester,
+  ) async {
     final personas = FakeUserPersonaService();
     addTearDown(personas.dispose);
     final state = _seedState();

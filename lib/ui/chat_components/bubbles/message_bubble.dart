@@ -84,7 +84,6 @@ class MessageBubble extends StatefulWidget {
 class _MessageBubbleState extends State<MessageBubble> {
   bool _thoughtExpanded = false;
   bool _thoughtPinned = false;
-  String _regenCritique = '';
 
   ChatMessage get message => widget.message;
   File? get characterImage => widget.characterImage;

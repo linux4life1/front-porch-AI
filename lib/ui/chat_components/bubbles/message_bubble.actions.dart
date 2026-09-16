@@ -137,147 +137,138 @@ extension _BubbleActions on _MessageBubbleState {
 
         return Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              if ((isLastBotMessage && index != 0) || isRegenHostBelowGuests)
-                RegenCritiqueField(onChanged: (v) => _regenCritique = v),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // Regen the main character even though a Lite NPC
-                  // spoke after it — pops the NPC's now-stale reply,
-                  // regenerates this message, then lets the NPC chime
-                  // again only if still relevant.
-                  if (isRegenHostBelowGuests) ...[
-                    Tooltip(
-                      message:
-                          'Regenerate main character\n(removes the NPC’s reply)',
-                      child: InkWell(
-                        onTap: () => chatService.regenerateMainCharacter(
-                          critique: _regenCritique,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.refresh,
-                            size: 20,
-                            color: AppColors.resolve(
-                              context,
-                              Colors.orangeAccent,
-                              Colors.orange.shade800,
-                            ),
-                          ),
+              // Regen the main character even though a Lite NPC
+              // spoke after it — pops the NPC's now-stale reply,
+              // regenerates this message, then lets the NPC chime
+              // again only if still relevant.
+              if (isRegenHostBelowGuests) ...[
+                Tooltip(
+                  message:
+                      'Regenerate main character (removes the NPC’s reply)',
+                  child: InkWell(
+                    onTap: () => promptRegenCritiqueThen(
+                      context,
+                      (c) => chatService.regenerateMainCharacter(critique: c),
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.refresh,
+                        size: 20,
+                        color: AppColors.resolve(
+                          context,
+                          Colors.orangeAccent,
+                          Colors.orange.shade800,
                         ),
                       ),
                     ),
-                    if (hasSwipes) const SizedBox(width: 12),
-                  ],
-                  // Regen — last bot message only. Greets are static card
-                  // content; Select greet is the replacement. Continue still
-                  // belongs on a last greet (it extends the opening line).
-                  if (isLastBotMessage && index != 0) ...[
-                    Tooltip(
-                      message: 'Regenerate',
-                      child: InkWell(
-                        onTap: () => chatService.regenerateLastMessage(
-                          critique: _regenCritique,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.refresh,
-                            size: 20,
-                            color: Colors.orangeAccent,
-                          ),
-                        ),
+                  ),
+                ),
+                if (hasSwipes) const SizedBox(width: 12),
+              ],
+              // Regen — last bot message only. Greets are static card
+              // content; Select greet is the replacement. Continue still
+              // belongs on a last greet (it extends the opening line).
+              if (isLastBotMessage && index != 0) ...[
+                Tooltip(
+                  message: 'Regenerate',
+                  child: InkWell(
+                    onTap: () => promptRegenCritiqueThen(
+                      context,
+                      (c) => chatService.regenerateLastMessage(critique: c),
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.refresh,
+                        size: 20,
+                        color: Colors.orangeAccent,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  if (isLastBotMessage) ...[
-                    Tooltip(
-                      message: 'Continue generation',
-                      child: InkWell(
-                        onTap: () => chatService.continueGeneration(),
-                        borderRadius: BorderRadius.circular(12),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.arrow_downward,
-                            size: 20,
-                            color: Colors.blue,
-                          ),
-                        ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              if (isLastBotMessage) ...[
+                Tooltip(
+                  message: 'Continue generation',
+                  child: InkWell(
+                    onTap: () => chatService.continueGeneration(),
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.arrow_downward,
+                        size: 20,
+                        color: Colors.blue,
                       ),
                     ),
-                    if (hasSwipes) const SizedBox(width: 12),
-                  ],
-                  // Swipe arrows — only when multiple swipes exist
-                  if (hasSwipes) ...[
-                    InkWell(
-                      onTap: () => chatService.swipeMessage(index, -1),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.chevron_left,
-                          size: 20,
-                          color: AppColors.textSecondary(context),
-                        ),
+                  ),
+                ),
+                if (hasSwipes) const SizedBox(width: 12),
+              ],
+              // Swipe arrows — only when multiple swipes exist
+              if (hasSwipes) ...[
+                InkWell(
+                  onTap: () => chatService.swipeMessage(index, -1),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.chevron_left,
+                      size: 20,
+                      color: AppColors.textSecondary(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${message.swipeIndex + 1}/${message.swipes.length}',
+                  style: TextStyle(
+                    color: Colors.greenAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => chatService.swipeMessage(index, 1),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 20,
+                      color: AppColors.textSecondary(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Select variant',
+                  child: InkWell(
+                    onTap: () => _openVariantPicker(
+                      title: 'Select variant',
+                      messageIndex: index,
+                      onSelect: (i) => chatService.selectSwipe(index, i),
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.view_list,
+                        size: 18,
+                        color: AppColors.porchAmberOf(context),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${message.swipeIndex + 1}/${message.swipes.length}',
-                      style: TextStyle(
-                        color: Colors.greenAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    InkWell(
-                      onTap: () => chatService.swipeMessage(
-                        index,
-                        1,
-                        critique: _regenCritique,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.chevron_right,
-                          size: 20,
-                          color: AppColors.textSecondary(context),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Tooltip(
-                      message: 'Select variant',
-                      child: InkWell(
-                        onTap: () => _openVariantPicker(
-                          title: 'Select variant',
-                          messageIndex: index,
-                          onSelect: (i) => chatService.selectSwipe(index, i),
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.view_list,
-                            size: 18,
-                            color: AppColors.porchAmberOf(context),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                  ),
+                ),
+              ],
             ],
           ),
         );

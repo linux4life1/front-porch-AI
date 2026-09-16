@@ -807,20 +807,29 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 .msg-actions.user { align-self: flex-end; }
 .msg-row:hover .msg-actions, .msg-actions:focus-within { opacity: 1; }
 @media (hover: none) { .msg-actions { opacity: 1; } } /* touch: always show */
+.regen-critique-modal {
+  width: min(28rem, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 12px;
+}
 .regen-critique {
-  align-self: flex-start;
-  flex: 1 1 12rem;
-  min-width: 10rem;
-  max-width: 28rem;
-  margin: 2px 0 4px;
-  font-size: 0.78rem;
-  padding: 4px 8px;
+  width: 100%;
+  font-size: 0.85rem;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
 }
 .regen-critique:focus { border-color: var(--accent); outline: none; }
+.regen-critique-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: center;
+}
 .icon-btn { background: none; border: none; color: var(--muted); padding: 2px 6px; border-radius: 8px; font-size: 0.9rem; line-height: 1; }
 .icon-btn:hover { color: var(--text); background: var(--surface-2); filter: none; }
 .swipe { display: inline-flex; align-items: center; gap: 2px; }

@@ -712,6 +712,8 @@ and `database.dart` has no barrel anyway).
 
 ## Testing Expectations
 
+- **Every test must have a real purpose.** Do not write a test just to write a test. No stubs, no planted fake-LLM receipts, no scripted model that hands the answer back so the suite goes green. If deleting the product call site would still leave the test green, it is decoration — do not add it. Prove the thing the user can break (parse, clip, live bake, real HTTP), or do not add a test.
+
 - **Goldens are Linux-gated.** 18 widget golden files carry `@TestOn('linux')` and the
   `golden` tag, so a green macOS `flutter test` NEVER runs them. Run
   `./scripts/ci-local.sh` (the fpai-golden linux/amd64 container) before pushing — the

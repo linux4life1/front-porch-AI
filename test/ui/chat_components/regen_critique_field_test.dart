@@ -1,9 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The optional regen-critique field must be visible on last-bot regen chrome
-// (not on a greet / user bubble). Stacked in a short viewport, tapping it
-// calls ensureVisible so the field is hittable.
+// The optional regen-critique field lives in a dialog that opens on Regen,
+// not as always-on chrome under the bubble.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,7 +74,7 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('field is visible on last-bot regen chrome', (tester) async {
+  testWidgets('field is hidden until Regen is tapped', (tester) async {
     await pumpBubble(
       tester,
       messages: [
@@ -88,6 +87,12 @@ void main() {
       ],
       index: 1,
     );
+
+    expect(find.byKey(_fieldKey), findsNothing);
+    expect(find.text('why this take was wrong — optional'), findsNothing);
+
+    await tester.tap(find.byTooltip('Regenerate'));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(_fieldKey), findsOneWidget);
     expect(find.text('why this take was wrong — optional'), findsOneWidget);
@@ -106,32 +111,47 @@ void main() {
       index: 0,
     );
     expect(find.byKey(_fieldKey), findsNothing);
+    expect(find.byTooltip('Regenerate'), findsNothing);
   });
 
-  testWidgets('focusing a stacked field scrolls it into view', (tester) async {
+  testWidgets('cancel closes the dialog without a field left behind', (
+    tester,
+  ) async {
+    await pumpBubble(
+      tester,
+      messages: [
+        ChatMessage(text: 'hi', sender: 'Sam', isUser: true),
+        ChatMessage(
+          text: 'He stands at the window.',
+          sender: 'Mara',
+          isUser: false,
+        ),
+      ],
+      index: 1,
+    );
+    await tester.tap(find.byTooltip('Regenerate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_fieldKey), findsNothing);
+  });
+
+  testWidgets('dialog field is hittable when focused', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            height: 180,
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  const SizedBox(height: 500),
-                  RegenCritiqueField(onChanged: (_) {}),
-                  const SizedBox(height: 500),
-                ],
-              ),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showRegenCritiqueDialog(context),
+              child: const Text('open'),
             ),
           ),
         ),
       ),
     );
-
-    final field = find.byKey(_fieldKey);
-    expect(field.hitTestable(), findsNothing);
-    tester.widget<TextField>(field).focusNode!.requestFocus();
+    await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
+    final field = find.byKey(_fieldKey);
     expect(field.hitTestable(), findsOneWidget);
   });
 }

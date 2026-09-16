@@ -249,7 +249,17 @@ Future<CatalogRound> _dispatchWiki(
     call.arguments['query']?.toString() ?? '',
   );
   debugPrint('[Tools] dispatch in-process wiki_search query="$query"');
-  final outcome = await wiki.lookup(query);
+  var outcome = await wiki.lookup(query);
+  // MediaWiki lookup already parses the first hit. Tiddly search is
+  // titles-only — open that tiddler without waiting for wiki_page.
+  final base = parseWikiBaseUrl(wiki.getBaseUrl());
+  final mediawiki = base != null && looksLikeMediaWikiHost(base.host);
+  final title = firstWikiHitTitle(outcome.snippet);
+  if (!mediawiki && outcome.ok && title != null) {
+    debugPrint('[Clerk] auto wiki_page title="$title"');
+    final page = await wiki.getArticle(title, honorSendCap: false);
+    if (page.ok) outcome = page;
+  }
   return _wikiRound(wiki, outcome);
 }
 
@@ -296,6 +306,28 @@ CatalogRound _wikiRound(WikiSearchService wiki, WebSearchResult outcome) {
     scrap: outcome.ok ? outcome.snippet : '',
     dispatchRounds: 1,
   );
+}
+
+/// First catalog title from a wiki_search scrap (`Title — clip`).
+/// Skips drafts, system tiddlers, and image names so we open a real article.
+String? firstWikiHitTitle(String snippet) {
+  final line = snippet.trim().split('\n').first.trim();
+  if (line.isEmpty) return null;
+  var title = line;
+  final dash = line.indexOf(' — ');
+  if (dash > 0) title = line.substring(0, dash).trim();
+  if (title.isEmpty) return null;
+  final lower = title.toLowerCase();
+  if (lower.startsWith(r'$:/')) return null;
+  if (lower.startsWith('draft of')) return null;
+  if (lower.contains('.png') ||
+      lower.contains('.jpg') ||
+      lower.contains('.jpeg') ||
+      lower.contains('.gif') ||
+      lower.contains('.mp3')) {
+    return null;
+  }
+  return title;
 }
 
 Future<CatalogRound> _dispatchSearch(

@@ -178,6 +178,11 @@ void main() {
       expect(llm.generateWithToolsCalls, 2);
       expect(round.spokenText, isNull, reason: 'clerk never writes the bubble');
       expect(round.injection, contains('Aizen shikai'));
+      expect(
+        fetched.any((u) => u.queryParameters['action'] == 'parse'),
+        isTrue,
+        reason: 'search hit must auto-open wiki_page',
+      );
       expect(round.injection!.toLowerCase(), isNot(contains('untrusted')));
       expect(round.injection, contains("this chat's wiki"));
       expect(llm.paramsSeen[1].chatMessages, isNotNull);

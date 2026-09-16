@@ -19,91 +19,148 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 
-/// Optional one-line reject reason on last-bot regen chrome.
-class RegenCritiqueField extends StatefulWidget {
-  const RegenCritiqueField({super.key, required this.onChanged});
+/// Optional one-line reject reason. Lives in [showRegenCritiqueDialog],
+/// not on the bubble.
+class RegenCritiqueField extends StatelessWidget {
+  const RegenCritiqueField({
+    super.key,
+    required this.controller,
+    this.onSubmitted,
+    this.autofocus = true,
+  });
 
-  final ValueChanged<String> onChanged;
-
-  @override
-  State<RegenCritiqueField> createState() => _RegenCritiqueFieldState();
-}
-
-class _RegenCritiqueFieldState extends State<RegenCritiqueField> {
-  late final TextEditingController _controller;
-  late final FocusNode _focus;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-    _focus = FocusNode();
-    _focus.addListener(_ensureVisible);
-  }
-
-  @override
-  void dispose() {
-    _focus.removeListener(_ensureVisible);
-    _focus.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _ensureVisible() {
-    if (!_focus.hasFocus) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Scrollable.ensureVisible(
-        context,
-        alignment: 0.85,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    });
-  }
+  final TextEditingController controller;
+  final ValueChanged<String>? onSubmitted;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final amber = AppColors.porchAmberOf(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: TextField(
-        key: const Key('regen-critique-field'),
-        controller: _controller,
-        focusNode: _focus,
-        maxLines: 1,
-        maxLength: 500,
-        onChanged: widget.onChanged,
-        style: TextStyle(fontSize: 12, color: AppColors.textPrimary(context)),
-        decoration: InputDecoration(
-          hintText: 'why this take was wrong — optional',
-          hintStyle: TextStyle(
-            fontSize: 12,
-            color: AppColors.textTertiary(context),
-          ),
-          isDense: true,
-          counterText: '',
-          filled: true,
-          fillColor: AppColors.surfaceContainerOf(context),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 8,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: amber.withValues(alpha: 0.4)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: amber.withValues(alpha: 0.4)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: amber),
-          ),
+    return TextField(
+      key: const Key('regen-critique-field'),
+      controller: controller,
+      autofocus: autofocus,
+      maxLines: 1,
+      maxLength: 500,
+      onSubmitted: onSubmitted,
+      style: TextStyle(fontSize: 13, color: AppColors.textPrimary(context)),
+      decoration: InputDecoration(
+        hintText: 'why this take was wrong — optional',
+        hintStyle: TextStyle(
+          fontSize: 13,
+          color: AppColors.textTertiary(context),
+        ),
+        isDense: true,
+        counterText: '',
+        filled: true,
+        fillColor: AppColors.surfaceContainerOf(context),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: amber.withValues(alpha: 0.4)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: amber.withValues(alpha: 0.4)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: amber),
         ),
       ),
     );
   }
+}
+
+/// Cancel → `null`. Confirm → typed text (may be empty = current regen).
+Future<String?> showRegenCritiqueDialog(BuildContext context) {
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => const _RegenCritiqueDialog(),
+  );
+}
+
+class _RegenCritiqueDialog extends StatefulWidget {
+  const _RegenCritiqueDialog();
+
+  @override
+  State<_RegenCritiqueDialog> createState() => _RegenCritiqueDialogState();
+}
+
+class _RegenCritiqueDialogState extends State<_RegenCritiqueDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _pop([String? value]) {
+    Navigator.of(context).pop(value ?? _controller.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = AppColors.porchAmberOf(context);
+    return AlertDialog(
+      backgroundColor: AppColors.surfaceOf(context),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: tint.withValues(alpha: 0.5)),
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.refresh, color: tint, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Regenerate',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary(context),
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const WarmDialogText(
+              'Optional note for this swipe. Leave blank to just try again.',
+            ),
+            const SizedBox(height: 12),
+            RegenCritiqueField(
+              controller: _controller,
+              onSubmitted: (v) => _pop(v),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        warmDialogCancel(context),
+        warmDialogConfirm(context, label: 'Regenerate', onPressed: _pop),
+      ],
+    );
+  }
+}
+
+/// Pops the critique dialog, then [onRegen]. Cancel does nothing.
+Future<void> promptRegenCritiqueThen(
+  BuildContext context,
+  void Function(String critique) onRegen,
+) async {
+  final reason = await showRegenCritiqueDialog(context);
+  if (reason == null || !context.mounted) return;
+  onRegen(reason);
 }

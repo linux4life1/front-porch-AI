@@ -202,14 +202,18 @@ String formatTiddlySearchHits(List<TiddlyTiddler> hits) {
 }
 
 /// Named tiddler body, title first, clipped. Empty on miss / `$:/` / junk.
-String tiddlyPageText(TiddlyIndex index, String title) {
+String tiddlyPageText(
+  TiddlyIndex index,
+  String title, {
+  int clipChars = kWikiInjectCharCap,
+}) {
   final want = title.trim().toLowerCase();
   if (want.isEmpty || want.startsWith('\$:/')) return '';
   for (final t in index.tiddlers) {
     if (t.title.toLowerCase() != want) continue;
     var out = '${t.title}\n${t.text}'.trim();
-    if (out.length > kWikiInjectCharCap) {
-      out = out.substring(0, kWikiInjectCharCap).trim();
+    if (clipChars > 0 && out.length > clipChars) {
+      out = out.substring(0, clipChars).trim();
     }
     return out;
   }

@@ -155,7 +155,21 @@ class _ChatPageState extends State<ChatPage> {
                 : HardwareKeyboard.instance.isControlPressed)) {
           final chatService = Provider.of<ChatService>(context, listen: false);
           if (!chatService.isGenerating && !chatService.isGuestBusy) {
-            chatService.regenerateLastMessage();
+            final last = chatService.messages.isEmpty
+                ? null
+                : chatService.messages.last;
+            if (last != null &&
+                !last.isUser &&
+                last != chatService.messages.first) {
+              unawaited(
+                promptRegenCritiqueThen(
+                  context,
+                  (c) => chatService.regenerateLastMessage(critique: c),
+                ),
+              );
+            } else {
+              chatService.regenerateLastMessage();
+            }
           }
           return KeyEventResult.handled;
         }

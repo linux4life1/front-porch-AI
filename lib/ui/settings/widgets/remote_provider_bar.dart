@@ -30,12 +30,16 @@ class RemoteProviderBar extends StatelessWidget {
     required this.onSelected,
     this.showOmlx = false,
     this.koboldEnabled = true,
+    this.remoteHostsOnly = false,
   });
 
   final RemoteProviderKind selected;
   final ValueChanged<RemoteProviderKind> onSelected;
   final bool showOmlx;
   final bool koboldEnabled;
+
+  /// OpenRouter / Nano-GPT / LM Studio only — wizard Setup, not Model Settings.
+  final bool remoteHostsOnly;
 
   static const _all = <(RemoteProviderKind, String)>[
     (RemoteProviderKind.kobold, 'KoboldCpp'),
@@ -46,10 +50,17 @@ class RemoteProviderBar extends StatelessWidget {
     (RemoteProviderKind.custom, 'Custom'),
   ];
 
+  static const _remoteHosts = <(RemoteProviderKind, String)>[
+    (RemoteProviderKind.openRouter, 'OpenRouter'),
+    (RemoteProviderKind.nanoGpt, 'Nano-GPT'),
+    (RemoteProviderKind.lmStudio, 'LM Studio'),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final source = remoteHostsOnly ? _remoteHosts : _all;
     final items = [
-      for (final e in _all)
+      for (final e in source)
         if (e.$1 != RemoteProviderKind.omlx || showOmlx) e,
     ];
     return Row(

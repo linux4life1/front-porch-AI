@@ -152,6 +152,20 @@ extension _WorldHeroHeader on _WorldManagementPageState {
                     onPressed: () => importFpWorldFlow(context, repo),
                   ),
                   const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.menu_book_outlined, size: 18),
+                    label: const Text('From Wiki'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.formMasterAccent,
+                      side: const BorderSide(color: AppColors.formMasterAccent),
+                    ),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const WorldFromWikiPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('New World'),

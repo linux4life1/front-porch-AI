@@ -29,6 +29,12 @@ const int kMediaWikiMaxBodyBytes = 2 * 1024 * 1024;
 /// pages need a real extract or she only gets a Fandom search blurb.
 const int kWikiExtractCharCap = 3500;
 
+/// Studio World-from-wiki bake. Chat inject stays [kWikiExtractCharCap].
+const int kWorldWikiArticleCharCap = 48000;
+
+/// Studio catalog listing cap. Chat `wiki_search` stays at srlimit 3.
+const int kWorldWikiCatalogCap = 500;
+
 /// Origin of a pasted MediaWiki / Fandom / Wikipedia URL, or null if the
 /// string is empty, not http(s), or otherwise unsafe to fetch.
 ///
@@ -112,7 +118,7 @@ Uri mediawikiSearchUri(Uri wikiBase, String query) {
 }
 
 /// Top titles from an Action API search (or REST `pages`).
-List<String> parseMediaWikiSearchTitles(String body) {
+List<String> parseMediaWikiSearchTitles(String body, {int maxTitles = 2}) {
   final dynamic json;
   try {
     json = jsonDecode(body);
@@ -120,6 +126,7 @@ List<String> parseMediaWikiSearchTitles(String body) {
     return const [];
   }
   if (json is! Map) return const [];
+  final cap = maxTitles < 1 ? 1 : maxTitles;
   final titles = <String>[];
   void take(Object? pages, {String titleKey = 'title'}) {
     if (pages is! List) return;
@@ -132,7 +139,7 @@ List<String> parseMediaWikiSearchTitles(String body) {
         continue;
       }
       titles.add(t);
-      if (titles.length >= 2) return;
+      if (titles.length >= cap) return;
     }
   }
 
@@ -205,7 +212,10 @@ final _tagRe = RegExp(r'<[^>]+>');
 final _wsRe = RegExp(r'\s+');
 
 /// `parse.text.*` HTML → clipped plain text.
-String parseMediaWikiParseHtml(String body) {
+String parseMediaWikiParseHtml(
+  String body, {
+  int clipChars = kWikiExtractCharCap,
+}) {
   final dynamic json;
   try {
     json = jsonDecode(body);
@@ -227,8 +237,124 @@ String parseMediaWikiParseHtml(String body) {
   var plain = wikiHtmlToPlain(html);
   if (plain.isEmpty) return '';
   if (title.isNotEmpty) plain = '$title\n$plain';
-  if (plain.length <= kWikiExtractCharCap) return plain;
-  return plain.substring(0, kWikiExtractCharCap).trim();
+  if (clipChars <= 0 || plain.length <= clipChars) return plain;
+  return plain.substring(0, clipChars).trim();
+}
+
+/// Skip `$:/`, media, galleries, and talk/file namespaces. Studio listing.
+bool skipWikiStudioTitle(String title) {
+  final t = title.trim();
+  if (t.isEmpty) return true;
+  if (t.startsWith(r'$:/')) return true;
+  final lower = t.toLowerCase();
+  if (lower.contains('medialibrary') || lower.contains('media library')) {
+    return true;
+  }
+  if (lower.contains('image gallery') || lower.contains('/gallery')) {
+    return true;
+  }
+  const junkExt = <String>[
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.svg',
+    '.webp',
+    '.ico',
+    '.bmp',
+    '.mp3',
+    '.mp4',
+    '.webm',
+    '.ogg',
+    '.wav',
+    '.m4a',
+    '.aac',
+  ];
+  for (final ext in junkExt) {
+    if (lower.endsWith(ext)) return true;
+  }
+  const ns = <String>[
+    'file:',
+    'media:',
+    'category:',
+    'template:',
+    'user:',
+    'talk:',
+    'special:',
+    'module:',
+    'help:',
+    'mediawiki:',
+    'interface:',
+  ];
+  for (final n in ns) {
+    if (lower.startsWith(n)) return true;
+  }
+  return false;
+}
+
+Uri mediawikiActionApiUri(Uri wikiBase) {
+  if (usesMediaWikiActionApi(wikiBase)) {
+    return Uri.parse('${wikiBase.origin}/api.php');
+  }
+  return Uri.parse('${wikiBase.origin}/w/api.php');
+}
+
+Uri mediawikiAllPagesUri(Uri wikiBase, {String? apcontinue}) {
+  return mediawikiActionApiUri(wikiBase).replace(
+    queryParameters: {
+      'action': 'query',
+      'list': 'allpages',
+      'apnamespace': '0',
+      'aplimit': '500',
+      'apfilterredir': 'nonredirects',
+      'format': 'json',
+      if (apcontinue != null && apcontinue.isNotEmpty) 'apcontinue': apcontinue,
+    },
+  );
+}
+
+Uri mediawikiStudioSearchUri(Uri wikiBase, String query) {
+  return mediawikiActionApiUri(wikiBase).replace(
+    queryParameters: {
+      'action': 'query',
+      'list': 'search',
+      'srsearch': query,
+      'srlimit': '50',
+      'srprop': 'snippet',
+      'format': 'json',
+    },
+  );
+}
+
+({List<String> titles, String? apcontinue}) parseMediaWikiAllPages(
+  String body,
+) {
+  final dynamic json;
+  try {
+    json = jsonDecode(body);
+  } catch (_) {
+    return (titles: const <String>[], apcontinue: null);
+  }
+  if (json is! Map) return (titles: const <String>[], apcontinue: null);
+  final query = json['query'];
+  final titles = <String>[];
+  if (query is Map) {
+    final pages = query['allpages'];
+    if (pages is List) {
+      for (final page in pages) {
+        if (page is! Map) continue;
+        final t = page['title']?.toString().trim() ?? '';
+        if (t.isEmpty || skipWikiStudioTitle(t)) continue;
+        titles.add(t);
+      }
+    }
+  }
+  String? cont;
+  final rawCont = json['continue'];
+  if (rawCont is Map) {
+    cont = rawCont['apcontinue']?.toString();
+  }
+  return (titles: titles, apcontinue: cont);
 }
 
 /// Tags out of wiki HTML. Shared by MediaWiki parse and Tiddly tiddlers.

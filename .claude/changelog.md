@@ -1,3 +1,15 @@
+## 2026-09-15 — World from wiki is wiki-agnostic (scout / review / write)
+- **Why:** One lorebook card per ticked wiki page made a 200-row checklist and a table of contents, not a cast list. The studio must run on any saved wiki (MediaWiki/Fandom and Tiddly), not a series-specific schema.
+- **What:** Book (name, premise, saved wiki, climate off) → Scout sees index titles and proposes 20–40 cards (name, keys, role era/hub/leaf/crown, 1–3 sourceTitles, optional group slug from this book) → Review signs a shelf (default unchecked, no select-all) → Write signed cards only (`getArticleFull` on sources, 160–330 chars, alias keys) → role mechanics in `world_craft_mechanics.dart` (not chargen `assignLoreMechanics`) → Preview/Save with recursiveScanning, scanDepth 10, tokenBudget 2800. Tools gate stays. Desktop + web.
+- **Files:** `lib/services/world_from_wiki/`, wizard steps, `WorldFromWikiFacade`, `web_ui` WorldFromWikiPage
+- **Commit:** (uncommitted — human commit)
+
+## 2026-09-15 — World from wiki (creator suite)
+- **Why:** Chargen drops a card on home. Wiki lookup in chat is a 3-trip postcard, not a world builder. Sosuke wanted a studio wizard that scans a saved wiki, ticks pages, bakes full articles into lorebook cards, and saves a real World.
+- **What:** Setup (chargen backend/model + tools gate) → Book (name, premise, Porch Life wiki picker, lorebooks on, climate off) → checklist from Tiddly index / MediaWiki allpages (skip `$:/`, media, galleries; list is the cap) → bake each tick with `wiki_page` full article (not 3500 clip) → one lorebook tool card → Preview → `WorldRepository.saveWorld`. Pause/abort does not save. Chat clerk cap stays 3. Desktop + web. `debugPrint('[World]')` scan counts, each title baked, abort.
+- **Files:** `lib/services/world_from_wiki/`, `wiki_search_service.studio.dart`, wizard under `lib/ui/character_creator/world_from_wiki/`, web `/worlds/from-wiki`, `WorldFromWikiFacade`
+- **Commit:** (uncommitted — human commit)
+
 ## 2026-09-15 — TiddlyWiki adapter + wiki_page
 - **Why:** wiki_search was MediaWiki `api.php` only. Neokosmos is a TiddlyWiki on GH Pages (~4.1MB notebook, path `/NeokosmosWiki/`), not Fandom. Origin-only canonicalize fetched the GitHub user site. Same picker, two backends; not a lore cloud and not a special `neokosmos_search` tool.
 - **What:** Detect MW host vs Tiddly tiddler store after `parseWikiBaseUrl`. Session-cached tiddler index. `wiki_search` still search; new `wiki_page` (title or page) opens the article, clipped to 3500, `wikiResultFragment`. Fandom `wiki_page` uses parse URI. Skip `$:/`, images, mp3, Media Library. 8MB Tiddly fetch cap. User-Agent `FrontPorchAI/wiki`. Debug `[Wiki]` / `[Tiddly]` / `[WikiPage]`. Catalog advertises `wiki_page` when a wiki URL is set.
