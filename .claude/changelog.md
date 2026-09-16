@@ -3,7 +3,7 @@
 - **What:** Admin unload calls `markModelNotReady` (no version-probe restart). Production `waitUntilReady` throws if still ready, then polls. Occupancy `release` only drops depth. `ensureMouth` unloads worker and restores mouth. `waitForWorkerLaneIdle` waits until depth idle, then `ensureMouth`, and does not return until that restore finishes. Next acquire is a no-op while `_mouthDown`. Provider dispose fire-and-forgets mouth restore. Rebuild refuses replace while `mouthDown` / busy. Held token stays (and is parked on the Expando) while `mouthDown`, so a dirty mid-hold rebuild cannot mint a new occupancy and orphan restore. SWITCH_CANCEL stays parked.
 - **Cost:** First turn / mouth-already-up still swaps to worker for pre. Steady-state: hot worker → pre (no swap) → swap to mouth for speech → swap to worker for post → leave hot. Speech always pays one restore wait (must not return early).
 - **Files:** `worker_gpu_swap.dart`, `worker_gpu_hosts.dart`, `kobold_service.dart`, `llm_provider.dart` + worker part, `chat_service_llm_lanes.dart`, swap tests
-- **Commit:** (this tip)
+- **Commit:** 034574f6 (A+B + residency); 31c4b12b (dirty rebuild must not orphan mouthDown)
 
 ## 2026-09-16 — Worker V2: keep mouth generateStream seam + occupancy wait
 - **Why:** Source-grep pins require the request seam to call `llmService.generateStream(genParams)`. Wrapping that in `_mouthGenerateStream` went red in CI. Occupancy wait still has to run after catalog (catalog can nest under a journal hold).
