@@ -128,6 +128,8 @@ void main() {
       group: 'creator_steps_remaining',
       name: 'setup',
       surface: const Size(900, 760),
+      // Remote provider bar + FakeLLMProvider leave a ticker; don't hang settle.
+      settle: false,
     );
   });
 
