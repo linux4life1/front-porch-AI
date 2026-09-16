@@ -51,4 +51,18 @@ extension ChatServiceLlmLanes on ChatService {
   @visibleForTesting
   Future<String?> debugFireSideLaneEval(String prompt) =>
       _fireLLMEval(prompt, label: 'test-worker');
+
+  /// Stop mouth speech and side-lane evals/clerk/journal together.
+  void _abortAllLanes() {
+    final mouth = _mouthLlm;
+    final side = _sideLaneLlm;
+    try {
+      mouth.abortGeneration();
+    } catch (_) {}
+    if (!identical(side, mouth)) {
+      try {
+        side.abortGeneration();
+      } catch (_) {}
+    }
+  }
 }

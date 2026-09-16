@@ -89,6 +89,26 @@ bool workerPairAllowed({
   return !(mouthLocal && workerLocal);
 }
 
+/// Start Kobold when the mouth is Kobold, or when an allowed worker is.
+bool shouldEnsureKoboldProcess({
+  required String mouthType,
+  required String workerType,
+  required bool pairAllowed,
+}) {
+  if (mouthType == 'kobold') return true;
+  return pairAllowed && workerType == 'kobold';
+}
+
+/// Poll oMLX when the mouth is oMLX, or when an allowed worker is.
+bool shouldRunOmlxPoller({
+  required String mouthType,
+  required String workerType,
+  required bool pairAllowed,
+}) {
+  if (mouthType == 'omlx') return true;
+  return pairAllowed && workerType == 'omlx';
+}
+
 /// Probe / tool-pill key for the worker lane. Prefixed so an oMLX (or
 /// Nano) verdict can never land in the mouth model's slot.
 String workerEvalIdentityFor({

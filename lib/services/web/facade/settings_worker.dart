@@ -32,6 +32,7 @@ Map<String, dynamic> readWorkerSettings(
     'workerDualLocalMessage': llm.workerRefusedDualLocal
         ? kWorkerDualLocalMessage
         : '',
+    'workerUnreadyMessage': llm.workerUnreadyMessage ?? '',
   };
 }
 

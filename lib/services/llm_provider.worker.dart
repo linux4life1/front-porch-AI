@@ -62,6 +62,27 @@ extension LLMProviderWorker on LLMProvider {
 
   OpenRouterService get workerRemoteService => _workerRemote;
 
+  @visibleForTesting
+  bool get debugOmlxPollerStarted => _omlxPoller.isStarted;
+
+  /// Plain-English reason the worker host is picked but not ready.
+  String? get workerUnreadyMessage {
+    if (!workerConfigured || workerRefusedDualLocal) return null;
+    final svc = workerService;
+    if (svc == null || svc.isReady) return null;
+    return switch (workerBackend) {
+      BackendType.kobold =>
+        'Side jobs are waiting for KoboldCPP to start. Open Models '
+            'and make sure a file is loaded.',
+      BackendType.omlx =>
+        'Side jobs need oMLX running (omlx serve). Chat speech stays '
+            'on your main model.',
+      BackendType.openRouter =>
+        'Side jobs need a working URL and key for the worker host.',
+      null => null,
+    };
+  }
+
   String get workerEvalIdentity {
     final type = _storageService.workerBackendType;
     final url = resolvedLaneApiUrl(type, _storageService.workerRemoteApiUrl);
@@ -80,20 +101,21 @@ extension LLMProviderWorker on LLMProvider {
     final type = _storageService.workerBackendType;
     final url = resolvedLaneApiUrl(type, _storageService.workerRemoteApiUrl);
     final model = _storageService.workerRemoteModelName;
+    final key = (type == 'openRouter' || type == 'omlx')
+        ? _storageService.remoteApiKeyFor(url)
+        : '';
     // Mouth host rides this key so a mouth URL flip (OpenRouter → LM Studio)
     // re-evaluates dual-local without waiting for a worker-field edit.
+    // The vault key is included so a key typed last still reconfigures.
     final identity =
         '${_storageService.backendType}|${_storageService.remoteApiUrl}|'
-        '$type|$url|$model';
+        '$type|$url|$model|$key';
     if (identity == _lastWorkerIdentity) return false;
     _lastWorkerIdentity = identity;
     if (type == 'openRouter' || type == 'omlx') {
-      _workerRemote.configure(
-        apiUrl: url,
-        apiKey: _storageService.remoteApiKeyFor(url),
-        modelName: model,
-      );
+      _workerRemote.configure(apiUrl: url, apiKey: key, modelName: model);
     }
+    _syncLiveStatusSources();
     return true;
   }
 }

@@ -84,6 +84,7 @@ interface Settings {
   workerEnabled?: boolean;
   workerRefusedDualLocal?: boolean;
   workerDualLocalMessage?: string;
+  workerUnreadyMessage?: string;
 }
 
 // Legacy-engine model files still on the host (desktop parity: the Reclaim

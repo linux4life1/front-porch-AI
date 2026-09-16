@@ -65,6 +65,64 @@ void main() {
     );
   });
 
+  test('Kobold starts for mouth or an allowed Kobold worker', () {
+    expect(
+      shouldEnsureKoboldProcess(
+        mouthType: 'openRouter',
+        workerType: 'kobold',
+        pairAllowed: true,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldEnsureKoboldProcess(
+        mouthType: 'kobold',
+        workerType: '',
+        pairAllowed: true,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldEnsureKoboldProcess(
+        mouthType: 'openRouter',
+        workerType: 'openRouter',
+        pairAllowed: true,
+      ),
+      isFalse,
+    );
+    expect(
+      shouldEnsureKoboldProcess(
+        mouthType: 'omlx',
+        workerType: 'kobold',
+        pairAllowed: false,
+      ),
+      isFalse,
+    );
+  });
+
+  test('oMLX poller runs for mouth or an allowed oMLX worker', () {
+    expect(
+      shouldRunOmlxPoller(
+        mouthType: 'openRouter',
+        workerType: 'omlx',
+        pairAllowed: true,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldRunOmlxPoller(mouthType: 'omlx', workerType: '', pairAllowed: true),
+      isTrue,
+    );
+    expect(
+      shouldRunOmlxPoller(
+        mouthType: 'openRouter',
+        workerType: '',
+        pairAllowed: true,
+      ),
+      isFalse,
+    );
+  });
+
   test('local+local is refused; empty worker is allowed', () {
     expect(
       workerPairAllowed(

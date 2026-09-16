@@ -55,6 +55,9 @@ class OmlxStatusPoller {
   bool _requestInFlight = false;
   bool _wasActive = false;
 
+  /// True after [start] until [stop].
+  bool get isStarted => _timer != null;
+
   /// [apiUrl] is the OpenAI-style base the app is configured with
   /// (e.g. `http://localhost:8000/v1`); the admin API lives beside it.
   void start(String apiUrl) {

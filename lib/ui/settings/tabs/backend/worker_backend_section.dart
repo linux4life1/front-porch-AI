@@ -96,10 +96,10 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
           style: theme.textTheme.bodySmall?.copyWith(color: muted),
         ),
         const SizedBox(height: 10),
-        if (llm.workerRefusedDualLocal) ...[
-          _WarnBanner(kWorkerDualLocalMessage),
-          const SizedBox(height: 10),
-        ],
+        WorkerLaneStatusBanners(
+          refusedDualLocal: llm.workerRefusedDualLocal,
+          unreadyMessage: llm.workerUnreadyMessage,
+        ),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -227,8 +227,9 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
               ],
               if (!off && storage.workerBackendType == 'kobold')
                 Text(
-                  'Side jobs will use the KoboldCPP engine already set up '
-                  'above. Chat speech stays on your API host.',
+                  'Side jobs will start KoboldCPP using the model and GPU '
+                  'settings from the Models tab. Chat speech stays on your '
+                  'API host.',
                   style: theme.textTheme.bodySmall?.copyWith(color: muted),
                 ),
             ],
@@ -308,8 +309,31 @@ class _OffPill extends StatelessWidget {
   }
 }
 
-class _WarnBanner extends StatelessWidget {
-  const _WarnBanner(this.text);
+/// Dual-local refuse wins over an unready host. Empty = no banner.
+class WorkerLaneStatusBanners extends StatelessWidget {
+  const WorkerLaneStatusBanners({
+    super.key,
+    required this.refusedDualLocal,
+    this.unreadyMessage,
+  });
+
+  final bool refusedDualLocal;
+  final String? unreadyMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = refusedDualLocal
+        ? kWorkerDualLocalMessage
+        : (unreadyMessage ?? '');
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Column(
+      children: [WorkerLaneWarnBanner(text), const SizedBox(height: 10)],
+    );
+  }
+}
+
+class WorkerLaneWarnBanner extends StatelessWidget {
+  const WorkerLaneWarnBanner(this.text, {super.key});
   final String text;
 
   @override

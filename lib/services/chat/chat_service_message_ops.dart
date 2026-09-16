@@ -109,10 +109,7 @@ extension ChatServiceMessageOps on ChatService {
     _postGenAbortRequested = true;
     _isCancellingRealismEval = true;
     _realismEvalCancelled = true;
-    try {
-      (testLlmServiceOverride ?? _llmProvider?.activeService)
-          ?.abortGeneration();
-    } catch (_) {}
+    _abortAllLanes();
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (_isPostGenerating && DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(const Duration(milliseconds: 16));
@@ -335,9 +332,8 @@ extension ChatServiceMessageOps on ChatService {
   void stopGeneration() {
     if (_isGenerating) {
       _cancelRequested = true;
-      // Abort the in-flight HTTP request so we don't have to wait for the next token
-      (testLlmServiceOverride ?? _llmProvider?.activeService)
-          ?.abortGeneration();
+      // Abort mouth speech and any in-flight side-lane eval/clerk.
+      _abortAllLanes();
     }
   }
 
@@ -418,6 +414,10 @@ extension ChatServiceMessageOps on ChatService {
   ///   reset all related UI/state and emit a final notification.
   /// - Do not restart any ongoing flow automatically after cancellation.
   Future<void> cancelRealismEval() async {
+    // Always tear down both lanes first — a fused/clerk call on the
+    // worker can still be in flight when the mouth flags look idle.
+    _abortAllLanes();
+
     // No-op if there is nothing to cancel
     if (!_isEvaluatingRealism && !_isProcessingGreeting) {
       debugPrint('[Realism] Cancel request ignored — no active realism eval.');
@@ -437,26 +437,15 @@ extension ChatServiceMessageOps on ChatService {
       'Regenerate (or send again) to retry.',
     );
 
-    final llmService =
-        testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
     debugPrint('[Realism] Realism eval cancel requested');
-    try {
-      llmService.abortGeneration();
-      debugPrint('[Realism] abortGeneration invoked');
-    } catch (e) {
-      // Ensure we always proceed to reset state even if abortion fails unexpectedly
-      debugPrint('[Realism cancel] Unexpected error during abort: $e');
-    } finally {
-      // Reset all realism-related state
-      _realismEvalStreamText = '';
-      _pendingRealismMetadata = null;
-      _isEvaluatingRealism = false;
-      _isProcessingGreeting = false;
-      _isCancellingRealismEval = false;
-      // NOTE: Do NOT reset _realismEvalCancelled here. It must remain true so that
-      // sendMessage() can detect the cancellation and return early. The flag is only
-      // reset in sendMessage() after the cancellation is properly handled.
-      notifyListeners();
-    }
+    _realismEvalStreamText = '';
+    _pendingRealismMetadata = null;
+    _isEvaluatingRealism = false;
+    _isProcessingGreeting = false;
+    _isCancellingRealismEval = false;
+    // NOTE: Do NOT reset _realismEvalCancelled here. It must remain true so that
+    // sendMessage() can detect the cancellation and return early. The flag is only
+    // reset in sendMessage() after the cancellation is properly handled.
+    notifyListeners();
   }
 }

@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void _setupPathProviderMock() {
@@ -22,11 +24,31 @@ void _setupPathProviderMock() {
       });
 }
 
+class _HangUntilAbort extends _RecordingLlm {
+  _HangUntilAbort(super.backendName);
+
+  @override
+  void abortGeneration() {
+    abortCalls++;
+    if (!_released.isCompleted) _released.complete();
+  }
+
+  final Completer<void> _released = Completer<void>();
+
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    streamCalls++;
+    streamPrompts.add(params.prompt);
+    await _released.future;
+  }
+}
+
 class _RecordingLlm extends LLMService {
   _RecordingLlm(this.backendName);
 
   int streamCalls = 0;
   int toolsCalls = 0;
+  int abortCalls = 0;
   final List<String> streamPrompts = [];
   final List<String> toolsIdentities = [];
 
@@ -35,6 +57,11 @@ class _RecordingLlm extends LLMService {
 
   @override
   bool get isReady => true;
+
+  @override
+  void abortGeneration() {
+    abortCalls++;
+  }
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
@@ -156,27 +183,48 @@ void main() {
     },
   );
 
-  test('call sites in wiring use the side-lane getters', () {
-    final evals = File(
-      'lib/services/chat/chat_service_wiring_evals.dart',
-    ).readAsStringSync();
-    expect(evals, contains('getLlmService: () => _sideLaneLlm'));
-    expect(evals, contains('final service = _sideLaneLlm;'));
-    expect(evals, contains('workerEvalIdentityFor('));
-
-    final request = File(
-      'lib/services/chat/chat_service_generation_request.dart',
-    ).readAsStringSync();
-    expect(request, contains('llm: sideLaneLlm'));
-    expect(request, contains('t.stream = llmService.generateStream'));
-    expect(request, contains('final llmService = _mouthLlm;'));
-
-    final clerk = File(
-      'lib/services/chat/catalog_clerk.dart',
-    ).readAsStringSync();
-    expect(
-      clerk,
-      contains('backendIdentity: backendIdentity ?? mouth.backendIdentity'),
-    );
+  test('cancel aborts mouth and worker, not mouth only', () async {
+    await chat.cancelRealismEval();
+    expect(mouth.abortCalls, 1);
+    expect(worker.abortCalls, 1);
   });
+
+  test('stopGeneration while speaking aborts both lanes', () async {
+    await chat.setActiveCharacter(card());
+    final hangMouth = _HangUntilAbort('mouth');
+    chat.testLlmServiceOverride = hangMouth;
+    final send = chat.sendMessage('Hello there.');
+    for (var i = 0; i < 200 && !chat.isGenerating; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(chat.isGenerating, isTrue);
+    chat.stopGeneration();
+    await send;
+    await drainTurn();
+    expect(hangMouth.abortCalls, greaterThan(0));
+    expect(worker.abortCalls, greaterThan(0));
+  });
+
+  test(
+    'dual-local refuse: side lane and identity fall back to the mouth',
+    () async {
+      chat.testLlmServiceOverride = null;
+      chat.testWorkerLlmServiceOverride = null;
+      await storage.setBackendType('kobold');
+      await storage.setWorkerBackendType('omlx');
+      await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
+      final llm = LLMProvider(
+        KoboldService(storage),
+        OpenRouterService(),
+        storage,
+        BackendManager(storage),
+      );
+      addTearDown(llm.dispose);
+      chat.setLLMProvider(llm);
+
+      expect(llm.workerRefusedDualLocal, isTrue);
+      expect(identical(chat.debugSideLaneLlm, chat.debugMouthLlm), isTrue);
+      expect(chat.debugEvalBackendIdentity, isNot(startsWith('worker|')));
+    },
+  );
 }

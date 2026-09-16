@@ -93,8 +93,15 @@ class LLMProvider extends ChangeNotifier {
   /// Start/stop the per-backend live-status sources for the current backend
   /// + URL. Called on backend switches; safe to call repeatedly.
   void _syncLiveStatusSources() {
-    if (_activeBackend == BackendType.omlx) {
-      _omlxPoller.start(_openRouterService.apiUrl);
+    if (shouldRunOmlxPoller(
+      mouthType: _storageService.backendType,
+      workerType: _storageService.workerBackendType,
+      pairAllowed: !workerRefusedDualLocal,
+    )) {
+      final url = _activeBackend == BackendType.omlx
+          ? _openRouterService.apiUrl
+          : resolvedLaneApiUrl('omlx', _storageService.workerRemoteApiUrl);
+      _omlxPoller.start(url);
     } else {
       _omlxPoller.stop();
     }
@@ -187,11 +194,17 @@ class LLMProvider extends ChangeNotifier {
   bool get hasAnyManagedProcessRunning => _koboldService.isRunning;
 
   /// Ensures the local Kobold backend is running when the user enters a chat —
-  /// including when a .kcpps preset owns the model. Good "it just works" for
-  /// normal users; safe to call repeatedly (no-op if already running or the
-  /// active backend is remote / oMLX).
+  /// including when a .kcpps preset owns the model, and when Kobold is the
+  /// worker while chat speech stays on a remote host.
   Future<void> ensureManagedBackendIsRunning() async {
-    if (!hasManagedProcess || hasAnyManagedProcessRunning) return;
+    if (hasAnyManagedProcessRunning) return;
+    if (!shouldEnsureKoboldProcess(
+      mouthType: _storageService.backendType,
+      workerType: _storageService.workerBackendType,
+      pairAllowed: !workerRefusedDualLocal,
+    )) {
+      return;
+    }
 
     // Make sure we have the backend binary
     if (_backendManager.backendPath == null) {
@@ -208,28 +221,25 @@ class LLMProvider extends ChangeNotifier {
     try {
       // Auto-start the local Kobold backend, whether it loads a plain model
       // file (lastUsedModelPath) or a .kcpps preset that owns its own model.
-      if (_activeBackend == BackendType.kobold) {
-        final modelPath = _storageService.lastUsedModelPath;
-        final hasPresetWithModel =
-            _storageService.kcppsHasModel &&
-            _storageService.kcppsModelFileExists;
+      final modelPath = _storageService.lastUsedModelPath;
+      final hasPresetWithModel =
+          _storageService.kcppsHasModel && _storageService.kcppsModelFileExists;
 
-        if (modelPath != null || hasPresetWithModel) {
-          await _koboldService.startKobold(
-            _backendManager.backendPath!,
-            modelPath ?? '',
-            kcppsPath: _storageService.activeKcppsPath,
-            mmprojPath: modelPath != null
-                ? _storageService.mmprojForModel(modelPath)
-                : null,
-            gpuLayers: _storageService.gpuLayers,
-            contextSize: _storageService.contextSize,
-            useVulkan: _storageService.useVulkan ?? false,
-            useCublas: _storageService.useCublas ?? false,
-            useMetal: _storageService.useMetal ?? false,
-            useRocm: _storageService.useRocm ?? false,
-          );
-        }
+      if (modelPath != null || hasPresetWithModel) {
+        await _koboldService.startKobold(
+          _backendManager.backendPath!,
+          modelPath ?? '',
+          kcppsPath: _storageService.activeKcppsPath,
+          mmprojPath: modelPath != null
+              ? _storageService.mmprojForModel(modelPath)
+              : null,
+          gpuLayers: _storageService.gpuLayers,
+          contextSize: _storageService.contextSize,
+          useVulkan: _storageService.useVulkan ?? false,
+          useCublas: _storageService.useCublas ?? false,
+          useMetal: _storageService.useMetal ?? false,
+          useRocm: _storageService.useRocm ?? false,
+        );
       }
     } catch (e) {
       // Never let an auto-start failure prevent the user from entering the chat.

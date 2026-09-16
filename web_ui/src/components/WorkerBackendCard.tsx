@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { isLmStudioUrl } from '../remoteApiKeys';
+import {
+  kWorkerDualLocalMessage,
+  workerPairAllowed,
+} from '../workerBackend';
 
 export interface WorkerBackendFields {
   workerBackend?: string;
@@ -10,7 +14,10 @@ export interface WorkerBackendFields {
   workerEnabled?: boolean;
   workerRefusedDualLocal?: boolean;
   workerDualLocalMessage?: string;
+  workerUnreadyMessage?: string;
   omlxAvailable?: boolean;
+  backend?: string;
+  remoteApiUrl?: string;
 }
 
 const OPTIONS: { id: string; label: string; backend: string; url?: string }[] = [
@@ -50,6 +57,16 @@ export function WorkerBackendCard({
   const showUrl = id === 'custom';
   const showModel = id !== 'off' && id !== 'kobold';
   const showKey = id === 'openrouter' || id === 'nanogpt' || id === 'custom';
+  const pairOk = workerPairAllowed(
+    s.backend ?? '',
+    s.remoteApiUrl ?? '',
+    s.workerBackend ?? '',
+    s.workerRemoteApiUrl ?? '',
+  );
+  const refused = !pairOk || s.workerRefusedDualLocal === true;
+  const banner = refused
+    ? (s.workerDualLocalMessage || kWorkerDualLocalMessage)
+    : (s.workerUnreadyMessage ?? '');
 
   const onChange = (nextId: string) => {
     const opt = OPTIONS.find((o) => o.id === nextId);
@@ -74,8 +91,8 @@ export function WorkerBackendCard({
         backend above. Two cloud hosts — or one cloud and one local — are fine.
         Two local engines at once are not.
       </p>
-      {s.workerRefusedDualLocal && (
-        <p className="error">{s.workerDualLocalMessage}</p>
+      {banner && (
+        <p className="error" data-testid="worker-dual-local-banner">{banner}</p>
       )}
       <label>
         Worker
@@ -115,6 +132,12 @@ export function WorkerBackendCard({
             placeholder="leave blank to keep the saved key for this host"
           />
         </label>
+      )}
+      {id === 'kobold' && (
+        <p className="muted small">
+          Side jobs will start KoboldCPP using the model and GPU settings from
+          the Models tab. Chat speech stays on your API host.
+        </p>
       )}
     </section>
   );
