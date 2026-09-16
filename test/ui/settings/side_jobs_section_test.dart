@@ -127,7 +127,7 @@ void main() {
   testWidgets('H2 Same as chat hides extras', (tester) async {
     await _pump(tester, storage: _Store());
 
-    expect(find.text('Side jobs'), findsOneWidget);
+    expect(find.text('Realism evals'), findsOneWidget);
     expect(find.text('Worker backend'), findsNothing);
     expect(find.byKey(const Key('side-jobs-same-as-chat')), findsOneWidget);
     expect(find.byType(RemoteProviderBar), findsNothing);
@@ -135,7 +135,7 @@ void main() {
     expect(find.byKey(const Key('side-jobs-worker-url')), findsNothing);
     expect(find.byKey(const Key('side-jobs-worker-key')), findsNothing);
     expect(find.text('Browse models'), findsNothing);
-    expect(find.text('Side jobs use the chat host above.'), findsOneWidget);
+    expect(find.text('Realism evals use the chat host above.'), findsOneWidget);
   });
 
   testWidgets('H3 same host shows model picker only', (tester) async {

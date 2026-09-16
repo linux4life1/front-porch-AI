@@ -27,7 +27,7 @@ void main() {
           body: WorkerLaneStatusBanners(
             refusedDualLocal: false,
             unreadyMessage:
-                'Side jobs are waiting for KoboldCPP to start. Open Models '
+                'Realism evals are waiting for KoboldCPP to start. Open Models '
                 'and make sure a file is loaded.',
           ),
         ),

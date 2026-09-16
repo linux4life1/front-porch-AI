@@ -99,7 +99,7 @@ void main() {
     expect(find.text('API Configuration'), findsNothing);
     expect(find.text('Backend Mode'), findsNothing);
     expect(find.text('Worker backend'), findsNothing);
-    expect(find.text('Side jobs'), findsOneWidget);
+    expect(find.text('Realism evals'), findsOneWidget);
     expect(find.text('API Key'), findsOneWidget);
     expect(find.text('Check Connection'), findsOneWidget);
 

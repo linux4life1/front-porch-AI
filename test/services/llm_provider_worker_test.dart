@@ -224,7 +224,7 @@ void main() {
     expect(p.workerService, isNotNull);
     expect(p.workerService!.isReady, isFalse);
     expect(p.workerUnreadyMessage, contains('KoboldCPP'));
-    expect(p.workerUnreadyMessage, contains('Side jobs'));
+    expect(p.workerUnreadyMessage, contains('Realism evals'));
   });
 
   test('empty worker does not start the oMLX poller on a remote mouth', () {

@@ -4,7 +4,7 @@
 import { isLmStudioUrl, isOmlxUrl } from './remoteApiKeys';
 
 export const kWorkerDualLocalMessage =
-  "Chat speech and side jobs can't both use a local engine at the same " +
+  "Chat speech and Realism evals can't both use a local engine at the same " +
   'time — they would fight over the GPU. Use a cloud/API host for one of ' +
   'them, or turn the worker off.';
 

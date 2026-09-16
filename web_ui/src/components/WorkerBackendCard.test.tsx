@@ -69,7 +69,7 @@ afterEach(() => {
 describe('WorkerBackendCard', () => {
   it('H2 defaults to Same as chat with zero extra fields', () => {
     render({ backend: 'openRouter', remoteApiUrl: 'https://nano-gpt.com/api/v1' });
-    expect(container.textContent).toContain('Side jobs');
+    expect(container.textContent).toContain('Realism evals');
     expect(container.textContent).not.toContain('Worker backend');
     expect(container.querySelector('[data-testid="side-jobs-same-as-chat"]')?.getAttribute('aria-pressed')).toBe('true');
     expect(container.querySelector('[data-testid="side-jobs-host"]')).toBeNull();

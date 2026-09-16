@@ -40,7 +40,7 @@ extension WorkerBackendStorage on StorageService {
 
 /// Dual-local is refused when this pair has no unload/swap lever.
 const kWorkerDualLocalMessage =
-    'Chat speech and side jobs can\'t both use a local engine at the same '
+    'Chat speech and Realism evals can\'t both use a local engine at the same '
     'time — they would fight over the GPU. Use a cloud/API host for one of '
     'them, or turn the worker off.';
 
@@ -131,12 +131,13 @@ bool workerPairAllowed({
 String? workerLaneUnreadyMessage(String workerType) {
   return switch (workerType.trim()) {
     'kobold' =>
-      'Side jobs are waiting for KoboldCPP to start. Open Models '
+      'Realism evals are waiting for KoboldCPP to start. Open Models '
           'and make sure a file is loaded.',
     'omlx' =>
-      'Side jobs need oMLX running (omlx serve). Chat speech stays '
+      'Realism evals need oMLX running (omlx serve). Chat speech stays '
           'on your main model.',
-    'openRouter' => 'Side jobs need a working URL and key for the worker host.',
+    'openRouter' =>
+      'Realism evals need a working URL and key for the worker host.',
     _ => null,
   };
 }

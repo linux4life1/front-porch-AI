@@ -125,7 +125,7 @@ export function WorkerBackendCard({
 
   return (
     <div className="side-jobs" data-testid="side-jobs-card">
-      <h4>Side jobs</h4>
+      <h4>Realism evals</h4>
       <p className="muted small">
         Feelings, wiki/web, journal, growth can use another host. Chat speech stays above.
         Two local engines take turns on the GPU when unload/swap is available.
@@ -133,7 +133,7 @@ export function WorkerBackendCard({
       {different && banner && (
         <p className="error" data-testid="worker-dual-local-banner">{banner}</p>
       )}
-      <div className="side-jobs-seg" role="group" aria-label="Side jobs host">
+      <div className="side-jobs-seg" role="group" aria-label="Realism evals host">
         <button
           type="button"
           data-testid="side-jobs-same-as-chat"
@@ -158,7 +158,7 @@ export function WorkerBackendCard({
       </div>
       {!different && (
         <p className="muted small" data-testid="side-jobs-same-host-status">
-          Side jobs use the chat host above.
+          Realism evals use the chat host above.
         </p>
       )}
       {different && (
@@ -178,7 +178,7 @@ export function WorkerBackendCard({
           </label>
           {!off && sameHost && (
             <p className="muted small" data-testid="side-jobs-same-host-status">
-              Side jobs use the chat host above. Pick a model only.
+              Realism evals use the chat host above. Pick a model only.
             </p>
           )}
           {showUrl && (
@@ -227,7 +227,7 @@ export function WorkerBackendCard({
           )}
           {id === 'kobold' && (
             <p className="muted small">
-              Side jobs will start KoboldCPP using the model and GPU settings from
+              Realism evals will start KoboldCPP using the model and GPU settings from
               the Models tab. Chat speech stays on your API host.
             </p>
           )}

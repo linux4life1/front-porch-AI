@@ -113,7 +113,7 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
         const SizedBox(height: 28),
         Divider(color: AppColors.borderOf(context)),
         const SizedBox(height: 16),
-        const SectionHeader('Side jobs'),
+        const SectionHeader('Realism evals'),
         const SizedBox(height: 8),
         Text(
           'Feelings, wiki/web, journal, growth can use another host. '
@@ -152,7 +152,7 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
               if (!different) ...[
                 const SizedBox(height: 10),
                 Text(
-                  'Side jobs use the chat host above.',
+                  'Realism evals use the chat host above.',
                   key: const Key('side-jobs-same-host-status'),
                   style: theme.textTheme.bodySmall?.copyWith(color: muted),
                 ),
@@ -177,14 +177,14 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Text(
-                      'Pick a host for side jobs. Chat speech stays above.',
+                      'Pick a host for Realism evals. Chat speech stays above.',
                       style: theme.textTheme.bodySmall?.copyWith(color: muted),
                     ),
                   )
                 else if (sameHost) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'Side jobs use the chat host above. Pick a model only.',
+                    'Realism evals use the chat host above. Pick a model only.',
                     key: const Key('side-jobs-same-host-status'),
                     style: theme.textTheme.bodySmall?.copyWith(color: muted),
                   ),
@@ -210,7 +210,7 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
                     availableModels: _models,
                     selectedId: storage.workerRemoteModelName,
                     fetching: _fetching,
-                    dialogTitle: 'Side jobs model',
+                    dialogTitle: 'Realism evals model',
                     onRefresh: () async {
                       setState(() => _fetching = true);
                       try {
@@ -260,7 +260,7 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'Side jobs will start KoboldCPP using the model and GPU '
+                      'Realism evals will start KoboldCPP using the model and GPU '
                       'settings from the Models tab. Chat speech stays on '
                       'your API host.',
                       style: theme.textTheme.bodySmall?.copyWith(color: muted),
