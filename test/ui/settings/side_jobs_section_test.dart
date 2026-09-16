@@ -33,20 +33,12 @@ class _Store extends FakeStorageService {
 }
 
 class _Llm extends FakeLLMProvider {
-  _Llm({
-    super.activeBackend = BackendType.openRouter,
-    this.refused = false,
-    this.unready,
-  });
+  _Llm({super.activeBackend = BackendType.openRouter, this.refused = false});
 
   final bool refused;
-  final String? unready;
 
   @override
   bool get workerRefusedDualLocal => refused;
-
-  @override
-  String? get workerUnreadyMessage => unready;
 }
 
 class _Mgr extends ChangeNotifier implements BackendManager {

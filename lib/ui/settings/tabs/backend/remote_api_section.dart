@@ -37,17 +37,12 @@ class RemoteApiSection extends StatefulWidget {
     required this.apiKeyController,
     required this.availableModels,
     required this.onModelsFetched,
-    this.embedded = false,
   });
 
   final TextEditingController apiUrlController;
   final TextEditingController apiKeyController;
   final List<RemoteModelInfo> availableModels;
   final ValueChanged<List<RemoteModelInfo>> onModelsFetched;
-
-  /// When true, skip the old "API Configuration" header/card so this
-  /// stack continues Chat speech (chips → URL → key → check → model).
-  final bool embedded;
 
   @override
   State<RemoteApiSection> createState() => _RemoteApiSectionState();
@@ -72,7 +67,7 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
 
     final fields = <Widget>[
       RemoteReadyBadge(service: remote),
-      SizedBox(height: widget.embedded ? 12 : 8),
+      const SizedBox(height: 12),
       if (showUrl) ...[
         Text('API URL', style: theme.textTheme.bodySmall),
         const SizedBox(height: 4),
@@ -184,27 +179,10 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
       ),
     ];
 
-    final body = Column(
+    return Column(
       key: const Key('chat-api-section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: fields,
-    );
-    if (widget.embedded) return body;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        const SectionHeader('API Configuration'),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: body,
-        ),
-      ],
     );
   }
 

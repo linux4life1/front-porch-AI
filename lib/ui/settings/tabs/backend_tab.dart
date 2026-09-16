@@ -92,7 +92,6 @@ class BackendTab extends StatelessWidget {
                     apiKeyController: apiKeyController,
                     availableModels: availableModels,
                     onModelsFetched: onModelsFetched,
-                    embedded: true,
                   )
                 : null,
           ),
