@@ -59,7 +59,8 @@ extension ChatServiceLlmLanes on ChatService {
     yield* _mouthLlm.generateStream(params);
   }
 
-  /// Unload mouth → run side-lane work → restore mouth. No-op when the
+  /// Unload mouth → run side-lane work → leave worker hot. Speech restores
+  /// the mouth via [LLMProvider.waitForWorkerLaneIdle]. No-op when the
   /// worker is off, refused, or a test override owns the lane.
   Future<T> _withWorkerLane<T>(Future<T> Function() work) {
     if (testWorkerLlmServiceOverride != null) return work();

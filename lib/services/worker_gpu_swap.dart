@@ -127,8 +127,11 @@ bool workerGpuSwapSupported({
       localSwapKindFor(backendType: workerType, apiUrl: workerUrl) != null;
 }
 
-/// Refcounted GPU occupancy: unload mouth → prepare worker → run → unload
-/// worker → restore mouth. Nested / concurrent holds share one swap.
+/// Refcounted GPU occupancy. Acquire unloads mouth and prepares worker
+/// (no-op when the worker is already resident). Release only drops depth —
+/// the worker stays hot. Speech / idle / shutdown call [ensureMouth].
+/// Nested holds share one residency. Do not keep the worker loaded through
+/// a mouth turn.
 class GpuSwapOccupancy {
   GpuSwapOccupancy({
     required this.mouth,
@@ -147,9 +150,15 @@ class GpuSwapOccupancy {
 
   int _depth = 0;
   bool _mouthDown = false;
+  bool _busy = false;
   Future<void> _tail = Future<void>.value();
 
   bool get isHeld => _depth > 0;
+
+  /// Worker is resident (mouth unloaded). Speech must [ensureMouth].
+  bool get mouthDown => _mouthDown;
+
+  bool get isBusy => _busy;
 
   void _record(String step) {
     steps.add(step);
@@ -171,6 +180,14 @@ class GpuSwapOccupancy {
 
   Future<void> close() => sameResident ? Future<void>.value() : _release();
 
+  /// Speech / idle: unload worker and put the mouth model back.
+  Future<void> ensureMouth() {
+    if (sameResident) return Future<void>.value();
+    final done = _tail.then((_) => _ensureMouthLocked());
+    _tail = done.catchError((_) {});
+    return done;
+  }
+
   Future<void> _acquire() {
     final done = _tail.then((_) => _acquireLocked());
     _tail = done.catchError((_) {});
@@ -185,7 +202,8 @@ class GpuSwapOccupancy {
 
   Future<void> _acquireLocked() async {
     _depth++;
-    if (_depth != 1) return;
+    if (_mouthDown) return;
+    _busy = true;
     try {
       _record('unload-mouth:${mouth.label}');
       await mouth.unload();
@@ -206,25 +224,31 @@ class GpuSwapOccupancy {
         _mouthDown = false;
       }
       rethrow;
+    } finally {
+      _busy = false;
     }
   }
 
   Future<void> _releaseLocked() async {
     if (_depth == 0) return;
     _depth--;
-    if (_depth != 0 || !_mouthDown) return;
+  }
+
+  Future<void> _ensureMouthLocked() async {
+    if (!_mouthDown) return;
+    _busy = true;
     try {
-      _record('unload-worker:${worker.label}');
-      await worker.unload();
-    } catch (e) {
-      debugPrint('[GpuSwap] worker unload failed (mouth still restores): $e');
-    } finally {
       try {
-        _record('restore-mouth:${mouth.label}');
-        await mouth.restore();
-      } finally {
-        _mouthDown = false;
+        _record('unload-worker:${worker.label}');
+        await worker.unload();
+      } catch (e) {
+        debugPrint('[GpuSwap] worker unload failed (mouth still restores): $e');
       }
+      _record('restore-mouth:${mouth.label}');
+      await mouth.restore();
+      _mouthDown = false;
+    } finally {
+      _busy = false;
     }
   }
 }

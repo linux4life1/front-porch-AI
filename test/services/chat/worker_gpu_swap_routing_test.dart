@@ -132,8 +132,10 @@ void main() {
       await eval;
       expect(hangWorker.abortCalls, greaterThan(0));
       expect(mouthKobold.abortCalls, greaterThan(0));
-      expect(occ.steps.last, 'restore-mouth:mouth');
       expect(occ.isHeld, isFalse);
+      expect(occ.mouthDown, isTrue);
+      await llm.waitForWorkerLaneIdle();
+      expect(occ.steps.last, 'restore-mouth:mouth');
     },
   );
 
@@ -184,7 +186,7 @@ void main() {
       await send;
       expect(hangMouth.abortCalls, greaterThan(0));
       expect(hangWorker.abortCalls, greaterThan(0));
-      expect(occ.steps.last, 'restore-mouth:mouth');
+      expect(occ.steps, contains('restore-mouth:mouth'));
     },
   );
 
@@ -229,7 +231,7 @@ void main() {
     await llm.closeWorkerLane();
     await send;
     expect(mouthKobold.generateStarts, greaterThan(0));
-    expect(occ.steps.last, 'restore-mouth:mouth');
+    expect(occ.steps, contains('restore-mouth:mouth'));
   });
 }
 

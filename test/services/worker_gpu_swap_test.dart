@@ -132,29 +132,42 @@ void main() {
     );
   });
 
-  test(
-    'occupancy unloads mouth, prepares worker, then restores mouth',
-    () async {
-      final occ = GpuSwapOccupancy(
-        mouth: _RecHost('mouth'),
-        worker: _RecHost('worker'),
-      );
-      var workRan = false;
-      await occ.hold(() async {
-        expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
-        workRan = true;
-      });
-      expect(workRan, isTrue);
-      expect(occ.steps, [
-        'unload-mouth:mouth',
-        'prepare-worker:worker',
-        'unload-worker:worker',
-        'restore-mouth:mouth',
-      ]);
-    },
-  );
+  test('occupancy unloads mouth, prepares worker, leaves worker hot', () async {
+    final occ = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+    );
+    var workRan = false;
+    await occ.hold(() async {
+      expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
+      workRan = true;
+    });
+    expect(workRan, isTrue);
+    expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
+    expect(occ.mouthDown, isTrue);
+    expect(occ.isHeld, isFalse);
+  });
 
-  test('nested holds swap once; cancel/error still restores mouth', () async {
+  test('next worker hold stays hot; speech ensureMouth restores', () async {
+    final occ = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+    );
+    await occ.hold(() async {});
+    await occ.hold(() async {});
+    expect(occ.steps.where((s) => s.startsWith('unload-mouth')).length, 1);
+    expect(occ.steps.where((s) => s.startsWith('prepare-worker')).length, 1);
+    await occ.ensureMouth();
+    expect(occ.steps, [
+      'unload-mouth:mouth',
+      'prepare-worker:worker',
+      'unload-worker:worker',
+      'restore-mouth:mouth',
+    ]);
+    expect(occ.mouthDown, isFalse);
+  });
+
+  test('nested holds swap once; failed acquire still restores mouth', () async {
     final occ = GpuSwapOccupancy(
       mouth: _RecHost('mouth'),
       worker: _RecHost('worker'),
@@ -163,17 +176,15 @@ void main() {
       await occ.hold(() async {});
     });
     expect(occ.steps.where((s) => s.startsWith('unload-mouth')).length, 1);
-    expect(occ.steps.last, 'restore-mouth:mouth');
+    expect(occ.mouthDown, isTrue);
 
     final failing = GpuSwapOccupancy(
       mouth: _RecHost('mouth'),
-      worker: _RecHost('worker'),
+      worker: _FailRestoreHost('worker'),
     );
-    await expectLater(
-      failing.hold(() async => throw StateError('aborted')),
-      throwsStateError,
-    );
+    await expectLater(failing.hold(() async {}), throwsStateError);
     expect(failing.steps.last, 'restore-mouth:mouth');
+    expect(failing.mouthDown, isFalse);
   });
 
   test('same-resident occupancy is a no-op', () async {
@@ -198,4 +209,19 @@ class _RecHost implements GpuSwapHost {
 
   @override
   Future<void> restore() async {}
+}
+
+class _FailRestoreHost implements GpuSwapHost {
+  _FailRestoreHost(this.label);
+
+  @override
+  final String label;
+
+  @override
+  Future<void> unload() async {}
+
+  @override
+  Future<void> restore() async {
+    throw StateError('worker prepare missed');
+  }
 }

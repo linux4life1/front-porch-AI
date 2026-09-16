@@ -142,6 +142,11 @@ extension LLMProviderWorker on LLMProvider {
     while (isWorkerLaneHeld) {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
+    final occupancy =
+        _providerHeldSwap[this] ??
+        _providerSwapOverride[this] ??
+        _providerSwap[this];
+    if (occupancy != null) await occupancy.ensureMouth();
   }
 
   void _pinHeldSwap(GpuSwapOccupancy occupancy) {
@@ -205,7 +210,7 @@ extension LLMProviderWorker on LLMProvider {
     final held = _providerHeldSwap[this];
     if (held != null ||
         (_providerHeldPins[this] ?? 0) > 0 ||
-        (live != null && live.isHeld)) {
+        (live != null && (live.isHeld || live.mouthDown || live.isBusy))) {
       _providerSwapDirty[this] = true;
       return held ?? live;
     }
@@ -269,7 +274,13 @@ extension LLMProviderWorker on LLMProvider {
         stopProcess: _koboldService.stopKobold,
         startProcess: () => ensureManagedBackendIsRunning(forGpuSwap: true),
         isProcessRunning: () => _koboldService.isProcessRunning,
+        markNotReady: _koboldService.markModelNotReady,
         waitUntilReady: () async {
+          if (_koboldService.isReady) {
+            throw StateError(
+              'Kobold still reports ready after GPU swap unload',
+            );
+          }
           for (var i = 0; i < 200 && !_koboldService.isReady; i++) {
             await Future<void>.delayed(const Duration(milliseconds: 50));
           }

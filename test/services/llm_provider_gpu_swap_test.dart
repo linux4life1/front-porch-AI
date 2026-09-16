@@ -71,26 +71,75 @@ void main() {
     expect(p.workerEvalIdentity, startsWith('worker|'));
   });
 
-  test('withWorkerLane unloads mouth, runs work, restores mouth', () async {
-    await storage.setWorkerBackendType('omlx');
-    await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
-    await storage.setWorkerRemoteModelName('mlx-qwen');
-    final p = provider();
-    addTearDown(p.dispose);
-    final occ = GpuSwapOccupancy(
-      mouth: _RecHost('mouth'),
-      worker: _RecHost('worker'),
-    );
-    p.debugGpuSwap = occ;
+  test(
+    'withWorkerLane leaves worker hot; next lane does not re-swap',
+    () async {
+      await storage.setWorkerBackendType('omlx');
+      await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
+      await storage.setWorkerRemoteModelName('mlx-qwen');
+      final p = provider();
+      addTearDown(p.dispose);
+      final occ = GpuSwapOccupancy(
+        mouth: _RecHost('mouth'),
+        worker: _RecHost('worker'),
+      );
+      p.debugGpuSwap = occ;
 
-    var workAt = -1;
-    await p.withWorkerLane(() async {
-      workAt = occ.steps.length;
-      expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
-    });
-    expect(workAt, 2);
-    expect(occ.steps.last, 'restore-mouth:mouth');
-  });
+      var workAt = -1;
+      await p.withWorkerLane(() async {
+        workAt = occ.steps.length;
+        expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
+      });
+      expect(workAt, 2);
+      expect(occ.mouthDown, isTrue);
+      expect(occ.steps.last, 'prepare-worker:worker');
+
+      await p.withWorkerLane(() async {});
+      expect(
+        occ.steps.where((s) => s.startsWith('unload-mouth')).length,
+        1,
+        reason: 'next pre-eval must not unload/reload mouth first',
+      );
+      expect(occ.steps.where((s) => s.startsWith('prepare-worker')).length, 1);
+      expect(occ.mouthDown, isTrue);
+
+      await p.waitForWorkerLaneIdle();
+      expect(occ.steps.last, 'restore-mouth:mouth');
+      expect(occ.mouthDown, isFalse);
+    },
+  );
+
+  test(
+    'waitForWorkerLaneIdle does not return until mouth restore finishes',
+    () async {
+      await storage.setWorkerBackendType('omlx');
+      await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
+      await storage.setWorkerRemoteModelName('mlx-qwen');
+      final p = provider();
+      addTearDown(p.dispose);
+      var restoreDone = false;
+      final occ = GpuSwapOccupancy(
+        mouth: _SlowRestoreHost('mouth', () async {
+          await Future<void>.delayed(const Duration(milliseconds: 60));
+          restoreDone = true;
+        }),
+        worker: _RecHost('worker'),
+      );
+      p.debugGpuSwap = occ;
+      await p.withWorkerLane(() async {});
+      expect(restoreDone, isFalse, reason: 'release must leave worker hot');
+      final wait = p.waitForWorkerLaneIdle();
+      await Future<void>.delayed(const Duration(milliseconds: 15));
+      expect(
+        restoreDone,
+        isFalse,
+        reason: 'wait must not return during restore tail',
+      );
+      await wait;
+      expect(restoreDone, isTrue);
+      expect(occ.mouthDown, isFalse);
+    },
+  );
 
   test(
     'mid-hold occupancy replace still restores the acquired instance',
@@ -129,8 +178,10 @@ void main() {
 
       expect(second.steps, isEmpty, reason: 'replacement must not swap');
       expect(first.steps.where((s) => s.startsWith('unload-mouth')).length, 1);
-      expect(first.steps.last, 'restore-mouth:mouth');
+      expect(first.mouthDown, isTrue);
       expect(first.isHeld, isFalse);
+      await p.waitForWorkerLaneIdle();
+      expect(first.steps.last, 'restore-mouth:mouth');
     },
   );
 
@@ -164,4 +215,18 @@ class _RecHost implements GpuSwapHost {
 
   @override
   Future<void> restore() async {}
+}
+
+class _SlowRestoreHost implements GpuSwapHost {
+  _SlowRestoreHost(this.label, this.onRestore);
+
+  @override
+  final String label;
+  final Future<void> Function() onRestore;
+
+  @override
+  Future<void> unload() async {}
+
+  @override
+  Future<void> restore() => onRestore();
 }

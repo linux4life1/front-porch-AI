@@ -623,6 +623,14 @@ class KoboldService extends ChangeNotifier
     return _armedProbe;
   }
 
+  /// Admin unload leaves the process up. Clear ready so swap restore cannot
+  /// treat a stale [isReady] as a loaded model.
+  void markModelNotReady() {
+    _modelReady = false;
+    _modelLoadingStatus = 'Unloading model...';
+    notifyListeners();
+  }
+
   @visibleForTesting
   String get systemRoleIdentity => _systemRole.identity;
 

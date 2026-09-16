@@ -317,6 +317,11 @@ class LLMProvider extends ChangeNotifier {
     _koboldService.removeListener(_onServiceChanged);
     _omlxPoller.stop();
     _lmStudioStreamer.stop();
+    final occupancy =
+        _providerHeldSwap[this] ??
+        _providerSwapOverride[this] ??
+        _providerSwap[this];
+    if (occupancy != null) unawaited(occupancy.ensureMouth());
     super.dispose();
   }
 

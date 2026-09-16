@@ -159,6 +159,39 @@ void main() {
     expect(readyWaits, 1);
   });
 
+  test(
+    'Kobold admin unload clears ready so restore-success wait is not a no-op',
+    () async {
+      var ready = true;
+      var waitSawReady = true;
+      final host = KoboldProcessHost(
+        baseUrl: 'http://127.0.0.1:5001',
+        stopProcess: () async {},
+        startProcess: () async {},
+        markNotReady: () => ready = false,
+        waitUntilReady: () async {
+          waitSawReady = ready;
+        },
+        admin: HttpGpuSwapHost(
+          kind: LocalSwapKind.koboldProcess,
+          apiUrl: 'http://127.0.0.1:5001',
+          modelId: 'unused',
+          send: (method, uri, headers, body) async {
+            return http.Response('{"success":true}', 200);
+          },
+        ),
+      );
+      await host.unload();
+      expect(ready, isFalse, reason: 'admin unload must force not-ready');
+      await host.restore();
+      expect(
+        waitSawReady,
+        isFalse,
+        reason: 'waitUntilReady must not see a stale isReady after admin load',
+      );
+    },
+  );
+
   test('oMLX load miss throws so occupancy cannot fake a restore', () async {
     final host = HttpGpuSwapHost(
       kind: LocalSwapKind.omlx,

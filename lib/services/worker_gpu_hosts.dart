@@ -208,6 +208,7 @@ class KoboldProcessHost implements GpuSwapHost {
     required this.startProcess,
     this.isProcessRunning,
     this.waitUntilReady,
+    this.markNotReady,
     HttpGpuSwapHost? admin,
   }) : _admin = admin;
 
@@ -216,6 +217,7 @@ class KoboldProcessHost implements GpuSwapHost {
   final Future<void> Function() startProcess;
   final bool Function()? isProcessRunning;
   final Future<void> Function()? waitUntilReady;
+  final void Function()? markNotReady;
   final HttpGpuSwapHost? _admin;
   bool _usedAdmin = false;
 
@@ -229,6 +231,7 @@ class KoboldProcessHost implements GpuSwapHost {
       try {
         await admin.unload();
         _usedAdmin = true;
+        markNotReady?.call();
         return;
       } catch (e) {
         debugPrint(
