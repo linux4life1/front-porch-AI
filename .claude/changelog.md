@@ -2,7 +2,7 @@
 - **Why:** Source-grep pins require the request seam to call `llmService.generateStream(genParams)`. Wrapping that in `_mouthGenerateStream` went red in CI. Occupancy wait still has to run after catalog (catalog can nest under a journal hold).
 - **What:** Catalog round unchanged; then `waitForWorkerLaneIdle` then the original `llmService.generateStream(genParams)` seam. Impersonate/actions still use the wrapper. Existing pins not edited. SWITCH_CANCEL stays parked.
 - **Files:** `chat_service_generation_request.dart`
-- **Commit:** (this commit)
+- **Commit:** fbeb5d5e
 
 ## 2026-09-16 — Worker V2 HOLD: immortal occupancy + fail-closed restore
 - **Why:** Mid-hold `_rebuildGpuSwap` could mint a second Expando occupancy and orphan restore. Kobold admin `initial_model` miss left the process up so ensure-running no-op'd a model-less mouth. oMLX load miss soft-returned so occupancy faked success. Cancel/stop pins skipped live occupancy. Next mouth generate could start while a journal hold still had the mouth unloaded.
