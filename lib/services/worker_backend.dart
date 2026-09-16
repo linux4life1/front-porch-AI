@@ -89,6 +89,20 @@ bool workerPairAllowed({
   return !(mouthLocal && workerLocal);
 }
 
+/// Plain-English reason a picked worker host is not ready yet.
+String? workerLaneUnreadyMessage(String workerType) {
+  return switch (workerType.trim()) {
+    'kobold' =>
+      'Side jobs are waiting for KoboldCPP to start. Open Models '
+          'and make sure a file is loaded.',
+    'omlx' =>
+      'Side jobs need oMLX running (omlx serve). Chat speech stays '
+          'on your main model.',
+    'openRouter' => 'Side jobs need a working URL and key for the worker host.',
+    _ => null,
+  };
+}
+
 /// Start Kobold when the mouth is Kobold, or when an allowed worker is.
 bool shouldEnsureKoboldProcess({
   required String mouthType,

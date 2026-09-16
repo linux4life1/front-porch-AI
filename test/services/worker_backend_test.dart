@@ -7,6 +7,13 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 
 void main() {
+  test('unready copy is keyed by worker type', () {
+    expect(workerLaneUnreadyMessage('kobold'), contains('KoboldCPP'));
+    expect(workerLaneUnreadyMessage('omlx'), contains('omlx serve'));
+    expect(workerLaneUnreadyMessage('openRouter'), contains('URL and key'));
+    expect(workerLaneUnreadyMessage(''), isNull);
+  });
+
   test('empty worker is off', () {
     expect(workerBackendIsOff(''), isTrue);
     expect(workerBackendIsOff('  '), isTrue);

@@ -54,6 +54,7 @@ import 'package:front_porch_ai/services/folder_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/world.dart' as world_model;
 import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/stt_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
@@ -80,6 +81,29 @@ class FakeLLMProvider extends ChangeNotifier implements LLMProvider {
 
   @override
   bool get hasAnyManagedProcessRunning => false;
+
+  /// Worker lane defaults to off. Instance members (not the library
+  /// extension) so abort/settings never read `_storageService` on a double.
+  @override
+  BackendType? get workerBackend => null;
+
+  @override
+  bool get workerConfigured => false;
+
+  @override
+  bool get workerRefusedDualLocal => false;
+
+  @override
+  LLMService? get workerService => null;
+
+  @override
+  LLMService get sideLaneService => activeService;
+
+  @override
+  bool get sideLaneIsKobold => false;
+
+  @override
+  String? get workerUnreadyMessage => null;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

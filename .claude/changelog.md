@@ -1,3 +1,9 @@
+## 2026-09-16 — Worker lane is an LLMProvider instance contract
+- **Why:** FakeLLMProvider and Settings/idle doubles crashed: extension getters read library-private `_storageService`.
+- **What:** Worker service / side lane / unready / dual-local refuse are instance getters on LLMProvider. Fakes default to worker-off. Unready copy is a pure helper.
+- **Files:** `llm_provider.dart`, `llm_provider.worker.dart`, `worker_backend.dart`, `test/golden/support/fakes.dart`
+- **Commit:** (this commit)
+
 ## 2026-09-16 — Worker tests: clerk/eval dual-local pin + picker vitest
 - **Why:** Review wanted behavioral dual-local routing (not getters), a banner pin, and web picker parity. Source-grep asserts were already gone.
 - **What:** ChatService dual-local refuse now fires an eval and the clerk doorbell on the mouth Kobold. Desktop banner has a stable key. Web card lists the same picker families as desktop.

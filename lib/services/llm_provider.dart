@@ -149,6 +149,55 @@ class LLMProvider extends ChangeNotifier {
     }
   }
 
+  /// Worker picker type, or null when the worker is off.
+  BackendType? get workerBackend {
+    switch (_storageService.workerBackendType) {
+      case 'openRouter':
+        return BackendType.openRouter;
+      case 'omlx':
+        return BackendType.omlx;
+      case 'kobold':
+        return BackendType.kobold;
+      default:
+        return null;
+    }
+  }
+
+  bool get workerConfigured =>
+      !workerBackendIsOff(_storageService.workerBackendType);
+
+  bool get workerRefusedDualLocal =>
+      workerConfigured &&
+      !workerPairAllowed(
+        mouthType: _storageService.backendType,
+        mouthUrl: _storageService.remoteApiUrl,
+        workerType: _storageService.workerBackendType,
+        workerUrl: _storageService.workerRemoteApiUrl,
+      );
+
+  /// Side-lane service when the worker is on and the pair is allowed.
+  LLMService? get workerService {
+    if (!workerConfigured || workerRefusedDualLocal) return null;
+    return switch (workerBackend) {
+      BackendType.kobold => _koboldService,
+      BackendType.openRouter || BackendType.omlx => _workerRemote,
+      null => null,
+    };
+  }
+
+  /// Evals / clerk / journal / growth. Mouth stays [activeService].
+  LLMService get sideLaneService => workerService ?? activeService;
+
+  bool get sideLaneIsKobold => sideLaneService is KoboldService;
+
+  /// Plain-English reason the worker host is picked but not ready.
+  String? get workerUnreadyMessage {
+    if (!workerConfigured || workerRefusedDualLocal) return null;
+    final svc = workerService;
+    if (svc == null || svc.isReady) return null;
+    return workerLaneUnreadyMessage(_storageService.workerBackendType);
+  }
+
   /// Whether the active backend is the local KoboldCpp instance (native or
   /// launched from a .kcpps preset). Gates the local niceties — real
   /// tokenizer counts and prefill perf metrics — and sequential eval dispatch
