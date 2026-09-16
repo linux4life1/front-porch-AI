@@ -114,9 +114,9 @@ extension ChatServiceGenerationRequest on ChatService {
       continueSpeakerName: continueSpeakerName,
     );
 
-    // Get the active LLM service (local or remote)
-    final llmService =
-        testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
+    // Mouth speaks. Side-lane (clerk) may be a different host.
+    final llmService = _mouthLlm;
+    final sideLaneLlm = _sideLaneLlm;
 
     // For call mode with a dedicated call model, temporarily swap the model.
     // When sendMessage already swapped for the pre-generation evals (the
@@ -250,11 +250,12 @@ extension ChatServiceGenerationRequest on ChatService {
     );
     if (catalog.tools.isNotEmpty) {
       final round = await runCatalogRound(
-        llm: llmService,
+        llm: sideLaneLlm,
         params: genParams,
         catalog: catalog,
         search: _webSearchService,
         wiki: _wikiSearchService,
+        backendIdentity: _evalBackendIdentity,
       );
       t.searchReceipt = round.searchReceipt;
       t.toolReceipt = round.toolReceipt;

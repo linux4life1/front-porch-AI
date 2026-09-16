@@ -53,6 +53,7 @@ export 'database_rebind.dart';
 
 // LLM & chat
 export 'llm_provider.dart';
+export 'worker_backend.dart';
 export 'llm_service.dart';
 export 'kobold_service.dart';
 export 'chat_service.dart';

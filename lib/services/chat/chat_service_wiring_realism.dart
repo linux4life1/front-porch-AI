@@ -277,10 +277,7 @@ extension ChatServiceWiringRealism on ChatService {
       getBackendIdentity: () => _evalBackendIdentity,
       getIsEvaluatingRealism: () => _isEvaluatingRealism,
       getStorageService: () => _storageService,
-      getLlmServiceForReclass: () =>
-          testLlmServiceOverride ??
-          _llmProvider?.activeService ??
-          _koboldService,
+      getLlmServiceForReclass: () => _sideLaneLlm,
       getIsGenerating: () => _isGenerating,
       getCharacterEmotion: () => _characterEmotion,
       getMessages: () => _messages,

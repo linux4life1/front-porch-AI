@@ -20,6 +20,7 @@ import {
   type GenSettings,
 } from '../components/GenerationSettingsFields';
 import { VoiceMediaSettings } from '../components/VoiceMediaSettings';
+import { WorkerBackendCard } from '../components/WorkerBackendCard';
 import { isLmStudioUrl, urlHasStoredApiKey } from '../remoteApiKeys';
 
 // A single backend picker (replacing the old Backend + Provider dropdowns,
@@ -77,6 +78,12 @@ interface Settings {
   spellCheckLanguages?: string[];
   systemPrompt?: string;
   bannedPhrases?: string[];
+  workerBackend?: string;
+  workerRemoteApiUrl?: string;
+  workerRemoteModelName?: string;
+  workerEnabled?: boolean;
+  workerRefusedDualLocal?: boolean;
+  workerDualLocalMessage?: string;
 }
 
 // Legacy-engine model files still on the host (desktop parity: the Reclaim
@@ -125,6 +132,7 @@ function RemoteReachabilityBadge({
 export function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
   const [apiKey, setApiKey] = useState('');
+  const [workerApiKey, setWorkerApiKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -201,11 +209,15 @@ export function SettingsPage() {
         generation: s.generation,
         systemPrompt: s.systemPrompt,
         bannedPhrases: s.bannedPhrases,
+        workerBackend: s.workerBackend ?? '',
+        workerRemoteApiUrl: s.workerRemoteApiUrl ?? '',
+        workerRemoteModelName: s.workerRemoteModelName ?? '',
       };
       if (s.spellCheckLanguage !== undefined) {
         body.spellCheckLanguage = s.spellCheckLanguage;
       }
       if (apiKey.trim()) body.apiKey = apiKey.trim();
+      if (workerApiKey.trim()) body.workerApiKey = workerApiKey.trim();
       const needsStepUp =
         s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim();
       if (needsStepUp) {
@@ -217,6 +229,7 @@ export function SettingsPage() {
       // Take effect on this device immediately rather than at next reload.
       applySpellCheckLang(next.spellCheckLanguage);
       setApiKey('');
+      setWorkerApiKey('');
       setPassword('');
       setTotpCode('');
       setSaved(true);
@@ -323,6 +336,13 @@ export function SettingsPage() {
           </select>
         </label>
         <p className="muted small">Loaded model: <strong>{s.loadedModel}</strong> · context {s.contextSize}</p>
+
+        <WorkerBackendCard
+          s={s}
+          workerApiKey={workerApiKey}
+          onWorkerApiKey={setWorkerApiKey}
+          onPatch={patch}
+        />
 
         {isManagedLocal && (
           <p className="muted small">

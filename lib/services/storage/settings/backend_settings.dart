@@ -21,13 +21,14 @@ import 'dart:io';
 import 'settings_base.dart';
 import 'preset_settings.dart'; // for parseKcppsFile (static)
 import 'remote_api_key_vault.dart';
+import 'worker_backend_settings.dart';
 
 /// Backend, remote API, reasoning, Kobold launch flags, model/kcpps paths,
 /// GPU/context etc.
 ///
 /// Lifted Stage 7. kcppsHasModel + context override from active preset logic
 /// preserved exactly.
-class BackendSettings with SettingsBase {
+class BackendSettings with SettingsBase, WorkerBackendFields {
   String _backendType = 'kobold'; // 'kobold' or 'openRouter'
   bool _backendChoiceDone = false; // first-launch engine choice answered
   String _remoteApiKey = '';
@@ -235,6 +236,19 @@ class BackendSettings with SettingsBase {
     _contextSize = prefs?.getInt(k('context_size')) ?? _contextSize;
     _kvQuantizationLevel =
         prefs?.getInt(k('kv_quantization_level')) ?? _kvQuantizationLevel;
+    loadWorkerBackend();
+  }
+
+  /// Write a key into [url]'s vault slot without changing the live mouth
+  /// host. Worker settings reuse the same per-host keys.
+  Future<void> setRemoteApiKeyFor(String url, String value) async {
+    _remoteApiKeys.put(url, value);
+    if (normalizeRemoteApiUrl(url) == normalizeRemoteApiUrl(_remoteApiUrl)) {
+      _remoteApiKey = value;
+      await prefs?.setString(k('remote_api_key'), value);
+    }
+    await _persistRemoteApiKeys();
+    notify();
   }
 
   /// Vault slot for the live model: oMLX has a fixed URL so it does not

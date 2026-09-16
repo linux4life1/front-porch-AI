@@ -25,6 +25,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/legacy_model_cleanup.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/settings_worker.dart';
 
 /// Read/write adapter over the core generation + backend settings for the web
 /// Settings page. Reuses the existing StorageService setters (read live at
@@ -272,6 +273,7 @@ class SettingsFacade {
       // attribute on its prose inputs, which is what Chrome and Safari read.
       // Additive and nullable-safe: an older web client ignores the key.
       'spellCheckLanguage': _storage.spellCheckLanguage,
+      ...readWorkerSettings(_storage, _llm),
     };
   }
 
@@ -415,6 +417,8 @@ class SettingsFacade {
     if (spellLanguage is String && spellLanguage.isNotEmpty) {
       await _storage.setSpellCheckLanguage(spellLanguage);
     }
+
+    await updateWorkerSettings(storage: _storage, body: body);
 
     final backend = body['backend']?.toString();
     if (backend != null) {

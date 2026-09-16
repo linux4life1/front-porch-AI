@@ -6,6 +6,7 @@
 
 export 'remote_provider_bar.dart';
 export 'remote_provider_apply.dart';
+export 'worker_provider_apply.dart';
 export 'color_row.dart';
 export 'feature_row.dart';
 export 'image_gen_enable_section.dart';

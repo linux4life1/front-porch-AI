@@ -31,6 +31,7 @@ class RemoteProviderBar extends StatelessWidget {
     this.showOmlx = false,
     this.koboldEnabled = true,
     this.remoteHostsOnly = false,
+    this.noneSelected = false,
   });
 
   final RemoteProviderKind selected;
@@ -40,6 +41,9 @@ class RemoteProviderBar extends StatelessWidget {
 
   /// OpenRouter / Nano-GPT / LM Studio only — wizard Setup, not Model Settings.
   final bool remoteHostsOnly;
+
+  /// Worker "Off" — no host pill is highlighted.
+  final bool noneSelected;
 
   static const _all = <(RemoteProviderKind, String)>[
     (RemoteProviderKind.kobold, 'KoboldCpp'),
@@ -70,7 +74,7 @@ class RemoteProviderBar extends StatelessWidget {
           Expanded(
             child: _Pill(
               label: items[i].$2,
-              selected: items[i].$1 == selected,
+              selected: !noneSelected && items[i].$1 == selected,
               enabled:
                   items[i].$1 != RemoteProviderKind.kobold || koboldEnabled,
               onTap: () => onSelected(items[i].$1),

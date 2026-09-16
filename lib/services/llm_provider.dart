@@ -32,6 +32,9 @@ import 'package:front_porch_ai/services/omlx_status_poller.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/worker_backend.dart';
+
+part 'llm_provider.worker.dart';
 
 /// The available backend types. The former `pseudoRemote` (a local KoboldCpp
 /// launched from a .kcpps preset) was folded into [kobold]: the local backend
@@ -50,6 +53,11 @@ class LLMProvider extends ChangeNotifier {
   final BackendManager _backendManager;
 
   BackendType _activeBackend = BackendType.kobold;
+
+  /// Dedicated OpenAI-compatible client for the worker lane. Never the
+  /// mouth [_openRouterService] — configuring this must not flip chat speech.
+  final OpenRouterService _workerRemote = OpenRouterService();
+  String? _lastWorkerIdentity;
 
   // ── Live generation status sources (truthful status bar) ────────────────
   // One shared struct per non-Kobold source; [activeLiveProgress] resolves
@@ -311,11 +319,14 @@ class LLMProvider extends ChangeNotifier {
       _kickLocalThinkingResolve(newType);
     }
 
+    var notified = false;
     if (newType != _activeBackend) {
       _activeBackend = newType;
       _syncLiveStatusSources();
       notifyListeners();
+      notified = true;
     }
+    if (_syncWorkerFromStorage() && !notified) notifyListeners();
   }
 
   /// Last model-identity string synced from storage; used to clear stale

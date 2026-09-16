@@ -1,3 +1,9 @@
+## 2026-09-16 — Worker backend for side lanes (mouth stays on the chat model)
+- **Why:** Spoken replies want a strong chat model (Nano + Kimi). Feelings, clerk, journal, and growth can run on a second host (Nano GLM, OpenRouter, oMLX, LM Studio, Kobold) without flipping the mouth stream. Two locals would fight the GPU; that pair is refused.
+- **What:** Saved worker type/URL/model. A second OpenRouterService (or the existing Kobold) handles side lanes. Empty worker = today's single backend. API+API, API+local, local+API allowed. Tool-probe identity is prefixed `worker|` so it cannot overwrite the mouth pill. Desktop + web Settings.
+- **Files:** `worker_backend.dart`, `worker_backend_settings.dart`, `llm_provider.dart`, ChatService lanes/wiring, Settings UI + web, tests
+- **Commit:** (this commit)
+
 ## 2026-09-16 — Fused one-shot: tools retry + tight recovery (still apply deltas)
 - **Why:** Nano + Kimi thinking fused `report_realism` often returned prose, then the text salvage path sent max_tokens 4000+16000. The model wrote a think novel; the between-chunk hang guard never tripped; the Realism spinner sat for 5+ minutes. Skipping deltas is not acceptable.
 - **What:** One-shot uses `fireFusedRealismEval`: tools, forced tools retry, then tight no-headroom text that stops at the first complete JSON. Think-dump / wall-clock abort that stream and recover with tools then JSON-only text. 75s fused budget. OneShot Done/fail logs ms. Clerk / mouth params unchanged.

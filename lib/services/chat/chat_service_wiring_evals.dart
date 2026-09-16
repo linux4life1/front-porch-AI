@@ -48,21 +48,19 @@ extension ChatServiceWiringEvals on ChatService {
       probe: _toolProbe,
       getBackendIdentity: () => _evalBackendIdentity,
       getPreferTextEvals: () => _storageService.realismSettings.preferTextEvals,
-      getLlmService: () =>
-          testLlmServiceOverride ??
-          _llmProvider?.activeService ??
-          _koboldService,
-      getIsLocal: () => testLlmServiceOverride != null
-          ? testIsLocalOverride
-          : (_llmProvider?.isLocal ?? false),
-      getKoboldService: () => _llmProvider?.koboldService,
+      getLlmService: () => _sideLaneLlm,
+      getIsLocal: () => _sideLaneIsKobold,
+      getKoboldService: () {
+        final s = _sideLaneLlm;
+        return s is KoboldService ? s : null;
+      },
       reconnectIfAlive: () async {
-        final k = _llmProvider?.koboldService;
-        if (k != null) await k.reconnectIfAlive();
+        final s = _sideLaneLlm;
+        if (s is KoboldService) await s.reconnectIfAlive();
       },
       ensureServerIdle: () async {
-        final k = _llmProvider?.koboldService;
-        if (k != null) await k.ensureServerIdle();
+        final s = _sideLaneLlm;
+        if (s is KoboldService) await s.ensureServerIdle();
       },
       getIsCancellingRealismEval: () => _isCancellingRealismEval,
       getRealismEvalCancelled: () =>
@@ -455,10 +453,7 @@ extension ChatServiceWiringEvals on ChatService {
   ObjectiveProposal _buildObjectiveProposal() {
     return ObjectiveProposal(
       stripThinkBlocks: _stripThinkBlocks,
-      getLlmService: () =>
-          testLlmServiceOverride ??
-          _llmProvider?.activeService ??
-          _koboldService,
+      getLlmService: () => _sideLaneLlm,
       getActiveCharacter: () => _activeCharacter,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
@@ -552,8 +547,7 @@ extension ChatServiceWiringEvals on ChatService {
   /// KoboldCpp included (Qwen3 etc. call tools fine); incapable models fall
   /// back to the XML floor.
   Future<LlmToolResponse?> _fireToolEval(ToolEvalSpec spec) async {
-    final service =
-        testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
+    final service = _sideLaneLlm;
     // [EvalTraffic]: label from the named choice, never tools.first — after
     // kJudgeEvalTools that would always be report_relationship.
     final trafficWatch = Stopwatch()..start();
@@ -627,9 +621,25 @@ extension ChatServiceWiringEvals on ChatService {
   }
 
   /// Endpoint+model identity key for the shared tools/one-shot probes.
+  /// Worker lane uses a prefixed key so its verdict never lands on the
+  /// mouth model's pill.
   String get _evalBackendIdentity {
-    final service =
-        testLlmServiceOverride ?? _llmProvider?.activeService ?? _koboldService;
+    if (_workerLaneActive) {
+      final worker = testWorkerLlmServiceOverride;
+      if (worker != null) {
+        final url = worker is LlmApiEndpoint
+            ? (worker as LlmApiEndpoint).apiUrl
+            : '';
+        return workerEvalIdentityFor(
+          backendName: worker.backendName,
+          remoteApiUrl: url,
+          remoteModelName: 'test-worker',
+          modelPath: null,
+        );
+      }
+      return _llmProvider?.workerEvalIdentity ?? '';
+    }
+    final service = _mouthLlm;
     final remoteApiUrl = service is LlmApiEndpoint
         ? (service as LlmApiEndpoint).apiUrl
         : (testLlmServiceOverride != null && !testIsLocalOverride
@@ -651,11 +661,7 @@ extension ChatServiceWiringEvals on ChatService {
       probe: _toolProbe,
       fireToolEval: _fireToolEval,
       getBackendIdentity: () => _evalBackendIdentity,
-      isBackendReady: () =>
-          (testLlmServiceOverride ??
-                  _llmProvider?.activeService ??
-                  _koboldService)
-              .isReady,
+      isBackendReady: () => _sideLaneLlm.isReady,
       isBusy: () => _isGenerating,
       onNotify: notifyListeners,
       // OpenRouter/Nano-GPT list tool support in their /models metadata, so the
@@ -664,11 +670,24 @@ extension ChatServiceWiringEvals on ChatService {
       // resolver returns null for any non-metadata host anyway — those, like
       // local backends, keep the runtime ping.
       fetchMetadataToolVerdict: () async {
-        if (_llmProvider?.activeBackend != BackendType.openRouter) return null;
+        final workerOn = _llmProvider?.workerService != null;
+        final type = workerOn
+            ? _llmProvider!.workerBackend
+            : _llmProvider?.activeBackend;
+        if (type != BackendType.openRouter) return null;
+        final url = workerOn
+            ? resolvedLaneApiUrl(
+                _storageService.workerBackendType,
+                _storageService.workerRemoteApiUrl,
+              )
+            : _storageService.remoteApiUrl;
+        final model = workerOn
+            ? _storageService.workerRemoteModelName
+            : _storageService.remoteModelName;
         final caps = await VisionSupportResolver.instance.capabilitiesForRemote(
-          apiUrl: _storageService.remoteApiUrl,
-          apiKey: _storageService.remoteApiKey,
-          modelName: _storageService.remoteModelName,
+          apiUrl: url,
+          apiKey: _storageService.remoteApiKeyFor(url),
+          modelName: model,
         );
         return caps?.toolCalling;
       },

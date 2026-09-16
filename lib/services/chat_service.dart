@@ -35,6 +35,7 @@ import 'package:front_porch_ai/services/capability/vision_support_resolver.dart'
 import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/services/vision_eval.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -112,6 +113,7 @@ part 'chat/chat_service_context_budget.dart';
 part 'chat/chat_service_wiring_realism.dart';
 part 'chat/chat_service_web_search.dart';
 part 'chat/chat_service_wiring_evals.dart';
+part 'chat/chat_service_llm_lanes.dart';
 part 'chat/chat_service_wiring_memory.dart';
 part 'chat/chat_service_wiring_injection.dart';
 part 'chat/chat_service_send.dart';
@@ -144,6 +146,11 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   LLMService? testLlmServiceOverride;
   @visibleForTesting
   bool testIsLocalOverride = false;
+
+  /// Side-lane only. When null, [testLlmServiceOverride] still covers both
+  /// lanes so existing tests keep today's single-backend behavior.
+  @visibleForTesting
+  LLMService? testWorkerLlmServiceOverride;
 
   /// Test hook: import awaits this before mutating so a Send can race it.
   @visibleForTesting

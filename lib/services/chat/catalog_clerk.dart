@@ -59,6 +59,7 @@ String? collateCatalogInjections(Iterable<String> parts) {
 GenerationParams clerkSideLaneParams(
   GenerationParams mouth, {
   List<Map<String, Object>>? messages,
+  String? backendIdentity,
 }) {
   return evalLaneParams(
     prompt: mouth.prompt,
@@ -68,7 +69,7 @@ GenerationParams clerkSideLaneParams(
     images: mouth.images,
     toolChoice: mouth.toolChoice,
     stillWantTools: mouth.stillWantTools,
-    backendIdentity: mouth.backendIdentity,
+    backendIdentity: backendIdentity ?? mouth.backendIdentity,
   );
 }
 

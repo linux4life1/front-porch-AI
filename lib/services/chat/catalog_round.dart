@@ -67,6 +67,7 @@ Future<CatalogRound> runCatalogRound({
   required CatalogBuildResult catalog,
   required WebSearchService search,
   WikiSearchService? wiki,
+  String? backendIdentity,
   Future<UserToolHttpResult> Function(
     CatalogTool entry,
     Map<String, dynamic> arguments,
@@ -94,7 +95,11 @@ Future<CatalogRound> runCatalogRound({
   final seenCalls = <String>{};
 
   for (var trip = 0; trip < kClerkMaxDispatchRounds; trip++) {
-    final tripParams = clerkSideLaneParams(params, messages: messages);
+    final tripParams = clerkSideLaneParams(
+      params,
+      messages: messages,
+      backendIdentity: backendIdentity,
+    );
     if (trip > 0) {
       debugPrint('[Clerk] follow-up trip=$trip dispatches=$dispatchRounds');
     }
