@@ -180,8 +180,14 @@ void main() {
       expect(first.steps.where((s) => s.startsWith('unload-mouth')).length, 1);
       expect(first.mouthDown, isTrue);
       expect(first.isHeld, isFalse);
+      expect(
+        identical(p.debugGpuSwap, first),
+        isTrue,
+        reason: 'dirty rebuild must not drop the mouthDown occupancy',
+      );
       await p.waitForWorkerLaneIdle();
       expect(first.steps.last, 'restore-mouth:mouth');
+      expect(first.mouthDown, isFalse);
     },
   );
 

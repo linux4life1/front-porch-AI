@@ -147,6 +147,7 @@ extension LLMProviderWorker on LLMProvider {
         _providerSwapOverride[this] ??
         _providerSwap[this];
     if (occupancy != null) await occupancy.ensureMouth();
+    _dropHeldSwapIfMouthUp();
   }
 
   void _pinHeldSwap(GpuSwapOccupancy occupancy) {
@@ -161,6 +162,23 @@ extension LLMProviderWorker on LLMProvider {
       _providerHeldPins[this] = pins;
       return;
     }
+    _providerHeldPins[this] = null;
+    // Worker-hot residency: keep the acquired token and park it on the
+    // Expando so a dirty rebuild cannot mint a fresh mouth-up occupancy.
+    if (occupancy.mouthDown || occupancy.isBusy) {
+      _providerSwap[this] = occupancy;
+      return;
+    }
+    _providerHeldSwap[this] = null;
+    if (_providerSwapDirty[this] == true) {
+      _providerSwapDirty[this] = null;
+      _rebuildGpuSwap();
+    }
+  }
+
+  void _dropHeldSwapIfMouthUp() {
+    final held = _providerHeldSwap[this];
+    if (held == null || held.isHeld || held.mouthDown || held.isBusy) return;
     _providerHeldSwap[this] = null;
     _providerHeldPins[this] = null;
     if (_providerSwapDirty[this] == true) {
