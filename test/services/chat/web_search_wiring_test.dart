@@ -164,10 +164,15 @@ void main() {
       );
       expect(
         request,
-        contains('spokenText'),
+        isNot(contains('spokenText')),
         reason:
-            'spoken tools text with no call is the bubble — do not pay a '
-            'second RP completion',
+            'doorbell speech is discarded; the mouth always streams with '
+            'full character GenerationParams',
+      );
+      expect(
+        request,
+        contains('generateStream(genParams)'),
+        reason: 'after the catalog round the mouth stream is unconditional',
       );
     },
   );

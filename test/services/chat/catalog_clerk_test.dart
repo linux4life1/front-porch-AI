@@ -3,10 +3,11 @@
 //
 // Clerk loop on the catalog mouth: she is the doorbell; extra
 // generateWithTools trips fetch books and never become the bubble.
+// Doorbell + clerk use the eval side lane (not user max-gen / thinking).
 //
 // Proven red before green:
 //   * one-shot catalog (no follow-up) → always-tool LLM dispatches 1, not 3
-//   * spoken tools text after a ring used as the bubble
+//   * clerk/doorbell inheriting mouth maxLength or temperature
 //   * 4th dispatch after the cap
 //   * Continue still advertising in generation_request
 
@@ -18,6 +19,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/chat/catalog_clerk.dart';
 import 'package:front_porch_ai/services/chat/catalog_round.dart';
+import 'package:front_porch_ai/services/chat/eval_lane_params.dart';
 import 'package:front_porch_ai/services/chat/tool_catalog.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
 import 'package:front_porch_ai/services/chat/wiki_search_service.dart';
@@ -128,9 +130,47 @@ CatalogBuildResult _wikiCatalog() =>
 
 WebSearchService _deadSearch() => WebSearchService(getApiKey: () => '');
 
+void _expectEvalLane(GenerationParams p) {
+  expect(p.maxLength, kEvalLaneMaxLength);
+  expect(p.minLength, 0);
+  expect(p.temperature, kEvalLaneTemperature);
+  expect(p.topP, kEvalLaneTopP);
+  expect(p.repeatPenalty, kEvalLaneRepeatPenalty);
+  expect(p.xtcProbability, 0.0);
+  expect(p.reasoningEnabled, isFalse);
+  expect(p.reasoningMaxTokens, 0);
+  expect(p.salvageReasoning, isFalse);
+  expect(p.stopSequences, isEmpty);
+}
+
 void main() {
   test('cap is three advertised dispatches', () {
     expect(kClerkMaxDispatchRounds, 3);
+  });
+
+  test('side lane matches fireLLMEval numbers, not the mouth settings', () {
+    const mouth = GenerationParams(
+      prompt: 'Ash: hi\nHinamori:',
+      maxLength: 32000,
+      minLength: 80,
+      temperature: 1.2,
+      topP: 0.95,
+      repeatPenalty: 1.4,
+      reasoningEnabled: true,
+      reasoningMaxTokens: 8000,
+      salvageReasoning: true,
+      stopSequences: ['Hinamori:'],
+    );
+    final doorbell = clerkSideLaneParams(mouth);
+    _expectEvalLane(doorbell);
+    expect(doorbell.prompt, mouth.prompt);
+    expect(doorbell.maxLength, isNot(mouth.maxLength));
+    expect(doorbell.temperature, isNot(mouth.temperature));
+    final follow = clerkFollowupParams(mouth, [
+      {'role': 'user', 'content': mouth.prompt},
+    ]);
+    _expectEvalLane(follow);
+    expect(follow.chatMessages, isNotNull);
   });
 
   test('no tool call is one generateWithTools and no clerk extras', () async {
@@ -138,17 +178,23 @@ void main() {
     final llm = _SeqLlm([const LlmToolResponse(calls: [], text: 'Hey there.')]);
     final round = await runCatalogRound(
       llm: llm,
-      params: const GenerationParams(prompt: 'Ash: hi\nHinamori:'),
+      params: const GenerationParams(
+        prompt: 'Ash: hi\nHinamori:',
+        maxLength: 32000,
+        temperature: 1.2,
+        reasoningEnabled: true,
+        reasoningMaxTokens: 8000,
+      ),
       catalog: _wikiCatalog(),
       search: _deadSearch(),
       wiki: _wiki(fetched),
     );
     expect(llm.generateWithToolsCalls, 1);
     expect(round.dispatchRounds, 0);
-    expect(round.spokenText, 'Hey there.');
     expect(round.injection, isNull);
     expect(fetched, isEmpty);
-    expect(llm.paramsSeen.single.chatMessages, isNull);
+    _expectEvalLane(llm.paramsSeen.single);
+    expect(llm.paramsSeen.single.chatMessages, isNotNull);
   });
 
   test(
@@ -176,8 +222,9 @@ void main() {
       );
       expect(round.dispatchRounds, 1);
       expect(llm.generateWithToolsCalls, 2);
-      expect(round.spokenText, isNull, reason: 'clerk never writes the bubble');
       expect(round.injection, contains('Aizen shikai'));
+      _expectEvalLane(llm.paramsSeen[0]);
+      _expectEvalLane(llm.paramsSeen[1]);
       expect(
         fetched.any((u) => u.queryParameters['action'] == 'parse'),
         isTrue,
@@ -223,9 +270,11 @@ void main() {
     );
     expect(round.dispatchRounds, 2);
     expect(llm.generateWithToolsCalls, 3);
-    expect(round.spokenText, isNull);
     expect(round.injection, contains('Aizen'));
     expect(round.injection, contains('Hinamori'));
+    for (final p in llm.paramsSeen) {
+      _expectEvalLane(p);
+    }
   });
 
   test('the same tool+args twice is not a second book', () async {
@@ -259,7 +308,6 @@ void main() {
     );
     expect(round.dispatchRounds, 1);
     expect(llm.generateWithToolsCalls, 2);
-    expect(round.spokenText, isNull);
     expect(
       fetched.where((u) => u.queryParameters['list'] == 'search').length,
       1,
@@ -280,7 +328,6 @@ void main() {
     expect(round.dispatchRounds, 3);
     expect(llm.generateWithToolsCalls, 3);
     expect(llm.queries, ['query-1', 'query-2', 'query-3']);
-    expect(round.spokenText, isNull);
     expect(round.injection, contains('query-1'));
     expect(round.injection, contains('query-2'));
     expect(round.injection, contains('query-3'));
@@ -301,6 +348,25 @@ void main() {
     );
     expect(request, contains('shouldAdvertiseWikiSearch'));
     expect(request, contains('generateStream(genParams)'));
+    expect(request, isNot(contains('spokenText')));
     expect(request, isNot(contains("tool_choice': 'required'")));
+  });
+
+  test('fireLLMEval and clerk share kEvalLaneMaxLength', () {
+    final eval = File(
+      'lib/services/chat/llm_eval_engine.dart',
+    ).readAsStringSync();
+    expect(eval, contains('evalLaneParams('));
+    expect(eval, isNot(contains('maxLength: 4000')));
+    expect(eval, isNot(contains('maxLength:4000')));
+    expect(kEvalLaneMaxLength, 4000);
+    final clerk = File(
+      'lib/services/chat/catalog_clerk.dart',
+    ).readAsStringSync();
+    expect(clerk, contains('evalLaneParams('));
+    expect(clerk, contains('salvageReasoning: false'));
+    expect(clerk, isNot(contains('resolveMaxLength')));
+    expect(clerk, isNot(contains('resolveTemperature')));
+    expect(clerk, isNot(contains('resolveReasoning')));
   });
 }

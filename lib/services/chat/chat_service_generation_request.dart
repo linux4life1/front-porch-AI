@@ -197,10 +197,10 @@ extension ChatServiceGenerationRequest on ChatService {
     // Unified tools catalog: in-process web_search / wiki_search plus user
     // recipe cards from <library>/tools/. Continue / autonomous / xml-only
     // skip the round-trip. Regen is a new try (directUserSend). Tools ride
-    // the *character* prompt. No call → spoken tools text is the bubble
-    // (clerk does not run). A ring → clerk loop (cap 3 dispatches), one
-    // collated scrap, then stream without tools. Clerk never writes the
-    // bubble.
+    // the *character* prompt. Doorbell/clerk use the eval side lane
+    // (not user max-gen / thinking). A ring → clerk loop (cap 3), one
+    // collated scrap, then mouth-stream with full character params.
+    // No ring → discard doorbell speech and mouth-stream the same way.
     final globalDefault = _storageService.webSearchSettings.webSearchDefault;
     final xmlOnly = _toolProbe.isXmlOnly(_evalBackendIdentity);
     final includeSearch = shouldAdvertiseWebSearch(
@@ -259,21 +259,16 @@ extension ChatServiceGenerationRequest on ChatService {
       t.searchReceipt = round.searchReceipt;
       t.toolReceipt = round.toolReceipt;
       final injection = round.injection;
-      final spoken = round.spokenText;
       if (injection != null && injection.isNotEmpty) {
         t.plan.section('web_search').text = injection;
         genParams = paramsOf(t.plan.userText);
         debugPrint('[Tools] dispatch inject+stream (in-character reply)');
-        t.stream = llmService.generateStream(genParams);
-      } else if (spoken != null && spoken.isNotEmpty) {
-        debugPrint('[Tools] dispatch spoken tools text (no second trip)');
-        t.stream = Stream<String>.value(spoken);
       } else {
         debugPrint(
           '[Tools] dispatch no tool result — stream in-character reply',
         );
-        t.stream = llmService.generateStream(genParams);
       }
+      t.stream = llmService.generateStream(genParams);
     } else {
       t.stream = llmService.generateStream(genParams);
     }

@@ -18,6 +18,7 @@
 
 import 'dart:convert';
 
+import 'package:front_porch_ai/services/chat/eval_lane_params.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 
 /// Hard cap on advertised tool dispatches per character turn (doorbell
@@ -52,44 +53,31 @@ String? collateCatalogInjections(Iterable<String> parts) {
   return joined.substring(0, kClerkCollateCharCap).trim();
 }
 
-/// Cheap follow-up params: same prompt/samplers, no thinking, messages
-/// carry the tool transcript. Doorbell params are left untouched.
+/// Doorbell + clerk: the [evalLaneParams] block, never user samplers.
+/// Prompt / system / messages / images stay so tools still see the turn.
+/// [salvageReasoning] is off — tool picks are not the Thought chip.
+GenerationParams clerkSideLaneParams(
+  GenerationParams mouth, {
+  List<Map<String, Object>>? messages,
+}) {
+  return evalLaneParams(
+    prompt: mouth.prompt,
+    salvageReasoning: false,
+    systemPrompt: mouth.systemPrompt,
+    chatMessages: messages ?? mouth.chatMessages,
+    images: mouth.images,
+    toolChoice: mouth.toolChoice,
+    stillWantTools: mouth.stillWantTools,
+    backendIdentity: mouth.backendIdentity,
+  );
+}
+
+/// Follow-up after a ring: same eval lane, messages carry the tool
+/// transcript.
 GenerationParams clerkFollowupParams(
   GenerationParams base,
   List<Map<String, Object>> messages,
-) {
-  return GenerationParams(
-    prompt: base.prompt,
-    maxLength: base.maxLength,
-    minLength: base.minLength,
-    temperature: base.temperature,
-    repeatPenalty: base.repeatPenalty,
-    topP: base.topP,
-    minP: base.minP,
-    topK: base.topK,
-    dryMultiplier: base.dryMultiplier,
-    repPenTokens: base.repPenTokens,
-    dynatempRange: base.dynatempRange,
-    xtcThreshold: base.xtcThreshold,
-    xtcProbability: base.xtcProbability,
-    stopSequences: base.stopSequences,
-    reasoningEnabled: false,
-    reasoningEffort: base.reasoningEffort,
-    reasoningMaxTokens: 0,
-    salvageReasoning: false,
-    bannedPhrases: base.bannedPhrases,
-    systemPrompt: base.systemPrompt,
-    grammar: base.grammar,
-    banEosToken: base.banEosToken,
-    trimStop: base.trimStop,
-    images: base.images,
-    toolChoice: base.toolChoice,
-    onChunk: base.onChunk,
-    stillWantTools: base.stillWantTools,
-    backendIdentity: base.backendIdentity,
-    chatMessages: messages,
-  );
-}
+) => clerkSideLaneParams(base, messages: messages);
 
 Map<String, Object> clerkAssistantToolCallMessage({
   required LlmToolCall call,

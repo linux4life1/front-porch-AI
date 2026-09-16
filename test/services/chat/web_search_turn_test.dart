@@ -25,6 +25,8 @@
 //   * skip HTTP on a cache miss → httpCalls stays 0
 //   * Continue still advertising tools → continueToolsCalls > 0
 //   * regen advertising the tool → generateWithToolsCalls increments
+//   * clerk inheriting user maxLength/temperature → eval-lane asserts go red
+//   * no-tool path skipping generateStream → streamPrompts empty (old bubble)
 
 import 'dart:convert';
 import 'dart:io';
@@ -56,11 +58,13 @@ class _ScriptedLlm extends LLMService {
   String? searchQuery = 'Wandenreich Bleach';
   final List<List<Map<String, dynamic>>> toolsPayloads = [];
   final List<GenerationParams> toolsParams = [];
+  final List<GenerationParams> streamParams = [];
   final List<String> streamPrompts = [];
   int generateWithToolsCalls = 0;
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
+    streamParams.add(params);
     streamPrompts.add(params.prompt);
     if (params.systemPrompt != null) {
       yield replyText;
@@ -136,6 +140,9 @@ void main() {
           ..setCharacterRepository(CharacterRepository(db, storage))
           ..testLlmServiceOverride = llm;
     await storage.initialized;
+    await storage.setMaxLength(32000);
+    await storage.setTemperature(1.2);
+    await storage.setReasoningEnabled(true);
     await storage.webSearchSettings.setSearchApiKey('bs-test');
     await storage.webSearchSettings.setWebSearchDefault(true);
     chat.webSearchService.fetch = (uri, key) async {
@@ -156,6 +163,25 @@ void main() {
     chat.dispose();
     await db.close();
   });
+
+  GenerationParams? catalogParams() {
+    for (var i = 0; i < llm.toolsPayloads.length; i++) {
+      final names = [
+        for (final t in llm.toolsPayloads[i])
+          (t['function'] as Map?)?['name'] as String?,
+      ];
+      if (names.contains(kWebSearchToolName)) return llm.toolsParams[i];
+    }
+    return null;
+  }
+
+  GenerationParams? mouthParams() {
+    for (var i = llm.streamParams.length - 1; i >= 0; i--) {
+      final p = llm.streamParams[i];
+      if (p.systemPrompt != null && p.systemPrompt!.isNotEmpty) return p;
+    }
+    return null;
+  }
 
   CharacterCard card() => CharacterCard(
     name: 'Mara',
@@ -216,6 +242,18 @@ void main() {
       final receipt = reply.activeMetadata?['search_receipt'];
       expect(receipt, isNotNull, reason: 'receipt chip rides the reply');
       expect((receipt as Map)['query'], contains('Wandenreich'));
+      final clerk = catalogParams();
+      expect(clerk, isNotNull, reason: 'doorbell is the web_search trip');
+      expect(clerk!.maxLength, kEvalLaneMaxLength);
+      expect(clerk.temperature, kEvalLaneTemperature);
+      final mouth = mouthParams();
+      expect(mouth, isNotNull);
+      expect(
+        mouth!.maxLength,
+        32000,
+        reason: 'after inject the mouth keeps the user max-gen slider',
+      );
+      expect(mouth.temperature, 1.2);
     },
   );
 
@@ -267,17 +305,7 @@ void main() {
       await drainTurn();
 
       expect(llm.toolsParams, isNotEmpty, reason: 'tools round-trip must fire');
-      GenerationParams? searchParams;
-      for (var i = 0; i < llm.toolsPayloads.length; i++) {
-        final names = [
-          for (final t in llm.toolsPayloads[i])
-            (t['function'] as Map?)?['name'] as String?,
-        ];
-        if (names.contains(kWebSearchToolName)) {
-          searchParams = llm.toolsParams[i];
-          break;
-        }
-      }
+      final searchParams = catalogParams();
       expect(
         searchParams,
         isNotNull,
@@ -308,6 +336,13 @@ void main() {
         searchParams.systemPrompt?.toLowerCase() ?? '',
         isNot(contains('silent lookup check')),
       );
+      expect(searchParams.maxLength, kEvalLaneMaxLength);
+      expect(searchParams.temperature, kEvalLaneTemperature);
+      expect(searchParams.topP, kEvalLaneTopP);
+      expect(searchParams.reasoningEnabled, isFalse);
+      expect(searchParams.reasoningMaxTokens, 0);
+      expect(searchParams.salvageReasoning, isFalse);
+      expect(searchParams.stopSequences, isEmpty);
       expect(
         llm.streamPrompts.any(
           (p) =>
@@ -319,7 +354,7 @@ void main() {
     },
   );
 
-  test('no tool call uses the spoken tools text (no second trip)', () async {
+  test('no tool call discards doorbell speech and mouth-streams', () async {
     llm.searchQuery = null;
     llm.replyText = 'Hey there.';
     await chat.setActiveCharacter(card());
@@ -328,13 +363,38 @@ void main() {
 
     expect(
       llm.streamPrompts,
-      isEmpty,
+      isNotEmpty,
       reason:
-          'when generateWithTools already returned spoken text and no '
-          'web_search call, do not pay a second empty RP completion',
+          'no advertised tool — discard doorbell text and mouth-stream '
+          'with full character params (Thought chips live here)',
     );
     expect(chat.messages.last.isUser, isFalse);
     expect(chat.messages.last.text, contains('Hey there'));
+    final clerk = catalogParams();
+    expect(clerk, isNotNull, reason: 'doorbell still rings generateWithTools');
+    expect(clerk!.maxLength, kEvalLaneMaxLength);
+    expect(clerk.temperature, kEvalLaneTemperature);
+    expect(clerk.topP, kEvalLaneTopP);
+    expect(clerk.repeatPenalty, kEvalLaneRepeatPenalty);
+    expect(clerk.reasoningEnabled, isFalse);
+    expect(clerk.reasoningMaxTokens, 0);
+    expect(clerk.salvageReasoning, isFalse);
+    expect(clerk.stopSequences, isEmpty);
+    expect(
+      clerk.maxLength,
+      isNot(32000),
+      reason: 'clerk must not read the user max-gen slider',
+    );
+    expect(
+      clerk.temperature,
+      isNot(1.2),
+      reason: 'clerk must not read the user temperature slider',
+    );
+    final mouth = mouthParams();
+    expect(mouth, isNotNull);
+    expect(mouth!.maxLength, 32000);
+    expect(mouth.temperature, 1.2);
+    expect(mouth.reasoningEnabled, isTrue);
   });
 
   test('regen is a new try and may advertise search', () async {

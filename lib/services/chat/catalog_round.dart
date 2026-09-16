@@ -38,7 +38,6 @@ class CatalogRound {
     this.searchReceipt,
     this.wikiReceipt,
     this.toolReceipt,
-    this.spokenText,
     this.scrap = '',
     this.dispatchRounds = 0,
   });
@@ -47,10 +46,6 @@ class CatalogRound {
   final Map<String, dynamic>? searchReceipt;
   final Map<String, dynamic>? wikiReceipt;
   final Map<String, dynamic>? toolReceipt;
-
-  /// Spoken character text from the doorbell `generateWithTools` when no
-  /// advertised tool fired. After a ring the clerk's text is discarded.
-  final String? spokenText;
 
   /// Unwrapped clip for the clerk's tool-result row. Empty on a miss.
   final String scrap;
@@ -61,11 +56,11 @@ class CatalogRound {
 
 /// Doorbell `generateWithTools` plus a clerk loop after she rings.
 ///
-/// No advertised call → spoken tools text (the bubble) and zero extra
-/// trips. A ring dispatches (wiki parse / Tavily / recipe card), then up
-/// to [kClerkMaxDispatchRounds] advertised dispatches total. Clerk
-/// follow-ups never become the bubble: collate one scrap and the mouth
-/// streams without tools.
+/// Every trip uses [clerkSideLaneParams] (eval-lane budget, no thinking).
+/// No advertised call → discard doorbell speech; the mouth streams with
+/// full character params. A ring dispatches, then up to
+/// [kClerkMaxDispatchRounds] advertised dispatches. Clerk text never
+/// becomes the bubble: collate one scrap and the mouth streams.
 Future<CatalogRound> runCatalogRound({
   required LLMService llm,
   required GenerationParams params,
@@ -82,7 +77,7 @@ Future<CatalogRound> runCatalogRound({
   debugPrint(
     '[Tools] catalog round backend=${llm.backendName} '
     'tools=${[for (final t in catalog.tools) t.name]} '
-    'reasoning=${params.reasoningEnabled}',
+    'sideLane',
   );
 
   final messages = <Map<String, Object>>[
@@ -96,13 +91,10 @@ Future<CatalogRound> runCatalogRound({
   Map<String, dynamic>? wikiReceipt;
   Map<String, dynamic>? toolReceipt;
   var dispatchRounds = 0;
-  String? spokenText;
   final seenCalls = <String>{};
 
   for (var trip = 0; trip < kClerkMaxDispatchRounds; trip++) {
-    final tripParams = trip == 0
-        ? params
-        : clerkFollowupParams(params, messages);
+    final tripParams = clerkSideLaneParams(params, messages: messages);
     if (trip > 0) {
       debugPrint('[Clerk] follow-up trip=$trip dispatches=$dispatchRounds');
     }
@@ -137,18 +129,11 @@ Future<CatalogRound> runCatalogRound({
       );
     }
     if (call == null || entry == null) {
-      final text = resp.text.trim();
-      if (dispatchRounds == 0) {
-        debugPrint(
-          '[Tools] no advertised tool call — '
-          '${text.isEmpty ? 'will stream in-character reply' : 'using spoken tools text'}',
-        );
-        spokenText = text.isEmpty ? null : text;
-      } else {
-        debugPrint(
-          '[Clerk] no further tool — discard clerk text, stream the mouth',
-        );
-      }
+      debugPrint(
+        dispatchRounds == 0
+            ? '[Tools] no advertised tool call — discard doorbell, stream the mouth'
+            : '[Clerk] no further tool — discard clerk text, stream the mouth',
+      );
       break;
     }
     final sig = '${call.name}|${jsonEncode(call.arguments)}';
@@ -193,7 +178,6 @@ Future<CatalogRound> runCatalogRound({
     searchReceipt: searchReceipt,
     wikiReceipt: wikiReceipt,
     toolReceipt: toolReceipt,
-    spokenText: spokenText,
     dispatchRounds: dispatchRounds,
   );
 }

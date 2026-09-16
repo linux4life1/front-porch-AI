@@ -22,6 +22,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/eval_lane_params.dart';
 import 'package:front_porch_ai/services/chat/eval_traffic.dart';
 import 'package:front_porch_ai/services/chat/needs_impact_zero.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
@@ -68,7 +69,7 @@ const double kScalarEvalRepeatPenalty = 1.0;
 
 /// Plain (non-ChangeNotifier) domain service owning the central LLM eval
 /// firing (_fireLLMEval with full streaming + retry loop + cancel support,
-/// fixed params maxLength:4000 / temp 0.1 / reasoningEnabled:false / stop: []),
+/// [evalLaneParams] / [kEvalLaneMaxLength] / temp 0.1 / no reasoning / empty stop),
 /// the tiny _extractJsonInt/_extractJsonBool helpers, the central
 /// _stripThinkBlocks (handles completed + unclosed &lt;think&gt; prefix).
 /// (The 5 realism eval prompt builders + call methods (relationship, emotional,
@@ -401,7 +402,7 @@ class LlmEvalEngine {
   Future<String?> fireLLMEval(
     String prompt, {
     void Function(String)? onChunk,
-    double repeatPenalty = 1.15,
+    double repeatPenalty = kEvalLaneRepeatPenalty,
     // For the [EvalTraffic] tally only. Coarse where a closure is shared
     // (the realism judges + scene time all ride one wiring closure as
     // 'realism'; their per-kind detail is in the [Realism:*] logs), precise
@@ -428,24 +429,13 @@ class LlmEvalEngine {
       if (!llm.isReady) return null;
     }
 
-    final params = GenerationParams(
+    // Shared eval-lane block ([kEvalLaneMaxLength] / temp 0.1 / no
+    // thinking). Clerk doorbell uses the same helper. Salvage stays ON
+    // here: mandatory-reasoning models park JSON in the think channel.
+    final params = evalLaneParams(
       prompt: prompt,
-      maxLength: 4000,
-      temperature: 0.1,
       repeatPenalty: repeatPenalty,
-      topP: 0.5,
-      xtcProbability: 0.0,
-      reasoningEnabled: false,
-      // Force thinking OFF on remote ":thinking" models (Kimi K2.6, DeepSeek
-      // hybrids, etc.): the reasoning-disable block is only sent when a
-      // reasoning field is set, so evals must set this or the model reasons
-      // through every eval — slow, costly, and a source of flaky/empty
-      // structured replies. 0 → {enabled:false, max_tokens:0, exclude:true}.
-      reasoningMaxTokens: 0,
-      // Mandatory-reasoning models park the JSON in the think channel.
-      // Salvage it; exclude:true would drop it (Kimi 2.6, 2026-08-15).
       salvageReasoning: true,
-      stopSequences: const [],
     );
 
     if (effectiveIsLocal) {

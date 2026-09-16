@@ -1,8 +1,14 @@
+## 2026-09-16 — Clerk / doorbell uses eval-lane GenerationParams
+- **Why:** Catalogue tool trips were inheriting the character's max-gen / thinking sliders (or a "clerk-ish" cap). That burns the spoken turn's budget and lets the retrieval sub-agent sample like creative speech — it invents facts. Doorbell text was also becoming the bubble when she did not ring, so Thought chips never attached.
+- **What:** Shared `evalLaneParams` (`kEvalLaneMaxLength` 4000, temp 0.1, top-P 0.5, no reasoning, empty stop). `fireLLMEval` and doorbell/clerk both use it. Clerk sets `salvageReasoning: false`. No resolveMaxLength / user samplers on the clerk lane. No-tool path discards doorbell speech and always mouth-streams with full character params.
+- **Files:** `eval_lane_params.dart`, `llm_eval_engine.dart`, `catalog_clerk.dart`, `catalog_round.dart`, `chat_service_generation_request.dart`, catalog/web-search tests
+- **Commit:** (this commit)
+
 ## 2026-09-16 — Session-reload prefs harness + Growth salience kick
 - **Why:** `database_rebind_session_reload_test` constructed a real `StorageService` with no SharedPreferences mock; `_init` is fire-and-forget and threw `MissingPluginException` after the test completed. Growth Rings E2E waited 8 minutes at `growthPassRequests=0` — Journal still fires from `hasSalientEvent` on the stamped message, but Growth only reads `eventKickPending`, and bond/trust/repair/chance writes never armed that flag.
 - **What:** Session-reload uses `SharedPreferences.setMockInitialValues` plus `StorageService.sandbox` and awaits `initialized`. Pending realism writes go through `_writePendingRealismMetadata` → `_requestSalienceKick` (same gate quests/promises already used). Regen critique confirm untouched.
 - **Files:** `database_rebind_session_reload_test.dart`, `journal_physics.dart`, `chat_service_growth.dart`, wiring evals/memory/realism, `chat_service_realism_evals.dart`, `salience_kick_from_pending_test.dart`
-- **Commit:** (this commit)
+- **Commit:** f678046c
 
 ## 2026-09-16 — Regen E2E dialog + SetupStep golden hang
 - **Why:** Tapping Regenerate opened a note dialog and never called the backend — E2E waited 8 minutes. SetupStep goldens still constructed a real StorageService, which awaits secure-storage on init and hung 10 minutes on CI.
