@@ -46,6 +46,37 @@ export function workerBackendIsOff(workerBackend: string): boolean {
   return workerBackend.trim() === '';
 }
 
+function resolvedLaneUrl(backend: string, url: string): string {
+  if (backend === 'omlx') return 'http://localhost:8000/v1';
+  if (backend === 'kobold') return '';
+  return url.trim();
+}
+
+/** Same provider/URL family as chat speech. Empty worker inherits the mouth. */
+export function workerHostMatchesChat(
+  mouthType: string,
+  mouthUrl: string,
+  workerType: string,
+  workerUrl: string,
+): boolean {
+  if (workerBackendIsOff(workerType)) return true;
+  if (mouthType.trim() !== workerType.trim()) return false;
+  if (mouthType === 'kobold') return true;
+  return resolvedLaneUrl(mouthType, mouthUrl) ===
+    resolvedLaneUrl(workerType, workerUrl);
+}
+
+/** Second key only when the host differs and that host has no saved key. */
+export function workerShowsApiKeyField(opts: {
+  sameHost: boolean;
+  needsKey: boolean;
+  vaultHasKey: boolean;
+}): boolean {
+  if (opts.sameHost) return false;
+  if (!opts.needsKey) return false;
+  return !opts.vaultHasKey;
+}
+
 export function workerPairAllowed(
   mouthType: string,
   mouthUrl: string,

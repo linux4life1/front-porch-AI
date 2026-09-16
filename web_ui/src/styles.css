@@ -132,6 +132,23 @@ label input { margin-top: 6px; }
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
 }
+.side-jobs {
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);
+}
+.side-jobs h4 { margin: 0 0 6px; font-size: 1rem; }
+.side-jobs-seg {
+  display: flex; gap: 8px; margin: 10px 0;
+}
+.side-jobs-seg button {
+  flex: 1; border-radius: 999px; padding: 8px 10px; font-size: 0.85rem;
+  font-weight: 600; border: 1px solid var(--border); cursor: pointer;
+}
+.side-jobs-seg .seg-on {
+  background: var(--accent); color: #1a1200; border-color: var(--accent);
+}
+.side-jobs-seg .seg-off {
+  background: var(--surface-2); color: var(--muted);
+}
 
 /* ── Auth screens ─────────────────────────────────────────────── */
 .auth-screen { display: grid; place-items: center; min-height: 100%; padding: 20px; }

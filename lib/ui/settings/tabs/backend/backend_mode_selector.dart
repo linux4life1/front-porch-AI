@@ -27,15 +27,19 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 
 /// Host switcher for the Backend tab. Same one-row bar as Model Settings.
+/// [config] is the chat URL/key/model stack — it stays in this card so
+/// nothing (Side jobs, OpenCode) can wedge between chips and the key.
 class BackendModeSelector extends StatelessWidget {
   const BackendModeSelector({
     super.key,
     required this.apiUrlController,
     required this.apiKeyController,
+    this.config,
   });
 
   final TextEditingController apiUrlController;
   final TextEditingController apiKeyController;
+  final Widget? config;
 
   @override
   Widget build(BuildContext context) {
@@ -54,9 +58,10 @@ class BackendModeSelector extends StatelessWidget {
     );
 
     return Column(
+      key: const Key('chat-speech-section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader('Backend Mode'),
+        const SectionHeader('Chat speech'),
         const SizedBox(height: 8),
         // Intel Mac warning banner.
         if (backendManager.isIntelMac) ...[
@@ -139,6 +144,7 @@ class BackendModeSelector extends StatelessWidget {
                   'for a URL that is not OpenRouter, Nano-GPT, or LM Studio.',
                   style: theme.textTheme.bodySmall?.copyWith(color: muted),
                 ),
+              if (config != null) ...[const SizedBox(height: 16), config!],
             ],
           ),
         ),

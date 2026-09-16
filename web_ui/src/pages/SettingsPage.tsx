@@ -327,8 +327,8 @@ export function SettingsPage() {
 
       <PorchLifeSettings />
 
-      <section className="card">
-        <h3>Model &amp; backend</h3>
+      <section className="card" data-testid="chat-speech-card">
+        <h3>Chat speech</h3>
         <label>
           Backend
           <select value={selectedId} onChange={(e) => onBackendChange(e.target.value)}>
@@ -338,13 +338,6 @@ export function SettingsPage() {
           </select>
         </label>
         <p className="muted small">Loaded model: <strong>{s.loadedModel}</strong> · context {s.contextSize}</p>
-
-        <WorkerBackendCard
-          s={s}
-          workerApiKey={workerApiKey}
-          onWorkerApiKey={setWorkerApiKey}
-          onPatch={patch}
-        />
 
         {isManagedLocal && (
           <p className="muted small">
@@ -359,12 +352,47 @@ export function SettingsPage() {
               <label>
                 API URL
                 <input
+                  data-testid="chat-api-url"
                   value={s.remoteApiUrl}
                   onChange={(e) => patch({ remoteApiUrl: e.target.value })}
                   placeholder="https://your-server.example/v1"
                 />
               </label>
             )}
+            {showKeyField && (
+              <label>
+                API key
+                <input
+                  data-testid="chat-api-key"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={
+                    urlHasStoredApiKey(s.remoteApiUrl, s.remoteApiUrlsWithKeys)
+                      ? '•••••• (leave blank to keep)'
+                      : 'paste your API key'
+                  }
+                />
+              </label>
+            )}
+            <div className="test-conn-row">
+              <RemoteReachabilityBadge
+                configured={s.remoteConfigured ?? s.hasApiKey}
+                reachability={s.remoteReachability}
+              />
+              <button
+                className="ghost"
+                onClick={testConnection}
+                disabled={testing || (previewNeedsStepUp && !password)}
+              >
+                {testing ? 'Testing…' : 'Test connection'}
+              </button>
+              {testMsg && (
+                <span className={`test-conn-msg${testMsg.toLowerCase().includes('success') ? ' ok' : ' bad'}`}>
+                  {testMsg}
+                </span>
+              )}
+            </div>
             <label>
               Model
               <ModelPicker
@@ -414,41 +442,21 @@ export function SettingsPage() {
                 }}
               />
             </label>
-            {showKeyField && (
-              <label>
-                API key
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={
-                    urlHasStoredApiKey(s.remoteApiUrl, s.remoteApiUrlsWithKeys)
-                      ? '•••••• (leave blank to keep)'
-                      : 'paste your API key'
-                  }
-                />
-              </label>
-            )}
-            <div className="test-conn-row">
-              <RemoteReachabilityBadge
-                configured={s.remoteConfigured ?? s.hasApiKey}
-                reachability={s.remoteReachability}
-              />
-              <button
-                className="ghost"
-                onClick={testConnection}
-                disabled={testing || (previewNeedsStepUp && !password)}
-              >
-                {testing ? 'Testing…' : 'Test connection'}
-              </button>
-              {testMsg && (
-                <span className={`test-conn-msg${testMsg.toLowerCase().includes('success') ? ' ok' : ' bad'}`}>
-                  {testMsg}
-                </span>
-              )}
-            </div>
           </>
         )}
+
+        <WorkerBackendCard
+          s={s}
+          workerApiKey={workerApiKey}
+          onWorkerApiKey={setWorkerApiKey}
+          onPatch={patch}
+          savedRemoteApiUrl={savedRemoteApiUrl}
+          chatApiKey={apiKey}
+          currentPassword={password}
+          totpCode={totpCode}
+          totpEnabled={totpEnabled}
+          onTotpRequired={() => setTotpEnabled(true)}
+        />
       </section>
 
       <GenerationSettingsFields

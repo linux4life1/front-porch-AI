@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Worker fields without growing [StorageService] past the 1000-line ratchet.
@@ -46,6 +47,40 @@ const kWorkerDualLocalMessage =
 /// Empty [workerBackendType] means today's single-backend behavior.
 bool workerBackendIsOff(String workerBackendType) =>
     workerBackendType.trim().isEmpty;
+
+/// Same provider/URL family as chat speech. Empty worker inherits the mouth.
+bool workerHostMatchesChat({
+  required String mouthType,
+  required String mouthUrl,
+  required String workerType,
+  required String workerUrl,
+}) {
+  if (workerBackendIsOff(workerType)) return true;
+  final mouthKind = resolveRemoteProviderKind(
+    backendType: mouthType,
+    url: mouthUrl,
+  );
+  final workerKind = resolveRemoteProviderKind(
+    backendType: workerType,
+    url: workerUrl,
+  );
+  if (mouthKind != workerKind) return false;
+  if (mouthKind == RemoteProviderKind.kobold) return true;
+  return resolvedLaneApiUrl(workerType, workerUrl) ==
+      resolvedLaneApiUrl(mouthType, mouthUrl);
+}
+
+/// Second API key only when the worker host differs and that host has no vault
+/// key yet. Same-host reuses the chat key.
+bool workerShowsApiKeyField({
+  required bool sameHost,
+  required RemoteProviderKind workerKind,
+  required bool vaultHasKey,
+}) {
+  if (sameHost) return false;
+  if (!remoteProviderNeedsApiKey(workerKind)) return false;
+  return !vaultHasKey;
+}
 
 /// URL used for locality and identity. oMLX is a fixed localhost host;
 /// Kobold is not a URL backend.
