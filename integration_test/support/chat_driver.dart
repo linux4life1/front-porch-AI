@@ -99,6 +99,17 @@ class ChatDriver {
     return f;
   }
 
+  /// Optional regen-note dialog. Blank + confirm is the product default
+  /// ("just try again"). Same class as Chance Time: a modal that waits for
+  /// the user, so every wait must clear it or regenerate never reaches the
+  /// fake backend.
+  Future<void> confirmRegenCritiqueIfAsked() async {
+    final confirm = find.byKey(const Key('regen-critique-confirm'));
+    if (confirm.evaluate().isEmpty) return;
+    await tester.tap(confirm.first, warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 250));
+  }
+
   /// If the Chance Time overlay is up, do what a user would: spin, let the
   /// wheel land, dismiss the result card (its single button pops the route).
   Future<void> spinChanceTimeIfAsked() async {
@@ -133,6 +144,7 @@ class ChatDriver {
     final deadline = DateTime.now().add(timeout);
     while (!condition()) {
       await spinChanceTimeIfAsked();
+      await confirmRegenCritiqueIfAsked();
       if (DateTime.now().isAfter(deadline)) {
         fail('Timed out after $timeout waiting for: ${describe()}');
       }
@@ -224,6 +236,7 @@ class ChatDriver {
   }) async {
     for (var attempt = 0; attempt < 8 && !done(); attempt++) {
       await spinChanceTimeIfAsked();
+      await confirmRegenCritiqueIfAsked();
       for (final target in targets) {
         if (target.evaluate().isEmpty) continue;
         try {
@@ -271,8 +284,9 @@ class ChatDriver {
     );
     while (!delivered() && DateTime.now().isBefore(deadline)) {
       await waitSendable();
-      // Clear any Chance Time modal BEFORE aiming at the send button.
+      // Clear any Chance Time / regen-note modal BEFORE aiming at send.
       await spinChanceTimeIfAsked();
+      await confirmRegenCritiqueIfAsked();
       await tester.enterText(input, text);
       final controller = tester.widget<TextField>(input).controller;
       if (controller != null && controller.text != text) {

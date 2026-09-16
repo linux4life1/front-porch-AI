@@ -28,8 +28,11 @@ library;
 //   SetupStep            — openRouter backend. LLMProvider is read at build
 //                          time (line 32 of setup_step.dart); the kobold
 //                          branch is skipped when
-//                          activeBackend == BackendType.openRouter, so only
-//                          FakeLLMProvider is needed.
+//                          activeBackend == BackendType.openRouter. A real
+//                          StorageService awaits flutter_secure_storage on
+//                          init (wiki key migrate) and that channel never
+//                          answers under the golden binding — 10-minute hang.
+//                          FakeStorageService + FakeLLMProvider only.
 //   GuidedConfigStep     — seeded CreatorState (guided mode). The sub-widget
 //                          GuidedOutputSettings embeds PersonaSelectorDropdown
 //                          which calls Provider.of<UserPersonaService> at
@@ -64,6 +67,7 @@ import 'package:front_porch_ai/ui/character_creator/steps/setup_step.dart';
 
 import '../support/creator_test_support.dart';
 import '../support/fakes.dart';
+import '../support/fakes_storage.dart';
 import '../support/golden_app.dart';
 
 CreatorState _seedState() {
@@ -105,7 +109,7 @@ void main() {
   testWidgets('SetupStep — openRouter backend (remote model section)', (
     tester,
   ) async {
-    final storage = await makeGoldenStorage();
+    final storage = FakeStorageService();
     addTearDown(storage.dispose);
     final llm = FakeLLMProvider(activeBackend: BackendType.openRouter);
     addTearDown(llm.dispose);
@@ -128,7 +132,7 @@ void main() {
       group: 'creator_steps_remaining',
       name: 'setup',
       surface: const Size(900, 760),
-      // Remote provider bar + FakeLLMProvider leave a ticker; don't hang settle.
+      // Cursor / ink tickers + no real StorageService init. Bounded pump.
       settle: false,
     );
   });

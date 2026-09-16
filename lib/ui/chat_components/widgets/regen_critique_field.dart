@@ -149,7 +149,12 @@ class _RegenCritiqueDialogState extends State<_RegenCritiqueDialog> {
       ),
       actions: [
         warmDialogCancel(context),
-        warmDialogConfirm(context, label: 'Regenerate', onPressed: _pop),
+        warmDialogConfirm(
+          context,
+          key: const Key('regen-critique-confirm'),
+          label: 'Regenerate',
+          onPressed: _pop,
+        ),
       ],
     );
   }

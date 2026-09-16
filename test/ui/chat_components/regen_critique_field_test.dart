@@ -136,6 +136,29 @@ void main() {
     expect(find.byKey(_fieldKey), findsNothing);
   });
 
+  testWidgets('blank confirm still starts regen', (tester) async {
+    String? got;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => promptRegenCritiqueThen(context, (c) {
+                got = c;
+              }),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('regen-critique-confirm')));
+    await tester.pumpAndSettle();
+    expect(got, '');
+  });
+
   testWidgets('dialog field is hittable when focused', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

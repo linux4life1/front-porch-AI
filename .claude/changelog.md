@@ -1,3 +1,9 @@
+## 2026-09-16 — Regen E2E dialog + SetupStep golden hang
+- **Why:** Tapping Regenerate opened a note dialog and never called the backend — E2E waited 8 minutes. SetupStep goldens still constructed a real StorageService, which awaits secure-storage on init and hung 10 minutes on CI.
+- **What:** E2E driver confirms a blank regen note (same as Chance Time). SetupStep golden uses FakeStorageService. Confirm button keyed. Mac opaque title bar already on this branch.
+- **Files:** `chat_driver.dart`, `regen_critique_field.dart`, `warm_dialog.dart`, `creator_steps_remaining_golden_test.dart`, `regen_critique_field_test.dart`
+- **Commit:** (this commit)
+
 ## 2026-09-16 — World from wiki goldens + linear jump
 - **Why:** Empty Worlds goldens still lacked the From Wiki header button. Phone step dots could jump to Review/Write without a scout or a signed shelf.
 - **What:** Regenerated world_management dark/light goldens. Jump helper now requires scouted cards for Review and signed cards for Write (Preview gate unchanged). Write Next stays disabled until something is signed.
