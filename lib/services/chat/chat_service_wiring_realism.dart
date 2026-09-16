@@ -39,6 +39,7 @@ extension ChatServiceWiringRealism on ChatService {
       onSetPendingRealismMetadata: (key, value) {
         _pendingRealismMetadata ??= {};
         _pendingRealismMetadata![key] = value;
+        _requestSalienceKick(onlyIf: _pendingRealismMetadata);
       },
       onStoryDayChanged: () {
         final held = todaySentence;
@@ -98,6 +99,7 @@ extension ChatServiceWiringRealism on ChatService {
       onSetPendingRealismMetadata: (key, value) {
         _pendingRealismMetadata ??= {};
         _pendingRealismMetadata![key] = value;
+        _requestSalienceKick(onlyIf: _pendingRealismMetadata);
       },
     );
   }

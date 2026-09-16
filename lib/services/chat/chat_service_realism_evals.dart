@@ -161,12 +161,12 @@ extension ChatServiceRealismEvals on ChatService {
       }
 
       // Surface verdict in message metadata so swipe history can record it
-      _pendingRealismMetadata = {
+      _writePendingRealismMetadata({
         ...?_pendingRealismMetadata,
         'trust_repair_verdict': verdict,
         'trust_repair_recovery': recovery,
         if (reason.isNotEmpty) 'trust_repair_reason': reason,
-      };
+      });
 
       _saveChat();
       notifyListeners();

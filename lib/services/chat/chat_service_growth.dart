@@ -135,6 +135,34 @@ extension ChatServiceGrowth on ChatService {
     await _growthService.runGrowthPass(force: true);
   }
 
+  /// One door for Journal + Growth immediacy. [onlyIf] is the pending
+  /// realism stamp: bond/trust/repair/chance must be salient or this is a
+  /// no-op. Omit [onlyIf] when the caller already knows (quest, promise).
+  /// The gate lives here so a hot scene cannot stack a second double-pass.
+  void _requestSalienceKick({Map<String, dynamic>? onlyIf}) {
+    if (onlyIf != null && !JournalPhysics.metadataIsSalient(onlyIf)) return;
+    if (!_growthService.salienceKickGate.allow(
+      sessionId: _currentSessionId,
+      messageCount: _messages.length,
+    )) {
+      debugPrint(
+        '[Journal] salient kick suppressed — within '
+        '$kSalienceKickMinGapMessages messages of the last one',
+      );
+      return;
+    }
+    _journalMaintenance.eventKickPending = true;
+    _growthService.eventKickPending = true;
+  }
+
+  /// Pending-metadata writes that can become salient (relationship eval,
+  /// trust repair, Chance Time) must go through here — a bare assignment
+  /// is how Growth sat at kickPending=false after a bond_delta 13 stamp.
+  void _writePendingRealismMetadata(Map<String, dynamic>? value) {
+    _pendingRealismMetadata = value;
+    _requestSalienceKick(onlyIf: value ?? const {});
+  }
+
   /// Check whether a growth pass is due and trigger it non-blockingly.
   /// Cadence (design §4.2): user messages since the growth cursor vs the
   /// growthInterval slider, PLUS a gated kick (onSalienceKick / quest

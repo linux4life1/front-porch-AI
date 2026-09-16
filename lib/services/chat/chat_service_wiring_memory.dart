@@ -228,10 +228,7 @@ extension ChatServiceWiringMemory on ChatService {
         return raw == null ? null : _llmEvalEngine.stripThinkBlocks(raw);
       },
       getMaxCards: () => _storageService.memorySettings.journalMaxCards,
-      onWaypoint: () {
-        _journalMaintenance.eventKickPending = true;
-        _growthService.eventKickPending = true;
-      },
+      onWaypoint: () => _requestSalienceKick(),
       onCacheWarmed: () {
         if (!_disposed) notifyListeners();
       },
@@ -261,24 +258,7 @@ extension ChatServiceWiringMemory on ChatService {
       applyBondDelta: (d) {
         if (_realismEnabled) _relationshipService.applyScoreDelta(d);
       },
-      onSalienceKick: () {
-        // Rate-limited (salience_kick_gate.dart): a hot scene clears the
-        // salience bar turn after turn, and every clear used to fire a full
-        // Journal AND Growth pass immediately. A suppressed kick just waits
-        // for the ordinary scheduled cadence.
-        if (!_growthService.salienceKickGate.allow(
-          sessionId: _currentSessionId,
-          messageCount: _messages.length,
-        )) {
-          debugPrint(
-            '[Journal] salient kick suppressed — within '
-            '$kSalienceKickMinGapMessages messages of the last one',
-          );
-          return;
-        }
-        _journalMaintenance.eventKickPending = true;
-        _growthService.eventKickPending = true;
-      },
+      onSalienceKick: () => _requestSalienceKick(),
       onCacheWarmed: () {
         if (!_disposed) notifyListeners();
       },

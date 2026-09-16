@@ -27,7 +27,7 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - 🛠️ **GLM 5.3 Journal and Growth keep their tools** — a think-budget of 0 is Off, and that model refuses Off. We stop sending 0 after it says so, instead of dumping tools and getting an empty XML round.
 
-- 🌳 **Growth Rings grow again on a hot scene** — a bond spike used to re-check every turn and only water the same two rings. Checks wait for the slider (or a real kick) so new rings can land and old ones can fade. Journal is unchanged.
+- 🌳 **Growth Rings grow again on a hot scene** — a bond spike used to re-check every turn and only water the same two rings. Checks wait for the slider (or a real kick) so new rings can land and old ones can fade. Journal is unchanged. A scored bond/trust spike now actually arms that kick — Growth was waiting the full slider because the flag never got set.
 
 - 🔎 **Reading Size is one knob for what you read** — bubbles, the chat input box, and message edit follow that slider. Sidebar stays put.
 
