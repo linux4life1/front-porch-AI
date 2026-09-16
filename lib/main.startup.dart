@@ -78,9 +78,11 @@ void _ignoreSigpipe() {
   try {
     // int signal(int signum, sighandler_t handler); SIG_IGN == (void*)1,
     // SIGPIPE == 13 on both macOS (Darwin) and Linux.
-    final signal = DynamicLibrary.process().lookupFunction<
-        Pointer<Void> Function(Int32, Pointer<Void>),
-        Pointer<Void> Function(int, Pointer<Void>)>('signal');
+    final signal = DynamicLibrary.process()
+        .lookupFunction<
+          Pointer<Void> Function(Int32, Pointer<Void>),
+          Pointer<Void> Function(int, Pointer<Void>)
+        >('signal');
     signal(13, Pointer<Void>.fromAddress(1));
   } catch (e) {
     debugPrint('Could not set SIG_IGN for SIGPIPE: $e');
@@ -198,14 +200,7 @@ Future<({AppDatabase db, bool needsMigration})?> _openDatabaseGuarded() async {
 
 Future<void> _showMainWindow() async {
   final forcedSize = WindowSizeEnv.sizeFromEnvironment();
-  final windowOptions = WindowOptions(
-    size: forcedSize ?? const Size(1280, 720),
-    center: true,
-    backgroundColor: Colors.transparent,
-    skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.normal,
-    title: 'Front Porch AI',
-  );
+  final windowOptions = mainWindowOptions(size: forcedSize);
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
     if (forcedSize != null) {
@@ -272,6 +267,13 @@ Future<void> _showMainWindow() async {
     await windowManager.show();
     await windowManager.focus();
     await windowManager.setPreventClose(true);
+    // waitUntilReadyToShow applies titleBarStyle *before* backgroundColor.
+    // Re-pin last so a later plugin cannot leave fullSizeContentView on.
+    // TitleBarStyle.normal is a no-op-shaped decorated window on Win/Linux.
+    await windowManager.setTitleBarStyle(
+      TitleBarStyle.normal,
+      windowButtonVisibility: true,
+    );
   });
   _mark('window shown (waitUntilReadyToShow)');
 }

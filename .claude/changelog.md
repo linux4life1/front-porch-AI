@@ -26,6 +26,19 @@
 - **Why:** wiki_search was MediaWiki `api.php` only. Neokosmos is a TiddlyWiki on GH Pages (~4.1MB notebook, path `/NeokosmosWiki/`), not Fandom. Origin-only canonicalize fetched the GitHub user site. Same picker, two backends; not a lore cloud and not a special `neokosmos_search` tool.
 - **What:** Detect MW host vs Tiddly tiddler store after `parseWikiBaseUrl`. Session-cached tiddler index. `wiki_search` still search; new `wiki_page` (title or page) opens the article, clipped to 3500, `wikiResultFragment`. Fandom `wiki_page` uses parse URI. Skip `$:/`, images, mp3, Media Library. 8MB Tiddly fetch cap. User-Agent `FrontPorchAI/wiki`. Debug `[Wiki]` / `[Tiddly]` / `[WikiPage]`. Catalog advertises `wiki_page` when a wiki URL is set.
 - **Files:** `tiddly_wiki.dart`, `wiki_search_service.dart`, `wiki_search_tools.dart`, `mediawiki_search.dart`, `catalog_round.dart`, `tool_catalog.dart`, `chat_service_generation_request.dart`, `web_search_settings.dart`, `wiki_page_tiddly_test.dart`, web picker labels
+## 2026-09-16 — fix(macos): opaque title bar after Flutter 3.47
+- **Why:** After the 3.47 Impeller/wide-gamut desktop default, the Mac title
+  bar went clear. Traffic lights sat on the same charcoal as the body.
+  `TitleBarStyle.normal` was already set; `WindowOptions.backgroundColor`
+  was `Colors.transparent`, and window_manager's macOS `setTitleBarStyle`
+  always writes `isOpaque = false`. Together that made AppKit treat the
+  title bar as a clear strip.
+- **What:** Opaque porch background + `TitleBarStyle.normal` via
+  `mainWindowOptions`. Native `MainFlutterWindow` refuses transparent
+  title bar / `fullSizeContentView`. Windows/Linux keep the same decorated
+  options. Not a sidebar-glow or wiki change.
+- **Files:** `lib/ui/window_chrome.dart`, `lib/main.startup.dart`,
+  `macos/Runner/MainFlutterWindow.swift`, `test/ui/window_chrome_test.dart`
 - **Commit:** (this commit)
 
 ## 2026-09-15 — Optional regen critique (reject reason)

@@ -10,6 +10,7 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 - 🌍 **World from Wiki** — a studio wizard that scouts a saved wiki (Fandom or Tiddly) and proposes a short shelf of cards — era, hub, leaf, crown — instead of one card per page. You sign the ones to write. Climate stays off unless you turn it on; if climate write misses, it stays off (no stock Temperate). Stop is on the write step. Needs a tool-calling model. Same on the phone.
 
 - 📖 **Neokosmos works in the same Wiki picker as Bleach** — paste a TiddlyWiki URL (GitHub Pages path is kept). She can search, then open a named page. Fandom / MediaWiki is unchanged.
+- 🪟 **Mac title bar is a real bar again** — after Flutter 3.47 the traffic lights were sitting on the same charcoal as the page. The native title strip is opaque. Windows and Linux stay a normal window.
 
 - 🔁 **Tell Regen why that take was wrong** — optional box on the last reply. Leave it empty and Regen is the same as today. Type a reason and she sees a short clip of the rejected take plus your note, then writes a new swipe. It is not a chat message and it is gone on the next turn. Same on the phone.
 
