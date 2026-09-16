@@ -1,8 +1,14 @@
+## 2026-09-16 — Fused one-shot: tools retry + tight recovery (still apply deltas)
+- **Why:** Nano + Kimi thinking fused `report_realism` often returned prose, then the text salvage path sent max_tokens 4000+16000. The model wrote a think novel; the between-chunk hang guard never tripped; the Realism spinner sat for 5+ minutes. Skipping deltas is not acceptable.
+- **What:** One-shot uses `fireFusedRealismEval`: tools, forced tools retry, then tight no-headroom text that stops at the first complete JSON. Think-dump / wall-clock abort that stream and recover with tools then JSON-only text. 75s fused budget. OneShot Done/fail logs ms. Clerk / mouth params unchanged.
+- **Files:** `fused_eval_fire.dart`, `eval_stream_guards.dart`, `llm_eval_engine.dart`, `realism_evals.one_shot.dart`, wiring, tests
+- **Commit:** (this commit)
+
 ## 2026-09-16 — Clerk / doorbell uses eval-lane GenerationParams
 - **Why:** Catalogue tool trips were inheriting the character's max-gen / thinking sliders (or a "clerk-ish" cap). That burns the spoken turn's budget and lets the retrieval sub-agent sample like creative speech — it invents facts. Doorbell text was also becoming the bubble when she did not ring, so Thought chips never attached.
 - **What:** Shared `evalLaneParams` (`kEvalLaneMaxLength` 4000, temp 0.1, top-P 0.5, no reasoning, empty stop). `fireLLMEval` and doorbell/clerk both use it. Clerk sets `salvageReasoning: false`. No resolveMaxLength / user samplers on the clerk lane. No-tool path discards doorbell speech and always mouth-streams with full character params.
 - **Files:** `eval_lane_params.dart`, `llm_eval_engine.dart`, `catalog_clerk.dart`, `catalog_round.dart`, `chat_service_generation_request.dart`, catalog/web-search tests
-- **Commit:** (this commit)
+- **Commit:** e9cdcdb7
 
 ## 2026-09-16 — Session-reload prefs harness + Growth salience kick
 - **Why:** `database_rebind_session_reload_test` constructed a real `StorageService` with no SharedPreferences mock; `_init` is fire-and-forget and threw `MissingPluginException` after the test completed. Growth Rings E2E waited 8 minutes at `growthPassRequests=0` — Journal still fires from `hasSalientEvent` on the stamped message, but Growth only reads `eventKickPending`, and bond/trust/repair/chance writes never armed that flag.

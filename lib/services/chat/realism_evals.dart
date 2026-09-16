@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/chat/llm_eval_engine.dart'
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/chat/fused_eval_fire.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_prompt_builder.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
@@ -138,6 +139,10 @@ class RealismEvals {
     void Function(String)? onChunk,
   })
   fireLLMEval;
+
+  /// Tight no-headroom text stream for fused one-shot recovery.
+  /// Null → [fireLLMEval] (tests). Production wires salvage off + 512 cap.
+  final FusedTightTextEval? fireTightEval;
 
   // ── Tool-calling transport (realism_tools.dart) ──
   // Tools are a reliable way to obtain the SAME JSON the evals have always
@@ -345,6 +350,7 @@ class RealismEvals {
 
   RealismEvals({
     required this.fireLLMEval,
+    this.fireTightEval,
     required this.fireToolEval,
     required this.probe,
     required this.getBackendIdentity,

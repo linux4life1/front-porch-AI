@@ -18,6 +18,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - 📖 **Looking something up does not spend her spoken thinking budget** — wiki and web tool picks use the same short, careful settings as Realism checks (not your max-gen or thinking sliders). Her actual line still uses those sliders. Same on the phone.
 
+- 🎭 **Thinking models no longer freeze the Realism spinner** — if a fused check starts rambling, we cut it and still update bond, trust, and mood. Same on the phone.
+
 - 📖 **Save as many wikis as you want** — Porch Life keeps a list (Bleach, One Punch Man, …). The chat sidebar Wiki picker chooses which one this chat uses, or none. A 1:1 pick is remembered for that character, so Sophia can default to Bleach and Mirin to One Punch Man.
 
 - 🧰 **Choose JSON recipe cards** — Porch Life has a Choose files button that copies `.json` cards into your library `tools` folder. Other file types stay out. Phone and browser still have no file picker there.

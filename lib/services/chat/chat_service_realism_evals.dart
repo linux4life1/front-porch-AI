@@ -40,11 +40,23 @@ extension ChatServiceRealismEvals on ChatService {
     void Function(String)? onChunk,
     double repeatPenalty = 1.15,
     String label = 'eval',
+    bool salvageReasoning = true,
+    int? maxLength,
+    Duration? wallClockTimeout,
+    bool abortClientOnStop = false,
+    bool Function(String accumulated)? stopWhen,
+    void Function()? onGuardAbort,
   }) => _llmEvalEngine.fireLLMEval(
     prompt,
     onChunk: onChunk,
     repeatPenalty: repeatPenalty,
     label: label,
+    salvageReasoning: salvageReasoning,
+    maxLength: maxLength,
+    wallClockTimeout: wallClockTimeout,
+    abortClientOnStop: abortClientOnStop,
+    stopWhen: stopWhen,
+    onGuardAbort: onGuardAbort,
   );
 
   String _stripThinkBlocks(String text) =>

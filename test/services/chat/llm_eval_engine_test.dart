@@ -44,6 +44,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
+import 'package:front_porch_ai/services/chat/eval_stream_guards.dart';
 import 'package:front_porch_ai/services/chat/llm_eval_engine.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
@@ -96,6 +97,8 @@ LlmEvalEngine createTestLlmEvalEngine({
   Stream<String> Function(GenerationParams)?
   streamFactory, // full stream override (hang/timeout tests)
   Duration? streamChunkTimeout,
+  Duration? wallClockTimeout,
+  int? thinkDumpCharCap,
   Map<String, dynamic>? pending,
   String emotion = '',
   String intensity = '',
@@ -151,6 +154,8 @@ LlmEvalEngine createTestLlmEvalEngine({
   );
   return LlmEvalEngine(
     streamChunkTimeout: streamChunkTimeout ?? kEvalStreamChunkTimeout,
+    wallClockTimeout: wallClockTimeout,
+    thinkDumpCharCap: thinkDumpCharCap ?? kEvalThinkDumpCharCap,
     getActiveCharacter: () => activeChar,
     getActiveGroup: () => activeGroup,
     getIsObserverMode: () => observer,
@@ -203,6 +208,70 @@ void main() {
         streamChunkTimeout: const Duration(milliseconds: 120),
       );
       final res = await e.fireLLMEval('p').timeout(const Duration(seconds: 10));
+      expect(res, isNull);
+    });
+
+    test(
+      'complete JSON stops the stream without waiting for more think',
+      () async {
+        var extra = 0;
+        final e = createTestLlmEvalEngine(
+          streamFactory: (_) async* {
+            yield '{"emotion":"calm","relationship_delta":0}';
+            extra++;
+            await Future<void>.delayed(const Duration(seconds: 30));
+            extra++;
+            yield '<think>novel';
+          },
+        );
+        final res = await e
+            .fireLLMEval('p')
+            .timeout(const Duration(seconds: 3));
+        expect(res, contains('"emotion":"calm"'));
+        expect(extra, 0, reason: 'must not wait for the think novel');
+      },
+    );
+
+    test(
+      'open think dump with no JSON returns null (fused recovers)',
+      () async {
+        final e = createTestLlmEvalEngine(
+          thinkDumpCharCap: 80,
+          streamFactory: (_) async* {
+            yield '<think>${'x' * 120}';
+          },
+        );
+        final res = await e
+            .fireLLMEval('p')
+            .timeout(const Duration(seconds: 3));
+        expect(res, isNull);
+      },
+    );
+
+    test('think-dump abort notifies onGuardAbort for fused recovery', () async {
+      var aborted = 0;
+      final e = createTestLlmEvalEngine(
+        thinkDumpCharCap: 80,
+        streamFactory: (_) async* {
+          yield '<think>${'x' * 120}';
+        },
+      );
+      final res = await e
+          .fireLLMEval('p', onGuardAbort: () => aborted++)
+          .timeout(const Duration(seconds: 3));
+      expect(res, isNull);
+      expect(aborted, 1);
+    });
+
+    test('wall-clock abort returns null so fused recovery can run', () async {
+      final e = createTestLlmEvalEngine(
+        wallClockTimeout: const Duration(milliseconds: 80),
+        streamFactory: (_) => Stream.periodic(
+          const Duration(milliseconds: 30),
+          (_) => '<think>drip ',
+        ),
+      );
+      final res = await e.fireLLMEval('p').timeout(const Duration(seconds: 3));
       expect(res, isNull);
     });
 

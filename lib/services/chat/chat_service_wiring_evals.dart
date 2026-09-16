@@ -289,6 +289,30 @@ extension ChatServiceWiringEvals on ChatService {
         repeatPenalty: kScalarEvalRepeatPenalty,
         label: 'realism',
       ),
+      fireTightEval: (prompt, {onChunk, wallClockTimeout}) async {
+        var aborted = false;
+        final raw = await _fireLLMEval(
+          prompt,
+          onChunk: onChunk,
+          repeatPenalty: kScalarEvalRepeatPenalty,
+          label: 'realism-fused',
+          salvageReasoning: false,
+          maxLength: kEvalRecoveryMaxLength,
+          wallClockTimeout: wallClockTimeout,
+          abortClientOnStop: true,
+          onGuardAbort: () => aborted = true,
+          stopWhen: (acc) =>
+              usableEvalJsonText(
+                _stripThinkBlocks(acc),
+                tools: kOneShotEvalTools,
+                toolChoice: kOneShotTool,
+                callToText: (resp) =>
+                    realismToolCallToJson(kOneShotTool, resp.calls),
+              ) !=
+              null,
+        );
+        return fusedTextFromRaw(raw, aborted: aborted);
+      },
       // Tools transport (realism_tools.dart): same door + probe memory the
       // Journal and Growth passes use, so a backend answers the "can you speak
       // tools?" question at most once per run across all three systems.

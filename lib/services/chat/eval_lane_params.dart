@@ -28,6 +28,7 @@ GenerationParams evalLaneParams({
   required String prompt,
   double repeatPenalty = kEvalLaneRepeatPenalty,
   bool salvageReasoning = true,
+  int maxLength = kEvalLaneMaxLength,
   String? systemPrompt,
   List<Map<String, Object>>? chatMessages,
   List<String>? images,
@@ -37,7 +38,7 @@ GenerationParams evalLaneParams({
 }) {
   return GenerationParams(
     prompt: prompt,
-    maxLength: kEvalLaneMaxLength,
+    maxLength: maxLength,
     minLength: 0,
     temperature: kEvalLaneTemperature,
     repeatPenalty: repeatPenalty,

@@ -310,7 +310,7 @@ bool _matchesEvalSchema(
   }
 }
 
-String? _usableEvalJsonText(
+String? usableEvalJsonText(
   String text, {
   required List<Map<String, dynamic>> tools,
   required String? toolChoice,
@@ -420,13 +420,13 @@ Future<String?> fireStructuredEval({
           return text;
         }
         final salvaged =
-            _usableEvalJsonText(
+            usableEvalJsonText(
               resp.text,
               tools: tools,
               toolChoice: toolChoice,
               callToText: callToText,
             ) ??
-            _usableEvalJsonText(
+            usableEvalJsonText(
               resp.reasoning,
               tools: tools,
               toolChoice: toolChoice,

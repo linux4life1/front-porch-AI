@@ -22,7 +22,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/chat/eval_lane_params.dart';
+import 'package:front_porch_ai/services/chat/eval_stream_guards.dart';
 import 'package:front_porch_ai/services/chat/eval_traffic.dart';
 import 'package:front_porch_ai/services/chat/needs_impact_zero.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
@@ -313,6 +315,13 @@ class LlmEvalEngine {
   /// See [kEvalConnectionDropSettle].
   final Duration connectionDropSettle;
 
+  /// Optional whole-call cap. Null = no wall-clock (chunk timeout only).
+  /// Fused one-shot passes the remaining [kFusedEvalBudget].
+  final Duration? wallClockTimeout;
+
+  /// Open-think dump cap. Null = [kEvalThinkDumpCharCap].
+  final int thinkDumpCharCap;
+
   LlmEvalEngine({
     required this.getActiveCharacter,
     required this.getActiveGroup,
@@ -327,6 +336,8 @@ class LlmEvalEngine {
     this.streamChunkTimeout = kEvalStreamChunkTimeout,
     this.emptyStreamSettle = kEvalEmptyStreamSettle,
     this.connectionDropSettle = kEvalConnectionDropSettle,
+    this.wallClockTimeout,
+    this.thinkDumpCharCap = kEvalThinkDumpCharCap,
     required this.getLlmService,
     required this.getIsLocal,
     required this.getKoboldService,
@@ -408,6 +419,13 @@ class LlmEvalEngine {
     // 'realism'; their per-kind detail is in the [Realism:*] logs), precise
     // where a pass has its own closure.
     String label = 'eval',
+    bool salvageReasoning = true,
+    int? maxLength,
+    Duration? wallClockTimeout,
+    int? thinkDumpCharCap,
+    bool Function(String accumulated)? stopWhen,
+    bool abortClientOnStop = false,
+    void Function()? onGuardAbort,
   }) async {
     final llm = getLlmService();
     // For remote backends, require full readiness (API key + model configured).
@@ -429,14 +447,21 @@ class LlmEvalEngine {
       if (!llm.isReady) return null;
     }
 
-    // Shared eval-lane block ([kEvalLaneMaxLength] / temp 0.1 / no
-    // thinking). Clerk doorbell uses the same helper. Salvage stays ON
-    // here: mandatory-reasoning models park JSON in the think channel.
+    // Shared eval-lane block. Fused one-shot recovery passes
+    // salvageReasoning:false and a tight [maxLength] so we never open
+    // the 4000+16000 think hose. Default salvage stays ON for other evals.
     final params = evalLaneParams(
       prompt: prompt,
       repeatPenalty: repeatPenalty,
-      salvageReasoning: true,
+      salvageReasoning: salvageReasoning,
+      maxLength: maxLength ?? kEvalLaneMaxLength,
     );
+    final wallLimit = wallClockTimeout ?? this.wallClockTimeout;
+    final dumpCap = thinkDumpCharCap ?? this.thinkDumpCharCap;
+    bool jsonReady(String acc) {
+      if (stopWhen != null) return stopWhen(acc);
+      return parseEvalJsonObject(stripThinkBlocks(acc)) != null;
+    }
 
     if (effectiveIsLocal) {
       final k = getKoboldService();
@@ -445,11 +470,13 @@ class LlmEvalEngine {
 
     final trafficWatch = Stopwatch()..start();
     String response = '';
+    var guardAbort = false;
     // Retry loop: one extra attempt. Empty completed streams retry only on
     // a local backend (thinking-model <think> prefill). Thrown stream errors
     // retry after [connectionDropSettle] on any backend (the oMLX hang
     // guard). The empty path used to `continue` into the drop delay as well,
     // so every unmatched ScriptedLlm eval stalled 5s.
+    // Think-dump / wall-clock do NOT retry — the fused caller recovers.
     for (int attempt = 0; attempt < 2; attempt++) {
       if (getIsCancellingRealismEval() || getRealismEvalCancelled()) {
         debugPrint(
@@ -468,34 +495,91 @@ class LlmEvalEngine {
         // retry/give-up path instead, so a hung eval degrades to the same
         // silent fail-and-retry-next-interval the passes were designed for.
         bool cancelledDuringStream = false;
+        var earlyJson = false;
+        final slice = () {
+          if (wallLimit == null) return streamChunkTimeout;
+          final left = remainingBudget(trafficWatch, wallLimit);
+          return left < streamChunkTimeout ? left : streamChunkTimeout;
+        }();
+        if (slice == Duration.zero) {
+          debugPrint(
+            '[Realism] wall-clock abort ${trafficWatch.elapsedMilliseconds} ms',
+          );
+          guardAbort = true;
+          break;
+        }
         await for (final chunk
             in llm
                 .generateStream(params)
                 .timeout(
-                  streamChunkTimeout,
+                  slice,
                   onTimeout: (sink) {
+                    final wall =
+                        wallLimit != null && trafficWatch.elapsed >= wallLimit;
                     sink.addError(
                       TimeoutException(
-                        'eval stream: no chunk within '
-                        '${streamChunkTimeout.inSeconds}s',
+                        wall
+                            ? 'eval stream: wall-clock '
+                                  '${trafficWatch.elapsedMilliseconds} ms'
+                            : 'eval stream: no chunk within '
+                                  '${slice.inMilliseconds}ms',
                       ),
                     );
                     sink.close();
                   },
                 )) {
-          // If a cancellation has been requested, terminate streaming gracefully.
           if (getIsCancellingRealismEval() || getRealismEvalCancelled()) {
             debugPrint('[Realism] streaming terminated via cancel');
             cancelledDuringStream = true;
             break;
           }
+          if (wallLimit != null && trafficWatch.elapsed >= wallLimit) {
+            debugPrint(
+              '[Realism] wall-clock abort ${trafficWatch.elapsedMilliseconds} ms',
+            );
+            guardAbort = true;
+            break;
+          }
           response += chunk;
+          if (jsonReady(response)) {
+            earlyJson = true;
+            onChunk?.call(chunk);
+            break;
+          }
+          if (thinkDumpExceeded(
+            response,
+            cap: dumpCap,
+            stripThink: stripThinkBlocks,
+          )) {
+            debugPrint(
+              '[Realism] think-dump abort chars=${response.length} '
+              'ms=${trafficWatch.elapsedMilliseconds}',
+            );
+            guardAbort = true;
+            break;
+          }
           onChunk?.call(chunk);
         }
         if (cancelledDuringStream) {
-          // Return null to indicate cancellation to callers.
           debugPrint('[Realism] streaming terminated via cancel (early exit)');
           return null;
+        }
+        if (guardAbort) {
+          if (abortClientOnStop) {
+            try {
+              llm.abortGeneration();
+            } catch (e) {
+              debugPrint('[Realism] abortGeneration after guard: $e');
+            }
+          }
+          break;
+        }
+        if (earlyJson && abortClientOnStop) {
+          try {
+            llm.abortGeneration();
+          } catch (e) {
+            debugPrint('[Realism] abortGeneration after JSON: $e');
+          }
         }
 
         // Empty completed stream: common with local thinking models during
@@ -536,13 +620,29 @@ class LlmEvalEngine {
         break; // stream completed cleanly — exit retry loop
       } catch (e) {
         debugPrint('[Realism:Eval] Stream error on attempt ${attempt + 1}: $e');
-        // Check if cancellation was requested during the error handling
         if (getIsCancellingRealismEval() || getRealismEvalCancelled()) {
           debugPrint('[Realism] eval cancelled during error handling');
           return null;
         }
+        final wall =
+            wallLimit != null &&
+            (trafficWatch.elapsed >= wallLimit ||
+                e.toString().contains('wall-clock'));
+        if (wall) {
+          debugPrint(
+            '[Realism] wall-clock abort ${trafficWatch.elapsedMilliseconds} ms',
+          );
+          guardAbort = true;
+          if (abortClientOnStop) {
+            try {
+              llm.abortGeneration();
+            } catch (err) {
+              debugPrint('[Realism] abortGeneration after wall-clock: $err');
+            }
+          }
+          break;
+        }
         if (attempt >= 1) {
-          // Second failure — give up silently; don't surface to UI
           return null;
         }
         debugPrint(
@@ -571,6 +671,10 @@ class LlmEvalEngine {
       outputChars: response.length,
       ms: trafficWatch.elapsedMilliseconds,
     );
+    if (guardAbort) {
+      onGuardAbort?.call();
+      return null;
+    }
     return response.isEmpty ? null : response;
   }
 
