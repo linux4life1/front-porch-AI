@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -29,7 +30,8 @@ class SetupBackendPicker extends StatelessWidget {
     final activeBackend = llmProvider.activeBackend;
     final isKobold = activeBackend == BackendType.kobold;
     final isRemote = activeBackend == BackendType.openRouter;
-    final isAppleSiliconMac = _isAppleSiliconMac();
+    final isAppleSiliconMac =
+        Platform.isMacOS && Abi.current() == Abi.macosArm64;
     final remoteKind = resolveRemoteProviderKind(
       backendType: storage.backendType,
       url: storage.remoteApiUrl,
@@ -130,21 +132,5 @@ class SetupBackendPicker extends StatelessWidget {
         fontWeight: FontWeight.w500,
       ),
     );
-  }
-
-  static bool? _appleSiliconMac;
-
-  bool _isAppleSiliconMac() {
-    final cached = _appleSiliconMac;
-    if (cached != null) return cached;
-    if (!Platform.isMacOS) return _appleSiliconMac = false;
-    bool arm64 = false;
-    try {
-      final result = Process.runSync('uname', ['-m']);
-      if (result.exitCode == 0) {
-        arm64 = result.stdout.toString().trim() == 'arm64';
-      }
-    } catch (_) {}
-    return _appleSiliconMac = arm64;
   }
 }
