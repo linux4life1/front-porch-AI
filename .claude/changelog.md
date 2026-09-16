@@ -2,7 +2,7 @@
 - **Why:** API mouth + Kobold/oMLX worker never started the local engine. A key typed last did not reconfigure the worker. Cancel/stop aborted only the mouth.
 - **What:** ensureManagedBackendIsRunning and the oMLX poller also follow an allowed worker. Worker sync identity includes the vault key. Cancel/stop/yield abort mouth and worker. Dual-local banner is live on web. Honest Kobold worker copy.
 - **Files:** `llm_provider.dart`, `llm_provider.worker.dart`, `chat_service_message_ops.dart`, Settings + `web_ui/`, tests
-- **Commit:** (this commit)
+- **Commit:** 95ed0285
 
 ## 2026-09-16 — Worker backend for side lanes (mouth stays on the chat model)
 - **Why:** Spoken replies want a strong chat model (Nano + Kimi). Feelings, clerk, journal, and growth can run on a second host (Nano GLM, OpenRouter, oMLX, LM Studio, Kobold) without flipping the mouth stream. Two locals would fight the GPU; that pair is refused.
