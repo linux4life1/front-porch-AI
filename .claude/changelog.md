@@ -2,7 +2,7 @@
 - **Why:** Nano + Kimi thinking fused `report_realism` often returned prose, then the text salvage path sent max_tokens 4000+16000. The model wrote a think novel; the between-chunk hang guard never tripped; the Realism spinner sat for 5+ minutes. Skipping deltas is not acceptable.
 - **What:** One-shot uses `fireFusedRealismEval`: tools, forced tools retry, then tight no-headroom text that stops at the first complete JSON. Think-dump / wall-clock abort that stream and recover with tools then JSON-only text. 75s fused budget. OneShot Done/fail logs ms. Clerk / mouth params unchanged.
 - **Files:** `fused_eval_fire.dart`, `eval_stream_guards.dart`, `llm_eval_engine.dart`, `realism_evals.one_shot.dart`, wiring, tests
-- **Commit:** (this commit)
+- **Commit:** 91e9e0e4
 
 ## 2026-09-16 — Clerk / doorbell uses eval-lane GenerationParams
 - **Why:** Catalogue tool trips were inheriting the character's max-gen / thinking sliders (or a "clerk-ish" cap). That burns the spoken turn's budget and lets the retrieval sub-agent sample like creative speech — it invents facts. Doorbell text was also becoming the bubble when she did not ring, so Thought chips never attached.
