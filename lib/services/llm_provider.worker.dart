@@ -61,11 +61,13 @@ extension LLMProviderWorker on LLMProvider {
     return true;
   }
 
-  /// Dual-local unload/swap is available for this pair. `flutter test`
-  /// stays fail-closed unless a test injects [debugGpuSwap] (V1 pins).
+  /// Dual-local unload/swap is available for this pair. Widget tests
+  /// stay fail-closed unless they inject [debugGpuSwap] (V1 pins).
   bool get workerGpuSwapAvailable {
     if (_providerSwapOverride[this] != null) return true;
-    if (kSkipRemoteAutoPing) return false;
+    if (runningUnderFlutterTestBinding() || kSkipRemoteAutoPing) {
+      return false;
+    }
     return _pairSupportsGpuSwap();
   }
 
@@ -193,9 +195,7 @@ extension LLMProviderWorker on LLMProvider {
         ),
       );
     }
-    final apiUrl = type == 'omlx'
-        ? kOmlxApiV1
-        : resolvedLaneApiUrl(type, url);
+    final apiUrl = type == 'omlx' ? kOmlxApiV1 : resolvedLaneApiUrl(type, url);
     return HttpGpuSwapHost(
       kind: kind,
       apiUrl: apiUrl,

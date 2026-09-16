@@ -245,9 +245,7 @@ class LLMProvider extends ChangeNotifier {
   /// True when the managed process is currently running.
   bool get hasAnyManagedProcessRunning => _koboldService.isRunning;
 
-  /// Ensures the local Kobold backend is running when the user enters a chat —
-  /// including when a .kcpps preset owns the model, and when Kobold is the
-  /// worker while chat speech stays on a remote host.
+  /// Start Kobold on chat entry, or inside a GPU swap (`forGpuSwap`).
   Future<void> ensureManagedBackendIsRunning({bool forGpuSwap = false}) async {
     if (hasAnyManagedProcessRunning) return;
     if (!forGpuSwap &&

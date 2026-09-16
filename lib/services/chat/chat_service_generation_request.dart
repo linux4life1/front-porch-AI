@@ -251,13 +251,13 @@ extension ChatServiceGenerationRequest on ChatService {
     if (catalog.tools.isNotEmpty) {
       final round = await _withWorkerLane(
         () => runCatalogRound(
-        llm: sideLaneLlm,
-        params: genParams,
-        catalog: catalog,
-        search: _webSearchService,
-        wiki: _wikiSearchService,
-        backendIdentity: _evalBackendIdentity,
-      ),
+          llm: sideLaneLlm,
+          params: genParams,
+          catalog: catalog,
+          search: _webSearchService,
+          wiki: _wikiSearchService,
+          backendIdentity: _evalBackendIdentity,
+        ),
       );
       t.searchReceipt = round.searchReceipt;
       t.toolReceipt = round.toolReceipt;

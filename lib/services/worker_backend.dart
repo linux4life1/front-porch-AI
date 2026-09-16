@@ -37,7 +37,7 @@ extension WorkerBackendStorage on StorageService {
   String remoteApiKeyFor(String url) => backendSettings.remoteApiKeyFor(url);
 }
 
-/// Plain-English reason the app will not run two local engines at once.
+/// Dual-local is refused when this pair has no unload/swap lever.
 const kWorkerDualLocalMessage =
     'Chat speech and side jobs can\'t both use a local engine at the same '
     'time — they would fight over the GPU. Use a cloud/API host for one of '

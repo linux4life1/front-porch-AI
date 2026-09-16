@@ -7,26 +7,29 @@ import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.da
 import 'package:http/http.dart' as http;
 
 void main() {
-  test('oMLX unloads via /v1/models/{id}/unload then loads to restore', () async {
-    final hits = <String>[];
-    final host = HttpGpuSwapHost(
-      kind: LocalSwapKind.omlx,
-      apiUrl: kOmlxApiV1,
-      modelId: 'mlx-qwen',
-      apiKey: 'omlx-key',
-      send: (method, uri, headers, body) async {
-        hits.add('$method ${uri.pathSegments.join('/')}');
-        expect(headers['Authorization'], 'Bearer omlx-key');
-        return http.Response('{"status":"ok"}', 200);
-      },
-    );
-    await host.unload();
-    await host.restore();
-    expect(hits, [
-      'POST v1/models/mlx-qwen/unload',
-      'POST v1/models/mlx-qwen/load',
-    ]);
-  });
+  test(
+    'oMLX unloads via /v1/models/{id}/unload then loads to restore',
+    () async {
+      final hits = <String>[];
+      final host = HttpGpuSwapHost(
+        kind: LocalSwapKind.omlx,
+        apiUrl: kOmlxApiV1,
+        modelId: 'mlx-qwen',
+        apiKey: 'omlx-key',
+        send: (method, uri, headers, body) async {
+          hits.add('$method ${uri.pathSegments.join('/')}');
+          expect(headers['Authorization'], 'Bearer omlx-key');
+          return http.Response('{"status":"ok"}', 200);
+        },
+      );
+      await host.unload();
+      await host.restore();
+      expect(hits, [
+        'POST v1/models/mlx-qwen/unload',
+        'POST v1/models/mlx-qwen/load',
+      ]);
+    },
+  );
 
   test('oMLX falls back to the admin twin when v1 unload misses', () async {
     final hits = <String>[];
@@ -46,7 +49,7 @@ void main() {
     expect(hits.last, 'POST admin/api/models/org/model/unload');
   });
 
-  test('LM Studio uses /api/v1/models/unload then /load', () async {
+  test('LM Studio lists loaded instance_id then unloads it', () async {
     final hits = <String>[];
     final bodies = <String?>[];
     final host = HttpGpuSwapHost(
@@ -58,14 +61,53 @@ void main() {
         hits.add('$method ${uri.pathSegments.join('/')}');
         bodies.add(body);
         expect(headers['Authorization'], 'Bearer lms-token');
+        if (method == 'GET') {
+          return http.Response(
+            '{"models":[{"key":"qwen/qwen3","loaded_instances":'
+            '[{"id":"qwen/qwen3@inst1"}]}]}',
+            200,
+          );
+        }
         return http.Response('{"status":"loaded"}', 200);
       },
     );
     await host.unload();
     await host.restore();
-    expect(hits, ['POST api/v1/models/unload', 'POST api/v1/models/load']);
-    expect(bodies[0], contains('instance_id'));
-    expect(bodies[1], contains('"model":"qwen/qwen3"'));
+    expect(hits, [
+      'GET api/v1/models',
+      'POST api/v1/models/unload',
+      'POST api/v1/models/load',
+    ]);
+    expect(bodies[1], contains('"instance_id":"qwen/qwen3@inst1"'));
+    expect(bodies[2], contains('"model":"qwen/qwen3"'));
+  });
+
+  test('LM Studio falls back to the model key when the list misses', () async {
+    final bodies = <String?>[];
+    final host = HttpGpuSwapHost(
+      kind: LocalSwapKind.lmStudio,
+      apiUrl: kLmStudioApiV1,
+      modelId: 'qwen/qwen3',
+      send: (method, uri, headers, body) async {
+        bodies.add(body);
+        if (method == 'GET') return http.Response('nope', 404);
+        return http.Response('{"status":"ok"}', 200);
+      },
+    );
+    await host.unload();
+    expect(bodies[1], contains('"instance_id":"qwen/qwen3"'));
+  });
+
+  test('instanceIdFromLmStudioModels reads loaded_instances id', () {
+    expect(
+      instanceIdFromLmStudioModels(
+        '{"models":[{"key":"qwen/qwen3","loaded_instances":'
+            '[{"id":"qwen/qwen3@inst1"}]}]}',
+        'qwen/qwen3',
+      ),
+      'qwen/qwen3@inst1',
+    );
+    expect(instanceIdFromLmStudioModels('{}', 'qwen/qwen3'), isNull);
   });
 
   test('Kobold process uses admin reload_config when it succeeds', () async {

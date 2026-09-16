@@ -66,33 +66,36 @@ void main() {
     await db.close();
   });
 
-  test('swap-available dual-local routes evals to the worker service', () async {
-    chat.testLlmServiceOverride = null;
-    chat.testWorkerLlmServiceOverride = null;
-    await storage.setBackendType('kobold');
-    await storage.setWorkerBackendType('omlx');
-    await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
-    await storage.setWorkerRemoteModelName('mlx-qwen');
-    final mouthKobold = _RecordingMouthKobold(storage);
-    final llm = LLMProvider(
-      mouthKobold,
-      OpenRouterService(),
-      storage,
-      _QuietBackend(storage),
-    );
-    addTearDown(llm.dispose);
-    llm.debugGpuSwap = GpuSwapOccupancy(
-      mouth: _RecHost('mouth'),
-      worker: _RecHost('worker'),
-    );
-    chat.setLLMProvider(llm);
+  test(
+    'swap-available dual-local routes evals to the worker service',
+    () async {
+      chat.testLlmServiceOverride = null;
+      chat.testWorkerLlmServiceOverride = null;
+      await storage.setBackendType('kobold');
+      await storage.setWorkerBackendType('omlx');
+      await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
+      await storage.setWorkerRemoteModelName('mlx-qwen');
+      final mouthKobold = _RecordingMouthKobold(storage);
+      final llm = LLMProvider(
+        mouthKobold,
+        OpenRouterService(),
+        storage,
+        _QuietBackend(storage),
+      );
+      addTearDown(llm.dispose);
+      llm.debugGpuSwap = GpuSwapOccupancy(
+        mouth: _RecHost('mouth'),
+        worker: _RecHost('worker'),
+      );
+      chat.setLLMProvider(llm);
 
-    expect(llm.workerRefusedDualLocal, isFalse);
-    expect(llm.workerService, isNotNull);
-    expect(identical(chat.debugSideLaneLlm, llm.workerService), isTrue);
-    expect(identical(chat.debugMouthLlm, mouthKobold), isTrue);
-    expect(chat.debugEvalBackendIdentity, startsWith('worker|'));
-  });
+      expect(llm.workerRefusedDualLocal, isFalse);
+      expect(llm.workerService, isNotNull);
+      expect(identical(chat.debugSideLaneLlm, llm.workerService), isTrue);
+      expect(identical(chat.debugMouthLlm, mouthKobold), isTrue);
+      expect(chat.debugEvalBackendIdentity, startsWith('worker|'));
+    },
+  );
 
   test('cancel during a swapped hold still restores mouth', () async {
     chat.testLlmServiceOverride = null;

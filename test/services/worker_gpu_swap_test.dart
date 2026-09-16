@@ -132,24 +132,27 @@ void main() {
     );
   });
 
-  test('occupancy unloads mouth, prepares worker, then restores mouth', () async {
-    final occ = GpuSwapOccupancy(
-      mouth: _RecHost('mouth'),
-      worker: _RecHost('worker'),
-    );
-    var workRan = false;
-    await occ.hold(() async {
-      expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
-      workRan = true;
-    });
-    expect(workRan, isTrue);
-    expect(occ.steps, [
-      'unload-mouth:mouth',
-      'prepare-worker:worker',
-      'unload-worker:worker',
-      'restore-mouth:mouth',
-    ]);
-  });
+  test(
+    'occupancy unloads mouth, prepares worker, then restores mouth',
+    () async {
+      final occ = GpuSwapOccupancy(
+        mouth: _RecHost('mouth'),
+        worker: _RecHost('worker'),
+      );
+      var workRan = false;
+      await occ.hold(() async {
+        expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
+        workRan = true;
+      });
+      expect(workRan, isTrue);
+      expect(occ.steps, [
+        'unload-mouth:mouth',
+        'prepare-worker:worker',
+        'unload-worker:worker',
+        'restore-mouth:mouth',
+      ]);
+    },
+  );
 
   test('nested holds swap once; cancel/error still restores mouth', () async {
     final occ = GpuSwapOccupancy(
@@ -159,10 +162,7 @@ void main() {
     await occ.hold(() async {
       await occ.hold(() async {});
     });
-    expect(
-      occ.steps.where((s) => s.startsWith('unload-mouth')).length,
-      1,
-    );
+    expect(occ.steps.where((s) => s.startsWith('unload-mouth')).length, 1);
     expect(occ.steps.last, 'restore-mouth:mouth');
 
     final failing = GpuSwapOccupancy(

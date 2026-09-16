@@ -16,11 +16,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/worker_backend.dart';
 
 export 'worker_gpu_hosts.dart';
+
+/// True inside `flutter test` widget bindings. `FLUTTER_TEST` via
+/// [bool.fromEnvironment] is compile-time and is not always set, so V1
+/// dual-local pins stay fail-closed by reading the live binding instead.
+bool runningUnderFlutterTestBinding() {
+  final name = WidgetsBinding.instance.runtimeType.toString();
+  return name.contains('TestWidgetsFlutterBinding') ||
+      name.contains('AutomatedTestWidgetsFlutterBinding');
+}
 
 /// Local engine that has a real unload / restore lever.
 enum LocalSwapKind {
@@ -190,7 +199,9 @@ class GpuSwapOccupancy {
           _record('restore-mouth:${mouth.label}');
           await mouth.restore();
         } catch (restoreErr) {
-          debugPrint('[GpuSwap] mouth restore after failed acquire: $restoreErr');
+          debugPrint(
+            '[GpuSwap] mouth restore after failed acquire: $restoreErr',
+          );
         }
         _mouthDown = false;
       }

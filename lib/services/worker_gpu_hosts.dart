@@ -111,16 +111,39 @@ class HttpGpuSwapHost implements GpuSwapHost {
     final origin = originEndpointUri(apiUrl, segments.first);
     if (origin == null) return null;
     return origin.replace(
-      pathSegments: [...origin.pathSegments.where((s) => s.isNotEmpty), ...segments.skip(1)],
+      pathSegments: [
+        ...origin.pathSegments.where((s) => s.isNotEmpty),
+        ...segments.skip(1),
+      ],
     );
   }
 
   Future<void> _lmStudioUnload() async {
     final uri = originEndpointUri(apiUrl, 'api/v1/models/unload');
     if (uri == null) throw StateError('LM Studio URL is not a usable origin');
-    final resp = await _postJson(uri, {'instance_id': modelId.trim()});
+    final instanceId = await _lmStudioInstanceId();
+    final resp = await _postJson(uri, {'instance_id': instanceId});
     if (resp.statusCode >= 200 && resp.statusCode < 300) return;
     throw StateError('LM Studio unload HTTP ${resp.statusCode}');
+  }
+
+  /// Documented `GET /api/v1/models` → `loaded_instances[].id`. The unload
+  /// example also accepts the model key as `instance_id` when list misses.
+  Future<String> _lmStudioInstanceId() async {
+    final wanted = modelId.trim();
+    final listUri = originEndpointUri(apiUrl, 'api/v1/models');
+    if (listUri != null) {
+      try {
+        final resp = await _send('GET', listUri, _headers, null);
+        if (resp.statusCode >= 200 && resp.statusCode < 300) {
+          final resolved = instanceIdFromLmStudioModels(resp.body, wanted);
+          if (resolved != null) return resolved;
+        }
+      } catch (e) {
+        debugPrint('[GpuSwap] LM Studio model list missed: $e');
+      }
+    }
+    return wanted;
   }
 
   Future<void> _lmStudioLoad() async {
@@ -159,6 +182,29 @@ class HttpGpuSwapHost implements GpuSwapHost {
   }
 }
 
+/// Pure parse of LM Studio `GET /api/v1/models` for a loaded instance id.
+String? instanceIdFromLmStudioModels(String body, String wanted) {
+  if (wanted.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map) return null;
+    final models = decoded['models'];
+    if (models is! List) return null;
+    for (final raw in models) {
+      if (raw is! Map) continue;
+      final key = raw['key']?.toString() ?? '';
+      final instances = raw['loaded_instances'];
+      if (instances is! List || instances.isEmpty) continue;
+      final first = instances.first;
+      if (first is! Map) continue;
+      final id = first['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
+      if (key == wanted || id == wanted) return id;
+    }
+  } catch (_) {}
+  return null;
+}
+
 /// Managed KoboldCpp process. Admin HTTP first; process stop/start is the
 /// equivalent the app already owns when `--admin` is off.
 class KoboldProcessHost implements GpuSwapHost {
@@ -187,7 +233,9 @@ class KoboldProcessHost implements GpuSwapHost {
         _usedAdmin = true;
         return;
       } catch (e) {
-        debugPrint('[GpuSwap] Kobold admin unload missed, stopping process: $e');
+        debugPrint(
+          '[GpuSwap] Kobold admin unload missed, stopping process: $e',
+        );
       }
     }
     _usedAdmin = false;
@@ -201,7 +249,9 @@ class KoboldProcessHost implements GpuSwapHost {
         await _admin.restore();
         return;
       } catch (e) {
-        debugPrint('[GpuSwap] Kobold admin restore missed, starting process: $e');
+        debugPrint(
+          '[GpuSwap] Kobold admin restore missed, starting process: $e',
+        );
       }
     }
     await startProcess();
