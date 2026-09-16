@@ -19,7 +19,10 @@
 import 'package:front_porch_ai/services/services.dart';
 
 /// Additive worker-lane keys for Settings GET/POST. Older PWAs ignore them.
-Map<String, dynamic> readWorkerSettings(StorageService storage, LLMProvider llm) {
+Map<String, dynamic> readWorkerSettings(
+  StorageService storage,
+  LLMProvider llm,
+) {
   return {
     'workerBackend': storage.workerBackendType,
     'workerRemoteApiUrl': storage.workerRemoteApiUrl,
@@ -52,10 +55,7 @@ Future<void> updateWorkerSettings({
   final workerKey = body['workerApiKey']?.toString();
   if (workerKey != null && workerKey.isNotEmpty) {
     await storage.setRemoteApiKeyFor(
-      resolvedLaneApiUrl(
-        storage.workerBackendType,
-        storage.workerRemoteApiUrl,
-      ),
+      resolvedLaneApiUrl(storage.workerBackendType, storage.workerRemoteApiUrl),
       workerKey,
     );
   }

@@ -147,8 +147,6 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   @visibleForTesting
   bool testIsLocalOverride = false;
 
-  /// Side-lane only. When null, [testLlmServiceOverride] still covers both
-  /// lanes so existing tests keep today's single-backend behavior.
   @visibleForTesting
   LLMService? testWorkerLlmServiceOverride;
 

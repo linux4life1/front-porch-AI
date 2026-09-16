@@ -34,6 +34,7 @@ extension WorkerBackendStorage on StorageService {
       backendSettings.setWorkerRemoteModelName(v);
   Future<void> setRemoteApiKeyFor(String url, String v) =>
       backendSettings.setRemoteApiKeyFor(url, v);
+  String remoteApiKeyFor(String url) => backendSettings.remoteApiKeyFor(url);
 }
 
 /// Plain-English reason the app will not run two local engines at once.
@@ -96,9 +97,4 @@ String workerEvalIdentityFor({
   required String remoteModelName,
   required String? modelPath,
 }) =>
-    'worker|${evalBackendIdentityFor(
-      backendName: backendName,
-      remoteApiUrl: remoteApiUrl,
-      remoteModelName: remoteModelName,
-      modelPath: modelPath,
-    )}';
+    'worker|${evalBackendIdentityFor(backendName: backendName, remoteApiUrl: remoteApiUrl, remoteModelName: remoteModelName, modelPath: modelPath)}';

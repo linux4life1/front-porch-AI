@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 
 /// Write worker host fields only. Never calls [LLMProvider.setActiveBackend].

@@ -8,7 +8,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -121,17 +120,20 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 20));
   }
 
-  test('worker override: evals and identity hit worker; mouth stays mouth', () async {
-    expect(identical(chat.debugMouthLlm, mouth), isTrue);
-    expect(identical(chat.debugSideLaneLlm, worker), isTrue);
-    expect(chat.debugEvalBackendIdentity, startsWith('worker|'));
-    expect(chat.debugEvalBackendIdentity, isNot(contains('|mouth|')));
+  test(
+    'worker override: evals and identity hit worker; mouth stays mouth',
+    () async {
+      expect(identical(chat.debugMouthLlm, mouth), isTrue);
+      expect(identical(chat.debugSideLaneLlm, worker), isTrue);
+      expect(chat.debugEvalBackendIdentity, startsWith('worker|'));
+      expect(chat.debugEvalBackendIdentity, isNot(contains('|mouth|')));
 
-    final raw = await chat.debugFireSideLaneEval('{"bond_delta":0}');
-    expect(raw, isNotNull);
-    expect(worker.streamCalls, greaterThan(0));
-    expect(mouth.streamCalls, 0);
-  });
+      final raw = await chat.debugFireSideLaneEval('{"bond_delta":0}');
+      expect(raw, isNotNull);
+      expect(worker.streamCalls, greaterThan(0));
+      expect(mouth.streamCalls, 0);
+    },
+  );
 
   test('clerk doorbell hits worker; spoken stream stays on mouth', () async {
     await chat.setActiveCharacter(card());
@@ -141,18 +143,18 @@ void main() {
     expect(worker.toolsCalls, greaterThan(0), reason: 'clerk is the worker');
     expect(mouth.toolsCalls, 0, reason: 'mouth must not run the doorbell');
     expect(mouth.streamCalls, greaterThan(0), reason: 'spoken reply is mouth');
-    expect(
-      worker.toolsIdentities,
-      everyElement(startsWith('worker|')),
-    );
+    expect(worker.toolsIdentities, everyElement(startsWith('worker|')));
   });
 
-  test('worker off: side lane and identity fall back to the mouth override', () {
-    chat.testWorkerLlmServiceOverride = null;
-    expect(identical(chat.debugSideLaneLlm, mouth), isTrue);
-    expect(identical(chat.debugMouthLlm, mouth), isTrue);
-    expect(chat.debugEvalBackendIdentity, isNot(startsWith('worker|')));
-  });
+  test(
+    'worker off: side lane and identity fall back to the mouth override',
+    () {
+      chat.testWorkerLlmServiceOverride = null;
+      expect(identical(chat.debugSideLaneLlm, mouth), isTrue);
+      expect(identical(chat.debugMouthLlm, mouth), isTrue);
+      expect(chat.debugEvalBackendIdentity, isNot(startsWith('worker|')));
+    },
+  );
 
   test('call sites in wiring use the side-lane getters', () {
     final evals = File(
@@ -169,7 +171,12 @@ void main() {
     expect(request, contains('t.stream = llmService.generateStream'));
     expect(request, contains('final llmService = _mouthLlm;'));
 
-    final clerk = File('lib/services/chat/catalog_clerk.dart').readAsStringSync();
-    expect(clerk, contains('backendIdentity: backendIdentity ?? mouth.backendIdentity'));
+    final clerk = File(
+      'lib/services/chat/catalog_clerk.dart',
+    ).readAsStringSync();
+    expect(
+      clerk,
+      contains('backendIdentity: backendIdentity ?? mouth.backendIdentity'),
+    );
   });
 }

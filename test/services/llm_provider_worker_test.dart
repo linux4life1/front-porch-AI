@@ -50,39 +50,51 @@ void main() {
     BackendManager(storage),
   );
 
-  test('API+API: worker is a second service; mouth URL/model stay put', () async {
-    await storage.setWorkerBackendType('openRouter');
-    await storage.setWorkerRemoteApiUrl(kNanoGptApiV1);
-    await storage.setWorkerRemoteModelName('z-ai/glm-5.3');
-    await storage.setRemoteApiKeyFor(kNanoGptApiV1, 'nano-key');
+  test(
+    'API+API: worker is a second service; mouth URL/model stay put',
+    () async {
+      await storage.setWorkerBackendType('openRouter');
+      await storage.setWorkerRemoteApiUrl(kNanoGptApiV1);
+      await storage.setWorkerRemoteModelName('z-ai/glm-5.3');
+      await storage.setRemoteApiKeyFor(kNanoGptApiV1, 'nano-key');
 
-    final p = provider();
-    expect(p.workerRefusedDualLocal, isFalse);
-    expect(p.workerService, isNotNull);
-    expect(identical(p.workerService, p.activeService), isFalse);
-    expect(p.openRouterService.apiUrl, kOpenRouterApiV1);
-    expect(p.openRouterService.modelName, 'x-ai/grok-4.6');
-    expect(p.workerRemoteService.apiUrl, kNanoGptApiV1);
-    expect(p.workerRemoteService.modelName, 'z-ai/glm-5.3');
-    expect(p.sideLaneService, same(p.workerService));
-    expect(p.workerEvalIdentity, startsWith('worker|'));
-  });
+      final p = provider();
+      expect(p.workerRefusedDualLocal, isFalse);
+      expect(p.workerService, isNotNull);
+      expect(identical(p.workerService, p.activeService), isFalse);
+      expect(p.openRouterService.apiUrl, kOpenRouterApiV1);
+      expect(p.openRouterService.modelName, 'x-ai/grok-4.6');
+      expect(p.workerRemoteService.apiUrl, kNanoGptApiV1);
+      expect(p.workerRemoteService.modelName, 'z-ai/glm-5.3');
+      expect(p.sideLaneService, same(p.workerService));
+      expect(p.workerEvalIdentity, startsWith('worker|'));
+    },
+  );
 
   test('same host, different model ids — two remotes, one vault URL', () async {
     await storage.setRemoteApiUrl(kNanoGptApiV1);
     await storage.setRemoteModelName('moonshotai/kimi-k2.6:thinking');
+    await storage.setRemoteApiKeyFor(kNanoGptApiV1, 'shared-nano');
     await storage.setWorkerBackendType('openRouter');
     await storage.setWorkerRemoteApiUrl(kNanoGptApiV1);
     await storage.setWorkerRemoteModelName('z-ai/glm-5.3');
 
     final p = provider();
     expect(p.workerRefusedDualLocal, isFalse);
-    expect(p.workerRemoteService.apiUrl, kNanoGptApiV1);
-    expect(p.workerRemoteService.modelName, 'z-ai/glm-5.3');
+    expect(identical(p.workerRemoteService, p.openRouterService), isFalse);
+    expect(p.openRouterService.apiUrl, kNanoGptApiV1);
     expect(
       p.openRouterService.modelName,
-      isNot('z-ai/glm-5.3'),
-      reason: 'worker model must not overwrite the mouth model',
+      'moonshotai/kimi-k2.6:thinking',
+      reason: 'same-host worker must not overwrite the mouth model id',
+    );
+    expect(p.workerRemoteService.apiUrl, kNanoGptApiV1);
+    expect(p.workerRemoteService.modelName, 'z-ai/glm-5.3');
+    expect(p.openRouterService.apiKey, 'shared-nano');
+    expect(
+      p.workerRemoteService.apiKey,
+      'shared-nano',
+      reason: 'same host reuses the per-URL key vault',
     );
   });
 

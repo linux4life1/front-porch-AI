@@ -37,8 +37,7 @@ extension ChatServiceLlmLanes on ChatService {
 
   bool get _workerLaneActive =>
       testWorkerLlmServiceOverride != null ||
-      (testLlmServiceOverride == null &&
-          (_llmProvider?.workerService != null));
+      (testLlmServiceOverride == null && (_llmProvider?.workerService != null));
 
   @visibleForTesting
   LLMService get debugMouthLlm => _mouthLlm;
