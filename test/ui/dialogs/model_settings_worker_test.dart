@@ -17,14 +17,14 @@ import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
 
 class _Store extends FakeStorageService {
-  _Store({this.backendType = 'openRouter', this.remoteApiUrl = kNanoGptApiV1}) {
+  _Store() {
     _backend.initializeBase(null, notifyListeners);
   }
 
   @override
-  String backendType;
+  String get backendType => 'openRouter';
   @override
-  String remoteApiUrl;
+  String get remoteApiUrl => kNanoGptApiV1;
 
   final BackendSettings _backend = BackendSettings();
 
@@ -40,16 +40,11 @@ class _Mgr extends ChangeNotifier implements BackendManager {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Future<void> _pump(
-  WidgetTester tester, {
-  required _Store storage,
-  FakeLLMProvider? llm,
-}) async {
+Future<void> _pump(WidgetTester tester, {required _Store storage}) async {
   await tester.binding.setSurfaceSize(const Size(900, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
-  final resolvedLlm =
-      llm ?? FakeLLMProvider(activeBackend: BackendType.openRouter);
+  final resolvedLlm = FakeLLMProvider(activeBackend: BackendType.openRouter);
   final mgr = _Mgr();
   addTearDown(() {
     storage.dispose();
