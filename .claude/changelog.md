@@ -1,3 +1,9 @@
+## 2026-09-17 — Drop unused `_writeJson` from admin-ready tests
+- **Why:** CI `changed Dart files` analyze failed (`unused_element`) after the generation-ready rewrite left a helper with no callers.
+- **What:** Deleted `_writeJson`. Assertions unchanged.
+- **Files:** `test/services/kobold_admin_ready_test.dart`
+- **Commit:** d2c9677f
+
 ## 2026-09-17 — Pin speech before mouth restore; call-site empty-bubble guards
 - **Why:** Live log: restore-mouth → version 200 → PRE-GEN attach → immediate unload-mouth with no mouth generate. Pin-after-restore left a gap: `_markModelReady` notifies during `ensureMouth`; a listener `openWorkerLane` can unload before `beginSpeech`. Occupancy-only speech tests stayed green if the ChatService `pinSpeech: true` call site was deleted.
 - **What:** `waitForWorkerLaneIdle(pinSpeech: true)` pins **before** restore; restore failure unpins; no occupancy rebuild under a speech pin. Call-site tests: restore-mouth → generate → then post unload; racing `openWorkerLane` before generate is a regression; empty PRE-GEN stream writes the visible failure notice (not a blank bubble). Still no happy-path process restart.
