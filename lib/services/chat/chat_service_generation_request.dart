@@ -275,7 +275,7 @@ extension ChatServiceGenerationRequest on ChatService {
     // Occupancy wait is load-bearing: catalog `_withWorkerLane` can nest
     // under a journal hold, and releasing the catalog depth must not let
     // speech start while the mouth is still unloaded.
-    await _llmProvider?.waitForWorkerLaneIdle();
+    await _llmProvider?.waitForWorkerLaneIdle(pinSpeech: true);
     t.stream = llmService.generateStream(genParams);
 
     // ── Phase: Prefilling ──

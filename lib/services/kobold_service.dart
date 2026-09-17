@@ -651,9 +651,9 @@ class KoboldService extends ChangeNotifier
     notifyListeners();
   }
 
-  /// In-process `reload_config` loaded this pair. Re-arms the version
-  /// probe (startKobold is the only other starter) and probes immediately
-  /// so [waitUntilReadyAfterSwap] can see [isReady] without a restart.
+  /// In-process `reload_config` loaded this pair. Stamp paths only.
+  /// Version 200 is HTTP-up, not generation-ready — [waitUntilReadyAfterSwap]
+  /// probes a tiny completion before [isReady] / evals / mouth generate.
   Future<void> noteAdminLoadedPair({
     String? modelPath,
     String? kcppsPath,
@@ -664,24 +664,26 @@ class KoboldService extends ChangeNotifier
       final kcpps = kcppsPath.trim();
       _loadedKcppsPath = kcpps.isEmpty ? null : kcpps;
     }
-    _startReadinessProbe();
-    await _probeVersion();
   }
 
-  /// Poll `/api/extra/version` until the swapped model accepts requests.
-  /// Ready at entry is success — admin load may have already probed.
+  /// Poll a tiny `/v1/chat/completions` until the swapped GGUF generates.
+  /// Version 200 alone is not enough (empty streams / 0-token pings).
   Future<void> waitUntilReadyAfterSwap({
-    int attempts = 200,
-    Duration delay = const Duration(milliseconds: 50),
+    int attempts = 40,
+    Duration delay = const Duration(milliseconds: 250),
   }) async {
-    for (var i = 0; i < attempts && !isReady; i++) {
-      await _probeVersion();
-      if (isReady) return;
-      await Future<void>.delayed(delay);
+    final n = attempts < 1 ? 1 : attempts;
+    for (var i = 0; i < n; i++) {
+      final ready = await probeKoboldGenerationReady(baseUrl: _baseUrl);
+      if (ready) {
+        if (!_modelReady) _markModelReady();
+        return;
+      }
+      if (i < n - 1 && delay > Duration.zero) {
+        await Future<void>.delayed(delay);
+      }
     }
-    if (!isReady) {
-      throw StateError('Kobold was not ready after GPU swap restore');
-    }
+    throw StateError('Kobold was not generation-ready after GPU swap restore');
   }
 
   /// Test hook: pretend the managed process is up (admin swap leaves it up).

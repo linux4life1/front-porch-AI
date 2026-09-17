@@ -166,6 +166,7 @@ class GpuSwapOccupancy {
   int _depth = 0;
   bool _mouthDown = false;
   bool _busy = false;
+  bool _speech = false;
   Future<void> _tail = Future<void>.value();
 
   bool get isHeld => _depth > 0;
@@ -174,6 +175,20 @@ class GpuSwapOccupancy {
   bool get mouthDown => _mouthDown;
 
   bool get isBusy => _busy;
+
+  /// Mouth speech is in flight — worker [hold]/[open] must wait.
+  bool get speechHeld => _speech;
+
+  /// Pin after [ensureMouth] for speech. [hold] cannot unload until [endSpeech].
+  void beginSpeech() => _speech = true;
+
+  void endSpeech() => _speech = false;
+
+  Future<void> _waitSpeech() async {
+    while (_speech) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+  }
 
   void _record(String step) {
     steps.add(step);
@@ -204,7 +219,10 @@ class GpuSwapOccupancy {
   }
 
   Future<void> _acquire() {
-    final done = _tail.then((_) => _acquireLocked());
+    final done = _tail.then((_) async {
+      await _waitSpeech();
+      await _acquireLocked();
+    });
     _tail = done.catchError((_) {});
     return done;
   }

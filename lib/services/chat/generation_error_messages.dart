@@ -42,8 +42,7 @@ String friendlyGenerationError(String rawError) {
     errorMsg =
         'Request timed out. The model may be too large or the server too slow.';
   } else if (errorMsg.contains('Connection closed before full header') ||
-      (errorMsg.contains('ClientException') &&
-          errorMsg.contains('closed'))) {
+      (errorMsg.contains('ClientException') && errorMsg.contains('closed'))) {
     errorMsg =
         'The connection to the backend was closed unexpectedly. '
         'The model may still be loading — wait for the green ready indicator and try again. '
@@ -51,4 +50,20 @@ String friendlyGenerationError(String rawError) {
   }
 
   return errorMsg;
+}
+
+/// Shown when PRE-GEN attached an empty bubble and the mouth stream
+/// produced no assistant text (swap unlocked on version 200).
+const kEmptySpeechAfterPregenNotice =
+    'The character reply came back empty after the model swap. '
+    'The model was not ready to generate. Try sending again.';
+
+/// True when a new (non-Continue) speech turn claimed PRE-GEN attach
+/// and then produced no text — FAIL, not a successful blank bubble.
+bool emptySpeechAfterPregen({
+  required String accumulated,
+  required bool isContinue,
+}) {
+  if (isContinue) return false;
+  return accumulated.trim().isEmpty;
 }

@@ -19,6 +19,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -114,6 +115,99 @@ bool koboldAdminSuccessFlag(Object? value) {
   if (value == false || value == 0 || value == null) return false;
   final s = value.toString().trim().toLowerCase();
   return s == 'true' || s == '1' || s == 'yes';
+}
+
+/// Tiny non-stream completion that proves a swapped GGUF can generate.
+/// `/api/extra/version` 200 is HTTP-up only — not this.
+Map<String, dynamic> koboldGenerationReadyPayload() => {
+  'model': 'kobold',
+  'stream': false,
+  'max_tokens': 1,
+  'temperature': 0,
+  'messages': [
+    {'role': 'user', 'content': 'ok'},
+  ],
+};
+
+/// True only when a completion actually produced assistant text.
+/// Version JSON, empty/newline content, and 0-token usage are FAIL.
+bool koboldCompletionIsGenerationReady(int statusCode, String body) {
+  if (statusCode < 200 || statusCode >= 300) return false;
+  final trimmed = body.trim();
+  if (trimmed.isEmpty) return false;
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is! Map) return false;
+    if (decoded.containsKey('version') &&
+        !decoded.containsKey('choices') &&
+        !decoded.containsKey('results')) {
+      return false;
+    }
+    final usage = decoded['usage'];
+    if (usage is Map) {
+      final tokens = usage['completion_tokens'];
+      if (tokens is num && tokens <= 0) return false;
+    }
+    return koboldCompletionText(decoded).trim().isNotEmpty;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Assistant text from an OpenAI or Kobold completion body.
+String koboldCompletionText(Map<dynamic, dynamic> decoded) {
+  final choices = decoded['choices'];
+  if (choices is List && choices.isNotEmpty) {
+    final first = choices.first;
+    if (first is Map) {
+      final msg = first['message'];
+      if (msg is Map) {
+        final c = msg['content'];
+        if (c is String) return c;
+      }
+      final t = first['text'];
+      if (t is String) return t;
+    }
+  }
+  final results = decoded['results'];
+  if (results is List && results.isNotEmpty) {
+    final first = results.first;
+    if (first is Map) {
+      final t = first['text'];
+      if (t is String) return t;
+    }
+  }
+  return '';
+}
+
+/// POST `/v1/chat/completions` with [koboldGenerationReadyPayload].
+/// Connection-refused / empty / version JSON → false (retry the gate).
+Future<bool> probeKoboldGenerationReady({
+  required String baseUrl,
+  Future<http.Response> Function(Uri uri, String body)? send,
+}) async {
+  final root = baseUrl.endsWith('/')
+      ? baseUrl.substring(0, baseUrl.length - 1)
+      : baseUrl;
+  final uri = Uri.parse('$root/v1/chat/completions');
+  final payload = jsonEncode(koboldGenerationReadyPayload());
+  try {
+    final resp = send != null
+        ? await send(uri, payload)
+        : await http
+              .post(
+                uri,
+                headers: const {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+                body: payload,
+              )
+              .timeout(const Duration(seconds: 8));
+    return koboldCompletionIsGenerationReady(resp.statusCode, resp.body);
+  } catch (_) {
+    return false;
+  }
 }
 
 /// Unload/reload can drop the HTTP socket for a beat (kcpp_instance

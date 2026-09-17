@@ -35,6 +35,9 @@ part of '../chat_service.dart';
 /// which now names this file for the post-gen finalization step.
 extension ChatServiceGenerationPostGen on ChatService {
   Future<void> _finalizeGenerationTurn(_GenTurn t) async {
+    // Speech stream is done (or empty). Drop the pin BEFORE post-eval
+    // [openWorkerLane] or finalize deadlocks waiting on itself.
+    _llmProvider?.endMouthSpeech();
     _isGenerating = false;
     // Settling starts the instant the last token lands — the finalization
     // below (sanitizer, lorebook, _saveChat, post-gen checks, chip attach)
@@ -55,6 +58,22 @@ extension ChatServiceGenerationPostGen on ChatService {
       _koboldService.fetchPerf().then((perf) {
         if (perf != null) _lastPerfData = perf;
       });
+    }
+
+    if (t.epoch == _generationEpoch &&
+        emptySpeechAfterPregen(
+          accumulated: t.accumulatedResponse,
+          isContinue: t.mode == GenerationMode.continue_,
+        )) {
+      debugPrint(
+        '[GpuSwap] empty mouth stream after PRE-GEN attach — not success',
+      );
+      t.streamTarget.text = kEmptySpeechAfterPregenNotice;
+      _tokenBroadcast.add('__ERROR__');
+      _sentenceBroadcast.add('__DONE__');
+      await _saveChat();
+      notifyListeners();
+      return;
     }
 
     // Signal generation complete to SSE listeners

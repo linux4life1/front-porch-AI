@@ -40,21 +40,36 @@ void main() {
     await version.close(force: true);
   });
 
-  test('noteAdminLoadedPair re-arms production isReady', () async {
-    expect(kobold.isReady, isFalse);
+  test(
+    'noteAdminLoadedPair stamps paths but version 200 is not ready',
+    () async {
+      expect(kobold.isReady, isFalse);
+      kobold.markModelNotReady();
+      await kobold.noteAdminLoadedPair(
+        modelPath: '/tmp/worker.gguf',
+        kcppsPath: '/tmp/worker.kcpps',
+      );
+      expect(
+        kobold.isReady,
+        isFalse,
+        reason: 'version-only 200 must not unlock evals or mouth generate',
+      );
+      expect(kobold.loadedModelPath, '/tmp/worker.gguf');
+      expect(kobold.loadedKcppsPath, '/tmp/worker.kcpps');
+    },
+  );
+
+  test('version-only waitUntilReadyAfterSwap does not mark ready', () async {
     kobold.markModelNotReady();
-    expect(kobold.isReady, isFalse);
-    await kobold.noteAdminLoadedPair(
-      modelPath: '/tmp/worker.gguf',
-      kcppsPath: '/tmp/worker.kcpps',
+    await expectLater(
+      kobold.waitUntilReadyAfterSwap(attempts: 2, delay: Duration.zero),
+      throwsStateError,
     );
-    expect(kobold.isReady, isTrue);
-    expect(kobold.loadedModelPath, '/tmp/worker.gguf');
-    expect(kobold.loadedKcppsPath, '/tmp/worker.kcpps');
+    expect(kobold.isReady, isFalse);
   });
 
   test(
-    'admin restore sets production isReady without process restart',
+    'admin restore with version-only ready does not start and stays unready',
     () async {
       var starts = 0;
       var stops = 0;
@@ -65,7 +80,8 @@ void main() {
         markNotReady: kobold.markModelNotReady,
         noteLoadedPair: (model, kcpps) =>
             kobold.noteAdminLoadedPair(modelPath: model, kcppsPath: kcpps),
-        waitUntilReady: kobold.waitUntilReadyAfterSwap,
+        waitUntilReady: () =>
+            kobold.waitUntilReadyAfterSwap(attempts: 2, delay: Duration.zero),
         isProcessRunning: () => kobold.isProcessRunning,
         stopProcess: () async => stops++,
         startProcess: () async => starts++,
@@ -83,14 +99,67 @@ void main() {
       expect(kobold.isReady, isFalse);
       expect(stops, 0);
 
-      await host.restore();
+      await expectLater(host.restore(), throwsStateError);
+      expect(kobold.isReady, isFalse);
       expect(
-        kobold.isReady,
-        isTrue,
-        reason: 'admin HTTP 200 must re-arm production isReady',
+        starts,
+        0,
+        reason: 'generation-ready miss is not a process restart',
       );
-      expect(starts, 0);
       expect(stops, 0);
     },
   );
+
+  test('tiny completion after admin restore marks generation-ready', () async {
+    await version.close(force: true);
+    final ready = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => ready.close(force: true));
+    ready.listen((req) async {
+      req.response.headers.contentType = ContentType.json;
+      if (req.uri.path.contains('chat/completions')) {
+        req.response.write(
+          '{"choices":[{"message":{"content":"ok"}}],'
+          '"usage":{"completion_tokens":1}}',
+        );
+      } else {
+        req.response.write('{"result":"KoboldCpp","version":"1.90"}');
+      }
+      await req.response.close();
+    });
+    kobold.setBaseUrl('http://127.0.0.1:${ready.port}');
+    kobold.markModelNotReady();
+    var starts = 0;
+    var stops = 0;
+    final host = KoboldProcessHost(
+      baseUrl: kobold.baseUrl,
+      requestedModelPath: '/tmp/worker.gguf',
+      requestedKcppsPath: '/tmp/worker.kcpps',
+      markNotReady: kobold.markModelNotReady,
+      noteLoadedPair: (model, kcpps) =>
+          kobold.noteAdminLoadedPair(modelPath: model, kcppsPath: kcpps),
+      waitUntilReady: () =>
+          kobold.waitUntilReadyAfterSwap(attempts: 4, delay: Duration.zero),
+      isProcessRunning: () => kobold.isProcessRunning,
+      stopProcess: () async => stops++,
+      startProcess: () async => starts++,
+      admin: HttpGpuSwapHost(
+        kind: LocalSwapKind.koboldProcess,
+        apiUrl: kobold.baseUrl,
+        modelId: '/tmp/worker.gguf',
+        send: (method, uri, headers, body) async {
+          return http.Response('{"success":true}', 200);
+        },
+      ),
+    );
+    await host.unload();
+    await host.restore();
+    expect(kobold.isReady, isTrue);
+    expect(starts, 0);
+    expect(stops, 0);
+  });
+}
+
+void _writeJson(HttpRequest req, String body) {
+  req.response.headers.contentType = ContentType.json;
+  req.response.write(body);
 }

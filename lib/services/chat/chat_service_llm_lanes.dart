@@ -55,8 +55,12 @@ extension ChatServiceLlmLanes on ChatService {
   /// Spoken reply stream. Waits until a GPU swap has restored the mouth.
   Stream<String> _mouthGenerateStream(GenerationParams params) async* {
     final p = _llmProvider;
-    if (p != null) await p.waitForWorkerLaneIdle();
-    yield* _mouthLlm.generateStream(params);
+    if (p != null) await p.waitForWorkerLaneIdle(pinSpeech: true);
+    try {
+      yield* _mouthLlm.generateStream(params);
+    } finally {
+      p?.endMouthSpeech();
+    }
   }
 
   /// Unload mouth → run side-lane work → leave worker hot. Speech restores

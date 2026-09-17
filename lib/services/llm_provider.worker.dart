@@ -142,7 +142,7 @@ extension LLMProviderWorker on LLMProvider {
       _providerSwap[this]?.isHeld ??
       false;
 
-  Future<void> waitForWorkerLaneIdle() async {
+  Future<void> waitForWorkerLaneIdle({bool pinSpeech = false}) async {
     while (isWorkerLaneHeld) {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
@@ -151,7 +151,17 @@ extension LLMProviderWorker on LLMProvider {
         _providerSwapOverride[this] ??
         _providerSwap[this];
     if (occupancy != null) await occupancy.ensureMouth();
+    if (pinSpeech) occupancy?.beginSpeech();
     _dropHeldSwapIfMouthUp();
+  }
+
+  /// Release the speech pin so post-eval [hold] may unload the mouth.
+  void endMouthSpeech() {
+    final occupancy =
+        _providerHeldSwap[this] ??
+        _providerSwapOverride[this] ??
+        _providerSwap[this];
+    occupancy?.endSpeech();
   }
 
   void _pinHeldSwap(GpuSwapOccupancy occupancy) {

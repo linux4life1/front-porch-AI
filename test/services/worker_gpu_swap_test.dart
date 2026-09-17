@@ -297,6 +297,35 @@ void main() {
     expect(same.mouthDown, isFalse);
   });
 
+  test('speech pin blocks unload until generate finishes', () async {
+    final occ = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+    );
+    await occ.hold(() async {});
+    await occ.ensureMouth();
+    expect(occ.steps.last, 'restore-mouth:mouth');
+    occ.beginSpeech();
+    var generated = false;
+    final post = occ.hold(() async {
+      expect(
+        generated,
+        isTrue,
+        reason: 'post-eval unload must follow generate',
+      );
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(
+      occ.steps.where((s) => s.startsWith('unload-mouth')).length,
+      1,
+      reason: 'regression: post-eval unload ran before generate',
+    );
+    generated = true;
+    occ.endSpeech();
+    await post;
+    expect(occ.steps.where((s) => s.startsWith('unload-mouth')).length, 2);
+  });
+
   test('same GGUF different .kcpps drives acquire', () async {
     final occ = GpuSwapOccupancy(
       mouth: _RecHost('mouth'),

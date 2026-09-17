@@ -422,6 +422,7 @@ extension ChatServiceGeneration on ChatService {
 
       notifyListeners();
     } finally {
+      _llmProvider?.endMouthSpeech();
       // The per-turn realism speaker pin lives only while we generate. Clear it
       // on every exit (normal completion, early return, or error) so the next
       // turn's pre-pick window (e.g. _applyMoodDecay) keeps its prior
