@@ -29,7 +29,9 @@ import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 /// Side jobs sit below the complete Chat speech stack. Same-as-chat
 /// (empty worker type) shows no second URL/key/model.
 class WorkerBackendSection extends StatefulWidget {
-  const WorkerBackendSection({super.key});
+  const WorkerBackendSection({super.key, this.kcppsPresets = const []});
+
+  final List<File> kcppsPresets;
 
   @override
   State<WorkerBackendSection> createState() => _WorkerBackendSectionState();
@@ -272,6 +274,20 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
                     mouthPath: storage.lastUsedModelPath,
                     models: koboldModels,
                     onChanged: storage.setWorkerKoboldModelPath,
+                  ),
+                  const SizedBox(height: 12),
+                  WorkerKoboldKcppsPicker(
+                    selectedPath: storage.workerKoboldKcppsPath,
+                    mouthPath: storage.activeKcppsPath,
+                    modelsMatch:
+                        normalizeLocalModelPath(
+                          storage.resolvedWorkerKoboldModelPath(),
+                        ) ==
+                        normalizeLocalModelPath(
+                          storage.lastUsedModelPath ?? '',
+                        ),
+                    presets: widget.kcppsPresets,
+                    onChanged: storage.setWorkerKoboldKcppsPath,
                   ),
                 ],
               ],

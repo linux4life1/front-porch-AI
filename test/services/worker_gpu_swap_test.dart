@@ -80,6 +80,35 @@ void main() {
     );
   });
 
+  test('same GGUF different .kcpps is not same-resident', () {
+    expect(
+      workerLanesShareResident(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/a.gguf',
+        workerType: 'kobold',
+        workerUrl: '',
+        workerModel: '/tmp/a.gguf',
+        mouthKcpps: '/tmp/mouth.kcpps',
+        workerKcpps: '/tmp/worker.kcpps',
+      ),
+      isFalse,
+    );
+    expect(
+      workerLanesShareResident(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/a.gguf',
+        workerType: 'kobold',
+        workerUrl: '',
+        workerModel: '/tmp/a.gguf',
+        mouthKcpps: '/tmp/same.kcpps',
+        workerKcpps: '/tmp/same.kcpps',
+      ),
+      isTrue,
+    );
+  });
+
   test('kobold+kobold different GGUFs are not same-resident', () {
     expect(
       workerLanesShareResident(
@@ -266,6 +295,25 @@ void main() {
     await same.hold(() async {});
     expect(same.steps, isEmpty);
     expect(same.mouthDown, isFalse);
+  });
+
+  test('same GGUF different .kcpps drives acquire', () async {
+    final occ = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+      sameResident: workerLanesShareResident(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/a.gguf',
+        workerType: 'kobold',
+        workerUrl: '',
+        workerModel: '/tmp/a.gguf',
+        mouthKcpps: '/tmp/mouth.kcpps',
+        workerKcpps: '/tmp/worker.kcpps',
+      ),
+    );
+    await occ.hold(() async {});
+    expect(occ.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
   });
 }
 

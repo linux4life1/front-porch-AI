@@ -45,6 +45,7 @@ void main() {
     addTearDown(llm.dispose);
     final snap = readWorkerSettings(storage, llm);
     expect(snap['workerKoboldModelPath'], '');
+    expect(snap['workerKoboldKcppsPath'], '');
     expect(snap['lastUsedModelPath'], '/models/mouth.gguf');
   });
 
@@ -60,5 +61,17 @@ void main() {
     );
     expect(storage.workerKoboldModelPath, isNull);
     expect(storage.resolvedWorkerKoboldModelPath(), '/models/mouth.gguf');
+  });
+
+  test('settings POST keeps worker .kcpps next to the worker GGUF', () async {
+    await updateWorkerSettings(
+      storage: storage,
+      body: {
+        'workerKoboldModelPath': '/models/worker.gguf',
+        'workerKoboldKcppsPath': '/cfg/worker.kcpps',
+      },
+    );
+    expect(storage.workerKoboldKcppsPath, '/cfg/worker.kcpps');
+    expect(storage.resolvedWorkerKoboldKcppsPath(), '/cfg/worker.kcpps');
   });
 }

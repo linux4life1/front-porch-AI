@@ -210,7 +210,9 @@ void main() {
       );
 
       await storage.setWorkerKoboldModelPath('/tmp/worker.gguf');
+      await storage.setWorkerKoboldKcppsPath('/tmp/worker.kcpps');
       expect(storage.resolvedWorkerKoboldModelPath(), '/tmp/worker.gguf');
+      expect(storage.resolvedWorkerKoboldKcppsPath(), '/tmp/worker.kcpps');
       expect(
         workerLanesShareResident(
           mouthType: 'kobold',
@@ -226,19 +228,23 @@ void main() {
       final again = StorageService();
       await again.initialized;
       expect(again.workerKoboldModelPath, '/tmp/worker.gguf');
+      expect(again.workerKoboldKcppsPath, '/tmp/worker.kcpps');
     },
   );
 
   test(
-    'GPU swap launch loads the requested GGUF, not the mouth file',
+    'GPU swap launch loads the requested GGUF and matching .kcpps',
     () async {
       await storage.setLastUsedModelPath('/tmp/mouth.gguf');
+      await storage.setActiveKcppsPath('/tmp/mouth.kcpps');
       await storage.setWorkerBackendType('kobold');
       await storage.setWorkerKoboldModelPath('/tmp/worker.gguf');
+      await storage.setWorkerKoboldKcppsPath('/tmp/worker.kcpps');
       final kobold = _RecordingKobold(storage);
       kobold.running = true;
       kobold.ready = true;
       kobold.loaded = '/tmp/mouth.gguf';
+      kobold.loadedKcpps = '/tmp/mouth.kcpps';
       final p = LLMProvider(
         kobold,
         mouthRemote,
@@ -257,26 +263,30 @@ void main() {
       await p.ensureManagedBackendIsRunning(
         forGpuSwap: true,
         modelPath: '/tmp/worker.gguf',
+        kcppsPath: '/tmp/worker.kcpps',
       );
       expect(kobold.startCalls, 1);
       expect(kobold.lastModel, '/tmp/worker.gguf');
-      expect(kobold.lastKcpps, isNull);
+      expect(kobold.lastKcpps, '/tmp/worker.kcpps');
 
       await p.ensureManagedBackendIsRunning(
         forGpuSwap: true,
         modelPath: '/tmp/worker.gguf',
+        kcppsPath: '/tmp/worker.kcpps',
       );
       expect(
         kobold.startCalls,
         1,
-        reason: 'same GGUF already ready must not reload',
+        reason: 'same GGUF+.kcpps already ready must not reload',
       );
 
       await p.ensureManagedBackendIsRunning(
         forGpuSwap: true,
         modelPath: '/tmp/mouth.gguf',
+        kcppsPath: '/tmp/mouth.kcpps',
       );
       expect(kobold.lastModel, '/tmp/mouth.gguf');
+      expect(kobold.lastKcpps, '/tmp/mouth.kcpps');
       expect(kobold.startCalls, 2);
     },
   );
@@ -309,6 +319,7 @@ class _RecordingKobold extends KoboldService {
   bool running = false;
   bool ready = false;
   String? loaded;
+  String? loadedKcpps;
 
   @override
   bool get isRunning => running;
@@ -321,6 +332,9 @@ class _RecordingKobold extends KoboldService {
 
   @override
   String? get loadedModelPath => loaded;
+
+  @override
+  String? get loadedKcppsPath => loadedKcpps;
 
   @override
   Future<void> startKobold(
@@ -342,6 +356,7 @@ class _RecordingKobold extends KoboldService {
     running = true;
     ready = true;
     loaded = modelPath;
+    loadedKcpps = kcppsPath;
   }
 }
 

@@ -74,22 +74,11 @@ LocalSwapKind? localSwapKindFor({
   }
 }
 
-/// Slash-normalize a local GGUF path so mouth/worker compare is honest.
-String normalizeLocalModelPath(String path) {
-  var p = path.trim().replaceAll('\\', '/');
-  while (p.contains('//')) {
-    p = p.replaceAll('//', '/');
-  }
-  if (p.length > 1 && p.endsWith('/')) {
-    p = p.substring(0, p.length - 1);
-  }
-  return p;
-}
-
 /// Same process or same loaded model — two clients, one resident engine.
 ///
 /// Two Kobold slots share the managed process. Occupancy is a no-op only
-/// when both lanes name the same GGUF. Different paths must unload/reload.
+/// when both lanes name the same GGUF **and** the same .kcpps. Different
+/// model or config must unload/reload.
 bool workerLanesShareResident({
   required String mouthType,
   required String mouthUrl,
@@ -97,6 +86,8 @@ bool workerLanesShareResident({
   required String workerType,
   required String workerUrl,
   required String workerModel,
+  String mouthKcpps = '',
+  String workerKcpps = '',
 }) {
   if (mouthType.trim() != workerType.trim()) return false;
   final mUrl = resolvedLaneApiUrl(mouthType, mouthUrl);
@@ -106,7 +97,9 @@ bool workerLanesShareResident({
   }
   if (mouthType.trim() == 'kobold') {
     return normalizeLocalModelPath(mouthModel) ==
-        normalizeLocalModelPath(workerModel);
+            normalizeLocalModelPath(workerModel) &&
+        normalizeLocalModelPath(mouthKcpps) ==
+            normalizeLocalModelPath(workerKcpps);
   }
   return mouthModel.trim() == workerModel.trim();
 }
@@ -120,6 +113,8 @@ bool workerGpuSwapSupported({
   required String workerType,
   required String workerUrl,
   required String workerModel,
+  String mouthKcpps = '',
+  String workerKcpps = '',
 }) {
   if (workerBackendIsOff(workerType)) return false;
   final mouthLocal = backendLaneIsLocal(
@@ -138,6 +133,8 @@ bool workerGpuSwapSupported({
     workerType: workerType,
     workerUrl: workerUrl,
     workerModel: workerModel,
+    mouthKcpps: mouthKcpps,
+    workerKcpps: workerKcpps,
   )) {
     return true;
   }

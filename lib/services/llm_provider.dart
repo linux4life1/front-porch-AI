@@ -239,11 +239,17 @@ class LLMProvider extends ChangeNotifier {
   bool get hasAnyManagedProcessRunning => _koboldService.isRunning;
 
   /// Start Kobold on chat entry, or inside a GPU swap (`forGpuSwap`).
-  /// [modelPath] is the GGUF to load on swap restore; omitted = Models-tab file.
+  /// [modelPath] / [kcppsPath] are the GGUF + `.kcpps` pair to load on swap;
+  /// omitted = Models-tab mouth pair.
   Future<void> ensureManagedBackendIsRunning({
     bool forGpuSwap = false,
     String? modelPath,
-  }) => _ensureManagedKobold(forGpuSwap: forGpuSwap, modelPath: modelPath);
+    String? kcppsPath,
+  }) => _ensureManagedKobold(
+    forGpuSwap: forGpuSwap,
+    modelPath: modelPath,
+    kcppsPath: kcppsPath,
+  );
 
   /// Convenience getters for the underlying services (for UI that needs specifics).
   KoboldService get koboldService => _koboldService;

@@ -25,4 +25,35 @@ void main() {
       '/models/worker.gguf',
     );
   });
+
+  test('worker .kcpps inherits mouth only when the GGUFs match', () {
+    expect(
+      resolvedKoboldWorkerKcppsPath(
+        workerKcpps: null,
+        mouthKcpps: '/cfg/mouth.kcpps',
+        workerModel: '/models/mouth.gguf',
+        mouthModel: '/models/mouth.gguf',
+      ),
+      '/cfg/mouth.kcpps',
+    );
+    expect(
+      resolvedKoboldWorkerKcppsPath(
+        workerKcpps: null,
+        mouthKcpps: '/cfg/mouth.kcpps',
+        workerModel: '/models/worker.gguf',
+        mouthModel: '/models/mouth.gguf',
+      ),
+      '',
+      reason: 'a second GGUF must not keep the mouth --config',
+    );
+    expect(
+      resolvedKoboldWorkerKcppsPath(
+        workerKcpps: '/cfg/worker.kcpps',
+        mouthKcpps: '/cfg/mouth.kcpps',
+        workerModel: '/models/worker.gguf',
+        mouthModel: '/models/mouth.gguf',
+      ),
+      '/cfg/worker.kcpps',
+    );
+  });
 }

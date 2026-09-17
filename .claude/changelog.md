@@ -1,8 +1,8 @@
-## 2026-09-17 — Close #256 managed-Kobold dual-GGUF miss
-- **Why:** #256’s V2 corpus already required two different GGUFs on the one app-managed KoboldCPP with unload/reload between mouth and clerk. What shipped was a miss: `workerLanesShareResident` was always true for kobold+kobold, `_workerSwapModelId` reused `lastUsedModelPath`, and `ensureManagedBackendIsRunning` no-op'd if the process was up. Not a new product direction.
-- **What:** Persist `worker_kobold_model_path`. Occupancy is same-resident only when the two paths match (empty worker inherits Models-tab). `ensureManagedBackendIsRunning(forGpuSwap, modelPath)` starts the requested `--model` (stop+start when the live GGUF differs). Admin `initial_model` is skipped when a specific GGUF is requested. Settings + web Realism-evals picker. Worker-hot cadence unchanged.
-- **Files:** `worker_gpu_swap.dart`, `worker_gpu_hosts.dart`, `worker_backend*.dart`, `llm_provider.dart` + worker part, `kobold_service.dart`, Settings picker + web card/facade, swap/launch/UI tests
-- **Commit:** 67cc277a, b6a52da2, a94d759a
+## 2026-09-17 — Managed Kobold dual-GGUF + per-slot .kcpps
+- **Why:** Mouth and clerk on one managed KoboldCPP need their own GGUF **and** `.kcpps`. Swap must load the matching pair; the previous slot’s `--config` must not stay attached.
+- **What:** Persist `worker_kobold_model_path` + `worker_kobold_kcpps_path`. sameResident only when GGUF **and** .kcpps match (empty worker GGUF inherits mouth; empty worker .kcpps inherits mouth only if the GGUFs match). `ensureManaged(forGpuSwap, modelPath, kcppsPath)` starts that pair. Admin `initial_model` skipped when a GGUF is requested. Settings + web pickers. Worker-hot cadence unchanged.
+- **Files:** `worker_gpu_swap.dart`, `worker_gpu_hosts.dart`, `worker_backend*.dart`, `llm_provider.dart` + worker part, `kobold_service.dart`, Settings pickers + web card/facade, swap/launch/UI tests
+- **Commit:** (this PR)
 
 ## 2026-09-16 — Worker V2: HOLD A+B + worker-hot residency
 - **Why:** (A) Kobold admin `unload_model` left `_modelReady` true, so a successful `initial_model` + `waitUntilReady` no-op'd on stale `isReady`. (B) `isHeld` is depth-only; after release the restore tail (or worker-hot residency) could still have the mouth unloaded while speech wait returned. Cadence lock (corrects the queued “restore mouth on every release / ≥2 full cycles” note): dual-local pre+post must leave the worker hot. Mouth is resident only during speech. Do not keep the worker loaded through the mouth turn.

@@ -86,4 +86,28 @@ describe('WorkerBackendCard Kobold GGUF slot', () => {
     });
     expect(latest.workerKoboldModelPath).toBe('/models/worker.gguf');
   });
+
+  it('shows a Realism evals .kcpps picker on the Kobold chip', async () => {
+    render({
+      backend: 'kobold',
+      lastUsedModelPath: '/models/mouth.gguf',
+      activeKcppsPath: '/cfg/mouth.kcpps',
+      workerBackend: 'kobold',
+      workerKoboldModelPath: '/models/worker.gguf',
+      localKcpps: [{ name: 'worker.kcpps', path: '/cfg/worker.kcpps' }],
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(container.querySelector('[data-testid="side-jobs-kobold-kcpps"]')).not.toBeNull();
+    expect(container.textContent).toContain('None (model file only)');
+    const select = container.querySelector(
+      '[data-testid="side-jobs-kobold-kcpps-select"]',
+    ) as HTMLSelectElement;
+    act(() => {
+      select.value = '/cfg/worker.kcpps';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(latest.workerKoboldKcppsPath).toBe('/cfg/worker.kcpps');
+  });
 });

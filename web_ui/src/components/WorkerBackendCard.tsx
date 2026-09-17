@@ -19,7 +19,10 @@ export interface WorkerBackendFields {
   workerRemoteApiUrl?: string;
   workerRemoteModelName?: string;
   workerKoboldModelPath?: string;
+  workerKoboldKcppsPath?: string;
   lastUsedModelPath?: string;
+  activeKcppsPath?: string;
+  localKcpps?: { name: string; path: string }[];
   workerEnabled?: boolean;
   workerRefusedDualLocal?: boolean;
   workerDualLocalMessage?: string;
@@ -263,6 +266,35 @@ export function WorkerBackendCard({
                 s.workerKoboldModelPath === s.lastUsedModelPath
                   ? 'Evals use the Models-tab file on this KoboldCPP. Pick a different GGUF to unload chat speech and load that file before Realism checks.'
                   : 'Evals unload the chat-speech GGUF and load this file on the same KoboldCPP, then stay on it until she talks.'}
+              </p>
+            </label>
+          )}
+          {id === 'kobold' && (
+            <label data-testid="side-jobs-kobold-kcpps">
+              Realism evals .kcpps
+              <select
+                data-testid="side-jobs-kobold-kcpps-select"
+                value={s.workerKoboldKcppsPath ?? ''}
+                onChange={(e) => onPatch({ workerKoboldKcppsPath: e.target.value })}
+              >
+                <option value="">
+                  {(s.workerKoboldModelPath ?? '') === '' ||
+                  s.workerKoboldModelPath === s.lastUsedModelPath
+                    ? `Same as chat speech${s.activeKcppsPath ? ` (${s.activeKcppsPath.split(/[/\\]/).pop()})` : ''}`
+                    : 'None (model file only)'}
+                </option>
+                {(s.localKcpps ?? []).map((k) => (
+                  <option key={k.path} value={k.path}>{k.name}</option>
+                ))}
+                {!!s.workerKoboldKcppsPath &&
+                  !(s.localKcpps ?? []).some((k) => k.path === s.workerKoboldKcppsPath) && (
+                    <option value={s.workerKoboldKcppsPath}>
+                      {s.workerKoboldKcppsPath.split(/[/\\]/).pop()}
+                    </option>
+                  )}
+              </select>
+              <p className="muted small">
+                This config loads with the Realism-evals GGUF. Chat speech keeps its own .kcpps.
               </p>
             </label>
           )}

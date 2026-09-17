@@ -63,7 +63,8 @@ extension LLMProviderWorker on LLMProvider {
     final identity =
         '${_storageService.backendType}|${_storageService.remoteApiUrl}|'
         '$type|$url|$model|$key|${_mouthSwapModelId()}|'
-        '${_workerSwapModelId()}';
+        '${_workerSwapModelId()}|${_koboldKcppsId(worker: false)}|'
+        '${_koboldKcppsId(worker: true)}';
     if (identity == _lastWorkerIdentity) return false;
     _lastWorkerIdentity = identity;
     if (type == 'openRouter' || type == 'omlx') {
@@ -199,6 +200,8 @@ extension LLMProviderWorker on LLMProvider {
       workerType: _storageService.workerBackendType,
       workerUrl: _storageService.workerRemoteApiUrl,
       workerModel: _workerSwapModelId(),
+      mouthKcpps: _koboldKcppsId(worker: false),
+      workerKcpps: _koboldKcppsId(worker: true),
     );
   }
 
@@ -219,11 +222,15 @@ extension LLMProviderWorker on LLMProvider {
   Future<void> _ensureManagedKobold({
     bool forGpuSwap = false,
     String? modelPath,
+    String? kcppsPath,
   }) async {
     final requested = _effectiveKoboldLaunchPath(modelPath);
+    final kcpps = forGpuSwap
+        ? (kcppsPath?.trim() ?? '')
+        : (_storageService.activeKcppsPath?.trim() ?? '');
     if (hasAnyManagedProcessRunning) {
       if (!forGpuSwap) return;
-      if (_managedKoboldAlreadyHas(requested)) return;
+      if (_managedKoboldAlreadyHas(requested, kcpps)) return;
     } else if (!forGpuSwap &&
         !shouldEnsureKoboldProcess(
           mouthType: _storageService.backendType,
@@ -248,15 +255,17 @@ extension LLMProviderWorker on LLMProvider {
     try {
       final hasPresetWithModel =
           _storageService.kcppsHasModel && _storageService.kcppsModelFileExists;
-      if (requested.isEmpty && !hasPresetWithModel) return;
-      // A swap launch names a GGUF. A mouth .kcpps must not override it.
-      final kcppsPath = (forGpuSwap && requested.isNotEmpty)
-          ? null
-          : _storageService.activeKcppsPath;
+      if (requested.isEmpty) {
+        if (forGpuSwap) {
+          if (kcpps.isEmpty) return;
+        } else if (!hasPresetWithModel) {
+          return;
+        }
+      }
       await _koboldService.startKobold(
         _backendManager.backendPath!,
         requested,
-        kcppsPath: kcppsPath,
+        kcppsPath: kcpps.isEmpty ? null : kcpps,
         mmprojPath: requested.isNotEmpty
             ? _storageService.mmprojForModel(requested)
             : null,
@@ -280,11 +289,19 @@ extension LLMProviderWorker on LLMProvider {
     return raw;
   }
 
-  bool _managedKoboldAlreadyHas(String requested) {
+  String _koboldKcppsId({required bool worker}) {
+    if (worker) return _storageService.resolvedWorkerKoboldKcppsPath();
+    return _storageService.activeKcppsPath?.trim() ?? '';
+  }
+
+  bool _managedKoboldAlreadyHas(String requested, String kcpps) {
     if (!_koboldService.isReady) return false;
-    if (requested.isEmpty) return true;
-    return normalizeLocalModelPath(_koboldService.loadedModelPath ?? '') ==
-        normalizeLocalModelPath(requested);
+    if (normalizeLocalModelPath(_koboldService.loadedModelPath ?? '') !=
+        normalizeLocalModelPath(requested)) {
+      return false;
+    }
+    return normalizeLocalModelPath(_koboldService.loadedKcppsPath ?? '') ==
+        normalizeLocalModelPath(kcpps);
   }
 
   GpuSwapOccupancy? _occupancyForLane() {
@@ -314,6 +331,7 @@ extension LLMProviderWorker on LLMProvider {
       type: _storageService.backendType,
       url: _storageService.remoteApiUrl,
       model: _mouthSwapModelId(),
+      kcpps: _koboldKcppsId(worker: false),
       key: _storageService.remoteApiKeyFor(
         resolvedLaneApiUrl(
           _storageService.backendType,
@@ -325,6 +343,7 @@ extension LLMProviderWorker on LLMProvider {
       type: _storageService.workerBackendType,
       url: _storageService.workerRemoteApiUrl,
       model: _workerSwapModelId(),
+      kcpps: _koboldKcppsId(worker: true),
       key: _storageService.remoteApiKeyFor(
         resolvedLaneApiUrl(
           _storageService.workerBackendType,
@@ -346,6 +365,8 @@ extension LLMProviderWorker on LLMProvider {
         workerType: _storageService.workerBackendType,
         workerUrl: _storageService.workerRemoteApiUrl,
         workerModel: _workerSwapModelId(),
+        mouthKcpps: _koboldKcppsId(worker: false),
+        workerKcpps: _koboldKcppsId(worker: true),
       ),
     );
     _providerSwap[this] = occupancy;
@@ -357,6 +378,7 @@ extension LLMProviderWorker on LLMProvider {
     required String url,
     required String model,
     required String key,
+    String kcpps = '',
   }) {
     final kind = localSwapKindFor(backendType: type, apiUrl: url);
     if (kind == null) return null;
@@ -365,8 +387,11 @@ extension LLMProviderWorker on LLMProvider {
         baseUrl: _koboldService.baseUrl,
         requestedModelPath: model.trim().isEmpty ? null : model,
         stopProcess: _koboldService.stopKobold,
-        startProcess: () =>
-            ensureManagedBackendIsRunning(forGpuSwap: true, modelPath: model),
+        startProcess: () => ensureManagedBackendIsRunning(
+          forGpuSwap: true,
+          modelPath: model,
+          kcppsPath: kcpps,
+        ),
         isProcessRunning: () => _koboldService.isProcessRunning,
         markNotReady: _koboldService.markModelNotReady,
         waitUntilReady: () async {
