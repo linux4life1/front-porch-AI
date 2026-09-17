@@ -233,6 +233,40 @@ void main() {
     await occ.hold(() async {});
     expect(occ.steps, isEmpty);
   });
+
+  test('kobold path pair drives acquire vs sameResident', () async {
+    final different = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+      sameResident: workerLanesShareResident(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/mouth.gguf',
+        workerType: 'kobold',
+        workerUrl: '',
+        workerModel: '/tmp/worker.gguf',
+      ),
+    );
+    await different.hold(() async {});
+    expect(different.steps, ['unload-mouth:mouth', 'prepare-worker:worker']);
+    expect(different.mouthDown, isTrue);
+
+    final same = GpuSwapOccupancy(
+      mouth: _RecHost('mouth'),
+      worker: _RecHost('worker'),
+      sameResident: workerLanesShareResident(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/a.gguf',
+        workerType: 'kobold',
+        workerUrl: '',
+        workerModel: '/tmp/a.gguf',
+      ),
+    );
+    await same.hold(() async {});
+    expect(same.steps, isEmpty);
+    expect(same.mouthDown, isFalse);
+  });
 }
 
 class _RecHost implements GpuSwapHost {
