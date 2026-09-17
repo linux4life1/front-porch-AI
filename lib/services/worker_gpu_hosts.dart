@@ -227,8 +227,10 @@ class KoboldProcessHost implements GpuSwapHost {
     this.noteLoadedPair,
     this.adminRetryAttempts = kKoboldAdminRetryAttempts,
     this.adminRetryDelay = kKoboldAdminRetryDelay,
+    KoboldAdminSwapLock? swapLock,
     HttpGpuSwapHost? admin,
-  }) : _admin = admin;
+  }) : _admin = admin,
+       swapLock = swapLock ?? KoboldAdminSwapLock();
 
   final String baseUrl;
   final Future<void> Function() stopProcess;
@@ -254,6 +256,7 @@ class KoboldProcessHost implements GpuSwapHost {
   noteLoadedPair;
   final int adminRetryAttempts;
   final Duration adminRetryDelay;
+  final KoboldAdminSwapLock swapLock;
   final HttpGpuSwapHost? _admin;
 
   @override
@@ -274,6 +277,8 @@ class KoboldProcessHost implements GpuSwapHost {
     requestedKcpps: requestedKcppsPath ?? '',
   );
 
+  bool get _processAlive => isProcessRunning?.call() == true;
+
   Future<void> _runAdmin(Future<void> Function() action, String op) {
     return koboldAdminRetry(
       action,
@@ -286,68 +291,88 @@ class KoboldProcessHost implements GpuSwapHost {
 
   @override
   Future<void> unload() async {
-    final admin = _admin;
-    if (admin != null) {
-      try {
-        await _runAdmin(admin.unload, 'unload');
-        markNotReady?.call();
-        return;
-      } catch (e) {
+    await swapLock.enqueue(() async {
+      final admin = _admin;
+      if (admin != null) {
+        try {
+          await _runAdmin(admin.unload, 'unload');
+          markNotReady?.call();
+          return;
+        } catch (e) {
+          if (_processAlive && koboldAdminErrorIsTransient(e)) {
+            debugPrint(
+              '[GpuSwap] Kobold admin unload missed, process still up '
+              '— not stopping: $e',
+            );
+            markNotReady?.call();
+            return;
+          }
+          debugPrint(
+            '[GpuSwap] Kobold admin unload failed '
+            '(last-resort process stop): $e',
+          );
+        }
+      } else {
         debugPrint(
-          '[GpuSwap] Kobold admin unload failed '
-          '(last-resort process stop): $e',
+          '[GpuSwap] Kobold admin unavailable — last-resort process stop',
         );
       }
-    } else {
-      debugPrint(
-        '[GpuSwap] Kobold admin unavailable — last-resort process stop',
-      );
-    }
-    await stopProcess();
+      await stopProcess();
+    });
   }
 
   @override
   Future<void> restore() async {
-    var reloaded = false;
-    final admin = _admin;
-    if (admin != null) {
-      try {
-        await _runAdmin(() async {
-          final staged = koboldAdminStagedReload(
-            filename: _reloadFilename,
-            overrideConfig: _reloadOverride,
-            adminDir: adminDir ?? '',
-            modelPath: requestedModelPath ?? '',
-            kcppsPath: requestedKcppsPath ?? '',
+    await swapLock.enqueue(() async {
+      var reloaded = false;
+      Object? lastError;
+      final admin = _admin;
+      if (admin != null) {
+        try {
+          await _runAdmin(() async {
+            final staged = koboldAdminStagedReload(
+              filename: _reloadFilename,
+              overrideConfig: _reloadOverride,
+              adminDir: adminDir ?? '',
+              modelPath: requestedModelPath ?? '',
+              kcppsPath: requestedKcppsPath ?? '',
+            );
+            await admin.reloadConfig(
+              filename: staged.filename,
+              overrideConfig: staged.overrideConfig,
+            );
+          }, 'restore');
+          final noted = noteLoadedPair?.call(
+            requestedModelPath ?? '',
+            requestedKcppsPath ?? '',
           );
-          await admin.reloadConfig(
-            filename: staged.filename,
-            overrideConfig: staged.overrideConfig,
+          if (noted is Future<void>) await noted;
+          reloaded = true;
+        } catch (e) {
+          lastError = e;
+          debugPrint(
+            '[GpuSwap] Kobold admin restore failed '
+            '${_processAlive && koboldAdminErrorIsTransient(e) ? '(process still up — not restarting)' : '(last-resort process restart)'}'
+            ': $e',
           );
-        }, 'restore');
-        final noted = noteLoadedPair?.call(
-          requestedModelPath ?? '',
-          requestedKcppsPath ?? '',
-        );
-        if (noted is Future<void>) await noted;
-        reloaded = true;
-      } catch (e) {
+        }
+      } else {
         debugPrint(
-          '[GpuSwap] Kobold admin restore failed '
-          '(last-resort process restart): $e',
+          '[GpuSwap] Kobold admin unavailable — last-resort process restart',
         );
       }
-    } else {
-      debugPrint(
-        '[GpuSwap] Kobold admin unavailable — last-resort process restart',
-      );
-    }
-    if (!reloaded) {
-      if (isProcessRunning?.call() == true) {
-        await stopProcess();
+      if (!reloaded) {
+        final permanent =
+            lastError != null && !koboldAdminErrorIsTransient(lastError);
+        if (!_processAlive || permanent || admin == null) {
+          if (_processAlive) await stopProcess();
+          await startProcess();
+        } else {
+          throw lastError ??
+              StateError('Kobold admin restore missed, process still up');
+        }
       }
-      await startProcess();
-    }
-    await waitUntilReady?.call();
+      await waitUntilReady?.call();
+    });
   }
 }

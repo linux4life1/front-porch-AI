@@ -23,6 +23,7 @@ import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold_binary_version.dart';
+import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/kobold_process_control.dart';
 import 'package:front_porch_ai/services/kobold_system_role.dart';
@@ -77,6 +78,9 @@ class KoboldService extends ChangeNotifier
 
   /// `.kcpps` last started or last admin-reloaded. Empty = UI-flag launch.
   String? get loadedKcppsPath => _loadedKcppsPath;
+
+  /// Mouth + worker hosts share this so nested reload_config cannot overlap.
+  final KoboldAdminSwapLock adminSwapLock = KoboldAdminSwapLock();
 
   /// Feed a console chunk to [liveProgress]; notify at most every 150ms
   /// (Generating lines arrive once per token).

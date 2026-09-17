@@ -128,8 +128,32 @@ bool koboldAdminErrorIsTransient(Object error) {
       (s.contains('timed out') || s.contains('timeout'));
 }
 
-const kKoboldAdminRetryAttempts = 5;
-const kKoboldAdminRetryDelay = Duration(milliseconds: 200);
+const kKoboldAdminRetryAttempts = 8;
+const kKoboldAdminRetryDelay = Duration(milliseconds: 250);
+const kKoboldAdminRetryCap = Duration(seconds: 2);
+
+/// Wait after transient fail [retryIndex] (1-based). [base] zero keeps tests
+/// instant. Otherwise 250, 500, 1000, 2000… so a blip longer than 1s recovers.
+Duration koboldAdminRetryWait(int retryIndex, Duration base) {
+  if (base <= Duration.zero) return Duration.zero;
+  final shift = (retryIndex - 1).clamp(0, 3);
+  var ms = base.inMilliseconds * (1 << shift);
+  if (ms > kKoboldAdminRetryCap.inMilliseconds) {
+    ms = kKoboldAdminRetryCap.inMilliseconds;
+  }
+  return Duration(milliseconds: ms);
+}
+
+/// One Kobold process: nested mouth/worker admin calls must not overlap.
+class KoboldAdminSwapLock {
+  Future<void> _tail = Future<void>.value();
+
+  Future<T> enqueue<T>(Future<T> Function() work) {
+    final done = _tail.then((_) => work());
+    _tail = done.then((_) {}, onError: (_) {});
+    return done;
+  }
+}
 
 /// Retry [action] on a transient admin blip. Non-transient misses
 /// (`success: false`) throw immediately.
@@ -148,7 +172,8 @@ Future<T> koboldAdminRetry<T>(
       last = e;
       if (!koboldAdminErrorIsTransient(e) || i == n - 1) rethrow;
       onRetry?.call(e, i + 1);
-      if (delay > Duration.zero) await Future<void>.delayed(delay);
+      final wait = koboldAdminRetryWait(i + 1, delay);
+      if (wait > Duration.zero) await Future<void>.delayed(wait);
     }
   }
   throw last!;

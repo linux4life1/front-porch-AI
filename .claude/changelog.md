@@ -1,3 +1,9 @@
+## 2026-09-17 — Nested admin blip must not kill a live Kobold process
+- **Why:** Second unload-mouth (post Realism) got connection-refused through 4 retries (~800ms), then last-resort **stop** on a still-living process, then prepare-worker last-resort **start** (PID change). First cycle was in-process; the blip is `kcpp_instance` teardown after restore’s version 200. Stopping a live process is what dropped SWA.
+- **What:** Exponential admin backoff (250ms…2s, 8 tries). Unload/restore last-resort stop/start only if the process is dead or admin permanently failed (`success: false`). Transient miss while the process is up: wait/retry, do not kill. Mouth+worker share `KoboldAdminSwapLock` so nested reload_config cannot overlap; waitUntilReady stays inside the lock.
+- **Files:** `kobold_admin_swap.dart`, `worker_gpu_hosts.dart`, `kobold_service.dart`, `llm_provider.worker.dart`, silent-restart tests
+- **Commit:** (this PR tip)
+
 ## 2026-09-17 — Dual GGUF swap never silent-restarts when admin exists
 - **Why:** Live poke: first prepare-worker changed PID with `=== STARTING KOBOLDCPP ===` and **no** last-resort log. Occupancy is `mouth.unload()` then `worker.restore()` — the worker host never ran `unload()`, so `_usedAdmin` stayed false and restore silently `stop`+`start`. Later connection-refused on `/api/admin/reload_config` last-resort-restarted again (socket blip after unload / after that silent kill).
 - **What:** Restore always tries admin when the admin host exists (do not gate on a prior unload). Never silent restart if admin is configured. Retry connection-refused / reset / timeout before last-resort. `success: false` still fails immediately.

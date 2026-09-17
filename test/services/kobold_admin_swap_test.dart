@@ -91,6 +91,22 @@ void main() {
     );
   });
 
+  test('retry wait doubles then caps; zero base stays instant', () {
+    expect(
+      koboldAdminRetryWait(1, const Duration(milliseconds: 250)),
+      const Duration(milliseconds: 250),
+    );
+    expect(
+      koboldAdminRetryWait(2, const Duration(milliseconds: 250)),
+      const Duration(milliseconds: 500),
+    );
+    expect(
+      koboldAdminRetryWait(4, const Duration(milliseconds: 250)),
+      const Duration(milliseconds: 2000),
+    );
+    expect(koboldAdminRetryWait(1, Duration.zero), Duration.zero);
+  });
+
   test('koboldAdminRetry skips delay after a non-transient miss', () async {
     var tries = 0;
     await expectLater(
