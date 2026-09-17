@@ -247,13 +247,20 @@ void main() {
     },
   );
 
-  test('requested GGUF skips admin initial_model and process-starts', () async {
+  test('requested GGUF reloads in-process and does not restart', () async {
     final hits = <String>[];
     var stops = 0;
     var starts = 0;
+    String? notedModel;
+    String? notedKcpps;
     final host = KoboldProcessHost(
       baseUrl: 'http://127.0.0.1:5001',
       requestedModelPath: '/tmp/worker.gguf',
+      requestedKcppsPath: '/tmp/worker.kcpps',
+      noteLoadedPair: (model, kcpps) {
+        notedModel = model;
+        notedKcpps = kcpps;
+      },
       stopProcess: () async => stops++,
       startProcess: () async => starts++,
       admin: HttpGpuSwapHost(
@@ -268,32 +275,30 @@ void main() {
     );
     await host.unload();
     await host.restore();
-    expect(
-      hits,
-      ['POST api/admin/reload_config {"filename":"unload_model"}'],
-      reason:
-          'admin unload may free VRAM; initial_model cannot load a second GGUF',
-    );
+    expect(hits, [
+      'POST api/admin/reload_config {"filename":"unload_model"}',
+      'POST api/admin/reload_config '
+          '{"filename":"worker.gguf","overrideconfig":"worker.kcpps"}',
+    ]);
     expect(host.label, 'kobold:/tmp/worker.gguf');
-    expect(starts, 1);
+    expect(notedModel, '/tmp/worker.gguf');
+    expect(notedKcpps, '/tmp/worker.kcpps');
+    expect(stops, 0);
+    expect(starts, 0);
   });
 
   test(
-    'empty GGUF + different .kcpps skips admin initial_model and process-starts',
+    'empty GGUF + different .kcpps reloads in-process and does not restart',
     () async {
       final hits = <String>[];
       var starts = 0;
-      String? startedConfig;
       final host = KoboldProcessHost(
         baseUrl: 'http://127.0.0.1:5001',
         requestedModelPath: null,
         requestedKcppsPath: '/tmp/worker.kcpps',
         launchedKcppsPath: () => '/tmp/mouth.kcpps',
         stopProcess: () async {},
-        startProcess: () async {
-          starts++;
-          startedConfig = '/tmp/worker.kcpps';
-        },
+        startProcess: () async => starts++,
         admin: HttpGpuSwapHost(
           kind: LocalSwapKind.koboldProcess,
           apiUrl: 'http://127.0.0.1:5001',
@@ -306,17 +311,74 @@ void main() {
       );
       await host.unload();
       await host.restore();
-      expect(
-        hits,
-        ['POST api/admin/reload_config {"filename":"unload_model"}'],
-        reason:
-            'initial_model only reloads the original --config; a second '
-            '.kcpps must process-restart',
-      );
-      expect(starts, 1);
-      expect(startedConfig, '/tmp/worker.kcpps');
+      expect(hits, [
+        'POST api/admin/reload_config {"filename":"unload_model"}',
+        'POST api/admin/reload_config {"filename":"worker.kcpps"}',
+      ]);
+      expect(starts, 0);
     },
   );
+
+  test('HTTP 200 empty ACK does not stop the process', () async {
+    var stops = 0;
+    var starts = 0;
+    final host = KoboldProcessHost(
+      baseUrl: 'http://127.0.0.1:5001',
+      stopProcess: () async => stops++,
+      startProcess: () async => starts++,
+      admin: HttpGpuSwapHost(
+        kind: LocalSwapKind.koboldProcess,
+        apiUrl: 'http://127.0.0.1:5001',
+        modelId: 'unused',
+        send: (method, uri, headers, body) async => http.Response('', 200),
+      ),
+    );
+    await host.unload();
+    await host.restore();
+    expect(stops, 0);
+    expect(starts, 0);
+  });
+
+  test('HTTP 200 JSON true body does not stop the process', () async {
+    var stops = 0;
+    var starts = 0;
+    final host = KoboldProcessHost(
+      baseUrl: 'http://127.0.0.1:5001',
+      stopProcess: () async => stops++,
+      startProcess: () async => starts++,
+      admin: HttpGpuSwapHost(
+        kind: LocalSwapKind.koboldProcess,
+        apiUrl: 'http://127.0.0.1:5001',
+        modelId: 'unused',
+        send: (method, uri, headers, body) async => http.Response('true', 200),
+      ),
+    );
+    await host.unload();
+    await host.restore();
+    expect(stops, 0);
+    expect(starts, 0);
+  });
+
+  test('HTTP 200 success string true does not stop the process', () async {
+    var stops = 0;
+    var starts = 0;
+    final host = KoboldProcessHost(
+      baseUrl: 'http://127.0.0.1:5001',
+      stopProcess: () async => stops++,
+      startProcess: () async => starts++,
+      admin: HttpGpuSwapHost(
+        kind: LocalSwapKind.koboldProcess,
+        apiUrl: 'http://127.0.0.1:5001',
+        modelId: 'unused',
+        send: (method, uri, headers, body) async =>
+            http.Response('{"success":"true"}', 200),
+      ),
+    );
+    await host.unload();
+    await host.restore();
+    expect(stops, 0);
+    expect(starts, 0);
+  });
 
   test(
     'empty GGUF + same .kcpps as launched still uses admin initial_model',

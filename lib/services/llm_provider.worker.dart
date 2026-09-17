@@ -399,6 +399,11 @@ extension LLMProviderWorker on LLMProvider {
         requestedModelPath: model.trim().isEmpty ? null : model,
         requestedKcppsPath: kcpps.trim().isEmpty ? null : kcpps,
         launchedKcppsPath: () => _koboldService.loadedKcppsPath ?? '',
+        adminDir: koboldAdminDirFor(_storageService),
+        noteLoadedPair: (model, kcpps) => _koboldService.noteAdminLoadedPair(
+          modelPath: model,
+          kcppsPath: kcpps,
+        ),
         stopProcess: _koboldService.stopKobold,
         startProcess: () => ensureManagedBackendIsRunning(
           forGpuSwap: true,

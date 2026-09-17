@@ -21,6 +21,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
+import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Translate the user's settings and the caller's hardware choices into a
@@ -201,6 +202,15 @@ Future<List<String>> buildKoboldLaunchArgs({
       mmprojPath.isNotEmpty &&
       File(mmprojPath).existsSync()) {
     args.addAll(['--mmproj', mmprojPath]);
+  }
+
+  // In-process GGUF/.kcpps swap (GpuSwap) needs --admin + an existing
+  // --admindir. Without both, reload_config returns HTTP 200
+  // {"success":false} and we used to treat that as a miss → process restart.
+  final adminDir = koboldAdminDirFor(storage);
+  if (adminDir.isNotEmpty) {
+    Directory(adminDir).createSync(recursive: true);
+    args.addAll(['--admin', '--admindir', adminDir]);
   }
 
   return args;

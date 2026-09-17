@@ -22,7 +22,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/capability/capability.dart';
-import 'package:front_porch_ai/services/worker_backend.dart';
+import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/worker_gpu_swap.dart';
 
 typedef SwapHttpSend =
@@ -76,15 +76,24 @@ class HttpGpuSwapHost implements GpuSwapHost {
   Future<void> unload() => switch (kind) {
     LocalSwapKind.omlx => _omlx('unload'),
     LocalSwapKind.lmStudio => _lmStudioUnload(),
-    LocalSwapKind.koboldProcess => _koboldAdmin('unload_model'),
+    LocalSwapKind.koboldProcess => reloadConfig(filename: 'unload_model'),
   };
 
   @override
   Future<void> restore() => switch (kind) {
     LocalSwapKind.omlx => _omlx('load'),
     LocalSwapKind.lmStudio => _lmStudioLoad(),
-    LocalSwapKind.koboldProcess => _koboldAdmin('initial_model'),
+    LocalSwapKind.koboldProcess => reloadConfig(filename: 'initial_model'),
   };
+
+  /// In-process Kobold config/model swap. Process restart is the caller’s
+  /// last resort when this throws.
+  Future<void> reloadConfig({
+    required String filename,
+    String overrideConfig = '',
+  }) => _koboldAdmin(
+    koboldAdminReloadBody(filename: filename, overrideConfig: overrideConfig),
+  );
 
   Future<void> _omlx(String action) async {
     if (modelId.trim().isEmpty) {
@@ -149,19 +158,19 @@ class HttpGpuSwapHost implements GpuSwapHost {
     throw StateError('LM Studio load HTTP ${resp.statusCode}');
   }
 
-  Future<void> _koboldAdmin(String filename) async {
+  Future<void> _koboldAdmin(Map<String, String> payload) async {
     final uri = originEndpointUri(apiUrl, 'api/admin/reload_config');
     if (uri == null) {
       throw StateError('Kobold admin URL is not a usable origin');
     }
-    final resp = await _postJson(uri, {'filename': filename});
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      try {
-        final body = jsonDecode(resp.body);
-        if (body is Map && body['success'] == true) return;
-      } catch (_) {}
-    }
-    throw StateError('Kobold admin $filename HTTP ${resp.statusCode}');
+    final resp = await _postJson(uri, payload);
+    if (koboldAdminReloadSucceeded(resp.statusCode, resp.body)) return;
+    final name = payload['filename'] ?? 'reload_config';
+    final snippet = resp.body.trim();
+    throw StateError(
+      'Kobold admin $name HTTP ${resp.statusCode}'
+      '${snippet.isEmpty ? '' : ' body=$snippet'}',
+    );
   }
 
   Future<bool> _postEmpty(Uri uri) async {
@@ -213,6 +222,8 @@ class KoboldProcessHost implements GpuSwapHost {
     this.requestedModelPath,
     this.requestedKcppsPath,
     this.launchedKcppsPath,
+    this.adminDir,
+    this.noteLoadedPair,
     HttpGpuSwapHost? admin,
   }) : _admin = admin;
 
@@ -223,19 +234,20 @@ class KoboldProcessHost implements GpuSwapHost {
   final Future<void> Function()? waitUntilReady;
   final void Function()? markNotReady;
 
-  /// GGUF this host must have resident after [restore]. Admin
-  /// `initial_model` reloads the original launch config, so a different
-  /// path must process-restart with `--model`.
+  /// GGUF this host must have resident after [restore].
   final String? requestedModelPath;
 
-  /// `.kcpps` this host must start with. Admin `initial_model` cannot
-  /// attach a different `--config` than the original launch.
+  /// `.kcpps` this host must start with (admin `overrideconfig` when set).
   final String? requestedKcppsPath;
 
-  /// `.kcpps` the live process was last started with. Compared to
-  /// [requestedKcppsPath] so a preset-only (empty GGUF) slot still
-  /// process-restarts when the swap-target config differs.
+  /// Last-start `.kcpps`. Empty GGUF + same file uses `initial_model`.
   final String Function()? launchedKcppsPath;
+
+  /// `--admindir`. Requested GGUF/`.kcpps` are staged here so jail accepts them.
+  final String? adminDir;
+
+  /// Stamp the pair admin just loaded (process stays up).
+  final void Function(String modelPath, String kcppsPath)? noteLoadedPair;
   final HttpGpuSwapHost? _admin;
   bool _usedAdmin = false;
 
@@ -246,13 +258,16 @@ class KoboldProcessHost implements GpuSwapHost {
     return 'kobold:$model';
   }
 
-  bool get _adminRestoreWouldLoadRequested {
-    final wantModel = requestedModelPath?.trim() ?? '';
-    if (wantModel.isNotEmpty) return false;
-    final wantKcpps = normalizeLocalModelPath(requestedKcppsPath ?? '');
-    final launched = normalizeLocalModelPath(launchedKcppsPath?.call() ?? '');
-    return wantKcpps == launched;
-  }
+  String get _reloadFilename => koboldAdminLoadFilename(
+    requestedModel: requestedModelPath ?? '',
+    requestedKcpps: requestedKcppsPath ?? '',
+    launchedKcpps: launchedKcppsPath?.call() ?? '',
+  );
+
+  String get _reloadOverride => koboldAdminLoadOverride(
+    requestedModel: requestedModelPath ?? '',
+    requestedKcpps: requestedKcppsPath ?? '',
+  );
 
   @override
   Future<void> unload() async {
@@ -265,7 +280,8 @@ class KoboldProcessHost implements GpuSwapHost {
         return;
       } catch (e) {
         debugPrint(
-          '[GpuSwap] Kobold admin unload missed, stopping process: $e',
+          '[GpuSwap] Kobold admin unload failed '
+          '(last-resort process stop): $e',
         );
       }
     }
@@ -276,15 +292,34 @@ class KoboldProcessHost implements GpuSwapHost {
   @override
   Future<void> restore() async {
     var reloaded = false;
-    if (_usedAdmin && _admin != null && _adminRestoreWouldLoadRequested) {
+    if (_usedAdmin && _admin != null) {
       try {
-        await _admin.restore();
+        final staged = koboldAdminStagedReload(
+          filename: _reloadFilename,
+          overrideConfig: _reloadOverride,
+          adminDir: adminDir ?? '',
+          modelPath: requestedModelPath ?? '',
+          kcppsPath: requestedKcppsPath ?? '',
+        );
+        await _admin.reloadConfig(
+          filename: staged.filename,
+          overrideConfig: staged.overrideConfig,
+        );
+        noteLoadedPair?.call(
+          requestedModelPath ?? '',
+          requestedKcppsPath ?? '',
+        );
         reloaded = true;
       } catch (e) {
         debugPrint(
-          '[GpuSwap] Kobold admin restore missed, restarting process: $e',
+          '[GpuSwap] Kobold admin restore failed '
+          '(last-resort process restart): $e',
         );
       }
+    } else if (_admin == null) {
+      debugPrint(
+        '[GpuSwap] Kobold admin unavailable — last-resort process restart',
+      );
     }
     if (!reloaded) {
       if (isProcessRunning?.call() == true) {

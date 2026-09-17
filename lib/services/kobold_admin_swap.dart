@@ -1,0 +1,177 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/worker_backend.dart';
+
+/// App-owned `--admindir` so reload_config can see GGUF + `.kcpps` names.
+String koboldAdminDirFor(StorageService storage) {
+  final root = storage.rootPath?.trim() ?? '';
+  if (root.isNotEmpty) return p.join(root, 'kobold_admin');
+  return p.join(storage.modelsDir.path, 'kobold_admin');
+}
+
+/// KoboldCpp `POST /api/admin/reload_config` body.
+///
+/// Documented: `filename` is `unload_model`, `initial_model`, a GGUF, or a
+/// `.kcpps` inside `--admindir`. `overrideconfig` / `baseconfig` attaches a
+/// different `.kcpps` to a GGUF without killing our process.
+///
+/// Kobold does not retarget the parent argv `--config` from HTTP. The
+/// least-cache-destructive change it exposes is this reload: it tears
+/// down `kcpp_instance` inside the same parent (SWA slots on a full
+/// binary restart are gone). Empty GGUF + different `.kcpps` uses the
+/// `.kcpps` as `filename`. Worker `.kcpps` embedding mmproj via
+/// `--config` stays parked (no worker mmproj picker).
+Map<String, String> koboldAdminReloadBody({
+  required String filename,
+  String overrideConfig = '',
+}) {
+  final body = <String, String>{'filename': filename};
+  if (overrideConfig.trim().isNotEmpty) {
+    body['overrideconfig'] = overrideConfig.trim();
+  }
+  return body;
+}
+
+/// Filename sent for an in-process load. Empty GGUF + same `.kcpps` as
+/// last start → `initial_model`. A different `.kcpps` uses that file's name.
+/// A GGUF uses the basename (override carries the `.kcpps`).
+String koboldAdminLoadFilename({
+  required String requestedModel,
+  required String requestedKcpps,
+  String launchedKcpps = '',
+}) {
+  final model = requestedModel.trim();
+  if (model.isNotEmpty) return p.basename(model);
+  final kcpps = requestedKcpps.trim();
+  if (kcpps.isNotEmpty &&
+      normalizeLocalModelPath(kcpps) !=
+          normalizeLocalModelPath(launchedKcpps)) {
+    return p.basename(kcpps);
+  }
+  return 'initial_model';
+}
+
+/// `overrideconfig` when a GGUF load also needs a different `.kcpps`.
+String koboldAdminLoadOverride({
+  required String requestedModel,
+  required String requestedKcpps,
+}) {
+  if (requestedModel.trim().isEmpty) return '';
+  final kcpps = requestedKcpps.trim();
+  if (kcpps.isEmpty) return '';
+  return p.basename(kcpps);
+}
+
+/// HTTP 200 is not enough: Kobold still returns 200 with `success: false`
+/// when `--admin` / `--admindir` is missing. The live miss was
+/// `Kobold admin unload_model HTTP 200` because we required
+/// `body is Map && body['success'] == true` (bool only) — empty ACK,
+/// JSON `true`, and `"true"` all threw and restarted the process.
+///
+/// Accept 2xx + truthy `success`, string `"true"`, JSON `true`, a map
+/// with no `success` key, and an empty 200. Reject `success: false`.
+bool koboldAdminReloadSucceeded(int statusCode, String body) {
+  if (statusCode < 200 || statusCode >= 300) return false;
+  final trimmed = body.trim();
+  if (trimmed.isEmpty) return true;
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is Map) {
+      if (!decoded.containsKey('success')) return true;
+      return koboldAdminSuccessFlag(decoded['success']);
+    }
+    return koboldAdminSuccessFlag(decoded);
+  } catch (_) {
+    return koboldAdminSuccessFlag(trimmed);
+  }
+}
+
+/// Kobold uses a JSON bool on reload_config; other admin routes use `"true"`.
+bool koboldAdminSuccessFlag(Object? value) {
+  if (value == true || value == 1) return true;
+  if (value == false || value == 0 || value == null) return false;
+  final s = value.toString().trim().toLowerCase();
+  return s == 'true' || s == '1' || s == 'yes';
+}
+
+/// Stage requested files and return the names reload_config should send.
+({String filename, String overrideConfig}) koboldAdminStagedReload({
+  required String filename,
+  required String overrideConfig,
+  required String adminDir,
+  required String modelPath,
+  required String kcppsPath,
+}) {
+  var file = filename;
+  var over = overrideConfig;
+  if (file != 'initial_model' && file != 'unload_model') {
+    final src = modelPath.trim().isNotEmpty ? modelPath : kcppsPath;
+    file = stageKoboldAdminFile(adminDir, src) ?? file;
+  }
+  if (over.isNotEmpty) {
+    over = stageKoboldAdminFile(adminDir, kcppsPath) ?? over;
+  }
+  return (filename: file, overrideConfig: over);
+}
+
+/// Place [filePath] in [adminDir] so reload_config's jail can see it.
+/// Returns the admindir-relative name, or null if staging failed.
+String? stageKoboldAdminFile(String adminDir, String filePath) {
+  final src = filePath.trim();
+  if (src.isEmpty) return null;
+  final dir = adminDir.trim();
+  if (dir.isEmpty) return p.basename(src);
+  final name = p.basename(src);
+  final dest = p.join(dir, name);
+  if (normalizeLocalModelPath(src) == normalizeLocalModelPath(dest)) {
+    return name;
+  }
+  try {
+    Directory(dir).createSync(recursive: true);
+    final link = Link(dest);
+    if (link.existsSync()) {
+      try {
+        if (normalizeLocalModelPath(link.targetSync()) ==
+            normalizeLocalModelPath(src)) {
+          return name;
+        }
+      } catch (_) {}
+    } else if (File(dest).existsSync()) {
+      return name;
+    }
+    if (link.existsSync() || File(dest).existsSync()) {
+      final unique =
+          '${p.basenameWithoutExtension(src)}_'
+          '${src.hashCode.abs().toRadixString(16)}${p.extension(src)}';
+      final uniqueDest = p.join(dir, unique);
+      Link(uniqueDest).createSync(src);
+      return unique;
+    }
+    Link(dest).createSync(src);
+    return name;
+  } catch (_) {
+    return null;
+  }
+}

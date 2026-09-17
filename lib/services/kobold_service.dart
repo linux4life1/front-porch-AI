@@ -72,10 +72,10 @@ class KoboldService extends ChangeNotifier
   String get modelLoadingStatus => _modelLoadingStatus;
   bool get modelReady => _modelReady;
 
-  /// GGUF (or preset-owned path) this process was last started with.
+  /// GGUF last started or last admin-reloaded onto this process.
   String? get loadedModelPath => _loadedModelPath;
 
-  /// `.kcpps` this process was last started with. Empty = UI-flag launch.
+  /// `.kcpps` last started or last admin-reloaded. Empty = UI-flag launch.
   String? get loadedKcppsPath => _loadedKcppsPath;
 
   /// Feed a console chunk to [liveProgress]; notify at most every 150ms
@@ -637,12 +637,22 @@ class KoboldService extends ChangeNotifier
 
   /// Admin unload leaves the process up. Clear ready so swap restore cannot
   /// treat a stale [isReady] as a loaded model. Keep [_loadedKcppsPath]:
-  /// that is the last start `--config`, which `initial_model` would reload.
+  /// last start or last [noteAdminLoadedPair] `--config`.
   void markModelNotReady() {
     _modelReady = false;
     _loadedModelPath = null;
     _modelLoadingStatus = 'Unloading model...';
     notifyListeners();
+  }
+
+  /// In-process `reload_config` loaded this pair. Does not flip [isReady].
+  void noteAdminLoadedPair({String? modelPath, String? kcppsPath}) {
+    final model = modelPath?.trim() ?? '';
+    if (model.isNotEmpty) _loadedModelPath = model;
+    if (kcppsPath != null) {
+      final kcpps = kcppsPath.trim();
+      _loadedKcppsPath = kcpps.isEmpty ? null : kcpps;
+    }
   }
 
   @visibleForTesting

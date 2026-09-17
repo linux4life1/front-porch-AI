@@ -93,10 +93,16 @@ void main() {
     final args = await build(kcppsPath: '/presets/mine.kcpps', modelPath: '');
     expect(valueAfter(args, '--config'), '/presets/mine.kcpps');
     expect(valueAfter(args, '--port'), '5001');
-    expect(args, isNot(contains('--model')),
-        reason: 'an empty modelPath means the preset owns the model');
-    expect(args, isNot(contains('--contextsize')),
-        reason: 'the preset owns everything except the port');
+    expect(
+      args,
+      isNot(contains('--model')),
+      reason: 'an empty modelPath means the preset owns the model',
+    );
+    expect(
+      args,
+      isNot(contains('--contextsize')),
+      reason: 'the preset owns everything except the port',
+    );
   });
 
   test('a preset with no model of its own still gets one on the CLI', () async {
@@ -116,17 +122,19 @@ void main() {
     expect(valueAfter(args, '--usecublas'), '1');
   });
 
-  test('ROCm names its device too and always disables flash attention',
-      () async {
-    // The flash-attention kernel crashes on many AMD cards, so it is off even
-    // when the user asked for it in Advanced settings.
-    await storage.setGpuId(2);
-    await storage.setFlashAttentionEnabled(true);
-    final args = await build(useRocm: true);
-    expect(valueAfter(args, '--usehipblas'), '2');
-    expect(args, contains('--noflashattention'));
-    expect(args, isNot(contains('--flashattention')));
-  });
+  test(
+    'ROCm names its device too and always disables flash attention',
+    () async {
+      // The flash-attention kernel crashes on many AMD cards, so it is off even
+      // when the user asked for it in Advanced settings.
+      await storage.setGpuId(2);
+      await storage.setFlashAttentionEnabled(true);
+      final args = await build(useRocm: true);
+      expect(valueAfter(args, '--usehipblas'), '2');
+      expect(args, contains('--noflashattention'));
+      expect(args, isNot(contains('--flashattention')));
+    },
+  );
 
   test('flash attention no longer requires KV quantisation to be on', () async {
     // It used to be added only alongside --quantkv, so CUDA and Metal users
@@ -134,35 +142,49 @@ void main() {
     await storage.setFlashAttentionEnabled(true);
     expect(await build(useCublas: true), contains('--flashattention'));
     expect(await build(useMetal: true), contains('--flashattention'));
-    expect(await build(), isNot(contains('--flashattention')),
-        reason: 'no GPU backend that supports it');
+    expect(
+      await build(),
+      isNot(contains('--flashattention')),
+      reason: 'no GPU backend that supports it',
+    );
   });
 
-  test('--quantkv forces flash attention on, even if the user turned it off',
-      () async {
-    // V-cache quantisation does not work without it.
-    await storage.setFlashAttentionEnabled(false);
-    await storage.setKvQuantizationLevel(2);
-    final args = await build(useCublas: true);
-    expect(valueAfter(args, '--quantkv'), '2');
-    expect(args, contains('--flashattention'));
-    expect(args.where((a) => a == '--flashattention').length, 1,
-        reason: 'added twice would be a duplicate flag on the command line');
-  });
+  test(
+    '--quantkv forces flash attention on, even if the user turned it off',
+    () async {
+      // V-cache quantisation does not work without it.
+      await storage.setFlashAttentionEnabled(false);
+      await storage.setKvQuantizationLevel(2);
+      final args = await build(useCublas: true);
+      expect(valueAfter(args, '--quantkv'), '2');
+      expect(args, contains('--flashattention'));
+      expect(
+        args.where((a) => a == '--flashattention').length,
+        1,
+        reason: 'added twice would be a duplicate flag on the command line',
+      );
+    },
+  );
 
   test('--quantkv does NOT force flash attention on ROCm', () async {
     await storage.setFlashAttentionEnabled(true);
     await storage.setKvQuantizationLevel(2);
     final args = await build(useRocm: true);
     expect(args, contains('--quantkv'));
-    expect(args, isNot(contains('--flashattention')),
-        reason: 'the kernel crashes on AMD — quantkv must not smuggle it back');
+    expect(
+      args,
+      isNot(contains('--flashattention')),
+      reason: 'the kernel crashes on AMD — quantkv must not smuggle it back',
+    );
   });
 
   test('the default BLAS batch size is left off the command line', () async {
     await storage.setBlasBatchSize(512);
-    expect(await build(), isNot(contains('--blasbatchsize')),
-        reason: "KoboldCpp's own default should apply when untouched");
+    expect(
+      await build(),
+      isNot(contains('--blasbatchsize')),
+      reason: "KoboldCpp's own default should apply when untouched",
+    );
   });
 
   test('an oversized BLAS batch rides a config file, not the flag', () async {
@@ -175,9 +197,13 @@ void main() {
     final config = valueAfter(args, '--config');
     expect(config, isNotNull);
     expect(config, endsWith('fpai_batch_override.kcpps'));
-    expect(jsonDecode(File(config!).readAsStringSync()), {'batchsize': 8192},
-        reason: 'the override must carry ONLY the batch size — every other '
-            'flag stays authoritative on the CLI');
+    expect(
+      jsonDecode(File(config!).readAsStringSync()),
+      {'batchsize': 8192},
+      reason:
+          'the override must carry ONLY the batch size — every other '
+          'flag stays authoritative on the CLI',
+    );
   });
 
   test('an in-range BLAS batch uses the plain flag', () async {
@@ -194,8 +220,7 @@ void main() {
     expect(await build(), isNot(contains('--usemlock')));
   });
 
-  test('a missing mmproj is dropped rather than aborting the launch',
-      () async {
+  test('a missing mmproj is dropped rather than aborting the launch', () async {
     // A stale path in settings must not stop the backend from starting.
     expect(
       await build(mmprojPath: '${binDir.path}/not-here.gguf'),
@@ -222,5 +247,12 @@ void main() {
   test('vulkan is passed through', () async {
     expect(await build(useVulkan: true), contains('--usevulkan'));
     expect(await build(), isNot(contains('--usevulkan')));
+  });
+
+  test('managed launches enable admin reload_config', () async {
+    final args = await build();
+    expect(args, contains('--admin'));
+    expect(valueAfter(args, '--admindir'), isNotEmpty);
+    expect(await build(kcppsPath: '/presets/mine.kcpps'), contains('--admin'));
   });
 }

@@ -39,7 +39,7 @@ enum LocalSwapKind {
   /// `POST /api/v1/models/unload` + `POST /api/v1/models/load`.
   lmStudio,
 
-  /// Admin `reload_config` `unload_model` / `initial_model`, or process stop.
+  /// Admin `reload_config` (unload / GGUF / `.kcpps`); process stop last.
   koboldProcess,
 }
 
@@ -47,10 +47,10 @@ enum LocalSwapKind {
 abstract class GpuSwapHost {
   String get label;
 
-  /// Free this host's VRAM (HTTP unload or stop the managed process).
+  /// Free this host's VRAM (HTTP unload; process stop is last resort).
   Future<void> unload();
 
-  /// Put the model back (HTTP load, admin `initial_model`, or start process).
+  /// Put the model back (HTTP load / admin reload; process start last).
   Future<void> restore();
 }
 
