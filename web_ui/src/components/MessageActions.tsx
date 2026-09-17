@@ -152,10 +152,10 @@ export function MessageActions({
               </button>
             </div>
             <p className="muted small">Optional note for this swipe. Leave blank to just try again.</p>
-            <input
+            <textarea
               className="regen-critique"
               data-testid="regen-critique-field"
-              type="text"
+              rows={3}
               maxLength={500}
               autoFocus
               value={draft}

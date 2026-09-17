@@ -21,8 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 
-/// Optional one-line reject reason. Lives in [showRegenCritiqueDialog],
-/// not on the bubble.
+/// Optional reject reason. Grows downward so the full note stays readable.
+/// Lives in [showRegenCritiqueDialog], not on the bubble.
 class RegenCritiqueField extends StatelessWidget {
   const RegenCritiqueField({
     super.key,
@@ -42,8 +42,11 @@ class RegenCritiqueField extends StatelessWidget {
       key: const Key('regen-critique-field'),
       controller: controller,
       autofocus: autofocus,
-      maxLines: 1,
+      minLines: 3,
+      maxLines: 8,
       maxLength: 500,
+      keyboardType: TextInputType.multiline,
+      textInputAction: TextInputAction.newline,
       onSubmitted: onSubmitted,
       style: TextStyle(fontSize: 13, color: AppColors.textPrimary(context)),
       decoration: InputDecoration(

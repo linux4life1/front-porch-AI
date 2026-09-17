@@ -7,6 +7,10 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🪪 **Character creator no longer goes silent on hidden-thinking models** — some cloud models (GLM / Qwen-class) accept “don’t think” then think anyway and burn the short step budget, leaving the field empty. We notice that empty cut-off and retry the step once with more room. Chat replies still use your length cap. Same on the phone.
+
+- 🔁 **Regen critique stays fully readable** — the optional “why this take was wrong” box grows downward. A long note no longer disappears into a sideways scroll. Same on the phone.
+
 - 🧩 **Realism evals sit under Chat speech** — Settings → Backend is one chat stack (host, key, check, model) first. Below that, Realism evals can follow the chat host or use a different one. Same host does not ask for a second key. Two cloud models are fine, including two models on the same host. Two local engines take turns on the GPU: Realism evals keep the worker loaded, and chat speech’s model comes back only when she talks (not after every check). On the one KoboldCPP the app already starts, the two slots can each name a GGUF and its own .kcpps — same pair stays loaded; different pairs unload and reload on that same process (no restart). Chat speech still keeps its vision projector; Realism evals do not. A local host with no unload path still stays on chat speech. Leave the worker off and everything stays on one backend. Same on the phone.
 
 - 🌍 **World from Wiki** — a studio wizard that scouts a saved wiki (Fandom or Tiddly) and proposes a short shelf of cards — era, hub, leaf, crown — instead of one card per page. You sign the ones to write. Climate stays off unless you turn it on; if climate write misses, it stays off (no stock Temperate). Stop is on the write step. Needs a tool-calling model. Same on the phone.

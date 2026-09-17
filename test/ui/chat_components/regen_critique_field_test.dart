@@ -159,6 +159,47 @@ void main() {
     expect(got, '');
   });
 
+  testWidgets('long critique expands downward instead of scrolling sideways', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showRegenCritiqueDialog(context),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(find.byKey(_fieldKey));
+    expect(field.maxLines, isNot(1));
+    expect(field.minLines, greaterThanOrEqualTo(2));
+    expect(field.maxLines, anyOf(isNull, greaterThanOrEqualTo(3)));
+    final oneLineHeight = tester.getSize(find.byKey(_fieldKey)).height;
+    await tester.enterText(
+      find.byKey(_fieldKey),
+      'This take was wrong because it lectured for a full page '
+      'instead of answering, then repeated the lecture, then '
+      'ignored the actual question about the keys on the table.',
+    );
+    await tester.pump();
+    final grown = tester.getSize(find.byKey(_fieldKey));
+    expect(
+      grown.height,
+      greaterThanOrEqualTo(oneLineHeight),
+      reason: 'field must grow down (or stay a multi-line box), never one line',
+    );
+    expect(
+      grown.width,
+      lessThanOrEqualTo(tester.getSize(find.byType(AlertDialog)).width),
+    );
+  });
+
   testWidgets('dialog field is hittable when focused', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

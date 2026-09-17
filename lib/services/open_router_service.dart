@@ -308,11 +308,13 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     // Mandatory-reasoning models spend `max_tokens` on the think they cannot
     // switch off, so an eval's 4000 cap was regularly consumed mid-think and
     // the answer (content JSON or tool call) never arrived — the intermittent
-    // "no deltas" on Kimi 2.6:thinking. Evals (salvageReasoning) get think
-    // headroom on such models; chat/Continue keep the caller's cap (the think
-    // is excluded there and reply length is the user's setting).
+    // "no deltas" on Kimi 2.6:thinking. Evals (salvageReasoning) and chargen
+    // (mandatoryReasoningHeadroom) get think headroom on such models;
+    // chat/Continue keep the caller's cap (the think is excluded there and
+    // reply length is the user's setting). Headroom does NOT drop exclude.
     final maxTokens =
-        params.salvageReasoning && reasoningCannotDisable(modelName)
+        (params.salvageReasoning || params.mandatoryReasoningHeadroom) &&
+            reasoningCannotDisable(modelName)
         ? params.maxLength + kMandatoryReasoningThinkHeadroomTokens
         : params.maxLength;
     final payload = <String, dynamic>{
@@ -706,12 +708,42 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         throw Exception('API error: $errorMsg');
       }
 
-      // Parse SSE stream
+      // Parse SSE stream. [DONE] and connection-close share one end check
+      // so a silent mandatory-reasoner (length + zero content) is learned
+      // the same way on either terminator.
+      var emittedContent = false;
+      var finishReasonLength = false;
+
+      Iterable<String> ingestChoice(Object? rawChoice) sync* {
+        if (rawChoice is! Map) return;
+        if (rawChoice['finish_reason'] == 'length') {
+          finishReasonLength = true;
+          debugPrint(
+            '[RemoteAPI] $modelName hit max_tokens '
+            '(finish_reason=length) — response truncated',
+          );
+        }
+        final delta = rawChoice['delta'];
+        if (delta is! Map) return;
+        final reasoning = delta['reasoning'] ?? delta['reasoning_content'];
+        if (reasoning is String && reasoning.isNotEmpty) {
+          final out = wrapper.onReasoning(reasoning);
+          if (out.isNotEmpty) yield out;
+          return;
+        }
+        final content = delta['content'];
+        if (content is String && content.isNotEmpty) {
+          emittedContent = true;
+          final out = wrapper.onContent(content);
+          if (out.isNotEmpty) yield out;
+        }
+      }
+
       String buffer = '';
+      streamLoop:
       await for (final chunk in response.stream.transform(utf8.decoder)) {
         buffer += chunk;
 
-        // Process complete lines
         while (buffer.contains('\n')) {
           final idx = buffer.indexOf('\n');
           final line = buffer.substring(0, idx).trim();
@@ -719,48 +751,17 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
 
           if (line.isEmpty) continue;
           if (line == 'data: [DONE]' || line == 'data:[DONE]') {
-            // Close reasoning block if still open
-            final tail = wrapper.finish();
-            if (tail.isNotEmpty) yield tail;
-            return;
+            break streamLoop;
           }
           if (!line.startsWith('data:')) continue;
 
-          // Handle both 'data: {...}' and 'data:{...}' (LM Studio omits the space)
           final data = line.startsWith('data: ')
               ? line.substring(6)
               : line.substring(5);
           try {
             final json = jsonDecode(data);
-            final choice = json['choices']?[0];
-            // The cut-mid-think signature: on a mandatory-reasoning model
-            // this is exactly "the eval will have no deltas this turn".
-            // One glance at the log now names the failure class.
-            if (choice?['finish_reason'] == 'length') {
-              debugPrint(
-                '[RemoteAPI] $modelName hit max_tokens '
-                '(finish_reason=length) — response truncated',
-              );
-            }
-            final delta = choice?['delta'];
-            if (delta == null) continue;
-
-            // Handle reasoning content (thinking tokens)
-            // OpenRouter uses 'reasoning', LM Studio/OpenAI uses 'reasoning_content'
-            final reasoning = delta['reasoning'] ?? delta['reasoning_content'];
-            if (reasoning != null &&
-                reasoning is String &&
-                reasoning.isNotEmpty) {
-              final out = wrapper.onReasoning(reasoning);
-              if (out.isNotEmpty) yield out;
-              continue;
-            }
-
-            // Handle regular content — closes an open reasoning block first
-            final content = delta['content'];
-            if (content != null && content is String && content.isNotEmpty) {
-              final out = wrapper.onContent(content);
-              if (out.isNotEmpty) yield out;
+            for (final out in ingestChoice(json['choices']?[0])) {
+              yield out;
             }
           } catch (_) {
             // Skip malformed chunks
@@ -768,7 +769,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         }
       }
 
-      // Process any remaining data in the buffer (last chunk may lack trailing newline)
+      // Last chunk may lack a trailing newline.
       final remaining = buffer.trim();
       if (remaining.isNotEmpty && remaining.startsWith('data:')) {
         final data = remaining.startsWith('data: ')
@@ -777,30 +778,47 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         if (data != '[DONE]') {
           try {
             final json = jsonDecode(data);
-            final choice = json['choices']?[0];
-            final delta = choice?['delta'];
-            if (delta != null) {
-              final reasoning =
-                  delta['reasoning'] ?? delta['reasoning_content'];
-              if (reasoning != null &&
-                  reasoning is String &&
-                  reasoning.isNotEmpty) {
-                final out = wrapper.onReasoning(reasoning);
-                if (out.isNotEmpty) yield out;
-              }
-              final content = delta['content'];
-              if (content != null && content is String && content.isNotEmpty) {
-                final out = wrapper.onContent(content);
-                if (out.isNotEmpty) yield out;
-              }
+            for (final out in ingestChoice(json['choices']?[0])) {
+              yield out;
             }
           } catch (_) {}
         }
       }
 
-      // Close reasoning block if stream ended without [DONE]
       final tail = wrapper.finish();
       if (tail.isNotEmpty) yield tail;
+
+      final askedOff = askedToDisableThinking(
+        reasoningEnabled: params.reasoningEnabled,
+        reasoningMaxTokens: params.reasoningMaxTokens,
+      );
+      final silentStarve = isSilentMandatoryReasoningStarve(
+        finishReasonLength: finishReasonLength,
+        emittedContent: emittedContent,
+        askedToDisableThinking: askedOff,
+      );
+      if (silentStarve) {
+        // Same key as the 400 path — OpenRouter ids are already
+        // provider/model (not a bare slug).
+        if (!reasoningCannotDisable(modelName)) {
+          rememberMandatoryReasoning(modelName);
+          debugPrint(
+            '[RemoteAPI] $modelName silent mandatory-reasoning starve '
+            '(finish_reason=length, no content) — remembered for this session',
+          );
+        }
+        if (params.mandatoryReasoningHeadroom && payloadRetries < 1) {
+          debugPrint(
+            '[RemoteAPI] $modelName retrying once with think headroom '
+            '(exclude stays on)',
+          );
+          yield* generateStream(params, payloadRetries: payloadRetries + 1);
+          return;
+        }
+        if (params.mandatoryReasoningHeadroom) {
+          throw SilentMandatoryReasoningStarveException(modelName);
+        }
+      }
     } finally {
       _activeClients.remove(client);
       if (owned) client.close();

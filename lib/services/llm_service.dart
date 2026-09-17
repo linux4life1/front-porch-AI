@@ -48,6 +48,14 @@ class GenerationParams {
   /// newline. Chat / Continue leave this false so thoughts stay hidden.
   final bool salvageReasoning;
 
+  /// Chargen (and similar small-budget callers): if a silent mandatory
+  /// reasoner 200s `enabled:false` then thinks until `finish_reason:length`
+  /// with no content, retry once with the shared think-headroom budget.
+  /// Unlike [salvageReasoning], this keeps `reasoning.exclude` so think
+  /// tokens never pollute the visible reply. Chat / Continue stay false —
+  /// their reply-length cap is the user's setting.
+  final bool mandatoryReasoningHeadroom;
+
   final List<String>? bannedPhrases;
 
   /// Top-K cutoff; 0 disables it (KoboldCpp and remote APIs both treat 0 as
@@ -126,6 +134,7 @@ class GenerationParams {
     this.reasoningEffort = 'medium',
     this.reasoningMaxTokens,
     this.salvageReasoning = false,
+    this.mandatoryReasoningHeadroom = false,
     this.bannedPhrases,
     this.systemPrompt,
     this.grammar,
@@ -165,6 +174,17 @@ class GenerationParams {
     if (imgs == null || imgs.isEmpty) return prompt;
     return openAiContentWithImages(prompt, imgs);
   }
+}
+
+/// Headroom-opted [OpenRouterService.generateStream] learned a silent
+/// mandatory-reasoner and the single retry still returned no content.
+class SilentMandatoryReasoningStarveException implements Exception {
+  const SilentMandatoryReasoningStarveException(this.model);
+  final String model;
+  @override
+  String toString() =>
+      'API error: $model used hidden reasoning until max_tokens with no '
+      'content. Retried once with think headroom; still empty.';
 }
 
 /// Puts [images] on the last `role: user` row as OpenAI `image_url` parts.

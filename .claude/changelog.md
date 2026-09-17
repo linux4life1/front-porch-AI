@@ -1,3 +1,9 @@
+## 2026-09-17 — Silent mandatory-reasoning starve + regen critique wrap
+- **Why:** Chargen steps send small max_tokens and `reasoning:{enabled:false,exclude:true}`. Models that 400 on disable already learn + headroom. Models that 200 that payload then think anyway emit no content and `finish_reason:length` — no 400, so they never entered `kMandatoryReasoningModels` and `_callLLM` retried the same starved budget (GLM 5.3 Flash / Qwen 3.8 2.4T A95B on OpenRouter). Regen critique chrome was a single-line field; long notes scrolled sideways and were lost.
+- **What:** `generateStream` treats length + zero content ever + thinking requested off as the 400-class signal (learn via the same `rememberMandatoryReasoning(modelName)` key). `[DONE]` and connection-close share one end check. New `GenerationParams.mandatoryReasoningHeadroom` (chargen `_callLLM` only) retries once with `kMandatoryReasoningThinkHeadroomTokens` and keeps `exclude:true`. A second starve throws `SilentMandatoryReasoningStarveException` so chargen does not burn `maxRetries`. Chat/Continue do not opt in. Regen critique: desktop `minLines:3`/`maxLines:8`; web `<textarea>` with wrap + overflow-y.
+- **Files:** `llm_service.dart`, `reasoning_effort.dart`, `open_router_service.dart`, `character_gen_llm.dart`, `regen_critique_field.dart`, `MessageActions.tsx`, `styles.css`, `silent_mandatory_reasoning_test.dart`, regen-critique tests, `docs/Rawhide.md`
+- **Commit:** this tip (same commit)
+
 ## 2026-09-17 — Unload timeout fail-closed like restore
 - **Why:** Admin timeout was fail-closed on restore (rethrow, no restart) but unload caught it, markNotReady, and returned success. Occupancy then prepare-worker on a maybe-still-loaded / mid-teardown process.
 - **What:** Unload timeout while the process is up rethrows (no stop/start). Occupancy acquire failure always restore-mouth and does not treat unload as done. Connection-refused unload still returns without killing the process.

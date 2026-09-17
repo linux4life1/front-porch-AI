@@ -54,7 +54,7 @@ describe('MessageActions regen critique', () => {
   it('hides the field until Regen is clicked', () => {
     render();
     expect(
-      container.querySelector('input[data-testid="regen-critique-field"]'),
+      container.querySelector('textarea[data-testid="regen-critique-field"]'),
     ).toBeNull();
     const regen = container.querySelector(
       'button[title="Regenerate"]',
@@ -63,10 +63,12 @@ describe('MessageActions regen critique', () => {
       regen.click();
     });
     const input = container.querySelector(
-      'input[data-testid="regen-critique-field"]',
-    ) as HTMLInputElement | null;
+      'textarea[data-testid="regen-critique-field"]',
+    ) as HTMLTextAreaElement | null;
     expect(input).not.toBeNull();
     expect(input!.placeholder).toBe('why this take was wrong — optional');
+    expect(input!.tagName).toBe('TEXTAREA');
+    expect(Number(input!.rows)).toBeGreaterThanOrEqual(3);
   });
 
   it('passes the typed reason to regenerate', () => {
@@ -78,11 +80,11 @@ describe('MessageActions regen critique', () => {
       regen.click();
     });
     const input = container.querySelector(
-      'input[data-testid="regen-critique-field"]',
-    ) as HTMLInputElement;
+      'textarea[data-testid="regen-critique-field"]',
+    ) as HTMLTextAreaElement;
     act(() => {
       const setter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
+        HTMLTextAreaElement.prototype,
         'value',
       )?.set;
       setter?.call(input, 'too much lecture');
@@ -97,6 +99,35 @@ describe('MessageActions regen critique', () => {
       );
     });
     expect(onRegenerate).toHaveBeenCalledWith('too much lecture');
+  });
+
+  it('keeps a long critique in a wrapping textarea, not a single-line input', () => {
+    render();
+    const regen = container.querySelector(
+      'button[title="Regenerate"]',
+    ) as HTMLButtonElement;
+    act(() => {
+      regen.click();
+    });
+    const field = container.querySelector(
+      '[data-testid="regen-critique-field"]',
+    ) as HTMLTextAreaElement;
+    expect(field.tagName).toBe('TEXTAREA');
+    expect(
+      container.querySelector('input[data-testid="regen-critique-field"]'),
+    ).toBeNull();
+    const long =
+      'This take was wrong because it lectured for a full page instead of answering, then repeated the lecture.';
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(field, long);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(field.value).toBe(long);
+    expect(field.scrollWidth).toBeLessThanOrEqual(field.clientWidth + 1);
   });
 
   it('cancel does not regenerate', () => {
@@ -115,7 +146,7 @@ describe('MessageActions regen critique', () => {
     });
     expect(onRegenerate).not.toHaveBeenCalled();
     expect(
-      container.querySelector('input[data-testid="regen-critique-field"]'),
+      container.querySelector('textarea[data-testid="regen-critique-field"]'),
     ).toBeNull();
   });
 });
