@@ -30,6 +30,7 @@ import 'package:front_porch_ai/services/model_file_check.dart';
 import 'package:front_porch_ai/services/optimization_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/worker_backend_section.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -151,7 +152,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: 540,
-        constraints: const BoxConstraints(maxHeight: 600),
+        constraints: const BoxConstraints(maxHeight: 680),
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -203,9 +204,23 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
             // Content area
             Flexible(
               child: SingleChildScrollView(
-                child: backend == BackendType.kobold
-                    ? _buildLocalSettings()
-                    : _buildRemoteSettings(isOmLx: backend == BackendType.omlx),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    backend == BackendType.kobold
+                        ? _buildLocalSettings()
+                        : _buildRemoteSettings(
+                            isOmLx: backend == BackendType.omlx,
+                          ),
+                    // Same widget + prefs as Settings → Backend (H0: under
+                    // the chat stack, not a twin host/key row above the key).
+                    WorkerBackendSection(
+                      kcppsPresets: _localPresets,
+                      compact: true,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

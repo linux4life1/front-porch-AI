@@ -1,3 +1,9 @@
+## 2026-09-17 — In-chat Model Settings: mouth + Realism evals
+- **Why:** Settings → Backend already had Same as chat / Different host for the worker lane. The in-chat Model Settings sheet still showed one model dropdown, so changing the eval model required leaving chat (product miss).
+- **What:** Reuse `WorkerBackendSection` under the chat stack in `ModelSettingsDialog` (H0). Same storage keys as Settings. Compact spacing. Same-as-chat still hides the second picker. BackendManager is optional so existing dialog pumps/goldens do not crash. Web has no in-chat Model Settings surface; Settings already has `WorkerBackendCard`.
+- **Files:** `model_settings_dialog.dart`, `worker_backend_section.dart`, `model_settings_worker_test.dart`, `docs/Rawhide.md`
+- **Commit:** this tip
+
 ## 2026-09-17 — Silent-starve residuals: whitespace + guided helpers
 - **Why:** A lone `\n` counted as content so GLM-class silent reasoners never learned. Guided expand/name/concept streams (and other small think-off helpers) learned but did not retry with headroom, so the field stayed empty.
 - **What:** `contentDeltaCountsAsEmitted` requires trimmed non-empty. Guided creator helpers, porch-life tools, image-prompt builder, vision eval, group-create helpers, action suggestions, objective text floor, and expression reclass text opt into `mandatoryReasoningHeadroom` + fail-closed after the one generateStream retry. Chat/Continue still off.

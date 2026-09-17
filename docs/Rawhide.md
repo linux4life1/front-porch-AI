@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🧩 **Pick the Realism evals model from chat** — the in-chat Model Settings sheet now has the same Same as chat / Different host controls as Settings → Backend. You do not have to leave the chat to point feelings/journal/growth at another host or model. Same as chat stays one dropdown. Phone Settings already had this; the PWA has no in-chat Model Settings sheet.
+
 - 🪪 **Character creator no longer goes silent on hidden-thinking models** — some cloud models (GLM / Qwen-class) accept “don’t think” then think anyway and burn the short step budget, leaving the field empty. We notice that empty cut-off and retry the step once with more room. Chat replies still use your length cap. Same on the phone.
 
 - 🔁 **Regen critique stays fully readable** — the optional “why this take was wrong” box grows downward. A long note no longer disappears into a sideways scroll. Same on the phone.

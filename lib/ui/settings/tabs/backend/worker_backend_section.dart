@@ -29,9 +29,16 @@ import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 /// Side jobs sit below the complete Chat speech stack. Same-as-chat
 /// (empty worker type) shows no second URL/key/model.
 class WorkerBackendSection extends StatefulWidget {
-  const WorkerBackendSection({super.key, this.kcppsPresets = const []});
+  const WorkerBackendSection({
+    super.key,
+    this.kcppsPresets = const [],
+    this.compact = false,
+  });
 
   final List<File> kcppsPresets;
+
+  /// In-chat Model Settings: tighter top spacing, same storage and chrome.
+  final bool compact;
 
   @override
   State<WorkerBackendSection> createState() => _WorkerBackendSectionState();
@@ -64,7 +71,14 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
   Widget build(BuildContext context) {
     final storage = context.watch<StorageService>();
     final llm = context.watch<LLMProvider>();
-    final backendManager = context.watch<BackendManager>();
+    // Dialog goldens / interaction pumps omit BackendManager. Same floor
+    // as ModelManager below — Intel Mac is the only read.
+    var intelMac = false;
+    try {
+      intelMac = Provider.of<BackendManager>(context).isIntelMac;
+    } on ProviderNotFoundException {
+      intelMac = false;
+    }
     final theme = Theme.of(context);
     final muted = AppColors.textTertiary(context);
     final off = workerBackendIsOff(storage.workerBackendType);
@@ -121,15 +135,19 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
       key: const Key('side-jobs-section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 28),
+        SizedBox(height: widget.compact ? 16 : 28),
         Divider(color: AppColors.borderOf(context)),
-        const SizedBox(height: 16),
+        SizedBox(height: widget.compact ? 12 : 16),
         const SectionHeader('Realism evals'),
         const SizedBox(height: 8),
         Text(
-          'Feelings, wiki/web, journal, growth can use another host. '
-          'Chat speech stays above. Two local engines take turns on the GPU '
-          'when this app can unload one model before the other runs.',
+          widget.compact
+              ? 'Feelings, wiki/web, journal, and growth can use another '
+                    'host. Chat speech stays above.'
+              : 'Feelings, wiki/web, journal, growth can use another host. '
+                    'Chat speech stays above. Two local engines take turns on '
+                    'the GPU when this app can unload one model before the '
+                    'other runs.',
           style: theme.textTheme.bodySmall?.copyWith(color: muted),
         ),
         const SizedBox(height: 10),
@@ -173,7 +191,7 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
                   selected: kind,
                   noneSelected: off,
                   showOmlx: Platform.isMacOS,
-                  koboldEnabled: !backendManager.isIntelMac,
+                  koboldEnabled: !intelMac,
                   onSelected: (next) async {
                     await applyWorkerProvider(
                       kind: next,
