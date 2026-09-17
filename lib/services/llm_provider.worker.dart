@@ -412,19 +412,7 @@ extension LLMProviderWorker on LLMProvider {
         ),
         isProcessRunning: () => _koboldService.isProcessRunning,
         markNotReady: _koboldService.markModelNotReady,
-        waitUntilReady: () async {
-          if (_koboldService.isReady) {
-            throw StateError(
-              'Kobold still reports ready after GPU swap unload',
-            );
-          }
-          for (var i = 0; i < 200 && !_koboldService.isReady; i++) {
-            await Future<void>.delayed(const Duration(milliseconds: 50));
-          }
-          if (!_koboldService.isReady) {
-            throw StateError('Kobold was not ready after GPU swap restore');
-          }
-        },
+        waitUntilReady: _koboldService.waitUntilReadyAfterSwap,
         admin: HttpGpuSwapHost(
           kind: LocalSwapKind.koboldProcess,
           apiUrl: _koboldService.baseUrl,

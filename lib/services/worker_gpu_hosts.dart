@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -246,8 +247,9 @@ class KoboldProcessHost implements GpuSwapHost {
   /// `--admindir`. Requested GGUF/`.kcpps` are staged here so jail accepts them.
   final String? adminDir;
 
-  /// Stamp the pair admin just loaded (process stays up).
-  final void Function(String modelPath, String kcppsPath)? noteLoadedPair;
+  /// Stamp the pair admin just loaded and re-arm ready (process stays up).
+  final FutureOr<void> Function(String modelPath, String kcppsPath)?
+  noteLoadedPair;
   final HttpGpuSwapHost? _admin;
   bool _usedAdmin = false;
 
@@ -305,10 +307,11 @@ class KoboldProcessHost implements GpuSwapHost {
           filename: staged.filename,
           overrideConfig: staged.overrideConfig,
         );
-        noteLoadedPair?.call(
+        final noted = noteLoadedPair?.call(
           requestedModelPath ?? '',
           requestedKcppsPath ?? '',
         );
+        if (noted is Future<void>) await noted;
         reloaded = true;
       } catch (e) {
         debugPrint(

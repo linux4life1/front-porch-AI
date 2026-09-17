@@ -637,22 +637,53 @@ class KoboldService extends ChangeNotifier
 
   /// Admin unload leaves the process up. Clear ready so swap restore cannot
   /// treat a stale [isReady] as a loaded model. Keep [_loadedKcppsPath]:
-  /// last start or last [noteAdminLoadedPair] `--config`.
+  /// last start or last [noteAdminLoadedPair] `--config`. Stop the probe
+  /// so a late startKobold tick cannot flip ready during unload.
   void markModelNotReady() {
+    _stopReadinessProbe();
     _modelReady = false;
     _loadedModelPath = null;
     _modelLoadingStatus = 'Unloading model...';
     notifyListeners();
   }
 
-  /// In-process `reload_config` loaded this pair. Does not flip [isReady].
-  void noteAdminLoadedPair({String? modelPath, String? kcppsPath}) {
+  /// In-process `reload_config` loaded this pair. Re-arms the version
+  /// probe (startKobold is the only other starter) and probes immediately
+  /// so [waitUntilReadyAfterSwap] can see [isReady] without a restart.
+  Future<void> noteAdminLoadedPair({
+    String? modelPath,
+    String? kcppsPath,
+  }) async {
     final model = modelPath?.trim() ?? '';
     if (model.isNotEmpty) _loadedModelPath = model;
     if (kcppsPath != null) {
       final kcpps = kcppsPath.trim();
       _loadedKcppsPath = kcpps.isEmpty ? null : kcpps;
     }
+    _startReadinessProbe();
+    await _probeVersion();
+  }
+
+  /// Poll `/api/extra/version` until the swapped model accepts requests.
+  /// Ready at entry is success — admin load may have already probed.
+  Future<void> waitUntilReadyAfterSwap({
+    int attempts = 200,
+    Duration delay = const Duration(milliseconds: 50),
+  }) async {
+    for (var i = 0; i < attempts && !isReady; i++) {
+      await _probeVersion();
+      if (isReady) return;
+      await Future<void>.delayed(delay);
+    }
+    if (!isReady) {
+      throw StateError('Kobold was not ready after GPU swap restore');
+    }
+  }
+
+  /// Test hook: pretend the managed process is up (admin swap leaves it up).
+  @visibleForTesting
+  void debugMarkProcessRunning() {
+    _isRunning = true;
   }
 
   @visibleForTesting

@@ -1,3 +1,9 @@
+## 2026-09-17 — Re-arm Kobold ready after in-process admin reload
+- **Why:** After admin unload + `reload_config` HTTP 200, `markModelNotReady` cleared ready and did not restart the readiness probe (that only starts in `startKobold`). `noteAdminLoadedPair` stamped paths only. `waitUntilReady` polled `isReady` for 10s then threw — and that throw did not last-resort restart. In-process reload_config does not reprint the first-boot stdout ready line. Worker/mouth could stay not-ready after a successful swap.
+- **What:** `noteAdminLoadedPair` restarts the version probe and probes immediately. Production wait is `waitUntilReadyAfterSwap` (active `/api/extra/version` poll). Unload still stops the probe so a late tick cannot flip ready mid-swap. Process stop/start stays last-resort.
+- **Files:** `kobold_service.dart`, `llm_provider.worker.dart`, `worker_gpu_hosts.dart`, `kobold_admin_ready_test.dart`
+- **Commit:** (this PR tip)
+
 ## 2026-09-17 — In-process Kobold admin swap (no SWA-killing restart)
 - **Why:** Live poke: `Kobold admin unload_model HTTP 200` treated a successful admin ACK as a miss and stopped the process. Full restart drops SWA cache slots. The old parser required `body is Map && success == true` (bool only), so empty 200, JSON `true`, and `"true"` all threw. Managed launches also lacked `--admin`/`--admindir`, so a real 200 `{"success":false}` took the same path.
 - **What:** Accept those ACK shapes; reject only non-2xx / `success:false`. Launch with `--admin --admindir` (app `kobold_admin`). Dual GGUF+`.kcpps` restore uses in-process `reload_config` (`filename` = GGUF or different `.kcpps`, `overrideconfig` for the pair). Process stop/start is last-resort only and logged. Stamp the loaded pair after admin reload. Worker `.kcpps` mmproj via `--config` stays parked.
