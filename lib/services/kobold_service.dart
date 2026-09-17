@@ -636,11 +636,11 @@ class KoboldService extends ChangeNotifier
   }
 
   /// Admin unload leaves the process up. Clear ready so swap restore cannot
-  /// treat a stale [isReady] as a loaded model.
+  /// treat a stale [isReady] as a loaded model. Keep [_loadedKcppsPath]:
+  /// that is the last start `--config`, which `initial_model` would reload.
   void markModelNotReady() {
     _modelReady = false;
     _loadedModelPath = null;
-    _loadedKcppsPath = null;
     _modelLoadingStatus = 'Unloading model...';
     notifyListeners();
   }

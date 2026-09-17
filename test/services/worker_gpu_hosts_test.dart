@@ -278,6 +278,77 @@ void main() {
     expect(starts, 1);
   });
 
+  test(
+    'empty GGUF + different .kcpps skips admin initial_model and process-starts',
+    () async {
+      final hits = <String>[];
+      var starts = 0;
+      String? startedConfig;
+      final host = KoboldProcessHost(
+        baseUrl: 'http://127.0.0.1:5001',
+        requestedModelPath: null,
+        requestedKcppsPath: '/tmp/worker.kcpps',
+        launchedKcppsPath: () => '/tmp/mouth.kcpps',
+        stopProcess: () async {},
+        startProcess: () async {
+          starts++;
+          startedConfig = '/tmp/worker.kcpps';
+        },
+        admin: HttpGpuSwapHost(
+          kind: LocalSwapKind.koboldProcess,
+          apiUrl: 'http://127.0.0.1:5001',
+          modelId: '',
+          send: (method, uri, headers, body) async {
+            hits.add('$method ${uri.pathSegments.join('/')} $body');
+            return http.Response('{"success":true}', 200);
+          },
+        ),
+      );
+      await host.unload();
+      await host.restore();
+      expect(
+        hits,
+        ['POST api/admin/reload_config {"filename":"unload_model"}'],
+        reason:
+            'initial_model only reloads the original --config; a second '
+            '.kcpps must process-restart',
+      );
+      expect(starts, 1);
+      expect(startedConfig, '/tmp/worker.kcpps');
+    },
+  );
+
+  test(
+    'empty GGUF + same .kcpps as launched still uses admin initial_model',
+    () async {
+      final hits = <String>[];
+      var starts = 0;
+      final host = KoboldProcessHost(
+        baseUrl: 'http://127.0.0.1:5001',
+        requestedKcppsPath: '/tmp/mouth.kcpps',
+        launchedKcppsPath: () => '/tmp/mouth.kcpps',
+        stopProcess: () async {},
+        startProcess: () async => starts++,
+        admin: HttpGpuSwapHost(
+          kind: LocalSwapKind.koboldProcess,
+          apiUrl: 'http://127.0.0.1:5001',
+          modelId: '',
+          send: (method, uri, headers, body) async {
+            hits.add('$method ${uri.pathSegments.join('/')} $body');
+            return http.Response('{"success":true}', 200);
+          },
+        ),
+      );
+      await host.unload();
+      await host.restore();
+      expect(hits, [
+        'POST api/admin/reload_config {"filename":"unload_model"}',
+        'POST api/admin/reload_config {"filename":"initial_model"}',
+      ]);
+      expect(starts, 0);
+    },
+  );
+
   test('Kobold process stop/start is the lever when admin is off', () async {
     var stops = 0;
     var starts = 0;

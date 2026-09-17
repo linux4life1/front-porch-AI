@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/capability/capability.dart';
+import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/services/worker_gpu_swap.dart';
 
 typedef SwapHttpSend =
@@ -210,6 +211,8 @@ class KoboldProcessHost implements GpuSwapHost {
     this.waitUntilReady,
     this.markNotReady,
     this.requestedModelPath,
+    this.requestedKcppsPath,
+    this.launchedKcppsPath,
     HttpGpuSwapHost? admin,
   }) : _admin = admin;
 
@@ -224,6 +227,15 @@ class KoboldProcessHost implements GpuSwapHost {
   /// `initial_model` reloads the original launch config, so a different
   /// path must process-restart with `--model`.
   final String? requestedModelPath;
+
+  /// `.kcpps` this host must start with. Admin `initial_model` cannot
+  /// attach a different `--config` than the original launch.
+  final String? requestedKcppsPath;
+
+  /// `.kcpps` the live process was last started with. Compared to
+  /// [requestedKcppsPath] so a preset-only (empty GGUF) slot still
+  /// process-restarts when the swap-target config differs.
+  final String Function()? launchedKcppsPath;
   final HttpGpuSwapHost? _admin;
   bool _usedAdmin = false;
 
@@ -235,8 +247,11 @@ class KoboldProcessHost implements GpuSwapHost {
   }
 
   bool get _adminRestoreWouldLoadRequested {
-    final want = requestedModelPath?.trim() ?? '';
-    return want.isEmpty;
+    final wantModel = requestedModelPath?.trim() ?? '';
+    if (wantModel.isNotEmpty) return false;
+    final wantKcpps = normalizeLocalModelPath(requestedKcppsPath ?? '');
+    final launched = normalizeLocalModelPath(launchedKcppsPath?.call() ?? '');
+    return wantKcpps == launched;
   }
 
   @override
