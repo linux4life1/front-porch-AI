@@ -2,7 +2,7 @@
 - **Why:** `workerLanesShareResident` treated every kobold+kobold pair as same-resident, `_workerSwapModelId` reused `lastUsedModelPath`, and `ensureManagedBackendIsRunning` no-op'd if the process was up. Two different GGUFs could not unload/reload on the app-managed KoboldCPP.
 - **What:** Persist `worker_kobold_model_path`. Occupancy is same-resident only when the two paths match (empty worker inherits Models-tab). `ensureManagedBackendIsRunning(forGpuSwap, modelPath)` starts the requested `--model` (stop+start when the live GGUF differs). Admin `initial_model` is skipped when a specific GGUF is requested. Settings + web Realism-evals picker. Worker-hot cadence unchanged.
 - **Files:** `worker_gpu_swap.dart`, `worker_gpu_hosts.dart`, `worker_backend*.dart`, `llm_provider.dart` + worker part, `kobold_service.dart`, Settings picker + web card/facade, swap/launch/UI tests
-- **Commit:** (this)
+- **Commit:** 67cc277a, b6a52da2
 
 ## 2026-09-16 — Worker V2: HOLD A+B + worker-hot residency
 - **Why:** (A) Kobold admin `unload_model` left `_modelReady` true, so a successful `initial_model` + `waitUntilReady` no-op'd on stale `isReady`. (B) `isHeld` is depth-only; after release the restore tail (or worker-hot residency) could still have the mouth unloaded while speech wait returned. Cadence lock (corrects the queued “restore mouth on every release / ≥2 full cycles” note): dual-local pre+post must leave the worker hot. Mouth is resident only during speech. Do not keep the worker loaded through the mouth turn.
