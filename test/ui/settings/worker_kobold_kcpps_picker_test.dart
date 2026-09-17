@@ -54,7 +54,34 @@ void main() {
       find.textContaining('Chat speech keeps its own preset'),
       findsOneWidget,
     );
+    expect(find.textContaining('worker.kcpps'), findsWidgets);
+    expect(find.textContaining('Same as chat speech'), findsNothing);
+  });
+
+  testWidgets('empty inherit on a second GGUF is model-file only', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: WorkerKoboldKcppsPicker(
+            selectedPath: null,
+            mouthPath: '/cfg/mouth.kcpps',
+            modelsMatch: false,
+            presets: [],
+            onChanged: _noop,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('side-jobs-kobold-kcpps')), findsOneWidget);
     expect(find.textContaining('None (model file only)'), findsOneWidget);
+    expect(find.textContaining('Same as chat speech'), findsNothing);
+    expect(
+      find.textContaining('Chat speech keeps its own preset'),
+      findsOneWidget,
+    );
   });
 }
 

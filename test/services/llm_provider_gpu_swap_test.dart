@@ -237,6 +237,8 @@ void main() {
     () async {
       await storage.setLastUsedModelPath('/tmp/mouth.gguf');
       await storage.setActiveKcppsPath('/tmp/mouth.kcpps');
+      await storage.setModelMmproj('/tmp/mouth.gguf', '/tmp/mouth.mmproj');
+      await storage.setModelMmproj('/tmp/worker.gguf', '/tmp/worker.mmproj');
       await storage.setWorkerBackendType('kobold');
       await storage.setWorkerKoboldModelPath('/tmp/worker.gguf');
       await storage.setWorkerKoboldKcppsPath('/tmp/worker.kcpps');
@@ -268,6 +270,11 @@ void main() {
       expect(kobold.startCalls, 1);
       expect(kobold.lastModel, '/tmp/worker.gguf');
       expect(kobold.lastKcpps, '/tmp/worker.kcpps');
+      expect(
+        kobold.lastMmproj,
+        isNull,
+        reason: 'evals GGUF must not take --mmproj, even if one is mapped',
+      );
 
       await p.ensureManagedBackendIsRunning(
         forGpuSwap: true,
@@ -287,9 +294,50 @@ void main() {
       );
       expect(kobold.lastModel, '/tmp/mouth.gguf');
       expect(kobold.lastKcpps, '/tmp/mouth.kcpps');
+      expect(kobold.lastMmproj, '/tmp/mouth.mmproj');
       expect(kobold.startCalls, 2);
     },
   );
+
+  test('same GGUF swaps .kcpps and drops worker --mmproj', () async {
+    await storage.setLastUsedModelPath('/tmp/same.gguf');
+    await storage.setActiveKcppsPath('/tmp/mouth.kcpps');
+    await storage.setModelMmproj('/tmp/same.gguf', '/tmp/mouth.mmproj');
+    await storage.setWorkerBackendType('kobold');
+    await storage.setWorkerKoboldModelPath('/tmp/same.gguf');
+    await storage.setWorkerKoboldKcppsPath('/tmp/worker.kcpps');
+    final kobold = _RecordingKobold(storage);
+    kobold.running = true;
+    kobold.ready = true;
+    kobold.loaded = '/tmp/same.gguf';
+    kobold.loadedKcpps = '/tmp/mouth.kcpps';
+    final p = LLMProvider(
+      kobold,
+      mouthRemote,
+      storage,
+      _FixedPathBackend(storage),
+    );
+    addTearDown(p.dispose);
+
+    await p.ensureManagedBackendIsRunning(
+      forGpuSwap: true,
+      modelPath: '/tmp/same.gguf',
+      kcppsPath: '/tmp/worker.kcpps',
+    );
+    expect(kobold.lastModel, '/tmp/same.gguf');
+    expect(kobold.lastKcpps, '/tmp/worker.kcpps');
+    expect(kobold.lastMmproj, isNull);
+    expect(kobold.startCalls, 1);
+
+    await p.ensureManagedBackendIsRunning(
+      forGpuSwap: true,
+      modelPath: '/tmp/same.gguf',
+      kcppsPath: '/tmp/mouth.kcpps',
+    );
+    expect(kobold.lastKcpps, '/tmp/mouth.kcpps');
+    expect(kobold.lastMmproj, '/tmp/mouth.mmproj');
+    expect(kobold.startCalls, 2);
+  });
 
   test('V1 pairs still expose a worker without needing a swap', () async {
     await storage.setBackendType('openRouter');
@@ -316,6 +364,7 @@ class _RecordingKobold extends KoboldService {
   int startCalls = 0;
   String? lastModel;
   String? lastKcpps;
+  String? lastMmproj;
   bool running = false;
   bool ready = false;
   String? loaded;
@@ -353,6 +402,7 @@ class _RecordingKobold extends KoboldService {
     startCalls++;
     lastModel = modelPath;
     lastKcpps = kcppsPath;
+    lastMmproj = mmprojPath;
     running = true;
     ready = true;
     loaded = modelPath;

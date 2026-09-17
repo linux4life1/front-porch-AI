@@ -262,11 +262,22 @@ extension LLMProviderWorker on LLMProvider {
           return;
         }
       }
+      final mouthModel = normalizeLocalModelPath(
+        _storageService.lastUsedModelPath ?? '',
+      );
+      final mouthKcpps = normalizeLocalModelPath(
+        _storageService.activeKcppsPath?.trim() ?? '',
+      );
+      final mouthPair =
+          normalizeLocalModelPath(requested) == mouthModel &&
+          normalizeLocalModelPath(kcpps) == mouthKcpps;
+      // Chat-entry and mouth restore keep vision. Worker/evals never do.
+      final attachMmproj = !forGpuSwap || mouthPair;
       await _koboldService.startKobold(
         _backendManager.backendPath!,
         requested,
         kcppsPath: kcpps.isEmpty ? null : kcpps,
-        mmprojPath: requested.isNotEmpty
+        mmprojPath: attachMmproj && requested.isNotEmpty
             ? _storageService.mmprojForModel(requested)
             : null,
         gpuLayers: _storageService.gpuLayers,

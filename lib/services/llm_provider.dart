@@ -240,7 +240,8 @@ class LLMProvider extends ChangeNotifier {
 
   /// Start Kobold on chat entry, or inside a GPU swap (`forGpuSwap`).
   /// [modelPath] / [kcppsPath] are the GGUF + `.kcpps` pair to load on swap;
-  /// omitted = Models-tab mouth pair.
+  /// omitted = Models-tab mouth pair. Mouth restore keeps the Models-tab
+  /// `--mmproj`; a worker/evals pair never gets a projector.
   Future<void> ensureManagedBackendIsRunning({
     bool forGpuSwap = false,
     String? modelPath,
