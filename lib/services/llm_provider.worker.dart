@@ -150,9 +150,18 @@ extension LLMProviderWorker on LLMProvider {
         _providerHeldSwap[this] ??
         _providerSwapOverride[this] ??
         _providerSwap[this];
-    if (occupancy != null) await occupancy.ensureMouth();
+    // Pin BEFORE restore. `_markModelReady` notifies during the await; a
+    // listener that `openWorkerLane`s must not unload-mouth in the gap
+    // before beginSpeech (live: restore-mouth → PRE-GEN → unload, no
+    // speech stream).
     if (pinSpeech) occupancy?.beginSpeech();
-    _dropHeldSwapIfMouthUp();
+    try {
+      if (occupancy != null) await occupancy.ensureMouth();
+    } catch (_) {
+      if (pinSpeech) occupancy?.endSpeech();
+      rethrow;
+    }
+    if (!pinSpeech) _dropHeldSwapIfMouthUp();
   }
 
   /// Release the speech pin so post-eval [hold] may unload the mouth.

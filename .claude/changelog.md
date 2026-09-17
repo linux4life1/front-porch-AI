@@ -1,3 +1,9 @@
+## 2026-09-17 — Pin speech before mouth restore; call-site empty-bubble guards
+- **Why:** Live log: restore-mouth → version 200 → PRE-GEN attach → immediate unload-mouth with no mouth generate. Pin-after-restore left a gap: `_markModelReady` notifies during `ensureMouth`; a listener `openWorkerLane` can unload before `beginSpeech`. Occupancy-only speech tests stayed green if the ChatService `pinSpeech: true` call site was deleted.
+- **What:** `waitForWorkerLaneIdle(pinSpeech: true)` pins **before** restore; restore failure unpins; no occupancy rebuild under a speech pin. Call-site tests: restore-mouth → generate → then post unload; racing `openWorkerLane` before generate is a regression; empty PRE-GEN stream writes the visible failure notice (not a blank bubble). Still no happy-path process restart.
+- **Files:** `llm_provider.worker.dart`, `test/services/chat/mouth_speech_before_post_eval_test.dart`
+- **Commit:** (this tip)
+
 ## 2026-09-17 — Admin swap waits for generation-ready; speech before post-eval unload
 - **Why:** Same-PID poke still fired Realism on version 200 (empty streams, `report_ping →0`, tool probe refused mid-swap). Mouth restore-mouth + PRE-GEN attach was immediately followed by unload-mouth with **no** `/v1/chat/completions` speech stream — empty bubble / Manual Reprocess. Version 200 means HTTP is up, not that the new GGUF can generate.
 - **What:** After `reload_config`, `waitUntilReadyAfterSwap` probes a tiny non-stream completion. Version JSON / empty / 0-token / newline is FAIL (retry the gate, no process restart). `noteAdminLoadedPair` stamps paths only. Speech `beginSpeech` after restore-mouth; worker `hold` waits until the mouth stream finishes (unpin at finalize start). Empty assistant after PRE-GEN is a visible error, not a successful blank bubble. No happy-path restart.
