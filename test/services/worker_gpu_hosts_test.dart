@@ -247,38 +247,36 @@ void main() {
     },
   );
 
-  test(
-    'requested GGUF skips admin initial_model and process-starts',
-    () async {
-      final hits = <String>[];
-      var stops = 0;
-      var starts = 0;
-      final host = KoboldProcessHost(
-        baseUrl: 'http://127.0.0.1:5001',
-        requestedModelPath: '/tmp/worker.gguf',
-        stopProcess: () async => stops++,
-        startProcess: () async => starts++,
-        admin: HttpGpuSwapHost(
-          kind: LocalSwapKind.koboldProcess,
-          apiUrl: 'http://127.0.0.1:5001',
-          modelId: '/tmp/worker.gguf',
-          send: (method, uri, headers, body) async {
-            hits.add('$method ${uri.pathSegments.join('/')} $body');
-            return http.Response('{"success":true}', 200);
-          },
-        ),
-      );
-      await host.unload();
-      await host.restore();
-      expect(
-        hits,
-        ['POST api/admin/reload_config {"filename":"unload_model"}'],
-        reason: 'admin unload may free VRAM; initial_model cannot load a second GGUF',
-      );
-      expect(host.label, 'kobold:/tmp/worker.gguf');
-      expect(starts, 1);
-    },
-  );
+  test('requested GGUF skips admin initial_model and process-starts', () async {
+    final hits = <String>[];
+    var stops = 0;
+    var starts = 0;
+    final host = KoboldProcessHost(
+      baseUrl: 'http://127.0.0.1:5001',
+      requestedModelPath: '/tmp/worker.gguf',
+      stopProcess: () async => stops++,
+      startProcess: () async => starts++,
+      admin: HttpGpuSwapHost(
+        kind: LocalSwapKind.koboldProcess,
+        apiUrl: 'http://127.0.0.1:5001',
+        modelId: '/tmp/worker.gguf',
+        send: (method, uri, headers, body) async {
+          hits.add('$method ${uri.pathSegments.join('/')} $body');
+          return http.Response('{"success":true}', 200);
+        },
+      ),
+    );
+    await host.unload();
+    await host.restore();
+    expect(
+      hits,
+      ['POST api/admin/reload_config {"filename":"unload_model"}'],
+      reason:
+          'admin unload may free VRAM; initial_model cannot load a second GGUF',
+    );
+    expect(host.label, 'kobold:/tmp/worker.gguf');
+    expect(starts, 1);
+  });
 
   test('Kobold process stop/start is the lever when admin is off', () async {
     var stops = 0;

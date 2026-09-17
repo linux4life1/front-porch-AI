@@ -248,7 +248,11 @@ void main() {
       addTearDown(p.dispose);
 
       await p.ensureManagedBackendIsRunning();
-      expect(kobold.startCalls, 0, reason: 'chat entry must not restart a live process');
+      expect(
+        kobold.startCalls,
+        0,
+        reason: 'chat entry must not restart a live process',
+      );
 
       await p.ensureManagedBackendIsRunning(
         forGpuSwap: true,

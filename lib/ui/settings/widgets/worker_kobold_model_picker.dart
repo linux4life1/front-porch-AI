@@ -60,9 +60,7 @@ class WorkerKoboldModelPicker extends StatelessWidget {
     final worker = selectedPath?.trim() ?? '';
     final mouth = mouthPath?.trim() ?? '';
     final inherited = worker.isEmpty;
-    final paths = <String>{
-      for (final f in models) p.normalize(f.path),
-    };
+    final paths = <String>{for (final f in models) p.normalize(f.path)};
     if (worker.isNotEmpty) paths.add(p.normalize(worker));
     if (mouth.isNotEmpty) paths.add(p.normalize(mouth));
     final value = inherited ? inheritSentinel : p.normalize(worker);
@@ -103,7 +101,10 @@ class WorkerKoboldModelPicker extends StatelessWidget {
                   for (final path in paths)
                     DropdownMenuItem(
                       value: path,
-                      child: Text(p.basename(path), overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        p.basename(path),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                 ],
                 onChanged: (v) {

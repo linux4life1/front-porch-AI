@@ -63,10 +63,18 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
     final storage = context.watch<StorageService>();
     final llm = context.watch<LLMProvider>();
     final backendManager = context.watch<BackendManager>();
-    final modelManager = Provider.maybeOf<ModelManager>(context, listen: true);
     final theme = Theme.of(context);
     final muted = AppColors.textTertiary(context);
     final off = workerBackendIsOff(storage.workerBackendType);
+    // This package's Provider has no maybeOf. Section tests omit ModelManager.
+    List<FileSystemEntity> koboldModels = const [];
+    if (!off && storage.workerBackendType == 'kobold') {
+      try {
+        koboldModels = Provider.of<ModelManager>(context).models;
+      } on ProviderNotFoundException {
+        koboldModels = const [];
+      }
+    }
     final different = !off || _pickingDifferent;
     final kind = off
         ? RemoteProviderKind.custom
@@ -262,7 +270,7 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
                   WorkerKoboldModelPicker(
                     selectedPath: storage.workerKoboldModelPath,
                     mouthPath: storage.lastUsedModelPath,
-                    models: modelManager?.models ?? const [],
+                    models: koboldModels,
                     onChanged: storage.setWorkerKoboldModelPath,
                   ),
                 ],
