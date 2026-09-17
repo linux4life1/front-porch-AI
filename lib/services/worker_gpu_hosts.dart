@@ -41,6 +41,7 @@ class HttpGpuSwapHost implements GpuSwapHost {
     required this.apiUrl,
     required this.modelId,
     this.apiKey = '',
+    this.adminHttpTimeout = kKoboldAdminHttpTimeout,
     SwapHttpSend? send,
   }) : _send = send ?? _defaultSend;
 
@@ -48,6 +49,7 @@ class HttpGpuSwapHost implements GpuSwapHost {
   final String apiUrl;
   final String modelId;
   final String apiKey;
+  final Duration adminHttpTimeout;
   final SwapHttpSend _send;
 
   @override
@@ -164,7 +166,14 @@ class HttpGpuSwapHost implements GpuSwapHost {
     if (uri == null) {
       throw StateError('Kobold admin URL is not a usable origin');
     }
-    final resp = await _postJson(uri, payload);
+    final resp = await _postJson(uri, payload).timeout(
+      adminHttpTimeout,
+      onTimeout: () => throw TimeoutException(
+        'Kobold admin reload_config timed out after '
+        '${adminHttpTimeout.inSeconds}s',
+        adminHttpTimeout,
+      ),
+    );
     if (koboldAdminReloadSucceeded(resp.statusCode, resp.body)) return;
     final name = payload['filename'] ?? 'reload_config';
     final snippet = resp.body.trim();

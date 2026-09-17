@@ -1,3 +1,9 @@
+## 2026-09-17 — Admin reload timeout + block ToolSupport until gen-ready
+- **Why:** Live dual Q4/Q2 hung at `[GpuSwap] prepare-worker`. Admin `reload_config` from Dart had no HTTP timeout. ToolSupport auto-ping opened the worker lane on version 200 before the mouth was generation-ready. Completions stayed empty / `finish_reason=error`. No restore-mouth, no Flora reply.
+- **What:** 45s timeout on every Kobold admin reload (fail closed once, no 8× retry, no process restart while PID is up). `finish_reason=error` / `decoded.error` are not generation-ready. ToolSupport auto-ping waits until occupancy `mouthDown` after an explicit handoff (or same-resident). Prepare-worker timeout/inactive restore mouth and show the swap error.
+- **Files:** `kobold_admin_swap.dart`, `worker_gpu_hosts.dart`, `llm_provider.worker.dart`, `tool_support_tester.dart`, `chat_service_wiring_evals.dart`, `generation_error_messages.dart`, `kobold_admin_hang_ready_test.dart`
+- **Commit:** this tip (same commit; no hash-only follow-up)
+
 ## 2026-09-17 — Drop unused `_writeJson` from admin-ready tests
 - **Why:** CI `changed Dart files` analyze failed (`unused_element`) after the generation-ready rewrite left a helper with no callers.
 - **What:** Deleted `_writeJson`. Assertions unchanged.

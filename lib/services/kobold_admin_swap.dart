@@ -148,6 +148,15 @@ bool koboldCompletionIsGenerationReady(int statusCode, String body) {
       final tokens = usage['completion_tokens'];
       if (tokens is num && tokens <= 0) return false;
     }
+    if (decoded['error'] != null) return false;
+    final choices = decoded['choices'];
+    if (choices is List && choices.isNotEmpty) {
+      final first = choices.first;
+      if (first is Map) {
+        final reason = first['finish_reason']?.toString().toLowerCase();
+        if (reason == 'error') return false;
+      }
+    }
     return koboldCompletionText(decoded).trim().isNotEmpty;
   } catch (_) {
     return false;
@@ -222,6 +231,15 @@ bool koboldAdminErrorIsTransient(Object error) {
       (s.contains('timed out') || s.contains('timeout'));
 }
 
+/// Hung `reload_config` — fail closed once, do not retry 8×.
+bool koboldAdminErrorIsTimeout(Object error) {
+  final s = error.toString().toLowerCase();
+  return s.contains('timeout') || s.contains('timed out');
+}
+
+/// Admin HTTP must not block forever (live: prepare-worker hung, model inactive).
+const kKoboldAdminHttpTimeout = Duration(seconds: 45);
+
 const kKoboldAdminRetryAttempts = 8;
 const kKoboldAdminRetryDelay = Duration(milliseconds: 250);
 const kKoboldAdminRetryCap = Duration(seconds: 2);
@@ -264,7 +282,11 @@ Future<T> koboldAdminRetry<T>(
       return await action();
     } catch (e) {
       last = e;
-      if (!koboldAdminErrorIsTransient(e) || i == n - 1) rethrow;
+      if (koboldAdminErrorIsTimeout(e) ||
+          !koboldAdminErrorIsTransient(e) ||
+          i == n - 1) {
+        rethrow;
+      }
       onRetry?.call(e, i + 1);
       final wait = koboldAdminRetryWait(i + 1, delay);
       if (wait > Duration.zero) await Future<void>.delayed(wait);

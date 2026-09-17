@@ -666,7 +666,9 @@ extension ChatServiceWiringEvals on ChatService {
       fireToolEval: _fireToolEval,
       getBackendIdentity: () => _evalBackendIdentity,
       isBackendReady: () => _sideLaneLlm.isReady,
-      isBusy: () => _isGenerating,
+      isBusy: () => _isGenerating || (_llmProvider?.gpuSwapBusy ?? false),
+      workerLaneReadyForPing: () =>
+          _llmProvider?.workerLaneReadyForAutoPing ?? true,
       onNotify: notifyListeners,
       // OpenRouter/Nano-GPT list tool support in their /models metadata, so the
       // auto-test seeds the probe for free instead of pinging the model. Gated

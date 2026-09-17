@@ -142,6 +142,17 @@ extension LLMProviderWorker on LLMProvider {
       _providerSwap[this]?.isHeld ??
       false;
 
+  bool get gpuSwapBusy => _occupancyForLane()?.isBusy ?? false;
+
+  /// Auto-ping may open the worker only after an explicit handoff
+  /// (worker resident). Mouth-up / mid-swap must not start prepare-worker.
+  bool get workerLaneReadyForAutoPing {
+    final occ = _occupancyForLane();
+    if (occ == null || occ.sameResident) return true;
+    if (occ.isBusy || occ.speechHeld) return false;
+    return occ.mouthDown;
+  }
+
   Future<void> waitForWorkerLaneIdle({bool pinSpeech = false}) async {
     while (isWorkerLaneHeld) {
       await Future<void>.delayed(const Duration(milliseconds: 5));

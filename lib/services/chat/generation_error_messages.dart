@@ -37,6 +37,11 @@ String friendlyGenerationError(String rawError) {
     errorMsg =
         'The backend crashed (likely out of VRAM). '
         'Try reducing GPU layers or context size in Settings.';
+  } else if (errorMsg.contains('not generation-ready') ||
+      errorMsg.contains('reload_config')) {
+    errorMsg =
+        'The worker model did not become ready after the GPU swap. '
+        'Chat speech was put back. Try sending again.';
   } else if (errorMsg.contains('timed out') ||
       errorMsg.contains('TimeoutException')) {
     errorMsg =
