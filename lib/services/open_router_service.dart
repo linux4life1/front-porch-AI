@@ -733,7 +733,9 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         }
         final content = delta['content'];
         if (content is String && content.isNotEmpty) {
-          emittedContent = true;
+          if (contentDeltaCountsAsEmitted(content)) {
+            emittedContent = true;
+          }
           final out = wrapper.onContent(content);
           if (out.isNotEmpty) yield out;
         }

@@ -217,6 +217,72 @@ void main() {
     expect(kMandatoryReasoningModels.contains(_model), isFalse);
   });
 
+  test(
+    'length + whitespace-only content learns and retries with headroom',
+    () async {
+      expect(contentDeltaCountsAsEmitted('\n'), isFalse);
+      expect(contentDeltaCountsAsEmitted('   '), isFalse);
+      expect(contentDeltaCountsAsEmitted('\n  \t'), isFalse);
+      expect(contentDeltaCountsAsEmitted('Mar'), isTrue);
+
+      final seen = <_SeenPost>[];
+      final server = await _startProvider([
+        const _SseReply(finishReason: 'length', content: '\n'),
+        _ok,
+      ], seen);
+      addTearDown(() => server.close(force: true));
+
+      final out = await _collect(_svc(server.port), _chargenParams());
+      expect(out, contains('Mara'));
+      expect(seen.length, 2);
+      expect(seen.first.maxTokens, _chargenCap);
+      expect(
+        seen.last.maxTokens,
+        _chargenCap + kMandatoryReasoningThinkHeadroomTokens,
+      );
+      expect(seen.last.reasoning['exclude'], true);
+      expect(kMandatoryReasoningModels.contains(_model), isTrue);
+    },
+  );
+
+  test('length + spaces-only content is the same silent starve', () async {
+    final seen = <_SeenPost>[];
+    final server = await _startProvider([
+      const _SseReply(finishReason: 'length', content: '  \t  '),
+      _ok,
+    ], seen);
+    addTearDown(() => server.close(force: true));
+
+    final out = await _collect(_svc(server.port), _chargenParams());
+    expect(out, contains('Mara'));
+    expect(seen.length, 2);
+    expect(seen.last.reasoning['exclude'], true);
+    expect(kMandatoryReasoningModels.contains(_model), isTrue);
+  });
+
+  test(
+    'guided-helper-shaped caller (name roll) learns, retries, exclude stays',
+    () async {
+      final seen = <_SeenPost>[];
+      final server = await _startProvider([_starve, _ok], seen);
+      addTearDown(() => server.close(force: true));
+
+      const guided = GenerationParams(
+        prompt: 'Generate ONE unique name as JSON.',
+        maxLength: 128,
+        reasoningEnabled: false,
+        reasoningMaxTokens: 0,
+        mandatoryReasoningHeadroom: true,
+      );
+      final out = await _collect(_svc(server.port), guided);
+      expect(out, contains('Mara'));
+      expect(seen.length, 2);
+      expect(seen.first.maxTokens, 128);
+      expect(seen.last.maxTokens, 128 + kMandatoryReasoningThinkHeadroomTokens);
+      expect(seen.last.reasoning['exclude'], true);
+    },
+  );
+
   test('length + partial content does not learn', () async {
     final seen = <_SeenPost>[];
     final server = await _startProvider([

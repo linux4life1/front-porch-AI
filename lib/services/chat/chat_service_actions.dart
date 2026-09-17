@@ -80,6 +80,9 @@ extension ChatServiceActions on ChatService {
         prompt: prompt,
         maxLength: 300,
         temperature: 0.8,
+        reasoningEnabled: false,
+        reasoningMaxTokens: 0,
+        mandatoryReasoningHeadroom: true,
         stopSequences: ['\n\n\n'],
       );
 

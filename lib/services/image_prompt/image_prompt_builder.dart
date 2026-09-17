@@ -372,6 +372,7 @@ class ImagePromptBuilder {
         repeatPenalty: 1.0,
         reasoningEnabled: false,
         reasoningMaxTokens: 0,
+        mandatoryReasoningHeadroom: true,
         stopSequences: ['\n\n', '<END>', '</END>', '```'],
       ),
     )) {

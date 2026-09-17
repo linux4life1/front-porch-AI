@@ -220,11 +220,19 @@ bool shouldFailoverToMandatoryReasoning({
 /// off. Not already-mandatory is a LEARN gate at the call site, not this
 /// shape. Connection-close without `finish_reason:length`, `stop` + empty,
 /// length + any partial content, and transport errors are all false.
+/// Whitespace-only deltas (`\n`, spaces) are not content — see
+/// [contentDeltaCountsAsEmitted].
 bool isSilentMandatoryReasoningStarve({
   required bool finishReasonLength,
   required bool emittedContent,
   required bool askedToDisableThinking,
 }) => finishReasonLength && !emittedContent && askedToDisableThinking;
+
+/// True when a content delta counts as "content ever emitted" for the
+/// silent-mandatory-reasoning detector. A lone newline or spaces is
+/// hidden-think exhaust, not an answer.
+bool contentDeltaCountsAsEmitted(String? content) =>
+    content != null && content.trim().isNotEmpty;
 
 /// Models that 400 `reasoning.enabled=false` even before we have learned
 /// them. Kimi's thinking variants did this live on 2026-08-08 and again

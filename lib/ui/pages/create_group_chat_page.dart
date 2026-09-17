@@ -372,6 +372,9 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         prompt: prompt,
         maxLength: 420,
         temperature: 0.88,
+        reasoningEnabled: false,
+        reasoningMaxTokens: 0,
+        mandatoryReasoningHeadroom: true,
         stopSequences: ['\n\n', 'END', '---', '<think>'],
       );
       await for (final tok in service.generateStream(params)) {
@@ -444,6 +447,9 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         prompt: prompt,
         maxLength: isDirector ? 1800 : 1200,
         temperature: 0.86,
+        reasoningEnabled: false,
+        reasoningMaxTokens: 0,
+        mandatoryReasoningHeadroom: true,
         stopSequences: isDirector
             ? ['END SCENE', '---', '[END]', '<think>']
             : ['\n\n\n', '---', '<think>'],

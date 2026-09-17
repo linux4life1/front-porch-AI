@@ -137,7 +137,8 @@ class ObjectiveProposal {
   final Future<void> Function(String objectiveId, String tasksJson)
   saveObjectiveTasks;
   final Future<void> Function(String objectiveId) deactivateObjective;
-  final Future<void> Function(Objective, String) markTaskCompleted; // thin; god owns find+mutate 'completed':true + save+load (task auto side-effect only for currentTask YES path)
+  final Future<void> Function(Objective, String)
+  markTaskCompleted; // thin; god owns find+mutate 'completed':true + save+load (task auto side-effect only for currentTask YES path)
   final bool Function() getIsCheckingCompletion;
   final void Function(bool) setIsCheckingCompletion;
 
@@ -457,6 +458,7 @@ class ObjectiveProposal {
         temperature: temperature,
         reasoningEnabled: false,
         reasoningMaxTokens: reasoningOff ? 0 : null,
+        mandatoryReasoningHeadroom: true,
         stopSequences: const [],
       );
       final trafficWatch = Stopwatch()..start();

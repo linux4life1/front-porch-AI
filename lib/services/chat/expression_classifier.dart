@@ -433,6 +433,7 @@ class ExpressionService {
           // through a one-word classification (this was the one eval that
           // forgot the flag).
           reasoningMaxTokens: 0,
+          mandatoryReasoningHeadroom: true,
           stopSequences: isThinkingModel ? [] : ['}\n', '}'],
         );
         final StringBuffer sb = StringBuffer();

@@ -65,6 +65,7 @@ Respond with ONLY the JSON:''';
           temperature: 0.5,
           reasoningEnabled: false,
           reasoningMaxTokens: 0,
+          mandatoryReasoningHeadroom: true,
           toolChoice: kPorchLifeToolName,
         ),
         porchLifeToolSchema(nsfw: nsfwEnabled),
