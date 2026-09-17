@@ -56,6 +56,18 @@ void main() {
       isTrue,
     );
     expect(
+      workerLanesShareResident(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/a.gguf',
+        workerType: 'kobold',
+        workerUrl: '',
+        workerModel: r'\tmp\a.gguf',
+      ),
+      isTrue,
+      reason: 'slash direction must not force a useless unload',
+    );
+    expect(
       workerGpuSwapSupported(
         mouthType: 'omlx',
         mouthUrl: kOmlxApiV1,
@@ -63,6 +75,31 @@ void main() {
         workerType: 'omlx',
         workerUrl: kOmlxApiV1,
         workerModel: 'same-mlx',
+      ),
+      isTrue,
+    );
+  });
+
+  test('kobold+kobold different GGUFs are not same-resident', () {
+    expect(
+      workerLanesShareResident(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/mouth.gguf',
+        workerType: 'kobold',
+        workerUrl: '',
+        workerModel: '/tmp/worker.gguf',
+      ),
+      isFalse,
+    );
+    expect(
+      workerGpuSwapSupported(
+        mouthType: 'kobold',
+        mouthUrl: '',
+        mouthModel: '/tmp/mouth.gguf',
+        workerType: 'kobold',
+        workerUrl: '',
+        workerModel: '/tmp/worker.gguf',
       ),
       isTrue,
     );

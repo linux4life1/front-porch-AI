@@ -33,6 +33,15 @@ extension WorkerBackendStorage on StorageService {
   String get workerRemoteModelName => backendSettings.workerRemoteModelName;
   Future<void> setWorkerRemoteModelName(String v) =>
       backendSettings.setWorkerRemoteModelName(v);
+  String? get workerKoboldModelPath => backendSettings.workerKoboldModelPath;
+  Future<void> setWorkerKoboldModelPath(String? v) =>
+      backendSettings.setWorkerKoboldModelPath(v);
+
+  /// Realism-evals GGUF, or the Models-tab file when the worker slot is empty.
+  String resolvedWorkerKoboldModelPath() => resolvedKoboldWorkerModelPath(
+    workerPath: workerKoboldModelPath,
+    mouthPath: lastUsedModelPath,
+  );
   Future<void> setRemoteApiKeyFor(String url, String v) =>
       backendSettings.setRemoteApiKeyFor(url, v);
   String remoteApiKeyFor(String url) => backendSettings.remoteApiKeyFor(url);
@@ -47,6 +56,16 @@ const kWorkerDualLocalMessage =
 /// Empty [workerBackendType] means today's single-backend behavior.
 bool workerBackendIsOff(String workerBackendType) =>
     workerBackendType.trim().isEmpty;
+
+/// Worker GGUF, or the mouth/Models-tab file when the worker slot is empty.
+String resolvedKoboldWorkerModelPath({
+  required String? workerPath,
+  required String? mouthPath,
+}) {
+  final worker = workerPath?.trim() ?? '';
+  if (worker.isNotEmpty) return worker;
+  return mouthPath?.trim() ?? '';
+}
 
 /// Same provider/URL family as chat speech. Empty worker inherits the mouth.
 bool workerHostMatchesChat({

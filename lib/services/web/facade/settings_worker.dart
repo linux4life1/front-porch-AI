@@ -27,6 +27,8 @@ Map<String, dynamic> readWorkerSettings(
     'workerBackend': storage.workerBackendType,
     'workerRemoteApiUrl': storage.workerRemoteApiUrl,
     'workerRemoteModelName': storage.workerRemoteModelName,
+    'workerKoboldModelPath': storage.workerKoboldModelPath ?? '',
+    'lastUsedModelPath': storage.lastUsedModelPath ?? '',
     'workerEnabled': llm.workerService != null,
     'workerRefusedDualLocal': llm.workerRefusedDualLocal,
     'workerGpuSwapAvailable': llm.workerGpuSwapAvailable,
@@ -52,6 +54,11 @@ Future<void> updateWorkerSettings({
   if (body.containsKey('workerRemoteModelName')) {
     await storage.setWorkerRemoteModelName(
       body['workerRemoteModelName']?.toString() ?? '',
+    );
+  }
+  if (body.containsKey('workerKoboldModelPath')) {
+    await storage.setWorkerKoboldModelPath(
+      body['workerKoboldModelPath']?.toString(),
     );
   }
   final workerKey = body['workerApiKey']?.toString();

@@ -209,6 +209,7 @@ class KoboldProcessHost implements GpuSwapHost {
     this.isProcessRunning,
     this.waitUntilReady,
     this.markNotReady,
+    this.requestedModelPath,
     HttpGpuSwapHost? admin,
   }) : _admin = admin;
 
@@ -218,11 +219,25 @@ class KoboldProcessHost implements GpuSwapHost {
   final bool Function()? isProcessRunning;
   final Future<void> Function()? waitUntilReady;
   final void Function()? markNotReady;
+
+  /// GGUF this host must have resident after [restore]. Admin
+  /// `initial_model` reloads the original launch config, so a different
+  /// path must process-restart with `--model`.
+  final String? requestedModelPath;
   final HttpGpuSwapHost? _admin;
   bool _usedAdmin = false;
 
   @override
-  String get label => 'kobold:$baseUrl';
+  String get label {
+    final model = requestedModelPath?.trim() ?? '';
+    if (model.isEmpty) return 'kobold:$baseUrl';
+    return 'kobold:$model';
+  }
+
+  bool get _adminRestoreWouldLoadRequested {
+    final want = requestedModelPath?.trim() ?? '';
+    return want.isEmpty;
+  }
 
   @override
   Future<void> unload() async {
@@ -246,7 +261,7 @@ class KoboldProcessHost implements GpuSwapHost {
   @override
   Future<void> restore() async {
     var reloaded = false;
-    if (_usedAdmin && _admin != null) {
+    if (_usedAdmin && _admin != null && _adminRestoreWouldLoadRequested) {
       try {
         await _admin.restore();
         reloaded = true;

@@ -239,61 +239,11 @@ class LLMProvider extends ChangeNotifier {
   bool get hasAnyManagedProcessRunning => _koboldService.isRunning;
 
   /// Start Kobold on chat entry, or inside a GPU swap (`forGpuSwap`).
-  Future<void> ensureManagedBackendIsRunning({bool forGpuSwap = false}) async {
-    if (hasAnyManagedProcessRunning) return;
-    if (!forGpuSwap &&
-        !shouldEnsureKoboldProcess(
-          mouthType: _storageService.backendType,
-          workerType: _storageService.workerBackendType,
-          pairAllowed: !workerRefusedDualLocal,
-          mouthIsLocal: backendLaneIsLocal(
-            _storageService.backendType,
-            _storageService.remoteApiUrl,
-          ),
-        )) {
-      return;
-    }
-
-    // Make sure we have the backend binary
-    if (_backendManager.backendPath == null) {
-      await _backendManager.checkBackendAvailability();
-      if (_backendManager.backendPath == null) {
-        // Engine not installed: kick the background acquisition (a no-op if
-        // it's already downloading) — the engine chip shows progress and the
-        // next chat entry finds the binary in place.
-        unawaited(_backendManager.ensureEngineInstalled());
-        return;
-      }
-    }
-
-    try {
-      // Auto-start the local Kobold backend, whether it loads a plain model
-      // file (lastUsedModelPath) or a .kcpps preset that owns its own model.
-      final modelPath = _storageService.lastUsedModelPath;
-      final hasPresetWithModel =
-          _storageService.kcppsHasModel && _storageService.kcppsModelFileExists;
-
-      if (modelPath != null || hasPresetWithModel) {
-        await _koboldService.startKobold(
-          _backendManager.backendPath!,
-          modelPath ?? '',
-          kcppsPath: _storageService.activeKcppsPath,
-          mmprojPath: modelPath != null
-              ? _storageService.mmprojForModel(modelPath)
-              : null,
-          gpuLayers: _storageService.gpuLayers,
-          contextSize: _storageService.contextSize,
-          useVulkan: _storageService.useVulkan ?? false,
-          useCublas: _storageService.useCublas ?? false,
-          useMetal: _storageService.useMetal ?? false,
-          useRocm: _storageService.useRocm ?? false,
-        );
-      }
-    } catch (e) {
-      // Never let an auto-start failure prevent the user from entering the chat.
-      debugPrint('[LLMProvider] ensureManagedBackendIsRunning failed: $e');
-    }
-  }
+  /// [modelPath] is the GGUF to load on swap restore; omitted = Models-tab file.
+  Future<void> ensureManagedBackendIsRunning({
+    bool forGpuSwap = false,
+    String? modelPath,
+  }) => _ensureManagedKobold(forGpuSwap: forGpuSwap, modelPath: modelPath);
 
   /// Convenience getters for the underlying services (for UI that needs specifics).
   KoboldService get koboldService => _koboldService;

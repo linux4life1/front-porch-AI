@@ -81,6 +81,8 @@ interface Settings {
   workerBackend?: string;
   workerRemoteApiUrl?: string;
   workerRemoteModelName?: string;
+  workerKoboldModelPath?: string;
+  lastUsedModelPath?: string;
   workerEnabled?: boolean;
   workerRefusedDualLocal?: boolean;
   workerDualLocalMessage?: string;
@@ -214,6 +216,7 @@ export function SettingsPage() {
         workerBackend: s.workerBackend ?? '',
         workerRemoteApiUrl: s.workerRemoteApiUrl ?? '',
         workerRemoteModelName: s.workerRemoteModelName ?? '',
+        workerKoboldModelPath: s.workerKoboldModelPath ?? '',
       };
       if (s.spellCheckLanguage !== undefined) {
         body.spellCheckLanguage = s.spellCheckLanguage;

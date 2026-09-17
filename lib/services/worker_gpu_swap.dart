@@ -74,7 +74,22 @@ LocalSwapKind? localSwapKindFor({
   }
 }
 
+/// Slash-normalize a local GGUF path so mouth/worker compare is honest.
+String normalizeLocalModelPath(String path) {
+  var p = path.trim().replaceAll('\\', '/');
+  while (p.contains('//')) {
+    p = p.replaceAll('//', '/');
+  }
+  if (p.length > 1 && p.endsWith('/')) {
+    p = p.substring(0, p.length - 1);
+  }
+  return p;
+}
+
 /// Same process or same loaded model — two clients, one resident engine.
+///
+/// Two Kobold slots share the managed process. Occupancy is a no-op only
+/// when both lanes name the same GGUF. Different paths must unload/reload.
 bool workerLanesShareResident({
   required String mouthType,
   required String mouthUrl,
@@ -83,12 +98,15 @@ bool workerLanesShareResident({
   required String workerUrl,
   required String workerModel,
 }) {
-  if (mouthType == 'kobold' && workerType == 'kobold') return true;
   if (mouthType.trim() != workerType.trim()) return false;
   final mUrl = resolvedLaneApiUrl(mouthType, mouthUrl);
   final wUrl = resolvedLaneApiUrl(workerType, workerUrl);
   if (normalizeRemoteApiUrl(mUrl) != normalizeRemoteApiUrl(wUrl)) {
     return false;
+  }
+  if (mouthType.trim() == 'kobold') {
+    return normalizeLocalModelPath(mouthModel) ==
+        normalizeLocalModelPath(workerModel);
   }
   return mouthModel.trim() == workerModel.trim();
 }

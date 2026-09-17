@@ -63,6 +63,7 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
     final storage = context.watch<StorageService>();
     final llm = context.watch<LLMProvider>();
     final backendManager = context.watch<BackendManager>();
+    final modelManager = Provider.maybeOf<ModelManager>(context, listen: true);
     final theme = Theme.of(context);
     final muted = AppColors.textTertiary(context);
     final off = workerBackendIsOff(storage.workerBackendType);
@@ -256,16 +257,15 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
                     style: theme.textTheme.bodySmall?.copyWith(color: muted),
                   ),
                 ],
-                if (!off && storage.workerBackendType == 'kobold')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Realism evals will start KoboldCPP using the model and GPU '
-                      'settings from the Models tab. Chat speech stays on '
-                      'your API host.',
-                      style: theme.textTheme.bodySmall?.copyWith(color: muted),
-                    ),
+                if (!off && storage.workerBackendType == 'kobold') ...[
+                  const SizedBox(height: 12),
+                  WorkerKoboldModelPicker(
+                    selectedPath: storage.workerKoboldModelPath,
+                    mouthPath: storage.lastUsedModelPath,
+                    models: modelManager?.models ?? const [],
+                    onChanged: storage.setWorkerKoboldModelPath,
                   ),
+                ],
               ],
             ],
           ),

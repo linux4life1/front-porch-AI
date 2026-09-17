@@ -1,9 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
 import { isLmStudioUrl, urlHasStoredApiKey } from '../remoteApiKeys';
 import { ModelPicker } from './ModelPicker';
+import { type LocalModel } from './models/types';
 import {
   kWorkerDualLocalMessage,
   workerBackendIsOff,
@@ -16,6 +18,8 @@ export interface WorkerBackendFields {
   workerBackend?: string;
   workerRemoteApiUrl?: string;
   workerRemoteModelName?: string;
+  workerKoboldModelPath?: string;
+  lastUsedModelPath?: string;
   workerEnabled?: boolean;
   workerRefusedDualLocal?: boolean;
   workerDualLocalMessage?: string;
@@ -72,6 +76,7 @@ export function WorkerBackendCard({
 }) {
   const off = workerBackendIsOff(s.workerBackend ?? '');
   const [pickingDifferent, setPickingDifferent] = useState(!off);
+  const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const different = !off || pickingDifferent;
   const id = selectedId(s);
   const visible = HOSTS.filter((o) => o.id !== 'omlx' || s.omlxAvailable === true);
@@ -107,6 +112,13 @@ export function WorkerBackendCard({
   const banner = refused
     ? (s.workerDualLocalMessage || kWorkerDualLocalMessage)
     : (s.workerUnreadyMessage ?? '');
+
+  useEffect(() => {
+    if (id !== 'kobold') return;
+    void api.get<{ models: LocalModel[] }>('/api/backend/models')
+      .then((r) => setLocalModels(r.models ?? []))
+      .catch(() => setLocalModels([]));
+  }, [id]);
 
   const onHostChange = (nextId: string) => {
     const opt = HOSTS.find((o) => o.id === nextId);
@@ -226,10 +238,33 @@ export function WorkerBackendCard({
             </p>
           )}
           {id === 'kobold' && (
-            <p className="muted small">
-              Realism evals will start KoboldCPP using the model and GPU settings from
-              the Models tab. Chat speech stays on your API host.
-            </p>
+            <label data-testid="side-jobs-kobold-model">
+              Realism evals model
+              <select
+                data-testid="side-jobs-kobold-model-select"
+                value={s.workerKoboldModelPath ?? ''}
+                onChange={(e) => onPatch({ workerKoboldModelPath: e.target.value })}
+              >
+                <option value="">
+                  Same as Models tab{s.lastUsedModelPath ? ` (${s.lastUsedModelPath.split(/[/\\]/).pop()})` : ''}
+                </option>
+                {localModels.map((m) => (
+                  <option key={m.path} value={m.path}>{m.name}</option>
+                ))}
+                {!!s.workerKoboldModelPath &&
+                  !localModels.some((m) => m.path === s.workerKoboldModelPath) && (
+                    <option value={s.workerKoboldModelPath}>
+                      {s.workerKoboldModelPath.split(/[/\\]/).pop()}
+                    </option>
+                  )}
+              </select>
+              <p className="muted small">
+                {(s.workerKoboldModelPath ?? '') === '' ||
+                s.workerKoboldModelPath === s.lastUsedModelPath
+                  ? 'Evals use the Models-tab file on this KoboldCPP. Pick a different GGUF to unload chat speech and load that file before Realism checks.'
+                  : 'Evals unload the chat-speech GGUF and load this file on the same KoboldCPP, then stay on it until she talks.'}
+              </p>
+            </label>
           )}
         </>
       )}

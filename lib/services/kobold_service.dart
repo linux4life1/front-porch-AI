@@ -49,6 +49,7 @@ class KoboldService extends ChangeNotifier
   final List<String> _logs = [];
   String _modelLoadingStatus = '';
   bool _modelReady = false;
+  String? _loadedModelPath;
 
   /// One-shot flag for UI notifications (e.g. snackbar). Set to true when the
   /// model finishes loading, consumed once by the home page. Unlike _modelReady,
@@ -69,6 +70,9 @@ class KoboldService extends ChangeNotifier
   List<String> get logs => List.unmodifiable(_logs);
   String get modelLoadingStatus => _modelLoadingStatus;
   bool get modelReady => _modelReady;
+
+  /// GGUF (or preset-owned path) this process was last started with.
+  String? get loadedModelPath => _loadedModelPath;
 
   /// Feed a console chunk to [liveProgress]; notify at most every 150ms
   /// (Generating lines arrive once per token).
@@ -333,6 +337,9 @@ class KoboldService extends ChangeNotifier
       _isRunning = true;
       _modelLoadingStatus = 'Initializing model...';
       _modelReady = false;
+      _loadedModelPath = modelPath.isNotEmpty
+          ? modelPath
+          : _storageService.kcppsModelPath;
       _addLog('Starting Koboldcpp...');
       _addLog('Command: $executablePath ${args.join(' ')}');
       notifyListeners();
@@ -627,6 +634,7 @@ class KoboldService extends ChangeNotifier
   /// treat a stale [isReady] as a loaded model.
   void markModelNotReady() {
     _modelReady = false;
+    _loadedModelPath = null;
     _modelLoadingStatus = 'Unloading model...';
     notifyListeners();
   }
@@ -833,6 +841,7 @@ class KoboldService extends ChangeNotifier
     _isRunning = false;
     _modelLoadingStatus = '';
     _modelReady = false;
+    _loadedModelPath = null;
     _stopReadinessProbe();
     notifyListeners();
   }

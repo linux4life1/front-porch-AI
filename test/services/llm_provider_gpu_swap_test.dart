@@ -191,6 +191,92 @@ void main() {
     },
   );
 
+  test(
+    'kobold worker GGUF is its own path; same file stays same-resident',
+    () async {
+      await storage.setLastUsedModelPath('/tmp/mouth.gguf');
+      await storage.setWorkerBackendType('kobold');
+      expect(storage.resolvedWorkerKoboldModelPath(), '/tmp/mouth.gguf');
+      expect(
+        workerLanesShareResident(
+          mouthType: 'kobold',
+          mouthUrl: '',
+          mouthModel: storage.lastUsedModelPath ?? '',
+          workerType: 'kobold',
+          workerUrl: '',
+          workerModel: storage.resolvedWorkerKoboldModelPath(),
+        ),
+        isTrue,
+      );
+
+      await storage.setWorkerKoboldModelPath('/tmp/worker.gguf');
+      expect(storage.resolvedWorkerKoboldModelPath(), '/tmp/worker.gguf');
+      expect(
+        workerLanesShareResident(
+          mouthType: 'kobold',
+          mouthUrl: '',
+          mouthModel: storage.lastUsedModelPath ?? '',
+          workerType: 'kobold',
+          workerUrl: '',
+          workerModel: storage.resolvedWorkerKoboldModelPath(),
+        ),
+        isFalse,
+      );
+
+      final again = StorageService();
+      await again.initialized;
+      expect(again.workerKoboldModelPath, '/tmp/worker.gguf');
+    },
+  );
+
+  test(
+    'GPU swap launch loads the requested GGUF, not the mouth file',
+    () async {
+      await storage.setLastUsedModelPath('/tmp/mouth.gguf');
+      await storage.setWorkerBackendType('kobold');
+      await storage.setWorkerKoboldModelPath('/tmp/worker.gguf');
+      final kobold = _RecordingKobold(storage);
+      kobold.running = true;
+      kobold.ready = true;
+      kobold.loaded = '/tmp/mouth.gguf';
+      final p = LLMProvider(
+        kobold,
+        mouthRemote,
+        storage,
+        _FixedPathBackend(storage),
+      );
+      addTearDown(p.dispose);
+
+      await p.ensureManagedBackendIsRunning();
+      expect(kobold.startCalls, 0, reason: 'chat entry must not restart a live process');
+
+      await p.ensureManagedBackendIsRunning(
+        forGpuSwap: true,
+        modelPath: '/tmp/worker.gguf',
+      );
+      expect(kobold.startCalls, 1);
+      expect(kobold.lastModel, '/tmp/worker.gguf');
+      expect(kobold.lastKcpps, isNull);
+
+      await p.ensureManagedBackendIsRunning(
+        forGpuSwap: true,
+        modelPath: '/tmp/worker.gguf',
+      );
+      expect(
+        kobold.startCalls,
+        1,
+        reason: 'same GGUF already ready must not reload',
+      );
+
+      await p.ensureManagedBackendIsRunning(
+        forGpuSwap: true,
+        modelPath: '/tmp/mouth.gguf',
+      );
+      expect(kobold.lastModel, '/tmp/mouth.gguf');
+      expect(kobold.startCalls, 2);
+    },
+  );
+
   test('V1 pairs still expose a worker without needing a swap', () async {
     await storage.setBackendType('openRouter');
     await storage.setRemoteApiUrl(kOpenRouterApiV1);
@@ -208,6 +294,58 @@ void main() {
     await p.withWorkerLane(() async {});
     expect(p.debugGpuSwap, isNull);
   });
+}
+
+class _RecordingKobold extends KoboldService {
+  _RecordingKobold(super.storage);
+
+  int startCalls = 0;
+  String? lastModel;
+  String? lastKcpps;
+  bool running = false;
+  bool ready = false;
+  String? loaded;
+
+  @override
+  bool get isRunning => running;
+
+  @override
+  bool get isProcessRunning => running;
+
+  @override
+  bool get isReady => ready && running;
+
+  @override
+  String? get loadedModelPath => loaded;
+
+  @override
+  Future<void> startKobold(
+    String executablePath,
+    String modelPath, {
+    String? kcppsPath,
+    String? mmprojPath,
+    int port = 5001,
+    int gpuLayers = 0,
+    int contextSize = 4096,
+    bool useVulkan = false,
+    bool useCublas = false,
+    bool useMetal = false,
+    bool useRocm = false,
+  }) async {
+    startCalls++;
+    lastModel = modelPath;
+    lastKcpps = kcppsPath;
+    running = true;
+    ready = true;
+    loaded = modelPath;
+  }
+}
+
+class _FixedPathBackend extends BackendManager {
+  _FixedPathBackend(super.storage);
+
+  @override
+  String? get backendPath => '/tmp/fake-koboldcpp';
 }
 
 class _RecHost implements GpuSwapHost {
