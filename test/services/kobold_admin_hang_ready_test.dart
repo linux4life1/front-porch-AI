@@ -51,6 +51,83 @@ void main() {
     );
   });
 
+  test('admin unload hang times out and does not report success', () async {
+    var starts = 0;
+    var stops = 0;
+    final admin = HttpGpuSwapHost(
+      kind: LocalSwapKind.koboldProcess,
+      apiUrl: 'http://127.0.0.1:5001',
+      modelId: '/tmp/mouth.gguf',
+      adminHttpTimeout: const Duration(milliseconds: 30),
+      send: (method, uri, headers, body) => Completer<http.Response>().future,
+    );
+    final host = KoboldProcessHost(
+      baseUrl: 'http://127.0.0.1:5001',
+      requestedModelPath: '/tmp/mouth.gguf',
+      requestedKcppsPath: '/tmp/mouth.kcpps',
+      adminRetryAttempts: 3,
+      adminRetryDelay: Duration.zero,
+      isProcessRunning: () => true,
+      stopProcess: () async => stops++,
+      startProcess: () async => starts++,
+      admin: admin,
+    );
+    await expectLater(
+      host.unload(),
+      throwsA(
+        isA<TimeoutException>().having(
+          (e) => e.toString(),
+          'message',
+          contains('reload_config'),
+        ),
+      ),
+    );
+    expect(starts, 0, reason: 'unload timeout is not a process restart');
+    expect(stops, 0);
+  });
+
+  test('unload timeout does not prepare-worker as if mouth is gone', () async {
+    var starts = 0;
+    var stops = 0;
+    final admin = HttpGpuSwapHost(
+      kind: LocalSwapKind.koboldProcess,
+      apiUrl: 'http://127.0.0.1:5001',
+      modelId: '/tmp/mouth.gguf',
+      adminHttpTimeout: const Duration(milliseconds: 30),
+      send: (method, uri, headers, body) => Completer<http.Response>().future,
+    );
+    final mouth = KoboldProcessHost(
+      baseUrl: 'http://127.0.0.1:5001',
+      requestedModelPath: '/tmp/mouth.gguf',
+      requestedKcppsPath: '/tmp/mouth.kcpps',
+      adminRetryAttempts: 3,
+      adminRetryDelay: Duration.zero,
+      isProcessRunning: () => true,
+      stopProcess: () async => stops++,
+      startProcess: () async => starts++,
+      admin: admin,
+    );
+    final occ = GpuSwapOccupancy(mouth: mouth, worker: _RecHost('worker'));
+    await expectLater(occ.hold(() async {}), throwsA(isA<TimeoutException>()));
+    expect(
+      occ.steps.where((s) => s.startsWith('prepare-worker')),
+      isEmpty,
+      reason: 'unload timeout must not proceed as a successful mouth drop',
+    );
+    expect(occ.steps.first, startsWith('unload-mouth:'));
+    expect(occ.steps, contains('restore-mouth:${mouth.label}'));
+    expect(occ.mouthDown, isFalse);
+    expect(occ.isHeld, isFalse);
+    expect(starts, 0);
+    expect(stops, 0);
+    expect(
+      friendlyGenerationError(
+        TimeoutException('Kobold admin reload_config timed out').toString(),
+      ),
+      contains('Chat speech was put back'),
+    );
+  });
+
   test(
     'prepare-worker hang restores mouth and does not leave it down',
     () async {

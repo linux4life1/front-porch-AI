@@ -308,6 +308,14 @@ class KoboldProcessHost implements GpuSwapHost {
           markNotReady?.call();
           return;
         } catch (e) {
+          if (koboldAdminErrorIsTimeout(e) && _processAlive) {
+            debugPrint(
+              '[GpuSwap] Kobold admin unload timed out, process still up '
+              '— not stopping: $e',
+            );
+            markNotReady?.call();
+            rethrow;
+          }
           if (_processAlive && koboldAdminErrorIsTransient(e)) {
             debugPrint(
               '[GpuSwap] Kobold admin unload missed, process still up '

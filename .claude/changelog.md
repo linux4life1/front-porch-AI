@@ -1,3 +1,9 @@
+## 2026-09-17 — Unload timeout fail-closed like restore
+- **Why:** Admin timeout was fail-closed on restore (rethrow, no restart) but unload caught it, markNotReady, and returned success. Occupancy then prepare-worker on a maybe-still-loaded / mid-teardown process.
+- **What:** Unload timeout while the process is up rethrows (no stop/start). Occupancy acquire failure always restore-mouth and does not treat unload as done. Connection-refused unload still returns without killing the process.
+- **Files:** `worker_gpu_hosts.dart`, `worker_gpu_swap.dart`, `kobold_admin_hang_ready_test.dart`
+- **Commit:** this tip (same commit)
+
 ## 2026-09-17 — Admin reload timeout + block ToolSupport until gen-ready
 - **Why:** Live dual Q4/Q2 hung at `[GpuSwap] prepare-worker`. Admin `reload_config` from Dart had no HTTP timeout. ToolSupport auto-ping opened the worker lane on version 200 before the mouth was generation-ready. Completions stayed empty / `finish_reason=error`. No restore-mouth, no Flora reply.
 - **What:** 45s timeout on every Kobold admin reload (fail closed once, no 8× retry, no process restart while PID is up). `finish_reason=error` / `decoded.error` are not generation-ready. ToolSupport auto-ping waits until occupancy `mouthDown` after an explicit handoff (or same-resident). Prepare-worker timeout/inactive restore mouth and show the swap error.

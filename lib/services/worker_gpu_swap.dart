@@ -245,17 +245,13 @@ class GpuSwapOccupancy {
       await worker.restore();
     } catch (e) {
       _depth--;
-      if (_mouthDown) {
-        try {
-          _record('restore-mouth:${mouth.label}');
-          await mouth.restore();
-        } catch (restoreErr) {
-          debugPrint(
-            '[GpuSwap] mouth restore after failed acquire: $restoreErr',
-          );
-        }
-        _mouthDown = false;
+      try {
+        _record('restore-mouth:${mouth.label}');
+        await mouth.restore();
+      } catch (restoreErr) {
+        debugPrint('[GpuSwap] mouth restore after failed acquire: $restoreErr');
       }
+      _mouthDown = false;
       rethrow;
     } finally {
       _busy = false;
