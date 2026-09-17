@@ -78,6 +78,31 @@ void main() {
     expect(stageKoboldAdminFile('', '/models/w.gguf'), 'w.gguf');
   });
 
+  test('connection refused is a retryable admin blip', () {
+    expect(
+      koboldAdminErrorIsTransient(Exception('Connection refused')),
+      isTrue,
+    );
+    expect(
+      koboldAdminErrorIsTransient(
+        StateError('Kobold admin unload_model HTTP 200 body={"success":false}'),
+      ),
+      isFalse,
+    );
+  });
+
+  test('koboldAdminRetry skips delay after a non-transient miss', () async {
+    var tries = 0;
+    await expectLater(
+      koboldAdminRetry(() async {
+        tries++;
+        throw StateError('{"success":false}');
+      }, delay: const Duration(seconds: 5)),
+      throwsStateError,
+    );
+    expect(tries, 1);
+  });
+
   test('reload body includes overrideconfig when set', () {
     expect(koboldAdminReloadBody(filename: 'unload_model'), {
       'filename': 'unload_model',

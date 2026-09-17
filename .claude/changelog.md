@@ -1,3 +1,9 @@
+## 2026-09-17 — Dual GGUF swap never silent-restarts when admin exists
+- **Why:** Live poke: first prepare-worker changed PID with `=== STARTING KOBOLDCPP ===` and **no** last-resort log. Occupancy is `mouth.unload()` then `worker.restore()` — the worker host never ran `unload()`, so `_usedAdmin` stayed false and restore silently `stop`+`start`. Later connection-refused on `/api/admin/reload_config` last-resort-restarted again (socket blip after unload / after that silent kill).
+- **What:** Restore always tries admin when the admin host exists (do not gate on a prior unload). Never silent restart if admin is configured. Retry connection-refused / reset / timeout before last-resort. `success: false` still fails immediately.
+- **Files:** `worker_gpu_hosts.dart`, `kobold_admin_swap.dart`, silent-restart + retry tests
+- **Commit:** (this PR tip)
+
 ## 2026-09-17 — Re-arm Kobold ready after in-process admin reload
 - **Why:** After admin unload + `reload_config` HTTP 200, `markModelNotReady` cleared ready and did not restart the readiness probe (that only starts in `startKobold`). `noteAdminLoadedPair` stamped paths only. `waitUntilReady` polled `isReady` for 10s then threw — and that throw did not last-resort restart. In-process reload_config does not reprint the first-boot stdout ready line. Worker/mouth could stay not-ready after a successful swap.
 - **What:** `noteAdminLoadedPair` restarts the version probe and probes immediately. Production wait is `waitUntilReadyAfterSwap` (active `/api/extra/version` poll). Unload still stops the probe so a late tick cannot flip ready mid-swap. Process stop/start stays last-resort.

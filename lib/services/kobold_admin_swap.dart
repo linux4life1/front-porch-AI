@@ -116,6 +116,44 @@ bool koboldAdminSuccessFlag(Object? value) {
   return s == 'true' || s == '1' || s == 'yes';
 }
 
+/// Unload/reload can drop the HTTP socket for a beat (kcpp_instance
+/// teardown). Connection-refused is a blip, not "admin is off".
+bool koboldAdminErrorIsTransient(Object error) {
+  final s = error.toString().toLowerCase();
+  return s.contains('connection refused') ||
+      s.contains('connection reset') ||
+      s.contains('connection closed') ||
+      s.contains('socketexception') ||
+      s.contains('clientexception') ||
+      (s.contains('timed out') || s.contains('timeout'));
+}
+
+const kKoboldAdminRetryAttempts = 5;
+const kKoboldAdminRetryDelay = Duration(milliseconds: 200);
+
+/// Retry [action] on a transient admin blip. Non-transient misses
+/// (`success: false`) throw immediately.
+Future<T> koboldAdminRetry<T>(
+  Future<T> Function() action, {
+  int attempts = kKoboldAdminRetryAttempts,
+  Duration delay = kKoboldAdminRetryDelay,
+  void Function(Object error, int attempt)? onRetry,
+}) async {
+  final n = attempts < 1 ? 1 : attempts;
+  Object? last;
+  for (var i = 0; i < n; i++) {
+    try {
+      return await action();
+    } catch (e) {
+      last = e;
+      if (!koboldAdminErrorIsTransient(e) || i == n - 1) rethrow;
+      onRetry?.call(e, i + 1);
+      if (delay > Duration.zero) await Future<void>.delayed(delay);
+    }
+  }
+  throw last!;
+}
+
 /// Stage requested files and return the names reload_config should send.
 ({String filename, String overrideConfig}) koboldAdminStagedReload({
   required String filename,

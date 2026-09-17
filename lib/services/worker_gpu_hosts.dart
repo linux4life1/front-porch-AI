@@ -225,6 +225,8 @@ class KoboldProcessHost implements GpuSwapHost {
     this.launchedKcppsPath,
     this.adminDir,
     this.noteLoadedPair,
+    this.adminRetryAttempts = kKoboldAdminRetryAttempts,
+    this.adminRetryDelay = kKoboldAdminRetryDelay,
     HttpGpuSwapHost? admin,
   }) : _admin = admin;
 
@@ -250,8 +252,9 @@ class KoboldProcessHost implements GpuSwapHost {
   /// Stamp the pair admin just loaded and re-arm ready (process stays up).
   final FutureOr<void> Function(String modelPath, String kcppsPath)?
   noteLoadedPair;
+  final int adminRetryAttempts;
+  final Duration adminRetryDelay;
   final HttpGpuSwapHost? _admin;
-  bool _usedAdmin = false;
 
   @override
   String get label {
@@ -271,13 +274,22 @@ class KoboldProcessHost implements GpuSwapHost {
     requestedKcpps: requestedKcppsPath ?? '',
   );
 
+  Future<void> _runAdmin(Future<void> Function() action, String op) {
+    return koboldAdminRetry(
+      action,
+      attempts: adminRetryAttempts,
+      delay: adminRetryDelay,
+      onRetry: (e, n) =>
+          debugPrint('[GpuSwap] Kobold admin $op blip, retry $n: $e'),
+    );
+  }
+
   @override
   Future<void> unload() async {
     final admin = _admin;
     if (admin != null) {
       try {
-        await admin.unload();
-        _usedAdmin = true;
+        await _runAdmin(admin.unload, 'unload');
         markNotReady?.call();
         return;
       } catch (e) {
@@ -286,27 +298,33 @@ class KoboldProcessHost implements GpuSwapHost {
           '(last-resort process stop): $e',
         );
       }
+    } else {
+      debugPrint(
+        '[GpuSwap] Kobold admin unavailable — last-resort process stop',
+      );
     }
-    _usedAdmin = false;
     await stopProcess();
   }
 
   @override
   Future<void> restore() async {
     var reloaded = false;
-    if (_usedAdmin && _admin != null) {
+    final admin = _admin;
+    if (admin != null) {
       try {
-        final staged = koboldAdminStagedReload(
-          filename: _reloadFilename,
-          overrideConfig: _reloadOverride,
-          adminDir: adminDir ?? '',
-          modelPath: requestedModelPath ?? '',
-          kcppsPath: requestedKcppsPath ?? '',
-        );
-        await _admin.reloadConfig(
-          filename: staged.filename,
-          overrideConfig: staged.overrideConfig,
-        );
+        await _runAdmin(() async {
+          final staged = koboldAdminStagedReload(
+            filename: _reloadFilename,
+            overrideConfig: _reloadOverride,
+            adminDir: adminDir ?? '',
+            modelPath: requestedModelPath ?? '',
+            kcppsPath: requestedKcppsPath ?? '',
+          );
+          await admin.reloadConfig(
+            filename: staged.filename,
+            overrideConfig: staged.overrideConfig,
+          );
+        }, 'restore');
         final noted = noteLoadedPair?.call(
           requestedModelPath ?? '',
           requestedKcppsPath ?? '',
@@ -319,7 +337,7 @@ class KoboldProcessHost implements GpuSwapHost {
           '(last-resort process restart): $e',
         );
       }
-    } else if (_admin == null) {
+    } else {
       debugPrint(
         '[GpuSwap] Kobold admin unavailable — last-resort process restart',
       );
