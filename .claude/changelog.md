@@ -2,7 +2,7 @@
 - **Why:** Live poke: `Kobold admin unload_model HTTP 200` treated a successful admin ACK as a miss and stopped the process. Full restart drops SWA cache slots. The old parser required `body is Map && success == true` (bool only), so empty 200, JSON `true`, and `"true"` all threw. Managed launches also lacked `--admin`/`--admindir`, so a real 200 `{"success":false}` took the same path.
 - **What:** Accept those ACK shapes; reject only non-2xx / `success:false`. Launch with `--admin --admindir` (app `kobold_admin`). Dual GGUF+`.kcpps` restore uses in-process `reload_config` (`filename` = GGUF or different `.kcpps`, `overrideconfig` for the pair). Process stop/start is last-resort only and logged. Stamp the loaded pair after admin reload. Worker `.kcpps` mmproj via `--config` stays parked.
 - **Files:** `kobold_admin_swap.dart`, `worker_gpu_hosts.dart`, `kobold_launch_args.dart`, `kobold_service.dart`, `llm_provider.worker.dart`, admin/host/launch tests
-- **Commit:** (this PR tip)
+- **Commit:** f288b606
 
 ## 2026-09-17 — Managed Kobold dual-GGUF + per-slot .kcpps
 - **Why:** Mouth and clerk on one managed KoboldCPP need their own GGUF **and** `.kcpps`. Swap must load the matching pair; the previous slot’s `--config` must not stay attached. Mouth keeps `--mmproj`; the evals slot must not.
