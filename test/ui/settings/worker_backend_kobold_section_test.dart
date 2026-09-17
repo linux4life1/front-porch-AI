@@ -9,6 +9,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/backend_settings.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/worker_backend_section.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -60,7 +61,10 @@ void main() {
     );
 
     expect(find.byType(WorkerKoboldModelPicker), findsOneWidget);
+    expect(find.byType(WorkerKoboldKcppsPicker), findsOneWidget);
     expect(find.byKey(const Key('side-jobs-kobold-model')), findsOneWidget);
+    expect(find.byKey(const Key('side-jobs-kobold-kcpps')), findsOneWidget);
+    expect(find.byType(VisionProjectorField), findsNothing);
     expect(find.textContaining('Same as Models tab'), findsOneWidget);
     expect(find.textContaining('mouth.gguf'), findsWidgets);
   });
