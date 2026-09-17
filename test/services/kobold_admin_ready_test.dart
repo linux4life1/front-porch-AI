@@ -158,8 +158,3 @@ void main() {
     expect(stops, 0);
   });
 }
-
-void _writeJson(HttpRequest req, String body) {
-  req.response.headers.contentType = ContentType.json;
-  req.response.write(body);
-}
