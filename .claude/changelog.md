@@ -1,3 +1,9 @@
+## 2026-09-17 — Model Settings goldens: Realism evals in the sheet
+- **Why:** PR #260 added Realism evals under the in-chat Model Settings stack. Widget Golden Tests failed on the expected pixel drift. `approved-test-change` is on the PR.
+- **What:** Regenerated only `model_settings.light.png` and `model_settings.dark.png` via `flutter test … --update-goldens --name ModelSettingsDialog`. No other goldens.
+- **Files:** `test/golden/widget/_goldens/dialogs_remaining/model_settings.{light,dark}.png`
+- **Commit:** this tip
+
 ## 2026-09-17 — In-chat Model Settings: mouth + Realism evals
 - **Why:** Settings → Backend already had Same as chat / Different host for the worker lane. The in-chat Model Settings sheet still showed one model dropdown, so changing the eval model required leaving chat (product miss).
 - **What:** Reuse `WorkerBackendSection` under the chat stack in `ModelSettingsDialog` (H0). Same storage keys as Settings. Compact spacing. Same-as-chat still hides the second picker. BackendManager is optional so existing dialog pumps/goldens do not crash. Web has no in-chat Model Settings surface; Settings already has `WorkerBackendCard`.
