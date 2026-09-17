@@ -2,7 +2,7 @@
 - **Why:** Same-PID poke still fired Realism on version 200 (empty streams, `report_ping →0`, tool probe refused mid-swap). Mouth restore-mouth + PRE-GEN attach was immediately followed by unload-mouth with **no** `/v1/chat/completions` speech stream — empty bubble / Manual Reprocess. Version 200 means HTTP is up, not that the new GGUF can generate.
 - **What:** After `reload_config`, `waitUntilReadyAfterSwap` probes a tiny non-stream completion. Version JSON / empty / 0-token / newline is FAIL (retry the gate, no process restart). `noteAdminLoadedPair` stamps paths only. Speech `beginSpeech` after restore-mouth; worker `hold` waits until the mouth stream finishes (unpin at finalize start). Empty assistant after PRE-GEN is a visible error, not a successful blank bubble. No happy-path restart.
 - **Files:** `kobold_admin_swap.dart`, `kobold_service.dart`, `worker_gpu_swap.dart`, `llm_provider.worker.dart`, generation request/postgen/lanes, ready + swap + error-message tests
-- **Commit:** (this PR tip)
+- **Commit:** 05b1cb64
 
 ## 2026-09-17 — Nested admin blip must not kill a live Kobold process
 - **Why:** Second unload-mouth (post Realism) got connection-refused through 4 retries (~800ms), then last-resort **stop** on a still-living process, then prepare-worker last-resort **start** (PID change). First cycle was in-process; the blip is `kcpp_instance` teardown after restore’s version 200. Stopping a live process is what dropped SWA.
