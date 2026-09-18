@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.14: pockets.dart split into record, grammar, matching, applier
+- **Why:** 889 lines holding four separable things behind one pure library.
+- **What:** `pockets.dart` keeps the caps, `_tidy` and the `Pockets` record itself (228). Four `part` files: `.items` (PocketItem / SetAsideItem / PocketSection, 162), `.ops` (PocketOpKind / PocketOpReport / PocketEvent, 149), `.names` (filler words, generic references, same-item matching, 139), `.apply` (the ONE applier, 315). Parts rather than separate libraries because `_tidy` is shared by `PocketItem` and `PocketOpReport` and `_norm` by the matchers — separate files would have forced those private helpers public for no reason. No imports to move: the library has none by design.
+- **Verified:** 62 tests across `pockets_test`, `pockets_rewind_test`, `item_card_swipe_and_cite_test` and the `wardrobe_message_zero` hide-not-erase pin — all green. Analyzer clean on `lib/services/chat/`.
+- **Files:** `lib/services/chat/pockets.dart` + 4 new part files
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.1: chat tools facade split five ways (995 → 385 shell)
 - **Why:** the single biggest mixed file in `lib/` — one class carrying the sidebar snapshot plus every tool domain behind it.
 - **What:** `chat_tools_facade.dart` keeps construction, the `state()` snapshot and its block helpers, `journalWeb`, `applySettings`, `_notify` (385). Five `part` files carry extensions: `.memory` (journal/growth/recap/promises/timeline, 273), `.scene` (clock, calendar, presence, story handoff, 132), `.switches` (the plain toggles, 86), `.objectives` (quests + tasks, 124), `.pockets` (wardrobe + belongings, 121). Pure move — members copied verbatim with their doc comments, no renames, no new methods.
