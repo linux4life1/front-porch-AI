@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 styled_text_controller: tokenizer off the controller (522 → 366)
+- **Why:** presets and scan/tokenize lived in the same file as the TextEditingController.
+- **What:** `styled_text_controller.dart` keeps the controller (366). `styled_text_tokenizer.dart` is presets, tokenizeChat, and quote scanners (233). Controller re-exports the tokenizer so existing imports stay valid.
+- **Verified:** analyzer clean.
+- **Files:** `lib/ui/widgets/styled_text_controller.dart` + `styled_text_tokenizer.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 chat_package: import off export (525 → 134)
 - **Why:** `.fpchat` import lived next to export.
 - **What:** `chat_service_chat_package.dart` keeps export (134). `chat_service_chat_package_import.dart` is import, image materialize, journal restore, and RAG backfill (413).
