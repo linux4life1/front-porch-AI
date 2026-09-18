@@ -64,6 +64,7 @@
 > | S2 stoop_card_detail_page.dart | done | `refactor(stoop): split the detail body off the panel and break the creator cycle` |
 > | S2 character_facade.dart | done | `refactor(web): split character import off the read facade` |
 > | S2 image_studio.dart | done | `refactor(ui): split Image Studio subject pick off the canvas` |
+> | S2 growth_store.dart | done | `refactor(growth): split ring writes off the cursor cache` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about

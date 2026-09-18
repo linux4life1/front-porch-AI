@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 growth_store: persist off the cursor cache (634 → 236)
+- **Why:** ring writes, fade, and session-carry lived next to the sync cache the prompt reads.
+- **What:** `growth_store.dart` keeps refresh, invalidate, cursor, and `receiptsOf`/`decodeReceiptIds` (236). `growth_store.persist.dart` is add/reinforce/revise/retire/fade/copy/carry (417). Receipt decoder stays in the shell for the shared-column pin.
+- **Verified:** analyzer clean.
+- **Files:** `lib/services/chat/growth_store.dart` + `.persist.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 image_studio: subject off the canvas (635 → 469)
 - **Why:** subject pick, group shot, pack target, and look target lived next to generate/save/accept.
 - **What:** `image_studio.dart` keeps the session, generate, save, accept, and history (469). `image_studio.subject.dart` is subject switch, group pick, pack/look targets, and Craft (180). `rebuildState` is the extension door.
