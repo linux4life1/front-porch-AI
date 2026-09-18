@@ -65,6 +65,7 @@ part 'chat/chat_service_sillytavern.dart';
 part 'chat/chat_service_import_seed.dart';
 part 'chat/chat_service_import_walk.dart';
 part 'chat/chat_service_chat_package.dart';
+part 'chat/chat_service_chat_package_import.dart';
 part 'chat/chat_service_enhance_chats.dart';
 part 'chat/chat_service_package_extras.dart';
 part 'chat/chat_service_group_realism_helpers.dart';

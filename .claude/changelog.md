@@ -1,3 +1,17 @@
+## 2026-09-18 — S2 chat_package: import off export (525 → 134)
+- **Why:** `.fpchat` import lived next to export.
+- **What:** `chat_service_chat_package.dart` keeps export (134). `chat_service_chat_package_import.dart` is import, image materialize, journal restore, and RAG backfill (413).
+- **Verified:** analyzer clean.
+- **Files:** package + package_import; `chat_service.dart` part
+- **Commit:** this tip
+
+## 2026-09-18 — S2 image_gen backends: generators off disk (526 → 129)
+- **Why:** A1111 / Draw Things / OpenAI / OpenRouter generators lived next to disk save.
+- **What:** `image_gen_service.backends.dart` keeps save-to-disk (129). `image_gen_service.backends.generate.dart` is the generators (419). `_notify()` stays the extension door.
+- **Verified:** analyzer clean.
+- **Files:** backends + backends.generate; `image_gen_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 group_membership: members off 1:1 fork (528 → 298)
 - **Why:** live add/remove/create-member lived next to forking a 1:1 into a group.
 - **What:** `chat_service_group_membership.dart` keeps `forkToGroupChat` (298). `chat_service_group_members.dart` is create/add/reload/remove (250).

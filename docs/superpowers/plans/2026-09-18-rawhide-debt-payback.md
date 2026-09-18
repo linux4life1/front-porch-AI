@@ -78,6 +78,8 @@
 > | S2 settings_page.advanced.dart | done | `refactor(ui): split the web-server section off storage and cleanup` |
 > | S2 chat_service_session_state.dart | done | `refactor(chat): split session persist off guest and group hydrate` |
 > | S2 chat_service_group_membership.dart | done | `refactor(chat): split live members off the 1:1 group fork` |
+> | S2 image_gen_service.backends.dart | done | `refactor(image): split generators off disk save` |
+> | S2 chat_service_chat_package.dart | done | `refactor(chat): split fpchat import off export` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
