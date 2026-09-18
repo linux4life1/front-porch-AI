@@ -22,6 +22,7 @@
 > | S1.3 group-create wizard | done | `refactor(ui): split group-create into roster, generate, and commit` |
 > | S1.4 creator state | done | `refactor(creator): split prefs and model loading off the field bag` |
 > | S1.8 realism form | done | `refactor(ui): split the Realism form into engine, porch, and controls` |
+> | S1.15 growth panel | done | `refactor(ui): split Growth Rings into cards, actions, and the editor` |
 > | S1.6 stoop comments | done | `refactor(stoop): split card discussion into actions and views` |
 > | S1.9 hardware detection | done | `refactor(hardware): split detection by platform` |
 > | S1.14 pockets | done | `refactor(pockets): separate the record, the grammar, the matching, the applier` |

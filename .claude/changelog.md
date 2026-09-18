@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.15: Growth sidebar split into cards, actions, and the ring editor (881 → 327)
+- **Why:** the panel listed rings, owned the plant/edit/reset path, and inlined the ring editor dialog.
+- **What:** `growth_panel.dart` keeps the list, review banner, and cadence slider (327). `.card` is the past fold + ring card + overflow menu (248). `.actions` is check-now / plant / edit / reset / settings (206). `.editor` is `_RingEditorDialog` (169). Journal's editor is a different UX — not shared.
+- **Verified:** `growth_test` + `growth_refresh_race_test` (35 tests) green; analyzer clean.
+- **Files:** `lib/ui/chat_components/sidebar/journal_memory/growth_panel.dart` + 3 new part files
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.8: Realism form split into engine, porch, and controls (963 → 298)
 - **Why:** one StatelessWidget built the engine master switch, bond/emotion/verifier, time, Chaos, and identity chips in a single 545-line `build`.
 - **What:** the shell keeps the constructor, the public `buildToggleRow` (needs_form_section and the edit dialog call `RealismFormSection.buildToggleRow` — that cannot become an extension static), and a four-line column that spreads the parts. `.engine` is the master switch plus the fields that hide when the engine is off (376). `.porch` is time, Chaos-when-off, and identity/wardrobe (204). `.controls` is labels, colours, section header, slider row (163). Child order is unchanged so Porch Life still renders with the engine off.
