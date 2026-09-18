@@ -1,3 +1,17 @@
+## 2026-09-18 — S1.16: Chance Time overlay split into shell, views, and painters (876 → 268)
+- **Why:** one file held the spin/accept path, every visual builder, and three CustomPainters.
+- **What:** `chance_time_overlay.dart` keeps the widget, the State, the spin, category keywords, and `build` (268). `.view` carries the card / header / wheel stack / button / result / splash / pressure row (460). The wheel, pointer, and confetti painters live as their own library under `ui/widgets/chance_time/` so they are not private copies inside the overlay. The overlay's `_WheelPainter` / `_ConfettiPainter` / `_PointerPainter` are gone.
+- **Verified:** analyzer clean on the overlay + painters; new call-site pin in `test/ui/widgets/chance_time_painters_test.dart`.
+- **Files:** `lib/ui/widgets/chance_time_overlay.dart`, new `chance_time_overlay.view.dart`, new `chance_time/{chance_time,wheel_painter,confetti_painter}.dart`, new pin test
+- **Commit:** this tip
+
+## 2026-09-18 — S1.9: hardware detection split by platform (946 → 283 shell)
+- **Why:** one class held nvidia-smi, Apple unified-memory, Linux lspci/sysfs, and the Windows four-method cascade.
+- **What:** `hardware_service.dart` keeps the public API, cache restore, dispatch, driver flags, and name/vendor helpers (283). Parts: `.nvidia` (locate + parse nvidia-smi, 122), `.apple` (system_profiler + unified-memory heuristic, 102), `.linux` (lspci / sysfs / distro family, 184), `.windows` (registry / WMI / shared-memory cascade, 356). The plan guessed an "estimate" file; VRAM-fit math already lives in `vram_estimator.dart`, so the split followed the four real detection passes instead.
+- **Verified:** `hardware_gpu_name_match_test` + `hardware_info_cache_test` + `vram_estimator_test` (50 tests) green; analyzer clean.
+- **Files:** `lib/services/hardware_service.dart` + 4 new part files
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.6: Stoop discussion split into actions and views (970 → 302 shell)
 - **What:** `stoop_card_comments.dart` keeps both widgets, the State fields, load/replace, the verify/sign-in nudges and `build` (302). `.actions` carries post / reply / confirm-delete / delete / delete-reply / report / report-reply (277); `.views` carries the composer, thread, reply composer, reply row, creator mark and row (416). Same `rebuildState` bridge as S1.2, same reason.
 - **Verified:** `test/ui/pages/repository` + `test/services/backporch` (185 tests) green, including the comment-gate suite; analyzer clean on the directory.

@@ -12,9 +12,18 @@
 > | T5 three decoration tests | done | `test: make three guards depend on the code they name` |
 > | T6 five stale notes | done | `docs: correct five notes that no longer match the code` |
 > | T7 dead CSS + `styles.css` split (19 slices) | done | `style(web): drop twelve dead rules, then split the stylesheet by surface` |
-> | T8 think-strip | **part done** — one real fix, two proven not-duplicates, two still open | `fix(clock): a time the model only thought is not a time she said` |
-> | T9–T12 remaining spaghetti | not started | — |
-> | T13+ the 66 SEVERAL splits | not started | — |
+> | T8 think-strip | done | `refactor: one think-strip per contract, not ten copies of three` |
+> | T9 lorebook import once | done | `refactor(lorebook): import takes its post-decode steps once` |
+> | T10 receipt column once | done | `fix(journal): the same receipt column read three ways, now read once` |
+> | T11 settings facade split | done | `refactor(web): split the settings facade into its read and write halves` |
+> | T12 dual tool probes | done (documented, not merged) | `docs: the two tool probes are two layers, not one duplicated` |
+> | S1.1 chat tools facade | done | `refactor(web): split the chat tools facade by tool domain` |
+> | S1.2 stoop upload wizard | done | `refactor(stoop): split the share wizard into chrome, steps, and publishing` |
+> | S1.6 stoop comments | done | `refactor(stoop): split card discussion into actions and views` |
+> | S1.9 hardware detection | done | `refactor(hardware): split detection by platform` |
+> | S1.14 pockets | done | `refactor(pockets): separate the record, the grammar, the matching, the applier` |
+> | S1.16 Chance Time overlay | done | `refactor(ui): split Chance Time into shell, views, and painters` |
+> | S1 remaining / S2 / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
 > what to look at, wrong about two conclusions):
