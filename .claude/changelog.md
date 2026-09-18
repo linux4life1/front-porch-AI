@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 update_service: download and install off check (735 → 455)
+- **Why:** GitHub check, asset download, and platform install lived in one 735-line class.
+- **What:** `update_service.dart` keeps fields, `checkForUpdate`, version compare, `selectTargetRelease`, and `validateInstallerDownload` (455). `update_service_download.dart` is the temp-file download (103). `update_service_install.dart` is installNow/OnClose plus Windows/Linux/macOS replace (239). Class forwarders stay for download/install. `notify()` is the extension door. Statics stay on the class.
+- **Verified:** analyzer clean. update_service + download validation (8) green.
+- **Files:** `lib/services/update_service.dart` + `_download` + `_install`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 objectives: tasks and completion off inject (744 → 338)
 - **Why:** load/set/inject, task mutate, and completion/promise lived in one 744-line part.
 - **What:** `chat_service_objectives.dart` keeps load, injection text, set/clear/promote, today line, and the class-forwarder impls (338). `chat_service_objective_tasks.dart` is list decode, generate, and per-task mutate (141). `chat_service_objective_completion.dart` is check cadence, force/maybe/background check, regen turn-ops, and promise/debt (311). `objectivesActive` stays the live AND on the class. Continue does not tick.
