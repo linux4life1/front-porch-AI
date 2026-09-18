@@ -6,6 +6,32 @@
 //   * skip the HTTP client on a cache miss → httpCalls expected 1, got 0
 //   * return a fake wiki on empty search JSON → empty-result fragment missing
 //   * skip cache on the second lookup → httpCalls expected 1, got 2
+//   * delete the web_search branch of _dispatchSearch → every round-trip
+//     assertion below goes red (this is what the rewrite below bought)
+//
+// WHY THE ROUND-TRIP GROUP WAS REWRITTEN (2026-09-18):
+//
+// It used to drive runWebSearchRound, a second implementation of the same
+// contract that live dispatch stopped using when the tool catalog landed.
+// Its own doc comment admitted it existed "for unit tests of the search
+// client" — a function kept alive by its tests, which is how a duplicate
+// path rots unnoticed. The orphan is deleted; these tests now drive
+// runCatalogRound, the function production actually calls.
+//
+// Two assertions changed because the live path genuinely behaves
+// differently, and that difference is the point:
+//
+//   * The orphan returned the model's tool-less text as cannedReply. The
+//     live round discards doorbell speech and lets the mouth stream, so the
+//     test now asserts no dispatch, no injection and no HTTP.
+//   * The live round asks again after a dispatch (the clerk loop), so the
+//     fake serves a sequence instead of one canned answer, and the test
+//     asserts dispatchRounds rather than a generateWithTools count.
+//
+// Everything else — advertised tool name, one HTTP per cache miss, the
+// empty-result fragment instead of an invented wiki, empty bodies not
+// poisoning the cache, and the repeat-query cache hit — asserts exactly
+// what it did before, against the live dispatcher.
 
 import 'dart:convert';
 
@@ -16,9 +42,9 @@ import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.d
 import 'package:front_porch_ai/services/services.dart';
 
 class _ToolsLlm extends LLMService {
-  _ToolsLlm({this.next});
+  _ToolsLlm(this._replies);
 
-  LlmToolResponse? next;
+  final List<LlmToolResponse?> _replies;
   List<Map<String, dynamic>>? lastTools;
   int generateWithToolsCalls = 0;
   int streamCalls = 0;
@@ -30,7 +56,8 @@ class _ToolsLlm extends LLMService {
   ) async {
     generateWithToolsCalls++;
     lastTools = tools;
-    return next;
+    if (_replies.isEmpty) return const LlmToolResponse(calls: [], text: '');
+    return _replies.removeAt(0);
   }
 
   @override
@@ -186,9 +213,24 @@ void main() {
     });
   });
 
-  group('runWebSearchRound', () {
+  group('runCatalogRound web_search', () {
     late List<Uri> fetched;
     late WebSearchService search;
+
+    CatalogBuildResult catalog() =>
+        buildToolCatalog(inProcess: [inProcessWebSearchTool()]);
+
+    /// One call, then a trip with no call so the clerk loop stops. The live
+    /// round always asks again after a dispatch; the orphan never did.
+    _ToolsLlm callThen(String query) => _ToolsLlm([
+      LlmToolResponse(
+        calls: [
+          LlmToolCall(name: kWebSearchToolName, arguments: {'query': query}),
+        ],
+        text: '',
+      ),
+      const LlmToolResponse(calls: [], text: ''),
+    ]);
 
     setUp(() {
       fetched = [];
@@ -202,32 +244,22 @@ void main() {
     });
 
     test('advertises web_search and a call runs the HTTP client', () async {
-      final llm = _ToolsLlm(
-        next: const LlmToolResponse(
-          calls: [
-            LlmToolCall(
-              name: kWebSearchToolName,
-              arguments: {'query': 'Wandenreich Bleach'},
-            ),
-          ],
-          text: '',
-        ),
-      );
-      final round = await runWebSearchRound(
+      final llm = callThen('Wandenreich Bleach');
+      final round = await runCatalogRound(
         llm: llm,
         params: const GenerationParams(
           prompt: 'starched white wandenreich robes',
         ),
+        catalog: catalog(),
         search: search,
       );
-      expect(llm.generateWithToolsCalls, 1);
       expect(jsonNames(llm.lastTools!), contains(kWebSearchToolName));
       expect(fetched, hasLength(1));
       expect(search.httpCalls, 1);
+      expect(round.dispatchRounds, 1);
       expect(round.injection, contains('Quincy empire'));
-      expect(round.receipt?['query'], 'Wandenreich Bleach');
-      expect(round.receipt?['ok'], isTrue);
-      expect(round.cannedReply, isNull);
+      expect(round.searchReceipt?['query'], 'Wandenreich Bleach');
+      expect(round.searchReceipt?['ok'], isTrue);
     });
 
     test(
@@ -240,27 +272,17 @@ void main() {
             return '{"results":[]}';
           },
         );
-        final llm = _ToolsLlm(
-          next: const LlmToolResponse(
-            calls: [
-              LlmToolCall(
-                name: kWebSearchToolName,
-                arguments: {'query': 'made-up-term-xyz'},
-              ),
-            ],
-            text: '',
-          ),
-        );
-        final round = await runWebSearchRound(
-          llm: llm,
+        final round = await runCatalogRound(
+          llm: callThen('made-up-term-xyz'),
           params: const GenerationParams(prompt: 'what is made-up-term-xyz'),
+          catalog: catalog(),
           search: search,
         );
         expect(fetched, hasLength(1));
         expect(round.injection, contains('"made-up-term-xyz"'));
         expect(round.injection!.toLowerCase(), contains('do not invent'));
         expect(round.injection!.toLowerCase(), isNot(contains('wikipedia')));
-        expect(round.receipt?['ok'], isFalse);
+        expect(round.searchReceipt?['ok'], isFalse);
       },
     );
 
@@ -274,27 +296,18 @@ void main() {
             return '{"results":[]}';
           },
         );
-        final llm = _ToolsLlm(
-          next: const LlmToolResponse(
-            calls: [
-              LlmToolCall(
-                name: kWebSearchToolName,
-                arguments: {'query': 'San Clemente weather'},
-              ),
-            ],
-            text: '',
-          ),
-        );
-        await runWebSearchRound(
-          llm: llm,
+        await runCatalogRound(
+          llm: callThen('San Clemente weather'),
           params: const GenerationParams(prompt: 'weather'),
+          catalog: catalog(),
           search: search,
         );
         expect(search.httpCalls, 1);
         search.beginUserSend();
-        await runWebSearchRound(
-          llm: llm,
+        await runCatalogRound(
+          llm: callThen('San Clemente weather'),
           params: const GenerationParams(prompt: 'weather again'),
+          catalog: catalog(),
           search: search,
         );
         expect(
@@ -308,48 +321,39 @@ void main() {
     );
 
     test('repeating the same query is a cache hit — no second HTTP', () async {
-      final llm = _ToolsLlm(
-        next: const LlmToolResponse(
-          calls: [
-            LlmToolCall(
-              name: kWebSearchToolName,
-              arguments: {'query': 'Wandenreich Bleach'},
-            ),
-          ],
-          text: '',
-        ),
-      );
-      await runWebSearchRound(
-        llm: llm,
+      await runCatalogRound(
+        llm: callThen('Wandenreich Bleach'),
         params: const GenerationParams(prompt: 'robes'),
+        catalog: catalog(),
         search: search,
       );
       expect(search.httpCalls, 1);
       // Reset the per-send HTTP cap so only the session cache can prevent a
       // second network call.
       search.beginUserSend();
-      await runWebSearchRound(
-        llm: llm,
+      await runCatalogRound(
+        llm: callThen('Wandenreich Bleach'),
         params: const GenerationParams(prompt: 'robes again'),
+        catalog: catalog(),
         search: search,
       );
       expect(search.httpCalls, 1);
       expect(fetched, hasLength(1));
     });
 
-    test('no tool call + text is the canned reply (no HTTP)', () async {
-      final llm = _ToolsLlm(
-        next: const LlmToolResponse(calls: [], text: 'those robes look sharp.'),
-      );
-      final round = await runWebSearchRound(
-        llm: llm,
+    test('no tool call means no HTTP and no injection', () async {
+      final round = await runCatalogRound(
+        llm: _ToolsLlm([
+          const LlmToolResponse(calls: [], text: 'those robes look sharp.'),
+        ]),
         params: const GenerationParams(prompt: 'hello'),
+        catalog: catalog(),
         search: search,
       );
       expect(fetched, isEmpty);
-      expect(round.cannedReply, 'those robes look sharp.');
+      expect(round.dispatchRounds, 0);
       expect(round.injection, isNull);
-      expect(round.receipt, isNull);
+      expect(round.searchReceipt, isNull);
     });
   });
 

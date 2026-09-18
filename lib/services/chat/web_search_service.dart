@@ -25,13 +25,6 @@ import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/chat/mediawiki_search.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 import 'package:front_porch_ai/services/chat/web_search_tools.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
-
-String _wsClip(String s, [int max = 180]) {
-  final t = s.replaceAll(RegExp(r'\s+'), ' ').trim();
-  if (t.length <= max) return t;
-  return '${t.substring(0, max)}…';
-}
 
 const Duration kWebSearchTimeout = Duration(seconds: 8);
 
@@ -60,17 +53,6 @@ class WebSearchResult {
   bool get ok => snippet.trim().isNotEmpty;
 }
 
-/// Outcome of the one tools round-trip. [cannedReply] is the model's
-/// text when it did not call `web_search`. [injection] is the gated
-/// fragment to splice into the prompt before streaming.
-class WebSearchRound {
-  const WebSearchRound({this.injection, this.receipt, this.cannedReply});
-
-  final String? injection;
-  final Map<String, dynamic>? receipt;
-  final String? cannedReply;
-}
-
 /// Porch Life global on + direct user send + tools-capable → advertise
 /// `web_search`. Continue, autonomous, guest, cast, and group follow-up
 /// turns fail closed. Regen of a bot bubble is a new try — advertise.
@@ -88,79 +70,6 @@ bool shouldAdvertiseWebSearch({
       !continueMode &&
       !autonomousMode &&
       !toolsUnsupported;
-}
-
-/// One `generateWithTools` with `web_search`. No call + text → canned
-/// spoken reply. A `web_search` call → cache lookup, HTTP on miss, fragment.
-/// Live dispatch uses [runCatalogRound] instead; this helper remains for
-/// unit tests of the search client.
-Future<WebSearchRound> runWebSearchRound({
-  required LLMService llm,
-  required GenerationParams params,
-  required WebSearchService search,
-}) async {
-  debugPrint(
-    '[WebSearch] tools round backend=${llm.backendName} '
-    'reasoning=${params.reasoningEnabled} effort=${params.reasoningEffort} '
-    'promptTail="${_wsClip(params.prompt)}"',
-  );
-  LlmToolResponse? resp;
-  try {
-    resp = await llm.generateWithTools(params, kWebSearchTools);
-  } catch (e) {
-    debugPrint('[WebSearch] generateWithTools THREW: $e');
-    return const WebSearchRound();
-  }
-  if (resp == null) {
-    debugPrint(
-      '[WebSearch] generateWithTools returned null '
-      '(backend rejected tools / no protocol)',
-    );
-    return const WebSearchRound();
-  }
-
-  debugPrint(
-    '[WebSearch] think="${_wsClip(resp.reasoning)}" '
-    'calls=${resp.calls.map((c) => c.name).toList()} '
-    'text="${_wsClip(resp.text)}"',
-  );
-
-  LlmToolCall? call;
-  for (final c in resp.calls) {
-    if (c.name == kWebSearchToolName) {
-      call = c;
-      break;
-    }
-  }
-  if (call == null) {
-    final text = resp.text.trim();
-    debugPrint(
-      '[WebSearch] no web_search call — think-phase text only '
-      '(${text.length} chars); will stream the in-character reply',
-    );
-    return WebSearchRound(cannedReply: text.isEmpty ? null : text);
-  }
-
-  final query = WebSearchService.prepareQuery(
-    call.arguments['query']?.toString() ?? '',
-  );
-  debugPrint('[WebSearch] called web_search query="$query"');
-  final outcome = await search.lookup(query);
-  debugPrint(
-    '[WebSearch] lookup ok=${outcome.ok} cached=${outcome.fromCache} '
-    'http=${outcome.httpAttempted} snippet="${_wsClip(outcome.snippet)}"',
-  );
-  final injection = outcome.ok
-      ? SearchInjection.resultFragment(outcome.snippet)
-      : SearchInjection.emptyResultFragment(outcome.query);
-  return WebSearchRound(
-    injection: injection,
-    receipt: {
-      'query': outcome.query,
-      'ok': outcome.ok,
-      'cached': outcome.fromCache,
-    },
-  );
 }
 
 /// In-process Tavily/Wikipedia client. Session-scoped cache; HTTP only on
