@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 image_studio: subject off the canvas (635 → 469)
+- **Why:** subject pick, group shot, pack target, and look target lived next to generate/save/accept.
+- **What:** `image_studio.dart` keeps the session, generate, save, accept, and history (469). `image_studio.subject.dart` is subject switch, group pick, pack/look targets, and Craft (180). `rebuildState` is the extension door.
+- **Verified:** analyzer clean.
+- **Files:** `lib/ui/image_studio/image_studio.dart` + `.subject.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 character_facade: import off the read facade (637 → 431)
 - **Why:** list/detail/avatar memo lived next to update, create, persist, and import.
 - **What:** `character_facade.dart` keeps list, folders, avatar version memo, cardByDbId, detail, and avatar reads (431). `character_facade.import.dart` is update, create, persistNewCard, and importBytes (250). Class one-line forwarders keep Chargen and routes on the type. Duplicate ttsVoice comment collapsed.
