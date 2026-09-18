@@ -25,64 +25,15 @@ import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/realism_verification.dart';
 import 'package:front_porch_ai/services/chat/skip_language.dart';
 
+part 'needs_impact_bound.dart';
+part 'needs_impact_table.dart';
+
 /// Plain leaf for needs impact.
 ///
 /// Model provides net signed deltas for the scene (open prompt, like bond/emotion evals).
 /// Optional Director/Verifier corrects when authority is enabled on the card.
 /// Simple clamps only. Decay is handled separately in NeedsSimulation.
 class NeedsImpactEvaluator {
-  /// THE bound on what a model may say one scene did to a need — applied here,
-  /// once, by both the normal pass and the reprocess pass.
-  ///
-  /// Reported 2026-08-08: "the need starts to influence the response, then next
-  /// turn the response further boosts the need gravity… sudden loss of like
-  /// 35-40 points of hunger, energy or bladder in single turn. Sometimes
-  /// several of them affected." Maintainer: "it is still very whack a mole."
-  ///
-  /// It was whack-a-mole because the rule lived at the CALL SITES: two
-  /// byte-identical `clamp(-30, 100)` lines, and nothing at all on the third
-  /// applier in chat_service_needs_reprocess. A rule enforced by whoever
-  /// remembers it drifts by construction. One helper, both sites, no copies.
-  ///
-  /// ASYMMETRIC ON PURPOSE — decay owns depletion (maintainer ruling). A need
-  /// falling is slow and ambient and `tickDecay` models it; a scene may take
-  /// only [NeedsSimulation.sceneDepletionCapFor] extra, and the prompt now tells
-  /// the eval to report a negative ONLY for something the scene explicitly
-  /// describes costing them. Positives stay wide open: eating a meal really does
-  /// fill you in one go, and the prompt spends a paragraph fighting models that
-  /// lowball exactly that. Capping the fill would be a worse bug than the one
-  /// this fixes.
-  ///
-  /// PER-NEED, not one number: "I want variability but not wide swings"
-  /// (maintainer). The cap is roughly inverse to each need's decay rate, so
-  /// hunger and bladder — clocks that fill on their own — barely move for a
-  /// scene, while hygiene, which hardly decays at all and is event-driven by
-  /// design, gets the widest bite. A single flat number would have been simpler
-  /// and duller: every scene nudging everything equally is not variability.
-  ///
-  /// THE DIRECTOR IS EXEMPT, and that is a deliberate scoping decision rather
-  /// than an oversight. "Needs Director authority" is a per-card opt-in that
-  /// defaults OFF, and switching it on is asking for a second pass — one that
-  /// re-reads the scene for faithfulness — to overrule the evaluator. Bounding
-  /// it would make the switch mean less than it says. The trade-off, stated
-  /// plainly: a user who enables Director authority can still see wide swings,
-  /// and if that turns out to matter the bound is one `if` away (plus a
-  /// maintainer-approved edit to the two authority tests that assert the
-  /// unbounded numbers).
-  ///
-  /// Deliberately NOT pushed down into `NeedsSimulation.applySceneImpact`. That
-  /// was tried first and it bounded the whole vector, breaking two tests that
-  /// use the mutator merely to ARRANGE a state — the bound was reaching past
-  /// the bug. What needs limiting is what a MODEL proposes, which is here.
-  void _boundDeltas(Map<String, int> deltas) {
-    for (final k in deltas.keys.toList()) {
-      deltas[k] = deltas[k]!.clamp(
-        -needsSimulation.sceneDepletionCapFor(k),
-        100,
-      );
-    }
-  }
-
   final Future<String?> Function(
     String responseText, {
     void Function(String)? onChunk,
@@ -161,318 +112,8 @@ class NeedsImpactEvaluator {
 
   static int _defaultStrength() => 1;
 
-  /// Simple keyword-based fallback for scenes where the model returns
-  /// all-zero or empty deltas. Scans for activity keywords and assigns
-  /// reasonable positive deltas so the character doesn't stagnate.
-  static Map<String, int> afkKeywordFallback(String sceneText) {
-    final text = sceneText.toLowerCase();
-    final result = <String, int>{};
-
-    bool matchesWordBoundary(Iterable<String> keywords, String text) {
-      return keywords.any((k) {
-        return RegExp('\\b${RegExp.escape(k)}\\b').hasMatch(text);
-      });
-    }
-
-    void check(Iterable<String> keywords, Map<String, int> deltas) {
-      if (matchesWordBoundary(keywords, text)) {
-        for (final entry in deltas.entries) {
-          final existing = result[entry.key] ?? 0;
-          if (entry.value > existing) {
-            result[entry.key] = entry.value;
-          }
-        }
-      }
-    }
-
-    // Bladder
-    check(
-      [
-        'toilet',
-        'bathroom',
-        'urinate',
-        'peed',
-        'peeing',
-        'used the bathroom',
-        'went to the bathroom',
-        'en suite',
-      ],
-      {'bladder': 50},
-    );
-
-    // Hygiene — specific phrases first
-    check(
-      [
-        'shower',
-        'showering',
-        'showered',
-        'showers',
-        'bath',
-        'bathed',
-        'bathing',
-      ],
-      {'hygiene': 40, 'comfort': 10},
-    );
-    check(
-      [
-        'washed her face',
-        'washed his face',
-        'washed their face',
-        'washed up',
-        'washed herself',
-        'washed himself',
-        'washed themselves',
-        'dish',
-        'brushed her teeth',
-        'brushed his teeth',
-        'brushed their teeth',
-        'brushing her teeth',
-        'brushing his teeth',
-        'brushing their teeth',
-      ],
-      {'hygiene': 20},
-    );
-    check(
-      [
-        'splashed water on her face',
-        'splashed water on his face',
-        'splashed water on their face',
-        'splashed some water',
-        'freshened up',
-        'freshening up',
-      ],
-      {'hygiene': 15},
-    );
-    check(['washed', 'washing'], {'hygiene': 25});
-    check(
-      [
-        'changed clothes',
-        'changed into',
-        'got dressed',
-        'pajamas',
-        'clean clothes',
-        'comfy clothes',
-      ],
-      {'hygiene': 10},
-    );
-
-    // Hunger
-    check(
-      [
-        'ate',
-        'eating',
-        'had breakfast',
-        'had lunch',
-        'had dinner',
-        'dinner',
-        'made breakfast',
-        'made lunch',
-        'made dinner',
-      ],
-      {'hunger': 35},
-    );
-    check(
-      [
-        'food',
-        'foods',
-        'meal',
-        'pizza',
-        'leftovers',
-        'leftover',
-        'pasta',
-        'sandwich',
-        'snack',
-        'popcorn',
-        'cereal',
-        'apple',
-        'cheese',
-        'toast',
-        'cooking',
-        'browsing recipes',
-        'recipe',
-        'groceries',
-        'takeout',
-      ],
-      {'hunger': 25},
-    );
-    check(
-      [
-        'fridge',
-        'refrigerator',
-        'microwave',
-        'kitchen',
-        'making food',
-        'preparing food',
-      ],
-      {'hunger': 10},
-    );
-
-    // Beverages → energy (not hunger)
-    check(
-      [
-        'coffee',
-        'tea',
-        'orange juice',
-        'juice',
-        'water',
-        'soda',
-        'beverage',
-        'mug',
-        'cup of',
-        'fresh pot',
-        'brew',
-      ],
-      {'energy': 7},
-    );
-
-    // Energy
-    check(
-      ['slept', 'sleeping', 'asleep', 'fell asleep', 'went to sleep', 'sleep'],
-      {'energy': 50},
-    );
-    check(
-      ['nap', 'napping', 'dozed', 'dozing', 'dozed off', 'drifted off'],
-      {'energy': 25},
-    );
-    check(
-      [
-        'rested',
-        'resting',
-        'lay down',
-        'lying down',
-        'stretched out',
-        'curled up',
-        'lounging',
-      ],
-      {'energy': 15},
-    );
-    check(['stretch', 'stretching', 'yawned', 'yawning'], {'energy': 5});
-
-    // Comfort
-    check(
-      [
-        'book',
-        'books',
-        'reading',
-        'reads',
-        'read a',
-        'novel',
-        'magazine',
-        'page',
-        'chapter',
-        'story',
-      ],
-      {'comfort': 20},
-    );
-    check(
-      [
-        'tv',
-        'television',
-        'movie',
-        'show',
-        'shows',
-        'watching',
-        'video',
-        'netflix',
-        'streaming',
-      ],
-      {'comfort': 10},
-    );
-    check(
-      [
-        'photo',
-        'album',
-        'memento',
-        'photograph',
-        'pictures',
-        'memories',
-        'scrapbook',
-      ],
-      {'comfort': 15},
-    );
-    check(
-      [
-        'couch',
-        'sofa',
-        'bed',
-        'comfortable',
-        'cozy',
-        'warm',
-        'peaceful',
-        'relaxed',
-        'content',
-        'serene',
-      ],
-      {'comfort': 10},
-    );
-    check(
-      [
-        'sunlight',
-        'morning sun',
-        'golden light',
-        'dappled',
-        'nice view',
-        'backyard',
-        'birds singing',
-        'garden',
-      ],
-      {'comfort': 8},
-    );
-    check(
-      ['candle', 'music', 'quiet', 'rain', 'fireplace', 'calm', 'tranquil'],
-      {'comfort': 10},
-    );
-
-    // Fun
-    check(
-      [
-        'phone',
-        'computer',
-        'laptop',
-        'social media',
-        'scrolling',
-        'instagram',
-        'facebook',
-        'browsing',
-        'online',
-        'website',
-        'surfing',
-      ],
-      {'fun': 8},
-    );
-    check(
-      [
-        'game',
-        'gaming',
-        'played',
-        'hobby',
-        'craft',
-        'drawing',
-        'music',
-        'instrument',
-      ],
-      {'fun': 15},
-    );
-
-    // Social
-    check(
-      [
-        'friend',
-        'friends',
-        'neighbor',
-        'neighbors',
-        'talked to',
-        'chatting with',
-        'texted',
-        'called',
-        'phone call',
-        'messaged',
-      ],
-      {'social': 15},
-    );
-
-    return result;
-  }
+  static Map<String, int> afkKeywordFallback(String sceneText) =>
+      needsImpactAfkKeywordFallback(sceneText);
 
   Future<void> evaluateAndApply(
     String responseText, {
@@ -564,34 +205,7 @@ class NeedsImpactEvaluator {
         '[Realism:Needs] Raw evaluator response: '
         '${effectiveText.substring(0, effectiveText.length > 300 ? 300 : effectiveText.length)}',
       );
-      final deltas = <String, int>{};
-      Map<String, dynamic> parsed = {};
-      try {
-        final noFence = effectiveText
-            .replaceAll(RegExp(r'```(?:json)?\s*|\s*```', dotAll: true), ' ')
-            .trim();
-        final si = noFence.indexOf('{');
-        final ei = noFence.lastIndexOf('}');
-        if (si >= 0 && ei > si) {
-          final obj = jsonDecode(noFence.substring(si, ei + 1));
-          if (obj is Map<String, dynamic>) parsed = obj;
-        }
-      } catch (_) {
-        parsed = {};
-      }
-      for (final k in NeedsSimulation.needKeys) {
-        int? d;
-        if (parsed.isNotEmpty) {
-          final v = parsed['${k}_delta'] ?? parsed[k];
-          if (v is num) d = v.toInt();
-        }
-        d ??=
-            _extractInt(effectiveText, '${k}_delta') ??
-            _extractInt(effectiveText, k);
-        if (d != null) {
-          deltas[k] = d;
-        }
-      }
+      final deltas = _parseNeedDeltas(effectiveText);
 
       // The Director is EXEMPT — see _boundDeltas. Its authority is opt-in and
       // off by default; turning it on is asking for a second, scene-checked
@@ -665,6 +279,38 @@ class NeedsImpactEvaluator {
     }
   }
 
+  Map<String, int> _parseNeedDeltas(String effectiveText) {
+    final deltas = <String, int>{};
+    Map<String, dynamic> parsed = {};
+    try {
+      final noFence = effectiveText
+          .replaceAll(RegExp(r'```(?:json)?\s*|\s*```', dotAll: true), ' ')
+          .trim();
+      final si = noFence.indexOf('{');
+      final ei = noFence.lastIndexOf('}');
+      if (si >= 0 && ei > si) {
+        final obj = jsonDecode(noFence.substring(si, ei + 1));
+        if (obj is Map<String, dynamic>) parsed = obj;
+      }
+    } catch (_) {
+      parsed = {};
+    }
+    for (final k in NeedsSimulation.needKeys) {
+      int? d;
+      if (parsed.isNotEmpty) {
+        final v = parsed['${k}_delta'] ?? parsed[k];
+        if (v is num) d = v.toInt();
+      }
+      d ??=
+          _extractInt(effectiveText, '${k}_delta') ??
+          _extractInt(effectiveText, k);
+      if (d != null) {
+        deltas[k] = d;
+      }
+    }
+    return deltas;
+  }
+
   int? _extractInt(String text, String key) {
     final re = RegExp('"$key"\\s*:\\s*(-?\\d+)');
     final m = re.firstMatch(text);
@@ -733,34 +379,7 @@ class NeedsImpactEvaluator {
 
       String effectiveText = text; // already stripped by evaluate path
 
-      final deltas = <String, int>{};
-      Map<String, dynamic> parsed = {};
-      try {
-        final noFence = effectiveText
-            .replaceAll(RegExp(r'```(?:json)?\s*|\s*```', dotAll: true), ' ')
-            .trim();
-        final si = noFence.indexOf('{');
-        final ei = noFence.lastIndexOf('}');
-        if (si >= 0 && ei > si) {
-          final obj = jsonDecode(noFence.substring(si, ei + 1));
-          if (obj is Map<String, dynamic>) parsed = obj;
-        }
-      } catch (_) {
-        parsed = {};
-      }
-      for (final k in NeedsSimulation.needKeys) {
-        int? d;
-        if (parsed.isNotEmpty) {
-          final v = parsed['${k}_delta'] ?? parsed[k];
-          if (v is num) d = v.toInt();
-        }
-        d ??=
-            _extractInt(effectiveText, '${k}_delta') ??
-            _extractInt(effectiveText, k);
-        if (d != null) {
-          deltas[k] = d;
-        }
-      }
+      final deltas = _parseNeedDeltas(effectiveText);
 
       // Drop anything outside the requested scope. A model that ignores the
       // scope line and answers with all seven keys must not be able to move a

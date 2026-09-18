@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 needs_impact_evaluator: bound helper and activity table off fire (822 → 441)
+- **Why:** eval fire, `_boundDeltas`, and the AFK keyword table lived in one 822-line leaf.
+- **What:** `needs_impact_evaluator.dart` keeps ctor, `evaluateAndApply`, `reprocessWithUserCritique`, and the class static `afkKeywordFallback` door (441). `_parseNeedDeltas` is the one JSON+regex parse used by both fire and reprocess. `needs_impact_bound.dart` is THE `_boundDeltas` helper (73) — Director exempt, not in `applySceneImpact`, no third copy. `needs_impact_table.dart` is the AFK keyword table (324).
+- **Verified:** analyzer clean. needs_impact_evaluator + needs_depletion_cap (46) green.
+- **Files:** `lib/services/chat/needs_impact_evaluator.dart` + `needs_impact_bound.dart` + `needs_impact_table.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 accessors: today-sentence and planner off the grab-bag (826 → 657)
 - **Why:** the accessors part mixed the grab-bag with the today-sentence mixin and planner resolve.
 - **What:** `chat_service_accessors.dart` keeps lore/worlds/gates/setters/`_objectivesActiveImpl` live AND (657). `chat_service_today_sentence.dart` is the mixin (53). `chat_service_planner_resolve.dart` is fate + upsert/journal (153). Also restored class doors `TimeService.evaluateTimeProgressAndPostureIfNeeded` / `setClockDirect` and `_ChatPageState._groupCharacterColor` so callers that only have the type still compile. Continue does not tick.
