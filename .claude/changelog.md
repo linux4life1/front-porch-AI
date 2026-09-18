@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.13: ChatPage split into overlays and app-bar host (900 → 474)
+- **Why:** the route shell still inlined the background/bubble surface, page overlays, and the app bar next to `_bubbleKeys`.
+- **What:** `chat_page.dart` keeps the route, owner-scoped `_bubbleKeys` (HashMap.identity, never `GlobalObjectKey(msg)`), send, and a thin `build` (474). `_overlays` is the chat surface + loading/call/realism/objective/ONNX overlays (253). `_sidebar_host` is the app bar including the sidebar toggle (181). Extensions call `rebuildState`. `io-ok` stays on the `existsSync` token.
+- **Verified:** analyzer clean. `message_key_scope_test` (2) green.
+- **Files:** `lib/ui/pages/chat_page.dart` + `chat_page_overlays.dart` + `chat_page_sidebar_host.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.12: KoboldService split into admin and process (902 → 436)
 - **Why:** generate/abort, admin extras, and process start/stop lived in one 902-line class. A two-file split left admin over 500.
 - **What:** the shell keeps `LLMService` generate/abort, fields, and class forwarders for `startKobold` / `stopKobold` (436) — `show KoboldService` hides extension methods. `.admin` is readiness, swap, perf, token count (276). `.process` is start/stop and console ingest (272). Extensions call `notify()`. `_armedProbe` stays a class field.

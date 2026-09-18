@@ -33,6 +33,7 @@
 > | S1.10 time_service.dart | done | `refactor(chat): split TimeService into eval and apply` |
 > | S1.11 web_server_host.dart | done | `refactor(web): split the host into streams and wiring` |
 > | S1.12 kobold_service.dart | done | `refactor(kobold): split admin extras off generate/abort` |
+> | S1.13 chat_page.dart | done | `refactor(ui): split ChatPage overlays and app-bar host` |
 > | S1 remaining / S2 / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
@@ -841,11 +842,11 @@ A two-file split left admin over 500. Process start/stop is the third file. `sta
 
 | New file | Holds |
 | --- | --- |
-| `chat_page.dart` | route, `_bubbleKeys`, send |
-| `chat_page_overlays.dart` | RAG / generation / realism overlays |
-| `chat_page_sidebar_host.dart` | sidebar attachment |
+| `chat_page.dart` | route, `_bubbleKeys`, send, thin `build` |
+| `chat_page_overlays.dart` | chat surface + loading / call / realism / objective / ONNX |
+| `chat_page_sidebar_host.dart` | app bar (includes the sidebar toggle) |
 
-Owner-scoped `GlobalKey`s stay on the State (`_bubbleKeys`). Never `GlobalObjectKey(msg)`.
+Sidebar body already lived in `chat_page.sidebar.dart`. Owner-scoped `GlobalKey`s stay on the State (`_bubbleKeys`). Never `GlobalObjectKey(msg)`. Extensions call `rebuildState`.
 
 **Red if dropped:** `integration_test/chat_switch_smoke_test.dart`, `message_actions_test.dart`, `theme_interaction_test.dart`.
 
