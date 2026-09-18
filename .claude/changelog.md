@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 rag_injection: receipt and cover off the block (654 → 307)
+- **Why:** journal-cover drop and the per-turn receipt lived next to the memories block builder.
+- **What:** `rag_injection.dart` keeps day stamps, query, quote-reach, cap, and `buildRagMemoriesBlock` (307). `rag_injection.receipt.dart` is cover-drop plus `buildRagReceipt` (356). Same library — tests still import one file. Session isolation for other-chat lines is unchanged.
+- **Verified:** analyzer clean. rag_injection (47) green.
+- **Files:** `lib/services/chat/rag_injection.dart` + `.receipt.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 wiring_injection: leaf builders off lore/world helpers (658 → 327)
 - **Why:** prompt-injection leaf constructors lived next to lore scanner/injector and world/biome helpers.
 - **What:** `chat_service_wiring_injection.dart` keeps lore/world helpers and macro context (327). `chat_service_wiring_injection_leaves.dart` is author note through realism-state (341). Late finals stay on the class. `objectivesActive` stays the live AND in author note and ambitions.
