@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 character_card_grid: cells off toolbar chrome (520 → 412)
+- **Why:** folder/group/character cells lived in the same widget as toolbar chrome.
+- **What:** `character_card_grid.dart` keeps SearchScope, drag-hold delay, and toolbar chrome (412). `character_card_grid.grid.dart` is `_buildGrid` (132).
+- **Verified:** analyzer clean.
+- **Files:** grid + grid.grid
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 styled_text_controller: tokenizer off the controller (522 → 366)
 - **Why:** presets and scan/tokenize lived in the same file as the TextEditingController.
 - **What:** `styled_text_controller.dart` keeps the controller (366). `styled_text_tokenizer.dart` is presets, tokenizeChat, and quote scanners (233). Controller re-exports the tokenizer so existing imports stay valid.

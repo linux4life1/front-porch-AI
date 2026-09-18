@@ -81,6 +81,7 @@
 > | S2 image_gen_service.backends.dart | done | `refactor(image): split generators off disk save` |
 > | S2 chat_service_chat_package.dart | done | `refactor(chat): split fpchat import off export` |
 > | S2 styled_text_controller.dart | done | `refactor(ui): split tokenizer and presets off the styled controller` |
+> | S2 character_card_grid.dart | done | `refactor(ui): split grid cells off the home toolbar chrome` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
