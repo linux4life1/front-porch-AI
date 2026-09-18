@@ -1,3 +1,10 @@
+## 2026-09-18 — residual chat_facade: state payload off send-load (508 → 319)
+- **Why:** the full `/api/chat/state` map lived next to send, load, continue, and regen.
+- **What:** `chat_facade.dart` keeps send/load and Continue/regen (319). `chat_facade_state.dart` is `state()` (212). History stays on its existing part. Continue still does not tick; it only forwards.
+- **Verified:** analyzer clean.
+- **Files:** chat_facade + chat_facade_state
+- **Commit:** this tip
+
 ## 2026-09-18 — residual accessors: living-time/cast off setters (657 → 480)
 - **Why:** weather, ambitions, cast, and session-theme lived next to setter/gate/init after the today-sentence split.
 - **What:** `chat_service_accessors.dart` keeps setters, gates, init/dispose, and the live `objectivesActive` AND (480). `chat_service_accessors_living.dart` is storyDayCount through stream-text clean (201).
