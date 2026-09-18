@@ -105,7 +105,7 @@ void main() {
   test('both import surfaces take the shared steps', () {
     const surfaces = [
       'lib/ui/pages/import_lorebook_page.dart',
-      'lib/services/web/facade/world_facade.dart',
+      'lib/services/web/facade/world_facade.import.dart',
     ];
     for (final path in surfaces) {
       final source = File(path).readAsStringSync();

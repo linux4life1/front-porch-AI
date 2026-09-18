@@ -1,3 +1,10 @@
+## 2026-09-18 — CI: retarget split-moved source pins + saveState door
+- **Why:** unit job on 94bc0447 failed 10 tests. Scans still read chrome / ChatTools / session_manage / world_facade shells after the residual splits. `saveState()` lived on an extension so the debounce test override never fired.
+- **What:** `CreatorState.saveState()` is a class forwarder to `_saveStateImpl`. Pins now read `world_facade.import.dart`, `chat_service_session_fork.dart`, `ChatToolsRealism.tsx`, and `home_page_chrome.actions.dart`. Contracts unchanged.
+- **Verified:** the ten named suites, locally.
+- **Files:** creator_state + prefs; lorebook_import, audit_fix_callsite, medium_followups, home_tap_* tests
+- **Commit:** this tip
+
 ## 2026-09-18 — residual keep census
 - **Why:** after the leftover SEVERAL cuts, 48 production files are still over 500. All are ONE, LIST, or the ChatService shell.
 - **What:** documented keep verdicts. `home_page.dart` (556) is the home shell. `chat_service.dart` (510) is imports + part list + Fake-pinned forwarders. `image_gen_service.dart` (508) is the image-gen shell. No 500-line CI gate.

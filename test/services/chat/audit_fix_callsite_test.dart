@@ -90,9 +90,9 @@ void main() {
   });
 
   test('fork journal cursor starts at the kept prefix, not zero', () {
-    final manage = File(
-      'lib/services/chat/chat_service_session_manage.dart',
+    final fork = File(
+      'lib/services/chat/chat_service_session_fork.dart',
     ).readAsStringSync();
-    expect(manage, contains('_summaryLastIndex = _messages.length'));
+    expect(fork, contains('_summaryLastIndex = _messages.length'));
   });
 }

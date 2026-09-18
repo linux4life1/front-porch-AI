@@ -170,7 +170,7 @@ extension CreatorStatePrefs on CreatorState {
     notify();
   }
 
-  Future<void> saveState() async {
+  Future<void> _saveStateImpl() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(CreatorState._prefName, nameController.text);
     await prefs.setString(CreatorState._prefConcept, conceptController.text);

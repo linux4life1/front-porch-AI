@@ -20,6 +20,7 @@ part of '../home_page.dart';
 
 /// Mode toggle and the model-load status bar.
 /// Open-chat / menus / folder handlers live in home_page_chrome.actions.dart.
+/// Home-tap source scans read that actions part, not this file.
 extension _HomePageChrome on _HomePageState {
   Widget _buildModeToggle() {
     return HomeModeToggle(

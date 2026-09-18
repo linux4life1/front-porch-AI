@@ -388,6 +388,10 @@ class CreatorState extends ChangeNotifier {
   // Public notify for step widgets (avoids protected member warnings when called from outside)
   void notify() => notifyListeners();
 
+  /// Class door — `_CountingCreatorState` in the debounce test `@override`s
+  /// this. An extension member is statically dispatched and cannot be.
+  Future<void> saveState() => _saveStateImpl();
+
   // Dispose for controllers (called by shell)
   void disposeControllers() {
     nameController.dispose();

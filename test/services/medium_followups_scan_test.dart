@@ -11,7 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('web Chaos tools has SPIN NOW posting chance-time/spin', () {
-    final src = File('web_ui/src/components/ChatTools.tsx').readAsStringSync();
+    final src = File(
+      'web_ui/src/components/ChatToolsRealism.tsx',
+    ).readAsStringSync();
     expect(src, contains('SPIN NOW'));
     expect(src, contains('/api/chat/chance-time/spin'));
   });
