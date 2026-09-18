@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 edit_character_page: tab host off the field bag (687 → 379)
+- **Why:** the character editor still inlined the TabBar scaffold, token badge, avatar resolve, and lore CRUD next to the field bag.
+- **What:** `edit_character_page.dart` keeps the widget, fields, init, and dispose (379). `edit_character_page.host.dart` is token/avatar/lore CRUD plus the TabBar host (299). `build` stays a class override. `rebuildState` is the extension door. Existing tab/save/realism parts unchanged.
+- **Verified:** analyzer clean. greeting / identity / voice / tab interaction (9) green.
+- **Files:** `lib/ui/pages/edit_character_page.dart` + `.host.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 database_cleanup: apply off the scan (704 → 412)
 - **Why:** orphan scan counts and destructive delete/fix lived in one 704-line class.
 - **What:** `database_cleanup.dart` keeps `OrphanReport`/`CleanupResult`, `checkOrphans`, identity, and count helpers (412). `database_cleanup_apply.dart` is `cleanOrphans` plus delete/fix (312). `_liveCharacterIdentities` stays the one identity set (`stableGroupIdFrom`, never `characters.id` alone for objectives/embeddings/data bank). `cleanOrphans` stays a class forwarder.
