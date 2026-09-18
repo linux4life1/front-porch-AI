@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.19: eval engine split into fire and extract (842 → 487)
+- **Why:** fire/retry/cancel lived next to think-strip, the recent-exchange window, and the needs-impact JSON call.
+- **What:** `llm_eval_engine.dart` keeps fields, ctor, `fireLLMEval`, and class forwarders for `stripThinkBlocks` / `extractJson*` / `evaluateNeedsImpactCall` (487). `llm_eval_extract.dart` is the eval canon: window helpers, `stripEvalThinkBlocks`, and the needs-impact body (390). StoryJson.stripThinkTags and char_macro.stripThinkBlocks stay separate.
+- **Verified:** analyzer clean. llm_eval_engine + orphan-think + salvage + needs-zero-tools + recent-exchange + clamp + reply-facts fusion (50) green.
+- **Files:** `lib/services/chat/llm_eval_engine.dart` + `llm_eval_extract.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.18: ChatTools split into memory, realism, and objectives (862 → 314)
 - **Why:** the web tools sidebar inlined every desktop section in one 862-line TSX file.
 - **What:** `ChatTools.tsx` is the load/toggle/apply shell plus Scene & time (clock chevron pin stays in this file) (314). `ChatToolsShared` is the snapshot type + Toggle/NumField. `ChatToolsMemory` is wiki / RAG / journal / growth / recap (321). `ChatToolsRealism` is pockets / chaos / NSFW (139). `ChatToolsObjectives` is standing mood / ambitions / ObjectivesPanel (64). Section order is unchanged. Preserve thinking is not wired.
