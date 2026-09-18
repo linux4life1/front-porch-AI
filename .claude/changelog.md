@@ -1,3 +1,9 @@
+## 2026-09-18 — Rawhide debt-payback plan (inventory only)
+- **Why:** After PR #262, size, leftover cruft, and duplicate contracts still need a sequenced payback. This run must not change product code.
+- **What:** Added `docs/superpowers/plans/2026-09-18-rawhide-debt-payback.md`. Measured 160 source files over 500 lines and 40 cruft items. Sequences later PRs: Drift managers off first, then zero-caller cruft, then splits of mixed files. Five global constraints on every later task (one implementation, readable Dart, limited comments, per-file `dart format`, zero analyzer issues).
+- **Files:** `docs/superpowers/plans/2026-09-18-rawhide-debt-payback.md`
+- **Commit:** this tip
+
 ## 2026-09-18 — Split think-only lift from open-think salvage
 - **Why:** `resolveMouthSpeech` lifted every empty-display think body, including an unclosed mid-thought. `generation_stream_behavior_test` expects that cut-off to stay tagged and end with `</think>`.
 - **What:** Lift only a *closed* think-only body (Flora / Qwen finished line). Stream still inside `<think>` gets `closeOpenThink` only. Did not edit the salvage pin. Cleanup / 17 pins / pockets pin untouched.
