@@ -1,3 +1,9 @@
+## 2026-09-18 — S1.6: Stoop discussion split into actions and views (970 → 302 shell)
+- **What:** `stoop_card_comments.dart` keeps both widgets, the State fields, load/replace, the verify/sign-in nudges and `build` (302). `.actions` carries post / reply / confirm-delete / delete / delete-reply / report / report-reply (277); `.views` carries the composer, thread, reply composer, reply row, creator mark and row (416). Same `rebuildState` bridge as S1.2, same reason.
+- **Verified:** `test/ui/pages/repository` + `test/services/backporch` (185 tests) green, including the comment-gate suite; analyzer clean on the directory.
+- **Files:** `lib/ui/pages/repository/stoop_card_comments.dart` + 2 new part files
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.2: Stoop share wizard split (990 → 464 shell)
 - **Why:** one State class holding the wizard chrome, all four step bodies, and three publish paths (character, group, world).
 - **What:** `stoop_upload_page.dart` keeps the widget, the State's fields, selection/advance logic, `build`, `_stepBody` and `_navButtons` (464). `.steps` carries the four step bodies + the shared label (323); `.publish` carries `_publish` / `_publishGroup` / `_publishWorld` / `_rememberCommentsOptIn` (243). The wizard's top-bar step dots and linear `_currentStep` progression are untouched — that pattern is mandatory for every Create X flow.
