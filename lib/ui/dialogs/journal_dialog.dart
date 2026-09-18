@@ -16,9 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+
+import 'package:front_porch_ai/utils/utils.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -473,7 +473,7 @@ class _JournalDialogState extends State<JournalDialog> {
   /// Tapping a line closes the receipts AND the journal, then asks the chat
   /// page to scroll to that message.
   Future<void> _showReceipts(JournalMemoryData card) async {
-    final positions = _receiptPositions(card);
+    final positions = decodeReceiptIds(card.sourceMessageIds);
     final messages = _chat.messages;
     final entries = [
       for (final pos in positions)
@@ -563,15 +563,5 @@ class _JournalDialogState extends State<JournalDialog> {
     // Close the journal itself so the chat is visible, THEN scroll.
     Navigator.of(context).pop();
     jump(jumpTo);
-  }
-
-  List<int> _receiptPositions(JournalMemoryData card) {
-    final raw = card.sourceMessageIds;
-    if (raw == null || raw.isEmpty) return const [];
-    try {
-      return (jsonDecode(raw) as List).whereType<int>().toList();
-    } catch (_) {
-      return const [];
-    }
   }
 }

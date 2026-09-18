@@ -45,6 +45,7 @@ export 'reasoning_markers.dart';
 export 'safe_outbound_url.dart';
 export 'spell_check_languages.dart';
 export 'startup_trace.dart';
+export 'receipt_ids.dart';
 export 'think_tags.dart';
 export 'world_cover.dart';
 export 'world_ref_resolver.dart';

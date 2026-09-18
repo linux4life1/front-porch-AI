@@ -20,6 +20,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'growth_ops.dart' show hasGrowthMacros;
 import 'growth_physics.dart';
@@ -211,9 +212,10 @@ class GrowthStore {
     final db = getDb();
     if (db == null) return;
     if (!retired) {
-      final active = (await db.getGrowthRings(sessionId, characterId))
-          .where((r) => !r.retired)
-          .toList();
+      final active = (await db.getGrowthRings(
+        sessionId,
+        characterId,
+      )).where((r) => !r.retired).toList();
       if (active.length >= GrowthPhysics.kMaxActiveRings) {
         final victim = GrowthPhysics.capVictim(active);
         if (victim != null) await _retire(db, victim.id);
@@ -304,7 +306,10 @@ class GrowthStore {
     if (db == null) return;
     await db.updateGrowthRing(
       id,
-      GrowthRingsCompanion(pinned: Value(pinned), updatedAt: Value(DateTime.now())),
+      GrowthRingsCompanion(
+        pinned: Value(pinned),
+        updatedAt: Value(DateTime.now()),
+      ),
     );
   }
 
@@ -509,9 +514,7 @@ class GrowthStore {
             id: Value(toSessionId),
             evolvedPersonality: Value(parent.evolvedPersonality),
             evolvedScenario: Value(parent.evolvedScenario),
-            groupEvolvedPersonalities: Value(
-              parent.groupEvolvedPersonalities,
-            ),
+            groupEvolvedPersonalities: Value(parent.groupEvolvedPersonalities),
             groupEvolvedScenarios: Value(parent.groupEvolvedScenarios),
           ),
         );
@@ -558,7 +561,8 @@ class GrowthStore {
       final String pers;
       final String scen;
       if (fromIsGroup) {
-        pers = _parseJsonMap(source.groupEvolvedPersonalities)[fromCharId] ?? '';
+        pers =
+            _parseJsonMap(source.groupEvolvedPersonalities)[fromCharId] ?? '';
         scen = _parseJsonMap(source.groupEvolvedScenarios)[fromCharId] ?? '';
       } else {
         pers = source.evolvedPersonality;
@@ -600,18 +604,8 @@ class GrowthStore {
   }
 
   /// Decoded receipt positions of a ring (empty on null/garbage).
-  static List<int> receiptsOf(GrowthRingData ring) {
-    final raw = ring.sourceMessageIds;
-    if (raw == null || raw.isEmpty) return const [];
-    try {
-      return (jsonDecode(raw) as List)
-          .map((e) => e is int ? e : int.tryParse('$e'))
-          .whereType<int>()
-          .toList();
-    } catch (_) {
-      return const [];
-    }
-  }
+  static List<int> receiptsOf(GrowthRingData ring) =>
+      decodeReceiptIds(ring.sourceMessageIds);
 
   Future<void> _retire(AppDatabase db, String id) => db.updateGrowthRing(
     id,
