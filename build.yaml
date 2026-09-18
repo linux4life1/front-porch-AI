@@ -7,6 +7,8 @@ targets:
   $default:
     builders:
       drift_dev:
+        options:
+          generate_manager: false
         generate_for:
           include:
             - "lib/database/**.dart"
