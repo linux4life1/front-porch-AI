@@ -1,3 +1,12 @@
+## 2026-09-18 — S1.2: Stoop share wizard split (990 → 464 shell)
+- **Why:** one State class holding the wizard chrome, all four step bodies, and three publish paths (character, group, world).
+- **What:** `stoop_upload_page.dart` keeps the widget, the State's fields, selection/advance logic, `build`, `_stepBody` and `_navButtons` (464). `.steps` carries the four step bodies + the shared label (323); `.publish` carries `_publish` / `_publishGroup` / `_publishWorld` / `_rememberCommentsOptIn` (243). The wizard's top-bar step dots and linear `_currentStep` progression are untouched — that pattern is mandatory for every Create X flow.
+- **One new method, and it is the precedented one:** `rebuildState(VoidCallback)`, because `setState` is protected and an extension in a part cannot call it. `settings_page.dart` exposes exactly this bridge for exactly this reason; the doc comment says so. Statics referenced from a part are qualified (`_StoopUploadPageState._maxTags`).
+- **Formatter aftercare:** the rename lengthened three lines, so `dart format` wrapped `if (mounted) rebuildState(...)` and created `curly_braces_in_flow_control_structures`. Blocked all three.
+- **Verified:** `test/ui/pages/repository` + `stoop_adult_lock_test` + `test/services/backporch` (204 tests) green; analyzer clean on the directory.
+- **Files:** `lib/ui/pages/repository/stoop_upload_page.dart` + 2 new part files
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.14: pockets.dart split into record, grammar, matching, applier
 - **Why:** 889 lines holding four separable things behind one pure library.
 - **What:** `pockets.dart` keeps the caps, `_tidy` and the `Pockets` record itself (228). Four `part` files: `.items` (PocketItem / SetAsideItem / PocketSection, 162), `.ops` (PocketOpKind / PocketOpReport / PocketEvent, 149), `.names` (filler words, generic references, same-item matching, 139), `.apply` (the ONE applier, 315). Parts rather than separate libraries because `_tidy` is shared by `PocketItem` and `PocketOpReport` and `_norm` by the matchers — separate files would have forced those private helpers public for no reason. No imports to move: the library has none by design.
