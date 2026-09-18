@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 StoopAccountPage: collections off profile (544 → 461)
+- **Why:** uploads, downloads, and following lived in the same page as profile, 2FA, and account danger. Inbox is already `StoopInboxPage`.
+- **What:** `StoopAccountPage.tsx` keeps profile, 2FA, and sign-out/delete (461). `StoopAccountCollections.tsx` is the three lists (119). Web bundle rebuilt.
+- **Verified:** tsc clean. vitest 238 green.
+- **Files:** `web_ui/src/pages/stoop/StoopAccountPage.tsx` + `StoopAccountCollections.tsx`; `assets/web_app`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 settings_page.advanced: web server off storage (543 → 194)
 - **Why:** web-server start/port lived next to the storage path and database cleanup.
 - **What:** `settings_page.advanced.dart` keeps the tab shell, storage, cleanup, and shared text field (194). `settings_page.advanced.web.dart` is start, port commit, and the Web Server section (370). `rebuildState` already exists on the settings page.
