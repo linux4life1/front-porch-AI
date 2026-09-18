@@ -1,3 +1,17 @@
+## 2026-09-18 — S2 backend_manager: download off version check (587 → 325)
+- **Why:** stream-to-.part download lived next to availability and GitHub version check.
+- **What:** `backend_manager.dart` keeps init, availability, updates, ensure, and `swapStagedBinary` (325). `backend_manager.download.dart` is the download stream and name/URL helpers (292). Class forwarder keeps FakeBackendManager on the type. `notify()` is the extension door.
+- **Verified:** analyzer clean. staging + setup (9) green.
+- **Files:** `lib/services/backend_manager.dart` + `.download.dart`
+- **Commit:** this tip
+
+## 2026-09-18 — S2 useLibrary: folder and card writes off the load hook (595 → 345)
+- **Why:** folder/character/group writes and import lived in the same hook as load, search, and open.
+- **What:** `useLibrary.ts` keeps load, search, folder trail, and open/start-fresh (345). `useLibrary.actions.ts` is folder CRUD, card moves, group extract, and import (326). Public hook return is unchanged. Web bundle rebuilt.
+- **Verified:** tsc clean. useLibrary search/open + cardMenus (5) green.
+- **Files:** `web_ui/src/hooks/useLibrary.ts` + `.actions.ts`; `assets/web_app`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 settings_facade: already under 500 after T11
 - **Why:** the S2 row still listed 606; T11 had already split read/update.
 - **What:** remeasured 213 / 149 / 299. No further extract.
