@@ -97,6 +97,7 @@ part 'chat/chat_service_generation_rag.dart';
 part 'chat/chat_service_generation_request.dart';
 part 'chat/chat_service_generation_stream.dart';
 part 'chat/chat_service_generation_postgen.dart';
+part 'chat/chat_service_generation_postgen_engine.dart';
 part 'chat/chat_service_pockets.dart';
 part 'chat/chat_service_pockets_pass.dart';
 part 'chat/chat_service_item_cards.dart';

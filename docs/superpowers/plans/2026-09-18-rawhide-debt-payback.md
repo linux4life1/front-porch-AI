@@ -73,6 +73,7 @@
 > | S2 chat_service_cast.dart | done | `refactor(chat): split group collapse and host carry off exit` |
 > | S2 home_page_dialogs.dart | done | `refactor(ui): split character import off delete and duplicate` |
 > | S2 home_page_chrome.dart | done | `refactor(ui): split open-chat and menus off the mode toggle` |
+> | S2 chat_service_generation_postgen.dart | done | `refactor(chat): split post-gen engine bookkeeping off finalize` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about

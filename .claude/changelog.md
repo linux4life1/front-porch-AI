@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 generation_postgen: engine bookkeeping off finalize (558 → 244)
+- **Why:** sanitizer / lorebook / TTS lived next to needs ∥ reply-facts, climax → pockets → posture, and Journal/Growth.
+- **What:** `chat_service_generation_postgen.dart` keeps finalize chrome (244). `chat_service_generation_postgen_engine.dart` is the guest-guarded engine family (340). Continue scores new text only; `asContinuation` keeps `pockets_before`; Continue does not tick. `resolveMouthSpeech` untouched.
+- **Verified:** analyzer clean.
+- **Files:** postgen + postgen_engine; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 home_page_chrome: open/menus off mode toggle (570 → 99)
 - **Why:** mode toggle and the model-load status bar lived next to open-chat, context menus, and folder/sort handlers.
 - **What:** `home_page_chrome.dart` keeps the mode toggle and status wrap (99). `home_page_chrome.actions.dart` is open-chat, menus, and folder/sort (492). Same library; `applyState` stays the setState door.
