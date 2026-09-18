@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 settings_page.advanced: web server off storage (543 → 194)
+- **Why:** web-server start/port lived next to the storage path and database cleanup.
+- **What:** `settings_page.advanced.dart` keeps the tab shell, storage, cleanup, and shared text field (194). `settings_page.advanced.web.dart` is start, port commit, and the Web Server section (370). `rebuildState` already exists on the settings page.
+- **Verified:** analyzer clean.
+- **Files:** advanced + advanced.web; `settings_page.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 generation_postgen: engine bookkeeping off finalize (558 → 244)
 - **Why:** sanitizer / lorebook / TTS lived next to needs ∥ reply-facts, climax → pockets → posture, and Journal/Growth.
 - **What:** `chat_service_generation_postgen.dart` keeps finalize chrome (244). `chat_service_generation_postgen_engine.dart` is the guest-guarded engine family (340). Continue scores new text only; `asContinuation` keeps `pockets_before`; Continue does not tick. `resolveMouthSpeech` untouched.

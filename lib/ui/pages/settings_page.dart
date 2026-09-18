@@ -50,6 +50,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 // unchanged.
 part 'settings_page.controls.dart';
 part 'settings_page.advanced.dart';
+part 'settings_page.advanced.web.dart';
 part 'settings_page.hardware.dart';
 part 'settings_page.gpu.dart';
 part 'settings_page.launch.dart';
