@@ -40,6 +40,7 @@
 > | S2 chat_service_accessors.dart | done | `refactor(chat): split today-sentence and planner off accessors` |
 > | S2 needs_impact_evaluator.dart | done | `refactor(chat): split needs bound and activity table off fire` |
 > | S2 chat_service_session_manage.dart | done | `refactor(chat): split fork and rename off new-chat seed` |
+> | S2 chat_command_handler.dart | done | `refactor(chat): split guest mint off slash parse` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
