@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 accessors: today-sentence and planner off the grab-bag (826 → 657)
+- **Why:** the accessors part mixed the grab-bag with the today-sentence mixin and planner resolve.
+- **What:** `chat_service_accessors.dart` keeps lore/worlds/gates/setters/`_objectivesActiveImpl` live AND (657). `chat_service_today_sentence.dart` is the mixin (53). `chat_service_planner_resolve.dart` is fate + upsert/journal (153). Also restored class doors `TimeService.evaluateTimeProgressAndPostureIfNeeded` / `setClockDirect` and `_ChatPageState._groupCharacterColor` so callers that only have the type still compile. Continue does not tick.
+- **Verified:** analyzer clean. god-file ratchet, planner fate, today side-quest, today-line, objectives toggle/gate/facade, time_service, standalone clock green.
+- **Files:** accessors + today_sentence + planner_resolve; `chat_service.dart` parts; TimeService + ChatPage class doors
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.19: eval engine split into fire and extract (842 → 487)
 - **Why:** fire/retry/cancel lived next to think-strip, the recent-exchange window, and the needs-impact JSON call.
 - **What:** `llm_eval_engine.dart` keeps fields, ctor, `fireLLMEval`, and class forwarders for `stripThinkBlocks` / `extractJson*` / `evaluateNeedsImpactCall` (487). `llm_eval_extract.dart` is the eval canon: window helpers, `stripEvalThinkBlocks`, and the needs-impact body (390). StoryJson.stripThinkTags and char_macro.stripThinkBlocks stay separate.

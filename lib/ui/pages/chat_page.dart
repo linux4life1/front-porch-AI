@@ -471,4 +471,10 @@ class _ChatPageState extends State<ChatPage> {
   /// can't call a State's protected members directly. Same bridge pattern as
   /// settings_page.dart.
   void rebuildState(VoidCallback fn) => setState(fn);
+
+  /// Per-character color palette for group chats (single source lives in
+  /// sidebar_tokens.dart). Class static so sibling parts can call
+  /// `_ChatPageState._groupCharacterColor` — an extension static is not
+  /// that name.
+  static Color _groupCharacterColor(int index) => groupCharacterColor(index);
 }

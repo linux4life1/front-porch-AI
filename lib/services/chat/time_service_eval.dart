@@ -109,7 +109,7 @@ extension TimeServiceEval on TimeService {
   /// same [_applyElapsed] clamp/floor/backstop against the same clock. That
   /// sharing is what makes engine-on and standalone advance identically for
   /// an identical verdict, rather than by promise.
-  Future<void> evaluateTimeProgressAndPostureIfNeeded({
+  Future<void> _evaluateTimeProgressAndPostureIfNeeded({
     required String charName,
     required String recent,
     required String shortTermTierName,

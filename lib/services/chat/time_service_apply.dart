@@ -68,7 +68,7 @@ extension TimeServiceApply on TimeService {
   /// Calendar dialog: set the story's current moment directly. Pulls the
   /// anchor back when the new moment predates Day 1 (the story now starts
   /// earlier). Same swipe-survival patch as a nudge.
-  Future<void> setClockDirect(DateTime newClock) async {
+  Future<void> _setClockDirect(DateTime newClock) async {
     final dayBefore = dayCount;
     _clock = DateTime.utc(
       newClock.year,

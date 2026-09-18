@@ -84,7 +84,8 @@ extension _ChatPageSidebarHost on _ChatPageState {
                             final cover = _coverFor(chatService, card);
                             return CircleAvatar(
                               radius: 16,
-                              backgroundColor: _groupCharacterColor(i),
+                              backgroundColor:
+                                  _ChatPageState._groupCharacterColor(i),
                               backgroundImage: cover != null
                                   ? FileImage(cover)
                                   : null,
@@ -174,8 +175,4 @@ extension _ChatPageSidebarHost on _ChatPageState {
       ],
     );
   }
-
-  /// Per-character color palette for group chats (single source lives in
-  /// sidebar_tokens.dart, shared with the sidebar widgets).
-  static Color _groupCharacterColor(int index) => groupCharacterColor(index);
 }

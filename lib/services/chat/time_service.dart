@@ -205,6 +205,52 @@ class TimeService {
     this.onTodayEval,
   });
 
+  /// Class door so callers with only the [TimeService] type still reach eval.
+  Future<void> evaluateTimeProgressAndPostureIfNeeded({
+    required String charName,
+    required String recent,
+    required String shortTermTierName,
+    required void Function(String)? onChunk,
+    required Future<String?> Function(
+      String prompt, {
+      void Function(String)? onChunk,
+    })
+    fireLLMEval,
+    required String Function(String) stripThinkBlocks,
+    required bool? Function(String, String) extractJsonBool,
+    required void Function(String) setSpatialStance,
+    required String Function() getCurrentSpatialStance,
+    required String Function() getCharacterEmotion,
+    required String Function() getEmotionIntensity,
+    bool oneShotMode = false,
+    String? oneShotText,
+    bool timeOnly = false,
+    bool postureOnly = false,
+    bool skipClockAdvance = false,
+    bool skipTodayEval = false,
+  }) => _evaluateTimeProgressAndPostureIfNeeded(
+    charName: charName,
+    recent: recent,
+    shortTermTierName: shortTermTierName,
+    onChunk: onChunk,
+    fireLLMEval: fireLLMEval,
+    stripThinkBlocks: stripThinkBlocks,
+    extractJsonBool: extractJsonBool,
+    setSpatialStance: setSpatialStance,
+    getCurrentSpatialStance: getCurrentSpatialStance,
+    getCharacterEmotion: getCharacterEmotion,
+    getEmotionIntensity: getEmotionIntensity,
+    oneShotMode: oneShotMode,
+    oneShotText: oneShotText,
+    timeOnly: timeOnly,
+    postureOnly: postureOnly,
+    skipClockAdvance: skipClockAdvance,
+    skipTodayEval: skipTodayEval,
+  );
+
+  /// Class door for the calendar set. Continue still does not tick.
+  Future<void> setClockDirect(DateTime newClock) => _setClockDirect(newClock);
+
   // ── Public surface ────────────────────────────────────────────────────────
 
   DateTime get clock => _clock;

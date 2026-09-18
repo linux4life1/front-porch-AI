@@ -37,7 +37,8 @@
 > | S1.17 open_router_service.dart | done | `refactor(remote): split OpenRouter tools and catalog off generate` |
 > | S1.18 ChatTools.tsx | done | `refactor(web): split ChatTools into memory, realism, and objectives` |
 > | S1.19 llm_eval_engine.dart | done | `refactor(chat): split eval extract and think-strip off fire` |
-> | S1 remaining / S2 / S3 | in progress | — |
+> | S2 chat_service_accessors.dart | done | `refactor(chat): split today-sentence and planner off accessors` |
+> | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
 > what to look at, wrong about two conclusions):
