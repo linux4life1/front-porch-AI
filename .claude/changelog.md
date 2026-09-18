@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 session_load: hydrate off last-session and the list (744 → 395)
+- **Why:** last-session open, the history list, and hydrate (messages/scalars/persona/porch diary) lived in one 744-line part.
+- **What:** `chat_service_session_load.dart` keeps `_computeAbsenceGap`, `_loadLastSession`, `getSessions*`, and `loadSession` (395). `chat_service_session_hydrate.dart` is `_hydrateMessagesFromRows`, `_hydrateSessionScalars`, `_activateSessionPersona`, and porch diary import (373). Both load paths still call the same helpers. Objectives still reload on `loadSession`. Continue does not tick.
+- **Verified:** analyzer clean. load_session_objectives + session load/persona/overlay (16) green.
+- **Files:** session_load + session_hydrate; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 chat_facade: swipe/history off send-load (776 → 508)
 - **Why:** the web chat adapter mixed send/load/state with swipe, personas, and session history.
 - **What:** `chat_facade.dart` keeps state, select/load, send, stop, Chance Time, `regenerate`, and `continueGeneration` (508). `chat_facade_history.dart` is swipe/variants, edit/delete, impersonate, personas, sessions, lore, theme (292). Continue and regen both stay forwarded. Continue does not tick.

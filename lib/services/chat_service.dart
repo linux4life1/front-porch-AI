@@ -77,6 +77,7 @@ part 'chat/chat_service_chat_entry.dart';
 part 'chat/chat_service_group_entry.dart';
 part 'chat/chat_service_session_state.dart';
 part 'chat/chat_service_session_load.dart';
+part 'chat/chat_service_session_hydrate.dart';
 part 'chat/chat_service_session_window.dart';
 part 'chat/chat_service_realism_evals.dart';
 part 'chat/chat_service_actions.dart';
