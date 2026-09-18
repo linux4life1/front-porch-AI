@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 stoop_browse_view: grid off search (678 → 361)
+- **Why:** Stoop browse inlined the featured hero, pick rows, and card sliver next to search/sort/type load.
+- **What:** `stoop_browse_view.dart` keeps load, `_reqGen`, search bar, sort, and type chips (361). `stoop_browse_view.grid.dart` is the hero, pick rows, and grid sliver (329). `_loadAll` / `_loadMore` stay in the shell so the superseded-filter source guard still reads them.
+- **Verified:** analyzer clean. teardown `_reqGen` guard + world climate list/badge (14) green.
+- **Files:** `lib/ui/pages/repository/stoop_browse_view.dart` + `.grid.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 memory_service: retrieve off embed (679 → 505)
 - **Why:** window embed/store and query retrieve lived in one 679-line class.
 - **What:** `memory_service.dart` keeps fields, lock, embed, `embedText`, and vector math (505). `memory_service_retrieve.dart` is the query score loop plus Data Bank (206). `retrieve` stays a class forwarder. `isWindowEligible` / `bytesToVector` / `cosineSimilarity` stay class statics. Session isolation for `sessionScopedCharacterIds` is unchanged.
