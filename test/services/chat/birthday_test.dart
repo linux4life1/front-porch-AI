@@ -1,8 +1,6 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -347,25 +345,6 @@ void main() {
     });
   });
 
-  test('generation actually calls ensure, not just the helper', () {
-    final src = File(
-      'lib/services/chat/chat_service_generation_blocks.dart',
-    ).readAsStringSync();
-    expect(src, contains('await _ensureBirthdayState()'));
-  });
-
-  test('ensure stamps last-sync so the next send can skip', () {
-    final src = File(
-      'lib/services/chat/chat_service_birthday.dart',
-    ).readAsStringSync();
-    expect(src, contains('BirthdayMath.needsRefresh'));
-    expect(
-      src,
-      contains('_birthdaySyncDayOf[this] = StoryClock.dateOnly(now)'),
-    );
-    expect(src, contains('_birthdaySyncKeyOf[this] = identityKey'));
-  });
-
   group('BirthdayMath.outingShouldRetire', () {
     const lastYear = 'Birthday (March 15, 2026): have a good birthday with Sam';
     const thisYear = 'Birthday (March 15, 2027): have a good birthday with Sam';
@@ -458,87 +437,9 @@ void main() {
       ),
       isFalse,
     );
-    expect(
-      File('lib/services/chat/birthday.dart').readAsStringSync(),
-      contains("contains('\$monthDay,')"),
-    );
   });
 
   test('ageAsOfStory prefers the authored ISO date', () {
     expect(BirthdayMath.ageAsOfStory('2020-06-01'), DateTime.utc(2020, 6, 1));
-  });
-
-  test('plant retires stale birthday outings before the cap check', () {
-    final src = File(
-      'lib/services/chat/chat_service_birthday.dart',
-    ).readAsStringSync();
-    expect(src, contains('BirthdayMath.outingShouldRetire'));
-    expect(src, contains('active: const drift.Value(false)'));
-    expect(src, contains('kMaxSecondaryObjectives'));
-  });
-
-  test('settings persona edit matches Speak as setBirthday on State', () {
-    final page = File('lib/ui/pages/user_persona_page.dart').readAsStringSync();
-    final form = File(
-      'lib/ui/pages/user_persona_page.edit_form.dart',
-    ).readAsStringSync();
-    expect(
-      page,
-      contains('void _setBirthday(String v) => setState(() => _birthday = v);'),
-    );
-    expect(form, contains('onChanged: _setBirthday'));
-    expect(form, isNot(contains('setState(() => _birthday')));
-  });
-
-  test('create edit persona pass story date into the age line', () {
-    expect(
-      File(
-        'lib/ui/pages/create_character_page.step_realism.dart',
-      ).readAsStringSync(),
-      contains('birthdayAgeAsOf:'),
-    );
-    expect(
-      File(
-        'lib/ui/character_creator/steps/realism_step.dart',
-      ).readAsStringSync(),
-      contains('birthdayAgeAsOf:'),
-    );
-    expect(
-      File(
-        'lib/ui/pages/edit_character_page.tabs_core.dart',
-      ).readAsStringSync(),
-      contains('birthdayAgeAsOf:'),
-    );
-    expect(
-      File('lib/ui/pages/user_persona_page.edit_form.dart').readAsStringSync(),
-      contains('ageAsOf: storyDateOf(context)'),
-    );
-    expect(
-      File(
-        'lib/ui/dialogs/user_persona_dialog.edit_form.dart',
-      ).readAsStringSync(),
-      contains('ageAsOf: storyDateOf(context)'),
-    );
-  });
-
-  test('persona import insert and duplicate rebuild persist birthday', () {
-    final src = File(
-      'lib/services/user_persona_service.dart',
-    ).readAsStringSync();
-    expect(src, contains('birthday: p.birthday'));
-    expect(
-      src,
-      contains(
-        'birthday: Value(toInsert.birthday.isEmpty ? null : toInsert.birthday)',
-      ),
-    );
-  });
-
-  test('group empty ISO stays empty, no library fallback', () {
-    final src = File(
-      'lib/services/chat/chat_service_birthday.dart',
-    ).readAsStringSync();
-    expect(src, contains('_birthdayIsoFor'));
-    expect(src, isNot(contains('originLibraryCardFor')));
   });
 }

@@ -8,7 +8,6 @@
 //   * skip cache on the second lookup → httpCalls expected 1, got 2
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -365,40 +364,6 @@ void main() {
       final query =
           ((fn['parameters'] as Map)['properties'] as Map)['query'] as Map;
       expect(query['maxLength'], kWebSearchQueryMaxChars);
-    });
-  });
-
-  group('path-complete pins', () {
-    test('Continue strips the search section and dispatch skips Continue', () {
-      final plan = File(
-        'lib/services/chat/chat_service_generation_plan.dart',
-      ).readAsStringSync();
-      expect(plan, contains("plan.section('web_search').text = ''"));
-      final req = File(
-        'lib/services/chat/chat_service_generation_request.dart',
-      ).readAsStringSync();
-      expect(req, contains('shouldAdvertiseWebSearch'));
-      expect(req, contains('GenerationMode.continue_'));
-    });
-
-    test('no slash-command parser or /search chat route exists', () {
-      final handler = File(
-        'lib/services/chat/chat_command_handler.dart',
-      ).readAsStringSync();
-      expect(
-        handler.contains("'search'") || handler.contains('"search"'),
-        isFalse,
-      );
-      final routesDir = Directory('lib/services/web/routes');
-      for (final f in routesDir.listSync().whereType<File>()) {
-        if (!f.path.endsWith('.dart')) continue;
-        final src = f.readAsStringSync();
-        expect(
-          src.contains('/api/search') || src.contains("'/search'"),
-          isFalse,
-          reason: '${f.path} must not grow a /search chat route in v1',
-        );
-      }
     });
   });
 }

@@ -58,7 +58,6 @@ class _InertLlm extends LLMService {
   String get backendName => 'InertLlm';
 }
 
-
 /// Settle fire-and-forget Drift requests inside this test's zone.
 Future<void> _drainPendingDrift() async {
   for (var i = 0; i < 50; i++) {
@@ -123,14 +122,6 @@ void main() {
     await repo.addCharacter(card);
     return card;
   }
-
-  test('_openSessionMessages does not call endSessionLoad', () {
-    final src = File('lib/services/chat/chat_service_session_window.dart')
-        .readAsStringSync();
-    final openAt = src.indexOf('Future<void> _openSessionMessages');
-    expect(openAt, greaterThanOrEqualTo(0));
-    expect(src.substring(openAt).contains('endSessionLoad()'), isFalse);
-  });
 
   test('owned setActiveCharacter drops the overlay after hydrate', () async {
     final card = await addCard('Owned');

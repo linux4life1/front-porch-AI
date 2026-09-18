@@ -65,24 +65,6 @@ void main() {
     );
   });
 
-  test('live-add and first decay seed from baselinesFromExtensions', () {
-    final membership = File(
-      'lib/services/chat/chat_service_group_membership.dart',
-    ).readAsStringSync();
-    expect(
-      membership,
-      contains('NeedsSimulation.baselinesFromExtensions'),
-      reason: 'live-add must seed from the card, not needDefaults',
-    );
-    final dance = File('lib/services/chat/chat_service_realism_dance.dart')
-        .readAsStringSync();
-    expect(
-      dance,
-      contains('NeedsSimulation.baselinesFromExtensions'),
-      reason: 'first real decay must seed from the card, not needDefaults',
-    );
-  });
-
   group('ChatService group slot', () {
     late AppDatabase db;
     late StorageService storage;

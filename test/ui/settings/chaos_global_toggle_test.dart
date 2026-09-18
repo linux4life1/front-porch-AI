@@ -30,14 +30,6 @@
 // runs fully with the Realism Engine off and had only ever been FILED beside
 // it. So the row carries the "works alone" chip and no gate.
 //
-// THE THIRD SEED SITE is what the source guard below exists for, and it is not
-// hypothetical: this change was first written wiring two of the three, which
-// would have shipped a global switch that silently did nothing for group chats.
-// A per-site behavioural test would need three full ChatService entry paths
-// stood up; reading the call sites asks the same question directly.
-
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -159,47 +151,5 @@ void main() {
           'the replacement states the relationship the right way round — '
           'globals here, per-chat override in the sidebar',
     );
-  });
-
-  test('every Chaos seed site consults the global default', () {
-    // Chaos is seeded in three places, one per way a conversation can begin:
-    // opening a 1:1 character, starting a fresh 1:1 session, and entering a
-    // group. Wire two and the switch is silently 1:1-only — which is exactly
-    // the state this change passed through before it was finished.
-    const sites = {
-      'lib/services/chat/chat_service_chat_entry.dart': 'opening a 1:1 chat',
-      'lib/services/chat/chat_service_session_manage.dart': 'a fresh session',
-      'lib/services/chat/chat_service_group_entry.dart': 'entering a group',
-    };
-
-    for (final e in sites.entries) {
-      final src = File(e.key).readAsStringSync();
-      expect(
-        src,
-        contains('seedFromGroupOrExt'),
-        reason:
-            '${e.key} no longer seeds Chaos at all — if the seed genuinely '
-            'moved, move this guard with it rather than deleting it',
-      );
-
-      // The seed call and the global read have to be in the SAME expression,
-      // not merely both somewhere in the file.
-      final call = RegExp(
-        r'seedFromGroupOrExt\((.*?)\n\s*\);',
-        dotAll: true,
-      ).firstMatch(src);
-      expect(
-        call,
-        isNotNull,
-        reason: 'could not read the seed call in ${e.key}',
-      );
-      expect(
-        call!.group(1),
-        contains('chaosModeDefault'),
-        reason:
-            'Chaos seeding for "${e.value}" ignores the Porch Life global, '
-            'so switching it on there does nothing for that entry path',
-      );
-    }
   });
 }

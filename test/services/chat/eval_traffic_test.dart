@@ -38,8 +38,6 @@
 // arithmetic group red; removing the engine's record call turned the
 // chokepoint guard red. Both were restored and the suite went green again.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -115,44 +113,6 @@ void main() {
             'spend from the fire-and-forget passes must not read as part '
             'of the turn the user just waited for',
       );
-    });
-  });
-
-  group('the chokepoints record and the turn prints (structural)', () {
-    String read(String name) =>
-        File('lib/services/chat/$name').readAsStringSync();
-
-    test('both transport lanes record', () {
-      expect(
-        read('llm_eval_engine.dart'),
-        contains('EvalTraffic.current.record'),
-        reason:
-            'the text lane is every eval that is not a tool call — '
-            'unrecorded, the line undercounts by most of the turn',
-      );
-      expect(
-        read('chat_service_wiring_evals.dart'),
-        contains("lane: 'tools'"),
-        reason:
-            'the tools door is the other lane; on a tools-confirmed '
-            'backend it carries nearly all of the turn',
-      );
-    });
-
-    test('the raw objective streams record too', () {
-      // Labels ride trafficLabel into EvalTraffic.record (tools-vs-text fork).
-      final src = read('objective_proposal.dart');
-      expect(src, contains('objective_taskgen'));
-      expect(src, contains('objective_check'));
-      expect(src, contains('EvalTraffic.current.record'));
-    });
-
-    test('the turn prints at post-gen, the background at send', () {
-      expect(
-        read('chat_service_generation_postgen.dart'),
-        contains('flushTurn'),
-      );
-      expect(read('chat_service_send.dart'), contains('flushBackground'));
     });
   });
 }

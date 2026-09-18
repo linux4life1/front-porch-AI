@@ -5,8 +5,6 @@
 // today's regen (no section). A non-empty reason carries a think-stripped
 // clip of the rejected take plus the user's words, never as Ash / history.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
@@ -81,25 +79,6 @@ void main() {
       ),
       isEmpty,
       reason: 'no rejected take to clip — this is not a user-tail generate',
-    );
-  });
-
-  test('production plan registers regen_critique before suffix', () {
-    final src = File(
-      'lib/services/chat/chat_service_generation_plan.dart',
-    ).readAsStringSync();
-    final critique = src.indexOf("id: 'regen_critique'");
-    final suffix = src.indexOf("id: 'suffix'");
-    expect(critique, greaterThanOrEqualTo(0));
-    expect(
-      suffix,
-      greaterThan(critique),
-      reason: 'critique after Name: makes the slip the completion point',
-    );
-    expect(
-      src.contains("plan.section('regen_critique').text = ''"),
-      isTrue,
-      reason: 'Continue must strip the slip the same way it strips web_search',
     );
   });
 

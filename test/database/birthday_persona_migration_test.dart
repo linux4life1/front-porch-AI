@@ -3,8 +3,6 @@
 //
 // v49→v50 personas.birthday. NULL for every persona that predates the column.
 
-import 'dart:io';
-
 import 'package:drift/drift.dart' show Value, Variable;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,20 +37,5 @@ void main() {
     final loaded = await db.getAllPersonas();
     final p = loaded.singleWhere((e) => e.id == 'p-yes');
     expect(p.birthday, '1998-03-15');
-  });
-
-  test('schemaVersion is at least 50', () {
-    final src = File('lib/database/database.dart').readAsStringSync();
-    final m = RegExp(r'schemaVersion => (\d+)').firstMatch(src);
-    expect(int.parse(m!.group(1)!), greaterThanOrEqualTo(50));
-  });
-
-  test('ladder and repair both name personas.birthday', () {
-    final ladder = File(
-      'lib/database/database.migrations.dart',
-    ).readAsStringSync();
-    final repair = File('lib/database/database.repair.dart').readAsStringSync();
-    expect(ladder, contains("ALTER TABLE personas ADD COLUMN birthday TEXT"));
-    expect(repair, contains("'birthday TEXT'"));
   });
 }

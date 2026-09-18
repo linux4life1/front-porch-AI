@@ -7,8 +7,6 @@
 // If pending-metadata writes skip _writePendingRealismMetadata, the flag
 // stays false and growthPassRequests sits at 0 for eight minutes.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -39,34 +37,5 @@ void main() {
         isTrue,
       );
     });
-  });
-
-  group('kick origin (call site)', () {
-    test(
-      'RealismEvals pending writes go through _writePendingRealismMetadata',
-      () {
-        final src = File(
-          'lib/services/chat/chat_service_wiring_evals.dart',
-        ).readAsStringSync();
-        expect(
-          src.contains(
-            'getMessages: () => _messages,\n'
-            '      getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},\n'
-            '      setPendingRealismMetadata: _writePendingRealismMetadata,',
-          ),
-          isTrue,
-          reason:
-              'RealismEvals is the bond_delta 13 writer. A sibling setter '
-              'is not enough — that is how this pin stayed green with the '
-              'relationship path still assigning bare.',
-        );
-        expect(
-          File(
-            'lib/services/chat/chat_service_growth.dart',
-          ).readAsStringSync().contains('_requestSalienceKick'),
-          isTrue,
-        );
-      },
-    );
   });
 }

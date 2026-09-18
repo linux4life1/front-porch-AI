@@ -354,42 +354,25 @@ void main() {
     );
 
     test(
-      'markTaskCompleted error in cb does not leak (check continues)',
+      'check taskless YES path (deact via cb + journal event hook fires)',
       () async {
+        final deacts = <String>[];
+        var completedEvents = 0;
         final p = createTestObjectiveProposal(
           getLlmJson: () => 'YES',
-          actives: [_mkObj('oErr', 'g')],
-          tasksFor: (o) => [
-            {'description': 't', 'completed': false},
-          ],
-          markTaskCompletedCb: (o, d) async {
-            throw Exception('simulated db fail');
+          actives: [_mkObj('o6', 'tl')],
+          deactObj: (id) async {
+            deacts.add(id);
           },
+          tasksFor: (o) => const [],
+          onObjectiveCompleted: () => completedEvents++,
         );
-        // should catch in god or not leak from leaf call
         await p.checkTaskCompletionInBackground();
-        expect(true, isTrue);
+        expect(deacts, contains('o6'));
+        // Fired exactly once per check — the Journal's event-kick source.
+        expect(completedEvents, 1);
       },
     );
-
-    test('check taskless YES path (deact via cb + journal event hook fires)',
-        () async {
-      final deacts = <String>[];
-      var completedEvents = 0;
-      final p = createTestObjectiveProposal(
-        getLlmJson: () => 'YES',
-        actives: [_mkObj('o6', 'tl')],
-        deactObj: (id) async {
-          deacts.add(id);
-        },
-        tasksFor: (o) => const [],
-        onObjectiveCompleted: () => completedEvents++,
-      );
-      await p.checkTaskCompletionInBackground();
-      expect(deacts, contains('o6'));
-      // Fired exactly once per check — the Journal's event-kick source.
-      expect(completedEvents, 1);
-    });
 
     test('check NO does nothing (no deact/load, no journal event)', () async {
       final deacts = <String>[];

@@ -10,7 +10,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
@@ -20,24 +19,6 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 void main() {
-  test('web impersonate route and composer wand are wired', () {
-    expect(
-      File('lib/services/web/routes/chat_routes.dart').readAsStringSync(),
-      contains("router.post('/api/chat/impersonate', _impersonate)"),
-    );
-    expect(
-      File('lib/services/web/facade/chat_facade.dart').readAsStringSync(),
-      contains('broadcastImpersonate'),
-    );
-    final composer =
-        File('web_ui/src/components/ChatComposer.tsx').readAsStringSync();
-    expect(composer, contains('onImpersonate'));
-    expect(composer, contains('impersonateFill'));
-    final page = File('web_ui/src/pages/ChatPage.tsx').readAsStringSync();
-    expect(page, contains("e.event === 'impersonate'"));
-    expect(page, contains("'/api/chat/impersonate'"));
-  });
-
   group('StreamHub impersonate coalescing', () {
     late StreamController<String> tokens;
     late StreamHub hub;
@@ -91,7 +72,10 @@ void main() {
         reason: 'impersonate must not paint an AI bubble',
       );
       final order = events.map((e) => e['event']).toList();
-      expect(order.indexOf('impersonate'), lessThan(order.indexOf('impersonate_done')));
+      expect(
+        order.indexOf('impersonate'),
+        lessThan(order.indexOf('impersonate_done')),
+      );
       await client.sink.close();
     });
   });

@@ -6,8 +6,6 @@
 // mandatoryReasoningHeadroom they learned a silent reasoner and left the
 // field empty. Pin the live call site, not just a matching GenerationParams.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/backend_manager.dart';
@@ -86,28 +84,4 @@ void main() {
       expect(state.nameController.text, 'Mara Voss');
     },
   );
-
-  test('all three guided helpers set the headroom flag in source', () {
-    final src = File(
-      'lib/ui/character_creator/creator_state_engine.tools.dart',
-    ).readAsStringSync();
-    final flags = 'mandatoryReasoningHeadroom: true'.allMatches(src).length;
-    expect(
-      flags,
-      3,
-      reason: 'expandNarrative, randomizeName, randomizeConcept',
-    );
-    expect(src.contains('reasoningMaxTokens: 0'), isTrue);
-  });
-
-  test('mouth / Continue request builder does not opt into headroom', () {
-    final src = File(
-      'lib/services/chat/chat_service_generation_request.dart',
-    ).readAsStringSync();
-    expect(
-      src.contains('mandatoryReasoningHeadroom'),
-      isFalse,
-      reason: 'plain chat keeps the user reply-length cap',
-    );
-  });
 }

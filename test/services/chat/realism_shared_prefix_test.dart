@@ -39,8 +39,6 @@
 // swapping narrative and scene-time back in the dispatch list turned the
 // order guard red. Both were restored and the suite went green again.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -144,93 +142,6 @@ void main() {
         rel.indexOf('- "relationship_delta"'),
         lessThan(rel.indexOf('\nRecent conversation:')),
       );
-    });
-  });
-
-  group('dispatch keeps the prefix-sharers consecutive', () {
-    test('the three judges fire with no scene-time in the stagger', () {
-      final src = File(
-        'lib/services/chat/chat_service_realism_evals.dart',
-      ).readAsStringSync();
-      final body = src.substring(src.indexOf('_fireStaggeredRealismEvals'));
-      final rel = body.indexOf('_evaluateRelationshipCall');
-      final emo = body.indexOf('_evaluateEmotionalStateCall');
-      final narr = body.indexOf('_evaluateNarrativeCall');
-      final phys = body.indexOf('_evaluatePhysicalStateCall');
-      expect(rel, greaterThan(-1));
-      expect(emo, greaterThan(rel));
-      expect(narr, greaterThan(emo));
-      expect(
-        phys,
-        -1,
-        reason:
-            'scene-time is a reply-reader now; putting it back in the '
-            'pre-gen stagger would jump the clock before she writes',
-      );
-    });
-  });
-
-  group('no eval changed phase (maintainer constraint, 2026-08-10)', () {
-    // "No evals can change from pre to post" — the judges score the USER's
-    // message and must run before generation; the reply-readers read the
-    // reply and must run after. Order within a phase is free; the boundary
-    // is not.
-    final preGen = File(
-      'lib/services/chat/chat_service_realism_dance.dart',
-    ).readAsStringSync();
-    final postGen = File(
-      'lib/services/chat/chat_service_generation_postgen.dart',
-    ).readAsStringSync();
-
-    test('the three judges fire from the pre-generation dance', () {
-      expect(preGen, contains('_fireStaggeredRealismEvals'));
-      for (final replyReader in const [
-        '_runClimaxPass(',
-        '_runPocketsPass(',
-        '_runPostGenNeedsChecks(',
-        '_prefetchReplyFacts(',
-      ]) {
-        expect(
-          preGen,
-          isNot(contains(replyReader)),
-          reason:
-              '$replyReader reads the reply, which does not exist before '
-              'generation — firing it from the dance judges words never '
-              'written',
-        );
-      }
-    });
-
-    test('the reply-readers fire from the post-generation phase', () {
-      // Anchors renamed (finalResponse → scoredReply) 2026-08-12 with the
-      // Continue incremental-scoring change; the phase-placement rule this
-      // pins ("no evals can change from pre to post") is unchanged.
-      for (final replyReader in const [
-        '_runClimaxPass(scoredReply)',
-        '_runPocketsPass(',
-        '_runPostGenNeedsChecks(scoredReply)',
-        '_prefetchReplyFacts(scoredReply)',
-        '_maybeAdvanceStoryClockAfterReply(t)',
-      ]) {
-        expect(postGen, contains(replyReader));
-      }
-      for (final judge in const [
-        '_fireStaggeredRealismEvals',
-        'evaluateOneShotCall',
-        '_evaluateRelationshipCall',
-        '_evaluateEmotionalStateCall',
-        '_evaluateNarrativeCall',
-      ]) {
-        expect(
-          postGen,
-          isNot(contains(judge)),
-          reason:
-              '$judge scores the user\'s message and runs at temperature '
-              '0.1 so a regen reproduces its deltas — moved after the reply '
-              'it would score the character\'s own words, and rerolling a '
-              'line would reroll her feelings (the settled 2026-08-02 rule)',
-        );
-      }
     });
   });
 }

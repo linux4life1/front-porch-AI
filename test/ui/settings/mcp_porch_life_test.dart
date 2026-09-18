@@ -4,8 +4,6 @@
 // Porch Life no longer hosts Docker MCP. Web Search stays. Recipe cards
 // load from the library tools/ folder — the note names that path.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,23 +32,6 @@ void main() {
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
-  });
-
-  test('Settings has no MCP tab and no Docker MCP connect UI', () {
-    final settings = File('lib/ui/pages/settings_page.dart').readAsStringSync();
-    expect(settings, isNot(contains("Tab(text: 'MCP')")));
-    expect(settings, contains("Tab(text: 'Porch Life')"));
-    expect(File('lib/ui/settings/tabs/mcp_tab.dart').existsSync(), isFalse);
-    expect(
-      File('lib/ui/settings/widgets/mcp_servers_card.dart').existsSync(),
-      isFalse,
-    );
-    final mcpWeb = File(
-      'lib/ui/settings/tabs/porch_life_mcp_web_card.dart',
-    ).readAsStringSync();
-    expect(mcpWeb, isNot(contains('Connect Docker MCP')));
-    expect(mcpWeb, isNot(contains('McpServersPanel')));
-    expect(mcpWeb, contains('Web Search'));
   });
 
   testWidgets('Porch Life shows Web Search and the tools folder, not MCP', (

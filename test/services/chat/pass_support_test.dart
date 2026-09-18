@@ -24,8 +24,6 @@
 // Guest joined (long mint generation + concurrent eval burst + abort/idle
 // traffic on the single-slot backend).
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -227,21 +225,6 @@ void main() {
         modelPath: null,
       );
       expect(nano, isNot(openRouter));
-    });
-
-    test('ChatService includes the configured API URL at the call site', () {
-      final wiring = File(
-        'lib/services/chat/chat_service_wiring_evals.dart',
-      ).readAsStringSync();
-      expect(wiring, contains('return evalBackendIdentityFor('));
-      expect(
-        wiring,
-        allOf(
-          contains('service is LlmApiEndpoint'),
-          contains('remoteApiUrl: remoteApiUrl'),
-        ),
-        reason: 'the key must use the active oMLX/OpenRouter service endpoint',
-      );
     });
   });
 }

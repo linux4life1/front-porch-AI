@@ -24,8 +24,6 @@
 // bug (Kokoro / Piper / Whisper all silent). These tests pin the path
 // contract and the three engine call sites.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -67,50 +65,4 @@ void main() {
     expect(sherpaInitBindingsDir('windows', r'C:\app'), r'C:\app');
     expect(sherpaInitBindingsDir('linux', null), isNull);
   });
-
-  test(
-    'initSherpaBindings uses the macOS-null contract, not the found dir',
-    () {
-      final src = File('lib/services/sherpa_runtime.dart').readAsStringSync();
-      expect(src, contains('sherpaInitBindingsDir('));
-      expect(src, contains('DynamicLibrary.open'));
-      expect(
-        src.contains('initBindings(found') ||
-            src.contains('initBindings(sherpaNativeLibDir'),
-        isFalse,
-        reason:
-            'initSherpaBindings must not pass the Frameworks folder into '
-            'initBindings — that is the 1.13.6 nested xcframework miss',
-      );
-    },
-  );
-
-  test(
-    'Kokoro, Piper, and Whisper init sherpa via initSherpaBindings in the isolate',
-    () {
-      const engines = [
-        'lib/services/tts/sherpa_kokoro_engine.dart',
-        'lib/services/tts/sherpa_piper_engine.dart',
-        'lib/services/stt/sherpa_whisper_engine.dart',
-      ];
-      for (final path in engines) {
-        final src = File(path).readAsStringSync();
-        expect(
-          src,
-          contains('initSherpaBindings()'),
-          reason:
-              '$path must call initSherpaBindings in the isolate — '
-              'passing Frameworks to initBindings is the 1.13.6 macOS miss',
-        );
-        expect(
-          src.contains('initBindings(libDir)') ||
-              src.contains('initBindings(args['),
-          isFalse,
-          reason:
-              '$path still passes a path into initBindings; on macOS '
-              '1.13.6 that becomes the nested xcframework lookup',
-        );
-      }
-    },
-  );
 }

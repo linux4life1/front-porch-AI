@@ -20,8 +20,6 @@
 // shape as chaos_global_toggle_test: miss a site and the switch is silently
 // 1:1-only. Default OFF.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -98,47 +96,5 @@ void main() {
     await tester.tap(sw);
     await tester.pump(const Duration(milliseconds: 300));
     expect(storage.webSearchSettings.webSearchDefault, isTrue);
-  });
-
-  test('entry paths do not copy the Porch Life global into a persist flag', () {
-    const sites = {
-      'lib/services/chat/chat_service_chat_entry.dart': 'opening a 1:1 chat',
-      'lib/services/chat/chat_service_session_manage.dart': 'a fresh session',
-      'lib/services/chat/chat_service_group_entry.dart': 'entering a group',
-      'lib/services/chat/chat_service_import_seed.dart': 'importing a chat',
-    };
-
-    for (final e in sites.entries) {
-      final src = File(e.key).readAsStringSync();
-      expect(
-        src,
-        isNot(contains('seedEnabled')),
-        reason:
-            'Web Search for "${e.value}" must not persist the global into '
-            'the chat — flipping Porch Life off must turn search off',
-      );
-    }
-  });
-
-  test('no slash-command parser or /search route exists', () {
-    final handler = File(
-      'lib/services/chat/chat_command_handler.dart',
-    ).readAsStringSync();
-    expect(
-      handler.contains("'search'") || handler.contains('"search"'),
-      isFalse,
-      reason: 'v1 is model-initiated only — a /search command is out of scope',
-    );
-
-    final routesDir = Directory('lib/services/web/routes');
-    for (final f in routesDir.listSync().whereType<File>()) {
-      if (!f.path.endsWith('.dart')) continue;
-      final src = f.readAsStringSync();
-      expect(
-        src.contains("'/api/search'") || src.contains("'/search'"),
-        isFalse,
-        reason: '${f.path} must not grow a /search route in v1',
-      );
-    }
   });
 }

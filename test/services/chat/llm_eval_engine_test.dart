@@ -305,12 +305,6 @@ void main() {
       expect(e.extractJsonBool('{}', 'b'), null);
     });
 
-    test('fireLLMEval !ready early return (qualified via cb in prod paths)', () {
-      // !ready path covered by getLlmService cb returning non-ready impl in real usage + manual/key;
-      // dedicated keeps simple ready fake. (passive/qualified per plan)
-      expect(true, isTrue);
-    });
-
     // Stale realism eval tests (relationship, narrative, oneShot) excised as part of step 10 extraction + "deletion part of the task".
     // Coverage (including group/1:1/oneShot/parity/impersonation via live cbs) moved to dedicated realism_evals_test.dart (factory).
     // These bodies called the moved evaluate*Call methods on LlmEvalEngine; engine now only owns fire/strip/extract + objective tasks + needs impact.
@@ -382,15 +376,6 @@ void main() {
       );
       final resCancel = await eCancel.fireLLMEval('p');
       expect(resCancel, isNull);
-    });
-
-    test('public surface + thin god delegation smoke (via factory)', () {
-      final e = createTestLlmEvalEngine();
-      // call public
-      e.stripThinkBlocks('x');
-      e.extractJsonInt('{}', 'k');
-      e.extractJsonBool('{}', 'k');
-      // thins exercised via calls above + key suites
     });
 
     test(

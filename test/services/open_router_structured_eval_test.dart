@@ -694,20 +694,4 @@ void main() {
       },
     );
   });
-
-  group('eval door call site', () {
-    test('named judges go through generateStructuredJson and keep overlay', () {
-      final wiring = File(
-        'lib/services/chat/chat_service_wiring_evals.dart',
-      ).readAsStringSync();
-      expect(wiring, contains('service is OpenRouterService'));
-      expect(wiring, contains('generateStructuredJson'));
-      expect(wiring, contains('onChunk: spec.onChunk'));
-      expect(wiring, isNot(contains('onChunk: named ? null')));
-      expect(
-        wiring,
-        contains('named || spec.maxLength > kScalarToolMaxTokens'),
-      );
-    });
-  });
 }

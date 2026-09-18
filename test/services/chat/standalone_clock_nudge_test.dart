@@ -63,19 +63,6 @@ void main() {
     );
   });
 
-  test('mutators gate on _clockRunning, not the engine alone', () {
-    final src = File(
-      'lib/services/chat/chat_service_controls.dart',
-    ).readAsStringSync();
-    expect(src.contains('_clockRunning'), isTrue);
-    expect(
-      src.contains('if (!_realismEnabled) return;'),
-      isFalse,
-      reason:
-          'nudge/setClock/setStartDate must not no-op when standalone is on',
-    );
-  });
-
   group('ChatService nudge', () {
     late AppDatabase db;
     late StorageService storage;

@@ -11,8 +11,6 @@
 // no-op on empty windows). Mirrors journal_test.dart's factory style: real
 // in-memory AppDatabase, fake LLM closures, live cbs.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -116,18 +114,6 @@ void main() {
       );
     });
 
-    test(
-      'trigger source does not re-read hasSalientEvent (cooldown bypass)',
-      () {
-        final src = File(
-          'lib/services/chat/chat_service_growth.dart',
-        ).readAsStringSync();
-        expect(src.contains('hasSalientEvent'), isFalse);
-      },
-    );
-  });
-
-  group('GrowthPhysics', () {
     test('tiers derive from strength; established/pinned never fade', () {
       expect(GrowthPhysics.tierOf(_ring(strength: 0.2)), 'emerging');
       expect(GrowthPhysics.tierOf(_ring(strength: 0.5)), 'developing');

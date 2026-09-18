@@ -130,16 +130,4 @@ void main() {
       reason: 'item cards are locked from cap trim like birthday',
     );
   });
-
-  test('_resolveOps skips locked cards the same way birthday is skipped', () {
-    final src = File(
-      'lib/services/chat/journal_maintenance.dart',
-    ).readAsStringSync();
-    expect(
-      src,
-      contains('JournalPhysics.isPassLockedCard(card)'),
-      reason: 'the pass must not even propose retire/revise of item/ledger',
-    );
-    expect(src, isNot(contains('JournalPhysics.isBirthdayCard(card) &&')));
-  });
 }

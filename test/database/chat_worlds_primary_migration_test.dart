@@ -3,8 +3,6 @@
 //
 // v51→v52 chat_worlds.is_primary + backfill first climate-enabled → primary.
 
-import 'dart:io';
-
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,35 +20,8 @@ void main() {
     expect(db.schemaVersion, greaterThanOrEqualTo(52));
   });
 
-  test('Table, ladder, and repair declare is_primary DEFAULT 0', () async {
-    final table = await File(
-      'lib/database/database.tables.features.dart',
-    ).readAsString();
-    final ladder = await File(
-      'lib/database/database.migrations.dart',
-    ).readAsString();
-    final repair = await File(
-      'lib/database/database.repair.dart',
-    ).readAsString();
-
-    expect(table, contains('isPrimary'));
-    expect(ladder, contains('ALTER TABLE chat_worlds ADD COLUMN is_primary'));
-    expect(
-      RegExp(
-        r"is_primary[\s']+INTEGER NOT NULL DEFAULT 0",
-      ).hasMatch(ladder),
-      isTrue,
-    );
-    expect(
-      repair,
-      contains('is_primary INTEGER NOT NULL DEFAULT 0'),
-    );
-  });
-
   test('setChatWorldAttachments writes primary + lore roles', () async {
-    await db.insertWorld(
-      WorldsCompanion.insert(id: 'earth', name: 'Earth'),
-    );
+    await db.insertWorld(WorldsCompanion.insert(id: 'earth', name: 'Earth'));
     await db.insertWorld(
       WorldsCompanion.insert(
         id: 'mars',
@@ -77,14 +48,14 @@ void main() {
     expect(slots.loreIds, ['mars', 'soul']);
     expect(await db.getWorldIdsForChat('chat-1'), ['earth', 'mars', 'soul']);
 
-    final rows = await db.customSelect(
-      'SELECT world_id, is_primary, sort_order FROM chat_worlds '
-      "WHERE chat_id = 'chat-1' ORDER BY sort_order",
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT world_id, is_primary, sort_order FROM chat_worlds '
+          "WHERE chat_id = 'chat-1' ORDER BY sort_order",
+        )
+        .get();
     expect(rows, hasLength(3));
-    final byId = {
-      for (final r in rows) r.read<String>('world_id'): r,
-    };
+    final byId = {for (final r in rows) r.read<String>('world_id'): r};
     expect(byId['earth']!.read<int>('is_primary'), 1);
     expect(byId['mars']!.read<int>('is_primary'), 0);
     expect(byId['soul']!.read<int>('is_primary'), 0);
@@ -157,9 +128,11 @@ void main() {
       '  )'
       ')',
     );
-    final rows = await db.customSelect(
-      'SELECT world_id, is_primary FROM chat_worlds_v51_sim ORDER BY sort_order',
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT world_id, is_primary FROM chat_worlds_v51_sim ORDER BY sort_order',
+        )
+        .get();
     expect(
       {
         for (final r in rows)

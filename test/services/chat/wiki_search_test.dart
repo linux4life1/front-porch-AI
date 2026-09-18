@@ -6,7 +6,6 @@
 // inject-after-suffix / Continue still advertising.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -402,27 +401,6 @@ void main() {
       expect(round.injection!.toLowerCase(), contains('do not invent'));
       expect(round.searchReceipt?['ok'], isFalse);
       expect(round.searchReceipt?['source'], 'wiki');
-    });
-  });
-
-  group('path-complete pins', () {
-    test('Continue skips catalog; regen is a new try', () {
-      final request = File(
-        'lib/services/chat/chat_service_generation_request.dart',
-      ).readAsStringSync();
-      expect(request, contains('shouldAdvertiseWikiSearch'));
-      expect(request, contains('shouldAdvertiseWebSearch'));
-      expect(
-        request,
-        contains('continueMode: t.mode == GenerationMode.continue_'),
-      );
-      expect(request, contains('inProcessWikiSearchTool'));
-      expect(request, isNot(contains("tool_choice': 'required'")));
-      expect(request, isNot(contains('tool_choice: required')));
-      final regen = File(
-        'lib/services/chat/chat_service_reprocess.dart',
-      ).readAsStringSync();
-      expect(regen, contains('directUserSend: true'));
     });
   });
 }

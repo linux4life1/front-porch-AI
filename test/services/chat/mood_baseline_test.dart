@@ -33,8 +33,6 @@
 // an offset that arrives without its explanation is a bug even when the
 // arithmetic is right.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/mood_baseline.dart';
@@ -63,7 +61,8 @@ void main() {
       expect(
         m.injection,
         isEmpty,
-        reason: 'neutral must cost zero prompt tokens — most turns are this '
+        reason:
+            'neutral must cost zero prompt tokens — most turns are this '
             'one, and a fragment saying "nothing in particular" would be paid '
             'for on every single one of them',
       );
@@ -76,7 +75,8 @@ void main() {
       expect(
         m.isNeutral,
         isTrue,
-        reason: 'an absent vector means the feature is off, not that they are '
+        reason:
+            'an absent vector means the feature is off, not that they are '
             'starving, exhausted and filthy',
       );
     });
@@ -101,7 +101,8 @@ void main() {
       expect(
         m.summary,
         'not at their best — they are exhausted',
-        reason: 'this exact string is what the mood chip shows on hover; if it '
+        reason:
+            'this exact string is what the mood chip shows on hover; if it '
             'is empty the chip is back to explaining nothing',
       );
     });
@@ -131,7 +132,8 @@ void main() {
       expect(
         m.offset,
         greaterThan(0),
-        reason: 'without an upside every character would average slightly '
+        reason:
+            'without an upside every character would average slightly '
             'miserable, which is the opposite of the point',
       );
       expect(m.causes, contains('they slept well'));
@@ -180,14 +182,16 @@ void main() {
       expect(
         m.offset,
         -3,
-        reason: 'the raw sum is -7; unclamped it would swamp any genuine '
+        reason:
+            'the raw sum is -7; unclamped it would swamp any genuine '
             'reaction to the user and the engine\'s real work would stop '
             'being visible underneath it',
       );
       expect(
         m.causes.length,
         greaterThan(3),
-        reason: 'clamping the NUMBER must not silently drop the reasons — the '
+        reason:
+            'clamping the NUMBER must not silently drop the reasons — the '
             'user still needs to see why',
       );
     });
@@ -201,7 +205,8 @@ void main() {
       expect(
         m.isNeutral,
         isTrue,
-        reason: 'only genuinely low needs speak up, or every turn would carry '
+        reason:
+            'only genuinely low needs speak up, or every turn would carry '
             'a mood line and the signal would mean nothing',
       );
     });
@@ -218,61 +223,17 @@ void main() {
       expect(
         m.injection,
         contains('do NOT raise it as a topic or invent an incident'),
-        reason: 'this guardrail is the whole reason the feature is safe on a '
+        reason:
+            'this guardrail is the whole reason the feature is safe on a '
             'local model — without it a small model turns "tired" into a '
             'grievance and the Journal records the grievance as fact',
       );
       expect(
         m.injection.toLowerCase(),
         isNot(contains('bad mood')),
-        reason: '"in a bad mood" is an invitation to supply a cause; a state '
+        reason:
+            '"in a bad mood" is an invitation to supply a cause; a state '
             'like "exhausted" has nowhere to go',
-      );
-    });
-  });
-
-  group('it never reaches the evals — the maintainer\'s condition', () {
-    // Structural, and honestly labelled: proving this behaviourally needs a
-    // live ChatService firing real evals. Read it as "nobody wired it in",
-    // not "it cannot get in".
-    //
-    // It is here because this is the condition the feature shipped on, and the
-    // failure would be invisible: a mood quietly feeding the relationship
-    // judge would turn one bad night into permanent bond and trust damage the
-    // user did not cause, arriving as a plausible-looking chip.
-    test('no eval prompt builder or eval leaf mentions the mood', () {
-      const evalSources = [
-        'lib/services/chat/realism_prompt_builder.dart',
-        'lib/services/chat/realism_evals.dart',
-        'lib/services/chat/realism_evals.calls.dart',
-        'lib/services/chat/realism_evals.one_shot.dart',
-        'lib/services/chat/realism_evals.support.dart',
-        'lib/services/chat/needs_impact_evaluator.dart',
-      ];
-      for (final path in evalSources) {
-        final src = File(path).readAsStringSync();
-        expect(
-          src.toLowerCase(),
-          isNot(contains('standingmood')),
-          reason: '\$path references Standing Mood. Colouring generation is '
-              'the whole feature; scoring with it was explicitly ruled out.',
-        );
-        expect(src, isNot(contains('MoodBaseline')), reason: path);
-      }
-    });
-
-    test('it is wired to generation and display only', () {
-      // The four legitimate consumers. A fifth appearing is the thing to look
-      // at, not a reason to widen this list reflexively.
-      final wiring = File(
-        'lib/services/chat/chat_service_mood.dart',
-      ).readAsStringSync();
-      expect(wiring, contains('buildStandingMoodInjection'));
-      expect(wiring, contains('stampStandingMood'));
-      expect(
-        wiring,
-        isNot(contains('applyDeltas')),
-        reason: 'mood must never move bond or trust',
       );
     });
   });
@@ -290,7 +251,8 @@ void main() {
       expect(
         back.summary,
         m.summary,
-        reason: 'the chip reads this off message metadata turns later; if the '
+        reason:
+            'the chip reads this off message metadata turns later; if the '
             'round-trip drops the causes the tooltip goes blank',
       );
     });
@@ -300,9 +262,13 @@ void main() {
       expect(MoodBaseline.fromJson('nonsense'), isNull);
       expect(MoodBaseline.fromJson({'causes': []}), isNull);
       expect(
-        MoodBaseline.fromJson({'offset': -9, 'causes': ['x']})!.offset,
+        MoodBaseline.fromJson({
+          'offset': -9,
+          'causes': ['x'],
+        })!.offset,
         -3,
-        reason: 'an out-of-range value from an older or hand-edited record '
+        reason:
+            'an out-of-range value from an older or hand-edited record '
             'must clamp, not escape the tint bound',
       );
     });

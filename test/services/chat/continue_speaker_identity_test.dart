@@ -69,33 +69,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
 
-  test('Continue infers Scene Guest and id-first group speaker', () {
-    final gen = File(
-      'lib/services/chat/chat_service_generation.dart',
-    ).readAsStringSync();
-    expect(gen, contains('guestSpeaker ??= _sceneGuestForMessage(last)'));
-    expect(gen, contains('_isGuestAuthoredMessage(last)'));
-    expect(
-      gen,
-      contains('forceSpeaker ??= _resolveGroupSpeakerForMessage(last)'),
-    );
-    expect(
-      gen,
-      isNot(contains("c.name == _messages.last.sender")),
-      reason: 'Continue must not first-match by display name',
-    );
-    expect(
-      gen,
-      contains(
-        'speakingCharacter = forceSpeaker ?? _pickPresentGroupSpeaker()',
-      ),
-    );
-    expect(
-      gen,
-      contains('Can’t continue "\${last.sender}" — who said it is ambiguous.'),
-    );
-  });
-
   late AppDatabase db;
   late StorageService storage;
   late ChatService chat;

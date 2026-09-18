@@ -12,7 +12,6 @@
 //   * Continue still advertising in generation_request
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -335,38 +334,5 @@ void main() {
         .where((u) => u.queryParameters['list'] == 'search')
         .length;
     expect(searches, 3);
-  });
-
-  test('Continue still skips the catalog at the request seam', () {
-    final request = File(
-      'lib/services/chat/chat_service_generation_request.dart',
-    ).readAsStringSync();
-    expect(request, contains('runCatalogRound'));
-    expect(
-      request,
-      contains('continueMode: t.mode == GenerationMode.continue_'),
-    );
-    expect(request, contains('shouldAdvertiseWikiSearch'));
-    expect(request, contains('generateStream(genParams)'));
-    expect(request, isNot(contains('spokenText')));
-    expect(request, isNot(contains("tool_choice': 'required'")));
-  });
-
-  test('fireLLMEval and clerk share kEvalLaneMaxLength', () {
-    final eval = File(
-      'lib/services/chat/llm_eval_engine.dart',
-    ).readAsStringSync();
-    expect(eval, contains('evalLaneParams('));
-    expect(eval, isNot(contains('maxLength: 4000')));
-    expect(eval, isNot(contains('maxLength:4000')));
-    expect(kEvalLaneMaxLength, 4000);
-    final clerk = File(
-      'lib/services/chat/catalog_clerk.dart',
-    ).readAsStringSync();
-    expect(clerk, contains('evalLaneParams('));
-    expect(clerk, contains('salvageReasoning: false'));
-    expect(clerk, isNot(contains('resolveMaxLength')));
-    expect(clerk, isNot(contains('resolveTemperature')));
-    expect(clerk, isNot(contains('resolveReasoning')));
   });
 }

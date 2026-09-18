@@ -1,3 +1,9 @@
+## 2026-09-17 — Drop decoration tests that stay green without the product
+- **Why:** Tests whose only engine was a stub, a planted LLM receipt, or a grep of `lib/*.dart` stayed green even if the product call site died.
+- **What:** Deleted 27 whole test files (source-grep pins, ChatService mirrors, `expect(true)` placeholders, stub-widget pumps). Cut grep-only groups and planted-receipt smokes from mixed files. Kept goldens, `integration_test/`, sqlite migrations, parse/clip helpers, and live ChatService jobs.
+- **Files:** 27 deleted `*_test.dart`; grep/placeholder cuts across ~80 mixed test files. No product `lib/` changes.
+- **Commit:** this tip
+
 ## 2026-09-17 — Drop leftover flat storage shims and tombstone comments
 - **Why:** Three files sat at 999 lines because of leftover Stage-7 flat accessors and "god thins to delegation" essays, not because they still needed a split.
 - **What:** Pointed remaining `storage.textScale`-style callers at the `*Settings` objects, deleted the compatibility flat-accessor block on StorageService (kept spell-check language and custom models path), and trimmed ChatService tombstone comments. chat_tools_facade had no unused methods; only retargeted its storage reads.

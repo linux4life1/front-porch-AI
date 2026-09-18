@@ -193,28 +193,4 @@ void main() {
       );
     });
   });
-
-  group('the wiring, structurally', () {
-    // The three consultation sites must resolve through the ONE getter —
-    // the dance (pre-gen), the regen replay, and the retroactive baseline
-    // scan — or a regen could replay a turn down a different eval path than
-    // the turn originally took.
-    for (final file in const [
-      'lib/services/chat/chat_service_realism_dance.dart',
-      'lib/services/chat/chat_service_reprocess.dart',
-      'lib/services/chat/chat_service_greeting.dart',
-    ]) {
-      test('$file resolves via _oneShotActive', () {
-        final src = File(file).readAsStringSync();
-        expect(src, contains('_oneShotActive'));
-        expect(
-          src,
-          isNot(contains('realismSettings.realismOneShotEval')),
-          reason:
-              'reading the raw legacy bool here bypasses Auto entirely — '
-              'the setting would silently mean On/Off again on this one path',
-        );
-      });
-    }
-  });
 }

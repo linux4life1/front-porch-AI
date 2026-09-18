@@ -40,8 +40,6 @@
 // verdict turned the whole matcher group red. Both were restored and the
 // suite went green again.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -50,10 +48,9 @@ void main() {
   group('the mention gate matches quests to scenes, and only that', () {
     test('a quest content word in the scene opens the gate', () {
       expect(
-        objectivesMentionedIn(
-          'user: what a view from the lighthouse tonight',
-          ['find the old lighthouse keeper'],
-        ),
+        objectivesMentionedIn('user: what a view from the lighthouse tonight', [
+          'find the old lighthouse keeper',
+        ]),
         isTrue,
       );
     });
@@ -65,16 +62,17 @@ void main() {
           ['make her laugh again'],
         ),
         isTrue,
-        reason: '"laugh" must reach "laughs"/"laughing" — completions are '
+        reason:
+            '"laugh" must reach "laughs"/"laughing" — completions are '
             'usually narrated in an inflected form',
       );
       expect(
-        objectivesMentionedIn(
-          'user: the slaughterhouse stood empty',
-          ['make her laugh again'],
-        ),
+        objectivesMentionedIn('user: the slaughterhouse stood empty', [
+          'make her laugh again',
+        ]),
         isFalse,
-        reason: 'but only at a word boundary — "slaughter" contains "laugh" '
+        reason:
+            'but only at a word boundary — "slaughter" contains "laugh" '
             'mid-word and is not a laugh',
       );
     });
@@ -86,7 +84,8 @@ void main() {
           ['make something more of what they want'],
         ),
         isFalse,
-        reason: 'a quest built of filler words must not fire on every line '
+        reason:
+            'a quest built of filler words must not fire on every line '
             'of ordinary dialogue',
       );
     });
@@ -99,7 +98,8 @@ void main() {
           ignore: {'jennifer'},
         ),
         isFalse,
-        reason: 'the quest target\'s name appears in nearly every exchange — '
+        reason:
+            'the quest target\'s name appears in nearly every exchange — '
             'counting it would quietly turn the gate always-on, which is the '
             'exact per-turn cost this gate exists to remove',
       );
@@ -115,66 +115,8 @@ void main() {
     });
 
     test('empty inputs stay closed', () {
-      expect(
-        objectivesMentionedIn('', ['find the key']),
-        isFalse,
-      );
-      expect(
-        objectivesMentionedIn('user: hello', const []),
-        isFalse,
-      );
-    });
-  });
-
-  group('the wiring, structurally', () {
-    // Labelled structural, like the placement guards next door: cadence is
-    // orchestration, and a green unit suite cannot see which branch the god
-    // file takes.
-    final objectives = File(
-      'lib/services/chat/chat_service_objectives.dart',
-    ).readAsStringSync();
-    final flat = objectives.replaceAll(RegExp(r'\s+'), ' ');
-
-    test('the every-turn realism override is gone', () {
-      expect(
-        flat,
-        isNot(contains('_realismEnabled ? 1')),
-        reason: 'freq = 1 with realism on is one BLOCKING model call before '
-            'every reply, ignoring the checkFrequency the UI shows',
-      );
-    });
-
-    test('the interval branch consults the mention gate', () {
-      expect(objectives, contains('objectivesMentionedIn'));
-      expect(
-        flat,
-        contains('checkFrequency'),
-        reason: 'the per-objective cadence is the cadence again',
-      );
-    });
-
-    test('post-gen runs needs and the fused fetch concurrently', () {
-      // Companion pin for the same review item (§3.2): the two post-gen
-      // calls are independent and must not pay sequential wall clock.
-      final postgen = File(
-        'lib/services/chat/chat_service_generation_postgen.dart',
-      ).readAsStringSync();
-      // Anchors renamed (finalResponse → scoredReply) 2026-08-12 with the
-      // Continue incremental-scoring change; the concurrency property this
-      // pins is unchanged and asserted verbatim.
-      final wait = postgen.indexOf('Future.wait');
-      final climax = postgen.indexOf('_runClimaxPass(scoredReply)');
-      expect(wait, greaterThan(-1));
-      expect(climax, greaterThan(-1));
-      expect(
-        wait,
-        lessThan(climax),
-        reason: 'needs + prefetch run together BEFORE the consumers; a '
-            'sequential re-ordering quietly doubles post-gen latency on '
-            'remote backends',
-      );
-      expect(postgen, contains('_runPostGenNeedsChecks(scoredReply),'));
-      expect(postgen, contains('_prefetchReplyFacts(scoredReply)'));
+      expect(objectivesMentionedIn('', ['find the key']), isFalse);
+      expect(objectivesMentionedIn('user: hello', const []), isFalse);
     });
   });
 }

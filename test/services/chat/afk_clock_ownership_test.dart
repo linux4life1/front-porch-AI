@@ -9,8 +9,6 @@
 // advanceTimePeriods, applyFailureDrift (the same consume-the-flag path
 // the eval uses) adds failureDriftMinutes after the snap.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -44,27 +42,6 @@ void main() {
         reason:
             'THE BUG: AFK snap did not own the turn, so the post-reply '
             'eval/drift stacked minutes on the away pace',
-      );
-    },
-  );
-
-  test(
-    'advanceTimePeriods sets skip-owns-clock before the post-reply eval',
-    () {
-      final src = File(
-        'lib/services/chat/time_service.dart',
-      ).readAsStringSync();
-      final start = src.indexOf('void advanceTimePeriods');
-      expect(start, greaterThanOrEqualTo(0));
-      final body = src.substring(start, start + 500);
-      expect(body, contains('_oocSkipMovedClockThisTurn = true'));
-      final idle = File(
-        'lib/services/chat/chat_service_idle_autonomous.dart',
-      ).readAsStringSync();
-      expect(idle, contains('advanceTimePeriods('));
-      expect(
-        idle.indexOf('advanceTimePeriods('),
-        lessThan(idle.indexOf('_generateResponse(')),
       );
     },
   );

@@ -283,35 +283,6 @@ void main() {
     );
   });
 
-  test('the intro rides the plan TAIL with the one-shot events — not the '
-      'state zone', () {
-    // Structural, like the reply-facts wiring pins: the maintainer's field
-    // report ("silently adding an item did not make them surprised") was
-    // the intro riding the realism-state block mid-prompt, where models
-    // read it as background. It must sit with Chance Time / Porch Night at
-    // maximum recency, and Continue must strip it like its siblings.
-    final plan = File(
-      'lib/services/chat/chat_service_generation_plan.dart',
-    ).readAsStringSync();
-    final porchNight = plan.indexOf("plan.add(id: 'porch_night'");
-    final itemIntro = plan.indexOf("plan.add(id: 'item_intro'");
-    expect(porchNight, greaterThan(-1));
-    expect(
-      itemIntro,
-      greaterThan(porchNight),
-      reason:
-          'the one-shot directive belongs after the suffix with the '
-          'event class, or models ignore it again',
-    );
-    expect(
-      plan.contains("plan.section('item_intro').text = ''"),
-      isTrue,
-      reason:
-          'Continue extends the reply that already reacted — '
-          're-injecting has her notice the same thing twice in one message',
-    );
-  });
-
   test('feature off or empty name: a strict no-op', () async {
     await chat.setActiveCharacter(card('char-padd-3'));
     final id = chat.characterIdFor(chat.activeCharacter!);
@@ -374,23 +345,5 @@ void main() {
       contains('coat (buttoned)'),
       reason: 'the ordinary inventory fragment still names what they wear',
     );
-  });
-
-  test('1:1 and group add-item callers both pass correction into the same '
-      'addPocketItem', () {
-    // Path-complete pin: there is ONE write path. Both surfaces that open
-    // the dialog must forward the dialog's correction flag; a 1:1-only
-    // dress button would leave group members naked-with-keys forever.
-    final one = File(
-      'lib/ui/chat_components/sidebar/character_state/'
-      'character_state_group.dart',
-    ).readAsStringSync();
-    final group = File(
-      'lib/ui/widgets/group_member_card.dart',
-    ).readAsStringSync();
-    expect(one.contains('correction: add.correction'), isTrue);
-    expect(group.contains('correction: add.correction'), isTrue);
-    expect(one.contains('chat.addPocketItem'), isTrue);
-    expect(group.contains('chat.addPocketItem'), isTrue);
   });
 }

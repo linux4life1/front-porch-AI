@@ -32,8 +32,6 @@
 //   * drop the stamp from formatRagLine → the stamp tests go red
 //   * truncate nothing in buildRagReceipt → the preview-cap test goes red
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -467,50 +465,6 @@ void main() {
               'same-beat flowerpot gist DROPS because the card names the '
               'flowerpot in the window (near-substring), not 2-token overlap',
         );
-      },
-    );
-
-    test(
-      'HOLD lock: cover-drop source is near-substring, not leftover tokens',
-      () {
-        final src = File(
-          'lib/services/chat/rag_injection.dart',
-        ).readAsStringSync();
-        final coveredAt = src.indexOf('bool _ragCoveredByJournal(');
-        expect(coveredAt, greaterThanOrEqualTo(0));
-        final coveredSlice = src.substring(
-          coveredAt,
-          (coveredAt + 280).clamp(0, src.length),
-        );
-        expect(src.contains('bool _nearCover('), isTrue);
-        expect(src.contains('_kJournalBoilerplate'), isTrue);
-        expect(src.contains('containsAll'), isTrue);
-        expect(src.contains('longD.difference(shortD)'), isTrue);
-        expect(
-          src.contains('longer.contains(shorter)'),
-          isFalse,
-          reason: 'unanchored contains() is the key-inside-keyboard hole',
-        );
-        expect(
-          coveredSlice.contains('.intersection('),
-          isFalse,
-          reason:
-              'a source-scan for 2-token intersection as the cover rule '
-              'MUST FAIL — product must not use shared-content-tokens ≥ 2',
-        );
-        expect(coveredSlice.contains('_nearCover('), isTrue);
-        final fillerAt = src.indexOf('const _kCoverFiller = {');
-        expect(fillerAt, greaterThanOrEqualTo(0));
-        final filler = src.substring(fillerAt, src.indexOf('};', fillerAt));
-        for (final w in ['garden', 'balcony', 'driveway']) {
-          expect(
-            filler.contains("'$w'"),
-            isFalse,
-            reason:
-                "'$w' must not appear on the setting-noun / cover-filler "
-                'place list',
-          );
-        }
       },
     );
 

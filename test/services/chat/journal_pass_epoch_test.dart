@@ -10,8 +10,6 @@
 // Proven red: with the startedEpoch check removed from _runExchange, this
 // test's XML prompt list is non-empty and the stale add lands.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -111,26 +109,5 @@ void main() {
           'regen tore the tools call down; XML must not apply the rejected window',
     );
     expect(await store.cardsFor('s1', 'mara'), isEmpty);
-  });
-
-  test('regen bumps the shared epoch; both passes read it', () {
-    final regen = File(
-      'lib/services/chat/chat_service_reprocess.dart',
-    ).readAsStringSync();
-    expect(regen, contains('_memoryPassEpoch++'));
-    final journal = File(
-      'lib/services/chat/journal_maintenance.dart',
-    ).readAsStringSync();
-    expect(
-      journal,
-      contains('if (getPassEpoch() != startedEpoch) return null;'),
-    );
-    final growth = File(
-      'lib/services/chat/growth_service.dart',
-    ).readAsStringSync();
-    expect(
-      growth,
-      contains('if (getPassEpoch() != startedEpoch) return null;'),
-    );
   });
 }

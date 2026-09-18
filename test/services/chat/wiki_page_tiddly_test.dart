@@ -7,7 +7,6 @@
 // GH Pages path stripped to origin so Neokosmos fetched the user site.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -253,14 +252,6 @@ void main() {
       );
       expect(off.lookup(kWikiPageToolName), isNull);
       expect(off.lookup(kWikiSearchToolName), isNull);
-    });
-
-    test('generation_request advertises wiki_page with wiki_search', () {
-      final request = File(
-        'lib/services/chat/chat_service_generation_request.dart',
-      ).readAsStringSync();
-      expect(request, contains('inProcessWikiPageTool'));
-      expect(request, contains('inProcessWikiSearchTool'));
     });
 
     test(

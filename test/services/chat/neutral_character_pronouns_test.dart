@@ -9,8 +9,6 @@
 // Waifu Coder: slash/ask-why files were deleted in #250; this file now
 // pins live honesty, MCP, coworker preamble, and home-view copy.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
@@ -97,26 +95,6 @@ void main() {
       expect(m.summary, 'not at their best — they are exhausted');
       expect(m.summary, isNot(contains('her')));
     });
-
-    test('chargen personality example is they, not she', () {
-      final src = File(
-        'lib/services/chargen/character_gen_prompts.dart',
-      ).readAsStringSync();
-      expect(src, contains("people they've just met"));
-      expect(src, isNot(contains("people she's just met")));
-    });
-
-    test('needs-eval prompt does not charge "her" as the generic body', () {
-      final src = File(
-        'lib/services/chat/llm_eval_engine.dart',
-      ).readAsStringSync();
-      expect(src, contains('mentioning their empty stomach'));
-      expect(src, contains('COST them'));
-      expect(src, contains('their body and mood'));
-      expect(src, isNot(contains('her empty stomach')));
-      expect(src, isNot(contains('COST her')));
-      expect(src, isNot(contains('to her body and mood')));
-    });
   });
 
   group('Waifu Coder copy is they/them, not she/her', () {
@@ -132,11 +110,5 @@ void main() {
         expect(_she.hasMatch(kWaifuMcpOpenCodeHonesty), isFalse);
       },
     );
-
-    test('home view stays they/them', () {
-      final home = File('lib/ui/waifu/waifu_home_view.dart').readAsStringSync();
-      expect(home, contains('They code in character.'));
-      expect(home, isNot(contains('She codes in character.')));
-    });
   });
 }
