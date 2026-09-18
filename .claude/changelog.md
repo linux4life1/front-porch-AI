@@ -1,3 +1,9 @@
+## 2026-09-18 — Think-only mouth after PRE-GEN attach is spoken, not blank
+- **Why:** Live poke on tip `848ccc4b`: Nano `qwen/qwen3.8-27b`, 1:1 Flora, one-shot finished (deflated, bond −1, trust −2), `[Realism:Metadata] PRE-GEN attach`, then an empty reply card, no banner, Manual Reprocess still blank. Mouth *did* run; Qwen parked the line in `<think>` / `reasoning_content`. `displayText` stripped it, `emptySpeechAfterPregen` saw non-empty raw so no notice, TTS used displayText so speech never started. Older than this branch; same finalize path.
+- **What:** Finalize lifts a think-only body via `resolveMouthSpeech` (keeps think+speech when both exist). New send pin: successful one-shot then think-only mouth must leave visible Flora speech and the pre-eval chips. Proven red without the lift (`displayText == ''`), green with it. Did not undo cleanup, the 17 pins, or the pockets pin.
+- **Files:** `lib/utils/think_tags.dart`, `lib/services/chat/chat_service_generation_postgen.dart`, `test/services/chat/pre_eval_mouth_speech_test.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — Rip agent-narration slop and leftover extract essays
 - **Why:** User lock: close the ~65k-deleted gap vs Rawhide with real slop, not live product. Session breadcrumbs and extract-process comments are not gates.
 - **What:** Deleted the 4796-line god-file progress log and seven leftover agent plans/checklists with zero inbound refs. Stripped Stage/step/"0 new god private"/deletion-part-of-task essays from extract leftovers (settings_page tombstones, leaf headers, wiring builders). Kept live contracts (eval hang guards, messagesThroughLastUser user-score rule, pockets hide-not-erase, io-ok). Did not touch the 17 restored pins, hardware lengthSync, or restore pockets_off_means_off_test.

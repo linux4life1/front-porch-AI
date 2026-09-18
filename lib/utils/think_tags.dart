@@ -42,6 +42,18 @@ String closeOpenThink(String text) {
   return text;
 }
 
+/// Mouth speech after PRE-GEN attach. A Qwen-class stream that dumped the
+/// whole reply into `reasoning_content` arrives as a think-only body;
+/// [ChatMessage.displayText] then strips it to an empty bubble and TTS
+/// never starts. Lift that body so a successful pre-eval still speaks.
+String resolveMouthSpeech(String raw) {
+  final closed = closeOpenThink(raw);
+  final parts = splitMessageForEdit(closed);
+  if (parts.body.trim().isNotEmpty) return closed;
+  final lifted = parts.thinking.trim();
+  return lifted.isNotEmpty ? lifted : closed.trim();
+}
+
 String stripThinkTags(String text) {
   final source = canonicalizeReasoning(text);
   return source

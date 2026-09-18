@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 💬 **Thinking-only replies show up as speech** — some Nano/Qwen models put the whole line in the hidden thought channel after Realism finishes. The bubble was empty even though the chips updated. That thought is now the spoken line. Same on the phone.
+
 - 🪪 **Stoop blurbs match the website** — tile summaries get two full lines with a real “…”. Open a card and the whole listing blurb sits beside the portrait. Description and Personality are their own drawers, like hub.frontporchai.app.
 
 - 🛠️ **Waifu Coder OpenCode updates like Kobold** — Settings and the Waifu sidebar check GitHub for the newest OpenCode. First sit-down still downloads if the closet is empty. A tap installs that latest; it does not jump versions by itself. Homebrew is still not used.
