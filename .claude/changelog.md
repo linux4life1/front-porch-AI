@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 user_persona_service: model and import off the store (629 → 254)
+- **Why:** the UserPersona record and file import/export lived in the same ChangeNotifier as load/CRUD.
+- **What:** `user_persona_service.dart` keeps load, create/update/delete, and active vs default (254). `user_persona_service.model.dart` is the record (87). `user_persona_service.import.dart` is file import/export (353). Class forwarders keep FakeUserPersonaService on the type. `notify()` is the extension door.
+- **Verified:** analyzer clean.
+- **Files:** `lib/services/user_persona_service.dart` + `.model.dart` + `.import.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 growth_store: persist off the cursor cache (634 → 236)
 - **Why:** ring writes, fade, and session-carry lived next to the sync cache the prompt reads.
 - **What:** `growth_store.dart` keeps refresh, invalidate, cursor, and `receiptsOf`/`decodeReceiptIds` (236). `growth_store.persist.dart` is add/reinforce/revise/retire/fade/copy/carry (417). Receipt decoder stays in the shell for the shared-column pin.

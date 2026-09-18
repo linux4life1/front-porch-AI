@@ -65,6 +65,7 @@
 > | S2 character_facade.dart | done | `refactor(web): split character import off the read facade` |
 > | S2 image_studio.dart | done | `refactor(ui): split Image Studio subject pick off the canvas` |
 > | S2 growth_store.dart | done | `refactor(growth): split ring writes off the cursor cache` |
+> | S2 user_persona_service.dart | done | `refactor(persona): split the record and file import off the store` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
