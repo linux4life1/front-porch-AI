@@ -19,6 +19,7 @@
 > | T12 dual tool probes | done (documented, not merged) | `docs: the two tool probes are two layers, not one duplicated` |
 > | S1.1 chat tools facade | done | `refactor(web): split the chat tools facade by tool domain` |
 > | S1.2 stoop upload wizard | done | `refactor(stoop): split the share wizard into chrome, steps, and publishing` |
+> | S1.3 group-create wizard | done | `refactor(ui): split group-create into roster, generate, and commit` |
 > | S1.6 stoop comments | done | `refactor(stoop): split card discussion into actions and views` |
 > | S1.9 hardware detection | done | `refactor(hardware): split detection by platform` |
 > | S1.14 pockets | done | `refactor(pockets): separate the record, the grammar, the matching, the applier` |

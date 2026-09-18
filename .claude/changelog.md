@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.3: group-create wizard shell split (980 → 287)
+- **Why:** step bodies were already parts; the shell still held roster mutations, scenario/first-message generation, and the persist path.
+- **What:** `create_group_chat_page.dart` keeps fields, nav, snack, and `build` (287). `.roster` is add/remove/reorder/voice/seed (155). `.generate` is the two LLM fills plus the dynamics context they take (234). `.commit` is `_createGroup` (332). Lore entry + world-toggle helpers moved into the existing lore step part (the UI that calls them) instead of a 60-line fourth file. Wizard chrome (`_currentStep`, `AnimatedSwitcher`, top-bar dots) is untouched. `setState` in the new parts goes through the existing `rebuildState` bridge.
+- **Verified:** `create_group_chat_page_interaction_test` walks all eight steps by real taps — green. Analyzer clean.
+- **Files:** `lib/ui/pages/create_group_chat_page.dart` + 3 new parts; `create_group_chat_page.steps_lore.dart` gained the three helpers it already called
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.16: Chance Time overlay split into shell, views, and painters (876 → 268)
 - **Why:** one file held the spin/accept path, every visual builder, and three CustomPainters.
 - **What:** `chance_time_overlay.dart` keeps the widget, the State, the spin, category keywords, and `build` (268). `.view` carries the card / header / wheel stack / button / result / splash / pressure row (460). The wheel, pointer, and confetti painters live as their own library under `ui/widgets/chance_time/` so they are not private copies inside the overlay. The overlay's `_WheelPainter` / `_ConfettiPainter` / `_PointerPainter` are gone.
