@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.5: ChatPage split into session, send, and overlays (978 → 479)
+- **Why:** the web chat route owned load/socket, send/regen, overlays, and the desktop/phone layout in one file.
+- **What:** `ChatPage.tsx` keeps auth, layout branch, header, composer, insight aside, and drawers (479). `chat/chatState.ts` is the GET /api/chat/state type. `useChatSession` is load / socket / history / session switch (353). `useChatSend` is send / continue / regen / swipe / edit / reprocess (155); `postChatSend` stays in `chatSend.ts`. `ChatOverlays` is chance time, reprocess, persona, image review, edit, and the join picker (110). Existing page tests still import `ChatPage`.
+- **Verified:** `tsc --noEmit` clean. `chatAsideMount`, `chatSessionRecovery`, `chatSend` (14 tests) green. `npm run build` wrote `assets/web_app`.
+- **Files:** `web_ui/src/pages/ChatPage.tsx` + `web_ui/src/pages/chat/{chatState,useChatSession,useChatSend,ChatOverlays}`
+- **Commit:** this tip
+
 ## 2026-09-18 — CI: notify, GrowthPanel statics, theme-keep, io-ok after S1 splits
 - **Why:** three CI jobs went red on the split tip. Extensions on `CreatorState` called `notifyListeners` (protected). `growth_panel.card.dart` used `categoryAccent` / `categoryLabel` unqualified. `dart format` wrapped `Colors.blueAccent` and sync I/O off their same-line allow comments, so theme-lint and io-lint treated the moved lines as new.
 - **What:** prefs/models parts call `CreatorState.notify()`. Card chips use `GrowthPanel.categoryAccent` / `GrowthPanel.categoryLabel`. Lore enabled-marker uses one `_loreEnabledAccent` const with `// theme-keep` on the `Colors.blueAccent` line. Catalog/preset/cover sync I/O keep `// io-ok` on the token line (short assignment so format cannot move the comment inside the `if` block).
