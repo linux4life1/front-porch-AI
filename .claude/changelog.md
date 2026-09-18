@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 group_membership: members off 1:1 fork (528 → 298)
+- **Why:** live add/remove/create-member lived next to forking a 1:1 into a group.
+- **What:** `chat_service_group_membership.dart` keeps `forkToGroupChat` (298). `chat_service_group_members.dart` is create/add/reload/remove (250).
+- **Verified:** analyzer clean.
+- **Files:** membership + members; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 session_state: persist off hydrate (528 → 221)
 - **Why:** `_saveChat` / `_doSaveChat` / replace-all lived next to scene-guest and group-realism hydrate.
 - **What:** `chat_service_session_state.dart` keeps hydrate and small accessors (221). `chat_service_session_state_save.dart` is enqueue, write, and replace-all (331).
