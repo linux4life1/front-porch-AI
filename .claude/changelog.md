@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 objectives: tasks and completion off inject (744 → 338)
+- **Why:** load/set/inject, task mutate, and completion/promise lived in one 744-line part.
+- **What:** `chat_service_objectives.dart` keeps load, injection text, set/clear/promote, today line, and the class-forwarder impls (338). `chat_service_objective_tasks.dart` is list decode, generate, and per-task mutate (141). `chat_service_objective_completion.dart` is check cadence, force/maybe/background check, regen turn-ops, and promise/debt (311). `objectivesActive` stays the live AND on the class. Continue does not tick.
+- **Verified:** analyzer clean. one-shot gate, mention gate, secondary cap, toggle live-AND, proposal, eval tools (36) green.
+- **Files:** objectives + objective_tasks + objective_completion; `chat_service.dart` parts
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 session_load: hydrate off last-session and the list (744 → 395)
 - **Why:** last-session open, the history list, and hydrate (messages/scalars/persona/porch diary) lived in one 744-line part.
 - **What:** `chat_service_session_load.dart` keeps `_computeAbsenceGap`, `_loadLastSession`, `getSessions*`, and `loadSession` (395). `chat_service_session_hydrate.dart` is `_hydrateMessagesFromRows`, `_hydrateSessionScalars`, `_activateSessionPersona`, and porch diary import (373). Both load paths still call the same helpers. Objectives still reload on `loadSession`. Continue does not tick.

@@ -82,6 +82,8 @@ part 'chat/chat_service_session_window.dart';
 part 'chat/chat_service_realism_evals.dart';
 part 'chat/chat_service_actions.dart';
 part 'chat/chat_service_objectives.dart';
+part 'chat/chat_service_objective_tasks.dart';
+part 'chat/chat_service_objective_completion.dart';
 part 'chat/chat_service_realism_dance.dart';
 part 'chat/chat_service_speaker_objectives.dart';
 part 'chat/chat_service_impersonate.dart';

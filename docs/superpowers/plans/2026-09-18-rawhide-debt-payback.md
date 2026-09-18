@@ -46,6 +46,7 @@
 > | S2 chat_service_reprocess.dart | done | `refactor(chat): split regen revert and swipe-merge off the hold` |
 > | S2 chat_facade.dart | done | `refactor(web): split swipe and history off chat send-load` |
 > | S2 chat_service_session_load.dart | done | `refactor(chat): split session hydrate off last-session and the list` |
+> | S2 chat_service_objectives.dart | done | `refactor(chat): split objective tasks and completion off inject` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
