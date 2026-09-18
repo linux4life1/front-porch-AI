@@ -275,22 +275,12 @@ class LlmEvalEngine {
     return cleaned;
   }
 
-  /// Tiny helpers to deduplicate the ~20+ brittle RegExp patterns used
-  /// to fish bool/int scalars out of the flat JSON-like strings returned by
-  /// fireLLMEval across all Realism + Needs evaluation sites.
-  int? extractJsonInt(String text, String key) {
-    final m = RegExp(
-      r'"' + RegExp.escape(key) + r'"\s*:\s*(-?\d+)',
-    ).firstMatch(text);
-    return m != null ? int.tryParse(m.group(1)!) : null;
-  }
+  /// The scalar extractors every Realism + Needs eval site uses. The bodies
+  /// live in eval_json_merge.dart so a caller that only needs the regex does
+  /// not have to construct this engine; these stay as the wired-callback door.
+  int? extractJsonInt(String text, String key) => evalJsonInt(text, key);
 
-  bool? extractJsonBool(String text, String key) {
-    final m = RegExp(
-      r'"' + RegExp.escape(key) + r'"\s*:\s*(true|false)',
-    ).firstMatch(text);
-    return m != null ? (m.group(1) == 'true') : null;
-  }
+  bool? extractJsonBool(String text, String key) => evalJsonBool(text, key);
 
   /// Shared helper: fire a lightweight LLM eval call and return the raw response.
   ///

@@ -55,3 +55,28 @@ Map<String, dynamic> _fieldsOf(Map<String, dynamic> m) {
   }
   return m;
 }
+
+/// Fish one int out of a flat JSON-ish eval reply, or null when the key is
+/// absent or not a bare number. Strict about the quoted key on purpose: the
+/// evals emit `"hunger_delta"`, and a looser match would let a rule probe the
+/// wrong field and silently score 0 (that shipped once — see
+/// needs_verifier_hunger_delta_test).
+///
+/// Top-level so a caller can reach it without building an LlmEvalEngine;
+/// [LlmEvalEngine.extractJsonInt] forwards here.
+int? evalJsonInt(String text, String key) {
+  final m = RegExp(
+    '"${RegExp.escape(key)}"'
+    r'\s*:\s*(-?\d+)',
+  ).firstMatch(text);
+  return m != null ? int.tryParse(m.group(1)!) : null;
+}
+
+/// Bool twin of [evalJsonInt].
+bool? evalJsonBool(String text, String key) {
+  final m = RegExp(
+    '"${RegExp.escape(key)}"'
+    r'\s*:\s*(true|false)',
+  ).firstMatch(text);
+  return m != null ? (m.group(1) == 'true') : null;
+}
