@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 reprocess: regen revert and swipe-merge off the hold (791 → 457)
+- **Why:** `_regenerateLastMessageHeld` inlined the speaker revert and the swipe merge. Needs reprocess/revert already live in `chat_service_needs_reprocess.dart`. Continue is not this file.
+- **What:** `chat_service_reprocess.dart` keeps `regenerateMainCharacter`, the settling hold, guest/host gates, 1:1 eval replay, and `_generateResponse` (457). `chat_service_regen_revert.dart` is `_revertRegenRealismBaseline` (1:1 + group speaker impersonation) and `_mergeOrRestoreRegenSwipe` (387). `_resolveGroupSpeakerForMessage` stays here for the needs-reprocess twin. Continue does not tick.
+- **Verified:** analyzer clean. regen chip/cancel/failed-restore, posture rewind, pockets rewind, guest-left journal, god-file ratchet green.
+- **Files:** reprocess + regen_revert; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 setup_step: Extra Settings and status dot off the form (802 → 486)
 - **Why:** the Backend & Model form inlined Extra Settings helpers and the pulsing status dot.
 - **What:** `setup_step.dart` keeps the form `build` and `_applyAutoConfigure` (486) so `existsSync`/`lengthSync` stay in this file with `io-ok` on the token line. `setup_step_fields.dart` is Extra Settings + labels/fields (254). `setup_step_status_dot.dart` is the private blinking dot (78). `CreatorState.notify()` stays.

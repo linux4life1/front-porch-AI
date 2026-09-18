@@ -71,6 +71,7 @@ part 'chat/chat_service_group_realism_helpers.dart';
 part 'chat/chat_service_history.dart';
 part 'chat/chat_service_group_membership.dart';
 part 'chat/chat_service_reprocess.dart';
+part 'chat/chat_service_regen_revert.dart';
 part 'chat/chat_service_needs_reprocess.dart';
 part 'chat/chat_service_chat_entry.dart';
 part 'chat/chat_service_group_entry.dart';
