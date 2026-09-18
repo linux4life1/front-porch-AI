@@ -67,6 +67,7 @@
 > | S2 growth_store.dart | done | `refactor(growth): split ring writes off the cursor cache` |
 > | S2 user_persona_service.dart | done | `refactor(persona): split the record and file import off the store` |
 > | S2 chat_service_pockets.dart | done | `refactor(pockets): split the post-gen pass off intro and persist` |
+> | S2 settings_facade.dart | done | already split in T11 (213 / 149 / 299) — no further cut |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about

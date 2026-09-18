@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 settings_facade: already under 500 after T11
+- **Why:** the S2 row still listed 606; T11 had already split read/update.
+- **What:** remeasured 213 / 149 / 299. No further extract.
+- **Verified:** line counts only.
+- **Files:** none
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 chat_service_pockets: pass off intro and persist (622 → 359)
 - **Why:** the post-gen eval and stamps lived next to the sidebar intro queue and persist helpers.
 - **What:** `chat_service_pockets.dart` keeps intro queue, add/remove, seed, and rewind restore (359). `chat_service_pockets_pass.dart` is `_runPocketsPass` (287). Continue `asContinuation: true` still keeps the turn's `pockets_before`.
