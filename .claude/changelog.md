@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.1: chat tools facade split five ways (995 → 385 shell)
+- **Why:** the single biggest mixed file in `lib/` — one class carrying the sidebar snapshot plus every tool domain behind it.
+- **What:** `chat_tools_facade.dart` keeps construction, the `state()` snapshot and its block helpers, `journalWeb`, `applySettings`, `_notify` (385). Five `part` files carry extensions: `.memory` (journal/growth/recap/promises/timeline, 273), `.scene` (clock, calendar, presence, story handoff, 132), `.switches` (the plain toggles, 86), `.objectives` (quests + tasks, 124), `.pockets` (wardrobe + belongings, 121). Pure move — members copied verbatim with their doc comments, no renames, no new methods.
+- **Verified:** `test/services/web` + growth + journal suites (351 tests) green; analyzer clean on the facade directory.
+- **Files:** `lib/services/web/facade/chat_tools_facade.dart` + 5 new part files
+- **Commit:** this tip
+
 ## 2026-09-18 — T12: the two tool probes answer different questions; documented, not merged
 - **Why:** the inventory flagged `ToolTransportProbe` and `OpenRouterToolSupport` as possibly one contract written twice.
 - **Finding:** they are two layers, and they compose. `OpenRouterToolSupport` is inside the HTTP door, keyed by openrouter.ai **model id**, and answers "is a `tools` POST to this route worth making at all" from the provider's `supported_parameters` and from 400/404 bodies ("no endpoints found that support tool use"). `ToolTransportProbe` sits above any transport, keyed by **backend identity** (name + model, so Kobold and oMLX are covered), and answers "did a real attempt come back with usable tool calls, should the next eval in THIS send try again", plus the skip/pause bookkeeping and the live sidebar pill. A catalog "no" makes the HTTP layer return null without a request; the caller's empty result is then what teaches the probe the backend is text-only.
