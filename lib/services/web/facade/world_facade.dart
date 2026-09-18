@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/models/lorebook_analysis.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -240,26 +238,15 @@ class WorldFacade {
     }
     if (book.entries.isEmpty) return null;
 
-    List<LorebookEntry> cloned() => [for (final e in book.entries) e.clone()];
-    Lorebook clonedBook() => Lorebook(
-      entries: cloned(),
-      scanDepth: book.scanDepth,
-      tokenBudget: book.tokenBudget,
-      recursiveScanning: book.recursiveScanning,
-      extensions: Map<String, dynamic>.from(book.extensions),
-    );
+    Lorebook clonedBook() => cloneLorebook(book);
+    List<LorebookEntry> cloned() => clonedBook().entries;
 
     switch (destination) {
       case 'world':
         var base = (name ?? summary.suggestedName).trim();
         if (base.isEmpty) base = 'Imported Lorebook';
         final taken = _worlds.worlds.map((w) => w.name).toSet();
-        var candidate = base;
-        var i = 2;
-        while (taken.contains(candidate)) {
-          candidate = '$base ($i)';
-          i++;
-        }
+        final candidate = uniqueWorldName(base, taken.contains);
         await _worlds.saveWorld(
           World(
             name: candidate,
@@ -290,13 +277,7 @@ class WorldFacade {
         final g = _chat?.activeGroup;
         final groups = _groups;
         if (g == null || groups == null) return null;
-        final existing = g.groupLorebook.isEmpty
-            ? Lorebook(entries: [])
-            : Lorebook.fromJson(
-                jsonDecode(g.groupLorebook) as Map<String, dynamic>,
-              );
-        existing.entries.addAll(cloned());
-        g.groupLorebook = jsonEncode(existing.toJson());
+        g.groupLorebook = appendToGroupLorebookJson(g.groupLorebook, cloned());
         await groups.save(g);
         return {'ok': true, 'where': 'group', 'name': g.name};
       case 'chat':
