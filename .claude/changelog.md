@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 database_cleanup: apply off the scan (704 → 412)
+- **Why:** orphan scan counts and destructive delete/fix lived in one 704-line class.
+- **What:** `database_cleanup.dart` keeps `OrphanReport`/`CleanupResult`, `checkOrphans`, identity, and count helpers (412). `database_cleanup_apply.dart` is `cleanOrphans` plus delete/fix (312). `_liveCharacterIdentities` stays the one identity set (`stableGroupIdFrom`, never `characters.id` alone for objectives/embeddings/data bank). `cleanOrphans` stays a class forwarder.
+- **Verified:** analyzer clean. cleanup identity + group/sources (10) green.
+- **Files:** `lib/database/database_cleanup.dart` + `_apply`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 world_repository: attach and biome spans off CRUD (711 → 580)
 - **Why:** Living Worlds CRUD, chat_worlds writers, and biome spans lived in one 711-line class.
 - **What:** `world_repository.dart` keeps load/save/delete/rename/import/export/purge (580). `world_repository_attach.dart` is chat attachments plus biome spans (201). Class forwarders stay for FakeWorldRepository. `notify()` is the extension door. `isCharacterLinkedWorld` stays the util.

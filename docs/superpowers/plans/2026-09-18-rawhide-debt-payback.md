@@ -51,6 +51,7 @@
 > | S2 group_member_card.dart | done | `refactor(ui): split group-member menus and views off the card` |
 > | S2 data_bank_dialog.dart | done | `refactor(ui): split Data Bank editor and import off the list` |
 > | S2 world_repository.dart | done | `refactor(worlds): split chat attach and biome spans off CRUD` |
+> | S2 database_cleanup.dart | done | `refactor(db): split orphan apply off the read-only scan` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
