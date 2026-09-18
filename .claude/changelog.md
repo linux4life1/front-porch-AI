@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 realism_verification: rules and critique off fire (803 → 394)
+- **Why:** verify/verifyBatch lived next to `_applyRuleChecks` and the critique prompt builders.
+- **What:** `realism_verification.dart` keeps ctor, `kMetaKey`, `verify`, `verifyBatch`, and `VerificationResult` (394). `realism_verification_rules.dart` is the one rule helper, both critique prompts, and `_RuleResult` (433). T8/T12 already landed, so this split is safe. Director still exempt on needs bounds (that helper is not here).
+- **Verified:** analyzer clean. realism_verification_test (26) green.
+- **Files:** `lib/services/chat/realism_verification.dart` + `realism_verification_rules.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 chat_command_handler: guest mint off slash parse (815 → 466)
 - **Why:** slash parse, the command catalog, and Scene Guest create/join/speak/exit lived in one 815-line leaf.
 - **What:** `chat_command_handler.dart` keeps types, ctor, `commands`, `handle`, turn-order, and AFK (466). `chat_command_guest.dart` is create/join/speak/exit plus name resolve (373). `GuestMintResult` and `SlashCommandInfo` stay public on the library. Preserve thinking is not wired.
