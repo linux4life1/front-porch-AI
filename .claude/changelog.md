@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.12: KoboldService split into admin and process (902 → 436)
+- **Why:** generate/abort, admin extras, and process start/stop lived in one 902-line class. A two-file split left admin over 500.
+- **What:** the shell keeps `LLMService` generate/abort, fields, and class forwarders for `startKobold` / `stopKobold` (436) — `show KoboldService` hides extension methods. `.admin` is readiness, swap, perf, token count (276). `.process` is start/stop and console ingest (272). Extensions call `notify()`. `_armedProbe` stays a class field.
+- **Verified:** analyzer clean. abort-ownership + hang-ready + service (37) green.
+- **Files:** `lib/services/kobold_service.dart` + `_admin` + `_process`
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.11: WebServerHost split into streams and wiring (934 → 429)
 - **Why:** bind/lifecycle, overlay relays, and facade assembly lived in one 934-line host. The inventory's `web_server_static` / `web_server_auth` names were already extracted to routes.
 - **What:** the shell keeps fields, setters, `startSafely`, `describeStartFailure` (class static), and `stop` (429). `.streams` attaches processing / gen-status / LLM-ready / image / library relays (258). `.wiring` is `start` + `setupRemoteAccess` (309). Extensions call `notify()`.

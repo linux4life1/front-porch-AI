@@ -32,6 +32,7 @@
 > | S1.7 chat_service.dart shell | done | `refactor(chat): move ChatService private fields onto a mixin` |
 > | S1.10 time_service.dart | done | `refactor(chat): split TimeService into eval and apply` |
 > | S1.11 web_server_host.dart | done | `refactor(web): split the host into streams and wiring` |
+> | S1.12 kobold_service.dart | done | `refactor(kobold): split admin extras off generate/abort` |
 > | S1 remaining / S2 / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
@@ -828,8 +829,11 @@ The inventory guessed `web_server_static` / `web_server_auth`. PWA bundle and co
 
 | New file | Holds |
 | --- | --- |
-| `kobold_service.dart` | generate / abort |
-| `kobold_service_admin.dart` | admin / extras / model info |
+| `kobold_service.dart` | generate / abort (`LLMService` members stay on the class) |
+| `kobold_service_admin.dart` | extras / readiness / swap / model info |
+| `kobold_service_process.dart` | start / stop / console ingest |
+
+A two-file split left admin over 500. Process start/stop is the third file. `startKobold` / `stopKobold` stay as class forwarders so `import … show KoboldService` still resolves them.
 
 **Red if dropped:** Kobold client tests; `test/services/kobold_admin_hang_ready_test.dart`.
 
