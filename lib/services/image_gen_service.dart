@@ -40,6 +40,7 @@ part 'image_gen_service.generate.dart';
 part 'image_gen_service.prompt.dart';
 part 'image_gen_service.local_admin.dart';
 part 'image_gen_service.backends.dart';
+part 'image_gen_service.backends.generate.dart';
 part 'image_gen_service.catalog.dart';
 
 /// Parse a "WxH" size string into width and height integers.
@@ -391,7 +392,10 @@ class ImageGenService extends ChangeNotifier {
       for (final n in slice) {
         final meta = metas[j++];
         out.add(
-          ImageModelFamily.classifyLora(n, metadata: meta.isEmpty ? null : meta),
+          ImageModelFamily.classifyLora(
+            n,
+            metadata: meta.isEmpty ? null : meta,
+          ),
         );
       }
     }
@@ -474,8 +478,7 @@ class ImageGenService extends ChangeNotifier {
     String? referenceImageB64,
     double denoise = 0.5,
   }) {
-    final isImg2Img =
-        referenceImageB64 != null && referenceImageB64.isNotEmpty;
+    final isImg2Img = referenceImageB64 != null && referenceImageB64.isNotEmpty;
     return <String, dynamic>{
       'prompt': prompt,
       'negative_prompt': negativePrompt,
