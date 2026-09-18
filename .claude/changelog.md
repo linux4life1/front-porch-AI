@@ -1,3 +1,10 @@
+## 2026-09-18 — residual pass_support: fire off probe (503 → 255)
+- **Why:** `_matchesEvalSchema` / `usableEvalJsonText` / `fireStructuredEval` lived next to the owner loop and `ToolTransportProbe`.
+- **What:** `pass_support.dart` keeps owners, one-shot resolve, and the probe (255). `pass_support_fire.dart` is schema salvage + the ONE tools-vs-text fire (272). Same library — existing `pass_support.dart` imports still see `fireStructuredEval`.
+- **Verified:** analyzer clean.
+- **Files:** pass_support + pass_support_fire
+- **Commit:** this tip
+
 ## 2026-09-18 — residual world_repository: clone purge off CRUD (580 → 424)
 - **Why:** the one-shot character-linked clone purge lived next to CRUD after the attach extract. Attach one-liners stay on the class so FakeWorldRepository / noSuchMethod keep resolving.
 - **What:** `world_repository.dart` keeps CRUD and the attach/biome class forwarders (424). `world_repository_purge.dart` is `_maybePurge` + `_purgeCharacterLinkedWorldsImpl` (183). Public `purgeCharacterLinkedWorlds` stays a class one-liner.
