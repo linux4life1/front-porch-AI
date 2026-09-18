@@ -24,17 +24,3 @@ class WaifuQuestionRequest {
 }
 
 typedef WaifuQuestionFn = Future<String> Function(WaifuQuestionRequest request);
-
-WaifuQuestionRequest waifuQuestionFromArgs(Map<String, dynamic> args) {
-  final prompt =
-      args['prompt']?.toString() ?? args['question']?.toString() ?? '';
-  final raw = args['choices'] ?? args['options'];
-  final choices = <String>[];
-  if (raw is List) {
-    for (final e in raw) {
-      final s = e.toString().trim();
-      if (s.isNotEmpty) choices.add(s);
-    }
-  }
-  return WaifuQuestionRequest(prompt: prompt, choices: choices);
-}

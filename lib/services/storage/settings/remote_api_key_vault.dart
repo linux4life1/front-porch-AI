@@ -120,14 +120,6 @@ bool remoteApiUrlIsLmStudio(String url) {
   return _isLoopbackHost(uri.host) && _urlPort(uri) == 1234;
 }
 
-/// oMLX's fixed local OpenAI listener (port 8000). Chip identity only —
-/// switching to oMLX still uses [BackendType.omlx], not this URL write.
-bool remoteApiUrlIsOmlx(String url) {
-  final uri = Uri.tryParse(normalizeRemoteApiUrl(url));
-  if (uri == null || uri.host.isEmpty) return false;
-  return _isLoopbackHost(uri.host) && _urlPort(uri) == 8000;
-}
-
 bool remoteApiKeyLooksOpenRouter(String key) =>
     key.trim().toLowerCase().startsWith('sk-or-');
 

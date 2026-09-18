@@ -91,45 +91,6 @@ List<Map<String, dynamic>> worldScoutToolSchema() {
   ];
 }
 
-/// One lorebook card from signed source articles. Tools-only.
-List<Map<String, dynamic>> worldLoreEntryToolSchema() {
-  return [
-    {
-      'type': 'function',
-      'function': {
-        'name': kWorldLoreEntryToolName,
-        'description':
-            'Write one lorebook entry for the signed card. Ground every '
-            'sentence in the articles. Do not invent biomes, weather, or '
-            'facts the pages do not state. 160–330 characters. keys are '
-            'alias trigger words (name, nicknames, possessives). they/them '
-            'for unnamed people.',
-        'parameters': {
-          'type': 'object',
-          'properties': {
-            'name': {
-              'type': 'string',
-              'description': 'Short entry title (the card name is fine).',
-            },
-            'keys': {
-              'description':
-                  'Alias trigger words, comma-separated string or array.',
-            },
-            'content': {
-              'type': 'string',
-              'description':
-                  'The lorebook card: 160–330 characters a resident would '
-                  'know. No wiki markup. No "according to the wiki". they/them '
-                  'for unnamed scouts or bakers.',
-            },
-          },
-          'required': ['name', 'keys', 'content'],
-        },
-      },
-    },
-  ];
-}
-
 final _loreEntryItem = {
   'type': 'object',
   'properties': {

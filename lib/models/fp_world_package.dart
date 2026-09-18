@@ -152,11 +152,3 @@ FpWorldPackage decodeFpWorld(Map<String, dynamic> json) {
     ),
   );
 }
-
-FpWorldPackage decodeFpWorldString(String raw) {
-  final decoded = jsonDecode(raw);
-  if (decoded is! Map) {
-    throw FormatException('World file must be a JSON object');
-  }
-  return decodeFpWorld(Map<String, dynamic>.from(decoded));
-}

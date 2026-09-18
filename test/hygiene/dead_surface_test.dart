@@ -44,6 +44,33 @@ const List<String> kDeletedFiles = [
   'lib/ui/character_creator/widgets/styled_text_field.dart',
 ];
 
+/// Declarations deleted as unused, and what to reach for instead. Matched as
+/// whole words, so a live longer name that merely starts the same (for example
+/// streamOpenAiChatToolsWithStyleRetry) is not a hit.
+const Map<String, String> kDeletedSymbols = {
+  'decodeFpWorldString': 'decodeFpWorld takes the already-decoded map',
+  'kEvalWallClockTimeout': 'kFusedEvalBudget is the budget the evals use',
+  'streamOpenAiChatTools': 'streamOpenAiChatToolsWithStyleRetry is the door',
+  'remoteApiUrlIsOmlx': 'oMLX is selected by BackendType.omlx, not by URL',
+  'kWaifuLegacyDotDir': 'kWaifuDotDir; the .desk migration is long done',
+  'waifuPromptSpeech': 'OpenCode owns its session; the app replays no history',
+  'waifuClipPreservedThinking': 'went with waifuPromptSpeech, its only caller',
+  'kWaifuPreserveThinkMaxChars': 'ditto',
+  'WaifuJail': 'OpenCode enforces path scope; WaifuPathMode tells it which',
+  'WaifuJailHit': 'ditto',
+  'waifuStripRedundantProjectPrefix': 'was internal to the deleted resolver',
+  'waifuQuestionFromArgs': 'WaifuQuestionRequest is built by the ask dialog',
+  'kWaifuTodosRel': 'waifuTodosFile joins the path',
+  'waifuTodoStatusIsDone': 'waifuTodoCanonicalStatus / waifuTodoMark',
+  'waifuTodoWriteError': 'OpenCode validates its own todowrite payload',
+  'kWaifuReadClipChars': 'OpenCode clips tool output',
+  'waifuShouldCompact': 'the context bar compares fill against kWaifuCompactAt',
+  'worldLoreEntryToolSchema': 'worldLoreBatchToolSchema is the live schema',
+  'getModeLabel': 'the studio labels its own selector',
+  'decodeWorldRefList': 'resolveWorldRefsToIds takes the list',
+  'encodeWorldRefList': 'callers jsonEncode at the write site',
+};
+
 void main() {
   test('deleted files stay deleted', () {
     final returned = kDeletedFiles.where((p) => File(p).existsSync()).toList();
@@ -77,6 +104,35 @@ void main() {
       reason:
           'a deleted file is still referenced, so the tree will not '
           'build:\n${offenders.join('\n')}',
+    );
+  });
+
+  test('deleted declarations stay deleted', () {
+    final patterns = {
+      for (final name in kDeletedSymbols.keys)
+        name: RegExp('\\b${RegExp.escape(name)}\\b'),
+    };
+    final returned = <String>{};
+
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final source = entity.readAsStringSync();
+      patterns.forEach((name, pattern) {
+        if (pattern.hasMatch(source)) {
+          returned.add('$name is back in ${entity.path}');
+        }
+      });
+    }
+
+    expect(
+      returned.toList(),
+      isEmpty,
+      reason:
+          'these declarations were deleted as unused:\n'
+          '${returned.join('\n')}\n'
+          'Each one has a live replacement — see kDeletedSymbols. If the '
+          'replacement genuinely does not fit, bring the name back with its '
+          'caller and drop its entry here in the same change.',
     );
   });
 }

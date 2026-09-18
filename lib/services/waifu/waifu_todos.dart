@@ -22,8 +22,6 @@ import 'dart:io';
 import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:path/path.dart' as p;
 
-const kWaifuTodosRel = '$kWaifuDotDir/todos.json';
-
 String? waifuTodoCanonicalStatus(String raw) {
   switch (raw.trim().toLowerCase().replaceAll('-', '_')) {
     case 'completed':
@@ -39,36 +37,6 @@ String? waifuTodoCanonicalStatus(String raw) {
       return 'pending';
     default:
       return null;
-  }
-}
-
-String? waifuTodoWriteError(Object? raw) {
-  if (raw is! List) return 'todowrite: todos must be an array of objects';
-  for (final e in raw) {
-    if (e is! Map) return 'todowrite: each item must be an object';
-    final id = e['id']?.toString().trim() ?? '';
-    final content = (e['content'] ?? e['text'])?.toString().trim() ?? '';
-    final status = e['status']?.toString();
-    if (id.isEmpty) return 'todowrite: each item needs id';
-    if (content.isEmpty) return 'todowrite: each item needs content';
-    if (status == null || status.trim().isEmpty) {
-      return 'todowrite: each item needs status';
-    }
-    if (waifuTodoCanonicalStatus(status) == null) {
-      return 'todowrite: status must be pending, in_progress, or completed';
-    }
-  }
-  return null;
-}
-
-bool waifuTodoStatusIsDone(String status) {
-  switch (status.trim().toLowerCase()) {
-    case 'completed':
-    case 'complete':
-    case 'done':
-      return true;
-    default:
-      return false;
   }
 }
 

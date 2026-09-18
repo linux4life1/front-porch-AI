@@ -22,6 +22,3 @@ const kWaifuCoderName = 'Waifu Coder';
 
 /// Inbox photos and language data write here.
 const kWaifuDotDir = '.waifu';
-
-/// Legacy on-disk folder only. Read for migration; never used for new writes.
-const kWaifuLegacyDotDir = '.desk';

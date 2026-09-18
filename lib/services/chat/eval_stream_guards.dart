@@ -6,11 +6,6 @@
 import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-/// Hard wall-clock for one fused-eval text attempt. Between-chunk silence
-/// is a different guard ([kEvalStreamChunkTimeout]); this one trips while
-/// tokens keep arriving. 75s stays under the ~90s chat-turn target.
-const Duration kEvalWallClockTimeout = Duration(seconds: 75);
-
 /// Whole fused one-shot (`report_realism`) budget including tools retries
 /// and recovery. The turn must not sit on the Realism spinner for minutes.
 const Duration kFusedEvalBudget = Duration(seconds: 75);

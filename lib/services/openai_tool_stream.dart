@@ -199,42 +199,6 @@ void _ingestDataLine(
   } catch (_) {}
 }
 
-/// POST `/chat/completions` with `stream: true` and tools. Same contract as
-/// the non-stream door: null = unusable answer, throw = transport.
-Future<LlmToolResponse?> streamOpenAiChatTools({
-  required Uri uri,
-  required Map<String, String> headers,
-  required Map<String, dynamic> payload,
-  required http.Client client,
-  required bool wrapReasoning,
-  bool salvage = false,
-  void Function(String chunk)? onChunk,
-}) async {
-  payload['stream'] = true;
-  final request = http.Request('POST', uri);
-  request.headers.addAll(headers);
-  request.body = jsonEncode(payload);
-  final response = await client.send(request);
-  if (response.statusCode == 429 || response.statusCode >= 500) {
-    throw LlmToolTransportException(
-      'tool call HTTP ${response.statusCode} (server busy/unavailable)',
-    );
-  }
-  if (response.statusCode != 200) {
-    debugPrint(
-      '[OpenAiChat] Streamed tool call rejected '
-      '(HTTP ${response.statusCode}) — falling back to text transport',
-    );
-    return null;
-  }
-  return consumeOpenAiToolSse(
-    response.stream,
-    wrap: wrapReasoning,
-    salvage: salvage,
-    onChunk: onChunk,
-  );
-}
-
 /// Streaming twin of [attachToolsWithStyleRetry]: same named → required →
 /// auto step on a `tool_choice` 400. Overlay evals use this door.
 Future<LlmToolResponse?> streamOpenAiChatToolsWithStyleRetry({

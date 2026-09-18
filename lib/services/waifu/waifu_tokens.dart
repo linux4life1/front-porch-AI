@@ -20,7 +20,6 @@
 const kWaifuCompactAt = 0.75;
 const kWaifuDefaultContextTokens = 8192;
 const kWaifuCompactPrefix = '[Session compact]';
-const kWaifuReadClipChars = 100000;
 
 /// Fallback only — the bar prefers server usage when the backend sent it.
 int waifuEstimateTokens(String text) {
@@ -64,12 +63,6 @@ int waifuResolveContextBudget({
     return 40960;
   }
   return porch;
-}
-
-bool waifuShouldCompact({required int used, required int budget}) {
-  final cap = budget < 1 ? kWaifuDefaultContextTokens : budget;
-  if (cap <= 0) return false;
-  return used >= (cap * kWaifuCompactAt).ceil();
 }
 
 /// Same number the sidebar bar shows: API usage when we have it.

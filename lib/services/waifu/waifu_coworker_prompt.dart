@@ -17,21 +17,11 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tokens.dart';
 
 const kWaifuTalkSampleMaxTokens = 400;
 const kWaifuTalkSampleMaxCount = 2;
 const kWaifuVibeMaxChars = 400;
-
-/// Preserve-thinking clip. A 60k-char draft in `<think>` is not memory.
-const kWaifuPreserveThinkMaxChars = 2400;
-
-String waifuClipPreservedThinking(String think) {
-  final t = think.trim();
-  if (t.length <= kWaifuPreserveThinkMaxChars) return t;
-  return '…${t.substring(t.length - kWaifuPreserveThinkMaxChars)}';
-}
 
 String waifuTodayStamp([DateTime? now]) {
   final d = now ?? DateTime.now();
@@ -153,34 +143,3 @@ String buildWaifuOpenCodeAgentPrompt(CharacterCard card, {DateTime? now}) {
 /// call the old name stay honest.
 String buildWaifuCoworkerPrompt(CharacterCard card, {DateTime? now}) =>
     buildWaifuOpenCodeAgentPrompt(card, now: now);
-
-/// How a stored line would be spoken. OpenCode owns the real prompt.
-String waifuPromptSpeech(
-  WaifuMessage m,
-  String coworkerName, {
-  required bool preserveThinking,
-}) {
-  switch (m.kind) {
-    case WaifuMsgKind.recap:
-      final body = m.text.trim();
-      if (body.isEmpty) return '';
-      return 'Session recap (not a user message, not spoken by '
-          '$coworkerName):\n$body';
-    case WaifuMsgKind.tool:
-      final raw = m.toolName?.trim() ?? '';
-      final name = raw.isEmpty ? 'unknown' : raw;
-      if (m.toolOk == true) return '[tool $name ok]\n${m.text}';
-      return '[tool $name FAILED]\n${m.text}';
-    case WaifuMsgKind.user:
-      final photo = m.imagePath == null ? '' : '\n[user attached a photo]';
-      return 'User: ${m.text}$photo';
-    case WaifuMsgKind.assistant:
-      if (m.text.trim().isEmpty) return '';
-      final think = m.reasoning.trim();
-      if (preserveThinking && think.isNotEmpty) {
-        final clipped = waifuClipPreservedThinking(think);
-        return '$coworkerName: <think>$clipped</think>\n${m.text}';
-      }
-      return '$coworkerName: ${m.text}';
-  }
-}

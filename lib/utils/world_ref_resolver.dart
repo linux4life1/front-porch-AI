@@ -4,8 +4,6 @@
 // Pure helpers for Living Worlds Phase 0: resolve legacy name-based world
 // refs to UUIDs, and pick a free name on import collision.
 
-import 'dart:convert';
-
 /// Resolve a list of stored group/chat world refs (historically names, now
 /// preferably UUIDs) against a name→id map and an id set.
 ///
@@ -36,24 +34,6 @@ List<String> resolveWorldRefsToIds({
   }
   return out;
 }
-
-/// Decode a JSON array of strings (group world_ids column), tolerating junk.
-List<String> decodeWorldRefList(String? json) {
-  if (json == null || json.trim().isEmpty) return const [];
-  try {
-    final decoded = jsonDecode(json);
-    if (decoded is! List) return const [];
-    return [
-      for (final e in decoded)
-        if (e != null && e.toString().trim().isNotEmpty) e.toString().trim(),
-    ];
-  } catch (_) {
-    return const [];
-  }
-}
-
-/// Encode world ref list for storage in groups.world_ids.
-String encodeWorldRefList(List<String> ids) => jsonEncode(ids);
 
 /// Pick "Name", "Name (2)", "Name (3)", … until [isTaken] is false.
 String uniqueWorldName(String desired, bool Function(String name) isTaken) {
