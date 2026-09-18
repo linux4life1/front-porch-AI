@@ -1,3 +1,9 @@
+## 2026-09-18 — Restore real call-site pins deleted as decoration
+- **Why:** Senior Dev HOLD: the decoration sweep also dropped tests that go red if a live product call site dies. Surviving tests never reach those orders.
+- **What:** Restored 17 files byte-identical from `a316e7dc`. Left `pockets_off_means_off_test.dart` deleted (read gate is live-pinned; sidebar grep is stale against `pocketsFeatureEnabled`). Left the reviewer-hollow files deleted.
+- **Files:** 17 restored `*_test.dart` listed in the commit
+- **Commit:** this tip
+
 ## 2026-09-18 — Delete unused .recovery chat_page snapshots
 - **Why:** Four identical 472KB copies of an old `chat_page` sat in `.recovery` with zero importers. They still called StorageService flat accessors this PR already removed.
 - **What:** Deleted the four files. Restored the Rawhide `lengthSync` one-liner in `settings_page.hardware.dart` so io-lint no longer treats a dart-format wrap as new I/O.
