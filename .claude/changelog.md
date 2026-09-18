@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.17: OpenRouter split into tools and catalog (868 → 455)
+- **Why:** chat generate, tools/style retry, and the model catalog lived in one 868-line class.
+- **What:** the shell keeps configure, `generateStream`, abort, and class forwarders for `generateWithTools` / `fetchAvailableModels` (455) — `LLMService` plus `import … show OpenRouterService`. `.tools` is `_chatPayload` + `_generateWithTools` (318). `.catalog` is the `/models` fetch (153). Catalog overrides still do not call `configure()`.
+- **Verified:** analyzer clean. structured-eval + native-tools + tools (42) green.
+- **Files:** `lib/services/open_router_service.dart` + `.tools` + `.catalog`
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.13: ChatPage split into overlays and app-bar host (900 → 474)
 - **Why:** the route shell still inlined the background/bubble surface, page overlays, and the app bar next to `_bubbleKeys`.
 - **What:** `chat_page.dart` keeps the route, owner-scoped `_bubbleKeys` (HashMap.identity, never `GlobalObjectKey(msg)`), send, and a thin `build` (474). `_overlays` is the chat surface + loading/call/realism/objective/ONNX overlays (253). `_sidebar_host` is the app bar including the sidebar toggle (181). Extensions call `rebuildState`. `io-ok` stays on the `existsSync` token.

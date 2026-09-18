@@ -34,6 +34,7 @@
 > | S1.11 web_server_host.dart | done | `refactor(web): split the host into streams and wiring` |
 > | S1.12 kobold_service.dart | done | `refactor(kobold): split admin extras off generate/abort` |
 > | S1.13 chat_page.dart | done | `refactor(ui): split ChatPage overlays and app-bar host` |
+> | S1.17 open_router_service.dart | done | `refactor(remote): split OpenRouter tools and catalog off generate` |
 > | S1 remaining / S2 / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
