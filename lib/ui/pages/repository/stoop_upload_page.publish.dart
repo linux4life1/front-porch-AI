@@ -28,7 +28,8 @@ extension _StoopUploadPageStatePublish on _StoopUploadPageState {
     // library portrait. Gate on the resolved cover (not imagePath) so a
     // portrait-less card that has a starred look can still upload.
     final cover = context.read<CharacterRepository>().coverImageFileFor(card);
-    if (cover == null || !cover.existsSync()) {
+    final noCover = cover == null || !cover.existsSync(); // io-ok: share
+    if (noCover) {
       rebuildState(() => _error = 'This character has no avatar to upload.');
       return;
     }

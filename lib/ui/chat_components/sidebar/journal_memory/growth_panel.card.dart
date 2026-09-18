@@ -61,7 +61,7 @@ extension GrowthPanelCards on GrowthPanel {
     bool isPast = false,
   }) {
     final isArchive = ring.category == GrowthPhysics.kArchiveCategory;
-    final chipColor = categoryAccent(context, ring.category);
+    final chipColor = GrowthPanel.categoryAccent(context, ring.category);
     final emerging = !isPast && GrowthPhysics.tierOf(ring) == 'emerging';
     final receipts = GrowthStore.receiptsOf(ring);
 
@@ -97,7 +97,7 @@ extension GrowthPanelCards on GrowthPanel {
                 child: Text(
                   isArchive
                       ? 'PRE-RINGS ARCHIVE'
-                      : categoryLabel(ring.category).toUpperCase(),
+                      : GrowthPanel.categoryLabel(ring.category).toUpperCase(),
                   style: TextStyle(
                     fontSize: 8.5,
                     fontWeight: FontWeight.w700,

@@ -167,7 +167,7 @@ extension CreatorStatePrefs on CreatorState {
     guidedNsfwPersonalityController.text =
         prefs.getString(CreatorState._prefGuidedNsfwPersonality) ?? '';
 
-    notifyListeners();
+    notify();
   }
 
   Future<void> saveState() async {
@@ -468,7 +468,7 @@ extension CreatorStatePrefs on CreatorState {
     koboldStatus = '';
     selectedModelId = '';
 
-    notifyListeners();
+    notify();
   }
 
   /// Clear the core saved-form prefs after a character is successfully created,

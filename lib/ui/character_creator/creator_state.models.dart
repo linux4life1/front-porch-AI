@@ -28,7 +28,7 @@ extension CreatorStateModels on CreatorState {
     progress = 0.0;
     _currentStep = 2; // Return to config step
     activeGenService = null;
-    notifyListeners();
+    notify();
   }
 
   // Model loading / scanning (signatures adapted to accept services; callers pass from UI context)
@@ -37,7 +37,7 @@ extension CreatorStateModels on CreatorState {
       availableModels = [];
       isLoadingModels = false;
       selectedModelId = '';
-      notifyListeners();
+      notify();
       return;
     }
     final openRouter = llmProvider.openRouterService;
@@ -48,26 +48,27 @@ extension CreatorStateModels on CreatorState {
       if (selectedModelId.isEmpty) {
         selectedModelId = openRouter.modelName;
       }
-      notifyListeners();
+      notify();
     } catch (e) {
       debugPrint('CreatorState: Failed to load models: $e');
       isLoadingModels = false;
       selectedModelId = llmProvider.openRouterService.modelName;
-      notifyListeners();
+      notify();
     }
   }
 
   void scanLocalModels(StorageService storage) {
     final modelsDir = storage.modelsDir;
-    if (!modelsDir.existsSync()) {
+    final noDir = !modelsDir.existsSync(); // io-ok: catalog scan
+    if (noDir) {
       localModels = [];
-      notifyListeners();
+      notify();
       return;
     }
     try {
       final files =
           modelsDir
-              .listSync(recursive: true)
+              .listSync(recursive: true) // io-ok: catalog scan
               .whereType<File>()
               .where((f) => f.path.toLowerCase().endsWith('.gguf'))
               .toList()
@@ -82,17 +83,17 @@ extension CreatorStateModels on CreatorState {
         selectedLocalModelPath =
             storage.backendSettings.lastUsedModelPath ?? '';
       }
-      notifyListeners();
+      notify();
     } catch (e) {
       debugPrint('CreatorState: Failed to scan models: $e');
       localModels = [];
-      notifyListeners();
+      notify();
     }
   }
 
   void scanLocalPresets(StorageService storage) {
     localPresets = scanKcppsPresets(storage.binDir);
-    notifyListeners();
+    notify();
   }
 
   void initLocalSettingsControllers(StorageService storage) {
@@ -114,7 +115,7 @@ extension CreatorStateModels on CreatorState {
 
     isReloadingKobold = true;
     koboldStatus = 'Stopping KoboldCpp...';
-    notifyListeners();
+    notify();
 
     try {
       // Stop if running
@@ -127,13 +128,13 @@ extension CreatorStateModels on CreatorState {
       if (backendManager.backendPath == null) {
         isReloadingKobold = false;
         koboldStatus = 'Error: Backend executable not found';
-        notifyListeners();
+        notify();
         return;
       }
       final execPath = backendManager.backendPath!;
 
       koboldStatus = 'Starting KoboldCpp with new model...';
-      notifyListeners();
+      notify();
 
       // If the .kcpps preset owns the model, let it handle model loading
       final hasValidKcppsModel =
@@ -162,39 +163,39 @@ extension CreatorStateModels on CreatorState {
 
       // Poll for model readiness
       koboldStatus = 'Loading model...';
-      notifyListeners();
+      notify();
       for (int i = 0; i < 120; i++) {
         await Future.delayed(const Duration(seconds: 1));
         if (kobold.modelReady) {
           isReloadingKobold = false;
           koboldStatus = 'Model loaded successfully!';
           selectedLocalModelPath = modelPath;
-          notifyListeners();
+          notify();
           return;
         }
         if (kobold.modelLoadingStatus.isNotEmpty) {
           koboldStatus = kobold.modelLoadingStatus;
-          notifyListeners();
+          notify();
         }
       }
 
       isReloadingKobold = false;
       koboldStatus = 'Timeout waiting for model to load';
-      notifyListeners();
+      notify();
     } catch (e) {
       isReloadingKobold = false;
       koboldStatus = 'Error: $e';
-      notifyListeners();
+      notify();
     }
   }
 }
 
 // Helper for kcpps scan (lifted if not in utils; assume or duplicate minimal)
 List<File> scanKcppsPresets(Directory binDir) {
-  if (!binDir.existsSync()) return [];
+  if (!binDir.existsSync()) return []; // io-ok: preset scan
   try {
     return binDir
-        .listSync()
+        .listSync() // io-ok: preset scan
         .whereType<File>()
         .where((f) => f.path.toLowerCase().endsWith('.kcpps'))
         .toList();

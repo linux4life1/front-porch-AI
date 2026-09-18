@@ -1,3 +1,10 @@
+## 2026-09-18 — CI: notify, GrowthPanel statics, theme-keep, io-ok after S1 splits
+- **Why:** three CI jobs went red on the split tip. Extensions on `CreatorState` called `notifyListeners` (protected). `growth_panel.card.dart` used `categoryAccent` / `categoryLabel` unqualified. `dart format` wrapped `Colors.blueAccent` and sync I/O off their same-line allow comments, so theme-lint and io-lint treated the moved lines as new.
+- **What:** prefs/models parts call `CreatorState.notify()`. Card chips use `GrowthPanel.categoryAccent` / `GrowthPanel.categoryLabel`. Lore enabled-marker uses one `_loreEnabledAccent` const with `// theme-keep` on the `Colors.blueAccent` line. Catalog/preset/cover sync I/O keep `// io-ok` on the token line (short assignment so format cannot move the comment inside the `if` block).
+- **Verified:** `flutter analyze` clean on the six touched paths. Local theme-lint and io-lint greps against `origin/Rawhide` pass.
+- **Files:** `creator_state.prefs.dart`, `creator_state.models.dart`, `growth_panel.card.dart`, `create_group_chat_page.steps_lore.dart`, `stoop_upload_page.publish.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.15: Growth sidebar split into cards, actions, and the ring editor (881 → 327)
 - **Why:** the panel listed rings, owned the plant/edit/reset path, and inlined the ring editor dialog.
 - **What:** `growth_panel.dart` keeps the list, review banner, and cadence slider (327). `.card` is the past fold + ring card + overflow menu (248). `.actions` is check-now / plant / edit / reset / settings (206). `.editor` is `_RingEditorDialog` (169). Journal's editor is a different UX — not shared.
