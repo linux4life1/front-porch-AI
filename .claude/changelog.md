@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 wiring_evals: judge builders off engine/transport (675 → 353)
+- **Why:** pre-gen judge constructors lived next to the shared eval engine, post-gen trio, and tools transport.
+- **What:** `chat_service_wiring_evals.dart` keeps LlmEvalEngine, pockets/climax/reply-facts, `_fireToolEval`, and the tool-support pill (353). `chat_service_wiring_evals_judges.dart` is verifier, needs impact, RealismEvals, ObjectiveProposal (334). Late finals stay on the class. `objectivesActive` stays the live AND. Injection is a different file.
+- **Verified:** analyzer clean. one-shot objectives gate + mode + parity (15) green.
+- **Files:** wiring_evals + wiring_evals_judges; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 stoop_browse_view: grid off search (678 → 361)
 - **Why:** Stoop browse inlined the featured hero, pick rows, and card sliver next to search/sort/type load.
 - **What:** `stoop_browse_view.dart` keeps load, `_reqGen`, search bar, sort, and type chips (361). `stoop_browse_view.grid.dart` is the hero, pick rows, and grid sliver (329). `_loadAll` / `_loadMore` stay in the shell so the superseded-filter source guard still reads them.

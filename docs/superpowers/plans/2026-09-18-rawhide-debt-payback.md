@@ -55,6 +55,7 @@
 > | S2 edit_character_page.dart | done | `refactor(ui): split the character-editor tab host off the field bag` |
 > | S2 memory_service.dart | done | `refactor(rag): split retrieve scoring off embed and store` |
 > | S2 stoop_browse_view.dart | done | `refactor(stoop): split the browse grid off search and load` |
+> | S2 chat_service_wiring_evals.dart | done | `refactor(chat): split judge builders off the eval engine and transport` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about

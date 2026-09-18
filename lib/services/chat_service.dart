@@ -119,6 +119,7 @@ part 'chat/chat_service_context_budget.dart';
 part 'chat/chat_service_wiring_realism.dart';
 part 'chat/chat_service_web_search.dart';
 part 'chat/chat_service_wiring_evals.dart';
+part 'chat/chat_service_wiring_evals_judges.dart';
 part 'chat/chat_service_llm_lanes.dart';
 part 'chat/chat_service_wiring_memory.dart';
 part 'chat/chat_service_wiring_injection.dart';
