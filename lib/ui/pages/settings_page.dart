@@ -359,21 +359,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // _buildOnnxDownloadButton deleted (dead after voice extraction + lift of copy to voice tab; deletion part of task).
-
-  // _buildGeneralTab extracted to lib/ui/settings/tabs/general_tab.dart (Stage 5 remaining tabs step); deletion part of task.
-  // Shell now delegates; state passed via ctor.
-
-  // _buildColorRow deleted (dead after general tab extraction; deletion part of task).
-
-  // _buildVoiceMediaTab extracted to VoiceMediaTab (Stage 5; largest tab first per plan;
-  // full lift + AppColors exclusive + shared state via ctor; body deleted as part of task).
-  // See lib/ui/settings/tabs/voice_media_tab.dart
-
-  /// Backend tab: thin wrapper that wires the extracted [BackendTab] widget
-  /// with the page's shared launch state. The auto-select-first-model default
-  /// and every state-mutating callback are the original _buildBackendTab
-  /// closures, moved here verbatim so launch behavior is unchanged.
+  /// Backend tab: wires [BackendTab] to this page's launch state.
   Widget _backendTab() {
     final storageService = Provider.of<StorageService>(context);
     final modelManager = Provider.of<ModelManager>(context);
@@ -494,10 +480,4 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   bool _advancedLaunchExpanded = false;
-
-  // _showSavePromptDialog extracted to lib/ui/settings/dialogs/prompt_save_dialog.dart (Stage 5 helper dialogs step); deletion part of task.
-
-  // _showDeletePromptDialog extracted to lib/ui/settings/dialogs/prompt_delete_dialog.dart (Stage 5); deletion part of task.
 }
-
-// _showColorPicker extracted to lib/ui/settings/dialogs/color_picker_dialog.dart (Stage 5 helper dialogs); deletion part of task.

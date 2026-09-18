@@ -69,111 +69,6 @@ const Duration kEvalToolCallTimeout = Duration(minutes: 6);
 /// against low-temperature repetition loops.
 const double kScalarEvalRepeatPenalty = 1.0;
 
-/// Plain (non-ChangeNotifier) domain service owning the central LLM eval
-/// firing (_fireLLMEval with full streaming + retry loop + cancel support,
-/// [evalLaneParams] / [kEvalLaneMaxLength] / temp 0.1 / no reasoning / empty stop),
-/// the tiny _extractJsonInt/_extractJsonBool helpers, the central
-/// _stripThinkBlocks (handles completed + unclosed &lt;think&gt; prefix).
-/// (The 5 realism eval prompt builders + call methods (relationship, emotional,
-/// physical, narrative with proposed_objective logic, one-shot fused) moved to
-/// sibling leaf realism_evals.dart in step 10 per extraction order; the
-/// objective proposal path handling + generateObjectiveTasks +
-/// _checkTaskCompletionInBackground moved to sibling leaf
-/// objective_proposal.dart in step 11; this engine now provides the
-/// fire/strip/extract cbs + evaluateNeedsImpactCall for the needs domain +
-/// the 5 realism calls (granular cbs to realism_evals) + fire/strip to
-/// objective_proposal.)
-///
-/// Extracted as step 9 (immediately after prompt_injection step 8 per the
-/// 15-step leaf-first order in docs/refactoring-guide.md).
-/// + needs impact support (evaluateNeedsImpactCall for the needs_impact_evaluator leaf; open prompt + simple clamps, model-driven like other realism evals).
-/// + step 10 sibling realism_evals uses this engine's fire/strip/extract for the
-/// 5 realism calls (granular cbs; prompt builders full in leaf).
-/// + step 11 sibling objective_proposal uses this engine's strip (for central
-/// &lt;think&gt; in 2000 gen/check paths).
-///
-/// Depends on prompt_injection only in the ordering sense (prompt builders
-/// for main chat context are step 8); this engine's eval prompts are
-/// self-contained (no direct use of the 8 _get*Injection builders).
-/// "thin delegation here; full engine in step9"; "objective proposal
-/// coordination kept thin/stayed in god per plan for step9/11" (setObjective
-/// + generate dispatch + list mgmt + _load + _activeObjectives + tasksFor
-/// + _isChecking + _pendingRealismMetadata + captureRealismState +
-/// _saveChat coordination stay in god; engine calls via cbs only; full
-/// gen/check + internal prompt/strip/parse in step 11 leaf).
-///
-/// ChatService owns via 1 late final (inserted after the 8 prompt_injection
-/// ones) + thin public delegates (_fireLLMEval, _stripThinkBlocks,
-/// _extract*, evaluateNeedsImpactCall) at *every* prior call site (firing points,
-/// direct _fire/_strip/_extract calls, needs impact thin). The 5 _evaluate*Call
-/// thins delegate to realism_evals (step 10). generateObjectiveTasks +
-/// _checkTaskCompletionInBackground thins now delegate to objective_proposal
-/// (step 11). 0 @Deprecated shims for this surface (thins stay in god as the
-/// public surface for now).
-/// 0 new god private _ methods beyond the required thin delegates (_fireLLMEval/_strip/_extract* + evaluateNeedsImpactCall; void _ count stayed 15; +1 late final only; thins/calls/late final only per plan;
-/// reset comment syncs only).
-///
-/// Ctor receives state via granular callbacks (modeled exactly on steps 6-8:
-/// onNotify, onSaveChat (now dead post step11 objective move; removed below),
-/// getActiveCharacter, getActiveGroup, getGroupCharacters
-/// not needed here, getUserName, getCharacterIdFromCard not directly,
-/// isGroup/isObserverMode via getActiveGroup+getIsObserverMode,
-/// getGroupValue/setGroupValue not needed (use rel/nsfw services for scalars),
-/// plus for fire readiness + cancel: getLlmService, getIsLocal, getKoboldService,
-/// reconnectIfAlive, ensureServerIdle, getIsCancellingRealismEval,
-/// getRealismEvalCancelled,
-/// plus for state sets (now used by needs impact; realism evals use via their own
-/// leaf cbs; objective gen/check moved to step 11 leaf): get/setPendingRealismMetadata,
-/// captureRealismState, get/setCharacterEmotion, get/setEmotionIntensity,
-/// plus dep services for their owned state (relationshipService for apply deltas /
-/// updateFixation / setSpatial / shortTermTierName / trustLevel / spatialStance
-/// used by stayed needs impact path).
-/// Use live closures over god state for any cross (e.g. _pending map, emotion
-/// scalars, test overrides); avoid cycles; testable with small factory in test.
-///
-/// 1:1 vs group parity + oneShot vs normal eval deltas 1:1 equivalent
-/// (Realism Engine bond/trust ±300, arousal ±100, emotion inertia, fixation,
-/// deterministic time every 6, needs decay/step/catastrophe/erotic buffers/
-/// afterglow/lust-haze/post-crash/priority/fulfillment; objectives/tasks
-/// autonomous get autoGenerateTasks:true + correct target even under
-/// impersonation, user-created do not — proposal target + gen/check dispatch
-/// preserved via cbs + god impersonation; full in step 11 leaf) qualified
-/// (preserved exactly; exercised in dedicated + key suites + manual). The 5
-/// realism calls now in sibling leaf (step 10) inherit the same cbs/impersonation
-/// for parity.
-///
-/// All &lt;think&gt; stripping uses the central stripThinkBlocks (2000 budget
-/// already applied in gen/check/objective paths via step 11 leaf's use of this
-/// strip cb; naive inlines in non-eval paths left for later steps).
-///
-/// Reset hygiene: stateless or prompt-only (no owned reset/seed/load state);
-/// no reset calls needed on engine; comments in god updated to list full
-/// "needs/chaos/relationship/expression/time/nsfw/lorebook_scanner +
-/// prompt_injection (stateless builders; no reset calls needed) +
-/// llm_eval_engine (stateless or prompt-only; no reset calls needed;
-/// incomplete zeroing of secondary config on group/0-session/new-chat now complete)
-/// + realism_evals (stateless or prompt-only; no reset calls needed)
-/// + objective_proposal (stateless or prompt-only; no reset calls needed)"
-/// + cross-refs (e.g. setActiveCharacter:1572) at all ~12-15 sites (top ctor
-/// docs + setActiveCharacter, setActiveGroup x2, _loadLast empty, startNewChat
-/// 1:1 ext-seed + group non-ext both branches, other load/seed); both startNew
-/// branches have explicit comments even if no engine reset call.
-///
-/// aug exercising only passive/qualified (no llm-eval-specific aug file edits;
-/// reset sites passively hit by pre-existing startNew/setActive/_loadLast/group;
-/// full eval/JSON/strip + needs impact only in dedicated + manual;
-/// objective proposal/gen/check exercised via god thins generate/check ;
-/// qualified notes only in dedicated header + god + MD per precedent).
-///
-/// test count 11 (11 bodies via grep -c '^\s*test(' confirmed post dead noop/placeholder deletion as part of task; objective tests excised to dedicated step11 test).
-/// (onNotify of cbs unexercised by design (no onNotify wiring in this passive factory; exercised in prod + key suites); onNotify/onSaveChat now dead post step11 objective move, to be cleaned).
-/// 0 new god private _ methods beyond required thin delegates (fire/strip/extract thins; void_ grep 15; +1 late final only; thins/calls/late final only per plan; confirmed grep).
-/// dispatch preserved.
-/// realism/oneShot/group parity qualified.
-///
-/// Some objective mgmt / prompt coordination stayed thin in god per plan for step9/11
-/// (qualify everywhere; full objective proposal in step 11 sibling leaf).
-/// Realism evals (step 10) own their 5 calls + prompts.
 /// The last few turns as `sender: text`, the shape every eval that needs scene
 /// context uses.
 ///
@@ -246,11 +141,6 @@ String clampEvalMessage(String text) {
 }
 
 class LlmEvalEngine {
-  // (onNotify/onSaveChat removed here post step11 objective_proposal extraction;
-  // they were only used by the moved checkTaskCompletionInBackground finally;
-  // deletion part of task + anti-accumulation. Engine is now strictly for fire/strip/
-  // extract + needs impact call. on* if needed by future would be re-added then.)
-
   // Character / group / mode state (for guard + 1:1 vs group dispatch via impersonation)
   final CharacterCard? Function() getActiveCharacter;
   final GroupChat? Function()
@@ -677,14 +567,6 @@ class LlmEvalEngine {
     }
     return response.isEmpty ? null : response;
   }
-
-  // (generateObjectiveTasks excised; full impl + prompt/strip/parse/2000 now in
-  // objective_proposal.dart step 11. Deletion part of task.)
-
-  // (checkTaskCompletionInBackground excised; full body + logic moved to
-  // objective_proposal.dart step 11. Deletion part of task.)
-  // (check + gen excised to objective_proposal step 11; deletion part of task)
-  // (all dangling body chunks removed; engine clean for step 11.)
 
   Future<String?> evaluateNeedsImpactCall(
     String responseText, {

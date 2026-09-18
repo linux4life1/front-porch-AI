@@ -21,8 +21,7 @@ import 'package:flex_color_picker/flex_color_picker.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Shows color picker dialog (extracted from _showColorPicker, Stage 5).
-/// AppColors exclusive (fixed all hards; uses presetColors from AppColors to avoid dupe).
+/// Color picker using [AppColors.presetColors].
 Future<void> showColorPicker(
   BuildContext context,
   Color initialColor,

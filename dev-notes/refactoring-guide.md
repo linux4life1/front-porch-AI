@@ -281,7 +281,7 @@ Extract **leaf dependencies first** (services with the fewest internal dependenc
 | 12 | `summary_service.dart` | llm_eval_engine | (later deleted — replaced by the Journal, docs/design/journal-memory.md) |
 | 13 | `fact_extraction.dart` | llm_eval_engine | (later deleted — replaced by the Journal) |
 | 14 | `evolution_service.dart` | llm_eval_engine |
-| 15 | Refactor remaining `ChatService` | all of the above | (completed: audit + pure cleanup of god orchestration/_groupRealism/core flows (no new leaf/extraction to preserve exactly 15 void _ thins+coord surface per plan/CLAUDE); dead/obsolete comment removal; thin consistency; full Step 15 record + gates in dev-notes/refactor-god-file-modularization.md) |
+| 15 | Refactor remaining `ChatService` | all of the above | completed |
 
 For each extracted service in this stage:
 
@@ -297,7 +297,7 @@ For each extracted service in this stage:
 ### Extraction pattern (per commit)
 
 1. Create the new file. Copy all methods + private fields for that domain.
-2. The constructor receives whatever state it needs (scalar values, other services). For the initial extraction, pass the whole `ChatService` as a parent reference via an interface or callback. (Granular callbacks are an acceptable implementation for the initial leaf per the Stage 3 needs_simulation precedent: they avoid import cycles, enable isolated unit tests with a small factory helper, and remain friendly to future extractions that will shrink the surface. The plan text is satisfied by documenting the choice; see dev-notes/refactor-god-file-modularization.md Fix Round 1 and the sim header for rationale.)
+2. The constructor receives whatever state it needs (scalar values, other services). For the initial extraction, pass the whole `ChatService` as a parent reference via an interface or callback. Granular callbacks are acceptable for the initial leaf: they avoid import cycles and keep a small test factory.
 3. In `ChatService`:
    ```dart
    late final _needsSimulation = NeedsSimulation(

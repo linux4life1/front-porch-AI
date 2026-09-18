@@ -28,10 +28,8 @@ import 'package:front_porch_ai/services/services.dart';
 /// Creator mode selection.
 enum CreatorMode { automated, guided, quick }
 
-/// ChangeNotifier lifting all shared state for the AI character creator wizard.
-/// Pure mechanical lift from the original god page per Stage 4 plan.
-/// Owns all form fields, controllers, prefs keys, load/save/reset, step index,
-/// generation state, and orchestration methods. UI steps are pure presentation.
+/// Shared state for the AI character creator wizard: form fields,
+/// controllers, prefs, load/save/reset, step index, and generation.
 class CreatorState extends ChangeNotifier {
   // Step tracking (0=setup, 1=mode, 2=config, 3=generating, 4=realism, 5=review)
   int _currentStep = 0;

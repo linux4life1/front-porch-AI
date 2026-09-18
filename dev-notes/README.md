@@ -5,14 +5,11 @@ documentation** — see [`docs/`](../docs/) for that, and
 [`CLAUDE.md`](../CLAUDE.md) for the project's rules.
 
 These files live outside `docs/` on purpose: `.github/workflows/pages.yml`
-publishes the whole of `docs/` to the documentation site, and an internal
-progress log with "god file" in its title is not something a visitor looking for
-the install guide should be served.
+publishes the whole of `docs/` to the documentation site.
 
 | File | What it is |
 |---|---|
 | [`refactoring-guide.md`](refactoring-guide.md) | The god-file modularization strategy — how a large service gets broken into focused leaves without breaking Realism/Needs parity |
-| [`refactor-god-file-modularization.md`](refactor-god-file-modularization.md) | Stage-by-stage progress log for that work. Historical record; read the guide first |
 | [`release-promotion.md`](release-promotion.md) | Runbook for promoting `Rawhide` to `main` and cutting a release |
 | [`web-parity.md`](web-parity.md) | Desktop ⇄ web/mobile parity checklist |
 

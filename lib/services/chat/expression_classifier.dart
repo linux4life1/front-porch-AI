@@ -32,58 +32,11 @@ import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-/// Plain (non-ChangeNotifier) domain service owning the chat-scoped expression
-/// label selection state machine, manual override, avatar resolution (with
-/// random + lastId reroll avoidance), LLM reclassification, ONNX cache/debounce/
-/// classify wiring, and related caches.
-///
-/// ChatService owns the instance via a private late final and delegates. All
-/// cross state (isEvaluatingRealism guard, LLM for reclass stream + isThinking,
-/// storage for mode, isGenerating for ONNX stability, current emotion, messages
-/// for last-AI text + count, and the special realism-cancel-during-onnx path)
-/// is accessed exclusively via 13 callbacks (onNotify + onSaveChat + 11 granular get*/set*/on*) supplied at construction (4 of which for the cancel cross). This keeps
-/// the extracted service testable and avoids cycles. (Granular callbacks chosen
-/// over a full parent interface ref for this leaf extraction per the Stage 3
-/// precedent in needs/chaos/relationship and updated plan guidance in
-/// refactoring-guide.md.)
-///
-/// The low-level ExpressionClassifierService (LLM/ONNX/manual mode manager +
-/// sidecar) remains in lib/services/expression_classifier.dart and is owned/
-/// initialized here for the chat's use. The top-level service is wired from
-/// main.dart via the (deprecated) shim on ChatService.
-///
-/// Extraction is mechanical: original fields, the large currentExpressionLabel
-/// getter (manual priority, ONNX stability+debounce+trigger+cache, LLM map +
-/// reclass trigger), resolveExpressionAvatar (prime fallback, neutral fallback,
-/// multi match random with optional reroll avoiding lastId), setManual,
-/// reclassifyEmotion public, init, setService, _reclassifyEmotionAsync (full
-/// stream + json/think extract + notify), _classifyWithOnnxAsync (debounce,
-/// ensure, last AI pick, classify, fallback, notify + the cancel block),
-/// the regen onnx invalidate, and reset/invalidate helpers copied/adapted.
-///
-/// Group vs 1:1 parity preserved exactly for expression: expression label/avatar
-/// computation is not per-speaker (unlike relationship/needs); it derives from
-/// the current _characterEmotion scalar (which the owner loads/swaps via
-/// _loadGroupRealismIntoScalars / _save... for the active speaker during
-/// impersonation/group turns). Manual override and ONNX caches are chat-scoped
-/// (shared). When owner switches speaker emotion, currentExpressionLabel +
-/// resolve behave identically to 1:1. No per-speaker expression label storage
-/// was present originally.
-///
-/// UI-coordination (command handling kept thin in god), prompt injection
-/// (expression label lists for _get*Injection) and some context using emotion
-/// stay in ChatService (to be thinned in step 8 prompt_injection subdir).
-/// @Deprecated shims on ChatService preserve the public surface used by
-/// external callers (chat_page.dart for current/resolve; main for setService;
-/// reclassify/manual for API + tests): currentExpressionLabel,
-/// manualExpressionLabel, resolveExpressionAvatar, reclassifyEmotion.
-///
-/// Reset helper (resetForFreshChat) + invalidate helper support the documented
-/// "keep reset blocks in sync" sites and regen paths in parent without adding
-/// private helpers to the god file.
-///
-/// 0 new private methods added to ChatService as part of this step (thins +
-/// delegations only; deletions of moved code are mandatory part of the task).
+/// Chat-scoped expression labels: manual override, avatar pick (random +
+/// lastId reroll avoidance), LLM reclass, ONNX cache/debounce.
+/// Label/avatar is not per-speaker — it follows the active `_characterEmotion`
+/// scalar the owner swaps during group impersonation. Manual override and
+/// ONNX caches stay chat-scoped.
 class ExpressionService {
   final VoidCallback onNotify;
   final Future<void> Function() onSaveChat;

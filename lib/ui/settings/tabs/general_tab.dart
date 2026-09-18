@@ -30,8 +30,7 @@ import 'package:front_porch_ai/ui/settings/dialogs/prompt_delete_dialog.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
 
-/// General tab extracted from settings_page (Stage 5).
-/// Lift of _buildGeneralTab with shared state passed via ctor, AppColors exclusive in the file, use of extracted widgets and dialogs.
+/// Settings → General.
 class GeneralTab extends StatelessWidget {
   const GeneralTab({super.key, required this.systemPromptController});
 

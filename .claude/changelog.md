@@ -1,3 +1,9 @@
+## 2026-09-18 — Rip agent-narration slop and leftover extract essays
+- **Why:** User lock: close the ~65k-deleted gap vs Rawhide with real slop, not live product. Session breadcrumbs and extract-process comments are not gates.
+- **What:** Deleted the 4796-line god-file progress log and seven leftover agent plans/checklists with zero inbound refs. Stripped Stage/step/"0 new god private"/deletion-part-of-task essays from extract leftovers (settings_page tombstones, leaf headers, wiring builders). Kept live contracts (eval hang guards, messagesThroughLastUser user-score rule, pockets hide-not-erase, io-ok). Did not touch the 17 restored pins, hardware lengthSync, or restore pockets_off_means_off_test.
+- **Files:** `dev-notes/refactor-god-file-modularization.md`; unused `docs/superpowers/plans|specs` + `docs/stoop-report-gate-app.md`; extract-comment cuts under `lib/`
+- **Commit:** this tip
+
 ## 2026-09-18 — Second dead-code cut: leftover unused screenshots and DMG backgrounds
 - **Why:** After the pockets pin, hunt for another ~6k deleted lines vs Rawhide to reach ~65k. Every `lib/` and `web_ui/src` Dart/TS file has an importer. `.recovery/` is empty. No unused `*_test.dart` helpers. The only proven-zero-ref leftovers were superseded screenshot backups and retired DMG art.
 - **What:** Deleted `docs/screenshots/{home,group_chat,create}.png` (0 inbound refs; README uses `*_new.png`), `assets/macos/dmg-background.png` + `assets/dmg_background.png` (create-dmg retired; no script/workflow load), and unused `assets/images/eye_bleach.jpg` (ships via the `assets/images/` glob, never loaded). Dropped the now-false `.gitignore` DMG png exception. Did not delete live design notes (`tools-transport.md`, `dev-notes/refactor-god-file-modularization.md`) or any of the 17 restored pins / hardware `lengthSync` / pockets pin.

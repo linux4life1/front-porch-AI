@@ -158,7 +158,6 @@ class AppColors {
 
   // ---------------------------------------------------------------------------
   // Creator wizard selected card backgrounds (for mode/backend chips)
-  // Added for AppColors exclusive compliance in Stage 4 extraction.
   // ---------------------------------------------------------------------------
 
   /// Selected background for creator mode and backend selection cards.

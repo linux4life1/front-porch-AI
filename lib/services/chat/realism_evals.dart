@@ -53,86 +53,11 @@ part 'realism_evals.support.dart';
 part 'realism_evals.calls.dart';
 part 'realism_evals.one_shot.dart';
 
-/// Plain (non-ChangeNotifier) leaf sibling to LlmEvalEngine owning the 5
-/// realism evaluation calls (relationship, emotional state, physical state,
-/// narrative, one-shot) + their prompt builders, orchestration, parse for
-/// realism results (bond/trust deltas ± , emotion/inertia, arousal, fixation,
-/// spatial stance, time, pending metadata for chips/reasons), and side effects
-/// (apply on rel/nsfw, set scalars, updateFixation, setObjective thin cb for
-/// autonomous, snapshot for oneShot).
-///
-/// Per extraction order table in docs/refactoring-guide.md (order 10 after
-/// 9/9b llm_eval + needs_impact; depends on llm_eval_engine for fire/strip/extract
-/// cbs; prompt builders for the 5 evals full in leaf or coordinated per precedent).
-///
-/// Extracted as step 10 of Stage 3 god-file modularization.
-/// "the 5 realism evaluation calls: relationship, emotional state, physical state,
-/// narrative, one-shot" as plain leaf sibling to llm_eval_engine.
-///
-/// ChatService owns via late final (after _llmEvalEngine) + thins/delegations at
-/// *every* prior call site for the 5 _evaluate*Call (full excision of moved code
-/// from engine + old thin bodies). Some coordination (setObjective thin for auto
-/// proposal in narr/oneShot, the clock + posture delegates to timeService which
-/// receives fire cbs) may stay thin/coordinated in god per precedent (qualify).
-///
-/// Ctor receives state via granular callbacks (modeled on steps 6-9b + needs_impact:
-/// fireLLMEval/strip/extract* (via god thins over engine),
-/// getActiveCharacter/getActiveGroup/getIsObserverMode (for guards + 1:1 vs group
-/// dispatch via god's impersonation), getUserName, getRealismEnabled, getMessages,
-/// get/setPendingRealismMetadata, captureRealismState, get/setCharacterEmotion,
-/// get/setEmotionIntensity, relationshipService, nsfwService, timeService (for
-/// physical + ctx in oneShot), getExpressionEnabled (for prompt label list),
-/// getPrimaryObjective/getActiveObjectives/setObjective (for narr/oneShot proposed
-/// objective under impersonation), getMessages for recent etc).
-/// ~23+ granular cbs total (onSave/onNotify removed in fix round 1: god owns
-/// post-eval save/notify after pre-turn evals to avoid double in oneShot paths
-/// and races; leaf populates pending snapshot for god to persist). Live closures
-/// in god for test overrides + group per-speaker impersonation/load scalars
-/// without cycles; testable with small factory in dedicated test.
-///
-/// 1:1 vs group + oneShot vs normal parity 1:1 equivalent deltas/behavior at all
-/// times (Realism Engine bond/trust ±300/±100 clamps, emotion, fixation, spatial,
-/// time every-6, arousal; oneShot must match normal multi-call for the fields it
-/// covers; Needs/Objectives parity via other paths but qualified here for any
-/// overlap; dispatch preserved exactly via cbs + god impersonation dance +
-/// loadGroupRealismIntoScalars before speaker evals). Qualified (preserved
-/// exactly; exercised in dedicated + key suites + manual).
-///
-/// Dedicated test: test/services/chat/realism_evals_test.dart with factory
-/// (createTestRealismEvals) using live closures over group maps + cbs (real
-/// dispatch, no forcing god internals). 15-25+ test() bodies via live
-/// `grep -c '^\s*test('` confirmed post mandatory dead noop/placeholder/vestigial/
-/// factory-setup deletion *as part of task*. Coverage: public surface + roundtrips
-/// + group vs 1:1 via cbs + edges (guards, !ready/cancel, empty, error, "none",
-/// strip, impersonation/proposal parity, oneShot vs normal, Realism/Needs/Objectives
-/// parity 1:1 equiv deltas, chips/sidebar/group per-char, no random, etc.).
-///
-/// aug/integration tests (realism_engine_test, group_realism_test, etc.): receive
-/// *only* qualified passive notes in headers/comments (no realism-evals-specific
-/// aug file logic edits; full coverage + edges + oneShot/normal + group per-char +
-/// chips/sidebar + parity in dedicated + manual; "aug exercising only passive/qualified
-/// (no realism-evals-specific aug file edits; full in dedicated realism_evals_test +
-/// manual; exercised via god thins _evaluate*Call ; qualified notes only in dedicated
-/// header + god + MD per precedent)".
-///
-/// 0 new god private _ methods (thins/delegates + late final only; the void _ count
-/// grep stays at prior 15 confirmed after every edit + final; thins/calls/late final
-/// + reset comment syncs only per plan).
-/// Anti-accumulation: explicit dead code audit of affected in god (no new _Eval/
-/// _Realism methods; old bodies excised).
-/// Reset hygiene: stateless or prompt-only (no owned reset/seed/load state; no
-/// reset calls needed on this leaf); god comments expanded to list + realism_evals
-/// (stateless or prompt-only; no reset calls needed) alongside prior + cross-refs
-/// (e.g. setActiveCharacter:1572); both startNew branches explicit; "incomplete
-/// zeroing of secondary config on group/0-session/new-chat now complete" language
-/// includes this leaf.
-///
-/// Header + god + test + MD all qualify the aug note (onSave/onNotify cbs removed
-/// in fix round 1 for oneShot double-save hygiene; unexercised by design from leaf
-/// in dedicated — god owns post-eval save/notify; exercised in prod + key suites).
-///
-/// Barrel: not added (internal to ChatService only; per checklist "unless 3+
-/// locations"; opportunistic when touching for other reason).
+/// The five realism evaluation calls (relationship, emotional state,
+/// physical state, narrative, one-shot): prompt builders, orchestration,
+/// parse, and apply. One-shot must match the multi-call path for the
+/// fields it covers. Group speakers impersonate through ChatService
+/// load/save scalars before the eval.
 class RealismEvals {
   final Future<String?> Function(
     String prompt, {

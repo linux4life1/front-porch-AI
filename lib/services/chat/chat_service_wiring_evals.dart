@@ -173,31 +173,6 @@ extension ChatServiceWiringEvals on ChatService {
     );
   }
 
-  // ── Realism Evals (step 10: the 5 realism evaluation calls — relationship, emotional, physical, narrative, one-shot) ──
-  // Plain leaf sibling to LlmEvalEngine. Owns the 5 eval prompt builders + call orchestration + parse for realism results
-  // (bond/trust/emotion/arousal/fixation/spatial stance/time + pending for chips/reasons) + side effects (apply deltas on
-  // rel/nsfw, set emotion scalars, updateFixation, setObjective thin for autonomous, snapshot in oneShot).
-  // Depends on llm_eval_engine for fire/strip/extract cbs (wired via god thins for centralization).
-  // Some coordination (setObjective thin for proposal, physical posture delegate to timeService) stayed thin/coordinated
-  // per precedent (qualify).
-  // ChatService owns via late final (after engine) + thins/delegates at *every* prior call site for the 5 _evaluate*Call
-  // (full excision of moved code from engine + prior thin bodies).
-  // 0 @Deprecated shims. 0 new god private _ methods (thins stay in god as the public surface; void _ count grep stays 15
-  // confirmed after every edit + final; +1 late final + thins/calls + reset comment syncs only per plan).
-  // Stateless/prompt-only: no reset calls needed. See expanded "keep reset blocks in sync" comments at *all* ~15+ sites
-  // (see CLAUDE.md full list + incomplete zeroing hygiene; buffer removal complete)
-  // zeroing of secondary config on group/0-session/new-chat now complete"; both startNew branches explicit; cross-refs
-  // e.g. setActiveCharacter:1572).
-  // 1:1 vs group + oneShot vs normal + Realism/Needs/Objectives parity 1:1 equivalent deltas/behavior at all times
-  // (cbs + god's impersonation dance + load/saveScalarsIntoGroupRealism before speaker evals; qualified; exercised in
-  // dedicated + key suites + manual).
-  // aug exercising only passive/qualified (no realism-evals-specific aug file edits; full in dedicated
-  // realism_evals_test + manual; exercised via god thins _evaluate*Call ; qualified notes only in dedicated header + god
-  // + MD per precedent).
-  // Realism Verification (Director/Verifier) — new optional leaf (plan 2026-04).
-  // late final after _llmEvalEngine (for dep on fire/strip/extract + state cbs; before evals/impact so they can receive the cb in their ctors).
-  // Granular cbs only (live closures for group impersonation + test). Receives *full* latent bundle from callers (the two leaves assemble prompt/pre/char/scene/raw/kind/strict/max at their fire sites).
-  // 0 new god void _ (thins + this late final + god-owned _isVerifying* + getters only).
   RealismVerification _buildRealismVerifier() {
     return RealismVerification(
       fireLLMEval: (p, {onChunk}) => _fireLLMEval(
@@ -429,27 +404,6 @@ extension ChatServiceWiringEvals on ChatService {
     );
   }
 
-  // ── Objective Proposal (step 11: proposal path support + generateObjectiveTasks + _checkTaskCompletionInBackground) ──
-  // Plain leaf sibling to LlmEvalEngine (and realism_evals). Owns generateObjectiveTasks
-  // (2000 + central strip via cb for thinking models) + checkTaskCompletionInBackground
-  // (2000 + strip; task vs taskless) + internal prompt/parse.
-  // The autonomous "none" vs value + dedup + autoGenerateTasks:true only for autonomous
-  // lives in realism_evals (narr/oneShot); correct target under group impersonation via
-  // god dance + live cbs; objective mgmt (setObjective, load/save/deact, tasksFor,
-  // isChecking, _activeObjectives, markTaskCompleted) stay thin/coordinated in god per plan
-  // (qualify; "thin delegation here; full objective proposal in step 11").
-  // ChatService owns via late final (after _realismEvals) + thins/delegates at *every*
-  // prior call site for generate + _check (full excision from engine + old thin bodies).
-  // 0 @Deprecated shims. 0 new god private _ methods (thins as public surface; void _
-  // count grep stays 15 confirmed after every edit + final; +1 late final + thins/calls
-  // + reset comment syncs only per plan).
-  // Stateless/prompt-only: no reset calls needed. See "keep reset blocks in sync" + "incomplete zeroing now complete" + authority (simple model+Director) + full leaf list in CLAUDE.md (both startNew; cross-refs e.g. setActiveCharacter:1572).
-  // 1:1 vs group + oneShot/normal parity for proposed "none"/value + dedup + auto only
-  // autonomous + correct target (even under impersonation; decision/attach via dance, gen prompt read best-effort/timing-dep as qualified in leaf + test + impersonation finally); task vs taskless (mark cb mutation in god for task auto); 2000+central
-  // strip; dispatch preserved via cbs + god impersonation. (Fix round 2 updates: timing qualify, zeroing of _isChecking + messagesSince now explicit at all sites + "now complete", mark cb, getPrimary del as dead, test bodies 11 post del, lints 0, claims updated only post re-gates/re-reads).
-  // aug exercising only passive/qualified (no objective-proposal-specific aug file edits;
-  // full in dedicated objective_proposal_test + manual; exercised via god thins
-  // generate/check ; qualified notes only in dedicated header + god + MD per precedent).
   ObjectiveProposal _buildObjectiveProposal() {
     return ObjectiveProposal(
       stripThinkBlocks: _stripThinkBlocks,

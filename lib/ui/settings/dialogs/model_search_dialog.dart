@@ -21,8 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Shows a full dialog with a search bar to filter and select from available models (extracted, Stage 5).
-/// AppColors exclusive (fixed hards from original).
+/// Search and pick from available models.
 void showModelSearchDialog(
   BuildContext context,
   StorageService storageService,

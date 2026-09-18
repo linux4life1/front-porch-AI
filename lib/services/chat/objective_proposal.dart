@@ -30,85 +30,11 @@ import 'package:front_porch_ai/services/chat/objective_eval_tools.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/services.dart';
 
-/// Plain (non-ChangeNotifier) leaf sibling to LlmEvalEngine owning the objective
-/// proposal path handling support (autonomous "none" vs value + dedup +
-/// autoGenerateTasks:true *only* for autonomous + correct target even under group
-/// impersonation via god's dance), generateObjectiveTasks (uses 2000 budget +
-/// central stripThinkBlocks cb for thinking models), _checkTaskCompletionInBackground
-/// (uses 2000 + strip; task vs taskless completion; all-tasks-done quests are
-/// retired via deact so the primary slot frees up for the next autonomous main
-/// quest) + closely related prompt/strip/parse sites inside them.
-///
-/// Per extraction order (step 11 after llm_eval_engine step 9 + realism_evals step 10
-/// per docs/refactoring-guide.md table and CLAUDE.md Critical Services / Path Map).
-/// The proposed_objective "none" vs value + dedup + auto flag decision lives in
-/// realism_evals (narrative/oneShot parses); setObjective dispatch + list mutation +
-/// load/save/deact coordination stay thin/stayed in god per plan for step9/11
-/// (qualify explicitly); the gen/check impls + their internal prompt/strip/parse/
-/// 2000 + direct stream moved full here. Correct proposal target (speaking char)
-/// even under group non-obs impersonation is preserved via live getActiveCharacter
-/// cb (god sets _active + _activeObjectives before calling the evals that may
-/// propose + auto-gen; restore after). Proposal decision + set target via dance; gen prompt char read (inside generate after awaits save/load) is best-effort post-unawait and may race the restore in group non-obs; correct for decision/attach but prompt context (charName/scenario in task gen prompt) timing-dependent. (See god setObjective unawaited + impersonation finally + leaf generate getActiveCharacter call site.)
-///
-/// ChatService (god) owns via late final (after _realismEvals / _llmEvalEngine) +
-/// thins/delegations at *every* prior call site for generateObjectiveTasks +
-/// _checkTaskCompletionInBackground (full excision of moved code from engine + any
-/// old thin bodies). 0 @Deprecated shims.
-///
-/// Granular callbacks for cross-state (engine fire/strip/extract via god thins —
-/// strip used here for central &lt;think&gt; handling; fire/extract not for these paths
-/// as they use direct generateStream with 2000/temp-specific for creative/strict
-/// YES/NO), active/group/observer/speaker for impersonation + correct target,
-/// pending (not directly here), objectives mgmt cbs that stay thin in god per plan:
-/// getActiveObjectives, tasksForObjective, loadActiveObjectives, saveObjectiveTasks,
-/// deactivateObjective, getIsCheckingCompletion/setIsCheckingCompletion,
-/// markTaskCompleted (thin cb; god impl does find+set completed+save+load per plan for task auto side-effect), onNotify (for final in check),
-/// onSaveChat if needed for consistency with siblings, getMessages, getUserName,
-/// getRealismEnabled, getActiveCharacter (critical for gen prompt target under
-/// impersonation), getLlmService (for isReady + generateStream custom budget/temp).
-/// ~19 cbs (getPrimaryObjective removed per deletion hygiene as unused inside gen/check; was only for realism_evals proposal decision path). Live closures in god for test overrides + group per-speaker
-/// impersonation (proposal target must be the speaking character in group non-obs).
-///
-/// 0 new god private _ methods (live grep -c '^\s*void _[a-zA-Z]' lib/services/chat_service.dart
-/// must stay exactly 15 after every edit + final; thins + late final + reset comment
-/// syncs only).
-///
-/// Dedicated test: test/services/chat/objective_proposal_test.dart using factory
-/// (createTestObjectiveProposal) with *live* closures over group maps + cbs (real
-/// dispatch exercised without forcing god internals); 16 `test()` bodies via
-/// live `grep -c '^\s*test('` *post mandatory dead noop/placeholder/vestigial/
-/// factory-setup deletion as part of task* (see objective_proposal_test header + round 3 for !ready guard+restore coverage + mark no-op/error paths; previous rounds for dels/strengthens; quest-retirement fix added all-tasks-done deact coverage).
-///
-/// aug/integration tests (llm_eval_engine_test, realism_engine_test,
-/// group_realism_test, chat_service_session_test etc.) receive *only* qualified
-/// passive notes in headers/comments (exact precedent: "aug exercising only
-/// passive/qualified (no objective-proposal-specific aug file edits; full in
-/// dedicated + manual; exercised via god thins generate/check ; qualified notes
-/// only in dedicated header + god + MD per precedent)"); no leaf-specific logic
-/// edits.
-///
-/// Strict 1:1 vs group + (if relevant) oneShot vs normal parity for
-/// proposed_objective "none" vs value + dedup + autoGenerateTasks:true only for
-/// autonomous + correct target (even under impersonation; decision/attach via dance, gen prompt read best-effort post-unawait may race restore in group non-obs as qualified); task vs taskless
-/// completion paths; 2000 budget + central strip for thinking models. Dispatch
-/// preserved exactly via cbs + god's impersonation dance.
-///
-/// Stateless/prompt-only leaf (no owned reset/seed/load state for objectives;
-/// no reset calls needed on leaf); god reset "keep blocks in sync" comments
-/// expanded at *all* ~15+ documented sites (full prior+current list + this leaf
-/// as "stateless or prompt-only; no reset calls needed") + "incomplete zeroing
-/// of secondary config on group/0-session/new-chat now complete" + *both*
-/// startNewChat branches explicit + cross-refs (e.g. setActiveCharacter:1572).
-///
-/// Anti-accumulation/dead-code audit: explicit greps/audit of affected methods
-/// in god (no new _Proposal/*Objective/Gen/Check/Task privates in god); deletion
-/// of moved code + any dead/vestigial as part of task.
-///
-/// Barrel not added (internal to ChatService only; per "unless 3+ locations").
-///
-/// Some objective mgmt / prompt coordination / list mutation may stay thin in
-/// god per plan (qualify explicitly in leaf header + god thins + test + MD:
-/// "thin delegation here; full objective proposal in step 11").
+/// Objective proposal: autonomous "none" vs value + dedup, auto-tasks only
+/// for autonomous proposals, generateObjectiveTasks, and background
+/// task-completion checks. Proposal target is the speaking character even
+/// under group impersonation. All-tasks-done quests deactivate so the
+/// primary slot frees for the next autonomous quest.
 class ObjectiveProposal {
   // Engine-provided central strip (via god thins) for &lt;think&gt; in gen/check (2000
   // budget paths for thinking models).

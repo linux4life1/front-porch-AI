@@ -19,15 +19,10 @@
 part of '../chat_service.dart';
 
 /// Builders for the core Realism Engine leaf services (time, chaos mode,
-/// nsfw, needs simulation, relationship, expression). Extracted verbatim from
-/// `chat_service.dart` — the god file's `late final _x = _buildX();` field
-/// declarations call these; laziness (and therefore init order) is unchanged
-/// because `late final` still resolves on first access. Zero behaviour
-/// change: every callback closure is byte-identical to its old inline form.
+/// nsfw, needs simulation, relationship, expression). `late final` still
+/// resolves on first access, so init order is unchanged.
 extension ChatServiceWiringRealism on ChatService {
-  // ── Passage of time (extracted to TimeService) ───────────────────────────
-  // (Declared early among late finals for init safety because needs/others close over its getters via cbs.
-  // Logically added "after the other late finals" per extraction sequence; 0 new god privates.)
+  // Time first: needs and others close over its getters.
   TimeService _buildTimeService() {
     return TimeService(
       onNotify: notifyListeners,

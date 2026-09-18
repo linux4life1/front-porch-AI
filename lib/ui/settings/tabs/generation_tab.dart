@@ -24,12 +24,8 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Generation-settings tab extracted from settings_page (Stage 5, remaining
-/// tabs). Pure lift of _buildGenerationTab: reasoning, sampling parameters,
-/// output limits, smooth-output display buffer, stop sequences, and (local
-/// backends only) banned phrases. Reads storage/LLM state via Provider; the
-/// banned-phrases controller is the only shared state, passed via ctor.
-/// AppColors exclusive, warm-porch accents.
+/// Settings → Generation: reasoning, sampling, output limits, stop
+/// sequences, and (local backends only) banned phrases.
 class GenerationTab extends StatefulWidget {
   const GenerationTab({super.key, required this.bannedPhrasesController});
 

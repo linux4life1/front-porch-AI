@@ -21,8 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Shows dialog to delete saved prompt (extracted, Stage 5).
-/// AppColors exclusive (fixed hards).
+/// Delete a saved prompt.
 void showDeletePromptDialog(
   BuildContext context,
   StorageService storageService,
