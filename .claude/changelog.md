@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 data_bank_dialog: editor and import off the list (712 → 421)
+- **Why:** the Data Bank dialog inlined the add/edit form and file/PDF import next to the entry list.
+- **What:** `data_bank_dialog.dart` keeps load, delete, embed, and the list (421). `data_bank_dialog_editor.dart` is start/cancel/save and the form (145). `data_bank_dialog_import.dart` is file pick, PDF extract, and chunking (192). `rebuildState` is the extension door. Chunking is one top-level helper.
+- **Verified:** analyzer clean. character_delete_data_bank (2) green.
+- **Files:** `lib/ui/dialogs/data_bank_dialog.dart` + `_editor` + `_import`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 group_member_card: menus and views off the shell (727 → 390)
 - **Why:** the sidebar group card inlined the Edit Group menu plus the expanded and compact bodies.
 - **What:** `group_member_card.dart` keeps resolve, the header, and the shell (390). `group_member_card_menu.dart` is the header right-click Edit Group menu (60). `group_member_card_views.dart` is expanded 1:1-parity and compact mini-state (411). `NeedsGrid` stays the shared widget. `objectivesActive` stays the live AND.
