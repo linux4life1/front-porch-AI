@@ -123,6 +123,7 @@ part 'chat/chat_service_wiring_evals_judges.dart';
 part 'chat/chat_service_llm_lanes.dart';
 part 'chat/chat_service_wiring_memory.dart';
 part 'chat/chat_service_wiring_injection.dart';
+part 'chat/chat_service_wiring_injection_leaves.dart';
 part 'chat/chat_service_send.dart';
 part 'chat/chat_service_turn_flow.dart';
 part 'chat/chat_service_message_ops.dart';

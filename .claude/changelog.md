@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 wiring_injection: leaf builders off lore/world helpers (658 → 327)
+- **Why:** prompt-injection leaf constructors lived next to lore scanner/injector and world/biome helpers.
+- **What:** `chat_service_wiring_injection.dart` keeps lore/world helpers and macro context (327). `chat_service_wiring_injection_leaves.dart` is author note through realism-state (341). Late finals stay on the class. `objectivesActive` stays the live AND in author note and ambitions.
+- **Verified:** analyzer clean. prompt_injection (27) green.
+- **Files:** wiring_injection + wiring_injection_leaves; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 model_manager_page: download off the local list (666 → 465)
 - **Why:** HuggingFace search/queue lived in the same page as the local list and folder actions.
 - **What:** `model_manager_page.dart` keeps the widget, folder/import/delete, My Models tab, and empty state (465). `model_manager_page.download.dart` is search, queue-download, and the Search tab (214). `rebuildState` is the extension door. Existing indigo/red search chrome moved verbatim.
