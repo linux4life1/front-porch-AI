@@ -1,3 +1,10 @@
+## 2026-09-18 — T2: two dead files deleted, dead-surface ratchet added
+- **Why:** `waifu_chips.dart` (`waifuChipCaption` / `waifuChipDetail`) and `styled_text_field.dart` (`StyledTextField`) had zero callers. Both were reachable only through their barrels, which is exactly how dead code survives here: an exported symbol with no caller is legal Dart, so nothing objects.
+- **What:** Deleted both files and dropped their barrel exports. New `test/hygiene/dead_surface_test.dart`: the deleted paths may not return, and no barrel may still export them. Other waifu exports and `StyledTextController` (different file, live) untouched.
+- **Proven red:** restored `waifu_chips.dart` and its export — both tests failed; removed again, green.
+- **Files:** `lib/services/waifu/waifu_chips.dart` (deleted), `lib/services/waifu/waifu.dart`, `lib/ui/character_creator/widgets/styled_text_field.dart` (deleted), `lib/ui/character_creator/widgets/widgets.dart`, `test/hygiene/dead_surface_test.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — T1: Drift table managers off, generated size now has an owner
 - **Why:** `database.g.dart` was 24,343 lines and 7,652 of them were Drift table managers (`db.managers`, the `$$…Composer` family) with zero callers in the app. The god-file ratchet excludes `.g.dart` on purpose, so generated size had no owner at all.
 - **What:** `generate_manager: false` under `drift_dev` in `build.yaml`, regenerated via `build_runner` (never hand-edited). 24,343 → 16,636 lines. New `test/hygiene/generated_dart_size_test.dart`: build.yaml keeps the option, no generated file carries the manager API, every `lib/**.g.dart` is recorded under a ceiling. Regen also picked up two doc comments that had drifted (the committed generated file was stale): the 1:1 pockets note and the v52 `ChatWorld.isPrimary` note. Table classes, `tables:` order, `onUpgrade` bodies, companions, `toJson` and schemaVersion 52 untouched.
