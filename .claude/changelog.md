@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 chat_service_cast: collapse and host carry off exit (585 → 182)
+- **Why:** group collapse to 1:1 and the inverse 1:1→group host carry lived next to `/exit` and member cleanup.
+- **What:** `chat_service_cast.dart` keeps exit, deferred delete, cleanup, and journal re-key (182). `chat_service_cast_shrink.dart` is collapse + host carry (429). Shared `_moveJournalCards` stays on the exit half.
+- **Verified:** analyzer clean.
+- **Files:** cast + cast_shrink; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 backend_manager: download off version check (587 → 325)
 - **Why:** stream-to-.part download lived next to availability and GitHub version check.
 - **What:** `backend_manager.dart` keeps init, availability, updates, ensure, and `swapStagedBinary` (325). `backend_manager.download.dart` is the download stream and name/URL helpers (292). Class forwarder keeps FakeBackendManager on the type. `notify()` is the extension door.

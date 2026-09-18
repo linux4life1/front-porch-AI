@@ -107,6 +107,7 @@ part 'chat/chat_service_reply_facts.dart';
 part 'chat/chat_service_mood.dart';
 part 'chat/chat_service_climax.dart';
 part 'chat/chat_service_cast.dart';
+part 'chat/chat_service_cast_shrink.dart';
 part 'chat/chat_service_images.dart';
 part 'chat/chat_service_photo.dart';
 part 'chat/chat_service_idle_autonomous.dart';
