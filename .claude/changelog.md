@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.18: ChatTools split into memory, realism, and objectives (862 → 314)
+- **Why:** the web tools sidebar inlined every desktop section in one 862-line TSX file.
+- **What:** `ChatTools.tsx` is the load/toggle/apply shell plus Scene & time (clock chevron pin stays in this file) (314). `ChatToolsShared` is the snapshot type + Toggle/NumField. `ChatToolsMemory` is wiki / RAG / journal / growth / recap (321). `ChatToolsRealism` is pockets / chaos / NSFW (139). `ChatToolsObjectives` is standing mood / ambitions / ObjectivesPanel (64). Section order is unchanged. Preserve thinking is not wired.
+- **Verified:** `tsc --noEmit` clean. ChatTools clock + recap field + ObjectivesPanel (9) green. `npm run build` wrote `assets/web_app`.
+- **Files:** `web_ui/src/components/ChatTools.tsx` + Shared / Memory / Realism / Objectives, rebuilt `assets/web_app`
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.17: OpenRouter split into tools and catalog (868 → 455)
 - **Why:** chat generate, tools/style retry, and the model catalog lived in one 868-line class.
 - **What:** the shell keeps configure, `generateStream`, abort, and class forwarders for `generateWithTools` / `fetchAvailableModels` (455) — `LLMService` plus `import … show OpenRouterService`. `.tools` is `_chatPayload` + `_generateWithTools` (318). `.catalog` is the `/models` fetch (153). Catalog overrides still do not call `configure()`.
