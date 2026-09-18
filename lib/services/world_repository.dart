@@ -25,6 +25,8 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+part 'world_repository_attach.dart';
+
 class WorldRepository extends ChangeNotifier {
   final StorageService _storageService;
   AppDatabase _db;
@@ -479,54 +481,34 @@ class WorldRepository extends ChangeNotifier {
     );
   }
 
-  // ── Chat attachments ────────────────────────────────────────────────
+  void notify() => notifyListeners();
 
   Future<List<String>> getChatWorldIds(String chatId) =>
-      _db.getWorldIdsForChat(chatId);
+      _getChatWorldIdsImpl(chatId);
 
   Future<ChatPlaceSlots> getChatWorldAttachments(String chatId) =>
-      _db.getChatWorldAttachments(chatId);
+      _getChatWorldAttachmentsImpl(chatId);
 
-  Future<List<model.World>> getChatWorlds(String chatId) async {
-    final ids = await getChatWorldIds(chatId);
-    return [
-      for (final id in ids)
-        if (worldById(id) != null) worldById(id)!,
-    ];
-  }
+  Future<List<model.World>> getChatWorlds(String chatId) =>
+      _getChatWorldsImpl(chatId);
 
   /// Canonical writer: Setting (0..1) + Lore (0..N). Empty both = decided empty.
   Future<void> setChatWorldAttachments(
     String chatId, {
     String? primaryId,
     List<String> loreIds = const [],
-  }) async {
-    await _db.setChatWorldAttachments(
-      chatId,
-      primaryId: primaryId,
-      loreIds: loreIds,
-    );
-    await _db.markChatWorldsInitialized(chatId);
-    notifyListeners();
-  }
+  }) => _setChatWorldAttachmentsImpl(
+    chatId,
+    primaryId: primaryId,
+    loreIds: loreIds,
+  );
 
-  Future<void> setChatWorlds(String chatId, List<String> worldIds) async {
-    // Seed-style flat write: first climate-enabled → Primary, rest → Lore.
-    await ready;
-    final slots = partitionLinkedPlaces(
-      worldIds: worldIds,
-      isClimateEnabled: (id) => worldById(id)?.climateEnabled ?? false,
-    );
-    await setChatWorldAttachments(
-      chatId,
-      primaryId: slots.primaryId,
-      loreIds: slots.loreIds,
-    );
-  }
+  Future<void> setChatWorlds(String chatId, List<String> worldIds) =>
+      _setChatWorldsImpl(chatId, worldIds);
 
   /// Record that a chat's world attachments are settled without changing them.
   Future<void> markChatWorldsDecided(String chatId) =>
-      _db.markChatWorldsInitialized(chatId);
+      _markChatWorldsDecidedImpl(chatId);
 
   /// Give a chat the worlds its character carries, but ONLY if the chat has
   /// never had that decision made. Returns true when it seeded.
@@ -536,67 +518,19 @@ class WorldRepository extends ChangeNotifier {
   Future<bool> backfillChatWorldsFromCharacter({
     required String chatId,
     required List<String> characterWorldRefs,
-  }) async {
-    if (characterWorldRefs.isEmpty) return false;
-    if (await _db.chatWorldsInitialized(chatId)) return false;
-    if ((await getChatWorldIds(chatId)).isNotEmpty) {
-      await _db.markChatWorldsInitialized(chatId);
-      return false;
-    }
-    await ready;
-    final ids = resolveWorldRefsToIds(
-      refs: characterWorldRefs,
-      nameToId: {for (final w in _worlds) w.name: w.id},
-      validIds: {for (final w in _worlds) w.id},
-      unresolved: <String>[],
-    );
-    if (ids.isEmpty) return false;
-    await setChatWorlds(chatId, ids); // partitions + marks decided
-    debugPrint('[Worlds] back-filled chat $chatId from its character');
-    return true;
-  }
+  }) => _backfillChatWorldsFromCharacterImpl(
+    chatId: chatId,
+    characterWorldRefs: characterWorldRefs,
+  );
 
   Future<void> attachWorldToChat(
     String chatId,
     String worldId, {
     bool? asPrimary,
-  }) async {
-    final slots = await getChatWorldAttachments(chatId);
-    if (slots.allIds.contains(worldId)) return;
-    final useAsSetting = asPrimary ?? !slots.hasPrimary;
-    if (useAsSetting) {
-      final lore = [
-        if (slots.primaryId != null) slots.primaryId!,
-        ...slots.loreIds,
-      ];
-      await setChatWorldAttachments(
-        chatId,
-        primaryId: worldId,
-        loreIds: lore,
-      );
-    } else {
-      await setChatWorldAttachments(
-        chatId,
-        primaryId: slots.primaryId,
-        loreIds: [...slots.loreIds, worldId],
-      );
-    }
-  }
+  }) => _attachWorldToChatImpl(chatId, worldId, asPrimary: asPrimary);
 
-  Future<void> detachWorldFromChat(String chatId, String worldId) async {
-    final slots = await getChatWorldAttachments(chatId);
-    final primary =
-        slots.primaryId == worldId ? null : slots.primaryId;
-    final lore = [
-      for (final id in slots.loreIds)
-        if (id != worldId) id,
-    ];
-    await setChatWorldAttachments(
-      chatId,
-      primaryId: primary,
-      loreIds: lore,
-    );
-  }
+  Future<void> detachWorldFromChat(String chatId, String worldId) =>
+      _detachWorldFromChatImpl(chatId, worldId);
 
   /// Attach worlds newly added to a CHARACTER onto that character's existing
   /// chats that don't have any yet.
@@ -614,38 +548,10 @@ class WorldRepository extends ChangeNotifier {
   Future<List<String>> applyAddedCharacterWorldsToChats({
     required String characterId,
     required List<String> addedRefs,
-  }) async {
-    if (addedRefs.isEmpty) return const [];
-    await ready;
-    final unresolved = <String>[];
-    final ids = resolveWorldRefsToIds(
-      refs: addedRefs,
-      nameToId: {for (final w in _worlds) w.name: w.id},
-      validIds: {for (final w in _worlds) w.id},
-      unresolved: unresolved,
-    );
-    if (unresolved.isNotEmpty) {
-      debugPrint(
-        '[Worlds] unresolved refs on character $characterId: $unresolved',
-      );
-    }
-    if (ids.isEmpty) return const [];
-
-    final touched = <String>[];
-    for (final session in await _db.getSessionsForCharacter(characterId)) {
-      final existing = await getChatWorldIds(session.id);
-      if (existing.isNotEmpty) continue; // the chat has its own opinion
-      await setChatWorlds(session.id, ids);
-      touched.add(session.id);
-    }
-    if (touched.isNotEmpty) {
-      debugPrint(
-        '[Worlds] character $characterId worlds applied to '
-        '${touched.length} existing chat(s)',
-      );
-    }
-    return touched;
-  }
+  }) => _applyAddedCharacterWorldsToChatsImpl(
+    characterId: characterId,
+    addedRefs: addedRefs,
+  );
 
   /// Copy template world refs (group template ids or character world names)
   /// onto a new chat (session). Refs may be UUIDs or names; unresolved refs
@@ -653,59 +559,22 @@ class WorldRepository extends ChangeNotifier {
   Future<void> applyTemplateWorldsToChat(
     String chatId,
     List<String> templateWorldIds,
-  ) async {
-    // New-session seeding can fire moments after a cold launch; resolving
-    // against a not-yet-loaded cache would silently seed nothing, permanently.
-    await ready;
-    final unresolved = <String>[];
-    final ids = resolveWorldRefsToIds(
-      refs: templateWorldIds,
-      nameToId: {for (final w in _worlds) w.name: w.id},
-      validIds: {for (final w in _worlds) w.id},
-      unresolved: unresolved,
-    );
-    if (unresolved.isNotEmpty) {
-      debugPrint(
-        '[Worlds] template had unresolved refs for chat $chatId: $unresolved',
-      );
-    }
-    await setChatWorlds(chatId, ids);
-  }
-
-  // ── Biome spans (phase 1) ───────────────────────────────────────────
+  ) => _applyTemplateWorldsToChatImpl(chatId, templateWorldIds);
 
   Future<void> setChatBiome({
     required String chatId,
     required int dayCount,
     required Biome biome,
-  }) async {
-    await _db.insertBiomeSpan(
-      chatId: chatId,
-      effectiveFromDay: dayCount,
-      biomeJson: biome.toJsonString(),
-    );
-  }
+  }) => _setChatBiomeImpl(chatId: chatId, dayCount: dayCount, biome: biome);
 
   /// Raw span rows for [BiomeSchedule] hydrate (ordered by day ASC).
   Future<List<({int effectiveFromDay, String biomeJson})>> getChatBiomeSpanRows(
     String chatId,
-  ) async {
-    final spans = await _db.getBiomeSpansForChat(chatId);
-    return [
-      for (final s in spans)
-        (effectiveFromDay: s.effectiveFromDay, biomeJson: s.biomeJson),
-    ];
-  }
+  ) => _getChatBiomeSpanRowsImpl(chatId);
 
   Future<Biome> biomeAt({
     required String chatId,
     required int day,
     Biome? worldDefault,
-  }) async {
-    final rows = await getChatBiomeSpanRows(chatId);
-    return BiomeSchedule.fromJsonSpans(
-      rows: rows,
-      worldDefault: worldDefault,
-    ).biomeAt(day);
-  }
+  }) => _biomeAtImpl(chatId: chatId, day: day, worldDefault: worldDefault);
 }

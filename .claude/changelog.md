@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 world_repository: attach and biome spans off CRUD (711 → 580)
+- **Why:** Living Worlds CRUD, chat_worlds writers, and biome spans lived in one 711-line class.
+- **What:** `world_repository.dart` keeps load/save/delete/rename/import/export/purge (580). `world_repository_attach.dart` is chat attachments plus biome spans (201). Class forwarders stay for FakeWorldRepository. `notify()` is the extension door. `isCharacterLinkedWorld` stays the util.
+- **Verified:** analyzer clean. world_repository + world facade climate (24) green.
+- **Files:** `lib/services/world_repository.dart` + `_attach`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 data_bank_dialog: editor and import off the list (712 → 421)
 - **Why:** the Data Bank dialog inlined the add/edit form and file/PDF import next to the entry list.
 - **What:** `data_bank_dialog.dart` keeps load, delete, embed, and the list (421). `data_bank_dialog_editor.dart` is start/cancel/save and the form (145). `data_bank_dialog_import.dart` is file pick, PDF extract, and chunking (192). `rebuildState` is the extension door. Chunking is one top-level helper.
