@@ -31,6 +31,7 @@
 > | S1.5 ChatPage.tsx | done | `refactor(web): split ChatPage into session, send, and overlays` |
 > | S1.7 chat_service.dart shell | done | `refactor(chat): move ChatService private fields onto a mixin` |
 > | S1.10 time_service.dart | done | `refactor(chat): split TimeService into eval and apply` |
+> | S1.11 web_server_host.dart | done | `refactor(web): split the host into streams and wiring` |
 > | S1 remaining / S2 / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
@@ -816,10 +817,10 @@ Clock is decoupled from the engine (`standaloneClockEnabled`). Continue does not
 | New file | Holds |
 | --- | --- |
 | `web_server_host.dart` | bind / lifecycle |
-| `web_server_static.dart` | PWA bundle |
-| `web_server_auth.dart` | cookie / login |
+| `web_server_host.streams.dart` | overlay / live-sync relays |
+| `web_server_host.wiring.dart` | facade assembly, bind, remote setup |
 
-Routes already live under `lib/services/web/routes/`.
+The inventory guessed `web_server_static` / `web_server_auth`. PWA bundle and cookie/login already live under `lib/services/web/routes/`. This file mixed stream relays with facade wiring. `WebServerHost.describeStartFailure` stays on the class. Extensions call `notify()`.
 
 **Red if dropped:** `integration_test/web_server_test.dart`.
 

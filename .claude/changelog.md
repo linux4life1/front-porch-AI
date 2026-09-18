@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.11: WebServerHost split into streams and wiring (934 → 429)
+- **Why:** bind/lifecycle, overlay relays, and facade assembly lived in one 934-line host. The inventory's `web_server_static` / `web_server_auth` names were already extracted to routes.
+- **What:** the shell keeps fields, setters, `startSafely`, `describeStartFailure` (class static), and `stop` (429). `.streams` attaches processing / gen-status / LLM-ready / image / library relays (258). `.wiring` is `start` + `setupRemoteAccess` (309). Extensions call `notify()`.
+- **Verified:** analyzer clean. start-failure + abandoned-start + rebind (10) green.
+- **Files:** `lib/services/web/web_server_host.dart` + `.streams` + `.wiring`
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.10: TimeService split into eval and apply (939 → 454)
 - **Why:** story-clock public API, LLM minutes decide, and clamp/skip apply lived in one 939-line class.
 - **What:** `time_service.dart` keeps fields, seed/load/restore, and class statics `TimeService.postureQuestion` / `TimeService.parsePosture` (454) — fusion callers use those names. `.eval` is `_fireSceneTimeEval` + `evaluateTimeProgressAndPostureIfNeeded` (302). `.apply` is nudge/set/OOC skip/`_applyElapsed` and the `new_day` corroboration regex (230). Continue still does not tick. Extension calls qualify the class statics.
