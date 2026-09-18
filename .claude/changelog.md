@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 model_manager_page: download off the local list (666 → 465)
+- **Why:** HuggingFace search/queue lived in the same page as the local list and folder actions.
+- **What:** `model_manager_page.dart` keeps the widget, folder/import/delete, My Models tab, and empty state (465). `model_manager_page.download.dart` is search, queue-download, and the Search tab (214). `rebuildState` is the extension door. Existing indigo/red search chrome moved verbatim.
+- **Verified:** analyzer clean.
+- **Files:** `lib/ui/pages/model_manager_page.dart` + `.download.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 generate_kcpps_dialog: generate off the form (670 → 484)
 - **Why:** detect/VRAM/write lived in the same file as the form fields and dialog chrome.
 - **What:** `generate_kcpps_dialog.dart` keeps the widget, fields, hardware listener, and form (484). `generate_kcpps_dialog.generate.dart` is detect, VRAM estimate, batch suggest, and write (200). `rebuildState` is the extension door. Sync file stats stay event-path with `io-ok`.

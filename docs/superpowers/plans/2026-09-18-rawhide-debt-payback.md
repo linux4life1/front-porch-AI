@@ -57,6 +57,7 @@
 > | S2 stoop_browse_view.dart | done | `refactor(stoop): split the browse grid off search and load` |
 > | S2 chat_service_wiring_evals.dart | done | `refactor(chat): split judge builders off the eval engine and transport` |
 > | S2 generate_kcpps_dialog.dart | done | `refactor(ui): split kcpps generate off the form` |
+> | S2 model_manager_page.dart | done | `refactor(ui): split HuggingFace download off the local list` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
