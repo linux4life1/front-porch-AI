@@ -1,3 +1,9 @@
+## 2026-09-18 — Second dead-code cut: leftover unused screenshots and DMG backgrounds
+- **Why:** After the pockets pin, hunt for another ~6k deleted lines vs Rawhide to reach ~65k. Every `lib/` and `web_ui/src` Dart/TS file has an importer. `.recovery/` is empty. No unused `*_test.dart` helpers. The only proven-zero-ref leftovers were superseded screenshot backups and retired DMG art.
+- **What:** Deleted `docs/screenshots/{home,group_chat,create}.png` (0 inbound refs; README uses `*_new.png`), `assets/macos/dmg-background.png` + `assets/dmg_background.png` (create-dmg retired; no script/workflow load), and unused `assets/images/eye_bleach.jpg` (ships via the `assets/images/` glob, never loaded). Dropped the now-false `.gitignore` DMG png exception. Did not delete live design notes (`tools-transport.md`, `dev-notes/refactor-god-file-modularization.md`) or any of the 17 restored pins / hardware `lengthSync` / pockets pin.
+- **Files:** the six binaries; `.gitignore`
+- **Commit:** this tip
+
 ## 2026-09-18 — Behavioral pin: pocketsFor hides when the switch goes down
 - **Why:** `wardrobe_message_zero_test` turns the switch off *before* open, so seed never runs and `_pockets` stays null. Deleting the `pocketsFor` read gate still returns null. The gate's job is hide-not-erase after a record already exists.
 - **What:** Open a dressed character with Pockets ON, then `setPocketsEnabled(false)`, then `pocketsFor` must be null. Did not restore the old source-scan file.
