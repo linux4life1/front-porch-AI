@@ -64,70 +64,9 @@ class _PorchLifeStorage extends FakeStorageService {
   }
 
   final RealismSettings _realism = RealismSettings();
-  bool _journalEnabled = true;
 
   @override
   RealismSettings get realismSettings => _realism;
-
-  @override
-  bool get realismDefault => _realism.realismDefault;
-  @override
-  Future<void> setRealismDefault(bool v) => _realism.setRealismDefault(v);
-
-  @override
-  bool get nsfwCooldownDefault => _realism.nsfwCooldownDefault;
-  @override
-  Future<void> setNsfwCooldownDefault(bool v) =>
-      _realism.setNsfwCooldownDefault(v);
-
-  @override
-  bool get needsSimDefault => _realism.needsSimDefault;
-
-  @override
-  bool get passageOfTimeDefault => _realism.passageOfTimeDefault;
-  @override
-  Future<void> setPassageOfTimeDefault(bool v) =>
-      _realism.setPassageOfTimeDefault(v);
-
-  @override
-  bool get weatherEnabled => _realism.weatherEnabled;
-  @override
-  Future<void> setWeatherEnabled(bool v) => _realism.setWeatherEnabled(v);
-
-  @override
-  bool get weatherFahrenheit => _realism.weatherFahrenheit;
-  @override
-  Future<void> setWeatherFahrenheit(bool v) => _realism.setWeatherFahrenheit(v);
-
-  @override
-  bool get absenceBannerEnabled => _realism.absenceBannerEnabled;
-  @override
-  Future<void> setAbsenceBannerEnabled(bool v) =>
-      _realism.setAbsenceBannerEnabled(v);
-
-  @override
-  bool get absenceAckEnabled => _realism.absenceAckEnabled;
-  @override
-  Future<void> setAbsenceAckEnabled(bool v) => _realism.setAbsenceAckEnabled(v);
-
-  @override
-  int get absenceThresholdHours => _realism.absenceThresholdHours;
-  @override
-  Future<void> setAbsenceThresholdHours(int v) =>
-      _realism.setAbsenceThresholdHours(v);
-
-  @override
-  bool get dreamsEnabled => _realism.dreamsEnabled;
-  @override
-  Future<void> setDreamsEnabled(bool v) => _realism.setDreamsEnabled(v);
-
-  @override
-  bool get journalEnabled => _journalEnabled;
-  @override
-  Future<void> setJournalEnabled(bool v) async {
-    _journalEnabled = v;
-    notifyListeners();
-  }
 }
 
 void main() {
@@ -162,9 +101,9 @@ void main() {
       // (Afterglow) switched ON while its requirement (the Realism
       // Engine) is still OFF — the default state — so the unmet-dependency
       // chip/warning have something real to report from the first frame.
-      await storage.setNsfwCooldownDefault(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
       expect(
-        storage.realismDefault,
+        storage.realismSettings.realismDefault,
         isFalse,
         reason:
             'this whole net is meaningless unless the engine starts '
@@ -315,36 +254,36 @@ void main() {
       // groups, flip the real storage flags — including "Story Weather",
       // one of the rows named above as previously hidden by the engine-off
       // bug, tapped here while the engine is STILL off.
-      expect(storage.absenceBannerEnabled, isTrue);
+      expect(storage.realismSettings.absenceBannerEnabled, isTrue);
       await tapRow('Welcome-back recap');
       expect(
-        storage.absenceBannerEnabled,
+        storage.realismSettings.absenceBannerEnabled,
         isFalse,
         reason:
             'tapping the recap switch must flip '
-            'storage.absenceBannerEnabled',
+            'storage.realismSettings.absenceBannerEnabled',
       );
 
-      expect(storage.realismDefault, isFalse);
-      expect(storage.weatherEnabled, isTrue);
+      expect(storage.realismSettings.realismDefault, isFalse);
+      expect(storage.realismSettings.weatherEnabled, isTrue);
       await tapRow('Story Weather');
       expect(
-        storage.weatherEnabled,
+        storage.realismSettings.weatherEnabled,
         isFalse,
         reason:
-            'tapping Story Weather must flip storage.weatherEnabled '
+            'tapping Story Weather must flip storage.realismSettings.weatherEnabled '
             'even though the Realism Engine is off — the entire point of '
             'this tab',
       );
 
-      expect(storage.realismDefault, isFalse);
-      expect(storage.journalEnabled, isTrue);
+      expect(storage.realismSettings.realismDefault, isFalse);
+      expect(storage.memorySettings.journalEnabled, isTrue);
       await tapRow('The Journal');
       expect(
-        storage.journalEnabled,
+        storage.memorySettings.journalEnabled,
         isFalse,
         reason:
-            'tapping The Journal must flip storage.journalEnabled '
+            'tapping The Journal must flip storage.memorySettings.journalEnabled '
             'even though the Realism Engine is off — another row this tab '
             'exists to rescue',
       );
@@ -352,7 +291,7 @@ void main() {
       // Pin 5b: turning the absence-acknowledgement switch on reveals the
       // threshold dropdown.
       await tapRow('Character notices your absence');
-      expect(storage.absenceAckEnabled, isTrue);
+      expect(storage.realismSettings.absenceAckEnabled, isTrue);
       final thresholdFinder = find.text('Away for at least');
       await scrollTo(thresholdFinder);
       expect(

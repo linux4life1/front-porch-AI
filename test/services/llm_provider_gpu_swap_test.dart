@@ -32,7 +32,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     storage = StorageService();
     await storage.initialized;
-    await storage.setBackendType('kobold');
+    await storage.backendSettings.setBackendType('kobold');
     mouthRemote = OpenRouterService(
       apiUrl: kOpenRouterApiV1,
       apiKey: 'or-key',
@@ -194,14 +194,14 @@ void main() {
   test(
     'kobold worker GGUF is its own path; same file stays same-resident',
     () async {
-      await storage.setLastUsedModelPath('/tmp/mouth.gguf');
+      await storage.backendSettings.setLastUsedModelPath('/tmp/mouth.gguf');
       await storage.setWorkerBackendType('kobold');
       expect(storage.resolvedWorkerKoboldModelPath(), '/tmp/mouth.gguf');
       expect(
         workerLanesShareResident(
           mouthType: 'kobold',
           mouthUrl: '',
-          mouthModel: storage.lastUsedModelPath ?? '',
+          mouthModel: storage.backendSettings.lastUsedModelPath ?? '',
           workerType: 'kobold',
           workerUrl: '',
           workerModel: storage.resolvedWorkerKoboldModelPath(),
@@ -217,7 +217,7 @@ void main() {
         workerLanesShareResident(
           mouthType: 'kobold',
           mouthUrl: '',
-          mouthModel: storage.lastUsedModelPath ?? '',
+          mouthModel: storage.backendSettings.lastUsedModelPath ?? '',
           workerType: 'kobold',
           workerUrl: '',
           workerModel: storage.resolvedWorkerKoboldModelPath(),
@@ -235,10 +235,16 @@ void main() {
   test(
     'GPU swap launch loads the requested GGUF and matching .kcpps',
     () async {
-      await storage.setLastUsedModelPath('/tmp/mouth.gguf');
-      await storage.setActiveKcppsPath('/tmp/mouth.kcpps');
-      await storage.setModelMmproj('/tmp/mouth.gguf', '/tmp/mouth.mmproj');
-      await storage.setModelMmproj('/tmp/worker.gguf', '/tmp/worker.mmproj');
+      await storage.backendSettings.setLastUsedModelPath('/tmp/mouth.gguf');
+      await storage.backendSettings.setActiveKcppsPath('/tmp/mouth.kcpps');
+      await storage.presetSettings.setModelMmproj(
+        '/tmp/mouth.gguf',
+        '/tmp/mouth.mmproj',
+      );
+      await storage.presetSettings.setModelMmproj(
+        '/tmp/worker.gguf',
+        '/tmp/worker.mmproj',
+      );
       await storage.setWorkerBackendType('kobold');
       await storage.setWorkerKoboldModelPath('/tmp/worker.gguf');
       await storage.setWorkerKoboldKcppsPath('/tmp/worker.kcpps');
@@ -300,9 +306,12 @@ void main() {
   );
 
   test('same GGUF swaps .kcpps and drops worker --mmproj', () async {
-    await storage.setLastUsedModelPath('/tmp/same.gguf');
-    await storage.setActiveKcppsPath('/tmp/mouth.kcpps');
-    await storage.setModelMmproj('/tmp/same.gguf', '/tmp/mouth.mmproj');
+    await storage.backendSettings.setLastUsedModelPath('/tmp/same.gguf');
+    await storage.backendSettings.setActiveKcppsPath('/tmp/mouth.kcpps');
+    await storage.presetSettings.setModelMmproj(
+      '/tmp/same.gguf',
+      '/tmp/mouth.mmproj',
+    );
     await storage.setWorkerBackendType('kobold');
     await storage.setWorkerKoboldModelPath('/tmp/same.gguf');
     await storage.setWorkerKoboldKcppsPath('/tmp/worker.kcpps');
@@ -340,10 +349,10 @@ void main() {
   });
 
   test('V1 pairs still expose a worker without needing a swap', () async {
-    await storage.setBackendType('openRouter');
-    await storage.setRemoteApiUrl(kOpenRouterApiV1);
-    await storage.setRemoteModelName('x-ai/grok-4.6');
-    await storage.setRemoteApiKey('or-key');
+    await storage.backendSettings.setBackendType('openRouter');
+    await storage.backendSettings.setRemoteApiUrl(kOpenRouterApiV1);
+    await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
+    await storage.backendSettings.setRemoteApiKey('or-key');
     await storage.setWorkerBackendType('openRouter');
     await storage.setWorkerRemoteApiUrl(kNanoGptApiV1);
     await storage.setWorkerRemoteModelName('z-ai/glm-5.3');

@@ -106,21 +106,21 @@ class AiEngineStatusCard extends StatelessWidget {
     String modelLabel;
     switch (llm.activeBackend) {
       case BackendType.kobold:
-        final path = storage.lastUsedModelPath;
+        final path = storage.backendSettings.lastUsedModelPath;
         if (path != null && path.isNotEmpty) {
           modelLabel = p.basename(path);
         } else {
           // A .kcpps preset can own the model instead of a picker selection.
-          final preset = storage.activeKcppsPath;
+          final preset = storage.backendSettings.activeKcppsPath;
           modelLabel = (preset == null || preset.isEmpty)
               ? 'No model selected'
               : p.basename(preset);
         }
       case BackendType.openRouter:
       case BackendType.omlx:
-        modelLabel = storage.remoteModelName.isEmpty
+        modelLabel = storage.backendSettings.remoteModelName.isEmpty
             ? 'No model selected'
-            : storage.remoteModelName;
+            : storage.backendSettings.remoteModelName;
     }
 
     final dot = busy

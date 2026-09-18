@@ -102,19 +102,20 @@ class TtsService extends ChangeNotifier {
 
   /// The currently active TTS engine instance.
   TtsEngine get activeEngine {
-    switch (_storageService.ttsEngine) {
+    switch (_storageService.ttsSettings.ttsEngine) {
       case 'openai':
-        _openaiEngine.apiKey = _storageService.openaiTtsApiKey;
-        _openaiEngine.model = _storageService.openaiTtsModel;
-        _openaiEngine.baseUrl = _storageService.openaiTtsBaseUrl;
+        _openaiEngine.apiKey = _storageService.ttsSettings.openaiTtsApiKey;
+        _openaiEngine.model = _storageService.ttsSettings.openaiTtsModel;
+        _openaiEngine.baseUrl = _storageService.ttsSettings.openaiTtsBaseUrl;
         return _openaiEngine;
       case 'elevenlabs':
-        _elevenlabsEngine.apiKey = _storageService.elevenlabsApiKey;
-        _elevenlabsEngine.model = _storageService.elevenlabsModel;
-        _elevenlabsEngine.stability = _storageService.elevenlabsStability;
+        _elevenlabsEngine.apiKey = _storageService.ttsSettings.elevenlabsApiKey;
+        _elevenlabsEngine.model = _storageService.ttsSettings.elevenlabsModel;
+        _elevenlabsEngine.stability =
+            _storageService.ttsSettings.elevenlabsStability;
         _elevenlabsEngine.similarityBoost =
-            _storageService.elevenlabsSimilarity;
-        _elevenlabsEngine.style = _storageService.elevenlabsStyle;
+            _storageService.ttsSettings.elevenlabsSimilarity;
+        _elevenlabsEngine.style = _storageService.ttsSettings.elevenlabsStyle;
         return _elevenlabsEngine;
       case 'kokoro':
         return _kokoroEngine;
@@ -124,7 +125,7 @@ class TtsService extends ChangeNotifier {
   }
 
   /// Whether the current engine is Piper.
-  bool get _isPiperEngine => _storageService.ttsEngine == 'piper';
+  bool get _isPiperEngine => _storageService.ttsSettings.ttsEngine == 'piper';
 
   /// Cached voices for the currently selected engine.
   /// This is the source of truth used by UI pickers.
@@ -139,7 +140,7 @@ class TtsService extends ChangeNotifier {
   /// When the engine is 'piper', this returns real installed voices
   /// (including manually added custom voices) instead of falling back to Kokoro.
   List<TtsVoiceInfo> get activeVoices {
-    if (_voicesCacheEngine != _storageService.ttsEngine) {
+    if (_voicesCacheEngine != _storageService.ttsSettings.ttsEngine) {
       // Stale cache from the previously selected engine (the voice dropdown
       // used to keep showing Piper voices after switching to Kokoro). Serve
       // the new engine's built-ins immediately and refresh asynchronously
@@ -167,7 +168,7 @@ class TtsService extends ChangeNotifier {
   /// Particularly important for Piper, where voices can be added manually
   /// (custom .onnx files) or via the Voice Browser.
   Future<void> refreshAvailableVoices() async {
-    _voicesCacheEngine = _storageService.ttsEngine;
+    _voicesCacheEngine = _storageService.ttsSettings.ttsEngine;
     if (_isPiperEngine) {
       try {
         _currentAvailableVoices = await _voiceManager

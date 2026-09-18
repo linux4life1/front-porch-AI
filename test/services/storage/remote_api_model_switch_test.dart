@@ -39,33 +39,38 @@ void main() {
 
   test('switching URL restores that host last model', () async {
     final storage = await _storage();
-    await storage.setRemoteApiUrl(_openRouter);
-    await storage.setRemoteModelName('x-ai/grok-4.6');
-    await storage.setRemoteApiUrl(_nanoGpt);
-    await storage.setRemoteModelName('moonshotai/kimi-k2.6:thinking');
+    await storage.backendSettings.setRemoteApiUrl(_openRouter);
+    await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
+    await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
+    await storage.backendSettings.setRemoteModelName(
+      'moonshotai/kimi-k2.6:thinking',
+    );
 
-    await storage.setRemoteApiUrl(_openRouter);
-    expect(storage.remoteModelName, 'x-ai/grok-4.6');
-    await storage.setRemoteApiUrl(_nanoGpt);
-    expect(storage.remoteModelName, 'moonshotai/kimi-k2.6:thinking');
+    await storage.backendSettings.setRemoteApiUrl(_openRouter);
+    expect(storage.backendSettings.remoteModelName, 'x-ai/grok-4.6');
+    await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
+    expect(
+      storage.backendSettings.remoteModelName,
+      'moonshotai/kimi-k2.6:thinking',
+    );
   });
 
   test(
     'oMLX backend keeps its own model without overwriting the URL slot',
     () async {
       final storage = await _storage();
-      await storage.setBackendType('openRouter');
-      await storage.setRemoteApiUrl(_openRouter);
-      await storage.setRemoteModelName('x-ai/grok-4.6');
+      await storage.backendSettings.setBackendType('openRouter');
+      await storage.backendSettings.setRemoteApiUrl(_openRouter);
+      await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
 
-      await storage.setBackendType('omlx');
-      await storage.setRemoteModelName('mlx-community/foo');
-      expect(storage.remoteApiUrl, _openRouter);
+      await storage.backendSettings.setBackendType('omlx');
+      await storage.backendSettings.setRemoteModelName('mlx-community/foo');
+      expect(storage.backendSettings.remoteApiUrl, _openRouter);
 
-      await storage.setBackendType('openRouter');
-      expect(storage.remoteModelName, 'x-ai/grok-4.6');
-      await storage.setBackendType('omlx');
-      expect(storage.remoteModelName, 'mlx-community/foo');
+      await storage.backendSettings.setBackendType('openRouter');
+      expect(storage.backendSettings.remoteModelName, 'x-ai/grok-4.6');
+      await storage.backendSettings.setBackendType('omlx');
+      expect(storage.backendSettings.remoteModelName, 'mlx-community/foo');
     },
   );
 }

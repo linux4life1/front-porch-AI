@@ -183,7 +183,7 @@ extension _ChatPageInputActions on _ChatPageState {
       // / Persona) and crafts the prompt.
       Consumer<StorageService>(
         builder: (context, storage, _) {
-          if (!storage.imageGenEnabled) {
+          if (!storage.imageGenSettings.imageGenEnabled) {
             return const SizedBox.shrink();
           }
           return IconButton(
@@ -228,7 +228,7 @@ extension _ChatPageInputActions on _ChatPageState {
             );
             final storage = Provider.of<StorageService>(context);
             return ReadingSizeScope(
-              textScale: storage.textScale,
+              textScale: storage.uiSettings.textScale,
               child: AppTextField(
                 controller: _controller,
                 focusNode: _chatFocusNode,
@@ -296,7 +296,7 @@ extension _ChatPageInputActions on _ChatPageState {
       // Mic button (push-to-talk STT)
       Consumer2<SttService, StorageService>(
         builder: (context, sttService, storage, _) {
-          if (!storage.sttEnabled) {
+          if (!storage.sttSettings.sttEnabled) {
             return const SizedBox.shrink();
           }
           if (sttService.isTranscribing) {
@@ -329,7 +329,7 @@ extension _ChatPageInputActions on _ChatPageState {
                             .stopRecordingAndTranscribe();
                         if (!mounted) return;
                         if (text != null && text.isNotEmpty) {
-                          if (storage.autoSendTranscription &&
+                          if (storage.sttSettings.autoSendTranscription &&
                               _controller.text.isEmpty) {
                             chatService.sendMessage(text);
                           } else {
@@ -357,7 +357,7 @@ extension _ChatPageInputActions on _ChatPageState {
       // Call button (voice call mode)
       Consumer2<SttService, StorageService>(
         builder: (context, sttService, storage, _) {
-          if (!storage.sttEnabled || chatService.isGroupMode) {
+          if (!storage.sttSettings.sttEnabled || chatService.isGroupMode) {
             return const SizedBox.shrink();
           }
           return Tooltip(

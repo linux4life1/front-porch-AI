@@ -90,7 +90,7 @@ class SummarySectionState extends State<SummarySection> {
   @override
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
-    final enabled = storage.journalEnabled;
+    final enabled = storage.memorySettings.journalEnabled;
     final accent = AppColors.journalAccentOf(context);
 
     return Column(
@@ -126,7 +126,8 @@ class SummarySectionState extends State<SummarySection> {
                         'remembers what still fits in the context window.',
                     child: Switch(
                       value: enabled,
-                      onChanged: (val) => storage.setJournalEnabled(val),
+                      onChanged: (val) =>
+                          storage.memorySettings.setJournalEnabled(val),
                       activeTrackColor: accent,
                     ),
                   ),
@@ -323,7 +324,7 @@ class SummarySectionState extends State<SummarySection> {
                         ),
                         const Spacer(),
                         Text(
-                          '${(_dragJournalInterval ?? storage.journalInterval.toDouble()).round()} messages',
+                          '${(_dragJournalInterval ?? storage.memorySettings.journalInterval.toDouble()).round()} messages',
                           style: TextStyle(
                             fontSize: 11,
                             color: accent,
@@ -342,7 +343,7 @@ class SummarySectionState extends State<SummarySection> {
                       child: Slider(
                         value:
                             _dragJournalInterval ??
-                            storage.journalInterval.toDouble(),
+                            storage.memorySettings.journalInterval.toDouble(),
                         min: 3,
                         max: 50,
                         divisions: 47,
@@ -352,7 +353,9 @@ class SummarySectionState extends State<SummarySection> {
                             setState(() => _dragJournalInterval = val),
                         onChangeEnd: (val) {
                           _dragJournalInterval = null;
-                          storage.setJournalInterval(val.toInt());
+                          storage.memorySettings.setJournalInterval(
+                            val.toInt(),
+                          );
                         },
                       ),
                     ),
@@ -374,10 +377,10 @@ class SummarySectionState extends State<SummarySection> {
                           height: 24,
                           child: FittedBox(
                             child: Switch(
-                              value: storage.journalReviewFirst,
+                              value: storage.memorySettings.journalReviewFirst,
                               activeThumbColor: accent,
-                              onChanged: (val) =>
-                                  storage.setJournalReviewFirst(val),
+                              onChanged: (val) => storage.memorySettings
+                                  .setJournalReviewFirst(val),
                             ),
                           ),
                         ),
@@ -408,10 +411,12 @@ class SummarySectionState extends State<SummarySection> {
                           height: 24,
                           child: FittedBox(
                             child: Switch(
-                              value: storage.importLlmertaPorchMemories,
+                              value: storage
+                                  .memorySettings
+                                  .importLlmertaPorchMemories,
                               activeThumbColor: accent,
-                              onChanged: (val) =>
-                                  storage.setImportLlmertaPorchMemories(val),
+                              onChanged: (val) => storage.memorySettings
+                                  .setImportLlmertaPorchMemories(val),
                             ),
                           ),
                         ),

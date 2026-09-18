@@ -54,7 +54,7 @@ class ReferenceImagePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     // Only the local backends (A1111, Draw Things, ComfyUI) support img2img.
     final backend = context.select<StorageService, String>(
-      (s) => s.imageGenBackend,
+      (s) => s.imageGenSettings.imageGenBackend,
     );
     if (backend == 'remote') return const SizedBox.shrink();
 
@@ -184,7 +184,7 @@ class _DenoiseSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final denoise = context.select<StorageService, double>(
-      (s) => s.imageGenDenoise,
+      (s) => s.imageGenSettings.imageGenDenoise,
     );
     // The setting clamps to 0–1; the slider offers the usable img2img window.
     final display = denoise.clamp(0.2, 0.9);
@@ -209,7 +209,10 @@ class _DenoiseSlider extends StatelessWidget {
           activeColor: AppColors.formMasterAccent,
           onChanged: isBusy
               ? null
-              : (v) => context.read<StorageService>().setImageGenDenoise(v),
+              : (v) => context
+                    .read<StorageService>()
+                    .imageGenSettings
+                    .setImageGenDenoise(v),
         ),
         Text(
           'Left keeps it close to your photo; right lets the prompt take over.',

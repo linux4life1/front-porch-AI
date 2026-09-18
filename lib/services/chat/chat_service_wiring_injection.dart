@@ -641,7 +641,8 @@ extension ChatServiceWiringInjection on ChatService {
       // about WALL-CLOCK absence, and inheriting the story clock's gate is why
       // it never reached the model with the clock frozen.
       getAbsenceNote: () {
-        if (!_storageService.absenceAckEnabled || !_absenceAckPending) {
+        if (!_storageService.realismSettings.absenceAckEnabled ||
+            !_absenceAckPending) {
           return null;
         }
         final phrase = absencePhrase;

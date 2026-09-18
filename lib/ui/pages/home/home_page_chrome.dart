@@ -539,7 +539,10 @@ extension _HomePageChrome on _HomePageState {
 
   void _handleSortChanged(String mode) {
     applyState(() => _sortMode = mode);
-    Provider.of<StorageService>(context, listen: false).setSortMode(mode);
+    Provider.of<StorageService>(
+      context,
+      listen: false,
+    ).uiSettings.setSortMode(mode);
   }
 
   void _handleGridScaleChanged(double scale) {
@@ -547,7 +550,10 @@ extension _HomePageChrome on _HomePageState {
   }
 
   void _handleGridScaleChangeEnd(double scale) {
-    Provider.of<StorageService>(context, listen: false).setGridScale(scale);
+    Provider.of<StorageService>(
+      context,
+      listen: false,
+    ).uiSettings.setGridScale(scale);
   }
 
   void _handleSearchScopeChanged(SearchScope scope) {

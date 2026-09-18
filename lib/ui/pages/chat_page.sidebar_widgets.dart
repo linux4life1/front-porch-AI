@@ -30,7 +30,8 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
     return Consumer<ChatService>(
       builder: (context, chat, _) {
         final storage = Provider.of<StorageService>(context, listen: false);
-        final isExpressionEnabled = storage.expressionEnabled;
+        final isExpressionEnabled =
+            storage.expressionSettings.expressionEnabled;
         // Expression-only (looks filtered out) so a looks-only character
         // never trips the expression path, and prime/neutral fallbacks
         // never resolve to a gallery look.
@@ -44,7 +45,7 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
         if (isExpressionEnabled && hasAvatars && !chat.isEvaluatingRealism) {
           final avatar = chat.resolveExpressionAvatar(
             character,
-            rerollIfSame: storage.expressionRerollSame,
+            rerollIfSame: storage.expressionSettings.expressionRerollSame,
           );
           if (avatar != null) {
             final avatarDir = storage.characterAvatarDir(character.name);
@@ -80,7 +81,7 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
           // sidebar (field report). Expressionless characters now take
           // the plain-chat ring branch below (star default + chevrons)
           // even while the global expression toggle is on.
-          final fallback = storage.expressionFallback;
+          final fallback = storage.expressionSettings.expressionFallback;
           if (fallback == 'none') {
             return const SizedBox.shrink();
           } else if (fallback == 'emoji') {
@@ -194,9 +195,9 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
                 right: 4,
                 child: EmojiBurst(
                   emoji: expressionEmoji,
-                  enabled: storage.expressionEmojiBurst,
+                  enabled: storage.expressionSettings.expressionEmojiBurst,
                   generating: chat.isGenerating,
-                  size: storage.expressionEmojiBurstSize,
+                  size: storage.expressionSettings.expressionEmojiBurstSize,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,

@@ -477,25 +477,9 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   // are mid-deactivation throw "Looking up a deactivated widget's ancestor".
   Timer? _evalChunkTimer;
 
-  // TOMBSTONE: `_moodDecayCounter` was dead state — nothing ever read it; the
-  // real short-term-decay cadence lives in RelationshipService and is
-  // captured/restored via captureCadenceAndFeelings / restoreFromMessageState.
-  // The sessions.moodDecayCounter DB COLUMN stays (dormant, defaults to 0):
-  // dropping it is a schema change, and external tools write this DB directly.
-
   // Emotional state
   String _characterEmotion = '';
   String _emotionIntensity = ''; // mild/moderate/strong
-
-  // Expression images + classification live in ExpressionService
-  // (chat/expression_classifier.dart); god thins to delegation only.
-
-  // Passage of time state/logic lives in TimeService (chat/time_service.dart);
-  // god thins to delegation + a few @Deprecated shims.
-
-  // NSFW cooldown & lust state/logic lives in NsfwService
-  // (chat/nsfw_service.dart); god thins to delegation + a few @Deprecated
-  // shims. _runPostGenNeedsChecks thins to needs_impact_evaluator.
 
   // Chaos Mode state lives on _chaosModeService. UI park flags stay here.
   bool _chanceTimePendingTrigger =
@@ -775,21 +759,8 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
   // (_getEffectivePersonality / _getEffectiveScenario moved to
   // chat_service_growth.dart)
 
-  // The god file is a thin coordinator: the state that deliberately stays
-  // here (rather than in a chat/ leaf) is _groupRealism + its load/save/sync
-  // pairs, the sendMessage/_generateResponse turn orchestration (speaker
-  // pick, eval dance, impersonation, post-gen finalization), chat history
-  // building/saving, and the TTS drain buffer. 1:1 vs group parity is
-  // preserved for all of it via callbacks + the impersonation dance. See
-  // docs/refactor-god-file-modularization.md for the full extraction history.
   Completer<void>?
-  _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination, stays in god)
-
-  // ── Trust Repair ──
-  // Armed on each severe trust drop (≥ -20 delta). Consumed on the very
-  // next user message, then resets so future drops each get one shot.
-  // Backing state + arming logic moved to RelationshipService.applyTrustDelta.
-  // (No local field remains; @Deprecated shim on getter only.)
+  _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination)
 
   final ContextBudgetStore _contextBudget = ContextBudgetStore();
   // ── Session Metadata ──
@@ -959,8 +930,6 @@ class ChatService extends ChangeNotifier with ChatServiceTodaySentence {
 
   // (chanceTimePendingTrigger / hasPendingChaosEvent / consumeChanceTimeTrigger /
   // the web/mobile Chance Time surface moved to chat_service_turn_flow.dart)
-
-  // (nsfw/relationship long list of @Dep shims excised in final cleanup; use nsfwService / relationshipService)
 
   // (Misc accessors, id helpers and the service setters live in
   // chat_service_accessors.dart, which also carries the still-live warning

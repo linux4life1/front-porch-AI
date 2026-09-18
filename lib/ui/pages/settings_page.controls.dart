@@ -31,16 +31,16 @@ extension _SettingsLaunchControls on _SettingsPageState {
 
     // NVIDIA Logic: Default to CuBLAS if not set
     if (hw.vendor == 'Nvidia') {
-      if (storage.useCublas == null) {
-        storage.setUseCublas(true);
-        storage.setUseVulkan(false);
+      if (storage.backendSettings.useCublas == null) {
+        storage.backendSettings.setUseCublas(true);
+        storage.backendSettings.setUseVulkan(false);
         _useCublas = true;
         _useVulkan = false;
         changed = true;
       } else {
-        _useCublas = storage.useCublas!;
-        if (storage.useVulkan != null) {
-          _useVulkan = storage.useVulkan!;
+        _useCublas = storage.backendSettings.useCublas!;
+        if (storage.backendSettings.useVulkan != null) {
+          _useVulkan = storage.backendSettings.useVulkan!;
         } else if (_useCublas) {
           _useVulkan = false;
         }
@@ -48,39 +48,46 @@ extension _SettingsLaunchControls on _SettingsPageState {
     }
     // MacOS Logic: Default to Metal if not set
     else if (Platform.isMacOS) {
-      if (storage.useMetal == null) {
-        storage.setUseMetal(true);
-        storage.setUseVulkan(false);
-        storage.setUseCublas(false);
+      if (storage.backendSettings.useMetal == null) {
+        storage.backendSettings.setUseMetal(true);
+        storage.backendSettings.setUseVulkan(false);
+        storage.backendSettings.setUseCublas(false);
         _useMetal = true;
         _useVulkan = false;
         _useCublas = false;
         changed = true;
       } else {
-        _useMetal = storage.useMetal!;
-        if (storage.useVulkan != null) _useVulkan = storage.useVulkan!;
-        if (storage.useCublas != null) _useCublas = storage.useCublas!;
-        if (storage.useRocm != null) _useRocm = storage.useRocm!;
+        _useMetal = storage.backendSettings.useMetal!;
+        if (storage.backendSettings.useVulkan != null) {
+          _useVulkan = storage.backendSettings.useVulkan!;
+        }
+        if (storage.backendSettings.useCublas != null) {
+          _useCublas = storage.backendSettings.useCublas!;
+        }
+        if (storage.backendSettings.useRocm != null) {
+          _useRocm = storage.backendSettings.useRocm!;
+        }
       }
     }
     // Non-NVIDIA/Non-Mac Logic: Default to ROCm if available, else Vulkan
     else {
-      if (storage.useVulkan == null && storage.useRocm == null) {
+      if (storage.backendSettings.useVulkan == null &&
+          storage.backendSettings.useRocm == null) {
         // First run: auto-detect best GPU backend
         if (hw.vendor == 'AMD' && Platform.isLinux && hw.hasRocm) {
-          storage.setUseRocm(true);
-          storage.setUseVulkan(false);
-          storage.setUseCublas(false);
-          storage.setUseMetal(false);
+          storage.backendSettings.setUseRocm(true);
+          storage.backendSettings.setUseVulkan(false);
+          storage.backendSettings.setUseCublas(false);
+          storage.backendSettings.setUseMetal(false);
           _useRocm = true;
           _useVulkan = false;
           _useCublas = false;
           _useMetal = false;
         } else {
-          storage.setUseVulkan(true);
-          storage.setUseCublas(false);
-          storage.setUseMetal(false);
-          storage.setUseRocm(false);
+          storage.backendSettings.setUseVulkan(true);
+          storage.backendSettings.setUseCublas(false);
+          storage.backendSettings.setUseMetal(false);
+          storage.backendSettings.setUseRocm(false);
           _useVulkan = true;
           _useCublas = false;
           _useMetal = false;
@@ -88,10 +95,16 @@ extension _SettingsLaunchControls on _SettingsPageState {
         }
         changed = true;
       } else {
-        _useVulkan = storage.useVulkan ?? false;
-        if (storage.useCublas != null) _useCublas = storage.useCublas!;
-        if (storage.useMetal != null) _useMetal = storage.useMetal!;
-        if (storage.useRocm != null) _useRocm = storage.useRocm!;
+        _useVulkan = storage.backendSettings.useVulkan ?? false;
+        if (storage.backendSettings.useCublas != null) {
+          _useCublas = storage.backendSettings.useCublas!;
+        }
+        if (storage.backendSettings.useMetal != null) {
+          _useMetal = storage.backendSettings.useMetal!;
+        }
+        if (storage.backendSettings.useRocm != null) {
+          _useRocm = storage.backendSettings.useRocm!;
+        }
       }
     }
 
@@ -125,7 +138,7 @@ extension _SettingsLaunchControls on _SettingsPageState {
     // and because it PERSISTS its result, every Settings visit silently
     // overwrote a custom context limit ("my context size doesn't survive a
     // restart", field-reported).
-    _gpuLayersController.text = storage.gpuLayers.toString();
+    _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
     _contextSizeController.text = storage.backendSettings.contextSize
         .toString();
 
@@ -134,7 +147,8 @@ extension _SettingsLaunchControls on _SettingsPageState {
     // `gpuLayers == 0`, which is NOT that signal: 0 is a deliberate CPU-only
     // choice, and the low-VRAM solver legitimately recommends 0 — so CPU and
     // low-VRAM users got silently re-configured on every visit.
-    if (_selectedModelPath != null && !storage.gpuLayersConfigured) {
+    if (_selectedModelPath != null &&
+        !storage.backendSettings.gpuLayersConfigured) {
       // Warm before the silent auto-config so the solver gets good data on first run
       final modelManager = Provider.of<ModelManager>(context, listen: false);
       modelManager.getModelArchitectureInfo(_selectedModelPath!);
@@ -317,13 +331,13 @@ extension _SettingsLaunchControls on _SettingsPageState {
       kvQuantizationLevel: Provider.of<StorageService>(
         context,
         listen: false,
-      ).kvQuantizationLevel,
+      ).backendSettings.kvQuantizationLevel,
     );
 
     // Persist settings to storage so they survive app restart
     final storage = Provider.of<StorageService>(context, listen: false);
-    storage.setGpuLayers(suggestion.gpuLayers);
-    storage.setContextSize(suggestion.contextSize);
+    storage.backendSettings.setGpuLayers(suggestion.gpuLayers);
+    storage.backendSettings.setContextSize(suggestion.contextSize);
 
     rebuildState(() {
       _gpuLayersController.text = suggestion.gpuLayers.toString();
@@ -333,17 +347,17 @@ extension _SettingsLaunchControls on _SettingsPageState {
         _useMetal = true;
         _useVulkan = false;
         _useCublas = false;
-        storage.setUseMetal(true);
-        storage.setUseVulkan(false);
-        storage.setUseCublas(false);
+        storage.backendSettings.setUseMetal(true);
+        storage.backendSettings.setUseVulkan(false);
+        storage.backendSettings.setUseCublas(false);
       }
       // If user has Nvidia, suggest Cublas instead of Vulkan usually
       else if (hardware.vendor == 'Nvidia') {
         _useCublas = true;
         _useVulkan = false;
         _useMetal = false;
-        storage.setUseCublas(true);
-        storage.setUseVulkan(false);
+        storage.backendSettings.setUseCublas(true);
+        storage.backendSettings.setUseVulkan(false);
       } else {
         _useCublas = false;
         _useMetal = false;
@@ -387,7 +401,7 @@ extension _SettingsLaunchControls on _SettingsPageState {
     }
     final storage = Provider.of<StorageService>(context, listen: false);
 
-    final presetOwnsModel = storage.kcppsHasModel;
+    final presetOwnsModel = storage.backendSettings.kcppsHasModel;
 
     if (!presetOwnsModel) {
       if (_selectedModelPath == null) {
@@ -414,12 +428,12 @@ extension _SettingsLaunchControls on _SettingsPageState {
     final gpuLayers = int.tryParse(_gpuLayersController.text) ?? 0;
     final contextSize = int.tryParse(_contextSizeController.text) ?? 16384;
 
-    storage.setGpuLayers(gpuLayers);
-    storage.setContextSize(contextSize);
-    storage.setUseCublas(_useCublas);
-    storage.setUseVulkan(_useVulkan);
-    storage.setUseMetal(_useMetal);
-    storage.setUseRocm(_useRocm);
+    storage.backendSettings.setGpuLayers(gpuLayers);
+    storage.backendSettings.setContextSize(contextSize);
+    storage.backendSettings.setUseCublas(_useCublas);
+    storage.backendSettings.setUseVulkan(_useVulkan);
+    storage.backendSettings.setUseMetal(_useMetal);
+    storage.backendSettings.setUseRocm(_useRocm);
 
     final effectiveModel = presetOwnsModel ? '' : _selectedModelPath!;
     // Record the GGUF we are actually launching. This scalar is the app's only
@@ -431,14 +445,14 @@ extension _SettingsLaunchControls on _SettingsPageState {
     // itself, so that branch leaves the scalar alone — same as the twin in
     // model_settings_dialog.local_actions.dart.)
     if (!presetOwnsModel) {
-      await storage.setLastUsedModelPath(_selectedModelPath);
+      await storage.backendSettings.setLastUsedModelPath(_selectedModelPath);
     }
     await koboldService.startKobold(
       backendManager.backendPath!,
       effectiveModel,
-      kcppsPath: storage.activeKcppsPath,
+      kcppsPath: storage.backendSettings.activeKcppsPath,
       mmprojPath: _selectedModelPath != null
-          ? storage.mmprojForModel(_selectedModelPath!)
+          ? storage.presetSettings.modelMmprojMap[_selectedModelPath!]
           : null,
       gpuLayers: gpuLayers,
       contextSize: contextSize,

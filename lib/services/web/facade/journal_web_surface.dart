@@ -104,7 +104,7 @@ class JournalWebSurface {
             emotionLabel: body['feeling'] as String?,
             storyDay: chat.timeService.dayCount,
             storyClock: chat.timeService.storyClockIso,
-            maxCards: storage.journalMaxCards,
+            maxCards: storage.memorySettings.journalMaxCards,
           );
         }
         break;
@@ -216,7 +216,9 @@ class JournalWebSurface {
       if (decoded is! List) return const [];
       return [
         for (final e in decoded)
-          if (e is num) e.toInt() else if (int.tryParse('$e') != null)
+          if (e is num)
+            e.toInt()
+          else if (int.tryParse('$e') != null)
             int.parse('$e'),
       ];
     } catch (_) {

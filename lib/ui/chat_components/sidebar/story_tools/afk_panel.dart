@@ -52,9 +52,9 @@ class _AfkPanelState extends State<AfkPanel> {
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
     final accent = AppColors.porchHoneyOf(context);
-    final enabled = storage.dynamicResponses;
-    final interval = storage.dynamicResponseInterval;
-    final maxMessages = storage.dynamicResponseMaxMessages;
+    final enabled = storage.generationSettings.dynamicResponses;
+    final interval = storage.generationSettings.dynamicResponseInterval;
+    final maxMessages = storage.generationSettings.dynamicResponseMaxMessages;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,7 +88,7 @@ class _AfkPanelState extends State<AfkPanel> {
               Switch(
                 value: enabled,
                 onChanged: (v) {
-                  storage.setDynamicResponses(v);
+                  storage.generationSettings.setDynamicResponses(v);
                   // Reuse the existing lifecycle so the idle timer arms/cancels
                   // right away rather than waiting for the next page entry.
                   if (v) {
@@ -172,11 +172,12 @@ class _AfkPanelState extends State<AfkPanel> {
                       divisions: 27,
                       activeColor: accent,
                       inactiveColor: AppColors.borderOf(context),
-                      onChanged: (val) =>
-                          setState(() => _dragInterval = val),
+                      onChanged: (val) => setState(() => _dragInterval = val),
                       onChangeEnd: (val) {
                         _dragInterval = null;
-                        storage.setDynamicResponseInterval(val.toInt());
+                        storage.generationSettings.setDynamicResponseInterval(
+                          val.toInt(),
+                        );
                       },
                     ),
                   ),
@@ -216,11 +217,11 @@ class _AfkPanelState extends State<AfkPanel> {
                       divisions: 9,
                       activeColor: accent,
                       inactiveColor: AppColors.borderOf(context),
-                      onChanged: (val) =>
-                          setState(() => _dragMessages = val),
+                      onChanged: (val) => setState(() => _dragMessages = val),
                       onChangeEnd: (val) {
                         _dragMessages = null;
-                        storage.setDynamicResponseMaxMessages(val.toInt());
+                        storage.generationSettings
+                            .setDynamicResponseMaxMessages(val.toInt());
                       },
                     ),
                   ),
@@ -240,9 +241,13 @@ class _AfkPanelState extends State<AfkPanel> {
                       DropdownButton<int>(
                         value:
                             const [1, 3, 6].contains(
-                              storage.dynamicResponsePacePeriods,
+                              storage
+                                  .generationSettings
+                                  .dynamicResponsePacePeriods,
                             )
-                            ? storage.dynamicResponsePacePeriods
+                            ? storage
+                                  .generationSettings
+                                  .dynamicResponsePacePeriods
                             : 1,
                         isDense: true,
                         dropdownColor: AppColors.cardOf(context),
@@ -257,14 +262,12 @@ class _AfkPanelState extends State<AfkPanel> {
                             value: 3,
                             child: Text('half the day'),
                           ),
-                          DropdownMenuItem(
-                            value: 6,
-                            child: Text('a full day'),
-                          ),
+                          DropdownMenuItem(value: 6, child: Text('a full day')),
                         ],
                         onChanged: (v) {
                           if (v != null) {
-                            storage.setDynamicResponsePacePeriods(v);
+                            storage.generationSettings
+                                .setDynamicResponsePacePeriods(v);
                           }
                         },
                       ),

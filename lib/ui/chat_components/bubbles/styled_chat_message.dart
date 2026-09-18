@@ -139,31 +139,31 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
 
   void _refreshStyles(StorageService storageService) {
     final character = widget.character;
-    final fontFamily = storageService.getChatFontFamily(
+    final fontFamily = storageService.uiSettings.getChatFontFamily(
       character,
-      widget.themePreset,
-      widget.themeOverrides,
+      themePreset: widget.themePreset,
+      themeOverrides: widget.themeOverrides,
     );
     final textColor = widget.isUser
-        ? storageService.getUserTextColor(
+        ? storageService.uiSettings.getUserTextColor(
             character,
-            widget.themePreset,
-            widget.themeOverrides,
+            themePreset: widget.themePreset,
+            themeOverrides: widget.themeOverrides,
           )
-        : storageService.getAiTextColor(
+        : storageService.uiSettings.getAiTextColor(
             character,
-            widget.themePreset,
-            widget.themeOverrides,
+            themePreset: widget.themePreset,
+            themeOverrides: widget.themeOverrides,
           );
-    final dialogueColor = storageService.getDialogueColor(
+    final dialogueColor = storageService.uiSettings.getDialogueColor(
       character,
-      widget.themePreset,
-      widget.themeOverrides,
+      themePreset: widget.themePreset,
+      themeOverrides: widget.themeOverrides,
     );
-    final actionColor = storageService.getActionColor(
+    final actionColor = storageService.uiSettings.getActionColor(
       character,
-      widget.themePreset,
-      widget.themeOverrides,
+      themePreset: widget.themePreset,
+      themeOverrides: widget.themeOverrides,
     );
     final key = (fontFamily, textColor, dialogueColor, actionColor);
     if (key == _styleKey) return;
@@ -195,7 +195,9 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     _refreshStyles(storageService);
     // Reading Size is this pref. Do not trust ambient MediaQuery — chrome
     // may scale from it while the transcript sits at 1.0 (or the reverse).
-    final readingScaler = readingTextScaler(storageService.textScale);
+    final readingScaler = readingTextScaler(
+      storageService.uiSettings.textScale,
+    );
 
     // Check for markdown images (cached per source text).
     if (!identical(text, _parseSource)) {

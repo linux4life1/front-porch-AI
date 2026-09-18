@@ -20,49 +20,9 @@ class _PlannerStorage extends FakeStorageService {
   }
 
   final RealismSettings _realism = RealismSettings();
-  bool _journalEnabled = true;
 
   @override
   RealismSettings get realismSettings => _realism;
-
-  @override
-  bool get passageOfTimeDefault => _realism.passageOfTimeDefault;
-  @override
-  Future<void> setPassageOfTimeDefault(bool v) =>
-      _realism.setPassageOfTimeDefault(v);
-
-  @override
-  bool get objectivesEnabled => _realism.objectivesEnabled;
-  @override
-  Future<void> setObjectivesEnabled(bool v) =>
-      _realism.setObjectivesEnabled(v);
-
-  @override
-  bool get journalEnabled => _journalEnabled;
-  @override
-  Future<void> setJournalEnabled(bool v) async {
-    _journalEnabled = v;
-    notifyListeners();
-  }
-
-  @override
-  bool get weatherEnabled => _realism.weatherEnabled;
-  @override
-  bool get weatherFahrenheit => _realism.weatherFahrenheit;
-  @override
-  bool get dreamsEnabled => _realism.dreamsEnabled;
-  @override
-  bool get absenceBannerEnabled => _realism.absenceBannerEnabled;
-  @override
-  bool get absenceAckEnabled => _realism.absenceAckEnabled;
-  @override
-  int get absenceThresholdHours => _realism.absenceThresholdHours;
-  @override
-  bool get realismDefault => _realism.realismDefault;
-  @override
-  bool get nsfwCooldownDefault => _realism.nsfwCooldownDefault;
-  @override
-  bool get needsSimDefault => _realism.needsSimDefault;
 }
 
 void main() {
@@ -104,17 +64,20 @@ void main() {
     expect(storage.realismSettings.plannerEnabled, isFalse);
 
     final sw = tester.widget<Switch>(
-      find.descendant(of: rowFor('Planner'), matching: find.byType(Switch)).first,
+      find
+          .descendant(of: rowFor('Planner'), matching: find.byType(Switch))
+          .first,
     );
     expect(sw.value, isFalse);
   });
 
-  testWidgets('Planner is unsatisfied if time, objectives, or journal is off',
-      (tester) async {
+  testWidgets('Planner is unsatisfied if time, objectives, or journal is off', (
+    tester,
+  ) async {
     final storage = await pumpTab(tester);
     final scrollable = find.byType(Scrollable).first;
 
-    await storage.setJournalEnabled(false);
+    await storage.memorySettings.setJournalEnabled(false);
     await tester.pump();
 
     final label = find.text('Planner');
@@ -124,7 +87,9 @@ void main() {
       findsWidgets,
     );
     final gated = tester.widget<Switch>(
-      find.descendant(of: rowFor('Planner'), matching: find.byType(Switch)).first,
+      find
+          .descendant(of: rowFor('Planner'), matching: find.byType(Switch))
+          .first,
     );
     expect(gated.onChanged, isNull, reason: 'unsatisfied row must be gated');
   });

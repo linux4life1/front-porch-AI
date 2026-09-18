@@ -119,7 +119,8 @@ extension _SettingsGpuControls on _SettingsPageState {
                                 onChanged: (val) {
                                   final parsed = int.tryParse(val);
                                   if (parsed != null && parsed > 0) {
-                                    storageService.setContextSize(parsed);
+                                    storageService.backendSettings
+                                        .setContextSize(parsed);
                                     rebuildState(() {}); // refresh VRAM gauge
                                   }
                                 },
@@ -145,7 +146,9 @@ extension _SettingsGpuControls on _SettingsPageState {
                             Expanded(
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<int>(
-                                  value: storageService.kvQuantizationLevel,
+                                  value: storageService
+                                      .backendSettings
+                                      .kvQuantizationLevel,
                                   isExpanded: true,
                                   dropdownColor: AppColors.surfaceContainerOf(
                                     context,
@@ -156,9 +159,8 @@ extension _SettingsGpuControls on _SettingsPageState {
                                   ),
                                   onChanged: (val) {
                                     if (val != null) {
-                                      storageService.setKvQuantizationLevel(
-                                        val,
-                                      );
+                                      storageService.backendSettings
+                                          .setKvQuantizationLevel(val);
                                       rebuildState(() {}); // Refresh VRAM gauge
                                     }
                                   },
@@ -284,10 +286,10 @@ extension _SettingsGpuControls on _SettingsPageState {
             if (!auto)
               TextButton(
                 onPressed: () {
-                  storage.setUseVulkan(null);
-                  storage.setUseRocm(null);
-                  storage.setUseCublas(null);
-                  storage.setUseMetal(null);
+                  storage.backendSettings.setUseVulkan(null);
+                  storage.backendSettings.setUseRocm(null);
+                  storage.backendSettings.setUseCublas(null);
+                  storage.backendSettings.setUseMetal(null);
                   rebuildState(() {
                     _useVulkan = false;
                     _useRocm = false;
@@ -357,7 +359,7 @@ extension _SettingsGpuControls on _SettingsPageState {
               _dragContextSize = null;
               final newSize = presets[val.round()];
               _contextSizeController.text = newSize.toString();
-              storageService.setContextSize(newSize);
+              storageService.backendSettings.setContextSize(newSize);
               rebuildState(() {});
             },
           ),
@@ -393,7 +395,7 @@ extension _SettingsGpuControls on _SettingsPageState {
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               onSelected: (_) {
                 _contextSizeController.text = size.toString();
-                storageService.setContextSize(size);
+                storageService.backendSettings.setContextSize(size);
                 rebuildState(() {});
               },
             );
@@ -414,10 +416,10 @@ extension _SettingsGpuControls on _SettingsPageState {
       bool metal = false,
     }) {
       final ss = Provider.of<StorageService>(context, listen: false);
-      ss.setUseVulkan(vulkan);
-      ss.setUseRocm(rocm);
-      ss.setUseCublas(cublas);
-      ss.setUseMetal(metal);
+      ss.backendSettings.setUseVulkan(vulkan);
+      ss.backendSettings.setUseRocm(rocm);
+      ss.backendSettings.setUseCublas(cublas);
+      ss.backendSettings.setUseMetal(metal);
     }
 
     return Wrap(
@@ -442,7 +444,7 @@ extension _SettingsGpuControls on _SettingsPageState {
               Provider.of<StorageService>(
                 context,
                 listen: false,
-              ).setUseVulkan(false);
+              ).backendSettings.setUseVulkan(false);
             }
           },
         ),
@@ -469,7 +471,7 @@ extension _SettingsGpuControls on _SettingsPageState {
                       Provider.of<StorageService>(
                         context,
                         listen: false,
-                      ).setUseRocm(false);
+                      ).backendSettings.setUseRocm(false);
                     }
                   }
                 : null, // Disabled if ROCm not installed
@@ -501,7 +503,7 @@ extension _SettingsGpuControls on _SettingsPageState {
                       Provider.of<StorageService>(
                         context,
                         listen: false,
-                      ).setUseCublas(false);
+                      ).backendSettings.setUseCublas(false);
                     }
                   }
                 : null, // Disabled if not Nvidia
@@ -533,7 +535,7 @@ extension _SettingsGpuControls on _SettingsPageState {
                       Provider.of<StorageService>(
                         context,
                         listen: false,
-                      ).setUseMetal(false);
+                      ).backendSettings.setUseMetal(false);
                     }
                   }
                 : null, // Disabled if not MacOS/Metal

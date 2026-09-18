@@ -647,13 +647,13 @@ extension ChatServiceWiringEvals on ChatService {
     final remoteApiUrl = service is LlmApiEndpoint
         ? (service as LlmApiEndpoint).apiUrl
         : (testLlmServiceOverride != null && !testIsLocalOverride
-              ? _storageService.remoteApiUrl
+              ? _storageService.backendSettings.remoteApiUrl
               : '');
     return evalBackendIdentityFor(
       backendName: service.backendName,
       remoteApiUrl: remoteApiUrl,
-      remoteModelName: _storageService.remoteModelName,
-      modelPath: _storageService.lastUsedModelPath,
+      remoteModelName: _storageService.backendSettings.remoteModelName,
+      modelPath: _storageService.backendSettings.lastUsedModelPath,
     );
   }
 
@@ -686,10 +686,10 @@ extension ChatServiceWiringEvals on ChatService {
                 _storageService.workerBackendType,
                 _storageService.workerRemoteApiUrl,
               )
-            : _storageService.remoteApiUrl;
+            : _storageService.backendSettings.remoteApiUrl;
         final model = workerOn
             ? _storageService.workerRemoteModelName
-            : _storageService.remoteModelName;
+            : _storageService.backendSettings.remoteModelName;
         final caps = await VisionSupportResolver.instance.capabilitiesForRemote(
           apiUrl: url,
           apiKey: _storageService.remoteApiKeyFor(url),

@@ -103,7 +103,7 @@ _buildRealismOffChat(OpenRouterService llm) async {
   // Content-side `<think>` is peeled unless wrap is on (f2cf39e7). These
   // pins are the ChatService stop-scan / salvage, which only see tags
   // that ingest kept.
-  await storage.setReasoningEnabled(true);
+  await storage.backendSettings.setReasoningEnabled(true);
   await chat.setActiveCharacter(
     CharacterCard(
       name: 'Jennifer',

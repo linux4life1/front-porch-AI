@@ -34,7 +34,7 @@ void showModelSearchDialog(
     title: 'Select Model',
     getTitle: (m) => m.name,
     getSubtitle: (m) => m.id,
-    onSelected: (m) => storageService.setRemoteModel(m.id),
+    onSelected: (m) => storageService.backendSettings.setRemoteModelName(m.id),
   );
 }
 

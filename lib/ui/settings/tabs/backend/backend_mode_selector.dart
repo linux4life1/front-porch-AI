@@ -54,7 +54,7 @@ class BackendModeSelector extends StatelessWidget {
         BackendType.omlx => 'omlx',
         BackendType.openRouter => 'openRouter',
       },
-      url: storage.remoteApiUrl,
+      url: storage.backendSettings.remoteApiUrl,
     );
 
     return Column(

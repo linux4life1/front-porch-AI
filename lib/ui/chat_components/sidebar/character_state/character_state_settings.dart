@@ -110,11 +110,11 @@ class CharacterStateSettings extends StatelessWidget {
                 'services that support tool calls, and keeps the safer '
                 'multi-call path on local models, where small models can '
                 'struggle with the combined prompt.',
-            value: storage.oneShotMode,
+            value: storage.realismSettings.oneShotMode,
             accent: AppColors.journalAccentOf(context),
             onChanged: chat.isGenerating
                 ? null
-                : (val) => storage.setOneShotMode(val),
+                : (val) => storage.realismSettings.setOneShotMode(val),
           ),
           const SizedBox(height: 10),
           _toggleRow(

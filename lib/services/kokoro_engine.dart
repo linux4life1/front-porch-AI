@@ -125,7 +125,7 @@ class KokoroEngine implements TtsEngine {
   /// the first audio starts fast. No-op if TTS is globally disabled, to
   /// avoid holding the large Kokoro model in memory for nothing.
   Future<void> ensureWorkersWarm() async {
-    if (!_storageService.ttsEnabled) {
+    if (!_storageService.ttsSettings.ttsEnabled) {
       kDebugPrint('[KokoroEngine] ensureWorkersWarm skipped (TTS disabled)');
       return;
     }

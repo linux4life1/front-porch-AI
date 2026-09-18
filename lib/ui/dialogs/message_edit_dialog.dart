@@ -29,7 +29,7 @@ Future<String?> showMessageEditDialog({
   late final TextScaler appScaler;
   try {
     appScaler = readingTextScaler(
-      Provider.of<StorageService>(context, listen: false).textScale,
+      Provider.of<StorageService>(context, listen: false).uiSettings.textScale,
     );
   } on ProviderNotFoundException {
     appScaler = MediaQuery.textScalerOf(context);

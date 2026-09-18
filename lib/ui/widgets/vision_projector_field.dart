@@ -101,7 +101,7 @@ class _VisionProjectorFieldState extends State<VisionProjectorField> {
   String? get _mmprojPath {
     final path = widget.modelPath;
     if (path == null) return null;
-    final v = widget.storage.modelMmprojMap[path];
+    final v = widget.storage.presetSettings.modelMmprojMap[path];
     return (v != null && v.isNotEmpty) ? v : null;
   }
 
@@ -116,7 +116,7 @@ class _VisionProjectorFieldState extends State<VisionProjectorField> {
       dialogTitle: 'Select vision projector (mmproj .gguf)',
     );
     if (file?.path == null) return;
-    await widget.storage.setModelMmproj(path, file!.path);
+    await widget.storage.presetSettings.setModelMmproj(path, file!.path);
     if (!mounted) return;
     setState(() {});
     widget.onChanged?.call();
@@ -125,7 +125,7 @@ class _VisionProjectorFieldState extends State<VisionProjectorField> {
   Future<void> _clearMmproj() async {
     final path = widget.modelPath;
     if (path == null) return;
-    await widget.storage.setModelMmproj(path, null);
+    await widget.storage.presetSettings.setModelMmproj(path, null);
     if (!mounted) return;
     setState(() {});
     widget.onChanged?.call();

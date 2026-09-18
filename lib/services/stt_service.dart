@@ -74,7 +74,7 @@ class SttService extends ChangeNotifier {
   String? get selectedDeviceId => _selectedDeviceId;
 
   SttService(this._storageService) {
-    _selectedDeviceId = _storageService.selectedMicId;
+    _selectedDeviceId = _storageService.sttSettings.selectedMicId;
     // The overlay listens to SttService — surface the session's changes.
     call.addListener(notifyListeners);
   }
@@ -90,7 +90,7 @@ class SttService extends ChangeNotifier {
       if (_selectedDeviceId != null &&
           !_inputDevices.any((d) => d.id == _selectedDeviceId)) {
         _selectedDeviceId = null;
-        await _storageService.setSelectedMicId(null);
+        await _storageService.sttSettings.setSelectedMicId(null);
       }
       notifyListeners();
       return _inputDevices;
@@ -105,7 +105,7 @@ class SttService extends ChangeNotifier {
   /// Set the selected microphone device.
   Future<void> setSelectedDevice(String? deviceId) async {
     _selectedDeviceId = deviceId;
-    await _storageService.setSelectedMicId(deviceId);
+    await _storageService.sttSettings.setSelectedMicId(deviceId);
     notifyListeners();
   }
 
@@ -132,7 +132,7 @@ class SttService extends ChangeNotifier {
   /// The in-process sherpa-onnx engine ships with the app, so STT is
   /// usable whenever the feature is enabled (the model downloads on
   /// demand).
-  bool get isAvailable => _storageService.sttEnabled;
+  bool get isAvailable => _storageService.sttSettings.sttEnabled;
 
   // ---- Model Download ----
   bool _isDownloading = false;
@@ -153,7 +153,7 @@ class SttService extends ChangeNotifier {
     if (root == null) return false;
     return SherpaWhisperEngine.isModelPresent(
       root,
-      _storageService.whisperModel,
+      _storageService.sttSettings.whisperModel,
     );
   }
 
@@ -166,7 +166,7 @@ class SttService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final modelSize = _storageService.whisperModel;
+      final modelSize = _storageService.sttSettings.whisperModel;
       final root =
           _storageService.rootPath ??
           (await getApplicationDocumentsDirectory()).path;
@@ -365,7 +365,7 @@ class SttService extends ChangeNotifier {
 
   Future<String?> _transcribe(String audioPath) async {
     try {
-      final modelSize = _storageService.whisperModel;
+      final modelSize = _storageService.sttSettings.whisperModel;
       final root =
           _storageService.rootPath ??
           (await getApplicationDocumentsDirectory()).path;

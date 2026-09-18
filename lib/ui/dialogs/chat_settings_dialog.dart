@@ -166,6 +166,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                             setState(() {
                               _gen = ChatGenerationSettings();
                               _bannedPhrasesController.text = storage
+                                  .realismSettings
                                   .bannedPhrases
                                   .join('\n');
                             });
@@ -228,7 +229,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                           setState(() => _gen.reasoningEffort = val);
                           _save();
                         },
-                        modelId: storage.remoteModelName,
+                        modelId: storage.backendSettings.remoteModelName,
                       ),
                       const SizedBox(height: 8),
                       Divider(color: AppColors.borderOf(context)),

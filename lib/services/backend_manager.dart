@@ -234,8 +234,11 @@ class BackendManager extends ChangeNotifier {
             ? 'releases/tags/rocm-rolling'
             : 'releases/latest';
         final response = await client
-            .get(Uri.parse(
-                'https://api.github.com/repos/LostRuins/koboldcpp/$releasePath'))
+            .get(
+              Uri.parse(
+                'https://api.github.com/repos/LostRuins/koboldcpp/$releasePath',
+              ),
+            )
             .timeout(const Duration(seconds: 10));
         if (response.statusCode == 200) {
           final body = jsonDecode(response.body);
@@ -278,7 +281,7 @@ class BackendManager extends ChangeNotifier {
   Future<void> ensureEngineInstalled() async {
     if (_isDownloading || _backendPath != null || isIntelMac) return;
     await _storageService.initialized;
-    final backendType = _storageService.backendType;
+    final backendType = _storageService.backendSettings.backendType;
     if (backendType == 'openRouter' || backendType == 'omlx') return;
     await checkBackendAvailability();
     if (_backendPath != null) return; // found an existing binary after all
@@ -466,13 +469,13 @@ class BackendManager extends ChangeNotifier {
       print('AG_DEBUG: Checking backend availability...');
       await Future.delayed(const Duration(milliseconds: 500)); // Brief pause
       await checkBackendAvailability();
-    if (UpdateService.isSupported) {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool('update_auto_check') ?? true) {
-        checkForUpdates();
+      if (UpdateService.isSupported) {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('update_auto_check') ?? true) {
+          checkForUpdates();
+        }
       }
-    }
-    // Portable builds: auto-check skipped (manual button still works)
+      // Portable builds: auto-check skipped (manual button still works)
       print('AG_DEBUG: Backend check complete. Status: $_statusMessage');
     } catch (e, stack) {
       _isDownloading = false;

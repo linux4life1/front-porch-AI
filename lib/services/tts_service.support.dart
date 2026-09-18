@@ -164,7 +164,7 @@ extension TtsServiceSupport on TtsService {
     var result = text;
 
     // ── Replace curly quotation marks with straight ones (must run before narration filters) ──
-    if (_storageService.ttsReplaceCurlyQuotes) {
+    if (_storageService.ttsSettings.ttsReplaceCurlyQuotes) {
       result = result
           .replaceAll('\u201C', '"')
           .replaceAll('\u201D', '"')
@@ -174,12 +174,12 @@ extension TtsServiceSupport on TtsService {
 
     // ── Narration filters (SillyTavern-style) ──
     // Step 1: If ignoreAsterisks, remove all *...* blocks (including content inside them)
-    if (_storageService.ttsIgnoreAsterisks) {
+    if (_storageService.ttsSettings.ttsIgnoreAsterisks) {
       // Handle multi-line action blocks: *action across\nmultiple lines*
       result = result.replaceAll(RegExp(r'\*[^*]+\*', dotAll: true), ' ');
     }
     // Step 2: If narrateQuotedOnly, extract only text within quotes (straight or curly)
-    if (_storageService.ttsNarrateQuotedOnly) {
+    if (_storageService.ttsSettings.ttsNarrateQuotedOnly) {
       // Robust extraction for spoken dialogue in "..." or “...” (curly quotes)
       // We deliberately avoid single quotes here because they are too ambiguous with apostrophes.
       final quotePattern = RegExp(r'["“]([^"”]+)["”]', dotAll: true);
@@ -207,7 +207,10 @@ extension TtsServiceSupport on TtsService {
     result = result.replaceAll(RegExp(r'\*'), '');
     result = result.replaceAll(RegExp(r'#{1,6}\s'), '');
     result = result.replaceAll(RegExp(r'[_~`]'), '');
-    result = result.replaceAllMapped(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), (m) => m[1]!);
+    result = result.replaceAllMapped(
+      RegExp(r'\[([^\]]+)\]\([^\)]+\)'),
+      (m) => m[1]!,
+    );
     result = result.replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '');
     result = result.replaceAll(RegExp(r':[a-zA-Z0-9_]+:'), '');
     // Remove emojis (fpai-feature-004)

@@ -135,7 +135,7 @@ class _MessageBubbleState extends State<MessageBubble> {
     } on ProviderNotFoundException {
       storage = null;
     }
-    final bubbleOpacity = storage?.bubbleOpacity ?? 0.95;
+    final bubbleOpacity = storage?.uiSettings.bubbleOpacity ?? 0.95;
     final theme = storage == null
         ? ThemeBorderResolver.fallback(
             textColor: AppColors.textPrimary(context),
@@ -212,21 +212,21 @@ class _MessageBubbleState extends State<MessageBubble> {
                             ).withValues(alpha: 0.12 * bubbleOpacity),
                           )
                         : message.isUser
-                        ? (storage
-                                  ?.getUserBubbleColor(
+                        ? (storage?.uiSettings
+                                  .getUserBubbleColor(
                                     character,
-                                    theme.preset,
-                                    theme.overrides,
+                                    themePreset: theme.preset,
+                                    themeOverrides: theme.overrides,
                                   )
                                   .withValues(alpha: bubbleOpacity) ??
                               AppColors.porchAmberOf(
                                 context,
                               ).withValues(alpha: 0.2))
-                        : (storage
-                                  ?.getAiBubbleColor(
+                        : (storage?.uiSettings
+                                  .getAiBubbleColor(
                                     character,
-                                    theme.preset,
-                                    theme.overrides,
+                                    themePreset: theme.preset,
+                                    themeOverrides: theme.overrides,
                                   )
                                   .withValues(alpha: bubbleOpacity) ??
                               AppColors.cardOf(context)),

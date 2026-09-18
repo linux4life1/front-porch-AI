@@ -76,15 +76,15 @@ class PorchLifeTab extends StatelessWidget {
 
     // The engine gates everything in "needs Realism" rows; passage of time
     // additionally gates weather and dreams, and weather gates the °F display.
-    final engineOn = storage.realismDefault;
-    final timeOn = storage.passageOfTimeDefault;
-    final weatherOn = storage.weatherEnabled;
-    final journalOn = storage.journalEnabled;
+    final engineOn = storage.realismSettings.realismDefault;
+    final timeOn = storage.realismSettings.passageOfTimeDefault;
+    final weatherOn = storage.realismSettings.weatherEnabled;
+    final journalOn = storage.memorySettings.journalEnabled;
     // Objectives depend on nothing but their own eval cost (maintainer,
     // 2026-08-07), and Ambitions hang off them: finishing a quest is the only
     // thing that moves ambition progress.
-    final objectivesOn = storage.objectivesEnabled;
-    final adultOn = storage.adultThemesEnabled;
+    final objectivesOn = storage.realismSettings.objectivesEnabled;
+    final adultOn = storage.realismSettings.adultThemesEnabled;
 
     // Weather and dreams gate on the Passage of Time FLAG, deliberately not on
     // whether the clock is currently moving (ChatService._clockRunning). An
@@ -127,7 +127,7 @@ class PorchLifeTab extends StatelessWidget {
                   'further than a passing hello.',
               value: timeOn,
               onChanged: (v) {
-                storage.setPassageOfTimeDefault(v);
+                storage.realismSettings.setPassageOfTimeDefault(v);
                 chat.setPassageOfTimeEnabled(v);
               },
               // Shown only with the engine off. With it on, the clock already
@@ -138,7 +138,8 @@ class PorchLifeTab extends StatelessWidget {
                   ? null
                   : StandaloneClockSwitch(
                       value: realism.standaloneClockEnabled,
-                      onChanged: storage.setStandaloneClockEnabled,
+                      onChanged:
+                          storage.realismSettings.setStandaloneClockEnabled,
                     ),
             ),
             FeatureRow(
@@ -153,7 +154,7 @@ class PorchLifeTab extends StatelessWidget {
                   'rain tomorrow"). It costs no extra AI call — the sky is '
                   'worked out from the date — but it needs days to pass.',
               value: weatherOn,
-              onChanged: storage.setWeatherEnabled,
+              onChanged: storage.realismSettings.setWeatherEnabled,
             ),
             FeatureRow(
               icon: Icons.thermostat,
@@ -164,8 +165,8 @@ class PorchLifeTab extends StatelessWidget {
               blurb:
                   'Display only — characters always experience weather in '
                   'words ("coat-and-gloves cold"), never numbers.',
-              value: storage.weatherFahrenheit,
-              onChanged: storage.setWeatherFahrenheit,
+              value: storage.realismSettings.weatherFahrenheit,
+              onChanged: storage.realismSettings.setWeatherFahrenheit,
             ),
           ],
         ),
@@ -184,7 +185,7 @@ class PorchLifeTab extends StatelessWidget {
                   'cards also carry the feeling of the moment; without it they '
                   'are simply remembered.',
               value: journalOn,
-              onChanged: storage.setJournalEnabled,
+              onChanged: storage.memorySettings.setJournalEnabled,
             ),
             FeatureRow(
               icon: Icons.nightlight_outlined,
@@ -195,8 +196,8 @@ class PorchLifeTab extends StatelessWidget {
               blurb:
                   'When a story night passes, the character dreams — a short, '
                   'hazy scene woven from their memories, mood and the weather.',
-              value: storage.dreamsEnabled,
-              onChanged: storage.setDreamsEnabled,
+              value: storage.realismSettings.dreamsEnabled,
+              onChanged: storage.realismSettings.setDreamsEnabled,
             ),
             FeatureRow(
               icon: Icons.handshake_outlined,
@@ -281,8 +282,8 @@ class PorchLifeTab extends StatelessWidget {
                   'Slow character evolution — rings, not rewrites. What they '
                   'live through is added as a new layer instead of overwriting '
                   'who they were.',
-              value: storage.characterEvolutionEnabled,
-              onChanged: storage.setCharacterEvolutionEnabled,
+              value: storage.memorySettings.characterEvolutionEnabled,
+              onChanged: storage.memorySettings.setCharacterEvolutionEnabled,
             ),
             FeatureRow(
               icon: Icons.track_changes,
@@ -297,7 +298,7 @@ class PorchLifeTab extends StatelessWidget {
                   'the way to stop that cost — your quests are kept either way.',
               value: objectivesOn,
               onChanged: (v) {
-                storage.setObjectivesEnabled(v);
+                storage.realismSettings.setObjectivesEnabled(v);
                 chat.setObjectivesEnabled(v);
               },
             ),
@@ -362,8 +363,8 @@ class PorchLifeTab extends StatelessWidget {
                   'small "where we left off" banner. Uses the time of your last '
                   'message, already saved with your chat. Nothing new is '
                   'collected and nothing leaves your device.',
-              value: storage.absenceBannerEnabled,
-              onChanged: storage.setAbsenceBannerEnabled,
+              value: storage.realismSettings.absenceBannerEnabled,
+              onChanged: storage.realismSettings.setAbsenceBannerEnabled,
             ),
             FeatureRow(
               icon: Icons.waving_hand_outlined,
@@ -373,8 +374,8 @@ class PorchLifeTab extends StatelessWidget {
                   'The character briefly acknowledges a long gap ("it\'s been a '
                   'few days") — once, in coarse words, never guessing what you '
                   'were doing. Same local-only timestamp as the recap banner.',
-              value: storage.absenceAckEnabled,
-              onChanged: storage.setAbsenceAckEnabled,
+              value: storage.realismSettings.absenceAckEnabled,
+              onChanged: storage.realismSettings.setAbsenceAckEnabled,
               child: AwayThreshold(storage: storage),
             ),
           ],
@@ -406,9 +407,9 @@ class PorchLifeTab extends StatelessWidget {
                     'run without it — and nothing else, despite what it used '
                     'to do. Uses one short extra AI request per reply to '
                     'notice a climax, so it costs a little more on a paid API.',
-                value: storage.nsfwCooldownDefault,
+                value: storage.realismSettings.nsfwCooldownDefault,
                 onChanged: (v) {
-                  storage.setNsfwCooldownDefault(v);
+                  storage.realismSettings.setNsfwCooldownDefault(v);
                   chat.setNsfwCooldownEnabled(v);
                 },
               ),

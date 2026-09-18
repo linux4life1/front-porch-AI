@@ -163,7 +163,8 @@ class MemoryService extends ChangeNotifier {
 
   /// Whether RAG memory is fully operational (enabled + embeddings available).
   bool get isOperational =>
-      _storageService.ragEnabled && _embeddingService.isAvailable;
+      _storageService.memorySettings.ragEnabled &&
+      _embeddingService.isAvailable;
 
   /// Get all stored content chunks for the given characters, sorted chronologically.
   /// Used to ground summary generation in real conversation content.
@@ -257,7 +258,7 @@ class MemoryService extends ChangeNotifier {
     await _ensureEmbeddingsReady();
     if (!isOperational) {
       debugPrint(
-        '[RAG:Memory] embedMessageWindow skipped — not operational (enabled=${_storageService.ragEnabled}, available=${_embeddingService.isAvailable})',
+        '[RAG:Memory] embedMessageWindow skipped — not operational (enabled=${_storageService.memorySettings.ragEnabled}, available=${_embeddingService.isAvailable})',
       );
       return (stored: 0, hasMore: false, aborted: false);
     }
@@ -274,7 +275,7 @@ class MemoryService extends ChangeNotifier {
     var aborted = false;
     var hasMore = false;
     try {
-      final windowSize = _storageService.ragWindowSize;
+      final windowSize = _storageService.memorySettings.ragWindowSize;
 
       // Ranges only — never load embedding BLOBs for a presence check.
       final existingRanges = await _db.getEmbeddingRangesForSession(

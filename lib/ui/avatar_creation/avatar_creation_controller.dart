@@ -163,7 +163,8 @@ class AvatarCreationController extends ChangeNotifier {
       stage != AvatarRunStage.failed;
 
   // ── Derived gates ─────────────────────────────────────────────────────────
-  ImageGenBackend get backend => ImageGenBackend.fromKey(storage.imageGenBackend);
+  ImageGenBackend get backend =>
+      ImageGenBackend.fromKey(storage.imageGenSettings.imageGenBackend);
   bool get engineReady => imageGen.isConfigured;
 
   /// The exact decision the Studio's pack dialog uses (edit slot + ComfyUI
@@ -220,8 +221,7 @@ class AvatarCreationController extends ChangeNotifier {
 
   /// Inputs lock while running, but the prompt stays editable at the review
   /// gate so the user can tweak it before regenerating the portrait.
-  bool get promptEditable =>
-      !running || stage == AvatarRunStage.portraitReview;
+  bool get promptEditable => !running || stage == AvatarRunStage.portraitReview;
 
   /// The review gate can regenerate only with a non-empty prompt.
   bool get canRegeneratePortrait =>
@@ -379,8 +379,8 @@ class AvatarCreationController extends ChangeNotifier {
       _existingEmotions = {..._existingEmotions, e.emotion};
       added++;
     }
-    if (added > 0 && !storage.expressionEnabled) {
-      await storage.setExpressionEnabled(true);
+    if (added > 0 && !storage.expressionSettings.expressionEnabled) {
+      await storage.expressionSettings.setExpressionEnabled(true);
     }
     if (!_disposed) notifyListeners();
     return (added, result.unrecognized);

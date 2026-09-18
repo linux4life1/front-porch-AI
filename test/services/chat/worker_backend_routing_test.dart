@@ -115,7 +115,7 @@ void main() {
           ..testLlmServiceOverride = mouth
           ..testWorkerLlmServiceOverride = worker;
     await storage.initialized;
-    await storage.setMaxLength(256);
+    await storage.generationSettings.setMaxLength(256);
     await storage.webSearchSettings.setSearchApiKey('bs-test');
     await storage.webSearchSettings.setWebSearchDefault(true);
   });
@@ -210,7 +210,7 @@ void main() {
     () async {
       chat.testLlmServiceOverride = null;
       chat.testWorkerLlmServiceOverride = null;
-      await storage.setBackendType('kobold');
+      await storage.backendSettings.setBackendType('kobold');
       await storage.setWorkerBackendType('omlx');
       await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
       final mouthKobold = _RecordingMouthKobold(storage);

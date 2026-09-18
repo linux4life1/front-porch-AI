@@ -52,10 +52,12 @@ class ChatToolsFacade {
     final chaos = _chat.chaosModeService;
     final nsfw = _chat.nsfwService;
     final time = _chat.timeService;
+    final rs = _storage.realismSettings;
+    final mem = _storage.memorySettings;
     final clockRunning = StoryClock.isRunning(
       passageOfTimeEnabled: time.passageOfTimeEnabled,
       realismEnabled: _chat.realismEnabled,
-      standaloneClockEnabled: _storage.realismSettings.standaloneClockEnabled,
+      standaloneClockEnabled: rs.standaloneClockEnabled,
     );
     final weather = _chat.currentWeather;
     final focused = _focusedParticipant(participantId);
@@ -67,19 +69,13 @@ class ChatToolsFacade {
       'wikiSavedUrls': _storage.webSearchSettings.savedWikiUrls,
       'realismEnabled': _chat.realismEnabled,
       'needsEnabled': _chat.needsSimEnabled,
-      // Global One-Shot Eval setting (fuses the multi-call realism evals into
-      // one LLM call). A single StorageService setting — identical in 1:1 and
-      // group, so no per-character/group branch is needed (parity inherited).
-      // The bool stays for additive-contract discipline (old readers keep
-      // working: true == explicitly ON); the tri-state mode is the real
-      // control since 2026-08-10.
-      'realismOneShotEval': _storage.realismOneShotEval,
-      'realismOneShotMode': _storage.oneShotMode.name,
+      'realismOneShotEval': rs.realismOneShotEval,
+      'realismOneShotMode': rs.oneShotMode.name,
       'focusedId': focused?.id,
       'memory': {
-        'ragEnabled': _storage.ragEnabled,
-        'ragRetrievalCount': _storage.ragRetrievalCount,
-        'ragWindowSize': _storage.ragWindowSize,
+        'ragEnabled': mem.ragEnabled,
+        'ragRetrievalCount': mem.ragRetrievalCount,
+        'ragWindowSize': mem.ragWindowSize,
         // The last reply's retrieval receipt (rag_injection.dart wire
         // shape) — the same anti-black-box surface the desktop sidebar
         // shows. Additive + nullable per the API compatibility rules.
@@ -88,14 +84,13 @@ class ChatToolsFacade {
         // download only runs on the host desktop; web surfaces progress
         // and tells the user to use desktop if setup is needed.
         'embedding': _chat.memoryService?.embeddingService.statusSnapshot,
-        'journalEnabled': _storage.journalEnabled,
-        'journalInterval': _storage.journalInterval,
-        // Review-first (audit P2.12) — parks proposals until Apply/Discard.
-        'journalReviewFirst': _storage.journalReviewFirst,
-        'importLlmertaPorchMemories': _storage.importLlmertaPorchMemories,
-        'growthEnabled': _storage.characterEvolutionEnabled,
-        'growthInterval': _storage.growthInterval,
-        'growthReviewFirst': _storage.growthReviewFirst,
+        'journalEnabled': mem.journalEnabled,
+        'journalInterval': mem.journalInterval,
+        'journalReviewFirst': mem.journalReviewFirst,
+        'importLlmertaPorchMemories': mem.importLlmertaPorchMemories,
+        'growthEnabled': mem.characterEvolutionEnabled,
+        'growthInterval': mem.growthInterval,
+        'growthReviewFirst': mem.growthReviewFirst,
       },
       // Kept under the 'summary' key for the bundled web UI: this is the
       // Journal's per-chat recap ("Where we are") — same ChatService surface
@@ -197,7 +192,7 @@ class ChatToolsFacade {
                   final seg? => skinnedChipLabel(
                     seg,
                     _chat.activeChatBiome,
-                    fahrenheit: _storage.weatherFahrenheit,
+                    fahrenheit: rs.weatherFahrenheit,
                   ),
                   null => WeatherEngine.label(weather),
                 },
@@ -218,7 +213,7 @@ class ChatToolsFacade {
                   null => null,
                   final c => WeatherSegments.tempF(c),
                 },
-                'unit': _storage.weatherFahrenheit ? 'f' : 'c',
+                'unit': rs.weatherFahrenheit ? 'f' : 'c',
                 'dayLabel': WeatherEngine.label(weather),
                 'tomorrow': switch (_chat.upcomingWeather) {
                   null => null,
@@ -428,7 +423,7 @@ class ChatToolsFacade {
   /// working (additive contract). An explicit toggle maps to On/Off, never
   /// Auto, the same rule the storage shim applies.
   Future<void> setOneShotEval(bool v) async {
-    await _storage.setRealismOneShotEval(v);
+    await _storage.realismSettings.setRealismOneShotEval(v);
     _notify();
   }
 
@@ -438,7 +433,7 @@ class ChatToolsFacade {
   /// only stores the choice — never branches — so one-shot/multi-call parity
   /// is inherited exactly as it was for the bool.
   Future<void> setOneShotMode(OneShotMode v) async {
-    await _storage.setOneShotMode(v);
+    await _storage.realismSettings.setOneShotMode(v);
     _notify();
   }
 
@@ -870,20 +865,21 @@ class ChatToolsFacade {
       if (v is int) await set(v);
     }
 
-    await ifBool('ragEnabled', _storage.setRagEnabled);
-    await ifInt('ragRetrievalCount', _storage.setRagRetrievalCount);
-    await ifInt('ragWindowSize', _storage.setRagWindowSize);
-    await ifBool('journalEnabled', _storage.setJournalEnabled);
-    await ifInt('journalInterval', _storage.setJournalInterval);
-    await ifInt('journalMaxCards', _storage.setJournalMaxCards);
-    await ifBool('journalReviewFirst', _storage.setJournalReviewFirst);
+    final mem = _storage.memorySettings;
+    await ifBool('ragEnabled', mem.setRagEnabled);
+    await ifInt('ragRetrievalCount', mem.setRagRetrievalCount);
+    await ifInt('ragWindowSize', mem.setRagWindowSize);
+    await ifBool('journalEnabled', mem.setJournalEnabled);
+    await ifInt('journalInterval', mem.setJournalInterval);
+    await ifInt('journalMaxCards', mem.setJournalMaxCards);
+    await ifBool('journalReviewFirst', mem.setJournalReviewFirst);
     await ifBool(
       'importLlmertaPorchMemories',
-      _storage.setImportLlmertaPorchMemories,
+      mem.setImportLlmertaPorchMemories,
     );
-    await ifBool('growthEnabled', _storage.setCharacterEvolutionEnabled);
-    await ifInt('growthInterval', _storage.setGrowthInterval);
-    await ifBool('growthReviewFirst', _storage.setGrowthReviewFirst);
+    await ifBool('growthEnabled', mem.setCharacterEvolutionEnabled);
+    await ifInt('growthInterval', mem.setGrowthInterval);
+    await ifBool('growthReviewFirst', mem.setGrowthReviewFirst);
     _notify();
   }
 

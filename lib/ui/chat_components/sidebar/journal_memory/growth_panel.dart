@@ -73,7 +73,7 @@ class GrowthPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
-    final enabled = storage.characterEvolutionEnabled;
+    final enabled = storage.memorySettings.characterEvolutionEnabled;
     final accent = AppColors.porchHoneyOf(context);
 
     // Rings come from the session-scoped sync cache; ListenableBuilder keeps
@@ -111,8 +111,8 @@ class GrowthPanel extends StatelessWidget {
                     child: FittedBox(
                       child: Switch(
                         value: enabled,
-                        onChanged: (v) =>
-                            storage.setCharacterEvolutionEnabled(v),
+                        onChanged: (v) => storage.memorySettings
+                            .setCharacterEvolutionEnabled(v),
                         activeTrackColor: accent,
                       ),
                     ),
@@ -166,7 +166,11 @@ class GrowthPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-              for (final tier in const ['established', 'developing', 'emerging'])
+              for (final tier in const [
+                'established',
+                'developing',
+                'emerging',
+              ])
                 ..._tierSection(context, tier, active),
               if (past.isNotEmpty) _pastSection(context, past),
               const SizedBox(height: 6),
@@ -185,9 +189,7 @@ class GrowthPanel extends StatelessWidget {
     String tier,
     List<GrowthRingData> active,
   ) {
-    final rings = active
-        .where((r) => GrowthPhysics.tierOf(r) == tier)
-        .toList();
+    final rings = active.where((r) => GrowthPhysics.tierOf(r) == tier).toList();
     if (rings.isEmpty) return const [];
     final dot = switch (tier) {
       'established' => AppColors.porchHoneyOf(context),
@@ -301,10 +303,7 @@ class GrowthPanel extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 5,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
                   color: chipColor.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(4),
@@ -503,7 +502,7 @@ class GrowthPanel extends StatelessWidget {
     StorageService storage,
     Color accent,
   ) {
-    final value = storage.growthInterval.toDouble();
+    final value = storage.memorySettings.growthInterval.toDouble();
     return Padding(
       padding: const EdgeInsets.only(left: 20),
       child: Column(
@@ -520,7 +519,7 @@ class GrowthPanel extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                '${storage.growthInterval} messages',
+                '${storage.memorySettings.growthInterval} messages',
                 style: TextStyle(
                   color: accent,
                   fontSize: 10,
@@ -537,7 +536,8 @@ class GrowthPanel extends StatelessWidget {
               max: 20,
               divisions: 18,
               activeColor: accent,
-              onChanged: (v) => storage.setGrowthInterval(v.round()),
+              onChanged: (v) =>
+                  storage.memorySettings.setGrowthInterval(v.round()),
             ),
           ),
         ],
@@ -628,17 +628,14 @@ class GrowthPanel extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
           'Growth settings',
-          style: TextStyle(
-            fontSize: 16,
-            color: AppColors.textPrimary(context),
-          ),
+          style: TextStyle(fontSize: 16, color: AppColors.textPrimary(context)),
         ),
         content: StatefulBuilder(
           builder: (context, setState) => SizedBox(
             width: 360,
             child: SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              value: storage.growthReviewFirst,
+              value: storage.memorySettings.growthReviewFirst,
               activeTrackColor: AppColors.porchHoneyOf(context),
               title: Text(
                 'Review growth before it applies',
@@ -656,7 +653,7 @@ class GrowthPanel extends StatelessWidget {
                 ),
               ),
               onChanged: (v) async {
-                await storage.setGrowthReviewFirst(v);
+                await storage.memorySettings.setGrowthReviewFirst(v);
                 setState(() {});
               },
             ),
@@ -805,7 +802,8 @@ class _RingEditorDialogState extends State<_RingEditorDialog> {
                 color: AppColors.textPrimary(context),
               ),
               decoration: InputDecoration(
-                hintText: 'One sentence of change — "Has started guarding '
+                hintText:
+                    'One sentence of change — "Has started guarding '
                     '{{user}}\'s sleep."',
                 hintStyle: TextStyle(
                   fontSize: 12,

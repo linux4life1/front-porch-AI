@@ -34,8 +34,8 @@ Future<void> applyRemoteProvider({
   TextEditingController? modelController,
 }) async {
   final current = resolveRemoteProviderKind(
-    backendType: storage.backendType,
-    url: storage.remoteApiUrl,
+    backendType: storage.backendSettings.backendType,
+    url: storage.backendSettings.remoteApiUrl,
   );
   if (current == kind) return;
 
@@ -47,16 +47,16 @@ Future<void> applyRemoteProvider({
   await llm.setActiveBackend(backend);
 
   if (kind == RemoteProviderKind.custom) {
-    await storage.setRemoteApiUrl('');
+    await storage.backendSettings.setRemoteApiUrl('');
   } else if (kind != RemoteProviderKind.kobold &&
       kind != RemoteProviderKind.omlx) {
     final url = urlForRemoteProvider(kind);
-    if (url != null && storage.remoteApiUrl != url) {
-      await storage.setRemoteApiUrl(url);
+    if (url != null && storage.backendSettings.remoteApiUrl != url) {
+      await storage.backendSettings.setRemoteApiUrl(url);
     }
   }
 
-  urlController?.text = storage.remoteApiUrl;
-  keyController?.text = storage.remoteApiKey;
-  modelController?.text = storage.remoteModelName;
+  urlController?.text = storage.backendSettings.remoteApiUrl;
+  keyController?.text = storage.backendSettings.remoteApiKey;
+  modelController?.text = storage.backendSettings.remoteModelName;
 }

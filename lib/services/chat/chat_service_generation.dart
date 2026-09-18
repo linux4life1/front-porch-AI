@@ -175,7 +175,7 @@ extension ChatServiceGeneration on ChatService {
   /// do); this deep guard is the backstop for the non-mutating entries.
   Future<bool> _abortIfBackendDown() async {
     if (_llmProvider?.hasManagedProcess != true ||
-        _storageService.autostartOnChatOpen ||
+        _storageService.backendSettings.autostartOnChatOpen ||
         _llmProvider?.hasAnyManagedProcessRunning == true) {
       return false;
     }

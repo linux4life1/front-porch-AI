@@ -42,37 +42,6 @@ class _SearchStorage extends FakeStorageService {
 
   @override
   RealismSettings get realismSettings => _realism;
-
-  @override
-  bool get adultThemesEnabled => _realism.adultThemesEnabled;
-  @override
-  bool get realismDefault => _realism.realismDefault;
-  @override
-  bool get nsfwCooldownDefault => _realism.nsfwCooldownDefault;
-  @override
-  bool get objectivesEnabled => _realism.objectivesEnabled;
-  @override
-  bool get passageOfTimeDefault => _realism.passageOfTimeDefault;
-  @override
-  bool get standaloneClockEnabled => _realism.standaloneClockEnabled;
-  @override
-  bool get weatherEnabled => _realism.weatherEnabled;
-  @override
-  bool get weatherFahrenheit => _realism.weatherFahrenheit;
-  @override
-  bool get needsSimDefault => _realism.needsSimDefault;
-  @override
-  bool get dreamsEnabled => _realism.dreamsEnabled;
-  @override
-  bool get absenceBannerEnabled => _realism.absenceBannerEnabled;
-  @override
-  bool get absenceAckEnabled => _realism.absenceAckEnabled;
-  @override
-  int get absenceThresholdHours => _realism.absenceThresholdHours;
-  @override
-  bool get characterEvolutionEnabled => false;
-  @override
-  bool get journalEnabled => true;
 }
 
 void main() {
@@ -152,8 +121,9 @@ void main() {
   });
 
   test('no slash-command parser or /search route exists', () {
-    final handler = File('lib/services/chat/chat_command_handler.dart')
-        .readAsStringSync();
+    final handler = File(
+      'lib/services/chat/chat_command_handler.dart',
+    ).readAsStringSync();
     expect(
       handler.contains("'search'") || handler.contains('"search"'),
       isFalse,

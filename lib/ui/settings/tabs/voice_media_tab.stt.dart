@@ -23,7 +23,7 @@ part of 'voice_media_tab.dart';
 /// the microphone picker. Lifted verbatim from the pre-split god file.
 ///
 /// CRITICAL SEAM (documented, do not re-split): the `if
-/// (storageService.sttEnabled) ...[` conditional spread below wraps BOTH
+/// (storageService.sttSettings.sttEnabled) ...[` conditional spread below wraps BOTH
 /// this section's own controls AND the entire Voice Call sub-block (which
 /// lives in [_VoiceMediaCallSection], a sibling extension in
 /// voice_media_tab.voice_call.dart) inside ONE Container. The conditional
@@ -73,12 +73,13 @@ extension _VoiceMediaSttSection on VoiceMediaTab {
                     ],
                   ),
                   Switch(
-                    value: storageService.sttEnabled,
-                    onChanged: (val) => storageService.setSttEnabled(val),
+                    value: storageService.sttSettings.sttEnabled,
+                    onChanged: (val) =>
+                        storageService.sttSettings.setSttEnabled(val),
                   ),
                 ],
               ),
-              if (storageService.sttEnabled) ...[
+              if (storageService.sttSettings.sttEnabled) ...[
                 Divider(
                   color: AppColors.borderOf(context).withValues(alpha: 0.3),
                 ),
@@ -98,7 +99,8 @@ extension _VoiceMediaSttSection on VoiceMediaTab {
                           ),
                           const SizedBox(height: 4),
                           DropdownButtonFormField<String>(
-                            initialValue: storageService.whisperModel,
+                            initialValue:
+                                storageService.sttSettings.whisperModel,
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: AppColors.surfaceContainerOf(context),
@@ -126,7 +128,7 @@ extension _VoiceMediaSttSection on VoiceMediaTab {
                             ],
                             onChanged: (val) {
                               if (val != null) {
-                                storageService.setWhisperModel(val);
+                                storageService.sttSettings.setWhisperModel(val);
                               }
                             },
                           ),
@@ -163,7 +165,7 @@ extension _VoiceMediaSttSection on VoiceMediaTab {
                                           SnackBar(
                                             content: Text(
                                               ok
-                                                  ? '✅ Model "${storageService.whisperModel}" downloaded!'
+                                                  ? '✅ Model "${storageService.sttSettings.whisperModel}" downloaded!'
                                                   : '❌ ${sttService.downloadError ?? "Download failed"}',
                                             ),
                                           ),

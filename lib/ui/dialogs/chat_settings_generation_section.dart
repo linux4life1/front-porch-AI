@@ -202,18 +202,18 @@ class ChatSettingsGenerationSection extends StatelessWidget {
         ],
         IgnorePointer(
           ignoring:
-              storage.activeKcppsPath != null &&
-              storage.activeKcppsPath!.isNotEmpty,
+              storage.backendSettings.activeKcppsPath != null &&
+              storage.backendSettings.activeKcppsPath!.isNotEmpty,
           child: Opacity(
             opacity:
-                storage.activeKcppsPath != null &&
-                    storage.activeKcppsPath!.isNotEmpty
+                storage.backendSettings.activeKcppsPath != null &&
+                    storage.backendSettings.activeKcppsPath!.isNotEmpty
                 ? 0.5
                 : 1.0,
             child: Tooltip(
               message:
-                  storage.activeKcppsPath != null &&
-                      storage.activeKcppsPath!.isNotEmpty
+                  storage.backendSettings.activeKcppsPath != null &&
+                      storage.backendSettings.activeKcppsPath!.isNotEmpty
                   ? 'Context size is controlled by the active .kcpps preset and cannot be edited here.'
                   : '',
               child: SliderWithInput(

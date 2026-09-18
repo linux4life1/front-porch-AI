@@ -59,7 +59,7 @@ class SettingsFacade {
   /// has actually been read, or in preset mode where there is no path.
   String get _reasoningModelKey {
     if (!_llm.isLocal) return _storage.backendSettings.remoteModelName;
-    final path = _storage.lastUsedModelPath ?? '';
+    final path = _storage.backendSettings.lastUsedModelPath ?? '';
     return ReasoningSupportResolver.instance.peek(path) == null ? '' : path;
   }
 
@@ -72,7 +72,7 @@ class SettingsFacade {
   /// getter itself never touches disk or the network.
   ThinkingSupport? get _localThinkingSupport {
     if (_llm.isLocal) {
-      final path = _storage.lastUsedModelPath ?? '';
+      final path = _storage.backendSettings.lastUsedModelPath ?? '';
       if (path.isEmpty) return null;
       if (!ReasoningSupportResolver.instance.isResolved(path)) {
         unawaited(ReasoningSupportResolver.instance.resolveLocalGguf(path));
@@ -110,7 +110,7 @@ class SettingsFacade {
   /// generic chips for one round and the truth on the next.
   Future<void> ensureReasoningResolved() async {
     if (_llm.isLocal) {
-      final path = _storage.lastUsedModelPath ?? '';
+      final path = _storage.backendSettings.lastUsedModelPath ?? '';
       if (path.isEmpty) return;
       await ReasoningSupportResolver.instance.resolveLocalGguf(path);
       return;
@@ -219,7 +219,7 @@ class SettingsFacade {
       },
       // General-tab extras the Generation card on web also hosts.
       'systemPrompt': g.systemPrompt,
-      'bannedPhrases': _storage.bannedPhrases,
+      'bannedPhrases': _storage.realismSettings.bannedPhrases,
       // Ambitions + the promise ledger. Both work with the Realism Engine off,
       // so they are the two realism-adjacent settings the web needs first.
       // Additive and nullable-safe: an older web client ignores the key.
@@ -305,12 +305,12 @@ class SettingsFacade {
       // the open conversation instead of only on the next one.
       final rd = realism['realismDefault'];
       if (rd is bool) {
-        await _storage.setRealismDefault(rd);
+        await _storage.realismSettings.setRealismDefault(rd);
         _chat?.setRealismEnabled(rd);
       }
       final nsfw = realism['nsfwCooldownDefault'];
       if (nsfw is bool) {
-        await _storage.setNsfwCooldownDefault(nsfw);
+        await _storage.realismSettings.setNsfwCooldownDefault(nsfw);
         _chat?.setNsfwCooldownEnabled(nsfw);
       }
       final needs = realism['needsSimDefault'];
@@ -320,7 +320,7 @@ class SettingsFacade {
       }
       final pot = realism['passageOfTimeDefault'];
       if (pot is bool) {
-        await _storage.setPassageOfTimeDefault(pot);
+        await _storage.realismSettings.setPassageOfTimeDefault(pot);
         _chat?.setPassageOfTimeEnabled(pot);
       }
       // No live-chat push: unlike the toggles around it, this one is read
@@ -328,12 +328,16 @@ class SettingsFacade {
       // and ._clockRunning), so writing the setting IS the whole update and an
       // open conversation picks it up on its next turn.
       final sc = realism['standaloneClockEnabled'];
-      if (sc is bool) await _storage.setStandaloneClockEnabled(sc);
+      if (sc is bool) {
+        await _storage.realismSettings.setStandaloneClockEnabled(sc);
+      }
       final adult = realism['adultThemesEnabled'];
-      if (adult is bool) await _storage.setAdultThemesEnabled(adult);
+      if (adult is bool) {
+        await _storage.realismSettings.setAdultThemesEnabled(adult);
+      }
       final growth = realism['characterEvolutionEnabled'];
       if (growth is bool) {
-        await _storage.setCharacterEvolutionEnabled(growth);
+        await _storage.memorySettings.setCharacterEvolutionEnabled(growth);
       }
       final pockets = realism['pocketsEnabled'];
       if (pockets is bool) {
@@ -389,24 +393,28 @@ class SettingsFacade {
       }
       final objs = realism['objectivesEnabled'];
       if (objs is bool) {
-        await _storage.setObjectivesEnabled(objs);
+        await _storage.realismSettings.setObjectivesEnabled(objs);
         // Engine-coupled in the same sense the rows above are: push into the
         // open conversation so a web toggle takes effect there too, not only
         // on the next chat.
         await _chat?.setObjectivesEnabled(objs);
       }
       final wx = realism['weatherEnabled'];
-      if (wx is bool) await _storage.setWeatherEnabled(wx);
+      if (wx is bool) await _storage.realismSettings.setWeatherEnabled(wx);
       final wf = realism['weatherFahrenheit'];
-      if (wf is bool) await _storage.setWeatherFahrenheit(wf);
+      if (wf is bool) await _storage.realismSettings.setWeatherFahrenheit(wf);
       final dre = realism['dreamsEnabled'];
-      if (dre is bool) await _storage.setDreamsEnabled(dre);
+      if (dre is bool) await _storage.realismSettings.setDreamsEnabled(dre);
       final ab = realism['absenceBannerEnabled'];
-      if (ab is bool) await _storage.setAbsenceBannerEnabled(ab);
+      if (ab is bool) {
+        await _storage.realismSettings.setAbsenceBannerEnabled(ab);
+      }
       final aa = realism['absenceAckEnabled'];
-      if (aa is bool) await _storage.setAbsenceAckEnabled(aa);
+      if (aa is bool) await _storage.realismSettings.setAbsenceAckEnabled(aa);
       final ath = realism['absenceThresholdHours'];
-      if (ath is int) await _storage.setAbsenceThresholdHours(ath);
+      if (ath is int) {
+        await _storage.realismSettings.setAbsenceThresholdHours(ath);
+      }
       final pt = realism['preferTextEvals'];
       if (pt is bool) {
         await _storage.realismSettings.setPreferTextEvals(pt);
@@ -541,7 +549,7 @@ class SettingsFacade {
     if (prompt != null) await g.setSystemPrompt(prompt);
     final bans = body['bannedPhrases'];
     if (bans is List) {
-      await _storage.setBannedPhrases([
+      await _storage.realismSettings.setBannedPhrases([
         for (final s in bans)
           if (s is String && s.isNotEmpty) s,
       ]);

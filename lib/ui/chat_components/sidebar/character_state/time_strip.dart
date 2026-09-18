@@ -128,7 +128,9 @@ class TimeStrip extends StatelessWidget {
           const SizedBox(height: 4),
           WeatherChip(
             chat: chat,
-            fahrenheit: Provider.of<StorageService>(context).weatherFahrenheit,
+            fahrenheit: Provider.of<StorageService>(
+              context,
+            ).realismSettings.weatherFahrenheit,
           ),
         ],
         const SizedBox(height: 4),

@@ -95,13 +95,13 @@ Future<List<String>> buildKoboldLaunchArgs({
       // from defaulting to GPU 0 which may be an iGPU on multi-GPU systems.
       // Bug fix: on a system with both an iGPU (GPU 0) and a discrete RTX
       // (GPU 1) the old code silently ran everything on the iGPU at ~0.5 t/s.
-      args.addAll(['--usecublas', storage.gpuId.toString()]);
+      args.addAll(['--usecublas', storage.backendSettings.gpuId.toString()]);
     }
 
     if (useRocm) {
       // Explicit device index — same iGPU-defaulting hazard as CUDA on
       // APU + dGPU systems.
-      args.addAll(['--usehipblas', storage.gpuId.toString()]);
+      args.addAll(['--usehipblas', storage.backendSettings.gpuId.toString()]);
       // Flash attention kernel crashes on many AMD GPUs — always disable for
       // ROCm.
       args.add('--noflashattention');
@@ -113,7 +113,7 @@ Future<List<String>> buildKoboldLaunchArgs({
     // meaning CUDA/Metal users without KV quant never got the ~30% speed
     // boost. Now enabled independently for CUDA and Metal. ROCm is excluded
     // above.
-    final wantsFlashAttn = storage.flashAttentionEnabled;
+    final wantsFlashAttn = storage.backendSettings.flashAttentionEnabled;
     final canUseFlashAttn = (useCublas || useMetal) && !useRocm;
     if (wantsFlashAttn && canUseFlashAttn) {
       args.add('--flashattention');
@@ -122,9 +122,9 @@ Future<List<String>> buildKoboldLaunchArgs({
     // ── KV Cache Quantization ───────────────────────────────────────────────
     // Flash attention is a prerequisite for V-cache quantization. Since we
     // may have already added it above, only add the flag if it wasn't added.
-    if (storage.kvQuantizationLevel > 0) {
+    if (storage.backendSettings.kvQuantizationLevel > 0) {
       args.add('--quantkv');
-      args.add(storage.kvQuantizationLevel.toString());
+      args.add(storage.backendSettings.kvQuantizationLevel.toString());
       // Ensure flash attention is present for quantised V-cache even if the
       // user disabled it in Advanced settings (quantkv requires it).
       if (!args.contains('--flashattention') && !useRocm) {
@@ -137,7 +137,7 @@ Future<List<String>> buildKoboldLaunchArgs({
     // Without this, a system at the edge of RAM capacity can drop from 20 t/s
     // to 0.5 t/s mid-session. Default ON for Win/Mac, OFF for Linux (requires
     // root or ulimit -l unlimited which most users haven't set).
-    if (storage.mlockEnabled) {
+    if (storage.backendSettings.mlockEnabled) {
       args.add('--usemlock');
     }
 
@@ -145,8 +145,8 @@ Future<List<String>> buildKoboldLaunchArgs({
     // Controls how many tokens are processed in parallel during prefill
     // (prompt evaluation). Higher = faster context loading, more VRAM.
     // Default 512. Large-VRAM users (24 GB+) benefit from 1024–2048.
-    if (storage.blasBatchSize != 512) {
-      final batch = storage.blasBatchSize;
+    if (storage.backendSettings.blasBatchSize != 512) {
+      final batch = storage.backendSettings.blasBatchSize;
       if (batch > 4096) {
         // KoboldCpp's CLI rejects anything above 4096 — but that cap is
         // launcher-only (an argparse `choices` list); the engine itself has

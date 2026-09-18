@@ -44,7 +44,7 @@ Future<void> _pumpPanel(WidgetTester tester, {required double width}) async {
   SharedPreferences.setMockInitialValues({});
   final storage = StorageService();
   addTearDown(storage.dispose);
-  await storage.setRagEnabled(true);
+  await storage.memorySettings.setRagEnabled(true);
   final chat = FakeChatService();
   addTearDown(chat.dispose);
   final emb = _FakeEmb();
@@ -65,9 +65,7 @@ Future<void> _pumpPanel(WidgetTester tester, {required double width}) async {
         home: Scaffold(
           body: SizedBox(
             width: width,
-            child: SingleChildScrollView(
-              child: MemoryPanel(chatService: chat),
-            ),
+            child: SingleChildScrollView(child: MemoryPanel(chatService: chat)),
           ),
         ),
       ),

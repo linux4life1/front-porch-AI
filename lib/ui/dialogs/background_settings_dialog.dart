@@ -174,7 +174,7 @@ class BackgroundSettingsDialog extends StatelessWidget {
       ),
     ];
 
-    final customBackgrounds = storageService.customBackgrounds
+    final customBackgrounds = storageService.uiSettings.customBackgrounds
         .map((entry) => _buildCustomBgThumbnail(storageService, entry, context))
         .toList();
 
@@ -247,9 +247,9 @@ class BackgroundSettingsDialog extends StatelessWidget {
     String label,
     String? assetPath,
   ) {
-    final isSelected = storageService.chatBackground == key;
+    final isSelected = storageService.uiSettings.chatBackground == key;
     return GestureDetector(
-      onTap: () => storageService.setChatBackground(key),
+      onTap: () => storageService.uiSettings.setChatBackground(key),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
@@ -302,10 +302,10 @@ class BackgroundSettingsDialog extends StatelessWidget {
     Map<String, String> entry,
     BuildContext context,
   ) {
-    final isSelected = storageService.chatBackground == entry['id'];
+    final isSelected = storageService.uiSettings.chatBackground == entry['id'];
     final filePath = entry['filePath'] ?? '';
     return GestureDetector(
-      onTap: () => storageService.setChatBackground(entry['id']!),
+      onTap: () => storageService.uiSettings.setChatBackground(entry['id']!),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
@@ -409,12 +409,12 @@ class BackgroundSettingsDialog extends StatelessWidget {
                 context,
                 listen: false,
               );
-              storageService.removeCustomBackground(id);
+              storageService.uiSettings.removeCustomBackground(id);
               if (filePath.isNotEmpty) {
                 File(filePath).delete();
               }
-              if (storageService.chatBackground == id) {
-                storageService.setChatBackground('none');
+              if (storageService.uiSettings.chatBackground == id) {
+                storageService.uiSettings.setChatBackground('none');
               }
               Navigator.pop(ctx);
               Navigator.pop(context);
@@ -535,7 +535,9 @@ class BackgroundSettingsDialog extends StatelessWidget {
                   return;
                 }
 
-                if (storageService.hasCustomBackgroundWithName(name)) {
+                if (storageService.uiSettings.hasCustomBackgroundWithName(
+                  name,
+                )) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
@@ -584,8 +586,12 @@ class BackgroundSettingsDialog extends StatelessWidget {
                 final destPath = path.join(customDir.path, '$key.png');
                 await File(selectedImagePath!).copy(destPath);
 
-                await storageService.addCustomBackground(key, name, destPath);
-                await storageService.setChatBackground(key);
+                await storageService.uiSettings.addCustomBackground(
+                  key,
+                  name,
+                  destPath,
+                );
+                await storageService.uiSettings.setChatBackground(key);
 
                 if (Navigator.of(ctx).canPop()) {
                   Navigator.pop(ctx);

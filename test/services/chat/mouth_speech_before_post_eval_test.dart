@@ -47,8 +47,8 @@ void main() {
     db = AppDatabase.forTesting();
     storage = StorageService();
     await storage.initialized;
-    await storage.setMaxLength(256);
-    await storage.setBackendType('kobold');
+    await storage.generationSettings.setMaxLength(256);
+    await storage.backendSettings.setBackendType('kobold');
     await storage.setWorkerBackendType('omlx');
     await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
     await storage.setWorkerRemoteModelName('mlx-qwen');

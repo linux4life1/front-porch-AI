@@ -49,7 +49,7 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
         (e) => e.copyWith(userBubbleColor: color),
       );
     } else {
-      await storage.setGlobalUserBubbleColor(color);
+      await storage.uiSettings.setGlobalUserBubbleColor(color);
     }
   }
 
@@ -70,7 +70,7 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
         (e) => e.copyWith(userTextColor: color),
       );
     } else {
-      await storage.setGlobalUserTextColor(color);
+      await storage.uiSettings.setGlobalUserTextColor(color);
     }
   }
 
@@ -91,7 +91,7 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
         (e) => e.copyWith(aiBubbleColor: color),
       );
     } else {
-      await storage.setGlobalAiBubbleColor(color);
+      await storage.uiSettings.setGlobalAiBubbleColor(color);
     }
   }
 
@@ -112,7 +112,7 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
         (e) => e.copyWith(aiTextColor: color),
       );
     } else {
-      await storage.setGlobalAiTextColor(color);
+      await storage.uiSettings.setGlobalAiTextColor(color);
     }
   }
 
@@ -133,7 +133,7 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
         (e) => e.copyWith(dialogueColor: color),
       );
     } else {
-      await storage.setGlobalDialogueColor(color);
+      await storage.uiSettings.setGlobalDialogueColor(color);
     }
   }
 
@@ -154,7 +154,7 @@ extension _UiSettingsUpdatesSection on _UiSettingsDialogState {
         (e) => e.copyWith(actionColor: color),
       );
     } else {
-      await storage.setGlobalActionColor(color);
+      await storage.uiSettings.setGlobalActionColor(color);
     }
   }
 

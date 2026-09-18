@@ -38,12 +38,14 @@ class EngineStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer2<BackendManager, StorageService>(
       builder: (context, backend, storage, _) {
-        final backendType = storage.backendType;
+        final backendType = storage.backendSettings.backendType;
         if (backendType == 'openRouter' || backendType == 'omlx') {
           return const SizedBox.shrink();
         }
         if (backend.isIntelMac) return const SizedBox.shrink();
-        if (!storage.backendChoiceDone) return const SizedBox.shrink();
+        if (!storage.backendSettings.backendChoiceDone) {
+          return const SizedBox.shrink();
+        }
 
         if (backend.isDownloading) {
           return _card(
@@ -88,9 +90,7 @@ class EngineStatusChip extends StatelessWidget {
         return _card(
           context,
           icon: failed ? Icons.error_outline : Icons.download_for_offline,
-          title: failed
-              ? 'Engine download failed'
-              : 'AI engine not installed',
+          title: failed ? 'Engine download failed' : 'AI engine not installed',
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

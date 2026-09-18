@@ -176,22 +176,22 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
               const SizedBox(height: 12),
               _buildSlider(
                 'Bubble Opacity',
-                storageService.bubbleOpacity,
+                storageService.uiSettings.bubbleOpacity,
                 0.1,
                 1.0,
-                (val) => storageService.setBubbleOpacity(val),
+                (val) => storageService.uiSettings.setBubbleOpacity(val),
                 divisions: 18,
               ),
               const SizedBox(height: 4),
               _buildSlider(
                 'Reading Size',
-                storageService.textScale.clamp(
+                storageService.uiSettings.textScale.clamp(
                   kReadingScaleMin,
                   kReadingScaleMax,
                 ),
                 kReadingScaleMin,
                 kReadingScaleMax,
-                (val) => storageService.setTextScale(val),
+                (val) => storageService.uiSettings.setTextScale(val),
                 divisions: 13,
               ),
               if (_characterNotifier.value != null) ...[
@@ -217,7 +217,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedUserBubbleColor(activePreset)
                       : null,
-                  globalColor: storageService.globalUserBubbleColor,
+                  globalColor: storageService.uiSettings.globalUserBubbleColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -233,7 +233,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedUserTextColor(activePreset)
                       : null,
-                  globalColor: storageService.globalUserTextColor,
+                  globalColor: storageService.uiSettings.globalUserTextColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -249,7 +249,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedAiBubbleColor(activePreset)
                       : null,
-                  globalColor: storageService.globalAiBubbleColor,
+                  globalColor: storageService.uiSettings.globalAiBubbleColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -265,7 +265,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedAiTextColor(activePreset)
                       : null,
-                  globalColor: storageService.globalAiTextColor,
+                  globalColor: storageService.uiSettings.globalAiTextColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -281,7 +281,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedDialogueColor(activePreset)
                       : null,
-                  globalColor: storageService.globalDialogueColor,
+                  globalColor: storageService.uiSettings.globalDialogueColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -297,7 +297,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedActionColor(activePreset)
                       : null,
-                  globalColor: storageService.globalActionColor,
+                  globalColor: storageService.uiSettings.globalActionColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions

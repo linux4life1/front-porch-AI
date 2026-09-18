@@ -17,13 +17,9 @@ import '../../golden/support/fakes_storage.dart';
 class _Store extends FakeStorageService {
   _Store() {
     _backend.initializeBase(null, notifyListeners);
+    _backend.setBackendType('kobold');
+    _backend.setLastUsedModelPath('/models/mouth.gguf');
   }
-
-  @override
-  String backendType = 'kobold';
-
-  @override
-  String? lastUsedModelPath = '/models/mouth.gguf';
 
   final BackendSettings _backend = BackendSettings();
 

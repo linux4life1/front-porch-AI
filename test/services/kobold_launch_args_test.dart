@@ -117,7 +117,7 @@ void main() {
   test('CUDA always names an explicit GPU id', () async {
     // A bare --usecublas defaults to GPU 0, which on an iGPU + discrete-RTX
     // machine is the iGPU: everything ran at ~0.5 t/s and nothing said why.
-    await storage.setGpuId(1);
+    await storage.backendSettings.setGpuId(1);
     final args = await build(useCublas: true);
     expect(valueAfter(args, '--usecublas'), '1');
   });
@@ -127,8 +127,8 @@ void main() {
     () async {
       // The flash-attention kernel crashes on many AMD cards, so it is off even
       // when the user asked for it in Advanced settings.
-      await storage.setGpuId(2);
-      await storage.setFlashAttentionEnabled(true);
+      await storage.backendSettings.setGpuId(2);
+      await storage.backendSettings.setFlashAttentionEnabled(true);
       final args = await build(useRocm: true);
       expect(valueAfter(args, '--usehipblas'), '2');
       expect(args, contains('--noflashattention'));
@@ -139,7 +139,7 @@ void main() {
   test('flash attention no longer requires KV quantisation to be on', () async {
     // It used to be added only alongside --quantkv, so CUDA and Metal users
     // without KV quant silently never got the ~30% speed-up.
-    await storage.setFlashAttentionEnabled(true);
+    await storage.backendSettings.setFlashAttentionEnabled(true);
     expect(await build(useCublas: true), contains('--flashattention'));
     expect(await build(useMetal: true), contains('--flashattention'));
     expect(
@@ -153,8 +153,8 @@ void main() {
     '--quantkv forces flash attention on, even if the user turned it off',
     () async {
       // V-cache quantisation does not work without it.
-      await storage.setFlashAttentionEnabled(false);
-      await storage.setKvQuantizationLevel(2);
+      await storage.backendSettings.setFlashAttentionEnabled(false);
+      await storage.backendSettings.setKvQuantizationLevel(2);
       final args = await build(useCublas: true);
       expect(valueAfter(args, '--quantkv'), '2');
       expect(args, contains('--flashattention'));
@@ -167,8 +167,8 @@ void main() {
   );
 
   test('--quantkv does NOT force flash attention on ROCm', () async {
-    await storage.setFlashAttentionEnabled(true);
-    await storage.setKvQuantizationLevel(2);
+    await storage.backendSettings.setFlashAttentionEnabled(true);
+    await storage.backendSettings.setKvQuantizationLevel(2);
     final args = await build(useRocm: true);
     expect(args, contains('--quantkv'));
     expect(
@@ -179,7 +179,7 @@ void main() {
   });
 
   test('the default BLAS batch size is left off the command line', () async {
-    await storage.setBlasBatchSize(512);
+    await storage.backendSettings.setBlasBatchSize(512);
     expect(
       await build(),
       isNot(contains('--blasbatchsize')),
@@ -191,7 +191,7 @@ void main() {
     // KoboldCpp's CLI rejects anything above 4096 (an argparse `choices`
     // list), but its config loader applies values with setattr AFTER parsing,
     // so the engine accepts what the launcher refuses.
-    await storage.setBlasBatchSize(8192);
+    await storage.backendSettings.setBlasBatchSize(8192);
     final args = await build();
     expect(args, isNot(contains('--blasbatchsize')));
     final config = valueAfter(args, '--config');
@@ -207,16 +207,16 @@ void main() {
   });
 
   test('an in-range BLAS batch uses the plain flag', () async {
-    await storage.setBlasBatchSize(2048);
+    await storage.backendSettings.setBlasBatchSize(2048);
     final args = await build();
     expect(valueAfter(args, '--blasbatchsize'), '2048');
     expect(args, isNot(contains('--config')));
   });
 
   test('mlock is passed only when enabled', () async {
-    await storage.setMlockEnabled(true);
+    await storage.backendSettings.setMlockEnabled(true);
     expect(await build(), contains('--usemlock'));
-    await storage.setMlockEnabled(false);
+    await storage.backendSettings.setMlockEnabled(false);
     expect(await build(), isNot(contains('--usemlock')));
   });
 

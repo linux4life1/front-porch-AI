@@ -30,8 +30,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     storage = StorageService();
     await storage.initialized;
-    await storage.setBackendType('kobold');
-    await storage.setLastUsedModelPath('/models/mouth.gguf');
+    await storage.backendSettings.setBackendType('kobold');
+    await storage.backendSettings.setLastUsedModelPath('/models/mouth.gguf');
     await storage.setWorkerBackendType('kobold');
   });
 

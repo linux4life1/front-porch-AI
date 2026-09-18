@@ -66,7 +66,9 @@ extension ChatServiceImages on ChatService {
         final crafted = await _craftImageCommandPrompt(request);
         // '' = craft failure (the leaf surfaces the ⚠); null = stop silently.
         if (crafted == null || crafted.trim().isEmpty) return '';
-        if (!_storageService.imageGenPromptReview) return crafted;
+        if (!_storageService.imageGenSettings.imageGenPromptReview) {
+          return crafted;
+        }
         // Review-first: park the crafted prompt for the UI (desktop dialog /
         // web modal) and wait for the user's edit or cancel.
         _pendingImagePromptReview = crafted;
@@ -152,7 +154,7 @@ extension ChatServiceImages on ChatService {
 
   /// Negative prompt for a `/image` generation: the user's configured default.
   String _imageCommandNegative(ImageCommandRequest request) =>
-      _storageService.imageGenNegativePrompt.trim();
+      _storageService.imageGenSettings.imageGenNegativePrompt.trim();
 
   /// Assemble the live chat context and craft the image prompt through
   /// `ImageGenService.generateSmartPrompt` (LLM when ready, static fallback

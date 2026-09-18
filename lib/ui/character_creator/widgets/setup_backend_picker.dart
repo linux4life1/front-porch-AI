@@ -33,8 +33,8 @@ class SetupBackendPicker extends StatelessWidget {
     final isAppleSiliconMac =
         Platform.isMacOS && Abi.current() == Abi.macosArm64;
     final remoteKind = resolveRemoteProviderKind(
-      backendType: storage.backendType,
-      url: storage.remoteApiUrl,
+      backendType: storage.backendSettings.backendType,
+      url: storage.backendSettings.remoteApiUrl,
     );
 
     return Column(
@@ -105,7 +105,7 @@ class SetupBackendPicker extends StatelessWidget {
                 storage: storage,
                 llm: llmProvider,
               );
-              state.selectedModelId = storage.remoteModelName;
+              state.selectedModelId = storage.backendSettings.remoteModelName;
               await state.loadAvailableModels(llmProvider);
               state.notify();
             },

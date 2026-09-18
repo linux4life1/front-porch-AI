@@ -111,13 +111,15 @@ extension ChatServiceAccessors on ChatService {
   /// fresh chat. Words only — never digits (see AbsenceTracker).
   String? get absencePhrase => AbsenceTracker.bucketPhrase(
     _absenceGap,
-    thresholdHours: _storageService.absenceThresholdHours,
+    thresholdHours: _storageService.realismSettings.absenceThresholdHours,
   );
 
   /// [absencePhrase] gated by the welcome-back-banner setting — the ONE gate
   /// both the desktop banner and the web facade read, so they can't drift.
   String? get absenceBannerPhrase =>
-      _storageService.absenceBannerEnabled ? absencePhrase : null;
+      _storageService.realismSettings.absenceBannerEnabled
+      ? absencePhrase
+      : null;
 
   // ── Thin public surface for flat members still read/written by
   // UI/pages/dialogs. Full impl in the respective *Service (chaos_mode_service,
@@ -459,7 +461,7 @@ extension ChatServiceAccessors on ChatService {
   /// injection leaf, the needs decay modifiers, the sidebar TimeStrip, and the
   /// web facade — one source.
   DailyWeather? get _currentWeatherImpl {
-    if (!_clockRunning || !_storageService.weatherEnabled) {
+    if (!_clockRunning || !_storageService.realismSettings.weatherEnabled) {
       return null;
     }
     // Primary owns weather. Empty Primary OR climate-off Primary ⇒ off.

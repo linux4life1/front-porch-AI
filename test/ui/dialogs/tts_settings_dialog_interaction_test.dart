@@ -47,43 +47,9 @@ class _TtsWithModelProbe extends FakeTtsService {
 }
 
 class _StorageWithEngine extends FakeStorageService {
-  String _engine = 'kokoro';
-  @override
-  String get ttsEngine => _engine;
-  @override
-  Future<void> setTtsEngine(String value) async {
-    _engine = value;
-    notifyListeners();
+  _StorageWithEngine() {
+    ttsSettings.setTtsEngine('kokoro');
   }
-
-  // Everything below: members the four engine sections genuinely read/write
-  // that the shared fake (built for the disabled-engine golden) never needed.
-  @override
-  Future<void> setTtsVoiceModel(String value) async {}
-  @override
-  double get ttsSpeechRate => 1.0;
-  @override
-  Future<void> setTtsSpeechRate(double value) async {}
-  @override
-  bool get ttsIgnoreAsterisks => false;
-  @override
-  bool get ttsNarrateQuotedOnly => false;
-  @override
-  bool get ttsReplaceCurlyQuotes => false;
-  @override
-  String get openaiTtsBaseUrl => 'https://api.openai.com/v1';
-  @override
-  String get openaiTtsModel => 'tts-1';
-  @override
-  String get elevenlabsApiKey => '';
-  @override
-  String get elevenlabsModel => 'eleven_multilingual_v2';
-  @override
-  double get elevenlabsSimilarity => 0.75;
-  @override
-  double get elevenlabsStability => 0.5;
-  @override
-  double get elevenlabsStyle => 0.0;
 }
 
 void main() {
@@ -125,24 +91,40 @@ void main() {
     }
 
     // Kokoro is the starting engine — its section renders voices/model card.
-    expect(find.textContaining('Kokoro'), findsWidgets,
-        reason: 'Kokoro tab must exist');
+    expect(
+      find.textContaining('Kokoro'),
+      findsWidgets,
+      reason: 'Kokoro tab must exist',
+    );
 
     await pick('OpenAI');
-    expect(find.text('API Key'), findsWidgets,
-        reason: 'OpenAI section (its future part file) did not render after '
-            'tapping its REAL engine tab');
+    expect(
+      find.text('API Key'),
+      findsWidgets,
+      reason:
+          'OpenAI section (its future part file) did not render after '
+          'tapping its REAL engine tab',
+    );
 
     await pick('ElevenLabs');
-    expect(find.text('API Key'), findsWidgets,
-        reason: 'ElevenLabs section did not render');
+    expect(
+      find.text('API Key'),
+      findsWidgets,
+      reason: 'ElevenLabs section did not render',
+    );
 
     await pick('Piper');
-    expect(find.text('Browse'), findsWidgets,
-        reason: 'Piper section (Browse voices button) did not render');
+    expect(
+      find.text('Browse'),
+      findsWidgets,
+      reason: 'Piper section (Browse voices button) did not render',
+    );
 
     await pick('Kokoro');
-    expect(find.text('Browse'), findsNothing,
-        reason: 'switching back must swap the section out again');
+    expect(
+      find.text('Browse'),
+      findsNothing,
+      reason: 'switching back must swap the section out again',
+    );
   });
 }

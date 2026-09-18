@@ -43,14 +43,9 @@ class _ModelsManager extends FakeModelManager {
 }
 
 class _ModeStorage extends FakeStorageService {
-  _ModeStorage(this._backendType);
-  final String _backendType;
-  @override
-  String get backendType => _backendType;
-  @override
-  bool get kcppsHasModel => false;
-  @override
-  int get kvQuantizationLevel => 0;
+  _ModeStorage(String backendType) {
+    backendSettings.setBackendType(backendType);
+  }
 }
 
 void main() {

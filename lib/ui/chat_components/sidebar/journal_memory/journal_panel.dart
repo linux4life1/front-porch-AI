@@ -110,7 +110,7 @@ class _JournalPanelState extends State<JournalPanel> {
   @override
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
-    if (!storage.journalEnabled) return const SizedBox.shrink();
+    if (!storage.memorySettings.journalEnabled) return const SizedBox.shrink();
     final accent = AppColors.journalAccentOf(context);
 
     // Preview: pinned first (store order), then the freshest unpinned.
@@ -315,7 +315,7 @@ class _JournalPanelState extends State<JournalPanel> {
       emotionLabel: draft.feeling,
       storyDay: widget.chatService.timeService.dayCount,
       storyClock: widget.chatService.timeService.storyClockIso,
-      maxCards: storage.journalMaxCards,
+      maxCards: storage.memorySettings.journalMaxCards,
     );
     await _load();
   }

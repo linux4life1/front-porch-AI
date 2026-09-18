@@ -104,7 +104,7 @@ class GeneralTab extends StatelessWidget {
     return ActionChip(
       label: Text(label),
       onPressed: () {
-        storage.setSystemPrompt(prompt);
+        storage.generationSettings.setSystemPrompt(prompt);
         systemPromptController.text = prompt;
       },
     );
@@ -125,12 +125,12 @@ class GeneralTab extends StatelessWidget {
             children: [
               Text('Dark Mode', style: theme.textTheme.titleMedium),
               Switch(
-                value: Provider.of<StorageService>(context).isDark,
+                value: Provider.of<StorageService>(context).uiSettings.isDark,
                 onChanged: (v) {
                   Provider.of<StorageService>(
                     context,
                     listen: false,
-                  ).setIsDark(v);
+                  ).uiSettings.setIsDark(v);
                 },
               ),
             ],
@@ -198,10 +198,10 @@ class GeneralTab extends StatelessWidget {
           const SizedBox(height: 16),
           SliderSetting(
             label: 'Reading Size',
-            value: storageService.textScale,
+            value: storageService.uiSettings.textScale,
             min: 0.7,
             max: 2.0,
-            onChanged: (val) => storageService.setTextScale(val),
+            onChanged: (val) => storageService.uiSettings.setTextScale(val),
             divisions: 13,
           ),
           const SizedBox(height: 16),
@@ -211,56 +211,60 @@ class GeneralTab extends StatelessWidget {
           const SizedBox(height: 8),
           ColorRow(
             label: 'User Bubble',
-            color: storageService.globalUserBubbleColor,
+            color: storageService.uiSettings.globalUserBubbleColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalUserBubbleColor,
-              (color) => storageService.setGlobalUserBubbleColor(color),
+              storageService.uiSettings.globalUserBubbleColor,
+              (color) =>
+                  storageService.uiSettings.setGlobalUserBubbleColor(color),
             ),
           ),
           ColorRow(
             label: 'User Text',
-            color: storageService.globalUserTextColor,
+            color: storageService.uiSettings.globalUserTextColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalUserTextColor,
-              (color) => storageService.setGlobalUserTextColor(color),
+              storageService.uiSettings.globalUserTextColor,
+              (color) =>
+                  storageService.uiSettings.setGlobalUserTextColor(color),
             ),
           ),
           ColorRow(
             label: 'AI Bubble',
-            color: storageService.globalAiBubbleColor,
+            color: storageService.uiSettings.globalAiBubbleColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalAiBubbleColor,
-              (color) => storageService.setGlobalAiBubbleColor(color),
+              storageService.uiSettings.globalAiBubbleColor,
+              (color) =>
+                  storageService.uiSettings.setGlobalAiBubbleColor(color),
             ),
           ),
           ColorRow(
             label: 'AI Text',
-            color: storageService.globalAiTextColor,
+            color: storageService.uiSettings.globalAiTextColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalAiTextColor,
-              (color) => storageService.setGlobalAiTextColor(color),
+              storageService.uiSettings.globalAiTextColor,
+              (color) => storageService.uiSettings.setGlobalAiTextColor(color),
             ),
           ),
           ColorRow(
             label: 'Dialogue (Quoted)',
-            color: storageService.globalDialogueColor,
+            color: storageService.uiSettings.globalDialogueColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalDialogueColor,
-              (color) => storageService.setGlobalDialogueColor(color),
+              storageService.uiSettings.globalDialogueColor,
+              (color) =>
+                  storageService.uiSettings.setGlobalDialogueColor(color),
             ),
           ),
           ColorRow(
             label: 'Actions (*text*)',
-            color: storageService.globalActionColor,
+            color: storageService.uiSettings.globalActionColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalActionColor,
-              (color) => storageService.setGlobalActionColor(color),
+              storageService.uiSettings.globalActionColor,
+              (color) => storageService.uiSettings.setGlobalActionColor(color),
             ),
           ),
           const SizedBox(height: 12),
@@ -284,9 +288,11 @@ class GeneralTab extends StatelessWidget {
                   // (older build / manual pref edit) would otherwise assert.
                   value:
                       _chatFonts.any(
-                        (f) => f.$2 == storageService.globalChatFontFamily,
+                        (f) =>
+                            f.$2 ==
+                            storageService.uiSettings.globalChatFontFamily,
                       )
-                      ? storageService.globalChatFontFamily
+                      ? storageService.uiSettings.globalChatFontFamily
                       : '',
                   isExpanded: true,
                   dropdownColor: AppColors.cardOf(context),
@@ -309,8 +315,8 @@ class GeneralTab extends StatelessWidget {
                       ),
                     );
                   }).toList(),
-                  onChanged: (value) =>
-                      storageService.setGlobalChatFontFamily(value ?? ''),
+                  onChanged: (value) => storageService.uiSettings
+                      .setGlobalChatFontFamily(value ?? ''),
                 ),
               ),
             ],
@@ -338,8 +344,9 @@ class GeneralTab extends StatelessWidget {
                 color: AppColors.textSecondary(context),
               ),
             ),
-            value: storageService.adultThemesEnabled,
-            onChanged: (v) => storageService.setAdultThemesEnabled(v),
+            value: storageService.realismSettings.adultThemesEnabled,
+            onChanged: (v) =>
+                storageService.realismSettings.setAdultThemesEnabled(v),
           ),
           const SizedBox(height: 8),
           _buildPorchLifePointer(context),
@@ -368,7 +375,7 @@ class GeneralTab extends StatelessWidget {
                       vertical: 10,
                     ),
                   ),
-                  items: storageService.savedPrompts
+                  items: storageService.presetSettings.savedPrompts
                       .map(
                         (p) => DropdownMenuItem<String>(
                           value: p['name'],
@@ -381,8 +388,11 @@ class GeneralTab extends StatelessWidget {
                       .toList(),
                   onChanged: (name) {
                     if (name != null) {
-                      storageService.loadSavedPrompt(name);
-                      systemPromptController.text = storageService.systemPrompt;
+                      storageService.presetSettings.loadSavedPrompt(name, (p) {
+                        storageService.generationSettings.setSystemPrompt(p);
+                      });
+                      systemPromptController.text =
+                          storageService.generationSettings.systemPrompt;
                     }
                   },
                 ),
@@ -438,7 +448,8 @@ class GeneralTab extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            onChanged: (val) => storageService.setSystemPrompt(val),
+            onChanged: (val) =>
+                storageService.generationSettings.setSystemPrompt(val),
           ),
 
           const SectionHeader('About & License'),

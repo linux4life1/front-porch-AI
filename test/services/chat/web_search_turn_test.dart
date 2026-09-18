@@ -140,9 +140,9 @@ void main() {
           ..setCharacterRepository(CharacterRepository(db, storage))
           ..testLlmServiceOverride = llm;
     await storage.initialized;
-    await storage.setMaxLength(32000);
-    await storage.setTemperature(1.2);
-    await storage.setReasoningEnabled(true);
+    await storage.generationSettings.setMaxLength(32000);
+    await storage.generationSettings.setTemperature(1.2);
+    await storage.backendSettings.setReasoningEnabled(true);
     await storage.webSearchSettings.setSearchApiKey('bs-test');
     await storage.webSearchSettings.setWebSearchDefault(true);
     chat.webSearchService.fetch = (uri, key) async {

@@ -279,7 +279,8 @@ extension _ChatPageSidebar on _ChatPageState {
             ),
             Consumer<StorageService>(
               builder: (context, storage, _) {
-                chatService.directorDelaySec = storage.directorDelay;
+                chatService.directorDelaySec =
+                    storage.ttsSettings.directorDelay;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -291,7 +292,7 @@ extension _ChatPageSidebar on _ChatPageState {
                         ),
                         const Spacer(),
                         Text(
-                          '${(_dragDirectorDelay ?? storage.directorDelay).toStringAsFixed(1)}s',
+                          '${(_dragDirectorDelay ?? storage.ttsSettings.directorDelay).toStringAsFixed(1)}s',
                           style: const TextStyle(
                             color: Colors.amberAccent,
                             fontSize: 11,
@@ -308,7 +309,9 @@ extension _ChatPageSidebar on _ChatPageState {
                         ),
                       ),
                       child: Slider(
-                        value: _dragDirectorDelay ?? storage.directorDelay,
+                        value:
+                            _dragDirectorDelay ??
+                            storage.ttsSettings.directorDelay,
                         min: 0.5,
                         max: 60.0,
                         divisions: 119,
@@ -318,7 +321,7 @@ extension _ChatPageSidebar on _ChatPageState {
                             rebuildState(() => _dragDirectorDelay = val),
                         onChangeEnd: (val) {
                           _dragDirectorDelay = null;
-                          storage.setDirectorDelay(val);
+                          storage.ttsSettings.setDirectorDelay(val);
                         },
                       ),
                     ),

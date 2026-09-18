@@ -61,7 +61,7 @@ extension LLMProviderWorker on LLMProvider {
     // re-evaluates dual-local without waiting for a worker-field edit.
     // The vault key is included so a key typed last still reconfigures.
     final identity =
-        '${_storageService.backendType}|${_storageService.remoteApiUrl}|'
+        '${_storageService.backendSettings.backendType}|${_storageService.backendSettings.remoteApiUrl}|'
         '$type|$url|$model|$key|${_mouthSwapModelId()}|'
         '${_workerSwapModelId()}|${_koboldKcppsId(worker: false)}|'
         '${_koboldKcppsId(worker: true)}';
@@ -224,8 +224,8 @@ extension LLMProviderWorker on LLMProvider {
   bool _pairSupportsGpuSwap() {
     if (!workerConfigured) return false;
     return workerGpuSwapSupported(
-      mouthType: _storageService.backendType,
-      mouthUrl: _storageService.remoteApiUrl,
+      mouthType: _storageService.backendSettings.backendType,
+      mouthUrl: _storageService.backendSettings.remoteApiUrl,
       mouthModel: _mouthSwapModelId(),
       workerType: _storageService.workerBackendType,
       workerUrl: _storageService.workerRemoteApiUrl,
@@ -236,10 +236,10 @@ extension LLMProviderWorker on LLMProvider {
   }
 
   String _mouthSwapModelId() {
-    if (_storageService.backendType == 'kobold') {
-      return _storageService.lastUsedModelPath?.trim() ?? '';
+    if (_storageService.backendSettings.backendType == 'kobold') {
+      return _storageService.backendSettings.lastUsedModelPath?.trim() ?? '';
     }
-    return _storageService.remoteModelName;
+    return _storageService.backendSettings.remoteModelName;
   }
 
   String _workerSwapModelId() {
@@ -257,18 +257,18 @@ extension LLMProviderWorker on LLMProvider {
     final requested = _effectiveKoboldLaunchPath(modelPath);
     final kcpps = forGpuSwap
         ? (kcppsPath?.trim() ?? '')
-        : (_storageService.activeKcppsPath?.trim() ?? '');
+        : (_storageService.backendSettings.activeKcppsPath?.trim() ?? '');
     if (hasAnyManagedProcessRunning) {
       if (!forGpuSwap) return;
       if (_managedKoboldAlreadyHas(requested, kcpps)) return;
     } else if (!forGpuSwap &&
         !shouldEnsureKoboldProcess(
-          mouthType: _storageService.backendType,
+          mouthType: _storageService.backendSettings.backendType,
           workerType: _storageService.workerBackendType,
           pairAllowed: !workerRefusedDualLocal,
           mouthIsLocal: backendLaneIsLocal(
-            _storageService.backendType,
-            _storageService.remoteApiUrl,
+            _storageService.backendSettings.backendType,
+            _storageService.backendSettings.remoteApiUrl,
           ),
         )) {
       return;
@@ -284,7 +284,8 @@ extension LLMProviderWorker on LLMProvider {
 
     try {
       final hasPresetWithModel =
-          _storageService.kcppsHasModel && _storageService.kcppsModelFileExists;
+          _storageService.backendSettings.kcppsHasModel &&
+          _storageService.backendSettings.kcppsModelFileExists;
       if (requested.isEmpty) {
         if (forGpuSwap) {
           if (kcpps.isEmpty) return;
@@ -293,10 +294,10 @@ extension LLMProviderWorker on LLMProvider {
         }
       }
       final mouthModel = normalizeLocalModelPath(
-        _storageService.lastUsedModelPath ?? '',
+        _storageService.backendSettings.lastUsedModelPath ?? '',
       );
       final mouthKcpps = normalizeLocalModelPath(
-        _storageService.activeKcppsPath?.trim() ?? '',
+        _storageService.backendSettings.activeKcppsPath?.trim() ?? '',
       );
       final mouthPair =
           normalizeLocalModelPath(requested) == mouthModel &&
@@ -308,14 +309,14 @@ extension LLMProviderWorker on LLMProvider {
         requested,
         kcppsPath: kcpps.isEmpty ? null : kcpps,
         mmprojPath: attachMmproj && requested.isNotEmpty
-            ? _storageService.mmprojForModel(requested)
+            ? _storageService.presetSettings.modelMmprojMap[requested]
             : null,
-        gpuLayers: _storageService.gpuLayers,
-        contextSize: _storageService.contextSize,
-        useVulkan: _storageService.useVulkan ?? false,
-        useCublas: _storageService.useCublas ?? false,
-        useMetal: _storageService.useMetal ?? false,
-        useRocm: _storageService.useRocm ?? false,
+        gpuLayers: _storageService.backendSettings.gpuLayers,
+        contextSize: _storageService.backendSettings.contextSize,
+        useVulkan: _storageService.backendSettings.useVulkan ?? false,
+        useCublas: _storageService.backendSettings.useCublas ?? false,
+        useMetal: _storageService.backendSettings.useMetal ?? false,
+        useRocm: _storageService.backendSettings.useRocm ?? false,
       );
     } catch (e) {
       debugPrint('[LLMProvider] ensureManagedBackendIsRunning failed: $e');
@@ -325,14 +326,14 @@ extension LLMProviderWorker on LLMProvider {
   String _effectiveKoboldLaunchPath(String? modelPath) {
     final raw = modelPath?.trim() ?? '';
     if (raw.isEmpty || raw == 'kobold') {
-      return _storageService.lastUsedModelPath?.trim() ?? '';
+      return _storageService.backendSettings.lastUsedModelPath?.trim() ?? '';
     }
     return raw;
   }
 
   String _koboldKcppsId({required bool worker}) {
     if (worker) return _storageService.resolvedWorkerKoboldKcppsPath();
-    return _storageService.activeKcppsPath?.trim() ?? '';
+    return _storageService.backendSettings.activeKcppsPath?.trim() ?? '';
   }
 
   bool _managedKoboldAlreadyHas(String requested, String kcpps) {
@@ -369,14 +370,14 @@ extension LLMProviderWorker on LLMProvider {
       return null;
     }
     final mouth = _hostForLane(
-      type: _storageService.backendType,
-      url: _storageService.remoteApiUrl,
+      type: _storageService.backendSettings.backendType,
+      url: _storageService.backendSettings.remoteApiUrl,
       model: _mouthSwapModelId(),
       kcpps: _koboldKcppsId(worker: false),
       key: _storageService.remoteApiKeyFor(
         resolvedLaneApiUrl(
-          _storageService.backendType,
-          _storageService.remoteApiUrl,
+          _storageService.backendSettings.backendType,
+          _storageService.backendSettings.remoteApiUrl,
         ),
       ),
     );
@@ -400,8 +401,8 @@ extension LLMProviderWorker on LLMProvider {
       mouth: mouth,
       worker: worker,
       sameResident: workerLanesShareResident(
-        mouthType: _storageService.backendType,
-        mouthUrl: _storageService.remoteApiUrl,
+        mouthType: _storageService.backendSettings.backendType,
+        mouthUrl: _storageService.backendSettings.remoteApiUrl,
         mouthModel: _mouthSwapModelId(),
         workerType: _storageService.workerBackendType,
         workerUrl: _storageService.workerRemoteApiUrl,

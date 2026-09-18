@@ -173,7 +173,7 @@ extension ChatServiceChatEntry on ChatService {
       // Auto-start the local Kobold backend (native or a .kcpps preset) when
       // entering a chat so the user never has to manually start it just to talk.
       // Gated by autostartOnChatOpen — when off, the user must start manually.
-      if (_storageService.autostartOnChatOpen) {
+      if (_storageService.backendSettings.autostartOnChatOpen) {
         _llmProvider?.ensureManagedBackendIsRunning();
       }
 

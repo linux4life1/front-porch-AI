@@ -85,17 +85,18 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     super.initState();
     final storage = Provider.of<StorageService>(context, listen: false);
     // Local settings
-    _useCublas = storage.useCublas == true;
-    _useVulkan = storage.useVulkan == true;
-    _useMetal = storage.useMetal == true;
-    _useRocm = storage.useRocm == true;
-    _selectedModelPath = storage.lastUsedModelPath;
-    _gpuLayersController.text = storage.gpuLayers.toString();
-    _contextSizeController.text = storage.contextSize.toString();
+    _useCublas = storage.backendSettings.useCublas == true;
+    _useVulkan = storage.backendSettings.useVulkan == true;
+    _useMetal = storage.backendSettings.useMetal == true;
+    _useRocm = storage.backendSettings.useRocm == true;
+    _selectedModelPath = storage.backendSettings.lastUsedModelPath;
+    _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
+    _contextSizeController.text = storage.backendSettings.contextSize
+        .toString();
     // Remote settings
-    _apiUrlController.text = storage.remoteApiUrl;
-    _apiKeyController.text = storage.remoteApiKey;
-    _modelNameController.text = storage.remoteModelName;
+    _apiUrlController.text = storage.backendSettings.remoteApiUrl;
+    _apiKeyController.text = storage.backendSettings.remoteApiKey;
+    _modelNameController.text = storage.backendSettings.remoteModelName;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -113,8 +114,8 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   /// Check whether a .kcpps preset is currently active.
   bool _isPresetActive(BuildContext ctx) {
     final storage = Provider.of<StorageService>(ctx, listen: false);
-    return storage.activeKcppsPath != null &&
-        storage.activeKcppsPath!.isNotEmpty;
+    return storage.backendSettings.activeKcppsPath != null &&
+        storage.backendSettings.activeKcppsPath!.isNotEmpty;
   }
 
   /// Re-exposes the protected [setState] for the `part of` extensions
@@ -144,7 +145,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
         BackendType.omlx => 'omlx',
         BackendType.openRouter => 'openRouter',
       },
-      url: storage.remoteApiUrl,
+      url: storage.backendSettings.remoteApiUrl,
     );
 
     return Dialog(

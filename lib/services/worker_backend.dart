@@ -43,15 +43,15 @@ extension WorkerBackendStorage on StorageService {
   /// Realism-evals GGUF, or the Models-tab file when the worker slot is empty.
   String resolvedWorkerKoboldModelPath() => resolvedKoboldWorkerModelPath(
     workerPath: workerKoboldModelPath,
-    mouthPath: lastUsedModelPath,
+    mouthPath: backendSettings.lastUsedModelPath,
   );
 
   /// Realism-evals .kcpps. Empty inherits mouth only when the GGUFs match.
   String resolvedWorkerKoboldKcppsPath() => resolvedKoboldWorkerKcppsPath(
     workerKcpps: workerKoboldKcppsPath,
-    mouthKcpps: activeKcppsPath,
+    mouthKcpps: backendSettings.activeKcppsPath,
     workerModel: resolvedWorkerKoboldModelPath(),
-    mouthModel: lastUsedModelPath,
+    mouthModel: backendSettings.lastUsedModelPath,
   );
   Future<void> setRemoteApiKeyFor(String url, String v) =>
       backendSettings.setRemoteApiKeyFor(url, v);

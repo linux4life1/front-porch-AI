@@ -25,9 +25,11 @@ part of 'generation_options_tab.dart';
 /// behavior is identical to when they lived inline. AppColors exclusive.
 extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
   Widget _buildLocalPanel(StorageService st) {
-    final isDT = st.imageGenBackend == 'drawthings';
-    final isComfy = st.imageGenBackend == 'comfyui';
-    final backend = ImageGenBackend.fromKey(st.imageGenBackend);
+    final isDT = st.imageGenSettings.imageGenBackend == 'drawthings';
+    final isComfy = st.imageGenSettings.imageGenBackend == 'comfyui';
+    final backend = ImageGenBackend.fromKey(
+      st.imageGenSettings.imageGenBackend,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -70,7 +72,7 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
                   ),
                   decoration: _deco(hint: '127.0.0.1'),
                   onChanged: (v) {
-                    st.setDrawThingsGrpcHost(v.trim());
+                    st.imageGenSettings.setDrawThingsGrpcHost(v.trim());
                     rebuildState(() {
                       _connectionOk = null;
                       _localModels = [];
@@ -90,7 +92,9 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
                   keyboardType: TextInputType.number,
                   decoration: _deco(),
                   onChanged: (v) {
-                    st.setDrawThingsGrpcPort(int.tryParse(v) ?? 7859);
+                    st.imageGenSettings.setDrawThingsGrpcPort(
+                      int.tryParse(v) ?? 7859,
+                    );
                     rebuildState(() {
                       _connectionOk = null;
                       _localModels = [];
@@ -143,7 +147,7 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
                 // selection is visible before the server is connected.
                 final slotValue = widget.editScoped
                     ? st.imageGenSettings.imageGenEditModel
-                    : st.imageGenModel;
+                    : st.imageGenSettings.imageGenModel;
                 final dtModels = _localModels.isNotEmpty
                     ? _localModels
                     : (slotValue.isNotEmpty ? [slotValue] : <String>[]);
@@ -190,7 +194,7 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
             ),
             decoration: _deco(hint: 'http://127.0.0.1:8188'),
             onChanged: (v) {
-              st.setComfyUiUrl(v.trim());
+              st.imageGenSettings.setComfyUiUrl(v.trim());
               rebuildState(() {
                 _connectionOk = null;
                 _localModels = [];
@@ -261,7 +265,7 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
             ),
             decoration: _deco(hint: 'http://127.0.0.1:7860'),
             onChanged: (v) {
-              st.setLocalImageGenUrl(v.trim());
+              st.imageGenSettings.setLocalImageGenUrl(v.trim());
               rebuildState(() => _connectionOk = null);
             },
             onSubmitted: (_) => _testConnection(),
@@ -320,7 +324,7 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
                   onPressed:
                       (_unloadingModel ||
                           _switchingModel ||
-                          st.imageGenModel.isEmpty)
+                          st.imageGenSettings.imageGenModel.isEmpty)
                       ? null
                       : _switchModel,
                   style: ElevatedButton.styleFrom(
@@ -374,12 +378,13 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
               checkpointFamily: ImageModelFamily.detectFromName(
                 widget.editScoped && isDT
                     ? st.imageGenSettings.imageGenEditModel
-                    : st.imageGenModel,
+                    : st.imageGenSettings.imageGenModel,
               ),
-              selected: st.imageGenLora,
-              weight: st.imageGenLoraWeight,
-              onSelected: (val) => st.setImageGenLora(val),
-              onWeightChanged: (v) => st.setImageGenLoraWeight(v),
+              selected: st.imageGenSettings.imageGenLora,
+              weight: st.imageGenSettings.imageGenLoraWeight,
+              onSelected: (val) => st.imageGenSettings.setImageGenLora(val),
+              onWeightChanged: (v) =>
+                  st.imageGenSettings.setImageGenLoraWeight(v),
             ),
         ],
         const SizedBox(height: 8),

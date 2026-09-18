@@ -278,10 +278,7 @@ class _JournalDialogState extends State<JournalDialog> {
         dropdownColor: AppColors.surfaceContainerOf(context),
         items: [
           for (final p in owners)
-            DropdownMenuItem(
-              value: p.id,
-              child: Text("${p.name}'s Journal"),
-            ),
+            DropdownMenuItem(value: p.id, child: Text("${p.name}'s Journal")),
         ],
         onChanged: (id) {
           if (id == null) return;
@@ -296,8 +293,7 @@ class _JournalDialogState extends State<JournalDialog> {
     );
   }
 
-  int get _belongingsCount =>
-      _cards.where((c) => c.category == 'item').length;
+  int get _belongingsCount => _cards.where((c) => c.category == 'item').length;
 
   List<JournalMemoryData> get _diaryCards =>
       _cards.where((c) => c.category != 'item').toList();
@@ -410,7 +406,7 @@ class _JournalDialogState extends State<JournalDialog> {
       emotionLabel: draft.feeling,
       storyDay: _chat.timeService.dayCount,
       storyClock: _chat.timeService.storyClockIso,
-      maxCards: storage.journalMaxCards,
+      maxCards: storage.memorySettings.journalMaxCards,
     );
     await _load();
   }
@@ -484,7 +480,8 @@ class _JournalDialogState extends State<JournalDialog> {
         if (pos >= 0 && pos < messages.length)
           (
             pos: pos,
-            line: '#$pos  ${messages[pos].sender}: '
+            line:
+                '#$pos  ${messages[pos].sender}: '
                 '${messages[pos].displayText}',
           ),
     ];

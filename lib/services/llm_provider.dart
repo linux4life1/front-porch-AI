@@ -97,7 +97,7 @@ class LLMProvider extends ChangeNotifier {
   /// + URL. Called on backend switches; safe to call repeatedly.
   void _syncLiveStatusSources() {
     if (shouldRunOmlxPoller(
-      mouthType: _storageService.backendType,
+      mouthType: _storageService.backendSettings.backendType,
       workerType: _storageService.workerBackendType,
       pairAllowed: !workerRefusedDualLocal,
     )) {
@@ -172,8 +172,8 @@ class LLMProvider extends ChangeNotifier {
   bool get workerRefusedDualLocal =>
       workerConfigured &&
       !workerPairAllowed(
-        mouthType: _storageService.backendType,
-        mouthUrl: _storageService.remoteApiUrl,
+        mouthType: _storageService.backendSettings.backendType,
+        mouthUrl: _storageService.backendSettings.remoteApiUrl,
         workerType: _storageService.workerBackendType,
         workerUrl: _storageService.workerRemoteApiUrl,
         gpuSwapAvailable: workerGpuSwapAvailable,
@@ -227,8 +227,8 @@ class LLMProvider extends ChangeNotifier {
       return OpenRouterService(
         apiUrl: _activeBackend == BackendType.omlx
             ? 'http://localhost:8000/v1'
-            : _storageService.remoteApiUrl,
-        apiKey: _storageService.remoteApiKey,
+            : _storageService.backendSettings.remoteApiUrl,
+        apiKey: _storageService.backendSettings.remoteApiKey,
         modelName: selectedModelId,
       );
     }
@@ -288,7 +288,7 @@ class LLMProvider extends ChangeNotifier {
   }
 
   void _syncFromStorage() {
-    final typeStr = _storageService.backendType;
+    final typeStr = _storageService.backendSettings.backendType;
     BackendType newType;
     switch (typeStr) {
       case 'openRouter':
@@ -305,17 +305,17 @@ class LLMProvider extends ChangeNotifier {
     final cfgChanged = newType == BackendType.omlx
         ? _openRouterService.configure(
             apiUrl: 'http://localhost:8000/v1',
-            apiKey: _storageService.remoteApiKey,
-            modelName: _storageService.remoteModelName,
+            apiKey: _storageService.backendSettings.remoteApiKey,
+            modelName: _storageService.backendSettings.remoteModelName,
           )
         : _openRouterService.configure(
-            apiUrl: _storageService.remoteApiUrl,
-            apiKey: _storageService.remoteApiKey,
-            modelName: _storageService.remoteModelName,
+            apiUrl: _storageService.backendSettings.remoteApiUrl,
+            apiKey: _storageService.backendSettings.remoteApiKey,
+            modelName: _storageService.backendSettings.remoteModelName,
           );
     _maybePingRemote(newType, configChanged: cfgChanged);
     debugPrint(
-      '[LLMProvider] Synced from storage: backend=$typeStr, URL=${_storageService.remoteApiUrl}',
+      '[LLMProvider] Synced from storage: backend=$typeStr, URL=${_storageService.backendSettings.remoteApiUrl}',
     );
 
     // Drop cached vision/tool-calling verdicts whenever the model identity the
@@ -325,9 +325,9 @@ class LLMProvider extends ChangeNotifier {
     // attach path trusts it. (Local-model verdicts are re-derived from config
     // each call, so this mainly guards the remote /models-metadata cache.)
     final identity =
-        '$typeStr|${_storageService.remoteApiUrl}|'
-        '${_storageService.remoteModelName}|${_storageService.activeKcppsPath}|'
-        '${_storageService.lastUsedModelPath}';
+        '$typeStr|${_storageService.backendSettings.remoteApiUrl}|'
+        '${_storageService.backendSettings.remoteModelName}|${_storageService.backendSettings.activeKcppsPath}|'
+        '${_storageService.backendSettings.lastUsedModelPath}';
     if (identity != _lastModelIdentity) {
       _lastModelIdentity = identity;
       VisionSupportResolver.instance.clear();
@@ -369,7 +369,7 @@ class LLMProvider extends ChangeNotifier {
       case BackendType.kobold:
         persistValue = 'kobold';
     }
-    await _storageService.setBackendType(persistValue);
+    await _storageService.backendSettings.setBackendType(persistValue);
 
     // oMLX is a fixed localhost URL. Nano/OpenRouter/LM Studio use the
     // parked remoteApiUrl — must reconfigure even when that URL did not
@@ -378,14 +378,14 @@ class LLMProvider extends ChangeNotifier {
     if (type == BackendType.omlx) {
       _openRouterService.configure(
         apiUrl: 'http://localhost:8000/v1',
-        apiKey: _storageService.remoteApiKey,
-        modelName: _storageService.remoteModelName,
+        apiKey: _storageService.backendSettings.remoteApiKey,
+        modelName: _storageService.backendSettings.remoteModelName,
       );
     } else if (type == BackendType.openRouter) {
       _openRouterService.configure(
-        apiUrl: _storageService.remoteApiUrl,
-        apiKey: _storageService.remoteApiKey,
-        modelName: _storageService.remoteModelName,
+        apiUrl: _storageService.backendSettings.remoteApiUrl,
+        apiKey: _storageService.backendSettings.remoteApiKey,
+        modelName: _storageService.backendSettings.remoteModelName,
       );
     }
 
@@ -401,32 +401,32 @@ class LLMProvider extends ChangeNotifier {
   void _kickLocalThinkingResolve(BackendType type) {
     switch (type) {
       case BackendType.omlx:
-        final model = _storageService.remoteModelName;
+        final model = _storageService.backendSettings.remoteModelName;
         if (model.isEmpty) return;
         if (ReasoningSupportResolver.instance.isResolved(model)) return;
         unawaited(
           ReasoningSupportResolver.instance.resolveOmlx(
             apiUrl: 'http://localhost:8000/v1',
             modelName: model,
-            apiKey: _storageService.remoteApiKey,
+            apiKey: _storageService.backendSettings.remoteApiKey,
           ),
         );
         return;
       case BackendType.openRouter:
         final url = _openRouterService.apiUrl;
-        final model = _storageService.remoteModelName;
+        final model = _storageService.backendSettings.remoteModelName;
         if (model.isEmpty || !isLocalRemoteUrl(url)) return;
         if (ReasoningSupportResolver.instance.isResolved(model)) return;
         unawaited(
           ReasoningSupportResolver.instance.resolveLmStudio(
             apiUrl: url,
             modelName: model,
-            apiKey: _storageService.remoteApiKey,
+            apiKey: _storageService.backendSettings.remoteApiKey,
           ),
         );
         return;
       case BackendType.kobold:
-        final path = _storageService.lastUsedModelPath;
+        final path = _storageService.backendSettings.lastUsedModelPath;
         if (path == null || path.isEmpty) return;
         if (ReasoningSupportResolver.instance.isResolved(path)) return;
         unawaited(ReasoningSupportResolver.instance.resolveLocalGguf(path));

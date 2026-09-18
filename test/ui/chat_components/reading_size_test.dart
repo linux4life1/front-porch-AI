@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
@@ -19,46 +18,10 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import '../../golden/support/fakes_storage.dart';
 
 class _ReadingStorage extends FakeStorageService {
-  _ReadingStorage(this.scale);
+  _ReadingStorage(this.scale) {
+    uiSettings.setTextScale(scale);
+  }
   final double scale;
-
-  @override
-  double get textScale => scale;
-
-  @override
-  String getChatFontFamily([
-    CharacterCard? character,
-    ChatThemePreset? themePreset,
-    ChatThemeOverrides? themeOverrides,
-  ]) => '';
-
-  @override
-  Color getUserTextColor([
-    CharacterCard? character,
-    ChatThemePreset? themePreset,
-    ChatThemeOverrides? themeOverrides,
-  ]) => Colors.white;
-
-  @override
-  Color getAiTextColor([
-    CharacterCard? character,
-    ChatThemePreset? themePreset,
-    ChatThemeOverrides? themeOverrides,
-  ]) => Colors.white;
-
-  @override
-  Color getDialogueColor([
-    CharacterCard? character,
-    ChatThemePreset? themePreset,
-    ChatThemeOverrides? themeOverrides,
-  ]) => Colors.amber;
-
-  @override
-  Color getActionColor([
-    CharacterCard? character,
-    ChatThemePreset? themePreset,
-    ChatThemeOverrides? themeOverrides,
-  ]) => Colors.lightBlue;
 }
 
 double _declaredFontSize(TextStyle? style) {

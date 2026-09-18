@@ -59,8 +59,8 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
     final theme = Theme.of(context);
     final accent = AppColors.porchAmberOf(context);
     final kind = resolveRemoteProviderKind(
-      backendType: storageService.backendType,
-      url: storageService.remoteApiUrl,
+      backendType: storageService.backendSettings.backendType,
+      url: storageService.backendSettings.remoteApiUrl,
     );
     final showUrl = remoteProviderShowsUrlField(kind);
     final needsKey = remoteProviderNeedsApiKey(kind);
@@ -83,7 +83,8 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
               vertical: 10,
             ),
           ),
-          onChanged: (val) => storageService.setRemoteApiUrl(val.trim()),
+          onChanged: (val) =>
+              storageService.backendSettings.setRemoteApiUrl(val.trim()),
         ),
         const SizedBox(height: 16),
       ],
@@ -94,7 +95,7 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
           controller: widget.apiKeyController,
           obscureText: true,
           decoration: InputDecoration(
-            hintText: storageService.remoteApiKey.isNotEmpty
+            hintText: storageService.backendSettings.remoteApiKey.isNotEmpty
                 ? '•••••• (leave blank to keep)'
                 : 'paste your API key',
             filled: true,
@@ -108,7 +109,7 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
           ),
           onChanged: (val) {
             if (val.trim().isNotEmpty) {
-              storageService.setRemoteApiKey(val.trim());
+              storageService.backendSettings.setRemoteApiKey(val.trim());
             }
           },
         ),
@@ -138,20 +139,21 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
       const SizedBox(height: 20),
       RemoteModelPickerField(
         availableModels: widget.availableModels,
-        selectedId: storageService.remoteModelName,
+        selectedId: storageService.backendSettings.remoteModelName,
         fetching: _isFetchingModels,
         onRefresh: () => _refreshModels(context),
-        onSelected: (m) => storageService.setRemoteModel(m.id),
-        onTyped: storageService.setRemoteModelName,
+        onSelected: (m) =>
+            storageService.backendSettings.setRemoteModelName(m.id),
+        onTyped: storageService.backendSettings.setRemoteModelName,
       ),
-      if (storageService.remoteModelName.isNotEmpty) ...[
+      if (storageService.backendSettings.remoteModelName.isNotEmpty) ...[
         const SizedBox(height: 10),
         Align(
           alignment: Alignment.centerLeft,
           child: RemoteVisionPill(
-            apiUrl: storageService.remoteApiUrl,
-            apiKey: storageService.remoteApiKey,
-            modelName: storageService.remoteModelName,
+            apiUrl: storageService.backendSettings.remoteApiUrl,
+            apiKey: storageService.backendSettings.remoteApiKey,
+            modelName: storageService.backendSettings.remoteModelName,
           ),
         ),
       ],
@@ -191,8 +193,8 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
     final openRouter = Provider.of<OpenRouterService>(context, listen: false);
     final storageService = Provider.of<StorageService>(context, listen: false);
     final result = await openRouter.testConnection(
-      apiUrl: storageService.remoteApiUrl,
-      apiKey: storageService.remoteApiKey,
+      apiUrl: storageService.backendSettings.remoteApiUrl,
+      apiKey: storageService.backendSettings.remoteApiKey,
     );
     if (!mounted) return;
     setState(() => _isCheckingConnection = false);
@@ -221,8 +223,8 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
     final openRouter = Provider.of<OpenRouterService>(context, listen: false);
     final storageService = Provider.of<StorageService>(context, listen: false);
     final models = await openRouter.fetchAvailableModels(
-      apiUrl: storageService.remoteApiUrl,
-      apiKey: storageService.remoteApiKey,
+      apiUrl: storageService.backendSettings.remoteApiUrl,
+      apiKey: storageService.backendSettings.remoteApiKey,
     );
     if (!mounted) return;
     setState(() => _isFetchingModels = false);

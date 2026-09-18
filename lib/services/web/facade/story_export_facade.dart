@@ -78,7 +78,7 @@ class StoryExportFacade {
   // ── Audiobook (.wav) ────────────────────────────────────────────────────────
 
   /// Whether the *server* can produce audio at all (TTS enabled).
-  bool get ttsAvailable => _storage.ttsEnabled;
+  bool get ttsAvailable => _storage.ttsSettings.ttsEnabled;
 
   /// Kick off audiobook compilation for [id] in the background. Returns false
   /// for an unknown story, TTS off, or a compile already running. Progress is
@@ -87,7 +87,7 @@ class StoryExportFacade {
   Future<bool> startAudiobook(String id) async {
     await _ensureLoaded();
     final p = _repo.getById(id);
-    if (p == null || !_storage.ttsEnabled) return false;
+    if (p == null || !_storage.ttsSettings.ttsEnabled) return false;
     if (_audiobookService.isGenerating) return false;
 
     _generatingId = id;
@@ -149,7 +149,7 @@ class StoryExportFacade {
   /// unknown story, out-of-range indices, TTS off, or an empty/unwritten scene.
   Future<File?> narrateScene(String id, int actIndex, int sceneIndex) async {
     await _ensureLoaded();
-    if (!_storage.ttsEnabled) return null;
+    if (!_storage.ttsSettings.ttsEnabled) return null;
     final p = _repo.getById(id);
     if (p == null) return null;
     if (actIndex < 0 || actIndex >= p.acts.length) return null;

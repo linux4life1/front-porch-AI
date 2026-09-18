@@ -790,7 +790,8 @@ class CreatorState extends ChangeNotifier {
             );
       localModels = files;
       if (selectedLocalModelPath.isEmpty) {
-        selectedLocalModelPath = storage.lastUsedModelPath ?? '';
+        selectedLocalModelPath =
+            storage.backendSettings.lastUsedModelPath ?? '';
       }
       notifyListeners();
     } catch (e) {
@@ -806,8 +807,8 @@ class CreatorState extends ChangeNotifier {
   }
 
   void initLocalSettingsControllers(StorageService storage) {
-    gpuLayersController.text = storage.gpuLayers.toString();
-    contextSizeController.text = storage.contextSize.toString();
+    gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
+    contextSizeController.text = storage.backendSettings.contextSize.toString();
   }
 
   // Note: reloadKoboldWithModel lifted with service params (callers in steps
@@ -847,27 +848,28 @@ class CreatorState extends ChangeNotifier {
 
       // If the .kcpps preset owns the model, let it handle model loading
       final hasValidKcppsModel =
-          storage.kcppsHasModel && storage.kcppsModelFileExists;
+          storage.backendSettings.kcppsHasModel &&
+          storage.backendSettings.kcppsModelFileExists;
       final effectiveModel = hasValidKcppsModel ? '' : modelPath;
 
       await kobold.startKobold(
         execPath,
         effectiveModel,
-        kcppsPath: storage.activeKcppsPath,
+        kcppsPath: storage.backendSettings.activeKcppsPath,
         mmprojPath: modelPath.isNotEmpty
-            ? storage.mmprojForModel(modelPath)
+            ? storage.presetSettings.modelMmprojMap[modelPath]
             : null,
         port: 5001,
-        gpuLayers: storage.gpuLayers,
-        contextSize: storage.contextSize,
-        useVulkan: storage.useVulkan ?? false,
-        useCublas: storage.useCublas ?? false,
-        useMetal: storage.useMetal ?? false,
-        useRocm: storage.useRocm ?? false,
+        gpuLayers: storage.backendSettings.gpuLayers,
+        contextSize: storage.backendSettings.contextSize,
+        useVulkan: storage.backendSettings.useVulkan ?? false,
+        useCublas: storage.backendSettings.useCublas ?? false,
+        useMetal: storage.backendSettings.useMetal ?? false,
+        useRocm: storage.backendSettings.useRocm ?? false,
       );
 
       // Save as last used model
-      await storage.setLastUsedModelPath(modelPath);
+      await storage.backendSettings.setLastUsedModelPath(modelPath);
 
       // Poll for model readiness
       koboldStatus = 'Loading model...';

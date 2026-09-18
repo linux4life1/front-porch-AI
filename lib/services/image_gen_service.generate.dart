@@ -166,9 +166,9 @@ extension _ImageGenGenerate on ImageGenService {
             // always safe to pass. Replaces the retired drawThingsStrength knob.
             final strength =
                 denoise ?? _storage.imageGenSettings.imageGenDenoise;
-            final seedMode = _storage.drawThingsSeedMode;
-            final teaCache = _storage.drawThingsTeaCache;
-            final cfgZeroStar = _storage.drawThingsCfgZeroStar;
+            final seedMode = _storage.imageGenSettings.drawThingsSeedMode;
+            final teaCache = _storage.imageGenSettings.drawThingsTeaCache;
+            final cfgZeroStar = _storage.imageGenSettings.drawThingsCfgZeroStar;
             // Same shared LoRA setting the A1111 path uses; DT applies it
             // natively via the generation config instead of a prompt tag.
             final loraName = _storage.imageGenSettings.imageGenLora;
@@ -197,11 +197,11 @@ extension _ImageGenGenerate on ImageGenService {
               // FIRST edit already works — UniPC + moderate CFG — without
               // clobbering Create). The "how much should change" slider provides
               // the denoise strength; the user's LoRA rides along unchanged.
-              dtSteps = _storage.editSteps;
-              dtCfg = _storage.editCfgScale;
-              dtSampler = _storage.editSampler;
-              dtShift = _storage.editShift;
-              dtSeedMode = _storage.editSeedMode;
+              dtSteps = _storage.imageGenSettings.editSteps;
+              dtCfg = _storage.imageGenSettings.editCfgScale;
+              dtSampler = _storage.imageGenSettings.editSampler;
+              dtShift = _storage.imageGenSettings.editShift;
+              dtSeedMode = _storage.imageGenSettings.editSeedMode;
               dtStrength = editStrength ?? kEditRecommendedStrength;
               _statusMessage = refCapability.editKind == EditModelKind.kontext
                   ? 'Editing with Flux Kontext...'
@@ -246,7 +246,8 @@ extension _ImageGenGenerate on ImageGenService {
               var detail = msg.substring(idx + genMarker.length).trim();
               detail = detail.split('\n').first.trim();
               if (detail.isEmpty || detail == 'null') {
-                detail = 'the backend rejected the request '
+                detail =
+                    'the backend rejected the request '
                     '(often an incompatible LoRA or model for editing).';
               }
               if (detail.length > 240) detail = '${detail.substring(0, 240)}…';
@@ -327,8 +328,8 @@ extension _ImageGenGenerate on ImageGenService {
           // sampler (Karras-flavored names → karras, else normal) exactly as
           // before, so the default path is unchanged.
           final storedScheduler = _storage.imageGenSettings.imageGenScheduler;
-          final scheduler = (storedScheduler.isNotEmpty &&
-                  storedScheduler != 'Automatic')
+          final scheduler =
+              (storedScheduler.isNotEmpty && storedScheduler != 'Automatic')
               ? storedScheduler
               : ComfyUiService.schedulerFor(storedSampler);
           if (refRole == ImageReferenceRole.editConditioning &&
@@ -342,16 +343,17 @@ extension _ImageGenGenerate on ImageGenService {
             _notify();
             final storedSeed = seed ?? _storage.imageGenSettings.imageGenSeed;
             final req = resolveComfyEditRequest(
-              workflowId: _storage.comfyEditWorkflowId,
-              uploadedWorkflowJson: _storage.comfyEditUploadedWorkflow,
-              modelChoices: _storage.comfyEditModelChoices,
+              workflowId: _storage.imageGenSettings.comfyEditWorkflowId,
+              uploadedWorkflowJson:
+                  _storage.imageGenSettings.comfyEditUploadedWorkflow,
+              modelChoices: _storage.imageGenSettings.comfyEditModelChoices,
               prompt: prompt,
               negative: negativePrompt,
               seed: storedSeed == -1 ? Random().nextInt(1 << 31) : storedSeed,
-              steps: _storage.editSteps,
-              cfg: _storage.editCfgScale,
+              steps: _storage.imageGenSettings.editSteps,
+              cfg: _storage.imageGenSettings.editCfgScale,
               denoise: editStrength ?? kEditRecommendedStrength,
-              shift: _storage.editShift,
+              shift: _storage.imageGenSettings.editShift,
             );
             if (req == null) {
               throw Exception(

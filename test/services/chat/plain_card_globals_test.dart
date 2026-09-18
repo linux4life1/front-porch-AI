@@ -102,7 +102,8 @@ void main() {
     expect(
       chat.chaosModeService.chaosModeEnabled,
       isTrue,
-      reason: 'the guard skipped every card with no extensions — which is '
+      reason:
+          'the guard skipped every card with no extensions — which is '
           'every plain import, the exact population the OR-override exists for',
     );
   });
@@ -110,7 +111,7 @@ void main() {
   test('the global Realism default reaches one too', () async {
     // The oldest of these overrides, and the one whose comment names imported
     // cards outright. It was the most broken by the guard.
-    await storage.setRealismDefault(true);
+    await storage.realismSettings.setRealismDefault(true);
 
     await chat.setActiveCharacter(plain('plain-realism'));
 
@@ -133,7 +134,8 @@ void main() {
     expect(
       chat.chaosModeService.chaosModeEnabled,
       isTrue,
-      reason: 'the card asked for Chaos; the global being off must not veto it '
+      reason:
+          'the card asked for Chaos; the global being off must not veto it '
           '— this is an OR-override, not an AND-gate',
     );
   });

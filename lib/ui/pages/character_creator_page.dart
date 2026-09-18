@@ -70,9 +70,10 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
         modelManager.refreshModels();
         // If a last used local model exists, preselect it for the picker UI.
         if (creatorState.selectedLocalModelPath.isEmpty &&
-            storage.lastUsedModelPath != null &&
-            storage.lastUsedModelPath!.isNotEmpty) {
-          creatorState.selectedLocalModelPath = storage.lastUsedModelPath!;
+            storage.backendSettings.lastUsedModelPath != null &&
+            storage.backendSettings.lastUsedModelPath!.isNotEmpty) {
+          creatorState.selectedLocalModelPath =
+              storage.backendSettings.lastUsedModelPath!;
           creatorState.notify();
         }
 
@@ -304,30 +305,30 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 onPressed: busy
                     ? null
                     : onNext ??
-                    () {
-                      if (currentStep == 2) {
-                        creatorState.generateFromMode(
-                          llmProvider: Provider.of<LLMProvider>(
-                            context,
-                            listen: false,
-                          ),
-                          storage: Provider.of<StorageService>(
-                            context,
-                            listen: false,
-                          ),
-                          personaService: Provider.of<UserPersonaService>(
-                            context,
-                            listen: false,
-                          ),
-                        );
-                        return;
-                      }
-                      if (currentStep == 5) {
-                        _saveAndFinish();
-                        return;
-                      }
-                      creatorState.currentStep = currentStep + 1;
-                    },
+                          () {
+                            if (currentStep == 2) {
+                              creatorState.generateFromMode(
+                                llmProvider: Provider.of<LLMProvider>(
+                                  context,
+                                  listen: false,
+                                ),
+                                storage: Provider.of<StorageService>(
+                                  context,
+                                  listen: false,
+                                ),
+                                personaService: Provider.of<UserPersonaService>(
+                                  context,
+                                  listen: false,
+                                ),
+                              );
+                              return;
+                            }
+                            if (currentStep == 5) {
+                              _saveAndFinish();
+                              return;
+                            }
+                            creatorState.currentStep = currentStep + 1;
+                          },
                 icon: Icon(
                   currentStep >= 5 ? Icons.check : Icons.arrow_forward,
                   size: 20,

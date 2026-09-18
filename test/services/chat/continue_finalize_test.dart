@@ -70,7 +70,7 @@ Future<({AppDatabase db, ChatService chat, StorageService storage})> _buildChat(
   await storage.initialized;
   // First send must keep `<think>` on .text so Continue can prove it
   // uses promptText, not raw think (f2cf39e7 peels think when wrap is off).
-  await storage.setReasoningEnabled(true);
+  await storage.backendSettings.setReasoningEnabled(true);
   await chat.setActiveCharacter(
     CharacterCard(
       name: 'Mara',

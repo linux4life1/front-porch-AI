@@ -29,8 +29,8 @@ extension _SettingsAdvancedTab on _SettingsPageState {
     final llmProvider = Provider.of<LLMProvider>(context);
     final theme = Theme.of(context);
     final isPresetActive =
-        storageService.activeKcppsPath != null &&
-        storageService.activeKcppsPath!.isNotEmpty;
+        storageService.backendSettings.activeKcppsPath != null &&
+        storageService.backendSettings.activeKcppsPath!.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -105,7 +105,9 @@ extension _SettingsAdvancedTab on _SettingsPageState {
   ) async {
     // startSafely reverts + disables on failure so a bad start can never
     // leave the app in a launch crash loop.
-    final ok = await webServer.startSafely(storage.webServerPort);
+    final ok = await webServer.startSafely(
+      storage.webServerSettings.webServerPort,
+    );
     if (!context.mounted) return;
     if (ok) {
       // Guide the user through how they'll reach it.
@@ -113,14 +115,18 @@ extension _SettingsAdvancedTab on _SettingsPageState {
       return;
     }
     final altPort = webServer.lastStartPortConflict
-        ? await webServer.findFreePortNear(storage.webServerPort)
+        ? await webServer.findFreePortNear(
+            storage.webServerSettings.webServerPort,
+          )
         : null;
     if (!context.mounted) return;
 
     Future<void> retry() async {
       Navigator.of(context).pop();
-      if (altPort != null) await storage.setWebServerPort(altPort);
-      await storage.setWebServerEnabled(true);
+      if (altPort != null) {
+        await storage.webServerSettings.setWebServerPort(altPort);
+      }
+      await storage.webServerSettings.setWebServerEnabled(true);
       if (!context.mounted) return;
       await _attemptWebServerStart(context, storage, webServer);
     }
@@ -170,8 +176,8 @@ extension _SettingsAdvancedTab on _SettingsPageState {
   ) async {
     _pendingWebServerPort = null;
     final port = parseWebServerPort(value);
-    if (port == null || port == storage.webServerPort) return;
-    await storage.setWebServerPort(port);
+    if (port == null || port == storage.webServerSettings.webServerPort) return;
+    await storage.webServerSettings.setWebServerPort(port);
     if (webServer.isRunning) {
       await webServer.stop();
       await webServer.start(port);
@@ -213,10 +219,10 @@ extension _SettingsAdvancedTab on _SettingsPageState {
                     ],
                   ),
                   Switch(
-                    value: storage.webServerEnabled,
+                    value: storage.webServerSettings.webServerEnabled,
                     activeTrackColor: AppColors.porchAmberOf(context),
                     onChanged: (val) async {
-                      await storage.setWebServerEnabled(val);
+                      await storage.webServerSettings.setWebServerEnabled(val);
                       if (val) {
                         await _attemptWebServerStart(
                           context,
@@ -230,7 +236,7 @@ extension _SettingsAdvancedTab on _SettingsPageState {
                   ),
                 ],
               ),
-              if (storage.webServerEnabled) ...[
+              if (storage.webServerSettings.webServerEnabled) ...[
                 Divider(color: AppColors.borderOf(context)),
                 const SizedBox(height: 8),
                 Row(
@@ -266,8 +272,13 @@ extension _SettingsAdvancedTab on _SettingsPageState {
                               child: TextFormField(
                                 // Keyed on the port so the one-tap "Use port N"
                                 // fix in the failure dialog refreshes the field.
-                                key: ValueKey(storage.webServerPort),
-                                initialValue: storage.webServerPort.toString(),
+                                key: ValueKey(
+                                  storage.webServerSettings.webServerPort,
+                                ),
+                                initialValue: storage
+                                    .webServerSettings
+                                    .webServerPort
+                                    .toString(),
                                 keyboardType: TextInputType.number,
                                 style: TextStyle(
                                   color: AppColors.textPrimary(context),
@@ -372,7 +383,7 @@ extension _SettingsAdvancedTab on _SettingsPageState {
                         const SizedBox(width: 8),
                         Expanded(
                           child: SelectableText(
-                            'http://${webServer.lanIp}:${storage.webServerPort}',
+                            'http://${webServer.lanIp}:${storage.webServerSettings.webServerPort}',
                             style: TextStyle(
                               color: AppColors.porchAmberOf(context),
                               fontSize: 13,

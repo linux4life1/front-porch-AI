@@ -99,8 +99,8 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
             url: storage.workerRemoteApiUrl,
           );
     final sameHost = workerHostMatchesChat(
-      mouthType: storage.backendType,
-      mouthUrl: storage.remoteApiUrl,
+      mouthType: storage.backendSettings.backendType,
+      mouthUrl: storage.backendSettings.remoteApiUrl,
       workerType: storage.workerBackendType,
       workerUrl: storage.workerRemoteApiUrl,
     );
@@ -289,20 +289,20 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
                   const SizedBox(height: 12),
                   WorkerKoboldModelPicker(
                     selectedPath: storage.workerKoboldModelPath,
-                    mouthPath: storage.lastUsedModelPath,
+                    mouthPath: storage.backendSettings.lastUsedModelPath,
                     models: koboldModels,
                     onChanged: storage.setWorkerKoboldModelPath,
                   ),
                   const SizedBox(height: 12),
                   WorkerKoboldKcppsPicker(
                     selectedPath: storage.workerKoboldKcppsPath,
-                    mouthPath: storage.activeKcppsPath,
+                    mouthPath: storage.backendSettings.activeKcppsPath,
                     modelsMatch:
                         normalizeLocalModelPath(
                           storage.resolvedWorkerKoboldModelPath(),
                         ) ==
                         normalizeLocalModelPath(
-                          storage.lastUsedModelPath ?? '',
+                          storage.backendSettings.lastUsedModelPath ?? '',
                         ),
                     presets: widget.kcppsPresets,
                     onChanged: storage.setWorkerKoboldKcppsPath,

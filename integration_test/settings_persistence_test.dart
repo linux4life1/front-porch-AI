@@ -172,7 +172,7 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump(const Duration(milliseconds: 300));
     expect(
-      storage.contextSize,
+      storage.backendSettings.contextSize,
       _kContextSize,
       reason: 'the Context Size input must write through to storage',
     );
@@ -180,16 +180,16 @@ void main() {
     // The rest of the surface via the exact calls the sliders make. Breadth
     // matters more than per-widget drags here: the failure class is "a page
     // open recomputes and persists over me", which is input-independent.
-    await storage.setTemperature(_kTemperature);
+    await storage.generationSettings.setTemperature(_kTemperature);
     await storage.generationSettings.setMinP(_kMinP);
     await storage.generationSettings.setTopP(_kTopP);
     await storage.generationSettings.setTopK(_kTopK);
     await storage.generationSettings.setRepeatPenalty(_kRepeatPenalty);
     await storage.generationSettings.setMaxLength(_kMaxLength);
     await storage.generationSettings.setMinLength(_kMinLength);
-    await storage.setSystemPrompt(_kSystemPrompt);
+    await storage.generationSettings.setSystemPrompt(_kSystemPrompt);
     await storage.generationSettings.addStopSequence(_kStopSequence);
-    await storage.setGpuLayers(0);
+    await storage.backendSettings.setGpuLayers(0);
     await tester.pump();
 
     await closeSettings();
@@ -202,7 +202,7 @@ void main() {
       await openSettings();
 
       expect(
-        storage.contextSize,
+        storage.backendSettings.contextSize,
         _kContextSize,
         reason:
             'Settings open #$visit silently changed the saved context size — '
@@ -210,21 +210,21 @@ void main() {
             'the saved one (the v1.2.0.1 "Stays Put" bug class)',
       );
       expect(
-        storage.gpuLayers,
+        storage.backendSettings.gpuLayers,
         0,
         reason:
             'Settings open #$visit changed gpuLayers — a deliberate '
             'CPU-only 0 must never be silently re-auto-configured',
       );
-      expect(storage.gpuLayersConfigured, isTrue);
-      expect(storage.temperature, _kTemperature);
+      expect(storage.backendSettings.gpuLayersConfigured, isTrue);
+      expect(storage.generationSettings.temperature, _kTemperature);
       expect(storage.generationSettings.minP, _kMinP);
       expect(storage.generationSettings.topP, _kTopP);
       expect(storage.generationSettings.topK, _kTopK);
       expect(storage.generationSettings.repeatPenalty, _kRepeatPenalty);
       expect(storage.generationSettings.maxLength, _kMaxLength);
       expect(storage.generationSettings.minLength, _kMinLength);
-      expect(storage.systemPrompt, _kSystemPrompt);
+      expect(storage.generationSettings.systemPrompt, _kSystemPrompt);
       expect(
         storage.generationSettings.stopSequences,
         contains(_kStopSequence),

@@ -168,7 +168,7 @@ void main() {
   /// future `debugMarkModelReady` returns is the probe chain itself, so this
   /// returns exactly when a verdict exists (or the retry budget is spent).
   Future<String> loadModel(String modelPath) async {
-    await storage.setLastUsedModelPath(modelPath);
+    await storage.backendSettings.setLastUsedModelPath(modelPath);
     received.clear();
     await kobold.debugMarkModelReady();
     return kobold.systemRoleIdentity;
@@ -184,57 +184,80 @@ void main() {
     return (received.last['messages'] as List).cast<Map>();
   }
 
-  test('the model-ready transition resolves the probe key and measures it',
-      () async {
-    expect(kobold.systemRoleIdentity, isEmpty,
-        reason: 'nothing to probe before a model is up');
+  test(
+    'the model-ready transition resolves the probe key and measures it',
+    () async {
+      expect(
+        kobold.systemRoleIdentity,
+        isEmpty,
+        reason: 'nothing to probe before a model is up',
+      );
 
-    final identity = await loadModel(kModel);
+      final identity = await loadModel(kModel);
 
-    expect(identity, contains('mini-magnum-12b.gguf'));
-    expect(probe.verdictFor(identity), isFalse,
-        reason: 'this fake template drops the system message');
+      expect(identity, contains('mini-magnum-12b.gguf'));
+      expect(
+        probe.verdictFor(identity),
+        isFalse,
+        reason: 'this fake template drops the system message',
+      );
 
-    // And the workaround is actually in effect: no system message on the wire,
-    // the card riding the user turn instead.
-    final messages = await generate();
-    expect(messages.any((m) => m['role'] == 'system'), isFalse);
-    expect(messages.single['content'], startsWith(kCard));
-  });
+      // And the workaround is actually in effect: no system message on the wire,
+      // the card riding the user turn instead.
+      final messages = await generate();
+      expect(messages.any((m) => m['role'] == 'system'), isFalse);
+      expect(messages.single['content'], startsWith(kCard));
+    },
+  );
 
-  test('editing an unrelated setting cannot switch the workaround back off',
-      () async {
-    final identity = await loadModel(kModel);
-    expect(probe.verdictFor(identity), isFalse);
+  test(
+    'editing an unrelated setting cannot switch the workaround back off',
+    () async {
+      final identity = await loadModel(kModel);
+      expect(probe.verdictFor(identity), isFalse);
 
-    // The remote model name is part of the identity key but has nothing to do
-    // with the running local model. Someone browsing OpenRouter models in
-    // Settings used to silently un-fix their local chat.
-    await storage.setRemoteModelName('anthropic/claude-opus-4');
-    expect(kobold.systemRoleIdentity, identity,
-        reason: 'the key is resolved once at model-ready, not per generation');
+      // The remote model name is part of the identity key but has nothing to do
+      // with the running local model. Someone browsing OpenRouter models in
+      // Settings used to silently un-fix their local chat.
+      await storage.backendSettings.setRemoteModelName(
+        'anthropic/claude-opus-4',
+      );
+      expect(
+        kobold.systemRoleIdentity,
+        identity,
+        reason: 'the key is resolved once at model-ready, not per generation',
+      );
 
-    final messages = await generate();
-    expect(messages.any((m) => m['role'] == 'system'), isFalse,
-        reason: 'the card must still be folded into the user turn');
-    expect(messages.single['content'], startsWith(kCard));
-  });
+      final messages = await generate();
+      expect(
+        messages.any((m) => m['role'] == 'system'),
+        isFalse,
+        reason: 'the card must still be folded into the user turn',
+      );
+      expect(messages.single['content'], startsWith(kCard));
+    },
+  );
 
-  test('stopping the backend forgets the verdict and refunds the budget',
-      () async {
-    final identity = await loadModel(kModel);
-    expect(probe.verdictFor(identity), isFalse);
+  test(
+    'stopping the backend forgets the verdict and refunds the budget',
+    () async {
+      final identity = await loadModel(kModel);
+      expect(probe.verdictFor(identity), isFalse);
 
-    await kobold.stopKobold();
+      await kobold.stopKobold();
 
-    expect(probe.verdictFor(identity), isNull,
-        reason: 'a verdict must not outlive the server it was measured on');
-    expect(kobold.systemRoleIdentity, isEmpty);
-    // Nothing folds while no model is up, so the very first request after a
-    // stop can never carry the previous model's workaround.
-    final messages = await generate();
-    expect(messages.first['role'], 'system');
-  });
+      expect(
+        probe.verdictFor(identity),
+        isNull,
+        reason: 'a verdict must not outlive the server it was measured on',
+      );
+      expect(kobold.systemRoleIdentity, isEmpty);
+      // Nothing folds while no model is up, so the very first request after a
+      // stop can never carry the previous model's workaround.
+      final messages = await generate();
+      expect(messages.first['role'], 'system');
+    },
+  );
 
   test('stopping the backend cancels a probe still on the wire', () async {
     // The other half of the stop: forgetting the verdict is not enough if the
@@ -246,7 +269,7 @@ void main() {
     // The server is frozen for the whole test and NEVER answers this arm, so
     // the only thing that can release the slot is the cancel itself.
     hold = Completer<void>();
-    await storage.setLastUsedModelPath(kModel);
+    await storage.backendSettings.setLastUsedModelPath(kModel);
     final settled = kobold.debugMarkModelReady();
     final identity = kobold.systemRoleIdentity;
     await waitForRequests(1); // arm one is on the wire
@@ -254,9 +277,9 @@ void main() {
     await kobold.stopKobold();
 
     await kobold.waitForIdle().timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => fail('the killed probe still owns the request slot'),
-        );
+      const Duration(seconds: 10),
+      onTimeout: () => fail('the killed probe still owns the request slot'),
+    );
     await settled.timeout(
       const Duration(seconds: 10),
       onTimeout: () => fail('the cancelled probe chain never unwound'),
@@ -265,46 +288,61 @@ void main() {
     expect(received.length, 1, reason: 'no further arms after the stop');
   });
 
-  test('a probe in flight occupies the engine\'s single request slot',
-      () async {
-    // The probe used to take ONE `waitForIdle` reading before its first arm
-    // and then register nothing, so it neither waited properly nor made
-    // anyone wait for it — its requests could land in the middle of the
-    // user's own generation on a single-slot local engine. Every arm now
-    // runs through the same `_pendingRequest` registration generateWithTools
-    // uses, which is what `waitForIdle` observes.
-    hold = Completer<void>();
-    await storage.setLastUsedModelPath(kModel);
-    final settled = kobold.debugMarkModelReady();
-    await waitForRequests(1); // arm one has claimed the slot
+  test(
+    'a probe in flight occupies the engine\'s single request slot',
+    () async {
+      // The probe used to take ONE `waitForIdle` reading before its first arm
+      // and then register nothing, so it neither waited properly nor made
+      // anyone wait for it — its requests could land in the middle of the
+      // user's own generation on a single-slot local engine. Every arm now
+      // runs through the same `_pendingRequest` registration generateWithTools
+      // uses, which is what `waitForIdle` observes.
+      hold = Completer<void>();
+      await storage.backendSettings.setLastUsedModelPath(kModel);
+      final settled = kobold.debugMarkModelReady();
+      await waitForRequests(1); // arm one has claimed the slot
 
-    var idle = false;
-    unawaited(kobold.waitForIdle().then((_) => idle = true));
-    // The arm cannot finish while the server is frozen, so this window only
-    // gives waitForIdle a chance to resolve EARLY — which is the failure. A
-    // slow machine makes "not yet idle" more true, never less, so there is no
-    // wall-clock race in either direction.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    expect(idle, isFalse,
-        reason: 'waitForIdle returned while a probe arm was still on the '
-            'wire — a real generation could have raced it');
+      var idle = false;
+      unawaited(kobold.waitForIdle().then((_) => idle = true));
+      // The arm cannot finish while the server is frozen, so this window only
+      // gives waitForIdle a chance to resolve EARLY — which is the failure. A
+      // slow machine makes "not yet idle" more true, never less, so there is no
+      // wall-clock race in either direction.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        idle,
+        isFalse,
+        reason:
+            'waitForIdle returned while a probe arm was still on the '
+            'wire — a real generation could have raced it',
+      );
 
-    hold!.complete(); // let the server answer; the chain runs to the end
-    await settled;
-    await kobold.waitForIdle();
-    expect(idle, isTrue, reason: 'the slot was released when the arm finished');
-  });
+      hold!.complete(); // let the server answer; the chain runs to the end
+      await settled;
+      await kobold.waitForIdle();
+      expect(
+        idle,
+        isTrue,
+        reason: 'the slot was released when the arm finished',
+      );
+    },
+  );
 
-  test('a model swap re-keys instead of inheriting the old model\'s verdict',
-      () async {
-    final magnum = await loadModel(kModel);
-    expect(probe.verdictFor(magnum), isFalse);
+  test(
+    'a model swap re-keys instead of inheriting the old model\'s verdict',
+    () async {
+      final magnum = await loadModel(kModel);
+      expect(probe.verdictFor(magnum), isFalse);
 
-    final gemma = await loadModel('/models/gemma-4-31B.gguf');
+      final gemma = await loadModel('/models/gemma-4-31B.gguf');
 
-    expect(gemma, isNot(magnum));
-    expect(gemma, contains('gemma-4-31B.gguf'));
-    expect(probe.verdictFor(gemma), isFalse,
-        reason: 'the new model is measured on its own account');
-  });
+      expect(gemma, isNot(magnum));
+      expect(gemma, contains('gemma-4-31B.gguf'));
+      expect(
+        probe.verdictFor(gemma),
+        isFalse,
+        reason: 'the new model is measured on its own account',
+      );
+    },
+  );
 }

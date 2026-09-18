@@ -31,19 +31,19 @@ extension _GenerationOptionsSource on _GenerationOptionsTabState {
           (b) =>
               b != ImageGenBackend.drawThings ||
               isMac ||
-              st.imageGenBackend == b.key,
+              st.imageGenSettings.imageGenBackend == b.key,
         )
         .toList();
     final ac = AppColors.formMasterAccent;
     return Row(
       children: bs.map((b) {
-        final sel = st.imageGenBackend == b.key;
+        final sel = st.imageGenSettings.imageGenBackend == b.key;
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(right: b == bs.last ? 0 : 8),
             child: GestureDetector(
               onTap: () {
-                st.setImageGenBackend(b.key);
+                st.imageGenSettings.setImageGenBackend(b.key);
                 rebuildState(() {
                   _connectionOk = null;
                   _localModels = [];

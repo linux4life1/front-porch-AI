@@ -169,7 +169,7 @@ class KoboldService extends ChangeNotifier
           // about to replace. Same gate the other backend-owning paths use
           // (backend_manager.dart, setup_service.dart).
           await _storageService.initialized;
-          final backendType = _storageService.backendType;
+          final backendType = _storageService.backendSettings.backendType;
           if (backendType == 'openRouter' || backendType == 'omlx') {
             debugPrint(
               '[KoboldService] KoboldCPP is answering on $_baseUrl but the '
@@ -347,7 +347,7 @@ class KoboldService extends ChangeNotifier
       _modelReady = false;
       _loadedModelPath = modelPath.isNotEmpty
           ? modelPath
-          : _storageService.kcppsModelPath;
+          : _storageService.backendSettings.kcppsModelPath;
       _loadedKcppsPath = kcppsPath;
       _addLog('Starting Koboldcpp...');
       _addLog('Command: $executablePath ${args.join(' ')}');
@@ -444,7 +444,7 @@ class KoboldService extends ChangeNotifier
         _baseUrl,
         params,
         tools,
-        thinkingModelKey: _storageService.lastUsedModelPath,
+        thinkingModelKey: _storageService.backendSettings.lastUsedModelPath,
         foldSystemIntoUser: _systemRole.foldSystemIntoUser,
         toolChoice: params.toolChoice,
         registerClient: (client) {
@@ -496,7 +496,7 @@ class KoboldService extends ChangeNotifier
       yield* streamOpenAiChat(
         _baseUrl,
         params,
-        thinkingModelKey: _storageService.lastUsedModelPath,
+        thinkingModelKey: _storageService.backendSettings.lastUsedModelPath,
         foldSystemIntoUser: _systemRole.foldSystemIntoUser,
         registerClient: (client) {
           mine = client;

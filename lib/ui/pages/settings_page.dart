@@ -149,11 +149,11 @@ class _SettingsPageState extends State<SettingsPage> {
     _systemPromptController.text = Provider.of<StorageService>(
       context,
       listen: false,
-    ).systemPrompt;
+    ).generationSettings.systemPrompt;
     _bannedPhrasesController.text = Provider.of<StorageService>(
       context,
       listen: false,
-    ).bannedPhrases.join('\n');
+    ).realismSettings.bannedPhrases.join('\n');
     _remoteApiUrlController.text = Provider.of<StorageService>(
       context,
       listen: false,
@@ -166,10 +166,10 @@ class _SettingsPageState extends State<SettingsPage> {
     // Sync local state with storage
     final storage = Provider.of<StorageService>(context, listen: false);
     // Default to false if null, logic below handles the "first run" auto-enable
-    _useCublas = storage.useCublas == true;
-    _useVulkan = storage.useVulkan == true;
-    _useMetal = storage.useMetal == true;
-    _useRocm = storage.useRocm == true;
+    _useCublas = storage.backendSettings.useCublas == true;
+    _useVulkan = storage.backendSettings.useVulkan == true;
+    _useMetal = storage.backendSettings.useMetal == true;
+    _useRocm = storage.backendSettings.useRocm == true;
     // Mirror the persisted launch values into the controllers HERE, not only
     // inside _applyHardwareDefaults: that runs only once HardwareService has
     // detected a GPU, and detection failures leave hardwareInfo null forever.
@@ -177,7 +177,7 @@ class _SettingsPageState extends State<SettingsPage> {
     // probing fails the construction placeholders ('0' / '16384') — and a
     // ROCm user's unmirrored acceleration flag — were written over the user's
     // saved settings the moment they pressed the button.
-    _gpuLayersController.text = storage.gpuLayers.toString();
+    _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
     _contextSizeController.text = storage.backendSettings.contextSize
         .toString();
     // Apply hardware-based defaults once hardware info is available.
@@ -234,13 +234,15 @@ class _SettingsPageState extends State<SettingsPage> {
     // remote_model_name pref both backends read.
     final apiUrl = modelListApiUrl(
       Provider.of<LLMProvider>(context, listen: false).activeBackend,
-      storage.remoteApiUrl,
+      storage.backendSettings.remoteApiUrl,
     );
     // Allow empty API key for local backends (LM Studio, vLLM, etc.)
     final isLocal =
         apiUrl.contains('localhost') || apiUrl.contains('127.0.0.1');
     if (apiUrl.isEmpty) return; // No API URL configured
-    if (storage.remoteApiKey.isEmpty && !isLocal) return; // no API configured
+    if (storage.backendSettings.remoteApiKey.isEmpty && !isLocal) {
+      return; // no API configured
+    }
 
     // Instant dropdown from the last successful fetch for this URL; the
     // network refresh below still replaces it when it lands.
@@ -255,7 +257,7 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final models = await openRouter.fetchAvailableModels(
         apiUrl: apiUrl,
-        apiKey: storage.remoteApiKey,
+        apiKey: storage.backendSettings.remoteApiKey,
       );
       if (mounted && models.isNotEmpty) {
         _modelsCache = models;
@@ -379,11 +381,11 @@ class _SettingsPageState extends State<SettingsPage> {
     // Auto-select first model if none selected and models exist. Skip when a
     // kcpps preset with a valid model is active (use "Managed by kcpps").
     final kcppsModelExists = _kcppsModelExists.of(
-      storageService.kcppsModelPath,
+      storageService.backendSettings.kcppsModelPath,
     );
     if (_selectedModelPath == null &&
         modelManager.models.isNotEmpty &&
-        !(storageService.kcppsHasModel && kcppsModelExists)) {
+        !(storageService.backendSettings.kcppsHasModel && kcppsModelExists)) {
       _selectedModelPath = modelManager.models.first.path;
     }
     // Warm architecture info for the (possibly just auto-selected) model so
@@ -408,14 +410,14 @@ class _SettingsPageState extends State<SettingsPage> {
           setState(() {
             _selectedModelPath = val;
           });
-          storageService.setLastUsedModelPath(val);
-          final savedPreset = storageService.modelPresetMap[val];
+          storageService.backendSettings.setLastUsedModelPath(val);
+          final savedPreset = storageService.presetSettings.modelPresetMap[val];
           if (savedPreset != null &&
               savedPreset.isNotEmpty &&
               File(savedPreset).existsSync()) {
-            storageService.setActiveKcppsPath(savedPreset);
+            storageService.backendSettings.setActiveKcppsPath(savedPreset);
           } else {
-            storageService.setActiveKcppsPath(null);
+            storageService.backendSettings.setActiveKcppsPath(null);
           }
 
           // Eagerly warm the GGUF architecture + KV cache so that
@@ -430,9 +432,12 @@ class _SettingsPageState extends State<SettingsPage> {
       onVisionChanged: () => setState(() {}),
       onScanPresets: _scanLocalPresets,
       onKcppsChanged: (val) {
-        storageService.setActiveKcppsPath(val);
+        storageService.backendSettings.setActiveKcppsPath(val);
         if (_selectedModelPath != null && val != null) {
-          storageService.setModelPreset(_selectedModelPath!, val);
+          storageService.presetSettings.setModelPreset(
+            _selectedModelPath!,
+            val,
+          );
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -441,29 +446,36 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           );
         } else if (_selectedModelPath != null && val == null) {
-          storageService.setModelPreset(_selectedModelPath!, '');
+          storageService.presetSettings.setModelPreset(_selectedModelPath!, '');
         }
         if (val != null &&
-            storageService.kcppsHasModel &&
-            _kcppsModelExists.of(storageService.kcppsModelPath)) {
+            storageService.backendSettings.kcppsHasModel &&
+            _kcppsModelExists.of(
+              storageService.backendSettings.kcppsModelPath,
+            )) {
           setState(() {
             _selectedModelPath = null;
           });
         }
       },
       onKcppsExternalClear: () {
-        storageService.setActiveKcppsPath(null);
+        storageService.backendSettings.setActiveKcppsPath(null);
         if (_selectedModelPath != null) {
-          storageService.setModelPreset(_selectedModelPath!, '');
+          storageService.presetSettings.setModelPreset(_selectedModelPath!, '');
         }
       },
       onKcppsBrowsePicked: (path) {
         if (_selectedModelPath != null) {
-          storageService.setModelPreset(_selectedModelPath!, path);
+          storageService.presetSettings.setModelPreset(
+            _selectedModelPath!,
+            path,
+          );
         }
         _scanLocalPresets();
-        if (storageService.kcppsHasModel &&
-            _kcppsModelExists.of(storageService.kcppsModelPath)) {
+        if (storageService.backendSettings.kcppsHasModel &&
+            _kcppsModelExists.of(
+              storageService.backendSettings.kcppsModelPath,
+            )) {
           setState(() {
             _selectedModelPath = null;
           });

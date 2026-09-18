@@ -447,7 +447,7 @@ class _ChatPageState extends State<ChatPage> {
                                   ? themeOverrides.resolvedBackgroundKey(
                                       themePreset,
                                     )
-                                  : storageService.chatBackground;
+                                  : storageService.uiSettings.chatBackground;
                               const bgAssets = {
                                 'noir': 'assets/backgrounds/noir.png',
                                 'fantasy': 'assets/backgrounds/fantasy.png',
@@ -504,7 +504,9 @@ class _ChatPageState extends State<ChatPage> {
                               Map<String, String>? customEntry;
                               if (!bgPathExists) {
                                 try {
-                                  customEntry = storageService.customBackgrounds
+                                  customEntry = storageService
+                                      .uiSettings
+                                      .customBackgrounds
                                       .firstWhere((e) => e['id'] == bgKey);
                                 } catch (_) {}
                               }
@@ -540,10 +542,12 @@ class _ChatPageState extends State<ChatPage> {
                                             context,
                                             listen: false,
                                           );
-                                      final displayMode =
-                                          storage.expressionDisplayMode;
-                                      final isEnabled =
-                                          storage.expressionEnabled;
+                                      final displayMode = storage
+                                          .expressionSettings
+                                          .expressionDisplayMode;
+                                      final isEnabled = storage
+                                          .expressionSettings
+                                          .expressionEnabled;
                                       if (!isEnabled ||
                                           displayMode == 'sidebar' ||
                                           chat.isEvaluatingRealism) {
@@ -559,8 +563,9 @@ class _ChatPageState extends State<ChatPage> {
                                       final avatar = chat
                                           .resolveExpressionAvatar(
                                             char,
-                                            rerollIfSame:
-                                                storage.expressionRerollSame,
+                                            rerollIfSame: storage
+                                                .expressionSettings
+                                                .expressionRerollSame,
                                           );
                                       if (avatar == null) {
                                         return const SizedBox.shrink();

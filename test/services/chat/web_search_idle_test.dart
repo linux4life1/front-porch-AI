@@ -138,7 +138,7 @@ void main() {
     });
 
     await storage.initialized;
-    await storage.setAutostartOnChatOpen(false);
+    await storage.backendSettings.setAutostartOnChatOpen(false);
     await storage.webSearchSettings.setSearchApiKey('test-key');
     await storage.webSearchSettings.setWebSearchDefault(true);
     await storage.generationSettings.setDynamicResponses(true);

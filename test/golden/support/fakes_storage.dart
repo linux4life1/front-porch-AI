@@ -24,35 +24,61 @@
 // silently — instead they'll surface as NoSuchMethodError and remind the
 // author to add them here.
 //
-// Surface covered (build-time reads audited against each consumer page/dialog):
-//   BackgroundSettingsDialog: chatBackground, customBackgrounds
-//   UiSettingsDialog:        bubbleOpacity, textScale, globalUserBubbleColor,
-//                            globalUserTextColor, globalAiBubbleColor,
-//                            globalAiTextColor, globalDialogueColor, globalActionColor
-//   ChatSettingsDialog:      remoteApiKey, bannedPhrases, remoteModelName,
-//                            activeKcppsPath
-//   ModelSettingsDialog:     useCublas, useVulkan, useMetal, useRocm,
-//                            lastUsedModelPath, gpuLayers, contextSize,
-//                            remoteApiUrl, remoteApiKey, remoteModelName,
-//                            binDir, activeKcppsPath, kcppsHasModel,
-//                            kcppsModelPath
-//   ModelManagerPage:        customModelsPath
+// Callers read the *Settings objects (storage.uiSettings.textScale, etc.).
+// Defaults below match the old flat-shim fake so goldens stay put.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/services/storage/settings/backend_settings.dart';
-import 'package:front_porch_ai/services/storage/settings/generation_settings.dart';
-import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
-import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
-import 'package:front_porch_ai/services/storage/settings/web_search_settings.dart';
+import 'package:front_porch_ai/services/storage/storage.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
-/// Minimal [StorageService] double. Implements only the getters that widget
-/// build trees read at build time. All setter calls and unimplemented getters
-/// fall through to [noSuchMethod].
+/// Minimal [StorageService] double. Implements paths plus every *Settings
+/// object widgets now read. All other members fall through to [noSuchMethod].
 class FakeStorageService extends ChangeNotifier implements StorageService {
+  FakeStorageService() {
+    for (final s in [
+      _generationSettings,
+      _backendSettings,
+      _uiSettings,
+      _ttsSettings,
+      _sttSettings,
+      _imageGenSettings,
+      _expressionSettings,
+      _webServerSettings,
+      _realismSettings,
+      _webSearchSettings,
+      _memorySettings,
+      _presetSettings,
+      _lorebookSettings,
+    ]) {
+      s.initializeBase(null, notifyListeners);
+    }
+    // Values the old flat fake returned that differ from Settings defaults.
+    unawaited(_backendSettings.setBackendType('openRouter'));
+    unawaited(_backendSettings.setRemoteApiUrl(''));
+    unawaited(_backendSettings.setContextSize(8192));
+    unawaited(_uiSettings.setBubbleOpacity(0.95));
+    unawaited(_uiSettings.setGlobalUserBubbleColor(Colors.blueAccent));
+    unawaited(_uiSettings.setGlobalUserTextColor(Colors.white));
+    unawaited(_uiSettings.setGlobalAiBubbleColor(const Color(0xFF1E293B)));
+    unawaited(_uiSettings.setGlobalAiTextColor(Colors.white));
+    unawaited(_uiSettings.setGlobalDialogueColor(Colors.deepPurpleAccent));
+    unawaited(_uiSettings.setGlobalActionColor(Colors.orangeAccent));
+    unawaited(_ttsSettings.setTtsEngine('disabled'));
+    unawaited(_ttsSettings.setTtsConcurrency(1));
+    unawaited(_imageGenSettings.setImageGenEnabled(false));
+    unawaited(_imageGenSettings.setImageGenNegativePrompt(''));
+    unawaited(_imageGenSettings.setLocalImageGenUrl(''));
+    unawaited(_imageGenSettings.setComfyUiUrl(''));
+    unawaited(_imageGenSettings.setImageGenSeed(0));
+    unawaited(_imageGenSettings.setDrawThingsGrpcHost(''));
+    unawaited(_imageGenSettings.setDrawThingsGrpcPort(8080));
+    unawaited(_realismSettings.setAdultThemesEnabled(true));
+  }
+
   // Paths / directories
   @override
   String? get rootPath => null;
@@ -66,180 +92,46 @@ class FakeStorageService extends ChangeNotifier implements StorageService {
   @override
   String? get customModelsPath => null;
 
-  @override
-  String get backendType => 'openRouter';
+  final _generationSettings = GenerationSettings();
+  final _backendSettings = BackendSettings();
+  final _uiSettings = UiSettings();
+  final _ttsSettings = TtsSettings();
+  final _sttSettings = SttSettings();
+  final _imageGenSettings = ImageGenSettings();
+  final _expressionSettings = ExpressionSettings();
+  final _webServerSettings = WebServerSettings();
+  final _realismSettings = RealismSettings();
+  final _webSearchSettings = WebSearchSettings();
+  final _memorySettings = MemorySettings();
+  final _presetSettings = PresetSettings();
+  final _lorebookSettings = LorebookSettings();
 
-  // Chat background
   @override
-  String get chatBackground => 'none';
+  GenerationSettings get generationSettings => _generationSettings;
   @override
-  List<Map<String, String>> get customBackgrounds => const [];
-
-  // UI / display
+  BackendSettings get backendSettings => _backendSettings;
   @override
-  double get bubbleOpacity => 0.95;
+  UiSettings get uiSettings => _uiSettings;
   @override
-  double get textScale => 1.0;
+  TtsSettings get ttsSettings => _ttsSettings;
   @override
-  Color get globalUserBubbleColor => Colors.blueAccent;
-  @override
-  Color get globalUserTextColor => Colors.white;
-  @override
-  Color get globalAiBubbleColor => const Color(0xFF1E293B);
-  @override
-  Color get globalAiTextColor => Colors.white;
-  @override
-  Color get globalDialogueColor => Colors.deepPurpleAccent;
-  @override
-  Color get globalActionColor => Colors.orangeAccent;
-
-  // API / backend
-  @override
-  String get remoteApiKey => '';
-  @override
-  String get remoteApiUrl => '';
-  @override
-  String get remoteModelName => '';
-  @override
-  String? get activeKcppsPath => null;
-  @override
-  String? get lastUsedModelPath => null;
-  @override
-  bool get kcppsHasModel => false;
-  @override
-  String? get kcppsModelPath => null;
-
-  // Structured settings objects — ChatSettingsDialog.build() calls
-  // _gen.resolveX(storage) helpers which delegate to these objects for their
-  // fallback values (e.g. resolveTemperature → generationSettings.temperature,
-  // resolveContextSize → backendSettings.contextSize).
-  @override
-  GenerationSettings get generationSettings => GenerationSettings();
-  @override
-  BackendSettings get backendSettings => BackendSettings();
-
-  // Generation options (legacy flat getters, kept for ModelSettingsDialog etc.)
-  @override
-  List<String> get bannedPhrases => const [];
-  @override
-  int get gpuLayers => 0;
-  @override
-  int get contextSize => 8192;
-
-  // GPU flags (nullable bools)
-  @override
-  bool? get useCublas => null;
-  @override
-  bool? get useVulkan => null;
-  @override
-  bool? get useMetal => null;
-  @override
-  bool? get useRocm => null;
-
-  // TTS settings — TtsSettingsDialog reads these unconditionally in build()
-  // via Consumer2<StorageService, TtsService>. Engine-specific sections are
-  // gated on engineId; using 'disabled' keeps all engine branches hidden.
-  @override
-  String get ttsEngine => 'disabled';
-  @override
-  bool get ttsEnabled => false;
-  @override
-  double get ttsSpeechRate => 1.0;
-  @override
-  int get ttsConcurrency => 1;
-  @override
-  bool get ttsAutoPlay => false;
-  @override
-  bool get ttsNarrateQuotedOnly => false;
-  @override
-  bool get ttsIgnoreAsterisks => false;
-  @override
-  bool get ttsReplaceCurlyQuotes => false;
-  @override
-  String get ttsVoiceModel => '';
-  // initState reads (TtsSettingsDialog creates TextEditingControllers from these)
-  @override
-  String get openaiTtsApiKey => '';
-  @override
-  String get openaiTtsBaseUrl => '';
-  @override
-  String get openaiTtsModel => '';
-
-  // Image generation settings — GenerationOptionsTab reads these in build().
-  // imageGenBackend='remote' causes initState to skip the local-model / sampler
-  // / lora fetch calls, so only fetchImageModels() (a no-op on
-  // FakeImageGenService) is triggered.
-  @override
-  String get imageGenBackend => 'remote';
-  // ImageGenSettingsDialog reads the imageGenSettings sub-object directly at
-  // build (not only the top-level delegators) — return a default instance so
-  // its build reads real values instead of crashing on noSuchMethod.
+  SttSettings get sttSettings => _sttSettings;
   @override
   ImageGenSettings get imageGenSettings => _imageGenSettings;
-  final _imageGenSettings = ImageGenSettings();
   @override
-  bool get imageGenEnabled => false;
+  ExpressionSettings get expressionSettings => _expressionSettings;
   @override
-  String get imageGenModel => '';
-  @override
-  String get imageGenSize => '1024x1024';
-  @override
-  String get imageGenStyle => 'photorealistic';
-  @override
-  String get imageGenPromptParadigm => 'natural';
-  @override
-  String get imageGenNegativePrompt => '';
-  @override
-  String get localImageGenUrl => '';
-  @override
-  String get comfyUiUrl => '';
-  @override
-  bool get imageGenPromptReview => true;
-  @override
-  int get imageGenSeed => 0;
-  @override
-  String get drawThingsGrpcHost => '';
-  @override
-  int get drawThingsGrpcPort => 8080;
-
-  // The character editor and both creators read the realism settings SUB-OBJECT
-  // in build() to decide whether the 18+ "Intimate preferences" chip section is
-  // shown. Same reasoning as imageGenSettings above and objectivesEnabled below
-  // — a member the real class grew but the fake did not falls through to
-  // noSuchMethod and throws while BUILDING the page, taking down tests that have
-  // nothing to do with preferences. A real instance carries production defaults
-  // (18+ off), so the section stays hidden and existing goldens are unmoved.
+  WebServerSettings get webServerSettings => _webServerSettings;
   @override
   RealismSettings get realismSettings => _realismSettings;
-  final _realismSettings = RealismSettings();
   @override
   WebSearchSettings get webSearchSettings => _webSearchSettings;
-  final _webSearchSettings = WebSearchSettings();
-
-  // Porch Life reads this in build(). Added with the v45 Objectives switch:
-  // this fake tracks StorageService's surface, and a getter the real class
-  // grew but the fake did not falls through to noSuchMethod and throws while
-  // BUILDING the tab — taking every Porch Life test down with it, including
-  // ones that have nothing to do with objectives. Subclasses that care about
-  // the value (objectives_toggle_test) override it with a real RealismSettings;
-  // everyone else gets the production default, which is ON.
   @override
-  bool get objectivesEnabled => true;
-
-  /// 18+ themes. TRUE in the fake on purpose: this gates whether Porch Life's
-  /// "After Dark" group renders at all, and before that group existed the
-  /// Afterglow row was unconditionally present. Returning true keeps the fake's
-  /// rendered surface identical to what it was, so a net that walks every row
-  /// still finds every row. Subclasses that specifically test the hidden state
-  /// override it.
+  MemorySettings get memorySettings => _memorySettings;
   @override
-  bool get adultThemesEnabled => true;
-
-  /// Growth Rings global (production default is false). The row renders either
-  /// way — it is a plain switch, not a gated one — so the truthful value is
-  /// fine here.
+  PresetSettings get presetSettings => _presetSettings;
   @override
-  bool get characterEvolutionEnabled => false;
+  LorebookSettings get lorebookSettings => _lorebookSettings;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

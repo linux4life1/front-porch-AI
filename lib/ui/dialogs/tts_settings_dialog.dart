@@ -61,9 +61,9 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
     super.initState();
     _loadInstalledVoices();
     final storage = Provider.of<StorageService>(context, listen: false);
-    _apiKeyController.text = storage.openaiTtsApiKey;
-    _baseUrlController.text = storage.openaiTtsBaseUrl;
-    _modelController.text = storage.openaiTtsModel;
+    _apiKeyController.text = storage.ttsSettings.openaiTtsApiKey;
+    _baseUrlController.text = storage.ttsSettings.openaiTtsBaseUrl;
+    _modelController.text = storage.ttsSettings.openaiTtsModel;
   }
 
   @override
@@ -88,7 +88,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
   Widget build(BuildContext context) {
     return Consumer2<StorageService, TtsService>(
       builder: (context, storage, tts, _) {
-        final engineId = storage.ttsEngine;
+        final engineId = storage.ttsSettings.ttsEngine;
         final voices = tts.activeVoices;
 
         return Dialog(
@@ -115,7 +115,10 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.volume_up, color: AppColors.formMasterAccent),
+                      const Icon(
+                        Icons.volume_up,
+                        color: AppColors.formMasterAccent,
+                      ),
                       const SizedBox(width: 12),
                       Text(
                         'Text-to-Speech Settings',
@@ -127,7 +130,10 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: Icon(Icons.close, color: AppColors.iconSecondary(context)),
+                        icon: Icon(
+                          Icons.close,
+                          color: AppColors.iconSecondary(context),
+                        ),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -144,7 +150,9 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                         SwitchListTile(
                           title: Text(
                             'Enable Text-to-Speech',
-                            style: TextStyle(color: AppColors.textPrimary(context)),
+                            style: TextStyle(
+                              color: AppColors.textPrimary(context),
+                            ),
                           ),
                           subtitle: Text(
                             'Add speaker buttons to character messages',
@@ -153,11 +161,11 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               fontSize: 12,
                             ),
                           ),
-                          value: storage.ttsEnabled,
+                          value: storage.ttsSettings.ttsEnabled,
                           activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           onChanged: (val) async {
-                            await storage.setTtsEnabled(val);
+                            await storage.ttsSettings.setTtsEnabled(val);
                             if (!val && context.mounted) {
                               context.read<TtsService>().releaseLocalEngine();
                             }
@@ -212,7 +220,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                             ),
                             const Spacer(),
                             Text(
-                              '${storage.ttsSpeechRate.toStringAsFixed(1)}x',
+                              '${storage.ttsSettings.ttsSpeechRate.toStringAsFixed(1)}x',
                               style: const TextStyle(
                                 color: AppColors.formMasterAccent,
                                 fontSize: 13,
@@ -222,7 +230,9 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                           ],
                         ),
                         Slider(
-                          value: _dragTtsSpeechRate ?? storage.ttsSpeechRate,
+                          value:
+                              _dragTtsSpeechRate ??
+                              storage.ttsSettings.ttsSpeechRate,
                           min: 0.5,
                           max: 2.0,
                           divisions: 15,
@@ -232,7 +242,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               setState(() => _dragTtsSpeechRate = val),
                           onChangeEnd: (val) {
                             _dragTtsSpeechRate = null;
-                            storage.setTtsSpeechRate(val);
+                            storage.ttsSettings.setTtsSpeechRate(val);
                           },
                         ),
                         Padding(
@@ -301,7 +311,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               ),
                               const Spacer(),
                               Text(
-                                '${(_dragTtsConcurrency ?? storage.ttsConcurrency.toDouble()).round()} workers',
+                                '${(_dragTtsConcurrency ?? storage.ttsSettings.ttsConcurrency.toDouble()).round()} workers',
                                 style: const TextStyle(
                                   color: AppColors.formMasterAccent,
                                   fontSize: 13,
@@ -313,7 +323,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                           Slider(
                             value:
                                 _dragTtsConcurrency ??
-                                storage.ttsConcurrency.toDouble(),
+                                storage.ttsSettings.ttsConcurrency.toDouble(),
                             min: 1,
                             max: 8,
                             divisions: 7,
@@ -323,7 +333,9 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                                 setState(() => _dragTtsConcurrency = val),
                             onChangeEnd: (val) {
                               _dragTtsConcurrency = null;
-                              storage.setTtsConcurrency(val.round());
+                              storage.ttsSettings.setTtsConcurrency(
+                                val.round(),
+                              );
                             },
                           ),
                           Padding(
@@ -339,7 +351,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                                   ),
                                 ),
                                 Text(
-                                  '~${_ramForWorkers(storage.ttsConcurrency)} RAM',
+                                  '~${_ramForWorkers(storage.ttsSettings.ttsConcurrency)} RAM',
                                   style: TextStyle(
                                     color: AppColors.textTertiary(context),
                                     fontSize: 10,
@@ -363,7 +375,9 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                         SwitchListTile(
                           title: Text(
                             'Auto-Play',
-                            style: TextStyle(color: AppColors.textPrimary(context)),
+                            style: TextStyle(
+                              color: AppColors.textPrimary(context),
+                            ),
                           ),
                           subtitle: Text(
                             'Automatically speak new character messages',
@@ -372,10 +386,11 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               fontSize: 12,
                             ),
                           ),
-                          value: storage.ttsAutoPlay,
+                          value: storage.ttsSettings.ttsAutoPlay,
                           activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
-                          onChanged: (val) => storage.setTtsAutoPlay(val),
+                          onChanged: (val) =>
+                              storage.ttsSettings.setTtsAutoPlay(val),
                         ),
 
                         const SizedBox(height: 8),
@@ -407,12 +422,12 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               fontSize: 11,
                             ),
                           ),
-                          value: storage.ttsNarrateQuotedOnly,
+                          value: storage.ttsSettings.ttsNarrateQuotedOnly,
                           activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           dense: true,
                           onChanged: (val) =>
-                              storage.setTtsNarrateQuotedOnly(val),
+                              storage.ttsSettings.setTtsNarrateQuotedOnly(val),
                         ),
                         SwitchListTile(
                           title: Text(
@@ -429,12 +444,12 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               fontSize: 11,
                             ),
                           ),
-                          value: storage.ttsIgnoreAsterisks,
+                          value: storage.ttsSettings.ttsIgnoreAsterisks,
                           activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           dense: true,
                           onChanged: (val) =>
-                              storage.setTtsIgnoreAsterisks(val),
+                              storage.ttsSettings.setTtsIgnoreAsterisks(val),
                         ),
                         SwitchListTile(
                           title: Text(
@@ -451,25 +466,27 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               fontSize: 11,
                             ),
                           ),
-                          value: storage.ttsReplaceCurlyQuotes,
+                          value: storage.ttsSettings.ttsReplaceCurlyQuotes,
                           activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           dense: true,
                           onChanged: (val) =>
-                              storage.setTtsReplaceCurlyQuotes(val),
+                              storage.ttsSettings.setTtsReplaceCurlyQuotes(val),
                         ),
 
                         const SizedBox(height: 16),
 
                         // Test button
-                        if (storage.ttsVoiceModel.isNotEmpty)
+                        if (storage.ttsSettings.ttsVoiceModel.isNotEmpty)
                           Center(
                             child: ElevatedButton.icon(
                               onPressed: tts.isSpeaking
                                   ? () => tts.stop()
                                   : () {
                                       final testText =
-                                          storage.ttsNarrateQuotedOnly
+                                          storage
+                                              .ttsSettings
+                                              .ttsNarrateQuotedOnly
                                           ? '“Hello! This is a test of the text to speech system.” The quick brown fox jumps over the lazy dog.'
                                           : 'Hello! This is a test of the text to speech system. The quick brown fox jumps over the lazy dog.';
                                       tts.speak(testText);
@@ -482,9 +499,12 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: tts.isSpeaking
-                                    ? Colors.redAccent // theme-keep: playback status (stop), not chrome
-                                    : Colors.green, // theme-keep: playback status (start)
-                                foregroundColor: Colors.white, // theme-keep: contrast on status button
+                                    ? Colors
+                                          .redAccent // theme-keep: playback status (stop), not chrome
+                                    : Colors
+                                          .green, // theme-keep: playback status (start)
+                                foregroundColor: Colors
+                                    .white, // theme-keep: contrast on status button
                               ),
                             ),
                           ),

@@ -148,7 +148,7 @@ class WorldFromWikiFacade {
     if (_llm.hasManagedProcess) {
       return worldFromWikiToolsOk(
         isLocalBackend: true,
-        modelId: p.basename(_storage.lastUsedModelPath ?? ''),
+        modelId: p.basename(_storage.backendSettings.lastUsedModelPath ?? ''),
       );
     }
     final remote = _llm.openRouterService;

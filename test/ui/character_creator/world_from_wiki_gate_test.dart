@@ -30,16 +30,10 @@ class _NoHardware extends ChangeNotifier implements HardwareService {
 }
 
 class _SetupCapableStorage extends FakeStorageService {
-  @override
-  int get kvQuantizationLevel => 0;
-  @override
-  bool get kcppsHasModel => false;
-  @override
-  bool get kcppsModelFileExists => false;
-  @override
-  String get backendType => 'kobold';
-  @override
-  String get remoteApiUrl => '';
+  _SetupCapableStorage() {
+    backendSettings.setBackendType('kobold');
+    backendSettings.setRemoteApiUrl('');
+  }
 }
 
 WorldFromWikiState _worldOf(WidgetTester tester) {

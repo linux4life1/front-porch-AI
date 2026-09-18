@@ -53,8 +53,7 @@ class ImageStudio extends StatefulWidget {
   /// Group-chat cast (name + appearance + library id when resolvable). Empty
   /// for 1:1 chats. When non-empty, the Subject picker offers a per-member
   /// portrait picker plus a caveated whole-cast "Group shot".
-  final List<({String name, String description, String? dbId})>
-  groupCharacters;
+  final List<({String name, String description, String? dbId})> groupCharacters;
   final String? scenario;
   final String? worldInfo;
   final String? personaName;
@@ -155,9 +154,9 @@ class _ImageStudioState extends State<ImageStudio> {
   void initState() {
     super.initState();
     final storage = Provider.of<StorageService>(context, listen: false);
-    _selectedStyle = storage.imageGenStyle;
+    _selectedStyle = storage.imageGenSettings.imageGenStyle;
     _paradigm = storage.imageGenSettings.imageGenPromptParadigm;
-    _negativeForGen = storage.imageGenNegativePrompt;
+    _negativeForGen = storage.imageGenSettings.imageGenNegativePrompt;
     _activeMode = widget.mode;
     _builder = ImagePromptBuilder(llmService: widget.llmService);
     // No boilerplate prefill for ANY subject: an empty box (with a guiding
@@ -168,15 +167,14 @@ class _ImageStudioState extends State<ImageStudio> {
   }
 
   /// Build a fresh snapshot ctx for the given subject.
-  ImageGenContext _makeContextForMode(ImageGenMode mode) =>
-      _buildStudioContext(
-        widget,
-        mode: mode,
-        style: _selectedStyle,
-        paradigm: _paradigm,
-        characterName: _activeCharName,
-        characterDescription: _activeCharDesc,
-      );
+  ImageGenContext _makeContextForMode(ImageGenMode mode) => _buildStudioContext(
+    widget,
+    mode: mode,
+    style: _selectedStyle,
+    paradigm: _paradigm,
+    characterName: _activeCharName,
+    characterDescription: _activeCharDesc,
+  );
 
   /// Switch subject: rebuild the ctx snapshot and clear the prompt box — no
   /// bleed between subjects, and no raw-description prefill.
@@ -332,7 +330,9 @@ class _ImageStudioState extends State<ImageStudio> {
 
   void _updateStyle(String newStyle) {
     final storage = Provider.of<StorageService>(context, listen: false);
-    storage.setImageGenStyle(newStyle); // persist global default
+    storage.imageGenSettings.setImageGenStyle(
+      newStyle,
+    ); // persist global default
     setState(() {
       _selectedStyle = newStyle;
       _reapplyStyle();
@@ -457,10 +457,7 @@ class _ImageStudioState extends State<ImageStudio> {
     final service = Provider.of<ImageGenService>(context, listen: false);
 
     // Accept only applies to portrait subjects → crop then save as an avatar.
-    final croppedBytes = await ImageCropDialog.show(
-      context,
-      imageBytes: bytes,
-    );
+    final croppedBytes = await ImageCropDialog.show(context, imageBytes: bytes);
     if (croppedBytes == null) {
       if (mounted) setState(() => _saving = false);
       return;
@@ -526,9 +523,9 @@ class _ImageStudioState extends State<ImageStudio> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save to gallery failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Save to gallery failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -554,9 +551,9 @@ class _ImageStudioState extends State<ImageStudio> {
       if (bytes == null) return;
       await widget.onSendToChat!(bytes, _editablePrompt.trim());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Image sent to chat')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Image sent to chat')));
       }
     };
   }

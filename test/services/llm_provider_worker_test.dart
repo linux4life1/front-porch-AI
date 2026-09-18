@@ -32,10 +32,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     storage = StorageService();
     await storage.initialized;
-    await storage.setBackendType('openRouter');
-    await storage.setRemoteApiUrl(kOpenRouterApiV1);
-    await storage.setRemoteModelName('x-ai/grok-4.6');
-    await storage.setRemoteApiKey('or-key');
+    await storage.backendSettings.setBackendType('openRouter');
+    await storage.backendSettings.setRemoteApiUrl(kOpenRouterApiV1);
+    await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
+    await storage.backendSettings.setRemoteApiKey('or-key');
     mouthRemote = OpenRouterService(
       apiUrl: kOpenRouterApiV1,
       apiKey: 'or-key',
@@ -75,8 +75,10 @@ void main() {
   );
 
   test('same host, different model ids — two remotes, one vault URL', () async {
-    await storage.setRemoteApiUrl(kNanoGptApiV1);
-    await storage.setRemoteModelName('moonshotai/kimi-k2.6:thinking');
+    await storage.backendSettings.setRemoteApiUrl(kNanoGptApiV1);
+    await storage.backendSettings.setRemoteModelName(
+      'moonshotai/kimi-k2.6:thinking',
+    );
     await storage.setRemoteApiKeyFor(kNanoGptApiV1, 'shared-nano');
     await storage.setWorkerBackendType('openRouter');
     await storage.setWorkerRemoteApiUrl(kNanoGptApiV1);
@@ -108,7 +110,7 @@ void main() {
   });
 
   test('dual-local fail-closed: worker service is unused', () async {
-    await storage.setBackendType('kobold');
+    await storage.backendSettings.setBackendType('kobold');
     await storage.setWorkerBackendType('omlx');
     await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
     await storage.setWorkerRemoteModelName('local-mlx');
@@ -123,7 +125,9 @@ void main() {
     'API mouth + Kobold worker: ensure starts Kobold; mouth stays remote',
     () async {
       await storage.setWorkerBackendType('kobold');
-      await storage.setLastUsedModelPath('/tmp/worker-model.gguf');
+      await storage.backendSettings.setLastUsedModelPath(
+        '/tmp/worker-model.gguf',
+      );
       final kobold = _RecordingKobold(storage);
       final p = managedProvider(kobold);
       addTearDown(p.dispose);
@@ -147,7 +151,9 @@ void main() {
     await storage.setWorkerBackendType('openRouter');
     await storage.setWorkerRemoteApiUrl(kNanoGptApiV1);
     await storage.setWorkerRemoteModelName('z-ai/glm-5.3');
-    await storage.setLastUsedModelPath('/tmp/worker-model.gguf');
+    await storage.backendSettings.setLastUsedModelPath(
+      '/tmp/worker-model.gguf',
+    );
     final kobold = _RecordingKobold(storage);
     final p = managedProvider(kobold);
     addTearDown(p.dispose);
@@ -157,9 +163,11 @@ void main() {
   });
 
   test('refused dual-local does not start a Kobold worker', () async {
-    await storage.setBackendType('omlx');
+    await storage.backendSettings.setBackendType('omlx');
     await storage.setWorkerBackendType('kobold');
-    await storage.setLastUsedModelPath('/tmp/worker-model.gguf');
+    await storage.backendSettings.setLastUsedModelPath(
+      '/tmp/worker-model.gguf',
+    );
     final kobold = _RecordingKobold(storage);
     final p = managedProvider(kobold);
     addTearDown(p.dispose);
@@ -202,8 +210,10 @@ void main() {
   });
 
   test('same-host key refresh updates mouth and worker', () async {
-    await storage.setRemoteApiUrl(kNanoGptApiV1);
-    await storage.setRemoteModelName('moonshotai/kimi-k2.6:thinking');
+    await storage.backendSettings.setRemoteApiUrl(kNanoGptApiV1);
+    await storage.backendSettings.setRemoteModelName(
+      'moonshotai/kimi-k2.6:thinking',
+    );
     await storage.setRemoteApiKeyFor(kNanoGptApiV1, 'first-nano');
     await storage.setWorkerBackendType('openRouter');
     await storage.setWorkerRemoteApiUrl(kNanoGptApiV1);

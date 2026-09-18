@@ -31,22 +31,22 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final first = StorageService();
     await first.initialized;
-    expect(first.sortMode, 'name');
+    expect(first.uiSettings.sortMode, 'name');
 
-    await first.setSortMode('messages');
-    expect(first.sortMode, 'messages');
+    await first.uiSettings.setSortMode('messages');
+    expect(first.uiSettings.sortMode, 'messages');
 
     // Relaunch: a brand-new StorageService reads the SAME persisted store
     // (no setMockInitialValues reset), so it must recover the saved value.
     final second = StorageService();
     await second.initialized;
-    expect(second.sortMode, 'messages');
+    expect(second.uiSettings.sortMode, 'messages');
   });
 
   test('an unset sortMode falls back to name', () async {
     SharedPreferences.setMockInitialValues({});
     final storage = StorageService();
     await storage.initialized;
-    expect(storage.sortMode, 'name');
+    expect(storage.uiSettings.sortMode, 'name');
   });
 }

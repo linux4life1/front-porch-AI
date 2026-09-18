@@ -91,7 +91,7 @@ class SetupStep extends StatelessWidget {
                         getSubtitle: (f) => f.path,
                         onSelected: (f) {
                           state.selectedLocalModelPath = f.path;
-                          storage.setLastUsedModelPath(f.path);
+                          storage.backendSettings.setLastUsedModelPath(f.path);
                           state.notify();
                         },
                       );
@@ -265,7 +265,8 @@ class SetupStep extends StatelessWidget {
                     // A .kcpps preset that owns its own model can launch the
                     // backend even without a picker-selected .gguf.
                     final presetOwnsModel =
-                        storage.kcppsHasModel && storage.kcppsModelFileExists;
+                        storage.backendSettings.kcppsHasModel &&
+                        storage.backendSettings.kcppsModelFileExists;
                     final canStart =
                         state.selectedLocalModelPath.isNotEmpty ||
                         presetOwnsModel;
@@ -351,8 +352,9 @@ class SetupStep extends StatelessWidget {
                             context,
                             listen: false,
                           );
-                          if (s.remoteModelName.isNotEmpty) {
-                            state.selectedModelId = s.remoteModelName;
+                          if (s.backendSettings.remoteModelName.isNotEmpty) {
+                            state.selectedModelId =
+                                s.backendSettings.remoteModelName;
                             state.notify();
                           }
                         }
@@ -472,17 +474,19 @@ class SetupStep extends StatelessWidget {
             localPresets: state.localPresets,
             hint: 'Optional \u2014 select a .kcpps preset',
             onChanged: (val) {
-              storage.setActiveKcppsPath(val);
+              storage.backendSettings.setActiveKcppsPath(val);
               if (val != null &&
-                  storage.kcppsHasModel &&
-                  storage.kcppsModelFileExists) {
+                  storage.backendSettings.kcppsHasModel &&
+                  storage.backendSettings.kcppsModelFileExists) {
                 state.selectedLocalModelPath = '';
                 state.notify();
               }
             },
-            onExternalClear: () => storage.setActiveKcppsPath(null),
+            onExternalClear: () =>
+                storage.backendSettings.setActiveKcppsPath(null),
             onBrowsePicked: (_) {
-              if (storage.kcppsHasModel && storage.kcppsModelFileExists) {
+              if (storage.backendSettings.kcppsHasModel &&
+                  storage.backendSettings.kcppsModelFileExists) {
                 state.selectedLocalModelPath = '';
                 state.notify();
               }
@@ -537,7 +541,7 @@ class SetupStep extends StatelessWidget {
                   isNumber: true,
                   onChanged: (v) {
                     final val = int.tryParse(v);
-                    if (val != null) storage.setGpuLayers(val);
+                    if (val != null) storage.backendSettings.setGpuLayers(val);
                   },
                 ),
               ),
@@ -550,7 +554,9 @@ class SetupStep extends StatelessWidget {
                   isNumber: true,
                   onChanged: (v) {
                     final val = int.tryParse(v);
-                    if (val != null) storage.setContextSize(val);
+                    if (val != null) {
+                      storage.backendSettings.setContextSize(val);
+                    }
                   },
                 ),
               ),
@@ -570,7 +576,7 @@ class SetupStep extends StatelessWidget {
               Expanded(
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
-                    value: storage.kvQuantizationLevel,
+                    value: storage.backendSettings.kvQuantizationLevel,
                     isExpanded: true,
                     dropdownColor: AppColors.surfaceContainerOf(context),
                     style: TextStyle(
@@ -579,7 +585,7 @@ class SetupStep extends StatelessWidget {
                     ),
                     onChanged: (val) {
                       if (val != null) {
-                        storage.setKvQuantizationLevel(val);
+                        storage.backendSettings.setKvQuantizationLevel(val);
                         state.notify();
                       }
                     },
@@ -710,13 +716,13 @@ class SetupStep extends StatelessWidget {
       modelSizeMb: modelSize,
       requestedContextSize: userContext,
       kvBytesPerToken: kvBytesPerToken,
-      kvQuantizationLevel: storage.kvQuantizationLevel,
+      kvQuantizationLevel: storage.backendSettings.kvQuantizationLevel,
     );
 
     state.gpuLayersController.text = suggestion.gpuLayers.toString();
     state.contextSizeController.text = suggestion.contextSize.toString();
-    storage.setGpuLayers(suggestion.gpuLayers);
-    storage.setContextSize(suggestion.contextSize);
+    storage.backendSettings.setGpuLayers(suggestion.gpuLayers);
+    storage.backendSettings.setContextSize(suggestion.contextSize);
     state.notify();
   }
 }

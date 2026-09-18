@@ -109,7 +109,7 @@ extension ChatServiceGroupEntry on ChatService {
 
       // Auto-start local backend when entering a group chat.
       // Gated by autostartOnChatOpen — when off, the user must start manually.
-      if (_storageService.autostartOnChatOpen) {
+      if (_storageService.backendSettings.autostartOnChatOpen) {
         _llmProvider?.ensureManagedBackendIsRunning();
       }
 

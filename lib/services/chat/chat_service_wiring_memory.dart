@@ -277,8 +277,8 @@ extension ChatServiceWiringMemory on ChatService {
       // either driver; with both off it is false, i.e. exactly the old gate.
       isEnabled: () =>
           _clockRunning &&
-          _storageService.journalEnabled &&
-          _storageService.dreamsEnabled,
+          _storageService.memorySettings.journalEnabled &&
+          _storageService.realismSettings.dreamsEnabled,
     );
   }
 

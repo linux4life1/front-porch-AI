@@ -100,14 +100,14 @@ void main() {
       'switching to a host with no saved key clears the active key',
       () async {
         final storage = await _storage();
-        await storage.setRemoteApiUrl(_openRouter);
-        await storage.setRemoteApiKey(_orKey);
+        await storage.backendSettings.setRemoteApiUrl(_openRouter);
+        await storage.backendSettings.setRemoteApiKey(_orKey);
 
-        await storage.setRemoteApiUrl(_nanoGpt);
+        await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
 
-        expect(storage.remoteApiUrl, _nanoGpt);
+        expect(storage.backendSettings.remoteApiUrl, _nanoGpt);
         expect(
-          storage.remoteApiKey,
+          storage.backendSettings.remoteApiKey,
           isEmpty,
           reason: 'Nano-GPT must not inherit the OpenRouter key',
         );
@@ -118,16 +118,16 @@ void main() {
 
     test('switching back restores each host key', () async {
       final storage = await _storage();
-      await storage.setRemoteApiUrl(_openRouter);
-      await storage.setRemoteApiKey(_orKey);
-      await storage.setRemoteApiUrl(_nanoGpt);
-      await storage.setRemoteApiKey(_nanoKey);
+      await storage.backendSettings.setRemoteApiUrl(_openRouter);
+      await storage.backendSettings.setRemoteApiKey(_orKey);
+      await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
+      await storage.backendSettings.setRemoteApiKey(_nanoKey);
 
-      await storage.setRemoteApiUrl(_openRouter);
-      expect(storage.remoteApiKey, _orKey);
+      await storage.backendSettings.setRemoteApiUrl(_openRouter);
+      expect(storage.backendSettings.remoteApiKey, _orKey);
 
-      await storage.setRemoteApiUrl(_nanoGpt);
-      expect(storage.remoteApiKey, _nanoKey);
+      await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
+      expect(storage.backendSettings.remoteApiKey, _nanoKey);
     });
 
     test('legacy single remote_api_key seeds the active URL slot', () async {
@@ -135,13 +135,13 @@ void main() {
         'remote_api_url': _openRouter,
         'remote_api_key': _orKey,
       });
-      expect(storage.remoteApiKey, _orKey);
+      expect(storage.backendSettings.remoteApiKey, _orKey);
 
-      await storage.setRemoteApiUrl(_nanoGpt);
-      expect(storage.remoteApiKey, isEmpty);
+      await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
+      expect(storage.backendSettings.remoteApiKey, isEmpty);
 
-      await storage.setRemoteApiUrl(_openRouter);
-      expect(storage.remoteApiKey, _orKey);
+      await storage.backendSettings.setRemoteApiUrl(_openRouter);
+      expect(storage.backendSettings.remoteApiKey, _orKey);
     });
 
     test(
@@ -152,7 +152,7 @@ void main() {
           'remote_api_key': _orKey,
         });
         expect(
-          storage.remoteApiKey,
+          storage.backendSettings.remoteApiKey,
           isEmpty,
           reason: 'leftover sk-or- must not stay active on Nano-GPT',
         );
@@ -167,9 +167,9 @@ void main() {
           reason: 'the leftover key belongs to OpenRouter',
         );
 
-        await storage.setRemoteApiUrl(_openRouter);
+        await storage.backendSettings.setRemoteApiUrl(_openRouter);
         expect(
-          storage.remoteApiKey,
+          storage.backendSettings.remoteApiKey,
           _orKey,
           reason: 'switching back must restore OpenRouter, not empty',
         );
@@ -189,10 +189,10 @@ void main() {
 
     setUp(() async {
       storage = await _storage();
-      await storage.setBackendType('openRouter');
-      await storage.setRemoteApiUrl(_openRouter);
-      await storage.setRemoteApiKey(_orKey);
-      await storage.setRemoteModelName('test/model');
+      await storage.backendSettings.setBackendType('openRouter');
+      await storage.backendSettings.setRemoteApiUrl(_openRouter);
+      await storage.backendSettings.setRemoteApiKey(_orKey);
+      await storage.backendSettings.setRemoteModelName('test/model');
       remote = OpenRouterService();
       provider = LLMProvider(
         KoboldService(storage),
@@ -210,7 +210,7 @@ void main() {
         expect(remote.apiKey, _orKey);
         expect(remote.apiUrl, _openRouter);
 
-        await storage.setRemoteApiUrl(_nanoGpt);
+        await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
 
         expect(remote.apiUrl, _nanoGpt);
         expect(remote.apiKey, isEmpty);
@@ -222,26 +222,26 @@ void main() {
         );
 
         final check = await remote.testConnection(
-          apiUrl: storage.remoteApiUrl,
-          apiKey: storage.remoteApiKey,
+          apiUrl: storage.backendSettings.remoteApiUrl,
+          apiKey: storage.backendSettings.remoteApiKey,
         );
         expect(check, contains('API key'));
       },
     );
 
     test('Check Connection and generate send the same restored key', () async {
-      await storage.setRemoteApiUrl(_nanoGpt);
-      await storage.setRemoteApiKey(_nanoKey);
+      await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
+      await storage.backendSettings.setRemoteApiKey(_nanoKey);
       // Per-host model vault: a first visit to Nano has no last model, so
       // the live id is cleared (must not keep x-ai/grok on Nano). Generate
       // still needs a model id to POST.
-      await storage.setRemoteModelName('nano/model');
+      await storage.backendSettings.setRemoteModelName('nano/model');
 
-      await storage.setRemoteApiUrl(_openRouter);
+      await storage.backendSettings.setRemoteApiUrl(_openRouter);
       expect(remote.apiKey, _orKey);
 
-      await storage.setRemoteApiUrl(_nanoGpt);
-      expect(storage.remoteApiKey, _nanoKey);
+      await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
+      expect(storage.backendSettings.remoteApiKey, _nanoKey);
       expect(remote.apiKey, _nanoKey);
 
       http.BaseRequest? pingReq;
@@ -261,8 +261,8 @@ void main() {
       });
 
       final check = await remote.testConnection(
-        apiUrl: storage.remoteApiUrl,
-        apiKey: storage.remoteApiKey,
+        apiUrl: storage.backendSettings.remoteApiUrl,
+        apiKey: storage.backendSettings.remoteApiKey,
       );
       expect(check, contains('successful'));
       expect(pingReq, isNotNull);
@@ -297,8 +297,8 @@ void main() {
         'probing Nano-GPT does not send the stored OpenRouter key',
         () async {
           final storage = await _storage();
-          await storage.setRemoteApiUrl(_openRouter);
-          await storage.setRemoteApiKey(_orKey);
+          await storage.backendSettings.setRemoteApiUrl(_openRouter);
+          await storage.backendSettings.setRemoteApiKey(_orKey);
 
           final facade = BackendFacade(
             FakeLLMProvider(),

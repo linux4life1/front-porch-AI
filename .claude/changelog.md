@@ -1,3 +1,9 @@
+## 2026-09-17 — Drop leftover flat storage shims and tombstone comments
+- **Why:** Three files sat at 999 lines because of leftover Stage-7 flat accessors and "god thins to delegation" essays, not because they still needed a split.
+- **What:** Pointed remaining `storage.textScale`-style callers at the `*Settings` objects, deleted the compatibility flat-accessor block on StorageService (kept spell-check language and custom models path), and trimmed ChatService tombstone comments. chat_tools_facade had no unused methods; only retargeted its storage reads.
+- **Files:** `storage_service.dart` (999→393), `chat_service.dart` (999→968), `chat_tools_facade.dart` (stays under 1000), callers and fakes that used the flat names
+- **Commit:** this tip
+
 ## 2026-09-17 — Drop unused scratch/ghost files
 - **Why:** Three Dart files had zero importers and still looked like live rooms: a scratch pad, a private hover card, and the retired cloud-sync merge service.
 - **What:** Deleted `lib/test_pad.dart`, `lib/ui/widgets/_hoverable_card.dart`, `lib/services/database_merge_service.dart`. Shortened comments that named `DatabaseMergeService` / `_HoverableCard`. Left migrations, sync_meta, and storage 999s alone.

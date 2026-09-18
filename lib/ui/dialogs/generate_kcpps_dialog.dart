@@ -31,7 +31,8 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
   final _batchSizeFocusNode = FocusNode();
   int _batchSize = 512;
   bool _greedyAllocation = false;
-  ContextManagementMode _contextMode = ContextManagementMode.fastForwardSmartCache;
+  ContextManagementMode _contextMode =
+      ContextManagementMode.fastForwardSmartCache;
   int _smartCacheSlots = 5;
   final _smartCacheSlotsController = TextEditingController(text: '5');
   bool _detecting = true;
@@ -48,7 +49,10 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
   @override
   void initState() {
     super.initState();
-    Provider.of<HardwareService>(context, listen: false).addListener(_onHardwareChanged);
+    Provider.of<HardwareService>(
+      context,
+      listen: false,
+    ).addListener(_onHardwareChanged);
     _batchSizeFocusNode.addListener(() {
       if (!_batchSizeFocusNode.hasFocus) {
         final clamped = _batchSize.clamp(64, 8192);
@@ -70,7 +74,10 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
     _batchSizeFocusNode.dispose();
     _batchSizeController.dispose();
     _threadsController.dispose();
-    Provider.of<HardwareService>(context, listen: false).removeListener(_onHardwareChanged);
+    Provider.of<HardwareService>(
+      context,
+      listen: false,
+    ).removeListener(_onHardwareChanged);
     _contextSizeController.dispose();
     _smartCacheSlotsController.dispose();
     super.dispose();
@@ -197,13 +204,15 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
     if (!file.existsSync()) return 512;
 
     // Use a reasonable default if model info isn't available yet
-    final modelInfo = _modelInfo ?? GGUFModelInfo(
-      nLayers: 32,
-      nHeads: 32,
-      nKvHeads: 8,
-      nEmbd: 4096,
-      kvBytesPerToken: 2048,
-    );
+    final modelInfo =
+        _modelInfo ??
+        GGUFModelInfo(
+          nLayers: 32,
+          nHeads: 32,
+          nKvHeads: 8,
+          nEmbd: 4096,
+          kvBytesPerToken: 2048,
+        );
 
     final padding = _greedyAllocation ? 32 : 1024;
 
@@ -213,7 +222,8 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
       contextSize: _contextSize,
       kvQuant: _kvQuant,
       isSwa: _contextMode == ContextManagementMode.slidingWindowAttention,
-      moeExpertsOnCpu: !Platform.isMacOS, // unified memory; see _computeVramEstimate
+      moeExpertsOnCpu:
+          !Platform.isMacOS, // unified memory; see _computeVramEstimate
       availableVramMb: vramMb,
       autofitpaddingMb: padding,
     );
@@ -252,8 +262,11 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
         content,
       );
 
-      await storage.setModelPreset(_selectedModelPath!, kcppsFile.path);
-      await storage.setActiveKcppsPath(kcppsFile.path);
+      await storage.presetSettings.setModelPreset(
+        _selectedModelPath!,
+        kcppsFile.path,
+      );
+      await storage.backendSettings.setActiveKcppsPath(kcppsFile.path);
 
       if (!mounted) return;
       // Show the confirmation via the captured messenger (survives the pop)
@@ -527,7 +540,9 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
                           ),
                           Switch(
                             value: _greedyAllocation,
-                            activeTrackColor: Theme.of(context).colorScheme.primary,
+                            activeTrackColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
                             onChanged: (val) {
                               setState(() => _greedyAllocation = val);
                               _computeVramEstimate();
@@ -558,7 +573,9 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
                       const SizedBox(height: 16),
                       Text(
                         _errorMessage!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ],
                   ],
@@ -583,10 +600,9 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
-                    onPressed:
-                        (_generating || _selectedModelPath == null)
-                            ? null
-                            : _generate,
+                    onPressed: (_generating || _selectedModelPath == null)
+                        ? null
+                        : _generate,
                     icon: _generating
                         ? const SizedBox(
                             width: 16,

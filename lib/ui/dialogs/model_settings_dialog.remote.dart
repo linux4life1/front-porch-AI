@@ -28,12 +28,14 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
     final llmProvider = Provider.of<LLMProvider>(context, listen: false);
     // Never overwrite the user's remote API URL when oMLX is active (it uses a fixed localhost URL)
     if (llmProvider.activeBackend != BackendType.omlx) {
-      storage.setRemoteApiUrl(_apiUrlController.text.trim());
+      storage.backendSettings.setRemoteApiUrl(_apiUrlController.text.trim());
     }
     if (_apiKeyController.text.trim().isNotEmpty) {
-      storage.setRemoteApiKey(_apiKeyController.text.trim());
+      storage.backendSettings.setRemoteApiKey(_apiKeyController.text.trim());
     }
-    storage.setRemoteModelName(_modelNameController.text.trim());
+    storage.backendSettings.setRemoteModelName(
+      _modelNameController.text.trim(),
+    );
     if (snackbar) {
       ScaffoldMessenger.of(
         context,
@@ -77,11 +79,11 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
         BackendType.omlx => 'omlx',
         BackendType.openRouter => 'openRouter',
       },
-      url: storage.remoteApiUrl,
+      url: storage.backendSettings.remoteApiUrl,
     );
     final showUrl = remoteProviderShowsUrlField(kind);
     final needsKey = remoteProviderNeedsApiKey(kind);
-    final hasKey = storage.remoteApiKey.isNotEmpty;
+    final hasKey = storage.backendSettings.remoteApiKey.isNotEmpty;
     final model = _modelNameController.text.trim();
     final ready = model.isNotEmpty && (!needsKey || hasKey);
 

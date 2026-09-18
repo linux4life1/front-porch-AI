@@ -37,11 +37,23 @@ class ThemeBorderResolver {
     final overrides = themeOverrides ?? chatService?.sessionThemeOverrides;
     final preset = ChatThemePreset.byId(overrides?.themeId);
     final accent = preset != null
-        ? storage.getUserTextColor(character, preset, overrides)
+        ? storage.uiSettings.getUserTextColor(
+            character,
+            themePreset: preset,
+            themeOverrides: overrides,
+          )
         : null;
     final textColor = isUser
-        ? storage.getUserTextColor(character, preset, overrides)
-        : storage.getAiTextColor(character, preset, overrides);
+        ? storage.uiSettings.getUserTextColor(
+            character,
+            themePreset: preset,
+            themeOverrides: overrides,
+          )
+        : storage.uiSettings.getAiTextColor(
+            character,
+            themePreset: preset,
+            themeOverrides: overrides,
+          );
     final borderColor = preset != null
         ? (overrides?.resolvedBorderColor(preset) ?? textColor)
         : textColor;

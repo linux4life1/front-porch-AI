@@ -109,15 +109,15 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     final storage = Provider.of<StorageService>(context, listen: false);
-    _sortMode = storage.sortMode;
-    _gridScale = storage.gridScale;
+    _sortMode = storage.uiSettings.sortMode;
+    _gridScale = storage.uiSettings.gridScale;
     // StorageService._init() is async — settings may not be loaded yet.
     // Wait for init to complete so persisted values are reflected.
     storage.initialized.then((_) {
       if (!mounted) return;
       setState(() {
-        _sortMode = storage.sortMode;
-        _gridScale = storage.gridScale;
+        _sortMode = storage.uiSettings.sortMode;
+        _gridScale = storage.uiSettings.gridScale;
       });
     });
     Future.microtask(() => _refreshLastActivityCache());

@@ -80,7 +80,7 @@ extension _BubbleHeader on _MessageBubbleState {
                   color:
                       widget.senderColor ??
                       theme.accent ??
-                      storage?.getDialogueColor(character) ??
+                      storage?.uiSettings.getDialogueColor(character) ??
                       AppColors.textPrimary(context),
                 ),
               );
@@ -122,7 +122,7 @@ extension _BubbleHeader on _MessageBubbleState {
             !isDirectorNote)
           Consumer2<TtsService, StorageService>(
             builder: (context, tts, storage, _) {
-              if (!storage.ttsEnabled) {
+              if (!storage.ttsSettings.ttsEnabled) {
                 return const SizedBox.shrink();
               }
               final msgId = 'msg_${widget.index}';

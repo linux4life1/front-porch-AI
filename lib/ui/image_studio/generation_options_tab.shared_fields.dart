@@ -44,11 +44,11 @@ extension _GenerationOptionsSharedFields on _GenerationOptionsTabState {
               fontSize: 10,
             ),
           ),
-          value: st.imageGenPromptReview,
+          value: st.imageGenSettings.imageGenPromptReview,
           activeTrackColor: AppColors.formMasterAccent,
           contentPadding: EdgeInsets.zero,
           dense: true,
-          onChanged: (v) => st.setImageGenPromptReview(v),
+          onChanged: (v) => st.imageGenSettings.setImageGenPromptReview(v),
         ),
         const SizedBox(height: 4),
         Text(
@@ -63,67 +63,69 @@ extension _GenerationOptionsSharedFields on _GenerationOptionsTabState {
         _buildSizeSelector(st),
         const SizedBox(height: 8),
         if (widget.showStyleControls) ...[
-        Text(
-          'Default Style',
-          style: TextStyle(
-            color: AppColors.textSecondary(context),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+          Text(
+            'Default Style',
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        DropdownButtonFormField<String>(
-          initialValue:
-              ImageGenService.styleLabels.containsKey(st.imageGenStyle)
-              ? st.imageGenStyle
-              : 'photorealistic',
-          dropdownColor: AppColors.surfaceContainerOf(context),
-          style: TextStyle(color: AppColors.textPrimary(context)),
-          isExpanded: true,
-          decoration: _deco(),
-          items: ImageGenService.styleLabels.entries
-              .map(
-                (e) => DropdownMenuItem(
-                  value: e.key,
-                  child: Text(
-                    e.value,
-                    style: TextStyle(color: AppColors.textPrimary(context)),
+          DropdownButtonFormField<String>(
+            initialValue:
+                ImageGenService.styleLabels.containsKey(
+                  st.imageGenSettings.imageGenStyle,
+                )
+                ? st.imageGenSettings.imageGenStyle
+                : 'photorealistic',
+            dropdownColor: AppColors.surfaceContainerOf(context),
+            style: TextStyle(color: AppColors.textPrimary(context)),
+            isExpanded: true,
+            decoration: _deco(),
+            items: ImageGenService.styleLabels.entries
+                .map(
+                  (e) => DropdownMenuItem(
+                    value: e.key,
+                    child: Text(
+                      e.value,
+                      style: TextStyle(color: AppColors.textPrimary(context)),
+                    ),
                   ),
-                ),
-              )
-              .toList(),
-          onChanged: (v) {
-            if (v != null) st.setImageGenStyle(v);
-          },
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Prompt Format',
-          style: TextStyle(
-            color: AppColors.textSecondary(context),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+                )
+                .toList(),
+            onChanged: (v) {
+              if (v != null) st.imageGenSettings.setImageGenStyle(v);
+            },
           ),
-        ),
-        DropdownButtonFormField<String>(
-          initialValue: st.imageGenPromptParadigm,
-          dropdownColor: AppColors.surfaceContainerOf(context),
-          style: TextStyle(color: AppColors.textPrimary(context)),
-          isExpanded: true,
-          decoration: _deco(),
-          items: const [
-            DropdownMenuItem(
-              value: 'natural',
-              child: Text('Natural Language (FLUX / SD3)'),
+          const SizedBox(height: 6),
+          Text(
+            'Prompt Format',
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
-            DropdownMenuItem(
-              value: 'tags',
-              child: Text('Danbooru Tags (SD 1.5 / Anime)'),
-            ),
-          ],
-          onChanged: (v) {
-            if (v != null) st.setImageGenPromptParadigm(v);
-          },
-        ),
+          ),
+          DropdownButtonFormField<String>(
+            initialValue: st.imageGenSettings.imageGenPromptParadigm,
+            dropdownColor: AppColors.surfaceContainerOf(context),
+            style: TextStyle(color: AppColors.textPrimary(context)),
+            isExpanded: true,
+            decoration: _deco(),
+            items: const [
+              DropdownMenuItem(
+                value: 'natural',
+                child: Text('Natural Language (FLUX / SD3)'),
+              ),
+              DropdownMenuItem(
+                value: 'tags',
+                child: Text('Danbooru Tags (SD 1.5 / Anime)'),
+              ),
+            ],
+            onChanged: (v) {
+              if (v != null) st.imageGenSettings.setImageGenPromptParadigm(v);
+            },
+          ),
         ],
         const SizedBox(height: 6),
         Text(
@@ -139,12 +141,12 @@ extension _GenerationOptionsSharedFields on _GenerationOptionsTabState {
           maxLines: 2,
           style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
           decoration: _deco(hint: 'e.g. blurry...'),
-          onChanged: (v) => st.setImageGenNegativePrompt(v),
+          onChanged: (v) => st.imageGenSettings.setImageGenNegativePrompt(v),
         ),
         const SizedBox(height: 8),
         Consumer<StorageService>(
           builder: (ctx, st2, c) {
-            final local = st2.imageGenBackend != 'remote';
+            final local = st2.imageGenSettings.imageGenBackend != 'remote';
             return ExpansionTile(
               title: Text(
                 'Advanced',
@@ -157,7 +159,8 @@ extension _GenerationOptionsSharedFields on _GenerationOptionsTabState {
               children: local
                   ? _buildAdvancedFields(
                       st2,
-                      isDrawThings: st2.imageGenBackend == 'drawthings',
+                      isDrawThings:
+                          st2.imageGenSettings.imageGenBackend == 'drawthings',
                     )
                   : [
                       Text(
@@ -181,10 +184,10 @@ extension _GenerationOptionsSharedFields on _GenerationOptionsTabState {
     final ac = AppColors.formMasterAccent;
     final kids = <Widget>[];
     for (var i = 0; i < sizes.length; i++) {
-      final sel = st.imageGenSize == sizes[i];
+      final sel = st.imageGenSettings.imageGenSize == sizes[i];
       kids.add(
         GestureDetector(
-          onTap: () => st.setImageGenSize(sizes[i]),
+          onTap: () => st.imageGenSettings.setImageGenSize(sizes[i]),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(

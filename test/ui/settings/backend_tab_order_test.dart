@@ -18,19 +18,10 @@ import '../../golden/support/fakes_storage.dart';
 class _Store extends FakeStorageService {
   _Store() {
     _backend.initializeBase(null, notifyListeners);
+    _backend.setBackendType('openRouter');
+    _backend.setRemoteApiUrl(kNanoGptApiV1);
+    _backend.setRemoteModelName('moonshotai/kimi-k2.6:thinking');
   }
-
-  @override
-  String get backendType => 'openRouter';
-
-  @override
-  String get remoteApiUrl => kNanoGptApiV1;
-
-  @override
-  String get remoteApiKey => '';
-
-  @override
-  String get remoteModelName => 'moonshotai/kimi-k2.6:thinking';
 
   final BackendSettings _backend = BackendSettings();
 

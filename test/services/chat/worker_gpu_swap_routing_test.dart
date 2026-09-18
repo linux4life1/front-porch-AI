@@ -58,7 +58,7 @@ void main() {
           ..testLlmServiceOverride = mouth
           ..testWorkerLlmServiceOverride = worker;
     await storage.initialized;
-    await storage.setMaxLength(256);
+    await storage.generationSettings.setMaxLength(256);
   });
 
   tearDown(() async {
@@ -71,7 +71,7 @@ void main() {
     () async {
       chat.testLlmServiceOverride = null;
       chat.testWorkerLlmServiceOverride = null;
-      await storage.setBackendType('kobold');
+      await storage.backendSettings.setBackendType('kobold');
       await storage.setWorkerBackendType('omlx');
       await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
       await storage.setWorkerRemoteModelName('mlx-qwen');
@@ -102,7 +102,7 @@ void main() {
     () async {
       chat.testLlmServiceOverride = null;
       chat.testWorkerLlmServiceOverride = null;
-      await storage.setBackendType('kobold');
+      await storage.backendSettings.setBackendType('kobold');
       await storage.setWorkerBackendType('omlx');
       await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
       await storage.setWorkerRemoteModelName('mlx-qwen');
@@ -144,7 +144,7 @@ void main() {
     () async {
       chat.testLlmServiceOverride = null;
       chat.testWorkerLlmServiceOverride = null;
-      await storage.setBackendType('kobold');
+      await storage.backendSettings.setBackendType('kobold');
       await storage.setWorkerBackendType('omlx');
       await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
       await storage.setWorkerRemoteModelName('mlx-qwen');
@@ -193,7 +193,7 @@ void main() {
   test('mouth generate waits until a held occupancy restores', () async {
     chat.testLlmServiceOverride = null;
     chat.testWorkerLlmServiceOverride = null;
-    await storage.setBackendType('kobold');
+    await storage.backendSettings.setBackendType('kobold');
     await storage.setWorkerBackendType('omlx');
     await storage.setWorkerRemoteApiUrl(kOmlxApiV1);
     await storage.setWorkerRemoteModelName('mlx-qwen');

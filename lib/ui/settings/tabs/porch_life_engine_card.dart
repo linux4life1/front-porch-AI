@@ -54,7 +54,7 @@ class PorchLifeEngineCard extends StatelessWidget {
               'says which it is.',
           value: engineOn,
           onChanged: (v) {
-            storage.setRealismDefault(v);
+            storage.realismSettings.setRealismDefault(v);
             chat.setRealismEnabled(v);
           },
         ),
@@ -70,7 +70,7 @@ class PorchLifeEngineCard extends StatelessWidget {
               'The engine is what turns a need into a mood, so needs run '
               'with it or not at all. Individual chats can still switch '
               'them off in the sidebar.',
-          value: storage.needsSimDefault,
+          value: storage.realismSettings.needsSimDefault,
           onChanged: (v) {
             storage.realismSettings.setNeedsSimDefault(v);
             chat.setNeedsSimEnabled(v);

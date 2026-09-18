@@ -17,14 +17,14 @@ import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
 
 class _Store extends FakeStorageService {
-  _Store({this.backendType = 'openRouter', this.remoteApiUrl = kNanoGptApiV1}) {
+  _Store({
+    String backendType = 'openRouter',
+    String remoteApiUrl = kNanoGptApiV1,
+  }) {
     _backend.initializeBase(null, notifyListeners);
+    _backend.setBackendType(backendType);
+    _backend.setRemoteApiUrl(remoteApiUrl);
   }
-
-  @override
-  String backendType;
-  @override
-  String remoteApiUrl;
 
   final BackendSettings _backend = BackendSettings();
 

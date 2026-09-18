@@ -40,7 +40,7 @@ class ImageGenEnableSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<StorageService>(
       builder: (context, storage, _) {
-        final enabled = storage.imageGenEnabled;
+        final enabled = storage.imageGenSettings.imageGenEnabled;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -89,7 +89,8 @@ class ImageGenEnableSection extends StatelessWidget {
                       ),
                       Switch(
                         value: enabled,
-                        onChanged: (val) => storage.setImageGenEnabled(val),
+                        onChanged: (val) =>
+                            storage.imageGenSettings.setImageGenEnabled(val),
                         activeTrackColor: AppColors.presetColors[6],
                       ),
                     ],

@@ -31,7 +31,7 @@ extension TtsServiceStreamingAndHeadless on TtsService {
     Stream<String> sentenceStream, {
     String? voiceKey,
   }) async {
-    if (!_storageService.ttsEnabled) return;
+    if (!_storageService.ttsSettings.ttsEnabled) return;
 
     await stop();
 
@@ -50,7 +50,7 @@ extension TtsServiceStreamingAndHeadless on TtsService {
     // Resolve voice
     var voice = (voiceKey != null && voiceKey.isNotEmpty)
         ? voiceKey
-        : _storageService.ttsVoiceModel;
+        : _storageService.ttsSettings.ttsVoiceModel;
     if (voice.isEmpty) {
       print('TTS streaming: no voice configured');
       _lastError = 'Pick a voice in Settings → Text-to-Speech first.';
@@ -64,7 +64,7 @@ extension TtsServiceStreamingAndHeadless on TtsService {
       print(
         'TTS WARNING (streaming): Character voice "$voice" not found for Piper. Falling back.',
       );
-      voice = _storageService.ttsVoiceModel;
+      voice = _storageService.ttsSettings.ttsVoiceModel;
       if (voice.isEmpty) {
         bail();
         return;
@@ -78,7 +78,7 @@ extension TtsServiceStreamingAndHeadless on TtsService {
     }
 
     // Ensure Kokoro model is ready
-    if (_storageService.ttsEngine == 'kokoro') {
+    if (_storageService.ttsSettings.ttsEngine == 'kokoro') {
       final ready = await activeEngine.ensureModelReady(
         onProgress: (p) {
           _modelDownloadProgress = p;
@@ -100,7 +100,7 @@ extension TtsServiceStreamingAndHeadless on TtsService {
     _clearCache(); // no caching for streaming
 
     final engine = activeEngine;
-    final speed = _storageService.ttsSpeechRate;
+    final speed = _storageService.ttsSettings.ttsSpeechRate;
     final tempFiles = <File>[];
 
     // Shared queue between producer and consumer. Each entry carries the
@@ -109,14 +109,19 @@ extension TtsServiceStreamingAndHeadless on TtsService {
     // (the call overlay's live caption).
     final audioQueue = <(File, String)>[];
     bool producerDone = false;
-    int bufferTarget = _storageService.callBufferSentences.clamp(1, 10);
+    int bufferTarget = _storageService.sttSettings.callBufferSentences.clamp(
+      1,
+      10,
+    );
 
     try {
       var maxConcurrency = _isPiperEngine
           ? 1
-          : _storageService.ttsConcurrency.clamp(1, 8);
+          : _storageService.ttsSettings.ttsConcurrency.clamp(1, 8);
       // ElevenLabs: one at a time from the stream (already fast enough)
-      if (_storageService.ttsEngine == 'elevenlabs') maxConcurrency = 1;
+      if (_storageService.ttsSettings.ttsEngine == 'elevenlabs') {
+        maxConcurrency = 1;
+      }
 
       // ── Producer: fire off concurrent generation futures ──
       final orderedFutures = <Future<File?>>[];
@@ -253,11 +258,11 @@ extension TtsServiceStreamingAndHeadless on TtsService {
   /// Generate audio for the given text and return the WAV file without playing.
   /// Used by the web server to stream audio to the browser.
   Future<File?> generateAudioFile(String text, {String? voiceKey}) async {
-    if (!_storageService.ttsEnabled) return null;
+    if (!_storageService.ttsSettings.ttsEnabled) return null;
 
     var voice = (voiceKey != null && voiceKey.isNotEmpty)
         ? voiceKey
-        : _storageService.ttsVoiceModel;
+        : _storageService.ttsSettings.ttsVoiceModel;
     if (voice.isEmpty) return null;
 
     // Defensive mismatch protection (same as in speak())
@@ -265,7 +270,7 @@ extension TtsServiceStreamingAndHeadless on TtsService {
       print(
         'TTS WARNING (generateAudioFile): Character voice "$voice" not found for Piper. Falling back.',
       );
-      voice = _storageService.ttsVoiceModel;
+      voice = _storageService.ttsSettings.ttsVoiceModel;
       if (voice.isEmpty) return null;
     }
 
@@ -275,7 +280,7 @@ extension TtsServiceStreamingAndHeadless on TtsService {
     if (_isPiperEngine && !await _ensurePiperVoice(voice)) return null;
 
     try {
-      if (_storageService.ttsEngine == 'kokoro') {
+      if (_storageService.ttsSettings.ttsEngine == 'kokoro') {
         final ready = await activeEngine.ensureModelReady(onProgress: (_) {});
         if (!ready) return null;
 
@@ -287,14 +292,14 @@ extension TtsServiceStreamingAndHeadless on TtsService {
       final sentences = _splitSentences(sanitized);
       final wavFiles = <File>[];
 
-      if (_storageService.ttsEngine == 'elevenlabs') {
+      if (_storageService.ttsSettings.ttsEngine == 'elevenlabs') {
         // ElevenLabs: send full text as one request for natural intonation
         final engine = activeEngine;
-        final speed = _storageService.ttsSpeechRate;
+        final speed = _storageService.ttsSettings.ttsSpeechRate;
         final wav = await engine.generateAudio(sanitized, voice, speed);
         if (wav != null) wavFiles.add(wav);
       } else if (_isPiperEngine) {
-        final speed = _storageService.ttsSpeechRate;
+        final speed = _storageService.ttsSettings.ttsSpeechRate;
         for (int i = 0; i < sentences.length; i++) {
           final wav = await _piperGenerateWav(voice, sentences[i], i, speed);
           if (wav == null) break;
@@ -302,8 +307,8 @@ extension TtsServiceStreamingAndHeadless on TtsService {
         }
       } else {
         final engine = activeEngine;
-        final speed = _storageService.ttsSpeechRate;
-        final maxConcurrency = _storageService.ttsConcurrency;
+        final speed = _storageService.ttsSettings.ttsSpeechRate;
+        final maxConcurrency = _storageService.ttsSettings.ttsConcurrency;
 
         for (
           int batchStart = 0;

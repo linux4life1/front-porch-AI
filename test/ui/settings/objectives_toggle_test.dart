@@ -56,81 +56,6 @@ class _ObjStorage extends FakeStorageService {
 
   @override
   RealismSettings get realismSettings => _realism;
-
-  @override
-  bool get realismDefault => _realism.realismDefault;
-  @override
-  Future<void> setRealismDefault(bool v) => _realism.setRealismDefault(v);
-
-  @override
-  bool get objectivesEnabled => _realism.objectivesEnabled;
-  @override
-  Future<void> setObjectivesEnabled(bool v) =>
-      _realism.setObjectivesEnabled(v);
-
-  @override
-  bool get passageOfTimeDefault => _realism.passageOfTimeDefault;
-  @override
-  Future<void> setPassageOfTimeDefault(bool v) =>
-      _realism.setPassageOfTimeDefault(v);
-
-  @override
-  bool get standaloneClockEnabled => _realism.standaloneClockEnabled;
-  @override
-  Future<void> setStandaloneClockEnabled(bool v) =>
-      _realism.setStandaloneClockEnabled(v);
-
-  @override
-  bool get weatherEnabled => _realism.weatherEnabled;
-  @override
-  Future<void> setWeatherEnabled(bool v) => _realism.setWeatherEnabled(v);
-
-  @override
-  bool get weatherFahrenheit => _realism.weatherFahrenheit;
-  @override
-  Future<void> setWeatherFahrenheit(bool v) =>
-      _realism.setWeatherFahrenheit(v);
-
-  @override
-  bool get nsfwCooldownDefault => _realism.nsfwCooldownDefault;
-  @override
-  Future<void> setNsfwCooldownDefault(bool v) =>
-      _realism.setNsfwCooldownDefault(v);
-
-  @override
-  bool get needsSimDefault => _realism.needsSimDefault;
-
-  @override
-  bool get dreamsEnabled => _realism.dreamsEnabled;
-  @override
-  Future<void> setDreamsEnabled(bool v) => _realism.setDreamsEnabled(v);
-
-  @override
-  bool get absenceBannerEnabled => _realism.absenceBannerEnabled;
-  @override
-  Future<void> setAbsenceBannerEnabled(bool v) =>
-      _realism.setAbsenceBannerEnabled(v);
-
-  @override
-  bool get absenceAckEnabled => _realism.absenceAckEnabled;
-  @override
-  Future<void> setAbsenceAckEnabled(bool v) =>
-      _realism.setAbsenceAckEnabled(v);
-
-  @override
-  int get absenceThresholdHours => _realism.absenceThresholdHours;
-  @override
-  Future<void> setAbsenceThresholdHours(int v) =>
-      _realism.setAbsenceThresholdHours(v);
-
-  bool _journalEnabled = true;
-  @override
-  bool get journalEnabled => _journalEnabled;
-  @override
-  Future<void> setJournalEnabled(bool v) async {
-    _journalEnabled = v;
-    notifyListeners();
-  }
 }
 
 void main() {
@@ -177,9 +102,10 @@ void main() {
     expect(label, findsOneWidget);
 
     expect(
-      storage.objectivesEnabled,
+      storage.realismSettings.objectivesEnabled,
       isTrue,
-      reason: 'objectives ran unconditionally before the switch existed, so '
+      reason:
+          'objectives ran unconditionally before the switch existed, so '
           'the default must be ON or the update would quietly stop quests '
           'for everyone',
     );
@@ -187,7 +113,10 @@ void main() {
     // "works alone" is the ruling: objectives depend on nothing but their own
     // eval cost — not the engine, not the Journal.
     expect(
-      find.descendant(of: rowFor('Objectives'), matching: find.text('works alone')),
+      find.descendant(
+        of: rowFor('Objectives'),
+        matching: find.text('works alone'),
+      ),
       findsOneWidget,
       reason: 'Objectives depends on nothing else, and the chip must say so',
     );
@@ -208,10 +137,14 @@ void main() {
     expect(
       sw.onChanged,
       isNotNull,
-      reason: 'nothing gates Objectives, so its switch is always live — '
+      reason:
+          'nothing gates Objectives, so its switch is always live — '
           'including with the Realism Engine off, which is the default',
     );
-    expect(storage.realismDefault, isFalse); // engine off, and it did not matter
+    expect(
+      storage.realismSettings.realismDefault,
+      isFalse,
+    ); // engine off, and it did not matter
   });
 
   testWidgets('Ambitions now hangs off Objectives, not the engine', (
@@ -232,7 +165,8 @@ void main() {
         matching: find.text('needs Objectives'),
       ),
       findsOneWidget,
-      reason: 'finishing a quest is the ONLY thing that moves ambition '
+      reason:
+          'finishing a quest is the ONLY thing that moves ambition '
           'progress, so Objectives is the honest dependency',
     );
 
@@ -241,7 +175,10 @@ void main() {
       tester
           .widget<Switch>(
             find
-                .descendant(of: rowFor('Ambitions'), matching: find.byType(Switch))
+                .descendant(
+                  of: rowFor('Ambitions'),
+                  matching: find.byType(Switch),
+                )
                 .first,
           )
           .onChanged,
@@ -250,7 +187,7 @@ void main() {
 
     // Turn Objectives off and the dependant gates, exactly as the tab's
     // design language promises for an unmet requirement.
-    await storage.setObjectivesEnabled(false);
+    await storage.realismSettings.setObjectivesEnabled(false);
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -259,12 +196,16 @@ void main() {
       tester
           .widget<Switch>(
             find
-                .descendant(of: rowFor('Ambitions'), matching: find.byType(Switch))
+                .descendant(
+                  of: rowFor('Ambitions'),
+                  matching: find.byType(Switch),
+                )
                 .first,
           )
           .onChanged,
       isNull,
-      reason: 'with Objectives off nothing can move ambition progress, so the '
+      reason:
+          'with Objectives off nothing can move ambition progress, so the '
           'row must gate rather than pretend to work',
     );
   });

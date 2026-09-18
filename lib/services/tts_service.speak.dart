@@ -37,7 +37,7 @@ extension TtsServiceSpeak on TtsService {
   /// Generates audio for the entire message first (buffered), then plays
   /// it back seamlessly. Shows generation progress.
   Future<void> speak(String text, {String? voiceKey, String? messageId}) async {
-    if (!_storageService.ttsEnabled) {
+    if (!_storageService.ttsSettings.ttsEnabled) {
       print('TTS: disabled, skipping');
       return;
     }
@@ -59,7 +59,7 @@ extension TtsServiceSpeak on TtsService {
     // Settings and it kept talking in the old one" is otherwise invisible.
     var voice = (voiceKey != null && voiceKey.isNotEmpty)
         ? voiceKey
-        : _storageService.ttsVoiceModel;
+        : _storageService.ttsSettings.ttsVoiceModel;
     if (voice.isEmpty) {
       // Reachable right after an engine switch (the old engine's voice id
       // cannot carry over, so it is cleared). Returning in silence made TTS
@@ -71,10 +71,10 @@ extension TtsServiceSpeak on TtsService {
     }
     if (voiceKey != null &&
         voiceKey.isNotEmpty &&
-        voiceKey != _storageService.ttsVoiceModel) {
+        voiceKey != _storageService.ttsSettings.ttsVoiceModel) {
       print(
         'TTS: using this character\'s assigned voice "$voiceKey" instead of '
-        'the global voice "${_storageService.ttsVoiceModel}".',
+        'the global voice "${_storageService.ttsSettings.ttsVoiceModel}".',
       );
     }
 
@@ -87,7 +87,7 @@ extension TtsServiceSpeak on TtsService {
         'Falling back to global Piper voice. (This usually means a character '
         'was assigned a Kokoro voice while Piper was selected.)',
       );
-      voice = _storageService.ttsVoiceModel;
+      voice = _storageService.ttsSettings.ttsVoiceModel;
       if (voice.isEmpty) return;
     }
 
@@ -97,7 +97,7 @@ extension TtsServiceSpeak on TtsService {
       return;
     }
 
-    final speed = _storageService.ttsSpeechRate;
+    final speed = _storageService.ttsSettings.ttsSpeechRate;
 
     // Check cache — replay instantly if same message & same content
     final textHash = sanitized.hashCode;
@@ -105,7 +105,7 @@ extension TtsServiceSpeak on TtsService {
         messageId == _cachedMessageId &&
         textHash == _cachedTextHash &&
         voice == _cachedVoice &&
-        _storageService.ttsEngine == _cachedEngine &&
+        _storageService.ttsSettings.ttsEngine == _cachedEngine &&
         speed == _cachedSpeed &&
         _cachedWav != null &&
         _cachedWav!.existsSync()) {
@@ -134,7 +134,7 @@ extension TtsServiceSpeak on TtsService {
     }
 
     print(
-      'TTS: engine=${_storageService.ttsEngine}, voice=$voice, text="${sanitized.substring(0, sanitized.length.clamp(0, 60))}..."',
+      'TTS: engine=${_storageService.ttsSettings.ttsEngine}, voice=$voice, text="${sanitized.substring(0, sanitized.length.clamp(0, 60))}..."',
     );
     _isSpeaking = true;
     _isGenerating = true;
@@ -144,7 +144,7 @@ extension TtsServiceSpeak on TtsService {
 
     try {
       // For Kokoro, ensure model is downloaded
-      if (_storageService.ttsEngine == 'kokoro') {
+      if (_storageService.ttsSettings.ttsEngine == 'kokoro') {
         final ready = await activeEngine.ensureModelReady(
           onProgress: (p) {
             _modelDownloadProgress = p;
@@ -164,7 +164,7 @@ extension TtsServiceSpeak on TtsService {
         }
       }
 
-      final bool isKokoro = _storageService.ttsEngine == 'kokoro';
+      final bool isKokoro = _storageService.ttsSettings.ttsEngine == 'kokoro';
       final bool isPiper = _isPiperEngine;
 
       // Unified modern path for Kokoro (persistent) and Piper (one-shot).
@@ -173,9 +173,9 @@ extension TtsServiceSpeak on TtsService {
       // Piper remains strictly one-shot under the hood (as the binary is designed).
       if (isKokoro || isPiper) {
         final engineName = isPiper ? 'Piper' : 'Kokoro';
-        final modeLabel = _storageService.ttsNarrateQuotedOnly
+        final modeLabel = _storageService.ttsSettings.ttsNarrateQuotedOnly
             ? 'Only Quotes'
-            : _storageService.ttsIgnoreAsterisks
+            : _storageService.ttsSettings.ttsIgnoreAsterisks
             ? 'Ignore Asterisks'
             : 'Verbatim';
         kDebugPrint(
@@ -198,8 +198,8 @@ extension TtsServiceSpeak on TtsService {
           }
 
           final bool readEverythingMode =
-              !_storageService.ttsIgnoreAsterisks &&
-              !_storageService.ttsNarrateQuotedOnly;
+              !_storageService.ttsSettings.ttsIgnoreAsterisks &&
+              !_storageService.ttsSettings.ttsNarrateQuotedOnly;
 
           final List<KokoroChunk> chunks;
           if (readEverythingMode) {
@@ -228,7 +228,12 @@ extension TtsServiceSpeak on TtsService {
           for (int i = 0; i < total; i++) {
             if (!mine()) break;
 
-            final wav = await _piperGenerateWav(voice, chunks[i].text, i, speed);
+            final wav = await _piperGenerateWav(
+              voice,
+              chunks[i].text,
+              i,
+              speed,
+            );
             if (wav != null) {
               generatedWavs.add(wav);
             }
@@ -284,7 +289,7 @@ extension TtsServiceSpeak on TtsService {
             _cachedMessageId = messageId;
             _cachedTextHash = sanitized.hashCode;
             _cachedVoice = voice;
-            _cachedEngine = _storageService.ttsEngine;
+            _cachedEngine = _storageService.ttsSettings.ttsEngine;
             _cachedSpeed = speed;
 
             await _playWavFile(finalAudio);
@@ -304,9 +309,9 @@ extension TtsServiceSpeak on TtsService {
       // ElevenLabs is fast enough to process full text in one request —
       // skip sentence splitting for better intonation and fewer API calls.
       // (Kokoro and Piper returned above; only the cloud engines get here.)
-      if (_storageService.ttsEngine == 'elevenlabs') {
+      if (_storageService.ttsSettings.ttsEngine == 'elevenlabs') {
         final engine = activeEngine;
-        final speed = _storageService.ttsSpeechRate;
+        final speed = _storageService.ttsSettings.ttsSpeechRate;
         _generationProgress = 0.5;
         _notify();
         final wav = await engine.generateAudio(sanitized, voice, speed);
@@ -324,11 +329,11 @@ extension TtsServiceSpeak on TtsService {
       } else {
         // Parallel for Kokoro / OpenAI — all results go through the OrderedAudioCollector
         final engine = activeEngine;
-        final speed = _storageService.ttsSpeechRate;
-        final maxConcurrency = _storageService.ttsConcurrency;
+        final speed = _storageService.ttsSettings.ttsSpeechRate;
+        final maxConcurrency = _storageService.ttsSettings.ttsConcurrency;
 
         _audioCollector = OrderedAudioCollector(
-          maxLookahead: _storageService.ttsAudioLookahead,
+          maxLookahead: _storageService.ttsSettings.ttsAudioLookahead,
         );
         _audioCollector!.reset(); // Ensure clean state for new utterance
 
@@ -417,7 +422,7 @@ extension TtsServiceSpeak on TtsService {
         _cachedMessageId = messageId;
         _cachedTextHash = sanitized.hashCode;
         _cachedVoice = voice;
-        _cachedEngine = _storageService.ttsEngine;
+        _cachedEngine = _storageService.ttsSettings.ttsEngine;
         _cachedSpeed = speed;
         await _playWavFile(audioFile);
         // Don't delete — it's cached now

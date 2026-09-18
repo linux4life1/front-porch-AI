@@ -50,9 +50,10 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
         final modelManager = Provider.of<ModelManager>(context, listen: false);
         modelManager.refreshModels();
         if (creatorState.selectedLocalModelPath.isEmpty &&
-            storage.lastUsedModelPath != null &&
-            storage.lastUsedModelPath!.isNotEmpty) {
-          creatorState.selectedLocalModelPath = storage.lastUsedModelPath!;
+            storage.backendSettings.lastUsedModelPath != null &&
+            storage.backendSettings.lastUsedModelPath!.isNotEmpty) {
+          creatorState.selectedLocalModelPath =
+              storage.backendSettings.lastUsedModelPath!;
         }
         final llm = Provider.of<LLMProvider>(context, listen: false);
         if (!llm.hasManagedProcess) {

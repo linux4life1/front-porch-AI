@@ -54,9 +54,9 @@ void main() {
     await tester.runAsync(() async {
       storage = StorageService();
       await storage.initialized;
-      await storage.setBackendType('openRouter');
-      await storage.setRemoteApiUrl(kOpenRouterApiV1);
-      await storage.setRemoteApiKey('sk-or-test');
+      await storage.backendSettings.setBackendType('openRouter');
+      await storage.backendSettings.setRemoteApiUrl(kOpenRouterApiV1);
+      await storage.backendSettings.setRemoteApiKey('sk-or-test');
     });
     addTearDown(storage.dispose);
 
@@ -89,6 +89,6 @@ void main() {
     });
     await tester.pump();
 
-    expect(storage.remoteApiUrl, kNanoGptApiV1);
+    expect(storage.backendSettings.remoteApiUrl, kNanoGptApiV1);
   });
 }

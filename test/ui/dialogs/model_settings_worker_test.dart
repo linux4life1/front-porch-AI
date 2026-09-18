@@ -19,12 +19,9 @@ import '../../golden/support/fakes_storage.dart';
 class _Store extends FakeStorageService {
   _Store() {
     _backend.initializeBase(null, notifyListeners);
+    _backend.setBackendType('openRouter');
+    _backend.setRemoteApiUrl(kNanoGptApiV1);
   }
-
-  @override
-  String get backendType => 'openRouter';
-  @override
-  String get remoteApiUrl => kNanoGptApiV1;
 
   final BackendSettings _backend = BackendSettings();
 

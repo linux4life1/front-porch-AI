@@ -87,10 +87,8 @@ class _FakeStorageForExpression implements StorageService {
   _FakeStorageForExpression({required this.mode});
 
   @override
-  String get expressionClassificationMode => mode;
-
-  @override
-  ExpressionSettings get expressionSettings => _FakeExpressionSettings(mode: mode);
+  ExpressionSettings get expressionSettings =>
+      _FakeExpressionSettings(mode: mode);
 
   // Unused stubs (satisfy interface for test factory only)
   @override
@@ -290,9 +288,7 @@ void main() {
         );
 
         // A new assistant reply is a new turn: reroll avoids last reply's pick.
-        live.add(
-          ChatMessage(text: 'next', sender: 'char', isUser: false),
-        );
+        live.add(ChatMessage(text: 'next', sender: 'char', isUser: false));
         final m2 = svc.resolveExpressionAvatar(card, rerollIfSame: true);
         expect(m2?.id, anyOf('a2', 'a3'));
         expect(m2?.id, isNot(m1?.id));

@@ -293,7 +293,10 @@ void main() {
         findsOneWidget,
         reason: 'without this the option reads as free and local',
       );
-      expect(find.textContaining('Bills your Remote API account'), findsNothing);
+      expect(
+        find.textContaining('Bills your Remote API account'),
+        findsNothing,
+      );
     });
 
     testWidgets('remote panel names the billing account when a key is set', (
@@ -328,183 +331,58 @@ void main() {
         findsOneWidget,
         reason: 'a configured account is a paid account — say whose',
       );
-      expect(
-        find.textContaining('No Remote API key configured'),
-        findsNothing,
-      );
+      expect(find.textContaining('No Remote API key configured'), findsNothing);
     });
   });
 }
 
-// Fakes for tab (explicit overrides + recording for key paths).
+// Fakes for tab. Callers read imageGenSettings / backendSettings.
 class _TabFakeStorage extends ChangeNotifier implements StorageService {
-  _TabFakeStorage({this.backend = 'remote'});
-  final String backend;
+  _TabFakeStorage({String backend = 'remote'}) {
+    imageGenSettings.initializeBase(null, notifyListeners);
+    imageGenSettings.setImageGenEnabled(false);
+    imageGenSettings.setImageGenBackend(backend);
+    imageGenSettings.setImageGenNegativePrompt('blurry');
+    imageGenSettings.setImageGenSteps(20);
+    imageGenSettings.setImageGenCfgScale(7.0);
+  }
 
-  // Real settings object (null prefs = memory-only): the remote panel reads
-  // remoteApiKeyFor(remoteApiUrl) for its no-key warning vs billing note
-  // (2026-08-13 — the "looked free" report). Default: no key, so the
-  // long-standing tests exercise the warning state.
   @override
   final BackendSettings backendSettings = BackendSettings();
+  final _TabImageGenSettings _image = _TabImageGenSettings();
+  @override
+  ImageGenSettings get imageGenSettings => _image;
 
+  String? get lastSetLora => _image.lastSetLora;
+  bool? get lastSetTeaCache => _image.lastSetTeaCache;
+  double? get lastSetShift => _image.lastSetShift;
+
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class _TabImageGenSettings extends ImageGenSettings {
   String? lastSetLora;
   bool? lastSetTeaCache;
   double? lastSetShift;
 
   @override
-  bool get imageGenEnabled => false;
-  @override
-  Future<void> setImageGenEnabled(bool v) async {
-    notifyListeners();
-  }
-
-  @override
-  String get imageGenBackend => backend;
-  @override
-  Future<void> setImageGenBackend(String v) async {
-    notifyListeners();
-  }
-
-  @override
-  String get localImageGenUrl => 'http://127.0.0.1:7860';
-  @override
-  Future<void> setLocalImageGenUrl(String v) async {}
-
-  @override
-  String get comfyUiUrl => 'http://127.0.0.1:8188';
-  @override
-  Future<void> setComfyUiUrl(String v) async {}
-
-  @override
-  bool get imageGenPromptReview => true;
-  @override
-  Future<void> setImageGenPromptReview(bool v) async {}
-
-  @override
-  String get drawThingsGrpcHost => '127.0.0.1';
-  @override
-  Future<void> setDrawThingsGrpcHost(String v) async {}
-
-  @override
-  int get drawThingsGrpcPort => 7859;
-  @override
-  Future<void> setDrawThingsGrpcPort(int v) async {}
-
-  @override
-  String get imageGenModel => '';
-  @override
-  Future<void> setImageGenModel(String v) async {}
-
-  @override
-  String get imageGenSize => '1024x1024';
-  @override
-  Future<void> setImageGenSize(String v) async {}
-
-  @override
-  String get imageGenNegativePrompt => 'blurry';
-  @override
-  Future<void> setImageGenNegativePrompt(String v) async {}
-
-  @override
-  String get imageGenStyle => 'photorealistic';
-  @override
-  Future<void> setImageGenStyle(String v) async {}
-
-  @override
-  String get imageGenPromptParadigm => 'natural';
-  @override
-  Future<void> setImageGenPromptParadigm(String v) async {}
-
-  @override
-  String get imageGenLora => '';
-  @override
   Future<void> setImageGenLora(String v) async {
     lastSetLora = v;
-    notifyListeners();
+    await super.setImageGenLora(v);
   }
 
-  @override
-  double get imageGenLoraWeight => 0.8;
-  @override
-  Future<void> setImageGenLoraWeight(double v) async {}
-
-  @override
-  int get imageGenSteps => 20;
-  @override
-  Future<void> setImageGenSteps(int v) async {}
-
-  @override
-  double get imageGenCfgScale => 7.0;
-  @override
-  Future<void> setImageGenCfgScale(double v) async {}
-
-  @override
-  String get imageGenSampler => 'Euler a';
-  @override
-  Future<void> setImageGenSampler(String v) async {}
-
-  @override
-  String get imageGenScheduler => 'Automatic';
-  @override
-  Future<void> setImageGenScheduler(String v) async {}
-
-  @override
-  int get imageGenSeed => -1;
-  @override
-  Future<void> setImageGenSeed(int v) async {}
-
-  @override
-  int get drawThingsSampler => 16;
-  @override
-  Future<void> setDrawThingsSampler(int v) async {}
-
-  @override
-  double get drawThingsShift => 3.0;
-  @override
-  Future<void> setDrawThingsShift(double v) async {
-    lastSetShift = v;
-    notifyListeners();
-  }
-
-  @override
-  int get drawThingsSeedMode => 2;
-  @override
-  Future<void> setDrawThingsSeedMode(int v) async {}
-
-  @override
-  bool get drawThingsTeaCache => false;
   @override
   Future<void> setDrawThingsTeaCache(bool v) async {
     lastSetTeaCache = v;
-    notifyListeners();
+    await super.setDrawThingsTeaCache(v);
   }
 
   @override
-  bool get drawThingsCfgZeroStar => false;
-  @override
-  Future<void> setDrawThingsCfgZeroStar(bool v) async {}
-
-  @override
-  ImageGenSettings get imageGenSettings => _TabFakeImageGenSettings();
-  @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
-}
-
-class _TabFakeImageGenSettings implements ImageGenSettings {
-  @override
-  String get imageGenPromptParadigm => 'natural';
-  // ModelSlotDropdown reads both slots during build (create/edit split).
-  @override
-  String get imageGenModel => '';
-  @override
-  String get imageGenEditModel => '';
-  @override
-  Future<void> setImageGenModel(String v) async {}
-  @override
-  Future<void> setImageGenEditModel(String v) async {}
-  @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+  Future<void> setDrawThingsShift(double v) async {
+    lastSetShift = v;
+    await super.setDrawThingsShift(v);
+  }
 }
 
 class _TabFakeImageGenService extends ChangeNotifier

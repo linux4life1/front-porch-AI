@@ -111,8 +111,8 @@ class AwayThreshold extends StatelessWidget {
         ),
         const Spacer(),
         DropdownButton<int>(
-          value: known.contains(storage.absenceThresholdHours)
-              ? storage.absenceThresholdHours
+          value: known.contains(storage.realismSettings.absenceThresholdHours)
+              ? storage.realismSettings.absenceThresholdHours
               : 24,
           dropdownColor: AppColors.cardOf(context),
           style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
@@ -123,7 +123,7 @@ class AwayThreshold extends StatelessWidget {
             DropdownMenuItem(value: 168, child: Text('a week')),
           ],
           onChanged: (v) {
-            if (v != null) storage.setAbsenceThresholdHours(v);
+            if (v != null) storage.realismSettings.setAbsenceThresholdHours(v);
           },
         ),
       ],
