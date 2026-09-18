@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 chat_service_pockets: pass off intro and persist (622 → 359)
+- **Why:** the post-gen eval and stamps lived next to the sidebar intro queue and persist helpers.
+- **What:** `chat_service_pockets.dart` keeps intro queue, add/remove, seed, and rewind restore (359). `chat_service_pockets_pass.dart` is `_runPocketsPass` (287). Continue `asContinuation: true` still keeps the turn's `pockets_before`.
+- **Verified:** analyzer clean.
+- **Files:** pockets + pockets_pass; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 user_persona_service: model and import off the store (629 → 254)
 - **Why:** the UserPersona record and file import/export lived in the same ChangeNotifier as load/CRUD.
 - **What:** `user_persona_service.dart` keeps load, create/update/delete, and active vs default (254). `user_persona_service.model.dart` is the record (87). `user_persona_service.import.dart` is file import/export (353). Class forwarders keep FakeUserPersonaService on the type. `notify()` is the extension door.
