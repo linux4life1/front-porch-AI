@@ -1,3 +1,10 @@
+## 2026-09-18 — residual memory_service: window embed off retrieve (505 → 336)
+- **Why:** the sliding-window insert body lived next to retrieve scoring after the first retrieve extract.
+- **What:** `memory_service.dart` keeps retrieve, embedText, cosine, and the class lock wrapper (336). `memory_service_embed.dart` is `_embedMessageWindowBody` (194). `notify()` is the extension door. Think-strip in `_cleanForEmbedding` is untouched.
+- **Verified:** analyzer clean.
+- **Files:** memory_service + memory_service_embed
+- **Commit:** this tip
+
 ## 2026-09-18 — residual chat_facade: state payload off send-load (508 → 319)
 - **Why:** the full `/api/chat/state` map lived next to send, load, continue, and regen.
 - **What:** `chat_facade.dart` keeps send/load and Continue/regen (319). `chat_facade_state.dart` is `state()` (212). History stays on its existing part. Continue still does not tick; it only forwards.
