@@ -82,7 +82,8 @@
 > | S2 chat_service_chat_package.dart | done | `refactor(chat): split fpchat import off export` |
 > | S2 styled_text_controller.dart | done | `refactor(ui): split tokenizer and presets off the styled controller` |
 > | S2 character_card_grid.dart | done | `refactor(ui): split grid cells off the home toolbar chrome` |
-> | S2 remaining / S3 | in progress | — |
+> | S2 world_facade.dart | done | `refactor(web): split world and lorebook import off CRUD` |
+> | S2 remaining / S3 | done | last S2 row was world_facade — leftover SEVERAL: world_repository / memory_service (docs + forwarders; left) |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
 > what to look at, wrong about two conclusions):

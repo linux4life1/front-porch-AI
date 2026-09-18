@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 world_facade: import off CRUD (520 → 386)
+- **Why:** world/lorebook import lived next to list/save/delete and chat-places.
+- **What:** `world_facade.dart` keeps CRUD, export, and chat-places (386). `world_facade.import.dart` is importWorld + importLorebook (139). Public extension so web routes still call `facade.importWorld`.
+- **Verified:** analyzer clean.
+- **Files:** world_facade + world_facade.import
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 character_card_grid: cells off toolbar chrome (520 → 412)
 - **Why:** folder/group/character cells lived in the same widget as toolbar chrome.
 - **What:** `character_card_grid.dart` keeps SearchScope, drag-hold delay, and toolbar chrome (412). `character_card_grid.grid.dart` is `_buildGrid` (132).
