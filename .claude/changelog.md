@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 group_member_card: menus and views off the shell (727 → 390)
+- **Why:** the sidebar group card inlined the Edit Group menu plus the expanded and compact bodies.
+- **What:** `group_member_card.dart` keeps resolve, the header, and the shell (390). `group_member_card_menu.dart` is the header right-click Edit Group menu (60). `group_member_card_views.dart` is expanded 1:1-parity and compact mini-state (411). `NeedsGrid` stays the shared widget. `objectivesActive` stays the live AND.
+- **Verified:** analyzer clean. v2 presence "Away dims the compact card" golden green.
+- **Files:** `lib/ui/widgets/group_member_card.dart` + `_menu` + `_views`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 update_service: download and install off check (735 → 455)
 - **Why:** GitHub check, asset download, and platform install lived in one 735-line class.
 - **What:** `update_service.dart` keeps fields, `checkForUpdate`, version compare, `selectTargetRelease`, and `validateInstallerDownload` (455). `update_service_download.dart` is the temp-file download (103). `update_service_install.dart` is installNow/OnClose plus Windows/Linux/macOS replace (239). Class forwarders stay for download/install. `notify()` is the extension door. Statics stay on the class.

@@ -48,6 +48,7 @@
 > | S2 chat_service_session_load.dart | done | `refactor(chat): split session hydrate off last-session and the list` |
 > | S2 chat_service_objectives.dart | done | `refactor(chat): split objective tasks and completion off inject` |
 > | S2 update_service.dart | done | `refactor(update): split download and install off the GitHub check` |
+> | S2 group_member_card.dart | done | `refactor(ui): split group-member menus and views off the card` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
