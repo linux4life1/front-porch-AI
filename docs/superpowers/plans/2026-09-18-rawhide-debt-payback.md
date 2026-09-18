@@ -20,6 +20,8 @@
 > | S1.1 chat tools facade | done | `refactor(web): split the chat tools facade by tool domain` |
 > | S1.2 stoop upload wizard | done | `refactor(stoop): split the share wizard into chrome, steps, and publishing` |
 > | S1.3 group-create wizard | done | `refactor(ui): split group-create into roster, generate, and commit` |
+> | S1.4 creator state | done | `refactor(creator): split prefs and model loading off the field bag` |
+> | S1.8 realism form | done | `refactor(ui): split the Realism form into engine, porch, and controls` |
 > | S1.6 stoop comments | done | `refactor(stoop): split card discussion into actions and views` |
 > | S1.9 hardware detection | done | `refactor(hardware): split detection by platform` |
 > | S1.14 pockets | done | `refactor(pockets): separate the record, the grammar, the matching, the applier` |

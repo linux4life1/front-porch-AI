@@ -1,3 +1,17 @@
+## 2026-09-18 — S1.8: Realism form split into engine, porch, and controls (963 → 298)
+- **Why:** one StatelessWidget built the engine master switch, bond/emotion/verifier, time, Chaos, and identity chips in a single 545-line `build`.
+- **What:** the shell keeps the constructor, the public `buildToggleRow` (needs_form_section and the edit dialog call `RealismFormSection.buildToggleRow` — that cannot become an extension static), and a four-line column that spreads the parts. `.engine` is the master switch plus the fields that hide when the engine is off (376). `.porch` is time, Chaos-when-off, and identity/wardrobe (204). `.controls` is labels, colours, section header, slider row (163). Child order is unchanged so Porch Life still renders with the engine off.
+- **Verified:** porch-life-ungated, relationship padding, caret, edit-scroll, chaos global toggle, creator realism-step (12 tests) green. Analyzer clean.
+- **Files:** `lib/ui/widgets/realism_form_section.dart` + 3 new part files
+- **Commit:** this tip
+
+## 2026-09-18 — S1.4: creator state split into prefs and model loading (987 → 444)
+- **Why:** the wizard's field bag also held SharedPreferences load/save/reset and the setup-step model catalog / Kobold reload.
+- **What:** `creator_state.dart` keeps fields, step index, dispose, and `setStep` (444). `.prefs` is load / save / reset / clear-after-save (389). `.models` is abort, catalog, local scan, and Kobold reload, plus the existing `scanKcppsPresets` helper (204). `CreatorEngine` is untouched — it already lives in `creator_state_engine.dart`. Pref keys stay on the class; the prefs part qualifies them (`CreatorState._prefName`) because extensions cannot see those statics unqualified.
+- **Verified:** creator modes / persist / nav-lock / lore-and-concept (10 tests) green, including `CreatorEngine.generateFromMode`. Analyzer clean.
+- **Files:** `lib/ui/character_creator/creator_state.dart` + 2 new part files
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.3: group-create wizard shell split (980 → 287)
 - **Why:** step bodies were already parts; the shell still held roster mutations, scenario/first-message generation, and the persist path.
 - **What:** `create_group_chat_page.dart` keeps fields, nav, snack, and `build` (287). `.roster` is add/remove/reorder/voice/seed (155). `.generate` is the two LLM fills plus the dynamics context they take (234). `.commit` is `_createGroup` (332). Lore entry + world-toggle helpers moved into the existing lore step part (the UI that calls them) instead of a 60-line fourth file. Wizard chrome (`_currentStep`, `AnimatedSwitcher`, top-bar dots) is untouched. `setState` in the new parts goes through the existing `rebuildState` bridge.
