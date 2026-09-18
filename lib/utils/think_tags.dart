@@ -42,12 +42,22 @@ String closeOpenThink(String text) {
   return text;
 }
 
-/// Mouth speech after PRE-GEN attach. A Qwen-class stream that dumped the
-/// whole reply into `reasoning_content` arrives as a think-only body;
-/// [ChatMessage.displayText] then strips it to an empty bubble and TTS
-/// never starts. Lift that body so a successful pre-eval still speaks.
+/// Mouth speech after PRE-GEN attach.
+///
+/// Two cases, do not collapse them:
+/// * Closed think-only (`<think>…</think>` and nothing visible) — Qwen-class
+///   `reasoning_content` parked a finished line in think. Lift that body
+///   so the bubble speaks (live Flora poke).
+/// * Stream still inside an open `<think>` — backend cut mid-thought.
+///   Salvage the closer and keep the tags; do not promote. The Thought
+///   chip stays, display stays empty, stored text ends with `</think>`.
 String resolveMouthSpeech(String raw) {
   final closed = closeOpenThink(raw);
+  final source = canonicalizeReasoning(raw);
+  final lower = source.toLowerCase();
+  if (lower.lastIndexOf('<think>') > lower.lastIndexOf('</think>')) {
+    return closed;
+  }
   final parts = splitMessageForEdit(closed);
   if (parts.body.trim().isNotEmpty) return closed;
   final lifted = parts.thinking.trim();

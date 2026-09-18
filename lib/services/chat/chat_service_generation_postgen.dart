@@ -113,8 +113,8 @@ extension ChatServiceGenerationPostGen on ChatService {
           ? glueContinueText(prefix, newPart)
           : newPart.trim();
 
-      // Close a dangling think, then lift a think-only body so PRE-GEN
-      // attach is not an empty card (Qwen-class reasoning_content).
+      // Close a dangling think. Lift only a *closed* think-only body
+      // (Qwen reasoning_content). An unclosed cut-off stays tagged.
       finalResponse = resolveMouthSpeech(finalResponse);
 
       // ── Output Sanitizer ──────────────────────────────────────────────

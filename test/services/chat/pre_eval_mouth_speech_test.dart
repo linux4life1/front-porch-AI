@@ -15,6 +15,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void _setupPathProviderMock() {
@@ -112,6 +113,26 @@ void main() {
       await Future<void>.delayed(Duration.zero);
     }
   }
+
+  test('closed think-only lifts; unclosed think is salvaged not lifted', () {
+    expect(
+      resolveMouthSpeech(_kThinkOnlyMouth),
+      'She looks down the porch steps.',
+    );
+    const cutOff =
+        '<think>\nWondering how to phrase this, but the connection drops here...';
+    final salvaged = resolveMouthSpeech(cutOff);
+    expect(salvaged.trim(), endsWith('</think>'));
+    expect(salvaged, contains('connection drops here'));
+    expect(
+      ChatMessage(
+        text: salvaged,
+        sender: 'Jennifer',
+        isUser: false,
+      ).displayText,
+      isEmpty,
+    );
+  });
 
   test(
     'successful one-shot pre-eval is followed by visible mouth speech',
