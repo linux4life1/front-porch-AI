@@ -29,6 +29,14 @@ import 'package:front_porch_ai/utils/reasoning_markers.dart';
 /// pure and static, zero pipeline state.
 abstract final class StoryJson {
   /// Strip `<think>...</think>` blocks from reasoning-model output.
+  ///
+  /// NOT a duplicate of `utils/think_tags.dart`'s `stripThinkTags`, and must
+  /// not be replaced by it: this one is JSON-anchored. On an UNCLOSED tag the
+  /// shared helper deletes from `<think>` to the end of the string, which is
+  /// right for prose a user reads — and fatal here, because the JSON the
+  /// pipeline came for usually sits after the abandoned thought. This version
+  /// keeps everything from the first `{` when there is one, and only falls
+  /// back to the shared helper's rule when there is no JSON to anchor on.
   static String stripThinkTags(String text) {
     // Handle both complete and unclosed think tags
     // Complete: <think>...</think> (including multiple blocks)

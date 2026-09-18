@@ -6,6 +6,8 @@
 // 8:05-vs-6am class). Think-blocks are stripped — those quote the
 // injection, not the fiction.
 
+import 'package:front_porch_ai/utils/utils.dart';
+
 /// How far a named time may sit from the live clock before we refuse it.
 /// 8:05 AM vs "six in the morning" is ~2h; a 2pm scene saying "midnight"
 /// is a different day and stays put.
@@ -29,7 +31,7 @@ const Map<String, int> _kSpokenHour = {
 /// If [reply] names a present wall-clock time close to [current], return
 /// that instant on the story calendar. Null = no claim, or too far to trust.
 DateTime? clockNamedInReply(String reply, DateTime current) {
-  final text = _stripThink(reply);
+  final text = stripThinkTags(reply);
   if (text.isEmpty) return null;
 
   final claims = <({int hour, int minute, int index})>[];
@@ -147,8 +149,3 @@ DateTime? _namedTimeToday(DateTime current, int hour, int minute) {
   if (abs == 0) return null; // already agrees
   return today;
 }
-
-String _stripThink(String raw) => raw.replaceAll(
-  RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false),
-  '',
-);
