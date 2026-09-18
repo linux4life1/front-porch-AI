@@ -1,3 +1,17 @@
+## 2026-09-18 — S2 character_facade: import off the read facade (637 → 431)
+- **Why:** list/detail/avatar memo lived next to update, create, persist, and import.
+- **What:** `character_facade.dart` keeps list, folders, avatar version memo, cardByDbId, detail, and avatar reads (431). `character_facade.import.dart` is update, create, persistNewCard, and importBytes (250). Class one-line forwarders keep Chargen and routes on the type. Duplicate ttsVoice comment collapsed.
+- **Verified:** analyzer clean.
+- **Files:** `lib/services/web/facade/character_facade.dart` + `.import.dart`
+- **Commit:** this tip
+
+## 2026-09-18 — S2 stoop_card_detail_page: body off the panel (637 → 394)
+- **Why:** the slide-in panel inlined actions, greetings, and the member pager, and imported the creator page (a cycle).
+- **What:** `stoop_card_detail_page.dart` keeps show, load, vote, download, report, and the untrusted `is List` reads (394). `stoop_card_detail_page.body.dart` is actions, greeting carousel, and member pager (250). `stoop_nav.dart` is `openStoopCreator` so detail and creator no longer import each other. `rebuildState` is the extension door.
+- **Verified:** analyzer clean. untrusted-JSON source guard + description parity (4) green.
+- **Files:** detail + `.body.dart` + `stoop_nav.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 chat_service_send: decay and generate handoff off capture (649 → 369)
 - **Why:** pre-turn capture, decay, generate, director note, guest chime-ins, and dream prefetch lived in one send part.
 - **What:** `chat_service_send.dart` keeps sendMessage guards, persist, chaos wheel, and call-model swap (369). `chat_service_send_handoff.dart` is `_sendDecayAndGenerate` (preTurnVector then tickDecay), director note, guest chime-ins, and dream prefetch (309). Continue does not tick — that path never enters this file.

@@ -27,6 +27,8 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
+part 'character_facade.import.dart';
+
 /// Thin read adapter over the character store for the rewritten web server.
 ///
 /// Reuses the exact AppDatabase/FolderService calls the legacy server used so
@@ -249,78 +251,8 @@ class CharacterFacade {
   /// which re-writes the V2 PNG card and the DB row. Returns false if the
   /// repository isn't wired or the character isn't found. Only keys present in
   /// [fields] are changed.
-  Future<bool> update(String id, Map<String, dynamic> fields) async {
-    final repo = _repo;
-    if (repo == null) return false;
-    final card = cardByDbId(id);
-    if (card == null) return false;
-
-    String pick(String key, String current) => fields.containsKey(key)
-        ? (fields[key]?.toString() ?? current)
-        : current;
-    card.name = pick('name', card.name);
-    card.description = pick('description', card.description);
-    card.personality = pick('personality', card.personality);
-    card.scenario = pick('scenario', card.scenario);
-    card.firstMessage = pick('firstMessage', card.firstMessage);
-    card.mesExample = pick('mesExample', card.mesExample);
-    card.systemPrompt = pick('systemPrompt', card.systemPrompt);
-    card.postHistoryInstructions = pick(
-      'postHistoryInstructions',
-      card.postHistoryInstructions,
-    );
-    // Per-character TTS voice (2026-08-14). Only touched when the key is
-    // present so a partial edit can't clear it; an explicit empty string
-    // means "follow the global voice" and stores null, matching desktop.
-    // Per-character TTS voice (2026-08-14). Only touched when the key is
-    // present so a partial edit can't clear it; an explicit empty string
-    // means "follow the global voice" and stores null, matching desktop.
-    if (fields.containsKey('ttsVoice')) {
-      final v = fields['ttsVoice']?.toString().trim() ?? '';
-      card.ttsVoice = v.isEmpty ? null : v;
-    }
-    final tags = fields['tags'];
-    if (tags is List) card.tags = tags.map((e) => e.toString()).toList();
-    final greetings = fields['alternateGreetings'];
-    if (greetings is List) {
-      // Seeds omitted + alts present: compact against empty/null, not unpaired
-      // base leftovers. Group updateSettings writes both; frontPorchFromFields
-      // below writes the compacted seeds so leftover furious cannot land on
-      // Get out.
-      final paired = compactGreetingPairs(
-        greetingSlotsFromRaw(greetings),
-        fields.containsKey('greetingSeeds')
-            ? parseGreetingSeeds(fields['greetingSeeds'])
-            : const [],
-      );
-      card.alternateGreetings = paired.greetings;
-    }
-    // Linked worlds (attach worlds/lorebooks to a character). Worlds are keyed
-    // by name; only replace when present so a partial edit doesn't clear them.
-    final worlds = fields['worldNames'];
-    if (worlds is List) {
-      card.worldNames = worlds
-          .map((e) => e.toString())
-          .where((w) => w.trim().isNotEmpty)
-          .toList();
-    }
-    // Per-character lorebook editing: only replace when the key is present so a
-    // partial edit doesn't wipe existing lore. An explicit empty list clears it.
-    if (fields.containsKey('lorebook')) {
-      card.lorebook = buildLorebookFromJson(fields['lorebook']);
-    }
-    // Round-trip the Realism Engine + Needs seeds through the shared helper using
-    // the current extensions as the base, so editing realism never wipes needs
-    // (or chat-appearance) state and vice-versa. Matches the desktop save path
-    // which always rebuilds extensions; the realismEnabled flag only gates use.
-    card.frontPorchExtensions = frontPorchFromFields(
-      fields,
-      base: card.frontPorchExtensions,
-    );
-
-    await repo.updateCharacter(card);
-    return true;
-  }
+  Future<bool> update(String id, Map<String, dynamic> fields) =>
+      _updateImpl(id, fields);
 
   /// The in-memory [CharacterCard] matching library [id] (its dbId), or null.
   /// Used by [update] and [detail] so both source realism/world state from the
@@ -341,42 +273,8 @@ class CharacterFacade {
   /// a V2 PNG (embedding the extensions so the seeds survive — the DB has no
   /// realism columns) with a synthesized placeholder avatar, then add it via the
   /// same [CharacterRepository.addCharacter] path. Returns {id, name} or null.
-  Future<Map<String, dynamic>?> create(Map<String, dynamic> fields) async {
-    final repo = _repo;
-    if (repo == null) return null;
-    final name = fields['name']?.toString().trim() ?? '';
-    if (name.isEmpty) return null;
-
-    List<String> asStrList(dynamic v) =>
-        v is List ? v.map((e) => e.toString()).toList() : const [];
-
-    // Always build extensions (even when realism is off) so configured values
-    // survive — matching the desktop comment. The flag only gates runtime use.
-    // The shared helper round-trips every realism + needs + verifier field so
-    // web-created cards get the same baselines as the desktop creator.
-    final fpExt = frontPorchFromFields(fields);
-
-    final card = CharacterCard(
-      name: name,
-      description: fields['description']?.toString() ?? '',
-      personality: fields['personality']?.toString() ?? '',
-      scenario: fields['scenario']?.toString() ?? '',
-      firstMessage: fields['firstMessage']?.toString() ?? '',
-      mesExample: fields['mesExample']?.toString() ?? '',
-      systemPrompt: fields['systemPrompt']?.toString() ?? '',
-      postHistoryInstructions:
-          fields['postHistoryInstructions']?.toString() ?? '',
-      alternateGreetings: compactGreetingPairs(
-        greetingSlotsFromRaw(fields['alternateGreetings']),
-        parseGreetingSeeds(fields['greetingSeeds']),
-      ).greetings,
-      tags: asStrList(fields['tags']),
-      lorebook: buildLorebookFromJson(fields['lorebook']),
-      frontPorchExtensions: fpExt,
-    );
-
-    return persistNewCard(card);
-  }
+  Future<Map<String, dynamic>?> create(Map<String, dynamic> fields) =>
+      _createImpl(fields);
 
   /// Persist a freshly-built [card] via the canonical path: write a V2 PNG into
   /// the characters dir (synthesizing a placeholder avatar when none is set),
@@ -386,42 +284,7 @@ class CharacterFacade {
   Future<Map<String, dynamic>?> persistNewCard(
     CharacterCard card, {
     List<int>? portraitBytes,
-  }) async {
-    final repo = _repo;
-    if (repo == null) return null;
-    try {
-      final charDir = _storage.charactersDir;
-      if (!charDir.existsSync()) charDir.createSync(recursive: true);
-      final base = (card.name.isEmpty ? 'character' : card.name)
-          .replaceAll(RegExp(r'[^\w\s]'), '')
-          .replaceAll(' ', '_');
-      final safeName = base.replaceAll('_', '').isEmpty ? 'character' : base;
-      card.imagePath = p.join(
-        charDir.path,
-        '${safeName}_${DateTime.now().millisecondsSinceEpoch}.png',
-      );
-      // A rendered portrait (e.g. AI chargen) becomes the card's base image;
-      // otherwise sourceImagePath stays null → V2CardService synthesizes a
-      // placeholder avatar.
-      String? sourceImagePath;
-      if (portraitBytes != null && portraitBytes.isNotEmpty) {
-        sourceImagePath = p.join(
-          Directory.systemTemp.path,
-          'fpa_portrait_${DateTime.now().millisecondsSinceEpoch}.png',
-        );
-        await File(sourceImagePath).writeAsBytes(portraitBytes);
-      }
-      await V2CardService().saveCardAsPng(
-        card,
-        card.imagePath!,
-        sourceImagePath,
-      );
-      await repo.addCharacter(card);
-      return {'id': card.dbId, 'name': card.name};
-    } catch (_) {
-      return null;
-    }
-  }
+  }) => _persistNewCardImpl(card, portraitBytes: portraitBytes);
 
   /// Import a character card uploaded from the web (V2 PNG or .byaf). Writes the
   /// bytes to a temp file and reuses the desktop import path
@@ -440,81 +303,12 @@ class CharacterFacade {
     String filename, {
     String collision = 'keepBoth',
     String? replaceId,
-  }) async {
-    final repo = _repo;
-    if (repo == null) return null;
-    final ext = p.extension(filename).isNotEmpty
-        ? p.extension(filename)
-        : '.png';
-    final tmp = File(
-      p.join(
-        Directory.systemTemp.path,
-        'fpa_import_${DateTime.now().microsecondsSinceEpoch}$ext',
-      ),
-    );
-    try {
-      await tmp.writeAsBytes(bytes, flush: true);
-
-      // Peek identity for collision policy (same rules as desktop single-import).
-      CharacterCard? peeked;
-      try {
-        final isJson = tmp.path.toLowerCase().endsWith('.json');
-        final v2 = V2CardService();
-        peeked = isJson
-            ? await v2.readCardFromJsonFile(tmp.path)
-            : await v2.readCard(tmp.path);
-      } catch (_) {
-        peeked = null;
-      }
-      final name = peeked?.name ?? p.basenameWithoutExtension(filename);
-      final stableId = peeked?.frontPorchExtensions?.stableId;
-      final stableMatch = repo.findByStableId(stableId);
-
-      if (stableMatch == null) {
-        final existing = repo.charactersWithName(name);
-        if (existing.isNotEmpty) {
-          if (collision == 'ask') {
-            return {
-              'status': 'name_collision',
-              'name': name,
-              'existing': [
-                for (final c in existing) {'id': c.dbId, 'name': c.name},
-              ],
-            };
-          }
-          if (collision == 'replace') {
-            CharacterCard? target;
-            if (replaceId != null && replaceId.isNotEmpty) {
-              for (final c in existing) {
-                if (c.dbId == replaceId) {
-                  target = c;
-                  break;
-                }
-              }
-            }
-            target ??= existing.first;
-            final card = await repo.importCharacter(
-              tmp,
-              forceReplaceTarget: target,
-            );
-            if (card == null) return null;
-            return {'id': card.dbId, 'name': card.name, 'replaced': true};
-          }
-          // keepBoth: fall through to plain import (insert)
-        }
-      }
-
-      final card = await repo.importCharacter(tmp);
-      if (card == null) return null;
-      return {'id': card.dbId, 'name': card.name};
-    } catch (_) {
-      return null;
-    } finally {
-      try {
-        if (tmp.existsSync()) await tmp.delete();
-      } catch (_) {}
-    }
-  }
+  }) => _importBytesImpl(
+    bytes,
+    filename,
+    collision: collision,
+    replaceId: replaceId,
+  );
 
   /// Resolve the on-disk avatar file for the active character's *current
   /// expression* (mood-driven portrait), or null if expressions aren't in use

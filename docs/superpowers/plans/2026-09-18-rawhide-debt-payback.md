@@ -61,6 +61,8 @@
 > | S2 chat_service_wiring_injection.dart | done | `refactor(chat): split injection leaf builders off lore and world helpers` |
 > | S2 rag_injection.dart | done | `refactor(chat): split RAG receipt and cover-drop off the memories block` |
 > | S2 chat_service_send.dart | done | `refactor(chat): split send decay and generate handoff off capture` |
+> | S2 stoop_card_detail_page.dart | done | `refactor(stoop): split the detail body off the panel and break the creator cycle` |
+> | S2 character_facade.dart | done | `refactor(web): split character import off the read facade` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
