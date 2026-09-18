@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 home_page_chrome: open/menus off mode toggle (570 → 99)
+- **Why:** mode toggle and the model-load status bar lived next to open-chat, context menus, and folder/sort handlers.
+- **What:** `home_page_chrome.dart` keeps the mode toggle and status wrap (99). `home_page_chrome.actions.dart` is open-chat, menus, and folder/sort (492). Same library; `applyState` stays the setState door.
+- **Verified:** analyzer clean.
+- **Files:** chrome + chrome.actions; `home_page.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 home_page_dialogs: import off delete (574 → 233)
 - **Why:** PNG/JSON and BYAF import lived next to delete, edit, and duplicate. Folder/move is already elsewhere.
 - **What:** `home_page_dialogs.dart` keeps delete / mass-delete / edit / duplicate (233). `home_page_dialogs.import.dart` is PNG/JSON + BYAF import (362). Same library; `applyState` already exists on `_HomePageState`.

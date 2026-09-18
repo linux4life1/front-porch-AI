@@ -51,6 +51,7 @@ import 'package:front_porch_ai/services/byaf_service.dart';
 
 // State is split across part files (private extensions) to stay under 500.
 part 'home/home_page_chrome.dart';
+part 'home/home_page_chrome.actions.dart';
 part 'home/home_page_handlers.dart';
 part 'home/home_page_dialogs.dart';
 part 'home/home_page_dialogs.import.dart';
