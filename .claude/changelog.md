@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 session_manage: fork/rename off new-chat seed (816 → 490)
+- **Why:** rename, fork, world seed, and startNewChat lived in one 816-line part.
+- **What:** `chat_service_session_manage.dart` keeps `startNewChat` / `startFreshChatWith` / `persistSessionPersona` and both Chaos seeds (490). `chat_service_session_fork.dart` is rename, description, `forkFromMessage`, and world seed/refresh (202). `chat_service_session_new_chat_prep.dart` is character refresh + transcript reset (177). Greeting stays in `startNewChat`. Continue does not tick.
+- **Verified:** analyzer clean. chaos toggle, group New Chat needs, wardrobe zero, session rename, picker overlay hold, god-file ratchet green.
+- **Files:** session_manage + session_fork + session_new_chat_prep; `chat_service.dart` parts
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 needs_impact_evaluator: bound helper and activity table off fire (822 → 441)
 - **Why:** eval fire, `_boundDeltas`, and the AFK keyword table lived in one 822-line leaf.
 - **What:** `needs_impact_evaluator.dart` keeps ctor, `evaluateAndApply`, `reprocessWithUserCritique`, and the class static `afkKeywordFallback` door (441). `_parseNeedDeltas` is the one JSON+regex parse used by both fire and reprocess. `needs_impact_bound.dart` is THE `_boundDeltas` helper (73) — Director exempt, not in `applySceneImpact`, no third copy. `needs_impact_table.dart` is the AFK keyword table (324).

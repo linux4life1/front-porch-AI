@@ -84,6 +84,8 @@ part 'chat/chat_service_realism_dance.dart';
 part 'chat/chat_service_speaker_objectives.dart';
 part 'chat/chat_service_impersonate.dart';
 part 'chat/chat_service_session_manage.dart';
+part 'chat/chat_service_session_fork.dart';
+part 'chat/chat_service_session_new_chat_prep.dart';
 part 'chat/chat_service_generation.dart';
 part 'chat/chat_service_generation_blocks.dart';
 part 'chat/chat_service_generation_plan.dart';
