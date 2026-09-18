@@ -1,3 +1,10 @@
+## 2026-09-18 — residual world_repository: clone purge off CRUD (580 → 424)
+- **Why:** the one-shot character-linked clone purge lived next to CRUD after the attach extract. Attach one-liners stay on the class so FakeWorldRepository / noSuchMethod keep resolving.
+- **What:** `world_repository.dart` keeps CRUD and the attach/biome class forwarders (424). `world_repository_purge.dart` is `_maybePurge` + `_purgeCharacterLinkedWorldsImpl` (183). Public `purgeCharacterLinkedWorlds` stays a class one-liner.
+- **Verified:** analyzer clean.
+- **Files:** world_repository + world_repository_purge
+- **Commit:** this tip
+
 ## 2026-09-18 — residual memory_service: window embed off retrieve (505 → 336)
 - **Why:** the sliding-window insert body lived next to retrieve scoring after the first retrieve extract.
 - **What:** `memory_service.dart` keeps retrieve, embedText, cosine, and the class lock wrapper (336). `memory_service_embed.dart` is `_embedMessageWindowBody` (194). `notify()` is the extension door. Think-strip in `_cleanForEmbedding` is untouched.
