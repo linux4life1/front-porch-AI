@@ -53,6 +53,7 @@
 > | S2 world_repository.dart | done | `refactor(worlds): split chat attach and biome spans off CRUD` |
 > | S2 database_cleanup.dart | done | `refactor(db): split orphan apply off the read-only scan` |
 > | S2 edit_character_page.dart | done | `refactor(ui): split the character-editor tab host off the field bag` |
+> | S2 memory_service.dart | done | `refactor(rag): split retrieve scoring off embed and store` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about

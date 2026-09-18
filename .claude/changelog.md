@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 memory_service: retrieve off embed (679 → 505)
+- **Why:** window embed/store and query retrieve lived in one 679-line class.
+- **What:** `memory_service.dart` keeps fields, lock, embed, `embedText`, and vector math (505). `memory_service_retrieve.dart` is the query score loop plus Data Bank (206). `retrieve` stays a class forwarder. `isWindowEligible` / `bytesToVector` / `cosineSimilarity` stay class statics. Session isolation for `sessionScopedCharacterIds` is unchanged.
+- **Verified:** analyzer clean. memory_service + embed offset + recheck + group RAG identity + error receipt (29) green.
+- **Files:** `lib/services/memory_service.dart` + `_retrieve`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 edit_character_page: tab host off the field bag (687 → 379)
 - **Why:** the character editor still inlined the TabBar scaffold, token badge, avatar resolve, and lore CRUD next to the field bag.
 - **What:** `edit_character_page.dart` keeps the widget, fields, init, and dispose (379). `edit_character_page.host.dart` is token/avatar/lore CRUD plus the TabBar host (299). `build` stays a class override. `rebuildState` is the extension door. Existing tab/save/realism parts unchanged.

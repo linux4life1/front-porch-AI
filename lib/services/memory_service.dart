@@ -26,6 +26,8 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
+part 'memory_service_retrieve.dart';
+
 /// A retrieved memory from the vector store.
 class RetrievedMemory {
   final String content;
@@ -442,191 +444,16 @@ class MemoryService extends ChangeNotifier {
     double minScore = kRagMinScore,
     Map<String, double>? characterPriorities,
     Set<String> sessionScopedCharacterIds = const {},
-  }) async {
-    lastRetrieveError = null;
-    await _ensureEmbeddingsReady();
-    if (!isOperational || queryText.trim().isEmpty) {
-      debugPrint(
-        '[RAG:Memory] retrieve() skipped — not operational or empty query',
-      );
-      return [];
-    }
-
-    // Skip retrieval for brand new sessions with very few messages
-    if (inContextStart < 3) {
-      debugPrint(
-        '[RAG:Memory] retrieve() skipped - session too new (inContextStart=$inContextStart)',
-      );
-      return [];
-    }
-
-    final cleanedQuery = _cleanForEmbedding(queryText);
-    final queryPreview = cleanedQuery.length > 100
-        ? '${cleanedQuery.substring(0, 100)}...'
-        : cleanedQuery;
-    debugPrint(
-      '[RAG:Memory] ── Retrieving memories (limit: $limit, minScore: $minScore) ──',
-    );
-    debugPrint('[RAG:Memory] Query: "$queryPreview"');
-    debugPrint('[RAG:Memory] Source character IDs: $sourceCharacterIds');
-    debugPrint(
-      '[RAG:Memory] Current session: $currentSessionId, inContextStart: $inContextStart',
-    );
-
-    try {
-      // Embed the query
-      final queryVector = await _embeddingService.embed(cleanedQuery);
-      if (queryVector == null) {
-        lastRetrieveError = 'query embed failed';
-        debugPrint(
-          '[RAG:Memory] ✗ Query embedding failed — aborting retrieval',
-        );
-        return [];
-      }
-      debugPrint('[RAG:Memory] Query vector: ${queryVector.length}d');
-
-      // Get all candidate embeddings from the specified characters
-      final candidates = await _db.getEmbeddingsForCharacters(
-        sourceCharacterIds,
-        currentSessionId: currentSessionId,
-        sessionScopedCharacterIds: sessionScopedCharacterIds,
-      );
-      debugPrint('[RAG:Memory] Candidates from DB: ${candidates.length}');
-
-      // Also fetch Data Bank entries with embeddings for these characters
-      final dataBankCandidates = <DataBankEntry>[];
-      for (final charId in sourceCharacterIds) {
-        final entries = await _db.getDataBankEntriesForCharacter(charId);
-        dataBankCandidates.addAll(
-          entries.where((e) => e.embedding != null && e.dimensions > 0),
-        );
-      }
-      if (dataBankCandidates.isNotEmpty) {
-        debugPrint(
-          '[RAG:Memory] Data Bank candidates: ${dataBankCandidates.length}',
-        );
-      }
-
-      if (candidates.isEmpty && dataBankCandidates.isEmpty) {
-        debugPrint(
-          '[RAG:Memory] No stored embeddings or Data Bank entries found',
-        );
-        return [];
-      }
-
-      // Score each candidate against the query
-      final scored = <RetrievedMemory>[];
-      int skippedInContext = 0;
-      int skippedCrossSession = 0;
-      int belowThreshold = 0;
-
-      for (final candidate in candidates) {
-        // Session isolation: the speaker's OWN memories must never cross chats
-        // (stale locations/storylines from a previous chat with the same
-        // character). Explicit cross-character sources are intentionally NOT
-        // session-scoped, so their opt-in cross-session recall still works.
-        if (sessionScopedCharacterIds.contains(candidate.characterId) &&
-            candidate.sessionId != currentSessionId) {
-          skippedCrossSession++;
-          continue;
-        }
-
-        // Current-session windows still in (or too close to) the visible
-        // context — see isWindowEligible for the overlap + min-age rules.
-        if (!isWindowEligible(
-          candidateSessionId: candidate.sessionId,
-          currentSessionId: currentSessionId,
-          positionEnd: candidate.positionEnd,
-          inContextStart: inContextStart,
-        )) {
-          skippedInContext++;
-          continue;
-        }
-
-        // Deserialize the stored embedding
-        final storedVector = bytesToVector(
-          candidate.embedding,
-          candidate.dimensions,
-        );
-        if (storedVector == null) continue;
-
-        // Calculate similarity
-        final rawScore = cosineSimilarity(queryVector, storedVector);
-        final priority = characterPriorities?[candidate.characterId] ?? 1.0;
-        final score = rawScore * priority;
-
-        if (score >= minScore) {
-          scored.add(
-            RetrievedMemory(
-              content: candidate.content,
-              characterId: candidate.characterId,
-              sessionId: candidate.sessionId,
-              positionStart: candidate.positionStart,
-              positionEnd: candidate.positionEnd,
-              score: score,
-            ),
-          );
-        } else {
-          belowThreshold++;
-        }
-      }
-
-      // Score Data Bank entries
-      for (final entry in dataBankCandidates) {
-        final storedVector = bytesToVector(entry.embedding!, entry.dimensions);
-        if (storedVector == null) continue;
-
-        final rawScore = cosineSimilarity(queryVector, storedVector);
-        final priority = characterPriorities?[entry.characterId] ?? 1.0;
-        final score = rawScore * priority;
-
-        if (score >= minScore) {
-          scored.add(
-            RetrievedMemory(
-              content: '[Data Bank: ${entry.title}] ${entry.content}',
-              characterId: entry.characterId,
-              sessionId: 'databank',
-              positionStart: -1,
-              positionEnd: -1,
-              score: score,
-            ),
-          );
-        } else {
-          belowThreshold++;
-        }
-      }
-
-      debugPrint(
-        '[RAG:Memory] Scoring: ${scored.length} above threshold, $belowThreshold below, $skippedInContext skipped (in-context), $skippedCrossSession skipped (cross-session)',
-      );
-
-      // Sort by score descending and take top N
-      scored.sort((a, b) => b.score.compareTo(a.score));
-      final results = scored.take(limit).toList();
-
-      if (results.isNotEmpty) {
-        debugPrint('[RAG:Memory] ── Top ${results.length} results: ──');
-        for (int i = 0; i < results.length; i++) {
-          final m = results[i];
-          final contentPreview = m.content.length > 60
-              ? '${m.content.substring(0, 60)}...'
-              : m.content;
-          debugPrint(
-            '[RAG:Memory]   #${i + 1} score=${m.score.toStringAsFixed(3)} [${m.positionStart}-${m.positionEnd}] char=${m.characterId ?? "n/a"}',
-          );
-          debugPrint('[RAG:Memory]       "$contentPreview"');
-        }
-      } else {
-        debugPrint('[RAG:Memory] No results above threshold $minScore');
-      }
-
-      return results;
-    } catch (e) {
-      lastRetrieveError = '$e';
-      debugPrint('[RAG:Memory] ✗ Retrieval failed: $e');
-      return [];
-    }
-  }
+  }) => _retrieveImpl(
+    queryText: queryText,
+    sourceCharacterIds: sourceCharacterIds,
+    currentSessionId: currentSessionId,
+    inContextStart: inContextStart,
+    limit: limit,
+    minScore: minScore,
+    characterPriorities: characterPriorities,
+    sessionScopedCharacterIds: sessionScopedCharacterIds,
+  );
 
   /// Embed one piece of text, or null when embeddings aren't operational
   /// (RAG off / sidecar unavailable). Availability-guarded single-text door
