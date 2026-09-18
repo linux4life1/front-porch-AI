@@ -1,3 +1,9 @@
+## 2026-09-18 — Delete unused .recovery chat_page snapshots
+- **Why:** Four identical 472KB copies of an old `chat_page` sat in `.recovery` with zero importers. They still called StorageService flat accessors this PR already removed.
+- **What:** Deleted the four files. Restored the Rawhide `lengthSync` one-liner in `settings_page.hardware.dart` so io-lint no longer treats a dart-format wrap as new I/O.
+- **Files:** `.recovery/pre_reextract_chat_page.dart`, `.recovery/pre_stage2_chat_page.dart`, `.recovery/round3_pre_chat_page.dart`, `.recovery/round4_pre_chat_page.dart`, `settings_page.hardware.dart`
+- **Commit:** this tip
+
 ## 2026-09-17 — Drop decoration tests that stay green without the product
 - **Why:** Tests whose only engine was a stub, a planted LLM receipt, or a grep of `lib/*.dart` stayed green even if the product call site died.
 - **What:** Deleted 27 whole test files (source-grep pins, ChatService mirrors, `expect(true)` placeholders, stub-widget pumps). Cut grep-only groups and planted-receipt smokes from mixed files. Kept goldens, `integration_test/`, sqlite migrations, parse/clip helpers, and live ChatService jobs.
