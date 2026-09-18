@@ -9,7 +9,7 @@ publishes the whole of `docs/` to the documentation site.
 
 | File | What it is |
 |---|---|
-| [`refactoring-guide.md`](refactoring-guide.md) | The god-file modularization strategy — how a large service gets broken into focused leaves without breaking Realism/Needs parity |
+| [`refactoring-guide.md`](refactoring-guide.md) | A stub. The seven-stage god-file campaign it described is finished; the rules that outlived it are in `CLAUDE.md` |
 | [`release-promotion.md`](release-promotion.md) | Runbook for promoting `Rawhide` to `main` and cutting a release |
 | [`web-parity.md`](web-parity.md) | Desktop ⇄ web/mobile parity checklist |
 

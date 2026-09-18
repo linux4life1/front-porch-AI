@@ -209,6 +209,8 @@ Drift ORM with SQLite. The schema library is `lib/database/database.dart` (shell
 
 Key tables (REAL SQL names — verify against `database.g.dart`, not memory): `characters`, `sessions`, `messages`, `groups`, `group_members`, `folders`, `personas`, `worlds`, `chat_worlds`, `chat_biome_spans`, `message_embeddings`, `objectives`, `data_bank_entries`, `avatar_images`, `journal_memories`, `sync_meta`. 21 tables in total. UUID primary keys for merge compatibility.
 
+**Schema v46–v52** (all additive, one column each; read the `if (from < N)` comments in `database.migrations.dart` for the live wording): v46 `objectives.served_ambition` (which ambition a quest serves) · v47 `sessions.pockets` (the 1:1 speaker's Pockets record — groups already had a home, so 1:1 pockets used to die on reload) · v48 `sessions.today_objective_id` · v49 `sessions.with_user` (the 1:1 With you / Away judge; NULL on every existing row) · v50 `personas.birthday` · v51 `worlds.climate_enabled` (`DEFAULT 1` is load-bearing, same reasoning as v45) · v52 `chat_worlds.is_primary` (per-chat Setting vs Lore role; slot role beats the world file's `climateEnabled` at runtime).
+
 **Schema v45 (2026-08-07)**: `sessions.objectives_enabled` (BoolColumn, `DEFAULT 1`) — the per-chat half of the Objectives switch. The default is load-bearing: objectives ran unconditionally before v45, so `0` would silently stop quests across the whole installed base on upgrade. The Table definition, the `onUpgrade` ladder and `database.repair.dart` must all keep saying 1; `test/database/objectives_enabled_migration_test.dart` asserts they agree. Deliberately NO matching card extension — a per-character default would change the card JSON shape, which ripples to The Stoop and every external reader.
 
 **Identity gotcha that has already caused data loss:** `objectives`, `message_embeddings` and `data_bank_entries` key their `character_id` by the character's **stableGroupId** (the portable image-filename basename, e.g. `Jennifer_1782587668376`), NOT by the `characters.id` UUID. `avatar_images` DOES use the UUID. Joining the former against `characters.id` matches nothing and marks every row an orphan — that shipped in Database Cleanup and would have deleted 107/107 objectives and 68/68 RAG embeddings on a real library. Resolve identities via `stableGroupIdFrom()` in `lib/utils/character_id.dart`.
@@ -585,7 +587,7 @@ To prevent "God files" (historically some `.dart` files exceeded 9,000 lines):
 3. Local imports (`../`, `./`)
 
 ### Barrel files and import hygiene (policy)
-Barrel files reduce repetitive intra-package imports. **17 exist today** — run
+Barrel files reduce repetitive intra-package imports. **36 exist today** — run
 `find lib -name '*.dart' | awk -F/ '$NF==$(NF-1)".dart"'` for the live list rather
 than trusting this one. The high-frequency ones:
 - `package:front_porch_ai/models/models.dart`

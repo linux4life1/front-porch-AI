@@ -1,13 +1,13 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The versioned onCreate/onUpgrade migration ladder (schema v1 -> v44).
+// The versioned onCreate/onUpgrade migration ladder (schema v1 -> v52).
 // EVERY `if (from < N)` block in here is byte-verbatim from the original
 // migration getter. Editing any block is a user-data-corruption risk.
 
 part of 'database.dart';
 
-/// The versioned onCreate/onUpgrade migration ladder (schema v1 → v44).
+/// The versioned onCreate/onUpgrade migration ladder (schema v1 → v52).
 /// EVERY `if (from < N)` block in here is byte-verbatim from the original
 /// migration getter. Editing any block is a user-data-corruption risk.
 extension _AppDatabaseMigrationLadder on AppDatabase {
