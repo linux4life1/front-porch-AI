@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 generate_kcpps_dialog: generate off the form (670 → 484)
+- **Why:** detect/VRAM/write lived in the same file as the form fields and dialog chrome.
+- **What:** `generate_kcpps_dialog.dart` keeps the widget, fields, hardware listener, and form (484). `generate_kcpps_dialog.generate.dart` is detect, VRAM estimate, batch suggest, and write (200). `rebuildState` is the extension door. Sync file stats stay event-path with `io-ok`.
+- **Verified:** analyzer clean.
+- **Files:** `lib/ui/dialogs/generate_kcpps_dialog.dart` + `.generate.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 wiring_evals: judge builders off engine/transport (675 → 353)
 - **Why:** pre-gen judge constructors lived next to the shared eval engine, post-gen trio, and tools transport.
 - **What:** `chat_service_wiring_evals.dart` keeps LlmEvalEngine, pockets/climax/reply-facts, `_fireToolEval`, and the tool-support pill (353). `chat_service_wiring_evals_judges.dart` is verifier, needs impact, RealismEvals, ObjectiveProposal (334). Late finals stay on the class. `objectivesActive` stays the live AND. Injection is a different file.

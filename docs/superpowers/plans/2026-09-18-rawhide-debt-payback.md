@@ -56,6 +56,7 @@
 > | S2 memory_service.dart | done | `refactor(rag): split retrieve scoring off embed and store` |
 > | S2 stoop_browse_view.dart | done | `refactor(stoop): split the browse grid off search and load` |
 > | S2 chat_service_wiring_evals.dart | done | `refactor(chat): split judge builders off the eval engine and transport` |
+> | S2 generate_kcpps_dialog.dart | done | `refactor(ui): split kcpps generate off the form` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
