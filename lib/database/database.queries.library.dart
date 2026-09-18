@@ -307,7 +307,7 @@ extension AppDatabaseLibraryQueries on AppDatabase {
   /// performing the same hard cascade delete of its dependent chats and
   /// everything scoped to them ([_cascadeCharacterChildRows]). The
   /// soft-deleted row remains in the table (with the flag) so
-  /// that cloud DB sync + DatabaseMergeService can propagate the deletion
+  /// that cloud DB sync can propagate the deletion
   /// to other devices and prevent resurrection.
   ///
   /// This is the method that should be called from user-facing delete paths

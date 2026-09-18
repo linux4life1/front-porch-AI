@@ -1,3 +1,9 @@
+## 2026-09-17 — Drop unused scratch/ghost files
+- **Why:** Three Dart files had zero importers and still looked like live rooms: a scratch pad, a private hover card, and the retired cloud-sync merge service.
+- **What:** Deleted `lib/test_pad.dart`, `lib/ui/widgets/_hoverable_card.dart`, `lib/services/database_merge_service.dart`. Shortened comments that named `DatabaseMergeService` / `_HoverableCard`. Left migrations, sync_meta, and storage 999s alone.
+- **Files:** the three deletes; `database.queries.library.dart`; `leaf_widgets_remaining_golden_test.dart`
+- **Commit:** this tip
+
 ## 2026-09-17 — Stoop listing blurb matches the hub
 - **Why:** Desk tiles clipped the summary mid-word (`My take on mountain-`) and the detail panel hid it under a 260px art banner. Hub shows a two-line clamp on tiles and the full blurb beside the portrait, with Description and Personality as separate drawers.
 - **What:** Reserved two-line summary box + slightly taller grid cells. Detail top is art + full summary (hub `.hub-detail-top`). Persona split into Description (open) and Personality.
