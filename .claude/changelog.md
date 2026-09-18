@@ -1,3 +1,11 @@
+## 2026-09-18 — T11: settings facade split into a read half and a write half
+- **Why:** 606 lines mixing the JSON snapshot the PWA renders with the 270-line write path that applies a settings body.
+- **What:** `settings_facade.dart` is now a 213-line shell (construction, reasoning/template resolution, backend name parsing, legacy-model cleanup) plus two `part` files carrying `extension SettingsFacadeRead` (149) and `extension SettingsFacadeUpdate` (299) — the same pattern `image_gen_service.backends.dart` and the ChatService parts use. Pure move: no new methods, no renames, statics qualified as `SettingsFacade.x` because extensions cannot reach them unqualified.
+- **What I did NOT do:** the plan floated replacing the read/update key lists with one declarative table. Those lists are the wire contract, not duplication — the keys appear once per direction — and a dynamic getter/setter table would trade type safety and readability for a shorter file. Said no and split instead.
+- **Verified:** `test/services/web` + `test/ui/settings` + `test/ui/pages` (519 tests) green, including the settings round-trip through the relay.
+- **Files:** `lib/services/web/facade/settings_facade.dart`, new `settings_facade.read.dart`, new `settings_facade.update.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — T10: one reader for the receipt column (a real desktop↔web gap)
 - **Why:** the plan expected the web TSX to be re-parsing a string. It is not — the relay already sends `number[]`. The actual duplication was on the Dart side: THREE decoders for `source_message_ids`, and they disagreed. `journal_dialog._receiptPositions` used `whereType<int>()`, so a position that had round-tripped as `12.0` or `"12"` rendered as a tappable pill in the browser and silently vanished in the desktop diary. Same card, same column, two answers.
 - **What:** new `lib/utils/receipt_ids.dart` → `decodeReceiptIds(String?)` (tolerant: nums, numeric strings, `[]` on anything unreadable), exported from the utils barrel. `GrowthStore.receiptsOf` keeps its typed door and forwards; the web journal surface and the desktop diary call it directly. Two now-unused `dart:convert` imports dropped.
