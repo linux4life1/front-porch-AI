@@ -1,6 +1,42 @@
 # Rawhide debt payback
 
-> Plan only. This PR adds this document. It does not change product code, delete files, or split anything.
+> **Status (updated as the work lands).** The plan below is the inventory and the
+> sequence. What has actually shipped on this branch:
+>
+> | Task | State | Commit |
+> | --- | --- | --- |
+> | T1 Drift managers off + generated-size ratchet | done | `build: stop generating Drift table managers nobody calls` |
+> | T2 two dead files + barrel exports | done | `refactor: delete two files nothing ever called` |
+> | T3 dead declarations (21, not 16 — 5 were stranded by the first 16) | done | `refactor: delete 21 declarations with no callers anywhere` |
+> | T4 orphan web-search round | done | `refactor: delete the second web-search round-trip` |
+> | T5 three decoration tests | done | `test: make three guards depend on the code they name` |
+> | T6 five stale notes | done | `docs: correct five notes that no longer match the code` |
+> | T7 dead CSS + `styles.css` split (19 slices) | done | `style(web): drop twelve dead rules, then split the stylesheet by surface` |
+> | T8 think-strip | **part done** — one real fix, two proven not-duplicates, two still open | `fix(clock): a time the model only thought is not a time she said` |
+> | T9–T12 remaining spaghetti | not started | — |
+> | T13+ the 66 SEVERAL splits | not started | — |
+>
+> **Corrections the work forced on this plan** (the inventory was right about
+> what to look at, wrong about two conclusions):
+>
+> - **T8 was not five copies of one contract.** `StoryJson.stripThinkTags` is
+>   JSON-anchored: on an unclosed tag the shared helper deletes to end-of-string,
+>   which would delete the JSON the story pipeline came for.
+>   `char_macro.stripThinkBlocks` matches misspelled tags because chargen runs
+>   hot. Both are documented in place as deliberate. `image_prompt_builder` and
+>   `regen_critique_injection` are still foldable but each carries a small
+>   unpinned behaviour delta, so each needs its own guard.
+> - **T5's C26 could not be done as written.** `realism_parity_test` cannot drive
+>   ChatService's `_loadGroupRealismIntoScalars` / `_saveScalarsIntoGroupRealism`
+>   — they are private to a part-file library, and inventing a public hook for a
+>   test would be the shim this work is removing. Its overclaiming header was
+>   corrected instead, naming `integration_test/group_smoke_test.dart` as the
+>   owner of that path.
+> - **Two commits need the `approved-test-change` label** (T4, T5): they edit
+>   existing test files, which `test-integrity.yml` blocks by design.
+
+> The text below was written before any of it shipped, so it reads as a plan.
+> Treat the status table above as what is true.
 
 **Goal:** Pay back size, spaghetti, and leftover cruft on `Rawhide` after squash `c11669bc` (PR #262) in a sequence of later PRs. Each later PR must leave the app buildable and the suite honest.
 
