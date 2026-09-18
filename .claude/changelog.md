@@ -1,6 +1,12 @@
+## 2026-09-18 — Behavioral pin: pocketsFor hides when the switch goes down
+- **Why:** `wardrobe_message_zero_test` turns the switch off *before* open, so seed never runs and `_pockets` stays null. Deleting the `pocketsFor` read gate still returns null. The gate's job is hide-not-erase after a record already exists.
+- **What:** Open a dressed character with Pockets ON, then `setPocketsEnabled(false)`, then `pocketsFor` must be null. Did not restore the old source-scan file.
+- **Files:** `test/services/chat/wardrobe_message_zero_test.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — Restore real call-site pins deleted as decoration
 - **Why:** Senior Dev HOLD: the decoration sweep also dropped tests that go red if a live product call site dies. Surviving tests never reach those orders.
-- **What:** Restored 17 files byte-identical from `a316e7dc`. Left `pockets_off_means_off_test.dart` deleted (read gate is live-pinned; sidebar grep is stale against `pocketsFeatureEnabled`). Left the reviewer-hollow files deleted.
+- **What:** Restored 17 files byte-identical from `a316e7dc`. Left `pockets_off_means_off_test.dart` deleted (source-scan). Left the reviewer-hollow files deleted.
 - **Files:** 17 restored `*_test.dart` listed in the commit
 - **Commit:** this tip
 
