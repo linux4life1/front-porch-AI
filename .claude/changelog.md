@@ -1,3 +1,10 @@
+## 2026-09-18 — residual accessors: living-time/cast off setters (657 → 480)
+- **Why:** weather, ambitions, cast, and session-theme lived next to setter/gate/init after the today-sentence split.
+- **What:** `chat_service_accessors.dart` keeps setters, gates, init/dispose, and the live `objectivesActive` AND (480). `chat_service_accessors_living.dart` is storyDayCount through stream-text clean (201).
+- **Verified:** analyzer clean.
+- **Files:** accessors + accessors_living; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 world_facade: import off CRUD (520 → 386)
 - **Why:** world/lorebook import lived next to list/save/delete and chat-places.
 - **What:** `world_facade.dart` keeps CRUD, export, and chat-places (386). `world_facade.import.dart` is importWorld + importLorebook (139). Public extension so web routes still call `facade.importWorld`.

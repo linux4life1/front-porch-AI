@@ -137,6 +137,7 @@ part 'chat/chat_service_message_ops.dart';
 part 'chat/chat_service_timeline.dart';
 part 'chat/chat_service_guest_flow.dart';
 part 'chat/chat_service_accessors.dart';
+part 'chat/chat_service_accessors_living.dart';
 part 'chat/chat_service_today_sentence.dart';
 part 'chat/chat_service_planner_resolve.dart';
 part 'chat/chat_service_defaults.dart';
