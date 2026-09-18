@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 session_state: persist off hydrate (528 → 221)
+- **Why:** `_saveChat` / `_doSaveChat` / replace-all lived next to scene-guest and group-realism hydrate.
+- **What:** `chat_service_session_state.dart` keeps hydrate and small accessors (221). `chat_service_session_state_save.dart` is enqueue, write, and replace-all (331).
+- **Verified:** analyzer clean.
+- **Files:** session_state + session_state_save; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 StoopAccountPage: collections off profile (544 → 461)
 - **Why:** uploads, downloads, and following lived in the same page as profile, 2FA, and account danger. Inbox is already `StoopInboxPage`.
 - **What:** `StoopAccountPage.tsx` keeps profile, 2FA, and sign-out/delete (461). `StoopAccountCollections.tsx` is the three lists (119). Web bundle rebuilt.
