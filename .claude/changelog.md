@@ -1,3 +1,11 @@
+## 2026-09-18 — T12: the two tool probes answer different questions; documented, not merged
+- **Why:** the inventory flagged `ToolTransportProbe` and `OpenRouterToolSupport` as possibly one contract written twice.
+- **Finding:** they are two layers, and they compose. `OpenRouterToolSupport` is inside the HTTP door, keyed by openrouter.ai **model id**, and answers "is a `tools` POST to this route worth making at all" from the provider's `supported_parameters` and from 400/404 bodies ("no endpoints found that support tool use"). `ToolTransportProbe` sits above any transport, keyed by **backend identity** (name + model, so Kobold and oMLX are covered), and answers "did a real attempt come back with usable tool calls, should the next eval in THIS send try again", plus the skip/pause bookkeeping and the live sidebar pill. A catalog "no" makes the HTTP layer return null without a request; the caller's empty result is then what teaches the probe the backend is text-only.
+- **What:** a doc block on each class stating the distinction and why merging would be wrong (the transport would inherit per-send skip/pause; the probe would inherit one provider's catalog semantics). No code change — the plan's own instruction for this case was "document that or merge", and merging was the wrong half.
+- **No test added:** a test asserting a comment is decoration. The existing `tool_support_test`, `tool_skip_pause_test` and `openrouter_native_tools_test` (36 tests) already pin both behaviours separately and stay green.
+- **Files:** `lib/services/openrouter_tool_support.dart`, `lib/services/chat/pass_support.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — T11: settings facade split into a read half and a write half
 - **Why:** 606 lines mixing the JSON snapshot the PWA renders with the 270-line write path that applies a settings body.
 - **What:** `settings_facade.dart` is now a 213-line shell (construction, reasoning/template resolution, backend name parsing, legacy-model cleanup) plus two `part` files carrying `extension SettingsFacadeRead` (149) and `extension SettingsFacadeUpdate` (299) — the same pattern `image_gen_service.backends.dart` and the ChatService parts use. Pure move: no new methods, no renames, statics qualified as `SettingsFacade.x` because extensions cannot reach them unqualified.

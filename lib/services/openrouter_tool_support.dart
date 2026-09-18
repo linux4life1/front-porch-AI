@@ -22,6 +22,18 @@ import 'package:flutter/foundation.dart';
 ///
 /// Public openrouter.ai only. Keyed by model id, never by vendor brand —
 /// `x-ai/grok-4.6` and `anthropic/claude-sonnet-4` are separate entries.
+///
+/// NOT the same thing as `ToolTransportProbe` (services/chat/pass_support.dart),
+/// and merging the two would be a mistake. This one answers "is a `tools` POST
+/// to this route worth making at all", from the provider's own
+/// `supported_parameters` and from 400/404 bodies that say the route has no
+/// tool-capable endpoint. It is HTTP-layer, remote-only, and keyed by model id.
+/// The probe answers the question above the transport: did a real attempt come
+/// back with usable tool calls, should the next eval in THIS send try again, and
+/// what does the sidebar pill show — keyed by backend identity, so it covers
+/// Kobold and oMLX too. They compose rather than overlap: a catalog "no" makes
+/// this layer return null without a request, and the caller's empty result is
+/// what teaches the probe that the backend is text-only.
 enum OpenRouterToolsVerdict { unknown, advertised, confirmed, rejected }
 
 /// `supported_parameters` → advertised tools, or null when the list is

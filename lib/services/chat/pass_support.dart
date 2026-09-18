@@ -137,6 +137,15 @@ bool resolveOneShotMode({
 /// verdicts land (from background passes or the manual test). Identity keys
 /// carry the backend name + model, so switching models resets the verdict to
 /// [ToolCallSupport.untested] by construction.
+///
+/// Distinct from `OpenRouterToolSupport` (services/openrouter_tool_support.dart)
+/// on purpose. That one is inside the HTTP door and answers "is a `tools` POST
+/// to this openrouter.ai route worth making", from the provider catalog and from
+/// 400/404 bodies, keyed by model id. This one sits above any transport and
+/// answers "did a real attempt produce tool calls, and should the next eval in
+/// this send try again", for every backend including Kobold and oMLX. Do not
+/// merge them: the transport would inherit per-send skip/pause bookkeeping, and
+/// this probe would inherit one provider's catalog semantics.
 class ToolTransportProbe extends ChangeNotifier {
   /// true = tools confirmed working, false = XML/text-only.
   final Map<String, bool> _verdicts = {};
