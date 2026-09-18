@@ -1,0 +1,146 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Generation status, RP text colouring, the composer backdrop pair, and the
+   slash-command cheat sheet.
+*/
+
+/* Truthful pre-token generation status (desktop status-bar parity): real
+   prompt-reading progress instead of a silent wait. Porch-amber track. */
+.bubble.gen-status { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
+.gen-status-track {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  overflow: hidden;
+}
+.gen-status-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 300ms ease;
+}
+/* RP text coloring (parity with desktop AppColors.dialogue / action): "quoted
+   dialogue" → amber, *actions* → italic blue, **emphasis** → bold blue. Applied
+   to BOTH bubbles (desktop colors user + AI alike); the user can recolor the user
+   bubble / text in Settings → Chat colors so the highlight stays legible. */
+.bubble .dlg { color: var(--dialogue); }
+.bubble .act { color: var(--action); font-style: italic; }
+.bubble .act.bold { font-weight: 700; font-style: normal; }
+.chat-composer-wrap { width: 100%; }
+.send-held-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; font-size: 12px; font-weight: 500;
+  color: var(--muted); background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.send-held-banner::before {
+  content: '';
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--accent); border-top-color: transparent;
+  animation: send-held-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes send-held-spin { to { transform: rotate(360deg); } }
+.chat-input {
+  display: flex; gap: 8px; align-items: flex-end;
+  padding: 10px; border-top: 1px solid var(--border); background: var(--surface);
+}
+.chat-input { position: relative; }
+
+/* Composer = a transparent auto-growing textarea over a colour-synced backdrop
+ * that live-colours "dialogue"/*action* as you type (web mirror of the desktop
+ * StyledTextController). Backdrop and textarea MUST share an identical box model
+ * so the colour stays glued to the caret; height is JS-controlled (auto-grow to
+ * ~40% viewport, then internal scroll). */
+.chat-input .composer-area { position: relative; flex: 1; display: flex; }
+.chat-input .composer-backdrop,
+.chat-input .composer-input {
+  margin: 0; width: 100%; box-sizing: border-box;
+  font-family: inherit; font-size: calc(14px * var(--reading-size, 1)); line-height: 1.5;
+  letter-spacing: normal; tab-size: 4;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;
+}
+.chat-input .composer-backdrop {
+  position: absolute; inset: 0; overflow: hidden;
+  color: var(--text); background: var(--bg);
+  border-color: transparent; pointer-events: none;
+}
+.chat-input .composer-input {
+  position: relative; flex: 1; resize: none;
+  background: transparent; color: transparent; caret-color: var(--text);
+  overflow-y: hidden;
+}
+.chat-input .composer-input::placeholder { color: var(--muted); }
+.chat-input .composer-input.no-api::placeholder { color: var(--danger); }
+/* Colour-only in the live composer (no italic/bold) so transparent textarea and
+ * coloured backdrop keep identical glyph metrics. Rendered bubbles add the
+ * italic/bold; the input intentionally doesn't (matches StyledTextController). */
+.chat-input .composer-backdrop .dlg { color: var(--dialogue); }
+.chat-input .composer-backdrop .act { color: var(--action); font-style: normal; font-weight: inherit; }
+.chat-input .composer-backdrop .act.bold { font-style: normal; font-weight: inherit; }
+.chat-input .impersonate-btn {
+  color: var(--accent);
+  font-size: 1.2rem;
+  padding: 6px 8px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.chat-input .impersonate-btn:disabled { opacity: 0.4; }
+
+/* ── Slash-command cheat sheet (chat input) ───────────────────── */
+.slash-cheatsheet {
+  position: absolute; left: 10px; right: 10px; bottom: calc(100% + 6px);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 6px; z-index: 30;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  max-height: 40vh; overflow-y: auto;
+}
+.cheatsheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); padding: 4px 8px;
+}
+.cheatsheet-row {
+  width: 100%; text-align: left; background: none; border: none;
+  display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 8px;
+}
+.cheatsheet-row:hover { background: var(--surface-2); filter: none; }
+.cheatsheet-cmd { font-family: ui-monospace, monospace; font-size: 0.85rem; color: var(--accent); }
+.cheatsheet-desc { font-size: 0.75rem; color: var(--muted); }
+
+/* ── Conversations drawer ─────────────────────────────────────── */
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0, 0, 0, 0.5); display: flex; justify-content: flex-end;
+}
+.sessions-drawer {
+  width: min(360px, 88%); height: 100%; background: var(--surface);
+  border-left: 1px solid var(--border); padding: 16px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.settings-drawer {
+  width: min(440px, 92%); height: 100%; background: var(--surface);
+  border-left: 1px solid var(--border); padding: 16px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.drawer-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; }
+.new-chat { width: 100%; }
+.conv-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.conv-row { display: flex; align-items: stretch; gap: 4px; }
+.conv-row .conv-item { flex: 1; }
+.conv-delete { flex-shrink: 0; align-self: center; }
+.chat-history-modal { width: min(480px, 94vw); max-height: min(520px, 88vh); }
+.chat-history-list { overflow-y: auto; max-height: 360px; }
+.conv-item {
+  width: 100%; text-align: left; display: flex; flex-direction: column;
+  gap: 4px; align-items: flex-start;
+}
+.conv-item.active { border-color: var(--accent); }
+.conv-preview { font-weight: 600; word-break: break-word; }
+.conv-meta { font-size: 0.72rem; color: var(--muted); }
+

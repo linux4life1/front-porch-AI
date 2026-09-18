@@ -1,0 +1,122 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Per-message actions, thinking blocks, and the fullscreen message editor.
+*/
+
+/* ── Per-message actions / edit / thinking ────────────────────── */
+.msg-actions { display: flex; align-items: center; gap: 2px; margin: 1px 0 2px; align-self: flex-start; opacity: 0; transition: opacity 0.12s; flex-wrap: wrap; }
+.msg-actions.user { align-self: flex-end; }
+.msg-row:hover .msg-actions, .msg-actions:focus-within { opacity: 1; }
+@media (hover: none) { .msg-actions { opacity: 1; } } /* touch: always show */
+.regen-critique-modal {
+  width: min(28rem, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 12px;
+}
+.regen-critique {
+  width: 100%;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  line-height: 1.4;
+  resize: vertical;
+  min-height: 4.5rem;
+  max-height: 12rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+.regen-critique:focus { border-color: var(--accent); outline: none; }
+.regen-critique-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: center;
+}
+.icon-btn { background: none; border: none; color: var(--muted); padding: 2px 6px; border-radius: 8px; font-size: 0.9rem; line-height: 1; }
+.icon-btn:hover { color: var(--text); background: var(--surface-2); filter: none; }
+.swipe { display: inline-flex; align-items: center; gap: 2px; }
+.swipe-count { font-size: 0.72rem; color: var(--muted); min-width: 30px; text-align: center; }
+/* Fullscreen message editor (desktop MessageEditDialog parity) */
+.msg-edit-backdrop { z-index: 80; }
+.msg-edit-modal {
+  width: min(920px, 96vw);
+  height: min(88vh, 900px);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 12px;
+}
+.msg-edit-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.msg-edit-modal-title { display: inline-flex; align-items: center; gap: 8px; font-size: 1.05rem; }
+.msg-edit-modal-actions { display: flex; gap: 8px; align-items: center; }
+.msg-edit-think-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 12px; color: var(--text); font-size: 0.88rem;
+  cursor: pointer; text-align: left;
+}
+.msg-edit-think-toggle:hover { border-color: var(--accent); }
+.msg-edit-think-badge {
+  font-size: 0.72rem; font-weight: 600; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 8px; padding: 2px 7px;
+}
+.msg-edit-thinking {
+  resize: vertical; min-height: 90px; max-height: 28vh;
+  font-style: italic; color: var(--muted);
+  font-size: calc(14px * var(--reading-size, 1));
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; width: 100%; box-sizing: border-box;
+}
+.msg-edit-body-label {
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em;
+  color: var(--muted); margin-top: 2px;
+}
+.msg-edit-body-area {
+  position: relative; flex: 1; min-height: 220px; display: flex;
+}
+.msg-edit-backdrop,
+.msg-edit-body {
+  margin: 0; width: 100%; height: 100%; box-sizing: border-box;
+  font-family: inherit; font-size: calc(14px * var(--reading-size, 1)); line-height: 1.55;
+  letter-spacing: normal; tab-size: 4;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;
+  scrollbar-gutter: stable;
+}
+.msg-edit-backdrop {
+  position: absolute; inset: 0; overflow: hidden;
+  color: var(--text); background: var(--bg);
+  border-color: transparent; pointer-events: none;
+}
+.msg-edit-backdrop .dlg { color: var(--dialogue); }
+.msg-edit-backdrop .act { color: var(--action); font-style: normal; }
+.msg-edit-backdrop .act.bold { font-weight: 700; }
+.msg-edit-body {
+  position: relative; resize: none; overflow: auto;
+  background: transparent; color: transparent; caret-color: var(--text);
+}
+.msg-edit-body::placeholder { color: var(--muted); }
+.msg-edit-modal-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding-top: 2px;
+}
+

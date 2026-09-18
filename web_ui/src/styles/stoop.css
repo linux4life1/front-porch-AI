@@ -1,0 +1,200 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   The Stoop: hub, browse, card detail, creator profile, your uploads.
+*/
+
+/* ── The Stoop (community character hub) ── */
+.stoop-page { max-width: 900px; }
+.stoop-head { display: flex; align-items: center; justify-content: space-between; }
+.stoop-head h2 { margin: 0; }
+.stoop-bell { position: relative; font-size: 20px; text-decoration: none; padding: 4px 8px; }
+.stoop-bell-badge {
+  position: absolute; top: -2px; right: -2px; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 8px; background: var(--danger); color: #fff;
+  font-size: 11px; line-height: 16px; text-align: center;
+}
+.stoop-tabs { display: flex; gap: 6px; margin: 12px 0 16px; border-bottom: 1px solid var(--border); }
+.stoop-tab {
+  padding: 8px 14px; color: var(--muted); text-decoration: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.stoop-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+/* The personal tab wears the user's @name — cap it so it can't stretch the bar. */
+.stoop-tab-name {
+  display: inline-flex; align-items: baseline; max-width: 160px;
+  overflow: hidden; white-space: nowrap; vertical-align: bottom;
+}
+.stoop-tab-name-text {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Twitter/X verified silhouette — same path/fills as hub `.hub-check`. */
+.stoop-check {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin-left: 0.22em;
+  vertical-align: -0.18em;
+  line-height: 0;
+  flex: none;
+}
+.stoop-check svg { width: 100%; height: 100%; display: block; }
+.stoop-check-gold svg { fill: #e8b923; }
+.stoop-check-blue svg { fill: #1d9bf0; }
+.stoop-check-silver svg { fill: #c0c7d1; }
+.stoop-creator-head h3 .stoop-check,
+.stoop-tab-name .stoop-check {
+  width: 1.05em;
+  height: 1.05em;
+  vertical-align: -0.12em;
+}
+
+.stoop-auth { max-width: 420px; margin: 40px auto; display: flex; flex-direction: column; gap: 10px; }
+.stoop-auth form { display: flex; flex-direction: column; gap: 10px; }
+
+.stoop-gate { max-width: 640px; margin: 24px auto; }
+.stoop-gate-text { max-height: 50vh; overflow-y: auto; padding-right: 8px; }
+.stoop-gate-text h4 { margin: 14px 0 4px; }
+.stoop-gate-agree { display: flex; gap: 8px; align-items: flex-start; margin: 14px 0; }
+.stoop-gate-agree input { margin-top: 3px; }
+
+.stoop-search { display: flex; gap: 8px; margin-bottom: 12px; }
+.stoop-search input { flex: 1; }
+.stoop-filters { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.stoop-more { display: block; margin: 16px auto; }
+
+.stoop-carousel h3 {
+  margin: 18px 0 8px; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
+}
+.stoop-carousel-row {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(140px, 160px);
+  gap: 10px; overflow-x: auto; padding-bottom: 8px;
+}
+
+.stoop-tile { transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s; }
+.stoop-tile:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35), 0 0 26px rgba(245, 166, 35, 0.07);
+}
+.stoop-tile-meta { display: flex; gap: 10px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.stoop-badges { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.stoop-tile .lib-name-row { align-items: flex-start; flex-wrap: wrap; justify-content: flex-start; }
+.stoop-tile .lib-name { flex-basis: 100%; width: 100%; }
+.stoop-badge {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted);
+}
+.stoop-badge.nsfw { border-color: var(--danger); color: var(--danger); }
+.stoop-badge.pick { border: none; background: var(--accent); color: #241502; }
+.stoop-badge.group { border-color: var(--ok); color: var(--ok); }
+.stoop-badge.world { border-color: var(--accent); color: var(--accent); }
+.stoop-badge.climate { border-color: var(--ok); color: var(--ok); }
+.stoop-badge.lore { color: var(--text); }
+
+.stoop-detail-head { display: flex; gap: 16px; align-items: flex-start; }
+.stoop-detail-art { width: 140px; flex: none; }
+.stoop-detail-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.stoop-detail-info h3 { margin: 0; }
+.stoop-original-creator { font-style: italic; font-size: 13px; }
+.stoop-detail-meta { display: flex; gap: 12px; font-size: 13px; }
+.stoop-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.stoop-vote { display: inline-flex; align-items: center; gap: 6px; }
+.stoop-vote button { padding: 4px 10px; }
+.stoop-vote button.active { border-color: var(--accent); background: var(--accent); color: #241502; }
+.stoop-note { color: var(--accent); }
+.stoop-section h4 { margin: 0 0 6px; }
+.stoop-pre { white-space: pre-wrap; margin: 0; }
+/* Authored ambitions on a Stoop card — text only (a card you have not
+   downloaded has no story, so no progress bar or stage word). */
+.stoop-ambitions { margin: 0; padding: 0; list-style: none; }
+.stoop-ambitions li { margin: 0 0 5px; line-height: 1.35; }
+.stoop-sublabel {
+  margin: 10px 0 4px;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stoop-member-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.stoop-lore-entry + .stoop-lore-entry { margin-top: 12px; }
+.stoop-comment { margin: 0 0 14px; }
+.stoop-comment-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0; }
+.stoop-comment-reply { margin: 8px 0 0 12px; padding-left: 10px; border-left: 2px solid var(--border); }
+.stoop-comment-report { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+[data-layout='phone'] .stoop-detail-head { flex-direction: column; }
+[data-layout='phone'] .stoop-detail-art { width: 110px; }
+
+.stoop-creator-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.stoop-creator-head > div { flex: 1; min-width: 0; }
+.stoop-creator-head h3 { margin: 0; }
+/* Round creator avatar (photo, or amber serif monogram fallback). */
+.stoop-creator-ava {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; overflow: hidden; vertical-align: middle;
+  background: var(--surface); border: 2px solid var(--accent);
+}
+.stoop-creator-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stoop-creator-mono { color: var(--accent); font-family: Georgia, 'Times New Roman', serif; }
+.stoop-creator-bio { max-width: 640px; white-space: pre-wrap; }
+.stoop-creator-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.stoop-ava-row { display: flex; align-items: center; gap: 10px; }
+.stoop-small { font-size: 12px; }
+.stoop-verify-note {
+  border-left: 3px solid var(--accent); background: rgba(245, 166, 35, 0.08);
+  padding: 8px 12px; border-radius: var(--radius); margin: 0;
+}
+.stoop-forgot-sent p { max-width: 460px; }
+.stoop-email-change { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; width: 100%; }
+
+.stoop-inbox { display: flex; flex-direction: column; gap: 10px; }
+.stoop-thread {
+  display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+  max-height: 55vh; padding: 4px;
+}
+.stoop-msg {
+  max-width: 80%; padding: 8px 12px; border-radius: var(--radius);
+  background: var(--card); border: 1px solid var(--border);
+}
+.stoop-msg.me { align-self: flex-end; background: var(--chat-user-bubble, var(--surface)); }
+.stoop-msg.mod { align-self: flex-start; }
+.stoop-msg p { margin: 0; white-space: pre-wrap; }
+.stoop-msg-card { display: block; font-size: 12px; color: var(--accent); }
+.stoop-msg-time { display: block; font-size: 11px; margin-top: 4px; }
+.stoop-typing { color: var(--muted); }
+.stoop-composer { display: flex; gap: 8px; align-items: flex-end; }
+.stoop-composer textarea { flex: 1; resize: none; }
+
+.stoop-account { display: flex; flex-direction: column; gap: 14px; }
+.stoop-account section { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.stoop-account label { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 360px; }
+.stoop-toggle { flex-direction: row !important; align-items: center; gap: 8px; }
+.stoop-following { list-style: none; margin: 0; padding: 0; width: 100%; }
+.stoop-following li {
+  display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.stoop-following li:last-child { border-bottom: none; }
+.stoop-status {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border);
+}
+.stoop-status.approved { color: var(--ok); border-color: var(--ok); background: rgba(105, 240, 174, 0.1); }
+.stoop-status.pending { color: var(--accent); border-color: var(--accent); background: rgba(245, 166, 35, 0.1); }
+.stoop-status.rejected, .stoop-status.taken_down { color: var(--danger); border-color: var(--danger); background: rgba(255, 99, 71, 0.08); }
+.stoop-reject-note { flex-basis: 100%; margin: 0; font-size: 12px; }
+/* "Your uploads" as an art grid: status chip rides the artwork. */
+.stoop-mine-tile { position: relative; }
+.stoop-mine-art { display: block; }
+.stoop-mine-status { position: absolute; top: 8px; left: 8px; z-index: 1; background: rgba(14, 12, 9, 0.82); }
+.stoop-delete-link { color: var(--danger); }
+.stoop-delete-confirm { width: 100%; }
+.stoop-coming-soon { max-width: 560px; }
+

@@ -1,0 +1,110 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Porch Stories, thinking-strength chips, and the AI character creator.
+*/
+
+/* Porch Stories */
+.story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.story-card { cursor: pointer; position: relative; display: flex; flex-direction: column; gap: 6px; }
+.story-card:hover { border-color: var(--accent); }
+.story-del { position: absolute; top: 8px; right: 8px; opacity: 0.6; }
+.clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.field-label { margin: 10px 0 4px; font-size: 0.85rem; color: var(--muted); }
+.chip-select { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-toggle {
+  padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border);
+  background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem;
+}
+.chip-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Thinking strength — chips match this model's real levels */
+.thinking-strength { margin: 10px 0 4px; display: flex; flex-direction: column; gap: 8px; }
+.thinking-strength-label {
+  font-size: 0.9rem; font-weight: 600; color: var(--text);
+}
+.thinking-strength-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.thinking-strength-chip {
+  flex: 1 1 96px; min-width: 96px; max-width: 140px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface, transparent);
+  color: var(--text); cursor: pointer; text-align: left;
+}
+.thinking-strength-chip.on {
+  background: var(--accent); border-color: var(--accent); color: #1a1208;
+  border-width: 1.5px;
+}
+.thinking-strength-chip-title { font-weight: 700; font-size: 0.95rem; }
+.thinking-strength-chip-sub {
+  font-size: 0.72rem; line-height: 1.25; opacity: 0.85;
+}
+.thinking-strength-chip.on .thinking-strength-chip-sub { opacity: 0.9; }
+.thinking-strength-caption { margin: 0; }
+.char-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.wizard-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; }
+.story-progress { display: flex; align-items: center; gap: 12px; }
+.spinner.small { width: 20px; height: 20px; }
+.story-scene-row { padding: 8px 0; border-top: 1px solid var(--border); }
+.scene-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.valence { font-size: 0.75rem; padding: 1px 6px; border-radius: 999px; }
+.valence.vpos { background: rgba(80, 200, 120, 0.18); color: #4ade80; }
+.valence.vneg { background: rgba(255, 107, 107, 0.18); color: var(--danger); }
+.beat-card .beat-prose { display: flex; gap: 8px; align-items: flex-start; }
+.beat-card .beat-prose p { white-space: pre-wrap; flex: 1; }
+.reader { max-width: 640px; line-height: 1.7; }
+
+/* AI character creator: live generation steps. */
+.chargen-steps { margin: 8px 0 0; padding-left: 20px; }
+.chargen-steps li { padding: 2px 0; color: var(--muted); }
+.chargen-steps li.done { color: var(--text); }
+.chargen-steps li.active { color: var(--accent); font-weight: 600; }
+
+/* ── AI character creator wizard (Quick / Guided / Automated) ───────────── */
+.cg-config { display: flex; flex-direction: column; gap: 12px; }
+.cg-field { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.cg-field-label { font-size: 0.82rem; color: var(--muted); }
+.cg-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cg-subhead {
+  margin: 8px 0 0; font-size: 0.92rem; color: var(--text);
+  border-top: 1px solid var(--border); padding-top: 12px;
+}
+.cg-toggle { flex-direction: row; align-items: center; gap: 8px; }
+.cg-toggle input { width: auto; }
+.cg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cg-chip {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 999px; padding: 5px 12px; font-size: 0.82rem; cursor: pointer;
+}
+.cg-chip:hover { border-color: var(--accent); }
+.cg-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.cg-mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cg-mode-card {
+  display: flex; flex-direction: column; gap: 6px; text-align: left;
+  padding: 16px; border-radius: var(--radius-card); cursor: pointer;
+  background: var(--card); border: 2px solid var(--border); color: var(--text);
+}
+.cg-mode-card:hover { border-color: var(--accent); }
+.cg-mode-title { font-weight: 700; font-size: 1rem; }
+.cg-mode-blurb { font-size: 0.8rem; color: var(--muted); line-height: 1.35; }
+.cg-mode-card.quick.on { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
+.cg-mode-card.guided.on { border-color: var(--action); box-shadow: 0 0 0 1px var(--action); }
+.cg-mode-card.automated.on { border-color: var(--accent-amber); box-shadow: 0 0 0 1px var(--accent-amber); }
+.cg-review { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.cg-generate { align-self: flex-start; }
+.cg-lore { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+.cg-lore-url { display: flex; gap: 8px; align-items: stretch; }
+.cg-lore-url input { flex: 1; }
+.cg-lore-file { display: inline-flex; align-self: flex-start; cursor: pointer; }
+.cg-lore-file > span {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: var(--radius); padding: 8px 12px; font-size: 0.85rem;
+}
+.cg-lore-file:hover > span { border-color: var(--accent); }
+@media (max-width: 768px) {
+  .cg-mode-cards, .cg-grid2, .cg-review { grid-template-columns: 1fr; }
+}
+

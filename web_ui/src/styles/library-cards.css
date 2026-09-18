@@ -1,0 +1,177 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Art-forward library cards, card kebab menu, toolbar extras, library
+   dialogs, the Worlds page, the Models page, and inline chat images.
+*/
+
+/* ── Library: art-forward cards (desktop-first; the grid auto-fills, so it
+   scales from a few columns on a laptop to many on a wide monitor) ───────── */
+.lib-grid {
+  display: grid; gap: 16px; margin-bottom: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--lib-card-min, 150px), 1fr));
+}
+/* Sentinel row for progressive reveal of a large character grid. */
+.lib-load-more { display: flex; justify-content: center; padding: 20px 0; }
+.lib-card {
+  position: relative; display: flex; flex-direction: column; padding: 0; text-align: left;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card);
+  overflow: hidden; cursor: pointer; transition: border-color 0.12s, transform 0.12s;
+}
+.lib-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.lib-open {
+  background: none; border: none; padding: 0; width: 100%; cursor: pointer;
+  display: flex; flex-direction: column; text-align: left;
+}
+.lib-art {
+  width: 100%; aspect-ratio: 3 / 4; background: var(--surface-2);
+  display: grid; place-items: center; overflow: hidden;
+}
+.lib-art img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.lib-art-fallback { font-size: 2.4rem; color: var(--accent); }
+.lib-info { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lib-name-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.lib-name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-msgs { font-size: 0.7rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.lib-sub { font-size: 0.72rem; color: var(--muted); }
+.lib-card .tag-pills { display: flex; flex-wrap: wrap; gap: 4px; overflow: hidden; max-height: 1.55rem; }
+.lib-card .tag-pill {
+  font-size: 0.64rem; padding: 2px 6px; border-radius: var(--radius-badge);
+  background: var(--tag-bg); border: 1px solid var(--tag-border); color: var(--tag-text); white-space: nowrap;
+}
+/* Group cards: purple accent + a member collage cover. */
+.lib-card.group-card { border-color: var(--group-border); }
+.group-art { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr; place-items: stretch; gap: 1px; }
+.group-art[data-count="1"] { grid-template-columns: 1fr; }
+.group-art img { width: 100%; height: 100%; object-fit: cover; min-height: 0; }
+.group-art .lib-art-fallback {
+  width: 100%; height: 100%; min-height: 0; display: grid; place-items: center;
+  background: var(--surface); font-size: 1.4rem;
+}
+/* Folder cards: compact row (no cover art). */
+.lib-card.folder-card { flex-direction: row; align-items: center; gap: 10px; padding: 14px 12px; }
+.lib-card.folder-card .folder-glyph { font-size: 1.6rem; flex-shrink: 0; }
+.folder-open { flex-direction: row !important; align-items: center; gap: 10px; }
+.lib-card.folder-card.drop-over { border-color: var(--accent); background: var(--surface-2); }
+.crumb-drop { border-radius: 6px; }
+
+/* ── Library card kebab + per-card context menu ───────────────────────── */
+.card-kebab {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  background: rgba(15, 23, 42, 0.7); color: var(--text);
+  opacity: 0; transition: opacity 0.12s; font-size: 1.05rem; font-weight: 700;
+}
+.folder-kebab { background: var(--surface-2); }
+.lib-card:hover .card-kebab, .card-kebab:focus-visible { opacity: 1; }
+@media (hover: none) { .card-kebab { opacity: 1; } }
+.select-check {
+  position: absolute; top: 6px; right: 6px; z-index: 2; width: 22px; height: 22px;
+  display: grid; place-items: center; border-radius: 6px; font-size: 0.85rem; font-weight: 700;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--accent-ink);
+}
+.select-check.on { background: var(--accent); border-color: transparent; }
+.lib-card.selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.card-menu-backdrop { position: fixed; inset: 0; z-index: 60; }
+.card-menu {
+  position: fixed; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 6px; display: flex; flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.card-menu-item {
+  display: flex; align-items: center; gap: 10px; text-align: left; width: 100%;
+  background: none; border: none; border-radius: 8px; padding: 8px 10px; color: var(--text);
+  font-size: 0.85rem;
+}
+.card-menu-item:hover { background: var(--surface-2); filter: none; }
+.card-menu-item.danger { color: var(--danger); }
+.cmi-icon { width: 18px; text-align: center; flex-shrink: 0; }
+
+/* ── Library toolbar extras: grid-size slider + bulk-selection bar ─────── */
+.grid-size { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; width: auto; margin: 0; }
+.grid-size input[type='range'] { width: 96px; padding: 0; }
+.selection-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 14px; padding: 8px 12px;
+  background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius);
+}
+.sel-count { font-weight: 600; }
+.sel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Library dialogs: confirm message + move-to-folder picker ──────────── */
+.dialog-msg { margin: 0; line-height: 1.5; }
+.move-list { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; }
+.move-row {
+  display: flex; align-items: center; gap: 8px; text-align: left; width: 100%;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; font-size: 0.85rem;
+}
+.move-row:hover { border-color: var(--accent); filter: none; }
+
+/* Selectable character cards (group member picker). */
+.char-card.selected { outline: 2px solid var(--accent); border-radius: var(--radius); }
+
+/* ── Worlds page ──────────────────────────────────────────────── */
+.world-edit { margin-top: 16px; }
+
+/* ── Models & backends page ───────────────────────────────────── */
+.model-list, .download-list, .hf-list, .file-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.model-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.model-info { display: flex; flex-direction: column; min-width: 0; }
+.download-list li { display: flex; flex-direction: column; gap: 4px; }
+.dl-head { display: flex; align-items: center; gap: 8px; }
+.dl-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; }
+.hf-row { padding: 0; margin: 0; }
+.hf-head { width: 100%; text-align: left; background: none; border: none; padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+.file-list { padding: 0 10px 10px; }
+.file-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.image-result { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.image-result img { max-width: 100%; border-radius: var(--radius); border: 1px solid var(--border); }
+.image-result-actions { display: flex; align-items: center; gap: 12px; }
+
+/* ── Models page: hardware panel + recommendations ─────────────────────── */
+.hw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 4px 0 8px; }
+.hw-cell { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hw-cell strong { overflow-wrap: anywhere; }
+.rec-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.rec-chip {
+  font-size: 0.72rem; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  background: rgba(244, 162, 89, 0.14); color: var(--accent); border: 1px solid var(--border);
+}
+.rec-chip:hover { filter: brightness(1.2); }
+.mono-path { font-family: var(--mono, ui-monospace, monospace); overflow-wrap: anywhere; }
+
+/* Installed models: Use + Delete affordances. */
+.model-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.danger-btn { color: var(--danger); border-color: var(--border); }
+.danger-btn:hover { background: rgba(255, 82, 82, 0.12); }
+
+/* Download queue: overall bar, bulk controls, per-task rows. */
+.dl-queue { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.dl-overall { display: flex; flex-direction: column; gap: 4px; }
+.dl-overall-head { display: flex; justify-content: space-between; }
+.dl-bulk { display: flex; flex-wrap: wrap; gap: 6px; }
+.small-btn { font-size: 0.72rem; padding: 3px 10px; }
+.dl-item { display: flex; flex-direction: column; gap: 4px; }
+.dl-controls { display: flex; gap: 2px; flex: none; }
+.dl-sub { display: flex; justify-content: space-between; gap: 8px; }
+.dl-err { color: var(--danger); }
+
+/* Inline images embedded in chat messages (![alt](https://...)). */
+.chat-image {
+  display: block; max-width: 100%; margin-top: 8px;
+  border-radius: var(--radius); border: 1px solid var(--border);
+}
+.chat-image-consent {
+  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin-top: 8px; padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text); font-size: 0.82rem;
+}
+.chat-image-consent button {
+  background: var(--accent); color: var(--accent-ink);
+  border: none; font-weight: 600; cursor: pointer;
+  padding: 4px 10px; border-radius: 8px;
+}
+
