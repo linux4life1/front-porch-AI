@@ -1,6 +1,13 @@
+## 2026-09-18 — S1.7: ChatService private fields onto a mixin (968 → 492)
+- **Why:** the shell still held every runtime field next to fake-pinned getters and `late final` builders. Extensions cannot declare instance state.
+- **What:** `ChatServiceFieldBag` mixin in `chat_service_fields.dart` (371) holds private runtime fields. The class keeps constructor deps, test hooks, `_groupRealism` / `_turnSpeakerIdForRealism`, `late final` builders (they call extension `_buildX()`), and fake-pinned members (`pocketsFor`, `callMode`, `isCheckingCompletion`, `journalStore`, …). Hide-not-erase `pocketsFor` body is unchanged.
+- **Verified:** analyzer clean on the library. `god_file_ratchet`, `standalone_clock_test` (11), `wardrobe_message_zero_test` (8, including hide-not-erase) green.
+- **Files:** `lib/services/chat_service.dart`, new `lib/services/chat/chat_service_fields.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.5: ChatPage split into session, send, and overlays (978 → 479)
 - **Why:** the web chat route owned load/socket, send/regen, overlays, and the desktop/phone layout in one file.
-- **What:** `ChatPage.tsx` keeps auth, layout branch, header, composer, insight aside, and drawers (479). `chat/chatState.ts` is the GET /api/chat/state type. `useChatSession` is load / socket / history / session switch (353). `useChatSend` is send / continue / regen / swipe / edit / reprocess (155); `postChatSend` stays in `chatSend.ts`. `ChatOverlays` is chance time, reprocess, persona, image review, edit, and the join picker (110). Existing page tests still import `ChatPage`.
+- **What:** `ChatPage.tsx` keeps auth, layout branch, header, composer, insight aside, drawers, and `ProcessingOverlay` (480). The overlay is `position:absolute` against `.chat-view` — moving it out of that ancestor would park it in the wrong place. `chat/chatState.ts` is the GET /api/chat/state type. `useChatSession` is load / socket / history / session switch (353). `useChatSend` is send / continue / regen / swipe / edit / reprocess (155); `postChatSend` stays in `chatSend.ts`. `ChatOverlays` is chance time, reprocess, persona, image review, edit, and the join picker (103). Existing page tests still import `ChatPage`.
 - **Verified:** `tsc --noEmit` clean. `chatAsideMount`, `chatSessionRecovery`, `chatSend` (14 tests) green. `npm run build` wrote `assets/web_app`.
 - **Files:** `web_ui/src/pages/ChatPage.tsx` + `web_ui/src/pages/chat/{chatState,useChatSession,useChatSend,ChatOverlays}`
 - **Commit:** this tip

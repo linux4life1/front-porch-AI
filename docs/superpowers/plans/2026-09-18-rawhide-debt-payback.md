@@ -29,6 +29,7 @@
 > | S1.16 Chance Time overlay | done | `refactor(ui): split Chance Time into shell, views, and painters` |
 > | CI follow-up (notify / GrowthPanel statics / theme-keep / io-ok) | done | `fix: analyzer, theme-lint, and io-lint after the S1 splits` |
 > | S1.5 ChatPage.tsx | done | `refactor(web): split ChatPage into session, send, and overlays` |
+> | S1.7 chat_service.dart shell | done | `refactor(chat): move ChatService private fields onto a mixin` |
 > | S1 remaining / S2 / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
