@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 chat_facade: swipe/history off send-load (776 → 508)
+- **Why:** the web chat adapter mixed send/load/state with swipe, personas, and session history.
+- **What:** `chat_facade.dart` keeps state, select/load, send, stop, Chance Time, `regenerate`, and `continueGeneration` (508). `chat_facade_history.dart` is swipe/variants, edit/delete, impersonate, personas, sessions, lore, theme (292). Continue and regen both stay forwarded. Continue does not tick.
+- **Verified:** analyzer clean. chat fork/insert-image/session/persona (14) green.
+- **Files:** `lib/services/web/facade/chat_facade.dart` + `chat_facade_history.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 reprocess: regen revert and swipe-merge off the hold (791 → 457)
 - **Why:** `_regenerateLastMessageHeld` inlined the speaker revert and the swipe merge. Needs reprocess/revert already live in `chat_service_needs_reprocess.dart`. Continue is not this file.
 - **What:** `chat_service_reprocess.dart` keeps `regenerateMainCharacter`, the settling hold, guest/host gates, 1:1 eval replay, and `_generateResponse` (457). `chat_service_regen_revert.dart` is `_revertRegenRealismBaseline` (1:1 + group speaker impersonation) and `_mergeOrRestoreRegenSwipe` (387). `_resolveGroupSpeakerForMessage` stays here for the needs-reprocess twin. Continue does not tick.
