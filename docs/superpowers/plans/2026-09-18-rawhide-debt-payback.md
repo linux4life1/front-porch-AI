@@ -71,6 +71,7 @@
 > | S2 useLibrary.ts | done | `refactor(web): split library folder and card writes off load` |
 > | S2 backend_manager.dart | done | `refactor(backend): split KoboldCpp download off version check` |
 > | S2 chat_service_cast.dart | done | `refactor(chat): split group collapse and host carry off exit` |
+> | S2 home_page_dialogs.dart | done | `refactor(ui): split character import off delete and duplicate` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about

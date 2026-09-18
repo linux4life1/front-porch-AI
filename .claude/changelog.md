@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 home_page_dialogs: import off delete (574 → 233)
+- **Why:** PNG/JSON and BYAF import lived next to delete, edit, and duplicate. Folder/move is already elsewhere.
+- **What:** `home_page_dialogs.dart` keeps delete / mass-delete / edit / duplicate (233). `home_page_dialogs.import.dart` is PNG/JSON + BYAF import (362). Same library; `applyState` already exists on `_HomePageState`.
+- **Verified:** analyzer clean.
+- **Files:** dialogs + dialogs.import; `home_page.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 chat_service_cast: collapse and host carry off exit (585 → 182)
 - **Why:** group collapse to 1:1 and the inverse 1:1→group host carry lived next to `/exit` and member cleanup.
 - **What:** `chat_service_cast.dart` keeps exit, deferred delete, cleanup, and journal re-key (182). `chat_service_cast_shrink.dart` is collapse + host carry (429). Shared `_moveJournalCards` stays on the exit half.

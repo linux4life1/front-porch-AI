@@ -53,6 +53,7 @@ import 'package:front_porch_ai/services/byaf_service.dart';
 part 'home/home_page_chrome.dart';
 part 'home/home_page_handlers.dart';
 part 'home/home_page_dialogs.dart';
+part 'home/home_page_dialogs.import.dart';
 part 'home/home_page_char_ops.dart';
 part 'home/home_page_transfer.dart';
 part 'home/home_page_history.dart';
