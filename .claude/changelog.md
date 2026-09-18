@@ -1,3 +1,10 @@
+## 2026-09-18 — S1.10: TimeService split into eval and apply (939 → 454)
+- **Why:** story-clock public API, LLM minutes decide, and clamp/skip apply lived in one 939-line class.
+- **What:** `time_service.dart` keeps fields, seed/load/restore, and class statics `TimeService.postureQuestion` / `TimeService.parsePosture` (454) — fusion callers use those names. `.eval` is `_fireSceneTimeEval` + `evaluateTimeProgressAndPostureIfNeeded` (302). `.apply` is nudge/set/OOC skip/`_applyElapsed` and the `new_day` corroboration regex (230). Continue still does not tick. Extension calls qualify the class statics.
+- **Verified:** analyzer clean. `time_service_test` + `standalone_clock_test` (48) green.
+- **Files:** `lib/services/chat/time_service.dart` + `time_service_eval.dart` + `time_service_apply.dart`
+- **Commit:** this tip
+
 ## 2026-09-18 — S1.7: ChatService private fields onto a mixin (968 → 492)
 - **Why:** the shell still held every runtime field next to fake-pinned getters and `late final` builders. Extensions cannot declare instance state.
 - **What:** `ChatServiceFieldBag` mixin in `chat_service_fields.dart` (371) holds private runtime fields. The class keeps constructor deps, test hooks, `_groupRealism` / `_turnSpeakerIdForRealism`, `late final` builders (they call extension `_buildX()`), and fake-pinned members (`pocketsFor`, `callMode`, `isCheckingCompletion`, `journalStore`, …). Hide-not-erase `pocketsFor` body is unchanged.
