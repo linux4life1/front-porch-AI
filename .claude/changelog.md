@@ -1,3 +1,10 @@
+## 2026-09-18 — residual keep census
+- **Why:** after the leftover SEVERAL cuts, 48 production files are still over 500. All are ONE, LIST, or the ChatService shell.
+- **What:** documented keep verdicts. `home_page.dart` (556) is the home shell. `chat_service.dart` (510) is imports + part list + Fake-pinned forwarders. `image_gen_service.dart` (508) is the image-gen shell. No 500-line CI gate.
+- **Verified:** remasured committed source on this tip.
+- **Files:** plan + this changelog
+- **Commit:** this tip
+
 ## 2026-09-18 — residual pass_support: fire off probe (503 → 255)
 - **Why:** `_matchesEvalSchema` / `usableEvalJsonText` / `fireStructuredEval` lived next to the owner loop and `ToolTransportProbe`.
 - **What:** `pass_support.dart` keeps owners, one-shot resolve, and the probe (255). `pass_support_fire.dart` is schema salvage + the ONE tools-vs-text fire (272). Same library — existing `pass_support.dart` imports still see `fireStructuredEval`.

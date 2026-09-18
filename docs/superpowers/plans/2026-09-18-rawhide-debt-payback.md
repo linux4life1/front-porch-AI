@@ -83,7 +83,13 @@
 > | S2 styled_text_controller.dart | done | `refactor(ui): split tokenizer and presets off the styled controller` |
 > | S2 character_card_grid.dart | done | `refactor(ui): split grid cells off the home toolbar chrome` |
 > | S2 world_facade.dart | done | `refactor(web): split world and lorebook import off CRUD` |
-> | S2 remaining / S3 | done | last S2 row was world_facade — leftover SEVERAL: world_repository / memory_service (docs + forwarders; left) |
+> | S2 remaining / S3 | done | last S2 row was world_facade |
+> | residual accessors living | done | `refactor(chat): split living-time and cast off accessor setters` |
+> | residual chat_facade state | done | `refactor(web): split chat state payload off send and load` |
+> | residual memory embed | done | `refactor(rag): split window embed insert off retrieve` |
+> | residual world purge | done | `refactor(worlds): split character-clone purge off CRUD` |
+> | residual pass_support fire | done | `refactor(chat): split structured-eval fire off the transport probe` |
+> | residual keep census | done | every remaining production file over 500 is ONE, LIST, or the ChatService shell |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
 > what to look at, wrong about two conclusions):
@@ -1044,7 +1050,62 @@ ONE files over 500 that people will want to "just split": `character_card.dart`,
 | 9 | T9–T12 leftover spaghetti | yes | one PR per row if they fight |
 | 10+ | S1.1 … S1.19 then S2 | yes | one mixed file (or one ChatService part) per PR |
 
-No leftover SEVERAL file. After the last S2 PR, re-run the 500-line census. Target: **0 SEVERAL files over 500**. ONE and LIST may still be over 500.
+No leftover SEVERAL file. Remeasured after the residual wave (tip after pass_support fire). Target met: **0 SEVERAL files over 500**. ONE and LIST may still be over 500. `chat_service.dart` (510) is the shell — keep, because a further cut fights FakeChatService class forwarders.
+
+### Remaining production files over 500 (remeasure)
+
+Keep verdicts only. Tests and generated files omitted.
+
+| Lines | Path | Verdict |
+| ---: | --- | --- |
+| 927 | `lib/database/database.migrations.dart` | LIST — keep (onUpgrade ladder) |
+| 834 | `lib/models/character_card.dart` | ONE — keep |
+| 744 | `lib/ui/chat_components/sidebar/story_tools/chat_places_panel.dart` | ONE — keep |
+| 710 | `lib/services/chat/needs_simulation.dart` | ONE — keep |
+| 702 | `web_ui/src/components/PorchLifeSettings.tsx` | ONE — keep |
+| 664 | `lib/services/backporch/backporch_api.dart` | ONE — keep |
+| 651 | `lib/database/data_migration_service.dart` | ONE — keep |
+| 640 | `lib/ui/dialogs/group_objectives_dialog.dart` | ONE — keep |
+| 620 | `lib/ui/pages/story_home_view.dart` | ONE — keep |
+| 619 | `lib/ui/dialogs/background_settings_dialog.dart` | ONE — keep |
+| 597 | `lib/ui/pages/story_structure_page.dart` | ONE — keep |
+| 590 | `lib/ui/dialogs/story_calendar_dialog.dart` | ONE — keep |
+| 589 | `lib/utils/emotion_labels.dart` | LIST — keep |
+| 584 | `lib/models/story_project.dart` | LIST — keep |
+| 578 | `lib/services/chat/journal_maintenance.dart` | ONE — keep |
+| 570 | `lib/services/chat/realism_prompt_builder.dart` | ONE — keep |
+| 569 | `web_ui/src/pages/SettingsPage.tsx` | ONE — keep |
+| 569 | `lib/ui/pages/story_writer_page.dart` | ONE — keep |
+| 567 | `lib/ui/dialogs/journal_dialog.dart` | ONE — keep |
+| 566 | `lib/services/chat/realism_tools.dart` | LIST — keep |
+| 560 | `lib/ui/widgets/group_realism_dynamics_editor.dart` | ONE — keep |
+| 556 | `lib/ui/pages/home_page.dart` | ONE — keep (shell; dialogs/chrome already extracted) |
+| 553 | `lib/services/system_role_probe.dart` | ONE — keep |
+| 550 | `lib/ui/pages/settings_page.gpu.dart` | ONE — keep |
+| 545 | `lib/services/chat/chat_service_generation_plan.dart` | ONE — keep |
+| 544 | `lib/services/chat/promise_debt_service.dart` | ONE — keep |
+| 543 | `lib/ui/chat_components/bubbles/message_bubble.realism.dart` | ONE — keep |
+| 539 | `lib/services/character_gen_service.dart` | ONE — keep |
+| 539 | `lib/models/greeting_realism_seed.dart` | ONE — keep |
+| 535 | `lib/ui/avatar_creation/avatar_generation_panel.dart` | ONE — keep |
+| 532 | `lib/services/chat/expression_classifier.dart` | ONE — keep |
+| 531 | `lib/ui/dialogs/tts_settings_dialog.dart` | ONE — keep |
+| 531 | `lib/services/chat/chat_service_generation_stream.dart` | ONE — keep |
+| 528 | `lib/ui/chat_components/overlays/rag_setup_dialog.dart` | ONE — keep |
+| 528 | `lib/services/image_prompt/image_prompt_builder.dart` | ONE — keep |
+| 526 | `lib/services/chat/growth_service.dart` | ONE — keep |
+| 522 | `lib/ui/settings/tabs/general_tab.dart` | ONE — keep |
+| 519 | `lib/ui/dialogs/group_settings/realism_needs_tab.dart` | ONE — keep |
+| 517 | `lib/ui/pages/edit_character_page.tabs_core.dart` | ONE — keep |
+| 515 | `lib/ui/widgets/vision_projector_field.dart` | ONE — keep |
+| 510 | `lib/services/chat_service.dart` | KEEP — part list + Fake-pinned class forwarders; further cut fights fakes |
+| 509 | `lib/ui/pages/home/enhance/enhance_review_body.dart` | ONE — keep |
+| 508 | `web_ui/src/stoop/stoopApi.ts` | ONE — keep |
+| 508 | `web_ui/src/pages/WorldsPage.tsx` | ONE — keep |
+| 508 | `lib/ui/chat_components/bubbles/border_painters.dart` | LIST — keep |
+| 508 | `lib/services/image_gen_service.dart` | ONE — keep (image-gen shell) |
+| 502 | `lib/services/storage/settings/realism_settings.dart` | LIST — keep |
+| 501 | `lib/services/chat/weather_biomes.dart` | LIST — keep |
 
 ---
 
