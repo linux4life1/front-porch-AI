@@ -60,6 +60,7 @@
 > | S2 model_manager_page.dart | done | `refactor(ui): split HuggingFace download off the local list` |
 > | S2 chat_service_wiring_injection.dart | done | `refactor(chat): split injection leaf builders off lore and world helpers` |
 > | S2 rag_injection.dart | done | `refactor(chat): split RAG receipt and cover-drop off the memories block` |
+> | S2 chat_service_send.dart | done | `refactor(chat): split send decay and generate handoff off capture` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about

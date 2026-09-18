@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 chat_service_send: decay and generate handoff off capture (649 → 369)
+- **Why:** pre-turn capture, decay, generate, director note, guest chime-ins, and dream prefetch lived in one send part.
+- **What:** `chat_service_send.dart` keeps sendMessage guards, persist, chaos wheel, and call-model swap (369). `chat_service_send_handoff.dart` is `_sendDecayAndGenerate` (preTurnVector then tickDecay), director note, guest chime-ins, and dream prefetch (309). Continue does not tick — that path never enters this file.
+- **Verified:** analyzer clean. with_user pre-turn + dream prefetch + continue_postgen (12) green.
+- **Files:** send + send_handoff; `chat_service.dart` part
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 rag_injection: receipt and cover off the block (654 → 307)
 - **Why:** journal-cover drop and the per-turn receipt lived next to the memories block builder.
 - **What:** `rag_injection.dart` keeps day stamps, query, quote-reach, cap, and `buildRagMemoriesBlock` (307). `rag_injection.receipt.dart` is cover-drop plus `buildRagReceipt` (356). Same library — tests still import one file. Session isolation for other-chat lines is unchanged.
