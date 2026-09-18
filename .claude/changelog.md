@@ -1,3 +1,10 @@
+## 2026-09-18 — S2 setup_step: Extra Settings and status dot off the form (802 → 486)
+- **Why:** the Backend & Model form inlined Extra Settings helpers and the pulsing status dot.
+- **What:** `setup_step.dart` keeps the form `build` and `_applyAutoConfigure` (486) so `existsSync`/`lengthSync` stay in this file with `io-ok` on the token line. `setup_step_fields.dart` is Extra Settings + labels/fields (254). `setup_step_status_dot.dart` is the private blinking dot (78). `CreatorState.notify()` stays.
+- **Verified:** analyzer clean. setup_backend_picker + creator remaining goldens (6) green.
+- **Files:** `lib/ui/character_creator/steps/setup_step.dart` + `_fields` + `_status_dot`
+- **Commit:** this tip
+
 ## 2026-09-18 — S2 realism_verification: rules and critique off fire (803 → 394)
 - **Why:** verify/verifyBatch lived next to `_applyRuleChecks` and the critique prompt builders.
 - **What:** `realism_verification.dart` keeps ctor, `kMetaKey`, `verify`, `verifyBatch`, and `VerificationResult` (394). `realism_verification_rules.dart` is the one rule helper, both critique prompts, and `_RuleResult` (433). T8/T12 already landed, so this split is safe. Director still exempt on needs bounds (that helper is not here).

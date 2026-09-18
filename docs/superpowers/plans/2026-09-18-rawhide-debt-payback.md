@@ -42,6 +42,7 @@
 > | S2 chat_service_session_manage.dart | done | `refactor(chat): split fork and rename off new-chat seed` |
 > | S2 chat_command_handler.dart | done | `refactor(chat): split guest mint off slash parse` |
 > | S2 realism_verification.dart | done | `refactor(chat): split verification rules and critique off fire` |
+> | S2 setup_step.dart | done | `refactor(creator): split Extra Settings and the status dot off the form` |
 > | S2 remaining / S3 | in progress | — |
 >
 > **Corrections the work forced on this plan** (the inventory was right about
