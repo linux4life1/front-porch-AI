@@ -161,32 +161,6 @@ extension _ChatPageSceneDialogs on _ChatPageState {
     String? lastMessage;
     final messages = chatService.messages;
 
-    String _cleanImageSourceText(String text) {
-      if (text.isEmpty) return text;
-      // Remove think blocks (completed + unclosed tails) and "Auto-imported from character card: ..." lines
-      // so polluted card import junk and internal <think> never reach the Image Studio context, pills, or prompts.
-      // This directly addresses the original "Aerin" / "</think>" / raw thoughts garbage leaking into visualize.
-      text = text.replaceAll(
-        RegExp(r'<\/?think>.*?<\/think>', dotAll: true, caseSensitive: false),
-        '',
-      );
-      final idx = text.toLowerCase().lastIndexOf('<think>');
-      if (idx != -1) text = text.substring(0, idx);
-      text = text.replaceAll(
-        RegExp(r'<\/?think[^>]*>', caseSensitive: false),
-        '',
-      );
-      text = text.replaceAll(
-        RegExp(
-          r'Auto-imported from character card:.*?(?:\n|$)',
-          caseSensitive: false,
-        ),
-        '',
-      );
-      text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
-      return text;
-    }
-
     if (messages.isNotEmpty) {
       // Collect recent turns so the Freeform "Craft the current scene" path (and
       // the /image scene command) has narrative to distill. Each is stripped of
@@ -195,7 +169,7 @@ extension _ChatPageSceneDialogs on _ChatPageState {
           .take(12)
           .map((m) => m.displayText)
           .where((m) => m.isNotEmpty)
-          .map(_cleanImageSourceText)
+          .map(cleanVisualSourceText)
           .where((m) => m.isNotEmpty)
           .toList()
           .reversed
@@ -206,13 +180,13 @@ extension _ChatPageSceneDialogs on _ChatPageState {
       // just-typed input. Safe fallback to the absolute last message.
       final userName = personaService.persona.name;
       for (final m in messages.reversed) {
-        final txt = _cleanImageSourceText(m.displayText);
+        final txt = cleanVisualSourceText(m.displayText);
         if (txt.isNotEmpty && m.sender != userName) {
           lastMessage = txt;
           break;
         }
       }
-      lastMessage ??= _cleanImageSourceText(messages.last.displayText);
+      lastMessage ??= cleanVisualSourceText(messages.last.displayText);
     }
 
     // Collect richer context for the Image Studio (expression, time of day, and
@@ -293,8 +267,8 @@ extension _ChatPageSceneDialogs on _ChatPageState {
                   ),
               ]
             : const [],
-        scenario: _cleanImageSourceText(character?.scenario ?? ''),
-        worldInfo: _cleanImageSourceText(worldInfo ?? ''),
+        scenario: cleanVisualSourceText(character?.scenario ?? ''),
+        worldInfo: cleanVisualSourceText(worldInfo ?? ''),
         personaName: personaService.persona.name,
         personaText: personaService.persona.persona,
         recentMessages: recentMessages,

@@ -19,6 +19,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/image_prompt/image_gen_context.dart';
+import 'package:front_porch_ai/services/image_prompt/visual_source_text.dart';
 import 'package:front_porch_ai/utils/utils.dart' show stripQuotedSpeech;
 
 /// Single source of truth for turning (mode + style + raw context) into a high-quality,
@@ -170,39 +171,12 @@ class ImagePromptBuilder {
     return map[style] ?? '';
   }
 
-  /// Strips completed `<think>...</think>` and unclosed trailing `<think>` blocks from narrative sources.
-  /// Prevents artifacts from thinking models or interrupted realism evaluations from leaking into
-  /// image generation prompts. Applied to lastMessage/recent/scenario/world before visual distillation.
-  /// For visualize slider: the N messages passed are *already generated* so this simple strip (plus _clean) is sufficient
-  /// per user spec — no complex re-generation, just filter the snapshot list to N then strip each.
-  String _stripThinkBlocks(String text) {
-    if (text.isEmpty) return text;
-    // Completed blocks (case-insensitive, supports multiline)
-    text = text.replaceAll(
-      RegExp(r'<\/?think>.*?<\/think>', dotAll: true, caseSensitive: false),
-      '',
-    );
-    // Unclosed: everything from the last <think> to end
-    final idx = text.toLowerCase().lastIndexOf('<think>');
-    if (idx != -1) {
-      text = text.substring(0, idx);
-    }
-    // Stray/leftover tags (e.g. lone </think> tail from partial previous chunk, malformed, or unopened close).
-    // Covers the user-reported case of literal '</think>' fragments leaking into visual sources (simple per user spec).
-    text = text.replaceAll(
-      RegExp(r'<\/?think[^>]*>', caseSensitive: false),
-      '',
-    );
-    text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
-    return text;
-  }
-
   /// Cleans narrative text (last message, recent, scenario, world) for use in visual image prompts.
   /// Combines quote strip + think strip + removal of known non-visual meta (interrupted evals, card import junk).
   /// Keeps the result as source material for distillation rather than raw dump.
   String _cleanNarrativeForVisual(String text) {
     text = stripQuotedSpeech(text);
-    text = _stripThinkBlocks(text);
+    text = stripThinkForVisual(text);
     text = text.replaceAll(
       RegExp(
         r'Realism evaluation interrupted.*?(?:\n|$)',
@@ -395,7 +369,7 @@ class ImagePromptBuilder {
 
     // Extra belt-and-suspenders cleaning for any leaked think/meta from the model output or bad context.
     // Complements the input cleaning with _cleanNarrativeForVisual on narrative sources.
-    prompt = _stripThinkBlocks(prompt);
+    prompt = stripThinkForVisual(prompt);
     prompt = prompt.replaceAll(
       RegExp(
         r'Realism evaluation interrupted.*?(?:\n|$)',

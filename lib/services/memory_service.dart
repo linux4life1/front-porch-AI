@@ -24,6 +24,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// A retrieved memory from the vector store.
 class RetrievedMemory {
@@ -189,15 +190,13 @@ class MemoryService extends ChangeNotifier {
   /// context, and large texts are very slow on CPU ONNX. 2000 chars ≈ 500 tokens.
   static const int _maxEmbedChars = 2000;
 
-  /// Strip `<think>...</think>` blocks and truncate for embedding.
+  /// Strip reasoning and truncate for embedding.
+  ///
+  /// A closed-block-only strip left an unclosed `<think>` tail in the text,
+  /// which then became a stored memory: the character could later "remember"
+  /// the model's deliberation as something that happened.
   String _cleanForEmbedding(String text) {
-    // Remove think blocks (LLM reasoning, not conversation content)
-    final cleaned = text
-        .replaceAll(
-          RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false),
-          '',
-        )
-        .trim();
+    final cleaned = stripThinkTags(text);
     if (cleaned.length <= _maxEmbedChars) return cleaned;
     return cleaned.substring(0, _maxEmbedChars);
   }

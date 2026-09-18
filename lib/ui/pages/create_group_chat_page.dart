@@ -490,15 +490,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     String raw, {
     List<String> prefixMarkers = const [],
   }) {
-    var s = raw
-        .replaceAll(
-          RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false),
-          '',
-        )
-        .replaceAll(RegExp(r'<think>[\s\S]*$', caseSensitive: false), '')
-        .replaceAll(RegExp(r'</think>', caseSensitive: false), '')
-        .replaceAll('"', '')
-        .trim();
+    var s = stripThinkTags(raw).replaceAll('"', '').trim();
     for (final m in prefixMarkers) {
       s = s.replaceAll(RegExp('^$m\\s*', caseSensitive: false), '');
     }

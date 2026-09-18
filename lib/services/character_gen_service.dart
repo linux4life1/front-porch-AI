@@ -257,10 +257,7 @@ class CharacterGenService {
       }
 
       // Reject suspiciously short output (model warm-up / placeholder)
-      final strippedLen = baseOutput
-          .replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '')
-          .trim()
-          .length;
+      final strippedLen = stripThinkBlocks(baseOutput).length;
       if (strippedLen < 100) {
         debugPrint(
           'CharacterGen: Output too short ($strippedLen chars) — likely placeholder, retrying',
