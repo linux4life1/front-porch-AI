@@ -42,9 +42,8 @@ Be respectful and constructive.
 | All work (features, fixes, experiments) | `Rawhide` |
 | Tagged stable releases | `main` |
 
-Two branches. There is no `dev` line and no beta series. Direct PRs to
-`main` are almost never accepted. PRs opened against the wrong branch will
-be asked to move.
+Work lands on `Rawhide`. Direct PRs to `main` are almost never accepted.
+PRs opened against the wrong branch will be asked to move.
 
 ## Development setup
 

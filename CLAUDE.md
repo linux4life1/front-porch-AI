@@ -20,8 +20,7 @@ character chat with local LLMs (KoboldCpp) and optional remote APIs. It
 includes a Realism Engine (emotion / trust / relationship / needs), RAG
 memory via in-process ONNX embeddings, TTS/STT, Porch Stories, **The Stoop**
 (opt-in 18+ community hub), Waifu Coder (managed OpenCode), and a companion
-web/mobile UI in `web_ui/`. Cloud Sync is gone; automatic local backups
-replaced it.
+web/mobile UI in `web_ui/`. Automatic local backups cover the library.
 
 - **License:** AGPL-3.0-or-later (v0.9.0+). Earlier releases were GPLv3.
 - **State:** Provider for the `main.dart` graph. Riverpod only for new
@@ -210,9 +209,8 @@ the global off must take effect on the next turn.
 **Clock.** Passage of time needs a **model call**, not the Realism Engine.
 `standaloneClockEnabled` (default off) is the opt-in driver when the engine
 is off. The time **prompt** gates on `_clockRunning` (either driver), never
-on `passageOfTimeEnabled` alone. The old 6-turn gate and `hold_time` veto
-are gone. Regen/swipe rewind from `story_clock_before`. One-shot must not
-apply minutes (would double).
+on `passageOfTimeEnabled` alone. Regen/swipe rewind from
+`story_clock_before`. One-shot must not apply minutes (would double).
 
 **Evals score the user's message**, never the character's own reply. They
 fire before generation. A regen with the same inputs must reproduce the same
@@ -241,8 +239,7 @@ default (`chaosModeDefault`, OR-override, default false). Every conversation
 that path. Grep `seedFromGroupOrExt` / `chaosModeDefault` rather than
 trusting a site count.
 
-**Growth Rings** replaced EvolutionService. Do not revive that name as a
-live type. Scenario evolution is gone.
+**Growth Rings** are per-chat, per-character character evolution.
 
 **Journal** is per-chat, per-character. Cards never cross chats. Item cards
 are written from applied pocket events when **both** pockets and journal
@@ -310,10 +307,6 @@ basename), not `characters.id`. `avatar_images` uses the UUID. Joining the
 former against the UUID matches nothing and marks real rows as orphans.
 Resolve via `stableGroupIdFrom()` in `lib/utils/character_id.dart`.
 
-Character Card Forge (an external raw-SQL writer) is abandonware. Schema
-work no longer exists to accommodate it. Do not teach agents that every
-column change must be Forge-safe.
-
 ---
 
 ## The Stoop
@@ -347,8 +340,7 @@ user's Homebrew OpenCode or `~/.config/opencode` as the product copy.
 | Features, fixes, experiments | `Rawhide` |
 | Tagged stable releases | `main` |
 
-Two branches. There is no `dev` line and no beta series. Direct PRs to
-`main` are almost never accepted.
+Work lands on `Rawhide`. Direct PRs to `main` are almost never accepted.
 
 GitHub `schedule:` triggers run from the **default** branch. A change to
 `nightly.yml` must land on `main` or nightlies keep the old file.

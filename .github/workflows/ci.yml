@@ -35,11 +35,9 @@ jobs:
       - name: Run Flutter Analyze on changed Dart files only
         run: |
           # Get list of changed Dart files, compared against the *current state of the
-          # target branch itself* (Rawhide for Rawhide work, dev for dev work, etc.).
+          # target branch itself* (Rawhide for Rawhide work, and so on).
           #
-          # The old logic had a hard-coded `|| 'dev'` fallback that made the entire
-          # "changed files only" gate garbage for Rawhide (the primary development
-          # branch). Rawhide pushes must diff against origin/Rawhide, not dev.
+          # Rawhide pushes must diff against origin/Rawhide.
           #
           # - pull_request: github.base_ref is the target (e.g. Rawhide)
           # - push: github.ref_name is the branch being pushed to (e.g. Rawhide)
@@ -62,7 +60,7 @@ jobs:
   full-lint:
     name: Full project lint (scheduled + main pushes)
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Rawhide' || github.ref == 'refs/heads/dev'
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Rawhide'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7

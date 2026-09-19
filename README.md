@@ -227,7 +227,7 @@ Head to the **[Releases](https://github.com/linux4life1/front-porch-ai/releases)
 
 Pull requests are welcome! If you're a dev reading this far down, here's what you need to know:
 
-- **Branch workflow:** Two branches. All work (features, fixes, experiments) targets **`Rawhide`**. `main` is tagged stable releases only. There is no `dev` line and no beta series. See CONTRIBUTING.md.
+- **Branch workflow:** All work (features, fixes, experiments) targets **`Rawhide`**. `main` is tagged stable releases only. See CONTRIBUTING.md.
 - **Nightly / scheduled builds & schedule triggers:** Automatic builds are powered by `.github/workflows/nightly.yml`. GitHub **only** reads `on: schedule:` from the default branch (`main`). A current copy of the workflow (especially the version-patching step) must live on `main`, otherwise nightly compiles will fail. The job typically checks out the active development branch for source, but the workflow definition itself always comes from `main`.
 - **Commit conventions:** Follow the guidelines in [CLAUDE.md](CLAUDE.md) for commit message format, code style, and naming conventions.
 - **Full guide:** See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions, testing requirements, and the PR template.
