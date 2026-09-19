@@ -120,6 +120,11 @@ extension _EditCharacterRealismSection on _EditCharacterPageState {
             _realismChaosMode = v;
             _realismSettingsModified = true;
           }),
+          pocketsEnabled: _realismPocketsEnabled,
+          onPocketsEnabledChanged: (v) => rebuildState(() {
+            _realismPocketsEnabled = v;
+            _realismSettingsModified = true;
+          }),
           realismVerificationEnabled: _realismVerificationEnabled,
           onRealismVerificationChanged: (v) => rebuildState(() {
             _realismVerificationEnabled = v;

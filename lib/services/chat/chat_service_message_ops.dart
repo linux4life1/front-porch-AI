@@ -356,7 +356,7 @@ extension ChatServiceMessageOps on ChatService {
       return;
     }
     unawaited(_replantItemCards(deleted, key: 'item_cards_retired'));
-    if (!_storageService.realismSettings.pocketsEnabled) return;
+    if (!pocketsFeatureEnabled) return;
     final before = deleted.metadata?['pockets_before'];
     if (before is! Map) return;
     final speakerId = before['char'];

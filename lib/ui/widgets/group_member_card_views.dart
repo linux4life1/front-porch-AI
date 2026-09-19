@@ -244,10 +244,10 @@ extension _GroupMemberCardViews on _GroupMemberCardState {
         builder: (context) {
           // Same off-absent / on-even-when-empty gate as the 1:1
           // panel (2026-08-13, add-by-hand parity).
-          if (!chat.pocketsFeatureEnabled) {
+          final id = chat.characterIdFor(widget.character);
+          if (!chat.pocketsEnabledFor(id)) {
             return const SizedBox.shrink();
           }
-          final id = chat.characterIdFor(widget.character);
           final p = chat.pocketsFor(id) ?? Pockets();
           return Padding(
             padding: const EdgeInsets.only(top: 8),

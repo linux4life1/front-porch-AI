@@ -126,6 +126,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   // a new card does not silently veto Needs — the form used to hide this
   // toggle unless the engine was on, so every manual create baked false.
   bool _realismNeedsSim = true;
+  bool _realismPocketsEnabled = true;
   bool _realismEnjoysLowHygiene = false;
 
   /// Long-term ambitions (approved sketch §4) — a list, not newline text.

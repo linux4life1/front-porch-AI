@@ -174,7 +174,7 @@ class ChatToolsFacade {
       // next pass rewrites the stored record.
       'pockets':
           focusedCard == null ||
-              !_chat.pocketsFeatureEnabled ||
+              !_chat.pocketsEnabledFor(_chat.characterIdFor(focusedCard)) ||
               _isGuestFocus(focused)
           ? null
           : (_chat.pocketsFor(_chat.characterIdFor(focusedCard)) ?? Pockets())

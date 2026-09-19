@@ -279,7 +279,7 @@ class ChatService extends ChangeNotifier
   /// switching Pockets off and back on finds everything they were carrying still
   /// there. The rewind path likewise writes through `setPocketsFor`, not here.
   Pockets? pocketsFor(String characterId) {
-    if (!_storageService.realismSettings.pocketsEnabled) return null;
+    if (!pocketsEnabledFor(characterId)) return null;
     if (_activeGroup == null) return _pockets;
     return _groupRealism[characterId]?.pockets;
   }

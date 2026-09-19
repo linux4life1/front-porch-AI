@@ -48,7 +48,7 @@ extension ChatServiceReplyFacts on ChatService {
     // check; the posture guard mirrors evaluatePhysicalStateCall's
     // realism-and-not-observer preconditions.
     final askClimax = _afterglowActive;
-    final askPockets = _storageService.realismSettings.pocketsEnabled;
+    final askPockets = pocketsEnabledFor(_getCharacterIdFromCard(speaker));
     final askPosture =
         _realismEnabled && !(_activeGroup != null && _observerMode);
     final live =

@@ -115,9 +115,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     final clockRunning = StoryClock.isRunning(
       passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
       realismEnabled: chat.realismEnabled,
-      standaloneClockEnabled: Provider.of<StorageService>(context)
-          .realismSettings
-          .standaloneClockEnabled,
+      standaloneClockEnabled: Provider.of<StorageService>(
+        context,
+      ).realismSettings.standaloneClockEnabled,
     );
 
     return PorchAccordion(
@@ -301,11 +301,11 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                 // Feature off = panel absent. With it ON the panel renders
                 // even for a missing/empty record, so the FIRST item can be
                 // added by hand (2026-08-13 — the panel used to be ✕-only).
-                if (!chat.pocketsFeatureEnabled) {
-                  return const SizedBox.shrink();
-                }
                 final card = chat.activeCharacter!;
                 final id = chat.characterIdFor(card);
+                if (!chat.pocketsEnabledFor(id)) {
+                  return const SizedBox.shrink();
+                }
                 final p = chat.pocketsFor(id) ?? Pockets();
                 return Padding(
                   padding: const EdgeInsets.only(top: 10),

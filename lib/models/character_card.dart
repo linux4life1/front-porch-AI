@@ -58,6 +58,11 @@ class FrontPorchExtensions {
   bool passageOfTimeEnabled; // sub-toggle for automatic time advancement
   bool chaosModeEnabled;
   bool needsSimEnabled; // per-character default for the needs simulation toggle
+  /// Per-character Pockets & Wardrobe. AND-gated with the Porch Life global
+  /// (`realismSettings.pocketsEnabled`). Missing / null JSON treats as **on**
+  /// so old cards keep running when the global is on. Explicit false disables
+  /// this character only.
+  bool pocketsEnabled;
   bool
   enjoysLowHygiene; // when true, low hygiene is desirable (inverted behavior for filthy/musky characters)
 
@@ -216,6 +221,7 @@ class FrontPorchExtensions {
     this.passageOfTimeEnabled = true, // defaults to on when realism is enabled
     this.chaosModeEnabled = false,
     this.needsSimEnabled = false,
+    this.pocketsEnabled = true,
     this.enjoysLowHygiene = false,
     // Never mutated in place — always replaced wholesale (copyWith/editor),
     // so the const default is safe.
@@ -313,6 +319,7 @@ class FrontPorchExtensions {
       passageOfTimeEnabled: realism['passage_of_time_enabled'] as bool? ?? true,
       chaosModeEnabled: realism['chaos_mode_enabled'] as bool? ?? false,
       needsSimEnabled: realism['needs_sim_enabled'] as bool? ?? false,
+      pocketsEnabled: realism['pockets_enabled'] as bool? ?? true,
       enjoysLowHygiene: realism['enjoys_low_hygiene'] as bool? ?? false,
       ambitions: _phrases(realism['ambitions']),
       planLines: _phrases(realism['plan_lines']),

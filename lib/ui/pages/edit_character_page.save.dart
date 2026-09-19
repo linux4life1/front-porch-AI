@@ -108,6 +108,7 @@ extension _EditCharacterSave on _EditCharacterPageState {
         passageOfTimeEnabled: _realismPassageOfTime,
         chaosModeEnabled: _realismChaosMode,
         needsSimEnabled: _realismNeedsSim,
+        pocketsEnabled: _realismPocketsEnabled,
         enjoysLowHygiene: _realismEnjoysLowHygiene,
         ambitions: [
           for (final a in _ambitions)

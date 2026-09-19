@@ -237,9 +237,14 @@ export function RealismFormSection({
             helper="What makes this character bristle. Phrases, not paragraphs — one thing per chip reads best in a scene."
           />
 
-          {/* ── Pockets & Wardrobe ── mirrors identity_chip_lists.dart. What
-              the character already has when a chat opens; the runtime seeds
-              its record from exactly this map. */}
+          {/* ── Pockets & Wardrobe ── per-character switch + starting kit.
+              Global Porch Life remains the master kill. */}
+          <ToggleRow
+            label="Pockets & Wardrobe"
+            hint="When off, this character skips inventory tracking even if Porch Life has Pockets on. Old cards stay on."
+            value={v.pocketsEnabled}
+            onChange={(b) => set({ pocketsEnabled: b })}
+          />
           <ChipList
             label="Wearing"
             values={inventoryToChips(v.inventory).worn}
@@ -256,7 +261,7 @@ export function RealismFormSection({
               set({ inventory: chipsToInventory(inventoryToChips(v.inventory).worn, a) })
             }
             placeholder="e.g. car keys"
-            helper="Tracked once Pockets & Wardrobe is switched on in Settings → Porch Life. Up to 8 of each; the oldest drops off if a character picks up more."
+            helper="Tracked when this character's Pockets switch is on and Porch Life has Pockets on. Up to 8 of each; the oldest drops off if a character picks up more."
           />
 
           {/* The 18+ pair, only for an install that asked for it. */}

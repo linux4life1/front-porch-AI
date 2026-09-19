@@ -170,6 +170,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   bool _realismPassageOfTime = true;
   bool _realismChaosMode = false;
   bool _realismNeedsSim = false;
+  bool _realismPocketsEnabled = true;
   bool _realismEnjoysLowHygiene = false;
 
   /// Read-and-write-back only — no editor writes this any more (Ambitions
@@ -278,6 +279,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _realismPassageOfTime = ext.passageOfTimeEnabled;
       _realismChaosMode = ext.chaosModeEnabled;
       _realismNeedsSim = ext.needsSimEnabled;
+      _realismPocketsEnabled = ext.pocketsEnabled;
       _realismEnjoysLowHygiene = ext.enjoysLowHygiene;
       _realismCurrentTask = ext.currentTask;
       _realismVerificationEnabled = ext.realismVerificationEnabled;

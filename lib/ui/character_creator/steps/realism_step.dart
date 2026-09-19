@@ -151,6 +151,11 @@ class RealismStep extends StatelessWidget {
                   state.realismChaosMode = v;
                   state.notify();
                 },
+                pocketsEnabled: state.realismPocketsEnabled,
+                onPocketsEnabledChanged: (v) {
+                  state.realismPocketsEnabled = v;
+                  state.notify();
+                },
                 ambitions: state.realismAmbitions,
                 onAmbitionsChanged: (v) {
                   state.realismAmbitions = v;

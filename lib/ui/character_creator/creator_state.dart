@@ -272,6 +272,7 @@ class CreatorState extends ChangeNotifier {
   bool realismChaosMode = false;
   // Same AND-gate as the manual creator: false on the card is a veto.
   bool realismNeedsSim = true;
+  bool realismPocketsEnabled = true;
   bool realismEnjoysLowHygiene = false;
 
   /// Long-term ambitions authored in the creator's realism step (approved

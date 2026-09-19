@@ -111,6 +111,11 @@ class RealismFormSection extends StatelessWidget {
   final List<String>? carrying;
   final ValueChanged<List<String>>? onCarryingChanged;
 
+  /// Per-character Pockets & Wardrobe. Optional pair — group-member editors
+  /// that do not author this flag keep compiling unchanged.
+  final bool? pocketsEnabled;
+  final ValueChanged<bool>? onPocketsEnabledChanged;
+
   // Realism Verification (Director/Verifier) toggle — shown under Optional Features like other optionals.
   // Sliders for max reprocesses + strictness live in the Details dialog (right-click edit); form surfaces the toggle for creator/edit flows.
   final bool realismVerificationEnabled;
@@ -185,6 +190,8 @@ class RealismFormSection extends StatelessWidget {
     this.onWornChanged,
     this.carrying,
     this.onCarryingChanged,
+    this.pocketsEnabled,
+    this.onPocketsEnabledChanged,
     required this.realismVerificationEnabled,
     required this.onRealismVerificationChanged,
     this.showVerificationToggle = true,

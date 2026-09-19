@@ -24,8 +24,8 @@ part of '../chat_service.dart';
 extension ChatServicePocketsPass on ChatService {
   /// Runs the detection pass for the speaker who just replied.
   ///
-  /// Gated HERE and nowhere else, so there is exactly one place the feature is
-  /// switched on. The eval leaf itself consults no settings — that separation
+  /// Gated on [pocketsEnabledFor] (Porch Life global AND this character's
+  /// card flag). The eval leaf itself consults no settings — that separation
   /// is what stops a second gate appearing somewhere later and disagreeing
   /// with this one.
   ///
@@ -41,12 +41,12 @@ extension ChatServicePocketsPass on ChatService {
     String reply, {
     bool asContinuation = false,
   }) async {
-    if (!_storageService.realismSettings.pocketsEnabled) return;
     if (reply.trim().isEmpty) return;
 
     final speaker = _activeCharacter;
     if (speaker == null) return;
     final charId = _getCharacterIdFromCard(speaker);
+    if (!pocketsEnabledFor(charId)) return;
 
     // Seed from the card the first time this chat asks: an author who wrote
     // `frontPorchExtensions.inventory` expects them to START with those things,

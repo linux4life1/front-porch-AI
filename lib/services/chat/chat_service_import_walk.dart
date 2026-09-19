@@ -55,7 +55,7 @@ extension ChatServiceImportWalk on ChatService {
     _needsSimulation.resetBuffers();
 
     // Pockets on only — null-while-off erases session column (HIDES≠erase).
-    if (_storageService.realismSettings.pocketsEnabled) {
+    if (pocketsFeatureEnabled) {
       _pockets = null;
       seedPocketsFromCards();
     }
@@ -105,7 +105,7 @@ extension ChatServiceImportWalk on ChatService {
       }
     }
 
-    final pocketsOn = _storageService.realismSettings.pocketsEnabled;
+    final pocketsOn = pocketsFeatureEnabled;
 
     for (final c in _groupCharacters) {
       final sid = _getCharacterIdFromCard(c);

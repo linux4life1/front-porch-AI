@@ -189,6 +189,7 @@ export function CreateCharacterPage() {
                   : null,
               ].filter(Boolean).join(' · ')}
             />
+            <ReviewRow label="Pockets & Wardrobe" value={d.pocketsEnabled ? 'On' : 'Off'} />
             {d.realismEnabled && (
               <ReviewRow label="Needs" value={d.needsSimEnabled ? `On · ${d.needsSimStrength}× strength` : 'Off'} />
             )}
