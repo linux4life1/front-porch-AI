@@ -36,6 +36,7 @@ part 'edit_character_page.realism_section.dart';
 part 'edit_character_page.save.dart';
 part 'edit_character_page.tab_worlds.dart';
 part 'edit_character_page.tabs_core.dart';
+part 'edit_character_page.tab_dialogue.dart';
 part 'edit_character_page.tabs_lore.dart';
 part 'edit_character_page.host.dart';
 

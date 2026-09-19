@@ -53,6 +53,7 @@ part 'settings_page.advanced.dart';
 part 'settings_page.advanced.web.dart';
 part 'settings_page.hardware.dart';
 part 'settings_page.gpu.dart';
+part 'settings_page.gpu.chips.dart';
 part 'settings_page.launch.dart';
 
 /// Which OpenAI-compatible endpoint the Settings model list is fetched from.

@@ -57,6 +57,7 @@ part 'home/home_page_dialogs.import.dart';
 part 'home/home_page_char_ops.dart';
 part 'home/home_page_transfer.dart';
 part 'home/home_page_history.dart';
+part 'home/home_page_lifecycle.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -127,18 +128,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// The file to show as [c]'s library card cover: the ★ starred gallery
-  /// avatar when set (same star-aware resolution the web library and card
-  /// exports already use — the gallery dialog promises "★ sets the default +
-  /// card cover"), else the portrait.
-  File _resolveCharImage(CharacterCard c) {
-    final repo = Provider.of<CharacterRepository>(context, listen: false);
-    final cover = repo.coverImageFileFor(c);
-    if (cover != null) return cover;
-    final storage = Provider.of<StorageService>(context, listen: false);
-    return storage.resolveCharacterImage(c.imagePath ?? '');
-  }
-
   // The notifiers we subscribed to, held so dispose() can unsubscribe: they
   // are app-scoped providers, MainLayout swaps HomePage out of the tree on
   // every sidebar navigation, and a Provider.of lookup is no longer legal
@@ -182,189 +171,7 @@ class _HomePageState extends State<HomePage> {
 
   int? _lastHomeResetTick;
 
-  void _onAppStateChanged() {
-    if (!mounted) return;
-    try {
-      final appState = Provider.of<AppState>(context, listen: false);
-      if (appState.homeResetTick != _lastHomeResetTick) {
-        _lastHomeResetTick = appState.homeResetTick;
-        setState(() => _activeFolderId = null);
-      }
-    } catch (_) {}
-  }
-
-  // CharacterRepository notifies for every mutation (a favourite toggle, a
-  // cover change…) and the activity refresh runs two full-table aggregates —
-  // so rapid notifies used to fire overlapping DB scans alongside the grid
-  // rebuild the Consumer already does. Coalesce bursts into one refresh.
   Timer? _activityRefreshDebounce;
-
-  void _onCharactersChanged() {
-    if (!mounted) return;
-    _activityRefreshDebounce?.cancel();
-    _activityRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
-      _activityRefreshDebounce = null;
-      if (mounted) _refreshLastActivityCache();
-    });
-    // Characters often land after Home's first frame — retry the launch hook.
-    _maybeOpenChatFromEnv();
-  }
-
-  void _onKoboldUpdate() {
-    if (!mounted) return;
-    try {
-      final kobold = Provider.of<KoboldService>(context, listen: false);
-      if (kobold.consumeModelReady()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  Icons.check_circle,
-                  color: AppColors.verifiedAccentOf(context),
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Text('Model loaded and ready!'),
-              ],
-            ),
-            backgroundColor: AppColors.surfaceContainerOf(context),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-      setState(() {}); // Rebuild to update status bar
-    } catch (_) {}
-  }
-
-  /// Query the DB to build caches for last activity time and message count per character.
-  ///
-  /// Keys in the output maps are always the stableGroupId (image basename or sanitized name)
-  /// so they match what the grid and sort logic use via CharacterCard.stableGroupId.
-  ///
-  /// We correlate via each library card's dbId because 1:1 sessions currently store the
-  /// integer dbId in sessions.character_id (post group overhaul). Group sessions (with
-  /// groupId set, character_id often null) do not contribute here — this is by design
-  /// for the decoupled model (group activity lives with the private group members).
-  Future<void> _refreshLastActivityCache() async {
-    try {
-      final db = await AppDatabase.instance();
-      final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-
-      // Get counts and activity from DB (keys are whatever was stored in sessions.character_id,
-      // currently the dbId for 1:1 sessions).
-      final msgCounts = await db.getMessageCountsPerCharacter();
-      final lastActivity = await db.getLastActivityPerCharacter();
-
-      // Output maps MUST be keyed by stableGroupId (the value used for all lookups
-      // in the grid for chips + 'recent'/'messages' sorting).
-      final newMsgCount = <String, int>{};
-      final newCache = <String, DateTime>{};
-
-      for (final card in charRepo.characters) {
-        final stableId = card.stableGroupId;
-        if (card.dbId != null) {
-          final dbKey =
-              card.dbId!; // matches what is stored in sessions for 1:1
-          if (msgCounts.containsKey(dbKey)) {
-            newMsgCount[stableId] = msgCounts[dbKey]!;
-          }
-          if (lastActivity.containsKey(dbKey)) {
-            newCache[stableId] = lastActivity[dbKey]!;
-          }
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _lastActivityCache
-            ..clear()
-            ..addAll(newCache);
-          _messageCountCache
-            ..clear()
-            ..addAll(newMsgCount);
-        });
-      }
-    } catch (e) {
-      debugPrint('Error refreshing activity cache: $e');
-      if (mounted) setState(() {});
-    }
-  }
-
-  /// Delegates to the canonical stable group ID.
-  /// See [StableGroupId.stableGroupId] in lib/utils/character_id.dart
-  String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
-
-  /// Legacy alias — prefer _getCharacterIdFromCard for new code.
-  @Deprecated('Use _getCharacterIdFromCard for stable group ID resolution')
-  String getStableCharacterId(CharacterCard card) => card.stableGroupId;
-
-  void _toggleSelectMode() {
-    setState(() {
-      _isSelecting = !_isSelecting;
-      _isOrganizing = false;
-      if (!_isSelecting) {
-        _selectedCharacterIds.clear();
-        _selectedGroupIds.clear();
-      }
-    });
-  }
-
-  void _toggleOrganizeMode() {
-    setState(() {
-      _isOrganizing = !_isOrganizing;
-      _isSelecting = false;
-      if (!_isOrganizing) {
-        _selectedCharacterIds.clear();
-        _selectedGroupIds.clear();
-      }
-    });
-  }
-
-  void _toggleSelect(CharacterCard character) {
-    final id = character.imagePath != null
-        ? path.basenameWithoutExtension(character.imagePath!)
-        : character.name
-              .replaceAll(RegExp(r'[^\w\s]'), '')
-              .replaceAll(' ', '_');
-    setState(() {
-      if (_selectedCharacterIds.contains(id)) {
-        _selectedCharacterIds.remove(id);
-        if (_selectedCharacterIds.isEmpty && _selectedGroupIds.isEmpty) {
-          _isSelecting = false;
-          _isOrganizing = false;
-        }
-      } else {
-        _selectedCharacterIds.add(id);
-      }
-    });
-  }
-
-  /// Group analogue of [_toggleSelect] — groups are selected by their id
-  /// (they have no image-filename key).
-  void _toggleSelectGroup(GroupChat group) {
-    setState(() {
-      if (_selectedGroupIds.contains(group.id)) {
-        _selectedGroupIds.remove(group.id);
-        if (_selectedCharacterIds.isEmpty && _selectedGroupIds.isEmpty) {
-          _isSelecting = false;
-          _isOrganizing = false;
-        }
-      } else {
-        _selectedGroupIds.add(group.id);
-      }
-    });
-  }
-
-  void _cancelSelection() {
-    setState(() {
-      _isSelecting = false;
-      _isOrganizing = false;
-      _selectedCharacterIds.clear();
-      _selectedGroupIds.clear();
-    });
-  }
 
   @override
   void dispose() {
