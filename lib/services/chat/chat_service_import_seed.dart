@@ -103,6 +103,11 @@ extension ChatServiceImportSeed on ChatService {
         _needsSimulation.clearVector();
       }
       _needsSimulation.resetBuffers();
+      // Bleed guard for the prior open chat. Suitcase put-back is in
+      // [_applySessionHeadFromPackage] — it must write even when this
+      // card authored Pockets off (HIDES≠erase). Do not skip the null
+      // when restore is gated: transcript-only import would keep the
+      // previous hidden kit.
       _pockets = null;
     } else {
       _relationshipService.resetForFreshChat();
@@ -297,6 +302,19 @@ extension ChatServiceImportSeed on ChatService {
         metadata: {'realism_state': state},
       );
       _restoreRealismStateFromMessage(synth);
+    }
+
+    // 1:1 suitcase kit is captured from raw `_pockets` (HIDES≠erase).
+    // Phase-0 nulled it so the prior open chat cannot bleed; the gated
+    // realism_state restore then refuses put-back when this card authored
+    // Pockets off. Write the captured record anyway — restore, not invent.
+    if (_activeGroup == null && head['pockets'] is Map) {
+      final id = _activeCharacter != null
+          ? _getCharacterIdFromCard(_activeCharacter!)
+          : '';
+      if (id.isNotEmpty) {
+        setPocketsFor(id, Pockets.fromJson(head['pockets']));
+      }
     }
 
     if (head['chaos_mode_enabled'] is bool) {

@@ -9,6 +9,8 @@
 //     hidden kit just because the global is on.
 //   * Middle-delete invent (Senior Dev): invert must not `pocketsFor ??
 //     Pockets()` + setPocketsFor an off member.
+//   * .fpchat 1:1 import (Bug Hunter): Phase-0 `_pockets=null` then gated
+//     restore must not drop the suitcase kit captured from raw `_pockets`.
 //
 // Proven red: skip the recipient `pocketsEnabledFor` gate on transfer
 // apply, or keep the global-only wipe/invent paths, and these fail.
@@ -352,6 +354,50 @@ void main() {
       contains('lucky coin'),
       reason:
           'THE BUG: pocketsFor-null ?? Pockets() then setPocketsFor wiped Bea',
+    );
+  });
+
+  test('.fpchat 1:1 import keeps a per-char-off captured kit', () async {
+    final c = CharacterCard(
+      name: 'Bea',
+      firstMessage: 'Hi.',
+      frontPorchExtensions: FrontPorchExtensions(
+        pocketsEnabled: false,
+        inventory: Pockets.cardJsonFrom(
+          worn: const [],
+          carrying: const ['house keys'],
+        ),
+      ),
+    )..dbId = 'char-fpchat-off';
+    await chat.setActiveCharacter(c);
+    final id = chat.characterIdFor(c);
+    expect(chat.pocketsEnabledFor(id), isFalse);
+    expect(chat.messages, isNotEmpty);
+
+    chat.setPocketsFor(
+      id,
+      Pockets(carrying: [const PocketItem('suitcase keys')]),
+    );
+    expect(chat.pocketsFor(id), isNull);
+
+    final bytes = await chat.exportToFpchat();
+    expect(bytes, isNotNull, reason: 'full package must capture raw _pockets');
+
+    chat.setPocketsFor(id, Pockets(carrying: [const PocketItem('bleed coin')]));
+
+    final outcome = await chat.importChatPackage(bytes!);
+    expect(outcome.fullRestore, isTrue);
+
+    chat.activeCharacter!.frontPorchExtensions!.pocketsEnabled = true;
+    expect(
+      chat.pocketsFor(id)?.carrying.map((i) => i.name),
+      contains('suitcase keys'),
+      reason: 'THE BUG: Phase-0 null + gated restore dropped the suitcase kit',
+    );
+    expect(
+      chat.pocketsFor(id)?.carrying.map((i) => i.name) ?? const [],
+      isNot(contains('bleed coin')),
+      reason: 'prior-chat hidden kit must not bleed into the import',
     );
   });
 }
