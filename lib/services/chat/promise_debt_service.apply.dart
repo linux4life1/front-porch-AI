@@ -51,7 +51,7 @@ extension PromiseDebtApply on PromiseDebtService {
     );
     // Stamp party + status + short description (addCard only writes kind/story).
     for (final card in await journalStore.cardsFor(sessionId, characterId)) {
-      final meta = metaOf(card.metadata);
+      final meta = PromiseDebtService.metaOf(card.metadata);
       if (meta['kind'] == 'promise' && meta['status'] == null) {
         await journalStore.updateCardMetadata(card, {
           'party': party,
@@ -130,14 +130,18 @@ extension PromiseDebtApply on PromiseDebtService {
     // Simulation pressure — user party only moves trust.
     if (item.party == 'user') {
       if (kept) {
-        applyTrustDelta(kKeptUserTrust);
-        applyBondDelta(kKeptUserBond);
+        applyTrustDelta(PromiseDebtService.kKeptUserTrust);
+        applyBondDelta(PromiseDebtService.kKeptUserBond);
       } else {
-        applyTrustDelta(kBrokenUserTrust);
-        applyBondDelta(kBrokenUserBond);
+        applyTrustDelta(PromiseDebtService.kBrokenUserTrust);
+        applyBondDelta(PromiseDebtService.kBrokenUserBond);
       }
     } else {
-      applyBondDelta(kept ? kKeptCharBond : kBrokenCharBond);
+      applyBondDelta(
+        kept
+            ? PromiseDebtService.kKeptCharBond
+            : PromiseDebtService.kBrokenCharBond,
+      );
     }
 
     await listOpen(sessionId, characterId);
