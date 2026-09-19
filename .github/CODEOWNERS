@@ -8,7 +8,7 @@
 # an edit to the baseline JSON it reads.
 #
 # CODEOWNERS only has teeth when branch protection has
-# "Require review from Code Owners" enabled on main / Rawhide / dev / *-Beta.
+# "Require review from Code Owners" enabled on main and Rawhide.
 
 # Default: everything else can be reviewed normally.
 *                                   @linux4life1
@@ -38,6 +38,5 @@
 /pubspec.yaml                       @linux4life1
 /pubspec.lock                       @linux4life1
 
-# ── Schema: an external tool (Character Card Forge) writes these tables
-#    with raw SQL, so a migration change can break software we do not ship.
+# ── Schema: the Drift onUpgrade ladder is load-bearing for user libraries.
 /lib/database/                      @linux4life1
