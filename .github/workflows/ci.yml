@@ -1,5 +1,14 @@
 name: CI
 
+# Push to Rawhide/main still runs the cheap gates (analyze, full-lint,
+# theme-lint, io-lint, web-tests) plus the one-job unit/integration `test`
+# smoke. The heavy matrix — e2e-smoke (3 OS × 5 shards), widget goldens,
+# and the live Stoop pin — already ran on the PR that landed the commit.
+# Re-queueing them on squash-merge starves open PRs of macOS/golden
+# runners. Those jobs therefore skip when github.event_name == 'push'
+# (`if: github.event_name != 'push'`, ANDed with any existing job `if:`).
+# pull_request and schedule keep the full suite.
+
 on:
   push:
     branches: [main, Rawhide]
@@ -124,14 +133,16 @@ jobs:
 
   # Live Stoop pin (#264): talks HTTP to the real hub, not FakeStoopServer.
   # Secrets stay on this job's env only — never echo them. Fork PRs skip
-  # the job (no secrets). Same-repo / Rawhide+main pushes run the pin and
-  # fail this job if it fails. The unit job above still skips the tagged
-  # suite when those env vars are absent.
+  # the job (no secrets). Same-repo PRs run the pin and fail this job if
+  # it fails. Branch pushes skip this job (the PR already ran it; see the
+  # file-header note). The unit job above still skips the tagged suite
+  # when those env vars are absent.
   stoop-live:
     name: Stoop live (NSFW refresh)
     runs-on: ubuntu-latest
     needs: analyze
     if: >
+      github.event_name != 'push' &&
       github.event_name != 'schedule' &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name == github.repository)
@@ -202,6 +213,9 @@ jobs:
   e2e-smoke:
     name: E2E smoke (${{ matrix.device }} ${{ matrix.shard }}/5)
     needs: analyze
+    # Skip on branch push — see the file-header note. PR + schedule keep
+    # the full OS/shard matrix.
+    if: github.event_name != 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -468,6 +482,9 @@ jobs:
     name: Widget Golden Tests
     runs-on: ubuntu-latest
     needs: analyze
+    # Skip on branch push — see the file-header note. PR + schedule still
+    # run pixel goldens.
+    if: github.event_name != 'push'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
