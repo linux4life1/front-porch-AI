@@ -49,7 +49,6 @@ Dart: [docs/maintainer-agent-playbook.md](docs/maintainer-agent-playbook.md).
 
 ## Done means
 
-Hostile self-review (what you tried to break, what held, residual risk).
 Path-complete checklist when chat/realism/memory is in scope. A 2–5 step
 poke script. `flutter analyze` clean on touched Dart. Web shipped or
 explicitly deferred. Green suite is not ship.

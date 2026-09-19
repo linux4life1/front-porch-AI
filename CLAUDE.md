@@ -436,33 +436,13 @@ progress diary. `git log` is the history.
 
 ## When the maintainer cannot read Dart
 
-You are the reviewer. Green analyze + green tests are not a second look.
+Green analyze + green tests are not a second look. Grep twins (1:1 ↔ group,
+Continue ↔ regen, Journal ↔ Growth, desktop ↔ web/relay). Prove one new
+guard red, then green — or say you could not.
 
-**Hostile self-review** (required on non-trivial work; skip only pure docs
-and say “N/A: docs only”):
-
-1. Re-read the full call path, including what runs after your change.
-2. Grep twins: 1:1 ↔ group, Continue ↔ regen, Journal ↔ Growth, desktop ↔
-   web/relay.
-3. If you open a set (`sourceIds`, …), check the paired scope filter.
-4. Prove one new guard red, then green — or say you could not.
-5. Report: what you tried to break, what held, residual risk.
-
-**Completion block** (non-trivial work):
-
-```
-### Hostile self-review
-- Attacks:
-- Held / failed:
-- Residual risk:
-
-### Path-complete checklist   (or N/A: …)
-- Turn events:
-- Twins grepped:
-- New test + proven red:
-- Web: shipped / deferred (quote):
-- I cannot launch the app: true/false → poke script:
-```
+For chat/realism/memory work, fill the path-complete checklist in
+[docs/design/path-complete-chat-work.md](docs/design/path-complete-chat-work.md)
+(or mark N/A with one line why).
 
 A remote sandbox cannot self-certify a UI change. Say so. End with a 2–5
 step poke script.
