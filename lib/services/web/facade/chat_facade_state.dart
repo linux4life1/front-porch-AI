@@ -205,8 +205,9 @@ extension ChatFacadeState on ChatFacade {
       // Per-chat theme overrides (preset + font/color/background/border).
       'themeOverrides': _chat.sessionThemeOverrides.toJson(),
       // LLM backend connection (not a one-off request). Additive; older
-      // PWAs ignore it and keep the normal composer placeholder.
-      'llmReady': _llm?.activeService.isReady ?? true,
+      // PWAs ignore it and keep the normal composer placeholder. Local
+      // GGUF-ready is ignored so mouth/worker swaps do not flash the box.
+      'llmReady': _llm?.composerConnectionReady ?? true,
     };
   }
 }

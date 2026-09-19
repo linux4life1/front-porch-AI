@@ -204,6 +204,16 @@ class LLMProvider extends ChangeNotifier {
   /// Whether the active backend manages a local subprocess.
   bool get hasManagedProcess => _activeBackend == BackendType.kobold;
 
+  /// Composer placeholder connection. Local GGUF load/swap flips
+  /// [LLMService.isReady] and must not restyle the input — process-up
+  /// (or still starting) is enough. Remote keeps [LLMService.isReady].
+  bool get composerConnectionReady {
+    if (hasManagedProcess) {
+      return _koboldService.isProcessRunning || _koboldService.isStarting;
+    }
+    return activeService.isReady;
+  }
+
   /// Resolve the service a model-pickable generation feature (the AI
   /// character creator, AI Enhance) should run against, or null when nothing
   /// is ready. A managed local backend generates with its loaded model (the

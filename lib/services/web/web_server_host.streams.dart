@@ -175,14 +175,14 @@ extension WebServerHostStreams on WebServerHost {
     final llm = _llmProvider;
     if (streamHub != null && llm != null) {
       void onLlmReady() {
-        final ready = llm.activeService.isReady;
+        final ready = llm.composerConnectionReady;
         if (_lastLlmReady == ready) return;
         _lastLlmReady = ready;
         streamHub.broadcastChatUpdate();
       }
 
       _llmReadyListener = onLlmReady;
-      _lastLlmReady = llm.activeService.isReady;
+      _lastLlmReady = llm.composerConnectionReady;
       llm.addListener(onLlmReady);
       llm.openRouterService.addListener(onLlmReady);
     }

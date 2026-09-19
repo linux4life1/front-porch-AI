@@ -221,7 +221,7 @@ extension _ChatPageInputActions on _ChatPageState {
       Expanded(
         child: Consumer2<LLMProvider, OpenRouterService>(
           builder: (context, llm, _, _) {
-            final apiReady = llm.activeService.isReady;
+            final apiReady = llm.composerConnectionReady;
             final hint = chatComposerHint(
               apiReady: apiReady,
               observerMode: chatService.observerMode,
