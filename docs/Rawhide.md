@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 📦 **Backyard archives keep every picture** — a `.byaf` import now puts the first image on the portrait and the rest in the Avatar Gallery. You can turn the extra looks off on desktop. Phone and browser import `.byaf` the same way (not PNG-only). Desktop work started by [@Lufou](https://github.com/Lufou).
+
 - 💬 **Thinking-only replies show up as speech** — some Nano/Qwen models put the whole line in the hidden thought channel after Realism finishes. The bubble was empty even though the chips updated. That thought is now the spoken line. Same on the phone.
 
 - 🪪 **Stoop blurbs match the website** — tile summaries get two full lines with a real “…”. Open a card and the whole listing blurb sits beside the portrait. Description and Personality are their own drawers, like hub.frontporchai.app.

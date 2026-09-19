@@ -83,6 +83,8 @@ export 'image_gen_service.dart';
 
 // Sync & data
 export 'v2_card_service.dart';
+export 'byaf_service.dart';
+export 'byaf_import_ops.dart';
 export 'user_persona_service.dart';
 export 'folder_service.dart';
 

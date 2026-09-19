@@ -187,6 +187,15 @@ extension CharacterFacadeImport on CharacterFacade {
     try {
       await tmp.writeAsBytes(bytes, flush: true);
 
+      if (filename.toLowerCase().endsWith('.byaf')) {
+        return await _importByafFile(
+          tmp,
+          filename,
+          collision: collision,
+          replaceId: replaceId,
+        );
+      }
+
       // Peek identity for collision policy (same rules as desktop single-import).
       CharacterCard? peeked;
       try {

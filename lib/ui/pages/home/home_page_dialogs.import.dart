@@ -114,23 +114,31 @@ extension _HomePageDialogsImport on _HomePageState {
 
     final filePath = paths.first;
     final byafService = ByafService();
+    ByafImportPreview? preview;
 
     try {
       // Parse the .byaf archive
-      final preview = await byafService.parseByaf(filePath);
+      final parsed = await byafService.parseByaf(filePath);
+      preview = parsed;
 
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        deleteByafTempImages(parsed.galleryImagePaths);
+        return;
+      }
 
       // Show preview dialog
       final result2 = await showDialog<ByafImportResult>(
         context: context,
-        builder: (context) => ByafImportDialog(preview: preview),
+        builder: (context) => ByafImportDialog(preview: parsed),
       );
 
-      if (result2 == null || !result2.confirmed || !context.mounted) return;
+      if (result2 == null || !result2.confirmed || !context.mounted) {
+        deleteByafTempImages(parsed.galleryImagePaths);
+        return;
+      }
 
       // Convert to CharacterCard
-      final card = byafService.toCharacterCard(preview);
+      final card = byafService.toCharacterCard(parsed);
 
       // Save as PNG (with image if available)
       final storageService = Provider.of<StorageService>(
@@ -144,7 +152,7 @@ extension _HomePageDialogsImport on _HomePageState {
 
       // Now use V2CardService to embed character data into the PNG
       final v2Service = V2CardService();
-      await v2Service.saveCardAsPng(card, pngPath, preview.extractedImagePath);
+      await v2Service.saveCardAsPng(card, pngPath, parsed.extractedImagePath);
 
       // Import via CharacterRepository (reads PNG metadata + inserts into DB).
       // Single-file BYAF: same name-collision prompt as V2 PNG import.
@@ -158,23 +166,30 @@ extension _HomePageDialogsImport on _HomePageState {
       // Create the imported session: chat history and/or Backyard sampler
       // settings, per the dialog toggles.
       if (importedCard != null) {
+        await applyByafGalleryLooks(
+          repo: repo,
+          imported: importedCard,
+          galleryImagePaths: parsed.galleryImagePaths,
+          importGalleryImages: result2.importGalleryImages,
+        );
         final genSettings = result2.applySettings
-            ? byafService.toGenerationSettings(preview)
+            ? byafService.toGenerationSettings(parsed)
             : null;
         final db = await AppDatabase.instance();
         await byafService.importSession(
           db,
-          preview,
+          parsed,
           importedCard,
           includeMessages: result2.importChatHistory,
           genSettings: genSettings,
         );
+      } else {
+        deleteByafTempImages(parsed.galleryImagePaths);
       }
 
       if (context.mounted && importedCard != null) {
-        final chatNote =
-            result2.importChatHistory && preview.messages.isNotEmpty
-            ? ' with ${preview.messages.length} chat messages'
+        final chatNote = result2.importChatHistory && parsed.messages.isNotEmpty
+            ? ' with ${parsed.messages.length} chat messages'
             : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -185,6 +200,7 @@ extension _HomePageDialogsImport on _HomePageState {
         );
       }
     } catch (e) {
+      if (preview != null) deleteByafTempImages(preview.galleryImagePaths);
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
@@ -322,31 +338,37 @@ extension _HomePageDialogsImport on _HomePageState {
     for (int i = 0; i < paths.length; i++) {
       if (isCancelled()) break;
       final name = paths[i].split(Platform.pathSeparator).last;
+      ByafImportPreview? preview;
       try {
-        final preview = await byafService.parseByaf(paths[i]);
-        final card = byafService.toCharacterCard(preview);
+        final parsed = await byafService.parseByaf(paths[i]);
+        preview = parsed;
+        final card = byafService.toCharacterCard(parsed);
         final pngPath = await byafService.saveCharacterPng(
           card,
           charactersDirPath: storage.charactersDir.path,
         );
-        await v2Service.saveCardAsPng(
-          card,
-          pngPath,
-          preview.extractedImagePath,
-        );
+        await v2Service.saveCardAsPng(card, pngPath, parsed.extractedImagePath);
         final imported = await repo.importCharacter(File(pngPath));
         if (imported != null) {
+          await applyByafGalleryLooks(
+            repo: repo,
+            imported: imported,
+            galleryImagePaths: parsed.galleryImagePaths,
+            importGalleryImages: true,
+          );
           final genSettings = applySettings
-              ? byafService.toGenerationSettings(preview)
+              ? byafService.toGenerationSettings(parsed)
               : null;
           final db = await AppDatabase.instance();
           await byafService.importSession(
             db,
-            preview,
+            parsed,
             imported,
             includeMessages: importChats,
             genSettings: genSettings,
           );
+        } else {
+          deleteByafTempImages(parsed.galleryImagePaths);
         }
         onProgress(
           i + 1,
@@ -355,6 +377,9 @@ extension _HomePageDialogsImport on _HomePageState {
           imported == null ? 'Import returned no character' : null,
         );
       } catch (e) {
+        if (preview != null) {
+          deleteByafTempImages(preview.galleryImagePaths);
+        }
         onProgress(i + 1, paths.length, name, '$e');
       }
     }

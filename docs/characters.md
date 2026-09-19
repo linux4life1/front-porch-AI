@@ -31,7 +31,7 @@ Front Porch AI reads and writes the **V2 card format** — the same standard use
 
 Front Porch's own extras (the Realism Engine starting state, chat colors, and so on) ride along inside the card's standard *extensions* area — I call that block "V2.5", but the file itself is still a plain V2 card that any other app can open.
 
-> **Rescuing Backyard AI characters:** Front Porch AI also imports Backyard AI's `.byaf` archive format, so characters stranded there can move in. They're converted to standard V2 cards on the way, and the import screen offers to bring their **chat history** and their **Backyard sampler settings** across too, so the imported chat picks up where it left off and sounds the way it used to.
+> **Rescuing Backyard AI characters:** Front Porch AI also imports Backyard AI's `.byaf` archive format, so characters stranded there can move in. They're converted to standard V2 cards on the way. Every picture in the archive lands in the **Avatar Gallery** (first image is the portrait; the rest are looks). The import screen offers to bring their **chat history** and their **Backyard sampler settings** across too, so the imported chat picks up where it left off and sounds the way it used to. The same `.byaf` import works in the phone/browser library, not only on desktop.
 
 ---
 

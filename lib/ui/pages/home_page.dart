@@ -47,7 +47,6 @@ import 'package:front_porch_ai/ui/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
-import 'package:front_porch_ai/services/byaf_service.dart';
 
 // State is split across part files (private extensions) to stay under 500.
 part 'home/home_page_chrome.dart';

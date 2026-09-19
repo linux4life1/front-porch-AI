@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
 part 'character_facade.import.dart';
+part 'character_facade.byaf.dart';
 
 /// Thin read adapter over the character store for the rewritten web server.
 ///
