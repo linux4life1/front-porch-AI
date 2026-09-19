@@ -136,14 +136,13 @@ and tall style.
 
 | Rule | Enforcement |
 |------|-------------|
-| New / extracted Dart stays **under 500 lines** | Product law. Extract; do not grow. |
-| Do not grow a file already over 500 | Product law. Mixed production files were split; leftover over-500 files (including the home, ChatService, and image-gen shells) are not a license to grow them. |
-| **No `lib/` file may reach 1,000 lines** | CI: `test/hygiene/god_file_ratchet_test.dart` + empty `test/baselines/god_files.json`. Adding a baseline entry needs `approved-test-change` and should not happen. |
-| Generated `*.g.dart` stays under recorded ceilings; Drift table managers stay **off** | CI: `test/hygiene/generated_dart_size_test.dart`. `build.yaml` must keep `generate_manager: false`. |
+| **No handwritten `lib/` Dart may reach 500 lines** | CI: `test/hygiene/god_file_ratchet_test.dart` + empty `test/baselines/god_files.json`. `kGodFileBar` is 500. Adding a baseline entry needs `approved-test-change` and should not happen — split the file instead. |
+| New / extracted Dart stays **under 500 lines** | Same gate. Extract; do not grow. |
+| Generated `*.g.dart` stays under recorded ceilings; Drift table managers stay **off** | CI: `test/hygiene/generated_dart_size_test.dart`. `build.yaml` must keep `generate_manager: false`. `lib/database/database.g.dart` is excluded from the handwritten ratchet and owned here. |
 
-There is **not** a CI job that fails every file over 500. Do not invent one
-in docs or comments. Generated protobuf / `.g.dart` are excluded from the
-1,000-line handwritten ratchet (generated size is the other test).
+Do not invent a second 500-line gate. Generated protobuf / `.g.dart` /
+`grpc/generated` are excluded from `god_file_ratchet_test.dart` (generated
+size is the other test).
 
 ---
 

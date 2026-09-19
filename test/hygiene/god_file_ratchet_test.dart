@@ -16,48 +16,42 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// THE GOD-FILE RATCHET. Maintainer-directed 2026-08-02: "no god files left in
-// the program", enforcement bar set at 1,000 lines ("I really only care about
-// the ones that are 1,000 plus LOC").
+// THE GOD-FILE RATCHET. The CI bar is 500 lines for handwritten Dart under
+// lib/. After the mixed-file debt payback, leftover files over 500 were
+// split so this test can fail loud at the product cap — not at 1,000.
 //
-// The elimination campaign only stays finished if the count can never grow
-// while nobody is looking. This test is that guarantee, and it lives in
-// test/ ON PURPOSE: it runs in the ordinary unit suite on every platform and
-// inside the ci-local container, and test-integrity.yml blocks any PR that
-// edits this file or the baseline without the maintainer's
-// approved-test-change label — the same protection dependency_floors.json
-// gets, for the same reason: a check whose inputs a PR can rewrite is not a
-// check.
+// This test lives in test/ ON PURPOSE: it runs in the ordinary unit suite
+// on every platform and inside the ci-local container, and
+// test-integrity.yml blocks any PR that edits this file or the baseline
+// without the maintainer's approved-test-change label — the same protection
+// dependency_floors.json gets, for the same reason: a check whose inputs a
+// PR can rewrite is not a check.
 //
-// The mechanism is a one-way ratchet over test/baselines/god_files.json,
-// which lists every file that was already >= 1,000 lines when the campaign
-// started, with its line count at that moment:
+// The mechanism is a one-way ratchet over test/baselines/god_files.json.
+// The campaign's victory condition is an empty baseline (`{}`). Do not add
+// grandfather entries for handwritten leftovers — split the file instead.
 //
-//   1. A file NOT in the baseline may never reach 1,000 lines. New god files
-//      are banned outright — split before you cross, not after.
-//   2. A baseline file may never exceed its recorded count. The monsters can
-//      only shrink. (CLAUDE.md already said "do not grow" — now it has teeth.)
+//   1. A file NOT in the baseline may never reach 500 lines. Split before
+//      you cross, not after.
+//   2. A baseline file may never exceed its recorded count. The monsters
+//      can only shrink.
 //   3. When a baseline file shrinks, the recorded count must be lowered to
-//      match in the same change. Otherwise the gap between recorded and
-//      actual is slack a later edit could silently grow back into, and
-//      progress would leak away unnoticed.
-//   4. When a baseline file drops below 1,000, its entry must be DELETED.
+//      match in the same change. Otherwise the gap is slack a later edit
+//      could silently grow back into.
+//   4. When a baseline file drops below 500, its entry must be DELETED.
 //      Rule 1 then guards it forever — a beaten god file cannot return.
 //
-// The end state of the campaign is an empty baseline, and the test is its own
-// proof of completion.
-//
-// The 500-line cap in CLAUDE.md is unchanged as the target for NEW and
-// extracted files; this ratchet is deliberately set at the maintainer's
-// 1,000-line pain threshold so a routine bugfix to a 600-line file never
-// fights CI.
+// Generated Dart is excluded here (*.g.dart, protobuf, grpc/generated).
+// `lib/database/database.g.dart` is the named exception the maintainer
+// called out: it is owned by generated_dart_size_test.dart (ceilings +
+// Drift `generate_manager: false`), not by this handwritten ratchet.
 
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-const int kGodFileBar = 1000;
+const int kGodFileBar = 500;
 const String kBaselinePath = 'test/baselines/god_files.json';
 
 bool _excluded(String path) =>

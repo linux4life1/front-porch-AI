@@ -14,13 +14,13 @@ Dart: [docs/maintainer-agent-playbook.md](docs/maintainer-agent-playbook.md).
   in-process. Do not spawn helper processes. Waifu Coder may manage an
   OpenCode binary the way the app manages Kobold — that is not a chat sidecar
   and not a Dart coding loop.
-- **File size.** New and extracted Dart stays under 500 lines (not generated
-  `.g.dart`). There is **no** CI job that fails every file over 500. Some
-  production files still sit over 500 after the mixed-file splits, including
-  the home, ChatService, and image-gen shells. Do not grow them — extract.
-  The **1,000-line** god-file ratchet is CI (`test/hygiene/god_file_ratchet_test.dart`,
-  empty `test/baselines/god_files.json`). Generated Drift output has its own
-  size ratchet after table managers were turned off.
+- **File size.** Handwritten Dart under `lib/` stays **under 500 lines**.
+  That is CI via `test/hygiene/god_file_ratchet_test.dart` (`kGodFileBar`
+  is 500, empty `test/baselines/god_files.json`). Do not add baseline
+  leftovers — split the file. Generated `.g.dart` (including
+  `lib/database/database.g.dart`) is excluded from that ratchet and owned
+  by `test/hygiene/generated_dart_size_test.dart` / Drift
+  `generate_manager: false`. Do not invent a second 500-line gate.
 - **Style.** DRY, readable Dart, few comments. `dart format` the files you
   already edited. Never `dart format .`. Touched code must be analyzer-clean.
 - **Chat contracts.** `resolveMouthSpeech`: a closed think-only body is
