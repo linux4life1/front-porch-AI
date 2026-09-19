@@ -90,6 +90,10 @@ class _JournalDialogState extends State<JournalDialog> {
 
   ChatService get _chat => widget.chatService;
 
+  /// Class door for the cards/actions part extensions — [setState] is
+  /// @protected and cannot be called from an extension.
+  void rebuildState(VoidCallback fn) => setState(fn);
+
   @override
   void initState() {
     super.initState();

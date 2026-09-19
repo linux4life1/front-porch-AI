@@ -38,7 +38,7 @@ extension _HomePageLifecycle on _HomePageState {
       final appState = Provider.of<AppState>(context, listen: false);
       if (appState.homeResetTick != _lastHomeResetTick) {
         _lastHomeResetTick = appState.homeResetTick;
-        setState(() => _activeFolderId = null);
+        applyState(() => _activeFolderId = null);
       }
     } catch (_) {}
   }
@@ -78,7 +78,7 @@ extension _HomePageLifecycle on _HomePageState {
           ),
         );
       }
-      setState(() {}); // Rebuild to update status bar
+      applyState(() {}); // Rebuild to update status bar
     } catch (_) {}
   }
 
@@ -121,7 +121,7 @@ extension _HomePageLifecycle on _HomePageState {
       }
 
       if (mounted) {
-        setState(() {
+        applyState(() {
           _lastActivityCache
             ..clear()
             ..addAll(newCache);
@@ -132,7 +132,7 @@ extension _HomePageLifecycle on _HomePageState {
       }
     } catch (e) {
       debugPrint('Error refreshing activity cache: $e');
-      if (mounted) setState(() {});
+      if (mounted) applyState(() {});
     }
   }
 
@@ -140,12 +140,8 @@ extension _HomePageLifecycle on _HomePageState {
   /// See [StableGroupId.stableGroupId] in lib/utils/character_id.dart
   String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
 
-  /// Legacy alias — prefer _getCharacterIdFromCard for new code.
-  @Deprecated('Use _getCharacterIdFromCard for stable group ID resolution')
-  String getStableCharacterId(CharacterCard card) => card.stableGroupId;
-
   void _toggleSelectMode() {
-    setState(() {
+    applyState(() {
       _isSelecting = !_isSelecting;
       _isOrganizing = false;
       if (!_isSelecting) {
@@ -156,7 +152,7 @@ extension _HomePageLifecycle on _HomePageState {
   }
 
   void _toggleOrganizeMode() {
-    setState(() {
+    applyState(() {
       _isOrganizing = !_isOrganizing;
       _isSelecting = false;
       if (!_isOrganizing) {
@@ -172,7 +168,7 @@ extension _HomePageLifecycle on _HomePageState {
         : character.name
               .replaceAll(RegExp(r'[^\w\s]'), '')
               .replaceAll(' ', '_');
-    setState(() {
+    applyState(() {
       if (_selectedCharacterIds.contains(id)) {
         _selectedCharacterIds.remove(id);
         if (_selectedCharacterIds.isEmpty && _selectedGroupIds.isEmpty) {
@@ -188,7 +184,7 @@ extension _HomePageLifecycle on _HomePageState {
   /// Group analogue of [_toggleSelect] — groups are selected by their id
   /// (they have no image-filename key).
   void _toggleSelectGroup(GroupChat group) {
-    setState(() {
+    applyState(() {
       if (_selectedGroupIds.contains(group.id)) {
         _selectedGroupIds.remove(group.id);
         if (_selectedCharacterIds.isEmpty && _selectedGroupIds.isEmpty) {
@@ -202,7 +198,7 @@ extension _HomePageLifecycle on _HomePageState {
   }
 
   void _cancelSelection() {
-    setState(() {
+    applyState(() {
       _isSelecting = false;
       _isOrganizing = false;
       _selectedCharacterIds.clear();

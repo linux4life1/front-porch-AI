@@ -88,13 +88,15 @@ extension _RagSetupConsent on RagSetupDialogState {
               InfoRow(
                 icon: Icons.memory,
                 color: Colors.tealAccent,
-                text: 'Runs inside the app on your CPU — no data leaves your machine',
+                text:
+                    'Runs inside the app on your CPU — no data leaves your machine',
               ),
               SizedBox(height: 8),
               InfoRow(
                 icon: Icons.search,
                 color: Colors.purpleAccent,
-                text: 'Searches past messages for relevant context to include in prompts',
+                text:
+                    'Searches past messages for relevant context to include in prompts',
               ),
             ],
           ),
@@ -115,7 +117,7 @@ extension _RagSetupConsent on RagSetupDialogState {
             const SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: () {
-                setState(() => _isSettingUp = true);
+                rebuildState(() => _isSettingUp = true);
                 _startSetup();
               },
               icon: Icon(Icons.rocket_launch, size: 16),

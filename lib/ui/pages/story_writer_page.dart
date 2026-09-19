@@ -49,6 +49,10 @@ class StoryWriterPage extends StatefulWidget {
 class _StoryWriterPageState extends State<StoryWriterPage> {
   final ScrollController _scrollController = ScrollController();
 
+  /// Class door for the beats part extension — [setState] is @protected
+  /// and cannot be called from an extension.
+  void rebuildState(VoidCallback fn) => setState(fn);
+
   String get _sId => '${widget.actIndex}-${widget.sceneIndex}';
 
   @override

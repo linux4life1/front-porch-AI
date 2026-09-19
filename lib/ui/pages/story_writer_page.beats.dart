@@ -221,7 +221,7 @@ extension _StoryWriterBeats on _StoryWriterPageState {
         widget.actIndex,
         widget.sceneIndex,
       );
-      if (mounted) setState(() {});
+      if (mounted) rebuildState(() {});
     } catch (e) {
       if (mounted) showAiErrorSnackBar(context, e);
     }
@@ -239,7 +239,7 @@ extension _StoryWriterBeats on _StoryWriterPageState {
         widget.sceneIndex,
         beatIdx,
       );
-      if (mounted) setState(() {});
+      if (mounted) rebuildState(() {});
     } catch (e) {
       if (mounted) showAiErrorSnackBar(context, e);
     }
@@ -256,7 +256,7 @@ extension _StoryWriterBeats on _StoryWriterPageState {
         widget.sceneIndex,
       );
       if (mounted) {
-        setState(() {});
+        rebuildState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Scene complete!'),

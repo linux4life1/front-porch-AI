@@ -38,6 +38,10 @@ class RagSetupDialogState extends State<RagSetupDialog> {
   bool _isSettingUp = false;
   bool _isDone = false;
 
+  /// Class door for the consent/setup part extensions — [setState] is
+  /// @protected and cannot be called from an extension.
+  void rebuildState(VoidCallback fn) => setState(fn);
+
   @override
   Widget build(BuildContext context) {
     final embeddings = Provider.of<EmbeddingService>(context);

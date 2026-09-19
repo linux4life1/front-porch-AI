@@ -46,7 +46,7 @@ extension _StoryCalendarDetail on _StoryCalendarDialogState {
             ],
             onChanged: (id) {
               if (id == null) return;
-              setState(() {
+              rebuildState(() {
                 _ownerId = id;
                 _ownerName = owners.firstWhere((p) => p.id == id).name;
                 _selectedDay = null;
@@ -224,7 +224,7 @@ extension _StoryCalendarDetail on _StoryCalendarDialogState {
     await _chat.setStoryStartDate(
       DateTime.utc(picked.year, picked.month, picked.day),
     );
-    setState(() {
+    rebuildState(() {
       final clock = _chat.timeService.clock;
       _visibleMonth = DateTime.utc(clock.year, clock.month, 1);
       _selectedDay = null;
@@ -256,7 +256,7 @@ extension _StoryCalendarDetail on _StoryCalendarDialogState {
         pickedTime?.minute ?? clock.minute,
       ),
     );
-    setState(() {
+    rebuildState(() {
       final c = _chat.timeService.clock;
       _visibleMonth = DateTime.utc(c.year, c.month, 1);
       _selectedDay = null;

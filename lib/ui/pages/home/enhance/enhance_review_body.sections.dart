@@ -56,7 +56,7 @@ extension _EnhanceReviewBodySections on EnhanceReviewBodyState {
         Switch(
           value: _use[useKey] ?? false,
           activeThumbColor: AppColors.porchAmberOf(context),
-          onChanged: (v) => setState(() => _use[useKey] = v),
+          onChanged: (v) => rebuildState(() => _use[useKey] = v),
         ),
       ],
     );
@@ -206,7 +206,8 @@ extension _EnhanceReviewBodySections on EnhanceReviewBodyState {
           for (var i = 0; i < entries.length; i++)
             CheckboxListTile(
               value: _useLoreEntry[i],
-              onChanged: (v) => setState(() => _useLoreEntry[i] = v ?? false),
+              onChanged: (v) =>
+                  rebuildState(() => _useLoreEntry[i] = v ?? false),
               dense: true,
               controlAffinity: ListTileControlAffinity.leading,
               activeColor: AppColors.porchAmberOf(context),

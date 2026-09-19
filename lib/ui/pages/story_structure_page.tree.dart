@@ -37,8 +37,9 @@ extension _StoryStructureTree on _StoryStructurePageState {
           children: [
             // Act header
             InkWell(
-              onTap: () =>
-                  setState(() => _expandedActIndex = isExpanded ? -1 : actIdx),
+              onTap: () => rebuildState(
+                () => _expandedActIndex = isExpanded ? -1 : actIdx,
+              ),
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 padding: const EdgeInsets.all(16),

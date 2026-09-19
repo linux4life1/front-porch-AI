@@ -29,7 +29,7 @@ extension _StoryCalendarGrid on _StoryCalendarDialogState {
             size: 18,
             color: AppColors.iconSecondary(context),
           ),
-          onPressed: () => setState(
+          onPressed: () => rebuildState(
             () => _visibleMonth = DateTime.utc(
               _visibleMonth.year,
               _visibleMonth.month - 1,
@@ -55,7 +55,7 @@ extension _StoryCalendarGrid on _StoryCalendarDialogState {
             size: 18,
             color: AppColors.iconSecondary(context),
           ),
-          onPressed: () => setState(
+          onPressed: () => rebuildState(
             () => _visibleMonth = DateTime.utc(
               _visibleMonth.year,
               _visibleMonth.month + 1,
@@ -119,7 +119,7 @@ extension _StoryCalendarGrid on _StoryCalendarDialogState {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: hasMemories
-          ? () => setState(() => _selectedDay = selected ? null : storyDay)
+          ? () => rebuildState(() => _selectedDay = selected ? null : storyDay)
           : null,
       child: Container(
         decoration: BoxDecoration(

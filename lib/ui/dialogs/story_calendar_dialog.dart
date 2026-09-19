@@ -56,6 +56,10 @@ class StoryCalendarDialog extends StatefulWidget {
 class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
   ChatService get _chat => widget.chatService;
 
+  /// Class door for the grid/detail part extensions — [setState] is
+  /// @protected and cannot be called from an extension.
+  void rebuildState(VoidCallback fn) => setState(fn);
+
   late DateTime _visibleMonth; // first of the shown month (UTC)
   String? _ownerId;
   String _ownerName = '';
@@ -171,9 +175,9 @@ class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
               builder: (context, _) {
                 var plannerOn = false;
                 try {
-                  plannerOn = Provider.of<StorageService>(context)
-                      .realismSettings
-                      .plannerEnabled;
+                  plannerOn = Provider.of<StorageService>(
+                    context,
+                  ).realismSettings.plannerEnabled;
                 } catch (_) {}
                 return CalendarTodayHold(
                   enabled: plannerOn,

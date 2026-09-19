@@ -41,7 +41,7 @@ extension _JournalDialogCards on _JournalDialogState {
         ],
         onChanged: (id) {
           if (id == null) return;
-          setState(() {
+          rebuildState(() {
             _ownerId = id;
             _ownerName = owners.firstWhere((p) => p.id == id).name;
             _loading = true;

@@ -39,6 +39,10 @@ class StoryStructurePage extends StatefulWidget {
 class _StoryStructurePageState extends State<StoryStructurePage> {
   int _expandedActIndex = -1;
 
+  /// Class door for the tree part extension — [setState] is @protected
+  /// and cannot be called from an extension.
+  void rebuildState(VoidCallback fn) => setState(fn);
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<StoryRepository, StoryPipelineService>(

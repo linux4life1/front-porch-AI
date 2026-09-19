@@ -78,6 +78,10 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
   late List<String> _porchIntimateNotInto;
   bool _saving = false;
 
+  /// Class door for the sections part extension — [setState] is
+  /// @protected and cannot be called from an extension.
+  void rebuildState(VoidCallback fn) => setState(fn);
+
   @override
   void initState() {
     super.initState();
