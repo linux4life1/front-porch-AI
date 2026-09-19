@@ -268,11 +268,12 @@ export function SettingsPage() {
 
   // Switching backend sets the BackendType and, for fixed-URL providers, the API
   // URL; Custom clears the URL so it doesn't masquerade as a named provider and
-  // the model dropdown refetches off the new endpoint.
+  // the model dropdown refetches off the new endpoint. The live model id is
+  // blanked — a leftover from the previous host is not valid here.
   const onBackendChange = (id: string) => {
     const opt = BACKEND_OPTIONS.find((o) => o.id === id);
     if (!opt) return;
-    const next: Partial<Settings> = { backend: opt.backend };
+    const next: Partial<Settings> = { backend: opt.backend, remoteModelName: '' };
     if (id === 'custom') next.remoteApiUrl = '';
     else if (opt.url) next.remoteApiUrl = opt.url;
     setApiKey('');

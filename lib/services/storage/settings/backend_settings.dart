@@ -176,8 +176,9 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
       prefs?.setString(k('remote_api_key'), _remoteApiKey);
       prefs?.setString(k('remote_api_keys'), _remoteApiKeys.encode());
     }
-    // Seed the live model into this host's slot so the first provider
-    // switch can restore it.
+    // Seed the live model into this host's slot so a later visit can
+    // still read remoteApiModelFor. The live picker is cleared on
+    // host/type change — it must not restore into the new host.
     final modelSlot = _modelSlot();
     if (modelSlot.isNotEmpty &&
         _remoteModelName.isNotEmpty &&
@@ -269,16 +270,19 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
     _remoteApiModels.put(slot, _remoteModelName);
   }
 
-  Future<void> _restoreModelForSlot(String slot) async {
-    _remoteModelName = slot.isEmpty ? '' : _remoteApiModels.keyFor(slot);
-    await prefs?.setString(k('remote_model_name'), _remoteModelName);
+  Future<void> _clearLiveRemoteModel() async {
+    _remoteModelName = '';
+    await prefs?.setString(k('remote_model_name'), '');
   }
 
   Future<void> setBackendType(String value) async {
     if (value != _backendType) {
       _stashLiveModel();
       _backendType = value;
-      await _restoreModelForSlot(_modelSlot());
+      // Kobold and OpenRouter share the URL slot — restoring would keep
+      // the previous host's id in the picker. Always blank the live
+      // selection so the user picks a model that belongs here.
+      await _clearLiveRemoteModel();
       await _persistRemoteApiModels();
     } else {
       _backendType = value;
@@ -312,13 +316,16 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
         remoteApiKeyBelongsToUrl(_remoteApiKey, _remoteApiUrl)) {
       _remoteApiKeys.put(_remoteApiUrl, _remoteApiKey);
     }
+    final previousSlot = _modelSlot();
     _stashLiveModel();
     _remoteApiUrl = value;
     _remoteApiKey = _remoteApiKeys.keyFor(value);
     await prefs?.setString(k('remote_api_url'), value);
     await prefs?.setString(k('remote_api_key'), _remoteApiKey);
     await _persistRemoteApiKeys();
-    await _restoreModelForSlot(_modelSlot());
+    if (previousSlot != _modelSlot()) {
+      await _clearLiveRemoteModel();
+    }
     await _persistRemoteApiModels();
     notify();
   }

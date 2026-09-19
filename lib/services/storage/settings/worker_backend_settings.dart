@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'remote_api_key_vault.dart';
 import 'settings_base.dart';
 
 /// Worker-lane host + model. Lives next to mouth settings so a restart
@@ -50,15 +51,31 @@ mixin WorkerBackendFields on SettingsBase {
     _workerKoboldKcppsPath = prefs?.getString(k('worker_kobold_kcpps_path'));
   }
 
+  Future<void> _clearWorkerRemoteModel() async {
+    _workerRemoteModelName = '';
+    await prefs?.setString(k('worker_remote_model_name'), '');
+  }
+
   Future<void> setWorkerBackendType(String value) async {
+    final changed = value != _workerBackendType;
     _workerBackendType = value;
     await prefs?.setString(k('worker_backend_type'), value);
+    // Same-as-chat (empty) is not a host — keep the parked worker model.
+    if (changed && value.isNotEmpty) {
+      await _clearWorkerRemoteModel();
+    }
     notify();
   }
 
   Future<void> setWorkerRemoteApiUrl(String value) async {
+    final changed =
+        normalizeRemoteApiUrl(value) !=
+        normalizeRemoteApiUrl(_workerRemoteApiUrl);
     _workerRemoteApiUrl = value;
     await prefs?.setString(k('worker_remote_api_url'), value);
+    if (changed && _workerBackendType.isNotEmpty) {
+      await _clearWorkerRemoteModel();
+    }
     notify();
   }
 

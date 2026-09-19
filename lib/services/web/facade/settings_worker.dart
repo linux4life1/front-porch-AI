@@ -50,18 +50,25 @@ Future<void> updateWorkerSettings({
   required StorageService storage,
   required Map<String, dynamic> body,
 }) async {
+  final previousModel = storage.workerRemoteModelName;
+  var hostChanged = false;
   if (body.containsKey('workerBackend')) {
-    await storage.setWorkerBackendType(body['workerBackend']?.toString() ?? '');
+    final next = body['workerBackend']?.toString() ?? '';
+    hostChanged = next != storage.workerBackendType;
+    await storage.setWorkerBackendType(next);
   }
   if (body.containsKey('workerRemoteApiUrl')) {
-    await storage.setWorkerRemoteApiUrl(
-      body['workerRemoteApiUrl']?.toString() ?? '',
-    );
+    final nextUrl = body['workerRemoteApiUrl']?.toString() ?? '';
+    if (nextUrl != storage.workerRemoteApiUrl) hostChanged = true;
+    await storage.setWorkerRemoteApiUrl(nextUrl);
   }
   if (body.containsKey('workerRemoteModelName')) {
-    await storage.setWorkerRemoteModelName(
-      body['workerRemoteModelName']?.toString() ?? '',
-    );
+    final incoming = body['workerRemoteModelName']?.toString() ?? '';
+    final leftover =
+        hostChanged && incoming.isNotEmpty && incoming == previousModel;
+    if (!leftover) {
+      await storage.setWorkerRemoteModelName(incoming);
+    }
   }
   if (body.containsKey('workerKoboldModelPath')) {
     await storage.setWorkerKoboldModelPath(

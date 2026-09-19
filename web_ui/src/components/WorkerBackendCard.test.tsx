@@ -154,6 +154,23 @@ describe('WorkerBackendCard', () => {
     expect(labels).not.toContain('Off — same as chat');
   });
 
+  it('clears the worker model when the host changes', () => {
+    render({
+      backend: 'openRouter',
+      remoteApiUrl: 'https://nano-gpt.com/api/v1',
+      workerBackend: 'openRouter',
+      workerRemoteApiUrl: 'https://nano-gpt.com/api/v1',
+      workerRemoteModelName: 'z-ai/glm-5.3',
+    });
+    const host = container.querySelector('[data-testid="side-jobs-host"]') as HTMLSelectElement;
+    act(() => {
+      host.value = 'openrouter';
+      host.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(latest.workerRemoteModelName).toBe('');
+    expect(latest.workerRemoteApiUrl).toBe('https://openrouter.ai/api/v1');
+  });
+
   it('hides oMLX when the host does not offer it', () => {
     render({
       backend: 'openRouter',

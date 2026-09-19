@@ -60,12 +60,29 @@ class _StoopBrowseViewState extends State<StoopBrowseView> {
   String? _error;
   StreamSubscription<StoopCardStats>? _statsSub;
 
+  // Last NSFW preference we loaded for. Flipping AuthState.nsfwEnabled
+  // (the account-sheet checkbox) must refetch — the grid stays mounted
+  // under the sheet, so leaving The Stoop was the only refresh.
+  bool? _nsfwEnabled;
+  bool _sawNsfwPref = false;
+
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
     _statsSub = StoopMessageSocket.onCardStats.listen(_applyCardStats);
     _loadAll();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nsfw = context.watch<AuthState>().user?.nsfwEnabled;
+    if (_nsfwEnabled == nsfw) return;
+    final first = !_sawNsfwPref;
+    _sawNsfwPref = true;
+    _nsfwEnabled = nsfw;
+    if (!first) _loadAll();
   }
 
   @override

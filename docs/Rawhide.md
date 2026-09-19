@@ -7,6 +7,12 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🏡 **Stoop NSFW toggle refreshes the porch** — “Show NSFW content” now reloads The Stoop right away. You no longer have to leave and come back. Same on the phone.
+
+- 📦 **Downloaded models show up in Model Selection** — after a download finishes, Settings → Model Selection lists the new GGUF without leaving the page.
+
+- 🎯 **Switching hosts clears the model picker** — Kobold, OpenRouter, Nano-GPT, and the rest no longer keep the last host’s model id. Pick a model that belongs to the new host. Realism evals only clear when that host changes. Same on the phone.
+
 - 📋 **Copy a reply like any other text** — drag across the words in a bubble (including an open Thought) and Copy. The character name and the buttons stay out of it. Sending a new line no longer yanks the transcript if you had scrolled up. Same on the phone. macOS Edit → Find is gone; it never searched the chat.
 
 - 📦 **Backyard archives keep every picture** — a `.byaf` import now puts the first image on the portrait and the rest in the Avatar Gallery. You can turn the extra looks off on desktop. Phone and browser import `.byaf` the same way (not PNG-only). Desktop work started by [@Lufou](https://github.com/Lufou).
@@ -59,7 +65,7 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - 📣 **Stoop Inbox notifications show the actual notice again** — they were painting as empty bars because Flutter will not draw a rounded card with a different-colored left stripe.
 
-- 🔀 **Swap OpenRouter and Nano-GPT in one tap** — Model Settings is a row of hosts (KoboldCpp, OpenRouter, Nano-GPT, LM Studio, Custom; oMLX on Mac only). Each host keeps its own key and last model. Same on Settings and the phone.
+- 🔀 **Swap OpenRouter and Nano-GPT in one tap** — Model Settings is a row of hosts (KoboldCpp, OpenRouter, Nano-GPT, LM Studio, Custom; oMLX on Mac only). Each host keeps its own key. The model picker blanks so you pick one that belongs there. Same on Settings and the phone.
 
 - 🖥️ **Waifu Coder is powered by OpenCode** — the custom coding engine is gone; your coworker now tools through OpenCode.
 - 🎭 **Characters are not “she” by default** — generic prompts, mood copy, and Waifu Coder blurbs use they/them unless the card’s Sex field is actually female (woman / she / her still maps to she/her).

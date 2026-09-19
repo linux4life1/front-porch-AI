@@ -169,10 +169,15 @@ extension SettingsFacadeUpdate on SettingsFacade {
 
     await updateWorkerSettings(storage: _storage, body: body);
 
+    final previousModel = b.remoteModelName;
+    var backendChanged = false;
     final backend = body['backend']?.toString();
     if (backend != null) {
       final type = SettingsFacade._parse(backend);
-      if (type != null) await _llm.setActiveBackend(type);
+      if (type != null) {
+        backendChanged = type != _llm.activeBackend;
+        await _llm.setActiveBackend(type);
+      }
     }
 
     var remoteChanged = false;
@@ -183,12 +188,19 @@ extension SettingsFacadeUpdate on SettingsFacade {
       await b.setRemoteApiUrl(nextUrl);
       remoteChanged = true;
     }
-    // A provider-bar swap sends the previous model's id in the same POST.
-    // setRemoteApiUrl already restored this host's last model — do not
-    // stamp the leftover onto the new host.
-    if (body.containsKey('remoteModelName') && !urlChanged) {
-      await b.setRemoteModelName(body['remoteModelName'].toString());
-      remoteChanged = true;
+    // A host swap may still send the previous model's id in the same POST
+    // (older PWAs). Skip that leftover. A newly picked id for the new
+    // host — or an explicit blank — must land after the clear.
+    if (body.containsKey('remoteModelName')) {
+      final incoming = body['remoteModelName'].toString();
+      final leftover =
+          (backendChanged || urlChanged) &&
+          incoming.isNotEmpty &&
+          incoming == previousModel;
+      if (!leftover) {
+        await b.setRemoteModelName(incoming);
+        remoteChanged = true;
+      }
     }
     // Only overwrite the API key when a non-empty value is provided (the read
     // path never returns it, so an empty field means "leave unchanged").

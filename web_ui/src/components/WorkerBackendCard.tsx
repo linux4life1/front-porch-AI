@@ -126,7 +126,10 @@ export function WorkerBackendCard({
   const onHostChange = (nextId: string) => {
     const opt = HOSTS.find((o) => o.id === nextId);
     if (!opt) return;
-    const patch: Partial<WorkerBackendFields> = { workerBackend: opt.backend };
+    const patch: Partial<WorkerBackendFields> = {
+      workerBackend: opt.backend,
+      workerRemoteModelName: '',
+    };
     if (nextId === 'custom') {
       patch.workerRemoteApiUrl = '';
     } else if (opt.url) {

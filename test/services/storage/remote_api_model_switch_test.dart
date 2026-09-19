@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// OpenRouter ↔ Nano-GPT (and oMLX) must restore that host's last model,
-// same slot rule as the per-host API key vault.
+// Switching OpenRouter ↔ Nano-GPT (and oMLX / Kobold) must blank the
+// live picker. The previous host's model id is stale. Keys still restore.
 
 import 'dart:io';
 
@@ -37,7 +37,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _mockPathProvider();
 
-  test('switching URL restores that host last model', () async {
+  test('switching URL clears the live model', () async {
     final storage = await _storage();
     await storage.backendSettings.setRemoteApiUrl(_openRouter);
     await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
@@ -47,16 +47,21 @@ void main() {
     );
 
     await storage.backendSettings.setRemoteApiUrl(_openRouter);
-    expect(storage.backendSettings.remoteModelName, 'x-ai/grok-4.6');
-    await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
+    expect(storage.backendSettings.remoteModelName, isEmpty);
     expect(
-      storage.backendSettings.remoteModelName,
+      storage.backendSettings.remoteApiModelFor(_openRouter),
+      'x-ai/grok-4.6',
+    );
+    await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
+    expect(storage.backendSettings.remoteModelName, isEmpty);
+    expect(
+      storage.backendSettings.remoteApiModelFor(_nanoGpt),
       'moonshotai/kimi-k2.6:thinking',
     );
   });
 
   test(
-    'oMLX backend keeps its own model without overwriting the URL slot',
+    'oMLX backend clears the live model without overwriting the URL slot',
     () async {
       final storage = await _storage();
       await storage.backendSettings.setBackendType('openRouter');
@@ -64,13 +69,14 @@ void main() {
       await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
 
       await storage.backendSettings.setBackendType('omlx');
+      expect(storage.backendSettings.remoteModelName, isEmpty);
       await storage.backendSettings.setRemoteModelName('mlx-community/foo');
       expect(storage.backendSettings.remoteApiUrl, _openRouter);
 
       await storage.backendSettings.setBackendType('openRouter');
-      expect(storage.backendSettings.remoteModelName, 'x-ai/grok-4.6');
+      expect(storage.backendSettings.remoteModelName, isEmpty);
       await storage.backendSettings.setBackendType('omlx');
-      expect(storage.backendSettings.remoteModelName, 'mlx-community/foo');
+      expect(storage.backendSettings.remoteModelName, isEmpty);
     },
   );
 }

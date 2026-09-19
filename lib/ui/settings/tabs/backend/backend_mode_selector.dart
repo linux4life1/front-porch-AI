@@ -140,8 +140,9 @@ class BackendModeSelector extends StatelessWidget {
                 )
               else
                 Text(
-                  'Named host — URL and last model restore on tap. Custom is '
-                  'for a URL that is not OpenRouter, Nano-GPT, or LM Studio.',
+                  'Named host — URL and key restore on tap. Pick a model '
+                  'for that host. Custom is for a URL that is not '
+                  'OpenRouter, Nano-GPT, or LM Studio.',
                   style: theme.textTheme.bodySmall?.copyWith(color: muted),
                 ),
               if (config != null) ...[const SizedBox(height: 16), config!],

@@ -112,7 +112,7 @@ class SetupBackendPicker extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Each provider keeps its own key and last model.',
+            'Each provider keeps its own key. Pick a model after you switch.',
             style: TextStyle(
               fontSize: 12,
               color: AppColors.textTertiary(context),
