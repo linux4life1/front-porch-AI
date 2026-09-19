@@ -283,19 +283,14 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     }
 
     if (spans.isEmpty) {
-      return SelectionArea(
-        child: Text(segment, style: _rootStyle, textScaler: readingScaler),
-      );
+      return Text(segment, style: _rootStyle, textScaler: readingScaler);
     }
 
-    return SelectionArea(
-      child: RichText(
-        text: TextSpan(style: _rootStyle, children: spans),
-        // RichText defaults to TextScaler.noScaling. Hand the Reading
-        // Size pref — not ambient MediaQuery — so chrome can scale
-        // while these words still follow the slider.
-        textScaler: readingScaler,
-      ),
+    // Text.rich (not raw RichText) so find.text still sees the words
+    // without a nested SelectionArea. textScaler is Reading Size.
+    return Text.rich(
+      TextSpan(style: _rootStyle, children: spans),
+      textScaler: readingScaler,
     );
   }
 }

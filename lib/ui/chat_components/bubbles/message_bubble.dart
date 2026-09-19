@@ -30,6 +30,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import '../widgets/inline_chat_image.dart';
 import '../widgets/regen_critique_field.dart';
 import 'live_thinking_timer.dart';
+import 'selectable_bubble_body.dart';
 import 'styled_chat_message.dart';
 import 'theme_border_resolver.dart';
 
@@ -208,8 +209,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                               const Color(0xFFFFD166),
                               const Color(0xFFF59E0B),
                             ).withValues(alpha: 0.1 * bubbleOpacity),
-                            const Color(0xFFD97706)
-                                .withValues(alpha: 0.12 * bubbleOpacity),
+                            const Color(
+                              0xFFD97706,
+                            ).withValues(alpha: 0.12 * bubbleOpacity),
                           )
                         : message.isUser
                         ? (storage?.uiSettings
@@ -219,8 +221,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                                     themeOverrides: theme.overrides,
                                   )
                                   .withValues(alpha: bubbleOpacity) ??
-                              AppColors.porchAmberOf(context)
-                                  .withValues(alpha: 0.2))
+                              AppColors.porchAmberOf(
+                                context,
+                              ).withValues(alpha: 0.2))
                         : (storage?.uiSettings
                                   .getAiBubbleColor(
                                     character,

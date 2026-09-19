@@ -137,7 +137,7 @@ git commit -m "fix(macos): remove dead Edit → Find menu that no-ops on Flutter
   - `class SelectableBubbleBody extends StatelessWidget { const SelectableBubbleBody({super.key, required this.child}); final Widget child; }`
   - `class Unselectable extends StatelessWidget { const Unselectable({super.key, required this.child}); final Widget child; }` — wraps `SelectionContainer.disabled`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```dart
 // Copyright (C) 2026 Front Porch AI
@@ -263,13 +263,13 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `flutter test test/ui/chat_components/selectable_bubble_body_test.dart`
 
 Expected: FAIL — `StyledChatMessage does not own a SelectionArea` finds a `SelectionArea` (today’s per-segment wrap). The shared-body test may fail because expanded thought is plain `Text` with no `SelectionArea` ancestor.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `lib/ui/chat_components/bubbles/selectable_bubble_body.dart`:
 
@@ -325,13 +325,13 @@ export 'bubbles/selectable_bubble_body.dart';
 
 `message_bubble.content.dart` is a `part of` — no import. It can reference `SelectableBubbleBody` once the library (`message_bubble.dart`) sees it via the barrel already imported there (`styled_chat_message.dart` is a direct import; add `import 'selectable_bubble_body.dart';` next to the other bubble imports in `message_bubble.dart` if the barrel is not imported by that library).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `flutter test test/ui/chat_components/selectable_bubble_body_test.dart test/ui/chat_components/thought_toggle_chat_live_test.dart test/ui/chat_components/reading_size_test.dart`
 
 Expected: PASS (do not edit the last two files if they fail — fix the wrap instead).
 
-- [ ] **Step 5: Format only the Dart files you edited, then commit**
+- [x] **Step 5: Format only the Dart files you edited, then commit**
 
 ```bash
 dart format lib/ui/chat_components/bubbles/selectable_bubble_body.dart lib/ui/chat_components/bubbles/styled_chat_message.dart lib/ui/chat_components/bubbles/message_bubble.content.dart lib/ui/chat_components/bubbles/message_bubble.dart lib/ui/chat_components/chat_components.dart test/ui/chat_components/selectable_bubble_body_test.dart

@@ -20,6 +20,7 @@
 // Niche ones can be direct imported too.
 
 export 'bubbles/message_bubble.dart';
+export 'bubbles/selectable_bubble_body.dart';
 export 'bubbles/styled_chat_message.dart';
 export 'bubbles/external_image_widget.dart';
 

@@ -20,67 +20,16 @@ part of 'message_bubble.dart';
 
 /// The thought chip / expanded-thinking / live-timer / message-body /
 /// inline-image / realism-indicator run of sibling widgets that sits
-/// beneath the header row. Returned as a list because these are already
-/// collection-`if` elements in the shell's `Column.children` (spread with
-/// `...`), including the thought-only-hint vs. `StyledChatMessage`
-/// if/else pair, which moves as ONE element (never separate the hint from
-/// `StyledChatMessage`).
+/// beneath the header row. Speech + visible thought share one
+/// [SelectableBubbleBody]; the thought chip stays [Unselectable].
+/// The thought-only-hint vs. `StyledChatMessage` if/else pair still
+/// moves as one selectable child.
 extension _BubbleContent on _MessageBubbleState {
   List<Widget> _thoughtAndBodyChildren(
     BuildContext context,
     ResolvedThemeData theme,
   ) {
-    return [
-      if (!message.isUser) const SizedBox(height: 4),
-      // Collapsible Thought chip
-      if (!message.isUser && message.hasThinking)
-        GestureDetector(
-          key: const Key('thought-toggle'),
-          behavior: HitTestBehavior.opaque,
-          onTap: _toggleThought,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _thoughtOpen ? Icons.expand_more : Icons.chevron_right,
-                  size: 20,
-                  color: AppColors.textSecondary(context),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.resolve(
-                      context,
-                      const Color(0xFF2A4A5A),
-                      const Color(0xFFE0F2FE),
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Thought',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.tealAccent,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.lightbulb_outline,
-                  size: 16,
-                  color: AppColors.porchAmberOf(context),
-                ),
-              ],
-            ),
-          ),
-        ),
-      // Expanded thinking details
+    final selectable = <Widget>[
       if (!message.isUser && message.hasThinking && _thoughtOpen)
         Container(
           margin: const EdgeInsets.only(bottom: 8, left: 20),
@@ -120,17 +69,6 @@ extension _BubbleContent on _MessageBubbleState {
             ],
           ),
         ),
-      // Live thinking timer (extracted widget)
-      if (!message.isUser &&
-          message.thinkingStartTime != null &&
-          message.thinkingDurationMs == 0)
-        LiveThinkingTimer(
-          startMs: message.thinkingStartTime!,
-          generating: widget.isGenerating,
-        ),
-      // Thought-only reply: the whole message was reasoning,
-      // so displayText is empty — say so instead of rendering
-      // a bare empty bubble (web has the same hint).
       if (widget.chatService != null &&
           !message.isUser &&
           message.sender != 'System' &&
@@ -161,8 +99,73 @@ extension _BubbleContent on _MessageBubbleState {
           themePreset: theme.preset,
           themeOverrides: theme.overrides,
         ),
-      // Locally generated image (from /image or the Image Studio's
-      // "Send to chat") — click to zoom, right-click to save.
+    ];
+    return [
+      if (!message.isUser) const SizedBox(height: 4),
+      if (!message.isUser && message.hasThinking)
+        Unselectable(
+          child: GestureDetector(
+            key: const Key('thought-toggle'),
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleThought,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _thoughtOpen ? Icons.expand_more : Icons.chevron_right,
+                    size: 20,
+                    color: AppColors.textSecondary(context),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.resolve(
+                        context,
+                        const Color(0xFF2A4A5A),
+                        const Color(0xFFE0F2FE),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Thought',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.tealAccent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.lightbulb_outline,
+                    size: 16,
+                    color: AppColors.porchAmberOf(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      if (!message.isUser &&
+          message.thinkingStartTime != null &&
+          message.thinkingDurationMs == 0)
+        LiveThinkingTimer(
+          startMs: message.thinkingStartTime!,
+          generating: widget.isGenerating,
+        ),
+      SelectableBubbleBody(
+        child: selectable.length == 1
+            ? selectable.first
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: selectable,
+              ),
+      ),
       if (message.activeMetadata?['image_path'] is String)
         InlineChatImage(
           path: message.activeMetadata!['image_path'] as String,
