@@ -23,6 +23,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/opencode/opencode_paths.dart';
 import 'package:front_porch_ai/services/opencode/opencode_pin.dart';
@@ -140,6 +141,16 @@ class OpenCodeManager extends ChangeNotifier {
     final v = await OpenCodeBinaryVersion.read(closet.binDir);
     _installedVersion = v.version;
     notifyListeners();
+  }
+
+  /// Automatic GitHub check — same pref as the app updater and Kobold
+  /// (`update_auto_check`). Manual [checkRemoteVersion] / [upgrade] stay
+  /// unconditional so a tap still works when auto-check is off. A session
+  /// that already has [_remoteVersion] keeps it; this does not wipe cache.
+  Future<void> maybeAutoCheckRemoteVersion() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('update_auto_check') ?? true)) return;
+    await checkRemoteVersion();
   }
 
   /// Looks up GitHub latest. Never downloads it.

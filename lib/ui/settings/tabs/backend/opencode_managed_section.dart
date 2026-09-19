@@ -40,7 +40,7 @@ class _OpenCodeManagedSectionState extends State<OpenCodeManagedSection> {
       if (!mounted) return;
       final mgr = context.read<OpenCodeManager>();
       mgr.refreshInstalled();
-      mgr.checkRemoteVersion();
+      mgr.maybeAutoCheckRemoteVersion();
     });
   }
 

@@ -25,7 +25,7 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 - 🪪 **Stoop blurbs match the website** — tile summaries get two full lines with a real “…”. Open a card and the whole listing blurb sits beside the portrait. Description and Personality are their own drawers, like hub.frontporchai.app.
 
-- 🛠️ **Waifu Coder OpenCode updates like Kobold** — Settings and the Waifu sidebar check GitHub for the newest OpenCode. First sit-down still downloads if the closet is empty. A tap installs that latest; it does not jump versions by itself. Homebrew is still not used.
+- 🛠️ **OpenCode follows “Check for updates”** — turning that off in Settings also stops the Waifu / OpenCode GitHub check on launch. A tap still checks or installs. First sit-down still downloads if the closet is empty. Homebrew is still not used.
 
 - 🧩 **Pick the Realism evals model from chat** — the in-chat Model Settings sheet now has the same Same as chat / Different host controls as Settings → Backend. You do not have to leave the chat to point feelings/journal/growth at another host or model. Same as chat stays one dropdown. Phone Settings already had this; the PWA has no in-chat Model Settings sheet.
 

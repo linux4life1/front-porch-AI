@@ -39,7 +39,7 @@ class _WaifuOpenCodeStatusState extends State<WaifuOpenCodeStatus> {
       try {
         final mgr = context.read<OpenCodeManager>();
         mgr.refreshInstalled();
-        mgr.checkRemoteVersion();
+        mgr.maybeAutoCheckRemoteVersion();
       } on ProviderNotFoundException {
         return;
       }
