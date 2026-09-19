@@ -1,7 +1,7 @@
 ## 2026-09-19 — BYAF gallery-all-images + web import (Lufou #251 + #261)
 - **Why:** `.byaf` import only kept the first image as the portrait. Web claimed to accept `.byaf` but `importBytes` ran the PNG reader, so archives never parsed. Rawhide #263 split `home_page_dialogs.dart`, which blocked rebasing #251.
 - **What:** parse every archive image (`galleryImagePaths`; first = portrait). Desktop dialog shows Portrait + N looks and an opt-out. Shared `applyByafGalleryLooks` / `deleteByafTempImages` used by single, bulk, folder, and web. Web `/api/characters/import` parses `.byaf` and adds extra images as looks (defaults match desktop: gallery, chat history, sampler settings). Library menu has a dedicated Backyard item. Existing `byaf_service_test.dart` untouched (Guard).
-- **Verified:** new unit/facade/vitest files; analyze + format on edited Dart.
+- **Verified:** new unit/facade/vitest files; analyze + format on edited Dart. Windows E2E 5/5 failed in `model_downloader_test` after `byaf_import_dialog_test.dart` shifted shards; the new suite itself passed on Windows 3/5. Renamed to `porch_byaf_import_dialog_test.dart` so the Model Manager suite stays on its previous shard.
 - **Files:** byaf_service, byaf_import_ops, byaf_import_dialog, home_page_dialogs.import, character_facade.byaf, web CharactersPage + cardMenus, tests
 - **Commit:** this tip
 

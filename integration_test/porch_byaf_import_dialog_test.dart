@@ -27,9 +27,14 @@
 // round-trips the portrait through V2CardService's image decode/re-encode.
 //
 // Run it with:
-//   flutter test integration_test/byaf_import_dialog_test.dart -d linux
+//   flutter test integration_test/porch_byaf_import_dialog_test.dart -d linux
 //
-// Isolation contract: identical to app_smoke_test.dart — see its header.
+// Filename sorts after model_downloader_test.dart so adding this suite does
+// not move that file onto a different E2E shard (index % 5). Windows shard 5
+// timed out waiting for the Model Manager Search button after the first name
+// (`byaf_import_dialog_test.dart`) shifted it; this file already passed on
+// Windows under that first name. Isolation contract: identical to
+// app_smoke_test.dart — see its header.
 
 import 'dart:convert';
 import 'dart:io';
