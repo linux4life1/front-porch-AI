@@ -100,6 +100,7 @@ extension ChatServiceSendHandoff on ChatService {
       // The turn dies before the request phase can adopt the call-model
       // swap — put the main model back ourselves.
       _exitCallEvalModelSwap();
+      _needsSimulation.consumePendingCatastrophe();
       await _saveChat();
       _realismEvalCancelled = false;
       notifyListeners();

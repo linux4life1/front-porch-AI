@@ -330,6 +330,10 @@ extension ChatServiceMessageOps on ChatService {
   }
 
   void stopGeneration() {
+    // Discard before plan consume so the next speaker cannot inherit a
+    // Needs catastrophe armed for a turn that never ran. 1:1 evals happen
+    // before `_isGenerating`, so this is not gated on that flag.
+    _needsSimulation.consumePendingCatastrophe();
     if (_isGenerating) {
       _cancelRequested = true;
       // Abort mouth speech and any in-flight side-lane eval/clerk.
@@ -339,6 +343,7 @@ extension ChatServiceMessageOps on ChatService {
 
   /// Cancel any in-flight generation and wait for it to fully stop.
   Future<void> _cancelAndWaitForGeneration() async {
+    _needsSimulation.consumePendingCatastrophe();
     if (!_isGenerating) return;
     _cancelRequested = true;
     // Spin until _generateResponse finishes its cleanup
@@ -419,6 +424,7 @@ extension ChatServiceMessageOps on ChatService {
     // Always tear down both lanes first — a fused/clerk call on the
     // worker can still be in flight when the mouth flags look idle.
     _abortAllLanes();
+    _needsSimulation.consumePendingCatastrophe();
 
     // No-op if there is nothing to cancel
     if (!_isEvaluatingRealism && !_isProcessingGreeting) {

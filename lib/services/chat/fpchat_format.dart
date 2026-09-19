@@ -50,6 +50,7 @@ const Set<String> kFpchatRealismStateCoreKeys = {
   'cooldownTurnsRemaining',
   'cooldownTurnsTotal',
   'trustLevel',
+  'pendingTrustRepair',
   'activeFixation',
   'fixationLifespan',
   'spatialStance',

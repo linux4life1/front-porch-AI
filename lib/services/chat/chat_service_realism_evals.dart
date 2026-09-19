@@ -209,6 +209,7 @@ extension ChatServiceRealismEvals on ChatService {
       'cooldownTurnsRemaining': _nsfwService.cooldownTurnsRemaining,
       'cooldownTurnsTotal': _nsfwService.cooldownTurnsTotal,
       'trustLevel': _relationshipService.trustLevel,
+      'pendingTrustRepair': _relationshipService.pendingTrustRepair,
       'activeFixation': _relationshipService.activeFixation,
       'fixationLifespan': _relationshipService.fixationLifespan,
       'spatialStance': _relationshipService.spatialStance,
@@ -278,6 +279,50 @@ extension ChatServiceRealismEvals on ChatService {
         () => _evaluateNarrativeCall(onChunk: onChunk),
       ),
     ]);
+  }
+
+  /// Shared pre-gen judge dispatch for the dance AND 1:1 regen so a restored
+  /// trust-repair latch cannot skip the repair branch on one path.
+  Future<void> _runPreGenRealismJudges({
+    required void Function(String) onChunk,
+    String? logSpeakerName,
+  }) async {
+    if (_relationshipService.pendingTrustRepair) {
+      debugPrint(
+        '[Realism:Unified] Trust-repair eval'
+        '${logSpeakerName != null ? ' for $logSpeakerName' : ''} '
+        '+ remaining judges (not a full freeze)',
+      );
+      _relationshipService.consumePendingTrustRepair();
+      final userText = _messages
+          .lastWhere(
+            (m) => m.isUser,
+            orElse: () => ChatMessage(text: '', sender: '', isUser: true),
+          )
+          .text;
+      await _evaluateTrustRepairCall(userText, onChunk: onChunk);
+      if (_realismEvalCancelled) return;
+      await _runBatchedRealismVerification(
+        () => _fireTrustRepairRemainingEvals(onChunk),
+      );
+      return;
+    }
+    if (_oneShotActive) {
+      debugPrint(
+        '[Realism:Unified] One-shot eval'
+        '${logSpeakerName != null ? ' for $logSpeakerName' : ''}',
+      );
+      await _evaluateOneShotCall(onChunk: onChunk);
+      return;
+    }
+    debugPrint(
+      '[Realism:Unified] 3-call eval + verifier'
+      '${logSpeakerName != null ? ' for $logSpeakerName' : ''}',
+    );
+    await _runBatchedRealismVerification(
+      () => _fireStaggeredRealismEvals(onChunk),
+      logSpeakerName: logSpeakerName,
+    );
   }
 
   /// Emotion + narrative only — the remaining judges after a trust-repair

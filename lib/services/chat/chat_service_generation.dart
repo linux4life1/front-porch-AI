@@ -343,6 +343,7 @@ extension ChatServiceGeneration on ChatService {
           // by hand — the normal clears live in completion/catch.
           if (_realismEvalCancelled) {
             _pendingRealismMetadata = null;
+            _needsSimulation.consumePendingCatastrophe();
             _realismEvalCancelled = false;
             _isGenerating = false;
             _generationPhase = GenerationPhase.idle;

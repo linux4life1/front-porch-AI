@@ -90,6 +90,13 @@ export function useChatSend(refresh: () => Promise<void>) {
     await refresh();
   }, [refresh]);
   const del = useCallback(async (index: number) => {
+    if (
+      !window.confirm(
+        "This can't be undone. Are you sure you want to delete this message?",
+      )
+    ) {
+      return;
+    }
     await api.post('/api/chat/delete', { index });
     await refresh();
   }, [refresh]);

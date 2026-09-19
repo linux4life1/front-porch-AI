@@ -254,45 +254,12 @@ extension ChatServiceRealismDance on ChatService {
         debugPrint('[Realism:Posture] Opening seed failed (continuing): $e');
       }
 
-      if (_relationshipService.pendingTrustRepair) {
-        // Trust-repair is a RELATIONSHIP substitute, not a full pre-gen freeze
-        // (audit P1.11). Docs once claimed it only replaced the relationship
-        // judge; the code ran ONLY trust-repair and skipped emotion/narrative
-        // — freezing mood for a turn. After the repair call we still run
-        // emotion + narrative. Scene-time is post-generation.
-        debugPrint(
-          '[Realism:Unified] Trust-repair eval for ${speaker.name} ($charId) '
-          '+ remaining judges (not a full freeze)',
-        );
-        _relationshipService.consumePendingTrustRepair();
-        final userText = _messages
-            .lastWhere(
-              (m) => m.isUser,
-              orElse: () => ChatMessage(text: '', sender: '', isUser: true),
-            )
-            .text;
-        await _evaluateTrustRepairCall(userText, onChunk: handleChunk);
-        if (_realismEvalCancelled) return;
-        await _runBatchedRealismVerification(
-          () => _fireTrustRepairRemainingEvals(handleChunk),
-        );
-      } else if (_oneShotActive) {
-        debugPrint(
-          '[Realism:Unified] One-shot eval for ${speaker.name} ($charId)',
-        );
-        await _evaluateOneShotCall(onChunk: handleChunk);
-      } else {
-        // The three judges (relationship / emotional / narrative). Scene-time
-        // moved to post-generation — it decides the NEXT speaker's clock
-        // from the reply that does not exist yet.
-        debugPrint(
-          '[Realism:Unified] 3-call eval + verifier for ${speaker.name} ($charId)',
-        );
-        await _runBatchedRealismVerification(
-          () => _fireStaggeredRealismEvals(handleChunk),
-          logSpeakerName: speaker.name,
-        );
-      }
+      // Trust-repair is a RELATIONSHIP substitute, not a full pre-gen freeze
+      // (audit P1.11). Shared with 1:1 regen so a restored latch still fires.
+      await _runPreGenRealismJudges(
+        onChunk: handleChunk,
+        logSpeakerName: speaker.name,
+      );
 
       // Handle cancellation after the eval calls. The flag is deliberately
       // left set — the caller (sendMessage / _generateResponse) consumes it

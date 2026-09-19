@@ -317,10 +317,14 @@ extension ChatServiceGenerationBlocks on ChatService {
     // taking the derivation with it.
     // Guests never journal; a stale host recap is a competing claim about
     // NOW. Reasoning + RAG already pull them onto old beats (Discord
-    // 2026-08-15); do not also hand them "Where we are".
-    t.summaryBlock = t.guestSpeaker != null
-        ? ''
-        : buildRecapBlock(recap: _summary);
+    // 2026-08-15); do not also hand them "Where we are". Journal off: the
+    // last pass's `_summary` still sits in the session — hide it, do not
+    // inject it. RAG compose below still runs.
+    t.summaryBlock = recapBlockForTurn(
+      recap: _summary,
+      journalEnabled: _storageService.memorySettings.journalEnabled,
+      isGuest: t.guestSpeaker != null,
+    );
 
     // Cued query for journal cold-resurface AND RAG (not last-3 live lines
     // alone). Guests skip both. Compose even when the Journal toggle is off

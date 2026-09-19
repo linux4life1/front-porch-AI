@@ -300,15 +300,10 @@ extension ChatServiceReprocess on ChatService {
         _needsSimulation.tickDecay();
         _nsfwService.decrementCooldownIfActive();
 
-        if (_oneShotActive) {
-          await _evaluateOneShotCall(onChunk: handleChunk);
-        } else {
-          // Same batch-verify helper as the primary send path so regen
-          // cannot drift (chips, fixation, autonomous objectives).
-          await _runBatchedRealismVerification(
-            () => _fireStaggeredRealismEvals(handleChunk),
-          );
-        }
+        await _runPreGenRealismJudges(
+          onChunk: handleChunk,
+          logSpeakerName: _activeCharacter?.name,
+        );
 
         // Check for cancellation after evals complete
         if (_realismEvalCancelled) {

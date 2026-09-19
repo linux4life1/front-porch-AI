@@ -56,11 +56,15 @@ class WebSettingsRoutes {
     }
     // Redirecting generation (URL) or overwriting the API key is
     // credential-grade — same password (+ TOTP) step-up as tunnel enable.
-    // Samplers and Porch Life toggles stay session-only.
+    // Mouth remote AND worker lane. Samplers and Porch Life stay session-only.
     if (remoteCredentialWriteNeedsStepUp(
-      body,
-      currentRemoteApiUrl: _facade.currentRemoteApiUrl,
-    )) {
+          body,
+          currentRemoteApiUrl: _facade.currentRemoteApiUrl,
+        ) ||
+        workerCredentialWriteNeedsStepUp(
+          body,
+          currentWorkerRemoteApiUrl: _facade.currentWorkerRemoteApiUrl,
+        )) {
       final denied = await denyUnlessSteppedUp(
         auth: _deps.auth,
         body: body,

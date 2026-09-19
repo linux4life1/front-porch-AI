@@ -14,6 +14,7 @@ import {
   StepUpFields,
   attachStepUp,
   remotePreviewNeedsStepUp,
+  settingsPersistNeedsStepUp,
 } from '../components/StepUpFields';
 import {
   GenerationSettingsFields,
@@ -149,6 +150,7 @@ export function SettingsPage() {
   const [legacy, setLegacy] = useState<LegacyModels | null>(null);
   const [reclaiming, setReclaiming] = useState(false);
   const [savedRemoteApiUrl, setSavedRemoteApiUrl] = useState('');
+  const [savedWorkerRemoteApiUrl, setSavedWorkerRemoteApiUrl] = useState('');
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [totpEnabled, setTotpEnabled] = useState(false);
@@ -159,6 +161,7 @@ export function SettingsPage() {
       .then((next) => {
         setS(next);
         setSavedRemoteApiUrl(next.remoteApiUrl);
+        setSavedWorkerRemoteApiUrl(next.workerRemoteApiUrl ?? '');
       })
       .catch(() => {});
   const loadLegacy = () =>
@@ -227,14 +230,21 @@ export function SettingsPage() {
       }
       if (apiKey.trim()) body.apiKey = apiKey.trim();
       if (workerApiKey.trim()) body.workerApiKey = workerApiKey.trim();
-      const needsStepUp =
-        s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim();
+      const needsStepUp = settingsPersistNeedsStepUp({
+        remoteApiUrl: s.remoteApiUrl,
+        savedRemoteApiUrl,
+        apiKey,
+        workerRemoteApiUrl: s.workerRemoteApiUrl ?? '',
+        savedWorkerRemoteApiUrl,
+        workerApiKey,
+      });
       if (needsStepUp) {
         attachStepUp(body, password, totpEnabled, totpCode);
       }
       const next = await api.post<Settings>('/api/settings', body);
       setS(next);
       setSavedRemoteApiUrl(next.remoteApiUrl);
+      setSavedWorkerRemoteApiUrl(next.workerRemoteApiUrl ?? '');
       // Take effect on this device immediately rather than at next reload.
       applySpellCheckLang(next.spellCheckLanguage);
       setApiKey('');
@@ -513,7 +523,14 @@ export function SettingsPage() {
       )}
 
       {error && <p className="error">{error}</p>}
-      {(s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim()) && (
+      {settingsPersistNeedsStepUp({
+        remoteApiUrl: s.remoteApiUrl,
+        savedRemoteApiUrl,
+        apiKey,
+        workerRemoteApiUrl: s.workerRemoteApiUrl ?? '',
+        savedWorkerRemoteApiUrl,
+        workerApiKey,
+      }) && (
         <StepUpFields
           password={password}
           onPassword={setPassword}
@@ -522,8 +539,8 @@ export function SettingsPage() {
           onTotp={setTotpCode}
           reason={
             totpEnabled
-              ? 'Changing the API URL or key — or testing a new host — needs your web login password and a 2FA code.'
-              : 'Changing the API URL or key — or testing a new host — needs your web login password.'
+              ? 'Changing a remote API URL or key — or testing a new host — needs your web login password and a 2FA code.'
+              : 'Changing a remote API URL or key — or testing a new host — needs your web login password.'
           }
         />
       )}
@@ -532,7 +549,14 @@ export function SettingsPage() {
         onClick={save}
         disabled={
           saving ||
-          ((s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim()) && !password)
+          (settingsPersistNeedsStepUp({
+            remoteApiUrl: s.remoteApiUrl,
+            savedRemoteApiUrl,
+            apiKey,
+            workerRemoteApiUrl: s.workerRemoteApiUrl ?? '',
+            savedWorkerRemoteApiUrl,
+            workerApiKey,
+          }) && !password)
         }
       >
         {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save settings'}

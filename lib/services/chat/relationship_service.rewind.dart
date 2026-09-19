@@ -225,6 +225,10 @@ extension RelationshipServiceRewind on RelationshipService {
         (state['shortTermDeltasSummary'] as int?) ?? _shortTermDeltasSummary;
 
     _trustLevel = (state['trustLevel'] as int?) ?? _trustLevel;
+    if (state.containsKey('pendingTrustRepair')) {
+      final v = state['pendingTrustRepair'];
+      pendingTrustRepair = v == true || v == 1;
+    }
     _activeFixation = (state['activeFixation'] as String?) ?? _activeFixation;
     _fixationLifespan =
         (state['fixationLifespan'] as int?) ?? _fixationLifespan;

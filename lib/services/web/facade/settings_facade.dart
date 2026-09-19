@@ -54,6 +54,9 @@ class SettingsFacade {
   /// POST would actually change the generation host (step-up gate).
   String get currentRemoteApiUrl => _storage.backendSettings.remoteApiUrl;
 
+  /// Worker-lane remote base — same stolen-session gate as [currentRemoteApiUrl].
+  String get currentWorkerRemoteApiUrl => _storage.workerRemoteApiUrl;
+
   static String? _seededReasoningCatalogUrl;
 
   /// The identity the shared reasoning-effort helpers key on: the remote model
