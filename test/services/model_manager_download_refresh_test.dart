@@ -18,6 +18,11 @@ import 'package:front_porch_ai/services/download_manager.dart';
 import 'package:front_porch_ai/services/model_manager.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
+/// flutter_test stubs HttpClient to 400. An un-overridden HttpOverrides
+/// restores the real client so this suite can talk to its loopback server
+/// (same pattern as test/services/model_fetch_test.dart).
+class _RealHttpOverrides extends HttpOverrides {}
+
 /// A finished in-app download must rescan the models folder so Settings →
 /// Model Selection sees the new GGUF without leaving the page.
 ///
@@ -25,8 +30,9 @@ import 'package:front_porch_ai/services/storage_service.dart';
 /// leaves [ModelManager.models] empty after the file lands (the bug in #265).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  // flutter_test stubs HttpClient to 400; the download talks to a local server.
-  setUpAll(() => HttpOverrides.global = null);
+  final savedOverrides = HttpOverrides.current;
+  setUp(() => HttpOverrides.global = _RealHttpOverrides());
+  tearDown(() => HttpOverrides.global = savedOverrides);
 
   late Directory root;
   late HttpServer server;
@@ -62,30 +68,32 @@ void main() {
   });
 
   test('a successful download appears in the model selection list', () async {
-    final filename = 'fresh-download.gguf';
-    final task = models.queueDownload(
-      HFModelFile(
-        filename: filename,
-        sizeBytes: 64,
-        downloadUrl: 'http://127.0.0.1:${server.port}/$filename',
-        repoId: 'test/repo',
-      ),
-    );
+    await HttpOverrides.runWithHttpOverrides(() async {
+      final filename = 'fresh-download.gguf';
+      final task = models.queueDownload(
+        HFModelFile(
+          filename: filename,
+          sizeBytes: 64,
+          downloadUrl: 'http://127.0.0.1:${server.port}/$filename',
+          repoId: 'test/repo',
+        ),
+      );
 
-    final deadline = DateTime.now().add(const Duration(seconds: 8));
-    while (DateTime.now().isBefore(deadline)) {
-      if (task.state == DownloadTaskState.completed &&
-          models.models.any((e) => p.basename(e.path) == filename)) {
-        break;
+      final deadline = DateTime.now().add(const Duration(seconds: 8));
+      while (DateTime.now().isBefore(deadline)) {
+        if (task.state == DownloadTaskState.completed &&
+            models.models.any((e) => p.basename(e.path) == filename)) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 50));
       }
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-    }
 
-    expect(task.state, DownloadTaskState.completed);
-    expect(
-      models.models.map((e) => p.basename(e.path)),
-      contains(filename),
-      reason: 'Settings reads ModelManager.models after download completion',
-    );
+      expect(task.state, DownloadTaskState.completed);
+      expect(
+        models.models.map((e) => p.basename(e.path)),
+        contains(filename),
+        reason: 'Settings reads ModelManager.models after download completion',
+      );
+    }, _RealHttpOverrides());
   });
 }

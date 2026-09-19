@@ -20,14 +20,20 @@ import 'package:front_porch_ai/providers/auth_state.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/pages/repository/repository.dart';
 
+/// flutter_test stubs HttpClient to 400. An un-overridden HttpOverrides
+/// restores the real client so browse/login/nsfw can hit the loopback
+/// server (same pattern as test/services/model_fetch_test.dart).
+class _RealHttpOverrides extends HttpOverrides {}
+
 /// The account-sheet NSFW switch must refetch the mounted browse grid.
 ///
 /// Red-proved: commenting out the nsfw watch in StoopBrowseView.didChangeDependencies
 /// leaves "Porch Neighbor" on screen after the toggle (the bug in #264).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  // flutter_test stubs HttpClient to 400; this suite talks to a local server.
-  setUpAll(() => HttpOverrides.global = null);
+  final savedOverrides = HttpOverrides.current;
+  setUp(() => HttpOverrides.global = _RealHttpOverrides());
+  tearDown(() => HttpOverrides.global = savedOverrides);
 
   late HttpServer server;
   late AuthState auth;
@@ -46,7 +52,6 @@ void main() {
   };
 
   setUp(() async {
-    HttpOverrides.global = null;
     SharedPreferences.setMockInitialValues({});
     cardName = 'Porch Neighbor';
     nsfw = false;
@@ -125,7 +130,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.runAsync(() async {
-      HttpOverrides.global = null;
+      HttpOverrides.global = _RealHttpOverrides();
       await tester.pumpWidget(
         ChangeNotifierProvider<AuthState>.value(
           value: auth,
@@ -158,7 +163,7 @@ void main() {
     expect(find.text('Show NSFW content'), findsOneWidget);
 
     await tester.runAsync(() async {
-      HttpOverrides.global = null;
+      HttpOverrides.global = _RealHttpOverrides();
       await tester.tap(find.text('Show NSFW content'));
       await tester.pump();
       await Future<void>.delayed(const Duration(milliseconds: 200));

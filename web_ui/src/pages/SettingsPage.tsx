@@ -362,7 +362,9 @@ export function SettingsPage() {
                 <input
                   data-testid="chat-api-url"
                   value={s.remoteApiUrl}
-                  onChange={(e) => patch({ remoteApiUrl: e.target.value })}
+                  onChange={(e) =>
+                    patch({ remoteApiUrl: e.target.value, remoteModelName: '' })
+                  }
                   placeholder="https://your-server.example/v1"
                 />
               </label>

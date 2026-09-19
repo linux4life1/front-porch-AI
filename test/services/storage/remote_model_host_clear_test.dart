@@ -9,14 +9,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/services/llm_provider.dart';
-import 'package:front_porch_ai/services/open_router_service.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
-import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/settings_facade.dart';
 import 'package:front_porch_ai/services/web/facade/settings_worker.dart';
-import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/ui/settings/widgets/remote_provider_apply.dart';
 import 'package:front_porch_ai/ui/settings/widgets/worker_provider_apply.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -87,6 +84,29 @@ void main() {
     expect(storage.backendSettings.remoteModelName, isEmpty);
     expect(storage.backendSettings.lastUsedModelPath, '/models/chat.gguf');
   });
+
+  test(
+    'leaving a host with an empty picker does not wipe the parked vault',
+    () async {
+      final storage = await _storage();
+      addTearDown(storage.dispose);
+      await storage.backendSettings.setRemoteApiUrl(kOpenRouterApiV1);
+      await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
+      await storage.backendSettings.setRemoteApiUrl(kNanoGptApiV1);
+      expect(
+        storage.backendSettings.remoteApiModelFor(kOpenRouterApiV1),
+        'x-ai/grok-4.6',
+      );
+
+      await storage.backendSettings.setRemoteApiUrl(kOpenRouterApiV1);
+      expect(storage.backendSettings.remoteModelName, isEmpty);
+      expect(
+        storage.backendSettings.remoteApiModelFor(kOpenRouterApiV1),
+        'x-ai/grok-4.6',
+        reason: 'stash must not put an empty live id over a parked vault entry',
+      );
+    },
+  );
 
   test('equivalent URL rewrite does not clear the live model', () async {
     final storage = await _storage();

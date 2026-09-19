@@ -205,7 +205,12 @@ export function WorkerBackendCard({
               <input
                 data-testid="side-jobs-worker-url"
                 value={s.workerRemoteApiUrl ?? ''}
-                onChange={(e) => onPatch({ workerRemoteApiUrl: e.target.value })}
+                onChange={(e) =>
+                  onPatch({
+                    workerRemoteApiUrl: e.target.value,
+                    workerRemoteModelName: '',
+                  })
+                }
                 placeholder="https://your-server.example/v1"
               />
             </label>

@@ -267,6 +267,10 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
   void _stashLiveModel() {
     final slot = _modelSlot();
     if (slot.isEmpty) return;
+    // An already-blank picker is not a new last-used id. Putting '' would
+    // wipe a parked vault entry when the user leaves a host they never
+    // picked a model on (or just cleared).
+    if (_remoteModelName.isEmpty) return;
     _remoteApiModels.put(slot, _remoteModelName);
   }
 
