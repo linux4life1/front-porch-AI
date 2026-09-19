@@ -17,7 +17,13 @@ Users cannot highlight a reply and copy it. `StyledChatMessage` already wraps sp
 3. **Parity.** Desktop and `web_ui` ship select/copy together in the implementation PR.
 4. **Start from what exists.** Do not invent a new selection system where `SelectionArea` already wraps speech. Fix gesture and context-menu conflicts; widen the selectable region to the rest of the on-screen bubble body.
 5. **macOS Find menu (SHIP — must).** The template Edit → Find submenu in `macos/Runner/Base.lproj/MainMenu.xib` advertises Find… (⌘F), Find Next (⌘G), and friends via `performFindPanelAction:`. That is a **lying no-op** on a Flutter canvas. **Disable or remove that entire Find submenu** (and its key equivalents) so the menu bar stops promising Find. Keep Copy / Cut / Paste / Select All. Keep View → Enter Full Screen (⌃⌘F) — that is not Find.
-6. **Transcript scroll (SHIP — option B).** **Never auto-scroll the transcript for new messages or streaming tokens.** The user scrolls. Desktop and `web_ui` the same. Journal receipt tap-to-jump stays (the user asked to move). Opening a chat may still **start** at the newest message (initial layout of a reverse list / first paint) — that is not a jump after the user already has a viewport.
+6. **Transcript scroll (SHIP — option B).** CoS listed three candidates; the user picked **B**. **Never auto-scroll the transcript for new messages or streaming tokens.** The user scrolls. Desktop and `web_ui` the same. Journal receipt tap-to-jump stays (the user asked to move). Opening a chat may still **start** at the newest message (initial layout of a reverse list / first paint) — that is not a jump after the user already has a viewport.
+
+   Candidates (not this ship):
+
+   - **A)** Stick-to-bottom only when already near bottom; if scrolled up, never yank (including streaming).
+   - **B)** Never auto-scroll for new messages/tokens. **← locked.**
+   - **C)** Keep stick-to-bottom but freeze auto-scroll while drag-selecting.
 
 ---
 
@@ -137,7 +143,9 @@ Do **not** remove View → Enter Full Screen (`keyEquivalent="f"` with the Contr
 
 Windows and Linux have no Find menu to strip.
 
-### 6.5 Transcript scroll (option B)
+### 6.5 Transcript scroll (option B — locked)
+
+CoS asked A / B / C. The user locked **B**. Do not implement A (near-bottom pin) or C (freeze only while selecting).
 
 Today desktop **forces** the newest message into view on send: `_scrollToBottom()` in `chat_page.input.dart` (post-frame after `sendMessage`) calls `ScrollController.jumpTo(0)` while generating or `animateTo(0)` otherwise. The list is reverse, so offset `0` is the newest. `_autoScroll` on `ChatPage` is always `true` and is never cleared when the user scrolls away — it is a dead gate, not a smart pin.
 
@@ -247,6 +255,7 @@ Locked. Defaults if the implementation PR does not get a new call:
 
 1. **Cross-bubble select later?** No.
 2. **Re-enable macOS Find menu when Find ships?** Yes — only then, and only if that future lock says in-app Find should own ⌘F (or a real `NSTextFinderClient`, which the investigation advises against).
+3. **Scroll A or C later?** Not this ship. CoS listed A (near-bottom pin), B (never auto-scroll), C (freeze only while selecting). **B is locked.** Revisit A/C only with a new product lock.
 
 ---
 

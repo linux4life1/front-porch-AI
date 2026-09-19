@@ -16,7 +16,7 @@
 - No legal names in public text
 - Path-complete N/A for pure UI presentation (but gesture twins 1:1/group)
 - Guard: new tests OK; editing existing tests needs approved-test-change
-- **Never auto-scroll the transcript for new messages or streaming tokens.** User scrolls themselves. Desktop + web_ui parity. Journal `jumpToMessage` stays (user tapped). Opening a chat may still start at the newest (initial layout).
+- **Transcript scroll = B (locked).** CoS candidates were: **A** stick-to-bottom only when already near bottom (if scrolled up, never yank, including streaming); **B** never auto-scroll for new messages/tokens; **C** keep stick-to-bottom but freeze auto-scroll while drag-selecting. The user chose **B**. Never auto-scroll the transcript for new messages or streaming tokens. User scrolls themselves. Desktop + web_ui parity. Journal `jumpToMessage` stays (user tapped). Opening a chat may still start at the newest (initial layout). Do not implement A or C.
 - Find is deferred (in-app and OS). Do not add a Find bar, indexer, highlights, or Cmd/Ctrl+F intercept.
 - Spec lock: `docs/superpowers/specs/2026-09-18-chat-select-find-design.md` (amended 2026-09-19). Why Find is out: `docs/superpowers/specs/2026-09-18-chat-os-find-investigation.md`.
 
@@ -449,7 +449,9 @@ git commit -m "feat(chat): make Chance Time and Dream banner text selectable"
 
 ---
 
-### Task 4: Never auto-scroll on new messages or tokens
+### Task 4: Never auto-scroll on new messages or tokens (option B)
+
+CoS listed A / B / C. This task is **B only** — not a placeholder. Do not add a near-bottom threshold (A) or a “selecting” freeze flag (C).
 
 **Files:**
 - Create: `lib/ui/chat_components/stage/transcript_auto_scroll.dart`
@@ -836,7 +838,7 @@ Never `dart format .`. Never edit `pubspec.yaml`.
 | §1.3 Desktop + web same implementation PR | Tasks 2–5 in one later PR |
 | §1.4 Start from SelectionArea, fix gestures | Task 2 (lift + chip tap) |
 | §1.5 macOS Find menu gone | Task 1 |
-| §1.6 / §6.5 Never auto-scroll send/stream | Task 4 |
+| §1.6 / §6.5 Never auto-scroll send/stream (B locked; A/C out) | Task 4 (not a placeholder — letter arrived) |
 | §6.1 Remove nested SelectionArea | Task 2 |
 | §6.2 Thought / swipe / banner / Cmd+R | Tasks 2–3; Cmd+R untouched |
 | §8 Web user-select; no preventDefault F | Task 5 |
@@ -845,7 +847,7 @@ Never `dart format .`. Never edit `pubspec.yaml`.
 | Journal jump stays | Task 4 explicitly leaves `jumpToMessage` |
 | `log_view.dart` untouched | File map |
 
-**Placeholder scan:** no TBD / “implement later” / “write tests for the above.”
+**Placeholder scan:** no TBD / “implement later” / “write tests for the above.” Scroll Task 4 is **B**, not an A/B/C stub — CoS listed the three candidates; the user locked B.
 
 **Type consistency:** `applyTranscriptAutoScroll` is the name on both Dart and TS. `SelectableBubbleBody` / `Unselectable` are the only new widgets.
 
