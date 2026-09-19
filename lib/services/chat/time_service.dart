@@ -252,6 +252,23 @@ class TimeService {
   /// Class door for the calendar set. Continue still does not tick.
   Future<void> setClockDirect(DateTime newClock) => _setClockDirect(newClock);
 
+  /// Class door for V2 / ext-seed. Callers that only have the [TimeService]
+  /// type (tests via `chat.timeService`, goldens) cannot see the load
+  /// extension — same class-door rule as [setClockDirect].
+  void seedFromV2OrExt({
+    required int dayCount,
+    required String timeOfDay,
+    required bool passageOfTimeEnabled,
+    String? storyStartDate,
+    String? storyStartTime,
+  }) => _seedFromV2OrExt(
+    dayCount: dayCount,
+    timeOfDay: timeOfDay,
+    passageOfTimeEnabled: passageOfTimeEnabled,
+    storyStartDate: storyStartDate,
+    storyStartTime: storyStartTime,
+  );
+
   // ── Public surface ────────────────────────────────────────────────────────
 
   DateTime get clock => _clock;

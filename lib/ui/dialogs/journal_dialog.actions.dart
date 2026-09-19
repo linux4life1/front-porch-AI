@@ -104,7 +104,7 @@ extension _JournalDialogActions on _JournalDialogState {
   /// Tapping a line closes the receipts AND the journal, then asks the chat
   /// page to scroll to that message.
   Future<void> _showReceipts(JournalMemoryData card) async {
-    final positions = decodeReceiptIds(card.sourceMessageIds);
+    final positions = _decodeReceipts(card.sourceMessageIds);
     final messages = _chat.messages;
     final entries = [
       for (final pos in positions)

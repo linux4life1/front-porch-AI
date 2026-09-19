@@ -94,6 +94,10 @@ class _JournalDialogState extends State<JournalDialog> {
   /// @protected and cannot be called from an extension.
   void rebuildState(VoidCallback fn) => setState(fn);
 
+  /// One reader for the receipt column. The source-scan in
+  /// receipt_ids_test pins this library file (not the actions part).
+  List<int> _decodeReceipts(String? raw) => decodeReceiptIds(raw);
+
   @override
   void initState() {
     super.initState();

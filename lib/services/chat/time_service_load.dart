@@ -25,7 +25,7 @@ extension TimeServiceLoad on TimeService {
   /// pre-calendar card implicitly meant; a fixed date carries its own era.
   /// [storyStartTime] ("HH:MM") lets an author pin the exact opening clock;
   /// otherwise the period's representative time applies.
-  void seedFromV2OrExt({
+  void _seedFromV2OrExt({
     required int dayCount,
     required String timeOfDay,
     required bool passageOfTimeEnabled,
