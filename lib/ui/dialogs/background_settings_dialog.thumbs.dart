@@ -19,6 +19,13 @@
 part of 'background_settings_dialog.dart';
 
 extension _BackgroundThumbs on BackgroundSettingsDialog {
+  Widget _brokenCustomBgThumb() => Container(
+    color: const Color(0xFF111827),
+    child: const Center(
+      child: Icon(Icons.broken_image, color: Colors.white38, size: 28),
+    ),
+  );
+
   Widget _buildBgThumbnail(
     StorageService storageService,
     String key,
@@ -96,18 +103,13 @@ extension _BackgroundThumbs on BackgroundSettingsDialog {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (filePath.isNotEmpty && File(filePath).existsSync())
-              Image.file(File(filePath), fit: BoxFit.cover)
+            if (filePath.isEmpty)
+              _brokenCustomBgThumb()
             else
-              Container(
-                color: const Color(0xFF111827),
-                child: const Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    color: Colors.white38,
-                    size: 28,
-                  ),
-                ),
+              Image.file(
+                File(filePath),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _brokenCustomBgThumb(),
               ),
             Positioned(
               left: 0,
