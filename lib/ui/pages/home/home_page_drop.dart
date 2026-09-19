@@ -39,7 +39,7 @@ extension _HomePageDrop on _HomePageState {
       ).showSnackBar(SnackBar(content: Text(plan.rejectMessage!)));
     }
     if (plan.isMixed) {
-      _importPngAndByafBatch(
+      await _importPngAndByafBatch(
         context,
         title: 'Import dropped files',
         pngs: [for (final path in plan.pngPaths) File(path)],

@@ -96,7 +96,7 @@ extension _HomePageDialogsImport on _HomePageState {
     }
 
     // Multiple files: use bulk import with progress dialog
-    _runBulkImport(context, files);
+    await _runBulkImport(context, files);
   }
 
   Future<void> _importByaf(BuildContext context) async {
@@ -330,7 +330,7 @@ extension _HomePageDialogsImport on _HomePageState {
 
     if (confirmed != true || !context.mounted) return;
 
-    _runBulkProgressImport(
+    await _runBulkProgressImport(
       context,
       title: 'Import Backyard AI',
       totalCount: paths.length,
