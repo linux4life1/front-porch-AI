@@ -58,26 +58,9 @@ extension _HomePageLifecycle on _HomePageState {
     if (!mounted) return;
     try {
       final kobold = Provider.of<KoboldService>(context, listen: false);
-      if (kobold.consumeModelReady()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  Icons.check_circle,
-                  color: AppColors.verifiedAccentOf(context),
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Text('Model loaded and ready!'),
-              ],
-            ),
-            backgroundColor: AppColors.surfaceContainerOf(context),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+      // Drain the one-shot. Do not toast — dual-local mouth/worker swaps
+      // mark ready on every GGUF load and the success SnackBar stacked.
+      kobold.consumeModelReady();
       applyState(() {}); // Rebuild to update status bar
     } catch (_) {}
   }

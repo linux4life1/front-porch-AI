@@ -56,9 +56,9 @@ class KoboldService extends ChangeNotifier
   String? _loadedModelPath;
   String? _loadedKcppsPath;
 
-  /// One-shot flag for UI notifications (e.g. snackbar). Set to true when the
-  /// model finishes loading, consumed once by the home page. Unlike _modelReady,
-  /// this is reset after reading so it only triggers the notification once.
+  /// One-shot "load just finished" latch. Home drains it (no success toast —
+  /// dual-local swaps would stack those). Unlike [_modelReady], reset after
+  /// [consumeModelReady] so each load is seen once.
   bool _modelJustLoaded = false;
   String? _executablePath;
   Timer? _readinessProbe;
@@ -96,9 +96,9 @@ class KoboldService extends ChangeNotifier
     }
   }
 
-  /// Consume the one-shot "model just loaded" notification flag.
-  /// Returns true exactly once after each model load, for UI notifications
-  /// (e.g. snackbar). Does NOT affect [isReady] or [modelReady].
+  /// Consume the one-shot "model just loaded" latch.
+  /// Returns true exactly once after each model load. Does NOT affect
+  /// [isReady] or [modelReady]. Home drains this without a success toast.
   bool consumeModelReady() {
     if (_modelJustLoaded) {
       _modelJustLoaded = false;
