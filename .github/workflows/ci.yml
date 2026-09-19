@@ -122,6 +122,60 @@ jobs:
         run: flutter test --concurrency=4 --reporter expanded --exclude-tags golden
         timeout-minutes: 20
 
+  # Live Stoop pin (#264): talks HTTP to the real hub, not FakeStoopServer.
+  # Secrets stay on this job's env only — never echo them. Fork PRs skip
+  # the job (no secrets). Same-repo / Rawhide+main pushes run the pin and
+  # fail this job if it fails. The unit job above still skips the tagged
+  # suite when those env vars are absent.
+  stoop-live:
+    name: Stoop live (NSFW refresh)
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: >
+      github.event_name != 'schedule' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check live Stoop secrets
+        id: creds
+        env:
+          STOOP_TEST_EMAIL: ${{ secrets.STOOP_TEST_EMAIL }}
+          STOOP_TEST_PASSWORD: ${{ secrets.STOOP_TEST_PASSWORD }}
+        run: |
+          if [ -z "$STOOP_TEST_EMAIL" ] || [ -z "$STOOP_TEST_PASSWORD" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Live Stoop secrets are not available in this run — skipping (not stubbing)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run live Stoop pin
+        if: steps.creds.outputs.skip != 'true'
+        env:
+          STOOP_TEST_EMAIL: ${{ secrets.STOOP_TEST_EMAIL }}
+          STOOP_TEST_PASSWORD: ${{ secrets.STOOP_TEST_PASSWORD }}
+          STOOP_LIVE_URL: ${{ secrets.STOOP_LIVE_URL }}
+        run: |
+          if [ -z "${STOOP_LIVE_URL:-}" ]; then
+            export STOOP_LIVE_URL="https://api.frontporchai.app"
+          fi
+          flutter test --tags stoop_live \
+            test/ui/pages/repository/stoop_nsfw_refresh_test.dart
+
   # Full-array E2E smoke: boots the REAL desktop app (windowed, on the runner's
   # display session) through a sandboxed two-turn chat against an in-process
   # fake backend, asserting realism evals, needs sim, chaos pressure, objective

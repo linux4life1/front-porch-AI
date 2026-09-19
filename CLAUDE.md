@@ -428,7 +428,10 @@ Runtime env (`Platform.environment`, not dart-define):
 STOOP_TEST_EMAIL=… STOOP_TEST_PASSWORD=… flutter test --tags stoop_live
 ```
 
-CI without those vars skips. That is a skip, not a pass-by-stub.
+CI job `stoop-live` in `.github/workflows/ci.yml` injects those env vars
+from repo secrets on same-repo PRs and Rawhide/main pushes. Fork PRs skip
+the job. Do not print the secrets. Local/CI without the vars skips. That
+is a skip, not a pass-by-stub.
 
 Model download pins: real `file://` or real HTTP of a tiny fixture the
 test controls (a real listening server serving a real file), or tag
