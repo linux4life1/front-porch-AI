@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-
 part of '../chat_service.dart';
 
 /// Per-speaker objective focus/seed + realism-state injection/restore +
@@ -334,10 +333,11 @@ extension ChatServiceSpeakerObjectives on ChatService {
       _needsSimulation.restoreFromSnapshot(needsData);
     }
 
-    // Pockets & Wardrobe. Restored unconditionally rather than behind the
-    // switch: a snapshot only exists if the feature was on when the turn ran,
-    // and rolling the timeline back must put the record where it was even if
-    // the user has since toggled Pockets off and on again.
+    // Pockets & Wardrobe. Restored even when the global is off (HIDES≠erase
+    // for the Porch Life switch — toggle-back finds the kit). A per-char-off
+    // owner is skipped: inventing or wiping a hidden record is the other
+    // HIDES≠erase. A snapshot only exists if the feature was on when the
+    // turn ran.
     //
     // Owner key MUST be the message speaker (groupSpeakerId when rewinding a
     // group member), never bare `_activeCharacter` — after post-gen the
@@ -350,9 +350,9 @@ extension ChatServiceSpeakerObjectives on ChatService {
       final ownerId = (groupSpeakerId != null && groupSpeakerId.isNotEmpty)
           ? groupSpeakerId
           : (_activeCharacter != null
-              ? _getCharacterIdFromCard(_activeCharacter!)
-              : '');
-      if (ownerId.isNotEmpty) {
+                ? _getCharacterIdFromCard(_activeCharacter!)
+                : '');
+      if (ownerId.isNotEmpty && _pocketsWriteAllowed(ownerId)) {
         setPocketsFor(ownerId, Pockets.fromJson(pocketsSnap));
       }
     }
@@ -375,8 +375,9 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final wasAfk = _pendingIdleCue != null;
     if (wasAfk) {
       _pendingRealismMetadata ??= {};
-      _pendingRealismMetadata!['_afk_needs_vector'] =
-          Map<String, int>.from(needsSimulation.vector);
+      _pendingRealismMetadata!['_afk_needs_vector'] = Map<String, int>.from(
+        needsSimulation.vector,
+      );
       _pendingRealismMetadata!['_afk_decay_turns'] = 0;
     }
     await _needsImpactEvaluator.evaluateAndApply(responseText, isAfk: wasAfk);

@@ -390,7 +390,8 @@ extension ChatServiceMessageOps on ChatService {
     };
     final live = <String, Pockets>{
       for (final id in ids)
-        if (id.isNotEmpty) id: (pocketsFor(id) ?? Pockets()).copy(),
+        if (id.isNotEmpty && _pocketsWriteAllowed(id))
+          id: (pocketsFor(id) ?? Pockets()).copy(),
     };
     invertDeletedPocketTurn(
       speakerId: speakerId,
@@ -401,6 +402,7 @@ extension ChatServiceMessageOps on ChatService {
       live: live,
     );
     for (final e in live.entries) {
+      if (!_pocketsWriteAllowed(e.key)) continue;
       setPocketsFor(e.key, e.value);
     }
   }

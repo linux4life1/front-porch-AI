@@ -67,15 +67,8 @@ extension ChatServiceReplyFacts on ChatService {
     // the fused prompt must never show yesterday's set-aside clothes, or the
     // model dutifully re-dresses them in them.
     record?.expireSetAside(storyDayCount);
-    final transfersOn =
-        askPockets &&
-        _storageService.realismSettings.pocketTransfersEnabled &&
-        _activeGroup != null;
-    final others = transfersOn
-        ? [
-            for (final c in _groupCharacters)
-              if (_getCharacterIdFromCard(c) != charId) c.name,
-          ]
+    final others = askPockets
+        ? _pocketTransferRoster(charId)
         : const <String>[];
 
     // Posture context — the same fragments TimeService's standalone branch

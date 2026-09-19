@@ -54,8 +54,11 @@ extension ChatServiceImportWalk on ChatService {
     }
     _needsSimulation.resetBuffers();
 
-    // Pockets on only — null-while-off erases session column (HIDES≠erase).
-    if (pocketsFeatureEnabled) {
+    // Per-char AND — null-while-off erases session column (HIDES≠erase).
+    // Global on + this card off must leave the hidden kit alone; seed
+    // already skips off characters, so a wipe here would be permanent.
+    final charId = _getCharacterIdFromCard(_activeCharacter!);
+    if (pocketsEnabledFor(charId)) {
       _pockets = null;
       seedPocketsFromCards();
     }
@@ -105,8 +108,6 @@ extension ChatServiceImportWalk on ChatService {
       }
     }
 
-    final pocketsOn = pocketsFeatureEnabled;
-
     for (final c in _groupCharacters) {
       final sid = _getCharacterIdFromCard(c);
       if (sid.isEmpty) continue;
@@ -126,7 +127,11 @@ extension ChatServiceImportWalk on ChatService {
       if (stamp != null) {
         _restoreRealismStateForSpeaker(stamp);
       } else {
-        final keptPockets = pocketsOn ? null : _groupRealism[sid]?.pockets;
+        // Keep a per-char-off (or global-off) kit — HIDES≠erase. Wiping
+        // then seed-skipping is how import erased authored-off members.
+        final keptPockets = pocketsEnabledFor(sid)
+            ? null
+            : _groupRealism[sid]?.pockets;
         final seed = seeds[sid];
         _groupRealism[sid] = seed != null
             ? GroupMemberRealism.fromJson(Map<String, dynamic>.from(seed))
@@ -139,7 +144,7 @@ extension ChatServiceImportWalk on ChatService {
     // who never spoke after the handoff have no own stamp of the item —
     // apply the newest shared pockets snapshot so fork/import cannot vanish
     // a gift.
-    if (pocketsOn) {
+    if (pocketsFeatureEnabled) {
       for (var i = start; i >= 0 && i < _messages.length; i--) {
         final m = _messages[i];
         if (m.metadata?['pockets_before'] is Map) {

@@ -96,6 +96,30 @@ extension ChatServicePockets on ChatService {
     return true;
   }
 
+  /// Transfer roster the model is shown: other group members whose own
+  /// Pockets flag is on. Off members are not targets — a hand-off must
+  /// not invent a kit the author hid.
+  List<String> _pocketTransferRoster(String speakerId) {
+    if (!(_storageService.realismSettings.pocketTransfersEnabled &&
+        _activeGroup != null)) {
+      return const [];
+    }
+    return [
+      for (final c in _groupCharacters)
+        if (_getCharacterIdFromCard(c) != speakerId &&
+            pocketsEnabledFor(_getCharacterIdFromCard(c)))
+          c.name,
+    ];
+  }
+
+  /// Write-through is refused only when the feature is live and this
+  /// character authored Pockets off. HIDES≠erase: a per-char-off kit is
+  /// left untouched (no invent, no wipe). Global-off callers that already
+  /// chose to write (realism_state rewind) still may — that is the
+  /// toggle-back contract.
+  bool _pocketsWriteAllowed(String characterId) =>
+      !pocketsFeatureEnabled || pocketsEnabledFor(characterId);
+
   /// Put one item INTO a character's kit by hand — the other half of the ✕
   /// eraser, from the same sidebar panel (and the web tools panel).
   ///
@@ -355,7 +379,9 @@ extension ChatServicePockets on ChatService {
       final a = msg.activeMetadata?['pockets_after'];
       if (a is Map) recordJson = a;
     }
-    setPocketsFor(chId, Pockets.fromJson(recordJson));
+    if (_pocketsWriteAllowed(chId)) {
+      setPocketsFor(chId, Pockets.fromJson(recordJson));
+    }
 
     // Recipients of a give: same before/after contract as the speaker.
     final othersBefore = before['others'];
@@ -379,7 +405,9 @@ extension ChatServicePockets on ChatService {
       if (after && afterByChar.containsKey(oid)) {
         oRec = afterByChar[oid];
       }
-      setPocketsFor(oid, Pockets.fromJson(oRec));
+      if (_pocketsWriteAllowed(oid)) {
+        setPocketsFor(oid, Pockets.fromJson(oRec));
+      }
     }
   }
 }

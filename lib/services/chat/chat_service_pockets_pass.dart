@@ -69,15 +69,8 @@ extension ChatServicePocketsPass on ChatService {
     // a group: in a 1:1 the only other party is the user, who has no record to
     // put anything into, so the roster stays empty and the model is never
     // invited to name a recipient.
-    final transfersOn =
-        _storageService.realismSettings.pocketTransfersEnabled &&
-        _activeGroup != null;
-    final others = transfersOn
-        ? [
-            for (final c in _groupCharacters)
-              if (_getCharacterIdFromCard(c) != charId) c.name,
-          ]
-        : const <String>[];
+    final others = _pocketTransferRoster(charId);
+    final transfersOn = others.isNotEmpty;
 
     // A LIST of (recipient, item), not a map keyed by recipient: "they hand
     // Sam the keys and the letter" is two transfers to one name, and the
@@ -146,6 +139,7 @@ extension ChatServicePocketsPass on ChatService {
       if (matches.isEmpty) continue;
       final recipient = matches.first;
       final rid = _getCharacterIdFromCard(recipient);
+      if (!_pocketsWriteAllowed(rid)) continue;
       final theirs = pocketsFor(rid) ?? startingPocketsFor(recipient);
       // One before-snapshot per recipient (multiple items to Sam → one kit).
       if (seenRecipients.add(rid)) {
