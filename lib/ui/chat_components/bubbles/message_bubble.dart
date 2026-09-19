@@ -38,6 +38,7 @@ part 'message_bubble.content.dart';
 part 'message_bubble.actions.dart';
 part 'message_bubble.dialogs.dart';
 part 'message_bubble.realism.dart';
+part 'message_bubble.realism_chips.dart';
 part 'message_bubble.realism_layout.dart';
 
 /// Message bubble widget (extracted from chat_page god file).
@@ -207,9 +208,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                               const Color(0xFFFFD166),
                               const Color(0xFFF59E0B),
                             ).withValues(alpha: 0.1 * bubbleOpacity),
-                            const Color(
-                              0xFFD97706,
-                            ).withValues(alpha: 0.12 * bubbleOpacity),
+                            const Color(0xFFD97706)
+                                .withValues(alpha: 0.12 * bubbleOpacity),
                           )
                         : message.isUser
                         ? (storage?.uiSettings
@@ -219,9 +219,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                                     themeOverrides: theme.overrides,
                                   )
                                   .withValues(alpha: bubbleOpacity) ??
-                              AppColors.porchAmberOf(
-                                context,
-                              ).withValues(alpha: 0.2))
+                              AppColors.porchAmberOf(context)
+                                  .withValues(alpha: 0.2))
                         : (storage?.uiSettings
                                   .getAiBubbleColor(
                                     character,

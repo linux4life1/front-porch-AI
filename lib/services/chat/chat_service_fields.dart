@@ -171,7 +171,7 @@ mixin ChatServiceFieldBag {
   Timer? _streamNotifyTimer;
   // (_kStreamNotifyInterval moved to chat_service_defaults.dart;
   // _notifyStreamListeners / _cancelStreamNotifyThrottle / tokenStream /
-  // sentenceStream live in chat_service_generation_stream.dart)
+  // sentenceStream live in chat_service_generation_stream_accessors.dart)
 
   // ── Web token broadcast (the web StreamHub's real-time token feed) ──
   final StreamController<String> _tokenBroadcast =
@@ -348,8 +348,7 @@ mixin ChatServiceFieldBag {
   /// deleted with the chat; this scalar is the same record for the host.
   Pockets? _pockets;
 
-  Completer<void>?
-  _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination)
+  Completer<void>? _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination)
 
   final ContextBudgetStore _contextBudget = ContextBudgetStore();
   // ── Session Metadata ──

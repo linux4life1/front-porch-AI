@@ -96,9 +96,11 @@ part 'chat/chat_service_session_new_chat_prep.dart';
 part 'chat/chat_service_generation.dart';
 part 'chat/chat_service_generation_blocks.dart';
 part 'chat/chat_service_generation_plan.dart';
+part 'chat/chat_service_generation_plan_register.dart';
 part 'chat/chat_service_generation_rag.dart';
 part 'chat/chat_service_generation_request.dart';
 part 'chat/chat_service_generation_stream.dart';
+part 'chat/chat_service_generation_stream_accessors.dart';
 part 'chat/chat_service_generation_postgen.dart';
 part 'chat/chat_service_generation_postgen_engine.dart';
 part 'chat/chat_service_pockets.dart';
@@ -142,11 +144,15 @@ part 'chat/chat_service_today_sentence.dart';
 part 'chat/chat_service_planner_resolve.dart';
 part 'chat/chat_service_defaults.dart';
 part 'chat/chat_service_fields.dart';
+part 'chat/chat_service_group_realism_fields.dart';
 
 // Realism-eval cancel flag + GBNF note live in chat_service_defaults.dart.
 
 class ChatService extends ChangeNotifier
-    with ChatServiceTodaySentence, ChatServiceFieldBag {
+    with
+        ChatServiceTodaySentence,
+        ChatServiceFieldBag,
+        ChatServiceGroupRealismFields {
   final KoboldService _koboldService;
   final UserPersonaService _userPersonaService;
   final StorageService _storageService;
@@ -157,22 +163,6 @@ class ChatService extends ChangeNotifier
   TtsService? _ttsService;
   ImageGenService? _imageGenService;
   MemoryService? _memoryService;
-
-  /// Test-only overrides for driving the real LLM paths (realism evals +
-  /// chat generation) with canned responses without constructing a full
-  /// LLMProvider (heavy deps). Used by chat_service_*_test.dart and
-  /// chat_service_realism_engine_test.dart (the new real-engine suite).
-  @visibleForTesting
-  LLMService? testLlmServiceOverride;
-  @visibleForTesting
-  bool testIsLocalOverride = false;
-
-  @visibleForTesting
-  LLMService? testWorkerLlmServiceOverride;
-
-  /// Test hook: import awaits this before mutating so a Send can race it.
-  @visibleForTesting
-  Completer<void>? testImportHold;
 
   List<String> get suggestedActions => _suggestedActions;
   bool get isGeneratingActions => _isGeneratingActions;
@@ -210,22 +200,6 @@ class ChatService extends ChangeNotifier
     if (!value) _exitCallEvalModelSwap();
     notifyListeners();
   }
-
-  /// Per-character realism / needs / state for group chats.
-  /// Keyed by stable charId. Populated from the hidden checkpoint.
-  /// Per-member realism state, typed (U7). Keys are runtime member ids
-  /// (stableGroupId). The wrapper preserves the legacy wire format exactly —
-  /// see group_member_realism.dart for why it is a wrapper and not fields.
-  Map<String, GroupMemberRealism> _groupRealism = {};
-
-  /// The group member id (`_getCharacterIdFromCard`) whose realism state is being
-  /// processed for the turn currently generating. Set the moment the speaker is
-  /// picked in `_generateResponse` and cleared in its `finally`, so every realism
-  /// consumer (prompt injection, decay, post-gen) keys on the character actually
-  /// speaking — `nextCharacter` points at the *upcoming* speaker and is null for
-  /// random turn order, so it cannot be that signal. Null outside a turn (the
-  /// pre-pick window keeps its prior nextCharacter-based behaviour).
-  String? _turnSpeakerIdForRealism;
 
   List<Objective> getObjectivesForGroupCharacter(CharacterCard character) =>
       _getObjectivesForGroupCharacterImpl(character);
@@ -341,8 +315,6 @@ class ChatService extends ChangeNotifier
 
   JournalReview get journalReview => _journalReview;
 
-  /// Shared Journal/Growth tools-vs-XML probe (one per backend identity).
-  final _toolProbe = ToolTransportProbe();
   late final _toolSupportTester = _buildToolSupportTester();
   late final _journalMaintenance = _buildJournalMaintenance();
 
