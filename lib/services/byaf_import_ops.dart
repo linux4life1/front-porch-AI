@@ -35,14 +35,21 @@ void deleteByafTempImages(Iterable<String> paths) {
 /// Add archive images after the portrait as gallery looks, then delete the
 /// temp extracts (portrait included). [addLook] stays on the caller-owned
 /// [CharacterRepository] — this file only orchestrates.
+/// [replaceExistingLooks] clears prior looks first (Replace → new pack only).
 Future<int> applyByafGalleryLooks({
   required CharacterRepository repo,
   required CharacterCard imported,
   required List<String> galleryImagePaths,
   required bool importGalleryImages,
+  bool replaceExistingLooks = false,
 }) async {
   var added = 0;
   final dbId = imported.dbId;
+  if (replaceExistingLooks && dbId != null) {
+    for (final img in await repo.getAvatarImages(dbId)) {
+      if (img.isLook) await repo.removeAvatar(dbId, img.id);
+    }
+  }
   for (var i = 1; i < galleryImagePaths.length; i++) {
     final imagePath = galleryImagePaths[i];
     final imgFile = File(imagePath);

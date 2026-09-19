@@ -157,6 +157,9 @@ extension _HomePageDialogsImport on _HomePageState {
       // Import via CharacterRepository (reads PNG metadata + inserts into DB).
       // Single-file BYAF: same name-collision prompt as V2 PNG import.
       final repo = Provider.of<CharacterRepository>(context, listen: false);
+      final priorIds = {
+        for (final c in repo.charactersWithName(card.name)) c.dbId,
+      };
       final importedCard = await importCharacterWithNameCollision(
         context,
         repo,
@@ -171,6 +174,7 @@ extension _HomePageDialogsImport on _HomePageState {
           imported: importedCard,
           galleryImagePaths: parsed.galleryImagePaths,
           importGalleryImages: result2.importGalleryImages,
+          replaceExistingLooks: priorIds.contains(importedCard.dbId),
         );
         final genSettings = result2.applySettings
             ? byafService.toGenerationSettings(parsed)

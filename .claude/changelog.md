@@ -1,3 +1,10 @@
+## 2026-09-19 — BYAF Replace drops prior gallery looks
+- **Why:** Replace A (portrait+2 looks) with B (portrait+1 look) left 3 looks. `applyByafGalleryLooks` only appended; update-in-place never cleared `avatar_images`.
+- **What:** shared `replaceExistingLooks` on `applyByafGalleryLooks` (desktop + web). Clears `isLook` rows via `removeAvatar`, then applies the new pack (or none if gallery is off). Keep both / fresh import unchanged.
+- **Verified:** new `byaf_replace_gallery_test` red (length 3 vs 1) then green; existing byaf suites green; analyze clean.
+- **Files:** byaf_import_ops, character_facade.byaf, home_page_dialogs.import, byaf_replace_gallery_test
+- **Commit:** this tip
+
 ## 2026-09-19 — BYAF gallery-all-images + web import (Lufou #251 + #261)
 - **Why:** `.byaf` import only kept the first image as the portrait. Web claimed to accept `.byaf` but `importBytes` ran the PNG reader, so archives never parsed. Rawhide #263 split `home_page_dialogs.dart`, which blocked rebasing #251.
 - **What:** parse every archive image (`galleryImagePaths`; first = portrait). Desktop dialog shows Portrait + N looks and an opt-out. Shared `applyByafGalleryLooks` / `deleteByafTempImages` used by single, bulk, folder, and web. Web `/api/characters/import` parses `.byaf` and adds extra images as looks (defaults match desktop: gallery, chat history, sampler settings). Library menu has a dedicated Backyard item. Existing `byaf_service_test.dart` untouched (Guard).

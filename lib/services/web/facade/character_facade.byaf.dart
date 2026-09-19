@@ -93,6 +93,7 @@ extension CharacterFacadeByaf on CharacterFacade {
         imported: imported,
         galleryImagePaths: preview.galleryImagePaths,
         importGalleryImages: true,
+        replaceExistingLooks: forceReplace != null,
       );
       await byaf.importSession(
         _db,
