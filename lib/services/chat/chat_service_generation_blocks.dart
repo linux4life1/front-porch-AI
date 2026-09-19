@@ -293,7 +293,11 @@ extension ChatServiceGenerationBlocks on ChatService {
       }
     }
 
-    if (_activeGroup != null && _awayPulse.consumingReturnSpeak) {
+    if (_activeGroup != null &&
+        _awayPulse.consumingReturnSpeak &&
+        AwayPulse.shouldInjectReturnSpeakHint(
+          forcedByAtMention: _awayPulse.pendingReturnForcedByAt,
+        )) {
       t.authorNoteBlock +=
           '${AwayPulse.returnSpeakHint(t.speakingCharacter.name)}\n';
     }

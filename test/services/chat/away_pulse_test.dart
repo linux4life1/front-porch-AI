@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Pure Away-return planner: quiet cadence, vocative vs mid-sentence,
-// At-work exclusion, skip-banner gate, one return-speak cap.
+// Pure Away-return planner: quiet cadence, @-only hard address,
+// vocative/mid-sentence quiet priority, At-work exclusion, skip-banner.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
@@ -87,23 +87,17 @@ void main() {
     expect(targets.map((c) => c.name), ['Ana', 'Bea']);
   });
 
-  test('vocative and @ address an Away member without requiring @', () {
+  test('@ of Away forces return; vocative only raises quiet priority', () {
     expect(
       SceneGuestDirector.directlyAddressedCard(
         roster,
         'Ana, you coming?',
       )?.name,
       'Ana',
+      reason: 'director still sees vocative; Away force does not use it',
     );
     expect(
-      SceneGuestDirector.directlyAddressedCard(
-        roster,
-        'What do you think, Ana?',
-      )?.name,
-      'Ana',
-    );
-    expect(
-      SceneGuestDirector.directlyAddressedCard(roster, '@Ana over here')?.name,
+      SceneGuestDirector.atMentionedCard(roster, '@Ana over here')?.name,
       'Ana',
     );
     expect(
@@ -115,13 +109,26 @@ void main() {
           anaWhere: PresenceWhere.away,
           beaWhere: PresenceWhere.withYou,
         ),
+      ),
+      isNull,
+      reason: 'soft address: vocative must not force a spoken return',
+    );
+    expect(
+      AwayPulse.addressedAwayMember(
+        roster: roster,
+        userText: '@Ana over here',
+        presenceOf: (c) => presenceOf(
+          c,
+          anaWhere: PresenceWhere.away,
+          beaWhere: PresenceWhere.withYou,
+        ),
       )?.name,
       'Ana',
     );
     expect(
       AwayPulse.addressedAwayMember(
         roster: roster,
-        userText: 'Bea, you coming?',
+        userText: '@Bea over here',
         presenceOf: (c) => presenceOf(
           c,
           anaWhere: PresenceWhere.away,
@@ -130,6 +137,26 @@ void main() {
       ),
       isNull,
       reason: 'At work is never entered into this path',
+    );
+    final targets = AwayPulse.quietPulseTargets(
+      roster: [bea, ana],
+      userText: 'Ana, you coming?',
+      presenceOf: (_) => PresenceWhere.away,
+    );
+    expect(targets.map((c) => c.name), [
+      'Ana',
+      'Bea',
+    ], reason: 'vocative raises quiet priority like a mid-sentence name');
+  });
+
+  test('rejoining hint is only for quiet-flip returns, not forced @', () {
+    expect(
+      AwayPulse.shouldInjectReturnSpeakHint(forcedByAtMention: false),
+      isTrue,
+    );
+    expect(
+      AwayPulse.shouldInjectReturnSpeakHint(forcedByAtMention: true),
+      isFalse,
     );
   });
 

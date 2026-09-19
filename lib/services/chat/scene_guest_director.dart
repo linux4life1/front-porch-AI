@@ -202,8 +202,9 @@ class SceneGuestDirector {
   /// dash only counts as a vocative separator with whitespace next to it, so
   /// a hyphenated OTHER name ("Mara-Lynn came by", "I met Anna-Mara.") never
   /// steals the turn for guest "Mara".
-  /// Public vocative / `@` address test. Shared by Scene Guests and the
-  /// group Away-return path. Mid-sentence "I told Mara about it" is false.
+  /// Public vocative / `@` address test. Scene Guests still route on
+  /// vocative. Group Away force-speak is `@` only — vocative there
+  /// only raises quiet-pulse priority. Mid-sentence is false.
   static bool isVocativeAddress(String name, String text) {
     for (final n in _nameVariants(name)) {
       final e = RegExp.escape(n);

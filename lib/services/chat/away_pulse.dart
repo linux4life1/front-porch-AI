@@ -17,6 +17,7 @@ class AwayPulseState {
   String? pendingReturnSpeakId;
   bool consumingReturnSpeak = false;
   bool returnSpeakUsedThisUserSend = false;
+  bool pendingReturnForcedByAt = false;
   String lastUserText = '';
 
   void reset() {
@@ -24,6 +25,7 @@ class AwayPulseState {
     pendingReturnSpeakId = null;
     consumingReturnSpeak = false;
     returnSpeakUsedThisUserSend = false;
+    pendingReturnForcedByAt = false;
     lastUserText = '';
   }
 
@@ -32,11 +34,13 @@ class AwayPulseState {
     returnSpeakUsedThisUserSend = false;
     pendingReturnSpeakId = null;
     consumingReturnSpeak = false;
+    pendingReturnForcedByAt = false;
   }
 
   void finishTurn() {
     pendingReturnSpeakId = null;
     consumingReturnSpeak = false;
+    pendingReturnForcedByAt = false;
   }
 }
 
@@ -54,15 +58,21 @@ abstract final class AwayPulse {
     required int presentSpeakerTurns,
   }) => fromUserSend || cadenceDue(presentSpeakerTurns);
 
-  /// Live skip-banner gate. A vocative/@ return must not latch
-  /// suppression after [pendingReturnSpeakId] is consumed — address
-  /// only blocks the banner while that return is still waiting.
+  /// Live skip-banner gate. An `@` return must not latch suppression
+  /// after [pendingReturnSpeakId] is consumed — the sigil only blocks
+  /// the banner while that return is still waiting.
   static bool shouldWriteSkipBanner({
     required bool speakerSkips,
     required bool hasUnconsumedReturn,
   }) => speakerSkips && !hasUnconsumedReturn;
 
-  /// Addressed Away member wins; else the oldest Away who flipped true.
+  /// Quiet-flip returns get a short come-back beat. Forced `@` of an
+  /// Away member does not — after they speak, the glance eval decides
+  /// With you vs Away (refusal is allowed).
+  static bool shouldInjectReturnSpeakHint({required bool forcedByAtMention}) =>
+      !forcedByAtMention;
+
+  /// `@` of an Away member wins; else the oldest Away who flipped true.
   /// [flippedTrueOldestFirst] is already oldest-away first. Null when
   /// the one-per-send cap is spent or nobody qualifies.
   static String? pickReturnSpeak({
@@ -85,18 +95,20 @@ abstract final class AwayPulse {
     return [for (final e in list) e.id];
   }
 
+  /// Hard address only: `@Name` of an Away member. Vocative / bare
+  /// name (`Ana,` / `Ana?`) does not force a spoken return.
   static CharacterCard? addressedAwayMember({
     required List<CharacterCard> roster,
     required String userText,
     required PresenceWhere Function(CharacterCard card) presenceOf,
   }) {
-    final hit = SceneGuestDirector.directlyAddressedCard(roster, userText);
+    final hit = SceneGuestDirector.atMentionedCard(roster, userText);
     if (hit == null) return null;
     return presenceOf(hit) == PresenceWhere.away ? hit : null;
   }
 
-  /// Away members only. Mid-sentence name mentions go first (quiet
-  /// priority). At work / With you are never in this list.
+  /// Away members only. Mid-sentence names and vocatives go first
+  /// (quiet priority, not a force). At work / With you stay out.
   static List<CharacterCard> quietPulseTargets({
     required List<CharacterCard> roster,
     required String userText,
@@ -110,7 +122,8 @@ abstract final class AwayPulse {
     final mentioned = <CharacterCard>[];
     final rest = <CharacterCard>[];
     for (final card in away) {
-      if (SceneGuestDirector.isMidSentenceMention(card.name, userText)) {
+      if (SceneGuestDirector.isMidSentenceMention(card.name, userText) ||
+          SceneGuestDirector.isVocativeAddress(card.name, userText)) {
         mentioned.add(card);
       } else {
         rest.add(card);

@@ -42,8 +42,9 @@ extension ChatServiceAwayPulse on ChatService {
     }
 
     final text = userText.trim().isEmpty ? _awayPulse.lastUserText : userText;
-    // Vocative / @ is this user send only. Cadence / auto-play must
-    // not re-force a return from lastUserText.
+    // `@Name` of Away is this user send only. Cadence / auto-play
+    // must not re-force a return from lastUserText. Vocative without
+    // `@` never forces — it only raises quiet priority.
     final addressed = fromUserSend
         ? AwayPulse.addressedAwayMember(
             roster: _groupCharacters,
@@ -85,6 +86,8 @@ extension ChatServiceAwayPulse on ChatService {
     final forcedPresent = _groupManager?.hasForcedSpeaker ?? false;
     if (pick != null && !forcedPresent) {
       _awayPulse.pendingReturnSpeakId = pick;
+      _awayPulse.pendingReturnForcedByAt =
+          addressed != null && pick == _getCharacterIdFromCard(addressed);
       if (fromUserSend) _awayPulse.returnSpeakUsedThisUserSend = true;
     }
   }

@@ -1,9 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Group Away latch: quiet pulse can recover via a spoken return; vocative
-// forces a check-in; mid-sentence name does not; At work is untouched;
-// all-Away is no longer a permanent skip-banner dead-end.
+// Group Away latch: quiet pulse can recover via a spoken return; @Name
+// of an Away member forces a check-in; vocative without @ does not;
+// mid-sentence name does not; At work is untouched; all-Away is no
+// longer a permanent skip-banner dead-end.
 
 import 'dart:convert';
 import 'dart:io';
@@ -279,25 +280,37 @@ void main() {
     },
   );
 
-  test(
-    'vocative without @ forces a spoken check-in even if quiet stays Away',
-    () async {
-      await boot(anaQuiet: false);
-      await enterGroup(beaAtWork: true);
+  test('vocative without @ does not force an Away member to speak', () async {
+    await boot(anaQuiet: false);
+    await enterGroup(beaAtWork: true);
 
-      await chat.sendMessage('Ana, you coming back?');
-      await drainTurn();
+    await chat.sendMessage('Ana, you coming back?');
+    await drainTurn();
 
-      final last = chat.messages.last;
-      expect(
-        last.sender,
-        'Ana',
-        reason:
-            'THE LATCH: vocative used to skip-banner because they never spoke',
-      );
-      expect(last.sender, isNot('System'));
-    },
-  );
+    expect(
+      chat.messages.last.sender,
+      isNot('Ana'),
+      reason:
+          'soft address: vocative may raise quiet priority, never force speak',
+    );
+    expect(chat.messages.last.sender, 'System');
+    expect(chat.messages.last.text.toLowerCase(), contains('away'));
+  });
+
+  test('@ of an Away member still forces a spoken check-in', () async {
+    await boot(anaQuiet: false);
+    await enterGroup(beaAtWork: true);
+
+    await chat.sendMessage('@Ana you coming back?');
+    await drainTurn();
+
+    expect(
+      chat.messages.last.sender,
+      'Ana',
+      reason: 'hard address: @Name of Away still forces this turn\'s check-in',
+    );
+    expect(chat.messages.last.sender, isNot('System'));
+  });
 
   test('mid-sentence name does not force a spoken return', () async {
     await boot(anaQuiet: false);
@@ -390,17 +403,17 @@ void main() {
   });
 
   test(
-    'vocative return does not stick skip-banner off for the next Away turn',
+    '@ return does not stick skip-banner off for the next Away turn',
     () async {
       await boot(anaQuiet: false, beaQuiet: false);
       await enterGroup(beaAtWork: false);
 
-      await chat.sendMessage('Ana, you coming?');
+      await chat.sendMessage('@Ana you coming?');
       await drainTurn();
       expect(
         chat.messages.last.sender,
         'Ana',
-        reason: 'vocative still forces the spoken check-in',
+        reason: '@ of Away still forces the spoken check-in',
       );
 
       await chat.triggerNextCharacter();
@@ -410,7 +423,7 @@ void main() {
         chat.messages.last.sender,
         'System',
         reason:
-            'HOLD 2: after a vocative return that leaves withUser false, '
+            'HOLD 2: after an @ return that leaves withUser false, '
             'the next auto-play/skip path must still banner',
       );
       expect(chat.messages.last.text.toLowerCase(), contains('away'));
