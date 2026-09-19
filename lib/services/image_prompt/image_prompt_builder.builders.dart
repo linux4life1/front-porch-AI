@@ -100,8 +100,8 @@ extension _ImagePromptBuilders on ImagePromptBuilder {
         ctx.recentMessages != null &&
         ctx.recentMessages!.isNotEmpty) {
       List<String> src = ctx.recentMessages!;
-      if (src.length > _sceneRecentCap) {
-        src = src.sublist(src.length - _sceneRecentCap);
+      if (src.length > ImagePromptBuilder._sceneRecentCap) {
+        src = src.sublist(src.length - ImagePromptBuilder._sceneRecentCap);
       }
       final joined = src
           .map((m) => _cleanNarrativeForVisual(ctx.resolveMacros(m)))
@@ -268,8 +268,8 @@ extension _ImagePromptBuilders on ImagePromptBuilder {
         }
         if (ctx.recentMessages != null && ctx.recentMessages!.isNotEmpty) {
           List<String> src = ctx.recentMessages!;
-          if (src.length > _sceneRecentCap) {
-            src = src.sublist(src.length - _sceneRecentCap);
+          if (src.length > ImagePromptBuilder._sceneRecentCap) {
+            src = src.sublist(src.length - ImagePromptBuilder._sceneRecentCap);
           }
           final recent = src
               .map(
