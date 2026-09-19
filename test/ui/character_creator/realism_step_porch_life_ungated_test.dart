@@ -62,7 +62,13 @@ void _expectPorchLifeVisible() {
   expect(find.text('Day Number'), findsOneWidget);
   expect(find.text('Story begins: the day the chat starts'), findsOneWidget);
   expect(find.text('Chaos Mode (Chance Time)'), findsOneWidget);
-  expect(find.text('Pockets & Wardrobe'), findsOneWidget);
+  // Section header + toggle row + IdentityChipLists header all say this
+  // now that RealismStep wires the per-char pair. Exactly-one is a false
+  // red — same shape as Needs Simulation below.
+  expect(find.text('Pockets & Wardrobe'), findsAtLeastNWidgets(1));
+  // Unique toggle subtitle: the new control is on the step, not only the
+  // older chip-list header.
+  expect(find.textContaining('skips inventory tracking'), findsOneWidget);
   expect(find.text('WEARING'), findsOneWidget);
   expect(find.text('CARRYING'), findsOneWidget);
   expect(find.text('Ambitions'), findsOneWidget);
