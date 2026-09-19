@@ -178,6 +178,7 @@ extension ChatToolsFacadeMemory on ChatToolsFacade {
 
   // ── Summary controls ─────────────────────────────────────────────────────
   Future<void> regenerateSummary() async {
+    if (!_storage.memorySettings.journalEnabled) return;
     await _chat.forceSummaryUpdate();
     _notify();
   }
@@ -188,6 +189,7 @@ extension ChatToolsFacadeMemory on ChatToolsFacade {
   }
 
   void setSummaryText(String text) {
+    if (!_storage.memorySettings.journalEnabled) return;
     _chat.setSummary(text);
     _notify();
   }

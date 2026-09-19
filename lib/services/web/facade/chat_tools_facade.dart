@@ -373,6 +373,9 @@ class ChatToolsFacade {
     _notify();
   }
 
+  /// Same switch the desktop Recap panel and injection use.
+  bool get journalEnabled => _storage.memorySettings.journalEnabled;
+
   /// Web Journal diary (audit P2.12) — Growth twin for cards + review-first.
   JournalWebSurface get journalWeb => JournalWebSurface(
     chat: _chat,

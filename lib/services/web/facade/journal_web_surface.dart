@@ -85,6 +85,9 @@ class JournalWebSurface {
     String action,
     Map<String, dynamic> body,
   ) async {
+    if (!storage.memorySettings.journalEnabled) {
+      return list(participantId);
+    }
     final owner = resolveOwner(participantId);
     final sessionId = chat.currentSessionId;
     if (owner == null || sessionId == null) {
@@ -173,6 +176,9 @@ class JournalWebSurface {
     List<String> rejected = const [],
     bool? recapAccepted,
   }) async {
+    if (!storage.memorySettings.journalEnabled) {
+      return reviewBatch();
+    }
     final batch = chat.journalReview.pending;
     if (batch != null) {
       if (recapAccepted != null) batch.recapAccepted = recapAccepted;

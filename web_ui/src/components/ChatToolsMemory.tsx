@@ -286,35 +286,47 @@ export function ChatToolsRecap({
     setEditingRecap(false);
   }, [reloadKey]);
 
+  const journalOn = t.memory.journalEnabled;
+
   return (
       <details className="tool-section">
         <summary>Where we are</summary>
         <div className="tool-body">
-          <SummaryRecapField
-            value={t.summary.text}
-            editing={editingRecap}
-            onCommit={(text) => apply(api.post<ToolsState>(`/api/chat/tools/summary${q}`, { text }))}
-            onStartEditing={() => setEditingRecap(true)}
-            onStopEditing={() => setEditingRecap(false)}
-          />
-          <div className="tool-row">
-            {t.summary.text.trim() !== '' && (
-              <button
-                type="button"
-                onClick={() => setEditingRecap((v) => !v)}
-              >
-                {editingRecap ? 'Done' : 'Edit'}
-              </button>
-            )}
-            <button
-              className="primary"
-              disabled={t.summary.isGenerating}
-              onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/summary${q}`, { action: 'regenerate' }))}
-            >
-              {t.summary.isGenerating ? 'Generating…' : 'Regenerate'}
-            </button>
-          </div>
-          <Toggle label="Pause journal updates" value={t.summary.paused} onChange={(v) => toggle('summaryPaused', v)} />
+          {!journalOn ? (
+            <p className="muted small">
+              Journal is off: long-term memory and this recap are paused,
+              so the character only remembers what still fits in the
+              context window.
+            </p>
+          ) : (
+            <>
+              <SummaryRecapField
+                value={t.summary.text}
+                editing={editingRecap}
+                onCommit={(text) => apply(api.post<ToolsState>(`/api/chat/tools/summary${q}`, { text }))}
+                onStartEditing={() => setEditingRecap(true)}
+                onStopEditing={() => setEditingRecap(false)}
+              />
+              <div className="tool-row">
+                {t.summary.text.trim() !== '' && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingRecap((v) => !v)}
+                  >
+                    {editingRecap ? 'Done' : 'Edit'}
+                  </button>
+                )}
+                <button
+                  className="primary"
+                  disabled={t.summary.isGenerating}
+                  onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/summary${q}`, { action: 'regenerate' }))}
+                >
+                  {t.summary.isGenerating ? 'Generating…' : 'Regenerate'}
+                </button>
+              </div>
+              <Toggle label="Pause journal updates" value={t.summary.paused} onChange={(v) => toggle('summaryPaused', v)} />
+            </>
+          )}
         </div>
       </details>
   );

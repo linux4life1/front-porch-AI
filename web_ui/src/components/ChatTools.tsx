@@ -203,7 +203,9 @@ export function ChatTools({
 
       <ChatToolsObjectives t={t} q={q} apply={apply} />
 
-      <ChatToolsRecap t={t} q={q} apply={apply} toggle={toggle} reloadKey={reloadKey} />
+      {t.memory.journalEnabled && (
+        <ChatToolsRecap t={t} q={q} apply={apply} toggle={toggle} reloadKey={reloadKey} />
+      )}
 
       <details className="tool-section">
         <summary>Scene &amp; time</summary>

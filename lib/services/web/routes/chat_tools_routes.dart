@@ -242,7 +242,11 @@ class WebChatToolsRoutes {
   }
 
   /// Summary actions: regenerate, or set the summary text directly.
+  /// Journal-off cannot write the recap (desktop hides Edit/Regen).
   Future<shelf.Response> _summary(shelf.Request request) async {
+    if (!_facade.journalEnabled) {
+      return JsonResponse.error(409, 'Journal is off');
+    }
     final body = await _json(request);
     final action = body['action']?.toString();
     if (action == 'regenerate') {
@@ -406,6 +410,9 @@ class WebChatToolsRoutes {
 
   /// Journal mutation (`action`: plant/edit/pin/retire/check).
   Future<shelf.Response> _journalPost(shelf.Request request) async {
+    if (!_facade.journalEnabled) {
+      return JsonResponse.error(409, 'Journal is off');
+    }
     final body = await _json(request);
     final action = body['action']?.toString() ?? '';
     final participant =
@@ -424,6 +431,9 @@ class WebChatToolsRoutes {
       JsonResponse.ok(_facade.journalWeb.reviewBatch());
 
   Future<shelf.Response> _journalReviewPost(shelf.Request request) async {
+    if (!_facade.journalEnabled) {
+      return JsonResponse.error(409, 'Journal is off');
+    }
     final body = await _json(request);
     return JsonResponse.ok(
       await _facade.journalWeb.settleReview(
