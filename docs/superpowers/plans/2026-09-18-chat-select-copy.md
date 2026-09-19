@@ -352,7 +352,7 @@ git commit -m "feat(chat): select speech and expanded thought in one bubble area
 - Consumes: `SelectableBubbleBody` from Task 2
 - Produces: banner sentence inside `SelectionArea`; `onLongPress` still opens `Delete Message`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```dart
 // Copyright (C) 2026 Front Porch AI
@@ -423,23 +423,23 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `flutter test test/ui/chat_components/selectable_banner_test.dart`
 
 Expected: FAIL — banner sentence has no `SelectionArea` ancestor. Long-press delete should already pass; if both fail, fix delete first (do not drop `onLongPress`).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `_narrationBanner`, wrap only the banner **sentence** `Text` (the `Flexible` child) in `SelectableBubbleBody`. Keep the outer `GestureDetector(onLongPress: ...)` on the banner. Do not wrap the emoji-only `Text`. If drag-select fires delete, move `onLongPress` to a non-text chrome hit target or use a hold that is not a drag — the long-press test must stay green.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `flutter test test/ui/chat_components/selectable_banner_test.dart`
 
 Expected: PASS (both tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 dart format lib/ui/chat_components/bubbles/message_bubble.dialogs.dart test/ui/chat_components/selectable_banner_test.dart
