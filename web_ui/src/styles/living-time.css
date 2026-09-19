@@ -59,6 +59,8 @@
   background: color-mix(in srgb, var(--porch-honey) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--porch-honey) 35%, transparent);
   border-radius: 12px;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* ── Living Time §7: "Our Story" milestones timeline ────────────────────── */

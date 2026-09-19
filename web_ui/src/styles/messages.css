@@ -4,7 +4,7 @@
 */
 
 /* ── Per-message actions / edit / thinking ────────────────────── */
-.msg-actions { display: flex; align-items: center; gap: 2px; margin: 1px 0 2px; align-self: flex-start; opacity: 0; transition: opacity 0.12s; flex-wrap: wrap; }
+.msg-actions { display: flex; align-items: center; gap: 2px; margin: 1px 0 2px; align-self: flex-start; opacity: 0; transition: opacity 0.12s; flex-wrap: wrap; user-select: none; -webkit-user-select: none; }
 .msg-actions.user { align-self: flex-end; }
 .msg-row:hover .msg-actions, .msg-actions:focus-within { opacity: 1; }
 @media (hover: none) { .msg-actions { opacity: 1; } } /* touch: always show */
@@ -44,7 +44,7 @@
 }
 .icon-btn { background: none; border: none; color: var(--muted); padding: 2px 6px; border-radius: 8px; font-size: 0.9rem; line-height: 1; }
 .icon-btn:hover { color: var(--text); background: var(--surface-2); filter: none; }
-.swipe { display: inline-flex; align-items: center; gap: 2px; }
+.swipe { display: inline-flex; align-items: center; gap: 2px; user-select: none; -webkit-user-select: none; }
 .swipe-count { font-size: 0.72rem; color: var(--muted); min-width: 30px; text-align: center; }
 /* Fullscreen message editor (desktop MessageEditDialog parity) */
 .msg-edit-backdrop { z-index: 80; }

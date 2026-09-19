@@ -227,7 +227,11 @@
      no theme is active → no border, unchanged look. */
   border: var(--chat-bubble-border, none);
   box-shadow: var(--chat-bubble-shadow, none);
+  user-select: text;
+  -webkit-user-select: text;
 }
+.thinking-body { user-select: text; -webkit-user-select: text; }
+.msg-speaker { user-select: none; -webkit-user-select: none; }
 .bubble.user { align-self: flex-end; background: var(--chat-user-bubble); color: var(--chat-user-text); border-bottom-right-radius: 4px; }
 .bubble.ai { align-self: flex-start; background: var(--chat-ai-bubble); color: var(--chat-ai-text); border-bottom-right-radius: 16px; border-bottom-left-radius: 4px; }
 .bubble.streaming { opacity: 0.85; }

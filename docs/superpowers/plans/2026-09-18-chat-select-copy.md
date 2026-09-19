@@ -681,7 +681,7 @@ git commit -m "fix(chat): never auto-scroll the transcript on send or stream"
 - Consumes: existing class names `.bubble`, `.thinking-body`, `.dream-banner`, `.msg-speaker`, `.msg-actions`, `.swipe`
 - Produces: CSS rules only — no Find intercept, no `preventDefault` on Cmd+F
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { readFileSync } from 'node:fs';
@@ -714,13 +714,13 @@ describe('chat select/copy CSS', () => {
 
 Place the test at `web_ui/src/styles/chatSelect.test.ts` so `./insight.css` resolves.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd web_ui && npm test -- src/styles/chatSelect.test.ts`
 
 Expected: FAIL — those `user-select` declarations are not in the files yet.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add **inside** the existing rule blocks (do not duplicate selectors if you can append to the current `{ ... }`).
 
@@ -747,13 +747,13 @@ user-select: text; -webkit-user-select: text;
 
 Do **not** add a Cmd+F listener. Do **not** set `user-select: none` on `.chat-messages`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd web_ui && npm test -- src/styles/chatSelect.test.ts`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web_ui/src/styles/insight.css web_ui/src/styles/messages.css web_ui/src/styles/living-time.css web_ui/src/styles/chatSelect.test.ts
