@@ -1,40 +1,45 @@
-# Chat select + Find
+# Chat select + copy
 
-**Date:** 2026-09-18
-**Status:** Product lock approved — design only (no implementation in this PR)
+**Date:** 2026-09-18 (amended 2026-09-19)
+**Status:** Product lock approved — **select/copy ships; all Find is deferred**
 **Audience:** implementing agents (the maintainer cannot read Dart)
-**Surfaces:** Flutter desktop (Windows / macOS / Linux) and `web_ui` in the **same later implementation PR**
+**Surfaces:** Flutter desktop (Windows / macOS / Linux) and `web_ui` in the **same implementation PR**
+**Why Find is out:** `docs/superpowers/specs/2026-09-18-chat-os-find-investigation.md` — Flutter `SelectionArea` does not give OS Find; a native transcript would blow up the bubble stack; Windows/Linux have no system Find for a canvas. User decision 2026-09-19: ship select/copy only.
 
-Users cannot highlight a reply and copy it, and they cannot Find a phrase in the open chat. `StyledChatMessage` already wraps speech in `SelectionArea`, but thought/raw, narration banners, and several bubble gestures fight that path. This spec is how we make select/copy and Find feel native without inventing a search product.
+Users cannot highlight a reply and copy it. `StyledChatMessage` already wraps speech in `SelectionArea`, but thought/raw, narration banners, and several bubble gestures fight that path. This spec is how we make **select/copy** work. It is **not** a Find product.
 
 ---
 
 ## 1. Locked product (do not reopen)
 
-1. **Select / copy.** Click-drag select + right-click **Copy**, plus standard Ctrl/Cmd+C. Scope is **everything visible in the chat bubble**: spoken body, plus thought/raw **when those are on screen**. Names and timestamps that sit **outside** the bubble are out. Header chrome that lives *inside* the bubble (sender name, edit/fork/delete, TTS) is **not** treated as bubble content.
-2. **Find.** A feels-native **in-app** Find bar. Cmd/Ctrl+F opens it, next/prev, match count, highlight the active match, Esc closes. **Not** the OS Find panel. **Not** a heavy custom search UI.
-3. **Parity.** Desktop and `web_ui` ship together in the implementation PR. This document is design-only.
+1. **Select / copy (SHIP).** Click-drag select + right-click **Copy**, plus standard Ctrl/Cmd+C. Scope is **everything visible in the chat bubble**: spoken body, plus thought/raw **when those are on screen**. Names and timestamps that sit **outside** the bubble are out. Header chrome that lives *inside* the bubble (sender name, edit/fork/delete, TTS) is **not** treated as bubble content.
+2. **Find (DEFERRED).** No in-app Find bar. No OS Find panel. No Cmd/Ctrl+F handler. No indexer, highlights, or jump-to-match. Do not implement any of §5.2 / §6.3 / §7 from the 2026-09-18 draft. See the OS Find investigation for why literal OS Find is a dead end on Flutter desktop.
+3. **Parity.** Desktop and `web_ui` ship select/copy together in the implementation PR.
 4. **Start from what exists.** Do not invent a new selection system where `SelectionArea` already wraps speech. Fix gesture and context-menu conflicts; widen the selectable region to the rest of the on-screen bubble body.
+5. **macOS Find menu (SHIP — must).** The template Edit → Find submenu in `macos/Runner/Base.lproj/MainMenu.xib` advertises Find… (⌘F), Find Next (⌘G), and friends via `performFindPanelAction:`. That is a **lying no-op** on a Flutter canvas. **Disable or remove that entire Find submenu** (and its key equivalents) so the menu bar stops promising Find. Keep Copy / Cut / Paste / Select All. Keep View → Enter Full Screen (⌃⌘F) — that is not Find.
+6. **Transcript scroll (SHIP — option B).** **Never auto-scroll the transcript for new messages or streaming tokens.** The user scrolls. Desktop and `web_ui` the same. Journal receipt tap-to-jump stays (the user asked to move). Opening a chat may still **start** at the newest message (initial layout of a reverse list / first paint) — that is not a jump after the user already has a viewport.
 
 ---
 
 ## 2. Goals
 
 - Drag-select any on-screen bubble body (speech, expanded thought/raw, Chance Time / Dream banner text) and copy it with the platform Copy command.
-- Open a slim Find bar from the open chat with Cmd/Ctrl+F, jump next/prev, see `N of M`, land on the active match, close with Esc.
-- Find only what the user can see in the transcript right now (collapsed thought is invisible → not searchable).
 - Leave swipe chevrons, thought toggle, group-name tap-to-queue, edit/fork/delete, and narration-banner long-press delete working. Selection must not steal those hits.
-- Same capabilities and the same visual language on desktop and web.
+- Same select/copy capabilities on desktop and web.
+- macOS Edit menu no longer lists Find.
+- New replies and streaming tokens do **not** yank the transcript. If you scrolled up to copy, you stay there.
 
-## 3. Non-goals
+## 3. Non-goals (this ship)
 
-- OS / browser Find panel (macOS Edit → Find, Chrome/Safari Find, `window.find()`).
-- PlatformViews, `HtmlElementView`, or embedding a native text view to get selection “for free.”
-- Library-wide or cross-chat search. Find is **this open transcript only**.
-- Regex, replace, whole-word, diacritic folding, or a search-history product.
-- Selecting or indexing sidebar, composer, realism chips, suggest-action pills, the “Thought” chip label, or button tooltips.
+- In-app Find bar, Cmd/Ctrl+F, next/prev, match count, highlight-active-match.
+- OS / browser Find panel (macOS Edit → Find, Chrome/Safari Find, `window.find()`). **Web: do not `preventDefault` Cmd/Ctrl+F.** Browser Find may still open; we are not building or stealing it.
+- PlatformViews, `HtmlElementView`, or embedding a native text view.
+- Library-wide or cross-chat search.
+- Selecting sidebar, composer, realism chips, suggest-action pills, the “Thought” chip label, or button tooltips.
 - Cross-bubble drag-select (one highlight spanning two messages).
-- Changing generation, Realism, Needs, Journal, or swipe **state**. Find only reads visible text.
+- Changing generation, Realism, Needs, Journal, or swipe **state**.
+- A “scroll to latest” button or sticky-bottom follow mode (not requested).
+- Changing `log_view.dart` or other non-transcript auto-scroll.
 
 ---
 
@@ -44,7 +49,7 @@ Users cannot highlight a reply and copy it, and they cannot Find a phrase in the
 
 The painted bubble `Container` already holds, top to bottom:
 
-| Region | Today | Select / Find |
+| Region | Today | Select / copy |
 |---|---|---|
 | Header: sender name, TTS, edit, fork, delete | Inside the container | **Out.** Chrome, not body. |
 | Thought chip (“Thought”) | `GestureDetector` + label | Chip label **out**. |
@@ -59,9 +64,9 @@ Sender name and timestamps that appear **outside** a bubble (web speaker label; 
 
 ### Web (`ChatMessageList.tsx`)
 
-Thought is currently a `<details class="thinking">` **sibling above** `.bubble`, and the group speaker is `.msg-speaker` outside the bubble. Product scope still includes expanded thought when it is on screen. The implementation PR may wrap thought + `.bubble` in one transcript-body container for highlight/select; it must not start indexing the speaker label just because the wrap is convenient.
+Thought is currently a `<details class="thinking">` **sibling above** `.bubble`, and the group speaker is `.msg-speaker` outside the bubble. Product scope still includes expanded thought when it is on screen. The implementation PR may wrap thought + `.bubble` in one transcript-body container for select; it must not make the speaker label selectable just because the wrap is convenient.
 
-There is no separate “raw” pane today. **Raw** in this spec means whatever secondary body the UI is actually painting (expanded reasoning / unsanitized body if a later toggle shows one). Do not invent a raw view here.
+There is no separate “raw” pane today. **Raw** means whatever secondary body the UI is actually painting (expanded reasoning / unsanitized body if a later toggle shows one). Do not invent a raw view here.
 
 ---
 
@@ -76,16 +81,9 @@ There is no separate “raw” pane today. **Raw** in this spec means whatever s
 5. Clicking a control (edit, swipe, thought chevron) or clicking empty chat chrome clears the highlight. Starting a new drag replaces it.
 6. Copy puts **visible plain text** on the clipboard (the words the user highlighted). No HTML, no image bytes, no hidden think tags.
 
-### 5.2 Find
+### 5.2 Find — deferred
 
-1. In an open chat, press Cmd/Ctrl+F. A slim Find bar appears on the chat column (not a modal, no dimming). Focus moves to its field; the current query (if any) is selected so the next keystroke replaces it.
-2. Typing filters immediately. Count shows `N of M` (or `0 of 0` when nothing matches). All matches get a quiet highlight; the **active** match gets a stronger one.
-3. The transcript scrolls so the active match is visible (reuse the existing bubble-key jump; see §7).
-4. Next: Enter or Cmd/Ctrl+G. Previous: Shift+Enter or Shift+Cmd/Ctrl+G. Wrap at the ends.
-5. Empty query: no highlights, no jump, count idle.
-6. Esc closes the bar, clears highlights, and returns focus to the composer (or the previously focused control). If Find is open, Esc **does not** also close the insight/session drawers.
-7. Cmd/Ctrl+F while the bar is already open focuses and selects the query. It does not open a second bar.
-8. Find stays up across streaming tokens and swipe/Continue text changes; the index refreshes from the new visible text.
+Not in this ship. No bar, no shortcuts, no index. Investigation: `2026-09-18-chat-os-find-investigation.md`.
 
 ---
 
@@ -97,13 +95,14 @@ There is no separate “raw” pane today. **Raw** in this spec means whatever s
 
 Today `_buildStyledText` wraps **each** speech segment in its own `SelectionArea`. A message that splits around a markdown image is a `Column` of independent selection islands. Thought, the thought-only hint, and narration banners are not wrapped at all.
 
-Implementation shape (later PR):
+Implementation:
 
 - One `SelectionArea` (or `SelectionContainer.disabled` around chrome) whose **enabled** subtree is the in-scope body: speech + visible thought/raw + banner sentence.
 - Lift it to the bubble-body level so a drag can cross speech and an expanded thought in the same bubble. Do **not** wrap the whole `ListView` — that would select names, chips, and neighboring bubbles.
 - Wrap header icons, thought-chip hit target, swipe/action rows, and the decorative border `CustomPaint` so they are **not** selectable. The border painter must stay `IgnorePointer` (theme-preset tap-swallow bug).
-- Use `contextMenuBuilder` only to keep the **standard** Copy (and Select all) items. No custom “Search in chat” product menu.
+- Use `contextMenuBuilder` only to keep the **standard** Copy (and Select all) items. No “Search in chat” menu item.
 - Ctrl/Cmd+C is Flutter’s existing selection Copy. Do not add a parallel clipboard path.
+- Remove the inner per-segment `SelectionArea`s from `StyledChatMessage` so they do not nest under the body-level one.
 
 ### 6.2 Gesture / context-menu conflicts (the actual work)
 
@@ -115,47 +114,40 @@ Flutter’s selection gestures share the arena with parent `GestureDetector`s. K
 | Group sender `onTap` (queue next) | Name is in the header | Header stays outside the selection subtree. Tap still queues. |
 | Narration banner `onLongPress` → delete | Desktop drag-select vs long-press | Long-press delete **stays** (banners have no action row). Selection is **click-drag**. A completed drag must not fire delete. If the arena still fights, use a `Listener` / `onSecondaryTap` for the menu and keep long-press at a hold that is clearly not a drag. |
 | Swipe / greeting chevrons | `InkWell` under a selection wrap | Chevrons stay **outside** the `SelectionArea`. They are buttons, not a horizontal-drag-on-the-bubble gesture. |
-| Composer focus + Enter / Cmd+R | Page-level key handler | Find shortcuts are registered **above** the composer `FocusNode` so Cmd+F is not typed into the box and does not collide with Cmd+R. |
+| Composer focus + Enter / Cmd+R | Page-level key handler | **Do not** register Cmd/Ctrl+F. Leave Enter and Cmd+R alone. |
 | Right-click | Default `SelectionArea` menu vs any future bubble menu | Body right-click = selection menu (Copy). Icon buttons keep their own tooltips/clicks. |
 
 Mobile/touch is not a ship target for this desktop app, but the same widgets render if someone stretches a window onto a touch screen: do not rely on “long-press starts selection” on banners.
 
-### 6.3 Find overlay ownership
+### 6.3 Find overlay — deferred
 
-- **Owner:** `ChatPage` (the same `State` that already owns `_bubbleKeys`, `_jumpFlashMessage`, and `_buildPageOverlays`).
-- **Not** a `showDialog`. Dialogs dim the transcript and steal the overlay stack from voice-call / realism / ONNX download.
-- Slim bar: query field, `N of M`, previous, next, close. Warm-porch chrome (`AppColors.formMasterAccent` / `porchAmberOf`, `onChaosAccent` on filled controls). No results list, no filters row.
-- Shortcuts via `CallbackShortcuts` / `Shortcuts` on the **page** (chat route focused), not only the composer:
-  - Cmd/Ctrl+F → open / focus Find
-  - Esc → close Find if open (composer and existing dialogs keep their own Esc when Find is closed)
-  - Enter / Cmd+G / Shift variants as in §5.2, **only while the Find field has focus** so composer Enter still sends
-- Virtualized reverse `ListView.builder`: search the **in-memory visible-text index**, then `jumpToMessage` + page-owned `GlobalKey`s. Do **not** mint `GlobalObjectKey(message)` (duplicate-key crash when two chat routes are alive).
-- Active-match flash may reuse `_jumpFlashMessage` / `JumpFlash`. Distinct from a Journal receipt jump only in color if both can coincide; they must not share a key.
+`ChatPage` does **not** grow a Find bar, shortcuts, or overlay. Do not add Find state next to `_bubbleKeys` / `_jumpFlashMessage`.
 
-Waifu Coder reuses `ChatMessageList` / `MessageBubble`. If that page is a chat transcript with the same bubbles, it gets the same select rules. Find on Waifu is **not** required in the first implementation PR unless it is cheap because the overlay is already a shared widget.
+Waifu Coder reuses `ChatMessageList` / `MessageBubble`. It gets the same **select** rules because the bubble widget is shared. No Find on Waifu.
+
+### 6.4 macOS menu
+
+Remove (preferred) or disable the entire Edit → Find submenu in `macos/Runner/Base.lproj/MainMenu.xib` so these strings and selectors are gone from the file:
+
+- `performFindPanelAction:` / `performTextFinderAction:`
+- Menu titles Find / Find… / Find and Replace… / Find Next / Find Previous / Use Selection for Find
+- ⌘F / ⌘G / ⇧⌘G / ⌘E bindings that belonged to that submenu
+
+Do **not** remove View → Enter Full Screen (`keyEquivalent="f"` with the Control modifier). That is a different item.
+
+Windows and Linux have no Find menu to strip.
+
+### 6.5 Transcript scroll (option B)
+
+Today desktop **forces** the newest message into view on send: `_scrollToBottom()` in `chat_page.input.dart` (post-frame after `sendMessage`) calls `ScrollController.jumpTo(0)` while generating or `animateTo(0)` otherwise. The list is reverse, so offset `0` is the newest. `_autoScroll` on `ChatPage` is always `true` and is never cleared when the user scrolls away — it is a dead gate, not a smart pin.
+
+**Ship:** delete that send-time scroll. Delete `_scrollToBottom` and `_autoScroll` if nothing else uses them. Do **not** add a new listener that re-pins on `ChatService` notify (streaming rebuilds would fight option B). Leave `jumpToMessage` (Journal receipts) alone.
 
 ---
 
-## 7. What Find indexes
+## 7. Find index — deferred
 
-Build a list of `{message, field, text, start, end}` from the **open session’s messages**, using only text the UI would paint **right now**:
-
-| Source | Indexed? |
-|---|---|
-| `displayText` / spoken body (including streaming tail) | Yes |
-| Expanded `thinkingContent` | Yes |
-| Thought-only hint string | Yes, if that hint is showing |
-| Chance Time / Dream banner sentence | Yes (the cleaned sentence the banner shows, not unused wrapper tags) |
-| Collapsed thought | **No** |
-| Sender / persona name, timestamps, chip labels, button labels | **No** |
-| Hidden think tags, sanitizer internals, prompt sections, sidebar | **No** |
-| Other chats / other sessions | **No** |
-
-Matching: case-insensitive substring. No regex. First match after the current viewport (or after the caret if a selection exists) becomes active; wrap.
-
-Refresh the index when messages, swipe index, Continue tail, thought-open flags, or streaming text change. Thought-open is **per-bubble UI state**; the index must see those flags, not only `ChatMessage` fields. A word that exists only in a **collapsed** thought is a miss (`0 of 0`) until the user expands that thought and the index refreshes. Find does **not** auto-open thought to create a hit — that would search text that is not on screen.
-
-Scrolling to a match that is not mounted uses the existing `jumpToMessage` hop + viewport paging.
+No visible-text indexer in this ship.
 
 ---
 
@@ -163,17 +155,14 @@ Scrolling to a match that is not mounted uses the existing `jumpToMessage` hop +
 
 Browser selection and Copy already work on ordinary DOM text. Do not replace that with a JS selection library.
 
-- `user-select: text` on spoken body, expanded `.thinking-body`, thought-only hint, and banner text.
-- `user-select: none` on `.msg-actions`, swipe chrome, insight chrome, speaker labels. Do not set `user-select: none` on the transcript.
+- `user-select: text` on spoken body, expanded `.thinking-body`, thought-only hint, and banner text (`.dream-banner`).
+- `user-select: none` on `.msg-actions`, swipe chrome, insight chrome, speaker labels. Do not set `user-select: none` on the transcript body.
 - Right-click Copy is the **browser** menu. Ctrl/Cmd+C is the browser default. No custom clipboard polyfill on secure origins.
-- Find is an **in-app** bar that **matches the desktop UX** (placement, count, next/prev, active highlight, Esc). On Cmd/Ctrl+F, `preventDefault()` so the browser Find panel does not open. Same for Cmd/Ctrl+G while our bar is open.
-- Esc: if Find is open, close it and stop. Existing ChatPage Esc (close insight / sessions) runs only when Find is closed. Message-edit modal still owns its own Esc.
-- Highlights: mark ranges in the visible body (e.g. `<mark>` / a shared highlight class). Active match uses the porch amber highlight; other matches are quieter. Do not use `window.find()`.
-- Index the same visible-text rules as §7. Thought in a closed `<details>` is not indexed and Find does not open it to manufacture a hit. Expand it yourself, then search again.
-- Scroll the active match into view (`scrollIntoView`). No Flutter `GlobalKey` issues on web; still key rows by message index, not a reused object identity across two mounted chats if that can happen in the PWA.
-- Composer: Cmd/Ctrl+F must not insert `f`. Enter in the Find field is next-match, not send.
+- **Do not** intercept Cmd/Ctrl+F. Browser Find is deferred-as-product; stealing the key would imply we own Find.
+- No `<mark>` highlight helper, no Find bar, no Find Esc ordering.
+- **Scroll:** remove the `useEffect` in `web_ui/src/pages/chat/useChatSession.ts` that `scrollTo({ top: scrollHeight })` whenever `state?.messages.length` or `streaming` changes. That is the token-by-token yank. Do not replace it with another pin.
 
-Phone/PWA: there is no Cmd+F. Select/copy stays native long-press select. A Find **button** is not required; the bar may appear only when a keyboard shortcut fires. If a later PR wants a menu item, it is additive.
+Phone/PWA: select/copy stays native long-press select.
 
 ---
 
@@ -181,22 +170,14 @@ Phone/PWA: there is no Cmd+F. Select/copy stays native long-press select. A Find
 
 | Key | Context | Action |
 |---|---|---|
-| Cmd/Ctrl+F | Chat route focused (composer or transcript) | Open / focus Find |
-| Esc | Find open | Close Find, restore prior focus |
-| Enter / Cmd+G | Find field focused | Next match |
-| Shift+Enter / Shift+Cmd+G | Find field focused | Previous match |
 | Cmd/Ctrl+C | Selection in a bubble | Copy |
 | Cmd/Ctrl+A | Selection in a bubble | Select that bubble body |
 | Cmd/Ctrl+R | Composer (existing) | Regen — **unchanged** |
-| Enter | Composer, Find closed | Send — **unchanged** |
+| Enter | Composer | Send — **unchanged** |
+| Cmd/Ctrl+F | Anywhere | **Not our feature.** macOS menu item removed so the app does not claim it. Web: browser may still Find-in-page. |
 
-- Find field: label “Find in chat”, `role="search"`, count announced (`aria-live="polite"` on web; Flutter `Semantics` on desktop).
-- Next/prev/close are real buttons with tooltips (`Next match`, etc.).
-- Highlights are not color-only: active match also scrolls into view and the count changes.
-- Tab from the Find field cycles its controls, then the composer — it does not trap focus in the transcript.
 - Screen readers still see bubble text as text, not as a single non-semantic paint.
-
-Update `docs/keyboard-shortcuts.md` in the **implementation** PR (desktop and the web extras table). Not in this design PR.
+- Update `docs/keyboard-shortcuts.md` in the **implementation** PR: chat bubbles are selectable/copyable; do **not** document a Find shortcut; note that macOS Edit → Find was removed because it did nothing. Not in this design-docs PR.
 
 ---
 
@@ -206,14 +187,14 @@ Implementation checklist — if any item fails, the PR is incomplete:
 
 1. Drag-select on speech does **not** toggle thought, queue a group speaker, swipe, regen, or delete.
 2. Thought chevron still toggles; the expanded thought body is selectable.
-3. Swipe and greeting chevrons still change the variant; Find reindexes the new body.
+3. Swipe and greeting chevrons still change the variant.
 4. Banner long-press still offers delete; a text drag on the banner does not delete.
 5. Edit / fork / delete icon hits stay reliable (the `IgnorePointer` border painter stays).
-6. Journal receipt jump and Find jump share `jumpToMessage` + page-owned keys; they do not crash when two chat routes are alive.
-7. Streaming does not clear an in-progress drag unless the bubble’s text identity is replaced mid-gesture; if that is unavoidable, dropping the highlight is acceptable — do not drop the Find bar.
-8. Composer selection/copy is unchanged when Find is closed.
+6. Streaming does not clear an in-progress drag unless the bubble’s text identity is replaced mid-gesture; if that is unavoidable, dropping the highlight is acceptable.
+7. Composer selection/copy is unchanged.
+8. Sending or streaming does **not** move the transcript viewport. Journal jump still does.
 
-This is presentation/UX. 1:1 vs group must behave the same. Continue vs regen only matter because they change visible text (reindex). No generation-path twins.
+This is presentation/UX. 1:1 vs group must behave the same. Continue vs regen only matter because they change visible text. No generation-path twins. No Find jump / `GlobalKey` work in this ship.
 
 ---
 
@@ -221,62 +202,63 @@ This is presentation/UX. 1:1 vs group must behave the same. Continue vs regen on
 
 ### Automated (implementation PR)
 
-Prove each new guard red before green.
+Prove each new guard red before green. **New test files only** (editing existing tests needs `approved-test-change`).
 
 **Desktop**
 
-- Widget test: drag-select path exists on speech (`SelectionArea` / selectable text at the body, not only a comment).
-- Thought collapsed → Find index omits thinking text; expand → it appears.
-- Cmd+F (or the bound intent) opens the bar; Esc closes it; next/prev wrap; `0 of 0` on no match.
+- Widget test: speech and expanded thought sit under a body-level `SelectionArea`; `StyledChatMessage` pumped alone does **not** wrap itself in `SelectionArea` (no nested islands).
 - Thought-chip tap and swipe chevron still receive taps when a `SelectionArea` ancestor exists (hit-test, not golden-only).
-- Banner long-press still invokes delete; a drag does not.
-- Jump uses the page-owned key map (reuse / extend `message_key_scope_test` thinking — no `GlobalObjectKey(msg)`).
+- Banner long-press still invokes delete; the banner sentence is selectable.
+- Hygiene: `MainMenu.xib` contains no Find submenu / `performFindPanelAction:`.
+- Scroll: after a user-owned offset, a send or a streaming-token notify does **not** `jumpTo(0)` / `animateTo(0)`. Prove red on today’s helper, then green.
 
 **Web**
 
-- Vitest: visible-text indexer (collapsed thought excluded; speaker label excluded).
-- Keydown: Cmd/Ctrl+F `preventDefault`s; Esc closes Find before drawers.
-- Highlight helper marks the active index.
+- CSS/contract test: selectable body rules and `user-select: none` on speaker / actions.
+- No Cmd+F intercept tests (we are not intercepting).
+- Scroll: after a user-owned `scrollTop`, a new `messages.length` or `streaming` update does **not** call `scrollTo` / assign `scrollTop` to `scrollHeight`. Prove red on today’s effect, then green.
 
-**Not required here:** goldens of the Find bar unless the implementation PR already has a linux-gated chat chrome golden that would otherwise drift.
+**Not required:** Find goldens, Find indexer tests, jump-key tests.
 
 ### Poke script (maintainer, ~15 seconds)
 
 A sandbox cannot self-certify this. After the implementation PR:
 
 1. Open a 1:1 chat with a long reply. Drag across a sentence → right-click Copy → paste into the composer. Confirm you did **not** copy the character name from the header.
-2. Expand Thought. Drag across thought + speech in that bubble. Copy. Collapse Thought. Cmd+F a word that exists **only** in that thought — must be `0 of 0`. Expand Thought again — the same query must hit. Then search a spoken word, next/prev, Esc.
-3. Group chat: tap a speaker name (still queues next). Swipe a reply with the chevrons. Drag-select the new body. Cmd+F still works. Repeat in the web UI in the same session: browser Copy works; Cmd+F opens **our** bar, not the browser’s.
+2. Expand Thought. Drag across thought + speech in that bubble. Copy. Collapse Thought — thought text is gone and cannot be selected.
+3. Group chat: tap a speaker name (still queues next). Swipe a reply with the chevrons. Drag-select the new body. On a Mac build: Edit menu has **no** Find submenu; ⌘F does not open a Find panel. Repeat select/copy in the web UI (browser Copy works). Browser ⌘F may still open the browser bar — that is acceptable and not our feature.
+4. Scroll up mid-history, send a message (or wait for a streaming token). The viewport must **not** jump to the latest. Scroll down yourself if you want the new line. Same on the PWA.
 
 ---
 
 ## 12. Out of scope (literal)
 
-- The OS Find panel, browser Find, or any `PlatformView` / native `NSTextView` / Win32 Edit host.
-- Implementing the feature in this docs PR.
-- Changing `CLAUDE.md` beyond a one-line index pointer (none added; this folder had no index).
+- Implementing Find (in-app or OS) in any PR until a new lock.
+- PlatformViews / native text hosts for Find or select.
+- Implementing the feature in **this** docs PR.
+- Changing `CLAUDE.md` beyond a one-line index pointer (none added).
 - User-facing `docs/Rawhide.md` notes — those land with the implementation PR.
 
 ---
 
 ## 13. Open questions (short)
 
-Locked decisions are in §1. Only these remain, and the recommended answer is the default if the implementation PR does not get a new maintainer call:
+Locked. Defaults if the implementation PR does not get a new call:
 
-1. **Case-sensitive toggle?** No. Native-feeling bar, not a search product. Case-insensitive only.
-2. **Find on Waifu Coder in the first implementation PR?** Only if the overlay is already a shared widget used by `ChatPage`. Otherwise defer; select-in-bubble still applies because the bubble widget is shared.
-3. **Cross-bubble select later?** No, unless a later lock says so.
+1. **Cross-bubble select later?** No.
+2. **Re-enable macOS Find menu when Find ships?** Yes — only then, and only if that future lock says in-app Find should own ⌘F (or a real `NSTextFinderClient`, which the investigation advises against).
 
 ---
 
-## 14. Implementation PR (later — not this change)
+## 14. Implementation PR (later — not this docs change)
 
 One PR, desktop + `web_ui`:
 
-- Bubble-body `SelectionArea` / web `user-select` per §6–§8.
-- `ChatPage` + `web_ui` ChatPage Find bar + shortcuts.
-- Visible-text indexer + `jumpToMessage` / `scrollIntoView`.
-- Keyboard-shortcuts doc + tests + poke script above.
+- Bubble-body `SelectionArea` / web `user-select` per §6 and §8.
+- Remove nested `SelectionArea` from `StyledChatMessage`.
+- macOS Find submenu gone from `MainMenu.xib`.
+- No auto-scroll on send or stream (desktop + web).
+- Keyboard-shortcuts + Rawhide + tests + poke script above.
 
-Do not grow `chat_service.dart` or any god file. This is UI state on the chat page.
+Do not grow `chat_service.dart` or any god file. Do not add Find state to `ChatPage`.
 )
