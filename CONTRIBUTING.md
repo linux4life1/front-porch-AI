@@ -145,10 +145,11 @@ the wrap introduced.
 [CLAUDE.md](CLAUDE.md) is the full engineering law. The ones that most
 often send a PR back:
 
-- **New and extracted Dart stays under 500 lines.** There is no CI job that
-  fails every file over 500. Some production files still sit over 500; do
-  not grow them — extract. No `lib/` file may reach 1,000 lines (that
-  ratchet *is* CI).
+- **Handwritten Dart under `lib/` stays under 500 lines.** That is CI
+  (`test/hygiene/god_file_ratchet_test.dart`, empty
+  `test/baselines/god_files.json`). Split instead of growing. Generated
+  `.g.dart` (including `database.g.dart`) is a different test
+  (`generated_dart_size_test.dart`). Do not invent a second 500-line gate.
 - **Web/mobile parity.** A user-visible desktop change ships in `web_ui/`
   in the same work, including its settings and toggles, unless the
   maintainer defers that item on the PR.
