@@ -133,32 +133,29 @@ void main() {
     );
   });
 
-  test(
-    'skip banner only when all non-At-work stay Away and nobody addressed',
-    () {
-      expect(
-        AwayPulse.allowSkipBanner(
-          allNonAtWorkAreAway: true,
-          awayMemberAddressed: false,
-        ),
-        isTrue,
-      );
-      expect(
-        AwayPulse.allowSkipBanner(
-          allNonAtWorkAreAway: true,
-          awayMemberAddressed: true,
-        ),
-        isFalse,
-      );
-      expect(
-        AwayPulse.allowSkipBanner(
-          allNonAtWorkAreAway: false,
-          awayMemberAddressed: false,
-        ),
-        isFalse,
-      );
-    },
-  );
+  test('skip banner is live: consumed return does not keep suppressing', () {
+    expect(
+      AwayPulse.shouldWriteSkipBanner(
+        speakerSkips: true,
+        hasUnconsumedReturn: false,
+      ),
+      isTrue,
+    );
+    expect(
+      AwayPulse.shouldWriteSkipBanner(
+        speakerSkips: true,
+        hasUnconsumedReturn: true,
+      ),
+      isFalse,
+    );
+    expect(
+      AwayPulse.shouldWriteSkipBanner(
+        speakerSkips: false,
+        hasUnconsumedReturn: false,
+      ),
+      isFalse,
+    );
+  });
 
   test('addressed Away wins return-speak; else oldest flip; cap is one', () {
     expect(

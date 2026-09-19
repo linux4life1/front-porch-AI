@@ -289,9 +289,10 @@ extension ChatServiceGeneration on ChatService {
           _activeGroup != null &&
           mode != GenerationMode.continue_ &&
           forceSpeaker == null &&
-          _awayPulse.pendingReturnSpeakId == null &&
-          _awayPulse.skipBannerAllowed &&
-          _groupSpeakerSkips(speakingCharacter)) {
+          AwayPulse.shouldWriteSkipBanner(
+            speakerSkips: _groupSpeakerSkips(speakingCharacter),
+            hasUnconsumedReturn: _awayPulse.pendingReturnSpeakId != null,
+          )) {
         // Whole roster (or a forced @name) is Away / At work. Do not eat
         // the send: write a glance line. No reply to score, so the clock
         // takes the failure-drift step (bucket brigade still moves) and

@@ -42,11 +42,15 @@ extension ChatServiceAwayPulse on ChatService {
     }
 
     final text = userText.trim().isEmpty ? _awayPulse.lastUserText : userText;
-    final addressed = AwayPulse.addressedAwayMember(
-      roster: _groupCharacters,
-      userText: text,
-      presenceOf: presenceOf,
-    );
+    // Vocative / @ is this user send only. Cadence / auto-play must
+    // not re-force a return from lastUserText.
+    final addressed = fromUserSend
+        ? AwayPulse.addressedAwayMember(
+            roster: _groupCharacters,
+            userText: text,
+            presenceOf: presenceOf,
+          )
+        : null;
     final targets = AwayPulse.quietPulseTargets(
       roster: _groupCharacters,
       userText: text,
@@ -78,19 +82,11 @@ extension ChatServiceAwayPulse on ChatService {
       flippedTrueOldestFirst: AwayPulse.orderOldestAway(flipped),
       alreadyUsedThisSend: _awayPulse.returnSpeakUsedThisUserSend,
     );
-    if (pick != null) {
+    final forcedPresent = _groupManager?.hasForcedSpeaker ?? false;
+    if (pick != null && !forcedPresent) {
       _awayPulse.pendingReturnSpeakId = pick;
       if (fromUserSend) _awayPulse.returnSpeakUsedThisUserSend = true;
     }
-
-    final allNonAtWorkAway = _groupCharacters.every((c) {
-      final where = presenceOf(c);
-      return where == PresenceWhere.atWork || where == PresenceWhere.away;
-    });
-    _awayPulse.skipBannerAllowed = AwayPulse.allowSkipBanner(
-      allNonAtWorkAreAway: allNonAtWorkAway,
-      awayMemberAddressed: addressed != null,
-    );
   }
 
   int _lastSpokeIndex(String name) {

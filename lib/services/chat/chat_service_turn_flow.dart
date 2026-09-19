@@ -113,6 +113,12 @@ extension ChatServiceTurnFlow on ChatService {
   /// turn order must not re-roll the same At-work member and miss the
   /// only free one — walk the roster once.
   CharacterCard _pickPresentGroupSpeaker() {
+    // Forced / @ of a present member wins over a quiet Away return.
+    // Serving pendingReturnSpeakId first stole @Bea when Ana flipped.
+    final forced = _groupManager?.hasForcedSpeaker ?? false;
+    if (forced) {
+      return _pickNextGroupCharacter();
+    }
     final returnId = _awayPulse.pendingReturnSpeakId;
     if (returnId != null) {
       for (final card in _groupCharacters) {
@@ -123,9 +129,8 @@ extension ChatServiceTurnFlow on ChatService {
         }
       }
     }
-    final forced = _groupManager?.hasForcedSpeaker ?? false;
     final first = _pickNextGroupCharacter();
-    if (!_groupSpeakerSkips(first) || forced) return first;
+    if (!_groupSpeakerSkips(first)) return first;
     for (final card in _groupCharacters) {
       if (_getCharacterIdFromCard(card) == _getCharacterIdFromCard(first)) {
         continue;

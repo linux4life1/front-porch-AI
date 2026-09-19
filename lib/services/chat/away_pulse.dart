@@ -17,7 +17,6 @@ class AwayPulseState {
   String? pendingReturnSpeakId;
   bool consumingReturnSpeak = false;
   bool returnSpeakUsedThisUserSend = false;
-  bool skipBannerAllowed = true;
   String lastUserText = '';
 
   void reset() {
@@ -25,7 +24,6 @@ class AwayPulseState {
     pendingReturnSpeakId = null;
     consumingReturnSpeak = false;
     returnSpeakUsedThisUserSend = false;
-    skipBannerAllowed = true;
     lastUserText = '';
   }
 
@@ -56,12 +54,13 @@ abstract final class AwayPulse {
     required int presentSpeakerTurns,
   }) => fromUserSend || cadenceDue(presentSpeakerTurns);
 
-  /// Skip banner only when every non–At-work member is still Away
-  /// after the pulse and no Away member was vocatively / @ addressed.
-  static bool allowSkipBanner({
-    required bool allNonAtWorkAreAway,
-    required bool awayMemberAddressed,
-  }) => allNonAtWorkAreAway && !awayMemberAddressed;
+  /// Live skip-banner gate. A vocative/@ return must not latch
+  /// suppression after [pendingReturnSpeakId] is consumed — address
+  /// only blocks the banner while that return is still waiting.
+  static bool shouldWriteSkipBanner({
+    required bool speakerSkips,
+    required bool hasUnconsumedReturn,
+  }) => speakerSkips && !hasUnconsumedReturn;
 
   /// Addressed Away member wins; else the oldest Away who flipped true.
   /// [flippedTrueOldestFirst] is already oldest-away first. Null when

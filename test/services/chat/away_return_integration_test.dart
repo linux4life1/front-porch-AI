@@ -367,4 +367,53 @@ void main() {
       reason: 'quiet true must not persist if they never actually spoke',
     );
   });
+
+  test('@ of a present member wins over a quiet Away flip', () async {
+    await boot(anaQuiet: true, beaQuiet: false);
+    await enterGroup(beaAtWork: false);
+    final bea = chat.groupCharacters.firstWhere((c) => c.name == 'Bea');
+    final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
+    chat.debugSetGroupWithUser(bea.stableGroupId, true);
+    chat.debugSetGroupWithUser(ana.stableGroupId, false);
+
+    await chat.sendMessage('@Bea hey — stay with me');
+    await drainTurn();
+
+    expect(
+      chat.messages.last.sender,
+      'Bea',
+      reason:
+          'HOLD 1: quiet return must not steal @ of a member who is With you',
+    );
+    expect(chat.messages.last.sender, isNot('Ana'));
+    expect(chat.messages.last.sender, isNot('System'));
+  });
+
+  test(
+    'vocative return does not stick skip-banner off for the next Away turn',
+    () async {
+      await boot(anaQuiet: false, beaQuiet: false);
+      await enterGroup(beaAtWork: false);
+
+      await chat.sendMessage('Ana, you coming?');
+      await drainTurn();
+      expect(
+        chat.messages.last.sender,
+        'Ana',
+        reason: 'vocative still forces the spoken check-in',
+      );
+
+      await chat.triggerNextCharacter();
+      await drainTurn();
+
+      expect(
+        chat.messages.last.sender,
+        'System',
+        reason:
+            'HOLD 2: after a vocative return that leaves withUser false, '
+            'the next auto-play/skip path must still banner',
+      );
+      expect(chat.messages.last.text.toLowerCase(), contains('away'));
+    },
+  );
 }
