@@ -23,13 +23,17 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/journal_store.dart';
 
+part 'promise_debt_service.apply.dart';
+
 /// One open (or recently resolved) commitment tracked as a journal card
 /// (`metadata.kind = 'promise'`). Train B — promise & debt ledger.
 class OpenPromise {
   final String cardId;
   final String text;
+
   /// Who made the commitment: `'user'` or `'char'`.
   final String party;
+
   /// `'open'` | `'kept'` | `'broken'`.
   final String status;
 
@@ -159,7 +163,9 @@ class PromiseDebtService {
     if (raw == null || raw.isEmpty) return const {};
     try {
       final d = jsonDecode(raw);
-      return d is Map<String, dynamic> ? Map<String, dynamic>.from(d) : const {};
+      return d is Map<String, dynamic>
+          ? Map<String, dynamic>.from(d)
+          : const {};
     } catch (_) {
       return const {};
     }
@@ -415,130 +421,5 @@ class PromiseDebtService {
       return true;
     }
     return false;
-  }
-
-  Future<void> _plantOpen({
-    required String sessionId,
-    required String characterId,
-    required String characterName,
-    required String userName,
-    required String party,
-    required String text,
-    int? receiptPosition,
-    int? storyDay,
-    String? storyClock,
-  }) async {
-    final content = party == 'user'
-        ? '$userName gave their word: $text'
-        : 'I promised $userName: $text';
-    await journalStore.addCard(
-      sessionId: sessionId,
-      characterId: characterId,
-      content: content,
-      category: 'moment',
-      kind: 'promise',
-      emotionLabel: party == 'user' ? 'hopeful' : 'determined',
-      emotionIntensity: 'moderate',
-      sourcePositions:
-          receiptPosition == null ? const <int>[] : <int>[receiptPosition],
-      storyDay: storyDay,
-      storyClock: storyClock,
-      maxCards: getMaxCards(),
-    );
-    // Stamp party + status + short description (addCard only writes kind/story).
-    for (final card in await journalStore.cardsFor(sessionId, characterId)) {
-      final meta = metaOf(card.metadata);
-      if (meta['kind'] == 'promise' && meta['status'] == null) {
-        await journalStore.updateCardMetadata(card, {
-          'party': party,
-          'status': 'open',
-          'description': text,
-        });
-        break;
-      }
-    }
-    await listOpen(sessionId, characterId); // refresh cache
-    _markLedgerActivity(sessionId, characterId);
-    onCacheWarmed?.call();
-    debugPrint('[PromiseDebt] NEW $party: $text');
-  }
-
-  Future<void> _resolve({
-    required String sessionId,
-    required String characterId,
-    required OpenPromise item,
-    required bool kept,
-    int? storyDay,
-    String? storyClock,
-    int? receiptPosition,
-  }) async {
-    JournalMemoryData? card;
-    for (final c in await journalStore.cardsFor(sessionId, characterId)) {
-      if (c.id == item.cardId) {
-        card = c;
-        break;
-      }
-    }
-    if (card == null) return;
-
-    final status = kept ? 'kept' : 'broken';
-    final past = kept
-        ? (item.party == 'user'
-              ? 'They kept their word: ${item.text}'
-              : 'I kept my word: ${item.text}')
-        : (item.party == 'user'
-              ? 'They broke their word: ${item.text}'
-              : 'I broke my word: ${item.text}');
-
-    await journalStore.reviseCard(card, content: past);
-    // re-fetch after revise (heat re-warmed; id stable)
-    for (final c in await journalStore.cardsFor(sessionId, characterId)) {
-      if (c.id == item.cardId) {
-        card = c;
-        break;
-      }
-    }
-    await journalStore.updateCardMetadata(card!, {
-      'status': status,
-      'party': item.party,
-      'kind': 'promise',
-    });
-
-    // Outcome milestone for Our Story (timeline-salient, never cools).
-    await journalStore.addCard(
-      sessionId: sessionId,
-      characterId: characterId,
-      content: past,
-      category: 'moment',
-      kind: 'milestone',
-      emotionLabel: kept
-          ? (item.party == 'user' ? 'relieved' : 'proud')
-          : (item.party == 'user' ? 'hurt' : 'ashamed'),
-      emotionIntensity: kept ? 'moderate' : 'strong',
-      sourcePositions:
-          receiptPosition == null ? const <int>[] : <int>[receiptPosition],
-      storyDay: storyDay,
-      storyClock: storyClock,
-      maxCards: getMaxCards(),
-    );
-
-    // Simulation pressure — user party only moves trust.
-    if (item.party == 'user') {
-      if (kept) {
-        applyTrustDelta(kKeptUserTrust);
-        applyBondDelta(kKeptUserBond);
-      } else {
-        applyTrustDelta(kBrokenUserTrust);
-        applyBondDelta(kBrokenUserBond);
-      }
-    } else {
-      applyBondDelta(kept ? kKeptCharBond : kBrokenCharBond);
-    }
-
-    await listOpen(sessionId, characterId);
-    _markLedgerActivity(sessionId, characterId);
-    onSalienceKick?.call();
-    onCacheWarmed?.call();
-    debugPrint('[PromiseDebt] $status (${item.party}): ${item.text}');
   }
 }

@@ -9,6 +9,8 @@ import 'dart:convert';
 import 'package:front_porch_ai/services/chat/season_calendar.dart';
 import 'package:front_porch_ai/services/chat/season_labels.dart';
 
+part 'weather_biomes.skin.dart';
+
 /// Condition order shared with [WeatherEngine]: clear, cloudy, overcast, fog,
 /// rain, storm, snow.
 const List<String> kWeatherConditions = [
@@ -470,32 +472,4 @@ class Biome {
     if (custom != null) return custom;
     return builtInById(biomeId) ?? temperate;
   }
-}
-
-class ConditionSkin {
-  final String label;
-  final String? emoji;
-  final WeatherStance stance;
-  final String? flavour;
-
-  const ConditionSkin({
-    required this.label,
-    this.emoji,
-    this.stance = WeatherStance.ordinary,
-    this.flavour,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'label': label,
-    if (emoji != null) 'emoji': emoji,
-    'stance': stance.name,
-    if (flavour != null && flavour!.isNotEmpty) 'flavour': flavour,
-  };
-
-  factory ConditionSkin.fromJson(Map<String, dynamic> json) => ConditionSkin(
-    label: json['label']?.toString() ?? '',
-    emoji: json['emoji']?.toString(),
-    stance: weatherStanceFromName(json['stance']?.toString()),
-    flavour: json['flavour']?.toString() ?? json['flavor']?.toString(),
-  );
 }
