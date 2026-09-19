@@ -26,17 +26,34 @@ import 'package:front_porch_ai/ui/pages/repository/repository.dart';
 /// leaves "Porch Neighbor" on screen after the toggle (the bug in #264).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // flutter_test stubs HttpClient to 400; this suite talks to a local server.
+  setUpAll(() => HttpOverrides.global = null);
 
   late HttpServer server;
   late AuthState auth;
   var cardName = 'Porch Neighbor';
+  var nsfw = false;
+
+  Map<String, Object?> _userJson() => {
+    'id': 'u1',
+    'email': 'a@b.c',
+    'displayName': 'Tester',
+    'role': 'USER',
+    'ageVerified': true,
+    'nsfwEnabled': nsfw,
+    'acceptedPolicyVersion': '1',
+    'twoFactorEnabled': false,
+  };
 
   setUp(() async {
+    HttpOverrides.global = null;
     SharedPreferences.setMockInitialValues({});
     cardName = 'Porch Neighbor';
+    nsfw = false;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      if (request.uri.path == '/characters') {
+      final path = request.uri.path;
+      if (path == '/characters') {
         request.response
           ..statusCode = 200
           ..headers.contentType = ContentType.json
@@ -58,6 +75,32 @@ void main() {
               ],
             }),
           );
+      } else if (path == '/auth/login') {
+        await request.fold<List<int>>([], (b, c) => b..addAll(c));
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              'user': _userJson(),
+              'accessToken': 'access',
+              'refreshToken': 'refresh',
+              'policyVersion': '1',
+            }),
+          );
+      } else if (path == '/auth/nsfw') {
+        final raw = await request.fold<List<int>>([], (b, c) => b..addAll(c));
+        final body = jsonDecode(utf8.decode(raw)) as Map<String, dynamic>;
+        nsfw = body['enabled'] == true;
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode({'user': _userJson(), 'policyVersion': '1'}));
+      } else if (path == '/auth/me') {
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode({'user': _userJson(), 'policyVersion': '1'}));
       } else {
         request.response.statusCode = 404;
       }
@@ -65,7 +108,7 @@ void main() {
     });
     BackporchApi.overrideBaseUrl = 'http://127.0.0.1:${server.port}';
 
-    auth = AuthState(api: _AuthApi(), store: BackporchAuthStore());
+    auth = AuthState(api: BackporchApi(), store: BackporchAuthStore());
     await auth.login(email: 'a@b.c', password: 'secret');
   });
 
@@ -81,27 +124,31 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(
-      ChangeNotifierProvider<AuthState>.value(
-        value: auth,
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              appBar: AppBar(
-                actions: [
-                  IconButton(
-                    tooltip: 'Account',
-                    icon: const Icon(Icons.account_circle_outlined),
-                    onPressed: () => showStoopAccountSheet(context),
-                  ),
-                ],
+    await tester.runAsync(() async {
+      HttpOverrides.global = null;
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthState>.value(
+          value: auth,
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                appBar: AppBar(
+                  actions: [
+                    IconButton(
+                      tooltip: 'Account',
+                      icon: const Icon(Icons.account_circle_outlined),
+                      onPressed: () => showStoopAccountSheet(context),
+                    ),
+                  ],
+                ),
+                body: const StoopBrowseView(),
               ),
-              body: const StoopBrowseView(),
             ),
           ),
         ),
-      ),
-    );
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    });
     await tester.pumpAndSettle();
     expect(find.text('Porch Neighbor'), findsWidgets);
 
@@ -110,50 +157,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Show NSFW content'), findsOneWidget);
 
-    await tester.tap(find.text('Show NSFW content'));
+    await tester.runAsync(() async {
+      HttpOverrides.global = null;
+      await tester.tap(find.text('Show NSFW content'));
+      await tester.pump();
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await tester.pump();
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    });
+    await tester.pumpAndSettle();
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await tester.pumpAndSettle();
 
     expect(auth.user?.nsfwEnabled, isTrue);
     expect(find.text('Adult Neighbor'), findsWidgets);
     expect(find.text('Porch Neighbor'), findsNothing);
   });
-}
-
-class _AuthApi extends BackporchApi {
-  bool nsfw = false;
-
-  BackporchUser _user() => BackporchUser(
-    id: 'u1',
-    email: 'a@b.c',
-    displayName: 'Tester',
-    role: 'USER',
-    ageVerified: true,
-    nsfwEnabled: nsfw,
-    acceptedPolicyVersion: '1',
-    twoFactorEnabled: false,
-  );
-
-  @override
-  Future<AuthResult> login({
-    required String email,
-    required String password,
-    String? installId,
-    String? totp,
-  }) async {
-    return AuthResult(
-      user: _user(),
-      accessToken: 'access',
-      refreshToken: 'refresh',
-      policyVersion: '1',
-    );
-  }
-
-  @override
-  Future<({BackporchUser user, String policyVersion})> setNsfwEnabled(
-    String accessToken,
-    bool enabled,
-  ) async {
-    nsfw = enabled;
-    return (user: _user(), policyVersion: '1');
-  }
 }

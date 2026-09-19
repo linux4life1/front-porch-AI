@@ -16,6 +16,7 @@ import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/settings_facade.dart';
 import 'package:front_porch_ai/services/web/facade/settings_worker.dart';
+import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/ui/settings/widgets/remote_provider_apply.dart';
 import 'package:front_porch_ai/ui/settings/widgets/worker_provider_apply.dart';
 import 'package:shared_preferences/shared_preferences.dart';

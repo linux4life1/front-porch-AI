@@ -232,9 +232,8 @@ void main() {
     test('Check Connection and generate send the same restored key', () async {
       await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
       await storage.backendSettings.setRemoteApiKey(_nanoKey);
-      // Per-host model vault: a first visit to Nano has no last model, so
-      // the live id is cleared (must not keep x-ai/grok on Nano). Generate
-      // still needs a model id to POST.
+      // Generate still needs a model id to POST. Host switch blanks the
+      // live picker, so re-pick after landing on Nano.
       await storage.backendSettings.setRemoteModelName('nano/model');
 
       await storage.backendSettings.setRemoteApiUrl(_openRouter);
@@ -243,6 +242,7 @@ void main() {
       await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
       expect(storage.backendSettings.remoteApiKey, _nanoKey);
       expect(remote.apiKey, _nanoKey);
+      await storage.backendSettings.setRemoteModelName('nano/model');
 
       http.BaseRequest? pingReq;
       http.BaseRequest? genReq;

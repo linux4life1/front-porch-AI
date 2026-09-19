@@ -25,6 +25,8 @@ import 'package:front_porch_ai/services/storage_service.dart';
 /// leaves [ModelManager.models] empty after the file lands (the bug in #265).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // flutter_test stubs HttpClient to 400; the download talks to a local server.
+  setUpAll(() => HttpOverrides.global = null);
 
   late Directory root;
   late HttpServer server;
