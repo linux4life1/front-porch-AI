@@ -381,7 +381,7 @@ Do not edit `pubspec.yaml` version — CI/CD normalizes releases.
 
 - A new guard must be **proven red** (break the fix, see fail) then green.
   If deleting the product call site still leaves the test green, it is
-  decoration — say so or fix the test.
+  decoration — say so or fix the test. Do not ship that test.
 - Prefer one broad interaction / E2E journey over another pure unit of a
   helper. Goldens answer “does it look right”; a tap answers “can a user do
   this.”
@@ -391,8 +391,48 @@ Do not edit `pubspec.yaml` version — CI/CD normalizes releases.
 - Changing an existing test needs a written rationale: what behaviour
   changed, why the old assertion is now false. If the test was right, fix
   the change.
-- Do not write tests that plant the answer. No stub LLM that returns the
-  JSON the suite wants just so it goes green.
+
+### No stub tests
+
+A pin that plants the answer is not a pin. **Forbidden:**
+
+- flutter_test / `HttpOverrides` stub clients that return canned 400/200
+  without a real listening server
+- Mockito / mocktail HTTP or API fakes that hand the suite its JSON
+- Hand-rolled “fake success” maps that never exercise the real client stack
+- Stub LLMs that return the expected string so the test cannot fail
+- `FakeStoopServer`, `integration_test/support/fake_stoop.dart`, or an
+  inline `HttpServer.bind` that invents JSON behind
+  `BackporchApi.overrideBaseUrl`
+
+Those stay in old E2E journeys that already use them. **New pins of Stoop
+/ Backporch behaviour must not add more.**
+
+Required for Stoop / Backporch / other network features:
+
+- Talk HTTP to a **real** Stoop/backporch server — the live hub
+  (`https://api.frontporchai.app`) or the team’s real droplet/API.
+- Not a toy. Not `overrideBaseUrl` at loopback JSON.
+
+If CI has no credentials or network, tag the test `live` / `stoop_live`
+and **skip only when the env is absent**. Do not replace it with a stub.
+
+Runtime env (`Platform.environment`, not dart-define):
+
+- `STOOP_LIVE_URL` — optional. Defaults to `https://api.frontporchai.app`.
+- `STOOP_TEST_EMAIL` — required to run.
+- `STOOP_TEST_PASSWORD` — required to run.
+- `STOOP_TEST_TOTP` — optional, if that account has 2FA.
+
+```
+STOOP_TEST_EMAIL=… STOOP_TEST_PASSWORD=… flutter test --tags stoop_live
+```
+
+CI without those vars skips. That is a skip, not a pass-by-stub.
+
+Model download pins: real `file://` or real HTTP of a tiny fixture the
+test controls (a real listening server serving a real file), or tag
+`live`. No 400-stub theater.
 
 ---
 

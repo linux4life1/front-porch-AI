@@ -8,7 +8,9 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import 'dart:convert';
+@Tags(['live', 'stoop_live'])
+library;
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -21,111 +23,76 @@ import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/pages/repository/repository.dart';
 
 /// flutter_test stubs HttpClient to 400. An un-overridden HttpOverrides
-/// restores the real client so browse/login/nsfw can hit the loopback
-/// server (same pattern as test/services/model_fetch_test.dart).
+/// restores the real client so this suite can talk to the live hub.
 class _RealHttpOverrides extends HttpOverrides {}
 
-/// The account-sheet NSFW switch must refetch the mounted browse grid.
+String? _env(String key) {
+  final v = Platform.environment[key]?.trim();
+  return (v == null || v.isEmpty) ? null : v;
+}
+
+/// Live hub (or the team's real droplet). Never a toy / FakeStoopServer.
 ///
-/// Red-proved: commenting out the nsfw watch in StoopBrowseView.didChangeDependencies
-/// leaves "Porch Neighbor" on screen after the toggle (the bug in #264).
+///   STOOP_TEST_EMAIL=… STOOP_TEST_PASSWORD=… \
+///     flutter test --tags stoop_live test/ui/pages/repository/stoop_nsfw_refresh_test.dart
+///
+/// Optional: STOOP_LIVE_URL (defaults to the live hub), STOOP_TEST_TOTP.
+///
+/// Red-proved: commenting out the nsfw watch in
+/// StoopBrowseView.didChangeDependencies leaves the SFW-only grid after
+/// the toggle (the bug in #264).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  final email = _env('STOOP_TEST_EMAIL');
+  final password = _env('STOOP_TEST_PASSWORD');
+  final totp = _env('STOOP_TEST_TOTP');
+  final liveUrl = _env('STOOP_LIVE_URL') ?? BackporchApi.defaultBaseUrl;
+
   final savedOverrides = HttpOverrides.current;
   setUp(() => HttpOverrides.global = _RealHttpOverrides());
   tearDown(() => HttpOverrides.global = savedOverrides);
 
-  late HttpServer server;
-  late AuthState auth;
-  var cardName = 'Porch Neighbor';
-  var nsfw = false;
-
-  Map<String, Object?> _userJson() => {
-    'id': 'u1',
-    'email': 'a@b.c',
-    'displayName': 'Tester',
-    'role': 'USER',
-    'ageVerified': true,
-    'nsfwEnabled': nsfw,
-    'acceptedPolicyVersion': '1',
-    'twoFactorEnabled': false,
-  };
-
-  setUp(() async {
-    SharedPreferences.setMockInitialValues({});
-    cardName = 'Porch Neighbor';
-    nsfw = false;
-    server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    server.listen((request) async {
-      final path = request.uri.path;
-      if (path == '/characters') {
-        request.response
-          ..statusCode = 200
-          ..headers.contentType = ContentType.json
-          ..write(
-            jsonEncode({
-              'total': 1,
-              'page': 0,
-              'items': [
-                {
-                  'id': 'card-1',
-                  'name': cardName,
-                  'summary': 'A neighbor on the porch.',
-                  'type': 'SOLO',
-                  'nsfw': cardName != 'Porch Neighbor',
-                  'score': 0,
-                  'downloadCount': 0,
-                  'modPick': false,
-                },
-              ],
-            }),
-          );
-      } else if (path == '/auth/login') {
-        await request.fold<List<int>>([], (b, c) => b..addAll(c));
-        request.response
-          ..statusCode = 200
-          ..headers.contentType = ContentType.json
-          ..write(
-            jsonEncode({
-              'user': _userJson(),
-              'accessToken': 'access',
-              'refreshToken': 'refresh',
-              'policyVersion': '1',
-            }),
-          );
-      } else if (path == '/auth/nsfw') {
-        final raw = await request.fold<List<int>>([], (b, c) => b..addAll(c));
-        final body = jsonDecode(utf8.decode(raw)) as Map<String, dynamic>;
-        nsfw = body['enabled'] == true;
-        request.response
-          ..statusCode = 200
-          ..headers.contentType = ContentType.json
-          ..write(jsonEncode({'user': _userJson(), 'policyVersion': '1'}));
-      } else if (path == '/auth/me') {
-        request.response
-          ..statusCode = 200
-          ..headers.contentType = ContentType.json
-          ..write(jsonEncode({'user': _userJson(), 'policyVersion': '1'}));
-      } else {
-        request.response.statusCode = 404;
-      }
-      await request.response.close();
-    });
-    BackporchApi.overrideBaseUrl = 'http://127.0.0.1:${server.port}';
-
-    auth = AuthState(api: BackporchApi(), store: BackporchAuthStore());
-    await auth.login(email: 'a@b.c', password: 'secret');
-  });
-
-  tearDown(() async {
-    BackporchApi.overrideBaseUrl = null;
-    auth.dispose();
-    await server.close(force: true);
-  });
-
-  testWidgets('toggling Show NSFW content reloads the browse grid', (
+  testWidgets('toggling Show NSFW content reloads the live browse grid', (
     tester,
   ) async {
+    final loginEmail = email;
+    final loginPassword = password;
+    if (loginEmail == null || loginPassword == null) {
+      return markTestSkipped(
+        'STOOP_TEST_EMAIL / STOOP_TEST_PASSWORD not set — '
+        'live Stoop pin skipped, not stubbed',
+      );
+    }
+    SharedPreferences.setMockInitialValues({});
+    BackporchApi.overrideBaseUrl = liveUrl;
+    addTearDown(() => BackporchApi.overrideBaseUrl = null);
+
+    final auth = AuthState(api: BackporchApi(), store: BackporchAuthStore());
+    addTearDown(auth.dispose);
+
+    await tester.runAsync(() async {
+      HttpOverrides.global = _RealHttpOverrides();
+      await auth.login(email: loginEmail, password: loginPassword, totp: totp);
+      if (auth.needsPolicyAcceptance) await auth.acceptPolicy();
+    });
+    expect(auth.isLoggedIn, isTrue, reason: 'live Stoop login must succeed');
+
+    final originalNsfw = auth.user!.nsfwEnabled;
+    addTearDown(() async {
+      HttpOverrides.global = _RealHttpOverrides();
+      try {
+        await auth.setNsfwEnabled(originalNsfw);
+      } catch (_) {}
+    });
+
+    if (originalNsfw) {
+      await tester.runAsync(() async {
+        HttpOverrides.global = _RealHttpOverrides();
+        await auth.setNsfwEnabled(false);
+      });
+    }
+    expect(auth.user?.nsfwEnabled, isFalse);
+
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -152,12 +119,17 @@ void main() {
           ),
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await _pumpUntilTiles(tester);
     });
     await tester.pumpAndSettle();
-    expect(find.text('Porch Neighbor'), findsWidgets);
 
-    cardName = 'Adult Neighbor';
+    final before = _tileNames(tester);
+    expect(
+      before,
+      isNotEmpty,
+      reason: 'live SFW catalog must render at least one card',
+    );
+
     await tester.tap(find.byTooltip('Account'));
     await tester.pumpAndSettle();
     expect(find.text('Show NSFW content'), findsOneWidget);
@@ -166,16 +138,39 @@ void main() {
       HttpOverrides.global = _RealHttpOverrides();
       await tester.tap(find.text('Show NSFW content'));
       await tester.pump();
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      await tester.pump();
       await Future<void>.delayed(const Duration(milliseconds: 400));
+      await tester.pump();
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      await _pumpUntilTiles(tester);
     });
     await tester.pumpAndSettle();
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await tester.pumpAndSettle();
 
     expect(auth.user?.nsfwEnabled, isTrue);
-    expect(find.text('Adult Neighbor'), findsWidgets);
-    expect(find.text('Porch Neighbor'), findsNothing);
+    final after = _tileNames(tester);
+    expect(
+      after,
+      isNot(equals(before)),
+      reason:
+          'live catalog must change when NSFW turns on '
+          '(needs at least one approved NSFW card on the hub)',
+    );
   });
+}
+
+Set<String> _tileNames(WidgetTester tester) {
+  return tester
+      .widgetList<StoopCardTile>(find.byType(StoopCardTile))
+      .map((t) => t.card.name)
+      .toSet();
+}
+
+Future<void> _pumpUntilTiles(WidgetTester tester) async {
+  for (var i = 0; i < 40; i++) {
+    if (find.byType(StoopCardTile).evaluate().isNotEmpty) return;
+    if (find.textContaining('Couldn’t load').evaluate().isNotEmpty) return;
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    await tester.pump();
+  }
 }

@@ -19,15 +19,16 @@ import 'package:front_porch_ai/services/model_manager.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// flutter_test stubs HttpClient to 400. An un-overridden HttpOverrides
-/// restores the real client so this suite can talk to its loopback server
-/// (same pattern as test/services/model_fetch_test.dart).
+/// restores the real client so this suite downloads a real fixture file.
 class _RealHttpOverrides extends HttpOverrides {}
 
 /// A finished in-app download must rescan the models folder so Settings →
 /// Model Selection sees the new GGUF without leaving the page.
 ///
-/// Red-proved: restoring `_onDownloadChanged` to `notifyListeners()` only
-/// leaves [ModelManager.models] empty after the file lands (the bug in #265).
+/// Serves a real on-disk fixture over loopback HTTP (not a stub client,
+/// not canned 400/200). Red-proved: restoring `_onDownloadChanged` to
+/// `notifyListeners()` only leaves [ModelManager.models] empty after the
+/// file lands (the bug in #265).
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final savedOverrides = HttpOverrides.current;
@@ -35,6 +36,8 @@ void main() {
   tearDown(() => HttpOverrides.global = savedOverrides);
 
   late Directory root;
+  late File fixture;
+  late List<int> fixtureBytes;
   late HttpServer server;
   late StorageService storage;
   late DownloadManager downloads;
@@ -42,6 +45,10 @@ void main() {
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('fpai_model_refresh_');
+    fixtureBytes = List<int>.generate(96, (i) => (i * 17) & 0xff);
+    fixture = File(p.join(root.path, 'source-fresh-download.gguf'));
+    await fixture.writeAsBytes(fixtureBytes, flush: true);
+
     storage = StorageService.sandbox(root.path);
     downloads = DownloadManager(targetDir: storage.modelsDir.path);
     models = ModelManager(storage, downloads);
@@ -50,12 +57,12 @@ void main() {
 
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      final body = List<int>.filled(64, 7);
+      final bytes = await fixture.readAsBytes();
       request.response
         ..statusCode = 200
         ..headers.contentType = ContentType.binary
-        ..contentLength = body.length
-        ..add(body);
+        ..contentLength = bytes.length
+        ..add(bytes);
       await request.response.close();
     });
   });
@@ -69,11 +76,11 @@ void main() {
 
   test('a successful download appears in the model selection list', () async {
     await HttpOverrides.runWithHttpOverrides(() async {
-      final filename = 'fresh-download.gguf';
+      const filename = 'fresh-download.gguf';
       final task = models.queueDownload(
         HFModelFile(
           filename: filename,
-          sizeBytes: 64,
+          sizeBytes: fixtureBytes.length,
           downloadUrl: 'http://127.0.0.1:${server.port}/$filename',
           repoId: 'test/repo',
         ),
@@ -93,6 +100,11 @@ void main() {
         models.models.map((e) => p.basename(e.path)),
         contains(filename),
         reason: 'Settings reads ModelManager.models after download completion',
+      );
+      expect(
+        await File(p.join(storage.modelsDir.path, filename)).readAsBytes(),
+        fixtureBytes,
+        reason: 'the listed file must be the fixture that was downloaded',
       );
     }, _RealHttpOverrides());
   });

@@ -41,6 +41,9 @@ Dart: [docs/maintainer-agent-playbook.md](docs/maintainer-agent-playbook.md).
   test, golden, baseline, workflow, or `analysis_options.yaml` needs the
   maintainer's `approved-test-change` label. Do not quietly edit a test to
   make CI green. A new guard must be proven red, then green.
+- **No stub tests.** Network pins hit a real server or skip when env is
+  missing — never FakeStoopServer, toy HttpServer JSON, or HttpClient 400
+  stubs. See CLAUDE.md ## Testing.
 - **Public text.** No personal names in user-facing copy, release notes, or
   docs that ship to users.
 - **Never** edit the version in `pubspec.yaml`, run destructive git restore
