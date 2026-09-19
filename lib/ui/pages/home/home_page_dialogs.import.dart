@@ -160,6 +160,10 @@ extension _HomePageDialogsImport on _HomePageState {
       final priorIds = {
         for (final c in repo.charactersWithName(card.name)) c.dbId,
       };
+      final stableHit = repo.findByStableId(
+        card.frontPorchExtensions?.stableId,
+      );
+      if (stableHit?.dbId != null) priorIds.add(stableHit!.dbId);
       final importedCard = await importCharacterWithNameCollision(
         context,
         repo,
@@ -352,6 +356,8 @@ extension _HomePageDialogsImport on _HomePageState {
           charactersDirPath: storage.charactersDir.path,
         );
         await v2Service.saveCardAsPng(card, pngPath, parsed.extractedImagePath);
+        // Bulk never offers Replace (always a fresh insert unless stableId
+        // matches). In-place persist already clears looks on that match.
         final imported = await repo.importCharacter(File(pngPath));
         if (imported != null) {
           await applyByafGalleryLooks(

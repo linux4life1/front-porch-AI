@@ -46,9 +46,7 @@ Future<int> applyByafGalleryLooks({
   var added = 0;
   final dbId = imported.dbId;
   if (replaceExistingLooks && dbId != null) {
-    for (final img in await repo.getAvatarImages(dbId)) {
-      if (img.isLook) await repo.removeAvatar(dbId, img.id);
-    }
+    await repo.clearGalleryLooks(dbId);
   }
   for (var i = 1; i < galleryImagePaths.length; i++) {
     final imagePath = galleryImagePaths[i];

@@ -1,3 +1,10 @@
+## 2026-09-19 — in-place import (stableId + PNG Replace) clears looks
+- **Why:** explicit byaf Replace cleared looks, but web stableId reimport skipped that flag, and PNG/JSON Replace never called the helper. Gallery stayed prior ∪ new.
+- **What:** `clearGalleryLooks` on the repository. Every update-in-place in `_persistImportedCharacterCard` (stableId or forceReplace) clears `isLook` rows. Byaf apply uses the same helper. Web byaf also sets `replaceExistingLooks` on a stableId hit. Desktop single-file also records the stableId dbId. Bulk still never force-replaces; persist covers a stableId match.
+- **Verified:** new `import_inplace_gallery_test` red (2 leftover looks) then green; existing byaf replace/gallery/facade suites green.
+- **Files:** character_repository.import/media, byaf_import_ops, character_facade.byaf, home_page_dialogs.import, import_inplace_gallery_test
+- **Commit:** this tip
+
 ## 2026-09-19 — BYAF Replace drops prior gallery looks
 - **Why:** Replace A (portrait+2 looks) with B (portrait+1 look) left 3 looks. `applyByafGalleryLooks` only appended; update-in-place never cleared `avatar_images`.
 - **What:** shared `replaceExistingLooks` on `applyByafGalleryLooks` (desktop + web). Clears `isLook` rows via `removeAvatar`, then applies the new pack (or none if gallery is off). Keep both / fresh import unchanged.
