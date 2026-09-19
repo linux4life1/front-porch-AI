@@ -64,7 +64,7 @@ Do **not** touch: `chat_service.dart`, `log_view.dart`, existing tests (includin
 - Consumes: nothing
 - Produces: XIB with no Find submenu and no `performFindPanelAction:` / `performTextFinderAction:`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```dart
 // Copyright (C) 2026 Front Porch AI
@@ -97,23 +97,23 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `flutter test test/hygiene/macos_find_menu_test.dart`
 
 Expected: FAIL — `performFindPanelAction:` is still in the XIB (and `title="Find"`).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `macos/Runner/Base.lproj/MainMenu.xib`, delete the separator + Find `menuItem` block that today sits between Select All and Spelling (the block that starts at `<menuItem isSeparatorItem="YES" id="uyl-h8-XO2"/>` and ends at the `</menuItem>` that closes `id="4EN-yA-p0u"`). Leave Select All and Spelling and Grammar adjacent. Do not touch View → Enter Full Screen (`id="4J7-dP-txa"`, `keyEquivalent="f"` with Control).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `flutter test test/hygiene/macos_find_menu_test.dart`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add test/hygiene/macos_find_menu_test.dart macos/Runner/Base.lproj/MainMenu.xib
