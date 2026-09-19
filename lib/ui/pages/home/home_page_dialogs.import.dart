@@ -39,6 +39,17 @@ extension _HomePageDialogsImport on _HomePageState {
     }
 
     if (files.isEmpty) return;
+    await _importCharacterFromFiles(context, files);
+  }
+
+  /// PNG/JSON/group-card import after the picker (or a desktop drop) already
+  /// resolved local files. Single file keeps the collision + tag dialogs;
+  /// several files use the existing bulk progress path.
+  Future<void> _importCharacterFromFiles(
+    BuildContext context,
+    List<File> files,
+  ) async {
+    if (files.isEmpty) return;
 
     // Single file: check if this is a Front Porch Group Card first (novel format)
     if (files.length == 1) {
@@ -103,6 +114,15 @@ extension _HomePageDialogsImport on _HomePageState {
       if (path != null) paths.add(path);
     }
     if (paths.isEmpty || !context.mounted) return;
+    await _importByafFromPaths(context, paths);
+  }
+
+  /// BYAF import after the picker (or a desktop drop) already resolved paths.
+  Future<void> _importByafFromPaths(
+    BuildContext context,
+    List<String> paths,
+  ) async {
+    if (paths.isEmpty) return;
 
     // Multiple files → bulk import with a progress dialog (no per-file preview),
     // mirroring the bulk V2 PNG importer. A single file keeps the rich preview

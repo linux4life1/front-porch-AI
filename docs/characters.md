@@ -57,6 +57,8 @@ Two things the importer does quietly on your behalf:
 
 An empty library also offers **Create New**, **Import Card**, **AI Create**, **Bulk Import** and **Import BYAF** buttons right in the middle of the screen.
 
+On the desktop home screen you can also **drag PNG cards and `.byaf` archives** from Finder / Explorer onto the library. Several files import together, the same way the picker does. Anything else (JSON, photos, folders) is skipped with a short notice — use **Import Cards** or **Import Folder** for those.
+
 ### The Stoop — the built-in community hub
 
 The Stoop is Front Porch AI's own community hub, and it's in the sidebar of every build — no nightly required.

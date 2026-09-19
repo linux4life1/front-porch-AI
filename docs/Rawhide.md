@@ -8,6 +8,7 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 ## Recent improvements (unreleased — ships in the next build)
 
 - 👜 **Pockets & Wardrobe per character** — Edit Character (and the creator) now has its own Pockets & Wardrobe switch. Porch Life still turns the feature off for everyone. Leave a character’s switch on (the default — old cards stay on) and they keep their wardrobe; turn it off and only they skip it. A group hand-off will not tuck items into someone you turned off, and turning them back on still finds whatever they already had. Same on the phone.
+- 📥 **Drop cards on the home porch** — drag a PNG character card or a `.byaf` archive from Finder / Explorer onto the home library and it imports the same way as Import Card / Import BYAF. Several files at once is fine. Other file types get a short “can’t import that” notice.
 
 - 👋 **Group friends can come back** — if someone wandered off (Away), `@Ana` asks her to check in this turn. Just saying “Ana, you coming?” does not drag her back — she may stay Away. Or they quietly notice and rejoin on their own. `@Bea` still gets Bea when she is already with you — a returning friend does not talk over her. A mid-sentence “I told Ana about it” does not drag them back. People at work stay on the clock. If the whole porch is empty, you still get the Away line after a check-in that did not stick, and a later message can still bring someone back. Same on the phone.
 

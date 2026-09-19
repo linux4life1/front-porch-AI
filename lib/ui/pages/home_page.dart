@@ -36,6 +36,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
 import 'package:front_porch_ai/ui/pages/home/dialogs/session_picker_dialog.dart';
 import 'package:front_porch_ai/ui/pages/home/enhance/enhance_wizard_page.dart';
+import 'package:front_porch_ai/ui/pages/home/home_drop_zone.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_mode_toggle.dart';
 import 'package:front_porch_ai/ui/pages/home/open_chat_env.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
@@ -54,6 +55,7 @@ part 'home/home_page_chrome.actions.dart';
 part 'home/home_page_handlers.dart';
 part 'home/home_page_dialogs.dart';
 part 'home/home_page_dialogs.import.dart';
+part 'home/home_page_drop.dart';
 part 'home/home_page_char_ops.dart';
 part 'home/home_page_transfer.dart';
 part 'home/home_page_history.dart';
@@ -227,133 +229,141 @@ class _HomePageState extends State<HomePage> {
           // no characters, so a brand-new library must still be able to reach
           // it. Without this the toggle simply did not exist on a fresh
           // install and Stories was unreachable (found by the E2E suite).
-          return Column(
-            children: [
-              _modeToggleBar(),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Get started by creating a new character!',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.color
-                                    ?.withValues(alpha: 0.7),
-                              ),
-                        ),
-                        const SizedBox(height: 24),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 16,
-                          runSpacing: 12,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () => Provider.of<AppState>(
-                                context,
-                                listen: false,
-                              ).setIndex(1),
-                              icon: const Icon(Icons.add_circle_outline),
-                              label: const Text('Create New'),
-                              style: _buttonStyle(),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => _importCharacter(context),
-                              icon: const Icon(Icons.download),
-                              label: const Text('Import Card'),
-                              style: _buttonStyle(),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const CharacterCreatorPage(),
+          return _wrapChatsWithDrop(
+            context,
+            Column(
+              children: [
+                _modeToggleBar(),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Get started by creating a new character!',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.color
+                                      ?.withValues(alpha: 0.7),
                                 ),
-                              ),
-                              icon: const Icon(Icons.auto_awesome),
-                              label: const Text('AI Create'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.porchAmberOf(
+                          ),
+                          const SizedBox(height: 24),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 16,
+                            runSpacing: 12,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () => Provider.of<AppState>(
                                   context,
-                                ),
-                                foregroundColor: AppColors.onChaosAccent,
+                                  listen: false,
+                                ).setIndex(1),
+                                icon: const Icon(Icons.add_circle_outline),
+                                label: const Text('Create New'),
+                                style: _buttonStyle(),
                               ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => _folderImportCharacters(context),
-                              icon: const Icon(Icons.library_add),
-                              label: const Text('Bulk Import'),
-                              style: _buttonStyle(),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => _importByaf(context),
-                              icon: const Icon(Icons.archive_outlined),
-                              label: const Text('Import BYAF'),
-                              style: _buttonStyle(),
-                            ),
-                          ],
-                        ),
-                      ],
+                              ElevatedButton.icon(
+                                onPressed: () => _importCharacter(context),
+                                icon: const Icon(Icons.download),
+                                label: const Text('Import Card'),
+                                style: _buttonStyle(),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const CharacterCreatorPage(),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.auto_awesome),
+                                label: const Text('AI Create'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.porchAmberOf(
+                                    context,
+                                  ),
+                                  foregroundColor: AppColors.onChaosAccent,
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () =>
+                                    _folderImportCharacters(context),
+                                icon: const Icon(Icons.library_add),
+                                label: const Text('Bulk Import'),
+                                style: _buttonStyle(),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () => _importByaf(context),
+                                icon: const Icon(Icons.archive_outlined),
+                                label: const Text('Import BYAF'),
+                                style: _buttonStyle(),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         }
 
-        return _wrapWithStatusBar(
+        return _wrapChatsWithDrop(
           context,
-          CharacterCardGrid(
-            searchQuery: _searchQuery,
-            searchScope: _searchScope,
-            activeFolderId: _activeFolderId,
-            sortMode: _sortMode,
-            lastActivityCache: _lastActivityCache,
-            messageCountCache: _messageCountCache,
-            gridScale: _gridScale,
-            isSelecting: _isSelecting,
-            isOrganizing: _isOrganizing,
-            selectedCharacterIds: _selectedCharacterIds,
-            selectedGroupIds: _selectedGroupIds,
-            searchController: _searchController,
-            gridScrollController: _gridScrollController,
-            repo: repo,
-            folderService: folderService,
-            groupRepo: groupRepo,
-            modeToggle: _buildModeToggle(),
-            onTapCharacter: _handleTapCharacter,
-            onTapGroup: _handleTapGroup,
-            onToggleSelect: _toggleSelect,
-            onToggleSelectGroup: _toggleSelectGroup,
-            onToggleSelectMode: _toggleSelectMode,
-            onToggleOrganizeMode: _toggleOrganizeMode,
-            onContextMenuAction: _handleContextMenuAction,
-            onImport: _handleImport,
-            onAcceptFolderDrop: _handleAcceptFolderDrop,
-            onFolderDialogAction: _handleFolderDialogAction,
-            onFolderTap: _handleFolderTap,
-            onFolderNavigateBack: _handleFolderNavigateBack,
-            onFolderJump: (id) => setState(() => _activeFolderId = id),
-            onCancelSelection: _cancelSelection,
-            onDeleteSelected: _massDeleteSelected,
-            // onCreateGroup no longer wired — old select-for-group path deprecated.
-            onMoveToFolder: _handleMoveToFolder,
-            onSortChanged: _handleSortChanged,
-            onGridScaleChanged: _handleGridScaleChanged,
-            onGridScaleChangeEnd: _handleGridScaleChangeEnd,
-            onSearchScopeChanged: _handleSearchScopeChanged,
-            onSearchQueryChanged: _handleSearchQueryChanged,
-            onResolveCharImage: _resolveCharImage,
-            onDeleteGroup: _handleDeleteGroup,
-            onAfterNavigateBack: _refreshLastActivityCache,
-            onGroupContextMenuAction: _handleGroupContextMenuAction,
+          _wrapWithStatusBar(
+            context,
+            CharacterCardGrid(
+              searchQuery: _searchQuery,
+              searchScope: _searchScope,
+              activeFolderId: _activeFolderId,
+              sortMode: _sortMode,
+              lastActivityCache: _lastActivityCache,
+              messageCountCache: _messageCountCache,
+              gridScale: _gridScale,
+              isSelecting: _isSelecting,
+              isOrganizing: _isOrganizing,
+              selectedCharacterIds: _selectedCharacterIds,
+              selectedGroupIds: _selectedGroupIds,
+              searchController: _searchController,
+              gridScrollController: _gridScrollController,
+              repo: repo,
+              folderService: folderService,
+              groupRepo: groupRepo,
+              modeToggle: _buildModeToggle(),
+              onTapCharacter: _handleTapCharacter,
+              onTapGroup: _handleTapGroup,
+              onToggleSelect: _toggleSelect,
+              onToggleSelectGroup: _toggleSelectGroup,
+              onToggleSelectMode: _toggleSelectMode,
+              onToggleOrganizeMode: _toggleOrganizeMode,
+              onContextMenuAction: _handleContextMenuAction,
+              onImport: _handleImport,
+              onAcceptFolderDrop: _handleAcceptFolderDrop,
+              onFolderDialogAction: _handleFolderDialogAction,
+              onFolderTap: _handleFolderTap,
+              onFolderNavigateBack: _handleFolderNavigateBack,
+              onFolderJump: (id) => setState(() => _activeFolderId = id),
+              onCancelSelection: _cancelSelection,
+              onDeleteSelected: _massDeleteSelected,
+              // onCreateGroup no longer wired — old select-for-group path deprecated.
+              onMoveToFolder: _handleMoveToFolder,
+              onSortChanged: _handleSortChanged,
+              onGridScaleChanged: _handleGridScaleChanged,
+              onGridScaleChangeEnd: _handleGridScaleChangeEnd,
+              onSearchScopeChanged: _handleSearchScopeChanged,
+              onSearchQueryChanged: _handleSearchQueryChanged,
+              onResolveCharImage: _resolveCharImage,
+              onDeleteGroup: _handleDeleteGroup,
+              onAfterNavigateBack: _refreshLastActivityCache,
+              onGroupContextMenuAction: _handleGroupContextMenuAction,
+            ),
           ),
         );
       },

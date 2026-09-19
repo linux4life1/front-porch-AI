@@ -222,6 +222,7 @@ Front Porch AI speaks the same character-card language as the rest of the commun
 **How to import**
 
 - Click **Import Card** on the home screen and pick one or more files.
+- On desktop, drag PNG cards or `.byaf` archives from Finder / Explorer onto the home library.
 - Use **Bulk Import** to point at a whole folder — it scans everything inside, subfolders included.
 - Use **Import BYAF** for Backyard archives.
 - Once your library has characters in it, those same options live behind the download icon in the library toolbar: **Import Cards**, **Import Folder**, and **Import Backyard AI (.byaf)**.

@@ -72,10 +72,31 @@ extension _HomePageCharOps on _HomePageState {
         : <String>[];
     if (pngs.isEmpty && byafs.isEmpty) return;
 
-    final total = pngs.length + byafs.length;
-    _runBulkProgressImport(
+    _importPngAndByafBatch(
       context,
       title: 'Import Folder',
+      pngs: pngs,
+      byafs: byafs,
+      importChats: importChats,
+      applySettings: applySettings,
+    );
+  }
+
+  /// One progress dialog over PNG cards then BYAF archives. Folder import and
+  /// a mixed desktop drop share this so the two kinds never stack dialogs.
+  void _importPngAndByafBatch(
+    BuildContext context, {
+    required String title,
+    required List<File> pngs,
+    required List<String> byafs,
+    bool importChats = true,
+    bool applySettings = true,
+  }) {
+    final total = pngs.length + byafs.length;
+    if (total == 0) return;
+    _runBulkProgressImport(
+      context,
+      title: title,
       totalCount: total,
       runImport: ({required onProgress, required isCancelled}) async {
         var done = 0;
