@@ -247,10 +247,6 @@ export function useChatSession() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [state?.messages.length, streaming]);
-
   // Apply per-chat theme overrides as CSS custom properties on the chat container.
   useEffect(() => {
     const vars = resolveThemeColors(state?.themeOverrides ?? null);

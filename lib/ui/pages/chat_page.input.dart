@@ -176,7 +176,6 @@ extension _ChatPageInput on _ChatPageState {
       });
     }
     _controller.clear();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   Widget _buildInputArea(BuildContext context, ChatService chatService) {

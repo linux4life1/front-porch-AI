@@ -79,7 +79,6 @@ class _ChatPageState extends State<ChatPage> {
   );
   final ScrollController _scrollController = ScrollController();
   late final FocusNode _chatFocusNode;
-  bool _autoScroll = true;
   // Journal receipts tap-to-jump: the just-landed-on bubble, briefly tinted.
   ChatMessage? _jumpFlashMessage;
   // Bubble keys for tap-to-jump, owned by THIS page instance. They used to
@@ -344,26 +343,6 @@ class _ChatPageState extends State<ChatPage> {
     _scrollController.dispose();
     _controller.dispose();
     super.dispose();
-  }
-
-  void _scrollToBottom() {
-    if (_scrollController.hasClients && _autoScroll) {
-      // ListView is reversed: position 0 = visual bottom (most recent).
-      // While streaming this fires per token batch — each animateTo would
-      // interrupt and restart the previous 300 ms curve, churning the scroll
-      // position every frame. Jump instantly during generation; keep the
-      // smooth ease for one-shot scrolls (send, page open).
-      final chat = context.read<ChatService>();
-      if (chat.isGenerating) {
-        _scrollController.jumpTo(0);
-      } else {
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    }
   }
 
   @override

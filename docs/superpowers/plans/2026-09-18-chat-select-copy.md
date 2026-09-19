@@ -470,7 +470,7 @@ CoS listed A / B / C. This task is **B only** — not a placeholder. Do not add 
   - TS: `export function applyTranscriptAutoScroll(el: { scrollTop: number; scrollHeight: number; scrollTo?: (init: ScrollToOptions) => void } | null): void`
   - After this task both functions are **no-ops**. Call sites that used to pin the viewport are gone.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `test/ui/chat_components/transcript_auto_scroll_test.dart`:
 
@@ -552,7 +552,7 @@ describe('transcript auto-scroll (option B)', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -607,7 +607,7 @@ export function applyTranscriptAutoScroll(
 }
 ```
 
-- [ ] **Step 3: Write minimal implementation (green)**
+- [x] **Step 3: Write minimal implementation (green)**
 
 Replace both helpers with no-ops:
 
@@ -648,7 +648,7 @@ Leave `scrollRef` on the message list (user scroll still needs the node). Leave 
 
 Do **not** edit `web_ui/src/pages/chatAsideMount.test.tsx` (it stubs `Element.scrollTo` — harmless leftover; changing it needs `approved-test-change`).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run:
 
@@ -659,7 +659,7 @@ cd web_ui && npm test -- src/pages/chat/transcriptAutoScroll.test.ts
 
 Expected: PASS — offset stays `240`; `scrollTo` not called; source pins clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 dart format lib/ui/chat_components/stage/transcript_auto_scroll.dart lib/ui/pages/chat_page.dart lib/ui/pages/chat_page.input.dart lib/ui/chat_components/chat_components.dart test/ui/chat_components/transcript_auto_scroll_test.dart
