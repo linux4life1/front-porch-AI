@@ -774,7 +774,7 @@ After this task: `cd web_ui && npm run build` (required whenever `web_ui/` chang
 - Consumes: shipped behavior from Tasks 1–5
 - Produces: user-facing notes only (no Find shortcut)
 
-- [ ] **Step 1: Edit keyboard-shortcuts.md**
+- [x] **Step 1: Edit keyboard-shortcuts.md**
 
 In **Standard Text Editing**, after the table, add a short paragraph:
 
@@ -786,7 +786,7 @@ macOS **Edit → Find** (`⌘F`) is not in the menu. It used to be a leftover fr
 
 Do **not** add a Find-in-chat shortcut row.
 
-- [ ] **Step 2: Edit Rawhide.md**
+- [x] **Step 2: Edit Rawhide.md**
 
 Under **Recent improvements**, add one bullet at the top of the unreleased list:
 
@@ -794,7 +794,7 @@ Under **Recent improvements**, add one bullet at the top of the unreleased list:
 - 📋 **Copy a reply like any other text** — drag across the words in a bubble (including an open Thought) and Copy. The character name and the buttons stay out of it. Sending a new line no longer yanks the transcript if you had scrolled up. Same on the phone. macOS Edit → Find is gone; it never searched the chat.
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/keyboard-shortcuts.md docs/Rawhide.md

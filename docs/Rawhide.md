@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 📋 **Copy a reply like any other text** — drag across the words in a bubble (including an open Thought) and Copy. The character name and the buttons stay out of it. Sending a new line no longer yanks the transcript if you had scrolled up. Same on the phone. macOS Edit → Find is gone; it never searched the chat.
+
 - 📦 **Backyard archives keep every picture** — a `.byaf` import now puts the first image on the portrait and the rest in the Avatar Gallery. You can turn the extra looks off on desktop. Phone and browser import `.byaf` the same way (not PNG-only). Desktop work started by [@Lufou](https://github.com/Lufou).
 
 - 💬 **Thinking-only replies show up as speech** — some Nano/Qwen models put the whole line in the hidden thought channel after Realism finishes. The bubble was empty even though the chips updated. That thought is now the spoken line. Same on the phone.
