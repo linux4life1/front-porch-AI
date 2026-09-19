@@ -192,6 +192,13 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           // Glance only. After posture so the judge can read where they
           // already are. Not fused with posture — that mix is the teleport.
           await _runWithUserPass(scoredReply);
+          if (_activeGroup != null &&
+              t.guestSpeaker == null &&
+              t.mode == GenerationMode.normal &&
+              !_awayPulse.consumingReturnSpeak &&
+              scoredReply.trim().isNotEmpty) {
+            _awayPulse.presentSpeakerTurns++;
+          }
           // Consumed — the carrier must never outlive the passes that read
           // it, or a stale answer could feed the next turn's bookkeeping.
           _replyFactsRaw = null;

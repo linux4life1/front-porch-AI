@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 👋 **Group friends can come back** — if someone wandered off (Away), they can step back in. Say their name (`Ana, you coming?` — no `@` needed) and they check in. Or they quietly notice and rejoin on their own. A mid-sentence “I told Ana about it” does not drag them back. People at work stay on the clock. If the whole porch is empty, a later message can still bring someone back — it is not stuck forever. Same on the phone.
+
 - 🏡 **Stoop NSFW toggle refreshes the porch** — “Show NSFW content” now reloads The Stoop right away. You no longer have to leave and come back. Same on the phone.
 
 - 📦 **Downloaded models show up in Model Selection** — after a download finishes, Settings → Model Selection lists the new GGUF without leaving the page.

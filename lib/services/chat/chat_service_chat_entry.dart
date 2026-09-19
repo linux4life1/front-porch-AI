@@ -140,6 +140,7 @@ extension ChatServiceChatEntry on ChatService {
       // Reset AFK idle state when switching to a different chat
       _cancelIdleTimer();
       _hasCompletedExchange = false;
+      _awayPulse.reset();
 
       // Clear group mode when switching to 1:1 AND reset author note for new session context
       _authorNote = '';

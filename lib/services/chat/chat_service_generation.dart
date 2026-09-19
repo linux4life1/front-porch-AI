@@ -269,6 +269,16 @@ extension ChatServiceGeneration on ChatService {
       } else if (_activeGroup != null) {
         // Continue resolved forceSpeaker above (id-first, refuse on
         // duplicates). Regen already passes it. Fresh turns pick present.
+        // Auto-play / trigger-next: quiet-pulse Away members on the N=3
+        // cadence. User send already pulsed in send_handoff.
+        if (mode == GenerationMode.normal &&
+            !directUserSend &&
+            forceSpeaker == null) {
+          await _runAwayPulse(
+            userText: _awayPulse.lastUserText,
+            fromUserSend: false,
+          );
+        }
         speakingCharacter = forceSpeaker ?? _pickPresentGroupSpeaker();
       } else {
         speakingCharacter = _activeCharacter!;
@@ -279,6 +289,8 @@ extension ChatServiceGeneration on ChatService {
           _activeGroup != null &&
           mode != GenerationMode.continue_ &&
           forceSpeaker == null &&
+          _awayPulse.pendingReturnSpeakId == null &&
+          _awayPulse.skipBannerAllowed &&
           _groupSpeakerSkips(speakingCharacter)) {
         // Whole roster (or a forced @name) is Away / At work. Do not eat
         // the send: write a glance line. No reply to score, so the clock
@@ -428,6 +440,7 @@ extension ChatServiceGeneration on ChatService {
       // turn's pre-pick window (e.g. _applyMoodDecay) keeps its prior
       // nextCharacter-based behaviour instead of seeing a stale speaker.
       _turnSpeakerIdForRealism = null;
+      _awayPulse.finishTurn();
       // Settling over, on EVERY exit — restore the CALLER's hold (regen keeps
       // it raised across its swipe-merge); a latched flag would wedge input.
       _isPostGenerating = callerHeldSettling;

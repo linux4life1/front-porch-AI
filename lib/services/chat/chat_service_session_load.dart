@@ -285,6 +285,7 @@ extension ChatServiceSessionLoad on ChatService {
     // Reset AFK idle state when loading a new session
     _cancelIdleTimer();
     _hasCompletedExchange = false;
+    _awayPulse.reset();
 
     final session = await _db.getSessionById(sessionId);
     if (session == null) return;

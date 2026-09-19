@@ -66,6 +66,7 @@ export 'skip_language.dart';
 export 'pockets.dart';
 export 'pockets_invert.dart';
 export 'presence_derive.dart';
+export 'away_pulse.dart';
 export 'with_user_eval.dart';
 export 'pockets_eval.dart';
 export 'pass_support.dart';

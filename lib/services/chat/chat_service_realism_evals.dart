@@ -376,46 +376,40 @@ extension ChatServiceRealismEvals on ChatService {
     final speaker = _activeCharacter;
     if (speaker == null) return;
     final userName = _userPersonaService.persona.name.trim();
-    final verdict =
-        await WithUserEval(
-          fire:
-              ({
-                required debugLabel,
-                required tools,
-                required buildPrompt,
-              }) async {
-                return fireStructuredEval(
-                  probe: _toolProbe,
-                  backendIdentity: _evalBackendIdentity,
-                  debugLabel: debugLabel,
-                  tools: tools,
-                  buildPrompt: buildPrompt,
-                  callToText: (resp) => realismToolCallToJson(
-                    WithUserEval.kWithUserTool,
-                    resp.calls,
-                  ),
-                  fireToolEval: _fireToolEval,
-                  toolChoice: WithUserEval.kWithUserTool,
-                  getPreferTextEvals: () =>
-                      _storageService.realismSettings.preferTextEvals,
-                  fireTextEval: (p, {onChunk}) => _fireLLMEval(
-                    p,
-                    repeatPenalty: kScalarEvalRepeatPenalty,
-                    label: 'with_user',
-                  ),
-                );
-              },
-        ).detect(
-          charName: speaker.name,
-          userName: userName.isEmpty ? 'the user' : userName,
-          reply: clampEvalMessage(reply),
-          recentExchange: recentExchange(_messages),
-          stance: _relationshipService.spatialStance,
-        );
+    final verdict = await _makeWithUserEval().detect(
+      charName: speaker.name,
+      userName: userName.isEmpty ? 'the user' : userName,
+      reply: clampEvalMessage(reply),
+      recentExchange: recentExchange(_messages),
+      stance: _relationshipService.spatialStance,
+    );
     _relationshipService.applyWithUserVerdict(verdict);
     debugPrint(
       '[Presence] with_user=$verdict '
       '(glance=${_relationshipService.withUser})',
     );
   }
+
+  WithUserEval _makeWithUserEval() => WithUserEval(
+    fire: ({required debugLabel, required tools, required buildPrompt}) async {
+      return fireStructuredEval(
+        probe: _toolProbe,
+        backendIdentity: _evalBackendIdentity,
+        debugLabel: debugLabel,
+        tools: tools,
+        buildPrompt: buildPrompt,
+        callToText: (resp) =>
+            realismToolCallToJson(WithUserEval.kWithUserTool, resp.calls),
+        fireToolEval: _fireToolEval,
+        toolChoice: WithUserEval.kWithUserTool,
+        getPreferTextEvals: () =>
+            _storageService.realismSettings.preferTextEvals,
+        fireTextEval: (p, {onChunk}) => _fireLLMEval(
+          p,
+          repeatPenalty: kScalarEvalRepeatPenalty,
+          label: 'with_user',
+        ),
+      );
+    },
+  );
 }

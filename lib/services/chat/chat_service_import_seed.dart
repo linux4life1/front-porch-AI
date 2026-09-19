@@ -18,6 +18,7 @@ extension ChatServiceImportSeed on ChatService {
     _cancelIdleTimer();
 
     _hasCompletedExchange = false;
+    _awayPulse.reset();
     _greetingIndex = 0;
 
     _summary = '';

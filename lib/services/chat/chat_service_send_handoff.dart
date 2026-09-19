@@ -109,6 +109,9 @@ extension ChatServiceSendHandoff on ChatService {
     if (addressedGuest != null) {
       await generateGuestTurn(addressedGuest);
     } else {
+      if (_activeGroup != null) {
+        await _runAwayPulse(userText: userMsg.promptText, fromUserSend: true);
+      }
       // This is the sole web-search allow-list entry: a newly appended user
       // message receiving its first host/group response. Every follow-up,
       // guest, cast, regen, idle, and command generation keeps the default

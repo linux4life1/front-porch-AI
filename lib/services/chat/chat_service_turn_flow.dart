@@ -113,6 +113,16 @@ extension ChatServiceTurnFlow on ChatService {
   /// turn order must not re-roll the same At-work member and miss the
   /// only free one — walk the roster once.
   CharacterCard _pickPresentGroupSpeaker() {
+    final returnId = _awayPulse.pendingReturnSpeakId;
+    if (returnId != null) {
+      for (final card in _groupCharacters) {
+        if (_getCharacterIdFromCard(card) == returnId) {
+          _awayPulse.consumingReturnSpeak = true;
+          _groupManager?.advanceAfterRegeneration(card);
+          return card;
+        }
+      }
+    }
     final forced = _groupManager?.hasForcedSpeaker ?? false;
     final first = _pickNextGroupCharacter();
     if (!_groupSpeakerSkips(first) || forced) return first;

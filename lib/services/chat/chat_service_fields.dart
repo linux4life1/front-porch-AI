@@ -74,6 +74,7 @@ mixin ChatServiceFieldBag {
   // state lives here either (the growth pass includes 1:1 guests who spoke in
   // the window via resolvePassOwners).
   final SceneGuestState _sceneGuest = SceneGuestState();
+  final AwayPulseState _awayPulse = AwayPulseState();
 
   bool _photoTurnInFlight = false;
 
@@ -348,7 +349,8 @@ mixin ChatServiceFieldBag {
   /// deleted with the chat; this scalar is the same record for the host.
   Pockets? _pockets;
 
-  Completer<void>? _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination)
+  Completer<void>?
+  _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination)
 
   final ContextBudgetStore _contextBudget = ContextBudgetStore();
   // ── Session Metadata ──

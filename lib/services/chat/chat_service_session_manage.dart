@@ -86,6 +86,7 @@ extension ChatServiceSessionManage on ChatService {
     // Reset AFK idle state when starting a new chat
     _cancelIdleTimer();
     _hasCompletedExchange = false;
+    _awayPulse.reset();
 
     debugPrint(
       '[startNewChat] START: arousal=${_nsfwService.arousalLevel}, fixation=${_relationshipService.activeFixation}/${_relationshipService.fixationLifespan}',

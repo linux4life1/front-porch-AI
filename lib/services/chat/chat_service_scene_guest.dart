@@ -86,7 +86,7 @@ extension ChatServiceSceneGuest on ChatService {
         _groupCharacters,
         promptText,
       );
-      if (target != null) {
+      if (target != null && !_groupSpeakerSkips(target)) {
         debugPrint(
           '[Cast] @-mention: ${target.name} forced as this turn\'s speaker.',
         );
@@ -141,11 +141,14 @@ extension ChatServiceSceneGuest on ChatService {
     _sceneGuest.activityIsError = isError;
     notifyListeners();
     if (msg != null && !sticky) {
-      _sceneGuest.statusClearTimer = Timer(Duration(seconds: isError ? 6 : 3), () {
-        _sceneGuest.activityStatus = null;
-        _sceneGuest.activityIsError = false;
-        notifyListeners();
-      });
+      _sceneGuest.statusClearTimer = Timer(
+        Duration(seconds: isError ? 6 : 3),
+        () {
+          _sceneGuest.activityStatus = null;
+          _sceneGuest.activityIsError = false;
+          notifyListeners();
+        },
+      );
     }
   }
 
@@ -268,7 +271,8 @@ extension ChatServiceSceneGuest on ChatService {
         await File(tmpPath).writeAsBytes(bytes);
         await V2CardService().saveCardAsPng(card, cardPath, tmpPath);
         if (_sceneChanged(token)) return; // re-check after the slow write
-        _sceneGuest.avatarEvictPath = cardPath; // UI evicts the stale cached image
+        _sceneGuest.avatarEvictPath =
+            cardPath; // UI evicts the stale cached image
         notifyListeners();
       } catch (e) {
         debugPrint('[SceneGuest] portrait generation failed: $e');

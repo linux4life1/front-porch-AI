@@ -87,6 +87,12 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     _turnSpeakerIdForRealism = charId;
   }
 
+  /// Test-only: set the glance bit on a group member slot.
+  @visibleForTesting
+  void debugSetGroupWithUser(String charId, bool? v) {
+    _memberForWrite(charId).withUser = v;
+  }
+
   /// Test-only: live position injection through the wired BehavioralInjection.
   /// Does not stub `getOccupationBrief`.
   @visibleForTesting

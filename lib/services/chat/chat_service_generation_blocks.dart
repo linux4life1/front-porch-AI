@@ -293,6 +293,11 @@ extension ChatServiceGenerationBlocks on ChatService {
       }
     }
 
+    if (_activeGroup != null && _awayPulse.consumingReturnSpeak) {
+      t.authorNoteBlock +=
+          '${AwayPulse.returnSpeakHint(t.speakingCharacter.name)}\n';
+    }
+
     // Build summary block if available. Role frame (spec §6): the recap is
     // the plot spine; the journal carries feelings; RAG carries exact lines.
     // The text lives in buildRecapBlock (prompt_injection/recap_injection.dart)

@@ -135,6 +135,7 @@ part 'chat/chat_service_wiring_injection_leaves.dart';
 part 'chat/chat_service_send.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
+part 'chat/chat_service_away_pulse.dart';
 part 'chat/chat_service_message_ops.dart';
 part 'chat/chat_service_timeline.dart';
 part 'chat/chat_service_guest_flow.dart';
