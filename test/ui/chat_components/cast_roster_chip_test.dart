@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/sidebar_tokens.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 void main() {
