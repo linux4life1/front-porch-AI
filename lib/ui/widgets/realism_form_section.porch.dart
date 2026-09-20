@@ -168,37 +168,9 @@ extension RealismFormPorch on RealismFormSection {
         ),
       ],
 
-      // Per-character Pockets & Wardrobe — Porch Life, not the engine.
-      // Shown only when the authoring surface wires the optional pair.
-      if (pocketsEnabled != null && onPocketsEnabledChanged != null) ...[
-        const SizedBox(height: 20),
-        _sectionHeader(
-          Icons.checkroom_outlined,
-          'Pockets & Wardrobe',
-          AppColors.optionalAccent,
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.borderOf(context)),
-          ),
-          child: RealismFormSection.buildToggleRow(
-            icon: Icons.checkroom_outlined,
-            label: 'Pockets & Wardrobe',
-            subtitle:
-                'When off, this character skips inventory tracking even if '
-                'Porch Life has Pockets on. Old cards stay on.',
-            value: pocketsEnabled!,
-            onChanged: onPocketsEnabledChanged!,
-            context: context,
-          ),
-        ),
-      ],
-
       // Identity / wardrobe — Porch Life, not the engine.
+      // Per-character Pockets enable rides IdentityChipLists (top of the
+      // Wearing / Carrying card). Do not re-add an orphan section here.
       IdentityChipLists(
         ambitions: ambitions,
         onAmbitionsChanged: onAmbitionsChanged,
@@ -228,6 +200,8 @@ extension RealismFormPorch on RealismFormSection {
         onWornChanged: onWornChanged,
         carrying: carrying,
         onCarryingChanged: onCarryingChanged,
+        pocketsEnabled: pocketsEnabled,
+        onPocketsEnabledChanged: onPocketsEnabledChanged,
       ),
     ];
   }

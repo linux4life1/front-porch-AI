@@ -47,9 +47,8 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                         borderRadius: BorderRadius.circular(20),
                         color: AppColors.cardOf(context),
                         border: Border.all(
-                          color: AppColors.borderOf(
-                            context,
-                          ).withValues(alpha: 0.45),
+                          color: AppColors.borderOf(context)
+                              .withValues(alpha: 0.45),
                         ),
                         image: cover != null
                             ? DecorationImage(
@@ -329,6 +328,11 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                   onWornChanged: (v) => rebuildState(() => _worn = v),
                   carrying: _carrying,
                   onCarryingChanged: (v) => rebuildState(() => _carrying = v),
+                  pocketsEnabled: _realismPocketsEnabled,
+                  onPocketsEnabledChanged: (v) => rebuildState(() {
+                    _realismPocketsEnabled = v;
+                    _realismSettingsModified = true;
+                  }),
                 ),
 
               // ── Realism Engine Summary ── (hidden for group members, whose

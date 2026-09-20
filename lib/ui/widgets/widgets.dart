@@ -30,6 +30,7 @@
 
 export 'chip_list_editor.dart';
 export 'identity_chip_lists.dart';
+export 'wardrobe_chip_section.dart';
 export 'work_row.dart';
 export 'birthday_row.dart';
 export 'ai_engine_status_card.dart';

@@ -19,8 +19,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/chat/chat.dart'
-    show PocketItem, isEmptyWardrobeRef, kMaxWorn;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 // Sibling in this file's OWN barrel directory — importing widgets.dart here
@@ -28,6 +26,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/chip_list_editor.dart';
 import 'package:front_porch_ai/ui/widgets/plan_lines_editor.dart';
 import 'package:front_porch_ai/ui/widgets/birthday_row.dart';
+import 'package:front_porch_ai/ui/widgets/wardrobe_chip_section.dart';
 import 'package:front_porch_ai/ui/widgets/work_row.dart';
 
 /// The install's 18+ master switch — the same one that shows or hides the
@@ -116,6 +115,8 @@ class IdentityChipLists extends StatelessWidget {
     this.onWornChanged,
     this.carrying,
     this.onCarryingChanged,
+    this.pocketsEnabled,
+    this.onPocketsEnabledChanged,
   });
 
   final List<String>? ambitions;
@@ -155,13 +156,19 @@ class IdentityChipLists extends StatelessWidget {
 
   /// Starting Pockets & Wardrobe: what the character already has when a chat
   /// opens. Chip text is the item as it READS — `sundress (rain-soaked)` —
-  /// which [PocketItem.parseDisplay] splits back into name + condition. That is
+  /// which PocketItem.parseDisplay splits back into name + condition. That is
   /// the same string the sidebar, the receipts and the prompt all show, so
   /// there is nothing new to learn and no second field per item.
   final List<String>? worn;
   final ValueChanged<List<String>>? onWornChanged;
   final List<String>? carrying;
   final ValueChanged<List<String>>? onCarryingChanged;
+
+  /// Per-character enable. Shown only when the caller wires the pair AND
+  /// the Wearing / Carrying editors — the toggle lives on that panel, not
+  /// as an orphan under Details / Optional Features.
+  final bool? pocketsEnabled;
+  final ValueChanged<bool>? onPocketsEnabledChanged;
 
   static Widget _header(IconData icon, String text, Color color) => Row(
     children: [
@@ -343,59 +350,18 @@ class IdentityChipLists extends StatelessWidget {
         ],
 
         // ── Pockets & Wardrobe (docs/design/pockets-and-preferences.md §1) ──
-        // The authoring half of a feature that already shipped everything
-        // else: the runtime seeds a chat's record from exactly this map
-        // (chat_service_pockets.dart), so until now the only way a character
-        // could start a chat holding anything was to hand-edit the card JSON.
-        if (hasWardrobe) ...[
-          _header(
-            Icons.checkroom,
-            'Pockets & Wardrobe',
-            AppColors.porchAmberOf(context),
+        // Toggle + starting kit live on this panel. A lone enable pair
+        // without Wearing / Carrying is ignored so Details cannot grow
+        // another orphan section.
+        if (hasWardrobe)
+          WardrobeChipSection(
+            worn: worn!,
+            onWornChanged: onWornChanged!,
+            carrying: carrying!,
+            onCarryingChanged: onCarryingChanged!,
+            pocketsEnabled: pocketsEnabled,
+            onPocketsEnabledChanged: onPocketsEnabledChanged,
           ),
-          const SizedBox(height: 12),
-          _card(
-            context,
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'What this character already has when a chat opens. Add a '
-                  'condition in brackets — "sundress (rain-soaked)" — and it '
-                  'is kept and updated as the story uses the item.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    color: AppColors.textSecondary(context),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ChipListEditor(
-                  label: 'Wearing',
-                  values: worn!,
-                  onChanged: (v) => onWornChanged!([
-                    for (final s in v)
-                      if (!isEmptyWardrobeRef(PocketItem.parseDisplay(s).name))
-                        s,
-                  ]),
-                  hintText: 'e.g. flour-dusted apron',
-                ),
-                const SizedBox(height: 16),
-                ChipListEditor(
-                  label: 'Carrying',
-                  values: carrying!,
-                  onChanged: onCarryingChanged!,
-                  hintText: 'e.g. car keys',
-                  helper:
-                      'Tracked once Pockets & Wardrobe is switched on in '
-                      'Settings → Porch Life. Up to $kMaxWorn of each; the '
-                      'oldest drops off if a character picks up more.',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
 
         // ── The 18+ pair, only for an install that asked for it ──
         if (hasIntimate) ...[

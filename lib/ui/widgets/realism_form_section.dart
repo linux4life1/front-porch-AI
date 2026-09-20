@@ -111,8 +111,10 @@ class RealismFormSection extends StatelessWidget {
   final List<String>? carrying;
   final ValueChanged<List<String>>? onCarryingChanged;
 
-  /// Per-character Pockets & Wardrobe. Optional pair — group-member editors
-  /// that do not author this flag keep compiling unchanged.
+  /// Per-character Pockets & Wardrobe. Forwarded onto the Wearing / Carrying
+  /// panel (IdentityChipLists). Optional pair — group-member editors that
+  /// do not author this flag keep compiling unchanged. A lone pair without
+  /// worn/carrying does not render (no orphan Details section).
   final bool? pocketsEnabled;
   final ValueChanged<bool>? onPocketsEnabledChanged;
 
