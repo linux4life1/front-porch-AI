@@ -252,9 +252,9 @@ Groups sit on the home screen next to your characters, and (since 1.2) can be fi
 
 A 1:1 chat and a group are the same chat with a different headcount — so you can change the cast **in place**, with your history and every character's memory and relationships intact. Type `/` in the message box to see the list; the ones that move people around are:
 
-- **`/join <name>`** — bring someone into the scene. In a 1:1 they arrive as a lightweight **scene guest** (they're in the story, but they don't carry their own relationship and needs tracking). In a group, everyone is always a full member.
-- **`/join --full <name>`** — bring someone in as a *full* member. In a solo chat that converts it into a group on the spot, no wizard and no screen change. The newcomer makes an entrance in their own voice and the story just continues.
-- **`/promote`** — turn the scene you're already in into a real group, upgrading every guest present to a full member.
+- **`/join <name>`** (or `/join --lite`) — bring someone into the scene as a lightweight **guest**. In a 1:1 they sit beside the host. In a group they get a **GUEST** badge on the roster: they take turns and can be Away, but they do not get Needs, diary, or the feelings map. A **GUEST** badge after this is success, not a failed Promote.
+- **`/join --full <name>`** — bring someone in as a *full* member. In a solo chat that converts it into a group on the spot, no wizard and no screen change. If they were already a guest, they become full; anyone else who was a guest stays Guest. A new full arrival makes an entrance in their own voice.
+- **`/promote`** / **`/promote <name>`** — named `/promote` (or the roster **Promote** button, or `/join --full` of a present guest) makes **that one** guest a full member. Bare `/promote` (or **Promote to group**) turns a 1:1 into a group; present guests stay Guest until you Promote them.
 - **`/exit <name>`** — write someone out. They get a goodbye, and a one-tap **Undo** appears in case you regret it.
 - **`/speak <name>`** — make a specific character take a turn right now.
 - **`/turnorder`** — set exactly who speaks when, including your own slot (`/turnorder Mara, {{user}}, Kai`). On its own, it shows the current order.
@@ -643,9 +643,9 @@ Type `/` in the box. Aliases (`/turn`, `/detect`, `/expression-clear`) exist; th
 
 | Command | What it does |
 |---|---|
-| `/create <name>: <concept>` | Make a new guest NPC and bring them in |
-| `/join [--full] [name]` | Bring a library character in. `--full` = full member (turns a 1:1 into a group) |
-| `/promote` | Everyone present becomes a full member (scene → group) |
+| `/create <name>: <concept>` | Make a new guest NPC and bring them in (works in a group too) |
+| `/join [--full\|--lite] [name]` | Bring a library character in. Lite is a guest (works in a group too). `--full` is a full member (a 1:1 becomes a group; other guests stay Guest) |
+| `/promote [name]` | Named (or the roster Promote button): that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them |
 | `/speak [name]` | Force a turn now |
 | `/exit [name]` | Guest leaves (narrated); in a group, remove that member |
 | `/turnorder [random \| <name>, …]` | Round-robin, random, or an explicit order |

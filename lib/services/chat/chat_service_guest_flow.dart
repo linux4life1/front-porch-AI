@@ -292,6 +292,15 @@ extension ChatServiceGuestFlow on ChatService {
         '⚠ Could not convert this chat into a group.',
         isError: true,
       );
+      return;
+    }
+    // After setActiveGroup cleared the 1:1 banner: say so GUEST badges
+    // are the new model, not a failed Promote.
+    if (liteArrivalKeys.isNotEmpty) {
+      _setGuestStatus(
+        'This is a group now. Guests stay Guest until you Promote them '
+        '(/promote Name or the roster button).',
+      );
     }
   }
 

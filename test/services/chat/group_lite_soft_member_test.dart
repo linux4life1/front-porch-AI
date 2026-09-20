@@ -226,5 +226,9 @@ void main() {
     );
     expect(named('Senjumaru').isLite, isFalse);
     expect(named('Zinna').isLite, isFalse);
+    expect(
+      chat.guestActivityStatus,
+      contains('Guests stay Guest until you Promote them'),
+    );
   }, timeout: const Timeout(Duration(minutes: 3)));
 }

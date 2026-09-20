@@ -19,7 +19,7 @@ import { prepareChatPhotoBase64 } from '../pages/chatPhoto';
 const SLASH_COMMANDS: { cmd: string; args: string; desc: string }[] = [
   { cmd: '/create', args: '<name>: <concept>', desc: 'Create a new guest NPC and bring them into the scene' },
   { cmd: '/join', args: '[--full|--lite] [name]', desc: 'Bring a character in — lite is a Scene Guest (works in a group too); --full is a full member' },
-  { cmd: '/promote', args: '[name]', desc: 'Make a present guest a full member; bare /promote turns a 1:1 scene into a group' },
+  { cmd: '/promote', args: '[name]', desc: 'Named: that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them' },
   { cmd: '/speak', args: '[name]', desc: 'Anyone on the porch (host, guest, or group member) takes a turn now' },
   { cmd: '/exit', args: '[name]', desc: 'A guest leaves (narrated); in a group, removes that full member by name' },
   { cmd: '/turnorder', args: '[random | <name>, …]', desc: 'Set how a group takes turns: round-robin, random, or an explicit order' },

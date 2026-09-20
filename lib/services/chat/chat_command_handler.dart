@@ -170,7 +170,7 @@ class ChatCommandHandler {
     SlashCommandInfo(
       'promote',
       '/promote [name]',
-      'Make a present guest a full member; bare /promote turns a 1:1 scene into a group',
+      'Named: that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them',
     ),
     SlashCommandInfo(
       'speak',

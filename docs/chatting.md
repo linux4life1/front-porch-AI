@@ -40,9 +40,9 @@ Type `/` — a helper list appears. `Esc` dismisses it. Type `@` to mention some
 
 | Command | What it does |
 |---|---|
-| `/create <name>: <concept>` | New guest NPC, brought in |
-| `/join [--full] [name]` | Library character in. `--full` = full member (1:1 becomes a group) |
-| `/promote` | Everyone present becomes a full member |
+| `/create <name>: <concept>` | New guest NPC, brought in (works in a group too) |
+| `/join [--full\|--lite] [name]` | Library character in. Lite is a guest (works in a group too). `--full` is a full member (a 1:1 becomes a group; other guests stay Guest) |
+| `/promote [name]` | Named (or the roster Promote button): that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them |
 | `/speak [name]` | Force a turn now |
 | `/exit [name]` | Guest leaves (narrated); in a group, remove that member |
 | `/turnorder [random \| names…]` | Round-robin, random, or an order |
@@ -103,7 +103,7 @@ Each member keeps lorebooks, relationship, needs, expressions, voice.
 
 **A 1:1 and a group are the same chat with a different headcount.** `/join`, `/join --full`, `/promote`, `/exit` change the cast in place. History stays.
 
-If the story keeps naming someone who is not in the cast, a **scene-guest** dialog offers to add them (`/scan` is the typed twin). Guests are Lite NPCs — no Character State / Objectives until you promote.
+If the story keeps naming someone who is not in the cast, a **scene-guest** dialog offers to add them (`/scan` is the typed twin). Guests are Lite NPCs — they keep a **GUEST** badge and skip Character State / Objectives until you Promote them by name (or the roster button). Turning a 1:1 into a group does **not** upgrade them.
 
 **Director Mode** (groups): sidebar toggle. Your input becomes stage direction, not dialogue. **Response Delay** is desktop pacing; phone has the toggle, not the delay slider. Play/pause auto-chat is desktop.
 
