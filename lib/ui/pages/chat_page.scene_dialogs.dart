@@ -83,11 +83,10 @@ extension _ChatPageSceneDialogs on _ChatPageState {
     }
     final full = chat.pendingGuestPickerFull;
     // Full picker: in a group it adds a member; in a 1:1 it converts to a group.
-    // Lite picker: a Scene Guest inside a 1:1.
-    final characters = full
-        ? (chat.activeGroup != null
-              ? chat.joinableGroupCharacters
-              : chat.joinableGuestCharacters)
+    // Lite picker: Scene Guest in 1:1, or a soft member from the same library
+    // pool in a group (`joinableGuestCharacters` forwards there).
+    final characters = chat.activeGroup != null
+        ? chat.joinableGroupCharacters
         : chat.joinableGuestCharacters;
     final selected = await showDialog<CharacterCard>(
       context: context,

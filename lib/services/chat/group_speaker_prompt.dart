@@ -38,6 +38,34 @@ String buildGroupRosterLine({
   return 'Also present: ${names.join(', ')}.';
 }
 
+/// Guest-weight slap for a soft group member (tier lite). Same identity
+/// switch as a 1:1 Scene Guest — they are not a full realism-bearing member.
+String buildLiteGroupTurnNote({
+  required String speakerName,
+  required List<String> otherMemberNames,
+  required String userName,
+  bool observerMode = false,
+}) {
+  final speaker = _safeName(speakerName);
+  final others = <String>[
+    for (final n in otherMemberNames)
+      if (_safeName(n).isNotEmpty) _safeName(n),
+  ];
+  if (!observerMode) {
+    final user = _safeName(userName);
+    if (user.isNotEmpty) others.add(user);
+  }
+  final notClause = others.map((n) => 'You are not $n').join('. ');
+  final ban = others.join(' or ');
+  final notLine = notClause.isEmpty ? '' : ' $notClause.';
+  final banLine = ban.isEmpty
+      ? ''
+      : ' Do NOT write, speak, or narrate anything for $ban.';
+  return '[SCENE GUEST TURN. You are $speaker, a visitor in this group.$notLine\n'
+      'Reply ONLY as $speaker: their own dialogue, actions, and thoughts.'
+      '$banLine]\n';
+}
+
 /// Named identity slap for a full group member (not a Scene Guest).
 String buildSpeakerTurnNote({
   required String speakerName,

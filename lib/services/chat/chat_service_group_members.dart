@@ -29,8 +29,9 @@ extension ChatServiceGroupMembers on ChatService {
   /// This is the core of the fix originally contributed in PR #44 by @MisterLotto.
   Future<String> _createGroupMember(
     String groupId,
-    CharacterCard character,
-  ) async {
+    CharacterCard character, {
+    bool asLite = false,
+  }) async {
     final mid = const Uuid().v4();
     final avDir = Directory(
       path.join(_storageService.groupsDir.path, groupId, 'avatars'),
@@ -69,9 +70,19 @@ extension ChatServiceGroupMembers on ChatService {
         ),
         worldNames: drift.Value(jsonEncode(character.worldNames)),
         frontPorchExtensions: drift.Value(
-          character.frontPorchExtensions != null
-              ? jsonEncode(character.frontPorchExtensions!.toJson())
-              : null,
+          encodeMemberFrontPorch(
+            asLite
+                ? cloneFrontPorchTier(
+                    character.frontPorchExtensions,
+                    lite: true,
+                  )
+                : character.isLite
+                ? cloneFrontPorchTier(
+                    character.frontPorchExtensions,
+                    lite: false,
+                  )
+                : character.frontPorchExtensions,
+          ),
         ),
         rawExtensions: drift.Value(
           character.rawExtensions != null
@@ -94,8 +105,9 @@ extension ChatServiceGroupMembers on ChatService {
   /// Add a character to the currently active group chat.
   Future<bool> addCharacterToGroup(
     CharacterCard character,
-    GroupChatRepository groupRepo,
-  ) async {
+    GroupChatRepository groupRepo, {
+    bool asLite = false,
+  }) async {
     if (_activeGroup == null || _characterRepository == null) return false;
     if (_isTurnBusy) return false;
 
@@ -125,7 +137,11 @@ extension ChatServiceGroupMembers on ChatService {
     // storage and insert a group_members row. Shared with forkToGroupChat
     // via _createGroupMember (ported from the fix originally contributed in
     // PR #44 by @MisterLotto).
-    final mid = await _createGroupMember(_activeGroup!.id, character);
+    final mid = await _createGroupMember(
+      _activeGroup!.id,
+      character,
+      asLite: asLite,
+    );
 
     await groupRepo.save(_activeGroup!);
 
@@ -140,14 +156,14 @@ extension ChatServiceGroupMembers on ChatService {
           'avatars',
           m.avatarFilename!,
         );
-        if (await File(p).exists()) {
-          resolved.add(m.toCharacterCard(resolvedImagePath: p));
-        }
+        resolved.add(m.toCharacterCard(resolvedImagePath: p));
+      } else {
+        resolved.add(m.toCharacterCard(resolvedImagePath: ''));
       }
     }
     _inheritGroupExpressionAvatars(resolved);
     _groupManager?.refreshCharacters(resolved);
-    if (_needsSimEnabled && _getGroupNeeds(mid).isEmpty) {
+    if (!asLite && _needsSimEnabled && _getGroupNeeds(mid).isEmpty) {
       _setGroupNeeds(
         mid,
         NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions),
@@ -162,8 +178,8 @@ extension ChatServiceGroupMembers on ChatService {
   }
 
   /// Re-resolve the group's live roster from the member table and push it to the
-  /// turn manager, returning the resolved cards. Members whose private avatar is
-  /// missing are skipped (same rule as the initial group load). Shared by member
+  /// turn manager, returning the resolved cards. Missing avatars still keep the
+  /// member on the roster (same rule as [setActiveGroup]). Shared by member
   /// removal (after the delete) and the deferred-exit undo (after a soft-remove,
   /// where the row still exists so the member comes straight back).
   Future<List<CharacterCard>> _reloadGroupRoster() async {
@@ -179,9 +195,9 @@ extension ChatServiceGroupMembers on ChatService {
           'avatars',
           m.avatarFilename!,
         );
-        if (await File(p).exists()) {
-          resolved.add(m.toCharacterCard(resolvedImagePath: p));
-        }
+        resolved.add(m.toCharacterCard(resolvedImagePath: p));
+      } else {
+        resolved.add(m.toCharacterCard(resolvedImagePath: ''));
       }
     }
     _inheritGroupExpressionAvatars(resolved);

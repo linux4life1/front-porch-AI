@@ -42,3 +42,5 @@ Last shipped nightly: `rawhide.20260918.c11669b`. Everything below is unreleased
 - 🔑 **Changing the search key or evals GGUF path on the phone asks for your password** — same stolen-session gate as the remote API URL.
 
 - 🪟 **Windows and Linux caption buttons stay visible** — minimize / maximize still light up on hover after the Mac title-bar fix.
+
+- 👥 **Guests can sit in a group without becoming full members** — `/create`, `/join --lite`, and `/scan` work in a group now. They take turns and can be Away like anyone else, but they do not get Needs, diary, or the feelings map until you Promote them (`/promote Name` or the roster button). Turning a 1:1 into a group keeps the guests as guests. Same on the phone.

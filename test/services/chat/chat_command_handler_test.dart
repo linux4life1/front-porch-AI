@@ -140,10 +140,10 @@ void main() {
       },
     );
 
-    test('/create outside a 1:1 chat is rejected before creating', () async {
+    test('/create with no chat open is rejected before creating', () async {
       final h = build(activeSet: false);
       expect(await h.handle('/create Bob: a baker'), true);
-      expect(systemMessages.single, contains('1:1'));
+      expect(systemMessages.single, contains('Open a chat'));
       expect(createCalls, isEmpty);
     });
 
@@ -238,7 +238,7 @@ void main() {
     });
 
     test(
-      '/join <name> in a group routes to a FULL join (no lite tier)',
+      '/join <name> in a group stays LITE (soft member, no coercion)',
       () async {
         groupMembers = [_guest('Aria'), _guest('Bryn')];
         groupJoinable = [_guest('Nora')];
@@ -246,11 +246,59 @@ void main() {
           activeSet: false,
         ); // group mode (activeCharacterIsSet false)
         expect(await h.handle('/join Nora'), true);
-        expect(joinedFull.single.name, 'Nora'); // full, not lite
-        expect(joined, isEmpty);
+        expect(joined.single.name, 'Nora'); // lite, not coerced to full
+        expect(joinedFull, isEmpty);
         expect(pickerRequests, isEmpty);
       },
     );
+
+    test('/join --lite <name> in a group stays lite', () async {
+      groupMembers = [_guest('Aria'), _guest('Bryn')];
+      groupJoinable = [_guest('Nora')];
+      final h = build(activeSet: false);
+      expect(await h.handle('/join --lite Nora'), true);
+      expect(joined.single.name, 'Nora');
+      expect(joinedFull, isEmpty);
+    });
+
+    test(
+      '/join --full <present soft guest> in a group promotes via joinFull',
+      () async {
+        final mara = _guest('Mara');
+        groupMembers = [_guest('Aria'), mara];
+        groupJoinable = [_guest('Nora')];
+        final h = build(activeSet: false);
+        expect(await h.handle('/join --full Mara'), true);
+        expect(joinedFull.single.name, 'Mara');
+        expect(joined, isEmpty);
+      },
+    );
+
+    test('/promote <name> in a group is the joinFull alias', () async {
+      final mara = _guest('Mara');
+      groupMembers = [_guest('Aria'), mara];
+      final h = build(activeSet: false);
+      expect(await h.handle('/promote Mara'), true);
+      expect(joinedFull.single.name, 'Mara');
+      expect(scenePromotions, 0);
+    });
+
+    test('/create in a group is allowed (soft member)', () async {
+      groupMembers = [_guest('Aria'), _guest('Bryn')];
+      final h = build(activeSet: false);
+      expect(await h.handle('/create Bob: a baker'), true);
+      expect(createCalls.single, ('Bob', 'a baker'));
+      expect(systemMessages, isEmpty);
+    });
+
+    test('/scan in a group is allowed', () async {
+      groupMembers = [_guest('Aria'), _guest('Bryn')];
+      castScanFound = false;
+      final h = build(activeSet: false);
+      expect(await h.handle('/scan'), true);
+      expect(castScans, 1);
+      expect(systemMessages.last, contains('No new recurring character'));
+    });
 
     test('/join --full <name> in a group adds the member', () async {
       groupMembers = [_guest('Aria'), _guest('Bryn')];
@@ -541,10 +589,10 @@ void main() {
       expect(pickerRequests.single, 'Mara');
     });
 
-    test('/scan outside a 1:1 chat is rejected before scanning', () async {
+    test('/scan with no chat open is rejected before scanning', () async {
       final h = build(activeSet: false);
       expect(await h.handle('/scan'), true);
-      expect(systemMessages.single, contains('1:1'));
+      expect(systemMessages.single, contains('Open a chat'));
       expect(castScans, 0);
     });
 

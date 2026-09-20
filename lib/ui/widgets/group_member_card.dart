@@ -23,7 +23,6 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart'
     show showPocketItemDialog;
 import 'package:front_porch_ai/ui/pages/pages.dart';
@@ -64,6 +63,7 @@ class GroupMemberCard extends StatefulWidget {
   final int ringCount;
   final bool canRemove;
   final VoidCallback? onRemove;
+  final VoidCallback? onPromote;
   final VoidCallback? onOpenObjectives;
 
   const GroupMemberCard({
@@ -78,6 +78,7 @@ class GroupMemberCard extends StatefulWidget {
     this.ringCount = 0,
     this.canRemove = false,
     this.onRemove,
+    this.onPromote,
     this.onOpenObjectives,
   });
 
@@ -363,6 +364,46 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                           ),
                         ),
                       ],
+                      if (widget.character.isLite) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.porchAmberOf(
+                              context,
+                            ).withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'GUEST',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.porchAmberOf(context),
+                            ),
+                          ),
+                        ),
+                        if (widget.onPromote != null)
+                          TextButton(
+                            onPressed: widget.onPromote,
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.onChaosAccent,
+                              backgroundColor: AppColors.formMasterAccent,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 0,
+                              ),
+                              minimumSize: const Size(0, 24),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'Promote',
+                              style: TextStyle(fontSize: 11),
+                            ),
+                          ),
+                      ],
                       if (widget.canRemove && widget.onRemove != null)
                         IconButton(
                           icon: const Icon(Icons.close, size: 14),
@@ -379,8 +420,10 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                   ),
                 ),
 
-                if (widget.isExpanded && isRealism) ..._expandedChildren(look),
-                if (!widget.isExpanded) ..._compactChildren(look),
+                if (widget.isExpanded && isRealism && !widget.character.isLite)
+                  ..._expandedChildren(look),
+                if (!widget.isExpanded && !widget.character.isLite)
+                  ..._compactChildren(look),
               ],
             ),
           ),

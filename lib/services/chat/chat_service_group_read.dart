@@ -208,16 +208,16 @@ extension ChatServiceGroupRead on ChatService {
       _realismEnabled && isGroupMode && !observerMode;
 
   /// Phase 3: Hard cap for inter-character relationship tracking.
-  /// Per the approved plan, full hidden inter-character dynamics (seeding,
-  /// decay, injection, and updates) are **only** performed when the group has
-  /// 4 or fewer members. This prevents combinatorial explosion and prompt bloat.
+  /// Hidden inter-character dynamics (seeding, decay, injection, updates)
+  /// run only when the group has 2–4 **full** members. Soft (lite) guests
+  /// do not count and never join the graph.
   ///
-  /// When the group has 5+ members:
+  /// When the group has 5+ full members:
   /// - Inter-character 'relationships' maps remain empty / are ignored.
-  /// - All characters still receive full per-speaker realism evaluations for
+  /// - Full members still receive per-speaker realism evaluations for
   ///   their feelings **toward the user** (visible bars continue to work).
   bool get _shouldTrackInterCharacterRelationships {
     if (_activeGroup == null) return false;
-    return _groupCharacters.length <= 4;
+    return shouldTrackInterCharacterAmong(_groupCharacters);
   }
 }

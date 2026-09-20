@@ -435,9 +435,16 @@ extension ChatServiceWiringMemory on ChatService {
         label: 'cast',
       ),
       stripThinkBlocks: _stripThinkBlocks,
-      getHostName: () => _activeCharacter?.name ?? '',
+      getHostName: () =>
+          _activeCharacter?.name ??
+          nextCharacter?.name ??
+          _groupCharacters.firstOrNull?.name ??
+          '',
       getUserName: () => _userPersonaService.persona.name,
-      getSceneGuestNames: () => _sceneGuest.cards.map((g) => g.name).toList(),
+      getSceneGuestNames: () => [
+        ..._sceneGuest.cards.map((g) => g.name),
+        ..._groupCharacters.map((c) => c.name),
+      ],
       getOfferedOrIgnoredNames: () => _sceneGuest.offeredOrIgnoredNames,
     );
   }

@@ -27,8 +27,8 @@ extension ChatCommandGuest on ChatCommandHandler {
   // adds it to the scene, drives the live status line, and has it enter — all
   // busy-guarded, with no saved 'System' chat litter.
   Future<void> _handleCreate(String args) async {
-    if (!_activeCharacterIsSet()) {
-      _onSystemMessage('⚠ Scene Guests can only be added inside a 1:1 chat.');
+    if (!_activeCharacterIsSet() && _getGroupMembers().isEmpty) {
+      _onSystemMessage('⚠ Open a chat first to add a guest.');
       return;
     }
     if (args.trim().isEmpty) {
@@ -59,14 +59,12 @@ extension ChatCommandGuest on ChatCommandHandler {
 
   // ── Join an existing character: /join [--full|--lite] [name] ────────────
   // Brings an EXISTING library character into the scene. Two tiers:
-  //   • lite (default)  → a Scene Guest: no new card minted, reuses the same
-  //                       parity-safe enter path as `/create`, carries no
-  //                       Realism/Needs. Lite only exists inside a 1:1.
-  //   • --full          → a full participant: converts the 1:1 into a group
-  //                       (host + the named character) in place — no wizard, no
-  //                       screen switch. The character speaks on its own turns
-  //                       with full Realism/Needs. This is the macro path that
-  //                       replaces the old Fork-to-Group wizard.
+  //   • lite (default)  → a Scene Guest in 1:1, or a soft group member
+  //                       (`tier == 'lite'` on the roster). No Realism/Needs.
+  //   • --full          → a full participant. In a 1:1, converts to a group
+  //                       (present guests stay soft unless they are the named
+  //                       target). In a group, adds a member — or promotes a
+  //                       present soft guest.
   // Resolution:
   //   • `/join`               → open the picker (lite browse of the full list).
   //   • `/join <name>`        → lite-join an unambiguous match; else open the
@@ -83,15 +81,25 @@ extension ChatCommandGuest on ChatCommandHandler {
     }
 
     final (full: requestedFull, name: wanted) = _parseJoinFlags(args);
-    // A group has no "lite" tier — everyone is a full member — so a plain `/join`
-    // (or even `/join --lite`) silently becomes a full join inside a group.
-    final full = inGroup ? true : requestedFull;
+    // Lite stays lite in a group (soft member). --full of a present soft
+    // guest promotes them; --full of anyone else is today's add/convert.
+    final full = requestedFull;
+    final presentSoft = inGroup
+        ? [
+            for (final c in _getGroupMembers())
+              if (c.isLite) c,
+          ]
+        : const <CharacterCard>[];
 
-    // Candidate pool. In a group: library characters not already members. In a
-    // 1:1: joinable guests; a full (convert) join can also target a present lite
-    // guest (promoting them), so its pool includes the present scene guests.
+    // Group lite: library characters not already members. Group --full:
+    // those plus present soft guests (so /join --full <soft> promotes).
     final candidates = inGroup
-        ? _getGroupJoinableCharacters()
+        ? (full
+              ? <CharacterCard>[
+                  ..._getGroupJoinableCharacters(),
+                  ...presentSoft,
+                ]
+              : _getGroupJoinableCharacters())
         : (full
               ? <CharacterCard>[
                   ..._getJoinableCharacters(),
@@ -165,6 +173,77 @@ extension ChatCommandGuest on ChatCommandHandler {
       }
     }
     return (full: full, name: kept.join(' ').trim());
+  }
+
+  // ── /promote [name] ─────────────────────────────────────────────────────
+  // Bare `/promote` in a 1:1 converts the scene (guests stay soft). A name
+  // is `/join --full` of that present guest — same helper as roster Promote.
+  Future<void> _handlePromote(String args) async {
+    final wanted = args.trim();
+    if (wanted.isEmpty) {
+      if (_getGroupMembers().isNotEmpty) {
+        final soft = [
+          for (final c in _getGroupMembers())
+            if (c.isLite) c,
+        ];
+        if (soft.isEmpty) {
+          _onSystemMessage('⚠ No guest to promote. Use /promote <name>.');
+          return;
+        }
+        if (soft.length == 1) {
+          await _joinFull(soft.single);
+          return;
+        }
+        final names = soft.map((c) => c.name).join(', ');
+        _onSystemMessage(
+          '⚠ Who should become a full member? /promote <name> — $names.',
+        );
+        return;
+      }
+      await _promoteScene();
+      return;
+    }
+    final members = _getGroupMembers();
+    if (members.isNotEmpty) {
+      final soft = [
+        for (final c in members)
+          if (c.isLite) c,
+      ];
+      if (soft.isEmpty) {
+        _onSystemMessage('⚠ No guest named "$wanted" to promote.');
+        return;
+      }
+      final target = _resolveGroupMember(
+        wanted,
+        soft,
+        command: 'promote',
+        emptyVerb: 'become a full member',
+      );
+      if (target != null) await _joinFull(target);
+      return;
+    }
+    final guests = _getSceneGuestCards();
+    CharacterCard? match;
+    final lower = wanted.toLowerCase();
+    for (final g in guests) {
+      if (g.name.toLowerCase() == lower) {
+        match = g;
+        break;
+      }
+    }
+    match ??= () {
+      final partial = guests
+          .where((g) => g.name.toLowerCase().contains(lower))
+          .toList();
+      return partial.length == 1 ? partial.single : null;
+    }();
+    if (match == null) {
+      _onSystemMessage(
+        '⚠ No guest named "$wanted" is present. Use /join --full <name>.',
+      );
+      return;
+    }
+    await _joinFull(match);
   }
 
   // ── Scene Guest: /speak [name] (alias /turn) ────────────────────────────

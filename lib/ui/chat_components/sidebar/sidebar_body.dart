@@ -105,7 +105,7 @@ class _SidebarBodyState extends State<SidebarBody> {
     }
     final chat = widget.chatService;
     final isGroup = chat.isGroupMode;
-    final isLite = !isGroup && !widget.focused.realismEnabled;
+    final isLite = widget.focused.isLite;
     final section = OpenSectionEnv.name;
 
     // Objectives: a first-frame isLite/null-key no-op must retry — UIC
@@ -150,7 +150,7 @@ class _SidebarBodyState extends State<SidebarBody> {
         final ui = storage.uiSettings;
         final character = widget.focused.card;
         final isGroup = chat.isGroupMode;
-        final isLite = !isGroup && !widget.focused.realismEnabled;
+        final isLite = widget.focused.isLite;
 
         return ListView(
           padding: const EdgeInsets.all(12),
@@ -299,6 +299,9 @@ class _SidebarBodyState extends State<SidebarBody> {
               );
               await chat.removeCharacterFromGroup(character, groupRepo);
             }
+          : null,
+      onPromote: character.isLite
+          ? () => chat.promoteGuestToFull(character)
           : null,
       onOpenObjectives: () {
         showDialog(

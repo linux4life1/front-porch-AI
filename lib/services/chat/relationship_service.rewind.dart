@@ -90,6 +90,8 @@ extension RelationshipServiceRewind on RelationshipService {
     int delta,
   ) {
     if (!getIsGroupActive()) return;
+    final full = getCurrentGroupMemberIds();
+    if (!full.contains(fromCharId) || !full.contains(toCharId)) return;
 
     final currentMap = Map<String, int>.from(
       getInterCharacterRelationships(fromCharId),
@@ -110,6 +112,7 @@ extension RelationshipServiceRewind on RelationshipService {
     if (!getShouldTrackInterCharacterRelationships()) return;
     if (!getIsGroupActive() || getObserverMode()) return;
     if (getGroupCharacterCount() < 2) return;
+    if (!getCurrentGroupMemberIds().contains(charId)) return;
 
     final currentRels = Map<String, int>.from(
       getInterCharacterRelationships(charId),
@@ -147,6 +150,7 @@ extension RelationshipServiceRewind on RelationshipService {
   void updateInterCharacterFeelingsFromRecentExchange(String speakerId) {
     if (!getShouldTrackInterCharacterRelationships()) return;
     if (!getIsGroupActive() || getMessageCount() < 2) return;
+    if (!getCurrentGroupMemberIds().contains(speakerId)) return;
 
     final rels = Map<String, int>.from(
       getInterCharacterRelationships(speakerId),

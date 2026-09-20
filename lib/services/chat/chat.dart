@@ -28,6 +28,7 @@ export 'growth_ops.dart';
 export 'growth_physics.dart';
 export 'growth_prompt.dart';
 export 'growth_review.dart';
+export 'group_lite.dart';
 export 'group_member_realism.dart';
 export 'group_speaker_resolution.dart';
 export 'growth_service.dart';

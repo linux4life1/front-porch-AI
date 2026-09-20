@@ -184,15 +184,9 @@ extension ChatServiceSceneGuest on ChatService {
     // Reject a duplicate name when MINTING a new guest (join already excludes
     // anyone present). Two same-named guests make /exit, chime-in targeting, and
     // the host "do not voice: X, X" injection ambiguous.
-    if (existing == null) {
-      final wanted = displayName.trim().toLowerCase();
-      if (_sceneGuest.cards.any((g) => g.name.trim().toLowerCase() == wanted)) {
-        _setGuestStatus(
-          '"$displayName" is already in the scene.',
-          isError: true,
-        );
-        return;
-      }
+    if (existing == null && _sceneNameTaken(displayName)) {
+      _setGuestStatus('"$displayName" is already in the scene.', isError: true);
+      return;
     }
     final token = _currentSessionId;
     _sceneGuest.busy = true;
@@ -221,7 +215,11 @@ extension ChatServiceSceneGuest on ChatService {
         card = result.card!;
       }
       _setGuestStatus('${card.name} is making an entrance…', sticky: true);
-      await _enterSceneGuest(card);
+      if (_activeGroup != null) {
+        await _addLiteMemberToGroup(card);
+      } else {
+        await _enterSceneGuest(card);
+      }
       if (_sceneChanged(token)) return; // switched during the entrance turn
       _setGuestStatus('${card.name} joined the scene'); // auto-clears
       _maybeGenerateGuestPortrait(

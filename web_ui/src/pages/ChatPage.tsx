@@ -174,8 +174,7 @@ export function ChatPage() {
   // `state.realism` here showed the HOST's bond/trust/needs under the
   // guest's name; desktop shows a 'Lite NPC' banner instead.
   const focusedMember = focusedId ? cast.find((c) => c.id === focusedId) : undefined;
-  const focusedIsLiteGuest =
-    !!focusedMember && !focusedMember.isHost && !focusedMember.realismEnabled;
+  const focusedIsLiteGuest = !!focusedMember?.isLite;
   const realismForPanel = focusRealism ?? state.realism;
   const insight = realismForPanel ? (
     <ChatInsight

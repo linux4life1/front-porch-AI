@@ -138,7 +138,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     // mutated, so a /join'd full character keeps its real scenario for when it
     // is the host). This also self-heals legacy guests minted with the host's
     // scenario baked in (the "model thinks the guest IS the host" bug).
-    if (t.guestSpeaker != null) t.scenario = '';
+    if (_isLiteTurn(t)) t.scenario = '';
 
     t.suffix = "";
 
@@ -295,13 +295,13 @@ extension ChatServiceGenerationBlocks on ChatService {
     t.summaryBlock = recapBlockForTurn(
       recap: _summary,
       journalEnabled: _storageService.memorySettings.journalEnabled,
-      isGuest: t.guestSpeaker != null,
+      isGuest: _isLiteTurn(t),
     );
 
     // Cued query for journal cold-resurface AND RAG (not last-3 live lines
     // alone). Guests skip both. Compose even when the Journal toggle is off
     // so RAG still searches by feeling / fixation / last words.
-    if (t.guestSpeaker == null && _currentSessionId != null) {
+    if (!_isLiteTurn(t) && _currentSessionId != null) {
       final speakerId = _getCharacterIdFromCard(t.speakingCharacter);
       final cards = speakerId.isEmpty
           ? const <JournalMemoryData>[]
@@ -328,7 +328,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     // expanded verbatim this turn — RAG retrieval below excludes them so
     // the exact lines never ride the prompt twice.
     if (_storageService.memorySettings.journalEnabled &&
-        t.guestSpeaker == null &&
+        !_isLiteTurn(t) &&
         _currentSessionId != null) {
       await _ensureBirthdayState();
       final journal = await _journalInjection.buildJournalBlock(
@@ -358,12 +358,19 @@ extension ChatServiceGenerationBlocks on ChatService {
       for (final ch in _groupCharacters)
         if (ch.name != speaker.name) ch.name,
     ];
-    final slap = buildSpeakerTurnNote(
-      speakerName: speaker.name,
-      otherMemberNames: others,
-      userName: t.userName,
-      observerMode: _observerMode,
-    );
+    final slap = speaker.isLite
+        ? buildLiteGroupTurnNote(
+            speakerName: speaker.name,
+            otherMemberNames: others,
+            userName: t.userName,
+            observerMode: _observerMode,
+          )
+        : buildSpeakerTurnNote(
+            speakerName: speaker.name,
+            otherMemberNames: others,
+            userName: t.userName,
+            observerMode: _observerMode,
+          );
     final persona = buildSpeakerPersonaLine(
       name: speaker.name,
       personality: _macroResolver.resolve(

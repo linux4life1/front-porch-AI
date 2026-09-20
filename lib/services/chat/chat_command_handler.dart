@@ -164,13 +164,13 @@ class ChatCommandHandler {
     ),
     SlashCommandInfo(
       'join',
-      '/join [--full] [name]',
-      'Bring a character in — --full makes a full member; in a group, always full',
+      '/join [--full|--lite] [name]',
+      'Bring a character in — lite is a Scene Guest (works in a group too); --full is a full member',
     ),
     SlashCommandInfo(
       'promote',
-      '/promote',
-      'Turn the present scene into a full group (everyone becomes a full member)',
+      '/promote [name]',
+      'Make a present guest a full member; bare /promote turns a 1:1 scene into a group',
     ),
     SlashCommandInfo(
       'speak',
@@ -243,9 +243,7 @@ class ChatCommandHandler {
         return true;
 
       case 'promote':
-        // Turn the whole present scene (host + every present lite guest) into a
-        // real group where everyone is a full, realism-bearing member.
-        await _promoteScene();
+        await _handlePromote(args);
         return true;
 
       case 'speak':
@@ -258,8 +256,8 @@ class ChatCommandHandler {
         // Manual cast-detection trigger: force an immediate scan of the host's
         // recent narration for a recurring side character, bypassing the
         // automatic per-turn cadence (works on an already-loaded chat too).
-        if (!_activeCharacterIsSet()) {
-          _onSystemMessage('⚠ NPC detection only runs inside a 1:1 chat.');
+        if (!_activeCharacterIsSet() && _getGroupMembers().isEmpty) {
+          _onSystemMessage('⚠ Open a chat first to scan the scene.');
           return true;
         }
         _onSystemMessage('🔍 Scanning the scene for a recurring character…');

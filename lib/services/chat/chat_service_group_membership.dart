@@ -30,6 +30,7 @@ extension ChatServiceGroupMembership on ChatService {
     String? scenario,
     TurnOrder turnOrder = TurnOrder.roundRobin,
     Map<String, ({String text, bool creative})> entrances = const {},
+    Set<String> liteArrivalKeys = const {},
   }) async {
     if (_isTurnBusy) return null;
     if (_activeCharacter == null || _characterRepository == null) return null;
@@ -47,8 +48,8 @@ extension ChatServiceGroupMembership on ChatService {
     // host's realism, the enable-flags, and author note intact — making
     // 1:1->group lossless. Growth rings are session-scoped DB rows and carry
     // via _growthStore.carryOwnerGrowth in the fork carry (no capture needed).
-    // Present lite guests carried no realism (by design) and become full
-    // members seeded with neutral defaults on first entry.
+    // Present lite guests become SOFT members (tier kept) unless the
+    // caller listed them as a full arrival (join --full of that guest).
     final String hostName = _activeCharacter!.name;
     final String? hostSessionId =
         _currentSessionId; // 1:1 session (objectives source)
@@ -118,7 +119,11 @@ extension ChatServiceGroupMembership on ChatService {
     // Ported from the fix originally contributed in PR #44 by @MisterLotto.
     await _createGroupMember(group.id, _activeCharacter!);
     for (final c in orderedArrivals) {
-      await _createGroupMember(group.id, c);
+      final key = _getCharacterIdFromCard(c);
+      final asLite =
+          liteArrivalKeys.contains(key) ||
+          (c.dbId != null && liteArrivalKeys.contains(c.dbId));
+      await _createGroupMember(group.id, c, asLite: asLite);
     }
 
     // Create a new session for the group and copy all messages

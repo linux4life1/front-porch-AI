@@ -160,19 +160,20 @@ extension ChatServiceWiringRealism on ChatService {
       onSaveChat: _saveChat,
       getIsGroupActive: () => _activeGroup != null,
       getObserverMode: () => _observerMode,
-      getGroupCharacterCount: () => _groupCharacters.length,
+      getGroupCharacterCount: () =>
+          fullGroupCharacters(_groupCharacters).length,
       getShouldTrackInterCharacterRelationships: () =>
           _shouldTrackInterCharacterRelationships,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
-      getCurrentGroupMemberIds: () =>
-          _groupCharacters.map(_getCharacterIdFromCard).toSet(),
-      getOtherGroupMemberIds: (selfId) => _groupCharacters
-          .map(_getCharacterIdFromCard)
-          .where((id) => id != selfId)
-          .toList(),
+      getCurrentGroupMemberIds: () => fullGroupCharacters(
+        _groupCharacters,
+      ).map(_getCharacterIdFromCard).toSet(),
+      getOtherGroupMemberIds: (selfId) => fullGroupCharacters(
+        _groupCharacters,
+      ).map(_getCharacterIdFromCard).where((id) => id != selfId).toList(),
       getOtherGroupMemberIdToLowerName: (selfId) {
         final m = <String, String>{};
-        for (final other in _groupCharacters) {
+        for (final other in fullGroupCharacters(_groupCharacters)) {
           final oid = _getCharacterIdFromCard(other);
           if (oid == selfId) continue;
           m[oid] = other.name.toLowerCase();
