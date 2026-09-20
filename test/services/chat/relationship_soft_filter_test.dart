@@ -7,6 +7,7 @@
 // `!full.contains(from) || !full.contains(to)` return.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/relationship_service.dart';
 
 import 'relationship_service_test.dart' show createTestRelationship;
 
