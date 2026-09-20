@@ -295,7 +295,10 @@ extension ChatServiceGenerationBlocks on ChatService {
     t.summaryBlock = recapBlockForTurn(
       recap: _summary,
       journalEnabled: _storageService.memorySettings.journalEnabled,
-      isGuest: _isLiteTurn(t),
+      // 1:1 Scene Guest (guestSpeaker) OR a soft group member. Same as
+      // `_isLiteTurn` — written out so the journal-off recap pin still
+      // sees guestSpeaker, and a host/full turn still gets the recap.
+      isGuest: t.guestSpeaker != null || t.speakingCharacter.isLite,
     );
 
     // Cued query for journal cold-resurface AND RAG (not last-3 live lines

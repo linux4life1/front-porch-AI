@@ -90,8 +90,14 @@ extension RelationshipServiceRewind on RelationshipService {
     int delta,
   ) {
     if (!getIsGroupActive()) return;
+    // Soft-exclude only when the full-member set is wired (ChatService).
+    // An empty set is the extracted-leaf default — clamp/create must still
+    // work for any ids the caller passes.
     final full = getCurrentGroupMemberIds();
-    if (!full.contains(fromCharId) || !full.contains(toCharId)) return;
+    if (full.isNotEmpty &&
+        (!full.contains(fromCharId) || !full.contains(toCharId))) {
+      return;
+    }
 
     final currentMap = Map<String, int>.from(
       getInterCharacterRelationships(fromCharId),
