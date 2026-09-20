@@ -28,7 +28,7 @@ How a conversation actually works. If the AI will not talk at all, start with [F
 
 While the AI writes, a red **Stop** appears. Click it to cut the reply short. Text streams in live.
 
-**Attach a photo** (desktop) sits next to the box. If the chat model can see images, it looks. If not, **Photo Understanding** (Settings → Voice & Media) can describe the picture offline. Phone chat has no attach button.
+**Attach a photo** sits next to the box (desktop and phone). If the chat model can see images, it looks. If not, **Photo Understanding** (Settings → Voice & Media) can describe the picture offline.
 
 **Thinking models** (Qwen, DeepSeek, …) put private reasoning in a collapsible **Thought** chip. Ignore it if you do not care.
 

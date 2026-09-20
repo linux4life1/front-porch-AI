@@ -578,7 +578,7 @@ The web app is **not** a clone of every desktop button. It covers chats (includi
 - Image Studio (full Create/Edit/LoRA/expression-pack QC). Phone **Models** can still generate a picture and insert it into chat; `/image` works in web chat too
 - Voice Call Mode (push-to-talk mic still works over HTTPS)
 - Suggest Actions
-- Attach a photo to a message / Photo Understanding
+- Photo Understanding (the phone **can** attach a photo; the offline describer is desktop)
 - Sharing / uploading on The Stoop (browse, download, follow, vote, comments work)
 - Backups & Restore
 - Database Scan & Clean / changing the data folder
