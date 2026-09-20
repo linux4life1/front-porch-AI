@@ -17,6 +17,10 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
+
+import 'package:front_porch_ai/services/chat/objective_stale_detector.dart'
+    show normalizeObjectiveStaleThreshold;
+
 import 'settings_base.dart';
 
 part 'realism_settings.load.dart';
@@ -165,6 +169,11 @@ class RealismSettings with SettingsBase {
   /// the only thing that moves ambition progress.
   bool _objectivesEnabled = true;
 
+  /// Consecutive explicit "this quest is no longer relevant" verdicts before
+  /// the quest retires as stale (not achieved). 0 = off. Allowed: 0, 1, 2, 4.
+  /// Default 2. Task-level stale is immediate and ignores this.
+  int _objectiveStaleThreshold = 2;
+
   /// Whether 18+ themes are on for this install. Gates the Porch Life
   /// "After Dark" group (approved sketch: that group is "shown only when 18+
   /// themes are enabled"), and will gate the intimate-preferences section in
@@ -204,6 +213,9 @@ class RealismSettings with SettingsBase {
 
   /// See [_objectivesEnabled]. The switch Objectives never had.
   bool get objectivesEnabled => _objectivesEnabled;
+
+  /// See [_objectiveStaleThreshold].
+  int get objectiveStaleThreshold => _objectiveStaleThreshold;
 
   /// See [_pocketsEnabled]. Costs one short model call per turn while on.
   bool get pocketsEnabled => _pocketsEnabled;
@@ -404,6 +416,15 @@ class RealismSettings with SettingsBase {
   Future<void> setObjectivesEnabled(bool value) async {
     _objectivesEnabled = value;
     await prefs?.setBool(k('objectives_enabled'), value);
+    notify();
+  }
+
+  Future<void> setObjectiveStaleThreshold(int value) async {
+    _objectiveStaleThreshold = normalizeObjectiveStaleThreshold(value);
+    await prefs?.setInt(
+      k('objective_stale_threshold'),
+      _objectiveStaleThreshold,
+    );
     notify();
   }
 

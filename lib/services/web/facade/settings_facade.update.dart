@@ -140,6 +140,12 @@ extension SettingsFacadeUpdate on SettingsFacade {
         // on the next chat.
         await _chat?.setObjectivesEnabled(objs);
       }
+      final staleN = realism['objectiveStaleThreshold'];
+      if (staleN is num) {
+        await _storage.realismSettings.setObjectiveStaleThreshold(
+          staleN.toInt(),
+        );
+      }
       final wx = realism['weatherEnabled'];
       if (wx is bool) await _storage.realismSettings.setWeatherEnabled(wx);
       final wf = realism['weatherFahrenheit'];

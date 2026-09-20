@@ -42,6 +42,7 @@ export function ChatToolsAmbitions({ t }: { t: ToolsState }) {
   );
 }
 
+/** Stale-skipped vs completed styling lives in [ObjectivesPanel]. */
 export function ChatToolsObjectives({
   t,
   q,

@@ -274,6 +274,9 @@ extension ChatServiceWiringEvalJudges on ChatService {
         );
       },
       markTaskCompleted: markTaskCompleted,
+      markTaskStale: markTaskStale,
+      getObjectiveStaleThresholdN: () =>
+          _storageService.realismSettings.objectiveStaleThreshold,
       getIsCheckingCompletion: () => _isCheckingCompletion,
       setIsCheckingCompletion: (v) => _isCheckingCompletion = v,
       onNotify: notifyListeners,
@@ -328,6 +331,17 @@ extension ChatServiceWiringEvalJudges on ChatService {
             storyClock: _timeService.storyClockIso,
           ),
         );
+      },
+      onObjectiveStale: (obj) {
+        if (!_isHeldTodayObjective(obj)) return;
+        final held = todaySentence ?? obj.objective;
+        _todayObjectiveId = null;
+        _todayObjectiveText = null;
+        setTodaySentence(null);
+        unawaited(() async {
+          await _journalResolvedToday(held, fate: PlannerTodayFate.abandoned);
+          await _persistTodayObjectiveId(null);
+        }());
       },
     );
   }

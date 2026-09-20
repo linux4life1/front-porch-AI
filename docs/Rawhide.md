@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 📜 **Leftover quests step aside** — if the story moves on, a quest or step can be marked stale-skipped instead of pretending you won. A leftover step is skipped right away; a whole leftover quest waits for two “no longer relevant” checks (you can set that to off / 1 / 2 / 4 in Porch Life). Today’s side quest, if it is overtaken, is abandoned — not completed. Same on the phone.
+
 - 👜 **Pockets & Wardrobe per character** — Edit Character (and the creator) now has its own Pockets & Wardrobe switch. Porch Life still turns the feature off for everyone. Leave a character’s switch on (the default — old cards stay on) and they keep their wardrobe; turn it off and only they skip it. A group hand-off will not tuck items into someone you turned off, and turning them back on still finds whatever they already had. Same on the phone.
 - 📥 **Drop cards on the home porch** — drag a PNG character card or a `.byaf` archive from Finder / Explorer onto the home library and it imports the same way as Import Card / Import BYAF. Several files at once is fine. Other file types get a short “can’t import that” notice.
 

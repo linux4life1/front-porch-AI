@@ -49,10 +49,29 @@ Map<String, dynamic> _tool(
 };
 
 final Map<String, Map<String, dynamic>> _verdictsFields = {
-  'verdicts': {
+  'objective_relevant': {
     'type': 'array',
     'items': {'type': 'string'},
-    'description': 'YES or NO for each numbered item, in order. Unsure is NO.',
+    'description':
+        'YES or NO for each numbered item, in order. Unsure is YES '
+        '(KEEP). NO only when the quest is clearly abandoned, contradicted, '
+        'or overtaken.',
+  },
+  'task_relevant': {
+    'type': 'array',
+    'items': {'type': 'string'},
+    'description':
+        'YES, NO, or NA for each item, in order. NA if '
+        'objective_relevant is NO or the item is taskless. Unsure is YES '
+        '(KEEP).',
+  },
+  'task_done': {
+    'type': 'array',
+    'items': {'type': 'string'},
+    'description':
+        'YES, NO, or NA for each item, in order. Unsure is NO. '
+        'Taskless: YES means the objective itself completed. NA when '
+        'objective_relevant is NO.',
   },
 };
 
@@ -69,9 +88,11 @@ final Map<String, Map<String, dynamic>> _tasksFields = {
 final List<Map<String, dynamic>> kObjectiveVerdictsEvalTools = [
   _tool(
     kObjectiveVerdictsTool,
-    'Report whether each batched quest/task is complete.',
+    'Report relevance and completion for each batched quest/task. '
+    'Parallel arrays, same order and length as the numbered items. '
+    'Never treat an overtaken quest as completed.',
     _verdictsFields,
-    const ['verdicts'],
+    const ['objective_relevant', 'task_relevant', 'task_done'],
   ),
 ];
 
@@ -98,20 +119,31 @@ List<String>? _asStringList(dynamic v) {
 }
 
 /// Convert a matching tool call into flat JSON the parsers consume.
-/// Empty `verdicts`/`tasks` is a real answer (all-NO / parse-fail restore),
+/// Empty arrays are a real answer (all-KEEP / all-NO / parse-fail restore),
 /// never a reason to fall back to text.
 String? objectiveToolCallToJson(String toolName, List<LlmToolCall> calls) {
   for (final call in calls) {
     if (call.name != toolName) continue;
-    final key = toolName == kObjectiveVerdictsTool
-        ? 'verdicts'
-        : toolName == kObjectiveTasksTool
-        ? 'tasks'
-        : null;
-    if (key == null) continue;
-    final list = _asStringList(call.arguments[key]);
-    if (list == null) continue;
-    return jsonEncode({key: list});
+    if (toolName == kObjectiveVerdictsTool) {
+      final objRel = _asStringList(call.arguments['objective_relevant']);
+      final taskRel = _asStringList(call.arguments['task_relevant']);
+      final taskDone = _asStringList(call.arguments['task_done']);
+      if (objRel != null || taskRel != null || taskDone != null) {
+        return jsonEncode({
+          'objective_relevant': ?objRel,
+          'task_relevant': ?taskRel,
+          'task_done': ?taskDone,
+        });
+      }
+      final legacy = _asStringList(call.arguments['verdicts']);
+      if (legacy != null) return jsonEncode({'verdicts': legacy});
+      continue;
+    }
+    if (toolName == kObjectiveTasksTool) {
+      final list = _asStringList(call.arguments['tasks']);
+      if (list == null) continue;
+      return jsonEncode({'tasks': list});
+    }
   }
   return null;
 }
@@ -127,39 +159,144 @@ bool objectiveVerdictIsYes(dynamic v) {
   return RegExp(r'\bYES\b').hasMatch(u);
 }
 
+/// One parsed item. Missing / unsure relevance stays KEEP; unsure
+/// completion stays NO. Only an explicit NO/STALE can retire.
+class ObjectiveItemVerdict {
+  const ObjectiveItemVerdict({
+    this.objectiveRelevant = true,
+    this.taskRelevant = true,
+    this.taskDone = false,
+  });
+
+  final bool objectiveRelevant;
+  final bool taskRelevant;
+  final bool taskDone;
+}
+
+class ObjectiveCheckParse {
+  const ObjectiveCheckParse({required this.items, required this.hadSignal});
+
+  final List<ObjectiveItemVerdict> items;
+
+  /// False when neither tool JSON nor the text floor produced a verdict.
+  /// The orchestrator must retain current state — no destructive retire.
+  final bool hadSignal;
+}
+
+enum _Yn { yes, no, unsure }
+
+_Yn _relevanceToken(dynamic v) {
+  if (v == null) return _Yn.unsure;
+  if (v is bool) return v ? _Yn.yes : _Yn.no;
+  final u = v.toString().trim().toUpperCase();
+  if (u.isEmpty || u == 'NA' || u == 'N/A') return _Yn.unsure;
+  if (u == 'KEEP' || u == 'RELEVANT' || u == 'YES' || u == 'TRUE' || u == 'Y') {
+    return _Yn.yes;
+  }
+  if (u == 'STALE' || u == 'NO' || u == 'FALSE' || u == 'N') return _Yn.no;
+  return _Yn.unsure;
+}
+
+ObjectiveItemVerdict _itemFromTokens({
+  dynamic objectiveRelevant,
+  dynamic taskRelevant,
+  dynamic taskDone,
+}) {
+  final obj = _relevanceToken(objectiveRelevant);
+  final task = _relevanceToken(taskRelevant);
+  return ObjectiveItemVerdict(
+    objectiveRelevant: obj != _Yn.no,
+    taskRelevant: task != _Yn.no,
+    taskDone: objectiveVerdictIsYes(taskDone),
+  );
+}
+
 List<String>? _stringListFromJsonKey(String text, String key) {
   final decoded = parseEvalJsonObject(text);
   if (decoded == null || !decoded.containsKey(key)) return null;
   return _asStringList(decoded[key]);
 }
 
-/// One bool per batched item. Missing / unparsed items are false.
-List<bool> parseObjectiveVerdicts(String text, int itemCount) {
-  final out = List<bool>.filled(itemCount < 0 ? 0 : itemCount, false);
-  if (itemCount <= 0) return out;
-  final fromJson = _stringListFromJsonKey(text, 'verdicts');
-  if (fromJson != null) {
-    for (var i = 0; i < itemCount && i < fromJson.length; i++) {
-      out[i] = objectiveVerdictIsYes(fromJson[i]);
+/// Flat parallel arrays (or the text floor). Unparsed relevance = KEEP.
+ObjectiveCheckParse parseObjectiveCheck(String text, int itemCount) {
+  final n = itemCount < 0 ? 0 : itemCount;
+  final items = List<ObjectiveItemVerdict>.generate(
+    n,
+    (_) => const ObjectiveItemVerdict(),
+  );
+  if (n <= 0) return ObjectiveCheckParse(items: items, hadSignal: false);
+
+  final decoded = parseEvalJsonObject(text);
+  if (decoded != null) {
+    final objRel = _asStringList(decoded['objective_relevant']);
+    final taskRel = _asStringList(decoded['task_relevant']);
+    final taskDone = _asStringList(decoded['task_done']);
+    final legacy = _asStringList(decoded['verdicts']);
+    if (objRel != null || taskRel != null || taskDone != null) {
+      for (var i = 0; i < n; i++) {
+        items[i] = _itemFromTokens(
+          objectiveRelevant: objRel != null && i < objRel.length
+              ? objRel[i]
+              : null,
+          taskRelevant: taskRel != null && i < taskRel.length
+              ? taskRel[i]
+              : null,
+          taskDone: taskDone != null && i < taskDone.length
+              ? taskDone[i]
+              : null,
+        );
+      }
+      return ObjectiveCheckParse(items: items, hadSignal: true);
     }
-    return out;
+    if (legacy != null) {
+      for (var i = 0; i < n && i < legacy.length; i++) {
+        items[i] = _itemFromTokens(taskDone: legacy[i]);
+      }
+      return ObjectiveCheckParse(items: items, hadSignal: true);
+    }
   }
-  final numbered = <int, bool>{};
-  for (final m in RegExp(
+
+  final triple = RegExp(
+    r'^\s*(\d+)\s*[:.)\-]\s*(KEEP|STALE)\s*\|\s*(RELEVANT|STALE|NA)\s*\|\s*(YES|NO|NA)\b',
+    multiLine: true,
+    caseSensitive: false,
+  );
+  var saw = false;
+  for (final m in triple.allMatches(text)) {
+    final i = int.parse(m.group(1)!) - 1;
+    if (i < 0 || i >= n) continue;
+    saw = true;
+    items[i] = _itemFromTokens(
+      objectiveRelevant: m.group(2),
+      taskRelevant: m.group(3),
+      taskDone: m.group(4),
+    );
+  }
+  if (saw) return ObjectiveCheckParse(items: items, hadSignal: true);
+
+  final numbered = RegExp(
     r'^\s*(\d+)\s*[:.)\-]\s*(YES|NO)\b',
     multiLine: true,
     caseSensitive: false,
-  ).allMatches(text)) {
-    numbered[int.parse(m.group(1)!)] = m.group(2)!.toUpperCase() == 'YES';
+  );
+  for (final m in numbered.allMatches(text)) {
+    final i = int.parse(m.group(1)!) - 1;
+    if (i < 0 || i >= n) continue;
+    saw = true;
+    items[i] = _itemFromTokens(taskDone: m.group(2));
   }
-  if (numbered.isEmpty && itemCount == 1) {
-    numbered[1] = text.toUpperCase().contains('YES');
+  if (saw) return ObjectiveCheckParse(items: items, hadSignal: true);
+
+  if (n == 1 && text.toUpperCase().contains('YES')) {
+    items[0] = const ObjectiveItemVerdict(taskDone: true);
+    return ObjectiveCheckParse(items: items, hadSignal: true);
   }
-  for (var i = 0; i < itemCount; i++) {
-    out[i] = numbered[i + 1] ?? false;
-  }
-  return out;
+  return ObjectiveCheckParse(items: items, hadSignal: false);
 }
+
+/// One bool per batched item — `task_done` only. Missing / unparsed is false.
+List<bool> parseObjectiveVerdicts(String text, int itemCount) =>
+    parseObjectiveCheck(text, itemCount).items.map((v) => v.taskDone).toList();
 
 /// Deduped, capped task maps (`description` + `completed: false`).
 List<Map<String, dynamic>> parseObjectiveTasks(String text, int taskCount) {
@@ -210,21 +347,33 @@ String buildObjectiveCheckPrompt({
   required bool toolsMode,
 }) {
   final items = itemLines.join('\n');
+  // Completion and relevance use opposite polarity. Do not fold them into
+  // one "be generous" preamble — unsure completion is NO; unsure
+  // relevance is KEEP.
+  const polarity =
+      'Completion: Be generous. If the conversation shows a step '
+      'accomplished, partially fulfilled, or naturally resolved, answer YES '
+      'for task_done. Unsure is NO — never invent a win.\n'
+      'Relevance: Be stingy. KEEP a quest or step relevant unless the story '
+      'has clearly abandoned, contradicted, or overtaken it. Unsure is KEEP. '
+      'Only an explicit NO/STALE retires. Never treat an overtaken quest as '
+      'completed — abandonment is not victory.\n\n';
   final closing = toolsMode
       ? 'Evaluate EACH item below. Report by calling the '
-            '$kObjectiveVerdictsTool tool with a "verdicts" array of YES or '
-            'NO, one per item, in order. Unsure is NO. Use ONLY the tool — '
-            'no plain-text reply.\n$items'
+            '$kObjectiveVerdictsTool tool with three parallel arrays of the '
+            'same length and order as the items: objective_relevant (YES/NO), '
+            'task_relevant (YES/NO/NA), task_done (YES/NO/NA). NA for '
+            'task_relevant when objective_relevant is NO or the item is '
+            'taskless. NA for task_done when objective_relevant is NO. Use '
+            'ONLY the tool — no plain-text reply.\n$items'
       : 'Evaluate EACH item below. Reply with ONLY one line per item, in '
-            'order, formatted exactly as "1: YES" or "1: NO" — no '
-            'explanations.\n$items';
-  return 'You are evaluating whether roleplay tasks/objectives have been '
-      'completed based on recent conversation. Be generous in your '
-      'assessment — if the events in the conversation show an item has '
-      'been accomplished, partially fulfilled, or naturally resolved, '
-      'answer YES for it.\n\n'
-      'Recent conversation:\n$contextText\n\n'
-      '$closing';
+            'order, formatted exactly as:\n'
+            '1: KEEP|RELEVANT|NO\n'
+            '2: STALE|NA|NA\n'
+            '3: KEEP|STALE|NA\n'
+            'KEEP = relevant, STALE = not relevant. Unsure relevance = KEEP. '
+            'Unsure completion = NO. No explanations.\n$items';
+  return '${polarity}Recent conversation:\n$contextText\n\n$closing';
 }
 
 String buildObjectiveTaskGenPrompt({

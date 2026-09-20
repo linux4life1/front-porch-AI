@@ -28,6 +28,9 @@ extension RealismSettingsLoad on RealismSettings {
     _standaloneClockEnabled =
         prefs?.getBool(k('standalone_clock_enabled')) ?? false;
     _objectivesEnabled = prefs?.getBool(k('objectives_enabled')) ?? true;
+    _objectiveStaleThreshold = normalizeObjectiveStaleThreshold(
+      prefs?.getInt(k('objective_stale_threshold')),
+    );
     _pocketsEnabled = prefs?.getBool(k('pockets_enabled')) ?? false;
     _standingMoodEnabled = prefs?.getBool(k('standing_mood_enabled')) ?? false;
     _intimateAgencyEnabled =

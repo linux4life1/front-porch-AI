@@ -135,6 +135,7 @@
 .task-item input { width: auto; }
 .task-item span { flex: 1; }
 .task-item span.done { text-decoration: line-through; color: var(--muted); }
+.task-item span.stale { font-style: italic; color: var(--muted); text-decoration: none; }
 /* Side quests (secondary/autonomous objectives) under the primary quest. */
 .side-quest-label { margin-top: 8px; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; }
 .side-quest {

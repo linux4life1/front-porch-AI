@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/chat/objective_stale_detector.dart';
+
 /// Prompt injection for author notes / objective system text (primary +
 /// secondary/autonomous objectives with task progress). Always-present
 /// fixed section so it is never budget-trimmed. Objectives are
@@ -56,13 +58,10 @@ class AuthorNoteBuilder {
 
       if (tasks.isNotEmpty) {
         final completedTasks = tasks
-            .where((t) => t['completed'] == true)
+            .where(objectiveTaskIsCompleted)
             .map((t) => t['description'] as String)
             .toList();
-        final currentTask = tasks
-            .where((t) => t['completed'] != true)
-            .map((t) => t['description'] as String)
-            .firstOrNull;
+        final currentTask = currentOpenTaskDescription(tasks);
 
         if (currentTask != null) {
           namedAStep = true;
@@ -125,13 +124,10 @@ class AuthorNoteBuilder {
       for (final sObj in secondaries) {
         final tasks = tasksForObjective(sObj);
         final completedTasks = tasks
-            .where((t) => t['completed'] == true)
+            .where(objectiveTaskIsCompleted)
             .map((t) => t['description'] as String)
             .toList();
-        final currentTask = tasks
-            .where((t) => t['completed'] != true)
-            .map((t) => t['description'] as String)
-            .firstOrNull;
+        final currentTask = currentOpenTaskDescription(tasks);
         if (currentTask != null) {
           namedAStep = true;
           final sGoal =

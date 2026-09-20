@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/chat/eval_traffic.dart';
 import 'package:front_porch_ai/services/chat/llm_eval_engine.dart'
     show recentExchange;
 import 'package:front_porch_ai/services/chat/objective_eval_tools.dart';
+import 'package:front_porch_ai/services/chat/objective_stale_detector.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/services.dart';
 
@@ -63,8 +64,13 @@ class ObjectiveProposal {
   final Future<void> Function(String objectiveId, String tasksJson)
   saveObjectiveTasks;
   final Future<void> Function(String objectiveId) deactivateObjective;
-  final Future<void> Function(Objective, String)
-  markTaskCompleted; // thin; god owns find+mutate 'completed':true + save+load (task auto side-effect only for currentTask YES path)
+  final Future<void> Function(Objective, String) markTaskCompleted; // thin; god owns find+mutate 'completed':true + save+load (task auto side-effect only for currentTask YES path)
+  /// Durable `stale: true` on the current open task. Never sets completed.
+  final Future<void> Function(Objective, String)? markTaskStale;
+
+  /// Consecutive explicit objective_relevant=NO before the quest retires.
+  /// 0 = off, else 1 / 2 / 4. Default 2. Does not apply to task stale.
+  final int Function()? getObjectiveStaleThresholdN;
   final bool Function() getIsCheckingCompletion;
   final void Function(bool) setIsCheckingCompletion;
 
@@ -80,7 +86,13 @@ class ObjectiveProposal {
   /// Fired when a WHOLE quest retires as achieved (final task done, or a
   /// taskless objective completed) — with the row, so the consumer knows
   /// whose ambition it may have advanced (Living Time §6). Fire-and-forget.
+  /// Never invoked for stale retirement.
   final void Function(Objective obj)? onQuestAchieved;
+
+  /// Fired when a quest retires as overtaken / abandoned — Today maps this
+  /// to abandoned (never the Today-completed win path). Never credits
+  /// ambition or journal-done.
+  final void Function(Objective obj)? onObjectiveStale;
 
   /// Same tools door TimeService / Realism evals use. Null = text only
   /// (dedicated tests that never wired the probe).
@@ -109,6 +121,9 @@ class ObjectiveProposal {
     required this.onNotify,
     this.onObjectiveCompleted,
     this.onQuestAchieved,
+    this.onObjectiveStale,
+    this.markTaskStale,
+    this.getObjectiveStaleThresholdN,
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,
@@ -203,15 +218,10 @@ class ObjectiveProposal {
     }
   }
 
-  /// Consecutive NO verdicts before a stuck step/objective is retired as
-  /// "overtaken by events" (cadence is checkFrequency, default 3, plus the
-  /// mention-gate peek — not every turn). Maintainer tuned down from 8: a
-  /// step the plot left behind should not linger.
-  static const int kStaleCheckRetireAfter = 4;
-
-  /// Consecutive-miss counters keyed `objectiveId|currentTask`. In-memory by
-  /// design (see the retirement comment in the verdict loop).
-  final Map<String, int> _staleCheckCounts = {};
+  /// Consecutive explicit objective_relevant=NO counts, keyed by objective
+  /// id. In-memory: a restart only delays retirement. The old 4-miss
+  /// force-completed path is gone — stale is never treated as achievement.
+  final ObjectiveStaleTracker _staleTracker = ObjectiveStaleTracker();
 
   Future<void> checkTaskCompletionInBackground() async {
     if (getIsCheckingCompletion() || getActiveObjectives().isEmpty) return;
@@ -236,17 +246,24 @@ class ObjectiveProposal {
       final pending = <(dynamic obj, List<dynamic> tasks, String? task)>[];
       for (final obj in getActiveObjectives()) {
         final tasks = tasksForObjective(obj);
-        final currentTask = tasks
-            .where((t) => t['completed'] != true)
-            .map((t) => t['description'] as String)
-            .firstOrNull;
+        final currentTask = currentOpenTaskDescription(tasks);
         if (currentTask == null && tasks.isNotEmpty) {
-          anyCompleted = true;
+          final fate = questExhaustion(tasks);
           await deactivateObjective(obj.id);
+          _staleTracker.forget(obj.id);
+          if (fate == QuestExhaustion.stale) {
+            onObjectiveStale?.call(obj);
+            debugPrint(
+              '[Objective] No open tasks remain (stale steps) — '
+              'quest retired without achievement: ${obj.objective}',
+            );
+          } else {
+            anyCompleted = true;
+            debugPrint(
+              '[Objective] All tasks complete — quest retired: ${obj.objective}',
+            );
+          }
           await loadActiveObjectives();
-          debugPrint(
-            '[Objective] All tasks complete — quest retired: ${obj.objective}',
-          );
           continue;
         }
         pending.add((obj, tasks, currentTask));
@@ -289,66 +306,44 @@ class ObjectiveProposal {
         '"${rawPreview.length > 300 ? rawPreview.substring(0, 300) : rawPreview}"',
       );
 
-      final verdicts = parseObjectiveVerdicts(responseText, pending.length);
+      final parsed = parseObjectiveCheck(responseText, pending.length);
+      // Dart short-circuit after parse. The LLM call already ran — this
+      // does NOT save tokens. No signal = retain current, no retire.
+      if (!parsed.hadSignal) {
+        debugPrint(
+          '[Objective] Check produced no usable verdicts — retaining current',
+        );
+        return;
+      }
 
+      final threshold = normalizeObjectiveStaleThreshold(
+        getObjectiveStaleThresholdN?.call(),
+      );
       for (var i = 0; i < pending.length; i++) {
         final (obj, tasks, currentTask) = pending[i];
-        var done = verdicts[i];
-        debugPrint(
-          '[Objective] Completion check for "${obj.objective}${currentTask != null ? ' - $currentTask' : ''}": ${done ? 'YES' : 'NO'}',
+        final v = parsed.items[i];
+        final retire = _staleTracker.noteObjectiveIrrelevant(
+          objectiveId: obj.id,
+          explicitIrrelevant: !v.objectiveRelevant,
+          thresholdN: threshold,
         );
-        // Stale-step retirement (maintainer request 2026-07-15): a step the
-        // story has moved past can come back NO forever and block the whole
-        // quest line (the primary slot never frees). After
-        // [kStaleCheckRetireAfter] CONSECUTIVE misses of the SAME item, treat
-        // it as overtaken by events and let the quest advance. Counter is
-        // in-memory on purpose: a restart merely delays retirement by a few
-        // turns, and nothing leaks into the DB or panels.
-        final staleKey = '${obj.id}|${currentTask ?? ''}';
-        if (done) {
-          _staleCheckCounts.remove(staleKey);
-        } else {
-          final misses = (_staleCheckCounts[staleKey] ?? 0) + 1;
-          if (misses >= kStaleCheckRetireAfter) {
-            _staleCheckCounts.remove(staleKey);
-            done = true;
-            debugPrint(
-              '[Objective] Step overtaken by events after $misses stale '
-              'checks — retiring gracefully: '
-              '"${currentTask ?? obj.objective}"',
-            );
-          } else {
-            _staleCheckCounts[staleKey] = misses;
-            continue;
-          }
-        }
-        anyCompleted = true;
-        if (currentTask != null) {
-          // Use thin cb (god impl) for best-effort task mutation (find uncompleted by desc, set completed:true, json+db update + load). Matches god toggleTask pattern exactly. Task vs taskless now both have side effects covered (taskless deact cb).
-          await markTaskCompleted(obj, currentTask);
-          // currentTask was the only open task left → the whole quest is
-          // finished. Retire it now so the primary slot frees up this turn
-          // instead of waiting for the next check pass.
-          if (tasks.where((t) => t['completed'] != true).length <= 1) {
-            await deactivateObjective(obj.id);
-            onQuestAchieved?.call(obj);
-            debugPrint(
-              '[Objective] Final task done — quest retired: ${obj.objective}',
-            );
-          }
-          await loadActiveObjectives();
-          debugPrint(
-            '[Objective] Task completed (via god thin mark): $currentTask',
-          );
-        } else {
-          // It was a taskless objective that got completed!
-          await deactivateObjective(obj.id);
-          onQuestAchieved?.call(obj);
-          await loadActiveObjectives();
-          debugPrint(
-            '[Objective] Taskless objective naturally completed: ${obj.objective}',
-          );
-        }
+        final apply = decideObjectiveApply(
+          tasks: List<Map<String, dynamic>>.from(tasks),
+          currentOpenTask: currentTask,
+          objectiveRelevant: v.objectiveRelevant,
+          taskRelevant: v.taskRelevant,
+          taskDone: v.taskDone,
+          retireObjectiveNow: retire,
+        );
+        debugPrint(
+          '[Objective] Check "${obj.objective}'
+          '${currentTask != null ? ' - $currentTask' : ''}": '
+          'rel=${v.objectiveRelevant} taskRel=${v.taskRelevant} '
+          'done=${v.taskDone} apply=${apply.kind}',
+        );
+        if (apply.kind == ObjectiveApplyKind.none) continue;
+        await _applyObjectiveDecision(obj, apply);
+        if (apply.creditsAchievement) anyCompleted = true;
       }
     } catch (e) {
       debugPrint('[Objective] Completion check failed: $e');
@@ -359,6 +354,54 @@ class ObjectiveProposal {
       if (anyCompleted) onObjectiveCompleted?.call();
       onNotify();
     }
+  }
+
+  Future<void> _applyObjectiveDecision(
+    Objective obj,
+    ObjectiveApply apply,
+  ) async {
+    final desc = apply.taskDescription;
+    switch (apply.kind) {
+      case ObjectiveApplyKind.none:
+        return;
+      case ObjectiveApplyKind.completeOpenTask:
+        if (desc != null) await markTaskCompleted(obj, desc);
+      case ObjectiveApplyKind.completeOpenTaskAndAchieve:
+        if (desc != null) await markTaskCompleted(obj, desc);
+        await deactivateObjective(obj.id);
+        _staleTracker.forget(obj.id);
+        onQuestAchieved?.call(obj);
+        debugPrint(
+          '[Objective] Final task done — quest retired: ${obj.objective}',
+        );
+      case ObjectiveApplyKind.staleOpenTask:
+        if (desc != null) await markTaskStale?.call(obj, desc);
+      case ObjectiveApplyKind.staleOpenTaskAndRetire:
+        if (desc != null) await markTaskStale?.call(obj, desc);
+        await deactivateObjective(obj.id);
+        _staleTracker.forget(obj.id);
+        onObjectiveStale?.call(obj);
+        debugPrint(
+          '[Objective] Last open step stale — quest retired without '
+          'achievement: ${obj.objective}',
+        );
+      case ObjectiveApplyKind.retireObjectiveStale:
+        await deactivateObjective(obj.id);
+        _staleTracker.forget(obj.id);
+        onObjectiveStale?.call(obj);
+        debugPrint(
+          '[Objective] Objective no longer relevant — retired without '
+          'achievement: ${obj.objective}',
+        );
+      case ObjectiveApplyKind.achieveTaskless:
+        await deactivateObjective(obj.id);
+        _staleTracker.forget(obj.id);
+        onQuestAchieved?.call(obj);
+        debugPrint(
+          '[Objective] Taskless objective naturally completed: ${obj.objective}',
+        );
+    }
+    await loadActiveObjectives();
   }
 
   /// Tools-vs-text fork TimeService uses: `fireStructuredEval` when the

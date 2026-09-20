@@ -301,6 +301,7 @@ class PorchLifeTab extends StatelessWidget {
                 storage.realismSettings.setObjectivesEnabled(v);
                 chat.setObjectivesEnabled(v);
               },
+              child: ObjectiveStaleThresholdPicker(storage: storage),
             ),
             FeatureRow(
               icon: Icons.flag_outlined,

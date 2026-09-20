@@ -53,9 +53,29 @@ extension ChatServiceObjectiveTasks on ChatService {
   Future<void> markTaskCompleted(Objective obj, String taskDesc) async {
     final tasks = tasksForObjective(obj);
     final idx = tasks.indexWhere(
-      (t) => (t['description'] as String) == taskDesc && t['completed'] != true,
+      (t) => (t['description'] as String) == taskDesc && objectiveTaskIsOpen(t),
     );
     if (idx < 0) return;
+    tasks[idx]['completed'] = true;
+    await _writeCheckDrivenTasks(obj, tasks);
+  }
+
+  /// Durable skip: `stale: true`, never `completed: true`. Regen rewinds via
+  /// the same tasks_changed turn-op as a completion.
+  Future<void> markTaskStale(Objective obj, String taskDesc) async {
+    final tasks = tasksForObjective(obj);
+    final idx = tasks.indexWhere(
+      (t) => (t['description'] as String) == taskDesc && objectiveTaskIsOpen(t),
+    );
+    if (idx < 0) return;
+    tasks[idx]['stale'] = true;
+    await _writeCheckDrivenTasks(obj, tasks);
+  }
+
+  Future<void> _writeCheckDrivenTasks(
+    Objective obj,
+    List<Map<String, dynamic>> tasks,
+  ) async {
     // Turn-op for regen rollback: obj.tasks is still the pre-mutation JSON here,
     // so the inverse is a plain write-back of that string. Armed-gated: manual
     // "Check now" completions are user actions, not turn ops.
@@ -66,7 +86,6 @@ extension ChatServiceObjectiveTasks on ChatService {
         'prev': obj.tasks,
       });
     }
-    tasks[idx]['completed'] = true;
     await _db.updateObjective(
       ObjectivesCompanion(
         id: drift.Value(obj.id),

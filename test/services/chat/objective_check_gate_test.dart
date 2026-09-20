@@ -16,6 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+// Objective relevance/completion check runs on send (and existing
+// background cadence). Continue and Regen do not run it.
+//
 // THE OBJECTIVE COMPLETION CHECK NO LONGER BLOCKS EVERY TURN.
 //
 // The bug this pins shut: `_maybeCheckTaskCompletionSync` is AWAITED before
@@ -39,6 +42,8 @@
 // override turned the structural guard red; inverting the mention helper's
 // verdict turned the whole matcher group red. Both were restored and the
 // suite went green again.
+
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -117,6 +122,104 @@ void main() {
     test('empty inputs stay closed', () {
       expect(objectivesMentionedIn('', ['find the key']), isFalse);
       expect(objectivesMentionedIn('user: hello', const []), isFalse);
+    });
+
+    test('stale steps are not mention-gate bait', () {
+      expect(
+        openQuestMentionTexts('find the keeper', [
+          {'description': 'ask at the dock', 'completed': false, 'stale': true},
+          {'description': 'walk the cliff', 'completed': false},
+        ]),
+        ['find the keeper', 'walk the cliff'],
+      );
+    });
+  });
+
+  group('objective stale detector', () {
+    test('2 consecutive explicit NO retires; 1 NO and unsure keep', () {
+      final t = ObjectiveStaleTracker();
+      expect(
+        t.noteObjectiveIrrelevant(
+          objectiveId: 'o1',
+          explicitIrrelevant: true,
+          thresholdN: 2,
+        ),
+        isFalse,
+      );
+      expect(
+        t.noteObjectiveIrrelevant(
+          objectiveId: 'o1',
+          explicitIrrelevant: false,
+          thresholdN: 2,
+        ),
+        isFalse,
+        reason: 'unsure / KEEP resets the count',
+      );
+      expect(
+        t.noteObjectiveIrrelevant(
+          objectiveId: 'o1',
+          explicitIrrelevant: true,
+          thresholdN: 2,
+        ),
+        isFalse,
+      );
+      expect(
+        t.noteObjectiveIrrelevant(
+          objectiveId: 'o1',
+          explicitIrrelevant: true,
+          thresholdN: 2,
+        ),
+        isTrue,
+      );
+    });
+
+    test('mixed completed + last stale is quest stale, not 100% win', () {
+      final tasks = [
+        {'description': 'done', 'completed': true},
+        {'description': 'skipped', 'stale': true},
+      ];
+      expect(questExhaustion(tasks), QuestExhaustion.stale);
+      expect(questCompletionRatio(tasks), 1.0);
+      // Ratio of remaining countable is 1.0, but exhaustion is stale —
+      // the orchestrator must not treat that as a trophy/win path.
+      expect(objectiveTaskIsCompleted(tasks.last), isFalse);
+    });
+
+    test('the 4-miss force-done counter is gone from the orchestrator', () {
+      final src = File('lib/services/chat/objective_proposal.dart')
+          .readAsStringSync();
+      expect(src, isNot(contains('static const int kStaleCheckRetireAfter')));
+      expect(src, isNot(contains('final Map<String, int> _staleCheckCounts')));
+      expect(src, contains('onObjectiveStale'));
+    });
+
+    test('send fires the check; Continue and Regen do not', () {
+      expect(
+        File('lib/services/chat/chat_service_send.dart').readAsStringSync(),
+        contains('_maybeCheckTaskCompletionSync'),
+      );
+      for (final path in [
+        'lib/services/chat/chat_service_generation.dart',
+        'lib/services/chat/chat_service_generation_postgen.dart',
+      ]) {
+        final f = File(path);
+        if (!f.existsSync()) continue;
+        expect(
+          f.readAsStringSync(),
+          isNot(contains('_maybeCheckTaskCompletionSync')),
+          reason: '$path must not run the objective check',
+        );
+      }
+    });
+
+    test('Today stale wiring uses abandoned, never the done win path', () {
+      final src = File(
+        'lib/services/chat/chat_service_wiring_evals_judges.dart',
+      ).readAsStringSync();
+      expect(src, contains('onObjectiveStale'));
+      expect(src, contains('PlannerTodayFate.abandoned'));
+      final staleBlock = src.substring(src.indexOf('onObjectiveStale'));
+      expect(staleBlock, isNot(contains('_onTodayObjectiveCompleted')));
     });
   });
 }

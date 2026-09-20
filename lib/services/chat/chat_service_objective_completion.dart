@@ -34,6 +34,9 @@ extension ChatServiceObjectiveCompletion on ChatService {
 
   /// Check if the current task has been completed (called periodically).
   /// Manually trigger a completion check (called from UI "Check now" button).
+  ///
+  /// Objective relevance/completion check runs on send (and existing
+  /// background cadence). Continue and Regen do not run it.
   void forceCheckCompletion() {
     if (!objectivesActive || _activeObjectives.isEmpty) return;
     _checkTaskCompletionInBackground(); // step 11 thin (full in objective_proposal)
@@ -75,11 +78,8 @@ extension ChatServiceObjectiveCompletion on ChatService {
           .join('\n')
           .toLowerCase();
       final quests = <String>[
-        for (final o in _activeObjectives) ...[
-          o.objective,
-          for (final t in tasksForObjective(o))
-            if (t['completed'] != true) (t['description'] as String? ?? ''),
-        ],
+        for (final o in _activeObjectives)
+          ...openQuestMentionTexts(o.objective, tasksForObjective(o)),
       ];
       final ignore = <String>{
         for (final c in [?_activeCharacter, ..._groupCharacters])

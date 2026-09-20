@@ -85,7 +85,11 @@ ObjectiveProposal _live({
   List<Map<String, dynamic>> Function(Objective)? tasksFor,
   Future<void> Function(String, String)? saveTasks,
   Future<void> Function(Objective, String)? mark,
+  Future<void> Function(Objective, String)? markStale,
   Future<void> Function(String)? deact,
+  void Function(Objective)? onQuest,
+  void Function(Objective)? onStale,
+  int staleThreshold = 2,
   LlmToolResponse? Function(ToolEvalSpec spec)? onTool,
   bool preferText = false,
 }) {
@@ -105,6 +109,10 @@ ObjectiveProposal _live({
     saveObjectiveTasks: saveTasks ?? (id, j) async {},
     deactivateObjective: deact ?? (id) async {},
     markTaskCompleted: mark ?? (obj, desc) async {},
+    markTaskStale: markStale,
+    getObjectiveStaleThresholdN: () => staleThreshold,
+    onQuestAchieved: onQuest,
+    onObjectiveStale: onStale,
     getIsCheckingCompletion: () => false,
     setIsCheckingCompletion: (v) {},
     onNotify: () {},
@@ -120,6 +128,24 @@ LlmToolResponse _verdicts(List<dynamic> verdicts) => LlmToolResponse(
     LlmToolCall(
       name: kObjectiveVerdictsTool,
       arguments: {'verdicts': verdicts},
+    ),
+  ],
+  text: '',
+);
+
+LlmToolResponse _check({
+  required List<dynamic> relevant,
+  required List<dynamic> taskRelevant,
+  required List<dynamic> done,
+}) => LlmToolResponse(
+  calls: [
+    LlmToolCall(
+      name: kObjectiveVerdictsTool,
+      arguments: {
+        'objective_relevant': relevant,
+        'task_relevant': taskRelevant,
+        'task_done': done,
+      },
     ),
   ],
   text: '',
@@ -290,6 +316,166 @@ void main() {
     test('numbered scrape still reads 1: YES', () {
       expect(parseObjectiveVerdicts('1: YES\n2: NO', 2), [true, false]);
       expect(parseObjectiveVerdicts('1. YES', 1), [true]);
+    });
+
+    test('missing / unsure relevance KEEPS; only explicit NO retires', () {
+      final missing = parseObjectiveCheck('{"task_done":["NO"]}', 1);
+      expect(missing.hadSignal, isTrue);
+      expect(missing.items.single.objectiveRelevant, isTrue);
+      expect(missing.items.single.taskRelevant, isTrue);
+      expect(missing.items.single.taskDone, isFalse);
+
+      final unsure = parseObjectiveCheck(
+        '{"objective_relevant":["HUH"],"task_relevant":["maybe"],'
+        '"task_done":["NO"]}',
+        1,
+      );
+      expect(unsure.items.single.objectiveRelevant, isTrue);
+      expect(unsure.items.single.taskRelevant, isTrue);
+
+      final stale = parseObjectiveCheck(
+        '{"objective_relevant":["NO"],"task_relevant":["NA"],'
+        '"task_done":["NA"]}',
+        1,
+      );
+      expect(stale.items.single.objectiveRelevant, isFalse);
+    });
+
+    test('text floor KEEP|RELEVANT|NO / STALE|NA|NA / KEEP|STALE|NA', () {
+      final p = parseObjectiveCheck(
+        '1: KEEP|RELEVANT|NO\n2: STALE|NA|NA\n3: KEEP|STALE|NA',
+        3,
+      );
+      expect(p.hadSignal, isTrue);
+      expect(p.items[0].objectiveRelevant, isTrue);
+      expect(p.items[0].taskRelevant, isTrue);
+      expect(p.items[0].taskDone, isFalse);
+      expect(p.items[1].objectiveRelevant, isFalse);
+      expect(p.items[1].taskRelevant, isTrue);
+      expect(p.items[1].taskDone, isFalse);
+      expect(p.items[2].objectiveRelevant, isTrue);
+      expect(p.items[2].taskRelevant, isFalse);
+      expect(p.items[2].taskDone, isFalse);
+    });
+
+    test('text-floor uncertain / empty keeps and does not signal', () {
+      expect(parseObjectiveCheck('the weather is fine', 1).hadSignal, isFalse);
+      expect(
+        parseObjectiveCheck(
+          'the weather is fine',
+          1,
+        ).items.single.objectiveRelevant,
+        isTrue,
+      );
+      expect(
+        parseObjectiveCheck('the weather is fine', 1).items.single.taskRelevant,
+        isTrue,
+      );
+    });
+  });
+
+  group('live checker — relevance vs completion', () {
+    test('two consecutive objective NO retires without achievement', () async {
+      final deacts = <String>[];
+      final quests = <String>[];
+      final stales = <String>[];
+      final marks = <String>[];
+      final llm = _FakeLlm((_) => Stream.value('ignore'));
+      final p = _live(
+        llm: llm,
+        actives: [_mkObj('oStale', 'find the keeper')],
+        tasksFor: (o) => [
+          {'description': 'ask at the dock', 'completed': false},
+        ],
+        mark: (obj, desc) async => marks.add(desc),
+        deact: (id) async => deacts.add(id),
+        onQuest: (o) => quests.add(o.id),
+        onStale: (o) => stales.add(o.id),
+        onTool: (_) =>
+            _check(relevant: ['NO'], taskRelevant: ['NA'], done: ['NA']),
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(deacts, isEmpty);
+      expect(stales, isEmpty);
+      await p.checkTaskCompletionInBackground();
+      expect(deacts, ['oStale']);
+      expect(stales, ['oStale']);
+      expect(quests, isEmpty);
+      expect(marks, isEmpty);
+    });
+
+    test('one objective NO keeps the quest', () async {
+      final deacts = <String>[];
+      final llm = _FakeLlm((_) => Stream.value('ignore'));
+      final p = _live(
+        llm: llm,
+        actives: [_mkObj('oKeep', 'find the keeper')],
+        tasksFor: (o) => [
+          {'description': 'ask at the dock', 'completed': false},
+        ],
+        deact: (id) async => deacts.add(id),
+        onTool: (_) =>
+            _check(relevant: ['NO'], taskRelevant: ['NA'], done: ['NA']),
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(deacts, isEmpty);
+    });
+
+    test('task stale does not set completed', () async {
+      final marks = <String>[];
+      final stales = <String>[];
+      final quests = <String>[];
+      final deacts = <String>[];
+      final llm = _FakeLlm((_) => Stream.value('ignore'));
+      final p = _live(
+        llm: llm,
+        actives: [_mkObj('oStep', 'find the keeper')],
+        tasksFor: (o) => [
+          {'description': 'ask at the dock', 'completed': false},
+          {'description': 'walk the cliff', 'completed': false},
+        ],
+        mark: (obj, desc) async => marks.add(desc),
+        markStale: (obj, desc) async => stales.add(desc),
+        deact: (id) async => deacts.add(id),
+        onQuest: (o) => quests.add(o.id),
+        onTool: (_) =>
+            _check(relevant: ['YES'], taskRelevant: ['NO'], done: ['NA']),
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(stales, ['ask at the dock']);
+      expect(marks, isEmpty);
+      expect(deacts, isEmpty);
+      expect(quests, isEmpty);
+    });
+
+    test('last open task stale retires the objective as stale', () async {
+      final marks = <String>[];
+      final stales = <String>[];
+      final quests = <String>[];
+      final deacts = <String>[];
+      final objStale = <String>[];
+      final llm = _FakeLlm((_) => Stream.value('ignore'));
+      final p = _live(
+        llm: llm,
+        actives: [_mkObj('oLast', 'find the keeper')],
+        tasksFor: (o) => [
+          {'description': 'already', 'completed': true},
+          {'description': 'last one', 'completed': false},
+        ],
+        mark: (obj, desc) async => marks.add(desc),
+        markStale: (obj, desc) async => stales.add(desc),
+        deact: (id) async => deacts.add(id),
+        onQuest: (o) => quests.add(o.id),
+        onStale: (o) => objStale.add(o.id),
+        onTool: (_) =>
+            _check(relevant: ['YES'], taskRelevant: ['NO'], done: ['NA']),
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(stales, ['last one']);
+      expect(marks, isEmpty);
+      expect(deacts, ['oLast']);
+      expect(objStale, ['oLast']);
+      expect(quests, isEmpty);
     });
   });
 }

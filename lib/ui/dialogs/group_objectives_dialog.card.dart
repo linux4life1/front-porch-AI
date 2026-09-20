@@ -21,7 +21,8 @@ part of 'group_objectives_dialog.dart';
 extension _GroupObjectivesCard on _GroupObjectivesDialogState {
   Widget _buildObjectiveCard(Objective obj, {required bool isPrimary}) {
     final tasks = _tasksFor(obj);
-    final completedCount = tasks.where((t) => t['completed'] == true).length;
+    final completedCount = completedQuestTaskCount(tasks);
+    final countable = countableQuestTaskCount(tasks);
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -65,26 +66,34 @@ extension _GroupObjectivesCard on _GroupObjectivesDialogState {
           if (tasks.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              '$completedCount / ${tasks.length} tasks complete',
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              '$completedCount / $countable tasks complete',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textTertiary(context),
+              ),
             ),
             const SizedBox(height: 4),
             ...tasks.asMap().entries.map((entry) {
               final i = entry.key;
               final t = entry.value;
-              final done = t['completed'] == true;
+              final stale = objectiveTaskIsStale(t);
+              final done = objectiveTaskIsCompleted(t);
               return CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  t['description'] ?? '',
+                  stale
+                      ? '${t['description'] ?? ''}  · stale-skipped'
+                      : t['description'] ?? '',
                   style: TextStyle(
                     decoration: done ? TextDecoration.lineThrough : null,
+                    fontStyle: stale ? FontStyle.italic : FontStyle.normal,
                     fontSize: 12,
+                    color: stale ? AppColors.textTertiary(context) : null,
                   ),
                 ),
                 value: done,
-                onChanged: (_) => _toggleTask(obj, i),
+                onChanged: stale ? null : (_) => _toggleTask(obj, i),
                 secondary: IconButton(
                   icon: const Icon(Icons.edit, size: 14),
                   onPressed: () async {

@@ -89,6 +89,49 @@ class StandaloneClockSwitch extends StatelessWidget {
   }
 }
 
+/// How many consecutive "this quest is no longer relevant" verdicts retire
+/// a quest as stale (not achieved). Task-level stale is immediate.
+class ObjectiveStaleThresholdPicker extends StatelessWidget {
+  const ObjectiveStaleThresholdPicker({super.key, required this.storage});
+
+  final StorageService storage;
+
+  @override
+  Widget build(BuildContext context) {
+    const known = [0, 1, 2, 4];
+    final raw = storage.realismSettings.objectiveStaleThreshold;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Retire a leftover quest after',
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+            ),
+          ),
+        ),
+        DropdownButton<int>(
+          value: known.contains(raw) ? raw : 2,
+          dropdownColor: AppColors.cardOf(context),
+          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
+          items: const [
+            DropdownMenuItem(value: 0, child: Text('never (off)')),
+            DropdownMenuItem(value: 1, child: Text('1 check')),
+            DropdownMenuItem(value: 2, child: Text('2 checks')),
+            DropdownMenuItem(value: 4, child: Text('4 checks')),
+          ],
+          onChanged: (v) {
+            if (v != null) {
+              storage.realismSettings.setObjectiveStaleThreshold(v);
+            }
+          },
+        ),
+      ],
+    );
+  }
+}
+
 /// The "away for at least" dropdown that rides the absence-acknowledgement
 /// row. Values are clamped to a known item so a hand-edited preference cannot
 /// assert the dropdown (carried over verbatim from the old General tab).

@@ -330,12 +330,17 @@ class ChatToolsFacade {
 
   Map<String, dynamic>? _objJson(Objective? o) {
     if (o == null) return null;
+    final tasks = _chat.tasksForObjective(o);
+    // Stale steps stay on the list so the UI can mark them skipped. They are
+    // excluded from current-step / completion counts (never a 100% win).
     return {
       'id': o.id,
       'objective': o.objective,
       'isPrimary': o.isPrimary,
       'checkFrequency': o.checkFrequency,
-      'tasks': _chat.tasksForObjective(o),
+      'tasks': tasks,
+      'completedCount': completedQuestTaskCount(tasks),
+      'countableCount': countableQuestTaskCount(tasks),
       // The ambition this quest is a step toward (schema v46). Additive and
       // nullable — older web bundles ignore the key, and every objective
       // created before v46 legitimately has none.
