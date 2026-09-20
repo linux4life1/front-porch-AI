@@ -26,12 +26,6 @@ extension ChatServiceGroupLite on ChatService {
   List<CharacterCard> get fullGroupRoster =>
       fullGroupCharacters(_groupCharacters);
 
-  /// Present soft guests on the live group roster.
-  List<CharacterCard> get presentSoftGroupMembers => [
-    for (final c in _groupCharacters)
-      if (c.isLite) c,
-  ];
-
   /// 1:1 guest turn **or** a soft group member speaking. Do not set
   /// `guestSpeaker` for the latter — that skip would drop Away / pick.
   bool _isLiteTurn(_GenTurn t) =>
