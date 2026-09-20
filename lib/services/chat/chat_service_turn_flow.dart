@@ -346,10 +346,10 @@ extension ChatServiceTurnFlow on ChatService {
       final due =
           userMessagesSincePass >=
           _storageService.memorySettings.journalInterval;
-      final eventKick =
-          _journalMaintenance.eventKickPending ||
-          JournalPhysics.hasSalientEvent(_messages.sublist(windowStart));
-      if (due || eventKick) {
+      // Salient immediacy is ONLY eventKickPending, which already passed
+      // [_requestSalienceKick]. Reading the window again would bypass the
+      // shared cooldown Growth already honors.
+      if (due || _journalMaintenance.eventKickPending) {
         _journalMaintenance.runMaintenancePass();
       }
     }());

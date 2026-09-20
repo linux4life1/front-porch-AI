@@ -279,10 +279,6 @@ extension RealismVerificationRules on RealismVerification {
       }
     }
 
-    if (kind == 'needs_impact' && !needsImpactHasNonZeroDelta(raw)) {
-      return _RuleResult(false, 'all-zero needs impact', raw);
-    }
-
     // hunger_delta first: it is the key the needs eval actually emits — the
     // plain-'hunger' probe alone made this rule dead for every real output
     // (the strict-quote extractor never matched `"hunger_delta"`), found in

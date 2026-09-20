@@ -64,7 +64,13 @@ class WebSettingsRoutes {
         workerCredentialWriteNeedsStepUp(
           body,
           currentWorkerRemoteApiUrl: _facade.currentWorkerRemoteApiUrl,
-        )) {
+        ) ||
+        workerPathWriteNeedsStepUp(
+          body,
+          currentWorkerModelPath: _facade.currentWorkerKoboldModelPath,
+          currentWorkerKcppsPath: _facade.currentWorkerKoboldKcppsPath,
+        ) ||
+        searchApiKeyWriteNeedsStepUp(body)) {
       final denied = await denyUnlessSteppedUp(
         auth: _deps.auth,
         body: body,

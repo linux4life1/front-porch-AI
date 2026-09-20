@@ -23,7 +23,6 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
-import 'package:front_porch_ai/services/chat/needs_impact_zero.dart';
 import 'package:front_porch_ai/services/chat/realism_evals.dart'
     show
         kMinRelationshipDelta,

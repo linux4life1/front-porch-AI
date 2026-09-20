@@ -121,7 +121,7 @@ extension ChatServiceIdleAutonomous on ChatService {
       );
     }
 
-    _pendingIdleCue = _buildAutonomousCue();
+    _pendingIdleCue = _buildAutonomousCue(afkSpeaker);
     _autoResponseInProgress = true;
     _consecutiveAutoResponses++;
 
@@ -142,13 +142,13 @@ extension ChatServiceIdleAutonomous on ChatService {
         });
   }
 
-  String _buildAutonomousCue() {
-    final charName = _activeCharacter?.name ?? '{{char}}';
+  String _buildAutonomousCue(CharacterCard? speaker) {
+    final who = AfkCueSpeaker.resolve(picked: speaker, host: _activeCharacter);
+    final charName = who.name;
     // Ambitions give off-screen time direction (Living Time §6): a character
     // with a long-term end sometimes spends AFK moments working toward it
     // instead of only meals-and-naps. Optional flavor, never a demand.
-    final ambitions =
-        _activeCharacter?.frontPorchExtensions?.ambitions ?? const [];
+    final ambitions = who.ambitions;
     final ambitionStr = ambitions.isEmpty
         ? ''
         : '\n\nIf it fits naturally, part of this time may go toward '
@@ -200,7 +200,7 @@ extension ChatServiceIdleAutonomous on ChatService {
     // last place a meter could leak into prose ("my hunger at 41…").
     final lowNeeds = _needsSimulation.getLowNeedsForInjection(
       _needsSimulation.vector,
-      enjoysLowHygieneOverride: enjoysLowHygiene,
+      enjoysLowHygieneOverride: who.enjoysLowHygiene,
     );
     String needsStr = '';
     if (lowNeeds.isNotEmpty) {

@@ -44,6 +44,14 @@ describe('ChatComposer placeholder', () => {
     expect(area().placeholder).toBe('No API connection');
   });
 
+  it('offers an Attach photo control', () => {
+    render(true);
+    expect(
+      container.querySelector('button[aria-label="Attach photo"]'),
+    ).not.toBeNull();
+    expect(container.querySelector('input[type="file"][accept="image/*"]')).not.toBeNull();
+  });
+
   it('restores the normal placeholder when the connection recovers', () => {
     render(false);
     expect(area().placeholder).toBe('No API connection');

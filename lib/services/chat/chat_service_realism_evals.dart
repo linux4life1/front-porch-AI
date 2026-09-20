@@ -242,6 +242,7 @@ extension ChatServiceRealismEvals on ChatService {
       // the deltas map on []=).
       final needsSnap = <String, dynamic>{
         'vector': Map<String, int>.from(_needsSimulation.vector),
+        'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
       };
       state['needs'] = needsSnap;
 

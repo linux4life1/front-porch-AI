@@ -99,6 +99,13 @@ extension ChatServiceSessionState on ChatService {
                   MapEntry(k.toString(), GroupMemberRealism.fromJson(v as Map)),
             );
           }
+          final hygieneAck = map['hygiene_crisis_acked'];
+          if (hygieneAck is List) {
+            applyNeedsPersist(_needsSimulation, {
+              'vector': _needsSimulation.vector,
+              'hygiene_crisis_acked': hygieneAck,
+            });
+          }
 
           // Global group decay rates
           final globalDecay = map['globalDecayRates'];

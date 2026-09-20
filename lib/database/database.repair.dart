@@ -312,6 +312,9 @@ extension AppDatabaseMaintenance on AppDatabase {
             debugPrint(
               '[DB] Schema repair: added $table.$colName (recovered from incomplete past migration)',
             );
+            if (table == 'chat_worlds' && colName == 'is_primary') {
+              await _backfillChatWorldsIsPrimary();
+            }
           } catch (e) {
             debugPrint(
               '[DB] Schema repair: FAILED to add $table.$colName — $e (app will continue; some features may be limited until manual intervention)',

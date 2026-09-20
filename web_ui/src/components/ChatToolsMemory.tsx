@@ -155,6 +155,9 @@ function LastRagReceipt({ t }: { t: ToolsState }) {
   } else if (status === 'error') {
     summary =
       'Last reply: tried to search the archive but the memory engine hit an error — nothing was brought back.';
+  } else if (status === 'skipped_no_cues') {
+    summary =
+      'Last reply: older messages had scrolled out of view, but there was no cue to look them up (quote the line to reach back).';
   } else if (status === 'not_operational') {
     summary =
       'Last reply: older messages had scrolled out of view, but the memory engine is not ready — install/start Memory on the desktop host to look them up.';

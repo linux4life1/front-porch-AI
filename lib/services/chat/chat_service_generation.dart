@@ -181,9 +181,7 @@ extension ChatServiceGeneration on ChatService {
       return false;
     }
     if (_messages.isEmpty || _messages.last.text != _kBackendDownNotice) {
-      _messages.add(
-        ChatMessage(text: _kBackendDownNotice, sender: 'System', isUser: false),
-      );
+      _messages.add(statusBannerMessage(_kBackendDownNotice));
       notifyListeners();
     }
     return true;
@@ -412,9 +410,7 @@ extension ChatServiceGeneration on ChatService {
       // generation_error_messages.dart, not a part — zero ChatService access).
       final errorMsg = friendlyGenerationError(e.toString());
 
-      _messages.add(
-        ChatMessage(text: errorMsg, sender: "System", isUser: false),
-      );
+      _messages.add(statusBannerMessage(errorMsg));
 
       // Signal error to SSE listeners
       _tokenBroadcast.add('__ERROR__');

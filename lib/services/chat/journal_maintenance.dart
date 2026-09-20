@@ -329,19 +329,22 @@ class JournalMaintenance {
       // In review mode a non-empty batch parks instead and carries the
       // cursor target with it; an empty "nothing to journal" result settles
       // immediately (there is nothing to review).
-      if (anySucceeded && getSessionId() == sessionToken) {
-        if (reviewMode && (parked.isNotEmpty || parkedRecap != null)) {
-          review.park(
-            JournalReviewBatch(
-              sessionId: sessionToken,
-              cursorTarget: cursorTarget,
-              owners: parked,
-              recap: parkedRecap,
-            ),
-          );
-        } else {
-          setCursor(cursorTarget);
-          await onSaveChat();
+      if (anySucceeded) {
+        await store.persistCursor(sessionToken, cursorTarget);
+        if (getSessionId() == sessionToken) {
+          if (reviewMode && (parked.isNotEmpty || parkedRecap != null)) {
+            review.park(
+              JournalReviewBatch(
+                sessionId: sessionToken,
+                cursorTarget: cursorTarget,
+                owners: parked,
+                recap: parkedRecap,
+              ),
+            );
+          } else {
+            setCursor(cursorTarget);
+            await onSaveChat();
+          }
         }
       }
     } catch (e) {

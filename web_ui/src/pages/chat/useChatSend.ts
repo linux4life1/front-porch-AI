@@ -28,10 +28,10 @@ export function useChatSend(refresh: () => Promise<void>) {
   // on a phone over Tailscale a blipped uplink used to eat the message with no
   // trace at all. Never rethrows, so the `void sendMessage(...)` call sites
   // (CastBar commands, the /join picker) can't strand a rejected promise.
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage = useCallback(async (text: string, imageBase64?: string) => {
     const t = text.trim();
-    if (!t) return;
-    const outcome = await postChatSend(t);
+    if (!t && !imageBase64) return;
+    const outcome = await postChatSend(t, (p, b) => api.post(p, b), imageBase64);
     if (!outcome.ok) {
       setSendError({ text: outcome.text, message: outcome.message, retrying: false });
       return;

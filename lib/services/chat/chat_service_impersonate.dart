@@ -198,7 +198,6 @@ extension ChatServiceImpersonate on ChatService {
       // for {{user}}"). Character examples and post-history are omitted.
       final plan = PromptPlan();
       plan.add(id: 'system', inSystem: true, text: '$systemPrompt\n');
-      plan.add(id: 'lore.before', inSystem: true, text: loreBefore);
       plan.add(id: 'persona', inSystem: true, text: '$personaBlock\n');
       plan.add(id: 'lore.after', inSystem: true, text: loreAfter);
       plan.add(id: 'user_persona', inSystem: true, text: userPersonaBlock);
@@ -217,6 +216,7 @@ extension ChatServiceImpersonate on ChatService {
       plan.add(id: 'lore.ex_bottom', inSystem: true, text: loreExBottom);
       plan.add(id: 'start', text: '<START>\n');
       plan.add(id: 'history', text: '', counted: false);
+      plan.add(id: 'lore.before', text: loreBefore);
       plan.add(id: 'post_history', text: postHistoryBlock);
       plan.add(id: 'lore.an_top', text: loreAnTop);
       plan.add(id: 'author_note', text: authorNoteBlock);

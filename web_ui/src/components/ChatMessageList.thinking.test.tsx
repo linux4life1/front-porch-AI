@@ -48,13 +48,13 @@ describe('ChatMessageList live think', () => {
     container.remove();
   });
 
-  it('keeps streaming think collapsed until the details is opened', () => {
+  it('opens the live think pane so new tokens can be followed', () => {
     renderStreaming('<think>secret live plan</think>\nhello there');
     const details = container.querySelector(
       'details.thinking',
     ) as HTMLDetailsElement | null;
     expect(details).not.toBeNull();
-    expect(details!.open).toBe(false);
+    expect(details!.open).toBe(true);
     expect(details!.querySelector('.thinking-body')?.textContent).toContain(
       'secret live plan',
     );

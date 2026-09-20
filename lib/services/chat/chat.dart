@@ -7,6 +7,7 @@
 
 export 'absence_tracker.dart';
 export 'birthday.dart';
+export 'afk_cue_speaker.dart';
 export 'afk_flavor.dart';
 export 'ambition_service.dart';
 export 'biome_preview.dart';
@@ -55,6 +56,7 @@ export 'eval_traffic.dart';
 export 'mood_baseline.dart';
 export 'needs_impact_evaluator.dart';
 export 'needs_impact_zero.dart';
+export 'needs_persist.dart';
 export 'needs_simulation.dart';
 export 'nsfw_service.dart';
 export 'objective_mention_gate.dart';

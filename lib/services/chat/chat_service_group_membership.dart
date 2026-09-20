@@ -240,11 +240,8 @@ extension ChatServiceGroupMembership on ChatService {
                 // Surface the failure so the user isn't left wondering why the
                 // group loaded with no entrance.
                 _messages.add(
-                  ChatMessage(
-                    text:
-                        '⚠ ${resolved.name}\'s entrance could not be generated.',
-                    sender: 'System',
-                    isUser: false,
+                  statusBannerMessage(
+                    '⚠ ${resolved.name}\'s entrance could not be generated.',
                   ),
                 );
                 await _saveChat();

@@ -141,18 +141,10 @@ extension ChatServiceImportWalk on ChatService {
     }
 
     // Gifts live on the giver's stamp as pockets_before.others. Recipients
-    // who never spoke after the handoff have no own stamp of the item —
-    // apply the newest shared pockets snapshot so fork/import cannot vanish
-    // a gift.
-    if (pocketsFeatureEnabled) {
-      for (var i = start; i >= 0 && i < _messages.length; i--) {
-        final m = _messages[i];
-        if (m.metadata?['pockets_before'] is Map) {
-          _restorePocketsFromStamp(m, after: true);
-          break;
-        }
-      }
-    }
+    // who never spoke after the handoff have no own stamp of the item.
+    // Apply EVERY stamp oldest → newest: a later giver-only move has no
+    // `others`, so it must not wipe Sam's keys from an earlier give.
+    _restorePocketsStampsChronologically(start);
 
     if (clockStamp != null) {
       final rs = clockStamp.activeMetadata!['realism_state'] as Map;

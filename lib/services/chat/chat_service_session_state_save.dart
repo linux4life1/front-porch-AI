@@ -113,6 +113,7 @@ extension ChatServiceSessionStateSave on ChatService {
       groupRealismJson = jsonEncode({
         'globalDecayRates': _groupDecayRates,
         'perChar': _groupRealism,
+        'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
         'authorNotes': _groupAuthorNotes,
         'authorNoteStrengths': _groupAuthorNoteStrengths,
         'characterSystemPrompts': _groupCharacterSystemPrompts,
@@ -219,7 +220,9 @@ extension ChatServiceSessionStateSave on ChatService {
         needsSimEnabled: drift.Value(_needsSimEnabled),
         objectivesEnabled: drift.Value(_objectivesEnabled),
         needsVector: drift.Value(
-          _needsSimEnabled ? jsonEncode(_needsSimulation.vector) : null,
+          _needsSimEnabled
+              ? jsonEncode(encodeNeedsPersist(_needsSimulation))
+              : null,
         ),
         // v47 — the 1:1 record. Group members keep theirs inside
         // groupRealismState above, which is why groups always survived a
@@ -294,6 +297,7 @@ extension ChatServiceSessionStateSave on ChatService {
     final messageBatch = <MessagesCompanion>[];
     for (int i = 0; i < snapshot.length; i++) {
       final m = snapshot[i];
+      if (m.isStatusBanner) continue;
       messageBatch.add(
         MessagesCompanion(
           sessionId: drift.Value(sessionId),

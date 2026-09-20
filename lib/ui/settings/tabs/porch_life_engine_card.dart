@@ -29,12 +29,10 @@ class PorchLifeEngineCard extends StatelessWidget {
     super.key,
     required this.engineOn,
     required this.storage,
-    required this.chat,
   });
 
   final bool engineOn;
   final StorageService storage;
-  final ChatService chat;
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +51,7 @@ class PorchLifeEngineCard extends StatelessWidget {
               'rest of Porch Life runs with or without it, and every row '
               'says which it is.',
           value: engineOn,
-          onChanged: (v) {
-            storage.realismSettings.setRealismDefault(v);
-            chat.setRealismEnabled(v);
-          },
+          onChanged: storage.realismSettings.setRealismDefault,
         ),
         FeatureRow(
           icon: Icons.favorite_outline,
@@ -71,10 +66,7 @@ class PorchLifeEngineCard extends StatelessWidget {
               'with it or not at all. Individual chats can still switch '
               'them off in the sidebar.',
           value: storage.realismSettings.needsSimDefault,
-          onChanged: (v) {
-            storage.realismSettings.setNeedsSimDefault(v);
-            chat.setNeedsSimEnabled(v);
-          },
+          onChanged: storage.realismSettings.setNeedsSimDefault,
         ),
       ],
     );

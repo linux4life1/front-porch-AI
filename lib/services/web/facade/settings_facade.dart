@@ -41,10 +41,9 @@ class SettingsFacade {
   final StorageService _storage;
   final LLMProvider _llm;
 
-  /// Optional: present whenever a chat is open, so the three engine-coupled
-  /// Porch Life toggles reach the LIVE conversation the same way the desktop
-  /// tab's onChanged does. Null-safe — with no chat bound, the write still
-  /// lands in storage and applies to the next one.
+  /// Optional: present whenever a chat is open. Porch Life defaults no
+  /// longer push into the live conversation (that wiped lived-in Needs).
+  /// Sidebar Chat Tools still write the per-chat override.
   final ChatService? _chat;
   ChatService? get boundChat => _chat;
 
@@ -56,6 +55,12 @@ class SettingsFacade {
 
   /// Worker-lane remote base — same stolen-session gate as [currentRemoteApiUrl].
   String get currentWorkerRemoteApiUrl => _storage.workerRemoteApiUrl;
+
+  String get currentWorkerKoboldModelPath =>
+      _storage.workerKoboldModelPath ?? '';
+
+  String get currentWorkerKoboldKcppsPath =>
+      _storage.workerKoboldKcppsPath ?? '';
 
   static String? _seededReasoningCatalogUrl;
 

@@ -121,6 +121,8 @@ extension GrowthServiceExchange on GrowthService {
     List<GrowthRingData> activeRings, {
     required bool distillMode,
     required String ownerName,
+    int windowStart = 0,
+    int windowLength = 0,
   }) {
     String named(String text) =>
         resolveGrowthMacros(text, charName: ownerName, userName: getUserName());
@@ -128,12 +130,17 @@ extension GrowthServiceExchange on GrowthService {
     for (final op in ops) {
       switch (op.action) {
         case GrowthOpAction.add:
+          final cites = passAuthoredReceipts(
+            op.sourcePositions,
+            windowStart: windowStart,
+            windowLength: windowLength,
+          );
           resolved.add(
             GrowthProposedOp(
               action: op.action,
               text: named(op.text),
               category: op.category,
-              sourcePositions: op.sourcePositions,
+              sourcePositions: cites,
               seedStrength: distillMode
                   ? GrowthPhysics.kDistillSeedStrength
                   : GrowthPhysics.kNewRingStrength,

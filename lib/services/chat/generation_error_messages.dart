@@ -20,6 +20,16 @@
 // verbatim from the ChatService generation catch block (god-file ratchet).
 // Pure String→String transform: zero ChatService access.
 
+import 'package:front_porch_ai/models/chat_message.dart';
+
+/// System status banner (backend-down / generation error). Not story.
+ChatMessage statusBannerMessage(String text) => ChatMessage(
+  text: text,
+  sender: 'System',
+  isUser: false,
+  metadata: const {kStatusBannerMeta: true},
+);
+
 /// Map a raw generation-failure error string (typically `error.toString()`)
 /// to a friendlier, actionable message for the chat transcript. Unmapped
 /// errors pass through unchanged (minus the stripped `Exception: ` prefix).

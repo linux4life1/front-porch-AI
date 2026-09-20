@@ -27,6 +27,7 @@ import 'salience_kick_gate.dart';
 import 'growth_prompt.dart';
 import 'growth_review.dart';
 import 'growth_store.dart';
+import 'journal_ops.dart';
 import 'journal_physics.dart';
 import 'pass_support.dart';
 import 'tool_eval_spec.dart';
@@ -313,6 +314,8 @@ class GrowthService {
           active,
           distillMode: distillMode,
           ownerName: owner.name,
+          windowStart: start,
+          windowLength: window.length,
         );
         final proposals = GrowthOwnerProposals(
           ownerId: ownerId,

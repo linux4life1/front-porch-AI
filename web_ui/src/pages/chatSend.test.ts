@@ -22,6 +22,22 @@ describe('postChatSend', () => {
     ]);
   });
 
+  it('posts imageBase64 when a photo is attached', async () => {
+    const calls: { path: string; body: unknown }[] = [];
+    const out = await postChatSend(
+      'look',
+      async (path, body) => {
+        calls.push({ path, body });
+        return {};
+      },
+      'abc123',
+    );
+    expect(out).toEqual({ ok: true });
+    expect(calls).toEqual([
+      { path: '/api/chat/send', body: { text: 'look', imageBase64: 'abc123' } },
+    ]);
+  });
+
   it('hands the typed text back when the network drops', async () => {
     const out = await postChatSend('a long message I do not want to retype', () =>
       Promise.reject(new TypeError('Failed to fetch')),

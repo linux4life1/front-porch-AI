@@ -72,8 +72,9 @@ const int kStoryDayLookbackCap = 200;
 int? storyDayAt(
   List<ChatMessage> messages,
   int positionStart,
-  int positionEnd,
-) {
+  int positionEnd, {
+  int basePosition = 0,
+}) {
   if (messages.isEmpty) return null;
 
   int? dayOf(int i) {
@@ -90,8 +91,8 @@ int? storyDayAt(
     return null;
   }
 
-  final start = positionStart.clamp(0, messages.length - 1);
-  final end = positionEnd.clamp(0, messages.length - 1);
+  final start = (positionStart - basePosition).clamp(0, messages.length - 1);
+  final end = (positionEnd - basePosition).clamp(0, messages.length - 1);
   if (start > end) return null;
   for (var i = start; i <= end; i++) {
     final d = dayOf(i);

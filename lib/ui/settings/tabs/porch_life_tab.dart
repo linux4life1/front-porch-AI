@@ -71,7 +71,6 @@ class PorchLifeTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final storage = context.watch<StorageService>();
-    final chat = context.read<ChatService>();
     final realism = storage.realismSettings;
 
     // The engine gates everything in "needs Realism" rows; passage of time
@@ -110,7 +109,7 @@ class PorchLifeTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        PorchLifeEngineCard(engineOn: engineOn, storage: storage, chat: chat),
+        PorchLifeEngineCard(engineOn: engineOn, storage: storage),
 
         FeatureGroupCard(
           title: 'Time & World',
@@ -126,10 +125,7 @@ class PorchLifeTab extends StatelessWidget {
                   'exchange actually took, so a shared meal moves the clock '
                   'further than a passing hello.',
               value: timeOn,
-              onChanged: (v) {
-                storage.realismSettings.setPassageOfTimeDefault(v);
-                chat.setPassageOfTimeEnabled(v);
-              },
+              onChanged: storage.realismSettings.setPassageOfTimeDefault,
               // Shown only with the engine off. With it on, the clock already
               // rides the engine's own reading of the scene and costs nothing
               // extra, so offering a switch there would be a choice about
@@ -297,10 +293,7 @@ class PorchLifeTab extends StatelessWidget {
                   'every few messages while it is off. Switching this off is '
                   'the way to stop that cost — your quests are kept either way.',
               value: objectivesOn,
-              onChanged: (v) {
-                storage.realismSettings.setObjectivesEnabled(v);
-                chat.setObjectivesEnabled(v);
-              },
+              onChanged: storage.realismSettings.setObjectivesEnabled,
               child: ObjectiveStaleThresholdPicker(storage: storage),
             ),
             FeatureRow(
@@ -409,10 +402,7 @@ class PorchLifeTab extends StatelessWidget {
                     'to do. Uses one short extra AI request per reply to '
                     'notice a climax, so it costs a little more on a paid API.',
                 value: storage.realismSettings.nsfwCooldownDefault,
-                onChanged: (v) {
-                  storage.realismSettings.setNsfwCooldownDefault(v);
-                  chat.setNsfwCooldownEnabled(v);
-                },
+                onChanged: storage.realismSettings.setNsfwCooldownDefault,
               ),
               FeatureRow(
                 icon: Icons.favorite,

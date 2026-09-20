@@ -360,6 +360,19 @@ extension ChatServicePockets on ChatService {
   /// tail delete). A message with no stamps applied no ops — nothing to do.
   /// Restores the speaker AND any transfer recipients stamped under
   /// `others` / `pockets_after_others`.
+  /// Fork/import: replay pocket stamps in story order so a silent
+  /// recipient keeps an earlier gift when a later stamp names only the giver.
+  void _restorePocketsStampsChronologically(int start) {
+    if (!pocketsFeatureEnabled) return;
+    final last = start.clamp(0, _messages.isEmpty ? 0 : _messages.length - 1);
+    for (var i = 0; i <= last && i < _messages.length; i++) {
+      final m = _messages[i];
+      if (m.metadata?['pockets_before'] is Map) {
+        _restorePocketsFromStamp(m, after: true);
+      }
+    }
+  }
+
   void _restorePocketsFromStamp(ChatMessage msg, {required bool after}) {
     // Rewind (regenerate / tail-delete) un-deletes the item cards this turn
     // retired. `after: true` (cancel put-back, swipe) keeps the turn's text,

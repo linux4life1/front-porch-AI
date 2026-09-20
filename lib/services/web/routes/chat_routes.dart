@@ -246,11 +246,12 @@ class WebChatRoutes {
 
   Future<shelf.Response> _send(shelf.Request request) async {
     final body = await _json(request);
-    final text = body['text']?.toString();
-    if (text == null || text.trim().isEmpty) {
+    final text = body['text']?.toString() ?? '';
+    final image = decodeChatSendImage(body['imageBase64']);
+    if (text.trim().isEmpty && image == null) {
       return JsonResponse.badRequest('text is required');
     }
-    _facade.send(text);
+    _facade.send(text, imageBytes: image);
     return JsonResponse.ok({'status': 'ok'});
   }
 

@@ -42,18 +42,17 @@ PromptPlan buildGenerationShapedPlan({
     text: '$systemPrompt\n',
   );
   plan.add(
-    id: 'lore.before',
-    label: 'Lorebook',
-    inSystem: true,
-    text: loreBefore,
-  );
-  plan.add(
     id: 'persona',
     label: 'Persona',
     inSystem: true,
     text: '$personaBlock\n',
   );
-  plan.add(id: 'lore.after', label: 'Lorebook', inSystem: true, text: loreAfter);
+  plan.add(
+    id: 'lore.after',
+    label: 'Lorebook',
+    inSystem: true,
+    text: loreAfter,
+  );
   plan.add(id: 'user_persona', inSystem: true, text: userPersonaBlock);
   plan.add(
     id: 'scenario',
@@ -61,8 +60,18 @@ PromptPlan buildGenerationShapedPlan({
     inSystem: true,
     text: 'Scenario: $scenario\n',
   );
-  plan.add(id: 'lore.ex_top', label: 'Lorebook', inSystem: true, text: loreExTop);
-  plan.add(id: 'examples', label: 'Examples', inSystem: true, text: mesExampleBlock);
+  plan.add(
+    id: 'lore.ex_top',
+    label: 'Lorebook',
+    inSystem: true,
+    text: loreExTop,
+  );
+  plan.add(
+    id: 'examples',
+    label: 'Examples',
+    inSystem: true,
+    text: mesExampleBlock,
+  );
   plan.add(
     id: 'lore.ex_bottom',
     label: 'Lorebook',
@@ -71,11 +80,19 @@ PromptPlan buildGenerationShapedPlan({
   );
   plan.add(id: 'start', text: '<START>\n');
   plan.add(id: 'history', label: 'Chat History', text: '', counted: false);
+  // Keyword Context Info lore follows the transcript so a trigger cannot
+  // rewrite the system prefix (local backends re-prefill on a head change).
+  plan.add(id: 'lore.before', label: 'Lorebook', text: loreBefore);
   // Phase 3 (measured) + the audit-#4 remainder: memories, the recap, and
   // the journal ALL follow the transcript — see the placement comment in
   // chat_service_generation.dart (volatile blocks before history force a
   // full re-prefill on every local backend).
-  plan.add(id: 'memories', label: 'Retrieved Memories', text: '', counted: false);
+  plan.add(
+    id: 'memories',
+    label: 'Retrieved Memories',
+    text: '',
+    counted: false,
+  );
   plan.add(id: 'summary', label: 'Summary', text: summaryBlock);
   plan.add(id: 'journal', label: 'Journal', text: journalBlock);
   plan.add(id: 'post_history', label: 'Post-History', text: postHistoryBlock);
@@ -113,20 +130,18 @@ void main() {
 
     // The legacy chatSystemPrompt concatenation, verbatim shape.
     const legacySystem =
-        "SYS\n[LB]\nAlice's Persona: kind\n[LA]\nSam is the human.\n\n"
+        "SYS\nAlice's Persona: kind\n[LA]\nSam is the human.\n\n"
         "Scenario: a porch at dusk\n[LXT]\n<START>\nAlice: hi\n[LXB]\n";
     expect(plan.systemText, legacySystem);
 
     // The canonical prompt shape (depth lore NOT rendered — it is spliced
-    // into history by the budget walk). TWO DELIBERATE deltas vs the legacy
-    // concatenation: retrieved memories follow the transcript (Phase 3
-    // placement, measured), and the recap + journal follow them too (audit
-    // finding #4's remainder — both blocks change between turns, and a
-    // changing block before history forces a full re-prefill on local
-    // backends). See the placement comment in chat_service_generation.dart.
+    // into history by the budget walk). Keyword Context Info lore now
+    // follows the transcript so a trigger cannot rewrite the system head.
+    // Retrieved memories / recap / journal already follow history.
     const legacyPrompt =
         "<START>\n"
         "Sam: hello\nAlice: hey there"
+        "[LB]\n"
         "\n[Exact earlier lines: - x]\n"
         "\n[The story so far: things happened]\n"
         "\n[journal]\n"
@@ -141,13 +156,14 @@ void main() {
     expect(plan.userText, legacyPrompt);
     expect(plan.fullText, '$legacySystem\n$legacyPrompt');
 
-    // And the fixed-count text is byte-identical to the legacy fixedContent
-    // shape: system + start/summary/journal (memories+history skipped) +
-    // post-history + AN lore + AN + depth lore + objectives + realism +
-    // catastrophe (idle skipped) + suffix + chance time.
+    // Fixed-count: system (no keyword lore) + start + lore.before +
+    // summary/journal (memories+history skipped) + post-history + AN lore
+    // + AN + depth lore + objectives + realism + catastrophe (idle skipped)
+    // + suffix + chance time.
     const legacyFixed =
         "$legacySystem"
         "<START>\n"
+        "[LB]\n"
         "\n[The story so far: things happened]\n"
         "\n[journal]\n"
         "PHI\n"
@@ -177,23 +193,25 @@ void main() {
     expect(plan.userText, contains('HUGE HISTORY'));
   });
 
-  test('budget map groups labels, sums lorebook buckets, drops zero/unlabeled',
-      () {
-    final plan = buildGenerationShapedPlan(
-      needsCatastropheBlock: '', // zero row must vanish
-    );
-    plan.section('history').text = 'x' * 400; // 100 est tokens
-    final map = plan.budgetEstimates();
-    expect(map['Chat History'], 100);
-    // 6 rendered lore buckets + count-only depth all sum into one row:
-    // '[LB]\n'(5) + '[LA]\n'(5) + '[LXT]\n'(6) + '[LXB]\n'(6) + '[ANT]\n'(6)
-    // + '[ANB]\n'(6) + '[depth lore]'(12) = 46 chars → ceil(46/4) = 12.
-    expect(map['Lorebook'], 12);
-    expect(map.containsKey('Needs Catastrophe'), isFalse);
-    expect(map.containsKey('Retrieved Memories'), isFalse); // empty
-    // Unlabeled sections (start, suffix, user_persona, idle) never appear.
-    expect(map.keys.any((k) => k.isEmpty), isFalse);
-  });
+  test(
+    'budget map groups labels, sums lorebook buckets, drops zero/unlabeled',
+    () {
+      final plan = buildGenerationShapedPlan(
+        needsCatastropheBlock: '', // zero row must vanish
+      );
+      plan.section('history').text = 'x' * 400; // 100 est tokens
+      final map = plan.budgetEstimates();
+      expect(map['Chat History'], 100);
+      // 6 rendered lore buckets + count-only depth all sum into one row:
+      // '[LB]\n'(5) + '[LA]\n'(5) + '[LXT]\n'(6) + '[LXB]\n'(6) + '[ANT]\n'(6)
+      // + '[ANB]\n'(6) + '[depth lore]'(12) = 46 chars → ceil(46/4) = 12.
+      expect(map['Lorebook'], 12);
+      expect(map.containsKey('Needs Catastrophe'), isFalse);
+      expect(map.containsKey('Retrieved Memories'), isFalse); // empty
+      // Unlabeled sections (start, suffix, user_persona, idle) never appear.
+      expect(map.keys.any((k) => k.isEmpty), isFalse);
+    },
+  );
 
   test('section() mutation is what renders (continue-mode zeroing path)', () {
     final plan = buildGenerationShapedPlan();

@@ -100,6 +100,8 @@ class NeedsSimulation {
 
   Map<String, int> get vector => Map<String, int>.unmodifiable(_vector);
   String? get pendingCatastrophe => _pendingCatastrophe;
+  Set<String> get hygieneCrisisAcked =>
+      Set<String>.unmodifiable(_hygieneCrisisAcked);
 
   // Buffer state and getters completely removed.
 
@@ -369,6 +371,12 @@ class NeedsSimulation {
         for (final e in raw.entries)
           if (e.value is num) e.key.toString(): (e.value as num).toInt(),
       };
+    }
+    final ack = needsData['hygiene_crisis_acked'];
+    if (ack is List) {
+      _hygieneCrisisAcked
+        ..clear()
+        ..addAll(ack.map((e) => e.toString()));
     }
     // No buffer restore.
     _lastSceneReason = null;

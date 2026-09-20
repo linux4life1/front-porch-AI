@@ -368,16 +368,10 @@ extension LlmEvalExtract on LlmEvalEngine {
                   label: 'needs',
                 )
               : () async => null,
-          repair: () => fireLLMEval(
-            needsImpactAllZeroRepairPrompt(responseText, strength),
-            onChunk: onChunk,
-            repeatPenalty: kScalarEvalRepeatPenalty,
-            label: 'needs',
-          ),
           stripThink: stripThinkBlocks,
         );
         if (recovered != text) {
-          debugPrint('[Realism:Needs] all-zero rejected; using recovered JSON');
+          debugPrint('[Realism:Needs] tools zeros retried as text');
           text = recovered;
         }
       }

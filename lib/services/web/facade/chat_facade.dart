@@ -18,6 +18,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
@@ -277,8 +278,8 @@ class ChatFacade {
     return true;
   }
 
-  void send(String text) {
-    _chat.sendMessage(text);
+  void send(String text, {Uint8List? imageBytes}) {
+    _chat.sendMessage(text, imageBytes: imageBytes);
     _notify();
   }
 

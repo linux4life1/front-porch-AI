@@ -214,11 +214,8 @@ extension ChatServiceSessionHydrate on ChatService {
       // it seeded) must NOT clobber the defaults, or the sidebar shows no scores.
       _needsSimulation.initializeFresh();
       final nv = s.needsVector;
-      final saved = (nv is String && nv.isNotEmpty)
-          ? (jsonDecode(nv) as Map).cast<String, int>()
-          : <String, int>{};
-      if (saved.isNotEmpty) {
-        _needsSimulation.restoreFromSnapshot({'vector': saved});
+      if (nv is String && nv.isNotEmpty) {
+        applyNeedsPersist(_needsSimulation, jsonDecode(nv));
       }
     } else {
       _needsSimulation.clearVector();

@@ -80,6 +80,18 @@ const List<String> kJournalCategories = [
 /// prompt block small even when a rambly model over-writes).
 const int kJournalMemoryMaxChars = 300;
 
+/// Pass-authored adds must cite the window so regen/swipe/delete can
+/// retire them. Manual plants keep an empty list.
+List<int> passAuthoredReceipts(
+  List<int> cited, {
+  required int windowStart,
+  required int windowLength,
+}) {
+  if (cited.isNotEmpty) return cited;
+  if (windowLength <= 0) return const [];
+  return [windowStart + windowLength - 1];
+}
+
 final RegExp _memoryTag = RegExp(
   r'<memory\b([^>]*?)(?:/>|>([\s\S]*?)</memory>)',
   caseSensitive: false,
@@ -229,10 +241,7 @@ const List<Map<String, dynamic>> kJournalTools = [
             'type': 'string',
             'description': 'The memory, first person, at most 40 words.',
           },
-          'category': {
-            'type': 'string',
-            'enum': kJournalCategories,
-          },
+          'category': {'type': 'string', 'enum': kJournalCategories},
           'msgs': {
             'type': 'array',
             'items': {'type': 'integer'},

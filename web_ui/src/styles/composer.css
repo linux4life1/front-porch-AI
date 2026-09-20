@@ -27,6 +27,14 @@
 .bubble .act { color: var(--action); font-style: italic; }
 .bubble .act.bold { font-weight: 700; font-style: normal; }
 .chat-composer-wrap { width: 100%; }
+.composer-photo-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px 0;
+}
+.composer-photo-chip img {
+  width: 48px; height: 48px; object-fit: cover; border-radius: 8px;
+  border: 1px solid var(--border);
+}
 .send-held-banner {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 16px; font-size: 12px; font-weight: 500;

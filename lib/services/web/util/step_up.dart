@@ -66,6 +66,33 @@ bool workerCredentialWriteNeedsStepUp(
   );
 }
 
+/// Stolen session must not retarget the evals GGUF / .kcpps.
+bool workerPathWriteNeedsStepUp(
+  Map<String, dynamic> body, {
+  required String currentWorkerModelPath,
+  required String currentWorkerKcppsPath,
+}) {
+  if (body.containsKey('workerKoboldModelPath') &&
+      (body['workerKoboldModelPath']?.toString() ?? '') !=
+          currentWorkerModelPath) {
+    return true;
+  }
+  if (body.containsKey('workerKoboldKcppsPath') &&
+      (body['workerKoboldKcppsPath']?.toString() ?? '') !=
+          currentWorkerKcppsPath) {
+    return true;
+  }
+  return false;
+}
+
+/// Tavily / search key is credential-grade, same as a remote API key.
+bool searchApiKeyWriteNeedsStepUp(Map<String, dynamic> body) {
+  final realism = body['realism'];
+  if (realism is! Map) return false;
+  final key = realism['searchApiKey']?.toString();
+  return key != null && key.isNotEmpty;
+}
+
 /// True when POST /api/image/config would persist a new remote URL/key **or**
 /// a new local image-gen host (A1111 / Comfy / Draw Things). A stolen
 /// session cookie must not redirect generation at any of those.

@@ -70,9 +70,10 @@ extension ChatServiceWiringInjection on ChatService {
         final start = _messages.length > count ? _messages.length - count : 0;
         return [
           for (final m in _messages.sublist(start))
-            m.characterId == '__director__'
-                ? '[Director: ${m.text}]'
-                : (includeNames ? m.toPromptHistoryLine() : m.promptText),
+            if (!m.isStatusBanner)
+              m.characterId == '__director__'
+                  ? '[Director: ${m.text}]'
+                  : (includeNames ? m.toPromptHistoryLine() : m.promptText),
         ];
       },
       getGlobalScanDepth: () => _storageService.lorebookSettings.scanDepth,

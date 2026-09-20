@@ -124,8 +124,13 @@ extension JournalMaintenanceExchange on JournalMaintenance {
     for (final op in ops) {
       switch (op.action) {
         case JournalOpAction.add:
-          final stamp = _emotionStamp(op.sourcePositions, window, windowStart);
-          final date = _dateStamp(op.sourcePositions, window, windowStart);
+          final cites = passAuthoredReceipts(
+            op.sourcePositions,
+            windowStart: windowStart,
+            windowLength: window.length,
+          );
+          final stamp = _emotionStamp(cites, window, windowStart);
+          final date = _dateStamp(cites, window, windowStart);
           resolved.add(
             JournalProposedOp(
               action: op.action,
@@ -133,7 +138,7 @@ extension JournalMaintenanceExchange on JournalMaintenance {
               category: op.category,
               emotionLabel: stamp?.$1,
               emotionIntensity: stamp?.$2,
-              sourcePositions: op.sourcePositions,
+              sourcePositions: cites,
               storyDay: date.$1,
               storyClock: date.$2,
             ),

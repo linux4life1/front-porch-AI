@@ -181,39 +181,62 @@ extension _AppDatabaseMigrationLate on AppDatabase {
       // DEFAULT 0 (lore). Backfill: for each chat, first attached world
       // (by sort_order) whose worlds.climate_enabled=1 becomes primary;
       // if none are climate-enabled, Primary stays empty (all lore).
-      try {
-        await customStatement(
-          'ALTER TABLE chat_worlds ADD COLUMN is_primary '
-          'INTEGER NOT NULL DEFAULT 0',
+      //
+      // RE-RUN GUARD. Same dual-version class as v39/v40: an older binary
+      // stamps user_version down, this block re-enters, ALTER no-ops, and
+      // an unguarded UPDATE would revive a Setting the user moved to lore.
+      // A successful ALTER is the only honest "this is the real upgrade"
+      // signal. Repair that *adds* the column must call the same backfill.
+      final addedNow = await _tryAddChatWorldsIsPrimary();
+      if (addedNow) {
+        await _backfillChatWorldsIsPrimary();
+      } else {
+        debugPrint(
+          '[DB] v52: is_primary already present — skipping backfill '
+          '(re-entry after a rollback)',
         );
-        debugPrint('[DB] v52: added chat_worlds.is_primary');
-      } catch (_) {
-        // already present (re-run / dual-version)
       }
-      try {
-        await customStatement(
-          'UPDATE chat_worlds '
-          'SET is_primary = 1 '
-          'WHERE id IN ('
-          '  SELECT cw.id '
-          '  FROM chat_worlds cw '
-          '  INNER JOIN worlds w ON w.id = cw.world_id '
-          '  WHERE w.climate_enabled = 1 '
-          '    AND cw.id = ('
-          '      SELECT cw2.id '
-          '      FROM chat_worlds cw2 '
-          '      INNER JOIN worlds w2 ON w2.id = cw2.world_id '
-          '      WHERE cw2.chat_id = cw.chat_id '
-          '        AND w2.climate_enabled = 1 '
-          '      ORDER BY cw2.sort_order ASC, cw2.id ASC '
-          '      LIMIT 1'
-          '    )'
-          ')',
-        );
-        debugPrint('[DB] v52: backfilled chat_worlds.is_primary');
-      } catch (e) {
-        debugPrint('[DB] v52: is_primary backfill skipped: $e');
-      }
+    }
+  }
+
+  /// True only when this pass actually created `chat_worlds.is_primary`.
+  Future<bool> _tryAddChatWorldsIsPrimary() async {
+    try {
+      await customStatement(
+        'ALTER TABLE chat_worlds ADD COLUMN is_primary '
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      debugPrint('[DB] v52: added chat_worlds.is_primary');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _backfillChatWorldsIsPrimary() async {
+    try {
+      await customStatement(
+        'UPDATE chat_worlds '
+        'SET is_primary = 1 '
+        'WHERE id IN ('
+        '  SELECT cw.id '
+        '  FROM chat_worlds cw '
+        '  INNER JOIN worlds w ON w.id = cw.world_id '
+        '  WHERE w.climate_enabled = 1 '
+        '    AND cw.id = ('
+        '      SELECT cw2.id '
+        '      FROM chat_worlds cw2 '
+        '      INNER JOIN worlds w2 ON w2.id = cw2.world_id '
+        '      WHERE cw2.chat_id = cw.chat_id '
+        '        AND w2.climate_enabled = 1 '
+        '      ORDER BY cw2.sort_order ASC, cw2.id ASC '
+        '      LIMIT 1'
+        '    )'
+        ')',
+      );
+      debugPrint('[DB] v52: backfilled chat_worlds.is_primary');
+    } catch (e) {
+      debugPrint('[DB] v52: is_primary backfill skipped: $e');
     }
   }
 }

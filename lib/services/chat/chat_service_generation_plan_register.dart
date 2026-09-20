@@ -45,12 +45,6 @@ extension ChatServiceGenerationPlanRegister on ChatService {
       text: '${t.systemPrompt}\n',
     );
     plan.add(
-      id: 'lore.before',
-      label: 'Lorebook',
-      inSystem: true,
-      text: t.loreBefore,
-    );
-    plan.add(
       id: 'persona',
       label: 'Persona',
       inSystem: true,
@@ -95,6 +89,11 @@ extension ChatServiceGenerationPlanRegister on ChatService {
       text: '',
       counted: false, // budget-fitted against fixedCountText
     );
+    // Keyword "Context Info" lore used to sit in the system head. A
+    // trigger/untrigger rewrote byte 1 of the prompt, so local backends
+    // re-prefills the whole transcript. After history, the sticky prefix
+    // stays put — same class of move as memories / recap / journal.
+    plan.add(id: 'lore.before', label: 'Lorebook', text: t.loreBefore);
     // Retrieved memories sit AFTER the transcript (Phase 3, measured):
     // retrieval changes this block every turn, and a changing block
     // BEFORE the history rewrote the prompt's middle each turn — a full

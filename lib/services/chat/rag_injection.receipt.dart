@@ -318,6 +318,7 @@ bool _ragCoveredByJournal(String ragContent, List<String> cards) {
 const String kRagReceiptOk = 'ok';
 const String kRagReceiptError = 'error';
 const String kRagReceiptNotOperational = 'not_operational';
+const String kRagReceiptSkippedNoCues = 'skipped_no_cues';
 
 /// The receipt for one turn's retrieval, stamped into the generated
 /// message's metadata as `rag_receipt`. [injected] is the FINAL set in

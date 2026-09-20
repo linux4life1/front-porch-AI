@@ -40,29 +40,25 @@ extension SettingsFacadeUpdate on SettingsFacade {
       if (prom is bool) {
         await _storage.realismSettings.setPromiseLedgerEnabled(prom);
       }
-      // Porch Life tab parity (2026-08-07). Each write mirrors the desktop
-      // row: the three engine-coupled ones also push into the live chat the
-      // way the Flutter tab's onChanged does, so a web toggle takes effect on
-      // the open conversation instead of only on the next one.
+      // Porch Life tab writes DEFAULTS only. Pushing into the open chat
+      // saved needsVector: null / flipped per-chat switches and wiped
+      // lived-in meters on reload. Sidebar Chat Tools still own the
+      // per-chat override.
       final rd = realism['realismDefault'];
       if (rd is bool) {
         await _storage.realismSettings.setRealismDefault(rd);
-        _chat?.setRealismEnabled(rd);
       }
       final nsfw = realism['nsfwCooldownDefault'];
       if (nsfw is bool) {
         await _storage.realismSettings.setNsfwCooldownDefault(nsfw);
-        _chat?.setNsfwCooldownEnabled(nsfw);
       }
       final needs = realism['needsSimDefault'];
       if (needs is bool) {
         await _storage.realismSettings.setNeedsSimDefault(needs);
-        await _chat?.setNeedsSimEnabled(needs);
       }
       final pot = realism['passageOfTimeDefault'];
       if (pot is bool) {
         await _storage.realismSettings.setPassageOfTimeDefault(pot);
-        _chat?.setPassageOfTimeEnabled(pot);
       }
       // No live-chat push: unlike the toggles around it, this one is read
       // per turn straight off StorageService (ChatService._standaloneClockActive
@@ -135,10 +131,6 @@ extension SettingsFacadeUpdate on SettingsFacade {
       final objs = realism['objectivesEnabled'];
       if (objs is bool) {
         await _storage.realismSettings.setObjectivesEnabled(objs);
-        // Engine-coupled in the same sense the rows above are: push into the
-        // open conversation so a web toggle takes effect there too, not only
-        // on the next chat.
-        await _chat?.setObjectivesEnabled(objs);
       }
       final staleN = realism['objectiveStaleThreshold'];
       if (staleN is num) {

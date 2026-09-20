@@ -29,6 +29,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import '../widgets/inline_chat_image.dart';
 import '../widgets/regen_critique_field.dart';
+import 'live_thought_body.dart';
 import 'live_thinking_timer.dart';
 import 'selectable_bubble_body.dart';
 import 'styled_chat_message.dart';
@@ -115,6 +116,14 @@ class _MessageBubbleState extends State<MessageBubble> {
       _thoughtPinned = true;
       _thoughtExpanded = next;
     });
+  }
+
+  /// Inner think pane follows new tokens; the transcript does not.
+  bool get _followLiveThought {
+    if (widget.isGenerating == true) return true;
+    final chat = widget.chatService;
+    if (chat == null || !chat.isGenerating) return false;
+    return chat.messages.isNotEmpty && widget.index == chat.messages.length - 1;
   }
 
   bool get hasStorage {

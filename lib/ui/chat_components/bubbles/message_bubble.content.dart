@@ -59,12 +59,9 @@ extension _BubbleContent on _MessageBubbleState {
                   ),
                 ),
               if (message.thinkingContent != null)
-                Text(
-                  message.thinkingContent!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary(context),
-                  ),
+                LiveThoughtBody(
+                  text: message.thinkingContent!,
+                  followLatest: _followLiveThought,
                 ),
             ],
           ),

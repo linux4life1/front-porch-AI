@@ -3,97 +3,42 @@
 These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge builds.
 **Only list what landed after the last shipped nightly.** Clear this section when a new nightly goes out — delete the old bullets; do not accumulate them.
 
-Last shipped nightly: `rawhide.20260906.7059c91`. Everything below is unreleased.
+Last shipped nightly: `rawhide.20260918.c11669b`. Everything below is unreleased.
 
 ## Recent improvements (unreleased — ships in the next build)
 
-- 📜 **Leftover quests step aside** — if the story moves on, a quest or step can be marked stale-skipped instead of pretending you won. A leftover step is skipped right away; a whole leftover quest waits for two “no longer relevant” checks (you can set that to off / 1 / 2 / 4 in Porch Life). Today’s side quest, if it is overtaken, is abandoned — not completed. Same on the phone.
+- 🖼 **Attach a photo from the phone** — the composer has an attach button. The model sees the picture the same way as on desktop.
 
-- 👜 **Pockets & Wardrobe per character** — the character switch sits on the Pockets & Wardrobe panel (Wearing / Carrying), not under Edit Character → Details. Porch Life still turns the feature off for everyone. Leave a character’s switch on (the default — old cards stay on) and they keep their wardrobe; turn it off and only they skip it. A group hand-off will not tuck items into someone you turned off, and turning them back on still finds whatever they already had. Same on the phone.
-- 📥 **Drop cards on the home porch** — drag a PNG character card or a `.byaf` archive from Finder / Explorer onto the home library and it imports the same way as Import Card / Import BYAF. Several files at once is fine. Other file types get a short “can’t import that” notice.
+- 💤 **Group away-time is about who actually speaks** — when Dynamic Responses fires in a group, the snapshot is that member’s day (their needs, their ambitions), not the leftover 1:1 card.
 
-- 👋 **Group friends can come back** — if someone wandered off (Away), `@Ana` asks her to check in this turn. Just saying “Ana, you coming?” does not drag her back — she may stay Away. Or they quietly notice and rejoin on their own. `@Bea` still gets Bea when she is already with you — a returning friend does not talk over her. A mid-sentence “I told Ana about it” does not drag them back. People at work stay on the clock. If the whole porch is empty, you still get the Away line after a check-in that did not stick, and a later message can still bring someone back. Same on the phone.
+- 📖 **Lore keywords no longer make a local model re-read the whole chat** — triggered world facts sit after the transcript, so flipping a keyword does not throw away the cached prompt.
 
-- 🔕 **No more “model loaded and ready” popup** — finishing a local model load (including mouth/worker swaps) no longer stacks that toast, and the chat box no longer flashes with it. A failed load still tells you.
+- 📋 **Copy a reply like any other text** — drag across the words (including an open Thought) and Copy. The name and buttons stay out of it. Sending a new line no longer yanks the transcript if you had scrolled up. An open Thought follows the newest tokens; scroll that pane up and it stays put. macOS Edit → Find is gone; it never searched the chat. Same on the phone.
 
-- 🏡 **Stoop NSFW toggle refreshes the porch** — “Show NSFW content” now reloads The Stoop right away. You no longer have to leave and come back. Same on the phone.
+- 👋 **Group friends can come back** — if someone wandered off (Away), `@Ana` asks her to check in this turn. Just saying “Ana, you coming?” does not drag her back. Or they quietly notice and rejoin on their own. People at work stay on the clock. `/speak` is the porch mic; `/join --full` converts a 1:1; swap costumes from the group. Same on the phone.
 
-- 📦 **Downloaded models show up in Model Selection** — after a download finishes, Settings → Model Selection lists the new GGUF without leaving the page.
+- 🪧 **Error banners are not story** — “Backend is not running…” and generation errors still show, but they are not saved and the next reply does not treat them as something that happened in the scene.
 
-- 🎯 **Switching hosts clears the model picker** — Kobold, OpenRouter, Nano-GPT, and the rest no longer keep the last host’s model id. Pick a model that belongs to the new host. Realism evals only clear when that host changes. Same on the phone.
+- 👜 **Pockets & Wardrobe per character** — the switch sits on the Wearing / Carrying panel. Porch Life still turns the feature off for everyone. A group hand-off will not tuck items into someone you turned off. Same on the phone.
 
-- 📋 **Copy a reply like any other text** — drag across the words in a bubble (including an open Thought) and Copy. The character name and the buttons stay out of it. Sending a new line no longer yanks the transcript if you had scrolled up. Same on the phone. macOS Edit → Find is gone; it never searched the chat.
+- 📜 **Leftover quests step aside** — if the story moves on, a quest or step can be marked stale-skipped instead of pretending you won. A leftover step is skipped right away; a whole leftover quest waits for two “no longer relevant” checks (off / 1 / 2 / 4 in Porch Life). Same on the phone.
 
-- 📦 **Backyard archives keep every picture** — a `.byaf` import now puts the first image on the portrait and the rest in the Avatar Gallery. You can turn the extra looks off on desktop. Phone and browser import `.byaf` the same way (not PNG-only). Desktop work started by [@Lufou](https://github.com/Lufou).
+- ⚙️ **Porch Life is defaults, not the open chat** — turning Needs, Realism, Passage of Time, Objectives, or Afterglow off in Settings no longer writes that into the chat you have open. Lived-in meters stay. Use the sidebar for that one story. Same on the phone.
 
-- 💬 **Thinking-only replies show up as speech** — some Nano/Qwen models put the whole line in the hidden thought channel after Realism finishes. The bubble was empty even though the chips updated. That thought is now the spoken line. Same on the phone.
+- 🤫 **A quiet beat can leave Needs still** — sitting together without eating, washing, or running around no longer invents a hunger or bathroom swing from the reply. If they already had the “they can smell themselves” beat, reopening the chat does not play it again until they wash. Same on the phone.
 
-- 🪪 **Stoop blurbs match the website** — tile summaries get two full lines with a real “…”. Open a card and the whole listing blurb sits beside the portrait. Description and Personality are their own drawers, like hub.frontporchai.app.
+- 🌤️ **A lore-only place stays lore** — opening an older nightly against a newer library no longer puts weather back on a chat you had moved entirely to lore.
 
-- 🛠️ **OpenCode follows “Check for updates”** — turning that off in Settings also stops the Waifu / OpenCode GitHub check on launch. A tap still checks or installs. First sit-down still downloads if the closet is empty. Homebrew is still not used.
+- 📥 **Drop cards on the home porch** — drag a PNG character card or a `.byaf` archive onto the home library. Several files at once is fine. A `.byaf` import puts the first image on the portrait and the rest in the Avatar Gallery. Phone and browser import `.byaf` the same way.
 
-- 🧩 **Pick the Realism evals model from chat** — the in-chat Model Settings sheet now has the same Same as chat / Different host controls as Settings → Backend. You do not have to leave the chat to point feelings/journal/growth at another host or model. Same as chat stays one dropdown. Phone Settings already had this; the PWA has no in-chat Model Settings sheet.
+- 🏡 **Stoop NSFW toggle refreshes the porch** — “Show NSFW content” reloads The Stoop right away. You no longer have to leave and come back. After a model download, Model Selection lists the new GGUF without leaving the page. Switching hosts no longer keeps the last host’s model id. Same on the phone.
 
-- 🪪 **Character creator no longer goes silent on hidden-thinking models** — some cloud models (GLM / Qwen-class) accept “don’t think” then think anyway and burn the short step budget, leaving the field empty. We notice that empty cut-off and retry the step once with more room. Chat replies still use your length cap. Same on the phone.
+- 🔕 **No more “model loaded and ready” popup** — finishing a local model load (including mouth/worker swaps) no longer stacks that toast. A failed load still tells you.
 
-- 🔁 **Regen critique stays fully readable** — the optional “why this take was wrong” box grows downward. A long note no longer disappears into a sideways scroll. Same on the phone.
+- 🛠️ **OpenCode follows “Check for updates”** — turning that off in Settings also stops the Waifu / OpenCode GitHub check on launch. A tap still checks or installs. First sit-down still downloads if the closet is empty.
 
-- 🧩 **Realism evals sit under Chat speech** — Settings → Backend is one chat stack (host, key, check, model) first. Below that, Realism evals can follow the chat host or use a different one. Same host does not ask for a second key. Two cloud models are fine, including two models on the same host. Two local engines take turns on the GPU: Realism evals keep the worker loaded, and chat speech’s model comes back only when she talks (not after every check). On the one KoboldCPP the app already starts, the two slots can each name a GGUF and its own .kcpps — same pair stays loaded; different pairs unload and reload on that same process (no restart). Chat speech still keeps its vision projector; Realism evals do not. A local host with no unload path still stays on chat speech. Leave the worker off and everything stays on one backend. Same on the phone.
+- 🪪 **Remembered lines keep a speaker nametag** — old RAG memories say who said them, and a group turn keeps that speaker’s lore. Same on the phone.
 
-- 🌍 **World from Wiki** — a studio wizard that scouts a saved wiki (Fandom or Tiddly) and proposes a short shelf of cards — era, hub, leaf, crown — instead of one card per page. You sign the ones to write. Climate stays off unless you turn it on; if climate write misses, it stays off (no stock Temperate). Stop is on the write step. Needs a tool-calling model. Same on the phone.
+- 🔑 **Changing the search key or evals GGUF path on the phone asks for your password** — same stolen-session gate as the remote API URL.
 
-- 📖 **Neokosmos works in the same Wiki picker as Bleach** — paste a TiddlyWiki URL (GitHub Pages path is kept). She can search, then open a named page. Fandom / MediaWiki is unchanged.
-- 🪟 **Mac title bar is a real bar again** — after Flutter 3.47 the traffic lights were sitting on the same charcoal as the page. The native title strip is opaque on Mac. Windows and Linux keep the system title bar so minimize/maximize stay visible and light up on hover.
-
-- 🔁 **Tell Regen why that take was wrong** — optional box on the last reply. Leave it empty and Regen is the same as today. Type a reason and she sees a short clip of the rejected take plus your note, then writes a new swipe. It is not a chat message and it is gone on the next turn. Same on the phone.
-
-- 📖 **She can look up a second wiki page before she talks** — if the first clip is thin, she may fetch another, then speak once in character. Not a lecture. Same on the phone.
-
-- 📖 **Looking something up does not spend her spoken thinking budget** — wiki and web tool picks use the same short, careful settings as Realism checks (not your max-gen or thinking sliders). Her actual line still uses those sliders. Same on the phone.
-
-- 🎭 **Thinking models no longer freeze the Realism spinner** — if a fused check starts rambling, we cut it and still update bond, trust, and mood. Same on the phone.
-
-- 📖 **Save as many wikis as you want** — Porch Life keeps a list (Bleach, One Punch Man, …). The chat sidebar Wiki picker chooses which one this chat uses, or none. A 1:1 pick is remembered for that character, so Sophia can default to Bleach and Mirin to One Punch Man.
-
-- 🧰 **Choose JSON recipe cards** — Porch Life has a Choose files button that copies `.json` cards into your library `tools` folder. Other file types stay out. Phone and browser still have no file picker there.
-
-- 🔎 **Search results no longer steal the reply** — after a lookup, the character still starts talking at their own `Name:` line. Wiki text sits above that, not after it.
-- 🕐 **Clock chevrons work with Realism off** — if you turned on the standalone story clock in Porch Life, the ±30 minute arrows and Story Calendar work on desktop and phone. They used to look paused whenever the engine was off.
-
-- 🔎 **Web Search happens in the reply, not a silent extra trip** — the character sees the search tool while they are actually talking. If they look something up, the result lands and they speak; if they already know, they just speak. Same on the phone.
-
-- 🛠️ **GLM 5.3 Journal and Growth keep their tools** — a think-budget of 0 is Off, and that model refuses Off. We stop sending 0 after it says so, instead of dumping tools and getting an empty XML round.
-
-- 🌳 **Growth Rings grow again on a hot scene** — a bond spike used to re-check every turn and only water the same two rings. Checks wait for the slider (or a real kick) so new rings can land and old ones can fade. Journal is unchanged. A scored bond/trust spike now actually arms that kick — Growth was waiting the full slider because the flag never got set.
-
-- 🔎 **Reading Size is one knob for what you read** — bubbles, the chat input box, and message edit follow that slider. Sidebar stays put.
-
-- 🖥️ **Waifu Coder wrap-up speaks once** — after tools stop, the in-character recap is one spoken bubble, not two copies of the same goodbye.
-
-- 🖥️ **Waifu Coder follows Model Settings** — switching Nano-GPT / oMLX / OpenRouter (or the model on that host) restarts the coding session onto that backend. The spoken bubble is the in-character voice pass after tools stop; Kimi-style thinking-only wrap-ups still land as speech. The context bar counts OpenCode tools and MCP schemas, not just the character card, and oMLX no longer shows a 256k Kobold window.
-
-- 📣 **Stoop Inbox notifications show the actual notice again** — they were painting as empty bars because Flutter will not draw a rounded card with a different-colored left stripe.
-
-- 🔀 **Swap OpenRouter and Nano-GPT in one tap** — Model Settings is a row of hosts (KoboldCpp, OpenRouter, Nano-GPT, LM Studio, Custom; oMLX on Mac only). Each host keeps its own key. The model picker blanks so you pick one that belongs there. Same on Settings and the phone.
-
-- 🖥️ **Waifu Coder is powered by OpenCode** — the custom coding engine is gone; your coworker now tools through OpenCode.
-- 🎭 **Characters are not “she” by default** — generic prompts, mood copy, and Waifu Coder blurbs use they/them unless the card’s Sex field is actually female (woman / she / her still maps to she/her).
-
-- 🖥️ **Waifu Coder Jail / Disk stay honest** — sit-down scope is chips, not stuck radios. Picking Disk after a jail sit-down asks honesty again; confirm actually opens the disk. A denied Plan write says it did not write. Wiping the folder above the sit-down is still denied.
-
-- 💬 **Add Greeting works again** — editing a character (or group) that had no alternate greetings used to crash the moment you tapped Add.
-
-- 🔑 **Tavily key stays after a restart** — it is saved with the rest of Settings (same place as OpenRouter keys). The macOS keychain copy was vanishing on relaunch.
-
-- 🎭 **Realism still runs when a model will not turn thinking off** — if an eval gets a 400 while asking for thinking off (GLM 5.3, Kimi, or the next host's wording), we keep going the Kimi way: let it think, salvage the JSON, don't drop bond/needs. Remembered for that model so the next judge is not two wasted 400s.
-
-- 🔊 **Mac voices speak again** — Kokoro, Piper, and Whisper on macOS were looking for the Sherpa library inside a nested folder the app never ships. Test Voice and the chat speaker buttons work; the model download was never the problem.
-
-- 🔑 **OpenRouter and Nano-GPT keep their own API keys** — switching the Backend chips restores that host's key (or leaves the box empty). Check Connection can no longer go green on the other provider's leftover key while a story fails with a missing auth header.
-
-- 🎭 **OpenRouter judges cost one API call each** — they use native tools (the documented Chat Completions shape) instead of trying JSON-schema first and then tools. Models that do not advertise tools skip the tools POST. Nano-GPT, local MLX, and LM Studio are unchanged. Same on the phone.
-
-- 🖼 **Drop a photo on the composer** — Finder/Explorer onto the chat bar, or the attach button. One photo per send. The picker is still there if you prefer it.
-
-- 💭 **Thoughts stay folded** — live and finished Thought chips stay shut until you tap the chevron, including while they are still thinking. A new reply does not pop old think blocks open. Same on the phone.
-
+- 🪟 **Windows and Linux caption buttons stay visible** — minimize / maximize still light up on hover after the Mac title-bar fix.

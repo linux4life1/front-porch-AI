@@ -19,7 +19,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show kRagReceiptError, kRagReceiptNotOperational, kRagReceiptOk;
+    show
+        kRagReceiptError,
+        kRagReceiptNotOperational,
+        kRagReceiptOk,
+        kRagReceiptSkippedNoCues;
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 
@@ -67,6 +71,10 @@ class RagReceiptView extends StatelessWidget {
       summary =
           'Last reply: tried to search the archive but the memory engine '
           'hit an error — nothing was brought back.';
+    } else if (status == kRagReceiptSkippedNoCues) {
+      summary =
+          'Last reply: older messages had scrolled out of view, but there '
+          'was no cue to look them up (quote the line to reach back).';
     } else if (status == kRagReceiptNotOperational) {
       summary =
           'Last reply: older messages had scrolled out of view, but the '

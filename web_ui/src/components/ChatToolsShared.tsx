@@ -43,7 +43,7 @@ export interface ToolsState {
     // older facades; null when that reply needed no retrieval). Desktop
     // sidebar parity: what memory found / dropped / actually injected.
     lastRagReceipt?: {
-      status?: 'ok' | 'error' | 'not_operational';
+      status?: 'ok' | 'error' | 'not_operational' | 'skipped_no_cues';
       found: number;
       journal_deduped: number;
       budget_trimmed: number;
