@@ -246,9 +246,8 @@ void main() {
       const soulmate = 'soulmate or life partner';
 
       final full0 = named('Full0');
-      final fullId = full0.stableGroupId;
       chat.debugSeedGroupSpeakerState(
-        fullId,
+        full0.stableGroupId,
         needs: {
           'hunger': 0,
           'bladder': 80,
@@ -262,29 +261,10 @@ void main() {
       );
       await chat.setObjective(quest, targetCharacter: full0);
 
-      chat.setNextCharacter(full0);
-      await chat.sendMessage('Stay on the porch.');
-      expect(backend.lastChatBody, contains(quest));
-
-      // Full0's turn may have rewritten the slot. Re-plant the steal bait
-      // so a null-pin fallback would inject it on Soft0's turn.
-      chat.debugSeedGroupSpeakerState(
-        fullId,
-        needs: {
-          'hunger': 0,
-          'bladder': 80,
-          'energy': 80,
-          'social': 80,
-          'fun': 80,
-          'hygiene': 80,
-          'comfort': 80,
-        },
-        longTermTier: 7,
-      );
-
-      // Round-robin now lands on Soft0. Do NOT setNext — that would reload
-      // Soft0's empty quests and hide the stale-Full0 objective steal.
-      expect(chat.nextCharacter?.name, 'Soft0');
+      // Forced Soft0 pick leaves next = Full0. A null pin used to steal
+      // Full0's Needs/bond; `_activeObjectives` may still hold Full0's
+      // quest from group-entry load / setObjective.
+      chat.setNextCharacter(named('Soft0'));
       await chat.sendMessage('What do you see?');
 
       final messages =

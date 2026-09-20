@@ -136,10 +136,6 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     }
   }
 
-  /// Test-only: who `_getCurrentSpeakerIdForRealism` would resolve right now.
-  @visibleForTesting
-  String debugCurrentSpeakerIdForRealism() => _getCurrentSpeakerIdForRealism();
-
   // ── Per-character realism state access (group mode, typed — U7) ─────────
   /// The one write door to a member's typed state. Outside group mode it
   /// hands back a THROWAWAY object, so writes vanish — observationally the
