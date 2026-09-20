@@ -148,14 +148,17 @@ extension _ChatPageSidebar on _ChatPageState {
 
   /// Horizontal roster of all cast participants. Tapping one focuses its
   /// per-character sidebar sections. Shown only when more than one speaker is
-  /// present (1:1 + guests, or a group).
+  /// present (1:1 + guests, or a group). Soft guests show GUEST + Promote
+  /// here so those controls stay reachable when Character State is hidden
+  /// (1:1) or collapsed (group).
   Widget _buildParticipantRoster(
     ChatService chatService,
     List<ChatParticipant> cast,
     ChatParticipant focused,
   ) {
+    final hasLite = cast.any((p) => p.isLite);
     return Container(
-      height: 66,
+      height: hasLite ? 96 : 66,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         border: Border(
@@ -170,57 +173,26 @@ extension _ChatPageSidebar on _ChatPageState {
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final p = cast[i];
-          final isFocused = p.id == focused.id;
-          final color = _ChatPageState._groupCharacterColor(i);
           final img = p.card.imagePath != null
               ? _resolveCharImage(p.card.imagePath!)
               : null;
-          return InkWell(
-            onTap: () => rebuildState(() => _focusedParticipantId = p.id),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isFocused ? color : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: color,
-                    backgroundImage: img != null ? FileImage(img) : null,
-                    child: img == null
-                        ? Text(
-                            p.name.isNotEmpty ? p.name[0] : '?',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                SizedBox(
-                  width: 48,
-                  child: Text(
-                    p.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: isFocused
-                          ? AppColors.textPrimary(context)
-                          : AppColors.textTertiary(context),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          return CastRosterChip(
+            name: p.name,
+            color: _ChatPageState._groupCharacterColor(i),
+            isFocused: p.id == focused.id,
+            isLite: p.isLite,
+            imageFile: img,
+            promoteEnabled: !chatService.isGenerating,
+            onFocus: () => rebuildState(() => _focusedParticipantId = p.id),
+            onPromote: p.isLite
+                ? () {
+                    if (chatService.isGroupMode) {
+                      unawaited(chatService.promoteGuestToFull(p.card));
+                    } else {
+                      unawaited(chatService.joinFull(p.card));
+                    }
+                  }
+                : null,
           );
         },
       ),

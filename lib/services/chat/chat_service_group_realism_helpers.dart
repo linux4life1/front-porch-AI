@@ -42,6 +42,10 @@ extension ChatServiceGroupRealismHelpers on ChatService {
         _groupCharacters.any((c) => _getCharacterIdFromCard(c) == pinned)) {
       return pinned;
     }
+    // A live group turn always pins the speaker (full or lite). Missing pin
+    // must not fall back to next/first — that stole a full member's
+    // Needs/bond/objectives into a soft guest's prompt.
+    if (_isGenerating) return pinned ?? '';
     // Outside a turn (pre-pick): the upcoming speaker if known (round-robin),
     // else the first member.
     final next = nextCharacter;
@@ -117,6 +121,24 @@ extension ChatServiceGroupRealismHelpers on ChatService {
   /// never carried a vector (does not invent [NeedsSimulation.needDefaults]).
   @visibleForTesting
   Map<String, int> debugGroupNeeds(String charId) => _getGroupNeeds(charId);
+
+  /// Test-only: seed a member slot so a later soft turn can prove it does
+  /// not leak this member's Needs / bond into the guest prompt.
+  @visibleForTesting
+  void debugSeedGroupSpeakerState(
+    String charId, {
+    Map<String, int>? needs,
+    int? longTermTier,
+  }) {
+    if (needs != null) _setGroupNeeds(charId, needs);
+    if (longTermTier != null) {
+      _memberForWrite(charId).longTermTier = longTermTier;
+    }
+  }
+
+  /// Test-only: who `_getCurrentSpeakerIdForRealism` would resolve right now.
+  @visibleForTesting
+  String debugCurrentSpeakerIdForRealism() => _getCurrentSpeakerIdForRealism();
 
   // ── Per-character realism state access (group mode, typed — U7) ─────────
   /// The one write door to a member's typed state. Outside group mode it

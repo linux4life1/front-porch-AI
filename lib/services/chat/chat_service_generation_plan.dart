@@ -191,7 +191,13 @@ extension ChatServiceGenerationPlan on ChatService {
       // `_characterStateEnabled` inside the composer, wired to
       // `_realismActiveThisMode`, so Director mode and AFK auto-response stay
       // exactly as silent as they were.
-      final rawRealism = _getRealismStateInjection();
+      //
+      // Soft group turns skip the whole block. Leaving it on let the
+      // composer read the previous / next full member's live Needs, bond,
+      // pockets, and ambitions (the pin used to be null for lite, so the
+      // fallback stole another member).
+      final liteTurn = _isLiteTurn(t);
+      final rawRealism = liteTurn ? '' : _getRealismStateInjection();
       final realismBlock = rawRealism.isEmpty
           ? ''
           : _macroResolver.resolve(rawRealism, macroCtx, section: 'realism');
@@ -247,7 +253,9 @@ extension ChatServiceGenerationPlan on ChatService {
       // Objective injection — always injected regardless of realism mode
       // Must sit in a fixed prompt section so it is NEVER trimmed by the budget system.
       // (thin delegation to author_note_builder per step 8; state/CRUD in god)
-      final objectiveBlock = _getObjectiveInjection();
+      // Soft guests do not own quests — and `_activeObjectives` may still
+      // hold the last full speaker's list.
+      final objectiveBlock = liteTurn ? '' : _getObjectiveInjection();
 
       // Mandatory Needs Catastrophe — when a hard-event need hit 0 during the
       // decay tick, the character's body/state fails in a specific way and the
@@ -255,7 +263,9 @@ extension ChatServiceGenerationPlan on ChatService {
       // wrapper stays generic: firm but short (heavy "YOU MUST" walls read as
       // jailbreak-fight energy and can backfire), and it never puppets {{user}}.
       String needsCatastropheBlock = '';
-      if (!skipOneShots && _needsSimulation.pendingCatastrophe != null) {
+      if (!liteTurn &&
+          !skipOneShots &&
+          _needsSimulation.pendingCatastrophe != null) {
         // Macro-resolved (spec §5a): previously the {{user}}/{{char}}
         // placeholders in this wrapper reached the model literally.
         needsCatastropheBlock = _macroResolver.resolve(

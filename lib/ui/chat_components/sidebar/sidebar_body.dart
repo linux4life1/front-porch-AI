@@ -159,7 +159,18 @@ class _SidebarBodyState extends State<SidebarBody> {
             // users shouldn't have to guess why evals silently run in text
             // mode (and it retests itself on model/backend switches).
             ToolCallingPill(chatService: chat),
-            if (isLite) const _LiteNpcBanner(),
+            if (isLite)
+              _LiteNpcBanner(
+                onPromote: chat.isGenerating
+                    ? null
+                    : () {
+                        if (isGroup) {
+                          chat.promoteGuestToFull(character);
+                        } else {
+                          chat.joinFull(character);
+                        }
+                      },
+              ),
             // Author's Note leads the sidebar as its own card (it was the
             // always-first section in the old design; burying it inside
             // Story Tools made it hard to find — user feedback).
@@ -187,7 +198,10 @@ class _SidebarBodyState extends State<SidebarBody> {
               ),
               onExpansionChanged: (v) => ui.setSidebarGroupExpanded('wiki', v),
             ),
-            if (!isLite)
+            if (characterStateAccordionVisible(
+              isLite: isLite,
+              isGroup: isGroup,
+            ))
               CharacterStateGroup(
                 key: _characterStateKey,
                 chat: chat,
@@ -319,7 +333,9 @@ class _SidebarBodyState extends State<SidebarBody> {
 
 /// "Lite NPC" banner for realism-off scene guests (moved from chat_page).
 class _LiteNpcBanner extends StatelessWidget {
-  const _LiteNpcBanner();
+  final VoidCallback? onPromote;
+
+  const _LiteNpcBanner({this.onPromote});
 
   @override
   Widget build(BuildContext context) {
@@ -350,6 +366,35 @@ class _LiteNpcBanner extends StatelessWidget {
               ),
             ),
           ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: AppColors.porchAmberOf(context).withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'GUEST',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: AppColors.porchAmberOf(context),
+              ),
+            ),
+          ),
+          if (onPromote != null) ...[
+            const SizedBox(width: 6),
+            TextButton(
+              onPressed: onPromote,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.onChaosAccent,
+                backgroundColor: AppColors.formMasterAccent,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 24),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Promote', style: TextStyle(fontSize: 11)),
+            ),
+          ],
         ],
       ),
     );

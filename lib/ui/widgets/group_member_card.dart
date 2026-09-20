@@ -388,7 +388,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                         ),
                         if (widget.onPromote != null)
                           TextButton(
-                            onPressed: widget.onPromote,
+                            onPressed: chat.isGenerating
+                                ? null
+                                : widget.onPromote,
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.onChaosAccent,
                               backgroundColor: AppColors.formMasterAccent,

@@ -119,3 +119,12 @@ Color groupCharacterColor(int index) {
   ];
   return colors[index % colors.length];
 }
+
+/// Character State stays up for group soft guests so GUEST + Promote remain
+/// reachable. 1:1 scene guests still hide it (no member card; host realism
+/// would leak). Needs/realism chrome on the card already self-suppresses
+/// when [isLite].
+bool characterStateAccordionVisible({
+  required bool isLite,
+  required bool isGroup,
+}) => !isLite || isGroup;

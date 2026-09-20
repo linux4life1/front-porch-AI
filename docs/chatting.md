@@ -22,7 +22,7 @@ How a conversation actually works. If the AI will not talk at all, start with [F
   | Objectives | Goals. Groups open these from the focused member, not a fifth card. |
   | Story Tools | Chaos / Chance Time, Dynamic Responses (AFK), Places, lorebooks. |
 
-  One-on-one shows all five. Groups drop Objectives as its own card. A **scene guest** also drops Character State and Objectives (“Lite NPC”).
+  One-on-one shows all five. Groups drop Objectives as its own card. A **1:1 scene guest** drops Character State and Objectives (“Lite NPC”) — Promote lives on the cast chip and the Lite NPC banner. A **group guest** keeps Character State (GUEST badge + Promote, no Needs chrome) and the same mark on every cast chip.
 
 - **Input bar** — persona avatar, buttons, the box, more buttons. Drag the grip to make the box taller. **Enter** sends. **Shift+Enter** is a new line.
 
@@ -103,7 +103,7 @@ Each member keeps lorebooks, relationship, needs, expressions, voice.
 
 **A 1:1 and a group are the same chat with a different headcount.** `/join`, `/join --full`, `/promote`, `/exit` change the cast in place. History stays.
 
-If the story keeps naming someone who is not in the cast, a **scene-guest** dialog offers to add them (`/scan` is the typed twin). Guests are Lite NPCs — they keep a **GUEST** badge and skip Character State / Objectives until you Promote them by name (or the roster button). Turning a 1:1 into a group does **not** upgrade them.
+If the story keeps naming someone who is not in the cast, a **scene-guest** dialog offers to add them (`/scan` is the typed twin). Guests are Lite NPCs — they keep a **GUEST** badge and skip Needs, diary, and Objectives until you Promote them by name (or the roster / Character State Promote button). Turning a 1:1 into a group does **not** upgrade them.
 
 **Director Mode** (groups): sidebar toggle. Your input becomes stage direction, not dialogue. **Response Delay** is desktop pacing; phone has the toggle, not the delay slider. Play/pause auto-chat is desktop.
 

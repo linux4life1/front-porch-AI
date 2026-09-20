@@ -6,6 +6,7 @@
 // present guests as soft members. Proven red: restore the toCharacterCard
 // strip, or convert 1:1 guests as full, and these fail.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -231,4 +232,73 @@ void main() {
       contains('Guests stay Guest until you Promote them'),
     );
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  test(
+    'soft turn does not inject another member Needs/bond/objectives',
+    () async {
+      await bootGroup(full: 1, soft: 1);
+      await chat.setRealismEnabled(true);
+      await chat.setNeedsSimEnabled(true);
+
+      const quest = 'FIND_THE_AMBER_LANTERN_QUEST';
+      const starve =
+          'Doubled over by a violent stomach cramp — genuinely starving';
+      const soulmate = 'soulmate or life partner';
+
+      final full0 = named('Full0');
+      final fullId = full0.stableGroupId;
+      chat.debugSeedGroupSpeakerState(
+        fullId,
+        needs: {
+          'hunger': 0,
+          'bladder': 80,
+          'energy': 80,
+          'social': 80,
+          'fun': 80,
+          'hygiene': 80,
+          'comfort': 80,
+        },
+        longTermTier: 7,
+      );
+      await chat.setObjective(quest, targetCharacter: full0);
+
+      chat.setNextCharacter(full0);
+      await chat.sendMessage('Stay on the porch.');
+      expect(backend.lastChatBody, contains(quest));
+
+      // Full0's turn may have rewritten the slot. Re-plant the steal bait
+      // so a null-pin fallback would inject it on Soft0's turn.
+      chat.debugSeedGroupSpeakerState(
+        fullId,
+        needs: {
+          'hunger': 0,
+          'bladder': 80,
+          'energy': 80,
+          'social': 80,
+          'fun': 80,
+          'hygiene': 80,
+          'comfort': 80,
+        },
+        longTermTier: 7,
+      );
+
+      // Round-robin now lands on Soft0. Do NOT setNext — that would reload
+      // Soft0's empty quests and hide the stale-Full0 objective steal.
+      expect(chat.nextCharacter?.name, 'Soft0');
+      await chat.sendMessage('What do you see?');
+
+      final messages =
+          (jsonDecode(backend.lastChatBody) as Map)['messages'] as List;
+      final wire = messages.map((m) => m['content'] as String).join('\n');
+      expect(wire, contains('SCENE GUEST TURN'));
+      expect(wire, contains('Soft0'));
+      expect(wire, isNot(contains(quest)));
+      expect(wire, isNot(contains(starve)));
+      expect(wire, isNot(contains(soulmate)));
+      expect(wire, isNot(contains('How Full0 is right now')));
+      expect(wire, isNot(contains('How Soft0 is right now')));
+      expect(wire, isNot(contains('is right now:')));
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
 }
