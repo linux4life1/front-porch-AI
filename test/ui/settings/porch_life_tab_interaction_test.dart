@@ -76,17 +76,13 @@ void main() {
     'every Porch Life row renders, survives Realism Engine OFF, and takes '
     'real taps',
     (tester) async {
-      // Tall enough that the whole tab is reachable. This sweep hunts labels
-      // with scrollUntilVisible, which travels ONE WAY, and Pin 3 deliberately
-      // checks them out of top-to-bottom order ('Welcome-back recap' → 'Story
-      // Weather' → …). That only ever worked because at 1400px everything from
-      // 'Story Weather' down shared a viewport, so the "scroll" was a no-op.
-      //
-      // This tab exists to accumulate feature switches, so that accident was
-      // going to fail whichever row was added next regardless of its merits —
-      // Pockets & Wardrobe is simply the one that found it (2026-08-07).
-      // Raising the surface restores the assumption the sweep was written
-      // against instead of reshaping how it searches. No assertion changes.
+      // Tall enough that a couple of neighbouring rows share a viewport.
+      // scrollTo below jumps back to the top before each downward hunt —
+      // ListView recycles off-screen children, so a one-way scroll that
+      // already sat at Afterglow used to throw `Bad state: No element` on
+      // the next label above it (Needs) the moment the tab grew again.
+      // The leftover-quest threshold picker on Objectives was that growth
+      // (2026-09-20). Do not "fix" this by raising the surface forever.
       await tester.binding.setSurfaceSize(const Size(900, 2800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -113,8 +109,15 @@ void main() {
       final scrollable = find.byType(Scrollable).first;
       Finder rowFor(String label) =>
           find.ancestor(of: find.text(label), matching: find.byType(Row)).first;
-      Future<void> scrollTo(Finder finder) =>
-          tester.scrollUntilVisible(finder, 300, scrollable: scrollable);
+      Future<void> scrollTo(Finder finder) async {
+        final position = tester.state<ScrollableState>(scrollable).position;
+        if (position.pixels != 0) {
+          position.jumpTo(0);
+          await tester.pump();
+        }
+        await tester.scrollUntilVisible(finder, 300, scrollable: scrollable);
+      }
+
       Future<void> tapRow(String label) async {
         final labelFinder = find.text(label);
         await scrollTo(labelFinder);
@@ -154,6 +157,8 @@ void main() {
         'The Journal',
         'Dreams',
         'Promises',
+        'Objectives',
+        'Retire a leftover quest after',
         'Ambitions',
         'Welcome-back recap',
         'Character notices your absence',
@@ -172,6 +177,7 @@ void main() {
         'Welcome-back recap',
         'Story Weather',
         'The Journal',
+        'Objectives',
         'Ambitions',
         'Passage of Time',
       ];
@@ -300,6 +306,74 @@ void main() {
         reason:
             'the away-threshold dropdown must appear once absence '
             'acknowledgement is switched on',
+      );
+
+      // Pin 6: leftover-quest threshold — visible with Objectives on (the
+      // production default), tappable while the engine is still off, and
+      // hidden when Objectives is off. Objectives' onChanged is a ChatService
+      // extension, so the off-path is driven through storage, same as the
+      // Ambitions gate in objectives_toggle_test.
+      expect(storage.realismSettings.objectiveStaleThreshold, 2);
+      expect(storage.realismSettings.objectivesEnabled, isTrue);
+      final staleLabel = find.text('Retire a leftover quest after');
+      await scrollTo(staleLabel);
+      expect(
+        staleLabel,
+        findsOneWidget,
+        reason:
+            'the stale-threshold picker rides Objectives and must show '
+            'while that switch is on — including with the engine off',
+      );
+      expect(
+        find.text('2 checks'),
+        findsOneWidget,
+        reason: 'default N=2 is the production threshold',
+      );
+
+      final pickerRow = find
+          .ancestor(of: staleLabel, matching: find.byType(Row))
+          .first;
+      await tester.tap(
+        find.descendant(
+          of: pickerRow,
+          matching: find.byType(DropdownButton<int>),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('never (off)').last);
+      await tester.pumpAndSettle();
+      expect(
+        storage.realismSettings.objectiveStaleThreshold,
+        0,
+        reason:
+            'picking "never (off)" must write '
+            'storage.realismSettings.objectiveStaleThreshold',
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: find.ancestor(of: staleLabel, matching: find.byType(Row)).first,
+          matching: find.byType(DropdownButton<int>),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('4 checks').last);
+      await tester.pumpAndSettle();
+      expect(
+        storage.realismSettings.objectiveStaleThreshold,
+        4,
+        reason: 'picking "4 checks" must write 4, not stay on the last tap',
+      );
+
+      await storage.realismSettings.setObjectivesEnabled(false);
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        find.text('Retire a leftover quest after'),
+        findsNothing,
+        reason:
+            'the picker is a FeatureRow child — it hides when Objectives '
+            'is off, the same way Away for at least hides with absence off',
       );
     },
   );
