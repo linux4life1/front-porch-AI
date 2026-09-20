@@ -3,8 +3,10 @@
 
 // Group turns inject the speaking card's character lorebook, plus
 // group/world lore — not other members' "Present scene" rows.
-// Proven red: restore inherit-all member books in _collectLoreRefs
-// and Zinna's turn contains SENJUMARU_PRESENT_SCENE_MARKER.
+// Constant lore sits after history (not in the system head) so a
+// trigger cannot bust prefix cache. Proven red: restore inherit-all
+// member books in _collectLoreRefs and Zinna's turn contains
+// SENJUMARU_PRESENT_SCENE_MARKER.
 
 import 'dart:convert';
 import 'dart:io';
@@ -134,7 +136,8 @@ void main() {
     await chat.sendMessage('Good evening.');
 
     final w = _wire(backend);
-    expect(w.system, contains(kZinnaScene));
+    expect(w.system, isNot(contains(kZinnaScene)));
+    expect(w.user, contains(kZinnaScene));
     expect(w.user, isNot(contains(kSenjuScene)));
     expect(w.system, isNot(contains(kSenjuScene)));
   }, timeout: const Timeout(Duration(minutes: 2)));
@@ -145,7 +148,8 @@ void main() {
     await chat.sendMessage('What do you see?');
 
     final w = _wire(backend);
-    expect(w.system, contains(kSenjuScene));
+    expect(w.system, isNot(contains(kSenjuScene)));
+    expect(w.user, contains(kSenjuScene));
     expect(w.system, isNot(contains(kZinnaScene)));
     expect(w.user, isNot(contains(kZinnaScene)));
   }, timeout: const Timeout(Duration(minutes: 2)));
