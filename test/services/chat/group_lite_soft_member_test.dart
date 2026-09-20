@@ -17,6 +17,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 import '../../../integration_test/support/fake_backend.dart';
 
@@ -126,124 +127,104 @@ void main() {
   CharacterCard named(String name) =>
       chat.groupCharacters.firstWhere((c) => c.name == name);
 
-  test(
-    'create-lite-on-roster reload keeps soft + turn/Away roster',
-    () async {
-      await bootGroup();
-      expect(chat.groupCharacters, hasLength(3));
-      expect(named('Soft0').isLite, isTrue);
-      expect(named('Full0').isLite, isFalse);
+  test('create-lite-on-roster reload keeps soft + turn/Away roster', () async {
+    await bootGroup();
+    expect(chat.groupCharacters, hasLength(3));
+    expect(named('Soft0').isLite, isTrue);
+    expect(named('Full0').isLite, isFalse);
 
-      await chat.setActiveGroup(
-        GroupChat(id: 'grp-lite', name: 'The Porch'),
-        groupRepo: GroupChatRepository(storage, db),
-      );
-      expect(named('Soft0').isLite, isTrue);
-      expect(chat.groupCharacters.map((c) => c.name), contains('Soft0'));
-      chat.setNextCharacter(named('Soft0'));
-      expect(chat.nextCharacter?.name, 'Soft0');
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+    await chat.setActiveGroup(
+      GroupChat(id: 'grp-lite', name: 'The Porch'),
+      groupRepo: GroupChatRepository(storage, db),
+    );
+    expect(named('Soft0').isLite, isTrue);
+    expect(chat.groupCharacters.map((c) => c.name), contains('Soft0'));
+    chat.setNextCharacter(named('Soft0'));
+    expect(chat.nextCharacter?.name, 'Soft0');
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
-  test(
-    'soft is absent from feelings; 4 full + soft still tracks',
-    () async {
-      await bootGroup(full: 4, soft: 1);
-      await chat.setRealismEnabled(true);
-      expect(shouldTrackInterCharacterAmong(chat.groupCharacters), isTrue);
+  test('soft is absent from feelings; 4 full + soft still tracks', () async {
+    await bootGroup(full: 4, soft: 1);
+    await chat.setRealismEnabled(true);
+    expect(shouldTrackInterCharacterAmong(chat.groupCharacters), isTrue);
 
-      final full0 = named('Full0');
-      final soft = named('Soft0');
-      final fullId = full0.stableGroupId;
-      final softId = soft.stableGroupId;
-      chat.relationshipService.ensureInterCharacterRelationshipsSeeded(fullId);
-      chat.relationshipService.ensureInterCharacterRelationshipsSeeded(softId);
+    final full0 = named('Full0');
+    final soft = named('Soft0');
+    final fullId = full0.stableGroupId;
+    final softId = soft.stableGroupId;
+    chat.relationshipService.ensureInterCharacterRelationshipsSeeded(fullId);
+    chat.relationshipService.ensureInterCharacterRelationshipsSeeded(softId);
 
-      final rels = chat.relationshipService.getInterCharacterRelationships(
-        fullId,
-      );
-      expect(rels.containsKey(softId), isFalse);
-      expect(
-        chat.relationshipService.getInterCharacterRelationships(softId),
-        isEmpty,
-      );
-      for (final other in ['Full1', 'Full2', 'Full3']) {
-        expect(rels.containsKey(named(other).stableGroupId), isTrue);
-      }
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+    final rels = chat.relationshipService.getInterCharacterRelationships(
+      fullId,
+    );
+    expect(rels.containsKey(softId), isFalse);
+    expect(
+      chat.relationshipService.getInterCharacterRelationships(softId),
+      isEmpty,
+    );
+    for (final other in ['Full1', 'Full2', 'Full3']) {
+      expect(rels.containsKey(named(other).stableGroupId), isTrue);
+    }
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
-  test(
-    'promote one soft → full; others stay lite; feelings seed',
-    () async {
-      await bootGroup(full: 2, soft: 2);
-      await chat.setRealismEnabled(true);
-      await chat.promoteGuestToFull(named('Soft0'));
+  test('promote one soft → full; others stay lite; feelings seed', () async {
+    await bootGroup(full: 2, soft: 2);
+    await chat.setRealismEnabled(true);
+    await chat.promoteGuestToFull(named('Soft0'));
 
-      expect(named('Soft0').isLite, isFalse);
-      expect(named('Soft1').isLite, isTrue);
+    expect(named('Soft0').isLite, isFalse);
+    expect(named('Soft1').isLite, isTrue);
 
-      final promotedId = named('Soft0').stableGroupId;
-      chat.relationshipService.ensureInterCharacterRelationshipsSeeded(
-        promotedId,
-      );
-      final rels = chat.relationshipService.getInterCharacterRelationships(
-        promotedId,
-      );
-      expect(rels.containsKey(named('Full0').stableGroupId), isTrue);
-      expect(rels.containsKey(named('Soft1').stableGroupId), isFalse);
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+    final promotedId = named('Soft0').stableGroupId;
+    chat.relationshipService.ensureInterCharacterRelationshipsSeeded(
+      promotedId,
+    );
+    final rels = chat.relationshipService.getInterCharacterRelationships(
+      promotedId,
+    );
+    expect(rels.containsKey(named('Full0').stableGroupId), isTrue);
+    expect(rels.containsKey(named('Soft1').stableGroupId), isFalse);
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
-  test(
-    '/join --lite in a group adds a soft member',
-    () async {
-      await bootGroup(full: 2, soft: 0);
-      final nora = _lib('Nora');
-      await repo.addCharacter(nora);
-      await chat.joinSceneGuest(nora);
-      expect(chat.groupCharacters.map((c) => c.name), contains('Nora'));
-      expect(named('Nora').isLite, isTrue);
-    },
-    timeout: const Timeout(Duration(minutes: 3)),
-  );
+  test('/join --lite in a group adds a soft member', () async {
+    await bootGroup(full: 2, soft: 0);
+    final nora = _lib('Nora');
+    await repo.addCharacter(nora);
+    await chat.joinSceneGuest(nora);
+    expect(chat.groupCharacters.map((c) => c.name), contains('Nora'));
+    expect(named('Nora').isLite, isTrue);
+  }, timeout: const Timeout(Duration(minutes: 3)));
 
-  test(
-    '1:1→group keeps present lites as soft members',
-    () async {
-      final host = _lib('Zinna');
-      final guest = CharacterCard(
-        name: 'Mara',
-        firstMessage: 'I was already here.',
-        frontPorchExtensions: FrontPorchExtensions(tier: 'lite'),
-      );
-      final arrival = _lib('Senjumaru');
-      await repo.addCharacter(host);
-      await repo.addCharacter(guest);
-      await repo.addCharacter(arrival);
-      await chat.setActiveCharacter(host);
-      await chat.joinSceneGuest(guest);
-      expect(chat.activeGroup, isNull);
-      expect(chat.sceneGuestCards.map((c) => c.name), contains('Mara'));
+  test('1:1→group keeps present lites as soft members', () async {
+    final host = _lib('Zinna');
+    final guest = CharacterCard(
+      name: 'Mara',
+      firstMessage: 'I was already here.',
+      frontPorchExtensions: FrontPorchExtensions(tier: 'lite'),
+    );
+    final arrival = _lib('Senjumaru');
+    await repo.addCharacter(host);
+    await repo.addCharacter(guest);
+    await repo.addCharacter(arrival);
+    await chat.setActiveCharacter(host);
+    await chat.joinSceneGuest(guest);
+    expect(chat.activeGroup, isNull);
+    expect(chat.sceneGuestCards.map((c) => c.name), contains('Mara'));
 
-      await chat.joinFull(arrival);
+    await chat.joinFull(arrival);
 
-      expect(chat.activeGroup, isNotNull);
-      expect(
-        chat.groupCharacters.map((c) => c.name),
-        containsAll(['Zinna', 'Mara', 'Senjumaru']),
-      );
-      expect(
-        named('Mara').isLite,
-        isTrue,
-        reason: 'present 1:1 guest stays soft',
-      );
-      expect(named('Senjumaru').isLite, isFalse);
-      expect(named('Zinna').isLite, isFalse);
-    },
-    timeout: const Timeout(Duration(minutes: 3)),
-  );
+    expect(chat.activeGroup, isNotNull);
+    expect(
+      chat.groupCharacters.map((c) => c.name),
+      containsAll(['Zinna', 'Mara', 'Senjumaru']),
+    );
+    expect(
+      named('Mara').isLite,
+      isTrue,
+      reason: 'present 1:1 guest stays soft',
+    );
+    expect(named('Senjumaru').isLite, isFalse);
+    expect(named('Zinna').isLite, isFalse);
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }

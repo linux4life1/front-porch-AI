@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart'
     show showPocketItemDialog;
 import 'package:front_porch_ai/ui/pages/pages.dart';
