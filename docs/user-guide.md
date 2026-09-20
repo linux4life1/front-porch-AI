@@ -5,7 +5,7 @@ The complete reference for everything that is not a dedicated page.
 **Read these first, they are the real manuals:**
 
 - [Chatting](chatting.md) — screen, tools, slash, groups, Director
-- [Porch Life](porch-life.md) — every living-character switch, the story clock, skip time, Clock In, Pockets
+- [Porch Life](porch-life.md) — Porch Life defaults, the story clock, skip time, Clock In, Pockets
 - [Image Studio](image-studio.md) — what program to run, ports, Create vs Edit
 - [Web & Phone](web-phone.md) — how to open it, what the phone **cannot** do
 - [Characters](characters.md) · [Realism Engine](realism-engine.md) · [Getting Started](getting-started.md)
@@ -294,7 +294,7 @@ You can switch the engine (or individual parts of it) on and off globally in **S
 
 ## Porch Life
 
-**Settings → Porch Life** is the home for every living-character switch. It is not Settings → General (that's still theme, system prompt, 18+ themes).
+**Settings → Porch Life** is the defaults board for Realism, Needs, the clock, Journal, Pockets, Objectives, Chaos, Growth, Afterglow, and that family. It is not Settings → General (that's still theme, system prompt, 18+ themes). Clock In is on the character **Details** tab. AFK and RAG live in the chat sidebar.
 
 The important bit since 1.3: **Realism Engine is no longer the master key.** Journal, the story clock, Chaos / Chance Time, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults; an open chat can still overrule them in the sidebar.
 
@@ -601,7 +601,7 @@ Open **Settings** from the left sidebar. Tabs, left to right:
 | Tab | What lives here |
 |---|---|
 | **General** | Dark/light, chat fonts, bubble colors, **Font Size Scale** (whole app, separate from chat text size), **18+ themes**, system prompt + presets, About & License. Pointer to Porch Life. |
-| **Porch Life** | Every living-character switch. See [Porch Life](porch-life.md). |
+| **Porch Life** | Defaults for Realism, Needs, clock, Journal, Pockets, Objectives, Chaos, Growth, Afterglow. Clock In / AFK / RAG live elsewhere. See [Porch Life](porch-life.md). |
 | **Generation** | Samplers, token limits, smooth output buffer, stop sequences, banned phrases (Kobold only), Output Sanitizer, thinking/reasoning effort. |
 | **Voice & Media** | TTS engines (Kokoro / Piper / ElevenLabs / OpenAI). Piper **Add custom voice** = raw `.onnx` + `.onnx.json` next to it (**desktop**). Voice catalog + preview is here, not on the character Voice row. STT/Whisper, Voice Call (separate call model, buffer, call prompt, auto-send), expression display (**sidebar / background / both**), **Image Generation** on/off, **Photo Understanding** uninstall (separate from Image Generation). |
 | **Backend** | Local KoboldCpp / oMLX / OpenAI-compatible (OpenRouter, Nano-GPT, LM Studio, custom). Model picker, presets, process logs. |

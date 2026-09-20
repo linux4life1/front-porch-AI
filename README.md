@@ -70,12 +70,14 @@ SillyTavern still wins on raw extension depth. Front Porch is for people who wan
   <img src="docs/screenshots/chat.png" width="800" alt="Front Porch AI — chat">
 </p>
 
-### Porch Life (living characters)
+### Living characters
 
-Every living-character switch lives in **Settings → Porch Life**. Realism is **not** a master key — Journal, the story clock, Chaos, Pockets, and Objectives each have their own switch. New chats pick up those defaults. An **open** chat is tuned from the sidebar, not by flipping Settings.
+**Settings → Porch Life** is the defaults board for Realism, Needs, the story clock, Journal, Pockets, Objectives, Chaos, Growth, Afterglow, and the rest of that family. Realism is **not** a master key — Journal, the clock, Chaos, Pockets, and Objectives each have their own switch. New chats pick up those defaults. An **open** chat is tuned from the sidebar, not by flipping Settings.
+
+That tab does **not** host Clock In, AFK, or RAG.
 
 - **Realism** — mood, bond, trust, lingering feeling
-- **Needs** — hunger, energy, social, fun, hygiene, comfort; a quiet beat can leave them still
+- **Needs** — hunger, bladder, energy, social, fun, hygiene, comfort; a quiet beat can leave them still
 - **Passage of Time** — a **story** clock, not your wall clock. Continue does not tick it
 - **Journal** — per-chat diary cards; they never leak into another conversation
 - **Growth Rings** — long-story character change, with receipts so regen/delete can rewind
@@ -83,9 +85,12 @@ Every living-character switch lives in **Settings → Porch Life**. Realism is *
 - **Objectives** — goals and steps; leftover quests can go stale instead of pretending you won
 - **Chaos** — Chance Time events (own switch, not a Realism dependency)
 - **Afterglow** — 18+ cooldown after a scene
-- **Clock In** — they have a job and a schedule; people at work stay on the clock
-- **AFK / Dynamic Responses** — the scene keeps living while you step away; in a group, the cue is about **who actually speaks**
-- **RAG memory** — local ONNX embeddings; remembered lines keep a speaker nametag
+
+These three live somewhere else:
+
+- **Clock In** — occupation, hours, and weekdays on the character **Details** tab (Work). Not a Settings switch. People at work stay on the clock
+- **AFK / Dynamic Responses** — sidebar **Story Tools** (the 1:1 panel) or `/afk`. The scene keeps living while you step away; in a group, the cue is about **who actually speaks**
+- **RAG memory** — sidebar **Memory (RAG)** in 1:1, or **Group Settings → Memory & RAG**. Local ONNX embeddings; remembered lines keep a speaker nametag
 
 Deep dive: [Porch Life](docs/porch-life.md) · [Realism Engine](docs/realism-engine.md)
 

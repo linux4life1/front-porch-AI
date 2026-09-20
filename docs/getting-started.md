@@ -27,7 +27,7 @@ Out of the box, the app runs AI models locally, so your conversations never leav
 
 What makes it special:
 
-- **The Realism Engine** — characters have moods, build trust with you, feel time passing, develop obsessions and goals, and grow new personality traits as your story unfolds. Settings → **Porch Life** is where every living-character switch lives (Journal, clock, Pockets, Chaos, Objectives — each on its own, Realism is not the master key).
+- **The Realism Engine** — characters have moods, build trust with you, feel time passing, develop obsessions and goals, and grow new personality traits as your story unfolds. Settings → **Porch Life** is where the defaults for Journal, the clock, Pockets, Chaos, and Objectives live — each on its own, Realism is not the master key.
 - **Long-term memory** — each character keeps a private journal of what mattered and brings it back later. Those memories belong to that one chat and never leak into another.
 - **Voice** — characters can speak (local text-to-speech with 50+ voices) and you can talk back (push-to-talk voice input). Cloud voices from ElevenLabs and OpenAI are optional extras.
 - **Group chats** — put several characters in one scene and watch them interact.
@@ -238,7 +238,7 @@ For the full story on cards, the AI editor, and lorebooks, see the **[Characters
 
 ## Next Steps
 
-**Make it feel alive** → Settings → **Porch Life**, then the [Realism Engine guide](realism-engine.md). Bond and trust, story time, Pockets, Clock In (they have a job), Chaos, needs.
+**Make it feel alive** → Settings → **Porch Life**, then the [Realism Engine guide](realism-engine.md). Bond and trust, story time, Pockets, Chaos, needs. Clock In (they have a job) is on the character **Details** tab.
 
 **Build your cast** → the [Characters Guide](characters.md). The card format, AI-assisted creation and editing, lorebooks, expression images, and organizing a big library.
 
