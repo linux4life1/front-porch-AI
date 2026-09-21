@@ -62,7 +62,7 @@ class WaifuTranscript extends StatelessWidget {
       // session.running as isGenerating auto-opened the live block and
       // a tool-chip rebuild wiped the pin, so it could not be closed.
       // Tool rows sit below the bubble so a long Thought does not
-      // scroll the live actions off the top of the reverse list.
+      // push the live actions off the newest edge.
       belowBubble: (msg, index) {
         if (msg.isUser) return null;
         if (index < 0 || index >= visible.length) return null;

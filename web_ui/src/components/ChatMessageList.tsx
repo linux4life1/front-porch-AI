@@ -149,7 +149,7 @@ const TranscriptRows = memo(function TranscriptRows({
         // (desktop parity — same treatment as Chance Time).
         if (m.isDream) {
           return (
-            <div key={m.index} className="msg-row">
+            <div key={m.rowKey ?? m.index} className="msg-row">
               <div className="dream-banner">
                 🌙 <em>{m.sender} dreamt: {m.text}</em>
               </div>
@@ -157,7 +157,7 @@ const TranscriptRows = memo(function TranscriptRows({
           );
         }
         return (
-          <div key={m.index} className="msg-row">
+          <div key={m.rowKey ?? m.index} className="msg-row">
             {multiCast && speaker && <span className="msg-speaker">{speaker.name}</span>}
             {m.hasThinking && m.thinkingContent && (
               <details className="thinking">

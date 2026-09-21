@@ -21,8 +21,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/ui/chat_components/stage/transcript_auto_scroll.dart';
 
-/// Reverse transcript: children[0] is newest. Extra older rows go at the
-/// far end — the same direction as `getMessagesBeforePosition` prepend.
+/// Forward transcript: last child is newest. Extra older rows go at the
+/// top — the same direction as `getMessagesBeforePosition` prepend.
 class _PagingTranscript extends StatefulWidget {
   const _PagingTranscript({super.key, required this.controller});
 
@@ -48,14 +48,14 @@ class _PagingTranscriptState extends State<_PagingTranscript> {
             height: 200,
             child: ListView(
               controller: widget.controller,
-              reverse: true,
+              reverse: false,
               children: [
-                const SizedBox(height: 40, child: Text('LATEST')),
-                const SizedBox(height: 100, child: Text('KEEP')),
-                const SizedBox(height: 100, child: Text('OLDER')),
-                const SizedBox(height: 100, child: Text('OLDEST')),
                 for (var i = 0; i < olderPages; i++)
                   SizedBox(height: 300, child: Text('PAGE-$i')),
+                const SizedBox(height: 100, child: Text('OLDEST')),
+                const SizedBox(height: 100, child: Text('OLDER')),
+                const SizedBox(height: 100, child: Text('KEEP')),
+                const SizedBox(height: 40, child: Text('LATEST')),
               ],
             ),
           ),
@@ -79,18 +79,36 @@ void main() {
     await tester.pump();
     expect(pinTranscriptToLatest(controller), isTrue);
     await tester.pump();
-    expect(controller.offset, 0);
+    expect(controller.offset, controller.position.maxScrollExtent);
 
+    var previousMax = controller.position.maxScrollExtent;
     listKey.currentState!.prependOlderPage();
     await tester.pump();
-    listKey.currentState!.prependOlderPage();
+    applyTranscriptGrowth(
+      controller,
+      pending: TranscriptGrowth.prepend,
+      previousMax: previousMax,
+    );
     await tester.pump();
     expect(
       controller.offset,
-      0,
-      reason:
-          'stock reverse list keeps newest at 0; hold would add each page '
-          'to offset and walk off latest',
+      controller.position.maxScrollExtent,
+      reason: 'one-shot prepend hold keeps the latest window on screen',
+    );
+
+    previousMax = controller.position.maxScrollExtent;
+    listKey.currentState!.prependOlderPage();
+    await tester.pump();
+    applyTranscriptGrowth(
+      controller,
+      pending: TranscriptGrowth.prepend,
+      previousMax: previousMax,
+    );
+    await tester.pump();
+    expect(
+      controller.offset,
+      controller.position.maxScrollExtent,
+      reason: 'a second older page must not dump the user at first_message',
     );
   });
 
@@ -109,15 +127,22 @@ void main() {
     await tester.pump();
     controller.jumpTo(80);
     await tester.pump();
+    final previousMax = controller.position.maxScrollExtent;
 
     listKey.currentState!.prependOlderPage();
     await tester.pump();
+    applyTranscriptGrowth(
+      controller,
+      pending: TranscriptGrowth.prepend,
+      previousMax: previousMax,
+    );
+    await tester.pump();
     expect(
       controller.offset,
-      80,
+      80 + 300,
       reason:
-          'older rows grow maxScrollExtent; stock keeps pixels-from-newest. '
-          'hold added that growth and jumped the page',
+          'older rows grow maxScrollExtent at the top; the one-shot prepend '
+          'hold adds that growth so the same bubbles stay on screen',
     );
   });
 }

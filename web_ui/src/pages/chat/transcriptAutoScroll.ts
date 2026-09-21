@@ -45,9 +45,10 @@ export function classifyTranscriptGrowth(args: {
   nextLen: number;
   nextTip: string;
 }): 'open' | 'prepend' | 'other' {
-  if (!args.sessionId) return 'other';
-  if (args.prevSession !== args.sessionId) {
-    return args.nextLen > 0 ? 'open' : 'other';
+  if (args.nextLen <= 0) return 'other';
+  if (args.prevLen <= 0) return 'open';
+  if (args.sessionId != null && args.sessionId !== args.prevSession) {
+    return 'open';
   }
   if (
     args.nextLen > args.prevLen &&

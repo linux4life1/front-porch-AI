@@ -82,8 +82,11 @@ class _ChatPageState extends State<ChatPage> {
     keepScrollOffset: false,
   );
 
-  /// Session we already one-shot-pinned to newest. Not a stream follow.
-  String? _pinnedOpenSession;
+  /// Owns the transcript ListView so a Stack sibling toggle or a
+  /// stream rebuild cannot dispose the scroll position (re-anchor
+  /// at newest + scrollbar metrics reset).
+  final GlobalKey _transcriptListKey = GlobalKey();
+
   late final FocusNode _chatFocusNode;
   // Journal receipts tap-to-jump: the just-landed-on bubble, briefly tinted.
   ChatMessage? _jumpFlashMessage;
@@ -370,20 +373,6 @@ class _ChatPageState extends State<ChatPage> {
           // CallOverlay, whose dispose is the one call teardown (mic, TTS,
           // callMode). No setState: we are already inside this build.
           _isCallActive = false;
-          _pinnedOpenSession = null;
-        }
-
-        final sessionId = chatService.currentSessionId;
-        if (sessionId != null &&
-            sessionId != _pinnedOpenSession &&
-            messages.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            if (_pinnedOpenSession == sessionId) return;
-            if (pinTranscriptToLatest(_scrollController)) {
-              _pinnedOpenSession = sessionId;
-            }
-          });
         }
 
         if (character == null && !isGroup) {

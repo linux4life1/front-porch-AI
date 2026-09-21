@@ -19,21 +19,27 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/bubbles/message_bubble.dart';
+import 'package:front_porch_ai/ui/chat_components/stage/transcript_auto_scroll.dart';
 import 'package:front_porch_ai/ui/chat_components/widgets/generating_image_bubble.dart';
 import 'package:front_porch_ai/ui/chat_components/widgets/message_jump.dart';
 
-/// Reverse chat transcript of [MessageBubble]s. ChatPage owns keys, speaker
-/// resolution, and the image-gen placeholder. Waifu Coder passes
-/// [chatService] null so Continue / Regen / realism stay off.
-class ChatMessageList extends StatelessWidget {
+/// Forward chat transcript (oldest at top, newest at bottom). Growing
+/// the live bubble does not move scroll offset — that is the per-token
+/// chase a reverse list at 0 cannot avoid without the ripped hold.
+///
+/// Item identity is the page-owned [bubbleKeyOf] when present.
+/// Chronological ValueKey is the Waifu fallback only.
+class ChatMessageList extends StatefulWidget {
   const ChatMessageList({
     super.key,
     required this.messages,
     required this.resolveSpeaker,
+    this.sessionId,
     this.controller,
     this.characterFor,
     this.chatService,
@@ -50,6 +56,7 @@ class ChatMessageList extends StatelessWidget {
     this.padding = const EdgeInsets.all(20),
   });
 
+  final String? sessionId;
   final List<ChatMessage> messages;
   final ScrollController? controller;
   final (File?, Color?) Function(ChatMessage message) resolveSpeaker;
@@ -63,58 +70,115 @@ class ChatMessageList extends StatelessWidget {
   final Widget? Function(ChatMessage message, int index)? aboveBubble;
   final Widget? Function(ChatMessage message, int index)? belowBubble;
   final bool? isGenerating;
-
-  /// When set, overrides [isGenerating] per transcript index. Waifu Coder
-  /// uses this so only the live tool-loop step shows the thinking timer.
   final bool Function(int index)? generatingAt;
-
-  /// Waifu Coder session theme. Chat leaves this null.
   final ChatThemeOverrides? themeOverrides;
   final EdgeInsetsGeometry padding;
 
   @override
+  State<ChatMessageList> createState() => _ChatMessageListState();
+}
+
+class _ChatMessageListState extends State<ChatMessageList> {
+  ScrollController? _owned;
+  String? _prevSession;
+  int _prevLen = 0;
+  String _prevTip = '';
+  double _maxAtLastFrame = 0;
+  TranscriptGrowth? _pending;
+
+  ScrollController? get _controller => widget.controller ?? _owned;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.controller == null) {
+      _owned = ScrollController(keepScrollOffset: false);
+    }
+    _noteGrowth();
+  }
+
+  @override
+  void dispose() {
+    _owned?.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(ChatMessageList old) {
+    super.didUpdateWidget(old);
+    _noteGrowth();
+  }
+
+  void _noteGrowth() {
+    final tip = transcriptTipKey(widget.messages);
+    final kind = classifyTranscriptGrowth(
+      sessionId: widget.sessionId,
+      prevSession: _prevSession,
+      prevLen: _prevLen,
+      prevTip: _prevTip,
+      nextLen: widget.messages.length,
+      nextTip: tip,
+    );
+    _prevSession = widget.sessionId;
+    _prevLen = widget.messages.length;
+    _prevTip = tip;
+    if (kind != TranscriptGrowth.other) _pending = kind;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final c = _controller;
+      applyTranscriptGrowth(c, pending: _pending, previousMax: _maxAtLastFrame);
+      _pending = null;
+      if (c != null && c.hasClients) {
+        _maxAtLastFrame = c.position.maxScrollExtent;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      controller: controller,
-      reverse: true,
-      padding: padding,
-      itemCount: messages.length + (generatingImage ? 1 : 0),
+      key: const ValueKey('transcript-listview'),
+      controller: _controller,
+      reverse: false,
+      primary: false,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(4000),
+      padding: widget.padding,
+      itemCount: widget.messages.length + (widget.generatingImage ? 1 : 0),
       itemBuilder: (context, index) {
-        if (generatingImage) {
-          if (index == 0) return const GeneratingImageBubble();
-          index -= 1;
+        if (widget.generatingImage && index == widget.messages.length) {
+          return const GeneratingImageBubble();
         }
-        final reversedIndex = messages.length - 1 - index;
-        final msg = messages[reversedIndex];
-        final (senderImage, senderColor) = resolveSpeaker(msg);
-        final above = aboveBubble?.call(msg, reversedIndex);
-        final extra = belowBubble?.call(msg, reversedIndex);
-        // Always a Column so a tool-chip appearing beside the bubble does
-        // not swap MessageBubble's parent and reset Thought toggle state.
+        final msg = widget.messages[index];
+        final (senderImage, senderColor) = widget.resolveSpeaker(msg);
+        final above = widget.aboveBubble?.call(msg, index);
+        final extra = widget.belowBubble?.call(msg, index);
+        final identityKey = widget.bubbleKeyOf?.call(msg);
         final bubble = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ?above,
             MessageBubble(
-              key: ValueKey('bubble-$reversedIndex-${msg.isUser}'),
+              key: identityKey == null
+                  ? ValueKey('bubble-$index-${msg.isUser}')
+                  : null,
               message: msg,
               characterImage: senderImage,
-              index: reversedIndex,
+              index: index,
               senderColor: senderColor,
-              externalImagesAllowed: externalImagesAllowed,
-              onRequestImagePermission: onRequestImagePermission,
-              character: characterFor?.call(msg),
-              chatService: chatService,
-              isGenerating: generatingAt?.call(reversedIndex) ?? isGenerating,
-              themeOverrides: themeOverrides,
+              externalImagesAllowed: widget.externalImagesAllowed,
+              onRequestImagePermission: widget.onRequestImagePermission,
+              character: widget.characterFor?.call(msg),
+              chatService: widget.chatService,
+              isGenerating:
+                  widget.generatingAt?.call(index) ?? widget.isGenerating,
+              themeOverrides: widget.themeOverrides,
             ),
             ?extra,
           ],
         );
-        final key = bubbleKeyOf?.call(msg);
         return JumpFlash(
-          key: key,
-          flashed: identical(msg, jumpFlash),
+          key: identityKey ?? ValueKey('bubble-$index-${msg.isUser}'),
+          flashed: identical(msg, widget.jumpFlash),
           child: bubble,
         );
       },

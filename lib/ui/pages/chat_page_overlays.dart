@@ -19,6 +19,8 @@
 part of 'chat_page.dart';
 
 /// Chat surface (background + bubbles) and page-level overlays.
+/// Theme chrome is Stack siblings under the list (IgnorePointer
+/// backgrounds). It does not wrap or remount the transcript.
 extension _ChatPageOverlays on _ChatPageState {
   Widget _buildChatSurface({
     required BuildContext context,
@@ -176,6 +178,8 @@ extension _ChatPageOverlays on _ChatPageState {
               ),
             ],
             ChatMessageList(
+              key: _transcriptListKey,
+              sessionId: chatService.currentSessionId,
               messages: messages,
               controller: _scrollController,
               resolveSpeaker: (msg) => _resolveSpeaker(chatService, msg),

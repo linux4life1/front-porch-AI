@@ -48,12 +48,12 @@ class _GrowingTranscriptState extends State<_GrowingTranscript> {
             height: 200,
             child: ListView(
               controller: widget.controller,
-              reverse: true,
+              reverse: false,
               children: [
-                SizedBox(height: newestHeight, child: const Text('STREAM')),
-                const SizedBox(height: 100, child: Text('KEEP')),
-                const SizedBox(height: 100, child: Text('OLDER')),
                 const SizedBox(height: 100, child: Text('OLDEST')),
+                const SizedBox(height: 100, child: Text('OLDER')),
+                const SizedBox(height: 100, child: Text('KEEP')),
+                SizedBox(height: newestHeight, child: const Text('STREAM')),
               ],
             ),
           ),
@@ -64,7 +64,54 @@ class _GrowingTranscriptState extends State<_GrowingTranscript> {
 }
 
 void main() {
-  testWidgets('open/load pins a reverse list to newest once', (tester) async {
+  test('classifyTranscriptGrowth splits open / prepend / other', () {
+    expect(
+      classifyTranscriptGrowth(
+        sessionId: 's1',
+        prevSession: null,
+        prevLen: 0,
+        prevTip: '',
+        nextLen: 24,
+        nextTip: 'Iris\u0000latest',
+      ),
+      TranscriptGrowth.open,
+    );
+    expect(
+      classifyTranscriptGrowth(
+        sessionId: 's1',
+        prevSession: 's1',
+        prevLen: 24,
+        prevTip: 'Iris\u0000latest',
+        nextLen: 224,
+        nextTip: 'Iris\u0000latest',
+      ),
+      TranscriptGrowth.prepend,
+    );
+    expect(
+      classifyTranscriptGrowth(
+        sessionId: 's1',
+        prevSession: 's1',
+        prevLen: 224,
+        prevTip: 'Iris\u0000latest',
+        nextLen: 225,
+        nextTip: 'Iris\u0000new reply',
+      ),
+      TranscriptGrowth.other,
+    );
+    expect(
+      classifyTranscriptGrowth(
+        sessionId: 's1',
+        prevSession: 's1',
+        prevLen: 224,
+        prevTip: 'Iris\u0000latest',
+        nextLen: 224,
+        nextTip: 'Iris\u0000latest+',
+      ),
+      TranscriptGrowth.other,
+    );
+  });
+
+  testWidgets('open/load pins a forward list to newest once', (tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -80,15 +127,15 @@ void main() {
     await tester.pump();
     expect(
       controller.offset,
-      0,
-      reason: 'open/load must land on the newest end (reverse offset 0)',
+      controller.position.maxScrollExtent,
+      reason: 'open/load must land on the newest end (forward max)',
     );
 
     applyTranscriptAutoScroll(controller, generating: true);
     await tester.pump();
     expect(
       controller.offset,
-      0,
+      controller.position.maxScrollExtent,
       reason: 'stream helper must not move after the one-shot pin',
     );
   });
@@ -115,7 +162,7 @@ void main() {
     );
   });
 
-  testWidgets('stream growth does not rewrite a stock reverse-list offset', (
+  testWidgets('stream growth does not chase a forward list sitting at latest', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 600));
@@ -128,22 +175,28 @@ void main() {
       _GrowingTranscript(key: listKey, controller: controller),
     );
     await tester.pump();
-    expect(controller.offset, 0);
+    expect(pinTranscriptToLatest(controller), isTrue);
+    await tester.pump();
+    final pinned = controller.offset;
+    expect(pinned, controller.position.maxScrollExtent);
 
     listKey.currentState!.growTo(200);
     await tester.pump();
     expect(
       controller.offset,
-      0,
-      reason: 'hold/correctPixels would push offset off 0 and jitter the page',
+      pinned,
+      reason:
+          'growing the newest bubble must leave offset put; jumping to the '
+          'new max is the per-token chase',
     );
+    expect(controller.position.maxScrollExtent, greaterThan(pinned));
 
     listKey.currentState!.growTo(280);
     await tester.pump();
     expect(
       controller.offset,
-      0,
-      reason: 'a second growth must not accumulate a rewritten offset',
+      pinned,
+      reason: 'a second token batch must not accumulate a follow',
     );
   });
 
@@ -168,7 +221,8 @@ void main() {
     expect(
       controller.offset,
       80,
-      reason: 'hold added growth to pixels and fought Flutter; stock keeps 80',
+      reason:
+          'stock forward list keeps pixels-from-top while the last row grows',
     );
   });
 
@@ -177,9 +231,20 @@ void main() {
     expect(page.contains('TranscriptScrollController'), isFalse);
     expect(page.contains('resetHold'), isFalse);
     expect(page.contains('heldTranscriptOffset'), isFalse);
-    expect(page.contains('pinTranscriptToLatest'), isTrue);
+    expect(page.contains('_scheduleOpenPin'), isFalse);
+    expect(page.contains('_transcriptListKey'), isTrue);
+    expect(page.contains('pinTranscriptToLatest'), isFalse);
     expect(page.contains('keepScrollOffset: false'), isTrue);
     expect(page.contains('_scrollToBottom'), isFalse);
+    final overlays = File(
+      'lib/ui/pages/chat_page_overlays.dart',
+    ).readAsStringSync();
+    expect(
+      overlays.contains('sessionId: chatService.currentSessionId'),
+      isTrue,
+    );
+    expect(overlays.contains('_scheduleOpenPin'), isFalse);
+    expect(overlays.contains('key: _transcriptListKey'), isTrue);
     final open = File(
       'lib/services/chat/chat_service_session_window.dart',
     ).readAsStringSync();
@@ -201,9 +266,11 @@ void main() {
       'lib/ui/chat_components/stage/chat_message_list.dart',
     ).readAsStringSync();
     expect(
-      list.contains('class ChatMessageList extends StatelessWidget'),
+      list.contains('class ChatMessageList extends StatefulWidget'),
       isTrue,
     );
+    expect(list.contains('reverse: false'), isTrue);
+    expect(list.contains('applyTranscriptGrowth'), isTrue);
     expect(list.contains('TranscriptScrollController'), isFalse);
     final bubble = File(
       'lib/ui/chat_components/bubbles/message_bubble.content.dart',
@@ -217,5 +284,9 @@ void main() {
     expect(selectable.contains('bubble-body-scroll-absorb'), isFalse);
     expect(selectable.contains('ListView'), isFalse);
     expect(selectable.contains('SelectionArea(child: child)'), isTrue);
+    final jump = File(
+      'lib/ui/chat_components/widgets/message_jump.dart',
+    ).readAsStringSync();
+    expect(jump.contains('axisDirection == AxisDirection.up'), isTrue);
   });
 }

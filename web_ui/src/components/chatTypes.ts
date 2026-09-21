@@ -27,6 +27,8 @@ export interface Chips {
 
 export interface Message {
   index: number;
+  /** Stable row identity from the desktop object; falls back to index. */
+  rowKey?: number;
   sender: string;
   text: string;
   isUser: boolean;

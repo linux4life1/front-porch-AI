@@ -21,17 +21,20 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Scroll the chat's reverse `ListView.builder` to [target] (Journal
-/// receipts tap-to-jump).
+/// Scroll the chat `ListView.builder` to [target] (Journal receipts
+/// tap-to-jump).
 ///
 /// A builder list only materializes elements near the viewport, so a distant
 /// message can't be located directly. The chat page keys each bubble with a
 /// GlobalKey it OWNS and resolves through [keyOf]; this seeks in two moves:
-/// 1. one rough hop to the target's proportional offset (reverse list:
-///    offset 0 = newest, maxScrollExtent = oldest), then
+/// 1. one rough hop to the target's proportional offset, then
 /// 2. viewport-sized pages toward the target — comparing its position
 ///    against the currently built range — until its key materializes,
 ///    finishing with an animated `ensureVisible` that centers it.
+///
+/// Axis is read from the live position: `AxisDirection.up` is a reverse
+/// list (offset 0 = newest) — the Rawhide harness still uses that shape.
+/// Chat itself is a forward list (offset 0 = oldest, max = newest).
 ///
 /// [keyOf] returns null for a message whose bubble the page has never built
 /// — indistinguishable, on purpose, from "built but currently unmounted":
@@ -54,11 +57,13 @@ Future<void> jumpToMessage({
   final index = messages.indexWhere((m) => identical(m, target));
   if (index < 0) return;
 
+  final reverse = controller.position.axisDirection == AxisDirection.up;
   if (keyOf(target)?.currentContext == null && messages.length > 1) {
     final position = controller.position;
-    final fractionOlder = 1 - index / (messages.length - 1);
+    final fraction = index / (messages.length - 1);
+    final along = reverse ? 1 - fraction : fraction;
     controller.jumpTo(
-      (position.maxScrollExtent * fractionOlder).clamp(
+      (position.maxScrollExtent * along).clamp(
         position.minScrollExtent,
         position.maxScrollExtent,
       ),
@@ -89,12 +94,14 @@ Future<void> jumpToMessage({
     if (lowest == null || highest == null) return; // nothing built — bail
 
     final pos = controller.position;
-    // Reverse list: older messages (smaller position) live at LARGER offsets.
+    // Reverse: older (smaller index) is a larger offset. Forward: smaller.
     final older = index < lowest;
-    final next = (older
-            ? pos.pixels + pos.viewportDimension * 0.9
-            : pos.pixels - pos.viewportDimension * 0.9)
-        .clamp(pos.minScrollExtent, pos.maxScrollExtent);
+    final delta = pos.viewportDimension * 0.9;
+    final next =
+        (older
+                ? (reverse ? pos.pixels + delta : pos.pixels - delta)
+                : (reverse ? pos.pixels - delta : pos.pixels + delta))
+            .clamp(pos.minScrollExtent, pos.maxScrollExtent);
     if ((next - pos.pixels).abs() < 0.5) return; // pinned at an edge — bail
     controller.jumpTo(next);
     await WidgetsBinding.instance.endOfFrame;

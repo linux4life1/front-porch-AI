@@ -26,6 +26,15 @@ describe('transcript stream scroll (option B)', () => {
   it('classifies open vs backward prepend vs a new tip', () => {
     expect(
       classifyTranscriptGrowth({
+        prevSession: null,
+        prevLen: 0,
+        prevTip: '',
+        nextLen: 10,
+        nextTip: 'Iris\0latest',
+      }),
+    ).toBe('open');
+    expect(
+      classifyTranscriptGrowth({
         sessionId: 's1',
         prevSession: null,
         prevLen: 0,
@@ -78,6 +87,8 @@ describe('transcript stream scroll (option B)', () => {
       'utf8',
     );
     expect(list).toMatch(/pinTranscriptToLatest/);
+    expect(list).toMatch(/rowKey/);
+    expect(list).not.toMatch(/scrollTop\s*=\s*.*scrollHeight/);
     expect(list).toMatch(/holdTranscriptAfterPrepend/);
     expect(list).toMatch(/classifyTranscriptGrowth/);
     expect(list).not.toMatch(/applyTranscriptAutoScroll/);

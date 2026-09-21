@@ -45,6 +45,9 @@ extension ChatFacadeState on ChatFacade {
       final bool? isDream = md?['is_dream'] == true ? true : null;
       return {
         'index': e.key,
+        // Stable across prepend (same Dart object). Index shifts and
+        // remounts every row — that resets the web scrollbar thumb.
+        'rowKey': identityHashCode(m),
         'sender': m.sender,
         'text': m.displayText,
         'isUser': m.isUser,
