@@ -65,7 +65,10 @@ void main() {
     addTearDown(chat.dispose);
     var promoted = false;
 
-    for (final width in [320.0, 280.0]) {
+    // 280/320 are the live sidebar. 200 is the test-font width that
+    // still overflows a non-wrapping trailer Row (same class as the
+    // field's 52px stripe).
+    for (final width in [320.0, 280.0, 200.0]) {
       await _pumpCard(
         tester,
         width: width,
