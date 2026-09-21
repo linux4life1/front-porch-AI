@@ -344,4 +344,40 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       }
     }
   }
+
+  /// Glance only for a group soft member. Skips Needs / bond / posture /
+  /// reply-facts / periodic Realism. Writes `_groupRealism[id].withUser`
+  /// so [derivePresence] can show Away. 1:1 Scene Guests do not enter.
+  Future<void> _runLiteGroupGlancePass(_GenTurn t, String scoredReply) async {
+    if (_activeGroup == null) return;
+    if (t.guestSpeaker != null) return;
+    if (!t.speakingCharacter.isLite) return;
+    if (scoredReply.trim().isEmpty) return;
+    if (!_realismEnabled) return;
+    if (_postGenAbortRequested) return;
+
+    CharacterCard? prior;
+    final sid = _getCharacterIdFromCard(t.speakingCharacter);
+    try {
+      await _openWorkerLane();
+      prior = _activeCharacter;
+      _activeCharacter = t.speakingCharacter;
+      if (sid.isNotEmpty) {
+        _relationshipService.setWithUser(_groupRealism[sid]?.withUser);
+        final meta = t.streamTarget.activeMetadata ?? <String, dynamic>{};
+        meta.putIfAbsent(kWithUserPreTurn, () => _relationshipService.withUser);
+        t.streamTarget.activeMetadata = meta;
+      }
+      await _runWithUserPass(scoredReply);
+      if (sid.isNotEmpty) {
+        _memberForWrite(sid).withUser = _relationshipService.withUser;
+      }
+      if (t.mode == GenerationMode.normal && !_awayPulse.consumingReturnSpeak) {
+        _awayPulse.presentSpeakerTurns++;
+      }
+    } finally {
+      if (prior != null) _activeCharacter = prior;
+      await _closeWorkerLane();
+    }
+  }
 }
