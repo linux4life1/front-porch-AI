@@ -16,133 +16,104 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/ui/chat_components/stage/transcript_auto_scroll.dart';
 
-/// Forward transcript: last child is newest. Extra older rows go at the
-/// top — the same direction as `getMessagesBeforePosition` prepend.
-class _PagingTranscript extends StatefulWidget {
-  const _PagingTranscript({super.key, required this.controller});
+void main() {
+  test('classify treats a longer list with the same tip as prepend', () {
+    expect(
+      classifyTranscriptGrowth(
+        sessionId: 's1',
+        prevSession: 's1',
+        prevLen: 24,
+        prevTip: 'Iris\u0000latest',
+        nextLen: 224,
+        nextTip: 'Iris\u0000latest',
+      ),
+      TranscriptGrowth.prepend,
+    );
+    expect(
+      classifyTranscriptGrowth(
+        sessionId: 's1',
+        prevSession: 's1',
+        prevLen: 224,
+        prevTip: 'Iris\u0000latest',
+        nextLen: 225,
+        nextTip: 'Iris\u0000new reply',
+      ),
+      TranscriptGrowth.other,
+    );
+  });
 
-  final ScrollController controller;
+  testWidgets('prepend helper adds a settled max delta once', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
-  @override
-  State<_PagingTranscript> createState() => _PagingTranscriptState();
-}
-
-class _PagingTranscriptState extends State<_PagingTranscript> {
-  int olderPages = 0;
-
-  void prependOlderPage() => setState(() => olderPages++);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
             width: 400,
             height: 200,
             child: ListView(
-              controller: widget.controller,
+              controller: controller,
               reverse: false,
-              children: [
-                for (var i = 0; i < olderPages; i++)
-                  SizedBox(height: 300, child: Text('PAGE-$i')),
-                const SizedBox(height: 100, child: Text('OLDEST')),
-                const SizedBox(height: 100, child: Text('OLDER')),
-                const SizedBox(height: 100, child: Text('KEEP')),
-                const SizedBox(height: 40, child: Text('LATEST')),
+              children: const [
+                SizedBox(height: 300, child: Text('PAGE')),
+                SizedBox(height: 100, child: Text('OLDEST')),
+                SizedBox(height: 100, child: Text('OLDER')),
+                SizedBox(height: 100, child: Text('KEEP')),
+                SizedBox(height: 40, child: Text('LATEST')),
               ],
             ),
           ),
         ),
       ),
     );
-  }
-}
-
-void main() {
-  testWidgets('open stays on latest when older pages prepend', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(400, 600));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final controller = ScrollController(keepScrollOffset: false);
-    addTearDown(controller.dispose);
-    final listKey = GlobalKey<_PagingTranscriptState>();
-    await tester.pumpWidget(
-      _PagingTranscript(key: listKey, controller: controller),
-    );
-    await tester.pump();
-    expect(pinTranscriptToLatest(controller), isTrue);
-    await tester.pump();
-    expect(controller.offset, controller.position.maxScrollExtent);
-
-    var previousMax = controller.position.maxScrollExtent;
-    listKey.currentState!.prependOlderPage();
-    await tester.pump();
-    applyTranscriptGrowth(
-      controller,
-      pending: TranscriptGrowth.prepend,
-      previousMax: previousMax,
-    );
-    await tester.pump();
-    expect(
-      controller.offset,
-      controller.position.maxScrollExtent,
-      reason: 'one-shot prepend hold keeps the latest window on screen',
-    );
-
-    previousMax = controller.position.maxScrollExtent;
-    listKey.currentState!.prependOlderPage();
-    await tester.pump();
-    applyTranscriptGrowth(
-      controller,
-      pending: TranscriptGrowth.prepend,
-      previousMax: previousMax,
-    );
-    await tester.pump();
-    expect(
-      controller.offset,
-      controller.position.maxScrollExtent,
-      reason: 'a second older page must not dump the user at first_message',
-    );
-  });
-
-  testWidgets('scrolled-away offset survives a backward prepend', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(400, 600));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final controller = ScrollController();
-    addTearDown(controller.dispose);
-    final listKey = GlobalKey<_PagingTranscriptState>();
-    await tester.pumpWidget(
-      _PagingTranscript(key: listKey, controller: controller),
-    );
     await tester.pump();
     controller.jumpTo(80);
     await tester.pump();
-    final previousMax = controller.position.maxScrollExtent;
-
-    listKey.currentState!.prependOlderPage();
-    await tester.pump();
+    final max = controller.position.maxScrollExtent;
     applyTranscriptGrowth(
       controller,
       pending: TranscriptGrowth.prepend,
-      previousMax: previousMax,
+      previousMax: max - 300,
     );
     await tester.pump();
     expect(
       controller.offset,
       80 + 300,
       reason:
-          'older rows grow maxScrollExtent at the top; the one-shot prepend '
-          'hold adds that growth so the same bubbles stay on screen',
+          'one-shot prepend adjust uses a settled max, not a children-list '
+          'rebuild (those report a stale max for a frame)',
+    );
+
+    applyTranscriptAutoScroll(controller, generating: true);
+    await tester.pump();
+    expect(controller.offset, 80 + 300);
+  });
+
+  test('desktop list stays the Mac-pass forward ListView', () {
+    final list = File(
+      'lib/ui/chat_components/stage/chat_message_list.dart',
+    ).readAsStringSync();
+    expect(list.contains('ListView.builder'), isTrue);
+    expect(list.contains('reverse: false'), isTrue);
+    expect(list.contains('CustomScrollView'), isFalse);
+    expect(list.contains('transcript-center'), isFalse);
+    expect(list.contains('applyTranscriptGrowth'), isTrue);
+    expect(list.contains('TranscriptScrollController'), isFalse);
+    expect(
+      File(
+        'lib/ui/chat_components/stage/transcript_auto_scroll.dart',
+      ).readAsStringSync().contains('heldTranscriptOffset'),
+      isFalse,
     );
   });
 }
