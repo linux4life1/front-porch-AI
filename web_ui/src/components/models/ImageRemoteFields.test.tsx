@@ -117,11 +117,18 @@ describe('ImageRemoteFields', () => {
 
     const filter = container.querySelector('.mp-filter') as HTMLInputElement;
     await act(async () => {
-      filter.value = 'hidream';
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )!.set!;
+      setter.call(filter, 'hidream');
       filter.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    expect(container.textContent).toContain('Hidream · Pro');
-    expect(container.textContent).not.toContain('FLUX.2 Pro · paid');
+    const labels = Array.from(container.querySelectorAll('.mp-option')).map(
+      (el) => el.textContent,
+    );
+    expect(labels.some((t) => t?.includes('Hidream · Pro'))).toBe(true);
+    expect(labels.some((t) => t?.includes('FLUX.2 Pro · paid'))).toBe(false);
 
     const option = Array.from(container.querySelectorAll('.mp-option')).find((el) =>
       el.textContent?.includes('Hidream'),
