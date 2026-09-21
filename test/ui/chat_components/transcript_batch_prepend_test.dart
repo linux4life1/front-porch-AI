@@ -16,103 +16,54 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/ui/chat_components/stage/transcript_auto_scroll.dart';
 
-/// Forward transcript: last child is newest. Extra older rows go at the
-/// top — the same direction as `getMessagesBeforePosition` prepend.
-class _PagingTranscript extends StatefulWidget {
-  const _PagingTranscript({super.key, required this.controller});
-
-  final ScrollController controller;
-
-  @override
-  State<_PagingTranscript> createState() => _PagingTranscriptState();
-}
-
-class _PagingTranscriptState extends State<_PagingTranscript> {
-  int olderPages = 0;
-
-  void prependOlderPage() => setState(() => olderPages++);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: 400,
-            height: 200,
-            child: ListView(
-              controller: widget.controller,
-              reverse: false,
-              children: [
-                for (var i = 0; i < olderPages; i++)
-                  SizedBox(height: 300, child: Text('PAGE-$i')),
-                const SizedBox(height: 100, child: Text('OLDEST')),
-                const SizedBox(height: 100, child: Text('OLDER')),
-                const SizedBox(height: 100, child: Text('KEEP')),
-                const SizedBox(height: 40, child: Text('LATEST')),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 void main() {
-  testWidgets('open stays on latest when older pages prepend', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(400, 600));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final controller = ScrollController(keepScrollOffset: false);
-    addTearDown(controller.dispose);
-    final listKey = GlobalKey<_PagingTranscriptState>();
-    await tester.pumpWidget(
-      _PagingTranscript(key: listKey, controller: controller),
-    );
-    await tester.pump();
-    expect(pinTranscriptToLatest(controller), isTrue);
-    await tester.pump();
-    expect(controller.offset, controller.position.maxScrollExtent);
-
-    var previousMax = controller.position.maxScrollExtent;
-    listKey.currentState!.prependOlderPage();
-    await tester.pump();
-    applyTranscriptGrowth(
-      controller,
-      pending: TranscriptGrowth.prepend,
-      previousMax: previousMax,
-    );
-    await tester.pump();
+  test('older pages move the transcript center, not the scroll offset', () {
     expect(
-      controller.offset,
-      controller.position.maxScrollExtent,
-      reason: 'one-shot prepend hold keeps the latest window on screen',
+      nextTranscriptCenterIndex(
+        prevCenter: 0,
+        kind: TranscriptGrowth.open,
+        prevLen: 0,
+        nextLen: 24,
+      ),
+      0,
     );
-
-    previousMax = controller.position.maxScrollExtent;
-    listKey.currentState!.prependOlderPage();
-    await tester.pump();
-    applyTranscriptGrowth(
-      controller,
-      pending: TranscriptGrowth.prepend,
-      previousMax: previousMax,
-    );
-    await tester.pump();
     expect(
-      controller.offset,
-      controller.position.maxScrollExtent,
-      reason: 'a second older page must not dump the user at first_message',
+      nextTranscriptCenterIndex(
+        prevCenter: 0,
+        kind: TranscriptGrowth.prepend,
+        prevLen: 24,
+        nextLen: 224,
+      ),
+      200,
+    );
+    expect(
+      nextTranscriptCenterIndex(
+        prevCenter: 200,
+        kind: TranscriptGrowth.prepend,
+        prevLen: 224,
+        nextLen: 424,
+      ),
+      400,
+    );
+    expect(
+      nextTranscriptCenterIndex(
+        prevCenter: 200,
+        kind: TranscriptGrowth.other,
+        prevLen: 224,
+        nextLen: 225,
+      ),
+      200,
     );
   });
 
-  testWidgets('scrolled-away offset survives a backward prepend', (
+  testWidgets('synthetic prepend hold adds the settled max delta', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 600));
@@ -120,29 +71,50 @@ void main() {
 
     final controller = ScrollController();
     addTearDown(controller.dispose);
-    final listKey = GlobalKey<_PagingTranscriptState>();
     await tester.pumpWidget(
-      _PagingTranscript(key: listKey, controller: controller),
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            height: 200,
+            child: ListView(
+              controller: controller,
+              children: const [
+                SizedBox(height: 300, child: Text('PAGE')),
+                SizedBox(height: 100, child: Text('OLDEST')),
+                SizedBox(height: 100, child: Text('OLDER')),
+                SizedBox(height: 100, child: Text('KEEP')),
+                SizedBox(height: 40, child: Text('LATEST')),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
     await tester.pump();
     controller.jumpTo(80);
     await tester.pump();
-    final previousMax = controller.position.maxScrollExtent;
-
-    listKey.currentState!.prependOlderPage();
-    await tester.pump();
-    applyTranscriptGrowth(
-      controller,
-      pending: TranscriptGrowth.prepend,
-      previousMax: previousMax,
-    );
+    final max = controller.position.maxScrollExtent;
+    holdTranscriptAfterPrepend(controller, max - 300);
     await tester.pump();
     expect(
       controller.offset,
       80 + 300,
       reason:
-          'older rows grow maxScrollExtent at the top; the one-shot prepend '
-          'hold adds that growth so the same bubbles stay on screen',
+          'web / helper: add the settled growth. Desktop uses a center '
+          'sliver instead so it never has to guess a stale max',
     );
+  });
+
+  test('desktop list anchors prepends at a center sliver, not a hold', () {
+    final list = File(
+      'lib/ui/chat_components/stage/chat_message_list.dart',
+    ).readAsStringSync();
+    expect(list.contains('CustomScrollView'), isTrue);
+    expect(list.contains('transcript-center'), isTrue);
+    expect(list.contains('nextTranscriptCenterIndex'), isTrue);
+    expect(list.contains('holdTranscriptAfterPrepend'), isFalse);
+    expect(list.contains('reverse: false'), isTrue);
+    expect(list.contains('findChildIndexCallback'), isTrue);
   });
 }

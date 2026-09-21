@@ -32,8 +32,9 @@ import 'package:front_porch_ai/ui/chat_components/widgets/message_jump.dart';
 /// the live bubble does not move scroll offset — that is the per-token
 /// chase a reverse list at 0 cannot avoid without the ripped hold.
 ///
-/// Item identity is the page-owned [bubbleKeyOf] when present.
-/// Chronological ValueKey is the Waifu fallback only.
+/// Older pages grow above a [CustomScrollView] center sliver so the
+/// viewport is not rewritten. Item identity is the page-owned
+/// [bubbleKeyOf] when present; object identity is the Waifu fallback.
 class ChatMessageList extends StatefulWidget {
   const ChatMessageList({
     super.key,
@@ -79,12 +80,13 @@ class ChatMessageList extends StatefulWidget {
 }
 
 class _ChatMessageListState extends State<ChatMessageList> {
+  static const Key _centerKey = ValueKey('transcript-center');
+
   ScrollController? _owned;
   String? _prevSession;
   int _prevLen = 0;
   String _prevTip = '';
-  double _maxAtLastFrame = 0;
-  TranscriptGrowth? _pending;
+  int _centerIndex = 0;
 
   ScrollController? get _controller => widget.controller ?? _owned;
 
@@ -110,57 +112,58 @@ class _ChatMessageListState extends State<ChatMessageList> {
   }
 
   void _noteGrowth() {
+    final prevLen = _prevLen;
     final tip = transcriptTipKey(widget.messages);
     final kind = classifyTranscriptGrowth(
       sessionId: widget.sessionId,
       prevSession: _prevSession,
-      prevLen: _prevLen,
+      prevLen: prevLen,
       prevTip: _prevTip,
       nextLen: widget.messages.length,
       nextTip: tip,
     );
+    _centerIndex = nextTranscriptCenterIndex(
+      prevCenter: _centerIndex,
+      kind: kind,
+      prevLen: prevLen,
+      nextLen: widget.messages.length,
+    );
     _prevSession = widget.sessionId;
     _prevLen = widget.messages.length;
     _prevTip = tip;
-    if (kind != TranscriptGrowth.other) _pending = kind;
+    if (kind != TranscriptGrowth.open) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final c = _controller;
-      applyTranscriptGrowth(c, pending: _pending, previousMax: _maxAtLastFrame);
-      _pending = null;
-      if (c != null && c.hasClients) {
-        _maxAtLastFrame = c.position.maxScrollExtent;
-      }
+      if (c != null) pinTranscriptToLatest(c);
     });
+  }
+
+  Key _rowKey(ChatMessage msg) {
+    return widget.bubbleKeyOf?.call(msg) ?? ValueKey(identityHashCode(msg));
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      key: const ValueKey('transcript-listview'),
-      controller: _controller,
-      reverse: false,
-      primary: false,
-      scrollCacheExtent: const ScrollCacheExtent.pixels(4000),
-      padding: widget.padding,
-      itemCount: widget.messages.length + (widget.generatingImage ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (widget.generatingImage && index == widget.messages.length) {
-          return const GeneratingImageBubble();
-        }
-        final msg = widget.messages[index];
-        final (senderImage, senderColor) = widget.resolveSpeaker(msg);
-        final above = widget.aboveBubble?.call(msg, index);
-        final extra = widget.belowBubble?.call(msg, index);
-        final identityKey = widget.bubbleKeyOf?.call(msg);
-        final bubble = Column(
+    final pad = widget.padding.resolve(Directionality.of(context));
+    final messages = widget.messages;
+    final center = messages.isEmpty
+        ? 0
+        : _centerIndex.clamp(0, messages.length - 1);
+    final belowCount =
+        (messages.isEmpty ? 0 : messages.length - center - 1) +
+        (widget.generatingImage ? 1 : 0);
+    Widget row(int index) {
+      final msg = messages[index];
+      final (senderImage, senderColor) = widget.resolveSpeaker(msg);
+      return JumpFlash(
+        key: _rowKey(msg),
+        flashed: identical(msg, widget.jumpFlash),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ?above,
+            ?widget.aboveBubble?.call(msg, index),
             MessageBubble(
-              key: identityKey == null
-                  ? ValueKey('bubble-$index-${msg.isUser}')
-                  : null,
               message: msg,
               characterImage: senderImage,
               index: index,
@@ -173,15 +176,67 @@ class _ChatMessageListState extends State<ChatMessageList> {
                   widget.generatingAt?.call(index) ?? widget.isGenerating,
               themeOverrides: widget.themeOverrides,
             ),
-            ?extra,
+            ?widget.belowBubble?.call(msg, index),
           ],
-        );
-        return JumpFlash(
-          key: identityKey ?? ValueKey('bubble-$index-${msg.isUser}'),
-          flashed: identical(msg, widget.jumpFlash),
-          child: bubble,
-        );
-      },
+        ),
+      );
+    }
+
+    return CustomScrollView(
+      key: const ValueKey('transcript-listview'),
+      controller: _controller,
+      reverse: false,
+      primary: false,
+      center: messages.isEmpty ? null : _centerKey,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(4000),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.only(
+            left: pad.left,
+            right: pad.right,
+            top: pad.top,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => row(center - 1 - index),
+              childCount: center,
+              findChildIndexCallback: (key) {
+                for (var i = 0; i < center; i++) {
+                  if (_rowKey(messages[i]) == key) return center - 1 - i;
+                }
+                return null;
+              },
+            ),
+          ),
+        ),
+        if (messages.isNotEmpty)
+          SliverToBoxAdapter(key: _centerKey, child: row(center)),
+        SliverPadding(
+          padding: EdgeInsets.only(
+            left: pad.left,
+            right: pad.right,
+            bottom: pad.bottom,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final msgIndex = center + 1 + index;
+                if (msgIndex < messages.length) return row(msgIndex);
+                return const GeneratingImageBubble(
+                  key: ValueKey('generating-image'),
+                );
+              },
+              childCount: belowCount,
+              findChildIndexCallback: (key) {
+                for (var i = center + 1; i < messages.length; i++) {
+                  if (_rowKey(messages[i]) == key) return i - center - 1;
+                }
+                return null;
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

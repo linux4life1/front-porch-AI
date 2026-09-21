@@ -109,6 +109,15 @@ void main() {
       ),
       TranscriptGrowth.other,
     );
+    expect(
+      nextTranscriptCenterIndex(
+        prevCenter: 0,
+        kind: TranscriptGrowth.prepend,
+        prevLen: 24,
+        nextLen: 224,
+      ),
+      200,
+    );
   });
 
   testWidgets('open/load pins a forward list to newest once', (tester) async {
@@ -270,7 +279,8 @@ void main() {
       isTrue,
     );
     expect(list.contains('reverse: false'), isTrue);
-    expect(list.contains('applyTranscriptGrowth'), isTrue);
+    expect(list.contains('CustomScrollView'), isTrue);
+    expect(list.contains('nextTranscriptCenterIndex'), isTrue);
     expect(list.contains('TranscriptScrollController'), isFalse);
     final bubble = File(
       'lib/ui/chat_components/bubbles/message_bubble.content.dart',
