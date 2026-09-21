@@ -8,6 +8,7 @@ Last shipped nightly: `rawhide.20260920.5fe816e`. Everything below is unreleased
 ## Recent improvements (unreleased — ships in the next build)
 
 - 📜 **Opening a chat lands you on the latest messages** — no more marathon scroll from the first greeting. Older history loads backward as you scroll up. Fast-scrubbing the transcript should stay smooth (theme on or off). **Follow streaming replies** (Settings → General, on by default) keeps the chat pinned to the newest words while a reply is writing if you are already at the bottom — scroll up to stop, return to the bottom to follow again. Turn it off if you want the chat to stay put. Same on the phone.
+- 💫 **Afterglow no longer keeps them limp the whole cooldown** — the first reply after a scene can still feel wrecked and heavy. After that, how tired or comfortable they are follows energy and comfort (Needs), not a stuck exhausted pose. Same in a group.
 
 - 👥 **Guests can sit in a group without becoming full members** — `/create`, `/join --lite`, and `/scan` work in a group now. They take turns and can be Away like anyone else (a guest who walks off is marked Away; Needs and Realism still stay off). Promote them with `/promote Name` or the roster button. Turning a 1:1 into a group keeps the guests as guests. Same on the phone.
 

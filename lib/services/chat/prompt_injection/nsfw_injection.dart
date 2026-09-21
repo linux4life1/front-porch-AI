@@ -17,7 +17,12 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/nsfw_service.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+
+/// Later Afterglow turns: closeness stays, limp/tired does not override Needs.
+const _afterglowNeedsDrive =
+    'Stay close and sated, but do not keep a limp or exhausted pose unless '
+    'energy or comfort already call for it.';
 
 /// Body-state (arousal / refractory) fragment for the words-only state block
 /// (docs/design/prompt-state-injection.md §3). Salience-gated: silent unless
@@ -27,6 +32,11 @@ import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 /// two sentences; NO turn counts, NO numbers, NO spatial restatement
 /// (position has its own line), NO per-fragment wrapper or "show don't tell"
 /// footer (the composer's single guard covers it).
+///
+/// Afterglow limp / tired / exhausted is FIRST-TURN ONLY. Later cooldown
+/// turns keep closeness and the sexual "not yet", but energy and comfort
+/// come from Needs — the old ratio ladder re-asserted wrecked / heavy-limbed
+/// / sated tiredness for most of the arc and fought those lines.
 ///
 /// GROUP-SAFETY CONTRACT: this leaf reads NsfwService SCALARS
 /// (arousalLevel / cooldown turns), which are per-speaker-valid at assembly
@@ -81,27 +91,28 @@ class NsfwInjection {
     final name = _speakerName();
 
     if (nsfwService.cooldownTurnsRemaining > 0) {
+      final remaining = nsfwService.cooldownTurnsRemaining;
       final total = nsfwService.cooldownTurnsTotal > 0
           ? nsfwService.cooldownTurnsTotal
-          : nsfwService.cooldownTurnsRemaining;
-      final ratio = nsfwService.cooldownTurnsRemaining / total;
-      if (ratio > 0.66) {
+          : remaining;
+      if (nsfwService.isOpeningAfterglowTurn) {
         return 'Body: $name just climaxed — still trembling, flushed, '
             'oversensitive, blissfully wrecked, with other physical needs '
             'feeling far away. If {{user}} starts something sexual again the '
             'body simply cannot respond yet: a breathless laugh, a gently '
             'pushed-away hand, or a pull into closeness that isn\'t sexual.';
       }
+      final ratio = remaining / total;
       if (ratio > 0.33) {
-        return 'Body: $name is deep in the afterglow — warm, heavy-limbed, '
-            'unusually open and affectionate, wanting closeness more than '
-            'escalation. A push for more gets a soft "not yet"; savoring '
-            'this beats rushing back in.';
+        return 'Body: $name is deep in the afterglow — warm, unusually '
+            'open and affectionate, wanting closeness more than escalation. '
+            'A push for more gets a soft "not yet"; savoring this beats '
+            'rushing back in. $_afterglowNeedsDrive';
       }
       return 'Body: $name is coming out of the afterglow — deeply satisfied '
           'still, but the body is waking back up; temptation is possible if '
-          '{{user}} plays it right, though nothing is being chased. A heavy, '
-          'sated tiredness may still roll in as the glow fades.';
+          '{{user}} plays it right, though nothing is being chased. '
+          '$_afterglowNeedsDrive';
     }
 
     final a = nsfwService.arousalLevel;
