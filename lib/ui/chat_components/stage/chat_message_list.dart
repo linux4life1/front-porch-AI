@@ -30,8 +30,9 @@ import 'package:front_porch_ai/ui/chat_components/widgets/message_jump.dart';
 
 /// Forward chat transcript (oldest at top, newest at bottom). Growing
 /// the live bubble does not move scroll offset by itself. When follow
-/// is on and the user is at the bottom, [followTranscriptWhileStreaming]
-/// pins to latest after each token. Hold / absorb / reverse stay ripped.
+/// is on, a new stream jumps to latest even from mid-history, then
+/// later tokens stick if still at the bottom. Hold / absorb / reverse
+/// stay ripped.
 ///
 /// Item identity is the page-owned [bubbleKeyOf] when present.
 /// Chronological ValueKey is the Waifu fallback only.
@@ -95,6 +96,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
   String _prevTip = '';
   double _maxAtLastFrame = 0;
   TranscriptGrowth? _pending;
+  bool _wasStreaming = false;
 
   ScrollController? get _controller => widget.controller ?? _owned;
 
@@ -129,6 +131,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
       nextLen: widget.messages.length,
       nextTip: tip,
     );
+    final newRow = widget.messages.length > _prevLen;
+    final startOfStream = widget.replyStreaming && (!_wasStreaming || newRow);
+    _wasStreaming = widget.replyStreaming;
     _prevSession = widget.sessionId;
     _prevLen = widget.messages.length;
     _prevTip = tip;
@@ -144,6 +149,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
           followEnabled: widget.followStreamingReplies,
           generating: widget.replyStreaming,
           previousMax: _maxAtLastFrame,
+          startOfStream: startOfStream,
         );
       }
       _pending = null;

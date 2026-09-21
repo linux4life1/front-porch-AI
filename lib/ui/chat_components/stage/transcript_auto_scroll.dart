@@ -78,18 +78,25 @@ void holdTranscriptAfterPrepend(
   if ((next - controller.offset).abs() > 0.5) controller.jumpTo(next);
 }
 
-/// Stick-if-at-bottom while a reply is streaming on a forward list.
-/// [applyTranscriptAutoScroll] stays a no-op — Rawhide tests call it.
+/// Follow the live reply on a forward list.
+///
+/// [startOfStream] (send / first token / new streaming row) jumps to
+/// latest even from mid-history — that is the old follow-while-generating
+/// feel. Later tokens stick only if still at/near the bottom, so a
+/// scroll-up detaches. [applyTranscriptAutoScroll] stays a no-op.
 bool followTranscriptWhileStreaming(
   ScrollController? controller, {
   required bool followEnabled,
   required bool generating,
   required double previousMax,
+  bool startOfStream = false,
   double slop = 64,
 }) {
   if (controller == null || !controller.hasClients) return false;
   if (!followEnabled || !generating) return false;
-  if (controller.offset < previousMax - slop) return false;
+  if (!startOfStream && controller.offset < previousMax - slop) {
+    return false;
+  }
   return pinTranscriptToLatest(controller);
 }
 
