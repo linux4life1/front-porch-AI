@@ -47,9 +47,9 @@ part 'image_gen_service.nano_models.dart';
 part 'image_gen_service.payload.dart';
 part 'image_gen_service.comfy.dart';
 
-/// Service for generating images via the remote API. Reuses the same API
-/// URL/key configured for text generation (OpenRouter, Nano-GPT, or any
-/// OpenAI-compatible endpoint).
+/// Service for generating images via the remote API. Studio's host is
+/// [ImageGenSettings.imageRemoteApiUrl] (Nano / OpenRouter chips); keys
+/// still come from [RemoteApiKeyVault]. Chat's mouth URL is not rewritten.
 ///
 /// Split-god-file shell: the 19 members the 3 protected test fakes
 /// `implements ImageGenService` override stay literal instance members here
@@ -101,7 +101,7 @@ class ImageGenService extends ChangeNotifier {
     );
     switch (backend) {
       case ImageGenBackend.remote:
-        return _storage.backendSettings.remoteApiKey.isNotEmpty &&
+        return _imageRemoteAccount.key.isNotEmpty &&
             _storage.imageGenSettings.imageGenModel.isNotEmpty;
       case ImageGenBackend.a1111:
         return _storage.imageGenSettings.localImageGenUrl.isNotEmpty;
@@ -149,6 +149,15 @@ class ImageGenService extends ChangeNotifier {
   }
 
   ImageGenService(this._storage);
+
+  /// Studio host + vault key. Empty Studio URL falls back to chat's mouth
+  /// without writing it — flipping Studio chips never changes chat.
+  ({String url, String key}) get _imageRemoteAccount =>
+      resolveImageStudioRemoteAccount(
+        imageRemoteApiUrl: _storage.imageGenSettings.imageRemoteApiUrl,
+        chatRemoteApiUrl: _storage.backendSettings.remoteApiUrl,
+        keyFor: _storage.backendSettings.remoteApiKeyFor,
+      );
 
   /// Best-effort ComfyUI VRAM nudge before a create→edit model swap (the
   /// creator pack's "Switching to edit model" stage). No-op on every other
@@ -223,8 +232,9 @@ class ImageGenService extends ChangeNotifier {
   ///   `/models` is text-only; Image Studio does not live-fetch image
   ///   discovery — refresh that const from the Nano image models page)
   Future<List<ImageModelInfo>> fetchImageModels() async {
-    final apiUrl = _storage.backendSettings.remoteApiUrl;
-    final apiKey = _storage.backendSettings.remoteApiKeyFor(apiUrl);
+    final account = _imageRemoteAccount;
+    final apiUrl = account.url;
+    final apiKey = account.key;
     // No account = no models. This used to fall back to the curated catalog,
     // which is how the Remote API option showed a real-looking model menu to
     // a user with no key configured at all — who reasonably concluded the

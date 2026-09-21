@@ -271,7 +271,8 @@ extension _ImageGenGenerate on ImageGenService {
                 msg.contains('connect') ||
                 msg.contains('gRPC') ||
                 msg.contains('timed out')) {
-              safe = 'Draw Things generation failed. Check that the gRPC server is enabled in Draw Things and the host/port are correct.';
+              safe =
+                  'Draw Things generation failed. Check that the gRPC server is enabled in Draw Things and the host/port are correct.';
             } else {
               safe = 'Draw Things connection or generation failed.';
             }
@@ -339,7 +340,8 @@ extension _ImageGenGenerate on ImageGenService {
         }
       } else {
         // ── Remote API ─────────────────────────────────────────────────
-        if (_storage.backendSettings.remoteApiKey.isEmpty) {
+        final account = _imageRemoteAccount;
+        if (account.key.isEmpty) {
           _statusMessage = 'No API key configured.';
           _isGenerating = false;
           _notify();
@@ -355,8 +357,8 @@ extension _ImageGenGenerate on ImageGenService {
         }
 
         final imageSize = size ?? _storage.imageGenSettings.imageGenSize;
-        final apiUrl = _storage.backendSettings.remoteApiUrl;
-        final apiKey = _storage.backendSettings.remoteApiKeyFor(apiUrl);
+        final apiUrl = account.url;
+        final apiKey = account.key;
 
         // Remote EDIT when an edit model + a reference are in play: the
         // instruction (`prompt`) + the reference image go to the provider's edit

@@ -23,6 +23,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/storage.dart';
 
 /// Web adapter for image generation: read/flip the backend config (Local A1111 /
 /// Draw Things ↔ remote API) and generate an image. Reuses [ImageGenService]
@@ -56,10 +57,9 @@ class ImageFacade {
       'promptReview': img.imageGenPromptReview,
       'drawThingsHost': img.drawThingsGrpcHost,
       'drawThingsPort': img.drawThingsGrpcPort,
-      // Remote (API) image gen reuses the shared remote backend config.
-      'remoteApiUrl': b.remoteApiUrl,
-      'remoteModelName': b.remoteModelName,
-      'hasApiKey': b.remoteApiKeyFor(b.remoteApiUrl).isNotEmpty,
+      // Studio-scoped remote host (chips). `remoteApiUrl` is the resolved
+      // Studio URL — flipping it here must not rewrite chat's mouth.
+      ..._remoteHostConfig(img, b),
       'comfyCreateWorkflowId': img.comfyCreateWorkflowId,
       'comfyCreateModelChoices': img.comfyCreateModelChoices,
       'comfyCreateUploadedWorkflow': img.comfyCreateUploadedWorkflow
@@ -115,7 +115,6 @@ class ImageFacade {
     }
     if (f['size'] is String) await img.setImageGenSize(f['size'] as String);
     if (f['style'] is String) await img.setImageGenStyle(f['style'] as String);
-    if (f['model'] is String) await img.setImageGenModel(f['model'] as String);
     if (f['negativePrompt'] is String) {
       await img.setImageGenNegativePrompt(f['negativePrompt'] as String);
     }
@@ -144,15 +143,43 @@ class ImageFacade {
     if (f['drawThingsPort'] is int) {
       await img.setDrawThingsGrpcPort(f['drawThingsPort'] as int);
     }
-    // Remote API config (shared with text backend).
-    if (f['remoteApiUrl'] is String) {
-      await b.setRemoteApiUrl(f['remoteApiUrl'] as String);
+    // Studio-scoped host only. `imageRemoteHost` is the chip id; a raw
+    // `remoteApiUrl` from older PWAs still parks on Image Studio, never chat.
+    final hostUrl = imageRemoteUrlForHostId('${f['imageRemoteHost'] ?? ''}');
+    if (hostUrl != null) {
+      await applyImageRemoteHost(
+        image: img,
+        url: hostUrl,
+        chatRemoteApiUrl: b.remoteApiUrl,
+        editScoped: false,
+      );
+    } else if (f['remoteApiUrl'] is String) {
+      await applyImageRemoteHost(
+        image: img,
+        url: f['remoteApiUrl'] as String,
+        chatRemoteApiUrl: b.remoteApiUrl,
+        editScoped: false,
+      );
     }
-    if (f['remoteModelName'] is String) {
-      await b.setRemoteModelName(f['remoteModelName'] as String);
+    if (f['model'] is String) {
+      final id = f['model'] as String;
+      await img.setImageGenModel(id);
+      final url = resolveImageStudioRemoteAccount(
+        imageRemoteApiUrl: img.imageRemoteApiUrl,
+        chatRemoteApiUrl: b.remoteApiUrl,
+        keyFor: b.remoteApiKeyFor,
+      ).url;
+      await img.setRemoteImageModelFor(url, id);
     }
     final apiKey = f['apiKey']?.toString();
-    if (apiKey != null && apiKey.isNotEmpty) await b.setRemoteApiKey(apiKey);
+    if (apiKey != null && apiKey.isNotEmpty) {
+      final url = resolveImageStudioRemoteAccount(
+        imageRemoteApiUrl: img.imageRemoteApiUrl,
+        chatRemoteApiUrl: b.remoteApiUrl,
+        keyFor: b.remoteApiKeyFor,
+      ).url;
+      await b.setRemoteApiKeyFor(url, apiKey);
+    }
     if (f['comfyCreateWorkflowId'] is String) {
       await img.setComfyCreateWorkflowId(f['comfyCreateWorkflowId'] as String);
     }
@@ -210,4 +237,48 @@ class ImageFacade {
     final file = File(p.join(root, 'KoboldManager', 'images', name));
     return file.existsSync() ? file : null;
   }
+
+  /// Image models for the Studio-scoped remote host (Nano snapshot or
+  /// OpenRouter listing). Labels include Pro / paid / pricing.
+  Future<Map<String, dynamic>> remoteModels() async {
+    final models = [...await _image.fetchImageModels()]
+      ..sort(compareImageModelsForPicker);
+    return {
+      'models': [
+        for (final m in models)
+          {
+            'id': m.id,
+            'name': m.displayName,
+            'label': imageModelListLabel(m),
+            'isPaid': m.isPaid,
+            'pricingInfo': m.pricingInfo,
+          },
+      ],
+    };
+  }
+}
+
+Map<String, dynamic> _remoteHostConfig(
+  ImageGenSettings img,
+  BackendSettings b,
+) {
+  final account = resolveImageStudioRemoteAccount(
+    imageRemoteApiUrl: img.imageRemoteApiUrl,
+    chatRemoteApiUrl: b.remoteApiUrl,
+    keyFor: b.remoteApiKeyFor,
+  );
+  return {
+    'remoteApiUrl': account.url,
+    'imageRemoteHost': imageRemoteHostIdFor(account.url) ?? '',
+    'hasApiKey': account.key.isNotEmpty,
+    'imageRemoteHosts': [
+      for (final h in kImageStudioRemoteHosts)
+        {
+          'id': h.id,
+          'label': h.label,
+          'url': h.url,
+          'hasKey': b.remoteApiKeyFor(h.url).isNotEmpty,
+        },
+    ],
+  };
 }

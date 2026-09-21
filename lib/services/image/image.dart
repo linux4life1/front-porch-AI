@@ -17,4 +17,5 @@ export 'comfy_workflow_adapt.dart';
 export 'comfy_workflow_convert.dart';
 export 'edit_profile.dart';
 export 'image_gen_types.dart';
+export 'image_studio_remote.dart';
 export 'model_family.dart';

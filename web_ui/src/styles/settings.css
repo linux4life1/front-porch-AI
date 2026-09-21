@@ -44,6 +44,9 @@
 /* ── Image-gen settings two-up rows ────────────────────────────────────── */
 .img-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 @media (max-width: 768px) { .img-row2 { grid-template-columns: 1fr; } }
+.img-host-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.img-host-chips .chip-toggle { flex: 1; min-width: 7rem; }
+.img-host-chips .chip-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Generation sampler sliders (desktop-style: label + value box, slider) ─ */
 .slider-field { margin: 14px 0; }

@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 /// The ONE place that knows how to reach the active image backend and list
@@ -51,7 +52,9 @@ Future<List<({String value, String label})>> fetchBackendModelOptions(
   final backend = ImageGenBackend.fromKey(st.imageGenSettings.imageGenBackend);
   if (backend == ImageGenBackend.remote) {
     final models = await svc.fetchImageModels();
-    return [for (final m in models) (value: m.id, label: m.displayName)];
+    return [
+      for (final m in models) (value: m.id, label: imageModelListLabel(m)),
+    ];
   }
   final url = backendProbeUrl(st);
   if (url.isEmpty) return const [];

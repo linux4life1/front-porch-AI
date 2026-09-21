@@ -30,6 +30,7 @@ extension _GenerationOptionsSharedFields on _GenerationOptionsTabState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SwitchListTile(
+          tileColor: AppColors.cardOf(context),
           title: Text(
             'Review AI prompts before generating',
             style: TextStyle(

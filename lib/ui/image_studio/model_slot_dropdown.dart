@@ -32,6 +32,10 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 ///
 /// Create-slot instances render [EditModelInCreateSlotWarning] beneath the
 /// field — the non-blocking "this looks like an edit model" nudge.
+///
+/// Do not feed the remote Nano catalog (~237 rows) through this widget —
+/// [DropdownButtonFormField] builds every [DropdownMenuItem] up front and
+/// Image Studio Remote API uses [showGenericModelSearchDialog] instead.
 class ModelSlotDropdown extends StatelessWidget {
   const ModelSlotDropdown({
     super.key,
@@ -58,7 +62,9 @@ class ModelSlotDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final current = editSlot ? settings.imageGenEditModel : settings.imageGenModel;
+    final current = editSlot
+        ? settings.imageGenEditModel
+        : settings.imageGenModel;
     final known = options.any((o) => o.value == current);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

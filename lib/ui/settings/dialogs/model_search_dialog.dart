@@ -106,24 +106,34 @@ void showGenericModelSearchDialog<T>(
                       itemCount: filtered.length,
                       itemBuilder: (c, i) {
                         final m = filtered[i];
-                        return ListTile(
-                          title: Text(
-                            getTitle(m),
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
+                        // Own Material + tileColor: ListTile paints ink on
+                        // the nearest Material. A colored DecoratedBox
+                        // between here and the dialog Material trips
+                        // "ListTile background color or ink splashes may
+                        // be invisible" once per row (237 Nano models).
+                        final surface = AppColors.surfaceOf(context);
+                        return Material(
+                          color: surface,
+                          child: ListTile(
+                            tileColor: surface,
+                            title: Text(
+                              getTitle(m),
+                              style: TextStyle(
+                                color: AppColors.textPrimary(context),
+                              ),
                             ),
-                          ),
-                          subtitle: Text(
-                            getSubtitle(m),
-                            style: TextStyle(
-                              color: AppColors.textTertiary(context),
-                              fontSize: 11,
+                            subtitle: Text(
+                              getSubtitle(m),
+                              style: TextStyle(
+                                color: AppColors.textTertiary(context),
+                                fontSize: 11,
+                              ),
                             ),
+                            onTap: () {
+                              onSelected(m);
+                              Navigator.pop(ctx);
+                            },
                           ),
-                          onTap: () {
-                            onSelected(m);
-                            Navigator.pop(ctx);
-                          },
                         );
                       },
                     ),

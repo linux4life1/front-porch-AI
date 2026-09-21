@@ -21,12 +21,13 @@ import 'dart:convert';
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 
 import '../../image/edit_profile.dart';
+import 'image_gen_remote.dart';
 import 'settings_base.dart';
 
 /// Image generation (A1111/Draw Things/remote) + Draw Things gRPC settings.
 ///
 /// Lifted Stage 7.
-class ImageGenSettings with SettingsBase {
+class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   // Default ON since 2026-07: the feature is opt-out. Enabling only shows the
   // ✨ toolbar button and the /image command — nothing generates until a
   // backend is actually configured, so there is no overhead for users who
@@ -227,6 +228,7 @@ class ImageGenSettings with SettingsBase {
     );
     _comfyCreateUploadedWorkflow =
         prefs?.getString(k('comfy_create_uploaded_workflow')) ?? '';
+    loadImageRemotePrefs();
   }
 
   static Map<String, String> _decodeStringMap(String? s) {
