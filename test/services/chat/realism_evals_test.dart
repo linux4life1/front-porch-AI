@@ -192,7 +192,8 @@ RealismEvals createTestRealismEvals({
     getExpressionEnabled: expressionFn ?? () => false,
     // Default mirrors the god wiring (real builder over the card, no growth)
     // so prompt-content tests exercise the production dossier path.
-    getCharacterDossier: dossierFn ??
+    getCharacterDossier:
+        dossierFn ??
         (card) => RealismPromptBuilder.characterDossier(
           name: card.name,
           personality: card.personality,
@@ -202,8 +203,12 @@ RealismEvals createTestRealismEvals({
     getActiveObjectives: objectivesFn ?? () => <Objective>[],
     setObjective:
         setObjFn ??
-        (text, {isPrimary = false, autoGenerateTasks = false, servedAmbition})
-            async {},
+        (
+          text, {
+          isPrimary = false,
+          autoGenerateTasks = false,
+          servedAmbition,
+        }) async {},
     verifyRealismOutput: verifyFn,
   );
 }
@@ -227,21 +232,6 @@ void main() {
         await svc.evaluateNarrativeCall();
         await svc.evaluateOneShotCall();
         expect(fireCount, 0);
-      },
-    );
-
-    test(
-      'relationship call fires, parses delta 0, applies to rel, sets pending if non0 (but 0 here)',
-      () async {
-        final svc = createTestRealismEvals(
-          fireFn: (p, {onChunk}) async =>
-              '{"relationship_delta":0,"trust_delta":0,"bond_reason":"none","trust_reason":"none"}',
-          intFn: (t, k) =>
-              k == 'relationship_delta' ? 0 : (k == 'trust_delta' ? 0 : null),
-        );
-        await svc.evaluateRelationshipCall();
-        // no throw, basic path exercised
-        expect(true, true);
       },
     );
 
@@ -270,29 +260,19 @@ void main() {
     );
 
     test(
-      'physical delegates to time without crash (guard + call exercised)',
-      () async {
-        final time = TimeService(
-          onNotify: () {},
-          onSaveChat: () async {},
-          onSetPendingRealismMetadata: (k, v) {},
-          onPatchLastMessageRealismState: (tod, dc, iso) {},
-        );
-        final svc = createTestRealismEvals(time: time);
-        await svc
-            .evaluatePhysicalStateCall(); // exercises guard + delegate path (no real LLM in time for this)
-        expect(true, true);
-      },
-    );
-
-    test(
       'narrative call fires, parses fixation + proposed (non-none sets via cb)',
       () async {
         String lastObj = '';
         final svc = createTestRealismEvals(
-          setObjFn: (t, {isPrimary = false, autoGenerateTasks = false, servedAmbition}) async {
-            lastObj = t;
-          },
+          setObjFn:
+              (
+                t, {
+                isPrimary = false,
+                autoGenerateTasks = false,
+                servedAmbition,
+              }) async {
+                lastObj = t;
+              },
           fireFn: (p, {onChunk}) async =>
               '{"proposed_objective":"confess feelings","fixation_topic":"the secret"}',
           intFn: (t, k) => null,
@@ -346,88 +326,18 @@ void main() {
       expect(fireCount, 0);
     });
 
-    test('strip think blocks used in paths (via cb)', () async {
-      final svc = createTestRealismEvals(
-        stripFn: (t) => t.replaceAll('<think>foo</think>', '').trim(),
-        fireFn: (p, {onChunk}) async =>
-            '<think>ignore</think>{"relationship_delta":1}',
-        intFn: (t, k) => 1,
-      );
-      await svc.evaluateRelationshipCall();
-      expect(true, true);
-    });
-
-    test('error path in call (catch, no crash)', () async {
-      final svc = createTestRealismEvals(
-        fireFn: (p, {onChunk}) async => throw Exception('boom'),
-      );
-      await svc.evaluateEmotionalStateCall(); // should not throw
-      expect(true, true);
-    });
-
-    test('empty response treated as no-op (no deltas applied)', () async {
-      final svc = createTestRealismEvals(fireFn: (p, {onChunk}) async => '');
-      await svc.evaluateNarrativeCall();
-      expect(true, true);
-    });
-
-    test(
-      'oneShot vs normal parity note (cbs exercised equivalently for covered fields)',
-      () async {
-        // In dedicated, we exercise both paths via cb; full 1:1 equiv is in key suites + manual (qualified)
-        final svc = createTestRealismEvals();
-        await svc.evaluateRelationshipCall();
-        await svc.evaluateOneShotCall();
-        expect(true, true);
-      },
-    );
-
-    test(
-      'public surface smoke (all 5 + no required throws on nulls)',
-      () async {
-        final svc = createTestRealismEvals(
-          activeCharFn: () => null,
-          activeGroupFn: () => null,
-        );
-        await svc.evaluateRelationshipCall();
-        await svc.evaluateEmotionalStateCall();
-        await svc.evaluatePhysicalStateCall();
-        await svc.evaluateNarrativeCall();
-        await svc.evaluateOneShotCall();
-        expect(true, true);
-      },
-    );
-
-    // Additional edges for count (post dead deletion hygiene)
-    test(
-      'cancel/!ready guard (via realism enabled false + char null)',
-      () async {
-        final svc = createTestRealismEvals(
-          realismFn: () => false,
-          activeCharFn: () => null,
-        );
-        await svc.evaluateOneShotCall();
-        expect(true, true);
-      },
-    );
-
-    test(
-      'group per-char path (impersonation simulated via activeChar set in test cb)',
-      () async {
-        final svc = createTestRealismEvals(
-          activeGroupFn: () => GroupChat(id: 'g1', name: 'g'),
-        );
-        await svc.evaluateRelationshipCall();
-        expect(true, true);
-      },
-    );
-
     test('proposed "none" does not call setObjective', () async {
       bool called = false;
       final svc = createTestRealismEvals(
-        setObjFn: (t, {isPrimary = false, autoGenerateTasks = false, servedAmbition}) async {
-          called = true;
-        },
+        setObjFn:
+            (
+              t, {
+              isPrimary = false,
+              autoGenerateTasks = false,
+              servedAmbition,
+            }) async {
+              called = true;
+            },
         fireFn: (p, {onChunk}) async =>
             '{"proposed_objective":"none","fixation_topic":"none"}',
       );
@@ -442,10 +352,16 @@ void main() {
         bool? lastAutoGen;
         final svc = createTestRealismEvals(
           primaryFn: () => null,
-          setObjFn: (t, {isPrimary = false, autoGenerateTasks = false, servedAmbition}) async {
-            lastIsPrimary = isPrimary;
-            lastAutoGen = autoGenerateTasks;
-          },
+          setObjFn:
+              (
+                t, {
+                isPrimary = false,
+                autoGenerateTasks = false,
+                servedAmbition,
+              }) async {
+                lastIsPrimary = isPrimary;
+                lastAutoGen = autoGenerateTasks;
+              },
           fireFn: (p, {onChunk}) async =>
               '{"proposed_objective":"get User to admit their greatest fear","fixation_topic":"none"}',
         );
@@ -473,9 +389,15 @@ void main() {
         );
         final svc = createTestRealismEvals(
           primaryFn: () => primary,
-          setObjFn: (t, {isPrimary = false, autoGenerateTasks = false, servedAmbition}) async {
-            lastIsPrimary = isPrimary;
-          },
+          setObjFn:
+              (
+                t, {
+                isPrimary = false,
+                autoGenerateTasks = false,
+                servedAmbition,
+              }) async {
+                lastIsPrimary = isPrimary;
+              },
           fireFn: (p, {onChunk}) async =>
               '{"proposed_objective":"confess feelings","fixation_topic":"none"}',
         );
@@ -490,9 +412,15 @@ void main() {
         bool? lastIsPrimary;
         final svc = createTestRealismEvals(
           primaryFn: () => null,
-          setObjFn: (t, {isPrimary = false, autoGenerateTasks = false, servedAmbition}) async {
-            lastIsPrimary = isPrimary;
-          },
+          setObjFn:
+              (
+                t, {
+                isPrimary = false,
+                autoGenerateTasks = false,
+                servedAmbition,
+              }) async {
+                lastIsPrimary = isPrimary;
+              },
           fireFn: (p, {onChunk}) async =>
               '{"relationship_delta":0,"trust_delta":0,"emotion":"neutral","emotion_intensity":"mild","posture":"none","proposed_objective":"win their trust","fixation_topic":"none","reason":"none"}',
         );
@@ -500,17 +428,6 @@ void main() {
         expect(lastIsPrimary, true);
       },
     );
-
-    test('arousal only when nsfwCooldownEnabled (in rel/emotion)', () async {
-      final nsfw = NsfwService(
-        getGroupInt: (_, _) => 0,
-        getGroupValue: (_, _) => null,
-        setGroupValue: (_, _, _) {},
-      );
-      final svc = createTestRealismEvals(nsfw: nsfw);
-      await svc.evaluateRelationshipCall();
-      expect(true, true);
-    });
 
     test(
       'roundtrip pending metadata for chips (bond/trust/emotion set)',
@@ -528,29 +445,6 @@ void main() {
       },
     );
 
-    test('fixation update from narrative/oneShot (via rel service)', () async {
-      final svc = createTestRealismEvals();
-      await svc.evaluateNarrativeCall();
-      await svc.evaluateOneShotCall();
-      expect(true, true);
-    });
-
-    test('time of day / posture ctx in oneShot (via services)', () async {
-      final svc = createTestRealismEvals();
-      await svc.evaluateOneShotCall();
-      expect(true, true);
-    });
-
-    test(
-      'expression label list in prompt when enabled (oneShot/emotion)',
-      () async {
-        final svc = createTestRealismEvals(expressionFn: () => true);
-        await svc.evaluateEmotionalStateCall();
-        await svc.evaluateOneShotCall();
-        expect(true, true);
-      },
-    );
-
     test(
       'multiple calls accumulate pending (no overwrite loss for reasons)',
       () async {
@@ -565,19 +459,6 @@ void main() {
         expect(pend['bond_reason'], 'r1');
       },
     );
-
-    test(
-      'factory live group map dispatch (speaker scalar via cbs exercised)',
-      () async {
-        final svc = createTestRealismEvals(
-          activeGroupFn: () => GroupChat(id: 'g1', name: 'g'),
-        );
-        await svc.evaluatePhysicalStateCall(); // exercises group guard path
-        expect(true, true);
-      },
-    );
-
-    // ── Personality-true judging (dossier + subjective rubric) regressions ──
 
     test(
       'relationship prompt carries the dossier from description when personality is empty, plus standing context',
@@ -678,12 +559,15 @@ void main() {
   group('RealismEvals tools transport (realism_tools)', () {
     test('realismToolCallToJson: coercion + whitelist + unknown tool', () {
       final json = realismToolCallToJson(kRelationshipTool, [
-        const LlmToolCall(name: 'report_relationship', arguments: {
-          'relationship_delta': '3', // numeric string coerces
-          'trust_delta': 2.6, // num rounds
-          'bond_reason': 'They actually listened.',
-          'invented_field': 'dropped',
-        }),
+        const LlmToolCall(
+          name: 'report_relationship',
+          arguments: {
+            'relationship_delta': '3', // numeric string coerces
+            'trust_delta': 2.6, // num rounds
+            'bond_reason': 'They actually listened.',
+            'invented_field': 'dropped',
+          },
+        ),
       ]);
       expect(json, isNotNull);
       expect(json, contains('"relationship_delta":3'));
@@ -717,10 +601,13 @@ void main() {
             expect(prompt, isNot(contains('raw JSON only')));
             return const LlmToolResponse(
               calls: [
-                LlmToolCall(name: 'report_emotional_state', arguments: {
-                  'emotion': 'wistful',
-                  'emotion_intensity': 'moderate',
-                }),
+                LlmToolCall(
+                  name: 'report_emotional_state',
+                  arguments: {
+                    'emotion': 'wistful',
+                    'emotion_intensity': 'moderate',
+                  },
+                ),
               ],
               text: '',
             );
@@ -738,54 +625,54 @@ void main() {
       },
     );
 
-    test(
-      'probe fallback: null tools response is inconclusive — text this '
-      'round, probed again next eval',
-      () async {
-        // Pre-fix, one null answer branded the backend XML-only — but
-        // null/empty is also the clean-200 shape a server-side abort
-        // produces (the Scene Guest "pill falls off" bug), so it is never a
-        // capability verdict now. Tool-less models are branded by the
-        // ToolSupportTester ping (and by prose-instead-of-tools answers).
-        var toolFires = 0;
-        var textFires = 0;
-        final probe = ToolTransportProbe();
-        final svc = createTestRealismEvals(
-          probe: probe,
-          fireToolFn: (p, t) async {
-            toolFires++;
-            return null; // answered, nothing usable — inconclusive
-          },
-          fireFn: (p, {onChunk}) async {
-            textFires++;
-            // Text-mode prompt carries the JSON instruction again.
-            expect(p, contains('raw JSON only'));
-            return '{"emotion":"neutral","emotion_intensity":"mild"}';
-          },
-        );
-        await svc.evaluateEmotionalStateCall();
-        await svc.evaluateEmotionalStateCall();
-        expect(toolFires, 2); // re-probed: null is never a verdict
-        expect(textFires, 2); // both rounds still landed over text
-        expect(probe.isXmlOnly('test-backend'), isFalse);
-      },
-    );
-
-    test('text-only tools reply is salvaged through the normal parse', () async {
-      String emotion = '';
+    test('probe fallback: null tools response is inconclusive — text this '
+        'round, probed again next eval', () async {
+      // Pre-fix, one null answer branded the backend XML-only — but
+      // null/empty is also the clean-200 shape a server-side abort
+      // produces (the Scene Guest "pill falls off" bug), so it is never a
+      // capability verdict now. Tool-less models are branded by the
+      // ToolSupportTester ping (and by prose-instead-of-tools answers).
+      var toolFires = 0;
+      var textFires = 0;
+      final probe = ToolTransportProbe();
       final svc = createTestRealismEvals(
-        setEmotionFn: (v) => emotion = v,
-        fireToolFn: (p, t) async => const LlmToolResponse(
-          calls: [],
-          text: '{"emotion":"prickly","emotion_intensity":"strong"}',
-        ),
+        probe: probe,
+        fireToolFn: (p, t) async {
+          toolFires++;
+          return null; // answered, nothing usable — inconclusive
+        },
         fireFn: (p, {onChunk}) async {
-          fail('text path must not fire when the reply text was salvaged');
+          textFires++;
+          // Text-mode prompt carries the JSON instruction again.
+          expect(p, contains('raw JSON only'));
+          return '{"emotion":"neutral","emotion_intensity":"mild"}';
         },
       );
       await svc.evaluateEmotionalStateCall();
-      expect(emotion, 'prickly');
+      await svc.evaluateEmotionalStateCall();
+      expect(toolFires, 2); // re-probed: null is never a verdict
+      expect(textFires, 2); // both rounds still landed over text
+      expect(probe.isXmlOnly('test-backend'), isFalse);
     });
+
+    test(
+      'text-only tools reply is salvaged through the normal parse',
+      () async {
+        String emotion = '';
+        final svc = createTestRealismEvals(
+          setEmotionFn: (v) => emotion = v,
+          fireToolFn: (p, t) async => const LlmToolResponse(
+            calls: [],
+            text: '{"emotion":"prickly","emotion_intensity":"strong"}',
+          ),
+          fireFn: (p, {onChunk}) async {
+            fail('text path must not fire when the reply text was salvaged');
+          },
+        );
+        await svc.evaluateEmotionalStateCall();
+        expect(emotion, 'prickly');
+      },
+    );
 
     // AMENDED 2026-08-10 (maintainer-directed schema strip): 'activities'
     // and 'intensity' left the needs schema — nothing ever read either from
@@ -794,18 +681,21 @@ void main() {
     // survives (which is also the strip working end-to-end).
     test('converter: bool/array coercion + cast-detect no-name convention', () {
       final needsJson = realismToolCallToJson(kNeedsImpactTool, [
-        const LlmToolCall(name: 'report_needs_impact', arguments: {
-          'activities': ['sexual', 'messy'],
-          'intensity': '7',
-          'hunger_delta': 0,
-          'energy_delta': -12,
-          'hygiene_delta': -10,
-          'fun_delta': 25,
-          'social_delta': 10,
-          'bladder_delta': 0,
-          'comfort_delta': 8,
-          'reason': 'climaxed during sex',
-        }),
+        const LlmToolCall(
+          name: 'report_needs_impact',
+          arguments: {
+            'activities': ['sexual', 'messy'],
+            'intensity': '7',
+            'hunger_delta': 0,
+            'energy_delta': -12,
+            'hygiene_delta': -10,
+            'fun_delta': 25,
+            'social_delta': 10,
+            'bladder_delta': 0,
+            'comfort_delta': 8,
+            'reason': 'climaxed during sex',
+          },
+        ),
       ]);
       expect(needsJson, isNotNull);
       expect(needsJson, isNot(contains('activities')));
@@ -823,64 +713,68 @@ void main() {
       );
       expect(
         realismToolCallToJson(kCastDetectTool, [
-          const LlmToolCall(name: 'report_detected_character', arguments: {
-            'name': 'Mara',
-            'descriptor': "the host's sister",
-          }),
+          const LlmToolCall(
+            name: 'report_detected_character',
+            arguments: {'name': 'Mara', 'descriptor': "the host's sister"},
+          ),
         ]),
         allOf(contains('"name":"Mara"'), contains("host's sister")),
       );
     });
 
-    test('cancel during the tools attempt never marks the backend xml-only',
-        () async {
-      var cancelled = false;
-      final probe = ToolTransportProbe();
-      String emotion = '';
-      final svc = createTestRealismEvals(
-        probe: probe,
-        cancelledFn: () => cancelled,
-        setEmotionFn: (v) => emotion = v,
-        fireToolFn: (p, t) async {
-          cancelled = true; // user hit cancel mid-request (request aborted)
-          return null;
-        },
-        fireFn: (p, {onChunk}) async {
-          fail('cancelled eval must not fall through to the text path');
-        },
-      );
-      await svc.evaluateEmotionalStateCall();
-      expect(emotion, isEmpty); // aborted quietly
-      expect(probe.isXmlOnly('test-backend'), isFalse); // capability unjudged
-    });
+    test(
+      'cancel during the tools attempt never marks the backend xml-only',
+      () async {
+        var cancelled = false;
+        final probe = ToolTransportProbe();
+        String emotion = '';
+        final svc = createTestRealismEvals(
+          probe: probe,
+          cancelledFn: () => cancelled,
+          setEmotionFn: (v) => emotion = v,
+          fireToolFn: (p, t) async {
+            cancelled = true; // user hit cancel mid-request (request aborted)
+            return null;
+          },
+          fireFn: (p, {onChunk}) async {
+            fail('cancelled eval must not fall through to the text path');
+          },
+        );
+        await svc.evaluateEmotionalStateCall();
+        expect(emotion, isEmpty); // aborted quietly
+        expect(probe.isXmlOnly('test-backend'), isFalse); // capability unjudged
+      },
+    );
 
-    test('transport failure falls back to text without branding xml-only',
-        () async {
-      var toolFires = 0;
-      var textFires = 0;
-      final probe = ToolTransportProbe();
-      String emotion = '';
-      final svc = createTestRealismEvals(
-        probe: probe,
-        setEmotionFn: (v) => emotion = v,
-        fireToolFn: (p, t) async {
-          toolFires++;
-          // Connection torn down mid-call (e.g. character creation fired an
-          // app-wide abortGeneration) — generateWithTools rethrows transport
-          // failures instead of collapsing them to null.
-          throw Exception('SocketException: Connection reset by peer');
-        },
-        fireFn: (p, {onChunk}) async {
-          textFires++;
-          return '{"emotion":"steady","emotion_intensity":"mild"}';
-        },
-      );
-      await svc.evaluateEmotionalStateCall();
-      await svc.evaluateEmotionalStateCall();
-      expect(emotion, 'steady'); // the round still landed over text
-      expect(textFires, 2);
-      expect(toolFires, 2); // tools re-tried — a network event is no verdict
-      expect(probe.isXmlOnly('test-backend'), isFalse);
-    });
+    test(
+      'transport failure falls back to text without branding xml-only',
+      () async {
+        var toolFires = 0;
+        var textFires = 0;
+        final probe = ToolTransportProbe();
+        String emotion = '';
+        final svc = createTestRealismEvals(
+          probe: probe,
+          setEmotionFn: (v) => emotion = v,
+          fireToolFn: (p, t) async {
+            toolFires++;
+            // Connection torn down mid-call (e.g. character creation fired an
+            // app-wide abortGeneration) — generateWithTools rethrows transport
+            // failures instead of collapsing them to null.
+            throw Exception('SocketException: Connection reset by peer');
+          },
+          fireFn: (p, {onChunk}) async {
+            textFires++;
+            return '{"emotion":"steady","emotion_intensity":"mild"}';
+          },
+        );
+        await svc.evaluateEmotionalStateCall();
+        await svc.evaluateEmotionalStateCall();
+        expect(emotion, 'steady'); // the round still landed over text
+        expect(textFires, 2);
+        expect(toolFires, 2); // tools re-tried — a network event is no verdict
+        expect(probe.isXmlOnly('test-backend'), isFalse);
+      },
+    );
   });
 }

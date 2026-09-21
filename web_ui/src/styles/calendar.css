@@ -1,0 +1,116 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Story Calendar.
+*/
+
+/* ── Story Calendar (story-calendar.md §6) ─────────────────────────────────
+   Web twin of the desktop StoryCalendarDialog: month grid, amber current
+   day, memory dots, day-detail list, anchor inputs. Phone goes full-screen
+   via the shared [data-layout="phone"] modal override below. */
+.story-calendar-modal { width: min(420px, 94vw); }
+.story-cal-open { align-self: flex-start; }
+.story-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 6px 0 4px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.story-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.story-cal-head {
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.story-cal-day {
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 3px 0 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-size: 0.72rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.story-cal-day:disabled { cursor: default; }
+.story-cal-day.outside { color: var(--muted); opacity: 0.45; }
+.story-cal-day.current {
+  background: var(--porch-amber);
+  color: #1a1200; /* onChaosAccent ink — white-on-amber is unreadable */
+  font-weight: 700;
+}
+.story-cal-day.selected:not(.current) {
+  background: color-mix(in srgb, var(--porch-amber) 18%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--porch-amber) 60%, transparent);
+}
+.story-cal-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: transparent;
+}
+.story-cal-dot.on { background: var(--porch-amber); }
+.story-cal-day.current .story-cal-dot.on { background: #1a1200; }
+.story-cal-owner select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+}
+.story-cal-detail { margin-top: 6px; max-height: 180px; overflow-y: auto; }
+.story-cal-detail-head {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  color: var(--porch-honey);
+  margin: 4px 0;
+}
+.story-cal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 9px;
+  margin-bottom: 5px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.story-cal-anchors {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.story-cal-anchors label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.story-cal-anchors input {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 0.75rem;
+  color-scheme: dark;
+}
+[data-layout="phone"] .story-calendar-modal {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  overflow-y: auto;
+}
+

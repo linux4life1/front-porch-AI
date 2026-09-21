@@ -40,18 +40,9 @@ part 'image_gen_service.generate.dart';
 part 'image_gen_service.prompt.dart';
 part 'image_gen_service.local_admin.dart';
 part 'image_gen_service.backends.dart';
+part 'image_gen_service.backends.generate.dart';
 part 'image_gen_service.catalog.dart';
-
-/// Parse a "WxH" size string into width and height integers.
-(int width, int height) _parseSize(String size) {
-  final parts = size.split('x');
-  if (parts.length == 2) {
-    final w = int.tryParse(parts[0]) ?? 1024;
-    final h = int.tryParse(parts[1]) ?? 1024;
-    return (w, h);
-  }
-  return (1024, 1024);
-}
+part 'image_gen_service.payload.dart';
 
 /// Service for generating images via the remote API. Reuses the same API
 /// URL/key configured for text generation (OpenRouter, Nano-GPT, or any
@@ -229,7 +220,7 @@ class ImageGenService extends ChangeNotifier {
   ///   endpoint only returns text models; there is no image-specific listing API)
   Future<List<ImageModelInfo>> fetchImageModels() async {
     final apiUrl = _storage.backendSettings.remoteApiUrl;
-    final apiKey = _storage.backendSettings.remoteApiKey;
+    final apiKey = _storage.backendSettings.remoteApiKeyFor(apiUrl);
     // No account = no models. This used to fall back to the curated catalog,
     // which is how the Remote API option showed a real-looking model menu to
     // a user with no key configured at all — who reasonably concluded the
@@ -391,7 +382,10 @@ class ImageGenService extends ChangeNotifier {
       for (final n in slice) {
         final meta = metas[j++];
         out.add(
-          ImageModelFamily.classifyLora(n, metadata: meta.isEmpty ? null : meta),
+          ImageModelFamily.classifyLora(
+            n,
+            metadata: meta.isEmpty ? null : meta,
+          ),
         );
       }
     }
@@ -473,33 +467,17 @@ class ImageGenService extends ChangeNotifier {
     required int seed,
     String? referenceImageB64,
     double denoise = 0.5,
-  }) {
-    final isImg2Img =
-        referenceImageB64 != null && referenceImageB64.isNotEmpty;
-    return <String, dynamic>{
-      'prompt': prompt,
-      'negative_prompt': negativePrompt,
-      'width': width,
-      'height': height,
-      'steps': steps,
-      'cfg_scale': cfgScale,
-      'sampler_name': samplerName,
-      // Only pin the scheduler when the user picked an explicit one. 'Automatic'
-      // omits the field so A1111 uses its own default (and older forks that
-      // don't know the field never see it). Newer A1111/Forge builds accept
-      // `scheduler` alongside `sampler_name`.
-      if (scheduler.isNotEmpty && scheduler != 'Automatic')
-        'scheduler': scheduler,
-      'seed': seed,
-      'batch_size': 1,
-      if (isImg2Img) 'init_images': [referenceImageB64],
-      if (isImg2Img) 'denoising_strength': denoise,
-      // NOTE: override_settings is intentionally omitted here.
-      // Passing sd_model_checkpoint inside override_settings causes A1111 to
-      // attempt a model reload mid-request, which splits tensors across
-      // cpu and cuda and throws:
-      //   "Expected all tensors to be on the same device"
-      // The model switch is already handled by switchLocalModel() above.
-    };
-  }
+  }) => _buildA1111PayloadImpl(
+    prompt: prompt,
+    negativePrompt: negativePrompt,
+    width: width,
+    height: height,
+    steps: steps,
+    cfgScale: cfgScale,
+    samplerName: samplerName,
+    scheduler: scheduler,
+    seed: seed,
+    referenceImageB64: referenceImageB64,
+    denoise: denoise,
+  );
 }

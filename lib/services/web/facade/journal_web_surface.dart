@@ -16,10 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:front_porch_ai/database/database.dart' show JournalMemoryData;
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 
@@ -74,7 +73,7 @@ class JournalWebSurface {
             'pinned': c.pinned,
             'heat': c.heat,
             'storyDay': JournalStore.stampOf(c).$1,
-            'receipts': _receiptsOf(c),
+            'receipts': decodeReceiptIds(c.sourceMessageIds),
           },
       ],
     };
@@ -86,6 +85,9 @@ class JournalWebSurface {
     String action,
     Map<String, dynamic> body,
   ) async {
+    if (!storage.memorySettings.journalEnabled) {
+      return list(participantId);
+    }
     final owner = resolveOwner(participantId);
     final sessionId = chat.currentSessionId;
     if (owner == null || sessionId == null) {
@@ -104,7 +106,7 @@ class JournalWebSurface {
             emotionLabel: body['feeling'] as String?,
             storyDay: chat.timeService.dayCount,
             storyClock: chat.timeService.storyClockIso,
-            maxCards: storage.journalMaxCards,
+            maxCards: storage.memorySettings.journalMaxCards,
           );
         }
         break;
@@ -174,6 +176,9 @@ class JournalWebSurface {
     List<String> rejected = const [],
     bool? recapAccepted,
   }) async {
+    if (!storage.memorySettings.journalEnabled) {
+      return reviewBatch();
+    }
     final batch = chat.journalReview.pending;
     if (batch != null) {
       if (recapAccepted != null) batch.recapAccepted = recapAccepted;
@@ -206,21 +211,5 @@ class JournalWebSurface {
       return null;
     }
     return card;
-  }
-
-  static List<int> _receiptsOf(JournalMemoryData card) {
-    final raw = card.sourceMessageIds;
-    if (raw == null || raw.isEmpty) return const [];
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return const [];
-      return [
-        for (final e in decoded)
-          if (e is num) e.toInt() else if (int.tryParse('$e') != null)
-            int.parse('$e'),
-      ];
-    } catch (_) {
-      return const [];
-    }
   }
 }

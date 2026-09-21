@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
@@ -95,9 +97,25 @@ class ModelManager extends ChangeNotifier {
     _init();
   }
 
-  /// Notifies listeners when download state changes.
+  // Completed-task ids we have already scanned for. Progress ticks notify
+  // on every chunk — rescanning the models dir then would hitch Settings.
+  final Set<String> _seenCompletedDownloadIds = {};
+
+  /// Notifies listeners when download state changes. A newly completed
+  /// download is the one true door into [refreshModels] — Settings → Model
+  /// Selection reads [models], so a rescan is what makes the file appear.
   void _onDownloadChanged() {
+    final completedIds = {
+      for (final task in _downloadManager.completedDownloads) task.id,
+    };
+    final discovered = completedIds.difference(_seenCompletedDownloadIds);
+    _seenCompletedDownloadIds
+      ..clear()
+      ..addAll(completedIds);
     notifyListeners();
+    if (discovered.isNotEmpty) {
+      unawaited(refreshModels());
+    }
   }
 
   /// Retrieves the exact Bytes Per Token required for KV Cache

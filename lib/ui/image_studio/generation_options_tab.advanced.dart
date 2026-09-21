@@ -56,11 +56,21 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
     // On the Edit tab these knobs are edit-scoped so an edit never clobbers
     // Create's txt2img settings; everywhere else they are the shared knobs.
     final editScoped = widget.editScoped;
-    final steps = editScoped ? st.editSteps : st.imageGenSteps;
-    final cfg = editScoped ? st.editCfgScale : st.imageGenCfgScale;
-    final dtSampler = editScoped ? st.editSampler : st.drawThingsSampler;
-    final dtShift = editScoped ? st.editShift : st.drawThingsShift;
-    final dtSeedMode = editScoped ? st.editSeedMode : st.drawThingsSeedMode;
+    final steps = editScoped
+        ? st.imageGenSettings.editSteps
+        : st.imageGenSettings.imageGenSteps;
+    final cfg = editScoped
+        ? st.imageGenSettings.editCfgScale
+        : st.imageGenSettings.imageGenCfgScale;
+    final dtSampler = editScoped
+        ? st.imageGenSettings.editSampler
+        : st.imageGenSettings.drawThingsSampler;
+    final dtShift = editScoped
+        ? st.imageGenSettings.editShift
+        : st.imageGenSettings.drawThingsShift;
+    final dtSeedMode = editScoped
+        ? st.imageGenSettings.editSeedMode
+        : st.imageGenSettings.drawThingsSeedMode;
     return [
       Row(
         children: [
@@ -83,8 +93,8 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
               onChangeEnd: (v) {
                 _dragSteps = null;
                 editScoped
-                    ? st.setEditSteps(v.round())
-                    : st.setImageGenSteps(v.round());
+                    ? st.imageGenSettings.setEditSteps(v.round())
+                    : st.imageGenSettings.setImageGenSteps(v.round());
               },
             ),
           ),
@@ -121,7 +131,9 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
               onChanged: (v) => rebuildState(() => _dragCfgScale = v),
               onChangeEnd: (v) {
                 _dragCfgScale = null;
-                editScoped ? st.setEditCfgScale(v) : st.setImageGenCfgScale(v);
+                editScoped
+                    ? st.imageGenSettings.setEditCfgScale(v)
+                    : st.imageGenSettings.setImageGenCfgScale(v);
               },
             ),
           ),
@@ -144,82 +156,89 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
       // int sampler stays — it IS edit-scoped (setEditSampler below).
       if (isDrawThings || !editScoped)
         Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              'Sampler',
-              style: TextStyle(
-                color: AppColors.textSecondary(context),
-                fontSize: 10,
+          children: [
+            Expanded(
+              flex: 2,
+              child: Text(
+                'Sampler',
+                style: TextStyle(
+                  color: AppColors.textSecondary(context),
+                  fontSize: 10,
+                ),
               ),
             ),
-          ),
-          Expanded(
-            flex: 3,
-            child: isDrawThings
-                ? DropdownButtonFormField<int>(
-                    initialValue: dtSampler,
-                    dropdownColor: AppColors.surfaceContainerOf(context),
-                    style: TextStyle(
-                      color: AppColors.textPrimary(context),
-                      fontSize: 10,
-                    ),
-                    isExpanded: true,
-                    decoration: _deco(hint: 'DT'),
-                    items: _drawThingsSamplers
-                        .map(
-                          (s) => DropdownMenuItem(
-                            value: s.value,
-                            child: Text(
-                              s.label,
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: AppColors.textPrimary(context),
+            Expanded(
+              flex: 3,
+              child: isDrawThings
+                  ? DropdownButtonFormField<int>(
+                      initialValue: dtSampler,
+                      dropdownColor: AppColors.surfaceContainerOf(context),
+                      style: TextStyle(
+                        color: AppColors.textPrimary(context),
+                        fontSize: 10,
+                      ),
+                      isExpanded: true,
+                      decoration: _deco(hint: 'DT'),
+                      items: _drawThingsSamplers
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s.value,
+                              child: Text(
+                                s.label,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: AppColors.textPrimary(context),
+                                ),
                               ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      if (v == null) return;
-                      editScoped
-                          ? st.setEditSampler(v)
-                          : st.setDrawThingsSampler(v);
-                    },
-                  )
-                : DropdownButtonFormField<String>(
-                    initialValue: _localSamplers.contains(st.imageGenSampler)
-                        ? st.imageGenSampler
-                        : (st.imageGenSampler.isNotEmpty ? null : 'Euler a'),
-                    dropdownColor: AppColors.surfaceContainerOf(context),
-                    style: TextStyle(
-                      color: AppColors.textPrimary(context),
-                      fontSize: 10,
-                    ),
-                    isExpanded: true,
-                    decoration: _deco(hint: 'sampler'),
-                    items: _localSamplers
-                        .map(
-                          (s) => DropdownMenuItem(
-                            value: s,
-                            child: Text(
-                              s,
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: AppColors.textPrimary(context),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        editScoped
+                            ? st.imageGenSettings.setEditSampler(v)
+                            : st.imageGenSettings.setDrawThingsSampler(v);
+                      },
+                    )
+                  : DropdownButtonFormField<String>(
+                      initialValue:
+                          _localSamplers.contains(
+                            st.imageGenSettings.imageGenSampler,
+                          )
+                          ? st.imageGenSettings.imageGenSampler
+                          : (st.imageGenSettings.imageGenSampler.isNotEmpty
+                                ? null
+                                : 'Euler a'),
+                      dropdownColor: AppColors.surfaceContainerOf(context),
+                      style: TextStyle(
+                        color: AppColors.textPrimary(context),
+                        fontSize: 10,
+                      ),
+                      isExpanded: true,
+                      decoration: _deco(hint: 'sampler'),
+                      items: _localSamplers
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                s,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: AppColors.textPrimary(context),
+                                ),
                               ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) st.setImageGenSampler(v);
-                    },
-                  ),
-          ),
-        ],
-      ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          st.imageGenSettings.setImageGenSampler(v);
+                        }
+                      },
+                    ),
+            ),
+          ],
+        ),
       // Scheduler (noise schedule) — a real quality lever on A1111 and ComfyUI.
       // Draw Things has no separate scheduler concept, so it's hidden there.
       // Hidden in EDIT mode too: the ComfyUI edit preset controls it, so a
@@ -243,9 +262,11 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
               flex: 3,
               child: DropdownButtonFormField<String>(
                 initialValue:
-                    (st.imageGenScheduler == 'Automatic' ||
-                        _localSchedulers.contains(st.imageGenScheduler))
-                    ? st.imageGenScheduler
+                    (st.imageGenSettings.imageGenScheduler == 'Automatic' ||
+                        _localSchedulers.contains(
+                          st.imageGenSettings.imageGenScheduler,
+                        ))
+                    ? st.imageGenSettings.imageGenScheduler
                     : 'Automatic',
                 dropdownColor: AppColors.surfaceContainerOf(context),
                 style: TextStyle(
@@ -269,7 +290,7 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
                     )
                     .toList(),
                 onChanged: (v) {
-                  if (v != null) st.setImageGenScheduler(v);
+                  if (v != null) st.imageGenSettings.setImageGenScheduler(v);
                 },
               ),
             ),
@@ -301,7 +322,9 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
                     keyboardType: TextInputType.number,
                     decoration: _deco(hint: '-1=random'),
                     onChanged: (v) {
-                      st.setImageGenSeed(int.tryParse(v) ?? -1);
+                      st.imageGenSettings.setImageGenSeed(
+                        int.tryParse(v) ?? -1,
+                      );
                     },
                   ),
                 ),
@@ -344,8 +367,9 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
                 max: 10,
                 divisions: 100,
                 activeColor: AppColors.formMasterAccent,
-                onChanged: (v) =>
-                    editScoped ? st.setEditShift(v) : st.setDrawThingsShift(v),
+                onChanged: (v) => editScoped
+                    ? st.imageGenSettings.setEditShift(v)
+                    : st.imageGenSettings.setDrawThingsShift(v),
               ),
             ),
             SizedBox(
@@ -391,19 +415,21 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
               onChanged: (v) {
                 if (v == null) return;
                 editScoped
-                    ? st.setEditSeedMode(v)
-                    : st.setDrawThingsSeedMode(v);
+                    ? st.imageGenSettings.setEditSeedMode(v)
+                    : st.imageGenSettings.setDrawThingsSeedMode(v);
               },
             ),
             Checkbox(
-              value: st.drawThingsTeaCache,
-              onChanged: (v) => st.setDrawThingsTeaCache(v ?? false),
+              value: st.imageGenSettings.drawThingsTeaCache,
+              onChanged: (v) =>
+                  st.imageGenSettings.setDrawThingsTeaCache(v ?? false),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             Text('Tea', style: TextStyle(fontSize: 8)),
             Checkbox(
-              value: st.drawThingsCfgZeroStar,
-              onChanged: (v) => st.setDrawThingsCfgZeroStar(v ?? false),
+              value: st.imageGenSettings.drawThingsCfgZeroStar,
+              onChanged: (v) =>
+                  st.imageGenSettings.setDrawThingsCfgZeroStar(v ?? false),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             Text('Zero', style: TextStyle(fontSize: 8)),

@@ -17,11 +17,15 @@ permissions:
 # Required GitHub Secrets for macOS Notarization (same as nightly.yml)
 #
 #   MACOS_CERTIFICATE, MACOS_CERTIFICATE_PWD, MACOS_CERTIFICATE_NAME,
-#   APPLE_ID, APPLE_ID_PASSWORD, APPLE_TEAM_ID
+#   MACOS_INSTALLER_CERT_NAME, APPLE_TEAM_ID,
+#   APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER
+#
+# Notarization uses an App Store Connect API key. APPLE_ID / APPLE_ID_PASSWORD
+# (app-specific passwords) are retired — they die on every Apple ID password change.
 #
 # Security notes:
-# - We use `::add-mask::` to proactively mask MACOS_CERTIFICATE_NAME and APPLE_TEAM_ID
-#   in all logs for the macOS job.
+# - We use `::add-mask::` to proactively mask MACOS_CERTIFICATE_NAME, APPLE_TEAM_ID,
+#   APPLE_API_KEY_ID, and APPLE_API_ISSUER in all logs for the macOS job.
 # - See nightly.yml for the full list and explanation.
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -251,6 +255,8 @@ jobs:
           # accidentally appear in command output, error messages, or env dumps.
           echo "::add-mask::${{ secrets.MACOS_CERTIFICATE_NAME }}"
           echo "::add-mask::${{ secrets.APPLE_TEAM_ID }}"
+          echo "::add-mask::${{ secrets.APPLE_API_KEY_ID }}"
+          echo "::add-mask::${{ secrets.APPLE_API_ISSUER }}"
 
       - name: Import Apple Developer Certificate
         if: matrix.platform == 'macos'
@@ -419,20 +425,47 @@ jobs:
       - name: Submit final PKG to notarization and Staple
         if: matrix.platform == 'macos'
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
           cd build/macos/Build/Products/Release
           # Stable fixed name for the auto-updater (Front_Porch_AI.pkg).
           PKG_NAME="Front_Porch_AI.pkg"
-          
-          echo "Submitting PKG for notarization..."
-          xcrun notarytool submit "$PKG_NAME" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait || { echo "ERROR: PKG notarization failed"; exit 1; }
+
+          if [ -z "$APPLE_API_KEY" ] || [ -z "$APPLE_API_KEY_ID" ] || [ -z "$APPLE_API_ISSUER" ]; then
+            echo "::error::Missing APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER (App Store Connect API key). App-specific passwords are no longer used."
+            exit 1
+          fi
+
+          KEY_FILE="$RUNNER_TEMP/AuthKey.p8"
+          umask 077
+          if printf '%s' "$APPLE_API_KEY" | grep -q 'BEGIN PRIVATE KEY'; then
+            printf '%s\n' "$APPLE_API_KEY" | tr -d '\r' > "$KEY_FILE"
+          else
+            printf '%s' "$APPLE_API_KEY" | tr -d '\r\n ' | base64 --decode > "$KEY_FILE"
+          fi
+          chmod 600 "$KEY_FILE"
+
+          echo "Submitting PKG for notarization (App Store Connect API key)..."
+          SUBMIT_OUT=$(xcrun notarytool submit "$PKG_NAME" \
+            --key "$KEY_FILE" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait 2>&1) || true
+          printf '%s\n' "$SUBMIT_OUT"
+
+          SUBMISSION_ID=$(printf '%s\n' "$SUBMIT_OUT" | grep -Eo 'id: [0-9a-f-]{36}' | head -1 | awk '{print $2}')
+          NOTARY_STATUS=$(printf '%s\n' "$SUBMIT_OUT" | grep -E '^[[:space:]]*status:' | tail -1 | awk '{print $2}')
+          if [ "$NOTARY_STATUS" != "Accepted" ]; then
+            echo "::error::Notarization status='${NOTARY_STATUS:-unknown}' for $PKG_NAME (submission ${SUBMISSION_ID:-unknown})"
+            if [ -n "$SUBMISSION_ID" ]; then
+              echo "── Apple notarization log ──"
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --key "$KEY_FILE" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" 2>&1 || true
+            fi
+            exit 1
+          fi
           
           echo "Stapling notarization ticket to PKG..."
           xcrun stapler staple "$PKG_NAME"

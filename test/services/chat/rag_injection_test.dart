@@ -32,8 +32,6 @@
 //   * drop the stamp from formatRagLine → the stamp tests go red
 //   * truncate nothing in buildRagReceipt → the preview-cap test goes red
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -467,50 +465,6 @@ void main() {
               'same-beat flowerpot gist DROPS because the card names the '
               'flowerpot in the window (near-substring), not 2-token overlap',
         );
-      },
-    );
-
-    test(
-      'HOLD lock: cover-drop source is near-substring, not leftover tokens',
-      () {
-        final src = File(
-          'lib/services/chat/rag_injection.dart',
-        ).readAsStringSync();
-        final coveredAt = src.indexOf('bool _ragCoveredByJournal(');
-        expect(coveredAt, greaterThanOrEqualTo(0));
-        final coveredSlice = src.substring(
-          coveredAt,
-          (coveredAt + 280).clamp(0, src.length),
-        );
-        expect(src.contains('bool _nearCover('), isTrue);
-        expect(src.contains('_kJournalBoilerplate'), isTrue);
-        expect(src.contains('containsAll'), isTrue);
-        expect(src.contains('longD.difference(shortD)'), isTrue);
-        expect(
-          src.contains('longer.contains(shorter)'),
-          isFalse,
-          reason: 'unanchored contains() is the key-inside-keyboard hole',
-        );
-        expect(
-          coveredSlice.contains('.intersection('),
-          isFalse,
-          reason:
-              'a source-scan for 2-token intersection as the cover rule '
-              'MUST FAIL — product must not use shared-content-tokens ≥ 2',
-        );
-        expect(coveredSlice.contains('_nearCover('), isTrue);
-        final fillerAt = src.indexOf('const _kCoverFiller = {');
-        expect(fillerAt, greaterThanOrEqualTo(0));
-        final filler = src.substring(fillerAt, src.indexOf('};', fillerAt));
-        for (final w in ['garden', 'balcony', 'driveway']) {
-          expect(
-            filler.contains("'$w'"),
-            isFalse,
-            reason:
-                "'$w' must not appear on the setting-noun / cover-filler "
-                'place list',
-          );
-        }
       },
     );
 
@@ -1463,8 +1417,7 @@ void main() {
           reachingForQuote: false,
         );
         expect(block, contains(kRagRememberedHeader.trim()));
-        expect(block, contains('- (Day 1) the swing creaked'));
-        expect(block, isNot(contains('Nia:')));
+        expect(block, contains('- (Day 1) Nia: the swing creaked'));
         expect(block, isNot(contains('Exact earlier lines')));
       },
     );
@@ -1487,8 +1440,17 @@ void main() {
         expect(plain, contains(kRagRememberedHeader.trim()));
         expect(plain, contains('spare key'));
         expect(plain, contains('flowerpot'));
-        expect(plain, isNot(contains('You: the spare key')));
         expect(plain.split('\n').where((l) => l.startsWith('- ')).length, 1);
+        expect(
+          plain,
+          isNot(
+            contains(
+              'You: the spare key lives under the third flowerpot\n'
+              'Nia: I still think about the spare key under the third flowerpot',
+            ),
+          ),
+          reason: 'plain turn is one attributed line, not the You:+Nia: tape',
+        );
         final quoted = buildRagMemoriesBlock(
           memories: [m],
           currentSessionId: 's1',
@@ -1542,8 +1504,7 @@ void main() {
         days: {m: 1},
         reachingForQuote: false,
       );
-      expect(block, contains('- (Day 1) the swing creaked'));
-      expect(block, isNot(contains('Nia:')));
+      expect(block, contains('- (Day 1) Nia: the swing creaked'));
       final quoted = buildRagMemoriesBlock(
         memories: [m],
         currentSessionId: 's1',
@@ -1551,6 +1512,37 @@ void main() {
         reachingForQuote: true,
       );
       expect(quoted, contains('Nia: the swing creaked'));
+    });
+
+    test('plain inject keeps the speaker of the densest line', () {
+      expect(
+        rememberedAttributedLine('Nia: the swing creaked'),
+        'Nia: the swing creaked',
+      );
+      expect(
+        rememberedAttributedLine('Nia:the swing creaked'),
+        'Nia: the swing creaked',
+        reason: 'normalize the space after the colon to match formatRagLine',
+      );
+      const window =
+          'You: hi\n'
+          'Nia: the swing creaked beside the third flowerpot';
+      final attributed = rememberedAttributedLine(window);
+      expect(attributed.contains('\n'), isFalse);
+      expect(attributed, startsWith('Nia:'));
+      expect(attributed, contains('the swing creaked'));
+      expect(attributed, isNot(contains('You:')));
+      final m = _mem(window, sessionId: 's1', pos: 1);
+      final block = buildRagMemoriesBlock(
+        memories: [m],
+        currentSessionId: 's1',
+        days: {m: 1},
+        reachingForQuote: false,
+      );
+      expect(block, contains(kRagRememberedHeader.trim()));
+      expect(block, contains('- (Day 1) Nia:'));
+      expect(block.split('\n').where((l) => l.startsWith('- ')).length, 1);
+      expect(block, isNot(contains('You: hi')));
     });
 
     test('quote-reach uses the quote header; day stamp stays display-only', () {

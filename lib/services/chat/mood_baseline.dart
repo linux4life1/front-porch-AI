@@ -29,7 +29,7 @@ import 'package:front_porch_ai/services/chat/weather_engine.dart';
 /// TWO THINGS THIS IS DELIBERATELY NOT, both from the maintainer's review of
 /// the first proposal, and both load-bearing:
 ///
-/// 1. **It is never unexplained.** "She is in a mood for no reason" is
+/// 1. **It is never unexplained.** "They are in a mood for no reason" is
 ///    illegible to the user — they read it as the app being random — and it is
 ///    an open invitation for a small local model to invent a cause and then
 ///    defend it for forty turns ("I'm upset because you forgot my birthday"),
@@ -50,14 +50,14 @@ import 'package:front_porch_ai/services/chat/weather_engine.dart';
 /// Pure and synchronous: every input is already computed for other reasons, so
 /// this costs nothing per turn and is trivially testable.
 class MoodBaseline {
-  /// How the day is tilting her, -3..+3. Small ON PURPOSE — this tints, it
+  /// How the day is tilting them, -3..+3. Small ON PURPOSE — this tints, it
   /// never drives. A genuine reaction to the user has to outweigh it, or the
   /// engine's actual work stops being visible underneath it.
   final int offset;
 
   /// The reasons, in plain language, worst first. Shown to the user verbatim
   /// (the mood chip's tooltip, the sidebar line) so they always know which
-  /// part of her mood was them and which part was her day.
+  /// part of their mood was the user and which part was their day.
   final List<String> causes;
 
   const MoodBaseline({required this.offset, required this.causes});
@@ -73,7 +73,7 @@ class MoodBaseline {
     final head = offset <= -3
         ? 'running on empty'
         : offset < 0
-        ? 'not at her best'
+        ? 'not at their best'
         : offset >= 3
         ? 'in good form'
         : 'in decent spirits';
@@ -82,8 +82,8 @@ class MoodBaseline {
 
   /// The prompt fragment.
   ///
-  /// Says the STATE, never the mood. "She slept badly and has not eaten" is a
-  /// fact with nowhere to go; "she is in a bad mood" is a prompt to invent a
+  /// Says the STATE, never the mood. "They slept badly and have not eaten" is a
+  /// fact with nowhere to go; "they are in a bad mood" is a prompt to invent a
   /// reason. The closing clause is the same guardrail — in the same words —
   /// that preferences_injection.dart carries, because Likes & Dislikes hit
   /// exactly this failure mode first: without it the model treats the state as
@@ -119,8 +119,8 @@ class MoodBaseline {
 /// this adds no cost and cannot disagree with what the user is shown
 /// elsewhere. Sources are deliberately limited to STATES OF THE BODY AND THE
 /// DAY — tired, hungry, cold, up too late. They were chosen because they are
-/// the hardest kind of fact for a model to spin into an event: "she is tired"
-/// resists becoming a grievance in a way that "she is upset" does not.
+/// the hardest kind of fact for a model to spin into an event: "they are tired"
+/// resists becoming a grievance in a way that "they are upset" does not.
 ///
 /// [needs] is the Needs vector (absent or empty when the simulation is off —
 /// then only the clock and weather contribute, which is correct rather than
@@ -135,7 +135,7 @@ MoodBaseline deriveMoodBaseline({
   final causes = <String>[];
 
   /// Needs run 0..100, low is bad. Only genuinely low values speak up: a
-  /// character who is merely peckish has nothing to say about her day.
+  /// character who is merely peckish has nothing to say about their day.
   void need(String key, int threshold, String cause, int weight) {
     final v = needs[key];
     if (v == null || v > threshold) return;

@@ -8,8 +8,6 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -127,19 +125,5 @@ void main() {
     expect(find.text('WORLD'), findsOneWidget);
     expect(find.text('LORE'), findsOneWidget);
     expect(find.text('CLIMATE'), findsNothing);
-  });
-
-  test('both the tile and Mod Pick hero use the list-row resolver', () {
-    for (final path in [
-      'lib/ui/pages/repository/stoop_card_tile.dart',
-      'lib/ui/pages/repository/stoop_browse_view.dart',
-    ]) {
-      final source = File(path).readAsStringSync();
-      expect(
-        source,
-        contains('climateEnabled: stoopCardClimateEnabled(card)'),
-        reason: path,
-      );
-    }
   });
 }

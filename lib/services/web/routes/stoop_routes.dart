@@ -26,7 +26,7 @@ import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'package:front_porch_ai/services/backporch/backporch.dart';
-import 'package:front_porch_ai/services/web/facade/stoop_facade.dart';
+import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
 /// The Stoop (community character hub) endpoints for the web UI.
@@ -417,12 +417,11 @@ class WebStoopRoutes {
 
   /// Bidirectional relay between the browser and the Stoop messaging socket.
   ///
-  /// The browser's first frame must be `{"token": "<stoop access token>"}` —
-  /// sent as a frame rather than a query parameter so the token never appears
-  /// in a request line. The upstream connection then carries it the way the
-  /// desktop client does (`?token=`, a WebSocket-handshake limitation of the
-  /// backend protocol). After auth, frames pass through untouched both ways:
-  /// `message`/`typing` events down, `typing` signals up.
+  /// The browser's first frame carries its Stoop access token. The relay opens
+  /// a token-free upstream URL, then sends canonical
+  /// `{"type":"auth","token":"..."}` JSON as the upstream's first frame
+  /// (including an optional `thread`). After auth, frames pass through
+  /// untouched both ways: `message`/`typing` events down, `typing` signals up.
   void _relayMessageSocket(WebSocketChannel browser, _) {
     WebSocketChannel? upstream;
     var closed = false;
@@ -446,18 +445,29 @@ class WebStoopRoutes {
         }
         authTimeout?.cancel();
         String token = '';
+        String thread = '';
         try {
           final decoded = jsonDecode(frame as String);
-          if (decoded is Map) token = '${decoded['token'] ?? ''}';
+          if (decoded is Map) {
+            token = '${decoded['token'] ?? ''}';
+            thread = '${decoded['thread'] ?? ''}'.trim();
+          }
         } catch (_) {}
         if (token.isEmpty) {
           shutDown();
           return;
         }
         final up = WebSocketChannel.connect(
-          Uri.parse(
-            '${_facade.messageSocketUrl}?token=${Uri.encodeQueryComponent(token)}',
-          ),
+          Uri.parse(_facade.messageSocketUrl),
+        );
+        // Queue auth before publishing [upstream], guaranteeing that even a
+        // browser typing frame arriving during the handshake follows auth.
+        up.sink.add(
+          jsonEncode({
+            'type': 'auth',
+            'token': token,
+            if (thread.isNotEmpty) 'thread': thread,
+          }),
         );
         upstream = up;
         up.ready.then((_) {

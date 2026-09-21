@@ -6,7 +6,7 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, type RefObject } from 'react';
+import { memo, useEffect, useRef, type RefObject } from 'react';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
 import { MessageActions } from './MessageActions';
@@ -98,8 +98,8 @@ type TranscriptProps = {
   busy: boolean;
   canSpeak: boolean;
   onBeginEdit: (m: Message) => void;
-  onSwipe: (index: number, direction: number) => void;
-  onRegenerate: () => void;
+  onSwipe: (index: number, direction: number, critique?: string) => void;
+  onRegenerate: (critique?: string) => void;
   onContinue: () => void;
   onFork: (index: number) => void;
   onDelete: (index: number) => void;
@@ -249,12 +249,7 @@ export function ChatMessageList({
         }
         return (
           <div className="bubble ai streaming" aria-live="polite">
-            {thinking.trim() && (
-              <div className="streaming-think">
-                <span className="muted small">💭 thinking…</span>
-                <div className="streaming-think-body">{thinking}</div>
-              </div>
-            )}
+            {thinking.trim() && <LiveThinkBody text={thinking} />}
             {rest && <MessageContent text={rest} />}
           </div>
         );
@@ -279,5 +274,31 @@ export function ChatMessageList({
         );
       })()}
     </div>
+  );
+}
+
+function LiveThinkBody({ text }: { text: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const pinned = useRef(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !pinned.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [text]);
+  return (
+    <details className="thinking" open>
+      <summary>💭 thinking…</summary>
+      <div
+        className="thinking-body"
+        ref={ref}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          pinned.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+        }}
+      >
+        {text}
+      </div>
+    </details>
   );
 }

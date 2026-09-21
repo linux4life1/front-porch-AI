@@ -42,6 +42,7 @@ class ContextViewerDialog extends StatefulWidget {
     'Journal': Color(0xFFF97316),
     'Realism Mode': Color(0xFFEC4899),
     'Memories': Color(0xFF14B8A6),
+    'Speaker Card': Color(0xFF7C3AED),
   };
 
   @override
@@ -98,8 +99,9 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
 
         return Dialog(
           backgroundColor: AppColors.surfaceOf(context),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
             child: Column(
@@ -231,8 +233,7 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
                             ),
                             Text(
                               '${(usage * 100).toStringAsFixed(1)}%',
-                              style:
-                                  TextStyle(color: usageColor, fontSize: 13),
+                              style: TextStyle(color: usageColor, fontSize: 13),
                             ),
                           ],
                         ),
@@ -242,10 +243,12 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
                           child: LinearProgressIndicator(
                             value: usage.clamp(0.0, 1.0),
                             minHeight: 8,
-                            backgroundColor:
-                                AppColors.surfaceContainerOf(context),
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(usageColor),
+                            backgroundColor: AppColors.surfaceContainerOf(
+                              context,
+                            ),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              usageColor,
+                            ),
                           ),
                         ),
                       ],
@@ -265,7 +268,7 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
                                 : 0.0;
                             final color =
                                 ContextViewerDialog.sectionColors[e.key] ??
-                                    Colors.grey;
+                                Colors.grey;
                             return Expanded(
                               flex: (frac * 1000).round().clamp(1, 1000),
                               child: Tooltip(
@@ -286,7 +289,7 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
                     children: budget.entries.map((e) {
                       final color =
                           ContextViewerDialog.sectionColors[e.key] ??
-                              Colors.grey;
+                          Colors.grey;
                       final pct = totalTokens > 0
                           ? '${(e.value / totalTokens * 100).toStringAsFixed(1)}%'
                           : '0%';

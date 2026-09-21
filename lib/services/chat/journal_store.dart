@@ -202,6 +202,18 @@ class JournalStore {
     await getDb()?.deleteJournalCard(id);
   }
 
+  /// Session-addressed cursor so a mid-pass chat switch still watermarks
+  /// chat A. Live `_summaryLastIndex` is the open chat only.
+  Future<void> persistCursor(String sessionId, int cursor) async {
+    final db = getDb();
+    if (db == null) return;
+    await db.customUpdate(
+      'UPDATE sessions SET summary_last_index = ? WHERE id = ?',
+      variables: [Variable(cursor), Variable(sessionId)],
+      updates: {db.sessions},
+    );
+  }
+
   /// Timeline-integrity invalidation: content at/after [fromPosition] was
   /// rewritten (regen, swipe, edit, delete), so every card CITING that
   /// region describes events that no longer happened — delete them, pinned

@@ -16,14 +16,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/models/lorebook_analysis.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/web/util/lorebook_json.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+part 'world_facade.import.dart';
 
 /// Thin adapter for world (portable place) CRUD over [WorldRepository].
 /// Worlds have stable UUID identity; name is display-only.
@@ -161,7 +161,8 @@ class WorldFacade {
     }
     if (f['entries'] != null) {
       world.lorebook =
-          buildLorebookFromJson(f['entries']) ?? Lorebook(entries: []);
+          buildLorebookFromJson(f['entries'], bookFields: f) ??
+          Lorebook(entries: []);
     }
     await _worlds.saveWorld(world);
     return true;
@@ -172,140 +173,6 @@ class WorldFacade {
     if (w == null) return false;
     await _worlds.deleteWorld(w);
     return true;
-  }
-
-  /// Import .fpworld or bare lorebook JSON as a place. Routes through
-  /// WorldRepository.importWorldJson — the same path desktop file import
-  /// uses — so climate, place traits, lore, provenance, and name
-  /// uniquifying behave identically on both surfaces.
-  Future<bool> importWorld(Map<String, dynamic> json) async {
-    // Reject payloads that are neither a package envelope nor a lorebook.
-    final isEnvelope =
-        json.containsKey('formatVersion') ||
-        (json.containsKey('id') &&
-            json.containsKey('name') &&
-            (json.containsKey('lorebook') || json.containsKey('lorebooks')));
-    if (!isEnvelope &&
-        json['entries'] == null &&
-        json['lorebook'] == null &&
-        detectLorebookFormat(json) == LorebookFormat.fpaiOrSt) {
-      return false;
-    }
-    try {
-      await _worlds.importWorldJson(json);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Import a lorebook with a chosen destination — the web twin of the
-  /// desktop Import Lorebook wizard. `dryRun` returns the review summary +
-  /// destination availability without writing anything; a commit clones the
-  /// decoded entries into exactly one home. Additive API; the plain
-  /// [importWorld] endpoint is untouched for older clients.
-  Future<Map<String, dynamic>?> importLorebook(
-    Map<String, dynamic> json, {
-    bool dryRun = false,
-    String destination = 'world',
-    String? name,
-    String? description,
-    List<String> characterIds = const [],
-  }) async {
-    if (json['entries'] == null &&
-        json['lorebook'] == null &&
-        detectLorebookFormat(json) == LorebookFormat.fpaiOrSt) {
-      return null; // unrecognized shape → 400
-    }
-    final source = json['lorebook'] is Map
-        ? Map<String, dynamic>.from(json['lorebook'] as Map)
-        : json;
-    final book = Lorebook.fromJson(source);
-    final summary = LorebookImportSummary.analyze(json, book);
-
-    if (dryRun) {
-      return {
-        'format': summary.formatLabel,
-        'suggestedName': summary.suggestedName,
-        'suggestedDescription': summary.suggestedDescription,
-        'entryCount': summary.entryCount,
-        'enabledCount': summary.enabledCount,
-        'approxTokens': summary.approxTokens,
-        'features': summary.features,
-        'warnings': summary.warnings,
-        'canGroup': _chat?.activeGroup != null,
-        'canChat': _chat?.currentSessionId != null,
-      };
-    }
-    if (book.entries.isEmpty) return null;
-
-    List<LorebookEntry> cloned() => [for (final e in book.entries) e.clone()];
-    Lorebook clonedBook() => Lorebook(
-      entries: cloned(),
-      scanDepth: book.scanDepth,
-      tokenBudget: book.tokenBudget,
-      recursiveScanning: book.recursiveScanning,
-      extensions: Map<String, dynamic>.from(book.extensions),
-    );
-
-    switch (destination) {
-      case 'world':
-        var base = (name ?? summary.suggestedName).trim();
-        if (base.isEmpty) base = 'Imported Lorebook';
-        final taken = _worlds.worlds.map((w) => w.name).toSet();
-        var candidate = base;
-        var i = 2;
-        while (taken.contains(candidate)) {
-          candidate = '$base ($i)';
-          i++;
-        }
-        await _worlds.saveWorld(
-          World(
-            name: candidate,
-            description: (description ?? summary.suggestedDescription).trim(),
-            lorebook: clonedBook(),
-          ),
-        );
-        return {'ok': true, 'where': 'world', 'name': candidate};
-      case 'characters':
-        final chars = _characters;
-        if (chars == null || characterIds.isEmpty) return null;
-        var count = 0;
-        for (final c in chars.characters) {
-          if (c.dbId == null || !characterIds.contains(c.dbId)) continue;
-          final existing = c.lorebook;
-          if (existing == null) {
-            c.lorebook = clonedBook();
-          } else {
-            existing.entries.addAll(cloned());
-          }
-          await chars.updateCharacter(c);
-          count++;
-        }
-        return count > 0
-            ? {'ok': true, 'where': 'characters', 'count': count}
-            : null;
-      case 'group':
-        final g = _chat?.activeGroup;
-        final groups = _groups;
-        if (g == null || groups == null) return null;
-        final existing = g.groupLorebook.isEmpty
-            ? Lorebook(entries: [])
-            : Lorebook.fromJson(
-                jsonDecode(g.groupLorebook) as Map<String, dynamic>,
-              );
-        existing.entries.addAll(cloned());
-        g.groupLorebook = jsonEncode(existing.toJson());
-        await groups.save(g);
-        return {'ok': true, 'where': 'group', 'name': g.name};
-      case 'chat':
-        final chat = _chat;
-        if (chat == null || chat.currentSessionId == null) return null;
-        chat.chatLorebook.entries.addAll(cloned());
-        await chat.commitChatLorebookEdit();
-        return {'ok': true, 'where': 'chat'};
-    }
-    return null;
   }
 
   /// Export as .fpworld place package (lore + climate). Prefer over ST-only.
@@ -333,67 +200,124 @@ class WorldFacade {
     if (chat == null || chat.currentSessionId == null) {
       return {
         'worldIds': <String>[],
+        'primaryId': null,
         'places': <Map<String, dynamic>>[],
+        'lorePlaces': <Map<String, dynamic>>[],
+        'climateAuthors': false,
+        'weatherOff': 'no_setting',
         'climateId': 'temperate',
         'climateDisplayName': Biome.temperate.displayName,
         'climateFeel': Biome.temperate.feel,
         'dayCount': 1,
+        'climateOptions': <Map<String, dynamic>>[],
       };
     }
+    final primaryId = chat.chatPrimaryWorldId;
+    final loreIds = chat.chatLoreWorldIds;
     final ids = chat.chatWorldIds;
-    final places = <Map<String, dynamic>>[];
-    for (final id in ids) {
-      final w = _worlds.resolveWorld(id);
-      if (w == null) continue;
-      places.add({
+
+    Map<String, dynamic> placeJson(World w, {required String role}) {
+      return {
         'id': w.id,
         'name': w.name,
-        // 'custom' is truthful for a place authoring its own climate —
-        // reporting 'temperate' misled anything trusting this field.
-        // Lorebook-only (climate-off) worlds omit biomeId entirely.
+        'role': role,
+        'climateEnabled': w.climateEnabled,
         if (w.climateEnabled)
           'biomeId': w.biomeJson != null
               ? 'custom'
               : (w.biomeId ?? 'temperate'),
         'hasCustomClimate': w.climateEnabled && w.biomeJson != null,
         'description': w.description,
-      });
+      };
     }
+
+    Map<String, dynamic>? primaryPlace;
+    final primaryWorld = primaryId == null
+        ? null
+        : _worlds.resolveWorld(primaryId);
+    if (primaryWorld != null) {
+      primaryPlace = placeJson(primaryWorld, role: 'primary');
+    }
+
+    final lorePlaces = <Map<String, dynamic>>[];
+    for (final id in loreIds) {
+      final w = _worlds.resolveWorld(id);
+      if (w == null) continue;
+      lorePlaces.add(placeJson(w, role: 'lore'));
+    }
+
+    // Older clients: flat places list (primary first, then lore).
+    final places = <Map<String, dynamic>>[?primaryPlace, ...lorePlaces];
+
+    final climateAuthors = primaryWorldAllowsClimate(primaryWorld);
+    final String? weatherOff = primaryId == null
+        ? 'no_setting'
+        : (!climateAuthors ? 'setting_lore_only' : null);
+
     final climate = chat.activeChatBiome;
     return {
       'worldIds': ids,
+      'primaryId': primaryId,
+      'primary': primaryPlace,
       'places': places,
+      'lorePlaces': lorePlaces,
+      'climateAuthors': climateAuthors,
+      'weatherOff': ?weatherOff,
       'climateId': climate.id,
       'climateDisplayName': climate.displayName,
       'climateFeel': climate.feel,
       'dayCount': chat.timeService.dayCount,
-      // Selectable climates for THIS chat: built-ins + any attached place
-      // authoring its own ('world:<id>' scheme, shared with the desktop
-      // panel). Additive — older bundles ignore it.
+      // Built-ins + Primary custom only (never lore climate-on).
       'climateOptions': [
-        for (final b in Biome.builtIns)
-          {'id': b.id, 'displayName': b.displayName},
-        for (final id in ids)
-          if (_worlds.resolveWorld(id) case final w?)
-            if (w.climateEnabled &&
-                w.biomeJson != null &&
-                Biome.tryParse(w.biomeJson) != null)
-              {'id': 'world:${w.id}', 'displayName': '${w.name} (custom)'},
+        if (climateAuthors) ...[
+          for (final b in Biome.builtIns)
+            {'id': b.id, 'displayName': b.displayName},
+          if (primaryWorld != null &&
+              primaryWorld.biomeJson != null &&
+              Biome.tryParse(primaryWorld.biomeJson) != null)
+            {
+              'id': 'world:${primaryWorld.id}',
+              'displayName': '${primaryWorld.name} (custom)',
+            },
+        ],
       ],
     };
   }
 
-  Future<Map<String, dynamic>> setChatPlaces(List<String> worldIds) async {
+  Future<Map<String, dynamic>> setChatPlaces(
+    List<String> worldIds, {
+    String? primaryId,
+    List<String>? loreIds,
+  }) async {
     final chat = _chat;
     if (chat == null || chat.currentSessionId == null) {
       return {'ok': false, 'error': 'No active chat'};
     }
-    // Resolve names → ids; only places.
+
+    String? resolveRef(String ref) {
+      final w = _worlds.resolveWorld(ref);
+      if (w == null || isCharacterLinkedWorld(w)) return null;
+      return w.id;
+    }
+
+    if (primaryId != null || loreIds != null) {
+      final p = primaryId == null || primaryId.isEmpty
+          ? null
+          : resolveRef(primaryId);
+      final lore = <String>[];
+      for (final ref in loreIds ?? const <String>[]) {
+        final id = resolveRef(ref);
+        if (id != null && id != p && !lore.contains(id)) lore.add(id);
+      }
+      await chat.setChatPlaceSlots(primaryId: p, loreIds: lore);
+      return {'ok': true, ...chatPlaces()};
+    }
+
+    // Legacy flat worldIds: preserve Primary if still listed; else all lore.
     final resolved = <String>[];
     for (final ref in worldIds) {
-      final w = _worlds.resolveWorld(ref);
-      if (w == null || isCharacterLinkedWorld(w)) continue;
-      if (!resolved.contains(w.id)) resolved.add(w.id);
+      final id = resolveRef(ref);
+      if (id != null && !resolved.contains(id)) resolved.add(id);
     }
     await chat.setChatWorldIds(resolved);
     return {'ok': true, ...chatPlaces()};
@@ -405,15 +329,21 @@ class WorldFacade {
     if (chat == null || chat.currentSessionId == null) {
       return {'ok': false, 'error': 'No active chat'};
     }
-    // Unknown ids error out rather than silently becoming temperate — a
-    // typo'd climate must not look like a successful switch.
+    final primaryId = chat.chatPrimaryWorldId;
+    final primary = primaryId == null ? null : _worlds.resolveWorld(primaryId);
+    if (!primaryWorldAllowsClimate(primary)) {
+      return {
+        'ok': false,
+        'error': primaryId == null
+            ? 'No setting — weather stays off'
+            : 'This setting is lore-only — no weather',
+      };
+    }
     Biome? biome = Biome.builtInById(biomeId);
     if (biome == null && biomeId.startsWith('world:')) {
-      // An attached place's custom climate ('world:<id>', same scheme as
-      // the desktop Places panel). Branded with the option id so the
-      // active climate matches its picker option exactly on every surface.
+      // Custom climate only from the Primary setting.
       final w = _worlds.resolveWorld(biomeId.substring(6));
-      if (w != null && chat.chatWorldIds.contains(w.id)) {
+      if (w != null && w.id == primaryId) {
         biome = Biome.tryParse(w.biomeJson)?.withId('world:${w.id}');
       }
     }

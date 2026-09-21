@@ -72,7 +72,7 @@ class BackendFacade {
   }
 
   String _loadedModelName() {
-    final path = _storage.lastUsedModelPath;
+    final path = _storage.backendSettings.lastUsedModelPath;
     if (path == null || path.isEmpty) return 'No model selected';
     return path.split(RegExp(r'[/\\]')).last;
   }
@@ -88,7 +88,7 @@ class BackendFacade {
   /// List installed local .gguf models (rescans disk first).
   Future<List<Map<String, dynamic>>> localModels() async {
     await _models.refreshModels();
-    final current = _storage.lastUsedModelPath;
+    final current = _storage.backendSettings.lastUsedModelPath;
     return _models.localModels
         .map(
           (m) => {
@@ -202,7 +202,9 @@ class BackendFacade {
     final b = _storage.backendSettings;
     final override = apiUrl != null && apiUrl.trim().isNotEmpty;
     final url = override ? apiUrl.trim() : b.remoteApiUrl;
-    final key = (apiKey != null && apiKey.isNotEmpty) ? apiKey : b.remoteApiKey;
+    final key = (apiKey != null && apiKey.isNotEmpty)
+        ? apiKey
+        : b.remoteApiKeyFor(url);
     if (override) {
       final uri = Uri.tryParse(url);
       if (uri == null || !isSafeOutboundUrl(uri)) return null;

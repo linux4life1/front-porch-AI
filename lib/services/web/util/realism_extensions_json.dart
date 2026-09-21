@@ -216,6 +216,7 @@ FrontPorchExtensions frontPorchFromFields(
 
     // Needs Simulation.
     needsSimEnabled: asBool('needsSimEnabled', b.needsSimEnabled),
+    pocketsEnabled: asBool('pocketsEnabled', b.pocketsEnabled),
     enjoysLowHygiene: asBool('enjoysLowHygiene', b.enjoysLowHygiene),
     needsSimStrength: asInt('needsSimStrength', b.needsSimStrength),
     needsBaselineHunger: asInt('needsBaselineHunger', b.needsBaselineHunger),
@@ -267,6 +268,7 @@ Map<String, dynamic> frontPorchToJson(FrontPorchExtensions e) => {
   'realismVerificationStrictness': e.realismVerificationStrictness,
   'realismNeedsDirectorAuthority': e.realismNeedsDirectorAuthority,
   'needsSimEnabled': e.needsSimEnabled,
+  'pocketsEnabled': e.pocketsEnabled,
   'enjoysLowHygiene': e.enjoysLowHygiene,
   'needsSimStrength': e.needsSimStrength,
   'needsBaselineHunger': e.needsBaselineHunger,

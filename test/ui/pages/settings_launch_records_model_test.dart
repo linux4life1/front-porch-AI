@@ -18,7 +18,7 @@
 
 // Settings → Backend → "Start Backend" must record the model it launches.
 //
-// storage.lastUsedModelPath is the app's ONLY memory of which GGUF is loaded:
+// storage.backendSettings.lastUsedModelPath is the app's ONLY memory of which GGUF is loaded:
 // the system-role/template probe files its verdict under it, the auto-restart
 // path relaunches it, "Restart Backend" on the Advanced tab uses it, and the
 // web UI marks it as the loaded model. The Backend tab auto-picks the FIRST
@@ -49,7 +49,8 @@ void main() {
     expect(
       method,
       isNotNull,
-      reason: 'could not read _toggleManagedBackend — if it moved, move this '
+      reason:
+          'could not read _toggleManagedBackend — if it moved, move this '
           'guard with it rather than deleting it',
     );
     final body = method!.group(0)!;
@@ -59,7 +60,8 @@ void main() {
     expect(
       persist,
       greaterThanOrEqualTo(0),
-      reason: 'Launch Backend starts a model without recording it in '
+      reason:
+          'Launch Backend starts a model without recording it in '
           'lastUsedModelPath — the system-role probe, auto-restart, Restart '
           'Backend and the web UI would all point at a different GGUF than '
           'the one actually running',
@@ -74,7 +76,8 @@ void main() {
     expect(
       body.indexOf('final effectiveModel ='),
       lessThan(persist),
-      reason: 'the recording must sit in the branch that actually passes a '
+      reason:
+          'the recording must sit in the branch that actually passes a '
           'model path',
     );
   });

@@ -17,9 +17,12 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+part 'download_queue_panel.controls.dart';
 
 /// Collapsible panel showing active downloads with controls.
 class DownloadQueuePanel extends StatefulWidget {
@@ -317,9 +320,8 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
                             (task.state == DownloadTaskState.pending ||
                                 task.state == DownloadTaskState.cancelled)
                             ? AppColors.textTertiary(context)
-                            : _getStatusColor(
-                                task.state,
-                              ).withValues(alpha: 0.7),
+                            : _getStatusColor(task.state)
+                                  .withValues(alpha: 0.7),
                         fontSize: 10,
                       ),
                     ),
@@ -352,149 +354,5 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
         ],
       ),
     );
-  }
-
-  Widget _buildTaskControls(DownloadTask task) {
-    switch (task.state) {
-      case DownloadTaskState.downloading:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(
-                Icons.pause_rounded,
-                color: AppColors.iconSecondary(context),
-                size: 16,
-              ),
-              onPressed: () => widget.onPause(task.id),
-              constraints: const BoxConstraints(),
-              padding: EdgeInsets.zero,
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.close_rounded,
-                color: AppColors.iconSecondary(context),
-                size: 16,
-              ),
-              onPressed: () => widget.onCancel(task.id),
-              constraints: const BoxConstraints(),
-              padding: EdgeInsets.zero,
-            ),
-          ],
-        );
-      case DownloadTaskState.paused:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(
-                Icons.play_arrow_rounded,
-                color: AppColors.iconSecondary(context),
-                size: 16,
-              ),
-              onPressed: () => widget.onResume(task.id),
-              constraints: const BoxConstraints(),
-              padding: EdgeInsets.zero,
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.close_rounded,
-                color: AppColors.iconSecondary(context),
-                size: 16,
-              ),
-              onPressed: () => widget.onCancel(task.id),
-              constraints: const BoxConstraints(),
-              padding: EdgeInsets.zero,
-            ),
-          ],
-        );
-      case DownloadTaskState.pending:
-        return IconButton(
-          icon: Icon(
-            Icons.close_rounded,
-            color: AppColors.iconSecondary(context),
-            size: 16,
-          ),
-          onPressed: () => widget.onCancel(task.id),
-          constraints: const BoxConstraints(),
-          padding: EdgeInsets.zero,
-        );
-      case DownloadTaskState.failed:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(
-                Icons.replay_rounded,
-                color: AppColors.iconSecondary(context),
-                size: 16,
-              ),
-              onPressed: () => widget.onResume(task.id),
-              constraints: const BoxConstraints(),
-              padding: EdgeInsets.zero,
-              tooltip: 'Retry',
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.close_rounded,
-                color: AppColors.iconSecondary(context),
-                size: 16,
-              ),
-              onPressed: () => widget.onCancel(task.id),
-              constraints: const BoxConstraints(),
-              padding: EdgeInsets.zero,
-            ),
-          ],
-        );
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  IconData _getStatusIcon(DownloadTaskState state) {
-    switch (state) {
-      case DownloadTaskState.downloading:
-        return Icons.download_rounded;
-      case DownloadTaskState.paused:
-        return Icons.pause_circle_rounded;
-      case DownloadTaskState.pending:
-        return Icons.schedule_rounded;
-      case DownloadTaskState.completed:
-        return Icons.check_circle_rounded;
-      case DownloadTaskState.failed:
-        return Icons.error_rounded;
-      case DownloadTaskState.verifying:
-        return Icons.security_rounded;
-      case DownloadTaskState.cancelled:
-        return Icons.cancel_rounded;
-    }
-  }
-
-  Color _getStatusColor(DownloadTaskState state) {
-    switch (state) {
-      case DownloadTaskState.downloading:
-        return const Color(0xFF40C4FF);
-      case DownloadTaskState.paused:
-        return const Color(0xFFFFD54F);
-      case DownloadTaskState.pending:
-        return const Color(0xFF9CA3AF);
-      case DownloadTaskState.completed:
-        return const Color(0xFF69F0AE);
-      case DownloadTaskState.failed:
-        return const Color(0xFFFF5252);
-      case DownloadTaskState.verifying:
-        return const Color(0xFFB388FF);
-      case DownloadTaskState.cancelled:
-        return const Color(0xFF6B7280);
-    }
-  }
-
-  String _formatSpeed(double bytesPerSec) {
-    if (bytesPerSec < 1024) {
-      return '${bytesPerSec.toStringAsFixed(0)} B/s';
-    } else if (bytesPerSec < 1024 * 1024) {
-      return '${(bytesPerSec / 1024).toStringAsFixed(1)} KB/s';
-    }
-    return '${(bytesPerSec / (1024 * 1024)).toStringAsFixed(1)} MB/s';
   }
 }

@@ -84,7 +84,9 @@ class _OmlxSectionState extends State<OmlxSection> {
                             final models = await openRouter
                                 .fetchAvailableModels(
                                   apiUrl: 'http://localhost:8000/v1',
-                                  apiKey: storageService.remoteApiKey,
+                                  apiKey: storageService
+                                      .backendSettings
+                                      .remoteApiKey,
                                 );
                             if (mounted) {
                               setState(() => _isFetchingModels = false);
@@ -138,12 +140,19 @@ class _OmlxSectionState extends State<OmlxSection> {
                       children: [
                         Expanded(
                           child: Text(
-                            storageService.remoteModelName.isNotEmpty
-                                ? storageService.remoteModelName
+                            storageService
+                                    .backendSettings
+                                    .remoteModelName
+                                    .isNotEmpty
+                                ? storageService.backendSettings.remoteModelName
                                 : 'Tap to select a model...',
                             style: TextStyle(
                               fontSize: 13,
-                              color: storageService.remoteModelName.isNotEmpty
+                              color:
+                                  storageService
+                                      .backendSettings
+                                      .remoteModelName
+                                      .isNotEmpty
                                   ? null
                                   : AppColors.textTertiary(context),
                             ),
@@ -160,7 +169,7 @@ class _OmlxSectionState extends State<OmlxSection> {
                 )
               else
                 TextFormField(
-                  initialValue: storageService.remoteModelName,
+                  initialValue: storageService.backendSettings.remoteModelName,
                   decoration: InputDecoration(
                     hintText: 'e.g. mlx-community/Llama-3-8B-Instruct',
                     filled: true,
@@ -174,11 +183,14 @@ class _OmlxSectionState extends State<OmlxSection> {
                     ),
                     suffixIcon: const Icon(Icons.smart_toy, size: 18),
                   ),
-                  onChanged: (val) =>
-                      storageService.setRemoteModelName(val.trim()),
+                  onChanged: (val) => storageService.backendSettings
+                      .setRemoteModelName(val.trim()),
                 ),
               // Vision-capability pill for the selected model.
-              if (storageService.remoteModelName.isNotEmpty) ...[
+              if (storageService
+                  .backendSettings
+                  .remoteModelName
+                  .isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -187,8 +199,8 @@ class _OmlxSectionState extends State<OmlxSection> {
                   // OpenRouter) about an oMLX model and always said none.
                   child: RemoteVisionPill(
                     apiUrl: 'http://localhost:8000/v1',
-                    apiKey: storageService.remoteApiKey,
-                    modelName: storageService.remoteModelName,
+                    apiKey: storageService.backendSettings.remoteApiKey,
+                    modelName: storageService.backendSettings.remoteModelName,
                   ),
                 ),
               ],

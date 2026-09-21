@@ -38,7 +38,7 @@ Object _styleValue(ToolChoiceStyle style, {String? functionName}) {
     case ToolChoiceStyle.named:
       return toolChoiceValue(functionName: functionName);
     case ToolChoiceStyle.required:
-      return 'required';
+      return kToolChoiceRequired;
     case ToolChoiceStyle.auto:
       return 'auto';
   }
@@ -52,19 +52,34 @@ Map<String, dynamic> attachTools(
   String? toolChoice,
   bool stream = false,
   ToolChoiceStyle style = ToolChoiceStyle.named,
+  bool includeUsage = false,
 }) {
-  payload['tools'] = tools;
-  payload['tool_choice'] = _styleValue(style, functionName: toolChoice);
   payload['stream'] = stream;
+  if (tools.isEmpty) {
+    payload.remove('tools');
+    payload.remove('tool_choice');
+  } else {
+    payload['tools'] = tools;
+    payload['tool_choice'] = _styleValue(style, functionName: toolChoice);
+  }
+  // Last SSE event then carries `usage` (OpenAI / OpenRouter / llama.cpp).
+  // Local Kobold is not asked: some builds 400 on stream_options.
+  if (stream && includeUsage) {
+    payload['stream_options'] = {'include_usage': true};
+  }
   return payload;
 }
 
 final _toolChoiceBody = RegExp(r'tool[_ ]?choice', caseSensitive: false);
 
+/// A 400 whose body mentions `tool_choice` — step named → required → auto.
+bool isToolChoiceStyleRejection(int statusCode, String body) =>
+    statusCode == 400 && _toolChoiceBody.hasMatch(body);
+
 /// POST [basePayload] with tools attached, stepping named → required → auto
 /// on a 400 whose body mentions `tool_choice`. Returns the last
 /// [http.Response] — **never null**, even on an unrelated 400. The OpenRouter
-/// door must still see `_isMandatoryReasoningRejection`. 429/5xx are returned
+/// door must still see `shouldFailoverToMandatoryReasoning`. 429/5xx are returned
 /// as-is; the door throws. Never brands XML-only.
 Future<http.Response> attachToolsWithStyleRetry({
   required String identity,
@@ -76,11 +91,7 @@ Future<http.Response> attachToolsWithStyleRetry({
   bool stream = false,
 }) async {
   final styleProbe = probe ?? ToolChoiceStyleProbe.instance;
-  var style = styleProbe.styleFor(identity);
-  // Journal/Growth (`toolChoice` null) always send `'auto'` — do not step.
-  if (toolChoice == null || toolChoice.isEmpty) {
-    style = ToolChoiceStyle.auto;
-  }
+  var style = styleProbe.startingStyleFor(identity, toolChoice: toolChoice);
 
   Future<http.Response> once(ToolChoiceStyle s) {
     final payload = Map<String, dynamic>.from(basePayload);
@@ -96,18 +107,21 @@ Future<http.Response> attachToolsWithStyleRetry({
 
   var response = await once(style);
   if (toolChoice == null || toolChoice.isEmpty) return response;
-  if (response.statusCode != 400) return response;
-  if (!_toolChoiceBody.hasMatch(response.body)) return response;
+  if (!isToolChoiceStyleRejection(response.statusCode, response.body)) {
+    return response;
+  }
 
   if (style == ToolChoiceStyle.named) {
     styleProbe.remember(identity, ToolChoiceStyle.required);
     response = await once(ToolChoiceStyle.required);
-    if (response.statusCode != 400) return response;
-    if (!_toolChoiceBody.hasMatch(response.body)) return response;
+    if (!isToolChoiceStyleRejection(response.statusCode, response.body)) {
+      return response;
+    }
     style = ToolChoiceStyle.required;
   }
   if (style == ToolChoiceStyle.required) {
-    styleProbe.remember(identity, ToolChoiceStyle.auto);
+    // One-shot for this request. Do not persist auto — that disarms
+    // the next named overlay judge on this identity.
     return once(ToolChoiceStyle.auto);
   }
   return response;

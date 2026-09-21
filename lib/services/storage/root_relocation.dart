@@ -29,6 +29,7 @@ const kRootDirsToMove = [
   'KoboldManager',
   'chats',
   'worlds',
+  'tools',
   'models',
   'koboldcpp_bin',
   'groups',
@@ -144,5 +145,33 @@ Future<void> copyDirectoryRecursive(
     } else if (entity is Directory) {
       await copyDirectoryRecursive(entity, Directory(newPath));
     }
+  }
+}
+
+/// Custom chat backgrounds store an absolute path in prefs. After the root
+/// moves, repoint those that lived under [oldRoot].
+Future<void> repointCustomBackgroundsAfterRootMove({
+  required String oldRoot,
+  required String newRoot,
+  required List<Map<String, String>> backgrounds,
+  required Future<void> Function(String id) remove,
+  required Future<void> Function(String id, String name, String filePath) add,
+}) async {
+  final moved = backgrounds
+      .where((bg) => path.isWithin(oldRoot, bg['filePath'] ?? ''))
+      .isNotEmpty;
+  if (!moved) return;
+  for (final bg in backgrounds) {
+    await remove(bg['id'] ?? '');
+  }
+  for (final bg in backgrounds) {
+    final filePath = bg['filePath'] ?? '';
+    await add(
+      bg['id'] ?? '',
+      bg['name'] ?? '',
+      path.isWithin(oldRoot, filePath)
+          ? path.join(newRoot, path.relative(filePath, from: oldRoot))
+          : filePath,
+    );
   }
 }

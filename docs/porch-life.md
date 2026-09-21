@@ -1,6 +1,6 @@
 # Porch Life
 
-Every living-character switch lives in **Settings → Porch Life**. Not General.
+The living-character **defaults** live in **Settings → Porch Life**. Not General. Clock In is on the character card. AFK and RAG live in the chat sidebar.
 
 **Realism Engine is not the master key.** Journal, the story clock, Chaos, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults. An open chat can still override them (Character State → **tune**, or Group Settings → Realism).
 
@@ -17,7 +17,7 @@ The numbers, moods, and needs deep-dive is the [Realism Engine guide](realism-en
 | Row | Needs | What it does |
 |---|---|---|
 | **Realism Engine** | — | Mood, bond, trust, lingering feeling. Off by default on new singles; on by default on new groups. |
-| **Needs** | Engine, to turn a need into a mood | Hunger, energy, social, … |
+| **Needs** | Engine, to turn a need into a mood | Hunger, bladder, energy, social, fun, hygiene, comfort |
 | **Passage of Time** | A model (see clock below) | Story clock. Own switch. |
 | **Story Weather** | Passage of Time | Sky from the *story* date. °F is display-only under this. |
 | **Temperatures in °F** | Weather | Display. Characters still get weather in words. |

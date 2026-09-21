@@ -322,7 +322,7 @@ class _StoopHomeViewState extends State<StoopHomeView> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 190,
-        childAspectRatio: 0.64,
+        childAspectRatio: kStoopCardTileAspectRatio,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),

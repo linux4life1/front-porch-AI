@@ -22,7 +22,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/prompt_save_dialog.dart';
@@ -30,8 +30,9 @@ import 'package:front_porch_ai/ui/settings/dialogs/prompt_delete_dialog.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
 
-/// General tab extracted from settings_page (Stage 5).
-/// Lift of _buildGeneralTab with shared state passed via ctor, AppColors exclusive in the file, use of extracted widgets and dialogs.
+part 'general_tab.about.dart';
+
+/// Settings → General.
 class GeneralTab extends StatelessWidget {
   const GeneralTab({super.key, required this.systemPromptController});
 
@@ -59,57 +60,6 @@ class GeneralTab extends StatelessWidget {
     ('Fira Code', 'Fira Code'),
   ];
 
-  /// The Realism/feature toggles moved to the Porch Life tab (2026-08-07):
-  /// nesting them under the master realism switch meant turning the engine OFF
-  /// also HID the switches for features that work without it. This pointer is
-  /// all that remains here — see lib/ui/settings/tabs/porch_life_tab.dart.
-  Widget _buildPorchLifePointer(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.cottage_outlined,
-            size: 18,
-            color: AppColors.porchAmberOf(context),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'The Realism Engine, passage of time, weather, the Journal, '
-              'dreams, promises, ambitions and the welcome-back recap all live '
-              'in the Porch Life tab now — each one saying plainly what it '
-              'needs.',
-              style: TextStyle(
-                fontSize: 12.5,
-                color: AppColors.textSecondary(context),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// A built-in system-prompt preset. It MUST move the visible field as well as
-  /// storage: the controller belongs to the settings page, so a notify-driven
-  /// rebuild never touches its text — writing storage alone left the old prompt
-  /// on screen and the next keystroke saved that stale text back over the
-  /// preset. (The saved-prompt dropdown above does the same two-step.)
-  Widget _presetChip(String label, String prompt, StorageService storage) {
-    return ActionChip(
-      label: Text(label),
-      onPressed: () {
-        storage.setSystemPrompt(prompt);
-        systemPromptController.text = prompt;
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
@@ -125,12 +75,12 @@ class GeneralTab extends StatelessWidget {
             children: [
               Text('Dark Mode', style: theme.textTheme.titleMedium),
               Switch(
-                value: Provider.of<StorageService>(context).isDark,
+                value: Provider.of<StorageService>(context).uiSettings.isDark,
                 onChanged: (v) {
                   Provider.of<StorageService>(
                     context,
                     listen: false,
-                  ).setIsDark(v);
+                  ).uiSettings.setIsDark(v);
                 },
               ),
             ],
@@ -197,11 +147,11 @@ class GeneralTab extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           SliderSetting(
-            label: 'Font Size Scale',
-            value: storageService.textScale,
+            label: 'Reading Size',
+            value: storageService.uiSettings.textScale,
             min: 0.7,
             max: 2.0,
-            onChanged: (val) => storageService.setTextScale(val),
+            onChanged: (val) => storageService.uiSettings.setTextScale(val),
             divisions: 13,
           ),
           const SizedBox(height: 16),
@@ -211,56 +161,60 @@ class GeneralTab extends StatelessWidget {
           const SizedBox(height: 8),
           ColorRow(
             label: 'User Bubble',
-            color: storageService.globalUserBubbleColor,
+            color: storageService.uiSettings.globalUserBubbleColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalUserBubbleColor,
-              (color) => storageService.setGlobalUserBubbleColor(color),
+              storageService.uiSettings.globalUserBubbleColor,
+              (color) =>
+                  storageService.uiSettings.setGlobalUserBubbleColor(color),
             ),
           ),
           ColorRow(
             label: 'User Text',
-            color: storageService.globalUserTextColor,
+            color: storageService.uiSettings.globalUserTextColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalUserTextColor,
-              (color) => storageService.setGlobalUserTextColor(color),
+              storageService.uiSettings.globalUserTextColor,
+              (color) =>
+                  storageService.uiSettings.setGlobalUserTextColor(color),
             ),
           ),
           ColorRow(
             label: 'AI Bubble',
-            color: storageService.globalAiBubbleColor,
+            color: storageService.uiSettings.globalAiBubbleColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalAiBubbleColor,
-              (color) => storageService.setGlobalAiBubbleColor(color),
+              storageService.uiSettings.globalAiBubbleColor,
+              (color) =>
+                  storageService.uiSettings.setGlobalAiBubbleColor(color),
             ),
           ),
           ColorRow(
             label: 'AI Text',
-            color: storageService.globalAiTextColor,
+            color: storageService.uiSettings.globalAiTextColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalAiTextColor,
-              (color) => storageService.setGlobalAiTextColor(color),
+              storageService.uiSettings.globalAiTextColor,
+              (color) => storageService.uiSettings.setGlobalAiTextColor(color),
             ),
           ),
           ColorRow(
             label: 'Dialogue (Quoted)',
-            color: storageService.globalDialogueColor,
+            color: storageService.uiSettings.globalDialogueColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalDialogueColor,
-              (color) => storageService.setGlobalDialogueColor(color),
+              storageService.uiSettings.globalDialogueColor,
+              (color) =>
+                  storageService.uiSettings.setGlobalDialogueColor(color),
             ),
           ),
           ColorRow(
             label: 'Actions (*text*)',
-            color: storageService.globalActionColor,
+            color: storageService.uiSettings.globalActionColor,
             onPressed: () => showColorPicker(
               context,
-              storageService.globalActionColor,
-              (color) => storageService.setGlobalActionColor(color),
+              storageService.uiSettings.globalActionColor,
+              (color) => storageService.uiSettings.setGlobalActionColor(color),
             ),
           ),
           const SizedBox(height: 12),
@@ -284,9 +238,11 @@ class GeneralTab extends StatelessWidget {
                   // (older build / manual pref edit) would otherwise assert.
                   value:
                       _chatFonts.any(
-                        (f) => f.$2 == storageService.globalChatFontFamily,
+                        (f) =>
+                            f.$2 ==
+                            storageService.uiSettings.globalChatFontFamily,
                       )
-                      ? storageService.globalChatFontFamily
+                      ? storageService.uiSettings.globalChatFontFamily
                       : '',
                   isExpanded: true,
                   dropdownColor: AppColors.cardOf(context),
@@ -309,8 +265,8 @@ class GeneralTab extends StatelessWidget {
                       ),
                     );
                   }).toList(),
-                  onChanged: (value) =>
-                      storageService.setGlobalChatFontFamily(value ?? ''),
+                  onChanged: (value) => storageService.uiSettings
+                      .setGlobalChatFontFamily(value ?? ''),
                 ),
               ),
             ],
@@ -338,8 +294,9 @@ class GeneralTab extends StatelessWidget {
                 color: AppColors.textSecondary(context),
               ),
             ),
-            value: storageService.adultThemesEnabled,
-            onChanged: (v) => storageService.setAdultThemesEnabled(v),
+            value: storageService.realismSettings.adultThemesEnabled,
+            onChanged: (v) =>
+                storageService.realismSettings.setAdultThemesEnabled(v),
           ),
           const SizedBox(height: 8),
           _buildPorchLifePointer(context),
@@ -368,7 +325,7 @@ class GeneralTab extends StatelessWidget {
                       vertical: 10,
                     ),
                   ),
-                  items: storageService.savedPrompts
+                  items: storageService.presetSettings.savedPrompts
                       .map(
                         (p) => DropdownMenuItem<String>(
                           value: p['name'],
@@ -381,8 +338,11 @@ class GeneralTab extends StatelessWidget {
                       .toList(),
                   onChanged: (name) {
                     if (name != null) {
-                      storageService.loadSavedPrompt(name);
-                      systemPromptController.text = storageService.systemPrompt;
+                      storageService.presetSettings.loadSavedPrompt(name, (p) {
+                        storageService.generationSettings.setSystemPrompt(p);
+                      });
+                      systemPromptController.text =
+                          storageService.generationSettings.systemPrompt;
                     }
                   },
                 ),
@@ -438,73 +398,12 @@ class GeneralTab extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            onChanged: (val) => storageService.setSystemPrompt(val),
+            onChanged: (val) =>
+                storageService.generationSettings.setSystemPrompt(val),
           ),
 
           const SectionHeader('About & License'),
           _buildAboutSection(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAboutSection(BuildContext context) {
-    const repoUrl = 'https://github.com/linux4life1/front-porch-ai';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.borderOf(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Front Porch AI v$appVersion',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary(context),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Free, open-source software © 2026 Front Porch AI, licensed under '
-            'the GNU Affero General Public License v3.0. You are free to use, '
-            'study, modify, and redistribute it under the AGPL. The complete '
-            'source code is available below; if you received this app without '
-            'that source, or as part of a closed-source product, that is a '
-            'license violation.',
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              ActionChip(
-                avatar: const Icon(Icons.code, size: 16),
-                label: const Text('Source code'),
-                onPressed: () => launchUrl(
-                  Uri.parse(repoUrl),
-                  mode: LaunchMode.externalApplication,
-                ),
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.gavel, size: 16),
-                label: const Text('Report a license violation'),
-                onPressed: () => launchUrl(
-                  Uri.parse('$repoUrl/issues'),
-                  mode: LaunchMode.externalApplication,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );

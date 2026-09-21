@@ -55,6 +55,7 @@ extension ChatServiceGenerationRag on ChatService {
         'dropped, base=${_history.basePosition}, triggering retrieval ──',
       );
       try {
+        await _awaitHistoryHydrated();
         // Cued query: emotion + fixation + top hot journal line + last
         // words (photo markers ride lastWords via promptText). Recomposed
         // here so Continue's plan-phase pop is visible. Not last-3 alone.
@@ -142,7 +143,15 @@ extension ChatServiceGenerationRag on ChatService {
         // isOperational honest — gating on the flag *before* retrieve
         // skipped a cold engine and stamped a fake empty search.
         if (skipCueLess) {
-          // Journal gist can still inject. No last-1 search, no receipt.
+          t.ragReceipt = buildRagReceipt(
+            found: 0,
+            journalDeduped: 0,
+            budgetTrimmed: 0,
+            injected: const [],
+            days: const {},
+            currentSessionId: _currentSessionId ?? '',
+            status: kRagReceiptSkippedNoCues,
+          );
         } else if (_memoryService!.lastRetrieveError != null) {
           t.ragReceipt = buildRagReceipt(
             found: 0,
@@ -189,7 +198,12 @@ extension ChatServiceGenerationRag on ChatService {
           final days = <RetrievedMemory, int?>{
             for (final m in memories)
               m: m.sessionId == sessionForStamps
-                  ? storyDayAt(_messages, m.positionStart, m.positionEnd)
+                  ? storyDayAt(
+                      _messages,
+                      m.positionStart,
+                      m.positionEnd,
+                      basePosition: _history.basePosition,
+                    )
                   : null,
           };
           String lineFor(RetrievedMemory m) => formatRagLine(

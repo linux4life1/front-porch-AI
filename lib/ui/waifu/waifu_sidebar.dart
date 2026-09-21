@@ -1,0 +1,185 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+
+import 'package:front_porch_ai/services/waifu/waifu.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_context_bar.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_opencode_status.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_mode_bar.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_todo_list.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+/// Waifu Coder right pane: portrait, Main Settings (model / temp / UI),
+/// then harness info in the slot chat uses for realism. No journal, no
+/// needs, no bond.
+class WaifuSidebar extends StatelessWidget {
+  const WaifuSidebar({
+    super.key,
+    required this.session,
+    required this.portrait,
+    required this.onMode,
+    this.onPathMode,
+    this.onPreserveThinking,
+    this.harness,
+    this.onThemeChanged,
+    this.onCompact,
+  });
+
+  final WaifuSession session;
+  final File? portrait;
+  final ValueChanged<WaifuMode> onMode;
+  final ValueChanged<WaifuPathMode>? onPathMode;
+  final ValueChanged<bool>? onPreserveThinking;
+  final WaifuHarness? harness;
+  WaifuTodos? get todos => harness?.todos;
+  final VoidCallback? onThemeChanged;
+  final VoidCallback? onCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    final amber = AppColors.porchAmberOf(context);
+    return Container(
+      key: const Key('waifu-sidebar'),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceOf(context),
+        border: Border(
+          left: BorderSide(
+            color: AppColors.borderOf(context).withValues(alpha: 0.35),
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          CharacterPortrait(file: portrait, size: 160, shrinkIfEmpty: false),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Text(
+              session.coworker.name,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary(context),
+              ),
+            ),
+          ),
+          ChatMainSettingsButton(
+            key: const Key('waifu-main-settings'),
+            onSelected: (value) => _openSettings(context, value),
+            items: const [
+              PopupMenuItem(
+                value: 'chat',
+                child: SettingsMenuItem(
+                  icon: Icons.chat_bubble_outline,
+                  label: 'Chat Settings',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'model',
+                child: SettingsMenuItem(
+                  icon: Icons.memory_outlined,
+                  label: 'Model Settings',
+                ),
+              ),
+              PopupMenuItem(
+                value: 'ui',
+                child: SettingsMenuItem(
+                  icon: Icons.tune_outlined,
+                  label: 'UI Settings',
+                ),
+              ),
+            ],
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  WaifuContextBar(session: session, onCompact: onCompact),
+                  const WaifuOpenCodeStatus(),
+                  PorchAccordion(
+                    id: 'waifu_harness',
+                    emoji: '🛠️',
+                    title: 'Harness',
+                    subtitle: session.mode.name,
+                    accent: amber,
+                    initiallyExpanded: true,
+                    child: WaifuModeBar(
+                      mode: session.mode,
+                      pathMode: session.pathMode,
+                      enabled: !session.running,
+                      pathEnabled: true,
+                      onChanged: onMode,
+                      onPathMode: onPathMode,
+                      preserveThinking: session.preserveThinking,
+                      onPreserveThinking: onPreserveThinking,
+                    ),
+                  ),
+                  if (todos != null && todos!.items.isNotEmpty) ...[
+                    const SizedBox(height: SidebarTokens.sectionGap),
+                    PorchAccordion(
+                      id: 'waifu_todos',
+                      emoji: '✅',
+                      title: 'Tasks',
+                      accent: amber,
+                      initiallyExpanded: true,
+                      child: WaifuTodoList(todos: todos!),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openSettings(BuildContext context, String value) {
+    switch (value) {
+      case 'chat':
+        showDialog<void>(
+          context: context,
+          builder: (_) =>
+              ChatSettingsDialog(settings: session.genSettings, onSave: (_) {}),
+        );
+      case 'model':
+        showDialog<void>(
+          context: context,
+          builder: (_) => const ModelSettingsDialog(),
+        );
+      case 'ui':
+        showDialog<void>(
+          context: context,
+          builder: (_) => UiSettingsDialog(
+            character: session.coworker,
+            themeOverrides: session.themeOverrides,
+            onThemeOverrides: (next) {
+              session.themeOverrides = next;
+              onThemeChanged?.call();
+            },
+          ),
+        );
+    }
+  }
+}

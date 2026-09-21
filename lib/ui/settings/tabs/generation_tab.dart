@@ -24,12 +24,8 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Generation-settings tab extracted from settings_page (Stage 5, remaining
-/// tabs). Pure lift of _buildGenerationTab: reasoning, sampling parameters,
-/// output limits, smooth-output display buffer, stop sequences, and (local
-/// backends only) banned phrases. Reads storage/LLM state via Provider; the
-/// banned-phrases controller is the only shared state, passed via ctor.
-/// AppColors exclusive, warm-porch accents.
+/// Settings → Generation: reasoning, sampling, output limits, stop
+/// sequences, and (local backends only) banned phrases.
 class GenerationTab extends StatefulWidget {
   const GenerationTab({super.key, required this.bannedPhrasesController});
 
@@ -56,11 +52,11 @@ class _GenerationTabState extends State<GenerationTab> {
           const SectionHeader('Thinking'),
           const SizedBox(height: 8),
           ThinkingSettingsBlock(
-            enabled: storage.reasoningEnabled,
-            onEnabledChanged: storage.setReasoningEnabled,
-            effort: storage.reasoningEffort,
-            onEffortChanged: storage.setReasoningEffort,
-            modelId: storage.remoteModelName,
+            enabled: storage.backendSettings.reasoningEnabled,
+            onEnabledChanged: storage.backendSettings.setReasoningEnabled,
+            effort: storage.backendSettings.reasoningEffort,
+            onEffortChanged: storage.backendSettings.setReasoningEffort,
+            modelId: storage.backendSettings.remoteModelName,
           ),
           const SizedBox(height: 24),
 
@@ -72,7 +68,7 @@ class _GenerationTabState extends State<GenerationTab> {
             value: storage.generationSettings.temperature,
             min: 0.0,
             max: 2.0,
-            onChanged: (val) => storage.setTemperature(val),
+            onChanged: (val) => storage.generationSettings.setTemperature(val),
             divisions: 20,
             showInput: true,
             decimalPlaces: 1,
@@ -82,27 +78,27 @@ class _GenerationTabState extends State<GenerationTab> {
             value: storage.generationSettings.minP,
             min: 0.0,
             max: 1.0,
-            onChanged: (val) => storage.setMinP(val),
+            onChanged: (val) => storage.generationSettings.setMinP(val),
             divisions: 100,
             showInput: true,
             decimalPlaces: 2,
           ),
           SliderSetting(
             label: 'Top-P',
-            value: storage.topP,
+            value: storage.generationSettings.topP,
             min: 0.1,
             max: 1.0,
-            onChanged: (val) => storage.setTopP(val),
+            onChanged: (val) => storage.generationSettings.setTopP(val),
             divisions: 90,
             showInput: true,
             decimalPlaces: 2,
           ),
           SliderSetting(
             label: 'Top-K',
-            value: storage.topK.toDouble(),
+            value: storage.generationSettings.topK.toDouble(),
             min: 0,
             max: 200,
-            onChanged: (val) => storage.setTopK(val.toInt()),
+            onChanged: (val) => storage.generationSettings.setTopK(val.toInt()),
             divisions: 200,
             showInput: true,
             isInteger: true,
@@ -112,17 +108,19 @@ class _GenerationTabState extends State<GenerationTab> {
             value: storage.generationSettings.repeatPenalty,
             min: 1.0,
             max: 3.0,
-            onChanged: (val) => storage.setRepeatPenalty(val),
+            onChanged: (val) =>
+                storage.generationSettings.setRepeatPenalty(val),
             divisions: 200,
             showInput: true,
             decimalPlaces: 2,
           ),
           SliderSetting(
             label: 'Repeat Penalty Tokens',
-            value: storage.repeatPenaltyTokens.toDouble(),
+            value: storage.generationSettings.repeatPenaltyTokens.toDouble(),
             min: 0,
             max: 2048,
-            onChanged: (val) => storage.setRepeatPenaltyTokens(val.toInt()),
+            onChanged: (val) =>
+                storage.generationSettings.setRepeatPenaltyTokens(val.toInt()),
             divisions: 256,
             showInput: true,
             isInteger: true,
@@ -133,30 +131,33 @@ class _GenerationTabState extends State<GenerationTab> {
           if (llmProvider.activeBackend == BackendType.kobold) ...[
             SliderSetting(
               label: 'XTC Threshold',
-              value: storage.xtcThreshold,
+              value: storage.generationSettings.xtcThreshold,
               min: 0.0,
               max: 0.5,
-              onChanged: (val) => storage.setXtcThreshold(val),
+              onChanged: (val) =>
+                  storage.generationSettings.setXtcThreshold(val),
               divisions: 50,
               showInput: true,
               decimalPlaces: 2,
             ),
             SliderSetting(
               label: 'XTC Probability',
-              value: storage.xtcProbability,
+              value: storage.generationSettings.xtcProbability,
               min: 0.0,
               max: 1.0,
-              onChanged: (val) => storage.setXtcProbability(val),
+              onChanged: (val) =>
+                  storage.generationSettings.setXtcProbability(val),
               divisions: 20,
               showInput: true,
               decimalPlaces: 2,
             ),
             SliderSetting(
               label: 'DRY Strength',
-              value: storage.dryMultiplier,
+              value: storage.generationSettings.dryMultiplier,
               min: 0.0,
               max: 3.0,
-              onChanged: (val) => storage.setDryMultiplier(val),
+              onChanged: (val) =>
+                  storage.generationSettings.setDryMultiplier(val),
               divisions: 60,
               showInput: true,
               decimalPlaces: 2,
@@ -171,19 +172,21 @@ class _GenerationTabState extends State<GenerationTab> {
               ),
               const Spacer(),
               Switch(
-                value: storage.dynamicTempEnabled,
-                onChanged: (val) => storage.setDynamicTempEnabled(val),
+                value: storage.generationSettings.dynamicTempEnabled,
+                onChanged: (val) =>
+                    storage.generationSettings.setDynamicTempEnabled(val),
                 activeTrackColor: accent,
               ),
             ],
           ),
-          if (storage.dynamicTempEnabled)
+          if (storage.generationSettings.dynamicTempEnabled)
             SliderSetting(
               label: 'Dynatemp Range',
-              value: storage.dynamicTempRange,
+              value: storage.generationSettings.dynamicTempRange,
               min: 0.0,
               max: 2.0,
-              onChanged: (val) => storage.setDynamicTempRange(val),
+              onChanged: (val) =>
+                  storage.generationSettings.setDynamicTempRange(val),
               divisions: 20,
               showInput: true,
               decimalPlaces: 1,
@@ -195,19 +198,21 @@ class _GenerationTabState extends State<GenerationTab> {
           const SizedBox(height: 8),
           SliderSetting(
             label: 'Max Output Tokens',
-            value: storage.maxLength.toDouble(),
+            value: storage.generationSettings.maxLength.toDouble(),
             min: 16,
             max: 16384,
-            onChanged: (val) => storage.setMaxLength(val.toInt()),
+            onChanged: (val) =>
+                storage.generationSettings.setMaxLength(val.toInt()),
             showInput: true,
             isInteger: true,
           ),
           SliderSetting(
             label: 'Min Output Tokens',
-            value: storage.minLength.toDouble(),
+            value: storage.generationSettings.minLength.toDouble(),
             min: 0,
             max: 512,
-            onChanged: (val) => storage.setMinLength(val.toInt()),
+            onChanged: (val) =>
+                storage.generationSettings.setMinLength(val.toInt()),
             divisions: 512,
             showInput: true,
             isInteger: true,
@@ -215,13 +220,14 @@ class _GenerationTabState extends State<GenerationTab> {
           // Context size — wider range for remote backends.
           SliderSetting(
             label: 'Context Size',
-            value: storage.contextSize.toDouble().clamp(
+            value: storage.backendSettings.contextSize.toDouble().clamp(
               512,
               isRemote ? 500000.0 : 131072.0,
             ),
             min: 512,
             max: isRemote ? 500000.0 : 131072.0,
-            onChanged: (val) => storage.setContextSize(val.toInt()),
+            onChanged: (val) =>
+                storage.backendSettings.setContextSize(val.toInt()),
             divisions: isRemote ? null : ((131072 - 512) ~/ 512),
             showInput: true,
             isInteger: true,
@@ -248,8 +254,9 @@ class _GenerationTabState extends State<GenerationTab> {
               ),
               const Spacer(),
               Switch(
-                value: !storage.preferTextEvals,
-                onChanged: (val) => storage.setPreferTextEvals(!val),
+                value: !storage.realismSettings.preferTextEvals,
+                onChanged: (val) =>
+                    storage.realismSettings.setPreferTextEvals(!val),
                 activeTrackColor: accent,
               ),
             ],
@@ -279,27 +286,29 @@ class _GenerationTabState extends State<GenerationTab> {
               ),
               const Spacer(),
               Switch(
-                value: storage.displayBufferEnabled,
-                onChanged: (val) => storage.setDisplayBufferEnabled(val),
+                value: storage.uiSettings.displayBufferEnabled,
+                onChanged: (val) =>
+                    storage.uiSettings.setDisplayBufferEnabled(val),
                 activeTrackColor: accent,
               ),
             ],
           ),
-          if (storage.displayBufferEnabled) ...[
+          if (storage.uiSettings.displayBufferEnabled) ...[
             SliderSetting(
               label: 'Target Display Speed (t/s)',
-              value: storage.targetDisplayTps,
+              value: storage.uiSettings.targetDisplayTps,
               min: 5.0,
               max: 60.0,
-              onChanged: (val) => storage.setTargetDisplayTps(val),
+              onChanged: (val) => storage.uiSettings.setTargetDisplayTps(val),
               divisions: 55,
             ),
             SliderSetting(
               label: 'Buffer Duration (seconds)',
-              value: storage.bufferDurationSeconds,
+              value: storage.uiSettings.bufferDurationSeconds,
               min: 1.0,
               max: 10.0,
-              onChanged: (val) => storage.setBufferDurationSeconds(val),
+              onChanged: (val) =>
+                  storage.uiSettings.setBufferDurationSeconds(val),
               divisions: 9,
             ),
           ],
@@ -309,8 +318,9 @@ class _GenerationTabState extends State<GenerationTab> {
           const SectionHeader('Stop Sequences'),
           const SizedBox(height: 8),
           StopSequenceList(
-            sequences: storage.stopSequences,
-            onSequencesChanged: (newList) => storage.setStopSequences(newList),
+            sequences: storage.generationSettings.stopSequences,
+            onSequencesChanged: (newList) =>
+                storage.generationSettings.setStopSequences(newList),
           ),
           const SizedBox(height: 24),
 
@@ -319,8 +329,9 @@ class _GenerationTabState extends State<GenerationTab> {
             const SectionHeader('Banned Phrases'),
             BannedPhrasesEditor(
               controller: widget.bannedPhrasesController,
-              onChanged: (phrases) => storage.setBannedPhrases(phrases),
-              phraseCount: storage.bannedPhrases.length,
+              onChanged: (phrases) =>
+                  storage.realismSettings.setBannedPhrases(phrases),
+              phraseCount: storage.realismSettings.bannedPhrases.length,
             ),
           ],
 

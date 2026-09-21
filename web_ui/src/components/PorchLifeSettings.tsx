@@ -12,18 +12,17 @@
 // engine or was just filed under it.
 //
 // Self-contained and auto-saving, same pattern as PersonaManager: every
-// switch applies the instant it's flipped — same feel as the desktop
-// Switch — so there is no separate "Save settings" step for this card.
+// switch applies the instant it is flipped. The API-key field is the one
+// deliberate exception: secure-store writes happen only when Save is pressed,
+// not once per keystroke.
 // Rides the same /api/settings `realism` object the app's other
 // story-feature flags (ambitions, promises) already live in; a POST here
 // only ever sends the one key that changed, so it can't clobber anything
 // else queued in the page's big Save button.
 //
-// Scope note (mirrors the desktop doc comment): this card holds the GLOBAL
-// defaults; every one of them can still be overruled by a single chat from
-// its sidebar (ChatTools), which is what the closing note now says. Chaos
-// Mode gained its global default on 2026-08-08 and moved into this card with
-// it, so the note no longer has to apologise for a switch living elsewhere.
+// Scope note (mirrors the desktop doc comment): this card holds global Porch
+// Life settings. The closing note names the few defaults a chat can overrule.
+// Web Search is intentionally global-only and has no ChatTools/sidebar toggle.
 
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -36,6 +35,7 @@ interface PorchLifeState {
   passageOfTimeDefault: boolean;
   standaloneClockEnabled: boolean;
   objectivesEnabled: boolean;
+  objectiveStaleThreshold: number;
   weatherEnabled: boolean;
   weatherFahrenheit: boolean;
   journalEnabled: boolean;
@@ -45,6 +45,10 @@ interface PorchLifeState {
   pocketTransfersEnabled: boolean;
   intimateAgencyEnabled: boolean;
   chaosModeDefault: boolean;
+  webSearchDefault: boolean;
+  hasSearchApiKey?: boolean;
+  wikiBaseUrl?: string;
+  wikiSavedUrls?: string[];
   sceneGuestDetectionEnabled: boolean;
   adultThemesEnabled: boolean;
   dreamsEnabled: boolean;
@@ -67,6 +71,7 @@ const DEFAULTS: PorchLifeState = {
   passageOfTimeDefault: true,
   standaloneClockEnabled: false,
   objectivesEnabled: true,
+  objectiveStaleThreshold: 2,
   weatherEnabled: true,
   weatherFahrenheit: false,
   journalEnabled: true,
@@ -76,6 +81,10 @@ const DEFAULTS: PorchLifeState = {
   pocketTransfersEnabled: false,
   intimateAgencyEnabled: false,
   chaosModeDefault: false,
+  webSearchDefault: false,
+  hasSearchApiKey: false,
+  wikiBaseUrl: '',
+  wikiSavedUrls: [],
   sceneGuestDetectionEnabled: true,
   adultThemesEnabled: false,
   dreamsEnabled: true,
@@ -189,6 +198,174 @@ function AwayThreshold({ value, onChange }: { value: number; onChange: (v: numbe
         ))}
       </select>
     </label>
+  );
+}
+
+function wikiHostLabel(url: string): string {
+  try {
+    const u = new URL(url.includes('://') ? url : `https://${url}`);
+    const path = u.pathname.replace(/\/$/, '');
+    if (!path) return u.host || url;
+    return `${u.host}${path}`;
+  } catch {
+    return url;
+  }
+}
+
+function WikiUrlList({
+  saved,
+  onSaved,
+}: {
+  saved: string[];
+  onSaved: (urls: string[]) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const reload = async () => {
+    const r = await api.get<{ realism?: { wikiSavedUrls?: string[] } }>('/api/settings');
+    onSaved(r.realism?.wikiSavedUrls ?? []);
+  };
+  const add = async () => {
+    const next = draft.trim();
+    if (busy || !next) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.post('/api/settings', { realism: { wikiSavedUrlAdd: next } });
+      const r = await api.get<{ realism?: { wikiSavedUrls?: string[] } }>('/api/settings');
+      const urls = r.realism?.wikiSavedUrls ?? [];
+      onSaved(urls);
+      const host = wikiHostLabel(next);
+      if (!urls.some((u) => wikiHostLabel(u) === host)) {
+        setError('That is not a MediaWiki / Fandom URL.');
+      } else {
+        setDraft('');
+      }
+    } catch {
+      setError('That is not a MediaWiki / Fandom URL.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async (url: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api.post('/api/settings', { realism: { wikiSavedUrlRemove: url } });
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="pl-search-key" data-testid="wiki-url-field">
+      <label>
+        Wiki URL
+        <input
+          type="url"
+          autoComplete="off"
+          placeholder="https://bleach.fandom.com/"
+          value={draft}
+          disabled={busy}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && void add()}
+        />
+      </label>
+      <p className="muted small">Looks up this wiki only (MediaWiki / Fandom). Not Google.</p>
+      <div className="tool-row">
+        <button className="primary" disabled={busy || !draft.trim()} onClick={() => void add()}>
+          {busy ? 'Saving…' : 'Save wiki'}
+        </button>
+      </div>
+      {error && <p className="error">{error}</p>}
+      <details className="pl-wiki-acc" open data-testid="wiki-url-list">
+        <summary>Saved wikis{saved.length ? ` (${saved.length})` : ''}</summary>
+        {saved.length === 0 ? (
+          <p className="muted small">None saved yet.</p>
+        ) : (
+          <ul className="pl-wiki-list">
+            {saved.map((url) => (
+              <li key={url} className="pl-wiki-row">
+                <span>{wikiHostLabel(url)}</span>
+                <button type="button" disabled={busy} onClick={() => void remove(url)}>
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
+    </div>
+  );
+}
+
+function SearchKeyRow({
+  alreadySet,
+  onStoredChange,
+}: {
+  alreadySet: boolean;
+  onStoredChange: (stored: boolean) => void;
+}) {
+  const [value, setValue] = useState('');
+  const [saved, setSaved] = useState(alreadySet);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => setSaved(alreadySet), [alreadySet]);
+
+  const save = async (clear = false) => {
+    const next = clear ? '' : value.trim();
+    if (busy || (!clear && !next)) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      await api.post('/api/settings', { realism: { searchApiKey: next } });
+      setValue('');
+      setSaved(!clear);
+      onStoredChange(!clear);
+      setMessage(
+        clear
+          ? 'Key removed — searches use Wikipedia.'
+          : 'Tavily key saved securely.',
+      );
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save that key');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="pl-search-key">
+      <label>
+        {saved ? 'Tavily API key (saved securely)' : 'Tavily API key'}
+        <input
+          type="password"
+          autoComplete="off"
+          placeholder={saved ? 'Paste a replacement key' : 'Paste key'}
+          value={value}
+          disabled={busy}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </label>
+      <div className="tool-row">
+        <button
+          className="primary"
+          disabled={busy || !value.trim()}
+          onClick={() => void save()}
+        >
+          {busy ? 'Saving…' : 'Save key'}
+        </button>
+        {saved && (
+          <button disabled={busy} onClick={() => void save(true)}>
+            Remove key
+          </button>
+        )}
+      </div>
+      {message && <span className="muted small">{message}</span>}
+      {error && <span className="error">{error}</span>}
+    </div>
   );
 }
 
@@ -394,7 +571,27 @@ export function PorchLifeSettings() {
           blurb="Short-lived quests a character works toward — set your own, or let them decide what they want. Needs nothing else to run, but it does check in with the AI to see whether a task got done: every turn while the Realism Engine is on, and every few messages while it is off. Switching this off is the way to stop that cost — your quests are kept either way."
           value={objectivesOn}
           onChange={(v) => set('objectivesEnabled', v)}
-        />
+        >
+          <label className="pl-substitch">
+            <span className="pl-sub-body">
+              <span className="pl-sub-label">Retire a leftover quest after</span>
+              <span className="pl-sub-blurb">
+                How many times the AI must say a quest is no longer relevant before it is
+                retired as overtaken — not completed. A leftover step is skipped immediately.
+              </span>
+            </span>
+            <select
+              aria-label="Retire a leftover quest after"
+              value={st.objectiveStaleThreshold}
+              onChange={(e) => set('objectiveStaleThreshold', Number(e.target.value))}
+            >
+              <option value={0}>never (off)</option>
+              <option value={1}>1 check</option>
+              <option value={2}>2 checks</option>
+              <option value={4}>4 checks</option>
+            </select>
+          </label>
+        </FeatureRow>
         <FeatureRow
           icon="🚩"
           label="Ambitions"
@@ -453,6 +650,39 @@ export function PorchLifeSettings() {
             onChange={(v) => set('absenceThresholdHours', v)}
           />
         </FeatureRow>
+      </FeatureGroup>
+
+      <FeatureGroup
+        title="Web Search and extra tools"
+        subtitle="looking things up, and recipe cards from your library"
+      >
+        <FeatureRow
+          icon="🔎"
+          label="Web Search"
+          need="alone"
+          blurb="When they hit a word or event they don't know, they can look it up and react as themselves — not reciting a wiki. Only the first reply to a message you send can search; Continue, Regenerate, guests, group follow-ups, and Dynamic Responses stay offline. Works with no key: search falls back to Wikipedia (encyclopedia lookups). Add a Tavily API key below for full web coverage. Off by default. Turning this on or off applies to every chat, including ones already open."
+          value={st.webSearchDefault}
+          onChange={(v) => set('webSearchDefault', v)}
+        />
+        <SearchKeyRow
+          alreadySet={!!st.hasSearchApiKey}
+          onStoredChange={(stored) =>
+            setSt((current) =>
+              current ? { ...current, hasSearchApiKey: stored } : current,
+            )
+          }
+        />
+        <WikiUrlList
+          saved={st.wikiSavedUrls ?? []}
+          onSaved={(urls) =>
+            setSt((current) => (current ? { ...current, wikiSavedUrls: urls } : current))
+          }
+        />
+        <p className="muted small" data-testid="user-tools-folder-note">
+          Extra tools are JSON recipe cards in the desktop library <code>tools</code> folder
+          (same place as chats and worlds). Phone and browser use built-in web search —
+          there is no file picker here.
+        </p>
       </FeatureGroup>
 
       {error && <p className="error pl-error">{error}</p>}

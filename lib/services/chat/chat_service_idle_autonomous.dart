@@ -39,6 +39,11 @@ extension ChatServiceIdleAutonomous on ChatService {
     _resetIdleTimer();
   }
 
+  /// Drives the production idle callback without waiting on a wall-clock
+  /// timer. Tests still traverse every readiness guard and generation phase.
+  @visibleForTesting
+  void debugFireIdleTimerForTest() => _onIdleTimerFired();
+
   void _resetIdleTimer() {
     _idleTimer?.cancel();
     _idleTimer = null;
@@ -108,19 +113,26 @@ extension ChatServiceIdleAutonomous on ChatService {
       if (sid.isNotEmpty) _loadGroupRealismIntoScalars(sid);
     }
 
-    // Capture pre-AFK needs vector so the needs delta chip has a baseline
-    if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
+    // Capture pre-AFK needs vector so the needs delta chip has a baseline.
+    // Soft group speakers skip Needs — do not park a leftover vector.
+    if (_needsSimEnabled &&
+        _needsSimulation.vector.isNotEmpty &&
+        (afkSpeaker == null || !_speakerIsSoft(afkSpeaker))) {
       _pendingRealismMetadata ??= {};
       _pendingRealismMetadata!['needs_pre_turn_vector'] = Map<String, int>.from(
         _needsSimulation.vector,
       );
     }
 
-    _pendingIdleCue = _buildAutonomousCue();
+    _pendingIdleCue = _buildAutonomousCue(afkSpeaker);
     _autoResponseInProgress = true;
     _consecutiveAutoResponses++;
 
-    _generateResponse(GenerationMode.normal, forceSpeaker: afkSpeaker)
+    _generateResponse(
+          GenerationMode.normal,
+          forceSpeaker: afkSpeaker,
+          autonomous: true,
+        )
         .then((_) {
           _pendingIdleCue = null;
           _resetIdleTimer();
@@ -133,13 +145,13 @@ extension ChatServiceIdleAutonomous on ChatService {
         });
   }
 
-  String _buildAutonomousCue() {
-    final charName = _activeCharacter?.name ?? '{{char}}';
+  String _buildAutonomousCue(CharacterCard? speaker) {
+    final who = AfkCueSpeaker.resolve(picked: speaker, host: _activeCharacter);
+    final charName = who.name;
     // Ambitions give off-screen time direction (Living Time §6): a character
     // with a long-term end sometimes spends AFK moments working toward it
     // instead of only meals-and-naps. Optional flavor, never a demand.
-    final ambitions =
-        _activeCharacter?.frontPorchExtensions?.ambitions ?? const [];
+    final ambitions = who.ambitions;
     final ambitionStr = ambitions.isEmpty
         ? ''
         : '\n\nIf it fits naturally, part of this time may go toward '
@@ -191,7 +203,7 @@ extension ChatServiceIdleAutonomous on ChatService {
     // last place a meter could leak into prose ("my hunger at 41…").
     final lowNeeds = _needsSimulation.getLowNeedsForInjection(
       _needsSimulation.vector,
-      enjoysLowHygieneOverride: enjoysLowHygiene,
+      enjoysLowHygieneOverride: who.enjoysLowHygiene,
     );
     String needsStr = '';
     if (lowNeeds.isNotEmpty) {

@@ -133,7 +133,7 @@ class EngineStrip extends StatelessWidget {
             ? null
             : (b) {
                 if (b == null) return;
-                c.storage.setImageGenBackend(b.key);
+                c.storage.imageGenSettings.setImageGenBackend(b.key);
                 c.refreshEngine();
               },
       ),
@@ -172,7 +172,11 @@ class EngineStrip extends StatelessWidget {
     );
   }
 
-  Widget _statusDot(BuildContext context, {required bool ok, required String text}) {
+  Widget _statusDot(
+    BuildContext context, {
+    required bool ok,
+    required String text,
+  }) {
     // logReady = the app-wide green "connected" status hue (AppColors const).
     final color = ok ? AppColors.logReady : AppColors.formMasterAccent;
     return Row(
@@ -206,8 +210,13 @@ class EngineStrip extends StatelessWidget {
     // Offline fallback: surface the persisted selection even before a fetch.
     final options = c.modelOptions.isNotEmpty
         ? c.modelOptions
-        : (c.storage.imageGenModel.isNotEmpty
-              ? [(value: c.storage.imageGenModel, label: c.storage.imageGenModel)]
+        : (c.storage.imageGenSettings.imageGenModel.isNotEmpty
+              ? [
+                  (
+                    value: c.storage.imageGenSettings.imageGenModel,
+                    label: c.storage.imageGenSettings.imageGenModel,
+                  ),
+                ]
               : const <({String value, String label})>[]);
     if (options.isEmpty) {
       return Padding(
@@ -235,7 +244,10 @@ class EngineStrip extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         isDense: true,
       ),
       options: options,

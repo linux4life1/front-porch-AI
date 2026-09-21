@@ -26,7 +26,6 @@ import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/sherpa_runtime.dart';
 
 /// In-process Kokoro TTS via sherpa-onnx (phase 4 of
 /// docs/design/sidecar-retirement.md). Replaces the kokoro_tts Python
@@ -193,9 +192,8 @@ class SherpaKokoroEngine {
 
   static Future<SendPort> _spawn(String root) async {
     final dir = modelDir(root);
-    final libDir = sherpaNativeLibDir();
     final ready = ReceivePort();
-    await Isolate.spawn(_workerMain, [ready.sendPort, dir, libDir]);
+    await Isolate.spawn(_workerMain, [ready.sendPort, dir]);
     final first = await ready.first;
     ready.close();
     if (first is String) throw StateError(first); // load error
@@ -241,10 +239,9 @@ class SherpaKokoroEngine {
   static void _workerMain(List<Object?> args) {
     final replyTo = args[0] as SendPort;
     final dir = args[1] as String;
-    final libDir = args[2] as String?;
     sherpa.OfflineTts tts;
     try {
-      sherpa.initBindings(libDir);
+      initSherpaBindings();
       tts = sherpa.OfflineTts(
         sherpa.OfflineTtsConfig(
           model: sherpa.OfflineTtsModelConfig(

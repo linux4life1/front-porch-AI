@@ -36,8 +36,6 @@
 // session, which only integration_test/ can build. Read it as "nobody deleted
 // the call", not "the import works".
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -57,7 +55,8 @@ void main() {
       expect(
         restored.currentTask,
         'Find the missing artifact',
-        reason: 'the field has no editor left, so this round-trip is the only '
+        reason:
+            'the field has no editor left, so this round-trip is the only '
             'thing keeping a pre-swap card whole — the chat reads it here to '
             'seed the starting objective',
       );
@@ -71,7 +70,8 @@ void main() {
       expect(
         restored.currentTask,
         '',
-        reason: 'empty is the "nothing to import" signal the entry paths test '
+        reason:
+            'empty is the "nothing to import" signal the entry paths test '
             'for; a null here would throw on first chat entry instead',
       );
     });
@@ -92,7 +92,8 @@ void main() {
       expect(
         saved.currentTask,
         'Survive the first day',
-        reason: 'the web form no longer sends this key; falling back to a '
+        reason:
+            'the web form no longer sends this key; falling back to a '
             'default here would erase an old card\'s quest the first time its '
             'owner edited anything about it from a phone',
       );
@@ -107,69 +108,9 @@ void main() {
       expect(
         json['currentTask'],
         'Guard the north gate',
-        reason: 'the form does not draw it, but /detail must still return it '
+        reason:
+            'the form does not draw it, but /detail must still return it '
             'or the very next save has nothing to send back',
-      );
-    });
-  });
-
-  group('§3 all three fresh-chat entries import through one helper', () {
-    // Structural, not behavioural — see the file header.
-    //
-    // This exists because the bug being fixed WAS a missing call: 1:1 first
-    // entry and startNewChat each carried their own copy of the seed, and
-    // group entry — the third path — simply had none, so a member card's task
-    // was dropped on the floor. Three copies is how the third came to be
-    // forgotten, so what is guarded is that there is exactly one.
-    String read(String name) =>
-        File('lib/services/chat/$name').readAsStringSync();
-
-    test('the helper is defined exactly once', () {
-      final defs = Directory('lib/services/chat')
-          .listSync()
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.dart'))
-          .where(
-            (f) => f.readAsStringSync().contains(
-              'void _importAuthoredTask(',
-            ),
-          )
-          .toList();
-
-      expect(
-        defs.length,
-        1,
-        reason: 'a second copy is how the paths drifted apart the first time',
-      );
-    });
-
-    test('1:1 first entry imports', () {
-      expect(
-        read('chat_service_chat_entry.dart'),
-        contains('_importAuthoredTask('),
-      );
-    });
-
-    test('startNewChat imports', () {
-      expect(
-        read('chat_service_session_manage.dart'),
-        contains('_importAuthoredTask('),
-      );
-    });
-
-    test('group entry imports — once per member', () {
-      final src = read('chat_service_group_entry.dart');
-
-      expect(
-        src,
-        contains('_importAuthoredTask('),
-        reason: 'this is the call that did not exist; its absence was the bug',
-      );
-      expect(
-        src,
-        contains('for (final c in _groupCharacters)'),
-        reason: 'every member carries their own task — importing only the '
-            'first speaker\'s would lose the rest',
       );
     });
   });

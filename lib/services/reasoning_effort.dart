@@ -119,7 +119,10 @@ Set<String>? reasoningEffortHintForModel(String model) {
   if (id.contains('deepseek') && id.contains(':thinking')) {
     return kHighMaxEffortHint;
   }
-  if (id.contains('glm-5.2') || id.contains('glm5.2')) {
+  if (id.contains('glm-5.2') ||
+      id.contains('glm5.2') ||
+      id.contains('glm-5.3') ||
+      id.contains('glm5.3')) {
     return kHighMaxEffortHint;
   }
   if (id.contains('kimi-k2.6') || id.contains('kimi-k2-6')) {
@@ -183,6 +186,53 @@ bool reasoningEffortIsToggleOnly(String model) {
 /// True when this model rejects turning thinking off.
 bool reasoningEffortIsMandatory(String model) =>
     model.isNotEmpty && kMandatoryReasoningModels.contains(model);
+
+/// Evals, Continue, and "Request thinking = off" all send enabled:false.
+bool askedToDisableThinking({
+  required bool reasoningEnabled,
+  int? reasoningMaxTokens,
+}) => !reasoningEnabled || reasoningMaxTokens == 0;
+
+/// A 400/422 while we asked to switch thinking off is the Kimi salvage
+/// signal for **every** model. Provider wording is not a contract — GLM 5.3
+/// says "always thinks and does not support disabling reasoning"; Kimi says
+/// "mandatory-reasoning model". Phrase-matching those is the mole.
+///
+/// Effort-listing 400s ("Supported values: none, high, max") stay on the
+/// effort-learn path. 401/404/429/5xx are not a thinking-off verdict.
+bool shouldFailoverToMandatoryReasoning({
+  required int statusCode,
+  required bool askedToDisableThinking,
+  String errorMessage = '',
+}) {
+  if (!askedToDisableThinking) return false;
+  if (statusCode != 400 && statusCode != 422) return false;
+  if (errorMessage.isNotEmpty &&
+      supportedReasoningEffortsFromError(errorMessage) != null) {
+    return false;
+  }
+  return true;
+}
+
+/// HTTP 200 silent starve: hidden think ate `max_tokens`, no content ever.
+///
+/// Strict conjunction — length AND zero content AND thinking was requested
+/// off. Not already-mandatory is a LEARN gate at the call site, not this
+/// shape. Connection-close without `finish_reason:length`, `stop` + empty,
+/// length + any partial content, and transport errors are all false.
+/// Whitespace-only deltas (`\n`, spaces) are not content — see
+/// [contentDeltaCountsAsEmitted].
+bool isSilentMandatoryReasoningStarve({
+  required bool finishReasonLength,
+  required bool emittedContent,
+  required bool askedToDisableThinking,
+}) => finishReasonLength && !emittedContent && askedToDisableThinking;
+
+/// True when a content delta counts as "content ever emitted" for the
+/// silent-mandatory-reasoning detector. A lone newline or spaces is
+/// hidden-think exhaust, not an answer.
+bool contentDeltaCountsAsEmitted(String? content) =>
+    content != null && content.trim().isNotEmpty;
 
 /// Models that 400 `reasoning.enabled=false` even before we have learned
 /// them. Kimi's thinking variants did this live on 2026-08-08 and again
@@ -327,6 +377,23 @@ int? thinkingBudgetClampForThinkOff(String model, {required bool thinkOn}) {
   return 0;
 }
 
+/// Local think leash. `0` is unlimited or force-close depending on the host
+/// — never send 0 when thinking is on. Chat with no numeric cap omits the
+/// field (same as before). Waifu sends [reasoningMaxTokens] (512).
+int? thinkingBudgetForRequest({
+  required String model,
+  required bool thinkOn,
+  int? reasoningMaxTokens,
+}) {
+  if (thinkOn) {
+    if (reasoningMaxTokens != null && reasoningMaxTokens > 0) {
+      return reasoningMaxTokens;
+    }
+    return null;
+  }
+  return thinkingBudgetClampForThinkOff(model, thinkOn: false);
+}
+
 /// Wired by [attachReasoningEffortMenuStore] so this file does not import disk.
 void Function(String model, {required bool probed})?
 persistReasoningEffortMenuHook;
@@ -349,6 +416,32 @@ void rememberReasoningProfileFromCatalog(String model, Object? reasoning) {
     _bumpReasoningEffortCatalog();
     persistReasoningEffortMenuHook?.call(model, probed: false);
   }
+}
+
+/// Remember a provider effort listing from a 400/422 and retry.
+///
+/// Returns true when the menu changed (caller must retry). Same listing
+/// already learned → false so a second rejection cannot loop. generateStream
+/// and generateWithTools share this so Waifu's first `low` on an unhinted
+/// host still lands with `reasoning.max_tokens` intact.
+bool learnReasoningEffortFromError({
+  required String model,
+  required String errorMessage,
+  String body = '',
+}) {
+  if (model.isEmpty) return false;
+  final supported =
+      supportedReasoningEffortsFromError(errorMessage) ??
+      supportedReasoningEffortsFromError(body);
+  if (supported == null || supported.isEmpty) return false;
+  final prev = kLearnedReasoningEffortsByModel[model];
+  final same =
+      prev != null &&
+      prev.length == supported.length &&
+      prev.containsAll(supported);
+  if (same) return false;
+  rememberReasoningEffortsForModel(model, supported);
+  return true;
 }
 
 /// Test helper: drop process-lifetime catalog state.

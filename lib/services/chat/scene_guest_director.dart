@@ -91,7 +91,7 @@ class SceneGuestDirector {
   /// the guest instead of the host, so a question asked TO a guest is answered
   /// by the guest in their own bubble — not by the host answering in the
   /// guest's voice AND the guest chiming in with a duplicate (the "responds
-  /// twice per message" report). Deliberately stricter than [_mentionsGuest]:
+  /// twice per message" report). Deliberately stricter than [mentionsName]:
   /// a mere mention anywhere in the line must not steal the host's turn.
   CharacterCard? directlyAddressedGuest(String userText) {
     if (!_isEnabled()) return null;
@@ -112,12 +112,34 @@ class SceneGuestDirector {
     if (at != null) return at;
     // The host outranks every guest: "Host, …" (or a shared first name)
     // stays a normal host turn.
-    if (_isAddressed(_getHostName(), text)) return null;
+    if (isVocativeAddress(_getHostName(), text)) return null;
     for (final guest in _getSceneGuestCards()) {
-      if (_isAddressed(guest.name, text)) return guest;
+      if (isVocativeAddress(guest.name, text)) return guest;
     }
     return null;
   }
+
+  /// Group-roster twin of [directlyAddressedGuest]: `@Name` first, then a
+  /// leading / bare / trailing vocative. No host-wins rule — the caller
+  /// decides whether a hit is Away, At work, or With you.
+  static CharacterCard? directlyAddressedCard(
+    List<CharacterCard> cards,
+    String userText,
+  ) {
+    final text = _normalizeAddressText(userText);
+    if (text.isEmpty) return null;
+    final at = atMentionedCard(cards, text);
+    if (at != null) return at;
+    for (final card in cards) {
+      if (isVocativeAddress(card.name, text)) return card;
+    }
+    return null;
+  }
+
+  static String _normalizeAddressText(String userText) => userText
+      .trim()
+      .replaceAll(RegExp(r'''^["'*_~“”]+|["'*_~“”]+$'''), '')
+      .trim();
 
   /// The first card whose name (or first-name nickname) appears as an explicit
   /// "@Name" mention in [text] — earliest @ in TEXT order wins when several
@@ -180,7 +202,10 @@ class SceneGuestDirector {
   /// dash only counts as a vocative separator with whitespace next to it, so
   /// a hyphenated OTHER name ("Mara-Lynn came by", "I met Anna-Mara.") never
   /// steals the turn for guest "Mara".
-  bool _isAddressed(String name, String text) {
+  /// Public vocative / `@` address test. Scene Guests still route on
+  /// vocative. Group Away force-speak is `@` only — vocative there
+  /// only raises quiet-pulse priority. Mid-sentence is false.
+  static bool isVocativeAddress(String name, String text) {
     for (final n in _nameVariants(name)) {
       final e = RegExp.escape(n);
       final leading = RegExp(
@@ -195,6 +220,30 @@ class SceneGuestDirector {
       if (leading.hasMatch(text) ||
           bare.hasMatch(text) ||
           trailing.hasMatch(text)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Word-boundary name mention that is NOT a vocative / `@` address.
+  /// Raises Away quiet-pulse priority; does not force a spoken return.
+  static bool isMidSentenceMention(String name, String text) {
+    final t = _normalizeAddressText(text);
+    if (t.isEmpty) return false;
+    if (isVocativeAddress(name, t)) return false;
+    if (_atMentionHit(name, t) != null) return false;
+    return mentionsName(name, t);
+  }
+
+  /// Word-boundary, case-insensitive check for the full name or nickname.
+  static bool mentionsName(String name, String haystack) {
+    if (haystack.isEmpty) return false;
+    for (final n in _nameVariants(name)) {
+      if (RegExp(
+        r'\b' + RegExp.escape(n) + r'\b',
+        caseSensitive: false,
+      ).hasMatch(haystack)) {
         return true;
       }
     }
@@ -280,8 +329,7 @@ class SceneGuestDirector {
     required String tail,
   }) async {
     // ── Fast heuristic: the guest was addressed/referenced by name ──────────
-    if (_mentionsGuest(guest.name, userText) ||
-        _mentionsGuest(guest.name, tail)) {
+    if (mentionsName(guest.name, userText) || mentionsName(guest.name, tail)) {
       return true;
     }
 
@@ -291,21 +339,6 @@ class SceneGuestDirector {
     final text = _stripThinkBlocks(raw);
     if (text.trim().isEmpty) return false;
     return _extractJsonBool(text, 'speak') ?? false;
-  }
-
-  /// Word-boundary, case-insensitive check for the character's full name or the
-  /// first token of it (used as a nickname, e.g. "Dr. Mara Vance" → "Mara").
-  bool _mentionsGuest(String name, String haystack) {
-    if (haystack.isEmpty) return false;
-    for (final n in _nameVariants(name)) {
-      if (RegExp(
-        r'\b' + RegExp.escape(n) + r'\b',
-        caseSensitive: false,
-      ).hasMatch(haystack)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /// The matchable variants of a character name: the full trimmed name plus
@@ -331,12 +364,52 @@ class SceneGuestDirector {
   /// First-name tokens that are really titles/common words, so they must not be
   /// used as a chime-in nickname.
   static const Set<String> _titleOrStopword = {
-    'mr', 'mrs', 'ms', 'miss', 'dr', 'doctor', 'professor', 'prof', 'sir',
-    'lady', 'lord', 'madam', 'madame', 'master', 'mistress', 'captain', 'capt',
-    'major', 'colonel', 'general', 'sergeant', 'sgt', 'officer', 'detective',
-    'king', 'queen', 'prince', 'princess', 'duke', 'duchess', 'count',
-    'countess', 'baron', 'father', 'mother', 'brother', 'sister', 'uncle',
-    'aunt', 'old', 'young', 'the', 'big', 'little', 'saint', 'st',
+    'mr',
+    'mrs',
+    'ms',
+    'miss',
+    'dr',
+    'doctor',
+    'professor',
+    'prof',
+    'sir',
+    'lady',
+    'lord',
+    'madam',
+    'madame',
+    'master',
+    'mistress',
+    'captain',
+    'capt',
+    'major',
+    'colonel',
+    'general',
+    'sergeant',
+    'sgt',
+    'officer',
+    'detective',
+    'king',
+    'queen',
+    'prince',
+    'princess',
+    'duke',
+    'duchess',
+    'count',
+    'countess',
+    'baron',
+    'father',
+    'mother',
+    'brother',
+    'sister',
+    'uncle',
+    'aunt',
+    'old',
+    'young',
+    'the',
+    'big',
+    'little',
+    'saint',
+    'st',
   };
 
   /// Tiny relevance prompt — one identity line + the last exchange, strict

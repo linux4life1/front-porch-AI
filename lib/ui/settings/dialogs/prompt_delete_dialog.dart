@@ -21,8 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Shows dialog to delete saved prompt (extracted, Stage 5).
-/// AppColors exclusive (fixed hards).
+/// Delete a saved prompt.
 void showDeletePromptDialog(
   BuildContext context,
   StorageService storageService,
@@ -37,14 +36,14 @@ void showDeletePromptDialog(
       ),
       content: SizedBox(
         width: 300,
-        child: storageService.savedPrompts.isEmpty
+        child: storageService.presetSettings.savedPrompts.isEmpty
             ? Text(
                 'No saved prompts.',
                 style: TextStyle(color: AppColors.textSecondary(context)),
               )
             : Column(
                 mainAxisSize: MainAxisSize.min,
-                children: storageService.savedPrompts
+                children: storageService.presetSettings.savedPrompts
                     .map(
                       (p) => ListTile(
                         title: Text(
@@ -60,7 +59,9 @@ void showDeletePromptDialog(
                             size: 20,
                           ),
                           onPressed: () {
-                            storageService.deleteSavedPrompt(p['name']!);
+                            storageService.presetSettings.deleteSavedPrompt(
+                              p['name']!,
+                            );
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

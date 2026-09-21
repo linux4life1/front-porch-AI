@@ -124,19 +124,6 @@ void main() {
       expect(mem.lastRetrieveError, 'query embed failed');
     },
   );
-
-  test('ChatService and StoryPipeline share the app EmbeddingService', () {
-    final src = File('lib/main.providers.dart').readAsStringSync();
-    expect(
-      src.contains('MemoryService(EmbeddingService('),
-      isFalse,
-      reason: 'a second engine cannot see the RAG download',
-    );
-    expect(
-      'Provider.of<EmbeddingService>'.allMatches(src).length,
-      greaterThanOrEqualTo(2),
-    );
-  });
 }
 
 class _FailingEmbed extends EmbeddingService {

@@ -56,36 +56,20 @@ Uint8List _wavBytes(int samples) {
 }
 
 class _TtsStorage extends FakeStorageService {
-  _TtsStorage(this.baseUrl);
+  _TtsStorage(this.baseUrl) {
+    ttsSettings.setTtsEnabled(true);
+    ttsSettings.setTtsEngine('openai');
+    ttsSettings.setTtsVoiceModel('alloy');
+    ttsSettings.setTtsReplaceCurlyQuotes(true);
+    ttsSettings.setTtsConcurrency(2);
+    ttsSettings.setTtsAudioLookahead(4);
+    ttsSettings.setOpenaiTtsApiKey('test-key');
+    ttsSettings.setOpenaiTtsModel('tts-1');
+    ttsSettings.setOpenaiTtsBaseUrl(baseUrl);
+    sttSettings.setCallBufferSentences(2);
+  }
 
   final String baseUrl;
-
-  @override
-  bool get ttsEnabled => true;
-  @override
-  String get ttsEngine => 'openai';
-  @override
-  String get ttsVoiceModel => 'alloy';
-  @override
-  double get ttsSpeechRate => 1.0;
-  @override
-  bool get ttsNarrateQuotedOnly => false;
-  @override
-  bool get ttsIgnoreAsterisks => false;
-  @override
-  bool get ttsReplaceCurlyQuotes => true;
-  @override
-  int get ttsConcurrency => 2;
-  @override
-  int get ttsAudioLookahead => 4;
-  @override
-  int get callBufferSentences => 2;
-  @override
-  String get openaiTtsApiKey => 'test-key';
-  @override
-  String get openaiTtsModel => 'tts-1';
-  @override
-  String get openaiTtsBaseUrl => baseUrl;
 }
 
 void _mockAudioChannels() {
@@ -134,42 +118,48 @@ void main() {
     return tts;
   }
 
-  test('a one-sentence line returns a file that still exists on disk', () async {
-    final tts = makeTts();
+  test(
+    'a one-sentence line returns a file that still exists on disk',
+    () async {
+      final tts = makeTts();
 
-    final file = await tts
-        .generateAudioFile('She smiles at you.')
-        .timeout(const Duration(seconds: 20));
+      final file = await tts
+          .generateAudioFile('She smiles at you.')
+          .timeout(const Duration(seconds: 20));
 
-    expect(requestCount, 1, reason: 'exactly one part was synthesised');
-    expect(file, isNotNull);
-    expect(
-      file!.existsSync(),
-      isTrue,
-      reason: 'the single generated part IS the result — cleanup must not '
-          'delete the file that is being returned, or every consumer '
-          '(voice_facade, audiobook export, story narration) drops it',
-    );
-    expect(file.lengthSync(), greaterThan(44));
-    file.deleteSync();
-  });
+      expect(requestCount, 1, reason: 'exactly one part was synthesised');
+      expect(file, isNotNull);
+      expect(
+        file!.existsSync(),
+        isTrue,
+        reason:
+            'the single generated part IS the result — cleanup must not '
+            'delete the file that is being returned, or every consumer '
+            '(voice_facade, audiobook export, story narration) drops it',
+      );
+      expect(file.lengthSync(), greaterThan(44));
+      file.deleteSync();
+    },
+  );
 
-  test('multi-part text still stitches into one file and cleans up its parts',
-      () async {
-    final tts = makeTts();
+  test(
+    'multi-part text still stitches into one file and cleans up its parts',
+    () async {
+      final tts = makeTts();
 
-    final file = await tts
-        .generateAudioFile(
-          'The porch light flickers once as the storm rolls in. '
-          'She pulls the blanket tighter around her shoulders and waits.',
-        )
-        .timeout(const Duration(seconds: 20));
+      final file = await tts
+          .generateAudioFile(
+            'The porch light flickers once as the storm rolls in. '
+            'She pulls the blanket tighter around her shoulders and waits.',
+          )
+          .timeout(const Duration(seconds: 20));
 
-    expect(requestCount, 2, reason: 'two sentences, two synthesis calls');
-    expect(file, isNotNull);
-    expect(file!.existsSync(), isTrue);
-    // Stitched output carries both payloads, so it is longer than one part.
-    expect(file.lengthSync(), greaterThan(44 + 160));
-    file.deleteSync();
-  });
+      expect(requestCount, 2, reason: 'two sentences, two synthesis calls');
+      expect(file, isNotNull);
+      expect(file!.existsSync(), isTrue);
+      // Stitched output carries both payloads, so it is longer than one part.
+      expect(file.lengthSync(), greaterThan(44 + 160));
+      file.deleteSync();
+    },
+  );
 }

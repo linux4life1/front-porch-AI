@@ -25,6 +25,9 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+part 'world_repository_attach.dart';
+part 'world_repository_purge.dart';
+
 class WorldRepository extends ChangeNotifier {
   final StorageService _storageService;
   AppDatabase _db;
@@ -33,7 +36,6 @@ class WorldRepository extends ChangeNotifier {
   CharacterRepository? _characterRepository;
   GroupChatRepository? _groupRepository;
   static const _uuid = Uuid();
-  static const _purgePrefKey = 'purged_character_linked_worlds_v1';
 
   List<model.World> get worlds => List.unmodifiable(_worlds);
   bool get isLoading => _isLoading;
@@ -187,164 +189,8 @@ class WorldRepository extends ChangeNotifier {
     }
   }
 
-  Future<void> _maybePurgeCharacterLinkedWorlds() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(_purgePrefKey) == true) return;
-      final result = await purgeCharacterLinkedWorlds();
-      // Only mark the one-shot done when every clone was exported+deleted —
-      // a skipped world (failed recovery export) must be retried next launch,
-      // not stranded forever behind the pref.
-      if (result.skipped == 0) {
-        await prefs.setBool(_purgePrefKey, true);
-      } else {
-        debugPrint(
-          '[Worlds] purge left ${result.skipped} world(s) in place '
-          '(recovery export failed) — retrying next launch',
-        );
-      }
-      final n = result.deleted;
-      if (n > 0) {
-        final recovery = p.join(
-          _storageService.worldsDir.path,
-          'recovered_character_lore_clones',
-        );
-        debugPrint(
-          '[Worlds] Purged $n character-linked lore clones '
-          '(character card lore untouched; any edits that lived only on the '
-          'world were saved as .fpworld under $recovery)',
-        );
-      }
-    } catch (e) {
-      debugPrint('[Worlds] character-linked purge skipped: $e');
-    }
-  }
-
-  /// Delete every legacy character-world clone and strip references from
-  /// characters / groups / chat_worlds. Character card lorebooks are untouched.
-  ///
-  /// **Safety:** each doomed world is exported as `.fpworld` into
-  /// `worlds/recovered_character_lore_clones/` *before* the hard delete, so
-  /// users who edited "Aerin's Lorebook" in the Worlds tab (edits that never
-  /// flowed back to the card) can re-import those packages. A world whose
-  /// export FAILS is not deleted — it stays in place and the caller retries
-  /// on a later launch. Returns how many worlds were deleted and how many
-  /// were skipped that way.
-  Future<({int deleted, int skipped})> purgeCharacterLinkedWorlds() async {
-    final doomed = _worlds.where(isCharacterLinkedWorld).toList();
-    if (doomed.isEmpty) return (deleted: 0, skipped: 0);
-
-    // Lossless edge case: export before hard delete (Claude review 2026-07-28).
-    final recoveryDir = Directory(
-      p.join(_storageService.worldsDir.path, 'recovered_character_lore_clones'),
-    );
-    try {
-      await recoveryDir.create(recursive: true);
-    } catch (e) {
-      debugPrint('[Worlds] could not create recovery dir: $e');
-    }
-
-    final exportedWorlds = <model.World>[];
-    var skipped = 0;
-    for (final w in doomed) {
-      // The export may be the user's only copy of world-only lore edits, so
-      // a failed export means this world is NOT touched this launch.
-      try {
-        final safe = _safeFileStem(w.name);
-        final idShort = w.id.length >= 8 ? w.id.substring(0, 8) : w.id;
-        final out = p.join(recoveryDir.path, '${safe}_$idShort.fpworld');
-        await exportFpWorld(w, out);
-      } catch (e) {
-        debugPrint(
-          '[Worlds] recovery export failed for "${w.name}" (${w.id}) — '
-          'keeping the world: $e',
-        );
-        skipped++;
-        continue;
-      }
-      exportedWorlds.add(w);
-    }
-    if (exportedWorlds.isEmpty) {
-      debugPrint(
-        '[Worlds] purge: 0/${doomed.length} clones exportable '
-        '($skipped kept) → ${recoveryDir.path}',
-      );
-      return (deleted: 0, skipped: skipped);
-    }
-    final ids = {for (final w in exportedWorlds) w.id};
-    final names = {for (final w in exportedWorlds) w.name};
-
-    // Strip refs BEFORE deleting rows (Grok review): if the strip throws,
-    // nothing has been deleted yet, so the next launch re-dooms the same
-    // worlds and retries the whole purge. Strip-after-delete had a pref-lock
-    // hole — a partial run deleted worlds, the next launch saw no doomed
-    // rows, reported clean, and locked the one-shot pref with dangling
-    // character/group refs never stripped.
-    await _db.stripWorldRefsFromCharactersAndGroups(ids: ids, names: names);
-
-    // Keep in-memory character/group lists in sync without a full app restart.
-    final charRepo = _characterRepository;
-    if (charRepo != null) {
-      for (final c in charRepo.characters) {
-        final before = c.worldNames.length;
-        c.worldNames = [
-          for (final ref in c.worldNames)
-            if (!ids.contains(ref) && !names.contains(ref)) ref,
-        ];
-        if (c.worldNames.length != before) {
-          try {
-            await charRepo.updateCharacter(c);
-          } catch (e) {
-            debugPrint('[Worlds] strip worldNames on ${c.name}: $e');
-          }
-        }
-      }
-    }
-    final groupRepo = _groupRepository;
-    if (groupRepo != null) {
-      for (final g in List.of(groupRepo.groups)) {
-        final before = g.worldIds.length;
-        g.worldIds = [
-          for (final ref in g.worldIds)
-            if (!ids.contains(ref) && !names.contains(ref)) ref,
-        ];
-        if (g.worldIds.length != before) {
-          try {
-            await groupRepo.save(g);
-          } catch (e) {
-            debugPrint('[Worlds] strip worldIds on group ${g.name}: $e');
-          }
-        }
-      }
-    }
-
-    // Delete only now that refs are gone. A failed delete leaves an
-    // unreferenced clone row that the next launch re-dooms and retries.
-    var deleted = 0;
-    for (final w in exportedWorlds) {
-      await _db.deleteChatWorldLinksForWorld(w.id);
-      await _db.deleteWorldById(w.id);
-      deleted++;
-    }
-    _worlds.removeWhere((w) => ids.contains(w.id));
-    debugPrint(
-      '[Worlds] purged $deleted/${doomed.length} clones '
-      '($skipped kept on failed export) → ${recoveryDir.path}',
-    );
-
-    notifyListeners();
-    return (deleted: deleted, skipped: skipped);
-  }
-
-  /// Filesystem-safe stem for recovery exports (no path separators).
-  static String _safeFileStem(String name) {
-    final cleaned = name
-        .trim()
-        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
-        .replaceAll(RegExp(r'\s+'), ' ');
-    if (cleaned.isEmpty) return 'world';
-    return cleaned.length > 80 ? cleaned.substring(0, 80) : cleaned;
-  }
+  Future<({int deleted, int skipped})> purgeCharacterLinkedWorlds() =>
+      _purgeCharacterLinkedWorldsImpl();
 
   /// Rename display name only — attachments use UUID and need no cascade.
   Future<void> renameWorld(model.World world, String newName) async {
@@ -479,30 +325,34 @@ class WorldRepository extends ChangeNotifier {
     );
   }
 
-  // ── Chat attachments ────────────────────────────────────────────────
+  void notify() => notifyListeners();
 
   Future<List<String>> getChatWorldIds(String chatId) =>
-      _db.getWorldIdsForChat(chatId);
+      _getChatWorldIdsImpl(chatId);
 
-  Future<List<model.World>> getChatWorlds(String chatId) async {
-    final ids = await getChatWorldIds(chatId);
-    return [
-      for (final id in ids)
-        if (worldById(id) != null) worldById(id)!,
-    ];
-  }
+  Future<ChatPlaceSlots> getChatWorldAttachments(String chatId) =>
+      _getChatWorldAttachmentsImpl(chatId);
 
-  Future<void> setChatWorlds(String chatId, List<String> worldIds) async {
-    await _db.setChatWorlds(chatId, worldIds);
-    // Whatever the user chose — including an empty list — is now this chat's
-    // decision, and nothing may back-fill over it later.
-    await _db.markChatWorldsInitialized(chatId);
-    notifyListeners();
-  }
+  Future<List<model.World>> getChatWorlds(String chatId) =>
+      _getChatWorldsImpl(chatId);
+
+  /// Canonical writer: Setting (0..1) + Lore (0..N). Empty both = decided empty.
+  Future<void> setChatWorldAttachments(
+    String chatId, {
+    String? primaryId,
+    List<String> loreIds = const [],
+  }) => _setChatWorldAttachmentsImpl(
+    chatId,
+    primaryId: primaryId,
+    loreIds: loreIds,
+  );
+
+  Future<void> setChatWorlds(String chatId, List<String> worldIds) =>
+      _setChatWorldsImpl(chatId, worldIds);
 
   /// Record that a chat's world attachments are settled without changing them.
   Future<void> markChatWorldsDecided(String chatId) =>
-      _db.markChatWorldsInitialized(chatId);
+      _markChatWorldsDecidedImpl(chatId);
 
   /// Give a chat the worlds its character carries, but ONLY if the chat has
   /// never had that decision made. Returns true when it seeded.
@@ -512,39 +362,19 @@ class WorldRepository extends ChangeNotifier {
   Future<bool> backfillChatWorldsFromCharacter({
     required String chatId,
     required List<String> characterWorldRefs,
-  }) async {
-    if (characterWorldRefs.isEmpty) return false;
-    if (await _db.chatWorldsInitialized(chatId)) return false;
-    if ((await getChatWorldIds(chatId)).isNotEmpty) {
-      await _db.markChatWorldsInitialized(chatId);
-      return false;
-    }
-    await ready;
-    final ids = resolveWorldRefsToIds(
-      refs: characterWorldRefs,
-      nameToId: {for (final w in _worlds) w.name: w.id},
-      validIds: {for (final w in _worlds) w.id},
-      unresolved: <String>[],
-    );
-    if (ids.isEmpty) return false;
-    await setChatWorlds(chatId, ids); // marks it decided
-    debugPrint('[Worlds] back-filled chat $chatId from its character');
-    return true;
-  }
+  }) => _backfillChatWorldsFromCharacterImpl(
+    chatId: chatId,
+    characterWorldRefs: characterWorldRefs,
+  );
 
-  Future<void> attachWorldToChat(String chatId, String worldId) async {
-    final ids = await getChatWorldIds(chatId);
-    if (ids.contains(worldId)) return;
-    await setChatWorlds(chatId, [...ids, worldId]);
-  }
+  Future<void> attachWorldToChat(
+    String chatId,
+    String worldId, {
+    bool? asPrimary,
+  }) => _attachWorldToChatImpl(chatId, worldId, asPrimary: asPrimary);
 
-  Future<void> detachWorldFromChat(String chatId, String worldId) async {
-    final ids = await getChatWorldIds(chatId);
-    await setChatWorlds(chatId, [
-      for (final id in ids)
-        if (id != worldId) id,
-    ]);
-  }
+  Future<void> detachWorldFromChat(String chatId, String worldId) =>
+      _detachWorldFromChatImpl(chatId, worldId);
 
   /// Attach worlds newly added to a CHARACTER onto that character's existing
   /// chats that don't have any yet.
@@ -562,38 +392,10 @@ class WorldRepository extends ChangeNotifier {
   Future<List<String>> applyAddedCharacterWorldsToChats({
     required String characterId,
     required List<String> addedRefs,
-  }) async {
-    if (addedRefs.isEmpty) return const [];
-    await ready;
-    final unresolved = <String>[];
-    final ids = resolveWorldRefsToIds(
-      refs: addedRefs,
-      nameToId: {for (final w in _worlds) w.name: w.id},
-      validIds: {for (final w in _worlds) w.id},
-      unresolved: unresolved,
-    );
-    if (unresolved.isNotEmpty) {
-      debugPrint(
-        '[Worlds] unresolved refs on character $characterId: $unresolved',
-      );
-    }
-    if (ids.isEmpty) return const [];
-
-    final touched = <String>[];
-    for (final session in await _db.getSessionsForCharacter(characterId)) {
-      final existing = await getChatWorldIds(session.id);
-      if (existing.isNotEmpty) continue; // the chat has its own opinion
-      await setChatWorlds(session.id, ids);
-      touched.add(session.id);
-    }
-    if (touched.isNotEmpty) {
-      debugPrint(
-        '[Worlds] character $characterId worlds applied to '
-        '${touched.length} existing chat(s)',
-      );
-    }
-    return touched;
-  }
+  }) => _applyAddedCharacterWorldsToChatsImpl(
+    characterId: characterId,
+    addedRefs: addedRefs,
+  );
 
   /// Copy template world refs (group template ids or character world names)
   /// onto a new chat (session). Refs may be UUIDs or names; unresolved refs
@@ -601,59 +403,22 @@ class WorldRepository extends ChangeNotifier {
   Future<void> applyTemplateWorldsToChat(
     String chatId,
     List<String> templateWorldIds,
-  ) async {
-    // New-session seeding can fire moments after a cold launch; resolving
-    // against a not-yet-loaded cache would silently seed nothing, permanently.
-    await ready;
-    final unresolved = <String>[];
-    final ids = resolveWorldRefsToIds(
-      refs: templateWorldIds,
-      nameToId: {for (final w in _worlds) w.name: w.id},
-      validIds: {for (final w in _worlds) w.id},
-      unresolved: unresolved,
-    );
-    if (unresolved.isNotEmpty) {
-      debugPrint(
-        '[Worlds] template had unresolved refs for chat $chatId: $unresolved',
-      );
-    }
-    await setChatWorlds(chatId, ids);
-  }
-
-  // ── Biome spans (phase 1) ───────────────────────────────────────────
+  ) => _applyTemplateWorldsToChatImpl(chatId, templateWorldIds);
 
   Future<void> setChatBiome({
     required String chatId,
     required int dayCount,
     required Biome biome,
-  }) async {
-    await _db.insertBiomeSpan(
-      chatId: chatId,
-      effectiveFromDay: dayCount,
-      biomeJson: biome.toJsonString(),
-    );
-  }
+  }) => _setChatBiomeImpl(chatId: chatId, dayCount: dayCount, biome: biome);
 
   /// Raw span rows for [BiomeSchedule] hydrate (ordered by day ASC).
   Future<List<({int effectiveFromDay, String biomeJson})>> getChatBiomeSpanRows(
     String chatId,
-  ) async {
-    final spans = await _db.getBiomeSpansForChat(chatId);
-    return [
-      for (final s in spans)
-        (effectiveFromDay: s.effectiveFromDay, biomeJson: s.biomeJson),
-    ];
-  }
+  ) => _getChatBiomeSpanRowsImpl(chatId);
 
   Future<Biome> biomeAt({
     required String chatId,
     required int day,
     Biome? worldDefault,
-  }) async {
-    final rows = await getChatBiomeSpanRows(chatId);
-    return BiomeSchedule.fromJsonSpans(
-      rows: rows,
-      worldDefault: worldDefault,
-    ).biomeAt(day);
-  }
+  }) => _biomeAtImpl(chatId: chatId, day: day, worldDefault: worldDefault);
 }

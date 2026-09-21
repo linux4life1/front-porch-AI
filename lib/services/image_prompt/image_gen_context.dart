@@ -43,7 +43,7 @@ class ImageGenContext {
   final ImageGenMode mode;
   final String style; // 'photorealistic' | 'anime' | 'fantasy_art' ...
   final String
-  paradigm; // 'natural' | 'tags' (from storage.imageGenPromptParadigm)
+  paradigm; // 'natural' | 'tags' (from storage.imageGenSettings.imageGenPromptParadigm)
 
   // Core visual identity
   final String? characterName;

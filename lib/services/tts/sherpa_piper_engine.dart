@@ -25,7 +25,6 @@ import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/sherpa_runtime.dart';
 
 /// In-process Piper TTS via sherpa-onnx (phase 4b of
 /// docs/design/sidecar-retirement.md). Replaces the one-shot-per-chunk
@@ -125,12 +124,7 @@ class SherpaPiperEngine {
 
   static Future<SendPort> _spawn(String dir, String voiceKey) async {
     final ready = ReceivePort();
-    await Isolate.spawn(_workerMain, [
-      ready.sendPort,
-      dir,
-      voiceKey,
-      sherpaNativeLibDir(),
-    ]);
+    await Isolate.spawn(_workerMain, [ready.sendPort, dir, voiceKey]);
     final first = await ready.first;
     ready.close();
     if (first is String) throw StateError(first);
@@ -143,7 +137,7 @@ class SherpaPiperEngine {
     final voiceKey = args[2] as String;
     sherpa.OfflineTts tts;
     try {
-      sherpa.initBindings(args[3] as String?);
+      initSherpaBindings();
       tts = sherpa.OfflineTts(
         sherpa.OfflineTtsConfig(
           model: sherpa.OfflineTtsModelConfig(
@@ -194,5 +188,4 @@ class SherpaPiperEngine {
       }
     });
   }
-
 }

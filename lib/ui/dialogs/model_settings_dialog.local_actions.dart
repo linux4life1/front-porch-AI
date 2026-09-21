@@ -68,7 +68,7 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
       modelSizeMb: modelSize,
       requestedContextSize: userContext,
       kvBytesPerToken: kvBytesPerToken,
-      kvQuantizationLevel: storage.kvQuantizationLevel,
+      kvQuantizationLevel: storage.backendSettings.kvQuantizationLevel,
     );
 
     rebuildState(() {
@@ -130,7 +130,8 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
     // Case A — preset owns a valid model file: skip model-path checks.
     // Case B — no preset / preset has no model / model file missing: user must pick one.
     final presetOwnsModel =
-        storage.kcppsHasModel && _kcppsModelExists.of(storage.kcppsModelPath);
+        storage.backendSettings.kcppsHasModel &&
+        _kcppsModelExists.of(storage.backendSettings.kcppsModelPath);
 
     if (!presetOwnsModel) {
       if (_selectedModelPath == null) {
@@ -155,9 +156,9 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
     }
 
     // Validate preset file exists if one is active
-    if (storage.activeKcppsPath != null &&
-        storage.activeKcppsPath!.isNotEmpty) {
-      if (!_presetFileExists.of(storage.activeKcppsPath)) {
+    if (storage.backendSettings.activeKcppsPath != null &&
+        storage.backendSettings.activeKcppsPath!.isNotEmpty) {
+      if (!_presetFileExists.of(storage.backendSettings.activeKcppsPath)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -167,9 +168,9 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
             backgroundColor: Colors.redAccent, // theme-keep: error snackbar
           ),
         );
-        storage.setActiveKcppsPath(null);
+        storage.backendSettings.setActiveKcppsPath(null);
         if (_selectedModelPath != null) {
-          storage.setModelPreset(_selectedModelPath!, '');
+          storage.presetSettings.setModelPreset(_selectedModelPath!, '');
         }
         return;
       }
@@ -179,13 +180,17 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
     // it from the .kcpps config. Otherwise pass the Flutter-selected path.
     final effectiveModel = presetOwnsModel ? '' : _selectedModelPath!;
 
-    storage.setLastUsedModelPath(_selectedModelPath);
-    storage.setGpuLayers(int.tryParse(_gpuLayersController.text) ?? 0);
-    storage.setContextSize(int.tryParse(_contextSizeController.text) ?? 16384);
-    storage.setUseCublas(_useCublas);
-    storage.setUseVulkan(_useVulkan);
-    storage.setUseMetal(_useMetal);
-    storage.setUseRocm(_useRocm);
+    storage.backendSettings.setLastUsedModelPath(_selectedModelPath);
+    storage.backendSettings.setGpuLayers(
+      int.tryParse(_gpuLayersController.text) ?? 0,
+    );
+    storage.backendSettings.setContextSize(
+      int.tryParse(_contextSizeController.text) ?? 16384,
+    );
+    storage.backendSettings.setUseCublas(_useCublas);
+    storage.backendSettings.setUseVulkan(_useVulkan);
+    storage.backendSettings.setUseMetal(_useMetal);
+    storage.backendSettings.setUseRocm(_useRocm);
 
     // Await the full stop so the process tree is terminated and the port is
     // released before we start a new instance. Without this, Windows can
@@ -201,11 +206,11 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
     koboldService.startKobold(
       backendManager.backendPath!,
       effectiveModel,
-      kcppsPath: storage.activeKcppsPath,
+      kcppsPath: storage.backendSettings.activeKcppsPath,
       // Vision projector is keyed by the concrete GGUF the user picked; when a
       // preset owns the model there is no Flutter-side path to key on.
       mmprojPath: _selectedModelPath != null
-          ? storage.mmprojForModel(_selectedModelPath!)
+          ? storage.presetSettings.modelMmprojMap[_selectedModelPath!]
           : null,
       gpuLayers: int.tryParse(_gpuLayersController.text) ?? 0,
       contextSize: int.tryParse(_contextSizeController.text) ?? 16384,

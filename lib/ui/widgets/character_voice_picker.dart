@@ -89,17 +89,14 @@ class CharacterVoicePicker extends StatelessWidget {
     if (tts == null || storage == null) {
       return Text(
         'Text-to-speech is not available here, so no voice can be assigned.',
-        style: TextStyle(
-          color: AppColors.textTertiary(context),
-          fontSize: 11,
-        ),
+        style: TextStyle(color: AppColors.textTertiary(context), fontSize: 11),
       );
     }
     final voices = tts.activeVoices;
     final assigned = value ?? '';
     final knownHere = voices.any((v) => v.id == assigned);
 
-    final globalId = storage.ttsVoiceModel;
+    final globalId = storage.ttsSettings.ttsVoiceModel;
     final globalLabel = globalId.isEmpty
         ? 'Use the global voice (none picked yet)'
         : 'Use the global voice (${labelFor(globalId, voices)})';
@@ -146,7 +143,11 @@ class CharacterVoicePicker extends StatelessWidget {
           (v) => DropdownMenuItem(
             value: v.id,
             child: Text(
-              '${v.gender == 'Male' ? '♂ ' : v.gender == 'Female' ? '♀ ' : '⚬ '}'
+              '${v.gender == 'Male'
+                  ? '♂ '
+                  : v.gender == 'Female'
+                  ? '♀ '
+                  : '⚬ '}'
               '${v.name}',
               overflow: TextOverflow.ellipsis,
             ),

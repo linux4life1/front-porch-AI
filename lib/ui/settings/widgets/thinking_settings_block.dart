@@ -113,7 +113,7 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
         ReasoningSupportResolver.instance.resolveOmlx(
           apiUrl: 'http://localhost:8000/v1',
           modelName: model,
-          apiKey: storage.remoteApiKey,
+          apiKey: storage.backendSettings.remoteApiKey,
         ),
       );
       return;
@@ -121,15 +121,15 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
     // LM Studio (or any local OpenAI URL): confirm /api/v0/models then read
     // the GGUF. Do NOT poke — JIT loading would pull the model in, and the
     // 400 listing is the server's enum, not this model's capability.
-    if (isLocalRemoteUrl(storage.remoteApiUrl)) {
+    if (isLocalRemoteUrl(storage.backendSettings.remoteApiUrl)) {
       final model = widget.modelId;
       if (model.isEmpty) return;
       if (ReasoningSupportResolver.instance.isResolved(model)) return;
       unawaited(
         ReasoningSupportResolver.instance.resolveLmStudio(
-          apiUrl: storage.remoteApiUrl,
+          apiUrl: storage.backendSettings.remoteApiUrl,
           modelName: model,
-          apiKey: storage.remoteApiKey,
+          apiKey: storage.backendSettings.remoteApiKey,
         ),
       );
       return;
@@ -137,8 +137,8 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
     if (widget.modelId.isEmpty) return;
     kickReasoningEffortProbe(
       model: widget.modelId,
-      apiUrl: storage.remoteApiUrl,
-      apiKey: storage.remoteApiKey,
+      apiUrl: storage.backendSettings.remoteApiUrl,
+      apiKey: storage.backendSettings.remoteApiKey,
     );
   }
 
@@ -146,11 +146,11 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
   /// mode that is the model the preset loads, not the picker leftover
   /// (lastUsedModelPath) — otherwise the switch describes the wrong file.
   String get _localModelPath {
-    final preset = _storage?.activeKcppsPath;
+    final preset = _storage?.backendSettings.activeKcppsPath;
     if (preset != null && preset.isNotEmpty) {
-      return _storage?.kcppsModelPath ?? '';
+      return _storage?.backendSettings.kcppsModelPath ?? '';
     }
-    return _storage?.lastUsedModelPath ?? '';
+    return _storage?.backendSettings.lastUsedModelPath ?? '';
   }
 
   /// The thinking capability already resolved for this backend, or null
@@ -168,7 +168,7 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
   }
 
   bool get _isLocalRemote {
-    final url = _storage?.remoteApiUrl ?? '';
+    final url = _storage?.backendSettings.remoteApiUrl ?? '';
     return url.isNotEmpty && isLocalRemoteUrl(url);
   }
 
@@ -195,7 +195,7 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
         : !local &&
               reasoningEffortMenuPending(
                 widget.modelId,
-                apiUrl: _storage?.remoteApiUrl ?? '',
+                apiUrl: _storage?.backendSettings.remoteApiUrl ?? '',
               );
     // A model whose template has no thinking machinery at all: the switch and
     // the chips would both be no-ops, so say that instead of implying they work.

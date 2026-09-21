@@ -98,6 +98,10 @@ ObjectiveProposal createTestObjectiveProposal({
   Future<void> Function(String, String)? saveTasks,
   Future<void> Function(String)? deactObj,
   Future<void> Function(Objective, String)? markTaskCompletedCb,
+  Future<void> Function(Objective, String)? markTaskStaleCb,
+  void Function(Objective)? onQuestAchieved,
+  void Function(Objective)? onObjectiveStale,
+  int staleThreshold = 2,
   bool isChecking = false,
   bool llmReady = true,
   String Function()? getLlmJson,
@@ -169,6 +173,10 @@ ObjectiveProposal createTestObjectiveProposal({
           notifies.add('notify');
         },
     onObjectiveCompleted: onObjectiveCompleted,
+    onQuestAchieved: onQuestAchieved,
+    onObjectiveStale: onObjectiveStale,
+    markTaskStale: markTaskStaleCb,
+    getObjectiveStaleThresholdN: () => staleThreshold,
   );
 }
 
@@ -248,63 +256,57 @@ void main() {
       },
     );
 
-    test(
-      'check task YES path (load via cb + markTaskCompleted thin called for mutation)',
-      () async {
-        final loads = <String>[];
-        final marks = <String>[];
-        final p = createTestObjectiveProposal(
-          getLlmJson: () => 'YES',
-          actives: [_mkObj('o5', 'g', primary: true)],
-          loadObjs: () async {
-            loads.add('l');
-          },
-          tasksFor: (o) => [
-            {'description': 'do', 'completed': false},
-          ],
-          markTaskCompletedCb: (o, d) async {
-            marks.add('${o.id}:$d');
-          },
-        );
-        await p.checkTaskCompletionInBackground();
-        expect(loads, isNotEmpty);
-        expect(
-          marks,
-          contains('o5:do'),
-        ); // covers mark actually invoked for task case (taskless uses deact)
-      },
-    );
+    test('check task YES path (load via cb + markTaskCompleted thin called for mutation)', () async {
+      final loads = <String>[];
+      final marks = <String>[];
+      final p = createTestObjectiveProposal(
+        getLlmJson: () => 'YES',
+        actives: [_mkObj('o5', 'g', primary: true)],
+        loadObjs: () async {
+          loads.add('l');
+        },
+        tasksFor: (o) => [
+          {'description': 'do', 'completed': false},
+        ],
+        markTaskCompletedCb: (o, d) async {
+          marks.add('${o.id}:$d');
+        },
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(loads, isNotEmpty);
+      expect(
+        marks,
+        contains('o5:do'),
+      ); // covers mark actually invoked for task case (taskless uses deact)
+    });
 
-    test(
-      'all tasks already completed → quest retired (deact, no mark, journal event)',
-      () async {
-        final calls = <String>[];
-        final deacts = <String>[];
-        var completedEvents = 0;
-        final p = createTestObjectiveProposal(
-          getLlmJson: () => 'YES',
-          actives: [_mkObj('oNo', 'g')],
-          tasksFor: (o) => [
-            {'description': 'already', 'completed': true},
-          ],
-          markTaskCompletedCb: (o, d) async {
-            calls.add(d);
-          },
-          deactObj: (id) async {
-            deacts.add(id);
-          },
-          onObjectiveCompleted: () => completedEvents++,
-        );
-        await p.checkTaskCompletionInBackground();
-        // All tasks done means the quest itself is complete: retired via deact
-        // (frees the primary slot for the next autonomous main quest — the old
-        // `continue` left it active forever), no task mark, and the journal
-        // event kick fires once. Also the self-heal path for old stuck chats.
-        expect(calls, isEmpty);
-        expect(deacts, contains('oNo'));
-        expect(completedEvents, 1);
-      },
-    );
+    test('all tasks already completed → quest retired (deact, no mark, journal event)', () async {
+      final calls = <String>[];
+      final deacts = <String>[];
+      var completedEvents = 0;
+      final p = createTestObjectiveProposal(
+        getLlmJson: () => 'YES',
+        actives: [_mkObj('oNo', 'g')],
+        tasksFor: (o) => [
+          {'description': 'already', 'completed': true},
+        ],
+        markTaskCompletedCb: (o, d) async {
+          calls.add(d);
+        },
+        deactObj: (id) async {
+          deacts.add(id);
+        },
+        onObjectiveCompleted: () => completedEvents++,
+      );
+      await p.checkTaskCompletionInBackground();
+      // All tasks done means the quest itself is complete: retired via deact
+      // (frees the primary slot for the next autonomous main quest — the old
+      // `continue` left it active forever), no task mark, and the journal
+      // event kick fires once. Also the self-heal path for old stuck chats.
+      expect(calls, isEmpty);
+      expect(deacts, contains('oNo'));
+      expect(completedEvents, 1);
+    });
 
     test(
       'task YES retires quest only when it was the last open task',
@@ -354,42 +356,25 @@ void main() {
     );
 
     test(
-      'markTaskCompleted error in cb does not leak (check continues)',
+      'check taskless YES path (deact via cb + journal event hook fires)',
       () async {
+        final deacts = <String>[];
+        var completedEvents = 0;
         final p = createTestObjectiveProposal(
           getLlmJson: () => 'YES',
-          actives: [_mkObj('oErr', 'g')],
-          tasksFor: (o) => [
-            {'description': 't', 'completed': false},
-          ],
-          markTaskCompletedCb: (o, d) async {
-            throw Exception('simulated db fail');
+          actives: [_mkObj('o6', 'tl')],
+          deactObj: (id) async {
+            deacts.add(id);
           },
+          tasksFor: (o) => const [],
+          onObjectiveCompleted: () => completedEvents++,
         );
-        // should catch in god or not leak from leaf call
         await p.checkTaskCompletionInBackground();
-        expect(true, isTrue);
+        expect(deacts, contains('o6'));
+        // Fired exactly once per check — the Journal's event-kick source.
+        expect(completedEvents, 1);
       },
     );
-
-    test('check taskless YES path (deact via cb + journal event hook fires)',
-        () async {
-      final deacts = <String>[];
-      var completedEvents = 0;
-      final p = createTestObjectiveProposal(
-        getLlmJson: () => 'YES',
-        actives: [_mkObj('o6', 'tl')],
-        deactObj: (id) async {
-          deacts.add(id);
-        },
-        tasksFor: (o) => const [],
-        onObjectiveCompleted: () => completedEvents++,
-      );
-      await p.checkTaskCompletionInBackground();
-      expect(deacts, contains('o6'));
-      // Fired exactly once per check — the Journal's event-kick source.
-      expect(completedEvents, 1);
-    });
 
     test('check NO does nothing (no deact/load, no journal event)', () async {
       final deacts = <String>[];
@@ -490,6 +475,148 @@ void main() {
       );
       await p.checkTaskCompletionInBackground();
       expect(deacts, isEmpty);
+    });
+
+    test(
+      'two consecutive STALE|NA|NA retires without quest achievement',
+      () async {
+        final deacts = <String>[];
+        final quests = <String>[];
+        final stales = <String>[];
+        var completedEvents = 0;
+        final p = createTestObjectiveProposal(
+          getLlmJson: () => '1: STALE|NA|NA',
+          actives: [_mkObj('oA', 'find the keeper', primary: true)],
+          tasksFor: (o) => [
+            {'description': 'ask', 'completed': false},
+          ],
+          deactObj: (id) async => deacts.add(id),
+          onQuestAchieved: (o) => quests.add(o.id),
+          onObjectiveStale: (o) => stales.add(o.id),
+          onObjectiveCompleted: () => completedEvents++,
+        );
+        await p.checkTaskCompletionInBackground();
+        expect(deacts, isEmpty);
+        await p.checkTaskCompletionInBackground();
+        expect(deacts, ['oA']);
+        expect(stales, ['oA']);
+        expect(quests, isEmpty);
+        expect(completedEvents, 0);
+      },
+    );
+
+    test('one STALE|NA|NA keeps the quest', () async {
+      final deacts = <String>[];
+      final p = createTestObjectiveProposal(
+        getLlmJson: () => '1: STALE|NA|NA',
+        actives: [_mkObj('oOne', 'g')],
+        deactObj: (id) async => deacts.add(id),
+        tasksFor: (o) => const [],
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(deacts, isEmpty);
+    });
+
+    test('four completion NOs never force-done (4-miss removed)', () async {
+      final marks = <String>[];
+      final deacts = <String>[];
+      final quests = <String>[];
+      final p = createTestObjectiveProposal(
+        getLlmJson: () => '1: KEEP|RELEVANT|NO',
+        actives: [_mkObj('oMiss', 'g')],
+        tasksFor: (o) => [
+          {'description': 'do', 'completed': false},
+        ],
+        markTaskCompletedCb: (o, d) async => marks.add(d),
+        deactObj: (id) async => deacts.add(id),
+        onQuestAchieved: (o) => quests.add(o.id),
+      );
+      for (var i = 0; i < 4; i++) {
+        await p.checkTaskCompletionInBackground();
+      }
+      expect(marks, isEmpty);
+      expect(deacts, isEmpty);
+      expect(quests, isEmpty);
+    });
+
+    test('taskless KEEP + YES achieves; taskless STALE×2 does not', () async {
+      final quests = <String>[];
+      final stales = <String>[];
+      var completedEvents = 0;
+      final pYes = createTestObjectiveProposal(
+        getLlmJson: () => '1: KEEP|NA|YES',
+        actives: [_mkObj('oTl', 'tl')],
+        tasksFor: (o) => const [],
+        onQuestAchieved: (o) => quests.add(o.id),
+        onObjectiveStale: (o) => stales.add(o.id),
+        onObjectiveCompleted: () => completedEvents++,
+      );
+      await pYes.checkTaskCompletionInBackground();
+      expect(quests, ['oTl']);
+      expect(completedEvents, 1);
+      expect(stales, isEmpty);
+
+      final deacts = <String>[];
+      final quests2 = <String>[];
+      final stales2 = <String>[];
+      var completed2 = 0;
+      final pStale = createTestObjectiveProposal(
+        getLlmJson: () => '1: STALE|NA|NA',
+        actives: [_mkObj('oTl2', 'tl')],
+        tasksFor: (o) => const [],
+        deactObj: (id) async => deacts.add(id),
+        onQuestAchieved: (o) => quests2.add(o.id),
+        onObjectiveStale: (o) => stales2.add(o.id),
+        onObjectiveCompleted: () => completed2++,
+      );
+      await pStale.checkTaskCompletionInBackground();
+      await pStale.checkTaskCompletionInBackground();
+      expect(deacts, ['oTl2']);
+      expect(stales2, ['oTl2']);
+      expect(quests2, isEmpty);
+      expect(completed2, 0);
+    });
+
+    test('group A stale does not retire B', () async {
+      final deacts = <String>[];
+      final stales = <String>[];
+      final p = createTestObjectiveProposal(
+        getLlmJson: () => '1: STALE|NA|NA\n2: KEEP|NA|NO',
+        actives: [_mkObj('charA', 'A quest'), _mkObj('charB', 'B quest')],
+        tasksFor: (o) => const [],
+        deactObj: (id) async => deacts.add(id),
+        onObjectiveStale: (o) => stales.add(o.id),
+        onQuestAchieved: (o) => fail('B must not achieve: ${o.id}'),
+      );
+      await p.checkTaskCompletionInBackground();
+      await p.checkTaskCompletionInBackground();
+      expect(deacts, ['charA']);
+      expect(stales, ['charA']);
+      expect(deacts, isNot(contains('charB')));
+    });
+
+    test('mixed completed + last stale self-heals as stale, not win', () async {
+      final deacts = <String>[];
+      final quests = <String>[];
+      final stales = <String>[];
+      var completedEvents = 0;
+      final p = createTestObjectiveProposal(
+        getLlmJson: () => '1: YES',
+        actives: [_mkObj('oMix', 'g')],
+        tasksFor: (o) => [
+          {'description': 'done', 'completed': true},
+          {'description': 'skipped', 'completed': false, 'stale': true},
+        ],
+        deactObj: (id) async => deacts.add(id),
+        onQuestAchieved: (o) => quests.add(o.id),
+        onObjectiveStale: (o) => stales.add(o.id),
+        onObjectiveCompleted: () => completedEvents++,
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(deacts, ['oMix']);
+      expect(stales, ['oMix']);
+      expect(quests, isEmpty);
+      expect(completedEvents, 0);
     });
 
     test('check !ready guard does nothing (no side effects)', () async {

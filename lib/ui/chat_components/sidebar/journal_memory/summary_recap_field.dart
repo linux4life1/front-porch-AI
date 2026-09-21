@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import '../expandable_sidebar_text.dart';
 
@@ -93,14 +93,7 @@ class SummaryRecapField extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.borderOf(context)),
                 ),
-                child: ExpandableSidebarText(
-                  text: text,
-                  maxLines: 4,
-                  style: TextStyle(
-                    color: AppColors.textPrimary(context),
-                    fontSize: 12,
-                  ),
-                ),
+                child: ExpandableSidebarText(text: text, maxLines: 4),
               ),
             ),
     );

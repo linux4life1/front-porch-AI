@@ -78,6 +78,10 @@ extension GenLlm on CharacterGenService {
             // user turns reasoning ON for generation, leave it null so the model
             // reasons normally.
             reasoningMaxTokens: _reasoningEnabled ? null : 0,
+            // Silent mandatory-reasoners 200 `enabled:false` then think until
+            // length with no content. Opt in so generateStream can learn +
+            // retry once with think headroom while keeping exclude:true.
+            mandatoryReasoningHeadroom: !_reasoningEnabled,
             stopSequences: stops,
           ),
         )) {
@@ -205,6 +209,10 @@ extension GenLlm on CharacterGenService {
         );
       } catch (e) {
         if (_aborted || _generationEpoch != myEpoch) return null;
+        if (e is SilentMandatoryReasoningStarveException) {
+          debugPrint('CharacterGen: $e — failing this step (no more retries)');
+          return null;
+        }
         debugPrint(
           'CharacterGen: LLM error on attempt $attempt/$maxRetries: $e',
         );

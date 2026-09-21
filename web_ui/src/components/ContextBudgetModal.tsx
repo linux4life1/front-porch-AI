@@ -22,6 +22,7 @@ const SECTION_COLORS: Record<string, string> = {
   Journal: '#F97316',
   'Realism Mode': '#EC4899',
   Memories: '#14B8A6',
+  'Speaker Card': '#7C3AED',
 };
 const FALLBACK_COLOR = '#9CA3AF';
 

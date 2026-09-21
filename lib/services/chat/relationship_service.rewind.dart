@@ -90,6 +90,14 @@ extension RelationshipServiceRewind on RelationshipService {
     int delta,
   ) {
     if (!getIsGroupActive()) return;
+    // Soft-exclude only when the full-member set is wired (ChatService).
+    // An empty set is the extracted-leaf default — clamp/create must still
+    // work for any ids the caller passes.
+    final full = getCurrentGroupMemberIds();
+    if (full.isNotEmpty &&
+        (!full.contains(fromCharId) || !full.contains(toCharId))) {
+      return;
+    }
 
     final currentMap = Map<String, int>.from(
       getInterCharacterRelationships(fromCharId),
@@ -110,6 +118,7 @@ extension RelationshipServiceRewind on RelationshipService {
     if (!getShouldTrackInterCharacterRelationships()) return;
     if (!getIsGroupActive() || getObserverMode()) return;
     if (getGroupCharacterCount() < 2) return;
+    if (!getCurrentGroupMemberIds().contains(charId)) return;
 
     final currentRels = Map<String, int>.from(
       getInterCharacterRelationships(charId),
@@ -147,6 +156,7 @@ extension RelationshipServiceRewind on RelationshipService {
   void updateInterCharacterFeelingsFromRecentExchange(String speakerId) {
     if (!getShouldTrackInterCharacterRelationships()) return;
     if (!getIsGroupActive() || getMessageCount() < 2) return;
+    if (!getCurrentGroupMemberIds().contains(speakerId)) return;
 
     final rels = Map<String, int>.from(
       getInterCharacterRelationships(speakerId),
@@ -225,6 +235,10 @@ extension RelationshipServiceRewind on RelationshipService {
         (state['shortTermDeltasSummary'] as int?) ?? _shortTermDeltasSummary;
 
     _trustLevel = (state['trustLevel'] as int?) ?? _trustLevel;
+    if (state.containsKey('pendingTrustRepair')) {
+      final v = state['pendingTrustRepair'];
+      pendingTrustRepair = v == true || v == 1;
+    }
     _activeFixation = (state['activeFixation'] as String?) ?? _activeFixation;
     _fixationLifespan =
         (state['fixationLifespan'] as int?) ?? _fixationLifespan;

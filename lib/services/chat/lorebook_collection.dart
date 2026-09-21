@@ -41,11 +41,12 @@ class LoreEntryRef {
 /// live in generation, impersonation, the sidebar getter, the pre-AI
 /// snapshot, and the scanner.
 ///
-/// Enumeration order (stable): chat book → group book → group worlds → per-character
-/// inline book + attached worlds (members only when [inherit] is true or
-/// there is no group). No filtering happens here — callers apply their own
-/// active/enabled predicates so the scanner (which needs ALL enabled
-/// entries) and the injector (which needs active ones) share one source.
+/// Enumeration order (stable): chat book → group book → chat worlds →
+/// per-character inline book + attached worlds (members only when [inherit]
+/// is true). Group injection passes [speaker] so only that card's book
+/// enumerates; the scanner leaves [speaker] null so every member still
+/// updates trigger state. Callers apply their own active/enabled
+/// predicates so scanner and injector share one source.
 ///
 /// [groupLorebook] must be the LIVE cached instance owned by ChatService —
 /// never a fresh parse — or trigger state written by the scanner would be
@@ -54,14 +55,22 @@ List<LoreEntryRef> collectLoreEntryRefs({
   required List<CharacterCard> characters,
   Lorebook? chatLorebook,
   Lorebook? groupLorebook,
+
   /// Per-chat attached worlds (UUID preferred; name still accepted).
   List<String> chatWorldIds = const [],
+
   /// @Deprecated Prefer [chatWorldIds]. Group template names/ids used as
   /// fallback when the chat has no chat_worlds rows yet.
   List<String> groupWorldNames = const [],
+
   /// Resolve by UUID or display name.
   required World? Function(String idOrName) resolveWorld,
   bool inherit = true,
+
+  /// When set with [inherit], only this character's book (and their
+  /// attached worlds) enumerate. Scanner leaves this null so every
+  /// member still updates trigger state.
+  CharacterCard? speaker,
 }) {
   final refs = <LoreEntryRef>[];
   final seenWorldIds = <String>{};
@@ -75,7 +84,9 @@ List<LoreEntryRef> collectLoreEntryRefs({
 
   if (groupLorebook != null) {
     for (final e in groupLorebook.entries) {
-      refs.add(LoreEntryRef(entry: e, book: groupLorebook, sourceLabel: 'group'));
+      refs.add(
+        LoreEntryRef(entry: e, book: groupLorebook, sourceLabel: 'group'),
+      );
     }
   }
 
@@ -85,27 +96,31 @@ List<LoreEntryRef> collectLoreEntryRefs({
     final key = world.id.isNotEmpty ? world.id : world.name;
     if (!seenWorldIds.add(key)) return;
     for (final e in world.lorebook.entries) {
-      refs.add(LoreEntryRef(
-        entry: e,
-        book: world.lorebook,
-        sourceLabel: 'world:${world.name}',
-      ));
+      refs.add(
+        LoreEntryRef(
+          entry: e,
+          book: world.lorebook,
+          sourceLabel: 'world:${world.name}',
+        ),
+      );
     }
   }
 
-  // Chat attachments first (Living Worlds); fall back to group template list.
-  final worldRefs =
-      chatWorldIds.isNotEmpty ? chatWorldIds : groupWorldNames;
-  for (final ref in worldRefs) {
+  // Chat attachments only (Living Worlds). Decided empty must stay empty —
+  // never ghost to group.worldIds after the chat has its own place slots.
+  // [groupWorldNames] is ignored (deprecated); callers should pass chat ids.
+  for (final ref in chatWorldIds) {
     addWorld(ref);
   }
 
   if (inherit) {
-    for (final ch in characters) {
+    for (final ch in _characterLoreSources(characters, speaker)) {
       final book = ch.lorebook;
       if (book != null) {
         for (final e in book.entries) {
-          refs.add(LoreEntryRef(entry: e, book: book, sourceLabel: 'char:${ch.name}'));
+          refs.add(
+            LoreEntryRef(entry: e, book: book, sourceLabel: 'char:${ch.name}'),
+          );
         }
       }
       for (final worldName in ch.worldNames) {
@@ -115,4 +130,28 @@ List<LoreEntryRef> collectLoreEntryRefs({
   }
 
   return refs;
+}
+
+/// Inherit-all (scanner / 1:1) vs speaker-only character books on a group turn.
+List<CharacterCard> _characterLoreSources(
+  List<CharacterCard> characters,
+  CharacterCard? speaker,
+) {
+  if (speaker == null) return characters;
+  for (final ch in characters) {
+    if (identical(ch, speaker)) return [ch];
+  }
+  final id = speaker.dbId;
+  if (id != null && id.isNotEmpty) {
+    for (final ch in characters) {
+      if (ch.dbId == id) return [ch];
+    }
+  }
+  final name = speaker.name;
+  if (name.isNotEmpty) {
+    for (final ch in characters) {
+      if (ch.name == name) return [ch];
+    }
+  }
+  return const [];
 }

@@ -27,11 +27,17 @@ import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/lmstudio_log_streamer.dart';
+import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/omlx_status_poller.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/worker_backend.dart';
+import 'package:front_porch_ai/services/worker_gpu_swap.dart';
+
+part 'llm_provider.worker.dart';
 
 /// The available backend types. The former `pseudoRemote` (a local KoboldCpp
 /// launched from a .kcpps preset) was folded into [kobold]: the local backend
@@ -50,6 +56,11 @@ class LLMProvider extends ChangeNotifier {
   final BackendManager _backendManager;
 
   BackendType _activeBackend = BackendType.kobold;
+
+  /// Dedicated OpenAI-compatible client for the worker lane. Never the
+  /// mouth [_openRouterService] — configuring this must not flip chat speech.
+  final OpenRouterService _workerRemote = OpenRouterService();
+  String? _lastWorkerIdentity;
 
   // ── Live generation status sources (truthful status bar) ────────────────
   // One shared struct per non-Kobold source; [activeLiveProgress] resolves
@@ -85,8 +96,15 @@ class LLMProvider extends ChangeNotifier {
   /// Start/stop the per-backend live-status sources for the current backend
   /// + URL. Called on backend switches; safe to call repeatedly.
   void _syncLiveStatusSources() {
-    if (_activeBackend == BackendType.omlx) {
-      _omlxPoller.start(_openRouterService.apiUrl);
+    if (shouldRunOmlxPoller(
+      mouthType: _storageService.backendSettings.backendType,
+      workerType: _storageService.workerBackendType,
+      pairAllowed: !workerRefusedDualLocal,
+    )) {
+      final url = _activeBackend == BackendType.omlx
+          ? _openRouterService.apiUrl
+          : resolvedLaneApiUrl('omlx', _storageService.workerRemoteApiUrl);
+      _omlxPoller.start(url);
     } else {
       _omlxPoller.stop();
     }
@@ -134,6 +152,49 @@ class LLMProvider extends ChangeNotifier {
     }
   }
 
+  /// Worker picker type, or null when the worker is off.
+  BackendType? get workerBackend {
+    switch (_storageService.workerBackendType) {
+      case 'openRouter':
+        return BackendType.openRouter;
+      case 'omlx':
+        return BackendType.omlx;
+      case 'kobold':
+        return BackendType.kobold;
+      default:
+        return null;
+    }
+  }
+
+  bool get workerConfigured =>
+      !workerBackendIsOff(_storageService.workerBackendType);
+
+  bool get workerRefusedDualLocal =>
+      workerConfigured &&
+      !workerPairAllowed(
+        mouthType: _storageService.backendSettings.backendType,
+        mouthUrl: _storageService.backendSettings.remoteApiUrl,
+        workerType: _storageService.workerBackendType,
+        workerUrl: _storageService.workerRemoteApiUrl,
+        gpuSwapAvailable: workerGpuSwapAvailable,
+      );
+
+  /// Side-lane service when the worker is on and the pair is allowed.
+  LLMService? get workerService => _liveWorkerService();
+
+  /// Evals / clerk / journal / growth. Mouth stays [activeService].
+  LLMService get sideLaneService => workerService ?? activeService;
+
+  bool get sideLaneIsKobold => sideLaneService is KoboldService;
+
+  /// Plain-English reason the worker host is picked but not ready.
+  String? get workerUnreadyMessage {
+    if (!workerConfigured || workerRefusedDualLocal) return null;
+    final svc = workerService;
+    if (svc == null || svc.isReady) return null;
+    return workerLaneUnreadyMessage(_storageService.workerBackendType);
+  }
+
   /// Whether the active backend is the local KoboldCpp instance (native or
   /// launched from a .kcpps preset). Gates the local niceties — real
   /// tokenizer counts and prefill perf metrics — and sequential eval dispatch
@@ -142,6 +203,16 @@ class LLMProvider extends ChangeNotifier {
 
   /// Whether the active backend manages a local subprocess.
   bool get hasManagedProcess => _activeBackend == BackendType.kobold;
+
+  /// Composer placeholder connection. Local GGUF load/swap flips
+  /// [LLMService.isReady] and must not restyle the input — process-up
+  /// (or still starting) is enough. Remote keeps [LLMService.isReady].
+  bool get composerConnectionReady {
+    if (hasManagedProcess) {
+      return _koboldService.isProcessRunning || _koboldService.isStarting;
+    }
+    return activeService.isReady;
+  }
 
   /// Resolve the service a model-pickable generation feature (the AI
   /// character creator, AI Enhance) should run against, or null when nothing
@@ -166,8 +237,8 @@ class LLMProvider extends ChangeNotifier {
       return OpenRouterService(
         apiUrl: _activeBackend == BackendType.omlx
             ? 'http://localhost:8000/v1'
-            : _storageService.remoteApiUrl,
-        apiKey: _storageService.remoteApiKey,
+            : _storageService.backendSettings.remoteApiUrl,
+        apiKey: _storageService.backendSettings.remoteApiKey,
         modelName: selectedModelId,
       );
     }
@@ -178,56 +249,19 @@ class LLMProvider extends ChangeNotifier {
   /// True when the managed process is currently running.
   bool get hasAnyManagedProcessRunning => _koboldService.isRunning;
 
-  /// Ensures the local Kobold backend is running when the user enters a chat —
-  /// including when a .kcpps preset owns the model. Good "it just works" for
-  /// normal users; safe to call repeatedly (no-op if already running or the
-  /// active backend is remote / oMLX).
-  Future<void> ensureManagedBackendIsRunning() async {
-    if (!hasManagedProcess || hasAnyManagedProcessRunning) return;
-
-    // Make sure we have the backend binary
-    if (_backendManager.backendPath == null) {
-      await _backendManager.checkBackendAvailability();
-      if (_backendManager.backendPath == null) {
-        // Engine not installed: kick the background acquisition (a no-op if
-        // it's already downloading) — the engine chip shows progress and the
-        // next chat entry finds the binary in place.
-        unawaited(_backendManager.ensureEngineInstalled());
-        return;
-      }
-    }
-
-    try {
-      // Auto-start the local Kobold backend, whether it loads a plain model
-      // file (lastUsedModelPath) or a .kcpps preset that owns its own model.
-      if (_activeBackend == BackendType.kobold) {
-        final modelPath = _storageService.lastUsedModelPath;
-        final hasPresetWithModel =
-            _storageService.kcppsHasModel &&
-            _storageService.kcppsModelFileExists;
-
-        if (modelPath != null || hasPresetWithModel) {
-          await _koboldService.startKobold(
-            _backendManager.backendPath!,
-            modelPath ?? '',
-            kcppsPath: _storageService.activeKcppsPath,
-            mmprojPath: modelPath != null
-                ? _storageService.mmprojForModel(modelPath)
-                : null,
-            gpuLayers: _storageService.gpuLayers,
-            contextSize: _storageService.contextSize,
-            useVulkan: _storageService.useVulkan ?? false,
-            useCublas: _storageService.useCublas ?? false,
-            useMetal: _storageService.useMetal ?? false,
-            useRocm: _storageService.useRocm ?? false,
-          );
-        }
-      }
-    } catch (e) {
-      // Never let an auto-start failure prevent the user from entering the chat.
-      debugPrint('[LLMProvider] ensureManagedBackendIsRunning failed: $e');
-    }
-  }
+  /// Start Kobold on chat entry, or inside a GPU swap (`forGpuSwap`).
+  /// [modelPath] / [kcppsPath] are the GGUF + `.kcpps` pair to load on swap;
+  /// omitted = Models-tab mouth pair. Mouth restore keeps the Models-tab
+  /// `--mmproj`; a worker/evals pair never gets a projector.
+  Future<void> ensureManagedBackendIsRunning({
+    bool forGpuSwap = false,
+    String? modelPath,
+    String? kcppsPath,
+  }) => _ensureManagedKobold(
+    forGpuSwap: forGpuSwap,
+    modelPath: modelPath,
+    kcppsPath: kcppsPath,
+  );
 
   /// Convenience getters for the underlying services (for UI that needs specifics).
   KoboldService get koboldService => _koboldService;
@@ -251,6 +285,11 @@ class LLMProvider extends ChangeNotifier {
     _koboldService.removeListener(_onServiceChanged);
     _omlxPoller.stop();
     _lmStudioStreamer.stop();
+    final occupancy =
+        _providerHeldSwap[this] ??
+        _providerSwapOverride[this] ??
+        _providerSwap[this];
+    if (occupancy != null) unawaited(occupancy.ensureMouth());
     super.dispose();
   }
 
@@ -259,7 +298,7 @@ class LLMProvider extends ChangeNotifier {
   }
 
   void _syncFromStorage() {
-    final typeStr = _storageService.backendType;
+    final typeStr = _storageService.backendSettings.backendType;
     BackendType newType;
     switch (typeStr) {
       case 'openRouter':
@@ -276,17 +315,17 @@ class LLMProvider extends ChangeNotifier {
     final cfgChanged = newType == BackendType.omlx
         ? _openRouterService.configure(
             apiUrl: 'http://localhost:8000/v1',
-            apiKey: _storageService.remoteApiKey,
-            modelName: _storageService.remoteModelName,
+            apiKey: _storageService.backendSettings.remoteApiKey,
+            modelName: _storageService.backendSettings.remoteModelName,
           )
         : _openRouterService.configure(
-            apiUrl: _storageService.remoteApiUrl,
-            apiKey: _storageService.remoteApiKey,
-            modelName: _storageService.remoteModelName,
+            apiUrl: _storageService.backendSettings.remoteApiUrl,
+            apiKey: _storageService.backendSettings.remoteApiKey,
+            modelName: _storageService.backendSettings.remoteModelName,
           );
     _maybePingRemote(newType, configChanged: cfgChanged);
     debugPrint(
-      '[LLMProvider] Synced from storage: backend=$typeStr, URL=${_storageService.remoteApiUrl}',
+      '[LLMProvider] Synced from storage: backend=$typeStr, URL=${_storageService.backendSettings.remoteApiUrl}',
     );
 
     // Drop cached vision/tool-calling verdicts whenever the model identity the
@@ -296,9 +335,9 @@ class LLMProvider extends ChangeNotifier {
     // attach path trusts it. (Local-model verdicts are re-derived from config
     // each call, so this mainly guards the remote /models-metadata cache.)
     final identity =
-        '$typeStr|${_storageService.remoteApiUrl}|'
-        '${_storageService.remoteModelName}|${_storageService.activeKcppsPath}|'
-        '${_storageService.lastUsedModelPath}';
+        '$typeStr|${_storageService.backendSettings.remoteApiUrl}|'
+        '${_storageService.backendSettings.remoteModelName}|${_storageService.backendSettings.activeKcppsPath}|'
+        '${_storageService.backendSettings.lastUsedModelPath}';
     if (identity != _lastModelIdentity) {
       _lastModelIdentity = identity;
       VisionSupportResolver.instance.clear();
@@ -311,11 +350,14 @@ class LLMProvider extends ChangeNotifier {
       _kickLocalThinkingResolve(newType);
     }
 
+    var notified = false;
     if (newType != _activeBackend) {
       _activeBackend = newType;
       _syncLiveStatusSources();
       notifyListeners();
+      notified = true;
     }
+    if (_syncWorkerFromStorage() && !notified) notifyListeners();
   }
 
   /// Last model-identity string synced from storage; used to clear stale
@@ -337,14 +379,23 @@ class LLMProvider extends ChangeNotifier {
       case BackendType.kobold:
         persistValue = 'kobold';
     }
-    await _storageService.setBackendType(persistValue);
+    await _storageService.backendSettings.setBackendType(persistValue);
 
-    // Auto-configure oMLX URL when switching to it
+    // oMLX is a fixed localhost URL. Nano/OpenRouter/LM Studio use the
+    // parked remoteApiUrl — must reconfigure even when that URL did not
+    // change (oMLX never writes remoteApiUrl, so setRemoteApiUrl is a
+    // no-op and Waifu would keep hitting oMLX).
     if (type == BackendType.omlx) {
       _openRouterService.configure(
         apiUrl: 'http://localhost:8000/v1',
-        apiKey: _storageService.remoteApiKey,
-        modelName: _storageService.remoteModelName,
+        apiKey: _storageService.backendSettings.remoteApiKey,
+        modelName: _storageService.backendSettings.remoteModelName,
+      );
+    } else if (type == BackendType.openRouter) {
+      _openRouterService.configure(
+        apiUrl: _storageService.backendSettings.remoteApiUrl,
+        apiKey: _storageService.backendSettings.remoteApiKey,
+        modelName: _storageService.backendSettings.remoteModelName,
       );
     }
 
@@ -360,32 +411,32 @@ class LLMProvider extends ChangeNotifier {
   void _kickLocalThinkingResolve(BackendType type) {
     switch (type) {
       case BackendType.omlx:
-        final model = _storageService.remoteModelName;
+        final model = _storageService.backendSettings.remoteModelName;
         if (model.isEmpty) return;
         if (ReasoningSupportResolver.instance.isResolved(model)) return;
         unawaited(
           ReasoningSupportResolver.instance.resolveOmlx(
             apiUrl: 'http://localhost:8000/v1',
             modelName: model,
-            apiKey: _storageService.remoteApiKey,
+            apiKey: _storageService.backendSettings.remoteApiKey,
           ),
         );
         return;
       case BackendType.openRouter:
         final url = _openRouterService.apiUrl;
-        final model = _storageService.remoteModelName;
+        final model = _storageService.backendSettings.remoteModelName;
         if (model.isEmpty || !isLocalRemoteUrl(url)) return;
         if (ReasoningSupportResolver.instance.isResolved(model)) return;
         unawaited(
           ReasoningSupportResolver.instance.resolveLmStudio(
             apiUrl: url,
             modelName: model,
-            apiKey: _storageService.remoteApiKey,
+            apiKey: _storageService.backendSettings.remoteApiKey,
           ),
         );
         return;
       case BackendType.kobold:
-        final path = _storageService.lastUsedModelPath;
+        final path = _storageService.backendSettings.lastUsedModelPath;
         if (path == null || path.isEmpty) return;
         if (ReasoningSupportResolver.instance.isResolved(path)) return;
         unawaited(ReasoningSupportResolver.instance.resolveLocalGguf(path));

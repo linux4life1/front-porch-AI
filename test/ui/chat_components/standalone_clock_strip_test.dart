@@ -37,7 +37,7 @@ Future<void> _pumpPanel(
   SharedPreferences.setMockInitialValues({});
   final storage = StorageService();
   addTearDown(storage.dispose);
-  await storage.setStandaloneClockEnabled(standaloneClock);
+  await storage.realismSettings.setStandaloneClockEnabled(standaloneClock);
 
   final chat = FakeChatService(realismEnabled: realismEnabled);
   addTearDown(chat.dispose);

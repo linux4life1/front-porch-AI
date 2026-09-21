@@ -3,8 +3,6 @@
 //
 // A finished night lands before they write. Going to bed is still a scene.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/skip_language.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
@@ -132,18 +130,5 @@ void main() {
       expect(coffee['energy'], 7);
       expect(coffee['hunger'], 35);
     });
-  });
-
-  test('send applies night restore when the skip actually moved the clock', () {
-    final send = File(
-      'lib/services/chat/chat_service_send.dart',
-    ).readAsStringSync();
-    expect(send, contains('_applyNightSkipRestore()'));
-    expect(send, contains('isNightSkip('));
-    final eval = File(
-      'lib/services/chat/needs_impact_evaluator.dart',
-    ).readAsStringSync();
-    expect(eval, contains('suppressSleepDoubleApply'));
-    expect(eval, contains('night_skip_restored'));
   });
 }

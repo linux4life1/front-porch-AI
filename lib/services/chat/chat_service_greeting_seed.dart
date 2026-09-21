@@ -128,22 +128,22 @@ extension ChatServiceGreetingSeed on ChatService {
     }
     _needsSimulation.resetBuffers();
 
-    if (_storageService.realismSettings.pocketsEnabled) {
+    final greetingPocketsId = memberId ?? _getCharacterIdFromCard(card);
+    if (pocketsEnabledFor(greetingPocketsId)) {
       final pockets = Pockets.fromJson(resolved.inventory);
-      final id = memberId ?? _getCharacterIdFromCard(card);
       if (pockets.isEmpty) {
         final fromCard = startingPocketsFor(card);
         if (fromCard.isEmpty) {
           if (_activeGroup == null) {
             _pockets = null;
           } else {
-            _memberForWrite(id).pockets = null;
+            _memberForWrite(greetingPocketsId).pockets = null;
           }
         } else {
-          setPocketsFor(id, fromCard);
+          setPocketsFor(greetingPocketsId, fromCard);
         }
       } else {
-        setPocketsFor(id, pockets);
+        setPocketsFor(greetingPocketsId, pockets);
       }
     }
 
@@ -257,7 +257,7 @@ extension ChatServiceGreetingSeed on ChatService {
       if (_needsSimEnabled) {
         slot.needs = resolved.needsBaselines;
       }
-      if (_storageService.realismSettings.pocketsEnabled) {
+      if (pocketsEnabledFor(_getCharacterIdFromCard(c))) {
         final pockets = Pockets.fromJson(resolved.inventory);
         slot.pockets = pockets.isEmpty ? startingPocketsFor(c) : pockets;
       }
@@ -325,7 +325,8 @@ extension ChatServiceGreetingSeed on ChatService {
         _activeGroup != null &&
         !greetingFirstMesEmpty(_activeGroup!.firstMessage);
     if (groupCustom) {
-      final authored = greetingOverlayAt(
+      final authored =
+          greetingOverlayAt(
             _activeGroup!.greetingSeeds,
             _greetingIndex,
             firstMesEmpty: false,

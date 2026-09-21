@@ -18,26 +18,37 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Chats / Porch Stories switch. Drops the labels when the parent gives it
-/// less than the labeled pair's intrinsic width so a resized window never
-/// overflows the home toolbar.
+/// Home toolbar mode: Chats, Porch Stories, or Waifu Coder.
+enum HomeMode { chats, stories, waifu }
+
+/// Chats / Porch Stories / Waifu Coder switch. Drops the labels when the parent
+/// gives it less than the labeled trio's intrinsic width so a resized
+/// window never overflows the home toolbar.
+///
+/// [showStories] / [onShowChats] / [onShowStories] stay required so the
+/// existing overflow test still compiles. Waifu Coder is additive.
 class HomeModeToggle extends StatelessWidget {
   const HomeModeToggle({
     super.key,
     required this.showStories,
     required this.onShowChats,
     required this.onShowStories,
+    this.showWaifu = false,
+    this.onShowWaifu,
   });
 
   final bool showStories;
   final VoidCallback onShowChats;
   final VoidCallback onShowStories;
+  final bool showWaifu;
+  final VoidCallback? onShowWaifu;
 
-  /// Labeled "Chats" + "Porch Stories" is ~250px (a bit more with test
-  /// fonts). Below this, icons only.
-  static const double labeledMinWidth = 280;
+  /// Labeled "Chats" + "Porch Stories" + "Waifu Coder" is wide. Drop to
+  /// icons before the 651px toolbar overflow case (and the 360px squeeze).
+  static const double labeledMinWidth = 720;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +69,7 @@ class HomeModeToggle extends StatelessWidget {
               _ModeButton(
                 label: 'Chats',
                 icon: Icons.chat_bubble_outline,
-                isActive: !showStories,
+                isActive: !showStories && !showWaifu,
                 showLabel: showLabels,
                 onTap: onShowChats,
               ),
@@ -68,6 +79,13 @@ class HomeModeToggle extends StatelessWidget {
                 isActive: showStories,
                 showLabel: showLabels,
                 onTap: onShowStories,
+              ),
+              _ModeButton(
+                label: kWaifuCoderName,
+                icon: Icons.code,
+                isActive: showWaifu,
+                showLabel: showLabels,
+                onTap: onShowWaifu ?? () {},
               ),
             ],
           ),

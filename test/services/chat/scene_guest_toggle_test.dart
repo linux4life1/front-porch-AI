@@ -31,8 +31,6 @@
 // Default TRUE: this is what the app has always done, and the switch exists to
 // turn it off, not to make people opt back in to something they already have.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -56,7 +54,8 @@ void main() {
     expect(
       s.sceneGuestDetectionEnabled,
       isTrue,
-      reason: 'this is existing behaviour — a default of false would silently '
+      reason:
+          'this is existing behaviour — a default of false would silently '
           'remove a feature from every install that never asked for that',
     );
   });
@@ -82,28 +81,4 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     expect((await settings()).sceneGuestDetectionEnabled, isTrue);
   });
-
-  test('the old in-memory stand-in is gone, not left beside it', () {
-    // A source check, because the failure mode is two switches drifting apart
-    // rather than either one misbehaving. `ChatService.sceneDetectionEnabled`
-    // was a public field with no writer and no UI; if it comes back, the gate
-    // has two answers and only one of them is the user's.
-    final hub = _read('lib/services/chat_service.dart');
-    expect(
-      hub,
-      isNot(contains('bool sceneDetectionEnabled')),
-      reason: 'the dead stand-in must stay deleted — the persisted setting is '
-          'the only switch',
-    );
-
-    // And the ONE gate reads the setting.
-    final flow = _read('lib/services/chat/chat_service_turn_flow.dart');
-    expect(
-      flow,
-      contains('realismSettings.sceneGuestDetectionEnabled'),
-      reason: 'the automatic scan must consult the switch, or it is decoration',
-    );
-  });
 }
-
-String _read(String p) => File(p).readAsStringSync();

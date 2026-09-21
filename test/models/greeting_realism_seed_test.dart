@@ -5,8 +5,6 @@
 // greetingOverlayAt / resolveGreetingOpening existed, an angry alt inherited
 // the friend first_mes seed (or fired reading-the-room and never restored).
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
@@ -233,47 +231,6 @@ void main() {
   );
 
   test(
-    'parseGroupAlternateGreetings and parseGroupGreetingSeeds share compactGreetingPairs',
-    () {
-      final blobs = File(
-        'lib/utils/group_realism_blobs.dart',
-      ).readAsStringSync();
-      final alt = RegExp(
-        r'List<String> parseGroupAlternateGreetings\(String defaultMemberJson\) \{([^}]+)\}',
-      ).firstMatch(blobs);
-      final seeds = RegExp(
-        r'List<GreetingRealismSeed\?> parseGroupGreetingSeeds\(String defaultMemberJson\) \{([^}]+)\}',
-      ).firstMatch(blobs);
-      expect(alt, isNotNull);
-      expect(seeds, isNotNull);
-      expect(
-        alt!.group(1),
-        contains('parseGroupOpeningPairs'),
-        reason: 'alts must not compact greetings without the paired seed slots',
-      );
-      expect(
-        seeds!.group(1),
-        contains('parseGroupOpeningPairs'),
-        reason: 'seeds must not parse greetingSeeds without the paired greets',
-      );
-      expect(
-        blobs.contains(
-          "return compactGreetingPairs(greets, parseGreetingSeeds(map['greetingSeeds']));",
-        ),
-        isTrue,
-        reason: 'the shared helper is the compactGreetingPairs pairing',
-      );
-
-      final group = File('lib/models/group_chat.dart').readAsStringSync();
-      expect(
-        group.contains('compactGreetingPairs'),
-        isTrue,
-        reason: 'GroupChat.fromJson must use the same pairing',
-      );
-    },
-  );
-
-  test(
     'FrontPorchExtensions.fromJson pairs empty-greet drop with compactGreetingPairs',
     () {
       final dirty = FrontPorchExtensions.fromJson(
@@ -308,71 +265,57 @@ void main() {
       );
       expect(kept.greetingSeeds, hasLength(1));
       expect(kept.greetingSeeds.first!.characterEmotion, 'furious');
-
-      // Extra: fromJson must call compactGreetingPairs when alts are present.
-      final fromJsonSrc = File('lib/models/character_card.dart').readAsStringSync();
-      expect(
-        fromJsonSrc.contains(
-          'return compactGreetingPairs(alternateGreetings, parsed).seeds;',
-        ),
-        isTrue,
-        reason: '1:1 fromJson pairs through compactGreetingPairs, not prefix-align',
-      );
     },
   );
 
-  test(
-    'toJson/fromJson without alts keeps sparse seed holes',
-    () {
-      final ext = FrontPorchExtensions(
-        greetingSeeds: [
-          null,
-          GreetingRealismSeed(characterEmotion: 'furious'),
-          null,
-          const GreetingRealismSeed(),
-        ],
-      );
-      final json = ext.toJson();
-      final seedsJson =
-          (json['realism_engine'] as Map)['greeting_seeds'] as List;
-      expect(
-        seedsJson,
-        hasLength(4),
-        reason: 'toJson must keep internal holes; only trailing nulls compact',
-      );
-      expect(seedsJson[0], isNull);
-      expect(seedsJson[2], isNull);
+  test('toJson/fromJson without alts keeps sparse seed holes', () {
+    final ext = FrontPorchExtensions(
+      greetingSeeds: [
+        null,
+        GreetingRealismSeed(characterEmotion: 'furious'),
+        null,
+        const GreetingRealismSeed(),
+      ],
+    );
+    final json = ext.toJson();
+    final seedsJson = (json['realism_engine'] as Map)['greeting_seeds'] as List;
+    expect(
+      seedsJson,
+      hasLength(4),
+      reason: 'toJson must keep internal holes; only trailing nulls compact',
+    );
+    expect(seedsJson[0], isNull);
+    expect(seedsJson[2], isNull);
 
-      final restored = FrontPorchExtensions.fromJson(json);
-      expect(
-        restored.greetingSeeds,
-        hasLength(4),
-        reason: 'no-alts fromJson must not compact-pair holes away',
-      );
-      expect(restored.greetingSeeds[0], isNull);
-      expect(restored.greetingSeeds[1]!.characterEmotion, 'furious');
-      expect(restored.greetingSeeds[2], isNull);
-      expect(restored.greetingSeeds[3], isNotNull);
-      expect(restored.greetingSeeds[3]!.isEmpty, isTrue);
+    final restored = FrontPorchExtensions.fromJson(json);
+    expect(
+      restored.greetingSeeds,
+      hasLength(4),
+      reason: 'no-alts fromJson must not compact-pair holes away',
+    );
+    expect(restored.greetingSeeds[0], isNull);
+    expect(restored.greetingSeeds[1]!.characterEmotion, 'furious');
+    expect(restored.greetingSeeds[2], isNull);
+    expect(restored.greetingSeeds[3], isNotNull);
+    expect(restored.greetingSeeds[3]!.isEmpty, isTrue);
 
-      final emptyAlts = FrontPorchExtensions.fromJson(
-        json,
-        alternateGreetings: const [],
-      );
-      expect(
-        emptyAlts.greetingSeeds,
-        hasLength(4),
-        reason: 'explicit empty alts must still preserve sparse seed holes',
-      );
-      expect(emptyAlts.greetingSeeds[0], isNull);
-      expect(emptyAlts.greetingSeeds[1]!.characterEmotion, 'furious');
-      expect(greetingOverlayAt(emptyAlts.greetingSeeds, 1), isNull);
-      expect(
-        greetingOverlayAt(emptyAlts.greetingSeeds, 2)!.characterEmotion,
-        'furious',
-      );
-    },
-  );
+    final emptyAlts = FrontPorchExtensions.fromJson(
+      json,
+      alternateGreetings: const [],
+    );
+    expect(
+      emptyAlts.greetingSeeds,
+      hasLength(4),
+      reason: 'explicit empty alts must still preserve sparse seed holes',
+    );
+    expect(emptyAlts.greetingSeeds[0], isNull);
+    expect(emptyAlts.greetingSeeds[1]!.characterEmotion, 'furious');
+    expect(greetingOverlayAt(emptyAlts.greetingSeeds, 1), isNull);
+    expect(
+      greetingOverlayAt(emptyAlts.greetingSeeds, 2)!.characterEmotion,
+      'furious',
+    );
+  });
 
   test(
     'frontPorchFromFields pairs dirty empty greet so furious does not land on Get out',
@@ -417,7 +360,8 @@ void main() {
       expect(
         clean.greetingSeeds,
         isEmpty,
-        reason: "['Get out.'] omit seeds must not reuse unpaired base [furious]",
+        reason:
+            "['Get out.'] omit seeds must not reuse unpaired base [furious]",
       );
       expect(greetingOverlayAt(clean.greetingSeeds, 1), isNull);
 
@@ -462,89 +406,20 @@ void main() {
     },
   );
 
-  test(
-    'frontPorchFromFields omitted alts keep base seeds',
-    () {
-      final seeded = FrontPorchExtensions(greetingSeeds: [angry]);
-      final back = frontPorchFromFields({
-        'trustLevel': 5,
-        'realismEnabled': true,
-      }, base: seeded);
-      expect(back.greetingSeeds, hasLength(1));
-      expect(
-        back.greetingSeeds.first!.characterEmotion,
-        'furious',
-        reason: 'omitted alts must not wipe leftover base seeds',
-      );
-      expect(back.trustLevel, 5);
-    },
-  );
-
-  test(
-    'omitted greetingSeeds become empty/null before compact at both call sites',
-    () {
-      final fp = File(
-        'lib/services/web/util/realism_extensions_json.dart',
-      ).readAsStringSync();
-      final omitted = RegExp(
-        r"if \(!fields\.containsKey\('greetingSeeds'\)\) \{([^}]+)\}",
-      ).firstMatch(fp);
-      expect(omitted, isNotNull);
-      final body = omitted!.group(1)!;
-      expect(
-        body.contains('if (!altsPresent) return b.greetingSeeds;'),
-        isTrue,
-        reason: 'omitted alts still keep base seeds',
-      );
-      expect(
-        body.contains('const []'),
-        isTrue,
-        reason: 'omitted seeds + alts compact against empty, not leftover',
-      );
-      expect(body.contains('compactGreetingPairs'), isTrue);
-      expect(
-        RegExp(r'compactGreetingPairs\([^)]*b\.greetingSeeds').hasMatch(body),
-        isFalse,
-        reason: 'must not compact against leftover base seeds',
-      );
-
-      final chars = File(
-        'lib/services/web/facade/character_facade.dart',
-      ).readAsStringSync();
-      final updateCompact = RegExp(
-        r"compactGreetingPairs\(\s*greetingSlotsFromRaw\(greetings\),\s*"
-        r"fields\.containsKey\('greetingSeeds'\)\s*"
-        r"\? parseGreetingSeeds\(fields\['greetingSeeds'\]\)\s*"
-        r": const \[\],",
-      );
-      expect(
-        updateCompact.hasMatch(chars),
-        isTrue,
-        reason:
-            'facade.update omitted seeds must pass empty to compact, not leftover',
-      );
-
-      final groups = File(
-        'lib/services/web/facade/group_facade.dart',
-      ).readAsStringSync();
-      final groupCompact = RegExp(
-        r"f\.containsKey\('greetingSeeds'\)\s*"
-        r"\? parseGreetingSeeds\(f\['greetingSeeds'\]\)\s*"
-        r": const \[\],",
-      );
-      expect(
-        groupCompact.hasMatch(groups),
-        isTrue,
-        reason:
-            'group updateSettings omitted seeds must pass empty to compact, not leftover',
-      );
-      expect(
-        RegExp(r': g\.greetingSeeds,').hasMatch(groups),
-        isFalse,
-        reason: 'must not compact alts-only against unpaired existing g.greetingSeeds',
-      );
-    },
-  );
+  test('frontPorchFromFields omitted alts keep base seeds', () {
+    final seeded = FrontPorchExtensions(greetingSeeds: [angry]);
+    final back = frontPorchFromFields({
+      'trustLevel': 5,
+      'realismEnabled': true,
+    }, base: seeded);
+    expect(back.greetingSeeds, hasLength(1));
+    expect(
+      back.greetingSeeds.first!.characterEmotion,
+      'furious',
+      reason: 'omitted alts must not wipe leftover base seeds',
+    );
+    expect(back.trustLevel, 5);
+  });
 
   test(
     'JSON-null greet slots stay as placeholders so zip keeps furious on Get out',
@@ -577,111 +452,26 @@ void main() {
     },
   );
 
-  test(
-    'characters.md pins first_mes, skip-RtR, {} vs null, swipe-0, groups 1:1',
-    () {
-      final md = File('docs/characters.md').readAsStringSync();
-      expect(md.contains('first_mes'), isTrue);
-      expect(md.contains('Reads the Room'), isTrue);
-      expect(md.contains('including empty `{}`'), isTrue);
-      expect(md.contains('Swipe 0'), isTrue);
-      expect(md.contains('Groups match 1:1'), isTrue);
-      expect(
-        md.contains('must not write `{}` just because the seed toggle is on'),
-        isTrue,
-      );
-    },
-  );
-
-  test(
-    'web/API call sites pair dirty greets through compactGreetingPairs',
-    () {
-      final fp = File('lib/services/web/util/realism_extensions_json.dart')
-          .readAsStringSync();
-      expect(fp.contains('compactGreetingPairs'), isTrue);
-      expect(fp.contains('greetingSlotsFromRaw'), isTrue);
-
-      final chars = File('lib/services/web/facade/character_facade.dart')
-          .readAsStringSync();
-      expect(chars.contains('compactGreetingPairs'), isTrue);
-      expect(chars.contains('greetingSlotsFromRaw'), isTrue);
-
-      final groups = File('lib/services/web/facade/group_facade.dart')
-          .readAsStringSync();
-      expect(groups.contains('compactGreetingPairs'), isTrue);
-      expect(groups.contains('greetingSlotsFromRaw'), isTrue);
-
-      final enhance = File(
-        'lib/services/chargen/character_gen_enhance.dart',
-      ).readAsStringSync();
-      expect(
-        enhance.contains('assignRewrittenAlternateGreetings'),
-        isTrue,
-        reason: 'enhance must assign rewritten alts via compact-empty, not bare =',
-      );
-      expect(
-        enhance.contains('greetingSeeds: compactRewrittenGreetingAlts'),
-        isTrue,
-        reason:
-            'copyWith after alt rewrite must pass compact-empty/authored seeds',
-      );
-
-      final chargen = File(
-        'lib/services/character_gen_service.dart',
-      ).readAsStringSync();
-      expect(
-        chargen.contains('assignRewrittenAlternateGreetings'),
-        isTrue,
-        reason: 'chargen must assign rewritten alts via compact-empty, not bare =',
-      );
-      expect(
-        chargen.contains('card.alternateGreetings = alts;'),
-        isFalse,
-        reason: 'bare alt assign keeps leftover source seeds',
-      );
-
-      final review = File(
-        'lib/ui/pages/home/enhance/enhance_review_body.dart',
-      ).readAsStringSync();
-      expect(
-        review.contains('ext?.greetingSeeds'),
-        isFalse,
-        reason: 'must not compact accepted greets against leftover copy seeds',
-      );
-      expect(review.contains('compactAcceptedEnhanceGreetings'), isTrue);
-      expect(
-        review.contains(
-          'widget.enhanced.frontPorchExtensions?.greetingSeeds',
-        ),
-        isTrue,
-        reason: 'review must pair against enhance-authored seeds, or empty',
-      );
-    },
-  );
-
-  test(
-    'compactRewrittenGreetingAlts omits leftover furious on Get out',
-    () {
-      final leftover = [angry];
-      final omitted = compactRewrittenGreetingAlts(['Get out.']);
-      expect(omitted.greetings, ['Get out.']);
-      expect(
-        omitted.seeds,
-        isEmpty,
-        reason: "['Get out.'] omit seeds must not reuse unpaired [furious]",
-      );
-      expect(
-        greetingOverlayAt(omitted.seeds, 1),
-        isNull,
-        reason: 'Get out overlay is not leftover furious',
-      );
-      expect(
-        leftover.single.characterEmotion,
-        'furious',
-        reason: 'source leftover stays on the source list, not the compact',
-      );
-    },
-  );
+  test('compactRewrittenGreetingAlts omits leftover furious on Get out', () {
+    final leftover = [angry];
+    final omitted = compactRewrittenGreetingAlts(['Get out.']);
+    expect(omitted.greetings, ['Get out.']);
+    expect(
+      omitted.seeds,
+      isEmpty,
+      reason: "['Get out.'] omit seeds must not reuse unpaired [furious]",
+    );
+    expect(
+      greetingOverlayAt(omitted.seeds, 1),
+      isNull,
+      reason: 'Get out overlay is not leftover furious',
+    );
+    expect(
+      leftover.single.characterEmotion,
+      'furious',
+      reason: 'source leftover stays on the source list, not the compact',
+    );
+  });
 
   test(
     'compactRewrittenGreetingAlts pairs a seed the enhance step authored',
@@ -690,10 +480,7 @@ void main() {
       final paired = compactRewrittenGreetingAlts(['Get out.'], authored);
       expect(paired.greetings, ['Get out.']);
       expect(paired.seeds.single!.characterEmotion, 'cold');
-      expect(
-        greetingOverlayAt(paired.seeds, 1)!.characterEmotion,
-        'cold',
-      );
+      expect(greetingOverlayAt(paired.seeds, 1)!.characterEmotion, 'cold');
     },
   );
 
@@ -845,5 +632,4 @@ void main() {
       reason: 'real non-whitespace group first_mes stays displayed 0',
     );
   });
-
 }

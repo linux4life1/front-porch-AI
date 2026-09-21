@@ -21,9 +21,8 @@ part of 'character_repository.dart';
 /// Character-name → on-disk media folder name (same rule used everywhere an
 /// avatar/look path is built). Centralized so the rename move can't drift
 /// from the write/read/delete sites.
-String _mediaFolderName(String characterName) => characterName
-    .replaceAll(RegExp(r'[^\w\s\-]'), '')
-    .replaceAll(' ', '_');
+String _mediaFolderName(String characterName) =>
+    characterName.replaceAll(RegExp(r'[^\w\s\-]'), '').replaceAll(' ', '_');
 
 /// Avatar-gallery media: the expression/look CRUD, the media-folder rename
 /// move, and the portrait-promotion delete. Extracted verbatim from
@@ -123,7 +122,8 @@ extension CharacterRepositoryMedia on CharacterRepository {
     // until a ★ click forced a different cover path.
     final card = await getCharacterCardById(characterId);
     if (card != null) {
-      final needsPortrait = !hasUsablePortrait(card, _storage) ||
+      final needsPortrait =
+          !hasUsablePortrait(card, _storage) ||
           await isPlaceholderPortrait(card, _storage);
       if (needsPortrait) {
         final wrote = await bootstrapPortraitIfMissing(
@@ -190,7 +190,9 @@ extension CharacterRepositoryMedia on CharacterRepository {
         await oldDir.rename(newDir.path);
         debugPrint('[CharacterRepository] Moved media $oldSafe → $newSafe');
         return;
-      } catch (_) {/* fall through to per-file move */}
+      } catch (_) {
+        /* fall through to per-file move */
+      }
     }
 
     var conflicts = 0;
@@ -233,6 +235,13 @@ extension CharacterRepositoryMedia on CharacterRepository {
     }
   }
 
+  /// Delete gallery looks (`isLook`) for [characterId]. Expression avatars stay.
+  Future<void> clearGalleryLooks(String characterId) async {
+    for (final img in await getAvatarImages(characterId)) {
+      if (img.isLook) await removeAvatar(characterId, img.id);
+    }
+  }
+
   /// Remove an avatar image for a character.
   Future<void> removeAvatar(String characterId, String avatarId) async {
     try {
@@ -257,7 +266,12 @@ extension CharacterRepositoryMedia on CharacterRepository {
             createdAt: avatar.createdAt,
           );
           final file = File(
-            p.join(_storage.charactersDir.path, safeName, model.subfolder, avatar.filename),
+            p.join(
+              _storage.charactersDir.path,
+              safeName,
+              model.subfolder,
+              avatar.filename,
+            ),
           );
           if (await file.exists()) {
             await file.delete();

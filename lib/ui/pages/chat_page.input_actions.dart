@@ -183,7 +183,7 @@ extension _ChatPageInputActions on _ChatPageState {
       // / Persona) and crafts the prompt.
       Consumer<StorageService>(
         builder: (context, storage, _) {
-          if (!storage.imageGenEnabled) {
+          if (!storage.imageGenSettings.imageGenEnabled) {
             return const SizedBox.shrink();
           }
           return IconButton(
@@ -221,39 +221,45 @@ extension _ChatPageInputActions on _ChatPageState {
       Expanded(
         child: Consumer2<LLMProvider, OpenRouterService>(
           builder: (context, llm, _, _) {
-            final apiReady = llm.activeService.isReady;
+            final apiReady = llm.composerConnectionReady;
             final hint = chatComposerHint(
               apiReady: apiReady,
               observerMode: chatService.observerMode,
             );
-            return AppTextField(
-              controller: _controller,
-              focusNode: _chatFocusNode,
-              enabled: !chatService.isLoadingSession,
-              maxLines: 10,
-              minLines: _inputMinLines,
-              textInputAction: TextInputAction.newline,
-              style: TextStyle(color: AppColors.textPrimary(context)),
-              spellCheckConfiguration: SpellCheckConfiguration.disabled(),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: TextStyle(
-                  color: !apiReady
-                      ? AppColors.negativeAccentOf(context)
-                      : chatService.observerMode
-                      ? AppColors.porchAmberOf(context).withValues(alpha: 0.7)
-                      : AppColors.textTertiary(context),
+            final storage = Provider.of<StorageService>(context);
+            return ReadingSizeScope(
+              textScale: storage.uiSettings.textScale,
+              child: AppTextField(
+                controller: _controller,
+                focusNode: _chatFocusNode,
+                enabled: !chatService.isLoadingSession,
+                maxLines: 10,
+                minLines: _inputMinLines,
+                textInputAction: TextInputAction.newline,
+                style: readingSurfaceStyle(
+                  color: AppColors.textPrimary(context),
                 ),
-                filled: true,
-                fillColor: AppColors.surfaceContainerOf(context),
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
+                spellCheckConfiguration: SpellCheckConfiguration.disabled(),
+                decoration: InputDecoration(
+                  hintText: hint,
+                  hintStyle: TextStyle(
+                    color: !apiReady
+                        ? AppColors.negativeAccentOf(context)
+                        : chatService.observerMode
+                        ? AppColors.porchAmberOf(context).withValues(alpha: 0.7)
+                        : AppColors.textTertiary(context),
+                  ),
+                  filled: true,
+                  fillColor: AppColors.surfaceContainerOf(context),
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                 ),
               ),
             );
@@ -290,7 +296,7 @@ extension _ChatPageInputActions on _ChatPageState {
       // Mic button (push-to-talk STT)
       Consumer2<SttService, StorageService>(
         builder: (context, sttService, storage, _) {
-          if (!storage.sttEnabled) {
+          if (!storage.sttSettings.sttEnabled) {
             return const SizedBox.shrink();
           }
           if (sttService.isTranscribing) {
@@ -323,7 +329,7 @@ extension _ChatPageInputActions on _ChatPageState {
                             .stopRecordingAndTranscribe();
                         if (!mounted) return;
                         if (text != null && text.isNotEmpty) {
-                          if (storage.autoSendTranscription &&
+                          if (storage.sttSettings.autoSendTranscription &&
                               _controller.text.isEmpty) {
                             chatService.sendMessage(text);
                           } else {
@@ -351,7 +357,7 @@ extension _ChatPageInputActions on _ChatPageState {
       // Call button (voice call mode)
       Consumer2<SttService, StorageService>(
         builder: (context, sttService, storage, _) {
-          if (!storage.sttEnabled || chatService.isGroupMode) {
+          if (!storage.sttSettings.sttEnabled || chatService.isGroupMode) {
             return const SizedBox.shrink();
           }
           return Tooltip(

@@ -79,7 +79,7 @@ class ManagedBackendSection extends StatelessWidget {
 
     final anyRunning = koboldService.isRunning || koboldService.isStarting;
     final canStart =
-        (storageService.kcppsHasModel && kcppsModelExists) ||
+        (storageService.backendSettings.kcppsHasModel && kcppsModelExists) ||
         selectedModelPath != null;
 
     return Column(
@@ -185,10 +185,10 @@ class ManagedBackendSection extends StatelessWidget {
               fontSize: 11,
             ),
           ),
-          value: storageService.autostartBackend,
+          value: storageService.backendSettings.autostartBackend,
           activeTrackColor: AppColors.porchAmberOf(context),
           onChanged: (val) {
-            storageService.setAutostartBackend(val);
+            storageService.backendSettings.setAutostartBackend(val);
           },
         ),
         const SizedBox(height: 8),
@@ -206,10 +206,10 @@ class ManagedBackendSection extends StatelessWidget {
               fontSize: 11,
             ),
           ),
-          value: storageService.autostartOnChatOpen,
+          value: storageService.backendSettings.autostartOnChatOpen,
           activeTrackColor: AppColors.porchAmberOf(context),
           onChanged: (val) {
-            storageService.setAutostartOnChatOpen(val);
+            storageService.backendSettings.setAutostartOnChatOpen(val);
           },
         ),
         const SizedBox(height: 24),
@@ -218,7 +218,8 @@ class ManagedBackendSection extends StatelessWidget {
         ModelSelector(
           models: modelManager.models,
           selectedModelPath: selectedModelPath,
-          showManagedByKcpps: storageService.kcppsHasModel && kcppsModelExists,
+          showManagedByKcpps:
+              storageService.backendSettings.kcppsHasModel && kcppsModelExists,
           onChanged: onModelSelected,
         ),
         // Vision projector (mmproj) for the selected model — the same

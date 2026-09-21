@@ -43,14 +43,9 @@ class _ModelsManager extends FakeModelManager {
 }
 
 class _ModeStorage extends FakeStorageService {
-  _ModeStorage(this._backendType);
-  final String _backendType;
-  @override
-  String get backendType => _backendType;
-  @override
-  bool get kcppsHasModel => false;
-  @override
-  int get kvQuantizationLevel => 0;
+  _ModeStorage(String backendType) {
+    backendSettings.setBackendType(backendType);
+  }
 }
 
 void main() {
@@ -61,7 +56,11 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final storage = _ModeStorage(backendType);
-    final llm = FakeLLMProvider();
+    final llm = FakeLLMProvider(
+      activeBackend: backendType == 'openRouter'
+          ? BackendType.openRouter
+          : BackendType.kobold,
+    );
     final mm = _ModelsManager();
     final hw = _Hardware();
     final kobold = FakeKoboldService();
@@ -82,9 +81,7 @@ void main() {
           ChangeNotifierProvider<HardwareService>.value(value: hw),
           ChangeNotifierProvider<KoboldService>.value(value: kobold),
         ],
-        child: const MaterialApp(
-          home: Material(child: ModelSettingsDialog()),
-        ),
+        child: const MaterialApp(home: Material(child: ModelSettingsDialog())),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
@@ -93,13 +90,24 @@ void main() {
 
   testWidgets('local backend mode renders the local panel', (tester) async {
     await pumpDialog(tester, 'local');
-    expect(find.textContaining('Model'), findsWidgets,
-        reason: 'local panel landmark missing');
+    expect(find.text('KoboldCpp'), findsOneWidget);
+    expect(find.text('OpenRouter'), findsOneWidget);
+    expect(
+      find.textContaining('Model'),
+      findsWidgets,
+      reason: 'local panel landmark missing',
+    );
   });
 
   testWidgets('remote backend mode renders the remote panel', (tester) async {
     await pumpDialog(tester, 'openRouter');
-    expect(find.textContaining('API'), findsWidgets,
-        reason: 'remote panel landmark missing');
+    expect(find.text('OpenRouter'), findsOneWidget);
+    expect(find.text('Nano-GPT'), findsOneWidget);
+    expect(find.text('LM Studio'), findsOneWidget);
+    expect(
+      find.textContaining('API'),
+      findsWidgets,
+      reason: 'remote panel landmark missing',
+    );
   });
 }

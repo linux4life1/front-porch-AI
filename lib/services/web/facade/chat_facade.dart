@@ -18,6 +18,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
@@ -27,6 +28,9 @@ import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/facade/chat_session_facade.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 import 'package:front_porch_ai/services/web/util/lorebook_json.dart';
+
+part 'chat_facade_history.dart';
+part 'chat_facade_state.dart';
 
 /// Thin adapter over [ChatService] for the rewritten web server. Mirrors the
 /// legacy chat handlers' JSON contract and pushes a `chat_updated` signal over
@@ -89,204 +93,6 @@ class ChatFacade {
   Future<Map<String, dynamic>> refreshContextBudget() async {
     await _chat.estimateContextBudgetNow();
     return contextBudget();
-  }
-
-  /// Full chat state payload (matches legacy `/api/chat/state`).
-  Map<String, dynamic> state() {
-    final activeChar = _chat.activeCharacter;
-    final messages = _chat.messages.asMap().entries.map((e) {
-      final m = e.value;
-      final md = m.activeMetadata;
-      final chips = _messageChips(md);
-      // Generated-image messages (from /image or the Studio's "Send to chat")
-      // and user-attached photos: expose the basename so the client renders
-      // it via the existing GET /api/image/saved/<name> endpoint (both live
-      // in the same images dir — desktop bubble parity).
-      String? imageName;
-      String? imagePrompt;
-      if (md != null &&
-          (md['is_generated_image'] == true || md['is_user_image'] == true)) {
-        final ip = md['image_path'];
-        if (ip is String) imageName = p.basename(ip);
-        final pr = md['image_prompt'];
-        if (pr is String && pr.isNotEmpty) imagePrompt = pr;
-      }
-      // Living Time §1 dream narration flag — additive; older bundles render
-      // the dream as a plain message (same info, no special chrome).
-      final bool? isDream = md?['is_dream'] == true ? true : null;
-      return {
-        'index': e.key,
-        'sender': m.sender,
-        'text': m.displayText,
-        'isUser': m.isUser,
-        'isDream': ?isDream,
-        'hasThinking': m.hasThinking,
-        'thinkingContent': m.thinkingContent,
-        'thinkingDurationMs': m.thinkingDurationMs,
-        'swipeCount': m.swipes.length,
-        'swipeIndex': m.swipeIndex,
-        'characterId': m.characterId,
-        'chips': ?chips,
-        'image': ?imageName,
-        'imagePrompt': ?imagePrompt,
-      };
-    }).toList();
-
-    final lorebook = <Map<String, dynamic>>[];
-    // Post-group-filter truth: what actually injects this turn (an
-    // inclusion-group loser stays isTriggered but must not read as active
-    // in the web UI either — same source the desktop sidebar dots use).
-    final injectedLore = _chat.currentlyActiveLoreEntries();
-    final chatLen = _chat.messages.length;
-    void addEntries(Iterable<dynamic> entries, String prefix) {
-      for (final entry in entries) {
-        if (!entry.enabled) continue;
-        lorebook.add({
-          'key': entry.key,
-          'name': prefix.isEmpty
-              ? entry.displayName
-              : '$prefix: ${entry.displayName}',
-          'isTriggered': injectedLore.contains(entry) && !entry.constant,
-          'constant': entry.constant,
-          'remainingDepth': entry.remainingDepth,
-          // ST timed effects — the web timer pills (desktop sidebar parity).
-          'stickyLeft': _chat.loreTimedEffects.stickyRemaining(entry, chatLen),
-          'cooldownLeft': _chat.loreTimedEffects.cooldownRemaining(
-            entry,
-            chatLen,
-          ),
-        });
-      }
-    }
-
-    // Chat-scoped book first (matches its scan priority), then char/members.
-    addEntries(_chat.chatLorebook.entries, 'This chat');
-    if (activeChar?.lorebook != null) {
-      addEntries(activeChar!.lorebook!.entries, '');
-    }
-    if (_chat.isGroupMode) {
-      for (final ch in _chat.groupCharacters) {
-        if (ch.lorebook != null) addEntries(ch.lorebook!.entries, ch.name);
-      }
-    }
-
-    return {
-      'character': activeChar != null
-          ? {'name': activeChar.name, 'id': activeChar.dbId}
-          : null,
-      // Title for the unified header: group name in a group, else the host name
-      // (activeCharacter is null in a group, so the client can't rely on it).
-      'chatTitle': _chat.activeGroup?.name ?? activeChar?.name,
-      'sessionId': _chat.currentSessionId,
-      'sessionName': _chat.sessionName,
-      'messages': messages,
-      'isGenerating': _chat.isGenerating || _chat.isImporting,
-      // Additive (mixed-fleet safe): older web clients ignore it; newer ones
-      // can distinguish "streaming tokens" from "still settling".
-      'isSettlingTurn': _chat.isSettlingTurn,
-      'isSendWaitingOnSettle': _chat.isSendWaitingOnSettle,
-      // Overlay while setActiveCharacter/Group hydrates (navigate-first open).
-      'isLoadingSession': _chat.isLoadingSession,
-      'isBackfillingHistory': _chat.isBackfillingHistory,
-      'hasOlderHistory': _chat.hasOlderHistory,
-      // Processing-overlay state (mirrors the desktop Realism + Objective engine
-      // overlays). The WS pushes a live `processing` event during eval; these
-      // fields let a client that connects mid-eval render the overlay too.
-      'isEvaluatingRealism': _chat.isEvaluatingRealism,
-      'isCheckingCompletion': _chat.isCheckingCompletion,
-      'isProcessingGreeting': _chat.isProcessingGreeting,
-      'isVerifyingRealism': _chat.isVerifyingRealism,
-      'realismEvalText': _chat.realismEvalStreamTextClean,
-      'isGroupMode': _chat.isGroupMode,
-      'groupId': _chat.activeGroup?.id,
-      'groupMembers': _chat.isGroupMode
-          ? _chat.groupCharacters
-                .map(
-                  (c) => {
-                    'name': c.name,
-                    'charId': c.imagePath != null
-                        ? p.basenameWithoutExtension(c.imagePath!)
-                        : c.name
-                              .replaceAll(RegExp(r'[^\w\s]'), '')
-                              .replaceAll(' ', '_'),
-                    'hasAvatar': c.imagePath != null && c.imagePath!.isNotEmpty,
-                    'dbId': c.dbId,
-                  },
-                )
-                .toList()
-          : null,
-      'tokensPerSecond': _chat.tokensPerSecond,
-      'tokensGenerated': _chat.tokensGenerated,
-      'authorNote': _chat.authorNote,
-      'authorNoteDepth': _chat.authorNoteStrength,
-      'summary': _chat.summary,
-      'summaryLastIndex': _chat.summaryLastIndex,
-      'summaryPaused': _chat.summaryPaused,
-      'isSummaryGenerating': _chat.isSummaryGenerating,
-      'greetingIndex': _chat.greetingIndex,
-      'totalGreetings': () {
-        final n = _chat.openingAllGreetings.length;
-        return n < 1 ? 1 : n;
-      }(),
-      'userPersonaName': _personas?.persona.name ?? 'User',
-      'lorebook': lorebook,
-      // Living Worlds — places attached to this session (ids).
-      'chatWorldIds': _chat.chatWorldIds,
-      // Lore token meter (desktop sidebar parity): last generation's lore
-      // share of the budget + anything dropped for space. Additive fields.
-      'loreTokens': _chat.lastLoreTokens,
-      'loreBudget': _chat.lastLoreBudget,
-      'loreOverflow': _chat.lastLoreOverflow,
-      'realism': _realism.snapshot(),
-      // Active expression label (mood) so the web client can cache-bust the
-      // expression portrait and only refetch when the mood actually changes.
-      // Read-only — no reclassification here, so 1:1/group parity is unaffected.
-      'expressionLabel': _chat.currentExpressionLabel,
-      // Living Time §2 welcome-back banner — additive nullable; the shared
-      // ChatService gate mirrors desktop (setting off / under threshold →
-      // null). Coarse words only, computed locally from the chat's own
-      // last-save time.
-      'absencePhrase': _chat.absenceBannerPhrase,
-      // Unified participant cast (host + scene guests in 1:1; members in group).
-      // The single roster the unified chat UI iterates — no mode branching.
-      'cast': _castJson(),
-      // Transient scene-guest banner (creating/joining a guest) + a pending
-      // "new character detected — add them?" offer, mirroring the desktop.
-      'guestActivity': {
-        'status': _chat.guestActivityStatus,
-        'isError': _chat.guestActivityIsError,
-        'busy': _chat.isGuestBusy,
-      },
-      'pendingDetection': _chat.pendingGuestDetection?.name,
-      // Chance Time (chaos) park state. While `pending` is true the engine is
-      // frozen waiting for the user to accept their fate — the web reveal modal
-      // reads this on (re)connect (a phone that slept through the live
-      // `chance_time` WS event still recovers). `event` is pre-resolved
-      // ({{char}} substituted); the desktop shows its own spinning wheel.
-      'chanceTime': {
-        'pending': _chat.isAwaitingChanceTime,
-        'event': ?_chat.webChanceTimeDisplay,
-      },
-      // Crafted /image prompt awaiting review (review setting on). The client
-      // shows an edit modal and resolves via POST /api/chat/image-review.
-      'imagePromptReview': ?_chat.pendingImagePromptReview,
-      // Tool-calling verdict for the current backend+model (desktop sidebar
-      // pill parity). Retest via POST /api/chat/tool-test. Additive field.
-      'toolSupport': _chat.toolSupportJson,
-      // Per-chat theme overrides (preset + font/color/background/border).
-      'themeOverrides': _chat.sessionThemeOverrides.toJson(),
-      // LLM backend connection (not a one-off request). Additive; older
-      // PWAs ignore it and keep the normal composer placeholder.
-      'llmReady': _llm?.activeService.isReady ?? true,
-    };
-  }
-
-  Map<String, dynamic> variants(int messageIndex) =>
-      _chat.variantPickerPayload(messageIndex);
-
-  Future<void> selectVariant(int messageIndex, int variantIndex) async {
-    await _chat.selectVariant(messageIndex, variantIndex);
-    _notify();
   }
 
   /// Re-probe the current backend+model's tool-calling support (the web
@@ -384,6 +190,25 @@ class ChatFacade {
     final rs = md['realism_state'];
     if (rs is Map && rs['needs'] != null) out['needsReprocessable'] = true;
     if (md['needs_deltas_pre_reprocess'] is Map) out['needsRevertable'] = true;
+    final search = md['search_receipt'];
+    if (search is Map) {
+      final q = (search['query'] as String?)?.trim() ?? '';
+      if (q.isNotEmpty) {
+        out['searchQuery'] = q;
+        out['searchOk'] = search['ok'] == true;
+      }
+    }
+    final toolReceipt = md['tool_receipt'];
+    if (toolReceipt is Map) {
+      final tool = (toolReceipt['tool'] as String?)?.trim() ?? '';
+      if (tool.isNotEmpty) {
+        out['toolName'] = tool;
+        out['toolOk'] = toolReceipt['ok'] == true;
+        // Older phone bundles read mcpTool; keep the keys until they age out.
+        out['mcpTool'] = tool;
+        out['mcpOk'] = toolReceipt['ok'] == true;
+      }
+    }
     return out.isEmpty ? null : out;
   }
 
@@ -453,13 +278,19 @@ class ChatFacade {
     return true;
   }
 
-  void send(String text) {
-    _chat.sendMessage(text);
+  void send(String text, {Uint8List? imageBytes}) {
+    _chat.sendMessage(text, imageBytes: imageBytes);
     _notify();
   }
 
   void stop() {
     _chat.stopGeneration();
+    _notify();
+  }
+
+  /// Clear a parked `/join` picker (web close without picking).
+  void dismissGuestPicker() {
+    _chat.dismissGuestPicker();
     _notify();
   }
 
@@ -481,8 +312,8 @@ class ChatFacade {
     _notify();
   }
 
-  void regenerate() {
-    _chat.regenerateLastMessage();
+  void regenerate({String? critique}) {
+    _chat.regenerateLastMessage(critique: critique);
     _notify();
   }
 
@@ -490,268 +321,6 @@ class ChatFacade {
     _chat.continueGeneration();
     _notify();
   }
-
-  /// AI writes the user's next line into the composer (desktop wand parity).
-  /// Tokens ride a dedicated `impersonate` WS event — never the `token`
-  /// bubble stream.
-  void impersonate(String prefix) {
-    unawaited(
-      _chat
-          .impersonateUser(
-            prefix: prefix,
-            onToken: (acc) => _hub?.broadcastImpersonate(acc),
-          )
-          .whenComplete(() {
-            _hub?.broadcastImpersonateDone();
-            _notify();
-          }),
-    );
-    _notify();
-  }
-
-  /// Director redo: re-evaluate a message's Needs deltas using the user's
-  /// written [critique]. Awaited (it runs LLM evals) so the route can report the
-  /// outcome; the new deltas + a pre-reprocess stash land in the message's
-  /// metadata, which the next state fetch surfaces as chips. Reuses the existing
-  /// ChatService flow — no parallel logic.
-  /// [onlyNeeds] scopes the pass to those needs; empty re-evaluates all of
-  /// them. Additive on the wire — an older PWA that omits it keeps the
-  /// all-needs behaviour it has always had.
-  Future<bool> reprocessNeeds(
-    int index,
-    String critique, {
-    Set<String> onlyNeeds = const <String>{},
-  }) async {
-    final ok = await _chat.manualReprocessNeeds(
-      index,
-      critique,
-      onlyNeeds: onlyNeeds,
-    );
-    _notify();
-    return ok;
-  }
-
-  /// Restore a message's Needs deltas + live state from the pre-reprocess stash.
-  Future<bool> revertNeedsReprocess(int index) async {
-    final ok = await _chat.revertNeedsReprocess(index);
-    _notify();
-    return ok;
-  }
-
-  void swipe(int messageIndex, int direction) {
-    _chat.swipeMessage(messageIndex, direction);
-    _notify();
-  }
-
-  void edit(int index, String text) {
-    _chat.editMessage(index, text);
-    _notify();
-  }
-
-  void delete(int index) {
-    _chat.deleteMessage(index);
-    _notify();
-  }
-
-  /// Attach a generated image (saved under `KoboldManager/images/`) to the
-  /// conversation as its own image message — the SAME path the desktop's
-  /// /image command and the Image Studio's "Send to chat" use
-  /// (ChatServiceImages.addGeneratedImageMessage), so it renders identically
-  /// on both surfaces. Replaces the old markdown-append-to-last-message hack,
-  /// which never rendered on desktop (relative URLs aren't matched by the
-  /// markdown-image regex) and mutated an unrelated message.
-  /// Resolve a parked /image prompt review from the web modal: the (possibly
-  /// edited) prompt to generate with, or null to cancel. No-op when nothing
-  /// is pending (e.g. the desktop dialog resolved it first).
-  void resolveImageReview(String? prompt) {
-    _chat.resolveImagePromptReview(prompt);
-    _notify();
-  }
-
-  Future<bool> insertImage(String filename, {String prompt = ''}) async {
-    final file = _resolveSavedImage?.call(filename.trim());
-    if (file == null) return false;
-    await _chat.addGeneratedImageMessage(file.path, prompt);
-    _notify();
-    return true;
-  }
-
-  void setAuthorNote(String note, {int? strength}) {
-    _chat.setAuthorNote(note, strength: strength);
-    _notify();
-  }
-
-  /// All user personas for the web persona surfaces.
-  ///
-  /// Two flags, because there are two distinct answers: `default` is who a NEW
-  /// chat starts as (Settings), `active` is who the CURRENT chat is speaking as
-  /// (the in-chat switcher). `active` is kept for older PWA builds that only
-  /// know that key — additive-only, per the API contract.
-  List<Map<String, dynamic>> personas() {
-    final svc = _personas;
-    if (svc == null) return const [];
-    final activeId = svc.persona.id;
-    final defaultId = svc.defaultPersonaId;
-    return svc.personas
-        .map(
-          (p) => {
-            'id': p.id,
-            'label': p.displayLabel,
-            'name': p.name,
-            'active': p.id == activeId,
-            'default': p.id == defaultId,
-          },
-        )
-        .toList();
-  }
-
-  /// Change which persona NEW chats start as (Settings → Personas). Leaves the
-  /// open chat alone. Returns false if personas aren't wired.
-  Future<bool> setPersona(String id) async {
-    final svc = _personas;
-    if (svc == null) return false;
-    await svc.setDefaultPersona(id);
-    _notify();
-    return true;
-  }
-
-  /// Speak as [id] in the CURRENT chat, and bind the session to it — the web
-  /// counterpart of the desktop composer's persona switcher. Saves immediately
-  /// so the binding survives a reload even if the user says nothing else.
-  Future<bool> setChatPersona(String id) async {
-    final svc = _personas;
-    if (svc == null) return false;
-    await svc.setActivePersona(id);
-    await _chat.persistSessionPersona();
-    _notify();
-    return true;
-  }
-
-  /// Full persona detail for the editor (text + name/title), or null if absent.
-  Map<String, dynamic>? personaDetail(String id) {
-    final svc = _personas;
-    if (svc == null) return null;
-    for (final p in svc.personas) {
-      if (p.id == id) {
-        return {
-          'id': p.id,
-          'title': p.title,
-          'name': p.name,
-          'persona': p.persona,
-          'birthday': p.birthday,
-        };
-      }
-    }
-    return null;
-  }
-
-  /// Create a new persona (and make it active, matching the desktop). Returns
-  /// false if personas aren't wired.
-  Future<bool> createPersona(Map<String, dynamic> f) async {
-    final svc = _personas;
-    if (svc == null) return false;
-    await svc.createPersona(
-      f['title']?.toString() ?? '',
-      f['name']?.toString() ?? 'User',
-      f['persona']?.toString() ?? '',
-      null,
-      birthday: f['birthday']?.toString() ?? '',
-    );
-    _notify();
-    return true;
-  }
-
-  /// Edit an existing persona's text fields (only provided keys change).
-  Future<bool> updatePersona(String id, Map<String, dynamic> f) async {
-    final svc = _personas;
-    if (svc == null) return false;
-    UserPersona? existing;
-    for (final p in svc.personas) {
-      if (p.id == id) {
-        existing = p;
-        break;
-      }
-    }
-    if (existing == null) return false;
-    await svc.updatePersona(
-      existing.copyWith(
-        title: f.containsKey('title') ? f['title']?.toString() : null,
-        name: f.containsKey('name') ? f['name']?.toString() : null,
-        persona: f.containsKey('persona') ? f['persona']?.toString() : null,
-        birthday: f.containsKey('birthday') ? f['birthday']?.toString() : null,
-      ),
-    );
-    _notify();
-    return true;
-  }
-
-  /// Delete a persona. The service refuses to delete the last one (throws),
-  /// which we surface as false. Returns false if personas aren't wired.
-  Future<bool> deletePersona(String id) async {
-    final svc = _personas;
-    if (svc == null) return false;
-    try {
-      await svc.deletePersona(id);
-    } catch (_) {
-      return false;
-    }
-    _notify();
-    return true;
-  }
-
-  /// All saved conversations. See [ChatSessionFacade.list].
-  Future<List<Map<String, dynamic>>> sessions({
-    String? characterId,
-    String? groupId,
-  }) => _sessions.list(characterId: characterId, groupId: groupId);
-
-  /// New / load / delete. See [ChatSessionFacade.apply].
-  Future<String?> session({
-    String? action,
-    String? sessionId,
-    bool startReplacement = true,
-  }) => _sessions.apply(
-    action: action,
-    sessionId: sessionId,
-    startReplacement: startReplacement,
-  );
-
-  /// Fork at [messageIndex]. See [ChatSessionFacade.fork].
-  Future<String?> fork(int messageIndex) => _sessions.fork(messageIndex);
-
-  String? get currentSessionId => _chat.currentSessionId;
-
-  /// The chat-scoped lorebook as web editor rows (full-fidelity via `ext`).
-  Map<String, dynamic> chatLorebookRows() => {
-    'entries': lorebookEntriesToJson(_chat.chatLorebook),
-  };
-
-  /// Replace the chat-scoped lorebook from web editor rows. An empty/absent
-  /// list clears it. Returns false when no session is active.
-  Future<bool> setChatLorebook(dynamic rowsJson) async {
-    if (_chat.currentSessionId == null) return false;
-    final built = buildLorebookFromJson(rowsJson);
-    _chat.chatLorebook.entries
-      ..clear()
-      ..addAll(built?.entries ?? const []);
-    await _chat.commitChatLorebookEdit();
-    _notify();
-    return true;
-  }
-
-  /// Save per-chat theme overrides from the web UI.
-  Future<bool> setThemeOverrides(Map<String, dynamic> json) async {
-    if (_chat.currentSessionId == null) return false;
-    _chat.sessionThemeOverrides = ChatThemeOverrides.fromJson(json);
-    _notify();
-    return true;
-  }
-
-  /// Mutation-free "would trigger next" preview for a composer draft —
-  /// display names of idle entries the draft would wake up.
-  List<String> lorePreview(String draft) => [
-    for (final e in _chat.previewLoreTriggers(draft)) e.displayName,
-  ];
 
   void _notify() => _hub?.broadcastChatUpdate();
 }

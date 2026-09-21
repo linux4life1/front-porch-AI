@@ -80,11 +80,14 @@ extension ChatServiceActions on ChatService {
         prompt: prompt,
         maxLength: 300,
         temperature: 0.8,
+        reasoningEnabled: false,
+        reasoningMaxTokens: 0,
+        mandatoryReasoningHeadroom: true,
         stopSequences: ['\n\n\n'],
       );
 
       String responseText = '';
-      await for (final chunk in llmService.generateStream(params)) {
+      await for (final chunk in _mouthGenerateStream(params)) {
         responseText += chunk;
       }
       responseText = responseText.trim();

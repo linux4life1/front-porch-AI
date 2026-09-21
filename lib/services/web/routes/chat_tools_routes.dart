@@ -29,6 +29,7 @@ class WebChatToolsRoutes {
   WebChatToolsRoutes(this._facade, Router router) {
     router.get('/api/chat/tools', _state);
     router.post('/api/chat/tools/settings', _settings);
+    router.post('/api/chat/tools/wiki', _wiki);
     router.post('/api/chat/tools/toggle', _toggle);
     router.post('/api/chat/tools/time', _time);
     router.get('/api/chat/tools/calendar', _calendar);
@@ -61,6 +62,12 @@ class WebChatToolsRoutes {
   /// Tools snapshot scoped to the focused cast participant (`?participant=<id>`).
   Map<String, dynamic> _snapshot(shelf.Request request) =>
       _facade.state(participantId: request.url.queryParameters['participant']);
+
+  Future<shelf.Response> _wiki(shelf.Request request) async {
+    final body = await _json(request);
+    await _facade.setWikiBaseUrl(body['wikiBaseUrl']?.toString() ?? '');
+    return JsonResponse.ok(_snapshot(request));
+  }
 
   /// Apply global memory/summary settings (only keys present are changed).
   Future<shelf.Response> _settings(shelf.Request request) async {
@@ -235,7 +242,11 @@ class WebChatToolsRoutes {
   }
 
   /// Summary actions: regenerate, or set the summary text directly.
+  /// Journal-off cannot write the recap (desktop hides Edit/Regen).
   Future<shelf.Response> _summary(shelf.Request request) async {
+    if (!_facade.journalEnabled) {
+      return JsonResponse.error(409, 'Journal is off');
+    }
     final body = await _json(request);
     final action = body['action']?.toString();
     if (action == 'regenerate') {
@@ -399,6 +410,9 @@ class WebChatToolsRoutes {
 
   /// Journal mutation (`action`: plant/edit/pin/retire/check).
   Future<shelf.Response> _journalPost(shelf.Request request) async {
+    if (!_facade.journalEnabled) {
+      return JsonResponse.error(409, 'Journal is off');
+    }
     final body = await _json(request);
     final action = body['action']?.toString() ?? '';
     final participant =
@@ -417,6 +431,9 @@ class WebChatToolsRoutes {
       JsonResponse.ok(_facade.journalWeb.reviewBatch());
 
   Future<shelf.Response> _journalReviewPost(shelf.Request request) async {
+    if (!_facade.journalEnabled) {
+      return JsonResponse.error(409, 'Journal is off');
+    }
     final body = await _json(request);
     return JsonResponse.ok(
       await _facade.journalWeb.settleReview(

@@ -115,28 +115,28 @@ void main() {
     });
   });
 
-  group('Director rejects all-zero needs impact', () {
-    test(
-      'all zeros is not accepted — reprocess can land a scene delta',
-      () async {
-        final v = createTestRealismVerification(
-          fireFn: (p, {onChunk}) async =>
-              '{"hunger_delta":0,"energy_delta":-4,"hygiene_delta":0,'
+  group('Director accepts a quiet all-zero needs impact', () {
+    test('all zeros is a valid quiet beat — not rewritten', () async {
+      var directorCalls = 0;
+      final v = createTestRealismVerification(
+        fireFn: (p, {onChunk}) async {
+          directorCalls++;
+          return '{"hunger_delta":0,"energy_delta":-4,"hygiene_delta":0,'
               '"fun_delta":6,"social_delta":8,"bladder_delta":50,'
-              '"comfort_delta":3,"reason":"the beat moved her"}',
-        );
-        final r = await v.verify(
-          evalKind: 'needs_impact',
-          rawOutput:
-              '{"hunger_delta":0,"energy_delta":0,"hygiene_delta":0,'
-              '"fun_delta":0,"social_delta":0,"bladder_delta":0,'
-              '"comfort_delta":0,"reason":"none"}',
-          sceneResponse: 'she pees on him, riding hard',
-          maxPassesOverride: 1,
-        );
-        expect(r.status, 'corrected');
-        expect(_int(r.correctedRaw ?? '', 'bladder_delta'), 50);
-      },
-    );
+              '"comfort_delta":3,"reason":"invented"}';
+        },
+      );
+      final r = await v.verify(
+        evalKind: 'needs_impact',
+        rawOutput:
+            '{"hunger_delta":0,"energy_delta":0,"hygiene_delta":0,'
+            '"fun_delta":0,"social_delta":0,"bladder_delta":0,'
+            '"comfort_delta":0,"reason":"none"}',
+        sceneResponse: 'they sit together a while',
+        maxPassesOverride: 1,
+      );
+      expect(directorCalls, 0);
+      expect(r.status, isNot('corrected'));
+    });
   });
 }

@@ -235,7 +235,9 @@ void main() {
 
     test('ensureInitialized creates null classifier for manual mode', () async {
       final storage = await createStorageService();
-      await storage.setExpressionClassificationMode('manual');
+      await storage.expressionSettings.setExpressionClassificationMode(
+        'manual',
+      );
       final service = ExpressionClassifierService(storage);
 
       await service.ensureInitialized(
@@ -248,7 +250,9 @@ void main() {
 
     test('classify returns null in manual mode', () async {
       final storage = await createStorageService();
-      await storage.setExpressionClassificationMode('manual');
+      await storage.expressionSettings.setExpressionClassificationMode(
+        'manual',
+      );
       final service = ExpressionClassifierService(storage);
 
       await service.ensureInitialized(
@@ -337,7 +341,9 @@ void main() {
       );
       expect(service.activeMode, equals('llm'));
 
-      await storage.setExpressionClassificationMode('manual');
+      await storage.expressionSettings.setExpressionClassificationMode(
+        'manual',
+      );
       await service.ensureInitialized(
         getCurrentEmotion: () => 'joy',
         reclassify: (e) async => 'joy',

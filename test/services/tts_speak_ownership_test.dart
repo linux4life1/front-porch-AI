@@ -65,36 +65,19 @@ void _mockAudioChannels() {
 
 /// Everything TtsService's cloud path reads, pointed at a local fake server.
 class _CloudProbeStorage extends FakeStorageService {
-  _CloudProbeStorage(this.baseUrl);
+  _CloudProbeStorage(this.baseUrl) {
+    ttsSettings.setTtsEnabled(true);
+    ttsSettings.setTtsEngine('openai');
+    ttsSettings.setTtsVoiceModel('alloy');
+    ttsSettings.setTtsConcurrency(2);
+    ttsSettings.setTtsAudioLookahead(4);
+    ttsSettings.setOpenaiTtsApiKey('test-key');
+    ttsSettings.setOpenaiTtsModel('tts-1');
+    ttsSettings.setOpenaiTtsBaseUrl(baseUrl);
+    sttSettings.setCallBufferSentences(2);
+  }
 
   final String baseUrl;
-
-  @override
-  bool get ttsEnabled => true;
-  @override
-  String get ttsEngine => 'openai';
-  @override
-  String get ttsVoiceModel => 'alloy';
-  @override
-  double get ttsSpeechRate => 1.0;
-  @override
-  bool get ttsNarrateQuotedOnly => false;
-  @override
-  bool get ttsIgnoreAsterisks => false;
-  @override
-  bool get ttsReplaceCurlyQuotes => false;
-  @override
-  int get ttsConcurrency => 2;
-  @override
-  int get ttsAudioLookahead => 4;
-  @override
-  int get callBufferSentences => 2;
-  @override
-  String get openaiTtsApiKey => 'test-key';
-  @override
-  String get openaiTtsModel => 'tts-1';
-  @override
-  String get openaiTtsBaseUrl => baseUrl;
 }
 
 /// A real (if very short) 16-bit mono PCM WAV, so playback is handed
@@ -124,7 +107,9 @@ Set<String> _generatedWavPaths() => Directory.systemTemp
     .listSync()
     .whereType<File>()
     .map((f) => f.path)
-    .where((p) => p.split(Platform.pathSeparator).last.startsWith('openai_tts_'))
+    .where(
+      (p) => p.split(Platform.pathSeparator).last.startsWith('openai_tts_'),
+    )
     .toSet();
 
 Future<void> _pumpUntil(
@@ -205,7 +190,8 @@ void main() {
       expect(
         _generatedWavPaths().difference(before),
         isNotEmpty,
-        reason: 'the audio the user is about to hear (and that gets cached '
+        reason:
+            'the audio the user is about to hear (and that gets cached '
             'for instant replay) must still exist on disk at playback time',
       );
 
@@ -246,14 +232,11 @@ void main() {
       expect(
         tts.currentMessageId,
         'B',
-        reason: 'the superseded call cleared the new utterance\'s state on '
+        reason:
+            'the superseded call cleared the new utterance\'s state on '
             'its way out — Speak looked dead while B was still generating',
       );
-      expect(
-        tts.isSpeaking,
-        isTrue,
-        reason: 'B is still the active utterance',
-      );
+      expect(tts.isSpeaking, isTrue, reason: 'B is still the active utterance');
       expect(
         tts.isGenerating,
         isTrue,
@@ -262,10 +245,7 @@ void main() {
 
       gateB.complete();
       await tts.stop();
-      await second.timeout(
-        const Duration(seconds: 3),
-        onTimeout: () {},
-      );
+      await second.timeout(const Duration(seconds: 3), onTimeout: () {});
       await Future<void>.delayed(const Duration(milliseconds: 100));
     },
   );

@@ -86,6 +86,17 @@
 bool recapIsRedundant({required int dropped, required int basePosition}) =>
     dropped == 0 && basePosition == 0;
 
+/// Recap is Journal-owned. Guests never journal. When the Journal toggle is
+/// off, a stale `_summary` must not still ride the prompt.
+String recapBlockForTurn({
+  required String recap,
+  required bool journalEnabled,
+  required bool isGuest,
+}) {
+  if (!journalEnabled || isGuest) return '';
+  return buildRecapBlock(recap: recap);
+}
+
 String buildRecapBlock({required String recap}) {
   if (recap.isEmpty) return '';
   // Leading \n: this block's own separator, so it sits one blank line clear of

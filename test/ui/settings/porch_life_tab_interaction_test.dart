@@ -64,72 +64,9 @@ class _PorchLifeStorage extends FakeStorageService {
   }
 
   final RealismSettings _realism = RealismSettings();
-  bool _journalEnabled = true;
 
   @override
   RealismSettings get realismSettings => _realism;
-
-  @override
-  bool get realismDefault => _realism.realismDefault;
-  @override
-  Future<void> setRealismDefault(bool v) => _realism.setRealismDefault(v);
-
-  @override
-  bool get nsfwCooldownDefault => _realism.nsfwCooldownDefault;
-  @override
-  Future<void> setNsfwCooldownDefault(bool v) =>
-      _realism.setNsfwCooldownDefault(v);
-
-  @override
-  bool get needsSimDefault => _realism.needsSimDefault;
-
-  @override
-  bool get passageOfTimeDefault => _realism.passageOfTimeDefault;
-  @override
-  Future<void> setPassageOfTimeDefault(bool v) =>
-      _realism.setPassageOfTimeDefault(v);
-
-  @override
-  bool get weatherEnabled => _realism.weatherEnabled;
-  @override
-  Future<void> setWeatherEnabled(bool v) => _realism.setWeatherEnabled(v);
-
-  @override
-  bool get weatherFahrenheit => _realism.weatherFahrenheit;
-  @override
-  Future<void> setWeatherFahrenheit(bool v) =>
-      _realism.setWeatherFahrenheit(v);
-
-  @override
-  bool get absenceBannerEnabled => _realism.absenceBannerEnabled;
-  @override
-  Future<void> setAbsenceBannerEnabled(bool v) =>
-      _realism.setAbsenceBannerEnabled(v);
-
-  @override
-  bool get absenceAckEnabled => _realism.absenceAckEnabled;
-  @override
-  Future<void> setAbsenceAckEnabled(bool v) =>
-      _realism.setAbsenceAckEnabled(v);
-
-  @override
-  int get absenceThresholdHours => _realism.absenceThresholdHours;
-  @override
-  Future<void> setAbsenceThresholdHours(int v) =>
-      _realism.setAbsenceThresholdHours(v);
-
-  @override
-  bool get dreamsEnabled => _realism.dreamsEnabled;
-  @override
-  Future<void> setDreamsEnabled(bool v) => _realism.setDreamsEnabled(v);
-
-  @override
-  bool get journalEnabled => _journalEnabled;
-  @override
-  Future<void> setJournalEnabled(bool v) async {
-    _journalEnabled = v;
-    notifyListeners();
-  }
 }
 
 void main() {
@@ -139,18 +76,14 @@ void main() {
     'every Porch Life row renders, survives Realism Engine OFF, and takes '
     'real taps',
     (tester) async {
-      // Tall enough that the whole tab is reachable. This sweep hunts labels
-      // with scrollUntilVisible, which travels ONE WAY, and Pin 3 deliberately
-      // checks them out of top-to-bottom order ('Welcome-back recap' → 'Story
-      // Weather' → …). That only ever worked because at 1400px everything from
-      // 'Story Weather' down shared a viewport, so the "scroll" was a no-op.
-      //
-      // This tab exists to accumulate feature switches, so that accident was
-      // going to fail whichever row was added next regardless of its merits —
-      // Pockets & Wardrobe is simply the one that found it (2026-08-07).
-      // Raising the surface restores the assumption the sweep was written
-      // against instead of reshaping how it searches. No assertion changes.
-      await tester.binding.setSurfaceSize(const Size(900, 2200));
+      // Tall enough that a couple of neighbouring rows share a viewport.
+      // scrollTo below jumps back to the top before each downward hunt —
+      // ListView recycles off-screen children, so a one-way scroll that
+      // already sat at Afterglow used to throw `Bad state: No element` on
+      // the next label above it (Needs) the moment the tab grew again.
+      // The leftover-quest threshold picker on Objectives was that growth
+      // (2026-09-20). Do not "fix" this by raising the surface forever.
+      await tester.binding.setSurfaceSize(const Size(900, 2800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final storage = _PorchLifeStorage();
@@ -164,20 +97,27 @@ void main() {
       // (Afterglow) switched ON while its requirement (the Realism
       // Engine) is still OFF — the default state — so the unmet-dependency
       // chip/warning have something real to report from the first frame.
-      await storage.setNsfwCooldownDefault(true);
-      expect(storage.realismDefault, isFalse,
-          reason: 'this whole net is meaningless unless the engine starts '
-              'OFF, which is the production default');
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+      expect(
+        storage.realismSettings.realismDefault,
+        isFalse,
+        reason:
+            'this whole net is meaningless unless the engine starts '
+            'OFF, which is the production default',
+      );
 
       final scrollable = find.byType(Scrollable).first;
-      Finder rowFor(String label) => find
-          .ancestor(of: find.text(label), matching: find.byType(Row))
-          .first;
-      Future<void> scrollTo(Finder finder) => tester.scrollUntilVisible(
-            finder,
-            300,
-            scrollable: scrollable,
-          );
+      Finder rowFor(String label) =>
+          find.ancestor(of: find.text(label), matching: find.byType(Row)).first;
+      Future<void> scrollTo(Finder finder) async {
+        final position = tester.state<ScrollableState>(scrollable).position;
+        if (position.pixels != 0) {
+          position.jumpTo(0);
+          await tester.pump();
+        }
+        await tester.scrollUntilVisible(finder, 300, scrollable: scrollable);
+      }
+
       Future<void> tapRow(String label) async {
         final labelFinder = find.text(label);
         await scrollTo(labelFinder);
@@ -185,6 +125,8 @@ void main() {
           of: rowFor(label),
           matching: find.byType(Switch),
         );
+        await tester.ensureVisible(sw);
+        await tester.pump();
         await tester.tap(sw, warnIfMissed: true);
         await tester.pump(const Duration(milliseconds: 250));
         await tester.pump(const Duration(milliseconds: 250));
@@ -215,6 +157,8 @@ void main() {
         'The Journal',
         'Dreams',
         'Promises',
+        'Objectives',
+        'Retire a leftover quest after',
         'Ambitions',
         'Welcome-back recap',
         'Character notices your absence',
@@ -233,22 +177,25 @@ void main() {
         'Welcome-back recap',
         'Story Weather',
         'The Journal',
+        'Objectives',
         'Ambitions',
         'Passage of Time',
       ];
       for (final label in engineIndependentLabels) {
         final finder = find.text(label);
         await scrollTo(finder);
-        expect(finder, findsOneWidget,
-            reason: '"$label" must stay visible with the Realism Engine '
-                'off — that is precisely what this tab exists to guarantee');
         expect(
-          find.descendant(
-            of: rowFor(label),
-            matching: find.byType(Switch),
-          ),
+          finder,
           findsOneWidget,
-          reason: '"$label" switch must stay reachable with the Realism '
+          reason:
+              '"$label" must stay visible with the Realism Engine '
+              'off — that is precisely what this tab exists to guarantee',
+        );
+        expect(
+          find.descendant(of: rowFor(label), matching: find.byType(Switch)),
+          findsOneWidget,
+          reason:
+              '"$label" switch must stay reachable with the Realism '
               'Engine off, not just its label text',
         );
       }
@@ -261,16 +208,23 @@ void main() {
       // the chip assertion is findsWidgets by design.
       final afterglowLabel = find.text('Afterglow');
       await scrollTo(afterglowLabel);
-      expect(find.textContaining('needs the Realism Engine'), findsWidgets,
-          reason: 'the dependency chip must report what a row requires');
+      expect(
+        find.textContaining('needs the Realism Engine'),
+        findsWidgets,
+        reason: 'the dependency chip must report what a row requires',
+      );
       final gatedSwitch = tester.widget<Switch>(
         find
             .descendant(of: rowFor('Afterglow'), matching: find.byType(Switch))
             .first,
       );
-      expect(gatedSwitch.onChanged, isNull,
-          reason: 'with the Realism Engine off, a row that requires it must '
-              'be GATED — a dead switch, not a live one with a warning');
+      expect(
+        gatedSwitch.onChanged,
+        isNull,
+        reason:
+            'with the Realism Engine off, a row that requires it must '
+            'be GATED — a dead switch, not a live one with a warning',
+      );
 
       // …and a row with no unmet requirement stays live in the same frame,
       // so the pin cannot pass by disabling everything.
@@ -284,51 +238,143 @@ void main() {
             )
             .first,
       );
-      expect(liveSwitch.onChanged, isNotNull,
-          reason: 'an independent row must stay tappable while dependants '
-              'are gated');
+      expect(
+        liveSwitch.onChanged,
+        isNotNull,
+        reason:
+            'an independent row must stay tappable while dependants '
+            'are gated',
+      );
 
       // Pin 5a: the away-threshold dropdown stays hidden until its own
       // switch (absence acknowledgement) is on.
-      expect(find.text('Away for at least'), findsNothing,
-          reason: 'threshold dropdown must not render before absence '
-              'acknowledgement is switched on');
+      expect(
+        find.text('Away for at least'),
+        findsNothing,
+        reason:
+            'threshold dropdown must not render before absence '
+            'acknowledgement is switched on',
+      );
 
       // Pin 3: real taps on three different rows, across three different
       // groups, flip the real storage flags — including "Story Weather",
       // one of the rows named above as previously hidden by the engine-off
       // bug, tapped here while the engine is STILL off.
-      expect(storage.absenceBannerEnabled, isTrue);
+      expect(storage.realismSettings.absenceBannerEnabled, isTrue);
       await tapRow('Welcome-back recap');
-      expect(storage.absenceBannerEnabled, isFalse,
-          reason: 'tapping the recap switch must flip '
-              'storage.absenceBannerEnabled');
+      expect(
+        storage.realismSettings.absenceBannerEnabled,
+        isFalse,
+        reason:
+            'tapping the recap switch must flip '
+            'storage.realismSettings.absenceBannerEnabled',
+      );
 
-      expect(storage.realismDefault, isFalse);
-      expect(storage.weatherEnabled, isTrue);
+      expect(storage.realismSettings.realismDefault, isFalse);
+      expect(storage.realismSettings.weatherEnabled, isTrue);
       await tapRow('Story Weather');
-      expect(storage.weatherEnabled, isFalse,
-          reason: 'tapping Story Weather must flip storage.weatherEnabled '
-              'even though the Realism Engine is off — the entire point of '
-              'this tab');
+      expect(
+        storage.realismSettings.weatherEnabled,
+        isFalse,
+        reason:
+            'tapping Story Weather must flip storage.realismSettings.weatherEnabled '
+            'even though the Realism Engine is off — the entire point of '
+            'this tab',
+      );
 
-      expect(storage.realismDefault, isFalse);
-      expect(storage.journalEnabled, isTrue);
+      expect(storage.realismSettings.realismDefault, isFalse);
+      expect(storage.memorySettings.journalEnabled, isTrue);
       await tapRow('The Journal');
-      expect(storage.journalEnabled, isFalse,
-          reason: 'tapping The Journal must flip storage.journalEnabled '
-              'even though the Realism Engine is off — another row this tab '
-              'exists to rescue');
+      expect(
+        storage.memorySettings.journalEnabled,
+        isFalse,
+        reason:
+            'tapping The Journal must flip storage.memorySettings.journalEnabled '
+            'even though the Realism Engine is off — another row this tab '
+            'exists to rescue',
+      );
 
       // Pin 5b: turning the absence-acknowledgement switch on reveals the
       // threshold dropdown.
       await tapRow('Character notices your absence');
-      expect(storage.absenceAckEnabled, isTrue);
+      expect(storage.realismSettings.absenceAckEnabled, isTrue);
       final thresholdFinder = find.text('Away for at least');
       await scrollTo(thresholdFinder);
-      expect(thresholdFinder, findsOneWidget,
-          reason: 'the away-threshold dropdown must appear once absence '
-              'acknowledgement is switched on');
+      expect(
+        thresholdFinder,
+        findsOneWidget,
+        reason:
+            'the away-threshold dropdown must appear once absence '
+            'acknowledgement is switched on',
+      );
+
+      // Pin 6: leftover-quest threshold — visible with Objectives on (the
+      // production default), tappable while the engine is still off, and
+      // hidden when Objectives is off. Objectives' onChanged is a ChatService
+      // extension, so the off-path is driven through storage, same as the
+      // Ambitions gate in objectives_toggle_test.
+      expect(storage.realismSettings.objectiveStaleThreshold, 2);
+      expect(storage.realismSettings.objectivesEnabled, isTrue);
+      final staleLabel = find.text('Retire a leftover quest after');
+      await scrollTo(staleLabel);
+      expect(
+        staleLabel,
+        findsOneWidget,
+        reason:
+            'the stale-threshold picker rides Objectives and must show '
+            'while that switch is on — including with the engine off',
+      );
+      expect(
+        find.text('2 checks'),
+        findsOneWidget,
+        reason: 'default N=2 is the production threshold',
+      );
+
+      final pickerRow = find
+          .ancestor(of: staleLabel, matching: find.byType(Row))
+          .first;
+      await tester.tap(
+        find.descendant(
+          of: pickerRow,
+          matching: find.byType(DropdownButton<int>),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('never (off)').last);
+      await tester.pumpAndSettle();
+      expect(
+        storage.realismSettings.objectiveStaleThreshold,
+        0,
+        reason:
+            'picking "never (off)" must write '
+            'storage.realismSettings.objectiveStaleThreshold',
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: find.ancestor(of: staleLabel, matching: find.byType(Row)).first,
+          matching: find.byType(DropdownButton<int>),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('4 checks').last);
+      await tester.pumpAndSettle();
+      expect(
+        storage.realismSettings.objectiveStaleThreshold,
+        4,
+        reason: 'picking "4 checks" must write 4, not stay on the last tap',
+      );
+
+      await storage.realismSettings.setObjectivesEnabled(false);
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        find.text('Retire a leftover quest after'),
+        findsNothing,
+        reason:
+            'the picker is a FeatureRow child — it hides when Objectives '
+            'is off, the same way Away for at least hides with absence off',
+      );
     },
   );
 }

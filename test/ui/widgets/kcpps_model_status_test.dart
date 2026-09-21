@@ -9,7 +9,7 @@
 // (at your option) any later version.
 
 // The preset selector's model-status row used to read the .kcpps file THREE
-// times per build: once through storage.kcppsModelFileExists (which parses the
+// times per build: once through storage.backendSettings.kcppsModelFileExists (which parses the
 // file to find the model, then stats it) and once more through a private copy
 // of the same parser, purely to recover the basename. That is blocking JSON
 // disk I/O inside build() on a tab that rebuilds on every backend notify.
@@ -67,7 +67,7 @@ void main() {
   Future<void> usePreset(Map<String, dynamic> preset) async {
     final file = File(p.join(dir.path, 'launch.kcpps'))
       ..writeAsStringSync(jsonEncode(preset));
-    await storage.setActiveKcppsPath(file.path);
+    await storage.backendSettings.setActiveKcppsPath(file.path);
   }
 
   Future<void> pump(WidgetTester tester) async {

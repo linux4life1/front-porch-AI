@@ -18,6 +18,10 @@
 
 import 'package:front_porch_ai/utils/reasoning_markers.dart';
 
+/// Metadata flag for backend-down / generation-error System banners.
+/// Status, not story: omit from the prompt and from the saved transcript.
+const String kStatusBannerMeta = 'is_status_banner';
+
 enum GenerationMode { normal, continue_, impersonate }
 
 /// Tracks the distinct phases of text generation for UI display.
@@ -132,6 +136,9 @@ class ChatMessage {
     return displayText;
   }
 
+  /// Backend-down / generation-error banners. Not story.
+  bool get isStatusBanner => activeMetadata?[kStatusBannerMeta] == true;
+
   /// One `sender: text` line for the chat-history section of a generation
   /// prompt. Always think-stripped ([promptText]): feeding raw [text] re-injects
   /// every prior `<think>` plan into the next turn, so a thinking model on a
@@ -139,6 +146,7 @@ class ChatMessage {
   /// session 1786256661829, 2026-08-11 — ~39% of history tokens were think
   /// blocks; 8 of 10 rerolls opened with the prior massage beat).
   String toPromptHistoryLine() {
+    if (isStatusBanner) return '';
     if (characterId == '__director__') {
       return '[Director: $text]';
     }

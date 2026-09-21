@@ -86,6 +86,11 @@ export interface RealismValues {
   realismVerificationMaxReprocesses: number;
   realismVerificationStrictness: number;
   realismNeedsDirectorAuthority: boolean;
+  /**
+   * Per-character Pockets & Wardrobe. AND-gated with the Porch Life global.
+   * Missing / null treats as on so old cards keep working.
+   */
+  pocketsEnabled: boolean;
   // Needs Simulation
   needsSimEnabled: boolean;
   enjoysLowHygiene: boolean;
@@ -165,6 +170,7 @@ export const REALISM_DEFAULTS: RealismValues = {
   realismNeedsDirectorAuthority: false,
   // AND-gated with the Porch Life global (default on). A new card that
   // writes false silently vetoes Needs even after the engine is turned on.
+  pocketsEnabled: true,
   needsSimEnabled: true,
   enjoysLowHygiene: false,
   needsSimStrength: 1,

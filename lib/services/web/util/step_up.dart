@@ -22,6 +22,19 @@ import 'package:front_porch_ai/services/web/auth/auth_service.dart';
 import 'package:front_porch_ai/services/web/util/client_ip.dart';
 import 'package:front_porch_ai/services/web/util/json_response.dart';
 
+bool _credentialWriteNeedsStepUp(
+  Map<String, dynamic> body, {
+  required String currentUrl,
+  required String urlKey,
+  required String keyKey,
+}) {
+  if (body.containsKey(urlKey) && body[urlKey].toString() != currentUrl) {
+    return true;
+  }
+  final apiKey = body[keyKey]?.toString();
+  return apiKey != null && apiKey.isNotEmpty;
+}
+
 /// True when [body] would persist a new remote API URL or overwrite the key.
 ///
 /// An unchanged URL (the Settings page always re-sends the current value) and
@@ -30,12 +43,54 @@ bool remoteCredentialWriteNeedsStepUp(
   Map<String, dynamic> body, {
   required String currentRemoteApiUrl,
 }) {
-  if (body.containsKey('remoteApiUrl') &&
-      body['remoteApiUrl'].toString() != currentRemoteApiUrl) {
+  return _credentialWriteNeedsStepUp(
+    body,
+    currentUrl: currentRemoteApiUrl,
+    urlKey: 'remoteApiUrl',
+    keyKey: 'apiKey',
+  );
+}
+
+/// Same gate as [remoteCredentialWriteNeedsStepUp] for the worker lane
+/// (`workerRemoteApiUrl` / `workerApiKey`). Unchanged URL + blank key stay
+/// session-only.
+bool workerCredentialWriteNeedsStepUp(
+  Map<String, dynamic> body, {
+  required String currentWorkerRemoteApiUrl,
+}) {
+  return _credentialWriteNeedsStepUp(
+    body,
+    currentUrl: currentWorkerRemoteApiUrl,
+    urlKey: 'workerRemoteApiUrl',
+    keyKey: 'workerApiKey',
+  );
+}
+
+/// Stolen session must not retarget the evals GGUF / .kcpps.
+bool workerPathWriteNeedsStepUp(
+  Map<String, dynamic> body, {
+  required String currentWorkerModelPath,
+  required String currentWorkerKcppsPath,
+}) {
+  if (body.containsKey('workerKoboldModelPath') &&
+      (body['workerKoboldModelPath']?.toString() ?? '') !=
+          currentWorkerModelPath) {
     return true;
   }
-  final apiKey = body['apiKey']?.toString();
-  return apiKey != null && apiKey.isNotEmpty;
+  if (body.containsKey('workerKoboldKcppsPath') &&
+      (body['workerKoboldKcppsPath']?.toString() ?? '') !=
+          currentWorkerKcppsPath) {
+    return true;
+  }
+  return false;
+}
+
+/// Tavily / search key is credential-grade, same as a remote API key.
+bool searchApiKeyWriteNeedsStepUp(Map<String, dynamic> body) {
+  final realism = body['realism'];
+  if (realism is! Map) return false;
+  final key = realism['searchApiKey']?.toString();
+  return key != null && key.isNotEmpty;
 }
 
 /// True when POST /api/image/config would persist a new remote URL/key **or**

@@ -136,7 +136,8 @@ class AvatarGalleryController extends ChangeNotifier {
     _loadFromCard(libraryCard.avatarImages ?? const []);
     favoriteId = libraryCard.frontPorchExtensions?.favoriteAvatarId;
     primeIndex = libraryCard.primeAvatarIndex;
-    expressionsExpanded = storage.expressionEnabled || expressions.isNotEmpty;
+    expressionsExpanded =
+        storage.expressionSettings.expressionEnabled || expressions.isNotEmpty;
     notifyListeners();
     await _reload();
   }

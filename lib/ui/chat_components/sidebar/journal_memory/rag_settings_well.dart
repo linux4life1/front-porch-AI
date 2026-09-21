@@ -43,8 +43,11 @@ class _RagSettingsWellState extends State<RagSettingsWell> {
     final storage = Provider.of<StorageService>(context);
     final accent = widget.accent;
     final count =
-        (_dragCount ?? storage.ragRetrievalCount.toDouble()).round();
-    final window = (_dragWindow ?? storage.ragWindowSize.toDouble()).round();
+        (_dragCount ?? storage.memorySettings.ragRetrievalCount.toDouble())
+            .round();
+    final window =
+        (_dragWindow ?? storage.memorySettings.ragWindowSize.toDouble())
+            .round();
 
     return Container(
       padding: SidebarTokens.wellPadding,
@@ -67,7 +70,9 @@ class _RagSettingsWellState extends State<RagSettingsWell> {
           SliderTheme(
             data: _sliderTheme(context),
             child: Slider(
-              value: _dragCount ?? storage.ragRetrievalCount.toDouble(),
+              value:
+                  _dragCount ??
+                  storage.memorySettings.ragRetrievalCount.toDouble(),
               min: 0,
               max: 50,
               divisions: 50,
@@ -76,7 +81,7 @@ class _RagSettingsWellState extends State<RagSettingsWell> {
               onChanged: (val) => setState(() => _dragCount = val),
               onChangeEnd: (val) {
                 _dragCount = null;
-                storage.setRagRetrievalCount(val.round());
+                storage.memorySettings.setRagRetrievalCount(val.round());
               },
             ),
           ),
@@ -92,7 +97,9 @@ class _RagSettingsWellState extends State<RagSettingsWell> {
           SliderTheme(
             data: _sliderTheme(context),
             child: Slider(
-              value: _dragWindow ?? storage.ragWindowSize.toDouble(),
+              value:
+                  _dragWindow ??
+                  storage.memorySettings.ragWindowSize.toDouble(),
               min: 3,
               max: 10,
               divisions: 7,
@@ -101,7 +108,7 @@ class _RagSettingsWellState extends State<RagSettingsWell> {
               onChanged: (val) => setState(() => _dragWindow = val),
               onChangeEnd: (val) {
                 _dragWindow = null;
-                storage.setRagWindowSize(val.round());
+                storage.memorySettings.setRagWindowSize(val.round());
               },
             ),
           ),

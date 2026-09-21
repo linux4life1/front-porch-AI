@@ -29,62 +29,80 @@ void main() {
     expect(b.height, greaterThan(16));
   });
 
-  testWidgets('gold and blue paint; missing and unknown render nothing', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: Row(
-            textBaseline: TextBaseline.alphabetic,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            children: [
-              Text('SosukeAizen'),
-              StoopVerifiedBadge(verification: 'gold'),
-            ],
+  testWidgets(
+    'gold, blue, and silver paint; missing and unknown render nothing',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Row(
+              textBaseline: TextBaseline.alphabetic,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              children: [
+                Text('SosukeAizen'),
+                StoopVerifiedBadge(verification: 'gold'),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    expect(find.bySemanticsLabel('Gold verified'), findsOneWidget);
-    expect(find.byType(CustomPaint), findsWidgets);
+      );
+      expect(find.bySemanticsLabel('Gold verified'), findsOneWidget);
+      expect(find.byType(CustomPaint), findsWidgets);
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: Row(
-            textBaseline: TextBaseline.alphabetic,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            children: [
-              Text('Trusted'),
-              StoopVerifiedBadge(verification: 'blue'),
-            ],
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Row(
+              textBaseline: TextBaseline.alphabetic,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              children: [
+                Text('Trusted'),
+                StoopVerifiedBadge(verification: 'blue'),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    expect(find.bySemanticsLabel('Verified'), findsOneWidget);
-    expect(find.bySemanticsLabel('Gold verified'), findsNothing);
+      );
+      expect(find.bySemanticsLabel('Verified'), findsOneWidget);
+      expect(find.bySemanticsLabel('Gold verified'), findsNothing);
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: Row(
-            children: [
-              Text('Ada'),
-              StoopVerifiedBadge(verification: null),
-              StoopVerifiedBadge(verification: 'OWNER'),
-            ],
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Row(
+              textBaseline: TextBaseline.alphabetic,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              children: [
+                Text('SAMF'),
+                StoopVerifiedBadge(verification: 'silver'),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    expect(find.bySemanticsLabel('Gold verified'), findsNothing);
-    expect(find.bySemanticsLabel('Verified'), findsNothing);
-  });
+      );
+      expect(find.bySemanticsLabel('Developer verified'), findsOneWidget);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                Text('Ada'),
+                StoopVerifiedBadge(verification: null),
+                StoopVerifiedBadge(verification: 'OWNER'),
+              ],
+            ),
+          ),
+        ),
+      );
+      expect(find.bySemanticsLabel('Gold verified'), findsNothing);
+      expect(find.bySemanticsLabel('Verified'), findsNothing);
+    },
+  );
 
   test('fills are the hub tokens', () {
     expect(AppColors.stoopCheckGold, const Color(0xFFE8B923));
     expect(AppColors.stoopCheckBlue, const Color(0xFF1D9BF0));
+    expect(AppColors.stoopCheckSilver, const Color(0xFFC0C7D1));
   });
 }

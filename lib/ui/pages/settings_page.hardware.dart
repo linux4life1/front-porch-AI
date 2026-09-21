@@ -170,9 +170,9 @@ extension _SettingsHardware on _SettingsPageState {
             ? (contextSize * kvBytesPerToken / (1024 * 1024))
             : (contextSize / 1024 * 100.0);
 
-        if (storageService.kvQuantizationLevel == 1) {
+        if (storageService.backendSettings.kvQuantizationLevel == 1) {
           contextVramMb *= 0.5;
-        } else if (storageService.kvQuantizationLevel == 2) {
+        } else if (storageService.backendSettings.kvQuantizationLevel == 2) {
           contextVramMb *= 0.25;
         }
 

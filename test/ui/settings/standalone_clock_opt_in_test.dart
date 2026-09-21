@@ -63,76 +63,6 @@ class _ClockStorage extends FakeStorageService {
 
   @override
   RealismSettings get realismSettings => _realism;
-
-  @override
-  bool get realismDefault => _realism.realismDefault;
-  @override
-  Future<void> setRealismDefault(bool v) => _realism.setRealismDefault(v);
-
-  @override
-  bool get passageOfTimeDefault => _realism.passageOfTimeDefault;
-  @override
-  Future<void> setPassageOfTimeDefault(bool v) =>
-      _realism.setPassageOfTimeDefault(v);
-
-  @override
-  bool get standaloneClockEnabled => _realism.standaloneClockEnabled;
-  @override
-  Future<void> setStandaloneClockEnabled(bool v) =>
-      _realism.setStandaloneClockEnabled(v);
-
-  @override
-  bool get weatherEnabled => _realism.weatherEnabled;
-  @override
-  Future<void> setWeatherEnabled(bool v) => _realism.setWeatherEnabled(v);
-
-  @override
-  bool get weatherFahrenheit => _realism.weatherFahrenheit;
-  @override
-  Future<void> setWeatherFahrenheit(bool v) =>
-      _realism.setWeatherFahrenheit(v);
-
-  @override
-  bool get nsfwCooldownDefault => _realism.nsfwCooldownDefault;
-  @override
-  Future<void> setNsfwCooldownDefault(bool v) =>
-      _realism.setNsfwCooldownDefault(v);
-
-  @override
-  bool get needsSimDefault => _realism.needsSimDefault;
-
-  @override
-  bool get dreamsEnabled => _realism.dreamsEnabled;
-  @override
-  Future<void> setDreamsEnabled(bool v) => _realism.setDreamsEnabled(v);
-
-  @override
-  bool get absenceBannerEnabled => _realism.absenceBannerEnabled;
-  @override
-  Future<void> setAbsenceBannerEnabled(bool v) =>
-      _realism.setAbsenceBannerEnabled(v);
-
-  @override
-  bool get absenceAckEnabled => _realism.absenceAckEnabled;
-  @override
-  Future<void> setAbsenceAckEnabled(bool v) =>
-      _realism.setAbsenceAckEnabled(v);
-
-  @override
-  int get absenceThresholdHours => _realism.absenceThresholdHours;
-  @override
-  Future<void> setAbsenceThresholdHours(int v) =>
-      _realism.setAbsenceThresholdHours(v);
-
-  bool _journalEnabled = true;
-
-  @override
-  bool get journalEnabled => _journalEnabled;
-  @override
-  Future<void> setJournalEnabled(bool v) async {
-    _journalEnabled = v;
-    notifyListeners();
-  }
 }
 
 void main() {
@@ -174,21 +104,24 @@ void main() {
       // default and the engine is OFF by default — the exact pair that would
       // silently start billing a call per turn if this rode that flag.
       expect(
-        storage.realismDefault,
+        storage.realismSettings.realismDefault,
         isFalse,
-        reason: 'this net is meaningless unless the engine starts OFF, '
+        reason:
+            'this net is meaningless unless the engine starts OFF, '
             'which is the production default',
       );
       expect(
-        storage.passageOfTimeDefault,
+        storage.realismSettings.passageOfTimeDefault,
         isTrue,
-        reason: 'Passage of Time defaults ON — that is why the standalone '
+        reason:
+            'Passage of Time defaults ON — that is why the standalone '
             'clock cannot treat it as consent',
       );
       expect(
-        storage.standaloneClockEnabled,
+        storage.realismSettings.standaloneClockEnabled,
         isFalse,
-        reason: 'the standalone clock must default OFF; anything else spends '
+        reason:
+            'the standalone clock must default OFF; anything else spends '
             "an existing user's tokens without asking",
       );
 
@@ -198,7 +131,8 @@ void main() {
       expect(
         subFinder,
         findsOneWidget,
-        reason: 'with the engine off the opt-in must be visible — an '
+        reason:
+            'with the engine off the opt-in must be visible — an '
             'unreachable switch is the same as no feature',
       );
 
@@ -220,7 +154,8 @@ void main() {
       expect(
         live.onChanged,
         isNotNull,
-        reason: 'the opt-in must be live with the engine off — that is the '
+        reason:
+            'the opt-in must be live with the engine off — that is the '
             'only state in which it means anything',
       );
 
@@ -228,7 +163,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pump(const Duration(milliseconds: 250));
       expect(
-        storage.standaloneClockEnabled,
+        storage.realismSettings.standaloneClockEnabled,
         isTrue,
         reason: 'tapping the opt-in must flip the real storage flag',
       );
@@ -243,7 +178,7 @@ void main() {
       // Turn the engine on through storage rather than by tapping the Realism
       // Engine row, whose onChanged calls a ChatService extension method no
       // fake can satisfy (see the header note).
-      await storage.setRealismDefault(true);
+      await storage.realismSettings.setRealismDefault(true);
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -257,7 +192,8 @@ void main() {
       expect(
         find.text(kSubLabel),
         findsNothing,
-        reason: 'with the engine on the clock already rides its reading of '
+        reason:
+            'with the engine on the clock already rides its reading of '
             'the scene for free, so offering a switch would be a choice '
             'about nothing',
       );

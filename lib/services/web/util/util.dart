@@ -13,5 +13,6 @@ export 'json_response.dart';
 export 'lorebook_json.dart';
 export 'realism_extensions_json.dart';
 export 'request_body.dart';
+export 'send_image.dart';
 export 'step_up.dart';
 export 'ws_guard.dart';

@@ -15,7 +15,7 @@ resolution"*). Two more traps make it worse:
 - **`main` is the repo's default branch.** GitHub only runs the nightly `cron`
   from the **default branch's** copy of `nightly.yml`, so `main`'s workflows are
   live production infrastructure — a bad merge there breaks nightly + release
-  builds, not just a dev branch.
+  builds, not just a local checkout.
 - **A shallow clone has no merge base**, so a merge run from one turns *every*
   file into an add/add conflict. Always work from a full clone
   (`git fetch --unshallow`).

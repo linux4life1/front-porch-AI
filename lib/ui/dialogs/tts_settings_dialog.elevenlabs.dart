@@ -42,7 +42,9 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
       ),
       const SizedBox(height: 8),
       TextField(
-        controller: TextEditingController(text: storage.elevenlabsApiKey),
+        controller: TextEditingController(
+          text: storage.ttsSettings.elevenlabsApiKey,
+        ),
         obscureText: _obscureApiKey,
         style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
         decoration: InputDecoration(
@@ -64,10 +66,11 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
               color: AppColors.iconSecondary(context),
               size: 18,
             ),
-            onPressed: () => rebuildState(() => _obscureApiKey = !_obscureApiKey),
+            onPressed: () =>
+                rebuildState(() => _obscureApiKey = !_obscureApiKey),
           ),
         ),
-        onChanged: (val) => storage.setElevenlabsApiKey(val.trim()),
+        onChanged: (val) => storage.ttsSettings.setElevenlabsApiKey(val.trim()),
       ),
       const SizedBox(height: 12),
 
@@ -82,7 +85,7 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
       ),
       const SizedBox(height: 8),
       DropdownButtonFormField<String>(
-        initialValue: storage.elevenlabsModel,
+        initialValue: storage.ttsSettings.elevenlabsModel,
         dropdownColor: AppColors.surfaceContainerOf(context),
         style: TextStyle(color: AppColors.textPrimary(context)),
         // isExpanded avoids a ~12px right-edge overflow on longer model
@@ -116,7 +119,7 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
           ),
         ],
         onChanged: (val) {
-          if (val != null) storage.setElevenlabsModel(val);
+          if (val != null) storage.ttsSettings.setElevenlabsModel(val);
         },
       ),
       const SizedBox(height: 12),
@@ -135,8 +138,9 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         children: [
           Expanded(
             child: DropdownButtonFormField<String>(
-              initialValue: voices.any((v) => v.id == storage.ttsVoiceModel)
-                  ? storage.ttsVoiceModel
+              initialValue:
+                  voices.any((v) => v.id == storage.ttsSettings.ttsVoiceModel)
+                  ? storage.ttsSettings.ttsVoiceModel
                   : null,
               dropdownColor: AppColors.surfaceContainerOf(context),
               style: TextStyle(color: AppColors.textPrimary(context)),
@@ -188,7 +192,7 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
                   )
                   .toList(),
               onChanged: (val) {
-                if (val != null) storage.setTtsVoiceModel(val);
+                if (val != null) storage.ttsSettings.setTtsVoiceModel(val);
               },
             ),
           ),
@@ -203,7 +207,8 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Found ${fetched.length} voices'),
-                      backgroundColor: Colors.green, // theme-keep: fetch-result status
+                      backgroundColor:
+                          Colors.green, // theme-keep: fetch-result status
                       duration: const Duration(seconds: 2),
                     ),
                   );
@@ -241,11 +246,15 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         children: [
           Text(
             'Stability',
-            style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12),
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+            ),
           ),
           const Spacer(),
           Text(
-            (_dragElevenlabsStability ?? storage.elevenlabsStability)
+            (_dragElevenlabsStability ??
+                    storage.ttsSettings.elevenlabsStability)
                 .toStringAsFixed(2),
             style: const TextStyle(
               color: AppColors.formMasterAccent,
@@ -256,7 +265,8 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         ],
       ),
       Slider(
-        value: _dragElevenlabsStability ?? storage.elevenlabsStability,
+        value:
+            _dragElevenlabsStability ?? storage.ttsSettings.elevenlabsStability,
         min: 0.0,
         max: 1.0,
         divisions: 20,
@@ -265,7 +275,7 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         onChanged: (val) => rebuildState(() => _dragElevenlabsStability = val),
         onChangeEnd: (val) {
           _dragElevenlabsStability = null;
-          storage.setElevenlabsStability(val);
+          storage.ttsSettings.setElevenlabsStability(val);
         },
       ),
       Padding(
@@ -275,11 +285,17 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
           children: [
             Text(
               'Expressive',
-              style: TextStyle(color: AppColors.textTertiary(context), fontSize: 9),
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 9,
+              ),
             ),
             Text(
               'Consistent',
-              style: TextStyle(color: AppColors.textTertiary(context), fontSize: 9),
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 9,
+              ),
             ),
           ],
         ),
@@ -292,11 +308,15 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         children: [
           Text(
             'Similarity',
-            style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12),
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+            ),
           ),
           const Spacer(),
           Text(
-            (_dragElevenlabsSimilarity ?? storage.elevenlabsSimilarity)
+            (_dragElevenlabsSimilarity ??
+                    storage.ttsSettings.elevenlabsSimilarity)
                 .toStringAsFixed(2),
             style: const TextStyle(
               color: AppColors.formMasterAccent,
@@ -307,7 +327,9 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         ],
       ),
       Slider(
-        value: _dragElevenlabsSimilarity ?? storage.elevenlabsSimilarity,
+        value:
+            _dragElevenlabsSimilarity ??
+            storage.ttsSettings.elevenlabsSimilarity,
         min: 0.0,
         max: 1.0,
         divisions: 20,
@@ -316,7 +338,7 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         onChanged: (val) => rebuildState(() => _dragElevenlabsSimilarity = val),
         onChangeEnd: (val) {
           _dragElevenlabsSimilarity = null;
-          storage.setElevenlabsSimilarity(val);
+          storage.ttsSettings.setElevenlabsSimilarity(val);
         },
       ),
       Padding(
@@ -326,11 +348,17 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
           children: [
             Text(
               'Creative',
-              style: TextStyle(color: AppColors.textTertiary(context), fontSize: 9),
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 9,
+              ),
             ),
             Text(
               'Faithful',
-              style: TextStyle(color: AppColors.textTertiary(context), fontSize: 9),
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 9,
+              ),
             ),
           ],
         ),
@@ -343,13 +371,15 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         children: [
           Text(
             'Style',
-            style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12),
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+            ),
           ),
           const Spacer(),
           Text(
-            (_dragElevenlabsStyle ?? storage.elevenlabsStyle).toStringAsFixed(
-              2,
-            ),
+            (_dragElevenlabsStyle ?? storage.ttsSettings.elevenlabsStyle)
+                .toStringAsFixed(2),
             style: const TextStyle(
               color: AppColors.formMasterAccent,
               fontSize: 12,
@@ -359,7 +389,7 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         ],
       ),
       Slider(
-        value: _dragElevenlabsStyle ?? storage.elevenlabsStyle,
+        value: _dragElevenlabsStyle ?? storage.ttsSettings.elevenlabsStyle,
         min: 0.0,
         max: 1.0,
         divisions: 20,
@@ -368,7 +398,7 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
         onChanged: (val) => rebuildState(() => _dragElevenlabsStyle = val),
         onChangeEnd: (val) {
           _dragElevenlabsStyle = null;
-          storage.setElevenlabsStyle(val);
+          storage.ttsSettings.setElevenlabsStyle(val);
         },
       ),
       Padding(
@@ -378,11 +408,17 @@ extension _TtsElevenLabsSection on _TtsSettingsDialogState {
           children: [
             Text(
               'Subtle',
-              style: TextStyle(color: AppColors.textTertiary(context), fontSize: 9),
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 9,
+              ),
             ),
             Text(
               'Expressive',
-              style: TextStyle(color: AppColors.textTertiary(context), fontSize: 9),
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 9,
+              ),
             ),
           ],
         ),

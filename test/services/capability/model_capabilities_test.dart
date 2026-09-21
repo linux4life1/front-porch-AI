@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/services/capability/model_capabilities.dart';
+import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/utils/gguf_vision.dart';
 
 void main() {
@@ -14,10 +14,18 @@ void main() {
           'input_modalities': ['text', 'image'],
           'output_modalities': ['text'],
         },
-        'supported_parameters': ['tools', 'temperature'],
+        'supported_parameters': ['TOOLS', 'Tool_Choice', 'temperature'],
       });
       expect(caps.vision, isTrue);
       expect(caps.toolCalling, isTrue);
+    });
+
+    test('tools without forced tool_choice are not reliable eval support', () {
+      final caps = ModelApiCapabilities.fromOpenRouterEntry({
+        'id': 'provider/model-that-ignores-forced-calls',
+        'supported_parameters': ['tools', 'temperature'],
+      });
+      expect(caps.toolCalling, isFalse);
     });
 
     test('text-only model has neither vision nor tools', () {
@@ -271,7 +279,6 @@ void main() {
       expect(s.supported, isTrue);
       expect(s.source, VisionSource.ggufWithMmproj);
     });
-
   });
 
   group('capability metadata host detection (shared helper)', () {

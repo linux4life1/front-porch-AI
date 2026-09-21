@@ -32,7 +32,7 @@ class StoopCreator {
   final String id;
   final String displayName;
 
-  /// Hub verification badge: `gold`, `blue`, or null (none / older server).
+  /// Hub verification badge: `gold`, `blue`, `silver`, or null (none / older server).
   final String? verification;
   final int followers;
 
@@ -96,7 +96,7 @@ class StoopFollowedCreator {
   final String id;
   final String displayName;
 
-  /// Hub verification badge: `gold`, `blue`, or null (none / older server).
+  /// Hub verification badge: `gold`, `blue`, `silver`, or null (none / older server).
   final String? verification;
   final int followers;
   final String? avatarAssetId;

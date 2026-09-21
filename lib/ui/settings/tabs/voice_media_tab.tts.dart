@@ -60,13 +60,14 @@ extension _VoiceMediaTtsSection on VoiceMediaTab {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _engineDisplayName(storageService.ttsEngine),
+                      _engineDisplayName(storageService.ttsSettings.ttsEngine),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      storageService.ttsEnabled
+                      storageService.ttsSettings.ttsEnabled
                           ? () {
-                              final voiceKey = storageService.ttsVoiceModel;
+                              final voiceKey =
+                                  storageService.ttsSettings.ttsVoiceModel;
                               if (voiceKey.isEmpty) {
                                 return 'Enabled — Voice: Not set';
                               }

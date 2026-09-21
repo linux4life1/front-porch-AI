@@ -176,7 +176,9 @@ void main() {
       );
       expect(chat.growthRingsForOwner(card.stableGroupId), isNotEmpty);
 
-      await storage.setLastUsedModelPath('/tmp/other-model.gguf');
+      await storage.backendSettings.setLastUsedModelPath(
+        '/tmp/other-model.gguf',
+      );
       await Future<void>.delayed(Duration.zero);
 
       expect(

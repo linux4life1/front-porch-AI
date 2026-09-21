@@ -48,6 +48,14 @@ class GenerationParams {
   /// newline. Chat / Continue leave this false so thoughts stay hidden.
   final bool salvageReasoning;
 
+  /// Chargen (and similar small-budget callers): if a silent mandatory
+  /// reasoner 200s `enabled:false` then thinks until `finish_reason:length`
+  /// with no content, retry once with the shared think-headroom budget.
+  /// Unlike [salvageReasoning], this keeps `reasoning.exclude` so think
+  /// tokens never pollute the visible reply. Chat / Continue stay false —
+  /// their reply-length cap is the user's setting.
+  final bool mandatoryReasoningHeadroom;
+
   final List<String>? bannedPhrases;
 
   /// Top-K cutoff; 0 disables it (KoboldCpp and remote APIs both treat 0 as
@@ -77,28 +85,35 @@ class GenerationParams {
   final bool trimStop;
 
   /// Optional base64-encoded PNG images attached to the user chat message
-  /// (Vision QC, portrait describe). When non-empty, the OpenAI-compatible
-  /// chat transports render the user content as a multimodal array via
-  /// [openAiUserContent]; when null/empty the payload keeps the plain string
-  /// content, byte-identical to the pre-vision text-only path.
+  /// (Vision QC, portrait describe, Waifu Coder drop). When non-empty, the
+  /// OpenAI-compatible chat transports render the last user content as a
+  /// multimodal array via [openAiUserContent] / [attachOpenAiImagesToLastUser];
+  /// when null/empty the payload keeps the plain string content,
+  /// byte-identical to the pre-vision text-only path.
   final List<String>? images;
 
-  /// Named OpenAI `tool_choice` function, or null → `'auto'`. Rides the
-  /// params object so [generateWithTools] overrides keep their two-arg
-  /// signature (existing test fakes must not be edited).
+  /// Named OpenAI `tool_choice` function, or null → `'auto'`. The sentinel
+  /// `'required'` (`kToolChoiceRequired`) forces any advertised tool (Waifu
+  /// first mutation step). Rides the params object so [generateWithTools]
+  /// overrides keep their two-arg signature (existing test fakes must not
+  /// be edited).
   final String? toolChoice;
 
-  /// Unused until the streaming-tools PR; forwarded on the mandatory-
-  /// reasoning retry so it cannot be dropped.
+  /// Live token callback (Waifu Coder think tokens, realism overlay).
+  /// Null stays on the buffered POST.
   final void Function(String chunk)? onChunk;
 
   /// After Kobold FIFO `waitForIdle`: skip/pause/xml-only, never live
   /// prefer-text (the ping shares this door).
   final bool Function()? stillWantTools;
 
-  /// Probe identity (`backend|model|path`). Style retry and skip/pause
+  /// Probe identity (`backend|endpoint|model|path`). Style retry and skip/pause
   /// key on the same string [ChatService] uses.
   final String backendIdentity;
+
+  /// When set, chat-completions `messages` is this list (after optional
+  /// system). Null keeps the single user blob chat uses.
+  final List<Map<String, Object>>? chatMessages;
 
   const GenerationParams({
     required this.prompt,
@@ -119,6 +134,7 @@ class GenerationParams {
     this.reasoningEffort = 'medium',
     this.reasoningMaxTokens,
     this.salvageReasoning = false,
+    this.mandatoryReasoningHeadroom = false,
     this.bannedPhrases,
     this.systemPrompt,
     this.grammar,
@@ -129,25 +145,86 @@ class GenerationParams {
     this.onChunk,
     this.stillWantTools,
     this.backendIdentity = '',
+    this.chatMessages,
   });
+
+  /// Chat-completions `messages`. Null [chatMessages] is the historical
+  /// system + one user blob. Waifu passes user/assistant/tool turns here;
+  /// [systemPrompt] still prefixes as `system` when set.
+  List<Map<String, Object>> get openAiMessages {
+    final custom = chatMessages;
+    final messages = <Map<String, Object>>[];
+    final system = systemPrompt;
+    if (system != null && system.isNotEmpty) {
+      messages.add({'role': 'system', 'content': system});
+    }
+    if (custom != null && custom.isNotEmpty) {
+      messages.addAll(custom);
+      return attachOpenAiImagesToLastUser(messages, images);
+    }
+    messages.add({'role': 'user', 'content': openAiUserContent});
+    return messages;
+  }
 
   /// The `content` value for the OpenAI chat user message: the plain [prompt]
   /// string when no [images] ride along, or a multimodal content array of one
-  /// text part followed by one `image_url` part per image. Both chat-payload
-  /// builders (openai_chat_stream.dart and OpenRouterService) call this so
-  /// the two wire shapes can't drift.
+  /// text part followed by one `image_url` part per image.
   Object get openAiUserContent {
     final imgs = images;
     if (imgs == null || imgs.isEmpty) return prompt;
-    return [
-      {'type': 'text', 'text': prompt},
-      for (final img in imgs)
-        {
-          'type': 'image_url',
-          'image_url': {'url': 'data:image/png;base64,$img'},
-        },
-    ];
+    return openAiContentWithImages(prompt, imgs);
   }
+}
+
+/// Headroom-opted [OpenRouterService.generateStream] learned a silent
+/// mandatory-reasoner and the single retry still returned no content.
+class SilentMandatoryReasoningStarveException implements Exception {
+  const SilentMandatoryReasoningStarveException(this.model);
+  final String model;
+  @override
+  String toString() =>
+      'API error: $model used hidden reasoning until max_tokens with no '
+      'content. Retried once with think headroom; still empty.';
+}
+
+/// Puts [images] on the last `role: user` row as OpenAI `image_url` parts.
+/// No images, or no user row, returns [messages] unchanged. Does not mutate
+/// the input list or its maps.
+List<Map<String, Object>> attachOpenAiImagesToLastUser(
+  List<Map<String, Object>> messages,
+  List<String>? images,
+) {
+  if (images == null || images.isEmpty) return messages;
+  for (var i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]['role'] != 'user') continue;
+    final next = List<Map<String, Object>>.of(messages);
+    next[i] = {
+      ...messages[i],
+      'content': openAiContentWithImages(messages[i]['content'], images),
+    };
+    return next;
+  }
+  return messages;
+}
+
+/// Text (or existing parts) plus one `image_url` PNG part per image.
+/// Empty [images] leaves [content] unchanged (string stays a string).
+Object openAiContentWithImages(Object? content, List<String> images) {
+  if (images.isEmpty) return content ?? '';
+  final imageParts = [
+    for (final img in images)
+      {
+        'type': 'image_url',
+        'image_url': {'url': 'data:image/png;base64,$img'},
+      },
+  ];
+  if (content is List) {
+    return [...content, ...imageParts];
+  }
+  return [
+    {'type': 'text', 'text': content is String ? content : '${content ?? ''}'},
+    ...imageParts,
+  ];
 }
 
 /// One tool invocation from a tool-calling response (OpenAI `tool_calls`
@@ -156,7 +233,33 @@ class LlmToolCall {
   final String name;
   final Map<String, dynamic> arguments;
 
-  const LlmToolCall({required this.name, required this.arguments});
+  /// Provider `tool_calls[].id` when the host sent one. Empty means synthesize.
+  final String id;
+
+  const LlmToolCall({
+    required this.name,
+    required this.arguments,
+    this.id = '',
+  });
+}
+
+/// OpenAI-style `usage` block. Null fields mean the server omitted them.
+class LlmTokenUsage {
+  const LlmTokenUsage({
+    this.promptTokens,
+    this.completionTokens,
+    this.totalTokens,
+  });
+
+  final int? promptTokens;
+  final int? completionTokens;
+  final int? totalTokens;
+
+  int? get usedTokens {
+    if (totalTokens != null && totalTokens! > 0) return totalTokens;
+    if (promptTokens == null && completionTokens == null) return null;
+    return (promptTokens ?? 0) + (completionTokens ?? 0);
+  }
 }
 
 /// Result of a tool-enabled, non-streaming generation: the tool calls the
@@ -165,7 +268,43 @@ class LlmToolResponse {
   final List<LlmToolCall> calls;
   final String text;
 
-  const LlmToolResponse({required this.calls, required this.text});
+  /// Hidden chain-of-thought when the backend splits it out of [text]
+  /// (`reasoning_content`). Empty on text-only backends.
+  final String reasoning;
+
+  /// Server-reported tokens when the backend sent `usage`. Null = guess.
+  final int? promptTokens;
+  final int? completionTokens;
+  final int? totalTokens;
+
+  /// OpenAI `choices[0].finish_reason` when the body carried one.
+  final String? finishReason;
+
+  const LlmToolResponse({
+    required this.calls,
+    required this.text,
+    this.reasoning = '',
+    this.promptTokens,
+    this.completionTokens,
+    this.totalTokens,
+    this.finishReason,
+  });
+
+  /// Empty parse after the model committed to `tool_calls`. Callers must
+  /// not fire a second text/XML generate for this turn.
+  bool get isUnusableNativeToolCall =>
+      calls.isEmpty && finishReason == 'tool_calls';
+
+  int? get usedTokens => LlmTokenUsage(
+    promptTokens: promptTokens,
+    completionTokens: completionTokens,
+    totalTokens: totalTokens,
+  ).usedTokens;
+}
+
+/// Opt-in identity surface for OpenAI-compatible services with a live URL.
+abstract interface class LlmApiEndpoint {
+  String get apiUrl;
 }
 
 /// Abstract interface for all LLM backends (local KoboldCPP, OpenRouter, etc).

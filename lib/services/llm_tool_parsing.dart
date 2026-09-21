@@ -20,6 +20,26 @@ import 'dart:convert';
 
 import 'llm_service.dart';
 
+/// OpenAI `usage` object, or a parent map that contains one.
+LlmTokenUsage? parseLlmTokenUsage(dynamic json) {
+  if (json is! Map) return null;
+  final usage = json['usage'] is Map ? json['usage'] as Map : json;
+  final prompt = (usage['prompt_tokens'] as num?)?.toInt();
+  final completion = (usage['completion_tokens'] as num?)?.toInt();
+  final total = (usage['total_tokens'] as num?)?.toInt();
+  if (prompt == null && completion == null && total == null) return null;
+  if ((prompt == null || prompt <= 0) &&
+      (completion == null || completion <= 0) &&
+      (total == null || total <= 0)) {
+    return null;
+  }
+  return LlmTokenUsage(
+    promptTokens: prompt,
+    completionTokens: completion,
+    totalTokens: total,
+  );
+}
+
 /// Parse a non-streaming OpenAI chat-completions response body into an
 /// [LlmToolResponse]: the assistant message's `tool_calls` (arguments
 /// JSON-decoded; malformed arguments become `{}` so the downstream op parser
@@ -41,6 +61,11 @@ LlmToolResponse? parseOpenAiToolResponse(String body) {
   final message = first is Map ? first['message'] : null;
   if (message is! Map) return null;
 
+  final finishRaw = first is Map ? first['finish_reason'] : null;
+  final finishReason = finishRaw is String && finishRaw.isNotEmpty
+      ? finishRaw
+      : null;
+
   final calls = <LlmToolCall>[];
   for (final tc in (message['tool_calls'] as List? ?? const [])) {
     final fn = tc is Map ? tc['function'] : null;
@@ -56,10 +81,19 @@ LlmToolResponse? parseOpenAiToolResponse(String body) {
         if (decoded is Map) args = Map<String, dynamic>.from(decoded);
       } catch (_) {}
     }
-    calls.add(LlmToolCall(name: name, arguments: args));
+    final rawId = tc is Map ? tc['id'] : null;
+    final id = rawId is String ? rawId.trim() : '';
+    calls.add(LlmToolCall(name: name, arguments: args, id: id));
   }
+  final reasoningRaw = message['reasoning_content'] ?? message['reasoning'];
+  final usage = parseLlmTokenUsage(json);
   return LlmToolResponse(
     calls: calls,
     text: message['content'] is String ? message['content'] as String : '',
+    reasoning: reasoningRaw is String ? reasoningRaw : '',
+    promptTokens: usage?.promptTokens,
+    completionTokens: usage?.completionTokens,
+    totalTokens: usage?.totalTokens,
+    finishReason: finishReason,
   );
 }

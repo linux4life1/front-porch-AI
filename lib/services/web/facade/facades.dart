@@ -43,3 +43,4 @@ export 'story_facade.dart';
 export 'story_snapshot_builder.dart';
 export 'voice_facade.dart';
 export 'world_facade.dart';
+export 'world_from_wiki_facade.dart';

@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// All-zero needs impact is a failed read. Tools fill required ints with 0;
-// retry text, then a repair pass. Individual 0s are fine; all seven are not.
+// Tools fill required ints with 0; retry text once. A quiet all-zero after
+// that is a valid read. Individual 0s were always fine.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -72,17 +72,18 @@ void main() {
     });
 
     test(
-      'repair pass is used when tools and text both return all zeros',
+      'quiet all-zero after tools+text is kept — no inventing a swing',
       () async {
         var textCalls = 0;
         final e = _engine(
           toolArgs: _zeroArgs,
           onText: (p) {
             textCalls++;
-            if (p.prompt.contains('failed read')) {
+            if (p.prompt.contains('failed read') ||
+                p.prompt.contains('always moves at least one need')) {
               return '{"hunger_delta":0,"energy_delta":-5,"hygiene_delta":0,'
                   '"fun_delta":8,"social_delta":12,"bladder_delta":60,'
-                  '"comfort_delta":4,"reason":"the beat moved her"}';
+                  '"comfort_delta":4,"reason":"invented"}';
             }
             return '{"hunger_delta":0,"energy_delta":0,"hygiene_delta":0,'
                 '"fun_delta":0,"social_delta":0,"bladder_delta":0,'
@@ -90,11 +91,10 @@ void main() {
           },
         );
         final raw = await e.evaluateNeedsImpactCall(
-          'she pees on him, riding hard',
+          'they sit together a while',
         );
-        expect(textCalls, 2);
-        expect(raw, contains('"bladder_delta":60'));
-        expect(needsImpactHasNonZeroDelta(raw!), isTrue);
+        expect(textCalls, 1);
+        expect(needsImpactHasNonZeroDelta(raw!), isFalse);
       },
     );
 

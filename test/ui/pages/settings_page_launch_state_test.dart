@@ -46,7 +46,9 @@ void main() {
     // Seeded here, not only inside _applyHardwareDefaults: that runs only
     // once HardwareService reports a GPU.
     expect(
-      body.contains('_gpuLayersController.text = storage.gpuLayers'),
+      body.contains(
+        '_gpuLayersController.text = storage.backendSettings.gpuLayers',
+      ),
       isTrue,
       reason: 'GPU layers must be seeded from storage before any launch',
     );
@@ -72,7 +74,9 @@ void main() {
     ).readAsStringSync();
 
     expect(
-      src.contains('_launchModelExists(storage.lastUsedModelPath)'),
+      src.contains(
+        '_launchModelExists(storage.backendSettings.lastUsedModelPath)',
+      ),
       isTrue,
       reason: 'the KoboldService-listening Builder must use the memoized check',
     );

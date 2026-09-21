@@ -53,6 +53,12 @@ class ChatWorlds extends Table {
   TextColumn get chatId => text()();
   TextColumn get worldId => text()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  /// v52 — Setting (Primary) vs Lore role for this chat. Slot role beats the
+  /// world file's climateEnabled at runtime: a climate-on Mars in Lore stays
+  /// lore-only for the session. Default false (lore).
+  BoolColumn get isPrimary => boolean().withDefault(const Constant(false))();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

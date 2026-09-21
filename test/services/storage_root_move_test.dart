@@ -69,12 +69,12 @@ void main() {
     final outside = Directory.systemTemp.createTempSync('fpai_outside_bg_');
     addTearDown(() => outside.deleteSync(recursive: true));
     seed(p.join(outside.path, 'elsewhere.png'), 'not ours');
-    await storage.addCustomBackground(
+    await storage.uiSettings.addCustomBackground(
       'bg1',
       'Porch',
       p.join(oldRoot, 'custom_backgrounds', 'porch.png'),
     );
-    await storage.addCustomBackground(
+    await storage.uiSettings.addCustomBackground(
       'bg2',
       'Elsewhere',
       p.join(outside.path, 'elsewhere.png'),
@@ -99,17 +99,22 @@ void main() {
       'background',
     );
     // Order kept, the one inside the root repointed, the outside one untouched.
-    expect(storage.customBackgrounds.map((bg) => bg['id']), ['bg1', 'bg2']);
+    expect(storage.uiSettings.customBackgrounds.map((bg) => bg['id']), [
+      'bg1',
+      'bg2',
+    ]);
     expect(
-      storage.customBackgrounds.first['filePath'],
+      storage.uiSettings.customBackgrounds.first['filePath'],
       p.join(newRoot.path, 'custom_backgrounds', 'porch.png'),
     );
     expect(
-      File(storage.customBackgrounds.first['filePath']!).existsSync(),
+      File(
+        storage.uiSettings.customBackgrounds.first['filePath']!,
+      ).existsSync(),
       isTrue,
     );
     expect(
-      storage.customBackgrounds.last['filePath'],
+      storage.uiSettings.customBackgrounds.last['filePath'],
       p.join(outside.path, 'elsewhere.png'),
     );
 
@@ -122,39 +127,49 @@ void main() {
     );
   });
 
-  test('a destination that already holds a library is refused intact', () async {
-    final storage = await freshStorage();
-    final oldRoot = storage.rootPath!;
-    seed(p.join(oldRoot, 'KoboldManager', 'front_porch.db'), 'the real db');
-    seed(p.join(oldRoot, 'chats', 'c1.json'), 'chat');
+  test(
+    'a destination that already holds a library is refused intact',
+    () async {
+      final storage = await freshStorage();
+      final oldRoot = storage.rootPath!;
+      seed(p.join(oldRoot, 'KoboldManager', 'front_porch.db'), 'the real db');
+      seed(p.join(oldRoot, 'chats', 'c1.json'), 'chat');
 
-    final newRoot = Directory.systemTemp.createTempSync('fpai_occupied_root_');
-    addTearDown(() => newRoot.deleteSync(recursive: true));
-    seed(p.join(newRoot.path, 'KoboldManager', 'front_porch.db'), 'stale db');
+      final newRoot = Directory.systemTemp.createTempSync(
+        'fpai_occupied_root_',
+      );
+      addTearDown(() => newRoot.deleteSync(recursive: true));
+      seed(p.join(newRoot.path, 'KoboldManager', 'front_porch.db'), 'stale db');
 
-    final reason = await storage.setRootPath(newRoot.path);
-    expect(reason, isNotNull);
-    expect(reason, contains('KoboldManager'));
+      final reason = await storage.setRootPath(newRoot.path);
+      expect(reason, isNotNull);
+      expect(reason, contains('KoboldManager'));
 
-    // Nothing moved, nothing merged, and the app still points at the library
-    // it was using.
-    expect(storage.rootPath, oldRoot);
-    expect(
-      File(p.join(oldRoot, 'KoboldManager', 'front_porch.db')).readAsStringSync(),
-      'the real db',
-    );
-    expect(File(p.join(oldRoot, 'chats', 'c1.json')).existsSync(), isTrue);
-    expect(
-      File(p.join(newRoot.path, 'KoboldManager', 'front_porch.db'))
-          .readAsStringSync(),
-      'stale db',
-    );
-    expect(Directory(p.join(newRoot.path, 'chats')).existsSync(), isFalse);
-  });
+      // Nothing moved, nothing merged, and the app still points at the library
+      // it was using.
+      expect(storage.rootPath, oldRoot);
+      expect(
+        File(
+          p.join(oldRoot, 'KoboldManager', 'front_porch.db'),
+        ).readAsStringSync(),
+        'the real db',
+      );
+      expect(File(p.join(oldRoot, 'chats', 'c1.json')).existsSync(), isTrue);
+      expect(
+        File(
+          p.join(newRoot.path, 'KoboldManager', 'front_porch.db'),
+        ).readAsStringSync(),
+        'stale db',
+      );
+      expect(Directory(p.join(newRoot.path, 'chats')).existsSync(), isFalse);
+    },
+  );
 
   test('a failed copy leaves the root where it was', () async {
     if (Platform.isWindows) {
-      markTestSkipped('read-only dirs are not enforced the same way on Windows');
+      markTestSkipped(
+        'read-only dirs are not enforced the same way on Windows',
+      );
       return;
     }
     final storage = await freshStorage();
@@ -179,7 +194,9 @@ void main() {
     expect(reason, isNotNull);
     expect(storage.rootPath, oldRoot);
     expect(
-      File(p.join(oldRoot, 'KoboldManager', 'front_porch.db')).readAsStringSync(),
+      File(
+        p.join(oldRoot, 'KoboldManager', 'front_porch.db'),
+      ).readAsStringSync(),
       'the real db',
     );
     final prefs = await SharedPreferences.getInstance();

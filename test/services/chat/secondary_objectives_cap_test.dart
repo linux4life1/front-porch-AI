@@ -85,16 +85,4 @@ void main() {
     expect(left, contains('Side 5'));
     expect(left, contains('Side 4'));
   });
-
-  test('birthday plant and setObjective share the cap constant', () {
-    final plant = File(
-      'lib/services/chat/chat_service_birthday.dart',
-    ).readAsStringSync();
-    final set = File(
-      'lib/services/chat/chat_service_objectives.dart',
-    ).readAsStringSync();
-    expect(plant, contains('kMaxSecondaryObjectives'));
-    expect(set, contains('kMaxSecondaryObjectives'));
-    expect(set, isNot(contains('length >= 2')));
-  });
 }

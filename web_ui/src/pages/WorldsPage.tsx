@@ -5,6 +5,7 @@
 // .fpworld export/import — web parity with desktop world_management_page.
 
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { ClimateSeasonEditor } from '../components/ClimateSeasonEditor';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
@@ -58,6 +59,7 @@ function download(url: string) {
 }
 
 export function WorldsPage() {
+  const navigate = useNavigate();
   const [worlds, setWorlds] = useState<WorldSummary[]>([]);
   const [climates, setClimates] = useState<Climate[]>([]);
   const [edit, setEdit] = useState<EditState>(null);
@@ -221,6 +223,9 @@ export function WorldsPage() {
             onClick={() => fpworldFileRef.current?.click()}
           >
             ⬆ Import .fpworld
+          </button>
+          <button className="ghost" onClick={() => navigate('/worlds/from-wiki')}>
+            📖 From Wiki
           </button>
           <button
             className="primary"

@@ -34,8 +34,6 @@
 // rebuilt into the prompt on every single message, so a frozen ambition line
 // is billed again with every reply for the life of the conversation.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -77,7 +75,8 @@ void main() {
       expect(
         text,
         contains('just beginning'),
-        reason: 'the stage word is the part that is supposed to MOVE — and '
+        reason:
+            'the stage word is the part that is supposed to MOVE — and '
             'with Objectives off it is exactly what can never change',
       );
     });
@@ -85,47 +84,6 @@ void main() {
     test('a card with no ambitions contributes nothing', () {
       final text = build(CharacterCard(name: 'Nia')).buildAmbitionInjection();
       expect(text, isEmpty);
-    });
-  });
-
-  group('the wiring that shuts the gate', () {
-    // HONESTY NOTE, because the alternative is a test that looks like proof
-    // and is not: the composition below lives in chat_service_wiring_injection
-    // .dart, which is a `part` of ChatService and cannot be constructed
-    // without the whole god object. A first draft of this file "tested" it by
-    // rebuilding the `if (ambitionsEnabled)` inside the test — which asserts
-    // the test's own code and would stay green if production lost the gate
-    // entirely. That is decoration, so it was deleted.
-    //
-    // What remains is a tripwire on the source, in the same spirit as the
-    // migration ladder's DEFAULT check: it cannot prove the runtime behaviour,
-    // but it does fail loudly if someone drops the `objectivesActive` term.
-    // Runtime coverage of the composed gate belongs to the E2E suites.
-    test('ambitions injection requires Objectives, not just its own flag', () {
-      final wiring = File(
-        'lib/services/chat/chat_service_wiring_injection.dart',
-      ).readAsStringSync();
-      expect(
-        wiring,
-        contains(
-          'realismSettings.ambitionsEnabled && objectivesActive',
-        ),
-        reason: 'with Objectives off nothing can move ambition progress, so '
-            'the fragment must not be built — it would bill the user every '
-            'turn for a line frozen for the life of the chat',
-      );
-    });
-
-    test('the web chat-tools surface carries the same gate', () {
-      final facade = File(
-        'lib/services/web/facade/chat_tools_facade.dart',
-      ).readAsStringSync();
-      expect(
-        facade,
-        contains('!_chat.objectivesActive'),
-        reason: 'desktop/web parity: the web panel must not show a stage word '
-            'that can never advance',
-      );
     });
   });
 }

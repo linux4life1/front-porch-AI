@@ -29,7 +29,10 @@ import 'package:front_porch_ai/models/models.dart';
 
 /// Build a [Lorebook] from a web entry list, dropping rows with no key/content.
 /// Returns null when the result is empty.
-Lorebook? buildLorebookFromJson(dynamic raw) {
+Lorebook? buildLorebookFromJson(
+  dynamic raw, {
+  Map<String, dynamic>? bookFields,
+}) {
   if (raw is! List || raw.isEmpty) return null;
   final entries = <LorebookEntry>[];
   for (final e in raw) {
@@ -58,8 +61,9 @@ Lorebook? buildLorebookFromJson(dynamic raw) {
     // Advanced tier (web parity with the desktop editor). Only keys PRESENT
     // in the row override — untouched fields keep their ext-decoded values.
     if (e['secondaryKeys'] is String) {
-      entry.secondaryKeys =
-          LorebookEntry.parseKeyList(e['secondaryKeys'] as String);
+      entry.secondaryKeys = LorebookEntry.parseKeyList(
+        e['secondaryKeys'] as String,
+      );
     }
     if (e['selectiveLogic'] is int) {
       entry.selectiveLogic = (e['selectiveLogic'] as int).clamp(0, 3);
@@ -77,12 +81,14 @@ Lorebook? buildLorebookFromJson(dynamic raw) {
       entry.scanDepth = e['scanDepth'] is int ? e['scanDepth'] as int : null;
     }
     if (e.containsKey('caseSensitive')) {
-      entry.caseSensitive =
-          e['caseSensitive'] is bool ? e['caseSensitive'] as bool : null;
+      entry.caseSensitive = e['caseSensitive'] is bool
+          ? e['caseSensitive'] as bool
+          : null;
     }
     if (e.containsKey('matchWholeWords')) {
-      entry.matchWholeWords =
-          e['matchWholeWords'] is bool ? e['matchWholeWords'] as bool : null;
+      entry.matchWholeWords = e['matchWholeWords'] is bool
+          ? e['matchWholeWords'] as bool
+          : null;
     }
     if (e['excludeRecursion'] is bool) {
       entry.excludeRecursion = e['excludeRecursion'] as bool;
@@ -91,8 +97,10 @@ Lorebook? buildLorebookFromJson(dynamic raw) {
       entry.preventRecursion = e['preventRecursion'] as bool;
     }
     if (e['delayUntilRecursion'] is int) {
-      entry.delayUntilRecursion =
-          (e['delayUntilRecursion'] as int).clamp(0, 10);
+      entry.delayUntilRecursion = (e['delayUntilRecursion'] as int).clamp(
+        0,
+        10,
+      );
     }
     if (e['group'] is String) entry.group = (e['group'] as String).trim();
     if (e['groupWeight'] is int) {
@@ -102,13 +110,39 @@ Lorebook? buildLorebookFromJson(dynamic raw) {
       entry.groupOverride = e['groupOverride'] as bool;
     }
     if (e.containsKey('useGroupScoring')) {
-      entry.useGroupScoring =
-          e['useGroupScoring'] is bool ? e['useGroupScoring'] as bool : null;
+      entry.useGroupScoring = e['useGroupScoring'] is bool
+          ? e['useGroupScoring'] as bool
+          : null;
     }
-    if (e['ignoreBudget'] is bool) entry.ignoreBudget = e['ignoreBudget'] as bool;
+    if (e['ignoreBudget'] is bool) {
+      entry.ignoreBudget = e['ignoreBudget'] as bool;
+    }
     entries.add(entry);
   }
-  return entries.isEmpty ? null : Lorebook(entries: entries);
+  if (entries.isEmpty) return null;
+  final book = Lorebook(entries: entries);
+  applyLorebookBookFields(book, bookFields);
+  return book;
+}
+
+/// Optional book-level fields on a world save (from-wiki recursion/budget).
+void applyLorebookBookFields(Lorebook book, Map<String, dynamic>? fields) {
+  if (fields == null) return;
+  if (fields['recursiveScanning'] is bool) {
+    book.recursiveScanning = fields['recursiveScanning'] as bool;
+  }
+  final depth = fields['scanDepth'];
+  if (depth is int) {
+    book.scanDepth = depth;
+  } else if (depth is num) {
+    book.scanDepth = depth.round();
+  }
+  final budget = fields['tokenBudget'];
+  if (budget is int) {
+    book.tokenBudget = budget;
+  } else if (budget is num) {
+    book.tokenBudget = budget.round();
+  }
 }
 
 /// Flatten a [Lorebook] to the web entry list (comma-joined `key` string,
@@ -116,36 +150,38 @@ Lorebook? buildLorebookFromJson(dynamic raw) {
 List<Map<String, dynamic>> lorebookEntriesToJson(Lorebook? lorebook) {
   if (lorebook == null) return const [];
   return lorebook.entries
-      .map((e) => {
-            'name': e.name,
-            'key': e.key,
-            'content': e.content,
-            'enabled': e.enabled,
-            'constant': e.constant,
-            'stickyDepth': e.stickyDepth,
-            'probability': e.probability,
-            'position': e.position,
-            'secondaryKeys': e.secondaryKeys.join(', '),
-            'selectiveLogic': e.selectiveLogic,
-            'useRegex': e.useRegex,
-            'order': e.order,
-            'depth': e.depth,
-            if (e.role != null) 'role': e.role,
-            'sticky': e.sticky,
-            'cooldown': e.cooldown,
-            'delay': e.delay,
-            'scanDepth': e.scanDepth,
-            'caseSensitive': e.caseSensitive,
-            'matchWholeWords': e.matchWholeWords,
-            'excludeRecursion': e.excludeRecursion,
-            'preventRecursion': e.preventRecursion,
-            'delayUntilRecursion': e.delayUntilRecursion,
-            'group': e.group,
-            'groupWeight': e.groupWeight,
-            'groupOverride': e.groupOverride,
-            'useGroupScoring': e.useGroupScoring,
-            'ignoreBudget': e.ignoreBudget,
-            'ext': e.toJson(),
-          })
+      .map(
+        (e) => {
+          'name': e.name,
+          'key': e.key,
+          'content': e.content,
+          'enabled': e.enabled,
+          'constant': e.constant,
+          'stickyDepth': e.stickyDepth,
+          'probability': e.probability,
+          'position': e.position,
+          'secondaryKeys': e.secondaryKeys.join(', '),
+          'selectiveLogic': e.selectiveLogic,
+          'useRegex': e.useRegex,
+          'order': e.order,
+          'depth': e.depth,
+          if (e.role != null) 'role': e.role,
+          'sticky': e.sticky,
+          'cooldown': e.cooldown,
+          'delay': e.delay,
+          'scanDepth': e.scanDepth,
+          'caseSensitive': e.caseSensitive,
+          'matchWholeWords': e.matchWholeWords,
+          'excludeRecursion': e.excludeRecursion,
+          'preventRecursion': e.preventRecursion,
+          'delayUntilRecursion': e.delayUntilRecursion,
+          'group': e.group,
+          'groupWeight': e.groupWeight,
+          'groupOverride': e.groupOverride,
+          'useGroupScoring': e.useGroupScoring,
+          'ignoreBudget': e.ignoreBudget,
+          'ext': e.toJson(),
+        },
+      )
       .toList();
 }

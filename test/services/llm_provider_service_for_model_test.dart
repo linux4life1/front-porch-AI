@@ -56,11 +56,11 @@ void main() {
     await storage.initialized;
     // The provider's ctor reconfigures the remote service FROM storage, so
     // the active model must be seeded there, not on the service instance.
-    await storage.setBackendType('openRouter');
-    await storage.setRemoteModel('current/model');
+    await storage.backendSettings.setBackendType('openRouter');
+    await storage.backendSettings.setRemoteModelName('current/model');
     // isReady demands a key (or a local URL) — seed one so the active-service
     // branch is actually reachable.
-    await storage.setRemoteApiKey('test-key');
+    await storage.backendSettings.setRemoteApiKey('test-key');
     active = OpenRouterService(
       apiUrl: 'https://api.example.test/v1',
       apiKey: 'k',
@@ -68,56 +68,67 @@ void main() {
   });
 
   _RemoteProvider remote() => _RemoteProvider(
-        KoboldService(storage),
-        active,
-        storage,
-        BackendManager(storage),
-      );
+    KoboldService(storage),
+    active,
+    storage,
+    BackendManager(storage),
+  );
 
-  test('remote + different model → ad-hoc service, active model untouched',
-      () {
+  test('remote + different model → ad-hoc service, active model untouched', () {
     final provider = remote();
     final svc = provider.serviceForModel('other/model');
     expect(svc, isA<OpenRouterService>());
     expect((svc as OpenRouterService).modelName, 'other/model');
     expect(identical(svc, active), isFalse);
-    expect(active.modelName, 'current/model',
-        reason: 'picking a run model must never switch the app model');
+    expect(
+      active.modelName,
+      'current/model',
+      reason: 'picking a run model must never switch the app model',
+    );
   });
 
   test('remote + same/empty model id → the active service itself', () {
     final provider = remote();
-    expect(identical(provider.serviceForModel('current/model'), active), isTrue);
+    expect(
+      identical(provider.serviceForModel('current/model'), active),
+      isTrue,
+    );
     expect(identical(provider.serviceForModel(''), active), isTrue);
   });
 
-  test('oMLX + a different pick still aims at localhost oMLX, not Remote API',
-      () async {
-    await storage.setBackendType('omlx');
-    await storage.setRemoteApiUrl('https://openrouter.ai/api/v1');
-    await storage.setRemoteModel('Qwen3.6-40B');
-    final provider = LLMProvider(
-      KoboldService(storage),
-      active,
-      storage,
-      BackendManager(storage),
-    );
-    final svc = provider.serviceForModel('Qwen3.8-27B-MLX-8bit');
-    expect(svc, isA<OpenRouterService>());
-    expect((svc as OpenRouterService).modelName, 'Qwen3.8-27B-MLX-8bit');
-    expect(svc.apiUrl, 'http://localhost:8000/v1');
-  });
+  test(
+    'oMLX + a different pick still aims at localhost oMLX, not Remote API',
+    () async {
+      await storage.backendSettings.setBackendType('omlx');
+      await storage.backendSettings.setRemoteApiUrl(
+        'https://openrouter.ai/api/v1',
+      );
+      await storage.backendSettings.setRemoteModelName('Qwen3.6-40B');
+      final provider = LLMProvider(
+        KoboldService(storage),
+        active,
+        storage,
+        BackendManager(storage),
+      );
+      final svc = provider.serviceForModel('Qwen3.8-27B-MLX-8bit');
+      expect(svc, isA<OpenRouterService>());
+      expect((svc as OpenRouterService).modelName, 'Qwen3.8-27B-MLX-8bit');
+      expect(svc.apiUrl, 'http://localhost:8000/v1');
+    },
+  );
 
-  test('managed local backend ignores the pick (loaded model IS the model)',
-      () {
-    final provider = _LocalProvider(
-      KoboldService(storage),
-      active,
-      storage,
-      BackendManager(storage),
-    );
-    // The local Kobold service is not running in tests → not ready → null,
-    // and crucially NOT an ad-hoc remote service for the picked id.
-    expect(provider.serviceForModel('other/model'), isNull);
-  });
+  test(
+    'managed local backend ignores the pick (loaded model IS the model)',
+    () {
+      final provider = _LocalProvider(
+        KoboldService(storage),
+        active,
+        storage,
+        BackendManager(storage),
+      );
+      // The local Kobold service is not running in tests → not ready → null,
+      // and crucially NOT an ad-hoc remote service for the picked id.
+      expect(provider.serviceForModel('other/model'), isNull);
+    },
+  );
 }

@@ -149,7 +149,7 @@ class ChargenFacade {
           isLocalKobold:
               _llm.activeBackend == BackendType.kobold &&
               _llm.koboldService.isReady,
-          contextSize: _storage?.contextSize ?? 8192,
+          contextSize: _storage?.backendSettings.contextSize ?? 8192,
         ),
       );
       final gen = CharacterGenService(svc);

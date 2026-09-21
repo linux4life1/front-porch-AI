@@ -152,7 +152,7 @@ class UiSettings with SettingsBase {
           AppColors.actionLight.toARGB32(),
     );
 
-    _textScale = prefs?.getDouble(k('text_scale')) ?? 1.0;
+    _textScale = (prefs?.getDouble(k('text_scale')) ?? 1.0).clamp(0.7, 2.0);
     _chatBackground = prefs?.getString(k('chat_background')) ?? 'none';
     final customBgJson = prefs?.getString(k('custom_backgrounds'));
     if (customBgJson != null) {
@@ -285,8 +285,8 @@ class UiSettings with SettingsBase {
   }
 
   Future<void> setTextScale(double value) async {
-    _textScale = value;
-    await prefs?.setDouble(k('text_scale'), value);
+    _textScale = value.clamp(0.7, 2.0);
+    await prefs?.setDouble(k('text_scale'), _textScale);
     notify();
   }
 

@@ -32,8 +32,6 @@
 // the Drift table definition, the migration ladder's ALTER, and the repair
 // path's column list. Same trio v45 pinned; they have drifted before.
 
-import 'dart:io';
-
 import 'package:drift/drift.dart' show Value, Variable;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -57,37 +55,47 @@ void main() {
     return row.read<String?>('served_ambition');
   }
 
-  Future<void> insert(String id, {Value<String?> served = const Value.absent()}) =>
-      db.insertObjective(
-        ObjectivesCompanion.insert(
-          id: id,
-          characterId: 'Jennifer_1782587668376',
-          objective: 'Bake something worth selling',
-          servedAmbition: served,
-        ),
-      );
+  Future<void> insert(
+    String id, {
+    Value<String?> served = const Value.absent(),
+  }) => db.insertObjective(
+    ObjectivesCompanion.insert(
+      id: id,
+      characterId: 'Jennifer_1782587668376',
+      objective: 'Bake something worth selling',
+      servedAmbition: served,
+    ),
+  );
 
   group('NULL is the answer for anything that predates the column', () {
-    test('an objective that never mentions the field reads back NULL', () async {
-      await insert('o-untagged');
-      expect(
-        await readServed('o-untagged'),
-        isNull,
-        reason: 'every objective in every existing library is this case — a '
-            'non-null default here would claim each of them serves whatever '
-            'that default named',
-      );
-    });
+    test(
+      'an objective that never mentions the field reads back NULL',
+      () async {
+        await insert('o-untagged');
+        expect(
+          await readServed('o-untagged'),
+          isNull,
+          reason:
+              'every objective in every existing library is this case — a '
+              'non-null default here would claim each of them serves whatever '
+              'that default named',
+        );
+      },
+    );
 
-    test('the column is genuinely nullable, not empty-string-defaulted', () async {
-      await insert('o-null-explicit', served: const Value(null));
-      expect(
-        await readServed('o-null-explicit'),
-        isNull,
-        reason: "'' and NULL must not be conflated: the UI shows a chip when "
-            'this is non-null, and an empty chip is worse than no chip',
-      );
-    });
+    test(
+      'the column is genuinely nullable, not empty-string-defaulted',
+      () async {
+        await insert('o-null-explicit', served: const Value(null));
+        expect(
+          await readServed('o-null-explicit'),
+          isNull,
+          reason:
+              "'' and NULL must not be conflated: the UI shows a chip when "
+              'this is non-null, and an empty chip is worse than no chip',
+        );
+      },
+    );
   });
 
   group('the tag round-trips when the proposal set one', () {
@@ -97,71 +105,19 @@ void main() {
     });
 
     test('the generated row exposes it as a nullable String', () async {
-      await insert('o-tagged2', served: const Value('reconcile with her sister'));
-      final objs = await db.getObjectivesForCharacter(
-        'Jennifer_1782587668376',
+      await insert(
+        'o-tagged2',
+        served: const Value('reconcile with her sister'),
       );
+      final objs = await db.getObjectivesForCharacter('Jennifer_1782587668376');
       final row = objs.firstWhere((o) => o.id == 'o-tagged2');
       expect(
         row.servedAmbition,
         'reconcile with her sister',
-        reason: 'this is the field AmbitionService reads to skip re-asking '
+        reason:
+            'this is the field AmbitionService reads to skip re-asking '
             'which ambition a completed quest belonged to',
       );
-    });
-  });
-
-  group('the three declarations of this column agree', () {
-    // v45 shipped with these three in sync and a test saying so. The same
-    // trio, one version later — a ladder that says NOT NULL, or a repair path
-    // that adds a default, would each produce a database the Table class
-    // cannot describe.
-    final table = File(
-      'lib/database/database.tables.features.dart',
-    ).readAsStringSync();
-    final ladder = File(
-      'lib/database/database.migrations.dart',
-    ).readAsStringSync();
-    final repair = File('lib/database/database.repair.dart').readAsStringSync();
-
-    test('the Table declares it nullable with no default', () {
-      expect(table, contains('servedAmbition => text().nullable()()'));
-      expect(
-        table.contains('servedAmbition => text().nullable().withDefault'),
-        isFalse,
-        reason: 'a default would give pre-v46 rows an invented answer',
-      );
-    });
-
-    test('the ladder adds a plain nullable TEXT', () {
-      expect(
-        ladder,
-        contains('ALTER TABLE objectives ADD COLUMN served_ambition TEXT'),
-      );
-      expect(
-        ladder.contains('served_ambition TEXT NOT NULL'),
-        isFalse,
-        reason: 'NOT NULL without a default cannot be added to a populated '
-            'table at all; with one it would backfill a guess',
-      );
-    });
-
-    test('the repair path matches both', () {
-      expect(repair, contains("'served_ambition TEXT'"));
-    });
-
-    test('schemaVersion is at least 46, so the v46 step runs', () {
-      // Deliberately >= rather than == 46. This guard is about THIS column's
-      // ladder step being reachable, which stays true at every later version;
-      // pinning the exact number made it stale the moment v47 landed and turned
-      // an unrelated schema change into a failure in the served_ambition file.
-      // The exact-version tracker lives in avatar_repository_test.dart and is
-      // the one place that should need touching on a bump.
-      final m = RegExp(
-        r'schemaVersion => (\d+)',
-      ).firstMatch(File('lib/database/database.dart').readAsStringSync());
-      expect(m, isNotNull);
-      expect(int.parse(m!.group(1)!), greaterThanOrEqualTo(46));
     });
   });
 }

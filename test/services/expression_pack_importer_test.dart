@@ -92,27 +92,30 @@ void main() {
       await db.close();
     });
 
-    test('imports done+kept slots only, lowercase labels, flips toggle', () async {
-      expect(storage.expressionEnabled, isFalse);
-      final slots = [
-        _doneSlot('joy'),
-        _doneSlot('anger'),
-        _doneSlot('fear', keep: false), // unchecked → skipped
-        ExpressionSlot('sadness'), // never generated → skipped
-      ];
-      final imported = await ExpressionPackImporter.importPack(
-        repository: repo,
-        storage: storage,
-        characterDbId: charId,
-        characterName: 'Pack Test',
-        slots: slots,
-      );
-      expect(imported, 2);
-      final avatars = await repo.getAvatarImages(charId);
-      expect(avatars, hasLength(2));
-      expect(avatars.map((a) => a.label).toSet(), {'joy', 'anger'});
-      expect(storage.expressionEnabled, isTrue);
-    });
+    test(
+      'imports done+kept slots only, lowercase labels, flips toggle',
+      () async {
+        expect(storage.expressionSettings.expressionEnabled, isFalse);
+        final slots = [
+          _doneSlot('joy'),
+          _doneSlot('anger'),
+          _doneSlot('fear', keep: false), // unchecked → skipped
+          ExpressionSlot('sadness'), // never generated → skipped
+        ];
+        final imported = await ExpressionPackImporter.importPack(
+          repository: repo,
+          storage: storage,
+          characterDbId: charId,
+          characterName: 'Pack Test',
+          slots: slots,
+        );
+        expect(imported, 2);
+        final avatars = await repo.getAvatarImages(charId);
+        expect(avatars, hasLength(2));
+        expect(avatars.map((a) => a.label).toSet(), {'joy', 'anger'});
+        expect(storage.expressionSettings.expressionEnabled, isTrue);
+      },
+    );
 
     test('returns 0 and leaves the toggle off when nothing is kept', () async {
       final imported = await ExpressionPackImporter.importPack(
@@ -124,38 +127,50 @@ void main() {
       );
       expect(imported, 0);
       expect(await repo.getAvatarImages(charId), isEmpty);
-      expect(storage.expressionEnabled, isFalse);
+      expect(storage.expressionSettings.expressionEnabled, isFalse);
     });
 
-    test('replaceSameLabel removes same-label avatars case-insensitively', () async {
-      await repo.addAvatar(charId, 'Pack Test', Uint8List.fromList([9]), 'Joy');
-      await repo.addAvatar(
-        charId,
-        'Pack Test',
-        Uint8List.fromList([9]),
-        'anger',
-      );
-      final before = await repo.getAvatarImages(charId);
-      expect(before, hasLength(2));
-      final oldJoyId = before.firstWhere((a) => a.label == 'Joy').id;
+    test(
+      'replaceSameLabel removes same-label avatars case-insensitively',
+      () async {
+        await repo.addAvatar(
+          charId,
+          'Pack Test',
+          Uint8List.fromList([9]),
+          'Joy',
+        );
+        await repo.addAvatar(
+          charId,
+          'Pack Test',
+          Uint8List.fromList([9]),
+          'anger',
+        );
+        final before = await repo.getAvatarImages(charId);
+        expect(before, hasLength(2));
+        final oldJoyId = before.firstWhere((a) => a.label == 'Joy').id;
 
-      final imported = await ExpressionPackImporter.importPack(
-        repository: repo,
-        storage: storage,
-        characterDbId: charId,
-        characterName: 'Pack Test',
-        slots: [_doneSlot('joy', bytes: const [4, 5, 6])],
-      );
-      expect(imported, 1);
-      final after = await repo.getAvatarImages(charId);
-      // Old 'Joy' replaced by the new lowercase 'joy'; 'anger' untouched.
-      expect(after, hasLength(2));
-      final joys = after.where((a) => a.label?.toLowerCase() == 'joy').toList();
-      expect(joys, hasLength(1));
-      expect(joys.single.id, isNot(oldJoyId));
-      expect(joys.single.label, 'joy');
-      expect(after.any((a) => a.label == 'anger'), isTrue);
-    });
+        final imported = await ExpressionPackImporter.importPack(
+          repository: repo,
+          storage: storage,
+          characterDbId: charId,
+          characterName: 'Pack Test',
+          slots: [
+            _doneSlot('joy', bytes: const [4, 5, 6]),
+          ],
+        );
+        expect(imported, 1);
+        final after = await repo.getAvatarImages(charId);
+        // Old 'Joy' replaced by the new lowercase 'joy'; 'anger' untouched.
+        expect(after, hasLength(2));
+        final joys = after
+            .where((a) => a.label?.toLowerCase() == 'joy')
+            .toList();
+        expect(joys, hasLength(1));
+        expect(joys.single.id, isNot(oldJoyId));
+        expect(joys.single.label, 'joy');
+        expect(after.any((a) => a.label == 'anger'), isTrue);
+      },
+    );
 
     test('replaceSameLabel=false keeps existing same-label avatars', () async {
       await repo.addAvatar(charId, 'Pack Test', Uint8List.fromList([9]), 'joy');

@@ -47,12 +47,9 @@ class _NoHardware extends ChangeNotifier implements HardwareService {
 /// backend getters the shared storage fake does not carry. Answering them here
 /// keeps the fake untouched.
 class _SetupCapableStorage extends FakeStorageService {
-  @override
-  int get kvQuantizationLevel => 0;
-  @override
-  bool get kcppsHasModel => false;
-  @override
-  bool get kcppsModelFileExists => false;
+  _SetupCapableStorage() {
+    backendSettings.setBackendType('kobold');
+  }
 }
 
 /// The page owns its CreatorState privately; reach it the way the wizard's own
@@ -137,7 +134,8 @@ void main() {
     expect(
       _button(tester, 'Next: Realism').onPressed,
       isNull,
-      reason: 'Next lands on RealismStep, which calls a null card a failure '
+      reason:
+          'Next lands on RealismStep, which calls a null card a failure '
           'while the generation is still streaming',
     );
 

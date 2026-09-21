@@ -12,8 +12,8 @@ instead of a list of unfinished pieces.
 
 ## Target branch
 
-<!-- Features/UI/refactors -> Rawhide. Stable bug fixes -> dev. Beta fixes -> the
-active *-Beta branch. main is tagged releases only. -->
+<!-- All work (features, fixes, experiments) -> Rawhide. main is tagged
+releases only. -->
 
 - [ ] This PR targets the correct branch ([which branch?](https://github.com/linux4life1/front-porch-AI/blob/Rawhide/CONTRIBUTING.md#which-branch-do-i-target))
 
@@ -59,7 +59,7 @@ Source and license: <!-- e.g. "kokoro-multi-lang-v1_0, Apache-2.0" -->
 
 - [ ] New files carry the AGPL header
 - [ ] New/refactored UI uses `AppColors` (no hard-coded `Color(0xFF…)`, no raw `Colors.whiteXX`/`blackXX`)
-- [ ] I did not run `dart format` over whole files
+- [ ] I ran `dart format` only on Dart files I edited (never `dart format .`)
 - [ ] I did not edit the version in `pubspec.yaml`
 - [ ] Errors are logged or surfaced, not silently swallowed
 - [ ] My contribution is licensed under AGPL-3.0-or-later and I have the right to submit it

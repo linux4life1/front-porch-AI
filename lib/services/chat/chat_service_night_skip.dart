@@ -15,7 +15,9 @@ extension ChatServiceNightSkip on ChatService {
     if (_activeGroup != null) {
       for (final card in _groupCharacters) {
         final id = _getCharacterIdFromCard(card);
-        _setGroupNeeds(id, applyNightSkipToNeeds(_getGroupNeeds(id)));
+        final needs = _getGroupNeeds(id);
+        if (needs.isEmpty) continue;
+        _setGroupNeeds(id, applyNightSkipToNeeds(needs));
       }
       return;
     }

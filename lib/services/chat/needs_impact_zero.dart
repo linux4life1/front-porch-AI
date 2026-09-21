@@ -1,9 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// All-zero needs impact is a failed read, not a quiet scene. Tools models
-// fill the seven required ints with 0; the old prompt even invited that.
-// Recover: text retry, then one repair pass. Individual 0s are fine.
+// Tools models fill the seven required ints with 0. Retry as text once.
+// A quiet beat that is still all zeros is a valid read — do not invent a
+// swing from the character's own prose (2026-08 crater). Individual 0s
+// were always fine.
 
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 
@@ -17,33 +18,18 @@ bool needsImpactHasNonZeroDelta(String text) {
   return false;
 }
 
-/// Tools zeros → [retryText]. Still zeros → [repair]. Keep the first
-/// non-zero. If every pass is zeros, return the last body (caller applies
-/// nothing extra; chips stay decay-only).
+/// Tools zeros → [retryText] (schema-required ints come back as 0).
+/// Text zeros are a quiet beat — do not invent a swing from the reply.
 Future<String> recoverNeedsImpactIfAllZero({
   required String first,
   required Future<String?> Function() retryText,
-  required Future<String?> Function() repair,
   required String Function(String) stripThink,
 }) async {
   if (needsImpactHasNonZeroDelta(first)) return first;
   final retry = await _stripped(retryText, stripThink);
   if (retry != null && needsImpactHasNonZeroDelta(retry)) return retry;
-  final fixed = await _stripped(repair, stripThink);
-  if (fixed != null && needsImpactHasNonZeroDelta(fixed)) return fixed;
   return retry ?? first;
 }
-
-String needsImpactAllZeroRepairPrompt(String scene, int strength) =>
-    'The previous needs eval scored this beat as all zeros. That is a '
-    'failed read — a roleplay turn always moves at least one need '
-    '(comfort, social, fun, energy, a restoration). Individual needs may '
-    'be 0; all seven may not.\n\n'
-    'SCENE:\n$scene\n\n'
-    'Strength ${strength}x. Return ONLY raw JSON:\n'
-    '{"hunger_delta": <int>, "energy_delta": <int>, "hygiene_delta": <int>, '
-    '"fun_delta": <int>, "social_delta": <int>, "bladder_delta": <int>, '
-    '"comfort_delta": <int>, "reason": "<brief>"}\n';
 
 Future<String?> _stripped(
   Future<String?> Function() fire,

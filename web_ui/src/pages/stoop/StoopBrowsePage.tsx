@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { StoopCardTile } from '../../components/stoop/StoopCardTile';
 import { stoop, stoopErrorText } from '../../stoop/stoopApi';
+import { useStoop } from '../../stoop/StoopContext';
 import {
   STOOP_WORLDS_LIVE,
   type StoopBrowseQuery,
@@ -29,6 +30,8 @@ const TYPES = [
 ] as const;
 
 export function StoopBrowsePage() {
+  const { user } = useStoop();
+  const nsfwEnabled = user?.nsfwEnabled;
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState(params.get('q') ?? '');
   const sort = (params.get('sort') ?? 'newest') as StoopBrowseQuery['sort'];
@@ -74,7 +77,7 @@ export function StoopBrowsePage() {
 
   useEffect(() => {
     void load(0, true);
-  }, [load]);
+  }, [load, nsfwEnabled]);
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params);

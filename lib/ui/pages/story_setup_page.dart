@@ -390,6 +390,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
               width: 280,
               height: 52,
               child: ElevatedButton.icon(
+                key: const ValueKey('story-setup-next'),
                 onPressed: _onNextPressed,
                 icon: Icon(
                   isLast ? Icons.auto_awesome : Icons.arrow_forward,

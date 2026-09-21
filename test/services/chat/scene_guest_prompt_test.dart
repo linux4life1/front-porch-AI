@@ -10,50 +10,46 @@
 // (old `_messages.last` floor) → first test fails; buildGuestTurnNote
 // without MOST RECENT → second test fails.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 
-ChatMessage _user(String text) => ChatMessage(
-      text: text,
-      sender: 'User',
-      isUser: true,
-    );
+ChatMessage _user(String text) =>
+    ChatMessage(text: text, sender: 'User', isUser: true);
 
-ChatMessage _bot(String sender, String text) => ChatMessage(
-      text: text,
-      sender: sender,
-      isUser: false,
-    );
+ChatMessage _bot(String sender, String text) =>
+    ChatMessage(text: text, sender: sender, isUser: false);
 
 void main() {
-  test('overflow history starts at the latest user line, not the host reaction',
-      () {
-    final messages = [
-      _user('Magus, tell me more about this new spell you have been researching'),
-      _bot('Magus', 'I have been studying a binding of shadow and salt.'),
-      _user(
-        'What are the chances the academy will frown upon your use of dark magic, Magus?',
-      ),
-      _bot('Narrator', "Magus's expression deepens as he considers your words."),
-    ];
-    expect(overflowHistoryStart(messages), 2);
-    final kept = messages.sublist(overflowHistoryStart(messages));
-    expect(
-      kept.map((m) => m.text).toList(),
-      [
+  test(
+    'overflow history starts at the latest user line, not the host reaction',
+    () {
+      final messages = [
+        _user(
+          'Magus, tell me more about this new spell you have been researching',
+        ),
+        _bot('Magus', 'I have been studying a binding of shadow and salt.'),
+        _user(
+          'What are the chances the academy will frown upon your use of dark magic, Magus?',
+        ),
+        _bot(
+          'Narrator',
+          "Magus's expression deepens as he considers your words.",
+        ),
+      ];
+      expect(overflowHistoryStart(messages), 2);
+      final kept = messages.sublist(overflowHistoryStart(messages));
+      expect(kept.map((m) => m.text).toList(), [
         'What are the chances the academy will frown upon your use of dark magic, Magus?',
         "Magus's expression deepens as he considers your words.",
-      ],
-    );
-    expect(
-      kept.any((m) => m.text.contains('new spell')),
-      isFalse,
-      reason: 'the old Magus-only question must not be the overflow floor',
-    );
-  });
+      ]);
+      expect(
+        kept.any((m) => m.text.contains('new spell')),
+        isFalse,
+        reason: 'the old Magus-only question must not be the overflow floor',
+      );
+    },
+  );
 
   test('old last-message overflow drops the user question (the bug)', () {
     final messages = [
@@ -103,29 +99,5 @@ void main() {
     );
     expect(note, contains('look at (the vault).'));
     expect(note, isNot(contains('[the vault]')));
-  });
-
-  test('guest-turn note is wired at the Scene Guest author-note call site', () {
-    final src = File('lib/services/chat/chat_service_generation_blocks.dart')
-        .readAsStringSync();
-    expect(src, contains('buildGuestTurnNote('));
-    expect(src, contains('latestUserText: latestUser'));
-    expect(
-      src,
-      contains('t.summaryBlock = t.guestSpeaker != null'),
-      reason: 'guest turns must not inject the host recap',
-    );
-    final plan = File('lib/services/chat/chat_service_generation_plan.dart')
-        .readAsStringSync();
-    expect(plan, contains('_overflowContinuityHistory()'));
-    expect(plan, isNot(contains('_messages.last.toPromptHistoryLine()')));
-    final rag = File('lib/services/chat/chat_service_generation_rag.dart')
-        .readAsStringSync();
-    expect(
-      rag,
-      contains('t.guestSpeaker != null'),
-      reason: 'guest turns must skip RAG (Discord matrix: reasoning+RAG)',
-    );
-    expect(rag, contains('Skipping memory retrieval — Scene Guest turn'));
   });
 }

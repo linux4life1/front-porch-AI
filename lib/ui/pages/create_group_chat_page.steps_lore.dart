@@ -23,6 +23,10 @@
 
 part of 'create_group_chat_page.dart';
 
+/// Lorebook always-on vs enabled 2-state marker (not chrome).
+const _loreEnabledAccent =
+    Colors.blueAccent; // theme-keep: lorebook enabled vs always-on marker
+
 extension _GroupWizardLoreStep on _CreateGroupChatPageState {
   Widget _buildLoreStep() {
     final worldRepo = Provider.of<WorldRepository>(context);
@@ -68,7 +72,7 @@ extension _GroupWizardLoreStep on _CreateGroupChatPageState {
                     color: entry.constant
                         ? Colors.amberAccent.withValues(alpha: 0.3)
                         : entry.enabled
-                        ? Colors.blueAccent.withValues(alpha: 0.15) // theme-keep: lorebook enabled marker
+                        ? _loreEnabledAccent.withValues(alpha: 0.15)
                         : AppColors.borderOf(context).withValues(alpha: 0.5),
                   ),
                 ),
@@ -83,7 +87,7 @@ extension _GroupWizardLoreStep on _CreateGroupChatPageState {
                           color: entry.constant
                               ? Colors.amberAccent
                               : entry.enabled
-                              ? Colors.blueAccent // theme-keep: lorebook enabled marker
+                              ? _loreEnabledAccent
                               : AppColors.iconSecondary(context),
                         ),
                         const SizedBox(width: 6),
@@ -125,13 +129,13 @@ extension _GroupWizardLoreStep on _CreateGroupChatPageState {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.blueAccent.withValues(alpha: 0.1), // theme-keep: lorebook depth chip
+                              color: _loreEnabledAccent.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               'Depth ${entry.stickyDepth}',
                               style: const TextStyle(
-                                color: Colors.blueAccent, // theme-keep: lorebook depth chip
+                                color: _loreEnabledAccent,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -149,10 +153,10 @@ extension _GroupWizardLoreStep on _CreateGroupChatPageState {
                                 entry.enabled = val;
                               });
                             },
-                            activeTrackColor: Colors.blueAccent.withValues( // theme-keep: lorebook enable switch
+                            activeTrackColor: _loreEnabledAccent.withValues(
                               alpha: 0.5,
                             ),
-                            activeThumbColor: Colors.blueAccent, // theme-keep: lorebook enable switch
+                            activeThumbColor: _loreEnabledAccent,
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -276,5 +280,40 @@ extension _GroupWizardLoreStep on _CreateGroupChatPageState {
         ],
       ),
     );
+  }
+
+  Future<void> _showLoreEntryEditor({
+    LorebookEntry? existing,
+    int? index,
+  }) async {
+    final result = await showLorebookEntryDialog(
+      context: context,
+      existing: existing,
+      showEnabled: true,
+    );
+    if (result != null) {
+      rebuildState(() {
+        if (index != null && index >= 0 && index < _groupLoreEntries.length) {
+          _groupLoreEntries[index] = result;
+        } else {
+          _groupLoreEntries.add(result);
+        }
+        _updateEstimates();
+      });
+    }
+  }
+
+  void _deleteLoreEntry(int index) {
+    rebuildState(() => _groupLoreEntries.removeAt(index));
+  }
+
+  void _toggleWorld(String worldId) {
+    rebuildState(() {
+      if (_worldIds.contains(worldId)) {
+        _worldIds.remove(worldId);
+      } else {
+        _worldIds.add(worldId);
+      }
+    });
   }
 }

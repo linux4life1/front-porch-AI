@@ -21,3 +21,4 @@ export 'story_routes.dart';
 export 'stream_routes.dart';
 export 'voice_routes.dart';
 export 'world_routes.dart';
+export 'world_from_wiki_routes.dart';

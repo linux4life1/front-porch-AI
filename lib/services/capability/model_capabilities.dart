@@ -113,20 +113,28 @@ class VisionSupport {
 
 /// Capabilities distilled from a provider `/models` entry.
 ///
-/// Only [vision] is consumed today. [toolCalling] is parsed from the very same
-/// metadata (OpenRouter's `supported_parameters`, Nano-GPT's
-/// `capabilities.tool_calling`) so a later phase can adopt native tool calling
-/// without another round-trip — the seam is intentionally left obvious here.
+/// [vision] gates image input; [toolCalling] seeds the shared eval transport
+/// probe from the same provider metadata without another round-trip.
 class ModelApiCapabilities {
   final bool vision;
   final bool toolCalling;
 
-  const ModelApiCapabilities({this.vision = false, this.toolCalling = false});
+  /// OpenRouter `supported_parameters` contains `"tools"` (the dedicated
+  /// public-OR path). [toolCalling] still requires `tool_choice` as well —
+  /// that AND is the sidebar-pill seed, not the catalog advertisement.
+  final bool advertisesTools;
+
+  const ModelApiCapabilities({
+    this.vision = false,
+    this.toolCalling = false,
+    bool? advertisesTools,
+  }) : advertisesTools = advertisesTools ?? toolCalling;
 
   /// Parse an OpenRouter `/models` entry.
   ///
   /// Vision: `architecture.input_modalities` contains `"image"`.
-  /// Tools:  `supported_parameters` contains `"tools"`.
+  /// Tools:  `supported_parameters` contains `"tools"`. Forced `tool_choice`
+  /// is recorded separately on [toolCalling] for the eval-pill seed.
   factory ModelApiCapabilities.fromOpenRouterEntry(
     Map<dynamic, dynamic> entry,
   ) {
@@ -141,13 +149,20 @@ class ModelApiCapabilities {
       }
     }
 
-    bool tools = false;
+    var advertisesTools = false;
+    var tools = false;
     final params = entry['supported_parameters'];
     if (params is List) {
-      tools = params.map((e) => e.toString().toLowerCase()).contains('tools');
+      final supported = params.map((e) => e.toString().toLowerCase()).toSet();
+      advertisesTools = supported.contains('tools');
+      tools = advertisesTools && supported.contains('tool_choice');
     }
 
-    return ModelApiCapabilities(vision: vision, toolCalling: tools);
+    return ModelApiCapabilities(
+      vision: vision,
+      toolCalling: tools,
+      advertisesTools: advertisesTools,
+    );
   }
 
   /// Parse a Nano-GPT `/models?detailed=true` entry, whose `capabilities`
@@ -156,9 +171,11 @@ class ModelApiCapabilities {
   factory ModelApiCapabilities.fromNanoGptEntry(Map<dynamic, dynamic> entry) {
     final caps = entry['capabilities'];
     if (caps is Map) {
+      final tools = caps['tool_calling'] == true;
       return ModelApiCapabilities(
         vision: caps['vision'] == true,
-        toolCalling: caps['tool_calling'] == true,
+        toolCalling: tools,
+        advertisesTools: tools,
       );
     }
     return const ModelApiCapabilities();
@@ -180,9 +197,11 @@ class ModelApiCapabilities {
     final vision =
         entry['type']?.toString().toLowerCase() == 'vlm' ||
         capList.contains('vision');
+    final tools = capList.contains('tool_use');
     return ModelApiCapabilities(
       vision: vision,
-      toolCalling: capList.contains('tool_use'),
+      toolCalling: tools,
+      advertisesTools: tools,
     );
   }
 }

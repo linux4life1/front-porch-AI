@@ -44,6 +44,9 @@ class AppDirectories {
 
   Directory get worldsDir => Directory(path.join(rootPath ?? '', 'worlds'));
 
+  /// User recipe cards (`*.json`). Same library root as chats/ and worlds/.
+  Directory get toolsDir => Directory(path.join(rootPath ?? '', 'tools'));
+
   Directory get charactersDir =>
       Directory(path.join(rootPath ?? '', 'KoboldManager', 'Characters'));
 

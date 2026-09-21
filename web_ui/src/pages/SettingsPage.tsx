@@ -6,6 +6,7 @@ import { api, ApiError } from '../api/client';
 import { PersonaManager } from '../components/PersonaManager';
 import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
+import { ReadingSizeSettings } from '../components/ReadingSizeSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
 import { ModelTransportCard } from '../components/ModelTransportCard';
 import { applySpellCheckLang } from '../spellCheckLang';
@@ -13,12 +14,15 @@ import {
   StepUpFields,
   attachStepUp,
   remotePreviewNeedsStepUp,
+  settingsPersistNeedsStepUp,
 } from '../components/StepUpFields';
 import {
   GenerationSettingsFields,
   type GenSettings,
 } from '../components/GenerationSettingsFields';
 import { VoiceMediaSettings } from '../components/VoiceMediaSettings';
+import { WorkerBackendCard } from '../components/WorkerBackendCard';
+import { isLmStudioUrl, urlHasStoredApiKey } from '../remoteApiKeys';
 
 // A single backend picker (replacing the old Backend + Provider dropdowns,
 // which overlapped). Each entry maps to a real BackendType; the OpenAI-compatible
@@ -35,11 +39,12 @@ interface BackendOption {
   kind: 'local' | 'api';
 }
 const BACKEND_OPTIONS: BackendOption[] = [
-  { id: 'kobold', label: 'KoboldCpp (local)', backend: 'kobold', kind: 'local' },
-  { id: 'omlx', label: 'oMLX (local API)', backend: 'omlx', url: 'http://localhost:8000/v1', kind: 'api' },
-  { id: 'nanogpt', label: 'Nano-GPT', backend: 'openRouter', url: 'https://nano-gpt.com/api/v1', kind: 'api' },
+  { id: 'kobold', label: 'KoboldCpp', backend: 'kobold', kind: 'local' },
   { id: 'openrouter', label: 'OpenRouter', backend: 'openRouter', url: 'https://openrouter.ai/api/v1', kind: 'api' },
-  { id: 'custom', label: 'Custom API (OpenAI-compatible)', backend: 'openRouter', url: '', kind: 'api' },
+  { id: 'nanogpt', label: 'Nano-GPT', backend: 'openRouter', url: 'https://nano-gpt.com/api/v1', kind: 'api' },
+  { id: 'lmstudio', label: 'LM Studio', backend: 'openRouter', url: 'http://localhost:1234/v1', kind: 'api' },
+  { id: 'omlx', label: 'oMLX', backend: 'omlx', url: 'http://localhost:8000/v1', kind: 'api' },
+  { id: 'custom', label: 'Custom', backend: 'openRouter', url: '', kind: 'api' },
 ];
 
 type Gen = GenSettings;
@@ -51,6 +56,9 @@ interface Settings {
   remoteApiUrl: string;
   remoteModelName: string;
   hasApiKey: boolean;
+  remoteApiUrlsWithKeys?: string[];
+  /** Host is macOS — oMLX is Apple Silicon only. Absent = hide (old hosts). */
+  omlxAvailable?: boolean;
   remoteConfigured?: boolean;
   remoteReachability?: 'unknown' | 'checking' | 'reachable' | 'unreachable';
   contextSize: number;
@@ -71,6 +79,19 @@ interface Settings {
   spellCheckLanguages?: string[];
   systemPrompt?: string;
   bannedPhrases?: string[];
+  workerBackend?: string;
+  workerRemoteApiUrl?: string;
+  workerRemoteModelName?: string;
+  workerKoboldModelPath?: string;
+  workerKoboldKcppsPath?: string;
+  lastUsedModelPath?: string;
+  activeKcppsPath?: string;
+  localKcpps?: { name: string; path: string }[];
+  workerEnabled?: boolean;
+  workerRefusedDualLocal?: boolean;
+  workerDualLocalMessage?: string;
+  workerUnreadyMessage?: string;
+  workerGpuSwapAvailable?: boolean;
 }
 
 // Legacy-engine model files still on the host (desktop parity: the Reclaim
@@ -119,6 +140,7 @@ function RemoteReachabilityBadge({
 export function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
   const [apiKey, setApiKey] = useState('');
+  const [workerApiKey, setWorkerApiKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -128,6 +150,7 @@ export function SettingsPage() {
   const [legacy, setLegacy] = useState<LegacyModels | null>(null);
   const [reclaiming, setReclaiming] = useState(false);
   const [savedRemoteApiUrl, setSavedRemoteApiUrl] = useState('');
+  const [savedWorkerRemoteApiUrl, setSavedWorkerRemoteApiUrl] = useState('');
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [totpEnabled, setTotpEnabled] = useState(false);
@@ -138,6 +161,7 @@ export function SettingsPage() {
       .then((next) => {
         setS(next);
         setSavedRemoteApiUrl(next.remoteApiUrl);
+        setSavedWorkerRemoteApiUrl(next.workerRemoteApiUrl ?? '');
       })
       .catch(() => {});
   const loadLegacy = () =>
@@ -195,22 +219,36 @@ export function SettingsPage() {
         generation: s.generation,
         systemPrompt: s.systemPrompt,
         bannedPhrases: s.bannedPhrases,
+        workerBackend: s.workerBackend ?? '',
+        workerRemoteApiUrl: s.workerRemoteApiUrl ?? '',
+        workerRemoteModelName: s.workerRemoteModelName ?? '',
+        workerKoboldModelPath: s.workerKoboldModelPath ?? '',
+        workerKoboldKcppsPath: s.workerKoboldKcppsPath ?? '',
       };
       if (s.spellCheckLanguage !== undefined) {
         body.spellCheckLanguage = s.spellCheckLanguage;
       }
       if (apiKey.trim()) body.apiKey = apiKey.trim();
-      const needsStepUp =
-        s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim();
+      if (workerApiKey.trim()) body.workerApiKey = workerApiKey.trim();
+      const needsStepUp = settingsPersistNeedsStepUp({
+        remoteApiUrl: s.remoteApiUrl,
+        savedRemoteApiUrl,
+        apiKey,
+        workerRemoteApiUrl: s.workerRemoteApiUrl ?? '',
+        savedWorkerRemoteApiUrl,
+        workerApiKey,
+      });
       if (needsStepUp) {
         attachStepUp(body, password, totpEnabled, totpCode);
       }
       const next = await api.post<Settings>('/api/settings', body);
       setS(next);
       setSavedRemoteApiUrl(next.remoteApiUrl);
+      setSavedWorkerRemoteApiUrl(next.workerRemoteApiUrl ?? '');
       // Take effect on this device immediately rather than at next reload.
       applySpellCheckLang(next.spellCheckLanguage);
       setApiKey('');
+      setWorkerApiKey('');
       setPassword('');
       setTotpCode('');
       setSaved(true);
@@ -229,7 +267,9 @@ export function SettingsPage() {
   // OpenAI-compatible "openRouter" backend is disambiguated by its saved URL
   // (Nano-GPT / OpenRouter / else Custom).
   const currentBackendId = (): string => {
-    if (s.backend !== 'openRouter') return s.backend;
+    if (s.backend === 'kobold') return 'kobold';
+    if (s.backend === 'omlx') return 'omlx';
+    if (isLmStudioUrl(s.remoteApiUrl)) return 'lmstudio';
     const match = BACKEND_OPTIONS.find(
       (o) => o.backend === 'openRouter' && o.url && o.url === s.remoteApiUrl.trim(),
     );
@@ -238,13 +278,15 @@ export function SettingsPage() {
 
   // Switching backend sets the BackendType and, for fixed-URL providers, the API
   // URL; Custom clears the URL so it doesn't masquerade as a named provider and
-  // the model dropdown refetches off the new endpoint.
+  // the model dropdown refetches off the new endpoint. The live model id is
+  // blanked — a leftover from the previous host is not valid here.
   const onBackendChange = (id: string) => {
     const opt = BACKEND_OPTIONS.find((o) => o.id === id);
     if (!opt) return;
-    const next: Partial<Settings> = { backend: opt.backend };
+    const next: Partial<Settings> = { backend: opt.backend, remoteModelName: '' };
     if (id === 'custom') next.remoteApiUrl = '';
     else if (opt.url) next.remoteApiUrl = opt.url;
+    setApiKey('');
     patch(next);
   };
 
@@ -280,10 +322,16 @@ export function SettingsPage() {
   // the dropdown changes (before saving). Local backends are host subprocesses;
   // the API ones connect to an OpenAI-compatible server.
   const selectedId = currentBackendId();
+  const visibleBackends = BACKEND_OPTIONS.filter(
+    (o) => o.id !== 'omlx' || s.omlxAvailable === true,
+  );
   const isApi = s.backend === 'openRouter' || s.backend === 'omlx';
   const isManagedLocal = s.backend === 'kobold';
-  const showUrlField = selectedId === 'custom'; // named providers + oMLX have fixed URLs
-  const showKeyField = s.backend === 'openRouter'; // oMLX is local — no key
+  const showUrlField = selectedId === 'custom';
+  const showKeyField =
+    selectedId === 'openrouter' ||
+    selectedId === 'nanogpt' ||
+    selectedId === 'custom';
 
   return (
     <div className="page">
@@ -291,16 +339,18 @@ export function SettingsPage() {
 
       <PersonaManager />
 
+      <ReadingSizeSettings />
+
       <ChatColorsSettings />
 
       <PorchLifeSettings />
 
-      <section className="card">
-        <h3>Model &amp; backend</h3>
+      <section className="card" data-testid="chat-speech-card">
+        <h3>Chat speech</h3>
         <label>
           Backend
           <select value={selectedId} onChange={(e) => onBackendChange(e.target.value)}>
-            {BACKEND_OPTIONS.map((o) => (
+            {visibleBackends.map((o) => (
               <option key={o.id} value={o.id}>{o.label}</option>
             ))}
           </select>
@@ -320,12 +370,49 @@ export function SettingsPage() {
               <label>
                 API URL
                 <input
+                  data-testid="chat-api-url"
                   value={s.remoteApiUrl}
-                  onChange={(e) => patch({ remoteApiUrl: e.target.value })}
+                  onChange={(e) =>
+                    patch({ remoteApiUrl: e.target.value, remoteModelName: '' })
+                  }
                   placeholder="https://your-server.example/v1"
                 />
               </label>
             )}
+            {showKeyField && (
+              <label>
+                API key
+                <input
+                  data-testid="chat-api-key"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={
+                    urlHasStoredApiKey(s.remoteApiUrl, s.remoteApiUrlsWithKeys)
+                      ? '•••••• (leave blank to keep)'
+                      : 'paste your API key'
+                  }
+                />
+              </label>
+            )}
+            <div className="test-conn-row">
+              <RemoteReachabilityBadge
+                configured={s.remoteConfigured ?? s.hasApiKey}
+                reachability={s.remoteReachability}
+              />
+              <button
+                className="ghost"
+                onClick={testConnection}
+                disabled={testing || (previewNeedsStepUp && !password)}
+              >
+                {testing ? 'Testing…' : 'Test connection'}
+              </button>
+              {testMsg && (
+                <span className={`test-conn-msg${testMsg.toLowerCase().includes('success') ? ' ok' : ' bad'}`}>
+                  {testMsg}
+                </span>
+              )}
+            </div>
             <label>
               Model
               <ModelPicker
@@ -375,37 +462,21 @@ export function SettingsPage() {
                 }}
               />
             </label>
-            {showKeyField && (
-              <label>
-                API key
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={s.hasApiKey ? '•••••• (leave blank to keep)' : 'paste your API key'}
-                />
-              </label>
-            )}
-            <div className="test-conn-row">
-              <RemoteReachabilityBadge
-                configured={s.remoteConfigured ?? s.hasApiKey}
-                reachability={s.remoteReachability}
-              />
-              <button
-                className="ghost"
-                onClick={testConnection}
-                disabled={testing || (previewNeedsStepUp && !password)}
-              >
-                {testing ? 'Testing…' : 'Test connection'}
-              </button>
-              {testMsg && (
-                <span className={`test-conn-msg${testMsg.toLowerCase().includes('success') ? ' ok' : ' bad'}`}>
-                  {testMsg}
-                </span>
-              )}
-            </div>
           </>
         )}
+
+        <WorkerBackendCard
+          s={s}
+          workerApiKey={workerApiKey}
+          onWorkerApiKey={setWorkerApiKey}
+          onPatch={patch}
+          savedRemoteApiUrl={savedRemoteApiUrl}
+          chatApiKey={apiKey}
+          currentPassword={password}
+          totpCode={totpCode}
+          totpEnabled={totpEnabled}
+          onTotpRequired={() => setTotpEnabled(true)}
+        />
       </section>
 
       <GenerationSettingsFields
@@ -452,7 +523,14 @@ export function SettingsPage() {
       )}
 
       {error && <p className="error">{error}</p>}
-      {(s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim()) && (
+      {settingsPersistNeedsStepUp({
+        remoteApiUrl: s.remoteApiUrl,
+        savedRemoteApiUrl,
+        apiKey,
+        workerRemoteApiUrl: s.workerRemoteApiUrl ?? '',
+        savedWorkerRemoteApiUrl,
+        workerApiKey,
+      }) && (
         <StepUpFields
           password={password}
           onPassword={setPassword}
@@ -461,8 +539,8 @@ export function SettingsPage() {
           onTotp={setTotpCode}
           reason={
             totpEnabled
-              ? 'Changing the API URL or key — or testing a new host — needs your web login password and a 2FA code.'
-              : 'Changing the API URL or key — or testing a new host — needs your web login password.'
+              ? 'Changing a remote API URL or key — or testing a new host — needs your web login password and a 2FA code.'
+              : 'Changing a remote API URL or key — or testing a new host — needs your web login password.'
           }
         />
       )}
@@ -471,7 +549,14 @@ export function SettingsPage() {
         onClick={save}
         disabled={
           saving ||
-          ((s.remoteApiUrl !== savedRemoteApiUrl || !!apiKey.trim()) && !password)
+          (settingsPersistNeedsStepUp({
+            remoteApiUrl: s.remoteApiUrl,
+            savedRemoteApiUrl,
+            apiKey,
+            workerRemoteApiUrl: s.workerRemoteApiUrl ?? '',
+            savedWorkerRemoteApiUrl,
+            workerApiKey,
+          }) && !password)
         }
       >
         {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save settings'}

@@ -54,48 +54,6 @@ class _AdultStorage extends FakeStorageService {
 
   @override
   RealismSettings get realismSettings => _realism;
-
-  @override
-  bool get adultThemesEnabled => _realism.adultThemesEnabled;
-  @override
-  Future<void> setAdultThemesEnabled(bool v) =>
-      _realism.setAdultThemesEnabled(v);
-
-  @override
-  bool get nsfwCooldownDefault => _realism.nsfwCooldownDefault;
-  @override
-  Future<void> setNsfwCooldownDefault(bool v) =>
-      _realism.setNsfwCooldownDefault(v);
-
-  @override
-  bool get realismDefault => _realism.realismDefault;
-  @override
-  Future<void> setRealismDefault(bool v) => _realism.setRealismDefault(v);
-
-  @override
-  bool get objectivesEnabled => _realism.objectivesEnabled;
-  @override
-  bool get passageOfTimeDefault => _realism.passageOfTimeDefault;
-  @override
-  bool get standaloneClockEnabled => _realism.standaloneClockEnabled;
-  @override
-  bool get weatherEnabled => _realism.weatherEnabled;
-  @override
-  bool get weatherFahrenheit => _realism.weatherFahrenheit;
-  @override
-  bool get needsSimDefault => _realism.needsSimDefault;
-  @override
-  bool get dreamsEnabled => _realism.dreamsEnabled;
-  @override
-  bool get absenceBannerEnabled => _realism.absenceBannerEnabled;
-  @override
-  bool get absenceAckEnabled => _realism.absenceAckEnabled;
-  @override
-  int get absenceThresholdHours => _realism.absenceThresholdHours;
-  @override
-  bool get characterEvolutionEnabled => false;
-  @override
-  bool get journalEnabled => true;
 }
 
 void main() {
@@ -136,7 +94,7 @@ void main() {
   ) async {
     final storage = await pump(tester);
     expect(
-      storage.adultThemesEnabled,
+      storage.realismSettings.adultThemesEnabled,
       isFalse,
       reason: 'nothing has opted in, and Afterglow is off, so the seed is off',
     );
@@ -144,7 +102,8 @@ void main() {
     expect(
       find.text('After Dark'),
       findsNothing,
-      reason: 'the sketch says this group is shown ONLY when 18+ themes are '
+      reason:
+          'the sketch says this group is shown ONLY when 18+ themes are '
           'enabled — a user who never asked for adult content should not be '
           'shown an adult switch at all',
     );
@@ -153,7 +112,7 @@ void main() {
 
   testWidgets('turning 18+ on reveals the group and its row', (tester) async {
     final storage = await pump(tester);
-    await storage.setAdultThemesEnabled(true);
+    await storage.realismSettings.setAdultThemesEnabled(true);
     await settle(tester);
 
     final scrollable = find.byType(Scrollable).first;
@@ -176,13 +135,14 @@ void main() {
       // default would have hidden Afterglow from everyone already running it,
       // stripping a setting they had deliberately turned on.
       final storage = await pump(tester);
-      await storage.setNsfwCooldownDefault(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
       await settle(tester);
 
       expect(
-        storage.adultThemesEnabled,
+        storage.realismSettings.adultThemesEnabled,
         isTrue,
-        reason: 'with no explicit choice stored, 18+ visibility tracks whether '
+        reason:
+            'with no explicit choice stored, 18+ visibility tracks whether '
             'an adult feature is actually in use',
       );
       final scrollable = find.byType(Scrollable).first;
@@ -194,12 +154,12 @@ void main() {
 
   testWidgets('an explicit choice overrides the seed', (tester) async {
     final storage = await pump(tester);
-    await storage.setNsfwCooldownDefault(true);
-    await storage.setAdultThemesEnabled(false);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await storage.realismSettings.setAdultThemesEnabled(false);
     await settle(tester);
 
     expect(
-      storage.adultThemesEnabled,
+      storage.realismSettings.adultThemesEnabled,
       isFalse,
       reason: 'once the user has chosen, the seed must stop speaking for them',
     );
@@ -216,7 +176,8 @@ void main() {
     expect(
       row,
       findsOneWidget,
-      reason: 'the sketch lists Growth Rings under Memory & Heart; it was '
+      reason:
+          'the sketch lists Growth Rings under Memory & Heart; it was '
           'missing because its global (characterEvolutionEnabled) already '
           'existed but had never been surfaced here',
     );

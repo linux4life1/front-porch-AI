@@ -460,7 +460,7 @@ class _EditViewState extends State<EditView> {
     Provider.of<StorageService>(
       context,
       listen: false,
-    ).resetEditKnobsToRecommended();
+    ).imageGenSettings.resetEditKnobsToRecommended();
     setState(() => _strength = kEditRecommendedStrength);
   }
 

@@ -8,24 +8,38 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Opens the fullscreen message editor. Returns the joined text on save, or
 /// `null` if the user cancelled.
+///
+/// `showDialog` lands in the navigator overlay, which sits *above* the
+/// chat's Reading Size scope. Prefer [StorageService.textScale]; fall back
+/// to the launching MediaQuery when no storage is in the tree (widget tests).
 Future<String?> showMessageEditDialog({
   required BuildContext context,
   required String initialText,
   String title = 'Edit Message',
 }) {
+  late final TextScaler appScaler;
+  try {
+    appScaler = readingTextScaler(
+      Provider.of<StorageService>(context, listen: false).uiSettings.textScale,
+    );
+  } on ProviderNotFoundException {
+    appScaler = MediaQuery.textScalerOf(context);
+  }
   return showDialog<String>(
     context: context,
     barrierDismissible: false,
-    builder: (ctx) => _MessageEditDialog(
-      initialText: initialText,
-      title: title,
+    builder: (ctx) => MediaQuery(
+      data: MediaQuery.of(ctx).copyWith(textScaler: appScaler),
+      child: _MessageEditDialog(initialText: initialText, title: title),
     ),
   );
 }
@@ -34,10 +48,7 @@ class _MessageEditDialog extends StatefulWidget {
   final String initialText;
   final String title;
 
-  const _MessageEditDialog({
-    required this.initialText,
-    required this.title,
-  });
+  const _MessageEditDialog({required this.initialText, required this.title});
 
   @override
   State<_MessageEditDialog> createState() => _MessageEditDialogState();
@@ -76,9 +87,9 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
   }
 
   String get _joined => joinMessageEdit(
-        thinking: _thinkingController.text,
-        body: _bodyController.text,
-      );
+    thinking: _thinkingController.text,
+    body: _bodyController.text,
+  );
 
   int get _charCount => _joined.length;
 
@@ -140,11 +151,8 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): _cancel,
-        SingleActivator(
-          LogicalKeyboardKey.enter,
-          meta: isMac,
-          control: !isMac,
-        ): _save,
+        SingleActivator(LogicalKeyboardKey.enter, meta: isMac, control: !isMac):
+            _save,
       },
       child: Focus(
         autofocus: true,
@@ -153,7 +161,9 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           backgroundColor: AppColors.surfaceOf(context),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: SizedBox(
             width: double.infinity,
             height: double.infinity,
@@ -257,9 +267,7 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
             child: Row(
               children: [
                 Icon(
-                  _thinkingExpanded
-                      ? Icons.expand_more
-                      : Icons.chevron_right,
+                  _thinkingExpanded ? Icons.expand_more : Icons.chevron_right,
                   size: 18,
                   color: AppColors.textSecondary(context),
                 ),
@@ -282,8 +290,10 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
                 if (_thinkingController.text.trim().isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.formMasterAccent.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
@@ -321,9 +331,8 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
               maxLines: null,
               expands: true,
               textAlignVertical: TextAlignVertical.top,
-              style: TextStyle(
+              style: readingSurfaceStyle(
                 color: AppColors.textSecondary(context),
-                fontSize: 13,
                 height: 1.5,
                 fontStyle: FontStyle.italic,
               ),
@@ -362,9 +371,8 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
       expands: true,
       autofocus: true,
       textAlignVertical: TextAlignVertical.top,
-      style: TextStyle(
+      style: readingSurfaceStyle(
         color: AppColors.textPrimary(context),
-        fontSize: 15,
         height: 1.55,
       ),
       decoration: InputDecoration(
@@ -390,9 +398,7 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: AppColors.borderOf(context)),
-        ),
+        border: Border(top: BorderSide(color: AppColors.borderOf(context))),
       ),
       child: Row(
         children: [

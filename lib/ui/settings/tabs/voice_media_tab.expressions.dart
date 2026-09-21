@@ -140,13 +140,13 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                   Row(
                     children: [
                       Icon(
-                        storage.expressionEnabled
+                        storage.expressionSettings.expressionEnabled
                             ? Icons.mood
                             : Icons.mood_outlined,
                         // Warm-porch: was AppColors.presetColors[4] (purple)
                         // — nothing semantic requires purple here, so it
                         // joins the amber sweep like the toggles/slider below.
-                        color: storage.expressionEnabled
+                        color: storage.expressionSettings.expressionEnabled
                             ? AppColors.porchAmberOf(context)
                             : AppColors.textTertiary(context),
                         size: 20,
@@ -161,8 +161,8 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             Text(
-                              storage.expressionEnabled
-                                  ? 'Enabled — ${_expressionModeLabel(storage.expressionClassificationMode)}, ${_expressionDisplayLabel(storage.expressionDisplayMode)}'
+                              storage.expressionSettings.expressionEnabled
+                                  ? 'Enabled — ${_expressionModeLabel(storage.expressionSettings.expressionClassificationMode)}, ${_expressionDisplayLabel(storage.expressionSettings.expressionDisplayMode)}'
                                   : 'Disabled',
                               style: TextStyle(
                                 fontSize: 12,
@@ -173,13 +173,14 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                         ),
                       ),
                       Switch(
-                        value: storage.expressionEnabled,
-                        onChanged: (val) => storage.setExpressionEnabled(val),
+                        value: storage.expressionSettings.expressionEnabled,
+                        onChanged: (val) => storage.expressionSettings
+                            .setExpressionEnabled(val),
                         activeTrackColor: AppColors.porchAmberOf(context),
                       ),
                     ],
                   ),
-                  if (storage.expressionEnabled) ...[
+                  if (storage.expressionSettings.expressionEnabled) ...[
                     Divider(
                       color: AppColors.borderOf(context).withValues(alpha: 0.3),
                     ),
@@ -203,7 +204,9 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButton<String>(
-                            value: storage.expressionClassificationMode,
+                            value: storage
+                                .expressionSettings
+                                .expressionClassificationMode,
                             isDense: true,
                             underline: const SizedBox(),
                             style: TextStyle(
@@ -226,7 +229,8 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                             ],
                             onChanged: (val) {
                               if (val != null) {
-                                storage.setExpressionClassificationMode(val);
+                                storage.expressionSettings
+                                    .setExpressionClassificationMode(val);
                               }
                             },
                           ),
@@ -261,7 +265,9 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButton<String>(
-                            value: storage.expressionDisplayMode,
+                            value: storage
+                                .expressionSettings
+                                .expressionDisplayMode,
                             isDense: true,
                             underline: const SizedBox(),
                             style: TextStyle(
@@ -284,7 +290,8 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                             ],
                             onChanged: (val) {
                               if (val != null) {
-                                storage.setExpressionDisplayMode(val);
+                                storage.expressionSettings
+                                    .setExpressionDisplayMode(val);
                               }
                             },
                           ),
@@ -311,9 +318,10 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                           ),
                         ),
                         Switch(
-                          value: storage.expressionRerollSame,
-                          onChanged: (val) =>
-                              storage.setExpressionRerollSame(val),
+                          value:
+                              storage.expressionSettings.expressionRerollSame,
+                          onChanged: (val) => storage.expressionSettings
+                              .setExpressionRerollSame(val),
                           activeTrackColor: AppColors.porchAmberOf(context),
                         ),
                       ],
@@ -338,15 +346,16 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                           ),
                         ),
                         Switch(
-                          value: storage.expressionEmojiBurst,
-                          onChanged: (val) =>
-                              storage.setExpressionEmojiBurst(val),
+                          value:
+                              storage.expressionSettings.expressionEmojiBurst,
+                          onChanged: (val) => storage.expressionSettings
+                              .setExpressionEmojiBurst(val),
                           activeTrackColor: AppColors.porchAmberOf(context),
                         ),
                       ],
                     ),
                     // Burst particle size (only relevant when the burst is on)
-                    if (storage.expressionEmojiBurst) ...[
+                    if (storage.expressionSettings.expressionEmojiBurst) ...[
                       const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -359,7 +368,7 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                             ),
                           ),
                           Text(
-                            '${storage.expressionEmojiBurstSize.round()} px',
+                            '${storage.expressionSettings.expressionEmojiBurstSize.round()} px',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary(context),
@@ -368,13 +377,14 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                         ],
                       ),
                       Slider(
-                        value: storage.expressionEmojiBurstSize,
+                        value:
+                            storage.expressionSettings.expressionEmojiBurstSize,
                         min: 12,
                         max: 60,
                         divisions: 12,
                         activeColor: AppColors.porchAmberOf(context),
-                        onChanged: (val) =>
-                            storage.setExpressionEmojiBurstSize(val),
+                        onChanged: (val) => storage.expressionSettings
+                            .setExpressionEmojiBurstSize(val),
                       ),
                     ],
                     const SizedBox(height: 8),
@@ -397,7 +407,8 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButton<String>(
-                            value: storage.expressionFallback,
+                            value:
+                                storage.expressionSettings.expressionFallback,
                             isDense: true,
                             underline: const SizedBox(),
                             style: TextStyle(
@@ -424,7 +435,8 @@ extension _VoiceMediaExpressionSection on VoiceMediaTab {
                             ],
                             onChanged: (val) {
                               if (val != null) {
-                                storage.setExpressionFallback(val);
+                                storage.expressionSettings
+                                    .setExpressionFallback(val);
                               }
                             },
                           ),

@@ -43,152 +43,146 @@ void main() {
   group('Core settings persistence', () {
     test('setSystemPrompt persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setSystemPrompt('Custom prompt');
+      await svc.generationSettings.setSystemPrompt('Custom prompt');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('system_prompt'), 'Custom prompt');
-      expect(svc.systemPrompt, 'Custom prompt');
+      expect(svc.generationSettings.systemPrompt, 'Custom prompt');
     });
 
     test('setMinP persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setMinP(0.42);
+      await svc.generationSettings.setMinP(0.42);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('min_p'), 0.42);
-      expect(svc.minP, 0.42);
+      expect(svc.generationSettings.minP, 0.42);
     });
 
     test('setTemperature persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTemperature(1.5);
+      await svc.generationSettings.setTemperature(1.5);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('temperature'), 1.5);
-      expect(svc.temperature, 1.5);
+      expect(svc.generationSettings.temperature, 1.5);
     });
 
     test('setBubbleOpacity persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setBubbleOpacity(0.5);
+      await svc.uiSettings.setBubbleOpacity(0.5);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('bubble_opacity'), 0.5);
-      expect(svc.bubbleOpacity, 0.5);
+      expect(svc.uiSettings.bubbleOpacity, 0.5);
     });
 
     test('setRepeatPenalty persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setRepeatPenalty(1.3);
+      await svc.generationSettings.setRepeatPenalty(1.3);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('repeat_penalty'), 1.3);
-      expect(svc.repeatPenalty, 1.3);
+      expect(svc.generationSettings.repeatPenalty, 1.3);
     });
 
     test('setRepeatPenaltyTokens persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setRepeatPenaltyTokens(128);
+      await svc.generationSettings.setRepeatPenaltyTokens(128);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('repeat_penalty_tokens'), 128);
-      expect(svc.repeatPenaltyTokens, 128);
+      expect(svc.generationSettings.repeatPenaltyTokens, 128);
     });
 
     test('setXtcThreshold persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setXtcThreshold(0.25);
+      await svc.generationSettings.setXtcThreshold(0.25);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('xtc_threshold'), 0.25);
     });
 
     test('setXtcProbability persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setXtcProbability(0.8);
+      await svc.generationSettings.setXtcProbability(0.8);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('xtc_probability'), 0.8);
     });
 
     test('setDynamicTempEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setDynamicTempEnabled(true);
+      await svc.generationSettings.setDynamicTempEnabled(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('dynamic_temp_enabled'), true);
     });
 
     test('setDynamicTempRange persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setDynamicTempRange(1.2);
+      await svc.generationSettings.setDynamicTempRange(1.2);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('dynamic_temp_range'), 1.2);
     });
 
     test('setMaxLength persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setMaxLength(2048);
+      await svc.generationSettings.setMaxLength(2048);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('max_length'), 2048);
-      expect(svc.maxLength, 2048);
+      expect(svc.generationSettings.maxLength, 2048);
     });
 
     test('setMinLength persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setMinLength(50);
+      await svc.generationSettings.setMinLength(50);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('min_length'), 50);
     });
 
     test('setContextSize persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setContextSize(16384);
+      await svc.backendSettings.setContextSize(16384);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('context_size'), 16384);
-      expect(svc.contextSize, 16384);
+      expect(svc.backendSettings.contextSize, 16384);
     });
 
     test('setGpuLayers persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setGpuLayers(33);
+      await svc.backendSettings.setGpuLayers(33);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('gpu_layers'), 33);
-      expect(svc.gpuLayers, 33);
+      expect(svc.backendSettings.gpuLayers, 33);
     });
 
     test('setTextScale persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTextScale(1.3);
+      await svc.uiSettings.setTextScale(1.3);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('text_scale'), 1.3);
     });
 
     test('setChatBackground persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setChatBackground('forest.jpg');
+      await svc.uiSettings.setChatBackground('forest.jpg');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('chat_background'), 'forest.jpg');
     });
 
     test('setKvQuantizationLevel persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setKvQuantizationLevel(2);
+      await svc.backendSettings.setKvQuantizationLevel(2);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('kv_quantization_level'), 2);
     });
 
-    // Coverage for compat thins / legacy shim / backend fields (per review Issue 10; minimal addition to existing group)
     test(
-      'loadSavedPrompt legacy 1-arg + immediate read + kv/callBuffer thins + backend fields',
+      'loadSavedPrompt applies the preset into generationSettings',
       () async {
         final svc = await createStorageService({
           'saved_prompts': '[{"name":"TestPrompt","content":"Hello {{char}}"}]',
         });
-        // 1-arg legacy shim (side effect + immediate read)
-        svc.loadSavedPrompt('TestPrompt');
-        expect(
-          svc.systemPrompt,
-          contains('Hello {{char}}'),
-        ); // via side-effect set
-        // thins
-        expect(svc.kvQuantizationLevel, isA<int>());
-        expect(svc.callBufferSentences, isA<int>());
-        // direct backend
+        svc.presetSettings.loadSavedPrompt('TestPrompt', (p) {
+          svc.generationSettings.setSystemPrompt(p);
+        });
+        expect(svc.generationSettings.systemPrompt, contains('Hello {{char}}'));
+        expect(svc.backendSettings.kvQuantizationLevel, isA<int>());
+        expect(svc.sttSettings.callBufferSentences, isA<int>());
         await svc.backendSettings.setKvQuantizationLevel(3);
         expect(svc.backendSettings.kvQuantizationLevel, 3);
-        expect(svc.kvQuantizationLevel, 3); // via thin
       },
     );
   });
@@ -198,41 +192,41 @@ void main() {
   group('Model selection persistence (Bug 1)', () {
     test('setLastUsedModelPath persists non-null value', () async {
       final svc = await createStorageService();
-      await svc.setLastUsedModelPath('/models/llama-7b.gguf');
+      await svc.backendSettings.setLastUsedModelPath('/models/llama-7b.gguf');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('last_used_model_path'), '/models/llama-7b.gguf');
-      expect(svc.lastUsedModelPath, '/models/llama-7b.gguf');
+      expect(svc.backendSettings.lastUsedModelPath, '/models/llama-7b.gguf');
     });
 
     test('setLastUsedModelPath removes key when set to null', () async {
       final svc = await createStorageService({
         'last_used_model_path': '/old/model.gguf',
       });
-      await svc.setLastUsedModelPath(null);
+      await svc.backendSettings.setLastUsedModelPath(null);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('last_used_model_path'), isNull);
-      expect(svc.lastUsedModelPath, isNull);
+      expect(svc.backendSettings.lastUsedModelPath, isNull);
     });
 
     test('setLastUsedModelPath survives simulated restart', () async {
       // Write
       final svc = await createStorageService();
-      await svc.setLastUsedModelPath('/models/mistral-7b.gguf');
+      await svc.backendSettings.setLastUsedModelPath('/models/mistral-7b.gguf');
 
       // Simulate restart by creating a new service with same prefs backend.
       // SharedPreferences mock instance is cached per-test so the new
       // StorageService reads the same data.
       final svc2 = StorageService();
       await svc2.initialized;
-      expect(svc2.lastUsedModelPath, '/models/mistral-7b.gguf');
+      expect(svc2.backendSettings.lastUsedModelPath, '/models/mistral-7b.gguf');
     });
 
     test('setAutostartBackend persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setAutostartBackend(false);
+      await svc.backendSettings.setAutostartBackend(false);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('autostart_backend'), false);
-      expect(svc.autostartBackend, false);
+      expect(svc.backendSettings.autostartBackend, false);
     });
   });
 
@@ -241,28 +235,28 @@ void main() {
   group('GPU acceleration persistence', () {
     test('setUseCublas persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setUseCublas(true);
+      await svc.backendSettings.setUseCublas(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('use_cublas'), true);
     });
 
     test('setUseVulkan persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setUseVulkan(true);
+      await svc.backendSettings.setUseVulkan(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('use_vulkan'), true);
     });
 
     test('setUseMetal persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setUseMetal(true);
+      await svc.backendSettings.setUseMetal(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('use_metal'), true);
     });
 
     test('setUseRocm persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setUseRocm(true);
+      await svc.backendSettings.setUseRocm(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('use_rocm'), true);
     });
@@ -274,14 +268,14 @@ void main() {
     test('setStopSequences persists to SharedPreferences', () async {
       final svc = await createStorageService();
       final seqs = ['\\nUser:', '<END>'];
-      await svc.setStopSequences(seqs);
+      await svc.generationSettings.setStopSequences(seqs);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getStringList('stop_sequences'), seqs);
     });
 
     test('addStopSequence persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.addStopSequence('CUSTOM_STOP');
+      await svc.generationSettings.addStopSequence('CUSTOM_STOP');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getStringList('stop_sequences'), contains('CUSTOM_STOP'));
     });
@@ -290,7 +284,7 @@ void main() {
       final svc = await createStorageService({
         'stop_sequences': ['A', 'B', 'C'],
       });
-      await svc.removeStopSequence('B');
+      await svc.generationSettings.removeStopSequence('B');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getStringList('stop_sequences'), isNot(contains('B')));
     });
@@ -301,49 +295,49 @@ void main() {
   group('External API settings persistence', () {
     test('setBackendType persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setBackendType('openRouter');
+      await svc.backendSettings.setBackendType('openRouter');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('backend_type'), 'openRouter');
     });
 
     test('setRemoteApiKey persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setRemoteApiKey('sk-test-key');
+      await svc.backendSettings.setRemoteApiKey('sk-test-key');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('remote_api_key'), 'sk-test-key');
     });
 
     test('setRemoteApiUrl persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setRemoteApiUrl('https://custom.api/v1');
+      await svc.backendSettings.setRemoteApiUrl('https://custom.api/v1');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('remote_api_url'), 'https://custom.api/v1');
     });
 
     test('setRemoteModelName persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setRemoteModelName('anthropic/claude-3');
+      await svc.backendSettings.setRemoteModelName('anthropic/claude-3');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('remote_model_name'), 'anthropic/claude-3');
     });
 
     test('setReasoningEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setReasoningEnabled(true);
+      await svc.backendSettings.setReasoningEnabled(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('reasoning_enabled'), true);
     });
 
     test('setReasoningEffort persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setReasoningEffort('high');
+      await svc.backendSettings.setReasoningEffort('high');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('reasoning_effort'), 'high');
     });
 
     test('setKoboldThinkingModel persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setKoboldThinkingModel(true);
+      await svc.backendSettings.setKoboldThinkingModel(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('kobold_thinking_model'), true);
     });
@@ -354,21 +348,21 @@ void main() {
   group('Display buffer settings persistence', () {
     test('setDisplayBufferEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setDisplayBufferEnabled(false);
+      await svc.uiSettings.setDisplayBufferEnabled(false);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('display_buffer_enabled'), false);
     });
 
     test('setTargetDisplayTps persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTargetDisplayTps(12.0);
+      await svc.uiSettings.setTargetDisplayTps(12.0);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('target_display_tps'), 12.0);
     });
 
     test('setBufferDurationSeconds persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setBufferDurationSeconds(5.0);
+      await svc.uiSettings.setBufferDurationSeconds(5.0);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('buffer_duration_seconds'), 5.0);
     });
@@ -379,119 +373,121 @@ void main() {
   group('TTS settings persistence', () {
     test('setTtsEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTtsEnabled(true);
+      await svc.ttsSettings.setTtsEnabled(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('tts_enabled'), true);
     });
 
     test('setTtsEngine persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTtsEngine('openai');
+      await svc.ttsSettings.setTtsEngine('openai');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('tts_engine'), 'openai');
     });
 
     test('setTtsVoiceModel persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTtsVoiceModel('af_heart');
+      await svc.ttsSettings.setTtsVoiceModel('af_heart');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('tts_voice_model'), 'af_heart');
     });
 
     test('setTtsSpeechRate persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTtsSpeechRate(1.5);
+      await svc.ttsSettings.setTtsSpeechRate(1.5);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('tts_speech_rate'), 1.5);
     });
 
     test('setTtsAutoPlay persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTtsAutoPlay(true);
+      await svc.ttsSettings.setTtsAutoPlay(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('tts_auto_play'), true);
     });
 
     test('setOpenaiTtsApiKey persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setOpenaiTtsApiKey('test-key');
+      await svc.ttsSettings.setOpenaiTtsApiKey('test-key');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('openai_tts_api_key'), 'test-key');
     });
 
     test('setOpenaiTtsModel persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setOpenaiTtsModel('tts-1-hd');
+      await svc.ttsSettings.setOpenaiTtsModel('tts-1-hd');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('openai_tts_model'), 'tts-1-hd');
     });
 
     test('setOpenaiTtsBaseUrl persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setOpenaiTtsBaseUrl('https://custom.tts/v1');
+      await svc.ttsSettings.setOpenaiTtsBaseUrl('https://custom.tts/v1');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('openai_tts_base_url'), 'https://custom.tts/v1');
     });
 
     test('setElevenlabsApiKey persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setElevenlabsApiKey('el-key');
+      await svc.ttsSettings.setElevenlabsApiKey('el-key');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('elevenlabs_api_key'), 'el-key');
     });
 
     test('setElevenlabsModel persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setElevenlabsModel('eleven_turbo_v2');
+      await svc.ttsSettings.setElevenlabsModel('eleven_turbo_v2');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('elevenlabs_model'), 'eleven_turbo_v2');
     });
 
     test('setElevenlabsStability clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setElevenlabsStability(1.5); // should clamp to 1.0
+      await svc.ttsSettings.setElevenlabsStability(1.5); // should clamp to 1.0
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('elevenlabs_stability'), 1.0);
     });
 
     test('setElevenlabsSimilarity clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setElevenlabsSimilarity(-0.3); // should clamp to 0.0
+      await svc.ttsSettings.setElevenlabsSimilarity(
+        -0.3,
+      ); // should clamp to 0.0
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('elevenlabs_similarity'), 0.0);
     });
 
     test('setElevenlabsStyle clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setElevenlabsStyle(0.75);
+      await svc.ttsSettings.setElevenlabsStyle(0.75);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('elevenlabs_style'), 0.75);
     });
 
     test('setTtsNarrateQuotedOnly persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTtsNarrateQuotedOnly(true);
+      await svc.ttsSettings.setTtsNarrateQuotedOnly(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('tts_narrate_quoted_only'), true);
     });
 
     test('setTtsIgnoreAsterisks persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setTtsIgnoreAsterisks(true);
+      await svc.ttsSettings.setTtsIgnoreAsterisks(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('tts_ignore_asterisks'), true);
     });
 
     test('setTtsConcurrency clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setTtsConcurrency(999); // should clamp to 8
+      await svc.ttsSettings.setTtsConcurrency(999); // should clamp to 8
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('tts_concurrency'), 8);
     });
 
     test('setDirectorDelay clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setDirectorDelay(100.0); // should clamp to 60.0
+      await svc.ttsSettings.setDirectorDelay(100.0); // should clamp to 60.0
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('director_delay'), 60.0);
     });
@@ -502,56 +498,56 @@ void main() {
   group('STT settings persistence', () {
     test('setSttEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setSttEnabled(true);
+      await svc.sttSettings.setSttEnabled(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('stt_enabled'), true);
     });
 
     test('setWhisperModel persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setWhisperModel('small.en');
+      await svc.sttSettings.setWhisperModel('small.en');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('whisper_model'), 'small.en');
     });
 
     test('setAutoSendTranscription persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setAutoSendTranscription(true);
+      await svc.sttSettings.setAutoSendTranscription(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('auto_send_transcription'), true);
     });
 
     test('setSelectedMicId persists non-null value', () async {
       final svc = await createStorageService();
-      await svc.setSelectedMicId('mic-123');
+      await svc.sttSettings.setSelectedMicId('mic-123');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('selected_mic_id'), 'mic-123');
     });
 
     test('setSelectedMicId removes key when null', () async {
       final svc = await createStorageService({'selected_mic_id': 'old'});
-      await svc.setSelectedMicId(null);
+      await svc.sttSettings.setSelectedMicId(null);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('selected_mic_id'), isNull);
     });
 
     test('setCallModelName persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setCallModelName('voice-model');
+      await svc.sttSettings.setCallModelName('voice-model');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('call_model_name'), 'voice-model');
     });
 
     test('setCallBufferSentences clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setCallBufferSentences(15); // should clamp to 10
+      await svc.sttSettings.setCallBufferSentences(15); // should clamp to 10
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('call_buffer_sentences'), 10);
     });
 
     test('setCallSystemPrompt persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setCallSystemPrompt('Be brief.');
+      await svc.sttSettings.setCallSystemPrompt('Be brief.');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('call_system_prompt'), 'Be brief.');
     });
@@ -562,14 +558,14 @@ void main() {
   group('UI preferences persistence', () {
     test('setSortMode persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setSortMode('recent');
+      await svc.uiSettings.setSortMode('recent');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('sort_mode'), 'recent');
     });
 
     test('setGridScale clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setGridScale(600.0); // should clamp to 450
+      await svc.uiSettings.setGridScale(600.0); // should clamp to 450
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('grid_scale'), 450.0);
     });
@@ -580,21 +576,23 @@ void main() {
   group('Image generation settings persistence', () {
     test('setImageGenEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setImageGenEnabled(true);
+      await svc.imageGenSettings.setImageGenEnabled(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('image_gen_enabled'), true);
     });
 
     test('setImageGenBackend persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setImageGenBackend('a1111');
+      await svc.imageGenSettings.setImageGenBackend('a1111');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('image_gen_backend'), 'a1111');
     });
 
     test('setLocalImageGenUrl persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setLocalImageGenUrl('http://192.168.1.100:7860');
+      await svc.imageGenSettings.setLocalImageGenUrl(
+        'http://192.168.1.100:7860',
+      );
       final prefs = await SharedPreferences.getInstance();
       expect(
         prefs.getString('local_image_gen_url'),
@@ -604,90 +602,92 @@ void main() {
 
     test('setImageGenModel persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setImageGenModel('dall-e-3');
+      await svc.imageGenSettings.setImageGenModel('dall-e-3');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('image_gen_model'), 'dall-e-3');
     });
 
     test('setImageGenSize persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setImageGenSize('512x512');
+      await svc.imageGenSettings.setImageGenSize('512x512');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('image_gen_size'), '512x512');
     });
 
     test('setImageGenNegativePrompt persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setImageGenNegativePrompt('ugly, bad anatomy');
+      await svc.imageGenSettings.setImageGenNegativePrompt('ugly, bad anatomy');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('image_gen_negative_prompt'), 'ugly, bad anatomy');
     });
 
     test('setImageGenStyle persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setImageGenStyle('anime');
+      await svc.imageGenSettings.setImageGenStyle('anime');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('image_gen_style'), 'anime');
     });
 
     test('setImageGenPromptParadigm persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setImageGenPromptParadigm('tags');
+      await svc.imageGenSettings.setImageGenPromptParadigm('tags');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('image_gen_prompt_paradigm'), 'tags');
     });
 
     test('setImageGenLora persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setImageGenLora('myLora.safetensors');
+      await svc.imageGenSettings.setImageGenLora('myLora.safetensors');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('image_gen_lora'), 'myLora.safetensors');
     });
 
     test('setImageGenLoraWeight clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setImageGenLoraWeight(1.5); // should clamp to 1.0
+      await svc.imageGenSettings.setImageGenLoraWeight(
+        1.5,
+      ); // should clamp to 1.0
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('image_gen_lora_weight'), 1.0);
     });
 
     test('setImageGenSteps persists', () async {
       final svc = await createStorageService();
-      await svc.setImageGenSteps(30);
+      await svc.imageGenSettings.setImageGenSteps(30);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('image_gen_steps'), 30);
     });
 
     test('setImageGenCfgScale persists', () async {
       final svc = await createStorageService();
-      await svc.setImageGenCfgScale(9.5);
+      await svc.imageGenSettings.setImageGenCfgScale(9.5);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('image_gen_cfg_scale'), 9.5);
     });
 
     test('setImageGenSampler persists', () async {
       final svc = await createStorageService();
-      await svc.setImageGenSampler('DPM++ 2M');
+      await svc.imageGenSettings.setImageGenSampler('DPM++ 2M');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('image_gen_sampler'), 'DPM++ 2M');
     });
 
     test('setImageGenSeed persists', () async {
       final svc = await createStorageService();
-      await svc.setImageGenSeed(12345);
+      await svc.imageGenSettings.setImageGenSeed(12345);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('image_gen_seed'), 12345);
     });
 
     test('drawThings gRPC settings persist', () async {
       final svc = await createStorageService();
-      await svc.setDrawThingsGrpcHost('10.0.0.5');
-      await svc.setDrawThingsGrpcPort(7860);
-      await svc.setDrawThingsSampler(5);
-      await svc.setDrawThingsShift(2.5);
-      await svc.setDrawThingsSeedMode(1);
-      await svc.setDrawThingsTeaCache(true);
-      await svc.setDrawThingsCfgZeroStar(true);
+      await svc.imageGenSettings.setDrawThingsGrpcHost('10.0.0.5');
+      await svc.imageGenSettings.setDrawThingsGrpcPort(7860);
+      await svc.imageGenSettings.setDrawThingsSampler(5);
+      await svc.imageGenSettings.setDrawThingsShift(2.5);
+      await svc.imageGenSettings.setDrawThingsSeedMode(1);
+      await svc.imageGenSettings.setDrawThingsTeaCache(true);
+      await svc.imageGenSettings.setDrawThingsCfgZeroStar(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('draw_things_grpc_host'), '10.0.0.5');
       expect(prefs.getInt('draw_things_grpc_port'), 7860);
@@ -704,14 +704,14 @@ void main() {
   group('Web server settings persistence', () {
     test('setWebServerEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setWebServerEnabled(true);
+      await svc.webServerSettings.setWebServerEnabled(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('web_server_enabled'), true);
     });
 
     test('setWebServerPort persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setWebServerPort(9090);
+      await svc.webServerSettings.setWebServerPort(9090);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('web_server_port'), 9090);
     });
@@ -724,26 +724,26 @@ void main() {
   group('Journal settings persistence', () {
     test('journalEnabled defaults to true', () async {
       final svc = await createStorageService();
-      expect(svc.journalEnabled, true);
+      expect(svc.memorySettings.journalEnabled, true);
     });
 
     test('setJournalEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setJournalEnabled(false);
+      await svc.memorySettings.setJournalEnabled(false);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('journal_enabled'), false);
     });
 
     test('setJournalInterval clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setJournalInterval(1); // should clamp to 3
+      await svc.memorySettings.setJournalInterval(1); // should clamp to 3
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('journal_interval'), 3);
     });
 
     test('setJournalMaxCards clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setJournalMaxCards(5000); // should clamp to 1000
+      await svc.memorySettings.setJournalMaxCards(5000); // should clamp to 1000
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('journal_max_cards'), 1000);
     });
@@ -754,16 +754,21 @@ void main() {
   group('Banned phrases persistence', () {
     test('setBannedPhrases persists as JSON', () async {
       final svc = await createStorageService();
-      await svc.setBannedPhrases(['delve', 'a testament to']);
+      await svc.realismSettings.setBannedPhrases(['delve', 'a testament to']);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('banned_phrases'), isNotNull);
-      expect(svc.bannedPhrases, ['delve', 'a testament to']);
+      expect(svc.realismSettings.bannedPhrases, ['delve', 'a testament to']);
     });
 
     test('setBannedPhrases filters empty strings', () async {
       final svc = await createStorageService();
-      await svc.setBannedPhrases(['valid', '', 'also valid', '']);
-      expect(svc.bannedPhrases, ['valid', 'also valid']);
+      await svc.realismSettings.setBannedPhrases([
+        'valid',
+        '',
+        'also valid',
+        '',
+      ]);
+      expect(svc.realismSettings.bannedPhrases, ['valid', 'also valid']);
     });
   });
 
@@ -772,35 +777,35 @@ void main() {
   group('RAG memory settings persistence', () {
     test('setRagEnabled persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setRagEnabled(true);
+      await svc.memorySettings.setRagEnabled(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('rag_enabled'), true);
     });
 
     test('setRagRetrievalCount clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setRagRetrievalCount(100); // should clamp to 50
+      await svc.memorySettings.setRagRetrievalCount(100); // should clamp to 50
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('rag_retrieval_count'), 50);
     });
 
     test('setRagWindowSize clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setRagWindowSize(1); // should clamp to 2
+      await svc.memorySettings.setRagWindowSize(1); // should clamp to 2
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('rag_window_size'), 2);
     });
 
     test('setRagEmbeddingSource persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setRagEmbeddingSource('kobold');
+      await svc.memorySettings.setRagEmbeddingSource('kobold');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('rag_embedding_source'), 'kobold');
     });
 
     test('setRagEmbeddingModel persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setRagEmbeddingModel('custom-embed');
+      await svc.memorySettings.setRagEmbeddingModel('custom-embed');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('rag_embedding_model'), 'custom-embed');
     });
@@ -813,7 +818,7 @@ void main() {
       'setCharacterEvolutionEnabled persists to SharedPreferences',
       () async {
         final svc = await createStorageService();
-        await svc.setCharacterEvolutionEnabled(true);
+        await svc.memorySettings.setCharacterEvolutionEnabled(true);
         final prefs = await SharedPreferences.getInstance();
         expect(prefs.getBool('character_evolution_enabled'), true);
       },
@@ -821,10 +826,12 @@ void main() {
 
     test('setGrowthInterval clamps and persists', () async {
       final svc = await createStorageService();
-      await svc.setGrowthInterval(1); // should clamp to 2 (growth-rings §6)
+      await svc.memorySettings.setGrowthInterval(
+        1,
+      ); // should clamp to 2 (growth-rings §6)
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('growth_interval'), 2);
-      await svc.setGrowthInterval(50); // and down to 20
+      await svc.memorySettings.setGrowthInterval(50); // and down to 20
       expect(prefs.getInt('growth_interval'), 20);
     });
   });
@@ -834,7 +841,7 @@ void main() {
   group('Realism engine settings persistence', () {
     test('setRealismOneShotEval persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.setRealismOneShotEval(true);
+      await svc.realismSettings.setRealismOneShotEval(true);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('realism_one_shot_eval'), true);
     });
@@ -874,17 +881,23 @@ void main() {
   group('Saved prompts persistence', () {
     test('savePrompt persists to SharedPreferences', () async {
       final svc = await createStorageService();
-      await svc.savePrompt('Test Prompt', 'Test content');
+      await svc.presetSettings.savePrompt('Test Prompt', 'Test content');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('saved_prompts'), isNotNull);
-      expect(svc.savedPrompts.any((p) => p['name'] == 'Test Prompt'), true);
+      expect(
+        svc.presetSettings.savedPrompts.any((p) => p['name'] == 'Test Prompt'),
+        true,
+      );
     });
 
     test('deleteSavedPrompt persists removal', () async {
       final svc = await createStorageService();
-      await svc.savePrompt('Temp', 'content');
-      await svc.deleteSavedPrompt('Temp');
-      expect(svc.savedPrompts.any((p) => p['name'] == 'Temp'), false);
+      await svc.presetSettings.savePrompt('Temp', 'content');
+      await svc.presetSettings.deleteSavedPrompt('Temp');
+      expect(
+        svc.presetSettings.savedPrompts.any((p) => p['name'] == 'Temp'),
+        false,
+      );
     });
   });
 
@@ -895,7 +908,7 @@ void main() {
       final svc = await createStorageService();
       int callCount = 0;
       svc.addListener(() => callCount++);
-      await svc.setTemperature(0.9);
+      await svc.generationSettings.setTemperature(0.9);
       expect(callCount, greaterThanOrEqualTo(1));
     });
 
@@ -903,7 +916,7 @@ void main() {
       final svc = await createStorageService();
       int callCount = 0;
       svc.addListener(() => callCount++);
-      await svc.setLastUsedModelPath('/model.gguf');
+      await svc.backendSettings.setLastUsedModelPath('/model.gguf');
       expect(callCount, greaterThanOrEqualTo(1));
     });
   });
@@ -927,31 +940,31 @@ void main() {
         'model': '/models/b.gguf',
         'mmproj': '/models/proj.gguf',
       });
-      await svc.setActiveKcppsPath(kcpps.path);
-      expect(svc.kcppsModelPath, '/models/a.gguf');
-      expect(svc.kcppsMmprojPath, '/models/proj.gguf');
-      expect(svc.kcppsHasModel, isTrue);
+      await svc.backendSettings.setActiveKcppsPath(kcpps.path);
+      expect(svc.backendSettings.kcppsModelPath, '/models/a.gguf');
+      expect(svc.backendSettings.kcppsMmprojPath, '/models/proj.gguf');
+      expect(svc.backendSettings.kcppsHasModel, isTrue);
     });
 
     test('kcppsModelPath falls back to model key', () async {
       final svc = await createStorageService();
       final kcpps = writeKcpps({'model': '/models/b.gguf'});
-      await svc.setActiveKcppsPath(kcpps.path);
-      expect(svc.kcppsModelPath, '/models/b.gguf');
-      expect(svc.kcppsMmprojPath, isNull);
+      await svc.backendSettings.setActiveKcppsPath(kcpps.path);
+      expect(svc.backendSettings.kcppsModelPath, '/models/b.gguf');
+      expect(svc.backendSettings.kcppsMmprojPath, isNull);
     });
 
     test('empty/absent keys and no active preset return null', () async {
       final svc = await createStorageService();
       final kcpps = writeKcpps({'model_param': '  ', 'mmproj': ''});
-      await svc.setActiveKcppsPath(kcpps.path);
-      expect(svc.kcppsModelPath, isNull);
-      expect(svc.kcppsHasModel, isFalse);
-      expect(svc.kcppsMmprojPath, isNull);
+      await svc.backendSettings.setActiveKcppsPath(kcpps.path);
+      expect(svc.backendSettings.kcppsModelPath, isNull);
+      expect(svc.backendSettings.kcppsHasModel, isFalse);
+      expect(svc.backendSettings.kcppsMmprojPath, isNull);
 
-      await svc.setActiveKcppsPath(null);
-      expect(svc.kcppsModelPath, isNull);
-      expect(svc.kcppsMmprojPath, isNull);
+      await svc.backendSettings.setActiveKcppsPath(null);
+      expect(svc.backendSettings.kcppsModelPath, isNull);
+      expect(svc.backendSettings.kcppsMmprojPath, isNull);
     });
 
     test('kcppsModelFileExists reflects the referenced file on disk', () async {
@@ -960,10 +973,10 @@ void main() {
       final model = File('${dir.path}/real.gguf')..writeAsBytesSync([0]);
       final kcpps = File('${dir.path}/preset.kcpps')
         ..writeAsStringSync(jsonEncode({'model_param': model.path}));
-      await svc.setActiveKcppsPath(kcpps.path);
-      expect(svc.kcppsModelFileExists, isTrue);
+      await svc.backendSettings.setActiveKcppsPath(kcpps.path);
+      expect(svc.backendSettings.kcppsModelFileExists, isTrue);
       model.deleteSync();
-      expect(svc.kcppsModelFileExists, isFalse);
+      expect(svc.backendSettings.kcppsModelFileExists, isFalse);
     });
   });
 }

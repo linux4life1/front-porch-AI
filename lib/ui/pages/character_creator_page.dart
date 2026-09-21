@@ -29,14 +29,9 @@ import 'package:front_porch_ai/ui/character_creator/steps/generating_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/realism_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/review_step.dart';
 
-/// Thin shell for the AI character creator wizard (~200 LOC per Stage 4 plan).
-/// Delegates all state (60+ fields, prefs, load/save, step, gen) to CreatorState (ChangeNotifier).
-/// Step content via extracted widgets in steps/ (review_step largest, extracted early).
-/// Reusable widgets in widgets/ (backend_chip, mode_card, styled_text_field auto-save).
-/// UI consistency (non-negotiable): exact top-bar horizontal step dots+labels+lines in AppBar (driven by simple currentStep),
-/// AnimatedSwitcher for step content, _buildNavButtons at bottom of flow.
-/// No side menus/tab bars/free-jumping. AppColors exclusively (resolve, *Of helpers, withValues). const where possible.
-/// All old god content deleted as part of extraction (deletion part of task).
+/// AI character creator wizard. Delegates state to [CreatorState].
+/// Top-bar step dots + labels, [AnimatedSwitcher] for step content,
+/// `_buildNavButtons` at the bottom. No side menus, tab bars, or free-jumping.
 class CharacterCreatorPage extends StatefulWidget {
   const CharacterCreatorPage({super.key});
 
@@ -70,9 +65,10 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
         modelManager.refreshModels();
         // If a last used local model exists, preselect it for the picker UI.
         if (creatorState.selectedLocalModelPath.isEmpty &&
-            storage.lastUsedModelPath != null &&
-            storage.lastUsedModelPath!.isNotEmpty) {
-          creatorState.selectedLocalModelPath = storage.lastUsedModelPath!;
+            storage.backendSettings.lastUsedModelPath != null &&
+            storage.backendSettings.lastUsedModelPath!.isNotEmpty) {
+          creatorState.selectedLocalModelPath =
+              storage.backendSettings.lastUsedModelPath!;
           creatorState.notify();
         }
 
@@ -304,30 +300,30 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                 onPressed: busy
                     ? null
                     : onNext ??
-                    () {
-                      if (currentStep == 2) {
-                        creatorState.generateFromMode(
-                          llmProvider: Provider.of<LLMProvider>(
-                            context,
-                            listen: false,
-                          ),
-                          storage: Provider.of<StorageService>(
-                            context,
-                            listen: false,
-                          ),
-                          personaService: Provider.of<UserPersonaService>(
-                            context,
-                            listen: false,
-                          ),
-                        );
-                        return;
-                      }
-                      if (currentStep == 5) {
-                        _saveAndFinish();
-                        return;
-                      }
-                      creatorState.currentStep = currentStep + 1;
-                    },
+                          () {
+                            if (currentStep == 2) {
+                              creatorState.generateFromMode(
+                                llmProvider: Provider.of<LLMProvider>(
+                                  context,
+                                  listen: false,
+                                ),
+                                storage: Provider.of<StorageService>(
+                                  context,
+                                  listen: false,
+                                ),
+                                personaService: Provider.of<UserPersonaService>(
+                                  context,
+                                  listen: false,
+                                ),
+                              );
+                              return;
+                            }
+                            if (currentStep == 5) {
+                              _saveAndFinish();
+                              return;
+                            }
+                            creatorState.currentStep = currentStep + 1;
+                          },
                 icon: Icon(
                   currentStep >= 5 ? Icons.check : Icons.arrow_forward,
                   size: 20,
@@ -420,5 +416,3 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     );
   }
 }
-
-// (End of thin shell. Stage 4 god-file modularization complete: creator_state.dart + 8 steps/ + 3 widgets/. All prior ~8500 LOC god content in this file deleted. 0 new private methods in shell. AppColors + UI wizard consistency + flutter_lints + Provider/ChangeNotifier preserved. Tree runnable after gates.)

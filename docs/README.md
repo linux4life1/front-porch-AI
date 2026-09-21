@@ -52,7 +52,7 @@ Still stuck? Ask in the [Discord](https://discord.gg/e4tET6rpdv), or
 | [Maintainer agent playbook](maintainer-agent-playbook.md) | How to drive AI agents without reading Dart — copy-paste prompts, smoke role, cadence |
 | [Character Card Forge Integration](CharacterCardForge_GroupChat_Integration_Guide.md) | For tool authors writing to the database directly, particularly group chats |
 | [Contributing](../CONTRIBUTING.md) | How to set up, what CI checks, and what licence your contributions are under |
-| [CLAUDE.md](../CLAUDE.md) | The project's full engineering rules, for humans and AI agents alike |
+| [CLAUDE.md](../CLAUDE.md) | Engineering law for humans and agents. [AGENTS.md](../AGENTS.md) is a short pointer at the same law |
 
 Maintainer working notes (refactor logs, release runbook) live in
 [`dev-notes/`](../dev-notes/) and are deliberately kept out of this published

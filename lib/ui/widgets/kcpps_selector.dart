@@ -82,14 +82,14 @@ class _KcppsSelectorState extends State<KcppsSelector> {
   @override
   void initState() {
     super.initState();
-    _previousActivePath = widget.storage.activeKcppsPath;
+    _previousActivePath = widget.storage.backendSettings.activeKcppsPath;
     _reportStatus();
   }
 
   @override
   void didUpdateWidget(KcppsSelector oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final currentPath = widget.storage.activeKcppsPath;
+    final currentPath = widget.storage.backendSettings.activeKcppsPath;
     if (oldWidget.localPresets != widget.localPresets ||
         _previousActivePath != currentPath) {
       _previousActivePath = currentPath;
@@ -101,8 +101,8 @@ class _KcppsSelectorState extends State<KcppsSelector> {
   /// if the value changed since last report.
   void _reportStatus() {
     final valid =
-        widget.storage.kcppsHasModel &&
-        _modelExists.of(widget.storage.kcppsModelPath);
+        widget.storage.backendSettings.kcppsHasModel &&
+        _modelExists.of(widget.storage.backendSettings.kcppsModelPath);
     if (valid != _lastValidModel) {
       _lastValidModel = valid;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,7 +113,7 @@ class _KcppsSelectorState extends State<KcppsSelector> {
 
   @override
   Widget build(BuildContext context) {
-    final activePath = widget.storage.activeKcppsPath;
+    final activePath = widget.storage.backendSettings.activeKcppsPath;
     final bgColor =
         widget.backgroundColor ?? AppColors.surfaceContainerOf(context);
     final isExternal =
@@ -147,8 +147,8 @@ class _KcppsSelectorState extends State<KcppsSelector> {
 
   Widget _buildModelStatus() {
     if (widget.required &&
-        (widget.storage.activeKcppsPath == null ||
-            widget.storage.activeKcppsPath!.isEmpty)) {
+        (widget.storage.backendSettings.activeKcppsPath == null ||
+            widget.storage.backendSettings.activeKcppsPath!.isEmpty)) {
       return Row(
         children: [
           Icon(
@@ -165,10 +165,10 @@ class _KcppsSelectorState extends State<KcppsSelector> {
       );
     }
 
-    final hasModel = widget.storage.kcppsHasModel;
+    final hasModel = widget.storage.backendSettings.kcppsHasModel;
     // ONE parse per build for the path; existsSync is memoized so Kobold
     // log-line rebuilds do not re-stat a multi-GB GGUF.
-    final modelPath = widget.storage.kcppsModelPath;
+    final modelPath = widget.storage.backendSettings.kcppsModelPath;
     final fileExists = _modelExists.of(modelPath);
 
     IconData icon;
@@ -246,7 +246,7 @@ class _KcppsSelectorState extends State<KcppsSelector> {
   }
 
   Widget _buildDropdown(Color bgColor) {
-    final activePath = widget.storage.activeKcppsPath;
+    final activePath = widget.storage.backendSettings.activeKcppsPath;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -335,7 +335,7 @@ class _KcppsSelectorState extends State<KcppsSelector> {
     );
     if (result != null && result.files.single.path != null) {
       final path = result.files.single.path!;
-      widget.storage.setActiveKcppsPath(path);
+      widget.storage.backendSettings.setActiveKcppsPath(path);
       widget.onBrowsePicked(path);
     }
   }

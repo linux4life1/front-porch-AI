@@ -16,6 +16,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
+part 'character_card_grid.grid.dart';
+
 enum SearchScope { currentFolder, folderRecursive, allCharacters }
 
 enum FolderDialogAction { create, rename, delete }
@@ -101,6 +103,7 @@ class CharacterCardGrid extends StatelessWidget {
   final void Function(String action, CharacterCard character)
   onContextMenuAction;
   final void Function(String source) onImport;
+
   /// A card was dropped on a folder — [item] is a [CharacterCard] or a
   /// [GroupChat] (both drag into folders).
   final void Function(Object item, CharacterFolder folder) onAcceptFolderDrop;
@@ -133,7 +136,6 @@ class CharacterCardGrid extends StatelessWidget {
   /// Called when the user right-clicks (secondary tap) a group card on the home grid.
   /// Mirrors the existing `onContextMenuAction` pattern used for CharacterCard.
   final void Function(String action, GroupChat group)? onGroupContextMenuAction;
-
 
   List<CharacterCard> _getFilteredCharacters() {
     List<CharacterCard> characters;
@@ -289,9 +291,9 @@ class CharacterCardGrid extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.checklist,
-                    color: AppColors.porchHoneyOf(context).withValues(
-                      alpha: 0.8,
-                    ),
+                    color: AppColors.porchHoneyOf(
+                      context,
+                    ).withValues(alpha: 0.8),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -405,116 +407,6 @@ class CharacterCardGrid extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildGrid(
-    BuildContext context,
-    List<CharacterCard> filteredCharacters,
-  ) {
-    final showFolders = searchQuery.isEmpty;
-    final folders = showFolders
-        ? folderService.getSubfolders(activeFolderId)
-        : <CharacterFolder>[];
-
-    // Groups follow the folder hierarchy exactly like characters now (the old
-    // bucket pinned every group to the top level and hid them during
-    // select/organize — they're selectable there too since they can be moved).
-    List<GroupChat> groups = _getFilteredGroups();
-
-    List<CharacterCard> displayCharacters;
-    if (showFolders && activeFolderId == null) {
-      final folderedFilenames = folderService.getUnfolderedCharacterPaths();
-      displayCharacters = filteredCharacters
-          .where(
-            (c) =>
-                c.imagePath == null ||
-                !folderedFilenames.contains(path.basename(c.imagePath!)),
-          )
-          .toList();
-      // Same top-level rule for groups: foldered ones only show inside their
-      // folder (this was the group-shaped hole in the unfoldered filter).
-      groups = groups
-          .where((g) => folderService.getFolderForGroup(g.id) == null)
-          .toList();
-    } else {
-      displayCharacters = filteredCharacters;
-    }
-
-    final totalItems =
-        folders.length + groups.length + displayCharacters.length;
-    if (totalItems == 0) {
-      return Center(
-        child: Text(
-          searchQuery.isNotEmpty
-              ? 'No characters match "$searchQuery"'
-              : 'This folder is empty',
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 16,
-          ),
-        ),
-      );
-    }
-
-    return Scrollbar(
-      controller: gridScrollController,
-      thumbVisibility: true,
-      child: GridView.builder(
-        controller: gridScrollController,
-        padding: EdgeInsets.fromLTRB(
-          24,
-          24,
-          24,
-          (isSelecting || isOrganizing) ? 80 : 24,
-        ),
-        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: gridScale,
-          childAspectRatio: 0.7,
-          crossAxisSpacing: 24,
-          mainAxisSpacing: 24,
-        ),
-        itemCount: totalItems,
-        itemBuilder: (context, index) {
-          if (index < folders.length) {
-            return FolderGridCard(
-              folder: folders[index],
-              onAcceptFolderDrop: onAcceptFolderDrop,
-              onFolderTap: onFolderTap,
-              onFolderDialogAction: onFolderDialogAction,
-              onResolveCharImage: onResolveCharImage,
-            );
-          }
-          final groupOffset = index - folders.length;
-          if (groupOffset < groups.length) {
-            return GroupGridCard(
-              group: groups[groupOffset],
-              groupRepo: groupRepo,
-              activeFolderId: activeFolderId,
-              isSelecting: isSelecting,
-              isOrganizing: isOrganizing,
-              selectedGroupIds: selectedGroupIds,
-              onTapGroup: onTapGroup,
-              onToggleSelectGroup: onToggleSelectGroup,
-              onGroupContextMenuAction: onGroupContextMenuAction,
-            );
-          }
-          final character = displayCharacters[groupOffset - groups.length];
-          return CharacterGridCard(
-            character: character,
-            activeFolderId: activeFolderId,
-            messageCountCache: messageCountCache,
-            isSelecting: isSelecting,
-            isOrganizing: isOrganizing,
-            selectedCharacterIds: selectedCharacterIds,
-            onTapCharacter: onTapCharacter,
-            onToggleSelect: onToggleSelect,
-            onContextMenuAction: onContextMenuAction,
-            onResolveCharImage: onResolveCharImage,
-            imageCacheEpoch: repo.coverEpoch,
-          );
-        },
-      ),
     );
   }
 }

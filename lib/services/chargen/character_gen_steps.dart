@@ -169,13 +169,7 @@ Respond with ONLY the JSON:''';
       }
 
       // Strip any think blocks from the answer before adding to transcript
-      final cleanAnswer = answer
-          .replaceAll(
-            RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false),
-            '',
-          )
-          .replaceAll(RegExp(r'<think>[\s\S]*$', caseSensitive: false), '')
-          .trim();
+      final cleanAnswer = stripThinkBlocks(answer);
 
       transcript.writeln('Q: $q');
       transcript.writeln('A: $cleanAnswer');
@@ -374,13 +368,7 @@ Output ONLY the example dialogue. No commentary, no JSON, no explanation. Start 
     }
 
     // Clean the output — strip think tags and any preamble before first <START>
-    String cleaned = output
-        .replaceAll(
-          RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false),
-          '',
-        )
-        .replaceAll(RegExp(r'<think>[\s\S]*$', caseSensitive: false), '')
-        .trim();
+    String cleaned = stripThinkBlocks(output);
 
     // Find the first <START> tag and keep everything from there
     final startIdx = cleaned.indexOf('<START>');

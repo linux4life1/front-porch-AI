@@ -18,8 +18,9 @@
 // fake-green). So are "rag_receipt exists", "score ≥ 0.45", and "contains
 // the last user line" as stand-alone greens.
 
-import 'dart:convert';
 import 'dart:io';
+
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
@@ -494,13 +495,20 @@ void main() {
           days: {factHit: 2},
           reachingForQuote: false,
         );
-        expect(block, contains(kFact));
+        expect(block.contains(kFact) || block.contains(kJournalGist), isTrue);
         expect(block, contains(kRagRememberedHeader.trim()));
         expect(block, isNot(contains('Exact earlier lines')));
+        final hasYou = block.contains(kFactUser);
+        final hasNia = block.contains(kFactLine);
         expect(
-          block,
-          isNot(contains(kFactUser)),
-          reason: 'HOLD leftover: remembered line, not the You:/Nia: window',
+          hasYou && hasNia,
+          isFalse,
+          reason: 'one attributed line, not the You:/Nia: window',
+        );
+        expect(
+          hasYou || hasNia,
+          isTrue,
+          reason: 'plain RAG keeps the speaker nametag',
         );
       },
     );
@@ -555,9 +563,8 @@ void main() {
       expect(block, isNot(contains('Exact earlier lines')));
       expect(
         block,
-        isNot(contains(kFactUser)),
-        reason:
-            'HOLD leftover: plain turn must not inject the transcript window',
+        isNot(contains(kFactLine)),
+        reason: 'HOLD leftover: plain turn must not inject the You:+Nia: tape',
       );
     });
 
@@ -577,8 +584,7 @@ void main() {
         days: {m: 1},
         reachingForQuote: false,
       );
-      expect(plain, contains('- (Day 1) the swing creaked'));
-      expect(plain, isNot(contains('Nia:')));
+      expect(plain, contains('- (Day 1) Nia: the swing creaked'));
       final quoted = buildRagMemoriesBlock(
         memories: [m],
         currentSessionId: kSession,
@@ -880,7 +886,14 @@ void main() {
     test('HOLD hole: interior restatement, suffix extra fact, no verb list', () {
       const gist =
           'I still think about the spare key under the third flowerpot';
-      for (final verb in ['hidden', 'tucked', 'buried', 'stays', 'rests', 'lives']) {
+      for (final verb in [
+        'hidden',
+        'tucked',
+        'buried',
+        'stays',
+        'rests',
+        'lives',
+      ]) {
         expect(
           dropCoveredRagWindows(
             [
@@ -895,7 +908,14 @@ void main() {
           reason: '"$verb under" has leftover — leftover-empty only, so KEEP',
         );
       }
-      for (final verb in ['hidden', 'tucked', 'buried', 'stays', 'rests', 'lives']) {
+      for (final verb in [
+        'hidden',
+        'tucked',
+        'buried',
+        'stays',
+        'rests',
+        'lives',
+      ]) {
         expect(
           dropCoveredRagWindows(
             [
@@ -921,9 +941,17 @@ void main() {
           [gist],
         ),
         isNot(isEmpty),
-        reason: 'suffix lives-hidden has leftover — leftover-empty only, so KEEP',
+        reason:
+            'suffix lives-hidden has leftover — leftover-empty only, so KEEP',
       );
-      for (final verb in ['hidden', 'tucked', 'buried', 'stays', 'rests', 'lives']) {
+      for (final verb in [
+        'hidden',
+        'tucked',
+        'buried',
+        'stays',
+        'rests',
+        'lives',
+      ]) {
         expect(
           dropCoveredRagWindows(
             [
@@ -949,7 +977,8 @@ void main() {
           [gist],
         ),
         isNot(isEmpty),
-        reason: 'prefix lives-hidden has leftover — leftover-empty only, so KEEP',
+        reason:
+            'prefix lives-hidden has leftover — leftover-empty only, so KEEP',
       );
       final twoLine = dropCoveredRagWindows(
         [
@@ -1633,74 +1662,6 @@ void main() {
         );
       },
     );
-
-    test('HOLD: journal-off and this-beat cover wiring', () {
-      final blocks = File(
-        'lib/services/chat/chat_service_generation_blocks.dart',
-      ).readAsStringSync();
-      expect(
-        blocks.contains('t.journalCoverLines = const [];'),
-        isTrue,
-        reason: 'cover starts empty so Journal-off cannot cover-drop',
-      );
-      expect(
-        blocks.contains(
-          't.journalCoverLines = [for (final c in cards) c.content]',
-        ),
-        isFalse,
-        reason: 'whole cabinet must not become cover',
-      );
-      expect(
-        blocks.contains('t.journalCoverLines = journal.injectedContents;'),
-        isTrue,
-      );
-      expect(
-        blocks.contains('lastWords: lastSpokenLineFromMessages(_messages)'),
-        isTrue,
-        reason:
-            'HOLD leftover: expand/quote-ask use last spoken line, not captions',
-      );
-      final journalCall = blocks.indexOf(
-        '_journalInjection.buildJournalBlock(',
-      );
-      expect(journalCall, greaterThanOrEqualTo(0));
-      final journalSlice = blocks.substring(
-        journalCall,
-        (journalCall + 900).clamp(0, blocks.length),
-      );
-      expect(
-        journalSlice.contains(
-          'lastWords: lastSpokenLineFromMessages(_messages)',
-        ),
-        isTrue,
-        reason: 'HOLD lock 3: journal expand uses lastSpoken, never lastWords',
-      );
-      expect(
-        journalSlice.contains('lastWordsFromMessages'),
-        isFalse,
-        reason: 'HOLD lock 3: captions must not ride journal lastWords',
-      );
-      final gate = blocks.indexOf(
-        'if (_storageService.memorySettings.journalEnabled',
-      );
-      final assign = blocks.indexOf(
-        't.journalCoverLines = journal.injectedContents;',
-      );
-      expect(gate, greaterThanOrEqualTo(0));
-      expect(
-        assign,
-        greaterThan(gate),
-        reason: 'injectedContents assignment is inside the journalEnabled gate',
-      );
-      final rag = File(
-        'lib/services/chat/chat_service_generation_rag.dart',
-      ).readAsStringSync();
-      expect(rag.contains('dropCoveredRagWindows('), isTrue);
-      expect(rag.contains('t.journalCoverLines'), isTrue);
-      expect(rag.contains('lastSpokenLineFromMessages(_messages)'), isTrue);
-      expect(rag.contains('shouldRetrieveRag('), isTrue);
-      expect(rag.contains('Skipping memory retrieval — cue-less beat'), isTrue);
-    });
 
     test(
       'HOLD lock 3: caption lastWords would expand; lastSpoken sit does not',

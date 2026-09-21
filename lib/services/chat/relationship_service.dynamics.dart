@@ -199,13 +199,16 @@ extension RelationshipServiceDynamics on RelationshipService {
 
         // Phase 2/3: Decay hidden inter-character relationships (only when under the 4-char cap)
         // mirrors outer group non-observer scoping for inter decay (verbatim)
-        if (getShouldTrackInterCharacterRelationships()) {
+        if (getShouldTrackInterCharacterRelationships() &&
+            getCurrentGroupMemberIds().contains(id)) {
           final rels = Map<String, int>.from(
             getInterCharacterRelationships(id),
           );
+          final fullIds = getCurrentGroupMemberIds();
           if (rels.isNotEmpty) {
             bool relChanged = false;
             rels.forEach((otherId, value) {
+              if (!fullIds.contains(otherId)) return;
               if (value > 0) {
                 rels[otherId] = (value - 1).clamp(-300, 300);
                 relChanged = true;

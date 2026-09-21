@@ -25,7 +25,6 @@ import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/sherpa_runtime.dart';
 
 /// In-process Whisper STT via sherpa-onnx (phase 3 of
 /// docs/design/sidecar-retirement.md). Replaces the faster-whisper Python
@@ -156,19 +155,15 @@ class SherpaWhisperEngine {
     required String audioPath,
   }) {
     final dir = modelDir(root, size);
-    final libDir = sherpaNativeLibDir();
-    return Isolate.run(
-      () => _transcribeInIsolate(dir, size, audioPath, libDir),
-    );
+    return Isolate.run(() => _transcribeInIsolate(dir, size, audioPath));
   }
 
   static String _transcribeInIsolate(
     String dir,
     String size,
     String audioPath,
-    String? libDir,
   ) {
-    sherpa.initBindings(libDir);
+    initSherpaBindings();
     final wave = decodeWav(audioPath);
     if (wave.samples.isEmpty) {
       throw const FormatException('unreadable or empty WAV');

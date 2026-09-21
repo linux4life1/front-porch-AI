@@ -1,0 +1,151 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Live image-generation progress, AI Engine strip, tool-calling pill, and
+   the type-DELETE confirm gate.
+*/
+
+/* ── Live image-generation progress card (desktop GeneratingImageBubble parity):
+   percent bar + the in-progress preview frame forming above the composer. */
+.image-progress-card {
+  margin: 6px 12px;
+  padding: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.image-progress-preview {
+  max-height: 220px;
+  max-width: 100%;
+  border-radius: 8px;
+}
+.image-progress-bar {
+  width: 100%;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.image-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.image-progress-fill.indeterminate {
+  width: 35%;
+  animation: image-progress-slide 1.2s ease-in-out infinite;
+}
+@keyframes image-progress-slide {
+  0% { margin-left: 0; }
+  50% { margin-left: 65%; }
+  100% { margin-left: 0; }
+}
+
+/* ── AI Engine strip (Porch Stories surfaces) ─────────────────────────────
+   Web mirror of the desktop AiEngineStatusCard: can the AI generate right
+   now? Green ready, amber starting/loading, red not running (with Start). */
+.engine-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.engine-strip .engine-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.engine-strip-ok .engine-dot { background: var(--ok); }
+.engine-strip-busy .engine-dot { background: var(--accent-amber); }
+.engine-strip-down .engine-dot { background: var(--danger); }
+.engine-strip-down { border-color: rgba(255, 107, 107, 0.5); }
+.engine-strip .engine-text { flex: 1; min-width: 0; }
+.engine-strip .engine-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.engine-strip .engine-actions a { color: var(--accent); font-weight: 600; }
+
+/* ── Tool-calling pill (chat insight panel) ───────────────────────────────
+   Desktop sidebar parity: does the current model speak the tools protocol?
+   Green supported, amber text-fallback, neutral untested; click retests. */
+.tool-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.tool-pill:disabled { cursor: progress; opacity: 0.8; }
+.tool-pill .tool-pill-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--muted);
+}
+.tool-pill-ok { border-color: rgba(105, 240, 174, 0.45); }
+.tool-pill-ok .tool-pill-dot { background: var(--ok); }
+.tool-pill-warn { border-color: rgba(255, 193, 7, 0.5); }
+.tool-pill-warn .tool-pill-dot { background: var(--accent-amber); }
+.tool-pill-busy .tool-pill-dot {
+  background: var(--accent-amber);
+  animation: tool-pill-pulse 1s ease-in-out infinite;
+}
+@keyframes tool-pill-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.tool-pill .tool-pill-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+.tool-pill .tool-pill-retest { color: var(--muted); font-size: 0.9rem; }
+
+/* ── Type-DELETE confirm (severe mass-delete gate) ───────────────────────────
+   Web mirror of the desktop TypeDeleteDialog: the delete button stays disabled
+   until the user types the keyword exactly. Used for bulk character delete and
+   delete-folder-with-characters. */
+.danger-modal { border: 1px solid rgba(255, 107, 107, 0.5); }
+.type-confirm-label {
+  display: block;
+  margin: 14px 0 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+  font-weight: 600;
+}
+.type-confirm-label .search {
+  margin-top: 6px;
+  border-color: rgba(255, 107, 107, 0.4);
+}
+.danger-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: none;
+}
+

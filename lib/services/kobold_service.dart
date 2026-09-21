@@ -19,10 +19,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold_binary_version.dart';
+import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/kobold_process_control.dart';
 import 'package:front_porch_ai/services/kobold_system_role.dart';
@@ -33,6 +35,9 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/openai_chat_stream.dart';
 import 'package:front_porch_ai/services/system_role_probe.dart';
 import 'package:path/path.dart' as path;
+
+part 'kobold_service_admin.dart';
+part 'kobold_service_process.dart';
 
 class KoboldService extends ChangeNotifier
     with WidgetsBindingObserver
@@ -49,10 +54,12 @@ class KoboldService extends ChangeNotifier
   final List<String> _logs = [];
   String _modelLoadingStatus = '';
   bool _modelReady = false;
+  String? _loadedModelPath;
+  String? _loadedKcppsPath;
 
-  /// One-shot flag for UI notifications (e.g. snackbar). Set to true when the
-  /// model finishes loading, consumed once by the home page. Unlike _modelReady,
-  /// this is reset after reading so it only triggers the notification once.
+  /// One-shot "load just finished" latch. Home drains it (no success toast —
+  /// dual-local swaps would stack those). Unlike [_modelReady], reset after
+  /// [consumeModelReady] so each load is seen once.
   bool _modelJustLoaded = false;
   String? _executablePath;
   Timer? _readinessProbe;
@@ -70,6 +77,15 @@ class KoboldService extends ChangeNotifier
   String get modelLoadingStatus => _modelLoadingStatus;
   bool get modelReady => _modelReady;
 
+  /// GGUF last started or last admin-reloaded onto this process.
+  String? get loadedModelPath => _loadedModelPath;
+
+  /// `.kcpps` last started or last admin-reloaded. Empty = UI-flag launch.
+  String? get loadedKcppsPath => _loadedKcppsPath;
+
+  /// Mouth + worker hosts share this so nested reload_config cannot overlap.
+  final KoboldAdminSwapLock adminSwapLock = KoboldAdminSwapLock();
+
   /// Feed a console chunk to [liveProgress]; notify at most every 150ms
   /// (Generating lines arrive once per token).
   void _ingestLiveProgress(String data) {
@@ -81,9 +97,9 @@ class KoboldService extends ChangeNotifier
     }
   }
 
-  /// Consume the one-shot "model just loaded" notification flag.
-  /// Returns true exactly once after each model load, for UI notifications
-  /// (e.g. snackbar). Does NOT affect [isReady] or [modelReady].
+  /// Consume the one-shot "model just loaded" latch.
+  /// Returns true exactly once after each model load. Does NOT affect
+  /// [isReady] or [modelReady]. Home drains this without a success toast.
   bool consumeModelReady() {
     if (_modelJustLoaded) {
       _modelJustLoaded = false;
@@ -99,6 +115,15 @@ class KoboldService extends ChangeNotifier
   /// Tracks the completion of the current generation stream.
   /// Used by waitForIdle() to serialize requests without aborting in-flight ones.
   Future<void>? _pendingRequest;
+
+  /// The measurement armed by the last [_markModelReady]. Production never
+  /// waits on it (see [KoboldSystemRole.arm]); [debugMarkModelReady] does,
+  /// because the alternative for a test is guessing when the probe finished —
+  /// by sleeping, or by watching requests ARRIVE at a fake server. Arrival is
+  /// the wrong event: the verdict is written after the last RESPONSE is
+  /// parsed, so that guess is a race that passes alone and reddens CI at
+  /// `--concurrency=4`.
+  Future<void> _armedProbe = Future<void>.value();
 
   // LLMService interface
   @override
@@ -157,7 +182,7 @@ class KoboldService extends ChangeNotifier
           // about to replace. Same gate the other backend-owning paths use
           // (backend_manager.dart, setup_service.dart).
           await _storageService.initialized;
-          final backendType = _storageService.backendType;
+          final backendType = _storageService.backendSettings.backendType;
           if (backendType == 'openRouter' || backendType == 'omlx') {
             debugPrint(
               '[KoboldService] KoboldCPP is answering on $_baseUrl but the '
@@ -204,6 +229,9 @@ class KoboldService extends ChangeNotifier
     notifyListeners();
   }
 
+  // Public notify for same-library extensions (avoids protected member warnings).
+  void notify() => notifyListeners();
+
   File get _logFile => File(
     path.join(_storageService.rootPath!, 'characters', 'session_log.txt'),
   );
@@ -225,178 +253,6 @@ class KoboldService extends ChangeNotifier
       }
     } catch (e) {
       // Don't let logging errors crash the app
-    }
-  }
-
-  Future<void> startKobold(
-    String executablePath,
-    String modelPath, {
-    String? kcppsPath,
-    String? mmprojPath,
-    int port = 5001,
-    int gpuLayers = 0,
-    int contextSize = 4096,
-    bool useVulkan = false,
-    bool useCublas = false,
-    bool useMetal = false,
-    bool useRocm = false,
-  }) async {
-    if (_isStarting) return;
-    // Claim the slot BEFORE the stop ladder below, not after it. That ladder
-    // awaits for 1–6s with `_isRunning` already false, and a second caller
-    // arriving in that window used to see both flags clear, walk straight to
-    // Process.start, and have its handle overwritten by the first caller
-    // resuming — one KoboldCpp process left with no owner, holding the port
-    // and the VRAM. Every early return below must clear it again.
-    _isStarting = true;
-    // If the previous process is still alive (e.g. stopKobold was not awaited
-    // or the stop is racing with start), kill it first to prevent zombie
-    // processes from accumulating — especially on Windows where port reuse
-    // isn't immediate.
-    if (_isRunning || _process != null) {
-      debugPrint(
-        '[KoboldService] startKobold called while still running — stopping first.',
-      );
-      try {
-        await stopKobold();
-        // Give the OS a moment to release the port
-        await Future<void>.delayed(const Duration(seconds: 1));
-      } catch (e) {
-        // The slot is claimed above, so a throwing stop must release it or
-        // no launch would ever be possible again this session.
-        _isStarting = false;
-        _addLog('Could not stop the previous backend: $e');
-        notifyListeners();
-        rethrow;
-      }
-    }
-
-    // ── Model file pre-flight ────────────────────────────────────────────────
-    // Verify the .gguf is genuinely readable BEFORE spawning KoboldCpp, so a
-    // missing/placeholder/corrupt file produces a sentence the user can act on
-    // instead of a bare "Process exited with code 2" (issue #137). Skipped when
-    // modelPath is empty, which is preset mode — there the .kcpps owns the
-    // model and KoboldCpp resolves it itself.
-    //
-    // This is the single choke point for every launch path: two of them
-    // (LLMProvider.ensureManagedBackendIsRunning and the SetupService
-    // autostart) previously did no existence check at all and would launch
-    // straight into the same unexplained exit 2.
-    final modelProblem = await ModelFileCheck.validate(modelPath);
-    if (modelProblem != null) {
-      _addLog(modelProblem);
-      _isStarting = false;
-      notifyListeners();
-      return;
-    }
-
-    // Store the executable path for cleanup
-    _executablePath = executablePath;
-
-    final args = await buildKoboldLaunchArgs(
-      storage: _storageService,
-      executablePath: executablePath,
-      modelPath: modelPath,
-      kcppsPath: kcppsPath,
-      mmprojPath: mmprojPath,
-      port: port,
-      gpuLayers: gpuLayers,
-      contextSize: contextSize,
-      useVulkan: useVulkan,
-      useCublas: useCublas,
-      useMetal: useMetal,
-      useRocm: useRocm,
-    );
-
-    try {
-      print('AG_DEBUG: === STARTING KOBOLDCPP ===');
-      print('AG_DEBUG: Executable: $executablePath');
-      print('AG_DEBUG: Args: ${args.join(' ')}');
-      print('AG_DEBUG: Working dir: ${path.dirname(executablePath)}');
-      print('AG_DEBUG: File exists: ${File(executablePath).existsSync()}');
-      print('AG_DEBUG: Model exists: ${File(modelPath).existsSync()}');
-
-      // ROCm: consumer RDNA cards need HSA_OVERRIDE_GFX_VERSION or the
-      // hipblas kernels abort at load — resolver detects the gfx arch and
-      // supplies it (no-op when unnecessary or already exported).
-      final extraEnv = useRocm
-          ? await GpuBackendResolver.rocmEnvironment()
-          : const <String, String>{};
-      _process = await Process.start(
-        executablePath,
-        args,
-        workingDirectory: path.dirname(executablePath),
-        environment: extraEnv.isEmpty ? null : extraEnv,
-        includeParentEnvironment: true,
-      );
-      print('AG_DEBUG: Process started successfully! PID: ${_process!.pid}');
-      _isRunning = true;
-      _modelLoadingStatus = 'Initializing model...';
-      _modelReady = false;
-      _addLog('Starting Koboldcpp...');
-      _addLog('Command: $executablePath ${args.join(' ')}');
-      notifyListeners();
-
-      // Start periodic readiness probe — more reliable than log-watching.
-      _startReadinessProbe();
-
-      _process!.stdout
-          .transform(const Utf8Decoder(allowMalformed: true))
-          .listen((data) {
-            _addLog(data);
-            _parseLoadingStatus(data);
-            _ingestLiveProgress(data);
-          });
-
-      _process!.stderr
-          .transform(const Utf8Decoder(allowMalformed: true))
-          .listen((data) {
-            // Many backends log everything to stderr even if not an error.
-            var cleanData = data.trim();
-            if (cleanData.isNotEmpty) {
-              // Strip ALL occurrences of ERR: and filter out progress dots
-              cleanData = cleanData
-                  .replaceAll('ERR: ', '')
-                  .replaceAll('ERR:', '');
-              if (cleanData != '.' && cleanData != '..' && cleanData != '...') {
-                _addLog(cleanData);
-                _parseLoadingStatus(cleanData);
-                _ingestLiveProgress(cleanData);
-              }
-            }
-          });
-
-      final launched = _process!;
-      launched.exitCode.then((code) {
-        _addLog('Process exited with code $code');
-        // Only the process we are still tracking may clear the state — a
-        // late-dying orphan from an overlapping start must not report the
-        // LIVE backend as stopped.
-        if (!identical(_process, launched)) {
-          notifyListeners();
-          return;
-        }
-        _isRunning = false;
-        _process = null;
-        // Exit 2 is KoboldCpp's "Cannot find text model file" path. The
-        // pre-flight above catches most causes, but KoboldCpp resolves the
-        // path through Python and can still reject a file we read fine, so
-        // translate the bare exit code rather than leaving the user guessing.
-        if (code == 2) {
-          _addLog(ModelFileCheck.explainExitCode2(modelPath));
-        }
-        notifyListeners();
-      });
-    } catch (e, stack) {
-      print('AG_DEBUG: === KOBOLDCPP START FAILED ===');
-      print('AG_DEBUG: Error: $e');
-      print('AG_DEBUG: Stack: $stack');
-      _addLog('Failed to start process: $e');
-      _isRunning = false;
-      notifyListeners();
-      rethrow;
-    } finally {
-      _isStarting = false;
     }
   }
 
@@ -428,7 +284,7 @@ class KoboldService extends ChangeNotifier
         _baseUrl,
         params,
         tools,
-        thinkingModelKey: _storageService.lastUsedModelPath,
+        thinkingModelKey: _storageService.backendSettings.lastUsedModelPath,
         foldSystemIntoUser: _systemRole.foldSystemIntoUser,
         toolChoice: params.toolChoice,
         registerClient: (client) {
@@ -480,7 +336,7 @@ class KoboldService extends ChangeNotifier
       yield* streamOpenAiChat(
         _baseUrl,
         params,
-        thinkingModelKey: _storageService.lastUsedModelPath,
+        thinkingModelKey: _storageService.backendSettings.lastUsedModelPath,
         foldSystemIntoUser: _systemRole.foldSystemIntoUser,
         registerClient: (client) {
           mine = client;
@@ -550,282 +406,32 @@ class KoboldService extends ChangeNotifier
     ensureServerIdle().catchError((_) {});
   }
 
-  // ── Readiness probe ───────────────────────────────────────────────────
-  // Instead of relying solely on log-string matching (which is fragile
-  // across KoboldCPP versions), poll /api/extra/version every 5 s.
-  // If 200 OK → model is ready.  Log-parsing is kept as a fast-path so
-  // the UI can update the moment the log line appears.
-
-  static final RegExp _readyPattern = RegExp(
-    r'(please connect|server listen|starting server|ready to)',
-    caseSensitive: false,
-  );
-  static final RegExp _loadModelPattern = RegExp(
-    r'loading (the )?model',
-    caseSensitive: false,
-  );
-  static final RegExp _loadFilePattern = RegExp(
-    r'loading (hf|gguf|safetensors|model file)',
-    caseSensitive: false,
-  );
-  static final RegExp _mappingPattern = RegExp(
-    r'(mapping model|ggml_backend|allocat)',
-    caseSensitive: false,
-  );
-  static final RegExp _warmupPattern = RegExp(
-    r'warm(ing)? up',
-    caseSensitive: false,
-  );
-
-  /// The ONE "the model is up" transition. Three call sites used to inline
-  /// the same five statements (the readiness poll, the log fast-path, and the
-  /// hot-restart reconnect), which is how the reconnect path quietly ended up
-  /// missing `_stopReadinessProbe()`. Folded into one so anything that must
-  /// happen on model-ready — like arming the system-role probe — happens on
-  /// EVERY path by construction.
-  void _markModelReady() {
-    _modelLoadingStatus = '';
-    _modelReady = true;
-    _modelJustLoaded = true;
-    _stopReadinessProbe();
-    // Resolve the probe key and arm the measurement in the idle window right
-    // after load — the only place it is cheap. See [KoboldSystemRole].
-    //
-    // BEFORE notifyListeners, not after: a listener woken by that call can
-    // reach straight back in and generate, and until this line runs the key
-    // still names the PREVIOUS model — so a notify-first ordering leaves a
-    // window where the workaround is decided from a stale verdict.
-    _armedProbe = _systemRole.arm(
-      baseUrl: _baseUrl,
-      backendName: backendName,
-      storage: _storageService,
-      runExclusive: _runSerialized,
-      log: _addLog,
-    );
-    notifyListeners();
-  }
-
-  /// The measurement armed by the last [_markModelReady]. Production never
-  /// waits on it (see [KoboldSystemRole.arm]); [debugMarkModelReady] does,
-  /// because the alternative for a test is guessing when the probe finished —
-  /// by sleeping, or by watching requests ARRIVE at a fake server. Arrival is
-  /// the wrong event: the verdict is written after the last RESPONSE is
-  /// parsed, so that guess is a race that passes alone and reddens CI at
-  /// `--concurrency=4`.
-  Future<void> _armedProbe = Future<void>.value();
-
-  /// Test hooks: the model-ready transition that only a real process would
-  /// otherwise drive — returning the measurement it armed — and the key it
-  /// resolved.
-  @visibleForTesting
-  Future<void> debugMarkModelReady() {
-    _markModelReady();
-    return _armedProbe;
-  }
-
-  @visibleForTesting
-  String get systemRoleIdentity => _systemRole.identity;
-
-  void _startReadinessProbe() {
-    _stopReadinessProbe(); // Cancel any prior timer.
-    _readinessProbe = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _probeVersion(),
-    );
-  }
-
-  void _stopReadinessProbe() {
-    _readinessProbe?.cancel();
-    _readinessProbe = null;
-  }
-
-  Future<void> _probeVersion() async {
-    if (_modelReady) {
-      _stopReadinessProbe();
-      return;
-    }
-    final client = http.Client();
-    try {
-      final uri = Uri.parse('$_baseUrl/api/extra/version');
-      final response = await client
-          .get(uri)
-          .timeout(const Duration(seconds: 3));
-      if (response.statusCode == 200) {
-        debugPrint('[KoboldService] Readiness probe: 200 OK — model ready.');
-        _markModelReady();
-        await _syncVersionFromResponse(response);
-      }
-    } catch (_) {
-      // Not ready yet — silently retry on the next tick.
-    } finally {
-      client.close();
-    }
-  }
-
-  /// Parse KoboldCPP process output to determine model loading status.
-  /// Kept as a secondary fast-path alongside the periodic readiness probe.
-  void _parseLoadingStatus(String data) {
-    // Model is ready when server starts listening (fast-path).
-    if (_readyPattern.hasMatch(data)) {
-      _markModelReady();
-      return;
-    }
-
-    // Track loading phases from KoboldCPP output — but only before the model
-    // has finished loading. After _modelReady is true, ignore these patterns
-    // (KoboldCPP can output "warm up" during normal operation, e.g. large prefills).
-    if (!_modelReady) {
-      if (_loadModelPattern.hasMatch(data)) {
-        _modelLoadingStatus = 'Loading model into device memory...';
-        notifyListeners();
-      } else if (_loadFilePattern.hasMatch(data)) {
-        _modelLoadingStatus = 'Loading model file...';
-        notifyListeners();
-      } else if (_mappingPattern.hasMatch(data)) {
-        _modelLoadingStatus = 'Mapping model to memory...';
-        notifyListeners();
-      } else if (_warmupPattern.hasMatch(data)) {
-        _modelLoadingStatus = 'Warming up model...';
-        notifyListeners();
-      }
-    }
-  }
-
-  Future<void> _syncVersionFromResponse(http.Response response) async {
-    if (_executablePath == null) return;
-    try {
-      final v = jsonDecode(response.body)['version'] as String?;
-      if (v != null && v.isNotEmpty) {
-        await KoboldBinaryVersion.write(
-          path.dirname(_executablePath!),
-          version: v,
-          size: File(_executablePath!).lengthSync(),
-        );
-      }
-    } catch (_) {}
-  }
-
-  /// Regex matching KoboldCPP per-token / per-batch progress messages.
-  /// These are purely informational counters that fire for every token and
-  /// would otherwise flood the log with thousands of identical-looking lines.
-  static final RegExp _progressLinePattern = RegExp(
-    r'^(Generating \(|Processing Prompt(?: \[BATCH\])? \()',
-    caseSensitive: false,
+  // Class members so `import … show KoboldService` still resolves them.
+  Future<void> startKobold(
+    String executablePath,
+    String modelPath, {
+    String? kcppsPath,
+    String? mmprojPath,
+    int port = 5001,
+    int gpuLayers = 0,
+    int contextSize = 4096,
+    bool useVulkan = false,
+    bool useCublas = false,
+    bool useMetal = false,
+    bool useRocm = false,
+  }) => _startKobold(
+    executablePath,
+    modelPath,
+    kcppsPath: kcppsPath,
+    mmprojPath: mmprojPath,
+    port: port,
+    gpuLayers: gpuLayers,
+    contextSize: contextSize,
+    useVulkan: useVulkan,
+    useCublas: useCublas,
+    useMetal: useMetal,
+    useRocm: useRocm,
   );
 
-  void _addLog(String data) {
-    if (data.trim().isEmpty) return;
-
-    // KoboldCPP uses bare \r (carriage return) to overwrite the current
-    // terminal line.  Split on any combination of \r\n, \r, or \n so each
-    // logical line is processed individually.
-    final rawLines = data.split(RegExp(r'\r\n|\r|\n'));
-    bool changed = false;
-
-    for (final rawLine in rawLines) {
-      final line = rawLine.trim();
-      if (line.isEmpty) continue;
-
-      final isProgress = _progressLinePattern.hasMatch(line);
-
-      if (isProgress && _logs.isNotEmpty) {
-        final lastEntry = _logs.last;
-        // If the last stored log entry is also a progress line, overwrite it
-        // in-place rather than appending a new entry.  This keeps the list
-        // at O(1) growth during a long generation instead of O(n).
-        if (_progressLinePattern.hasMatch(lastEntry)) {
-          _logs.last = line;
-          changed = true;
-          // Do NOT write progress lines to the file — they are noise.
-          continue;
-        }
-      }
-
-      _logs.add(line);
-      if (!isProgress) _writeToLogFile(line + '\n');
-      if (_logs.length > 1000) _logs.removeAt(0);
-      changed = true;
-    }
-
-    if (changed) notifyListeners();
-  }
-
-  bool get isProcessAlive => _process != null && _isRunning;
-
-  /// Poll KoboldCPP's /api/extra/perf endpoint for real-time performance data.
-  /// Returns a map with fields like last_process_speed, last_eval_speed,
-  /// last_input_count, idle (0=busy, 1=idle), queue, etc.
-  /// Returns null if the endpoint is unreachable or the response is invalid.
-  Future<Map<String, dynamic>?> fetchPerf() async {
-    final client = http.Client();
-    try {
-      final uri = Uri.parse('$_baseUrl/api/extra/perf');
-      final response = await client
-          .get(uri)
-          .timeout(const Duration(seconds: 2));
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-    } catch (_) {
-      // Connection refused / timeout — server unreachable
-    } finally {
-      client.close();
-    }
-    return null;
-  }
-
-  /// Count tokens using the loaded model's actual tokenizer.
-  /// Falls back to chars/4 estimate if the endpoint is unavailable.
-  Future<int> countTokens(String text) async {
-    if (text.isEmpty) return 0;
-    try {
-      final uri = Uri.parse('$_baseUrl/api/extra/tokencount');
-      final client = http.Client();
-      try {
-        final response = await client
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'prompt': text}),
-            )
-            .timeout(const Duration(seconds: 5));
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          return (data['value'] as num?)?.toInt() ?? (text.length / 4).ceil();
-        }
-      } finally {
-        client.close();
-      }
-    } catch (_) {
-      // Endpoint unavailable — fall back to estimate
-    }
-    return (text.length / 4).ceil();
-  }
-
-  Future<void> stopKobold() async {
-    // Before anything else, and regardless of whether we own the process — a
-    // hot-restart reconnect marks the model ready with `_process == null`,
-    // and that verdict must not outlive the stop either. This also CANCELS a
-    // measurement still on the wire: it is about to be a measurement of a
-    // server that no longer exists, and it is holding this class's single
-    // request slot while it waits. See [KoboldSystemRole.forget].
-    _systemRole.forget();
-    // Captured, because the exitCode listener installed by [startKobold] nulls
-    // `_process` the moment the process dies — which can happen part-way
-    // through the kill ladder below.
-    final process = _process;
-    if (process == null) return;
-    _addLog('Stopping Backend (PID: ${process.pid})...');
-    await terminateKoboldTree(
-      process,
-      executablePath: _executablePath,
-      log: _addLog,
-    );
-    _process = null;
-    _isRunning = false;
-    _modelLoadingStatus = '';
-    _modelReady = false;
-    _stopReadinessProbe();
-    notifyListeners();
-  }
+  Future<void> stopKobold() => _stopKobold();
 }

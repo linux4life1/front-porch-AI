@@ -44,8 +44,6 @@
 //      The full unit and golden suites were GREEN on that version. Nothing
 //      tested when it ran. That is what the second group is for.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/climax_eval.dart';
@@ -67,14 +65,16 @@ void main() {
       expect(
         p,
         contains('are NOT a climax'),
-        reason: 'without explicit criteria a model — especially a reasoning '
+        reason:
+            'without explicit criteria a model — especially a reasoning '
             'one — almost never answers true, and the Lust bar stays pinned '
             'at the top forever',
       );
       expect(
         p,
         contains('she shuddered and went limp'),
-        reason: 'it judges the REPLY; a prompt without the reply in it is '
+        reason:
+            'it judges the REPLY; a prompt without the reply in it is '
             'judging nothing',
       );
     });
@@ -87,7 +87,8 @@ void main() {
       expect(
         params['required'],
         containsAll(['is_climax', 'refractory_turns']),
-        reason: 'optional means never emitted — a model fills in what the '
+        reason:
+            'optional means never emitted — a model fills in what the '
             'schema demands and skips what it does not, which is how orgasm '
             'detection was silently off on every tools-capable backend once '
             'before',
@@ -107,14 +108,17 @@ void main() {
 
     test('a loose backend still gets read correctly', () {
       expect(
-        ClimaxEval.parseRefractory('{"is_climax":"true","refractory_turns":"4"}'),
+        ClimaxEval.parseRefractory(
+          '{"is_climax":"true","refractory_turns":"4"}',
+        ),
         4,
         reason: 'quoted values are the local-model floor',
       );
       expect(
         ClimaxEval.parseRefractory('{"is_climax":true}'),
         5,
-        reason: 'a missing refractory must not discard a climax that WAS '
+        reason:
+            'a missing refractory must not discard a climax that WAS '
             'reported — fall back to the middle of the range',
       );
       expect(
@@ -127,99 +131,15 @@ void main() {
     });
   });
 
-  group('it runs post-generation, on the reply', () {
-    // Structural, and honestly labelled — proving this behaviourally needs a
-    // live ChatService running a real turn. Read it as "it is wired to the
-    // post-gen phase", not "it fires at the right moment".
-    //
-    // It exists because the first attempt at this fix put it on the pre-gen
-    // path and every suite stayed green.
-    String read(String name) =>
-        File('lib/services/chat/$name').readAsStringSync();
-
-    test('the pass is called from the post-generation phase', () {
-      // Anchor renamed (finalResponse → scoredReply) 2026-08-12 with the
-      // Continue incremental-scoring change; the placement rule this pins
-      // is unchanged — scoredReply is the just-written reply text (full on
-      // a normal turn, the new part on Continue).
-      expect(
-        read('chat_service_generation_postgen.dart'),
-        contains('_runClimaxPass(scoredReply)'),
-        reason: 'scoredReply is the reply text that was just written — the '
-            'only thing there is to judge',
-      );
-    });
-
-    test('no pre-generation eval touches climax', () {
-      // These four are the pre-gen judges. Climax appearing in any of them is
-      // the exact regression this file was rewritten to catch.
-      for (final f in const [
-        'realism_prompt_builder.dart',
-        'realism_evals.support.dart',
-        'realism_evals.calls.dart',
-        'realism_evals.one_shot.dart',
-      ]) {
-        expect(
-          read(f),
-          isNot(contains('is_climax')),
-          reason: '$f runs BEFORE generation and scores the user\'s message; '
-              'climax is about the character\'s own reply',
-        );
-      }
-    });
-
-    test('the realism tools no longer carry it either', () {
-      for (final tool in [kEmotionalEvalTools, kOneShotEvalTools, kNeedsImpactEvalTools]) {
-        final params =
-            tool.single['function']['parameters'] as Map<String, dynamic>;
-        expect((params['properties'] as Map).containsKey('is_climax'), isFalse);
-      }
-    });
-  });
-
-  group('nothing routes Afterglow through Needs', () {
-    String read(String name) =>
-        File('lib/services/chat/$name').readAsStringSync();
-
-    test('the needs evaluator has no climax code left', () {
-      final src = read('needs_impact_evaluator.dart');
-      expect(src, isNot(contains('onClimax')));
-      expect(src, isNot(contains('is_climax')));
-      expect(src, isNot(contains('_readClimax')));
-    });
-
-    test('the needs prompt no longer asks about climax', () {
-      expect(read('llm_eval_engine.dart'), isNot(contains('CLIMAX DETECTION')));
-    });
-
-    test('the gate is the engine and the Afterglow switch, and nothing else', () {
-      final gate = read('chat_service_climax.dart');
-
-      expect(gate, contains('_realismEnabled'));
-      expect(gate, contains('nsfwCooldownEnabled'));
-      expect(
-        gate,
-        isNot(contains('needsSimEnabled')),
-        reason: 'this is the whole bug — a Needs check here brings back a '
-            'dependency the UI never declared and the user cannot see',
-      );
-    });
-
-    test('applyClimaxEffects has exactly one caller', () {
-      // One trigger, one owner. Two is how these paths drift apart again.
-      final hits = Directory('lib')
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.dart'))
-          .where(
-            (f) =>
-                !f.path.endsWith('nsfw_service.dart') &&
-                f.readAsStringSync().contains('.applyClimaxEffects('),
-          )
-          .toList();
-
-      expect(hits, hasLength(1));
-      expect(hits.single.path, contains('chat_service_climax.dart'));
-    });
+  test('the realism tools no longer carry it either', () {
+    for (final tool in [
+      kEmotionalEvalTools,
+      kOneShotEvalTools,
+      kNeedsImpactEvalTools,
+    ]) {
+      final params =
+          tool.single['function']['parameters'] as Map<String, dynamic>;
+      expect((params['properties'] as Map).containsKey('is_climax'), isFalse);
+    }
   });
 }

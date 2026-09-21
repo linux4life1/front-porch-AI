@@ -137,12 +137,14 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
               const SizedBox(height: 4),
               if (callModels.isNotEmpty)
                 DropdownButtonFormField<String>(
-                  initialValue: storageService.callModelName.isEmpty
+                  initialValue: storageService.sttSettings.callModelName.isEmpty
                       ? ''
                       : (callModels.any(
-                              (m) => m['id'] == storageService.callModelName,
+                              (m) =>
+                                  m['id'] ==
+                                  storageService.sttSettings.callModelName,
                             )
-                            ? storageService.callModelName
+                            ? storageService.sttSettings.callModelName
                             : ''),
                   isExpanded: true,
                   decoration: InputDecoration(
@@ -198,13 +200,13 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
                   ],
                   onChanged: (val) {
                     if (val != null) {
-                      storageService.setCallModelName(val);
+                      storageService.sttSettings.setCallModelName(val);
                     }
                   },
                 )
               else
                 TextFormField(
-                  initialValue: storageService.callModelName,
+                  initialValue: storageService.sttSettings.callModelName,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColors.surfaceContainerOf(context),
@@ -223,7 +225,7 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
                   ),
                   style: const TextStyle(fontSize: 13),
                   onChanged: (val) =>
-                      storageService.setCallModelName(val.trim()),
+                      storageService.sttSettings.setCallModelName(val.trim()),
                 ),
               const SizedBox(height: 4),
               Text(
@@ -257,7 +259,8 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
                   children: recommended.map((m) {
                     final name = m['name']!;
                     final id = m['id']!;
-                    final isSelected = storageService.callModelName == id;
+                    final isSelected =
+                        storageService.sttSettings.callModelName == id;
                     return ActionChip(
                       // theme-keep: download-ready status green (reused here
                       // as the "currently selected recommendation" highlight)
@@ -282,7 +285,8 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
                                 context,
                               ).withValues(alpha: 0.3),
                       ),
-                      onPressed: () => storageService.setCallModelName(id),
+                      onPressed: () =>
+                          storageService.sttSettings.setCallModelName(id),
                     );
                   }).toList(),
                 ),
@@ -307,7 +311,7 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
                 ),
               ),
               Text(
-                '${(dragCallBuffer ?? storageService.callBufferSentences.toDouble()).round()} sentences',
+                '${(dragCallBuffer ?? storageService.sttSettings.callBufferSentences.toDouble()).round()} sentences',
                 style: TextStyle(
                   fontSize: 12,
                   color: AppColors.textSecondary(context),
@@ -317,7 +321,8 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
           ),
           Slider(
             value:
-                dragCallBuffer ?? storageService.callBufferSentences.toDouble(),
+                dragCallBuffer ??
+                storageService.sttSettings.callBufferSentences.toDouble(),
             min: 1,
             max: 10,
             divisions: 9,
@@ -325,7 +330,7 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
             onChanged: (val) => onDragCallBufferChanged(val),
             onChangeEnd: (val) {
               onDragCallBufferChanged(null);
-              storageService.setCallBufferSentences(val.round());
+              storageService.sttSettings.setCallBufferSentences(val.round());
             },
           ),
           Text(
@@ -355,7 +360,7 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
               ),
               TextButton.icon(
                 onPressed: () {
-                  storageService.setCallSystemPrompt(
+                  storageService.sttSettings.setCallSystemPrompt(
                     'You are on a live voice call. Respond naturally as if speaking on the phone. '
                     'ALWAYS write in first person \u2014 never narrate in third person. '
                     'Keep responses concise: 1-3 sentences max. '
@@ -374,8 +379,8 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
           ),
           const SizedBox(height: 4),
           CallSystemPromptField(
-            value: storageService.callSystemPrompt,
-            onChanged: storageService.setCallSystemPrompt,
+            value: storageService.sttSettings.callSystemPrompt,
+            onChanged: storageService.sttSettings.setCallSystemPrompt,
           ),
           const SizedBox(height: 4),
           Text(
@@ -406,8 +411,9 @@ extension _VoiceMediaCallSection on VoiceMediaTab {
             ],
           ),
           Switch(
-            value: storageService.autoSendTranscription,
-            onChanged: (val) => storageService.setAutoSendTranscription(val),
+            value: storageService.sttSettings.autoSendTranscription,
+            onChanged: (val) =>
+                storageService.sttSettings.setAutoSendTranscription(val),
           ),
         ],
       ),

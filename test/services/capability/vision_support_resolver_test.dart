@@ -108,7 +108,7 @@ void main() {
         'mmproj': mmproj.path,
       });
       final storage = await createStorageService();
-      await storage.setActiveKcppsPath(kcpps.path);
+      await storage.backendSettings.setActiveKcppsPath(kcpps.path);
 
       final support = await VisionSupportResolver.instance.resolveForActiveLlm(
         backend: BackendType.kobold,
@@ -125,7 +125,7 @@ void main() {
       );
       final kcpps = writeKcpps({'model_param': model.path});
       final storage = await createStorageService();
-      await storage.setActiveKcppsPath(kcpps.path);
+      await storage.backendSettings.setActiveKcppsPath(kcpps.path);
 
       final support = await VisionSupportResolver.instance.resolveForActiveLlm(
         backend: BackendType.kobold,
@@ -145,7 +145,7 @@ void main() {
       );
       final kcpps = writeKcpps({'model': model.path});
       final storage = await createStorageService();
-      await storage.setActiveKcppsPath(kcpps.path);
+      await storage.backendSettings.setActiveKcppsPath(kcpps.path);
 
       final support = await VisionSupportResolver.instance.resolveForActiveLlm(
         backend: BackendType.kobold,
@@ -168,8 +168,8 @@ void main() {
         'model_param': '${dir.path}/deleted-model.gguf',
       });
       final storage = await createStorageService();
-      await storage.setActiveKcppsPath(kcpps.path);
-      await storage.setLastUsedModelPath(pickerModel.path);
+      await storage.backendSettings.setActiveKcppsPath(kcpps.path);
+      await storage.backendSettings.setLastUsedModelPath(pickerModel.path);
 
       final support = await VisionSupportResolver.instance.resolveForActiveLlm(
         backend: BackendType.kobold,
@@ -199,8 +199,8 @@ void main() {
         Uint8List.fromList([1, 2, 3]),
       );
       final storage = await createStorageService();
-      await storage.setLastUsedModelPath(model.path);
-      await storage.setModelMmproj(model.path, mmproj.path);
+      await storage.backendSettings.setLastUsedModelPath(model.path);
+      await storage.presetSettings.setModelMmproj(model.path, mmproj.path);
 
       final support = await VisionSupportResolver.instance.resolveForActiveLlm(
         backend: BackendType.kobold,
@@ -221,8 +221,8 @@ void main() {
       );
       final mmproj = writeGguf('qwen3-mmproj.gguf', Uint8List.fromList([1, 2]));
       final storage = await createStorageService();
-      await storage.setLastUsedModelPath(model.path);
-      await storage.setModelMmproj(model.path, mmproj.path);
+      await storage.backendSettings.setLastUsedModelPath(model.path);
+      await storage.presetSettings.setModelMmproj(model.path, mmproj.path);
 
       final support = await VisionSupportResolver.instance.resolveForActiveLlm(
         backend: BackendType.kobold,

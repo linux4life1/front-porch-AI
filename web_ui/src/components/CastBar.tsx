@@ -45,6 +45,7 @@ export function CastBar({
   // A lone host is the classic 1:1 — no roster chrome needed.
   const soloHost = cast.length <= 1;
   const hasLiteGuest = cast.some((c) => c.isLite);
+  const isOneToOne = cast.some((c) => c.isHost);
 
   return (
     <div className="cast-bar">
@@ -64,6 +65,16 @@ export function CastBar({
             {!c.isHost && (
               <span className="cast-actions">
                 <button className="icon-btn" title="Speak now" disabled={busy} onClick={() => onCommand(`/speak ${c.name}`)}>🗣</button>
+                {c.isLite && (
+                  <button
+                    className="ghost small"
+                    disabled={busy}
+                    onClick={() => onCommand(`/promote ${c.name}`)}
+                    title="Make this guest a full member"
+                  >
+                    Promote
+                  </button>
+                )}
                 <button className="icon-btn" title="Remove from scene" disabled={busy} onClick={() => onCommand(`/exit ${c.name}`)}>✕</button>
               </span>
             )}
@@ -73,8 +84,8 @@ export function CastBar({
       </div>
 
       <div className="cast-controls">
-        {hasLiteGuest && (
-          <button className="ghost small" disabled={busy} onClick={() => onCommand('/promote')} title="Make everyone a full group member">
+        {hasLiteGuest && isOneToOne && (
+          <button className="ghost small" disabled={busy} onClick={() => onCommand('/promote')} title="Turn this scene into a group (guests stay lite until you promote them)">
             Promote to group
           </button>
         )}

@@ -76,7 +76,16 @@ class WebWorldRoutes {
     }
     final raw = body['worldIds'];
     final ids = raw is List ? [for (final e in raw) e.toString()] : <String>[];
-    final result = await _facade.setChatPlaces(ids);
+    final primaryRaw = body['primaryId']?.toString();
+    final loreRaw = body['loreIds'];
+    final loreIds = loreRaw is List
+        ? [for (final e in loreRaw) e.toString()]
+        : null;
+    final result = await _facade.setChatPlaces(
+      ids,
+      primaryId: primaryRaw,
+      loreIds: loreIds,
+    );
     if (result['ok'] != true) {
       return JsonResponse.badRequest(
         result['error']?.toString() ?? 'Could not update places',

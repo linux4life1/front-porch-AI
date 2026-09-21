@@ -764,7 +764,7 @@ No new metrics backend. No alerting.
 - **Override off-by-default.** SAMF (and anyone whose model still hates tools after this) flips **Native tool calling** off in Porch Life. Not a feature flag in the Launch-darkly sense; a user setting.
 - **No staged backend deploy.** All engines in-process; no sidecar; no Stoop API change.
 - **Rollback.** Reverting the PR restores `'auto'` + per-judge lists + 4000. The new pref key is ignored if the build is rolled back; a later build reading a leftover `prefer_text_evals=true` is safe (defaults false when missing).
-- **Nightly copy.** One `docs/Rawhide.md` bullet when the first user-visible PR (override + faster tools) lands. Internal `.claude/changelog.md` on every PR.
+- **Nightly copy.** One `docs/Rawhide.md` bullet when the first user-visible PR (override + faster tools) lands. Do not append agent session notes to `.claude/changelog.md`.
 
 ---
 
@@ -926,8 +926,7 @@ Do not edit goldens. Do not edit `test/deps/dependency_floors.json`.
 
 - `docs/Rawhide.md` — user-facing bullet (tools evals no longer slower than JSON; Porch Life switch to prefer JSON).
 - `docs/realism-engine.md` "Speed, Cost, and Tuning" — stop implying tools are only a reliability trade; say the local three-judge path sends an identical `tools` array so jinja prefix-cache can hit, and on those families wall-clock should match JSON. Do not promise it for every chat template.
-- `.claude/changelog.md` — per PR.
-- CLAUDE.md tools/GBNF paragraph — one sentence that the tools path must send a **shared** judge tools list; do not let the next agent "simplify" it back to per-eval lists.
+- CLAUDE.md eval-transport section — the tools path must send a **shared** judge tools list; do not “simplify” it back to per-eval lists.
 
 ---
 

@@ -43,42 +43,19 @@ void _mockAudioChannels() {
 }
 
 class _VoiceProbeStorage extends FakeStorageService {
-  _VoiceProbeStorage({this.engine = 'piper'});
+  _VoiceProbeStorage({this.engine = 'piper'}) {
+    ttsSettings.setTtsEnabled(true);
+    ttsSettings.setTtsEngine(engine);
+    ttsSettings.setTtsVoiceModel('rachel');
+    ttsSettings.setTtsReplaceCurlyQuotes(true);
+    ttsSettings.setTtsConcurrency(2);
+    ttsSettings.setTtsAudioLookahead(4);
+    ttsSettings.setElevenlabsApiKey('test-key');
+    ttsSettings.setElevenlabsModel('eleven_turbo_v2');
+    sttSettings.setCallBufferSentences(2);
+  }
 
   final String engine;
-
-  @override
-  bool get ttsEnabled => true;
-  @override
-  String get ttsEngine => engine;
-  @override
-  String get ttsVoiceModel => 'rachel';
-  @override
-  double get ttsSpeechRate => 1.0;
-  @override
-  bool get ttsNarrateQuotedOnly => false;
-  @override
-  bool get ttsIgnoreAsterisks => false;
-  @override
-  bool get ttsReplaceCurlyQuotes => true;
-  @override
-  int get ttsConcurrency => 2;
-  @override
-  int get ttsAudioLookahead => 4;
-  @override
-  int get callBufferSentences => 2;
-
-  // ElevenLabs knobs activeEngine reads unconditionally for that engine.
-  @override
-  String get elevenlabsApiKey => 'test-key';
-  @override
-  String get elevenlabsModel => 'eleven_turbo_v2';
-  @override
-  double get elevenlabsStability => 0.5;
-  @override
-  double get elevenlabsSimilarity => 0.75;
-  @override
-  double get elevenlabsStyle => 0.0;
 }
 
 void main() {
@@ -120,8 +97,7 @@ void main() {
   });
 
   group('speakStreaming survives an engine that throws mid-call', () {
-    test('an ElevenLabs 429 ends the call cleanly instead of hanging',
-        () async {
+    test('an ElevenLabs 429 ends the call cleanly instead of hanging', () async {
       final tts = makeTts(_VoiceProbeStorage(engine: 'elevenlabs'));
       var requests = 0;
 

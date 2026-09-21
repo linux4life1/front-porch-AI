@@ -101,9 +101,9 @@ extension ChatServiceGuestFlow on ChatService {
   /// name-resolution and the picker dialog's list.
   List<CharacterCard> get joinableGuestCharacters {
     final repo = _characterRepository;
-    if (repo == null || _activeCharacter == null || _activeGroup != null) {
-      return const [];
-    }
+    if (repo == null) return const [];
+    if (_activeGroup != null) return joinableGroupCharacters;
+    if (_activeCharacter == null) return const [];
     final hostId = _activeCharacter!.dbId;
     final present = _sceneGuest.ids.toSet();
     return repo.characters.where((c) {
@@ -132,8 +132,10 @@ extension ChatServiceGuestFlow on ChatService {
 
   /// Bring an existing library [card] into the scene as a Scene Guest (the
   /// picker's selection handler; same parity-safe enter path as `/create`).
-  Future<void> joinSceneGuest(CharacterCard card) =>
-      _addGuestWithStatus(displayName: card.name, existing: card);
+  Future<void> joinSceneGuest(CharacterCard card) {
+    dismissGuestPicker();
+    return _addGuestWithStatus(displayName: card.name, existing: card);
+  }
 
   /// Bring an existing library [card] in as a FULL participant (realism-bearing).
   ///
@@ -143,6 +145,7 @@ extension ChatServiceGuestFlow on ChatService {
   /// the separate Fork-to-Group wizard — same underlying machinery, no screen
   /// switch. Requires the group repository (wired from main.dart).
   Future<void> joinFull(CharacterCard card) async {
+    dismissGuestPicker();
     final repo = _groupChatRepository;
     if (repo == null) {
       _setGuestStatus(
@@ -158,7 +161,20 @@ extension ChatServiceGuestFlow on ChatService {
       );
       return;
     }
+    if (_activeGroup == null && _messages.isEmpty) {
+      _setGuestStatus(
+        '⚠ Wait for the greeting, or send a line first — '
+        'there is no scene to convert yet.',
+        isError: true,
+      );
+      return;
+    }
     if (_activeGroup != null) {
+      final presentSoft = _presentSoftMatching(card);
+      if (presentSoft != null) {
+        await promoteGuestToFull(presentSoft);
+        return;
+      }
       final ok = await addCharacterToGroup(card, repo);
       if (!ok) {
         // addCharacterToGroup already surfaced a specific reason (e.g. the D5
@@ -178,12 +194,9 @@ extension ChatServiceGuestFlow on ChatService {
       return;
     }
 
-    // 1:1 → group conversion. Bring EVERYONE currently in the scene along: the
-    // host (added by forkToGroupChat) plus every present lite guest — lite NPCs
-    // can't exist in a group, so they're promoted to full members rather than
-    // dropped. A character who is already a present guest just gets promoted
-    // (no fresh entrance); a brand-new arrival makes an organic, LLM-written
-    // entrance from the chat so far + their card (mirroring the lite /join flow).
+    // 1:1 → group. Present scene guests become SOFT members (tier lite),
+    // not silent full and not dropped. The named --full arrival is full;
+    // a present guest targeted by --full is the one promoted.
     final present = List<CharacterCard>.from(_sceneGuest.cards);
     final cardId = _getCharacterIdFromCard(card);
     final isPresentGuest = present.any(
@@ -191,6 +204,15 @@ extension ChatServiceGuestFlow on ChatService {
     );
 
     final additional = <CharacterCard>[if (!isPresentGuest) card, ...present];
+    final liteKeys = {
+      for (final g in present)
+        if (_getCharacterIdFromCard(g) != cardId) _getCharacterIdFromCard(g),
+      for (final g in present)
+        if (g.dbId != null &&
+            g.dbId != card.dbId &&
+            _getCharacterIdFromCard(g) != cardId)
+          g.dbId!,
+    };
     final entrances = isPresentGuest
         ? const <String, ({String text, bool creative})>{}
         : {
@@ -200,13 +222,17 @@ extension ChatServiceGuestFlow on ChatService {
             ),
           };
 
-    await _convertOneToOneToGroup(additional, entrances, repo);
+    await _convertOneToOneToGroup(
+      additional,
+      entrances,
+      repo,
+      liteArrivalKeys: liteKeys,
+    );
   }
 
-  /// Promote the entire present scene — the host plus every present lite guest —
-  /// into a full group, with no new arrival. This is the bare `/join --full`
-  /// (and any "make this a group" affordance): it turns a 1:1 that has picked up
-  /// lite NPCs into a real group where everyone is a full, realism-bearing member.
+  /// Bare `/promote` / "make this a group": convert the 1:1 in place. Present
+  /// guests become **soft** members (tier kept). Named `/promote` and
+  /// `/join --full <present guest>` promote one person to full.
   Future<void> promoteSceneToFull() async {
     final repo = _groupChatRepository;
     if (repo == null) {
@@ -232,32 +258,48 @@ extension ChatServiceGuestFlow on ChatService {
       );
       return;
     }
-    // No fresh entrance: everyone is already in the scene, they just become full.
+    final liteKeys = {
+      for (final g in present) _getCharacterIdFromCard(g),
+      ..._sceneGuest.ids,
+    };
     await _convertOneToOneToGroup(
       present,
       const <String, ({String text, bool creative})>{},
       repo,
+      liteArrivalKeys: liteKeys,
     );
   }
 
-  /// Shared 1:1→group conversion core used by [joinFull] and
-  /// [promoteSceneToFull]. Drops present guests' lite state (they become full
-  /// members) and forks the current chat into a group with [additional] members
-  /// and any creative [entrances], surfacing a failure banner if it can't.
+  /// Shared 1:1→group conversion. Present guests listed in [liteArrivalKeys]
+  /// land as soft members; everyone else is full. Clears the 1:1 guest list
+  /// so they are not represented twice after the switch.
   Future<void> _convertOneToOneToGroup(
     List<CharacterCard> additional,
     Map<String, ({String text, bool creative})> entrances,
-    GroupChatRepository repo,
-  ) async {
-    // The present guests are becoming full members — drop their lite state so
-    // they aren't represented twice once we switch into group mode.
+    GroupChatRepository repo, {
+    Set<String> liteArrivalKeys = const {},
+  }) async {
     _sceneGuest.ids.clear();
 
-    final group = await forkToGroupChat(additional, repo, entrances: entrances);
+    final group = await forkToGroupChat(
+      additional,
+      repo,
+      entrances: entrances,
+      liteArrivalKeys: liteArrivalKeys,
+    );
     if (group == null) {
       _setGuestStatus(
         '⚠ Could not convert this chat into a group.',
         isError: true,
+      );
+      return;
+    }
+    // After setActiveGroup cleared the 1:1 banner: say so GUEST badges
+    // are the new model, not a failed Promote.
+    if (liteArrivalKeys.isNotEmpty) {
+      _setGuestStatus(
+        'This is a group now. Guests stay Guest until you Promote them '
+        '(/promote Name or the roster button).',
       );
     }
   }
@@ -344,7 +386,7 @@ extension ChatServiceGuestFlow on ChatService {
       concept: concept,
       sceneGrounding: _buildGuestGrounding(name),
       llm: testLlmServiceOverride ?? _llmProvider?.activeService,
-      host: _activeCharacter,
+      host: _mintHost,
       onStatus: onStatus,
     );
   }
@@ -362,7 +404,7 @@ extension ChatServiceGuestFlow on ChatService {
     // build the guest FROM the host's portrayal (the "guest IS the host" bug).
     // Skip grounding in that case and let concept-only generation handle it.
     final firstLc = first.toLowerCase();
-    final hostFirst = (_activeCharacter?.name ?? '')
+    final hostFirst = (_mintHost?.name ?? '')
         .trim()
         .split(RegExp(r'\s+'))
         .first

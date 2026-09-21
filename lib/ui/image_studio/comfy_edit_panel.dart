@@ -76,7 +76,7 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
   /// Probe the selected preset's required nodes + fetch its model-slot options.
   Future<void> _refresh() async {
     final st = context.read<StorageService>();
-    final preset = comfyEditPresetById(st.comfyEditWorkflowId);
+    final preset = comfyEditPresetById(st.imageGenSettings.comfyEditWorkflowId);
     setState(() => _loading = true);
     final comfy = _service();
     try {
@@ -106,8 +106,8 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
   }
 
   bool _computeReady(StorageService st) {
-    if (st.comfyEditWorkflowId == kComfyUploadedWorkflowId) {
-      final raw = st.comfyEditUploadedWorkflow;
+    if (st.imageGenSettings.comfyEditWorkflowId == kComfyUploadedWorkflowId) {
+      final raw = st.imageGenSettings.comfyEditUploadedWorkflow;
       if (raw.trim().isEmpty) return false;
       try {
         final g = jsonDecode(raw);
@@ -118,11 +118,13 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
         return false;
       }
     }
-    final preset = comfyEditPresetById(st.comfyEditWorkflowId);
+    final preset = comfyEditPresetById(st.imageGenSettings.comfyEditWorkflowId);
     if (preset == null) return false;
     if (_missingNodes == null || _missingNodes!.isNotEmpty) return false;
     for (final slot in preset.modelSlots) {
-      if ((st.comfyEditModelChoice(preset.id, slot.token) ?? '').isEmpty) {
+      if ((st.imageGenSettings.comfyEditModelChoice(preset.id, slot.token) ??
+              '')
+          .isEmpty) {
         return false;
       }
     }
@@ -151,17 +153,21 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
       final text = utf8.decode(bytes);
       final decoded = jsonDecode(text);
       if (decoded is! Map) {
-        setState(() => _uploadError = 'That file isn’t a ComfyUI graph object.');
+        setState(
+          () => _uploadError = 'That file isn’t a ComfyUI graph object.',
+        );
         return;
       }
       final tokens = detectComfyTokens(decoded.cast<String, dynamic>());
       if (!ComfyEditTokens.required.every(tokens.contains)) {
-        setState(() => _uploadError =
-            'Add the %IMAGE% and %PROMPT% placeholders where the photo and '
-            'instruction go, then re-upload.');
+        setState(
+          () => _uploadError =
+              'Add the %IMAGE% and %PROMPT% placeholders where the photo and '
+              'instruction go, then re-upload.',
+        );
         return;
       }
-      await st.setComfyEditUploadedWorkflow(text);
+      await st.imageGenSettings.setComfyEditUploadedWorkflow(text);
       if (mounted) setState(() => _uploadError = '');
     } catch (_) {
       setState(() => _uploadError = 'That file isn’t valid JSON.');
@@ -173,8 +179,11 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
     return Consumer<StorageService>(
       builder: (context, st, _) {
         _report(_computeReady(st));
-        final isUpload = st.comfyEditWorkflowId == kComfyUploadedWorkflowId;
-        final preset = comfyEditPresetById(st.comfyEditWorkflowId);
+        final isUpload =
+            st.imageGenSettings.comfyEditWorkflowId == kComfyUploadedWorkflowId;
+        final preset = comfyEditPresetById(
+          st.imageGenSettings.comfyEditWorkflowId,
+        );
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -211,7 +220,7 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
 
   Widget _workflowDropdown(BuildContext context, StorageService st) {
     return DropdownButtonFormField<String>(
-      initialValue: st.comfyEditWorkflowId,
+      initialValue: st.imageGenSettings.comfyEditWorkflowId,
       isExpanded: true,
       dropdownColor: AppColors.surfaceContainerOf(context),
       decoration: _deco(context),
@@ -228,7 +237,7 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
           ? null
           : (v) async {
               if (v == null) return;
-              await st.setComfyEditWorkflowId(v);
+              await st.imageGenSettings.setComfyEditWorkflowId(v);
               _lastReported = null; // re-evaluate for the new selection
               await _refresh();
             },
@@ -241,9 +250,15 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
     String presetId,
     ComfyModelSlot slot,
   ) {
-    final options = _modelOptions['${slot.loaderClass}/${slot.inputName}'] ?? const [];
-    final current = st.comfyEditModelChoice(presetId, slot.token);
-    final value = (current != null && options.contains(current)) ? current : null;
+    final options =
+        _modelOptions['${slot.loaderClass}/${slot.inputName}'] ?? const [];
+    final current = st.imageGenSettings.comfyEditModelChoice(
+      presetId,
+      slot.token,
+    );
+    final value = (current != null && options.contains(current))
+        ? current
+        : null;
     return Row(
       children: [
         SizedBox(
@@ -261,8 +276,14 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
             initialValue: value,
             isExpanded: true,
             dropdownColor: AppColors.surfaceContainerOf(context),
-            decoration: _deco(context, hint: _loading ? 'loading…' : 'pick a file'),
-            style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
+            decoration: _deco(
+              context,
+              hint: _loading ? 'loading…' : 'pick a file',
+            ),
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontSize: 12,
+            ),
             items: [
               for (final f in options)
                 DropdownMenuItem(
@@ -274,7 +295,11 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
                 ? null
                 : (v) {
                     if (v != null) {
-                      st.setComfyEditModelChoice(presetId, slot.token, v);
+                      st.imageGenSettings.setComfyEditModelChoice(
+                        presetId,
+                        slot.token,
+                        v,
+                      );
                     }
                   },
           ),
@@ -284,7 +309,7 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
   }
 
   Widget _uploadRow(BuildContext context, StorageService st) {
-    final has = st.comfyEditUploadedWorkflow.trim().isNotEmpty;
+    final has = st.imageGenSettings.comfyEditUploadedWorkflow.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -304,7 +329,10 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
         Text(
           'Export your graph as API format and mark where the app fills in: '
           '%IMAGE%  %PROMPT%  %SEED%  %STEPS%  %CFG%  %DENOISE%.',
-          style: TextStyle(fontSize: 11, color: AppColors.textTertiary(context)),
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.textTertiary(context),
+          ),
         ),
         if (_uploadError.isNotEmpty) ...[
           const SizedBox(height: 6),
@@ -346,7 +374,11 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
   ) {
     if (isUpload) {
       return _computeReady(st)
-          ? (Icons.check_circle, AppColors.logReady, 'Ready — your workflow is loaded.')
+          ? (
+              Icons.check_circle,
+              AppColors.logReady,
+              'Ready — your workflow is loaded.',
+            )
           : (
               Icons.warning_amber_rounded,
               AppColors.logWarn,
@@ -354,8 +386,11 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
             );
     }
     if (_loading && _missingNodes == null) {
-      return (Icons.hourglass_empty, AppColors.textTertiary(context),
-          'Checking your ComfyUI…');
+      return (
+        Icons.hourglass_empty,
+        AppColors.textTertiary(context),
+        'Checking your ComfyUI…',
+      );
     }
     if (_missingNodes == null) {
       return (
@@ -374,7 +409,9 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
     }
     if (preset != null) {
       for (final slot in preset.modelSlots) {
-        if ((st.comfyEditModelChoice(preset.id, slot.token) ?? '').isEmpty) {
+        if ((st.imageGenSettings.comfyEditModelChoice(preset.id, slot.token) ??
+                '')
+            .isEmpty) {
           return (
             Icons.warning_amber_rounded,
             AppColors.logWarn,
@@ -396,20 +433,24 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
     ),
   );
 
-  InputDecoration _deco(BuildContext context, {String? hint}) => InputDecoration(
-    isDense: true,
-    hintText: hint,
-    hintStyle: TextStyle(color: AppColors.textTertiary(context), fontSize: 12),
-    filled: true,
-    fillColor: AppColors.cardOf(context),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(9),
-      borderSide: BorderSide(color: AppColors.borderOf(context)),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(9),
-      borderSide: BorderSide(color: AppColors.borderOf(context)),
-    ),
-  );
+  InputDecoration _deco(BuildContext context, {String? hint}) =>
+      InputDecoration(
+        isDense: true,
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: AppColors.textTertiary(context),
+          fontSize: 12,
+        ),
+        filled: true,
+        fillColor: AppColors.cardOf(context),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(9),
+          borderSide: BorderSide(color: AppColors.borderOf(context)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(9),
+          borderSide: BorderSide(color: AppColors.borderOf(context)),
+        ),
+      );
 }

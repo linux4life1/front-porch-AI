@@ -186,18 +186,19 @@ extension _SettingsLaunchOptions on _SettingsPageState {
             label: 'Flash Attention',
             tooltip:
                 'Faster attention math. ~20–40% speed boost on RTX/Apple Silicon. Disabled automatically for ROCm.',
-            value: storage.flashAttentionEnabled,
+            value: storage.backendSettings.flashAttentionEnabled,
             recommended: true,
-            onChanged: (v) => storage.setFlashAttentionEnabled(v),
+            onChanged: (v) =>
+                storage.backendSettings.setFlashAttentionEnabled(v),
           ),
           toggle(
             label: 'Lock Weights in RAM (mlock)',
             tooltip: Platform.isLinux
                 ? 'Prevents paging to disk. Requires root or ulimit ‑l unlimited on Linux — off by default.'
                 : 'Prevents OS from paging model weights to disk. Avoids catastrophic slowdown under memory pressure.',
-            value: storage.mlockEnabled,
+            value: storage.backendSettings.mlockEnabled,
             recommended: !Platform.isLinux,
-            onChanged: (v) => storage.setMlockEnabled(v),
+            onChanged: (v) => storage.backendSettings.setMlockEnabled(v),
           ),
           const SizedBox(height: 12),
           Divider(color: AppColors.borderOf(context), height: 1),
@@ -231,9 +232,9 @@ extension _SettingsLaunchOptions on _SettingsPageState {
               Wrap(
                 spacing: 6,
                 children: [0, 1, 2, 3].map((id) {
-                  final isSelected = storage.gpuId == id;
+                  final isSelected = storage.backendSettings.gpuId == id;
                   return GestureDetector(
-                    onTap: () => storage.setGpuId(id),
+                    onTap: () => storage.backendSettings.setGpuId(id),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(
@@ -299,9 +300,10 @@ extension _SettingsLaunchOptions on _SettingsPageState {
               Wrap(
                 spacing: 6,
                 children: [256, 512, 1024, 2048, 4096, 8192].map((bs) {
-                  final isSelected = storage.blasBatchSize == bs;
+                  final isSelected =
+                      storage.backendSettings.blasBatchSize == bs;
                   return GestureDetector(
-                    onTap: () => storage.setBlasBatchSize(bs),
+                    onTap: () => storage.backendSettings.setBlasBatchSize(bs),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(
@@ -352,7 +354,7 @@ extension _SettingsLaunchOptions on _SettingsPageState {
               final storage = Provider.of<StorageService>(ctx, listen: false);
               final canRestart =
                   backendManager.backendPath != null &&
-                  _launchModelExists(storage.lastUsedModelPath);
+                  _launchModelExists(storage.backendSettings.lastUsedModelPath);
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -389,17 +391,26 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                               if (!ctx.mounted) return;
                               koboldService.startKobold(
                                 backendManager.backendPath!,
-                                storage.lastUsedModelPath!,
-                                kcppsPath: storage.activeKcppsPath,
-                                mmprojPath: storage.mmprojForModel(
-                                  storage.lastUsedModelPath!,
-                                ),
-                                gpuLayers: storage.gpuLayers,
-                                contextSize: storage.contextSize,
-                                useVulkan: storage.useVulkan ?? false,
-                                useCublas: storage.useCublas ?? false,
-                                useMetal: storage.useMetal ?? false,
-                                useRocm: storage.useRocm ?? false,
+                                storage.backendSettings.lastUsedModelPath!,
+                                kcppsPath:
+                                    storage.backendSettings.activeKcppsPath,
+                                mmprojPath:
+                                    storage
+                                        .presetSettings
+                                        .modelMmprojMap[storage
+                                        .backendSettings
+                                        .lastUsedModelPath!],
+                                gpuLayers: storage.backendSettings.gpuLayers,
+                                contextSize:
+                                    storage.backendSettings.contextSize,
+                                useVulkan:
+                                    storage.backendSettings.useVulkan ?? false,
+                                useCublas:
+                                    storage.backendSettings.useCublas ?? false,
+                                useMetal:
+                                    storage.backendSettings.useMetal ?? false,
+                                useRocm:
+                                    storage.backendSettings.useRocm ?? false,
                               );
                               ScaffoldMessenger.of(ctx).showSnackBar(
                                 const SnackBar(
@@ -412,17 +423,26 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                           : () {
                               koboldService.startKobold(
                                 backendManager.backendPath!,
-                                storage.lastUsedModelPath!,
-                                kcppsPath: storage.activeKcppsPath,
-                                mmprojPath: storage.mmprojForModel(
-                                  storage.lastUsedModelPath!,
-                                ),
-                                gpuLayers: storage.gpuLayers,
-                                contextSize: storage.contextSize,
-                                useVulkan: storage.useVulkan ?? false,
-                                useCublas: storage.useCublas ?? false,
-                                useMetal: storage.useMetal ?? false,
-                                useRocm: storage.useRocm ?? false,
+                                storage.backendSettings.lastUsedModelPath!,
+                                kcppsPath:
+                                    storage.backendSettings.activeKcppsPath,
+                                mmprojPath:
+                                    storage
+                                        .presetSettings
+                                        .modelMmprojMap[storage
+                                        .backendSettings
+                                        .lastUsedModelPath!],
+                                gpuLayers: storage.backendSettings.gpuLayers,
+                                contextSize:
+                                    storage.backendSettings.contextSize,
+                                useVulkan:
+                                    storage.backendSettings.useVulkan ?? false,
+                                useCublas:
+                                    storage.backendSettings.useCublas ?? false,
+                                useMetal:
+                                    storage.backendSettings.useMetal ?? false,
+                                useRocm:
+                                    storage.backendSettings.useRocm ?? false,
                               );
                               ScaffoldMessenger.of(ctx).showSnackBar(
                                 const SnackBar(

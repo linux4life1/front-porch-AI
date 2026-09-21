@@ -68,9 +68,7 @@ extension _WorldClimateSection on _WorldManagementPageState {
           decoration: InputDecoration(
             filled: true,
             fillColor: AppColors.surfaceContainerOf(ctx),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 10,
@@ -105,19 +103,15 @@ extension _WorldClimateSection on _WorldManagementPageState {
               DropdownMenuItem(
                 value: b.id,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 6,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         b.displayName,
                         style: TextStyle(
-                          color:
-                              AppColors.textPrimary(ctx),
+                          color: AppColors.textPrimary(ctx),
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
@@ -126,9 +120,7 @@ extension _WorldClimateSection on _WorldManagementPageState {
                       Text(
                         b.description,
                         style: TextStyle(
-                          color: AppColors.textSecondary(
-                            ctx,
-                          ),
+                          color: AppColors.textSecondary(ctx),
                           fontSize: 11,
                           height: 1.3,
                         ),
@@ -140,19 +132,15 @@ extension _WorldClimateSection on _WorldManagementPageState {
             DropdownMenuItem(
               value: 'custom',
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       'Custom climate…',
                       style: TextStyle(
-                        color:
-                            AppColors.porchAmberOf(ctx),
+                        color: AppColors.porchAmberOf(ctx),
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -163,9 +151,7 @@ extension _WorldClimateSection on _WorldManagementPageState {
                       '— Mars cold, volcano heat, '
                       'renamed rain.',
                       style: TextStyle(
-                        color: AppColors.textSecondary(
-                          ctx,
-                        ),
+                        color: AppColors.textSecondary(ctx),
                         fontSize: 11,
                         height: 1.3,
                       ),
@@ -180,11 +166,11 @@ extension _WorldClimateSection on _WorldManagementPageState {
               setDialogState(() => draft.selectedBiomeId = v);
               return;
             }
-            final fahrenheit = Provider.of<
-                    StorageService>(ctx, listen: false)
-                .weatherFahrenheit;
-            final result =
-                await showClimateEditorDialog(
+            final fahrenheit = Provider.of<StorageService>(
+              ctx,
+              listen: false,
+            ).realismSettings.weatherFahrenheit;
+            final result = await showClimateEditorDialog(
               ctx,
               worldName: draft.nameController.text.trim(),
               existingBiomeJson: draft.customBiomeJson,
@@ -205,27 +191,20 @@ extension _WorldClimateSection on _WorldManagementPageState {
         Builder(
           builder: (context) {
             final biome = draft.selectedBiomeId == 'custom'
-                ? (Biome.tryParse(draft.customBiomeJson) ??
-                    Biome.temperate)
-                : (Biome.builtInById(
-                      draft.selectedBiomeId,
-                    ) ??
-                    Biome.temperate);
+                ? (Biome.tryParse(draft.customBiomeJson) ?? Biome.temperate)
+                : (Biome.builtInById(draft.selectedBiomeId) ?? Biome.temperate);
             return Container(
               margin: const EdgeInsets.only(top: 10),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.formMasterAccent
-                    .withValues(alpha: 0.08),
+                color: AppColors.formMasterAccent.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: AppColors.formMasterAccent
-                      .withValues(alpha: 0.22),
+                  color: AppColors.formMasterAccent.withValues(alpha: 0.22),
                 ),
               ),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
@@ -238,8 +217,7 @@ extension _WorldClimateSection on _WorldManagementPageState {
                       Text(
                         'What it feels like',
                         style: TextStyle(
-                          color:
-                              AppColors.formMasterAccent,
+                          color: AppColors.formMasterAccent,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -261,9 +239,7 @@ extension _WorldClimateSection on _WorldManagementPageState {
                     Text(
                       biome.feel,
                       style: TextStyle(
-                        color: AppColors.textSecondary(
-                          ctx,
-                        ),
+                        color: AppColors.textSecondary(ctx),
                         fontSize: 12,
                         height: 1.4,
                       ),
@@ -274,34 +250,22 @@ extension _WorldClimateSection on _WorldManagementPageState {
                     Align(
                       alignment: Alignment.centerRight,
                       child: OutlinedButton.icon(
-                        icon: const Icon(
-                          Icons.tune,
-                          size: 15,
-                        ),
-                        label: const Text(
-                          'Edit custom climate',
-                        ),
+                        icon: const Icon(Icons.tune, size: 15),
+                        label: const Text('Edit custom climate'),
                         onPressed: () async {
-                          final fahrenheit =
-                              Provider.of<
-                                      StorageService>(
+                          final fahrenheit = Provider.of<StorageService>(
                             ctx,
                             listen: false,
-                          ).weatherFahrenheit;
-                          final result =
-                              await showClimateEditorDialog(
+                          ).realismSettings.weatherFahrenheit;
+                          final result = await showClimateEditorDialog(
                             ctx,
-                            worldName: draft.nameController
-                                .text
-                                .trim(),
-                            existingBiomeJson:
-                                draft.customBiomeJson,
+                            worldName: draft.nameController.text.trim(),
+                            existingBiomeJson: draft.customBiomeJson,
                             fahrenheit: fahrenheit,
                           );
                           if (result != null) {
                             setDialogState(
-                              () => draft.customBiomeJson =
-                                  result,
+                              () => draft.customBiomeJson = result,
                             );
                           }
                         },

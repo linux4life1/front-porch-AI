@@ -1,0 +1,126 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Chat colours and per-chat themes, image-gen rows, sampler sliders, member
+   and persona pickers, persona manager, account.
+*/
+
+/* ── Chat colors settings ──────────────────────────────────────────────── */
+.color-rows { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; margin: 8px 0 12px; }
+.color-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; color: var(--text); }
+.color-row input[type='color'] {
+  width: 44px; height: 28px; padding: 0; border: 1px solid var(--border);
+  border-radius: 6px; background: none; cursor: pointer;
+}
+.color-preview { padding: 12px; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
+@media (max-width: 768px) { .color-rows { grid-template-columns: 1fr; } }
+
+/* ── Chat theme settings (per-chat theme presets + customization) ────────── */
+.theme-settings { margin-bottom: 16px; }
+.theme-presets {
+  display: flex; gap: 8px; overflow-x: auto; padding: 8px 0 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.theme-preset-card {
+  flex-shrink: 0; width: 72px; display: flex; flex-direction: column;
+  align-items: center; gap: 4px; padding: 10px 6px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer; color: var(--text);
+  font-size: 0.75rem; text-align: center;
+}
+.theme-preset-card:hover { border-color: var(--accent); }
+.theme-preset-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.theme-preset-swatches { display: flex; gap: 3px; }
+.theme-swatch { width: 16px; height: 16px; border-radius: 3px; display: inline-block; }
+.theme-preset-none { font-size: 1.2rem; line-height: 16px; color: var(--muted); }
+.theme-preset-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.theme-preset-style { font-size: 0.65rem; color: var(--muted); }
+.theme-select {
+  width: 100%; padding: 8px 10px; margin: 4px 0 12px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-size: 0.85rem;
+}
+.theme-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* ── Image-gen settings two-up rows ────────────────────────────────────── */
+.img-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+@media (max-width: 768px) { .img-row2 { grid-template-columns: 1fr; } }
+
+/* ── Generation sampler sliders (desktop-style: label + value box, slider) ─ */
+.slider-field { margin: 14px 0; }
+.slider-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 6px; color: var(--text); font-size: 0.85rem;
+}
+.slider-val { width: 96px; text-align: right; padding: 4px 8px; font-size: 0.85rem; }
+.slider-field input[type='range'] {
+  width: 100%; accent-color: var(--accent); cursor: pointer; padding: 0; background: none; border: none;
+}
+
+/* ── Group creation member picker ──────────────────────────────────────── */
+.grp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.grp-card {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px; border-radius: var(--radius-card); cursor: pointer;
+  background: var(--card); border: 2px solid var(--border); color: var(--text);
+}
+.grp-card:hover { border-color: var(--accent); }
+.grp-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.grp-card img, .grp-initial {
+  width: 64px; height: 64px; border-radius: 50%; object-fit: cover; object-position: top center;
+}
+.grp-initial { display: grid; place-items: center; background: var(--surface-2); font-size: 1.5rem; font-weight: 700; }
+.grp-name {
+  font-size: 0.78rem; text-align: center; line-height: 1.2;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grp-check {
+  position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 0.7rem;
+}
+@media (max-width: 768px) { .grp-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); } }
+
+/* "Start new chat" persona picker: marks which persona is currently active. */
+.persona-current {
+  margin-left: auto; font-size: 0.7rem; padding: 1px 6px; border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent);
+}
+
+/* Folder-aware picker (FolderCharacterPicker): folder tiles + breadcrumb. */
+.grp-card.picker-folder .grp-initial { background: transparent; font-size: 2rem; }
+.picker-crumb { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px; }
+.picker-crumb-name { font-weight: 600; font-size: 0.9rem; }
+
+/* Voice: the mic button pulses red while recording. */
+.icon-btn.mic.recording { color: var(--danger, #e5484d); animation: mic-pulse 1s ease-in-out infinite; }
+@keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ── Persona manager (card grid, not a flat list) ─────────────── */
+.persona-list {
+  list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+.persona-list li {
+  display: flex; align-items: center; gap: 10px; font-size: 0.9rem;
+  padding: 10px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.persona-list li.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.persona-av {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; background: var(--surface-2);
+  color: var(--accent); font-weight: 700;
+}
+.persona-list li.active .persona-av { background: var(--accent); color: var(--accent-ink); }
+.persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.persona-main .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.persona-main .pactive { font-size: 0.66rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+.persona-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.persona-edit { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+
+/* ── Account ──────────────────────────────────────────────────── */
+.qr { background: #fff; padding: 12px; border-radius: 10px; width: fit-content; margin: 10px 0; }
+.recovery { columns: 2; font-size: 0.9rem; }
+.session-list, .recovery { list-style: none; padding: 0; }
+.session-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.auth-note { color: var(--accent); }
+

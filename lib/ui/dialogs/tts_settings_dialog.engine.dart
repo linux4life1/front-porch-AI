@@ -36,8 +36,10 @@ extension _TtsEngineSection on _TtsSettingsDialogState {
     // absent rather than an exception that takes the dialog down with it.
     CharacterCard? character;
     try {
-      character = Provider.of<ChatService>(context, listen: false)
-          .activeCharacter;
+      character = Provider.of<ChatService>(
+        context,
+        listen: false,
+      ).activeCharacter;
     } on ProviderNotFoundException {
       character = null;
     }
@@ -100,17 +102,17 @@ extension _TtsEngineSection on _TtsSettingsDialogState {
     String label,
     String subtitle,
   ) {
-    final selected = storage.ttsEngine == id;
+    final selected = storage.ttsSettings.ttsEngine == id;
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          storage.setTtsEngine(id);
+          storage.ttsSettings.setTtsEngine(id);
           // The old voice id belongs to the old engine and cannot carry
           // over, so it is cleared. speak() then reports "no voice
           // configured" through lastError (chat_page surfaces it) instead
           // of returning in silence — which is what made a post-switch TTS
           // look simply dead.
-          storage.setTtsVoiceModel('');
+          storage.ttsSettings.setTtsVoiceModel('');
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),

@@ -25,7 +25,7 @@ part of '../chat_service.dart';
 ///  * [gift] — the user handed it over in-scene. The character accepts it
 ///    KNOWING where it came from.
 ///  * not a gift — the user conjured it out-of-band (the Easter egg): the
-///    character notices something she cannot account for and reacts with
+///    character notices something they cannot account for and reacts with
 ///    surprise ("how did I end up with this?").
 ///
 /// Injected once beside the inventory fragment; `included` is set when a
@@ -71,6 +71,55 @@ extension ChatServicePockets on ChatService {
   Map<String, List<_PendingItemIntro>> get _pendingItemIntros =>
       _pendingItemIntrosOf[this] ??= {};
 
+  /// Combined Pockets gate: Porch Life global AND this character's card flag.
+  /// Missing extensions / missing key → on. Group copy first, then library.
+  bool pocketsEnabledFor(String characterId) {
+    if (!pocketsFeatureEnabled) return false;
+    CharacterCard? card;
+    if (_activeGroup == null) {
+      card = _activeCharacter;
+    } else {
+      for (final c in _groupCharacters) {
+        if (_getCharacterIdFromCard(c) == characterId) {
+          card = c;
+          break;
+        }
+      }
+    }
+    final ext = card?.frontPorchExtensions;
+    if (ext != null) return ext.pocketsEnabled;
+    if (card != null) {
+      final library = originLibraryCardFor(card);
+      final libExt = library?.frontPorchExtensions;
+      if (libExt != null) return libExt.pocketsEnabled;
+    }
+    return true;
+  }
+
+  /// Transfer roster the model is shown: other group members whose own
+  /// Pockets flag is on. Off members are not targets — a hand-off must
+  /// not invent a kit the author hid.
+  List<String> _pocketTransferRoster(String speakerId) {
+    if (!(_storageService.realismSettings.pocketTransfersEnabled &&
+        _activeGroup != null)) {
+      return const [];
+    }
+    return [
+      for (final c in _groupCharacters)
+        if (_getCharacterIdFromCard(c) != speakerId &&
+            pocketsEnabledFor(_getCharacterIdFromCard(c)))
+          c.name,
+    ];
+  }
+
+  /// Write-through is refused only when the feature is live and this
+  /// character authored Pockets off. HIDES≠erase: a per-char-off kit is
+  /// left untouched (no invent, no wipe). Global-off callers that already
+  /// chose to write (realism_state rewind) still may — that is the
+  /// toggle-back contract.
+  bool _pocketsWriteAllowed(String characterId) =>
+      !pocketsFeatureEnabled || pocketsEnabledFor(characterId);
+
   /// Put one item INTO a character's kit by hand — the other half of the ✕
   /// eraser, from the same sidebar panel (and the web tools panel).
   ///
@@ -98,8 +147,8 @@ extension ChatServicePockets on ChatService {
     bool gift = false,
     bool correction = false,
   }) async {
-    // Same single switch every pockets surface answers to.
-    if (!_storageService.realismSettings.pocketsEnabled) return;
+    // Same combined gate every pockets surface answers to.
+    if (!pocketsEnabledFor(characterId)) return;
     // Same "name (state)" chip convention the character editor teaches.
     final item = PocketItem.parseDisplay(name);
     if (item.isEmpty || isEmptyWardrobeRef(item.name)) return;
@@ -230,7 +279,7 @@ extension ChatServicePockets on ChatService {
   ///
   /// One expression, named once, because three places need it and a card that
   /// disagrees with itself about its own starting kit is the kind of bug that
-  /// only shows up as "sometimes she has the keys".
+  /// only shows up as "sometimes they have the keys".
   Pockets startingPocketsFor(CharacterCard c) =>
       Pockets.fromJson(c.frontPorchExtensions?.inventory);
 
@@ -241,7 +290,7 @@ extension ChatServicePockets on ChatService {
   /// [_runPocketsPass], which runs AFTER a reply is generated. Counting the
   /// greeting as turn 0, that meant the character's first real reply — turn 1 —
   /// was generated with no inventory fragment in its prompt at all: an author
-  /// could dress a character in a flour-dusted apron and she would answer the
+  /// could dress a character in a flour-dusted apron and they would answer the
   /// first message knowing nothing about it, then be wearing it from turn 2
   /// onward. The sidebar was blank for exactly as long. Authoring made that
   /// visible; before there was an editor, nobody could hit it.
@@ -272,7 +321,7 @@ extension ChatServicePockets on ChatService {
   /// would "re-seed from the card on the first pass". That was true when the
   /// seed lived inside [_runPocketsPass] and false the moment it moved earlier.
   /// So a freshly dressed character stood there empty-handed until the user
-  /// typed something — precisely when her author was looking to check the
+  /// typed something — precisely when their author was looking to check the
   /// wardrobe had saved.
   ///
   /// If you add a sixth entry path, call this from it.
@@ -281,7 +330,7 @@ extension ChatServicePockets on ChatService {
   void seedPocketsFromCards() {
     // The one switch Pockets answers to. Seeding while it is off would let the
     // v47 save wire persist a record the user never asked for.
-    if (!_storageService.realismSettings.pocketsEnabled) return;
+    if (!pocketsFeatureEnabled) return;
 
     final speakers = _activeGroup == null
         ? [?_activeCharacter]
@@ -289,8 +338,9 @@ extension ChatServicePockets on ChatService {
 
     for (final c in speakers) {
       final id = _getCharacterIdFromCard(c);
+      if (!pocketsEnabledFor(id)) continue;
       // Already has a record: this chat has moved on from whatever the card
-      // said, and re-seeding would hand back things she put down.
+      // said, and re-seeding would hand back things they put down.
       if (pocketsFor(id) != null) continue;
       final seed = startingPocketsFor(c);
       // Nothing authored — leave the record ABSENT rather than empty. Every
@@ -302,269 +352,6 @@ extension ChatServicePockets on ChatService {
     }
   }
 
-  /// Runs the detection pass for the speaker who just replied.
-  ///
-  /// Gated HERE and nowhere else, so there is exactly one place the feature is
-  /// switched on. The eval leaf itself consults no settings — that separation
-  /// is what stops a second gate appearing somewhere later and disagreeing
-  /// with this one.
-  ///
-  /// [asContinuation]: the Continue button's incremental run — [reply] is the
-  /// NEW text only (the first half was bookkept when the reply was first
-  /// generated). Ops apply on top of the current record exactly like any
-  /// other exchange extension; what changes is the stamps: the message's
-  /// existing `pockets_before` is PRESERVED (it holds the turn's true
-  /// pre-state — overwriting it with the mid-turn record would make regen
-  /// and tail-delete rewind to the middle of the turn), new transfer
-  /// recipients union into it, and receipts append instead of replacing.
-  Future<void> _runPocketsPass(
-    String reply, {
-    bool asContinuation = false,
-  }) async {
-    if (!_storageService.realismSettings.pocketsEnabled) return;
-    if (reply.trim().isEmpty) return;
-
-    final speaker = _activeCharacter;
-    if (speaker == null) return;
-    final charId = _getCharacterIdFromCard(speaker);
-
-    // Seed from the card the first time this chat asks: an author who wrote
-    // `frontPorchExtensions.inventory` expects her to START with those things,
-    // not to acquire them by accident later.
-    // Still `??`-lazy, and still load-bearing: seedPocketsFromCards runs at
-    // the top of a user turn, so a character who ARRIVES mid-turn (a Scene
-    // Guest, a cast change) reaches this without having been seeded.
-    final record = pocketsFor(charId) ?? startingPocketsFor(speaker);
-    // Lazy morning housekeeping: yesterday's set-aside clothes leave the
-    // record the first time it is touched on a new story day, BEFORE any
-    // prompt or op can see them. Possessions stay (see SetAsideItem).
-    final day = storyDayCount;
-    record.expireSetAside(day);
-
-    // Pre-turn snapshot for the rewind stamps below — taken AFTER expiry on
-    // purpose, so a later restore can never resurrect expired clothes.
-    final beforeJson = record.toJson();
-
-    // Hand-offs (Porch Life -> "Hand things between characters"). Only ever in
-    // a group: in a 1:1 the only other party is the user, who has no record to
-    // put anything into, so the roster stays empty and the model is never
-    // invited to name a recipient.
-    final transfersOn =
-        _storageService.realismSettings.pocketTransfersEnabled &&
-        _activeGroup != null;
-    final others = transfersOn
-        ? [
-            for (final c in _groupCharacters)
-              if (_getCharacterIdFromCard(c) != charId) c.name,
-          ]
-        : const <String>[];
-
-    // A LIST of (recipient, item), not a map keyed by recipient: "she hands
-    // Sam the keys and the letter" is two transfers to one name, and the
-    // map silently kept only the last while both receipts claimed delivery
-    // (hostile review, 2026-08-11).
-    final handedOver = <(String, PocketItem)>[];
-    // Resolve against the roster the model was actually shown. An
-    // unresolvable name is DROPPED, not guessed: the item still leaves
-    // the giver (that much is true either way) and simply reaches
-    // nobody, which is the behaviour every build before this one had.
-    final onTransfer = transfersOn
-        ? (String to, PocketItem item) {
-            final match = resolveRecipient(to, others);
-            if (match != null) handedOver.add((match, item));
-          }
-        : null;
-
-    // On a fused reply-facts turn the question was already asked (one call
-    // for all three bookkeeping passes) — parse this pass's slice through
-    // the SAME parser and applier the standalone call feeds. An answer with
-    // no ops is the common case and applies nothing, exactly as today.
-    final fused = _replyFactsRaw;
-    // Applied-change feed for the item-memory journal cards — populated by
-    // the applier with canonical names, consumed after the record persists.
-    final events = <PocketEvent>[];
-    final List<String> receipts;
-    if (fused != null) {
-      final ops = PocketsEval.parseOps(fused);
-      receipts = ops.isEmpty
-          ? const []
-          : applyPocketOps(
-              record,
-              ops,
-              onTransfer: onTransfer,
-              day: day,
-              events: events,
-            );
-    } else {
-      receipts = await _pocketsEval.evaluateAndApply(
-        charName: speaker.name,
-        pockets: record,
-        // Clamped like every judge window (the eval diet missed the
-        // bookkeeping passes — a 20k-char novella reply rode this prompt
-        // raw, hostile review 2026-08-11).
-        reply: clampEvalMessage(reply),
-        // Without this a change the USER narrated — walking her out into the
-        // rain — is invisible to the eval, and the dress stays recorded dry.
-        recentExchange: recentExchange(_messages),
-        others: others,
-        onTransfer: onTransfer,
-        day: day,
-        events: events,
-      );
-    }
-
-    // Apply the arrivals AFTER the giver's own record is settled, so a
-    // hand-off can never be read back out of the giver mid-pass.
-    // Recipient BEFORE/AFTER snapshots ride the rewind stamp so regen and
-    // tail-delete put BOTH sides of a give back (release audit 2026-08-11:
-    // only the giver was stamped, so Sam kept the keys after a reject).
-    final othersBefore = <Map<String, dynamic>>[];
-    final othersAfter = <Map<String, dynamic>>[];
-    final seenRecipients = <String>{};
-    for (final (to, item) in handedOver) {
-      final matches = _groupCharacters.where((c) => c.name == to);
-      if (matches.isEmpty) continue;
-      final recipient = matches.first;
-      final rid = _getCharacterIdFromCard(recipient);
-      final theirs = pocketsFor(rid) ?? startingPocketsFor(recipient);
-      // One before-snapshot per recipient (multiple items to Sam → one kit).
-      if (seenRecipients.add(rid)) {
-        othersBefore.add({'char': rid, 'record': theirs.toJson()});
-      }
-      theirs.carrying.add(item);
-      while (theirs.carrying.length > kMaxCarrying) {
-        theirs.carrying.removeAt(0);
-      }
-      setPocketsFor(rid, theirs);
-      debugPrint(
-        '[Pockets] ${speaker.name} -> ${recipient.name}: ${item.display}',
-      );
-    }
-    for (final ob in othersBefore) {
-      final rid = ob['char'] as String;
-      final afterRec = pocketsFor(rid);
-      if (afterRec != null) {
-        othersAfter.add({'char': rid, 'record': afterRec.toJson()});
-      }
-    }
-
-    // Store even when nothing changed: the first turn is what promotes a
-    // card-seeded record into the chat, and without this it would be re-seeded
-    // (and re-diffed against) every single turn.
-    setPocketsFor(charId, record);
-
-    // The Journal remembers what changed hands (maintainer design,
-    // 2026-08-11): deterministic diary cards from the ops just applied —
-    // zero extra model calls. Gated on BOTH switches deliberately: pockets
-    // produced the events, the Journal stores the memory; neither feature's
-    // CORE rides the other (the independence rule), this is their
-    // intersection. Guests never journal — the pass already runs only for
-    // real cast members.
-    if (events.isNotEmpty &&
-        _storageService.memorySettings.journalEnabled &&
-        _currentSessionId != null) {
-      try {
-        await _writeItemCards(charId, events, asContinuation: asContinuation);
-      } catch (e) {
-        // A diary miss must never cost the turn — same floor as the eval.
-        debugPrint('[Journal] item cards skipped: $e');
-      }
-    }
-
-    // Nothing moved for the bubble and no transfer to rewind — still
-    // notify (record may have been first-seeded above) and stop.
-    if (receipts.isEmpty && othersBefore.isEmpty) {
-      notifyListeners();
-      return;
-    }
-
-    // Receipts + rewind stamps ride the message the same way needs deltas
-    // do (hostile review 2026-08-11 — pockets ops were the one non-scalar
-    // turn effect nothing ever put back):
-    //  * pockets_before rides SHARED metadata: pre-turn speaker kit (+
-    //    `others` = each transfer recipient's pre-turn kit).
-    //  * pockets_after rides THIS SWIPE: post-turn speaker kit (+
-    //    `pockets_after_others` for recipients).
-    //  * pocket_changes (the receipt chips) rides THIS SWIPE too — they
-    //    describe the words in front of the reader, and each swipe moved its
-    //    own things. It used to be written to the base map, which the bubble
-    //    never reads once a swipe map exists (activeMetadata prefers
-    //    swipeMetadata[i]) — so every user with Realism or Needs on, i.e.
-    //    most of them, silently lost the chip (release audit 2026-08-15).
-    final msg = _messages.isNotEmpty ? _messages.last : null;
-    if (msg != null && !msg.isUser) {
-      final existingBefore = msg.metadata?['pockets_before'];
-      if (asContinuation &&
-          existingBefore is Map &&
-          existingBefore['char'] == charId) {
-        // The first half already stamped the turn's true pre-state — keep
-        // it. Only NEW transfer recipients union in (their pre-continuation
-        // kit IS their pre-turn kit: the first half never touched them, or
-        // they are already stamped and the first stamp wins).
-        if (othersBefore.isNotEmpty) {
-          final prior = (existingBefore['others'] as List?) ?? const [];
-          final priorChars = <Object?>{
-            for (final o in prior)
-              if (o is Map) o['char'],
-          };
-          msg.metadata = {
-            ...?msg.metadata,
-            'pockets_before': {
-              ...existingBefore,
-              'others': [
-                ...prior,
-                for (final ob in othersBefore)
-                  if (!priorChars.contains(ob['char'])) ob,
-              ],
-            },
-          };
-        }
-      } else {
-        // Normal turn — or a continuation whose first half applied no ops
-        // and therefore never stamped: the record was still the turn's
-        // pre-state when this pass captured beforeJson, so writing it now
-        // is the same truth.
-        final beforeStamp = <String, dynamic>{
-          'char': charId,
-          'record': beforeJson,
-        };
-        if (othersBefore.isNotEmpty) beforeStamp['others'] = othersBefore;
-        msg.metadata = {...?msg.metadata, 'pockets_before': beforeStamp};
-      }
-      final afterMeta = <String, dynamic>{
-        ...?msg.activeMetadata,
-        'pockets_after': record.toJson(),
-      };
-      if (receipts.isNotEmpty) {
-        // Continue appends to this swipe's own receipts (the first half's
-        // chips describe the same swipe and must survive the extension).
-        final prior = asContinuation
-            ? (msg.activeMetadata?['pocket_changes'] as List?)
-                  ?.whereType<String>()
-            : null;
-        afterMeta['pocket_changes'] = [...?prior, ...receipts];
-      }
-      // After-stamps carry each recipient's CURRENT kit: this pass's
-      // recipients replace their old entry; first-half recipients this pass
-      // did not touch keep theirs (their kit has not changed since).
-      final priorAfterOthers = asContinuation
-          ? (msg.activeMetadata?['pockets_after_others'] as List?)
-          : null;
-      if (othersAfter.isNotEmpty || (priorAfterOthers?.isNotEmpty ?? false)) {
-        final newChars = <Object?>{for (final oa in othersAfter) oa['char']};
-        afterMeta['pockets_after_others'] = [
-          ...?priorAfterOthers?.where(
-            (o) => o is Map && !newChars.contains(o['char']),
-          ),
-          ...othersAfter,
-        ];
-      }
-      msg.activeMetadata = afterMeta;
-      await _saveChat();
-    }
-    notifyListeners();
-  }
-
   /// Restore pocket records from a message's rewind stamps — the pockets
   /// half of the time-travel every other turn effect already had (realism
   /// scalars via realism_state, needs via the arithmetic refund, journal
@@ -573,6 +360,19 @@ extension ChatServicePockets on ChatService {
   /// tail delete). A message with no stamps applied no ops — nothing to do.
   /// Restores the speaker AND any transfer recipients stamped under
   /// `others` / `pockets_after_others`.
+  /// Fork/import: replay pocket stamps in story order so a silent
+  /// recipient keeps an earlier gift when a later stamp names only the giver.
+  void _restorePocketsStampsChronologically(int start) {
+    if (!pocketsFeatureEnabled) return;
+    final last = start.clamp(0, _messages.isEmpty ? 0 : _messages.length - 1);
+    for (var i = 0; i <= last && i < _messages.length; i++) {
+      final m = _messages[i];
+      if (m.metadata?['pockets_before'] is Map) {
+        _restorePocketsFromStamp(m, after: true);
+      }
+    }
+  }
+
   void _restorePocketsFromStamp(ChatMessage msg, {required bool after}) {
     // Rewind (regenerate / tail-delete) un-deletes the item cards this turn
     // retired. `after: true` (cancel put-back, swipe) keeps the turn's text,
@@ -582,7 +382,7 @@ extension ChatServicePockets on ChatService {
     if (!after) {
       unawaited(_replantItemCards(msg, key: 'item_cards_retired'));
     }
-    if (!_storageService.realismSettings.pocketsEnabled) return;
+    if (!pocketsFeatureEnabled) return;
     final before = msg.metadata?['pockets_before'];
     if (before is! Map) return;
     final chId = before['char'];
@@ -592,7 +392,9 @@ extension ChatServicePockets on ChatService {
       final a = msg.activeMetadata?['pockets_after'];
       if (a is Map) recordJson = a;
     }
-    setPocketsFor(chId, Pockets.fromJson(recordJson));
+    if (_pocketsWriteAllowed(chId)) {
+      setPocketsFor(chId, Pockets.fromJson(recordJson));
+    }
 
     // Recipients of a give: same before/after contract as the speaker.
     final othersBefore = before['others'];
@@ -616,7 +418,9 @@ extension ChatServicePockets on ChatService {
       if (after && afterByChar.containsKey(oid)) {
         oRec = afterByChar[oid];
       }
-      setPocketsFor(oid, Pockets.fromJson(oRec));
+      if (_pocketsWriteAllowed(oid)) {
+        setPocketsFor(oid, Pockets.fromJson(oRec));
+      }
     }
   }
 }

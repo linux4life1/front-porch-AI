@@ -29,7 +29,7 @@ Add to Home Screen: Android may show a banner. iPhone: Share → Add to Home Scr
 
 Chats (including groups), library and editors, AI create, models (including **generate a picture** and insert), settings (one scrolling page, not six tabs), Worlds, Porch Stories, browsing The Stoop (download, follow, vote, comments if your email is confirmed).
 
-Push-to-talk mic over HTTPS. Impersonate, fork, swipes, `/image`.
+Push-to-talk mic over HTTPS. Impersonate, fork, swipes, `/image`, attach a photo.
 
 ---
 
@@ -40,7 +40,7 @@ Do these on the Mac/PC app:
 - Full **Image Studio** (Create / Edit / LoRA / expression-pack QC)
 - **Voice Call** (green call button, call model, buffer, call prompt)
 - **Suggest Actions**
-- **Attach a photo** / Photo Understanding
+- Photo Understanding (the phone **can** attach a photo; the offline describer is desktop)
 - Stoop **upload / share** (the phone Share tab is not a live uploader)
 - Backups & Restore
 - Database Scan & Clean / change data folder

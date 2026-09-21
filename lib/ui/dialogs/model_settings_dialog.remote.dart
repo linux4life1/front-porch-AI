@@ -23,18 +23,24 @@ part of 'model_settings_dialog.dart';
 /// except `setState` -> `rebuildState` (extensions can't call a State's
 /// protected members).
 extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
-  void _saveRemoteSettings() {
+  void _saveRemoteSettings({bool snackbar = false}) {
     final storage = Provider.of<StorageService>(context, listen: false);
     final llmProvider = Provider.of<LLMProvider>(context, listen: false);
     // Never overwrite the user's remote API URL when oMLX is active (it uses a fixed localhost URL)
     if (llmProvider.activeBackend != BackendType.omlx) {
-      storage.setRemoteApiUrl(_apiUrlController.text.trim());
+      storage.backendSettings.setRemoteApiUrl(_apiUrlController.text.trim());
     }
-    storage.setRemoteApiKey(_apiKeyController.text.trim());
-    storage.setRemoteModelName(_modelNameController.text.trim());
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('API settings saved.')));
+    if (_apiKeyController.text.trim().isNotEmpty) {
+      storage.backendSettings.setRemoteApiKey(_apiKeyController.text.trim());
+    }
+    storage.backendSettings.setRemoteModelName(
+      _modelNameController.text.trim(),
+    );
+    if (snackbar) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('API settings saved.')));
+    }
   }
 
   Future<void> _testConnection() async {
@@ -65,54 +71,61 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
   }
 
   Widget _buildRemoteSettings({bool isOmLx = false}) {
+    final storage = Provider.of<StorageService>(context);
+    final llm = Provider.of<LLMProvider>(context);
+    final kind = resolveRemoteProviderKind(
+      backendType: switch (llm.activeBackend) {
+        BackendType.kobold => 'kobold',
+        BackendType.omlx => 'omlx',
+        BackendType.openRouter => 'openRouter',
+      },
+      url: storage.backendSettings.remoteApiUrl,
+    );
+    final showUrl = remoteProviderShowsUrlField(kind);
+    final needsKey = remoteProviderNeedsApiKey(kind);
+    final hasKey = storage.backendSettings.remoteApiKey.isNotEmpty;
+    final model = _modelNameController.text.trim();
+    final ready = model.isNotEmpty && (!needsKey || hasKey);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isOmLx) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: AppColors.formMasterAccent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppColors.formMasterAccent.withValues(alpha: 0.3),
+        if (isOmLx)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'Apple Silicon via oMLX. URL is http://localhost:8000/v1. '
+              'oMLX must be running (`omlx serve`).',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textTertiary(context),
               ),
             ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.apple,
-                  color: AppColors.formMasterAccent,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'oMLX mode on Apple Silicon. URL fixed to http://localhost:8000/v1. oMLX must be running (`omlx serve`). Model name below is used for generation.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.formMasterAccent,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
-        ],
-        if (!isOmLx)
-          _buildTextField(label: 'API URL', controller: _apiUrlController),
-        if (!isOmLx) const SizedBox(height: 12),
-        if (!isOmLx)
+        if (showUrl) ...[
           _buildTextField(
-            label: 'API Key',
-            controller: _apiKeyController,
-            isObscured: true,
+            label: 'API URL',
+            controller: _apiUrlController,
+            onEditingComplete: _saveRemoteSettings,
           ),
-        if (!isOmLx) const SizedBox(height: 12),
-        // Model selector — tappable chip that opens a model picker dialog
+          const SizedBox(height: 12),
+        ],
+        if (needsKey) ...[
+          if (hasKey && !_showKeyEditor)
+            _savedKeyRow()
+          else
+            _buildTextField(
+              label: hasKey ? 'API Key' : 'Paste API key',
+              controller: _apiKeyController,
+              isObscured: true,
+              onEditingComplete: () {
+                _saveRemoteSettings();
+                rebuildState(() => _showKeyEditor = false);
+              },
+            ),
+          const SizedBox(height: 12),
+        ],
         InkWell(
           onTap: () => _showModelPicker(),
           borderRadius: BorderRadius.circular(8),
@@ -138,11 +151,9 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _modelNameController.text.isEmpty
-                            ? 'Tap to select a model...'
-                            : _modelNameController.text,
+                        model.isEmpty ? 'Tap to select a model...' : model,
                         style: TextStyle(
-                          color: _modelNameController.text.isEmpty
+                          color: model.isEmpty
                               ? AppColors.textTertiary(context)
                               : AppColors.textPrimary(context),
                           fontSize: 14,
@@ -160,76 +171,94 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
             ),
           ),
         ),
-        const SizedBox(height: 16),
-
-        // Connection status
+        const SizedBox(height: 12),
         if (_connectionStatus != null)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              // theme-keep: success/failure status semantics (green/red), not chrome
-              color: _connectionStatus!.contains('successful')
-                  ? Colors.green.withValues(alpha: 0.15)
-                  : Colors.red.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: _connectionStatus!.contains('successful')
-                    ? Colors.greenAccent.withValues(alpha: 0.3)
-                    : Colors.redAccent.withValues(alpha: 0.3),
-              ),
-            ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
             child: Text(
               _connectionStatus!,
               style: TextStyle(
+                // theme-keep: success/failure status semantics
                 color: _connectionStatus!.contains('successful')
                     ? Colors.greenAccent
                     : Colors.redAccent,
                 fontSize: 13,
               ),
             ),
-          ),
-
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
+          )
+        else
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  // theme-keep: ready/needs-setup status
+                  color: ready ? Colors.greenAccent : Colors.amber,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                ready
+                    ? 'Ready'
+                    : needsKey && !hasKey
+                    ? 'Needs an API key'
+                    : 'Needs a model',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary(context),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
                 onPressed: _isTesting ? null : _testConnection,
-                icon: _isTesting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.onChaosAccent,
-                        ),
-                      )
-                    : const Icon(Icons.wifi_tethering),
-                label: Text(_isTesting ? 'Testing...' : 'Test Connection'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.formMasterAccent,
-                  foregroundColor: AppColors.onChaosAccent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
+                child: Text(_isTesting ? 'Testing…' : 'Test'),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _saveRemoteSettings,
-                icon: const Icon(Icons.save),
-                label: const Text('Save'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textSecondary(context),
-                  side: BorderSide(color: AppColors.borderOf(context)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
       ],
+    );
+  }
+
+  Widget _savedKeyRow() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerOf(context),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'API key',
+                  style: TextStyle(
+                    color: AppColors.textTertiary(context),
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Key saved',
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => rebuildState(() => _showKeyEditor = true),
+            child: const Text('Change'),
+          ),
+        ],
+      ),
     );
   }
 }

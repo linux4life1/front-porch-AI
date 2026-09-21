@@ -32,15 +32,28 @@ class ThemeBorderResolver {
     required CharacterCard? character,
     required bool isUser,
     required bool isDirectorNote,
+    ChatThemeOverrides? themeOverrides,
   }) {
-    final overrides = chatService?.sessionThemeOverrides;
+    final overrides = themeOverrides ?? chatService?.sessionThemeOverrides;
     final preset = ChatThemePreset.byId(overrides?.themeId);
     final accent = preset != null
-        ? storage.getUserTextColor(character, preset, overrides)
+        ? storage.uiSettings.getUserTextColor(
+            character,
+            themePreset: preset,
+            themeOverrides: overrides,
+          )
         : null;
     final textColor = isUser
-        ? storage.getUserTextColor(character, preset, overrides)
-        : storage.getAiTextColor(character, preset, overrides);
+        ? storage.uiSettings.getUserTextColor(
+            character,
+            themePreset: preset,
+            themeOverrides: overrides,
+          )
+        : storage.uiSettings.getAiTextColor(
+            character,
+            themePreset: preset,
+            themeOverrides: overrides,
+          );
     final borderColor = preset != null
         ? (overrides?.resolvedBorderColor(preset) ?? textColor)
         : textColor;
@@ -71,6 +84,29 @@ class ThemeBorderResolver {
       borderStyle: borderStyle,
       borderPainter: borderPainter,
       borderRadius: borderRadius,
+    );
+  }
+
+  /// Waifu Coder / tests with no [StorageService] in the tree.
+  static ResolvedThemeData fallback({
+    required Color textColor,
+    required Color borderColor,
+    required bool isUser,
+    required bool isDirectorNote,
+  }) {
+    return ResolvedThemeData(
+      textColor: textColor,
+      borderColor: borderColor,
+      borderRadius: BorderRadius.only(
+        topLeft: const Radius.circular(12),
+        topRight: const Radius.circular(12),
+        bottomLeft: isUser && !isDirectorNote
+            ? const Radius.circular(12)
+            : Radius.zero,
+        bottomRight: isUser && !isDirectorNote
+            ? Radius.zero
+            : const Radius.circular(12),
+      ),
     );
   }
 }

@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Sidebar body text: a fixed line-clamp, then tap-to-expand.
 ///
@@ -55,7 +55,11 @@ class _ExpandableSidebarTextState extends State<ExpandableSidebarText> {
   Widget build(BuildContext context) {
     final style =
         widget.style ??
-        TextStyle(fontSize: 11.5, color: AppColors.textSecondary(context));
+        TextStyle(
+          fontSize: kSidebarHelpFontSize,
+          color: AppColors.textPrimary(context),
+          height: 1.35,
+        );
     return LayoutBuilder(
       builder: (context, constraints) {
         final painter = TextPainter(

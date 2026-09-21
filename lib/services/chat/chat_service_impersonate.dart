@@ -97,17 +97,11 @@ extension ChatServiceImpersonate on ChatService {
       // Use evolved versions if character evolution is enabled and available
       String personaBlock;
       if (_activeGroup != null) {
-        final personas = _groupCharacters
-            .map(
-              (ch) =>
-                  "${ch.name}'s Persona: ${_macroResolver.resolve(
-                    _getEffectivePersonality(ch),
-                    MacroContext(userName: userName, characterName: ch.name),
-                    section: 'persona',
-                  )}",
-            )
-            .toList();
-        personaBlock = personas.join('\n');
+        personaBlock = buildGroupRosterLine(
+          memberNames: [for (final ch in _groupCharacters) ch.name],
+          userName: userName,
+          observerMode: _observerMode,
+        );
       } else {
         personaBlock =
             "${speakingCharacter.name}'s Persona: ${_macroResolver.resolve(
@@ -204,7 +198,6 @@ extension ChatServiceImpersonate on ChatService {
       // for {{user}}"). Character examples and post-history are omitted.
       final plan = PromptPlan();
       plan.add(id: 'system', inSystem: true, text: '$systemPrompt\n');
-      plan.add(id: 'lore.before', inSystem: true, text: loreBefore);
       plan.add(id: 'persona', inSystem: true, text: '$personaBlock\n');
       plan.add(id: 'lore.after', inSystem: true, text: loreAfter);
       plan.add(id: 'user_persona', inSystem: true, text: userPersonaBlock);
@@ -223,6 +216,7 @@ extension ChatServiceImpersonate on ChatService {
       plan.add(id: 'lore.ex_bottom', inSystem: true, text: loreExBottom);
       plan.add(id: 'start', text: '<START>\n');
       plan.add(id: 'history', text: '', counted: false);
+      plan.add(id: 'lore.before', text: loreBefore);
       plan.add(id: 'post_history', text: postHistoryBlock);
       plan.add(id: 'lore.an_top', text: loreAnTop);
       plan.add(id: 'author_note', text: authorNoteBlock);
@@ -270,10 +264,6 @@ extension ChatServiceImpersonate on ChatService {
             : [_activeCharacter!.name],
       );
 
-      final llmService =
-          testLlmServiceOverride ??
-          _llmProvider?.activeService ??
-          _koboldService;
       final genParams = GenerationParams(
         prompt: prompt,
         systemPrompt: chatSystemPrompt,
@@ -299,7 +289,7 @@ extension ChatServiceImpersonate on ChatService {
             : null,
       );
 
-      final stream = llmService.generateStream(genParams);
+      final stream = _mouthGenerateStream(genParams);
       String accumulated = prefix;
       bool inThinkBlock = false;
 
@@ -331,7 +321,9 @@ extension ChatServiceImpersonate on ChatService {
       // user can only edit AFTER generation finishes, at which point
       // the sanitized form is presented.
       if (_sessionGenSettings.resolveOutputSanitizerEnabled(_storageService)) {
-        final rules = _sessionGenSettings.resolveOutputSanitizerRules(_storageService);
+        final rules = _sessionGenSettings.resolveOutputSanitizerRules(
+          _storageService,
+        );
         final sanitized = sanitizeOutput(accumulated, rules);
         if (sanitized != accumulated) {
           onToken(sanitized);

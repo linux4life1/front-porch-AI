@@ -81,39 +81,21 @@ void _mockAudioChannels() {
 /// here they'd hit the fake's catch-all `noSuchMethod` and throw.
 class _TtsProbeStorage extends FakeStorageService {
   _TtsProbeStorage({
-    this.enabled = true,
-    this.engine = 'openai',
-    this.voiceModel = 'global-voice',
-    this.narrateQuotedOnly = false,
-    this.replaceCurlyQuotes = true,
-  });
-
-  final bool enabled;
-  final String engine;
-  final String voiceModel;
-  final bool narrateQuotedOnly;
-  final bool replaceCurlyQuotes;
-
-  @override
-  bool get ttsEnabled => enabled;
-  @override
-  String get ttsEngine => engine;
-  @override
-  String get ttsVoiceModel => voiceModel;
-  @override
-  double get ttsSpeechRate => 1.0;
-  @override
-  bool get ttsNarrateQuotedOnly => narrateQuotedOnly;
-  @override
-  bool get ttsIgnoreAsterisks => false;
-  @override
-  bool get ttsReplaceCurlyQuotes => replaceCurlyQuotes;
-  @override
-  int get ttsConcurrency => 2;
-  @override
-  int get ttsAudioLookahead => 4;
-  @override
-  int get callBufferSentences => 2;
+    bool enabled = true,
+    String engine = 'openai',
+    String voiceModel = 'global-voice',
+    bool narrateQuotedOnly = false,
+    bool replaceCurlyQuotes = true,
+  }) {
+    ttsSettings.setTtsEnabled(enabled);
+    ttsSettings.setTtsEngine(engine);
+    ttsSettings.setTtsVoiceModel(voiceModel);
+    ttsSettings.setTtsNarrateQuotedOnly(narrateQuotedOnly);
+    ttsSettings.setTtsReplaceCurlyQuotes(replaceCurlyQuotes);
+    ttsSettings.setTtsConcurrency(2);
+    ttsSettings.setTtsAudioLookahead(4);
+    sttSettings.setCallBufferSentences(2);
+  }
 }
 
 /// What a single awaited TtsService call produced: every `print()` /
@@ -137,7 +119,10 @@ class _Observed {
 /// private `_sanitizeText`/voice-resolution output observable without
 /// touching TtsService's privates, and the listener makes "did this call
 /// ever actually start generating" observable without a spy engine.
-Future<_Observed> _observe(TtsService tts, Future<void> Function() action) async {
+Future<_Observed> _observe(
+  TtsService tts,
+  Future<void> Function() action,
+) async {
   final logs = <String>[];
   var sawGenerating = false;
   var sawSpeaking = false;
@@ -176,144 +161,179 @@ void main() {
   }
 
   group('speak() — ttsEnabled gate', () {
-    test('disabled: returns immediately, never enters the busy state', () async {
-      final storage = _TtsProbeStorage(enabled: false);
-      final tts = makeTts(storage);
+    test(
+      'disabled: returns immediately, never enters the busy state',
+      () async {
+        final storage = _TtsProbeStorage(enabled: false);
+        final tts = makeTts(storage);
 
-      final observed = await _observe(
-        tts,
-        () => tts.speak('A perfectly normal line that would otherwise speak.'),
-      );
+        final observed = await _observe(
+          tts,
+          () =>
+              tts.speak('A perfectly normal line that would otherwise speak.'),
+        );
 
-      expect(observed.sawGenerating, isFalse,
-          reason: 'ttsEnabled=false must gate speak() before it ever sets '
-              'isGenerating — this is the very first line of the method');
-      expect(observed.sawSpeaking, isFalse);
-      expect(tts.isSpeaking, isFalse);
-      expect(tts.isGenerating, isFalse);
-    });
+        expect(
+          observed.sawGenerating,
+          isFalse,
+          reason:
+              'ttsEnabled=false must gate speak() before it ever sets '
+              'isGenerating — this is the very first line of the method',
+        );
+        expect(observed.sawSpeaking, isFalse);
+        expect(tts.isSpeaking, isFalse);
+        expect(tts.isGenerating, isFalse);
+      },
+    );
   });
 
   group('speak() — voice resolution', () {
-    test("a character's voiceKey wins over the global voice, and is logged",
-        () async {
-      final storage = _TtsProbeStorage(voiceModel: 'global-voice');
-      final tts = makeTts(storage);
+    test(
+      "a character's voiceKey wins over the global voice, and is logged",
+      () async {
+        final storage = _TtsProbeStorage(voiceModel: 'global-voice');
+        final tts = makeTts(storage);
 
-      final observed = await _observe(
-        tts,
-        () => tts.speak(
-          'Testing which voice gets used for this line of dialogue.',
-          voiceKey: 'character-voice',
-        ),
-      );
+        final observed = await _observe(
+          tts,
+          () => tts.speak(
+            'Testing which voice gets used for this line of dialogue.',
+            voiceKey: 'character-voice',
+          ),
+        );
 
-      expect(
-        observed.logsContain(
-          'using this character\'s assigned voice "character-voice" '
-          'instead of the global voice "global-voice"',
-        ),
-        isTrue,
-        reason: 'a character-specific voiceKey overriding the global one '
-            'must be logged — silently doing the wrong thing here is '
-            'invisible to the user',
-      );
-      expect(observed.logsContain('voice=character-voice'), isTrue,
-          reason: 'the resolved voice actually used downstream must be the '
-              "character's voiceKey");
-      expect(observed.logsContain('voice=global-voice'), isFalse);
-    });
+        expect(
+          observed.logsContain(
+            'using this character\'s assigned voice "character-voice" '
+            'instead of the global voice "global-voice"',
+          ),
+          isTrue,
+          reason:
+              'a character-specific voiceKey overriding the global one '
+              'must be logged — silently doing the wrong thing here is '
+              'invisible to the user',
+        );
+        expect(
+          observed.logsContain('voice=character-voice'),
+          isTrue,
+          reason:
+              'the resolved voice actually used downstream must be the '
+              "character's voiceKey",
+        );
+        expect(observed.logsContain('voice=global-voice'), isFalse);
+      },
+    );
   });
 
-  group('speak() — sanitize pipeline (_sanitizeText, the future support seam)', () {
-    test('curly quotes, OOC, asterisks, markdown, custom-emoji and unicode '
+  group(
+    'speak() — sanitize pipeline (_sanitizeText, the future support seam)',
+    () {
+      test(
+        'curly quotes, OOC, asterisks, markdown, custom-emoji and unicode '
         'emoji are all stripped from what actually gets logged/spoken',
         () async {
-      final storage = _TtsProbeStorage(replaceCurlyQuotes: true);
-      final tts = makeTts(storage);
+          final storage = _TtsProbeStorage(replaceCurlyQuotes: true);
+          final tts = makeTts(storage);
 
-      const input =
-          '“a” (OOC: drop me) *gone* \u{1F600} '
-          '[LinkWord](http://example.com) :wave: # HeadingWord _ul_ ~tl~';
+          const input =
+              '“a” (OOC: drop me) *gone* \u{1F600} '
+              '[LinkWord](http://example.com) :wave: # HeadingWord _ul_ ~tl~';
 
-      final observed = await _observe(tts, () => tts.speak(input));
+          final observed = await _observe(tts, () => tts.speak(input));
 
-      // Curly quotes -> straight quotes.
-      expect(observed.logsContain('"a"'), isTrue);
-      expect(observed.logsContain('“'), isFalse);
-      expect(observed.logsContain('”'), isFalse);
-      // OOC parenthetical fully removed, including its content.
-      expect(observed.logsContain('OOC'), isFalse);
-      expect(observed.logsContain('drop me'), isFalse);
-      // Asterisks stripped but the enclosed word survives.
-      expect(observed.logsContain('gone'), isTrue);
-      expect(observed.logsContain('*'), isFalse);
-      // Markdown links speak their label. This once pinned the opposite:
-      // the code used `replaceAll(RegExp, r'$1')`, and Dart's
-      // replaceAll(Pattern, String) has no $1 backreferences (only
-      // replaceAllMapped does), so TTS literally said "dollar one" in
-      // place of every link label. The net's authoring pass caught it;
-      // the fix (replaceAllMapped) landed before this net did.
-      expect(observed.logsContain(r'$1'), isFalse,
-          reason: 'a literal \$1 reaching the spoken text means the '
-              'backreference-less replaceAll regressed');
-      expect(observed.logsContain('LinkWord'), isTrue,
-          reason: 'the markdown link label must survive into speech');
-      expect(observed.logsContain('example.com'), isFalse);
-      // Markdown heading marker stripped, text kept.
-      expect(observed.logsContain('HeadingWord'), isTrue);
-      expect(observed.logsContain('#'), isFalse);
-      // Underscore/tilde emphasis markers stripped, text kept.
-      expect(observed.logsContain('ul'), isTrue);
-      expect(observed.logsContain('tl'), isTrue);
-      expect(observed.logsContain('_ul_'), isFalse);
-      expect(observed.logsContain('~tl~'), isFalse);
-      // Custom ":emoji:" token and the real unicode emoji both removed.
-      expect(observed.logsContain(':wave:'), isFalse);
-      expect(observed.logsContain('\u{1F600}'), isFalse);
-    });
-
-    test('ttsNarrateQuotedOnly with no quotes anywhere sanitizes to empty '
-        'and speak() bails before ever generating', () async {
-      final storage = _TtsProbeStorage(narrateQuotedOnly: true);
-      final tts = makeTts(storage);
-
-      final observed = await _observe(
-        tts,
-        () => tts.speak(
-          'This whole line has no quotation marks in it whatsoever so it '
-          'should vanish completely.',
-        ),
+          // Curly quotes -> straight quotes.
+          expect(observed.logsContain('"a"'), isTrue);
+          expect(observed.logsContain('“'), isFalse);
+          expect(observed.logsContain('”'), isFalse);
+          // OOC parenthetical fully removed, including its content.
+          expect(observed.logsContain('OOC'), isFalse);
+          expect(observed.logsContain('drop me'), isFalse);
+          // Asterisks stripped but the enclosed word survives.
+          expect(observed.logsContain('gone'), isTrue);
+          expect(observed.logsContain('*'), isFalse);
+          // Markdown links speak their label. This once pinned the opposite:
+          // the code used `replaceAll(RegExp, r'$1')`, and Dart's
+          // replaceAll(Pattern, String) has no $1 backreferences (only
+          // replaceAllMapped does), so TTS literally said "dollar one" in
+          // place of every link label. The net's authoring pass caught it;
+          // the fix (replaceAllMapped) landed before this net did.
+          expect(
+            observed.logsContain(r'$1'),
+            isFalse,
+            reason:
+                'a literal \$1 reaching the spoken text means the '
+                'backreference-less replaceAll regressed',
+          );
+          expect(
+            observed.logsContain('LinkWord'),
+            isTrue,
+            reason: 'the markdown link label must survive into speech',
+          );
+          expect(observed.logsContain('example.com'), isFalse);
+          // Markdown heading marker stripped, text kept.
+          expect(observed.logsContain('HeadingWord'), isTrue);
+          expect(observed.logsContain('#'), isFalse);
+          // Underscore/tilde emphasis markers stripped, text kept.
+          expect(observed.logsContain('ul'), isTrue);
+          expect(observed.logsContain('tl'), isTrue);
+          expect(observed.logsContain('_ul_'), isFalse);
+          expect(observed.logsContain('~tl~'), isFalse);
+          // Custom ":emoji:" token and the real unicode emoji both removed.
+          expect(observed.logsContain(':wave:'), isFalse);
+          expect(observed.logsContain('\u{1F600}'), isFalse);
+        },
       );
 
-      expect(observed.sawGenerating, isFalse,
-          reason: 'narrateQuotedOnly with zero quoted spans must empty the '
+      test('ttsNarrateQuotedOnly with no quotes anywhere sanitizes to empty '
+          'and speak() bails before ever generating', () async {
+        final storage = _TtsProbeStorage(narrateQuotedOnly: true);
+        final tts = makeTts(storage);
+
+        final observed = await _observe(
+          tts,
+          () => tts.speak(
+            'This whole line has no quotation marks in it whatsoever so it '
+            'should vanish completely.',
+          ),
+        );
+
+        expect(
+          observed.sawGenerating,
+          isFalse,
+          reason:
+              'narrateQuotedOnly with zero quoted spans must empty the '
               'sanitized text and hit the early "text empty after '
-              'sanitization" return, never the busy-state / generation code');
-      expect(tts.isSpeaking, isFalse);
-      expect(tts.isGenerating, isFalse);
-    });
+              'sanitization" return, never the busy-state / generation code',
+        );
+        expect(tts.isSpeaking, isFalse);
+        expect(tts.isGenerating, isFalse);
+      });
 
-    test('a message that is ONLY a <think> block sanitizes to empty and is '
-        'never spoken', () async {
-      final storage = _TtsProbeStorage();
-      final tts = makeTts(storage);
+      test('a message that is ONLY a <think> block sanitizes to empty and is '
+          'never spoken', () async {
+        final storage = _TtsProbeStorage();
+        final tts = makeTts(storage);
 
-      final observed = await _observe(
-        tts,
-        () => tts.speak(
-          '<think>Internal reasoning nobody should ever hear spoken '
-          'aloud.</think>',
-        ),
-      );
+        final observed = await _observe(
+          tts,
+          () => tts.speak(
+            '<think>Internal reasoning nobody should ever hear spoken '
+            'aloud.</think>',
+          ),
+        );
 
-      expect(observed.sawGenerating, isFalse,
-          reason: 'reasoning-tag debris must never reach generation — '
-              'Kokoro would otherwise tokenize the stray tag text as prose');
-      expect(tts.isSpeaking, isFalse);
-      expect(tts.isGenerating, isFalse);
-    });
-  });
+        expect(
+          observed.sawGenerating,
+          isFalse,
+          reason:
+              'reasoning-tag debris must never reach generation — '
+              'Kokoro would otherwise tokenize the stray tag text as prose',
+        );
+        expect(tts.isSpeaking, isFalse);
+        expect(tts.isGenerating, isFalse);
+      });
+    },
+  );
 
   group('speak() — engine routing + the busy-state machine', () {
     test('a non-kokoro, non-piper engine takes the cloud/sentence branch, '
@@ -336,11 +356,18 @@ void main() {
         isTrue,
         reason: 'ttsEngine=openai must take the cloud/sentence-batch branch',
       );
-      expect(observed.logsContain('single full-text generation'), isFalse,
-          reason: 'must NOT take the Kokoro/Piper unified branch');
-      expect(observed.sawGenerating, isTrue,
-          reason: 'the busy state must actually be entered before the '
-              'engine call is attempted');
+      expect(
+        observed.logsContain('single full-text generation'),
+        isFalse,
+        reason: 'must NOT take the Kokoro/Piper unified branch',
+      );
+      expect(
+        observed.sawGenerating,
+        isTrue,
+        reason:
+            'the busy state must actually be entered before the '
+            'engine call is attempted',
+      );
       expect(observed.sawSpeaking, isTrue);
     });
 
@@ -355,10 +382,14 @@ void main() {
       expect(tts.isGenerating, isFalse);
       expect(tts.generationProgress, 0.0);
       expect(tts.currentMessageId, isNull);
-      expect(tts.lastError, isNull,
-          reason: 'a plain generation failure (no audio, not an API error) '
-              'must not set lastError — that field is for ElevenLabs-style '
-              'user-facing failures specifically');
+      expect(
+        tts.lastError,
+        isNull,
+        reason:
+            'a plain generation failure (no audio, not an API error) '
+            'must not set lastError — that field is for ElevenLabs-style '
+            'user-facing failures specifically',
+      );
     });
   });
 
@@ -377,13 +408,21 @@ void main() {
           )
           .timeout(const Duration(seconds: 5));
 
-      expect(result, isNull,
-          reason: 'with no API key configured, generation must fail closed '
-              'and return null rather than throwing');
-      expect(notifyCount, 0,
-          reason: 'generateAudioFile() is documented (split map Cluster F) '
-              'as touching no state flags and no cache — it must never '
-              'notify listeners at all');
+      expect(
+        result,
+        isNull,
+        reason:
+            'with no API key configured, generation must fail closed '
+            'and return null rather than throwing',
+      );
+      expect(
+        notifyCount,
+        0,
+        reason:
+            'generateAudioFile() is documented (split map Cluster F) '
+            'as touching no state flags and no cache — it must never '
+            'notify listeners at all',
+      );
       expect(tts.isSpeaking, isFalse);
       expect(tts.isGenerating, isFalse);
     });
@@ -407,12 +446,20 @@ void main() {
             .timeout(const Duration(seconds: 10)),
       );
 
-      expect(observed.sawGenerating, isTrue,
-          reason: 'speakStreaming sets the busy state before resolving the '
-              'first sentence, per its own doc comment');
-      expect(tts.isSpeaking, isFalse,
-          reason: 'once the stream drains with nothing playable, the '
-              'finally block must reset isSpeaking');
+      expect(
+        observed.sawGenerating,
+        isTrue,
+        reason:
+            'speakStreaming sets the busy state before resolving the '
+            'first sentence, per its own doc comment',
+      );
+      expect(
+        tts.isSpeaking,
+        isFalse,
+        reason:
+            'once the stream drains with nothing playable, the '
+            'finally block must reset isSpeaking',
+      );
       expect(tts.isGenerating, isFalse);
       expect(tts.currentMessageId, isNull);
     });

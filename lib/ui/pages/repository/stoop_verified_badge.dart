@@ -22,9 +22,9 @@ const double kStoopCheckViewBox = 22;
 
 final Path kStoopCheckParsedPath = parseSvgPath(kStoopCheckPath);
 
-/// Gold owner / blue trusted-uploader check. Renders nothing if [verification]
-/// is missing or unknown. Sit this in a Wrap/Row next to the handle — do not
-/// bake the name in. Hub alignment: slightly below cap-height
+/// Gold owner / blue trusted / silver developer check. Renders nothing if
+/// [verification] is missing or unknown. Sit this in a Wrap/Row next to the
+/// handle — do not bake the name in. Hub alignment: slightly below cap-height
 /// (`.hub-check { vertical-align: -0.18em }`).
 class StoopVerifiedBadge extends StatelessWidget {
   final String? verification;
@@ -38,12 +38,24 @@ class StoopVerifiedBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final v = verification;
-    if (v != 'gold' && v != 'blue') return const SizedBox.shrink();
+    if (v != 'gold' && v != 'blue' && v != 'silver') {
+      return const SizedBox.shrink();
+    }
     final color = v == 'gold'
         ? AppColors.stoopCheckGold
-        : AppColors.stoopCheckBlue;
-    final label = v == 'gold' ? 'Gold verified' : 'Verified';
-    final tooltip = v == 'gold' ? 'Stoop owner' : 'Trusted creator';
+        : v == 'blue'
+        ? AppColors.stoopCheckBlue
+        : AppColors.stoopCheckSilver;
+    final label = v == 'gold'
+        ? 'Gold verified'
+        : v == 'silver'
+        ? 'Developer verified'
+        : 'Verified';
+    final tooltip = v == 'gold'
+        ? 'Stoop owner'
+        : v == 'silver'
+        ? 'Front Porch developer'
+        : 'Trusted creator';
     // Hub: width 1.15em, margin-left 0.22em, vertical-align -0.18em.
     return Tooltip(
       message: tooltip,

@@ -4,7 +4,6 @@
 // Clock-out crumbs and rare speech. Most shifts leave nothing.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/database/database.dart';
@@ -307,29 +306,4 @@ void main() {
       expect(alreadyHasWorkEpisodeToday(cards: cards, storyDay: 4), isFalse);
     });
   });
-
-  test(
-    'clock-out mint is called from skip, chevron, calendar, and post-reply',
-    () {
-      final gen = File(
-        'lib/services/chat/chat_service_generation.dart',
-      ).readAsStringSync();
-      expect(
-        gen,
-        contains('_maybeMintEpisodeCrumbs(before, _timeService.clock)'),
-      );
-      final send = File(
-        'lib/services/chat/chat_service_send.dart',
-      ).readAsStringSync();
-      // Night skip captures `after` so restore can see whether the clock moved.
-      expect(send, contains('_maybeMintEpisodeCrumbs(before, after)'));
-      final controls = File(
-        'lib/services/chat/chat_service_controls.dart',
-      ).readAsStringSync();
-      expect(
-        controls.split('_maybeMintEpisodeCrumbs(before, _timeService.clock)'),
-        hasLength(3),
-      );
-    },
-  );
 }

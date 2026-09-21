@@ -10,6 +10,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
 import { renderRpInline } from './rpText';
+import { prepareChatPhotoBase64 } from '../pages/chatPhoto';
 
 // Mirrors ChatCommandHandler.commands (lib/services/chat/chat_command_handler.dart)
 // — the single source of truth for the desktop "type /" helper. Keep in sync if
@@ -17,9 +18,9 @@ import { renderRpInline } from './rpText';
 // autocomplete/filtering. All are dispatched server-side in ChatService.
 const SLASH_COMMANDS: { cmd: string; args: string; desc: string }[] = [
   { cmd: '/create', args: '<name>: <concept>', desc: 'Create a new guest NPC and bring them into the scene' },
-  { cmd: '/join', args: '[--full] [name]', desc: 'Bring a character in — --full makes a full member; in a group, always full' },
-  { cmd: '/promote', args: '', desc: 'Turn the present scene into a full group (everyone becomes a full member)' },
-  { cmd: '/speak', args: '[name]', desc: 'Make someone present take a turn now — a guest, or a group member by name' },
+  { cmd: '/join', args: '[--full|--lite] [name]', desc: 'Bring a character in — lite is a Scene Guest (works in a group too); --full is a full member' },
+  { cmd: '/promote', args: '[name]', desc: 'Named: that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them' },
+  { cmd: '/speak', args: '[name]', desc: 'Anyone on the porch (host, guest, or group member) takes a turn now' },
   { cmd: '/exit', args: '[name]', desc: 'A guest leaves (narrated); in a group, removes that full member by name' },
   { cmd: '/turnorder', args: '[random | <name>, …]', desc: 'Set how a group takes turns: round-robin, random, or an explicit order' },
   { cmd: '/scan', args: '', desc: 'Scan the scene for a new recurring character to add' },
@@ -64,7 +65,7 @@ export function ChatComposer({
   onImpersonate,
   apiReady = true,
 }: {
-  onSend: (text: string) => void;
+  onSend: (text: string, imageBase64?: string) => void;
   onStop: () => void;
   isGenerating: boolean;
   isSettlingTurn?: boolean;
@@ -174,15 +175,37 @@ export function ChatComposer({
     if (!isSettlingTurn && !isSendWaitingOnSettle) setHeldLocal(false);
   }, [isSettlingTurn, isSendWaitingOnSettle]);
 
+  const [photo, setPhoto] = useState<{ file: File; preview: string } | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const clearPhoto = () => {
+    if (photo) URL.revokeObjectURL(photo.preview);
+    setPhoto(null);
+  };
+
   const send = () => {
     const text = draft.trim();
-    if (!text) return;
+    if (!text && !photo) return;
+    const pending = photo;
     setDraft('');
     setSlashDismissed(false);
     setMentionDismissed(false);
     setCaret(0);
+    setPhoto(null);
     if (isSettlingTurn) setHeldLocal(true);
-    onSend(text);
+    if (!pending) {
+      onSend(text);
+      return;
+    }
+    setPhotoBusy(true);
+    void prepareChatPhotoBase64(pending.file)
+      .then((b64) => onSend(text, b64))
+      .catch(() => onSend(text))
+      .finally(() => {
+        URL.revokeObjectURL(pending.preview);
+        setPhotoBusy(false);
+      });
   };
 
   return (
@@ -193,6 +216,33 @@ export function ChatComposer({
       </div>
     )}
     <div className="chat-input">
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        aria-hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file || !file.type.startsWith('image/')) return;
+          clearPhoto();
+          setPhoto({ file, preview: URL.createObjectURL(file) });
+        }}
+      />
+      {photo && (
+        <div className="composer-photo-chip">
+          <img src={photo.preview} alt="" />
+          <button
+            type="button"
+            className="link-btn"
+            onClick={clearPhoto}
+            aria-label="Remove photo"
+          >
+            Remove
+          </button>
+        </div>
+      )}
       {showSlash && (
         <div className="slash-cheatsheet" role="listbox" aria-label="Chat commands">
           <div className="cheatsheet-head">
@@ -288,6 +338,16 @@ export function ChatComposer({
           rows={1}
         />
       </div>
+      <button
+        type="button"
+        className="icon-btn"
+        title="Attach photo"
+        aria-label="Attach photo"
+        disabled={isGenerating || photoBusy}
+        onClick={() => photoInputRef.current?.click()}
+      >
+        🖼
+      </button>
       {onImpersonate && (
         <button
           type="button"
@@ -309,7 +369,11 @@ export function ChatComposer({
       {isGenerating ? (
         <button className="primary" onClick={onStop}>Stop</button>
       ) : (
-        <button className="primary" onClick={send} disabled={!draft.trim()}>
+        <button
+          className="primary"
+          onClick={send}
+          disabled={photoBusy || (!draft.trim() && !photo)}
+        >
           Send
         </button>
       )}

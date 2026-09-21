@@ -62,7 +62,8 @@ class AvatarGalleryExpressionsSection extends StatelessWidget {
       return _CollapsedAddRow(onTap: onExpand);
     }
 
-    final atCap = controller.expressions.length >= AvatarGalleryController.maxExpressions;
+    final atCap =
+        controller.expressions.length >= AvatarGalleryController.maxExpressions;
     final tiles = <Widget>[
       for (final e in controller.expressions)
         AvatarTile(
@@ -81,7 +82,8 @@ class AvatarGalleryExpressionsSection extends StatelessWidget {
           highlighted: e.displayOrder + 1 == controller.primeIndex,
           badgeColor: AppColors.logWarn,
         ),
-      if (!atCap) GalleryAddTile(label: 'Add expression', onTap: onAddExpression),
+      if (!atCap)
+        GalleryAddTile(label: 'Add expression', onTap: onAddExpression),
     ];
 
     return Column(
@@ -90,7 +92,9 @@ class AvatarGalleryExpressionsSection extends StatelessWidget {
         AvatarGallerySectionHeader(
           title: 'Expression images',
           subtitle: 'Tap one to set the default emotion · swapped by mood',
-          trailing: _AutoDisplayPill(on: controller.storage.expressionEnabled),
+          trailing: _AutoDisplayPill(
+            on: controller.storage.expressionSettings.expressionEnabled,
+          ),
         ),
         const SizedBox(height: 10),
         GridView.count(
@@ -147,7 +151,11 @@ class _CollapsedAddRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              Icon(Icons.add, size: 18, color: AppColors.textSecondary(context)),
+              Icon(
+                Icons.add,
+                size: 18,
+                color: AppColors.textSecondary(context),
+              ),
               const SizedBox(width: 8),
               Text(
                 'Add expression images',

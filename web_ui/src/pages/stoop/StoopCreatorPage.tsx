@@ -10,6 +10,7 @@ import { StoopCardTile } from '../../components/stoop/StoopCardTile';
 import { StoopCreatorAvatar } from '../../components/stoop/StoopCreatorAvatar';
 import { StoopVerifiedBadge } from '../../components/stoop/StoopVerifiedBadge';
 import { stoop, stoopErrorText } from '../../stoop/stoopApi';
+import { useStoop } from '../../stoop/StoopContext';
 import type { StoopCreator } from '../../stoop/stoopTypes';
 
 function monthYear(iso?: string): string | null {
@@ -21,6 +22,8 @@ function monthYear(iso?: string): string | null {
 
 export function StoopCreatorPage() {
   const { id = '' } = useParams();
+  const { user } = useStoop();
+  const nsfwEnabled = user?.nsfwEnabled;
   const [creator, setCreator] = useState<StoopCreator | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -40,7 +43,7 @@ export function StoopCreatorPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, nsfwEnabled]);
 
   const toggleFollow = async () => {
     if (!creator) return;

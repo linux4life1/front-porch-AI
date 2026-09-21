@@ -15,12 +15,29 @@
 // evolves IDENTICALLY whether it is the sole participant (1:1) or one member
 // among others (group). It composes the REAL leaf services
 // (RelationshipService, NsfwService, NeedsSimulation) over a single shared
-// `_groupRealism`-shaped store and exercises the real delta math through the
-// real dance. If the collapse ever lets another participant's turn contaminate a
-// participant, or the dance stops being lossless, this fails.
+// `_groupRealism`-shaped store and exercises the real delta math. If another
+// participant's turn ever contaminates a participant, this fails.
 //
-// This is the test that REPLACES the "1:1 must stay in parity with groups"
-// review rule: parity is now proven, not asserted by hand.
+// WHAT IT DOES AND DOES NOT COVER (corrected 2026-09-18 — the old header
+// claimed "parity is now proven", which was more than this file can say):
+//
+//   * Covered by the REAL product code: the delta math, and the
+//     relationship/NSFW halves of the swap — `load` and `save` below call
+//     loadRelationshipScalarsForSpeaker / saveRelationshipScalarsToGroup and
+//     the NSFW twins, so a field one of them forgets shows up here.
+//   * NOT covered: ChatService's own dance
+//     (`_loadGroupRealismIntoScalars` / `_saveScalarsIntoGroupRealism`). It is
+//     private to a part-file library and unreachable from a unit test. Its
+//     owner is `integration_test/group_smoke_test.dart`, which drives a real
+//     group through two speakers and a reload.
+//   * NOT covered by product code: the needs half of the swap. `load` / `save`
+//     copy `needs.vector` in and out of the store by hand, standing in for
+//     ChatService's `_getGroupNeeds` / `_setGroupNeeds`. A bug in those two is
+//     invisible here — the E2E suite is again the owner.
+//
+// The exhaustive field list for the relationship swap lives in
+// `relationship_clamp_and_speaker_roundtrip_test.dart`. This file is the
+// arithmetic-parity half, not a replacement for the review rule.
 
 import 'package:flutter_test/flutter_test.dart';
 

@@ -74,23 +74,21 @@ extension ChatServiceGenerationStream on ChatService {
       originalText = t.continuePrefix;
       targetSender = t.streamTarget.sender;
       isUserTarget = t.streamTarget.isUser;
-      // Merge metadata if continuing
-      if (_pendingRealismMetadata != null) {
-        t.streamTarget.activeMetadata ??= {};
-        t.streamTarget.activeMetadata!.addAll(_pendingRealismMetadata!);
-        _pendingRealismMetadata = null;
-      }
+      // Continue extends the reply already on screen. It does not re-eval,
+      // so leftover `_pendingRealismMetadata` (a cancelled regen's chips /
+      // realism_state) must not stamp this bubble. Cancel paths null it;
+      // do not merge it here.
     } else {
       targetSender = t.mode == GenerationMode.normal
           ? t.speakingCharacter.name
           : _userPersonaService.persona.name;
       isUserTarget = t.mode == GenerationMode.impersonate;
-      // A Scene Guest turn carries NO Realism/Needs, so its message must never
-      // inherit _pendingRealismMetadata — which still holds the HOST turn's
-      // verification result (the leftover "✓ Director accepted" chip), bond
-      // deltas, etc. Guests get clean (null) metadata.
+      // A Scene Guest / soft roster turn carries NO Realism/Needs, so its
+      // message must never inherit `_pendingRealismMetadata` — leftover
+      // host/full-member `needs_pre_turn_vector` and chips. 1:1 guests
+      // already skipped via `guestSpeaker`; group lite must too.
       final initialMetadata =
-          (t.guestSpeaker != null || _pendingRealismMetadata == null)
+          (_isLiteTurn(t) || _pendingRealismMetadata == null)
           ? null
           : Map<String, dynamic>.from(_pendingRealismMetadata!);
       debugPrint(
@@ -119,6 +117,17 @@ extension ChatServiceGenerationStream on ChatService {
     if (t.ragReceipt != null) {
       t.streamTarget.activeMetadata ??= {};
       t.streamTarget.activeMetadata!['rag_receipt'] = t.ragReceipt;
+    }
+    if (t.searchReceipt != null) {
+      t.streamTarget.activeMetadata ??= {};
+      t.streamTarget.activeMetadata!['search_receipt'] = t.searchReceipt;
+      if (t.searchReceipt!['source'] == 'wiki') {
+        t.streamTarget.activeMetadata!['wiki_receipt'] = t.searchReceipt;
+      }
+    }
+    if (t.toolReceipt != null) {
+      t.streamTarget.activeMetadata ??= {};
+      t.streamTarget.activeMetadata!['tool_receipt'] = t.toolReceipt;
     }
     final streamTarget = t.streamTarget;
 
@@ -446,77 +455,5 @@ extension ChatServiceGenerationStream on ChatService {
       return true;
     }
     return false;
-  }
-
-  // ── Small streaming/turn-busy accessors, moved verbatim from the god
-  // file's field block (zero behaviour change) ──
-
-  /// The honest "this turn is still in motion" predicate — what the mutation
-  /// guards should ask, rather than `_isGenerating` alone.
-  ///
-  /// NOT for the escape hatches: `stopGeneration` and
-  /// `_cancelAndWaitForGeneration` must keep testing `_isGenerating` on its
-  /// own. The first aborts an in-flight HTTP stream (there is none during
-  /// post-gen), and the second SPINS until the flag clears — broadening it
-  /// would hang the caller if post-gen ever failed to settle.
-  bool get _isTurnBusy => _isGenerating || _isPostGenerating || _isImporting;
-
-  void _notifyStreamListeners() {
-    if (_streamNotifyTimer != null) return; // trailing notify already queued
-    final elapsed = DateTime.now().difference(_lastStreamNotify);
-    if (elapsed >= _kStreamNotifyInterval) {
-      _lastStreamNotify = DateTime.now();
-      notifyListeners();
-    } else {
-      _streamNotifyTimer = Timer(_kStreamNotifyInterval - elapsed, () {
-        _streamNotifyTimer = null;
-        _lastStreamNotify = DateTime.now();
-        notifyListeners();
-      });
-    }
-  }
-
-  void _cancelStreamNotifyThrottle() {
-    _streamNotifyTimer?.cancel();
-    _streamNotifyTimer = null;
-  }
-
-  /// External consumers (the web server's StreamHub) listen to this for
-  /// real-time token streaming.
-  Stream<String> get tokenStream => _tokenBroadcast.stream;
-
-  /// Emits complete sentences as they're detected during LLM token streaming.
-  /// Used by call mode to start TTS on the first sentence immediately.
-  Stream<String> get sentenceStream => _sentenceBroadcast.stream;
-  // (callMode moved onto the class shell — fake-pinned for the call overlay
-  // widget tests, and its setter now owns the call-model swap release.)
-
-  /// True while the turn's awaited post-generation work is still settling.
-  /// Exposed so tests can assert the window opens and — more importantly —
-  /// always closes. See [_isPostGenerating].
-  bool get isSettlingTurn => _isPostGenerating;
-
-  /// Typed send is queued behind post-gen evals. Composer is empty; no bubble
-  /// yet. UI shows a holding banner so the wait does not look like a lost send.
-  bool get isSendWaitingOnSettle => _sendWaitingOnSettle;
-
-  // ── Round-4b forwarder body (see chat_service_accessors.dart's banner
-  // comment for why this stays a one-line forwarder on the class body) ──
-  double get _tokensPerSecondImpl {
-    if (_tokenTimestamps.length < 2) return 0.0;
-    // Use rolling window: tokens in the last 3 seconds
-    final now = DateTime.now();
-    final cutoff = now.subtract(const Duration(seconds: 3));
-    final recent = _tokenTimestamps.where((t) => t.isAfter(cutoff)).length;
-    if (recent < 2) {
-      // Fallback to overall average
-      if (_generationStartTime == null || _tokensGenerated == 0) return 0.0;
-      final elapsed =
-          now.difference(_generationStartTime!).inMilliseconds / 1000.0;
-      return elapsed > 0 ? _tokensGenerated / elapsed : 0.0;
-    }
-    final windowStart = _tokenTimestamps.where((t) => t.isAfter(cutoff)).first;
-    final windowElapsed = now.difference(windowStart).inMilliseconds / 1000.0;
-    return windowElapsed > 0 ? recent / windowElapsed : 0.0;
   }
 }

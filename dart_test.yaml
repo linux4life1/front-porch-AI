@@ -18,6 +18,13 @@
 # they self-skip unless FP_BENCH_DIR points at a seeded library — so leaving them
 # in the default run is harmless. Run them deliberately:
 #     FP_BENCH_DIR=~/Documents/FrontPorchAI flutter test --tags perf
+#
+# The `live` / `stoop_live` tags mark pins that talk to a real Stoop/backporch
+# server. They skip when STOOP_TEST_EMAIL / STOOP_TEST_PASSWORD are absent —
+# never replace them with a stub. See CLAUDE.md ## Testing.
+#     STOOP_TEST_EMAIL=… STOOP_TEST_PASSWORD=… flutter test --tags stoop_live
 tags:
   golden:
   perf:
+  live:
+  stoop_live:

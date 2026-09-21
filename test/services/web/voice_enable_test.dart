@@ -36,7 +36,7 @@ void main() {
     final next = await facade.apply({'ttsEnabled': true, 'sttEnabled': true});
     expect(next['ttsEnabled'], isTrue);
     expect(next['sttEnabled'], isTrue);
-    expect(storage.ttsEnabled, isTrue);
-    expect(storage.sttEnabled, isTrue);
+    expect(storage.ttsSettings.ttsEnabled, isTrue);
+    expect(storage.sttSettings.sttEnabled, isTrue);
   });
 }

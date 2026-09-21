@@ -17,6 +17,7 @@ import { CreateCharacterPage } from './pages/CreateCharacterPage';
 import { CreateAiCharacterPage } from './pages/CreateAiCharacterPage';
 import { CreateGroupChatPage } from './pages/CreateGroupChatPage';
 import { WorldsPage } from './pages/WorldsPage';
+import { WorldFromWikiPage } from './pages/WorldFromWikiPage';
 import { StoriesPage } from './pages/StoriesPage';
 import { StorySetupPage } from './pages/StorySetupPage';
 import { StoryDashboardPage } from './pages/StoryDashboardPage';
@@ -65,6 +66,7 @@ export function App() {
         <Route path="/create-ai" element={<CreateAiCharacterPage />} />
         <Route path="/create-group" element={<CreateGroupChatPage />} />
         <Route path="/worlds" element={<WorldsPage />} />
+        <Route path="/worlds/from-wiki" element={<WorldFromWikiPage />} />
         <Route path="/stories" element={<StoriesPage />} />
         <Route path="/stories/:id" element={<StoryDashboardPage />} />
         <Route path="/stories/:id/setup" element={<StorySetupPage />} />

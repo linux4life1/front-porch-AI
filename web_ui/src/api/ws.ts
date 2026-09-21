@@ -17,6 +17,14 @@ export type WsEvent = {
   // unsaved field proposal the client reviews before applying.
   characterId?: string;
   proposal?: unknown;
+  // `world_wiki_done`: written lorebook cards, not saved until Preview.
+  description?: string;
+  climateEnabled?: boolean;
+  biome?: unknown;
+  recursiveScanning?: boolean;
+  scanDepth?: number;
+  tokenBudget?: number;
+  entries?: unknown;
   // `processing` event (Realism + Objective engine overlay): which engine is
   // running + the live eval stream text.
   active?: boolean;

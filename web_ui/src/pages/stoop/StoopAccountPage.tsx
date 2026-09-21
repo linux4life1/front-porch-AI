@@ -7,13 +7,11 @@
 // account deletion. Mirrors the desktop account sheet feature-for-feature.
 
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { StoopCardArt, StoopCardTile } from '../../components/stoop/StoopCardTile';
 import { StoopCreatorAvatar } from '../../components/stoop/StoopCreatorAvatar';
-import { StoopVerifiedBadge } from '../../components/stoop/StoopVerifiedBadge';
 import { stoop, StoopError, stoopErrorText } from '../../stoop/stoopApi';
 import { useStoop } from '../../stoop/StoopContext';
 import type { StoopCard, StoopFollowedCreator, StoopMine } from '../../stoop/stoopTypes';
+import { StoopAccountCollections } from './StoopAccountCollections';
 
 /** Center-crop to a square (max 512px), encoded as JPEG — same treatment the
  *  hub site applies, so avatars land round-crop-safe and small. */
@@ -62,13 +60,6 @@ function squareCropAvatar(file: File): Promise<Blob> {
     img.src = url;
   });
 }
-
-const STATUS_LABEL: Record<StoopMine['status'], string> = {
-  PENDING: 'In review',
-  APPROVED: 'Live',
-  REJECTED: 'Rejected',
-  TAKEN_DOWN: 'Taken down',
-};
 
 export function StoopAccountPage() {
   const { user, updateUser, signOut } = useStoop();
@@ -433,87 +424,13 @@ export function StoopAccountPage() {
         )}
       </section>
 
-      <section className="card">
-        <h3>Your uploads</h3>
-        {mine.length === 0 ? (
-          <p className="muted">Nothing shared yet.</p>
-        ) : (
-          <div className="lib-grid stoop-grid stoop-mine-grid">
-            {mine.map((m) => (
-              <div className="lib-card stoop-tile stoop-mine-tile" key={m.id}>
-                {m.status === 'APPROVED' ? (
-                  <Link
-                    to={`/stoop/card/${encodeURIComponent(m.id)}?type=${encodeURIComponent(m.type)}`}
-                    className="stoop-mine-art"
-                  >
-                    <StoopCardArt assetId={m.primaryAssetId} name={m.name} />
-                  </Link>
-                ) : (
-                  <span className="stoop-mine-art">
-                    <StoopCardArt assetId={m.primaryAssetId} name={m.name} />
-                  </span>
-                )}
-                <span className={`stoop-status stoop-mine-status ${m.status.toLowerCase()}`}>
-                  {STATUS_LABEL[m.status]}
-                </span>
-                <div className="lib-info">
-                  <div className="lib-name-row">
-                    <span className="lib-name">{m.name}</span>
-                  </div>
-                  <div className="stoop-tile-meta">
-                    <span>v{m.version} · ⬇ {m.downloadCount}</span>
-                    <button
-                      className="link-btn stoop-delete-link"
-                      disabled={busy}
-                      onClick={() => deleteUpload(m)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                  {m.status === 'REJECTED' && m.rejectionNote && (
-                    <p className="muted stoop-reject-note">{m.rejectionNote}</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="card">
-        <h3>Your downloads</h3>
-        {downloads.length === 0 ? (
-          <p className="muted">Nothing downloaded yet.</p>
-        ) : (
-          <div className="lib-grid stoop-grid">
-            {downloads.map((c) => (
-              <StoopCardTile key={c.id} card={c} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="card">
-        <h3>Following</h3>
-        {followed.length === 0 ? (
-          <p className="muted">You aren’t following anyone yet.</p>
-        ) : (
-          <ul className="stoop-following">
-            {followed.map((c) => (
-              <li key={c.id}>
-                <Link to={`/stoop/creator/${encodeURIComponent(c.id)}`}>
-                  <StoopCreatorAvatar assetId={c.avatarAssetId} name={c.displayName} size={24} />{' '}
-                  {c.displayName}
-                  <StoopVerifiedBadge verification={c.verification} />
-                </Link>
-                <span className="muted">
-                  {c.followers} follower{c.followers === 1 ? '' : 's'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <StoopAccountCollections
+        mine={mine}
+        downloads={downloads}
+        followed={followed}
+        busy={busy}
+        onDeleteUpload={deleteUpload}
+      />
 
       <section className="card stoop-danger">
         <h3>Account</h3>

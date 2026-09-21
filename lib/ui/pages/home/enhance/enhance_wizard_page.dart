@@ -137,9 +137,10 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
         creatorState.initLocalSettingsControllers(storage);
         Provider.of<ModelManager>(context, listen: false).refreshModels();
         if (creatorState.selectedLocalModelPath.isEmpty &&
-            storage.lastUsedModelPath != null &&
-            storage.lastUsedModelPath!.isNotEmpty) {
-          creatorState.selectedLocalModelPath = storage.lastUsedModelPath!;
+            storage.backendSettings.lastUsedModelPath != null &&
+            storage.backendSettings.lastUsedModelPath!.isNotEmpty) {
+          creatorState.selectedLocalModelPath =
+              storage.backendSettings.lastUsedModelPath!;
           creatorState.notify();
         }
         final llm = Provider.of<LLMProvider>(context, listen: false);
@@ -211,7 +212,7 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
         isLocalKobold:
             llmProvider.activeBackend == BackendType.kobold &&
             llmProvider.koboldService.isReady,
-        contextSize: storage.contextSize,
+        contextSize: storage.backendSettings.contextSize,
       ),
     );
     final gen = CharacterGenService(llm);

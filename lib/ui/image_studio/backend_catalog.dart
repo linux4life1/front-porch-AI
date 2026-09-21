@@ -26,14 +26,16 @@ import 'package:front_porch_ai/services/services.dart';
 /// the persisted settings. Empty when the backend has no address configured,
 /// and for the remote backend (which is keyed by API URL + key, not probed).
 String backendProbeUrl(StorageService st) {
-  switch (ImageGenBackend.fromKey(st.imageGenBackend)) {
+  switch (ImageGenBackend.fromKey(st.imageGenSettings.imageGenBackend)) {
     case ImageGenBackend.drawThings:
-      final host = st.drawThingsGrpcHost;
-      return host.isEmpty ? '' : '$host:${st.drawThingsGrpcPort}';
+      final host = st.imageGenSettings.drawThingsGrpcHost;
+      return host.isEmpty
+          ? ''
+          : '$host:${st.imageGenSettings.drawThingsGrpcPort}';
     case ImageGenBackend.comfyUi:
-      return st.comfyUiUrl;
+      return st.imageGenSettings.comfyUiUrl;
     case ImageGenBackend.a1111:
-      return st.localImageGenUrl;
+      return st.imageGenSettings.localImageGenUrl;
     case ImageGenBackend.remote:
       return '';
   }
@@ -46,7 +48,7 @@ Future<List<({String value, String label})>> fetchBackendModelOptions(
   ImageGenService svc,
   StorageService st,
 ) async {
-  final backend = ImageGenBackend.fromKey(st.imageGenBackend);
+  final backend = ImageGenBackend.fromKey(st.imageGenSettings.imageGenBackend);
   if (backend == ImageGenBackend.remote) {
     final models = await svc.fetchImageModels();
     return [for (final m in models) (value: m.id, label: m.displayName)];

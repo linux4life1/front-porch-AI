@@ -30,6 +30,7 @@ import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/session_gen_overrides_heal.dart';
 import 'package:front_porch_ai/services/db_reunification_service.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
+import 'package:front_porch_ai/models/chat_place_slots.dart';
 
 part 'database.g.dart';
 part 'context_budget_db.dart';
@@ -37,6 +38,9 @@ part 'database.tables.core.dart';
 part 'database.tables.features.dart';
 part 'database.repair.dart';
 part 'database.migrations.dart';
+part 'database.migrations.early.dart';
+part 'database.migrations.mid.dart';
+part 'database.migrations.late.dart';
 part 'database.migrations.data.dart';
 part 'database.queries.library.dart';
 part 'database.queries.chat.dart';
@@ -269,7 +273,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 51;
+  int get schemaVersion => 52;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

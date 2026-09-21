@@ -48,7 +48,7 @@ extension ChatServiceReplyFacts on ChatService {
     // check; the posture guard mirrors evaluatePhysicalStateCall's
     // realism-and-not-observer preconditions.
     final askClimax = _afterglowActive;
-    final askPockets = _storageService.realismSettings.pocketsEnabled;
+    final askPockets = pocketsEnabledFor(_getCharacterIdFromCard(speaker));
     final askPosture =
         _realismEnabled && !(_activeGroup != null && _observerMode);
     final live =
@@ -65,16 +65,10 @@ extension ChatServiceReplyFacts on ChatService {
         : null;
     // Same lazy expiry the pass applies (idempotent — the pass re-runs it):
     // the fused prompt must never show yesterday's set-aside clothes, or the
-    // model dutifully re-dresses her in them.
+    // model dutifully re-dresses them in them.
     record?.expireSetAside(storyDayCount);
-    final transfersOn = askPockets &&
-        _storageService.realismSettings.pocketTransfersEnabled &&
-        _activeGroup != null;
-    final others = transfersOn
-        ? [
-            for (final c in _groupCharacters)
-              if (_getCharacterIdFromCard(c) != charId) c.name,
-          ]
+    final others = askPockets
+        ? _pocketTransferRoster(charId)
         : const <String>[];
 
     // Posture context — the same fragments TimeService's standalone branch

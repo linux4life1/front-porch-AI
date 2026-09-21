@@ -49,10 +49,10 @@ extension _EditCharacterSave on _EditCharacterPageState {
     // the Realism section is hidden (group member): the member's existing
     // realism/needs ext is group state and must be preserved untouched.
     // The identity chips — Ambitions, Likes & Dislikes, the 18+ pair and
-    // Pockets & Wardrobe — are written into frontPorchExtensions but live
-    // OUTSIDE the realism section, and not one of them sets
-    // `_realismSettingsModified` (every control that does is in
-    // edit_character_page.realism_section.dart).
+    // Pockets & Wardrobe kit — live OUTSIDE the realism section. The
+    // per-character Pockets switch on that panel sets
+    // `_realismSettingsModified` so turning it off still writes. The rest
+    // of the chips do not; they persist via hasIdentityContent below.
     //
     // So for a character with the Realism Engine off, no realism control
     // touched, and no extensions yet, this whole block was skipped: everything
@@ -108,6 +108,7 @@ extension _EditCharacterSave on _EditCharacterPageState {
         passageOfTimeEnabled: _realismPassageOfTime,
         chaosModeEnabled: _realismChaosMode,
         needsSimEnabled: _realismNeedsSim,
+        pocketsEnabled: _realismPocketsEnabled,
         enjoysLowHygiene: _realismEnjoysLowHygiene,
         ambitions: [
           for (final a in _ambitions)

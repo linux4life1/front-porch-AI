@@ -11,6 +11,7 @@ import { api } from '../api/client';
 export interface ObjectiveTask {
   description: string;
   completed: boolean;
+  stale?: boolean;
 }
 
 export interface ObjectiveView {
@@ -19,10 +20,52 @@ export interface ObjectiveView {
   isPrimary: boolean;
   checkFrequency: number;
   tasks: ObjectiveTask[];
+  completedCount?: number;
+  countableCount?: number;
   servedAmbition?: string | null;
 }
 
 const TASK_COUNTS = [3, 4, 5, 6, 7, 8, 10];
+
+function taskIsStale(task: ObjectiveTask) {
+  return task.stale === true;
+}
+
+function taskIsCompleted(task: ObjectiveTask) {
+  return task.completed && !taskIsStale(task);
+}
+
+function progressLabel(obj: ObjectiveView) {
+  const done = obj.completedCount ?? obj.tasks.filter(taskIsCompleted).length;
+  const countable = obj.countableCount ?? obj.tasks.filter((t) => !taskIsStale(t)).length;
+  return `${done}/${countable}`;
+}
+
+function TaskRow({
+  task,
+  onToggle,
+  onRemove,
+}: {
+  task: ObjectiveTask;
+  onToggle: () => void;
+  onRemove: () => void;
+}) {
+  const stale = taskIsStale(task);
+  const done = taskIsCompleted(task);
+  return (
+    <li>
+      <label className="task-item">
+        <input type="checkbox" checked={done} disabled={stale} onChange={onToggle} />
+        <span className={stale ? 'stale' : done ? 'done' : ''}>
+          {stale ? `${task.description}  · stale-skipped` : task.description}
+        </span>
+        <button className="icon-btn" title="Remove" onClick={onRemove}>
+          🗑
+        </button>
+      </label>
+    </li>
+  );
+}
 
 export function ObjectivesPanel({
   primary,
@@ -85,23 +128,12 @@ export function ObjectivesPanel({
             {obj.tasks.length > 0 && (
               <ul className="task-list">
                 {obj.tasks.map((task, i) => (
-                  <li key={i}>
-                    <label className="task-item">
-                      <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onChange={() => postTask({ action: 'toggle', id: obj.id, taskIndex: i })}
-                      />
-                      <span className={task.completed ? 'done' : ''}>{task.description}</span>
-                      <button
-                        className="icon-btn"
-                        title="Remove"
-                        onClick={() => postTask({ action: 'remove', id: obj.id, taskIndex: i })}
-                      >
-                        🗑
-                      </button>
-                    </label>
-                  </li>
+                  <TaskRow
+                    key={i}
+                    task={task}
+                    onToggle={() => postTask({ action: 'toggle', id: obj.id, taskIndex: i })}
+                    onRemove={() => postTask({ action: 'remove', id: obj.id, taskIndex: i })}
+                  />
                 ))}
               </ul>
             )}
@@ -177,15 +209,12 @@ export function ObjectivesPanel({
           <>
             <div className="muted small side-quest-label">Side quests</div>
             {secondary.map((sq) => {
-              const doneCount = sq.tasks.filter((x) => x.completed).length;
               return (
                 <div className="side-quest" key={sq.id}>
                   <div className="stat-line">
                     <strong>{sq.objective}</strong>
                     {sq.tasks.length > 0 && (
-                      <span className="muted">
-                        {doneCount}/{sq.tasks.length}
-                      </span>
+                      <span className="muted">{progressLabel(sq)}</span>
                     )}
                   </div>
                   {sq.servedAmbition?.trim() && (
@@ -196,23 +225,12 @@ export function ObjectivesPanel({
                   {sq.tasks.length > 0 && (
                     <ul className="task-list">
                       {sq.tasks.map((task, i) => (
-                        <li key={i}>
-                          <label className="task-item">
-                            <input
-                              type="checkbox"
-                              checked={task.completed}
-                              onChange={() => postTask({ action: 'toggle', id: sq.id, taskIndex: i })}
-                            />
-                            <span className={task.completed ? 'done' : ''}>{task.description}</span>
-                            <button
-                              className="icon-btn"
-                              title="Remove"
-                              onClick={() => postTask({ action: 'remove', id: sq.id, taskIndex: i })}
-                            >
-                              🗑
-                            </button>
-                          </label>
-                        </li>
+                        <TaskRow
+                          key={i}
+                          task={task}
+                          onToggle={() => postTask({ action: 'toggle', id: sq.id, taskIndex: i })}
+                          onRemove={() => postTask({ action: 'remove', id: sq.id, taskIndex: i })}
+                        />
                       ))}
                     </ul>
                   )}

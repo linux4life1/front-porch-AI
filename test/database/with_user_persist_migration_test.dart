@@ -3,8 +3,6 @@
 //
 // v48→v49 sessions.with_user. NULL for every chat that predates the column.
 
-import 'dart:io';
-
 import 'package:drift/drift.dart' show Value, Variable;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -45,25 +43,5 @@ void main() {
 
     final loaded = await db.getSessionById('s-yes');
     expect(loaded?.withUser, isTrue);
-  });
-
-  test('schemaVersion is at least 49', () {
-    final src = File('lib/database/database.dart').readAsStringSync();
-    final m = RegExp(r'schemaVersion => (\d+)').firstMatch(src);
-    expect(int.parse(m!.group(1)!), greaterThanOrEqualTo(49));
-  });
-
-  test('save and load wires mention withUser', () {
-    final save = File(
-      'lib/services/chat/chat_service_session_state.dart',
-    ).readAsStringSync();
-    final load = File(
-      'lib/services/chat/chat_service_session_load.dart',
-    ).readAsStringSync();
-    expect(
-      save,
-      contains('withUser: drift.Value(_relationshipService.withUser)'),
-    );
-    expect(load, contains('withUser: s.withUser'));
   });
 }

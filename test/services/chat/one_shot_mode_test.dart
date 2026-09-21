@@ -103,7 +103,8 @@ void main() {
           toolSupport: ToolCallSupport.supported,
         ),
         isTrue,
-        reason: 'a tools-confirmed remote model is exactly the class the '
+        reason:
+            'a tools-confirmed remote model is exactly the class the '
             'fused prompt is easy for — this is the case Auto exists to catch',
       );
       expect(
@@ -113,7 +114,8 @@ void main() {
           toolSupport: ToolCallSupport.supported,
         ),
         isFalse,
-        reason: 'local stays multi-call even with tools — the combined '
+        reason:
+            'local stays multi-call even with tools — the combined '
             'prompt length is the risk there, not the transport',
       );
       for (final support in [
@@ -127,7 +129,8 @@ void main() {
             toolSupport: support,
           ),
           isFalse,
-          reason: 'an unproven backend gets the conservative path; the first '
+          reason:
+              'an unproven backend gets the conservative path; the first '
               'eval of the run probes and Auto converges next turn',
         );
       }
@@ -137,19 +140,21 @@ void main() {
   group('migration from the old bool', () {
     test('a fresh install defaults to Auto', () async {
       final svc = await _boot({});
-      expect(svc.oneShotMode, OneShotMode.auto);
+      expect(svc.realismSettings.oneShotMode, OneShotMode.auto);
     });
 
     test('an explicit old true was an opt-in and stays ON', () async {
       final svc = await _boot({'realism_one_shot_eval': true});
-      expect(svc.oneShotMode, OneShotMode.on);
+      expect(svc.realismSettings.oneShotMode, OneShotMode.on);
     });
 
-    test('an old false was the indistinguishable default and becomes Auto',
-        () async {
-      final svc = await _boot({'realism_one_shot_eval': false});
-      expect(svc.oneShotMode, OneShotMode.auto);
-    });
+    test(
+      'an old false was the indistinguishable default and becomes Auto',
+      () async {
+        final svc = await _boot({'realism_one_shot_eval': false});
+        expect(svc.realismSettings.oneShotMode, OneShotMode.auto);
+      },
+    );
 
     test('the new key wins over the old bool once written', () async {
       final svc = await _boot({
@@ -157,56 +162,35 @@ void main() {
         'realism_one_shot_eval': true,
       });
       expect(
-        svc.oneShotMode,
+        svc.realismSettings.oneShotMode,
         OneShotMode.off,
-        reason: 'a tri-state choice must never be overridden by the stale '
+        reason:
+            'a tri-state choice must never be overridden by the stale '
             'bool it superseded',
       );
     });
 
     test('the mode setter round-trips through prefs', () async {
       final svc = await _boot({});
-      await svc.setOneShotMode(OneShotMode.on);
+      await svc.realismSettings.setOneShotMode(OneShotMode.on);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('realism_one_shot_mode'), 'on');
     });
 
     test('the legacy bool shim maps a toggle to On/Off, never Auto', () async {
       final svc = await _boot({});
-      await svc.setRealismOneShotEval(true);
-      expect(svc.oneShotMode, OneShotMode.on);
-      expect(svc.realismOneShotEval, isTrue);
-      await svc.setRealismOneShotEval(false);
+      await svc.realismSettings.setRealismOneShotEval(true);
+      expect(svc.realismSettings.oneShotMode, OneShotMode.on);
+      expect(svc.realismSettings.realismOneShotEval, isTrue);
+      await svc.realismSettings.setRealismOneShotEval(false);
       expect(
-        svc.oneShotMode,
+        svc.realismSettings.oneShotMode,
         OneShotMode.off,
-        reason: 'an explicit toggle is an explicit choice — mapping false '
+        reason:
+            'an explicit toggle is an explicit choice — mapping false '
             'back to Auto would silently re-enable fusion on remote backends '
             'for a user who just switched it off',
       );
     });
-  });
-
-  group('the wiring, structurally', () {
-    // The three consultation sites must resolve through the ONE getter —
-    // the dance (pre-gen), the regen replay, and the retroactive baseline
-    // scan — or a regen could replay a turn down a different eval path than
-    // the turn originally took.
-    for (final file in const [
-      'lib/services/chat/chat_service_realism_dance.dart',
-      'lib/services/chat/chat_service_reprocess.dart',
-      'lib/services/chat/chat_service_greeting.dart',
-    ]) {
-      test('$file resolves via _oneShotActive', () {
-        final src = File(file).readAsStringSync();
-        expect(src, contains('_oneShotActive'));
-        expect(
-          src,
-          isNot(contains('realismSettings.realismOneShotEval')),
-          reason: 'reading the raw legacy bool here bypasses Auto entirely — '
-              'the setting would silently mean On/Off again on this one path',
-        );
-      });
-    }
   });
 }
