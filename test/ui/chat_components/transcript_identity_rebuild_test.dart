@@ -172,6 +172,7 @@ void main() {
     expect(list.contains('primary: false'), isTrue);
     expect(list.contains('identityKey'), isTrue);
     expect(list.contains('applyTranscriptGrowth'), isTrue);
+    expect(list.contains('followTranscriptWhileStreaming'), isTrue);
     expect(list.contains('TranscriptScrollController'), isFalse);
   });
 }

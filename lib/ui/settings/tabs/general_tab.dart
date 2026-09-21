@@ -70,6 +70,25 @@ class GeneralTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Follow streaming replies',
+              style: TextStyle(color: AppColors.textPrimary(context)),
+            ),
+            subtitle: Text(
+              'Keep the chat pinned to the newest words while a reply is '
+              'writing, as long as you are at the bottom. Scroll up to stop.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: AppColors.textSecondary(context),
+              ),
+            ),
+            value: storageService.uiSettings.followStreamingReplies,
+            onChanged: (v) =>
+                storageService.uiSettings.setFollowStreamingReplies(v),
+          ),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

@@ -29,8 +29,9 @@ import 'package:front_porch_ai/ui/chat_components/widgets/generating_image_bubbl
 import 'package:front_porch_ai/ui/chat_components/widgets/message_jump.dart';
 
 /// Forward chat transcript (oldest at top, newest at bottom). Growing
-/// the live bubble does not move scroll offset — that is the per-token
-/// chase a reverse list at 0 cannot avoid without the ripped hold.
+/// the live bubble does not move scroll offset by itself. When follow
+/// is on and the user is at the bottom, [followTranscriptWhileStreaming]
+/// pins to latest after each token. Hold / absorb / reverse stay ripped.
 ///
 /// Item identity is the page-owned [bubbleKeyOf] when present.
 /// Chronological ValueKey is the Waifu fallback only.
@@ -52,6 +53,8 @@ class ChatMessageList extends StatefulWidget {
     this.belowBubble,
     this.isGenerating,
     this.generatingAt,
+    this.followStreamingReplies = true,
+    this.replyStreaming = false,
     this.themeOverrides,
     this.padding = const EdgeInsets.all(20),
   });
@@ -71,6 +74,13 @@ class ChatMessageList extends StatefulWidget {
   final Widget? Function(ChatMessage message, int index)? belowBubble;
   final bool? isGenerating;
   final bool Function(int index)? generatingAt;
+
+  /// General "Follow streaming replies". Default ON.
+  final bool followStreamingReplies;
+
+  /// List-level generating flag. Not [isGenerating] — that opens Thought
+  /// on every row.
+  final bool replyStreaming;
   final ChatThemeOverrides? themeOverrides;
   final EdgeInsetsGeometry padding;
 
@@ -126,7 +136,16 @@ class _ChatMessageListState extends State<ChatMessageList> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final c = _controller;
-      applyTranscriptGrowth(c, pending: _pending, previousMax: _maxAtLastFrame);
+      final pending = _pending;
+      applyTranscriptGrowth(c, pending: pending, previousMax: _maxAtLastFrame);
+      if (pending == null || pending == TranscriptGrowth.other) {
+        followTranscriptWhileStreaming(
+          c,
+          followEnabled: widget.followStreamingReplies,
+          generating: widget.replyStreaming,
+          previousMax: _maxAtLastFrame,
+        );
+      }
       _pending = null;
       if (c != null && c.hasClients) {
         _maxAtLastFrame = c.position.maxScrollExtent;
@@ -171,6 +190,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
               chatService: widget.chatService,
               isGenerating:
                   widget.generatingAt?.call(index) ?? widget.isGenerating,
+              followStreamingReplies: widget.followStreamingReplies,
               themeOverrides: widget.themeOverrides,
             ),
             ?extra,

@@ -139,6 +139,9 @@ extension SettingsFacadeRead on SettingsFacade {
       // attribute on its prose inputs, which is what Chrome and Safari read.
       // Additive and nullable-safe: an older web client ignores the key.
       'spellCheckLanguage': _storage.spellCheckLanguage,
+      // General "Follow streaming replies" (default ON). Additive — an
+      // older PWA ignores the key.
+      'followStreamingReplies': _storage.uiSettings.followStreamingReplies,
       ...readWorkerSettings(_storage, _llm),
     };
   }

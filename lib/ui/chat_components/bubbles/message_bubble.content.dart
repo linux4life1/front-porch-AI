@@ -61,7 +61,7 @@ extension _BubbleContent on _MessageBubbleState {
               if (message.thinkingContent != null)
                 LiveThoughtBody(
                   text: message.thinkingContent!,
-                  followLatest: false,
+                  followLatest: widget.followStreamingReplies,
                 ),
             ],
           ),

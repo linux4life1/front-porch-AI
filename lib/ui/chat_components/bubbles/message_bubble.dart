@@ -62,6 +62,10 @@ class MessageBubble extends StatefulWidget {
   /// while any turn is running).
   final bool? isGenerating;
 
+  /// Thought-box stick-if-at-end. Chat passes the General setting
+  /// (default ON). Direct [MessageBubble] tests keep the off default.
+  final bool followStreamingReplies;
+
   /// Waifu Coder session theme. Chat leaves this null and reads
   /// [ChatService.sessionThemeOverrides] instead.
   final ChatThemeOverrides? themeOverrides;
@@ -77,6 +81,7 @@ class MessageBubble extends StatefulWidget {
     this.character,
     this.chatService,
     this.isGenerating,
+    this.followStreamingReplies = false,
     this.themeOverrides,
   });
 
@@ -210,8 +215,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                               const Color(0xFFFFD166),
                               const Color(0xFFF59E0B),
                             ).withValues(alpha: 0.1 * bubbleOpacity),
-                            const Color(0xFFD97706)
-                                .withValues(alpha: 0.12 * bubbleOpacity),
+                            const Color(
+                              0xFFD97706,
+                            ).withValues(alpha: 0.12 * bubbleOpacity),
                           )
                         : message.isUser
                         ? (storage?.uiSettings
@@ -221,8 +227,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                                     themeOverrides: theme.overrides,
                                   )
                                   .withValues(alpha: bubbleOpacity) ??
-                              AppColors.porchAmberOf(context)
-                                  .withValues(alpha: 0.2))
+                              AppColors.porchAmberOf(
+                                context,
+                              ).withValues(alpha: 0.2))
                         : (storage?.uiSettings
                                   .getAiBubbleColor(
                                     character,

@@ -275,7 +275,10 @@ void main() {
     final bubble = File(
       'lib/ui/chat_components/bubbles/message_bubble.content.dart',
     ).readAsStringSync();
-    expect(bubble.contains('followLatest: false'), isTrue);
+    expect(
+      bubble.contains('followLatest: widget.followStreamingReplies'),
+      isTrue,
+    );
     expect(bubble.contains('followLatest: _followLiveThought'), isFalse);
     final selectable = File(
       'lib/ui/chat_components/bubbles/selectable_bubble_body.dart',

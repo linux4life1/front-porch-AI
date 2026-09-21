@@ -182,6 +182,9 @@ extension _ChatPageOverlays on _ChatPageState {
               sessionId: chatService.currentSessionId,
               messages: messages,
               controller: _scrollController,
+              replyStreaming: chatService.isGenerating,
+              followStreamingReplies:
+                  storageService.uiSettings.followStreamingReplies,
               resolveSpeaker: (msg) => _resolveSpeaker(chatService, msg),
               characterFor: (msg) => isGroup && !msg.isUser
                   ? resolveGroupSpeakerForMessage(

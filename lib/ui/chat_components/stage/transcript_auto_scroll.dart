@@ -78,6 +78,21 @@ void holdTranscriptAfterPrepend(
   if ((next - controller.offset).abs() > 0.5) controller.jumpTo(next);
 }
 
+/// Stick-if-at-bottom while a reply is streaming on a forward list.
+/// [applyTranscriptAutoScroll] stays a no-op — Rawhide tests call it.
+bool followTranscriptWhileStreaming(
+  ScrollController? controller, {
+  required bool followEnabled,
+  required bool generating,
+  required double previousMax,
+  double slop = 64,
+}) {
+  if (controller == null || !controller.hasClients) return false;
+  if (!followEnabled || !generating) return false;
+  if (controller.offset < previousMax - slop) return false;
+  return pinTranscriptToLatest(controller);
+}
+
 /// Apply the one-shot open / prepend move after this frame's layout.
 void applyTranscriptGrowth(
   ScrollController? controller, {

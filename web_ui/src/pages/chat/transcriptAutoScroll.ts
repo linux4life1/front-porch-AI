@@ -1,6 +1,7 @@
 type TranscriptEl = {
   scrollTop: number;
   scrollHeight: number;
+  clientHeight?: number;
   scrollTo?: (init: ScrollToOptions) => void;
 };
 
@@ -36,6 +37,27 @@ export function transcriptTipKey(
   const tip = messages.length > 0 ? messages[messages.length - 1] : undefined;
   return tip ? `${tip.sender}\0${tip.text}` : '';
 }
+
+/** Stick-if-at-bottom while a reply is streaming. applyTranscriptAutoScroll stays a no-op. */
+export function followTranscriptWhileStreaming(
+  el: TranscriptEl | null,
+  args: {
+    followEnabled: boolean;
+    generating: boolean;
+    previousHeight: number;
+    slop?: number;
+  },
+): boolean {
+  if (!el || !args.followEnabled || !args.generating) return false;
+  const slop = args.slop ?? 64;
+  const client = el.clientHeight ?? 0;
+  const edge = client > 0 ? el.scrollTop + client : el.scrollTop;
+  if (edge < args.previousHeight - slop) return false;
+  pinTranscriptToLatest(el);
+  return true;
+}
+
+export const DEFAULT_FOLLOW_STREAMING = true;
 
 export function classifyTranscriptGrowth(args: {
   sessionId?: string | null;

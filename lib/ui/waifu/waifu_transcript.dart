@@ -17,7 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -51,8 +53,18 @@ class WaifuTranscript extends StatelessWidget {
         if (m.kind == WaifuMsgKind.user || m.kind == WaifuMsgKind.assistant) m,
     ];
     final chats = [for (final m in visible) m.toChatMessage(coworker)];
+    var follow = true;
+    try {
+      follow = Provider.of<StorageService>(
+        context,
+      ).uiSettings.followStreamingReplies;
+    } on ProviderNotFoundException {
+      // Widget tests mount Waifu without StorageService.
+    }
     return ChatMessageList(
       messages: chats,
+      replyStreaming: session.running,
+      followStreamingReplies: follow,
       resolveSpeaker: (msg) => msg.isUser
           ? (null, null)
           : (waifuCoworkerFace(context, session.coworker), null),

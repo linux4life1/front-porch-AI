@@ -1,9 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Thought pane: cap height. followLatest is opt-in only — chat passes
-// false (option B: the user scrolls the think box themselves). The
-// widget still can follow if a host asks.
+// Thought pane: cap height. followLatest is the General "Follow
+// streaming replies" switch (default ON). Off is the Mac-pass no-chase
+// lock. The widget already sticks only while [_atEnd].
 
 import 'package:flutter/material.dart';
 

@@ -7,6 +7,7 @@ import { PersonaManager } from '../components/PersonaManager';
 import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { ReadingSizeSettings } from '../components/ReadingSizeSettings';
+import { FollowStreamingSettings } from '../components/FollowStreamingSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
 import { ModelTransportCard } from '../components/ModelTransportCard';
 import { applySpellCheckLang } from '../spellCheckLang';
@@ -75,6 +76,8 @@ interface Settings {
   generation: Gen;
   /** Dictionary tag ('en_US') or 'off'. Optional for the same reason. */
   spellCheckLanguage?: string;
+  /** General follow-while-generating. Absent on older hosts = ON default. */
+  followStreamingReplies?: boolean;
   /** Dictionary tags the host can check. Optional for the same reason. */
   spellCheckLanguages?: string[];
   systemPrompt?: string;
@@ -338,6 +341,8 @@ export function SettingsPage() {
       <h2>Settings</h2>
 
       <PersonaManager />
+
+      <FollowStreamingSettings />
 
       <ReadingSizeSettings />
 

@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyTranscriptAutoScroll,
   classifyTranscriptGrowth,
+  DEFAULT_FOLLOW_STREAMING,
+  followTranscriptWhileStreaming,
   holdTranscriptAfterPrepend,
   pinTranscriptToLatest,
 } from './transcriptAutoScroll';
@@ -90,12 +92,54 @@ describe('transcript stream scroll (option B)', () => {
     expect(list).toMatch(/rowKey/);
     expect(list).not.toMatch(/scrollTop\s*=\s*.*scrollHeight/);
     expect(list).toMatch(/holdTranscriptAfterPrepend/);
+    expect(list).toMatch(/followTranscriptWhileStreaming/);
     expect(list).toMatch(/classifyTranscriptGrowth/);
     expect(list).not.toMatch(/applyTranscriptAutoScroll/);
     expect(list).not.toMatch(/ownedTop/);
     expect(list).not.toMatch(/className="bubble ai streaming" aria-live/);
     const session = readFileSync(join(__dirname, 'useChatSession.ts'), 'utf8');
     expect(session).toMatch(/history-older/);
+  });
+
+  it('follow defaults on; OFF and scrolled-away do not chase', () => {
+    expect(DEFAULT_FOLLOW_STREAMING).toBe(true);
+    const atBottom = { scrollTop: 736, scrollHeight: 900, clientHeight: 64 };
+    expect(
+      followTranscriptWhileStreaming(atBottom, {
+        followEnabled: true,
+        generating: true,
+        previousHeight: 800,
+      }),
+    ).toBe(true);
+    expect(atBottom.scrollTop).toBe(900);
+
+    const off = { scrollTop: 736, scrollHeight: 900, clientHeight: 64 };
+    expect(
+      followTranscriptWhileStreaming(off, {
+        followEnabled: false,
+        generating: true,
+        previousHeight: 800,
+      }),
+    ).toBe(false);
+    expect(off.scrollTop).toBe(736);
+
+    const away = { scrollTop: 80, scrollHeight: 900, clientHeight: 64 };
+    expect(
+      followTranscriptWhileStreaming(away, {
+        followEnabled: true,
+        generating: true,
+        previousHeight: 800,
+      }),
+    ).toBe(false);
+    expect(away.scrollTop).toBe(80);
+  });
+
+  it('Settings places Follow streaming replies above Reading size', () => {
+    const page = readFileSync(join(__dirname, '../SettingsPage.tsx'), 'utf8');
+    const follow = page.indexOf('<FollowStreamingSettings');
+    const reading = page.indexOf('<ReadingSizeSettings');
+    expect(follow).toBeGreaterThan(-1);
+    expect(reading).toBeGreaterThan(follow);
   });
 
   it('chat-messages and thinking-body disable overflow-anchor', () => {

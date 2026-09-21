@@ -45,6 +45,10 @@ class UiSettings with SettingsBase {
   // Theme mode (persisted; drives which set of the 5 chat colors is active)
   bool _isDark = true;
 
+  // Stick-to-bottom while a reply is streaming. Default ON — the old
+  // follow-while-generating feel. Off is the Mac-pass no-chase lock.
+  bool _followStreamingReplies = true;
+
   // Light-mode chat color defaults (populated from AppColors on first load if no prefs)
   Color _lightUserBubbleColor = AppColors.userBubbleLight;
   Color _lightUserTextColor = AppColors.userTextLight;
@@ -87,6 +91,7 @@ class UiSettings with SettingsBase {
   Color get globalActionColor =>
       _isDark ? _globalActionColor : _lightActionColor;
   bool get isDark => _isDark;
+  bool get followStreamingReplies => _followStreamingReplies;
   String get globalChatFontFamily => _globalChatFontFamily;
   double get textScale => _textScale;
   String get chatBackground => _chatBackground;
@@ -127,6 +132,8 @@ class UiSettings with SettingsBase {
 
     // Theme + light-mode color set (fall back to AppColors light defaults if never saved)
     _isDark = prefs?.getBool(k('dark_mode')) ?? true;
+    _followStreamingReplies =
+        prefs?.getBool(k('follow_streaming_replies')) ?? true;
     _lightUserBubbleColor = Color(
       prefs?.getInt(k('light_user_bubble_color')) ??
           AppColors.userBubbleLight.toARGB32(),
@@ -281,6 +288,13 @@ class UiSettings with SettingsBase {
     if (_isDark == value) return;
     _isDark = value;
     await prefs?.setBool(k('dark_mode'), value);
+    notify();
+  }
+
+  Future<void> setFollowStreamingReplies(bool value) async {
+    if (_followStreamingReplies == value) return;
+    _followStreamingReplies = value;
+    await prefs?.setBool(k('follow_streaming_replies'), value);
     notify();
   }
 

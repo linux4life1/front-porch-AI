@@ -28,6 +28,11 @@ extension SettingsFacadeUpdate on SettingsFacade {
     final g = _storage.generationSettings;
     final b = _storage.backendSettings;
 
+    final follow = body['followStreamingReplies'];
+    if (follow is bool) {
+      await _storage.uiSettings.setFollowStreamingReplies(follow);
+    }
+
     final realism = body['realism'];
     if (realism is Map) {
       final amb = realism['ambitionsEnabled'];

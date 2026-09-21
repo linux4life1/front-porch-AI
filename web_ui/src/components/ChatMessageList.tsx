@@ -9,6 +9,7 @@
 import { memo, useLayoutEffect, useRef, type RefObject } from 'react';
 import {
   classifyTranscriptGrowth,
+  followTranscriptWhileStreaming,
   holdTranscriptAfterPrepend,
   pinTranscriptToLatest,
   transcriptTipKey,
@@ -226,6 +227,7 @@ export function ChatMessageList({
   genStatus,
   scrollRef,
   onScroll,
+  followStreamingReplies = true,
   ...transcript
 }: TranscriptProps & {
   sessionId?: string | null;
@@ -233,6 +235,7 @@ export function ChatMessageList({
   genStatus: GenStatus | null;
   scrollRef: RefObject<HTMLDivElement>;
   onScroll?: () => void;
+  followStreamingReplies?: boolean;
 }) {
   const pinnedOpen = useRef<string | null>(null);
   const prevTip = useRef('');
@@ -254,11 +257,17 @@ export function ChatMessageList({
       pinnedOpen.current = sessionId ?? null;
     } else if (kind === 'prepend' && el) {
       holdTranscriptAfterPrepend(el, prevHeight.current);
+    } else if (el) {
+      followTranscriptWhileStreaming(el, {
+        followEnabled: followStreamingReplies,
+        generating: !!streaming,
+        previousHeight: prevHeight.current,
+      });
     }
     prevLen.current = transcript.messages.length;
     prevTip.current = nextTip;
     prevHeight.current = el?.scrollHeight ?? 0;
-  }, [sessionId, transcript.messages, scrollRef]);
+  }, [sessionId, transcript.messages, scrollRef, streaming, followStreamingReplies]);
   return (
     <div className="chat-messages" ref={scrollRef} onScroll={onScroll}>
       <TranscriptRows {...transcript} />
@@ -282,7 +291,9 @@ export function ChatMessageList({
         }
         return (
           <div className="bubble ai streaming">
-            {thinking.trim() && <LiveThinkBody text={thinking} />}
+            {thinking.trim() && (
+              <LiveThinkBody text={thinking} followLatest={followStreamingReplies} />
+            )}
             {rest && <MessageContent text={rest} />}
           </div>
         );
@@ -310,11 +321,30 @@ export function ChatMessageList({
   );
 }
 
-function LiveThinkBody({ text }: { text: string }) {
+function LiveThinkBody({
+  text,
+  followLatest,
+}: {
+  text: string;
+  followLatest: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const prevHeight = useRef(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    followTranscriptWhileStreaming(el, {
+      followEnabled: followLatest,
+      generating: true,
+      previousHeight: prevHeight.current,
+      slop: 24,
+    });
+    prevHeight.current = el.scrollHeight;
+  }, [text, followLatest]);
   return (
     <details className="thinking" open>
       <summary>💭 thinking…</summary>
-      <div className="thinking-body">{text}</div>
+      <div className="thinking-body" ref={ref}>{text}</div>
     </details>
   );
 }
