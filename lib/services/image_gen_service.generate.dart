@@ -104,11 +104,43 @@ extension _ImageGenGenerate on ImageGenService {
       // generation (edit models can't txt2img). An explicit [model] wins
       // (batch flows pass their own). ComfyUI's edit path ignores this — its
       // models come from the comfyEdit* workflow slots.
-      final refModelName =
+      var refModelName =
           model ??
           (intent == StudioIntent.edit
               ? _storage.imageGenSettings.imageGenEditModel
               : _storage.imageGenSettings.imageGenModel);
+      if (backend == ImageGenBackend.remote) {
+        final account = _imageRemoteAccount;
+        final picked = pickRemoteImageModelId(
+          explicit: model,
+          slotModel: intent == StudioIntent.edit
+              ? _storage.imageGenSettings.imageGenEditModel
+              : _storage.imageGenSettings.imageGenModel,
+          hostModel: _storage.imageGenSettings.remoteImageModelFor(
+            account.url,
+            edit: intent == StudioIntent.edit,
+          ),
+        );
+        if (picked == null) {
+          final leftover =
+              looksLikeLocalImageModel(refModelName) ||
+              looksLikeLocalImageModel(model ?? '');
+          if (leftover) {
+            if (intent == StudioIntent.edit) {
+              await _storage.imageGenSettings.setImageGenEditModel('');
+            } else {
+              await _storage.imageGenSettings.setImageGenModel('');
+            }
+          }
+          _statusMessage = leftover
+              ? kRemoteLocalCheckpointMessage
+              : 'No image model selected.';
+          _isGenerating = false;
+          _notify();
+          return null;
+        }
+        refModelName = picked;
+      }
       final refCapability = ImageReferenceResolver.resolveForBackend(
         backend: backend,
         modelName: refModelName,

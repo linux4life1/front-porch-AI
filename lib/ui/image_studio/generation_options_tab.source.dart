@@ -270,7 +270,11 @@ extension _GenerationOptionsSource on _GenerationOptionsTabState {
           chatRemoteApiUrl: st.backendSettings.remoteApiUrl,
           keyFor: st.backendSettings.remoteApiKeyFor,
         ).url;
-        await st.imageGenSettings.setRemoteImageModelFor(url, m.id);
+        await st.imageGenSettings.setRemoteImageModelFor(
+          url,
+          m.id,
+          edit: widget.editScoped,
+        );
         rebuildState(() {});
       },
     );

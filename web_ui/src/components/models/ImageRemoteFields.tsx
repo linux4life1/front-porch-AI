@@ -9,6 +9,7 @@ import { api, ApiError } from '../../api/client';
 import {
   filterImageModels,
   imageModelListLabel,
+  looksLikeLocalImageModel,
   sortImageModelsForPicker,
   type ImageRemoteHost,
   type ImageRemoteModel,
@@ -149,6 +150,7 @@ export function ImageRemoteFields({
                         role="option"
                         className={`mp-option${m.id === modelId ? ' selected' : ''}`}
                         onClick={() => {
+                          if (looksLikeLocalImageModel(m.id)) return;
                           onModel(m.id);
                           setOpen(false);
                           setFilter('');

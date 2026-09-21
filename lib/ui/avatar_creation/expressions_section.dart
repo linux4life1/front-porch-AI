@@ -103,8 +103,9 @@ class ExpressionsSection extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'On a remote API the pack runs through the provider\'s '
-              'image-edit endpoint — pick an edit-capable model (e.g. '
-              'qwen-image-max-edit) in the Edit model slot to enable it.',
+              'image-edit endpoint — pick a Nano/OpenRouter edit id '
+              '(e.g. qwen-image-max-edit), not a leftover Comfy '
+              '.ckpt, in the Edit model slot.',
               style: TextStyle(
                 color: AppColors.textTertiary(context),
                 fontSize: 11,
@@ -329,7 +330,8 @@ class ExpressionsSection extends StatelessWidget {
         ? 'Imported $added expression image${added == 1 ? '' : 's'}'
               '${unrecognized > 0 ? ' · $unrecognized unrecognized' : ''}.'
         : 'No emotion-named images found in that ZIP.';
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }

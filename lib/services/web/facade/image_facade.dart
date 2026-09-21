@@ -21,6 +21,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
@@ -163,13 +164,15 @@ class ImageFacade {
     }
     if (f['model'] is String) {
       final id = f['model'] as String;
-      await img.setImageGenModel(id);
-      final url = resolveImageStudioRemoteAccount(
-        imageRemoteApiUrl: img.imageRemoteApiUrl,
-        chatRemoteApiUrl: b.remoteApiUrl,
-        keyFor: b.remoteApiKeyFor,
-      ).url;
-      await img.setRemoteImageModelFor(url, id);
+      if (!looksLikeLocalImageModel(id)) {
+        await img.setImageGenModel(id);
+        final url = resolveImageStudioRemoteAccount(
+          imageRemoteApiUrl: img.imageRemoteApiUrl,
+          chatRemoteApiUrl: b.remoteApiUrl,
+          keyFor: b.remoteApiKeyFor,
+        ).url;
+        await img.setRemoteImageModelFor(url, id);
+      }
     }
     final apiKey = f['apiKey']?.toString();
     if (apiKey != null && apiKey.isNotEmpty) {

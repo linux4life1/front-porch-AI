@@ -18,6 +18,7 @@
 
 import 'dart:convert';
 
+import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/storage/settings/settings_base.dart';
 
@@ -34,10 +35,14 @@ mixin ImageGenRemotePrefs on SettingsBase {
   /// back to chat's URL without writing it here.
   String get imageRemoteApiUrl => _imageRemoteApiUrl;
 
-  String remoteImageModelFor(String url) {
-    final slot = normalizeRemoteApiUrl(url);
+  /// Last image id for [url]. [edit] uses a `#edit` suffix so a Comfy
+  /// checkpoint left in the create slot cannot poison Remote/Nano Edit or
+  /// expression-pack resolution (and the reverse).
+  String remoteImageModelFor(String url, {bool edit = false}) {
+    final slot = _hostModelKey(url, edit: edit);
     if (slot.isEmpty) return '';
-    return _remoteImageModels[slot] ?? '';
+    final id = _remoteImageModels[slot] ?? '';
+    return looksLikeLocalImageModel(id) ? '' : id;
   }
 
   void loadImageRemotePrefs() {
@@ -55,11 +60,15 @@ mixin ImageGenRemotePrefs on SettingsBase {
     notify();
   }
 
-  Future<void> setRemoteImageModelFor(String url, String modelId) async {
-    final slot = normalizeRemoteApiUrl(url);
+  Future<void> setRemoteImageModelFor(
+    String url,
+    String modelId, {
+    bool edit = false,
+  }) async {
+    final slot = _hostModelKey(url, edit: edit);
     if (slot.isEmpty) return;
     final id = modelId.trim();
-    if (id.isEmpty) {
+    if (id.isEmpty || looksLikeLocalImageModel(id)) {
       _remoteImageModels.remove(slot);
     } else {
       _remoteImageModels[slot] = id;
@@ -69,6 +78,12 @@ mixin ImageGenRemotePrefs on SettingsBase {
       jsonEncode(_remoteImageModels),
     );
     notify();
+  }
+
+  static String _hostModelKey(String url, {required bool edit}) {
+    final slot = normalizeRemoteApiUrl(url);
+    if (slot.isEmpty) return '';
+    return edit ? '$slot#edit' : slot;
   }
 
   static Map<String, String> _decodeRemoteImageModels(String? raw) {

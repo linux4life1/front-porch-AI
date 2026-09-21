@@ -5,10 +5,18 @@ import { describe, expect, it } from 'vitest';
 import {
   filterImageModels,
   imageModelListLabel,
+  looksLikeLocalImageModel,
   sortImageModelsForPicker,
 } from './imageRemote';
 
 describe('imageRemote helpers', () => {
+  it('treats Comfy/A1111 filenames as local and Nano ids as remote', () => {
+    expect(looksLikeLocalImageModel('qwen_image_edit_2511_i8x.ckpt')).toBe(true);
+    expect(looksLikeLocalImageModel('foo.safetensors')).toBe(true);
+    expect(looksLikeLocalImageModel('qwen-image-max-edit')).toBe(false);
+    expect(looksLikeLocalImageModel('qwen-image-2.1/edit')).toBe(false);
+  });
+
   it('labels Pro vs paid and keeps OpenRouter pricing', () => {
     expect(imageModelListLabel({ id: 'hidream', name: 'Hidream', isPaid: false })).toBe(
       'Hidream · Pro',

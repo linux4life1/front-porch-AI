@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/image/image_gen_types.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
@@ -101,8 +102,85 @@ int compareImageModelsForPicker(ImageModelInfo a, ImageModelInfo b) {
   return a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase());
 }
 
+/// Shown when a leftover Comfy/A1111 filename would have been POSTed to
+/// Nano/OpenRouter. Pack slots should surface this — never silent-retry.
+const kRemoteLocalCheckpointMessage =
+    'Pick a Remote API image model. A local checkpoint '
+    '(.ckpt / .safetensors) cannot be sent to Nano-GPT or OpenRouter.';
+
+/// First non-empty candidate that is a remote API id (and in [catalogIds]
+/// when that set is provided). Local filenames never win.
+String? pickRemoteImageModelId({
+  String? explicit,
+  required String slotModel,
+  required String hostModel,
+  Iterable<String>? catalogIds,
+}) {
+  final catalog = catalogIds == null
+      ? null
+      : {
+          for (final id in catalogIds)
+            if (id.trim().isNotEmpty) id,
+        };
+  bool ok(String id) {
+    final trimmed = id.trim();
+    if (trimmed.isEmpty || looksLikeLocalImageModel(trimmed)) return false;
+    if (catalog != null && catalog.isNotEmpty && !catalog.contains(trimmed)) {
+      return false;
+    }
+    return true;
+  }
+
+  for (final id in [explicit ?? '', hostModel, slotModel]) {
+    if (ok(id)) return id.trim();
+  }
+  return null;
+}
+
+/// Drop a leftover local filename from the Create or Edit slot / per-host
+/// map. Restores a valid per-host API id when one exists.
+Future<String?> sanitizeRemoteImageSlot({
+  required ImageGenSettings image,
+  required String hostUrl,
+  required bool editScoped,
+  Iterable<String>? catalogIds,
+}) async {
+  final slot = editScoped ? image.imageGenEditModel : image.imageGenModel;
+  final host = image.remoteImageModelFor(hostUrl, edit: editScoped);
+  final picked = pickRemoteImageModelId(
+    slotModel: slot,
+    hostModel: host,
+    catalogIds: catalogIds,
+  );
+  if (picked != null) {
+    if (editScoped && slot != picked) {
+      await image.setImageGenEditModel(picked);
+    } else if (!editScoped && slot != picked) {
+      await image.setImageGenModel(picked);
+    }
+    if (host != picked) {
+      await image.setRemoteImageModelFor(hostUrl, picked, edit: editScoped);
+    }
+    return picked;
+  }
+  final catalogReject =
+      catalogIds != null &&
+      catalogIds.isNotEmpty &&
+      slot.isNotEmpty &&
+      !catalogIds.contains(slot);
+  if (looksLikeLocalImageModel(slot) || catalogReject) {
+    if (editScoped) {
+      await image.setImageGenEditModel('');
+    } else {
+      await image.setImageGenModel('');
+    }
+  }
+  return null;
+}
+
 /// Switch Studio's remote host and restore that host's last image model.
 /// Writes only [ImageGenSettings] — chat [remoteApiUrl] is untouched.
+/// Local checkpoint filenames are never written into [image_remote_models].
 Future<void> applyImageRemoteHost({
   required ImageGenSettings image,
   required String url,
@@ -119,15 +197,27 @@ Future<void> applyImageRemoteHost({
   final currentModel = editScoped
       ? image.imageGenEditModel
       : image.imageGenModel;
-  if (prev.isNotEmpty && currentModel.isNotEmpty && prev != next) {
-    await image.setRemoteImageModelFor(prev, currentModel);
+  if (prev.isNotEmpty &&
+      currentModel.isNotEmpty &&
+      prev != next &&
+      !looksLikeLocalImageModel(currentModel)) {
+    await image.setRemoteImageModelFor(prev, currentModel, edit: editScoped);
   }
   await image.setImageRemoteApiUrl(next);
-  final restored = image.remoteImageModelFor(next);
-  if (restored.isEmpty) return;
-  if (editScoped) {
-    await image.setImageGenEditModel(restored);
-  } else {
-    await image.setImageGenModel(restored);
+  final restored = image.remoteImageModelFor(next, edit: editScoped);
+  if (restored.isNotEmpty) {
+    if (editScoped) {
+      await image.setImageGenEditModel(restored);
+    } else {
+      await image.setImageGenModel(restored);
+    }
+    return;
+  }
+  if (looksLikeLocalImageModel(currentModel)) {
+    if (editScoped) {
+      await image.setImageGenEditModel('');
+    } else {
+      await image.setImageGenModel('');
+    }
   }
 }

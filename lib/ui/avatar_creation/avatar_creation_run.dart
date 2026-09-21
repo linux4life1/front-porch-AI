@@ -77,6 +77,23 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
       _fail('The portrait image could not be decoded.');
       return;
     }
+    if (backend == ImageGenBackend.remote) {
+      final account = resolveImageStudioRemoteAccount(
+        imageRemoteApiUrl: storage.imageGenSettings.imageRemoteApiUrl,
+        chatRemoteApiUrl: storage.backendSettings.remoteApiUrl,
+        keyFor: storage.backendSettings.remoteApiKeyFor,
+      );
+      await sanitizeRemoteImageSlot(
+        image: storage.imageGenSettings,
+        hostUrl: account.url,
+        editScoped: true,
+      );
+      if (_disposed) return;
+      if (!packEditModeNow) {
+        _fail(kRemoteLocalCheckpointMessage);
+        return;
+      }
+    }
     final editMode = packEditModeNow;
     if (editMode) {
       // Explicit stage: the swap itself is graceful (the model rides each
@@ -100,16 +117,23 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
             required String negativePrompt,
             required int seed,
             required double denoise,
-          }) => imageGen.generateImage(
-            prompt: prompt,
-            negativePrompt: negativePrompt,
-            size: '${normalized.width}x${normalized.height}',
-            referenceImage: normalized.bytes,
-            seed: seed,
-            denoise: denoise,
-            intent: editMode ? StudioIntent.edit : StudioIntent.create,
-            editStrength: editMode ? denoise : null,
-          ),
+          }) async {
+            final bytes = await imageGen.generateImage(
+              prompt: prompt,
+              negativePrompt: negativePrompt,
+              size: '${normalized.width}x${normalized.height}',
+              referenceImage: normalized.bytes,
+              seed: seed,
+              denoise: denoise,
+              intent: editMode ? StudioIntent.edit : StudioIntent.create,
+              editStrength: editMode ? denoise : null,
+            );
+            if (bytes == null) {
+              final why = imageGen.statusMessage.trim();
+              if (why.isNotEmpty) throw Exception(why);
+            }
+            return bytes;
+          },
     );
     _replaceSession(s);
     _setStage(AvatarRunStage.pack);

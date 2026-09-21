@@ -32,6 +32,17 @@ export function imageModelListLabel(m: {
   return m.isPaid === false ? `${display} · Pro` : `${display} · paid`;
 }
 
+/** Local Comfy/A1111 weight filenames — never send these as Nano/OR model ids. */
+export function looksLikeLocalImageModel(id: string): boolean {
+  const s = id.trim().toLowerCase();
+  if (!s) return false;
+  if (s.includes('\\') || s.startsWith('file:') || s.startsWith('~/') || s.startsWith('/')) {
+    return true;
+  }
+  if (/^[a-z]:[\\/]/.test(s)) return true;
+  return /\.(ckpt|safetensors|sft|pt|pth)(?:\b|$)/.test(s);
+}
+
 export function filterImageModels<T extends { id: string; name?: string; label?: string }>(
   models: T[],
   query: string,

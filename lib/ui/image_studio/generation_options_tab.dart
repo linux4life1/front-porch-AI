@@ -109,6 +109,22 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
     setState(() => _loadingModels = true);
     final svc = Provider.of<ImageGenService>(context, listen: false);
     final m = await svc.fetchImageModels();
+    if (!mounted) return;
+    final st = Provider.of<StorageService>(context, listen: false);
+    if (st.imageGenSettings.imageGenBackend == 'remote') {
+      final account = resolveImageStudioRemoteAccount(
+        imageRemoteApiUrl: st.imageGenSettings.imageRemoteApiUrl,
+        chatRemoteApiUrl: st.backendSettings.remoteApiUrl,
+        keyFor: st.backendSettings.remoteApiKeyFor,
+      );
+      final ids = [for (final model in m) model.id];
+      await sanitizeRemoteImageSlot(
+        image: st.imageGenSettings,
+        hostUrl: account.url,
+        editScoped: widget.editScoped,
+        catalogIds: ids,
+      );
+    }
     if (mounted) {
       setState(() {
         _models = m;

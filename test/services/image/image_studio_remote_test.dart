@@ -5,6 +5,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/storage/settings/backend_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
@@ -124,4 +125,70 @@ void main() {
       expect(chat.remoteApiUrl, kNanoGptApiV1);
     },
   );
+
+  test('looksLikeLocalImageModel catches checkpoints, not Nano API ids', () {
+    expect(looksLikeLocalImageModel('qwen_image_edit_2511_i8x.ckpt'), isTrue);
+    expect(
+      looksLikeLocalImageModel(r'C:\ComfyUI\models\qwen.safetensors'),
+      isTrue,
+    );
+    expect(looksLikeLocalImageModel('/home/me/models/foo.pt'), isTrue);
+    expect(looksLikeLocalImageModel('qwen-image-max-edit'), isFalse);
+    expect(looksLikeLocalImageModel('qwen-image-2.1/edit'), isFalse);
+  });
+
+  test(
+    'pickRemoteImageModelId prefers per-host API id over a leftover ckpt',
+    () {
+      expect(
+        pickRemoteImageModelId(
+          slotModel: 'qwen_image_edit_2511_i8x.ckpt',
+          hostModel: 'qwen-image-max-edit',
+        ),
+        'qwen-image-max-edit',
+      );
+      expect(
+        pickRemoteImageModelId(
+          slotModel: 'qwen_image_edit_2511_i8x.ckpt',
+          hostModel: '',
+        ),
+        isNull,
+      );
+    },
+  );
+
+  test(
+    'applyImageRemoteHost refuses to persist a Comfy ckpt and clears the slot',
+    () async {
+      final image = ImageGenSettings();
+      await image.setImageGenEditModel('qwen_image_edit_2511_i8x.ckpt');
+      await applyImageRemoteHost(
+        image: image,
+        url: kNanoGptApiV1,
+        chatRemoteApiUrl: '',
+        editScoped: true,
+      );
+      expect(image.imageRemoteApiUrl, kNanoGptApiV1);
+      expect(image.imageGenEditModel, isEmpty);
+      expect(image.remoteImageModelFor(kNanoGptApiV1, edit: true), isEmpty);
+    },
+  );
+
+  test('sanitizeRemoteImageSlot restores the per-host edit id', () async {
+    final image = ImageGenSettings();
+    await image.setImageRemoteApiUrl(kNanoGptApiV1);
+    await image.setImageGenEditModel('qwen_image_edit_2511_i8x.ckpt');
+    await image.setRemoteImageModelFor(
+      kNanoGptApiV1,
+      'qwen-image-max-edit',
+      edit: true,
+    );
+    final picked = await sanitizeRemoteImageSlot(
+      image: image,
+      hostUrl: kNanoGptApiV1,
+      editScoped: true,
+    );
+    expect(picked, 'qwen-image-max-edit');
+    expect(image.imageGenEditModel, 'qwen-image-max-edit');
+  });
 }
