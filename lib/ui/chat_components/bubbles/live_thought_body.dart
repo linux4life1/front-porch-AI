@@ -1,9 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Thought pane: cap height and follow the newest tokens unless the user
-// scrolled up. Transcript auto-scroll (option B) does not move the list;
-// this is the inner log for the think block itself.
+// Thought pane: cap height. followLatest is opt-in only — chat passes
+// false (option B: the user scrolls the think box themselves). The
+// widget still can follow if a host asks.
 
 import 'package:flutter/material.dart';
 

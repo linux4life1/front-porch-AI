@@ -61,40 +61,33 @@ class TranscriptScrollPosition extends ScrollPositionWithSingleContext {
     required super.context,
     super.initialPixels,
     super.keepScrollOffset,
-    super.oldPosition,
+    ScrollPosition? oldPosition,
     super.debugLabel,
-  });
+  }) : super(oldPosition: oldPosition) {
+    if (oldPosition is TranscriptScrollPosition) {
+      _heldMax = oldPosition._heldMax;
+    } else if (oldPosition != null && oldPosition.hasContentDimensions) {
+      _heldMax = oldPosition.maxScrollExtent;
+    }
+  }
 
   double? _heldMax;
-  bool _skipHold = false;
 
   void resetHold() {
     _heldMax = null;
-    _skipHold = true;
-  }
-
-  @override
-  void jumpTo(double value) {
-    _skipHold = true;
-    super.jumpTo(value);
-  }
-
-  @override
-  Future<void> animateTo(
-    double to, {
-    required Duration duration,
-    required Curve curve,
-  }) {
-    _skipHold = true;
-    return super.animateTo(to, duration: duration, curve: curve);
   }
 
   @override
   bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
-    final prior = _heldMax;
-    if (prior != null && hasPixels && !_skipHold) {
+    final prior = hasContentDimensions ? this.maxScrollExtent : _heldMax;
+    final priorPixels = hasPixels ? pixels : null;
+    final result = super.applyContentDimensions(
+      minScrollExtent,
+      maxScrollExtent,
+    );
+    if (prior != null && priorPixels != null && prior != maxScrollExtent) {
       final next = heldTranscriptOffset(
-        offset: pixels,
+        offset: priorPixels,
         previousMax: prior,
         newMax: maxScrollExtent,
         minExtent: minScrollExtent,
@@ -102,7 +95,6 @@ class TranscriptScrollPosition extends ScrollPositionWithSingleContext {
       if (next != pixels) correctPixels(next);
     }
     _heldMax = maxScrollExtent;
-    _skipHold = false;
-    return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
+    return result;
   }
 }

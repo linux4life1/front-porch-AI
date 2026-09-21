@@ -32,11 +32,12 @@ class SelectableBubbleBody extends StatelessWidget {
     // jumpTo. An inner never-scrollable view absorbs ensureVisible
     // (extent 0) without adding a real nested scroller.
     return SelectionArea(
-      child: SingleChildScrollView(
+      child: ListView(
         key: const Key('bubble-body-scroll-absorb'),
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
-        child: child,
+        padding: EdgeInsets.zero,
+        children: [child],
       ),
     );
   }

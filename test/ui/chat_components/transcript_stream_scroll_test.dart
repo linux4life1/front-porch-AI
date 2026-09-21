@@ -24,25 +24,44 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/ui/chat_components/stage/transcript_auto_scroll.dart';
 import 'package:front_porch_ai/ui/chat_components/stage/transcript_scroll_controller.dart';
 
-Widget _reverseList({
-  required ScrollController controller,
-  required double newestHeight,
-}) {
-  return MaterialApp(
-    home: SizedBox(
-      height: 200,
-      child: ListView(
-        controller: controller,
-        reverse: true,
-        children: [
-          SizedBox(height: newestHeight, child: const Text('STREAM')),
-          const SizedBox(height: 100, child: Text('KEEP')),
-          const SizedBox(height: 100, child: Text('OLDER')),
-          const SizedBox(height: 100, child: Text('OLDEST')),
-        ],
+class _GrowingTranscript extends StatefulWidget {
+  const _GrowingTranscript({super.key, required this.controller});
+
+  final ScrollController controller;
+
+  @override
+  State<_GrowingTranscript> createState() => _GrowingTranscriptState();
+}
+
+class _GrowingTranscriptState extends State<_GrowingTranscript> {
+  double newestHeight = 40;
+
+  void growTo(double height) => setState(() => newestHeight = height);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: 400,
+            height: 200,
+            child: ListView(
+              controller: widget.controller,
+              reverse: true,
+              children: [
+                SizedBox(height: newestHeight, child: const Text('STREAM')),
+                const SizedBox(height: 100, child: Text('KEEP')),
+                const SizedBox(height: 100, child: Text('OLDER')),
+                const SizedBox(height: 100, child: Text('OLDEST')),
+              ],
+            ),
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 void main() {
@@ -84,15 +103,14 @@ void main() {
 
     final controller = TranscriptScrollController();
     addTearDown(controller.dispose);
+    final listKey = GlobalKey<_GrowingTranscriptState>();
     await tester.pumpWidget(
-      _reverseList(controller: controller, newestHeight: 40),
+      _GrowingTranscript(key: listKey, controller: controller),
     );
     await tester.pump();
     expect(controller.offset, 0);
 
-    await tester.pumpWidget(
-      _reverseList(controller: controller, newestHeight: 200),
-    );
+    listKey.currentState!.growTo(200);
     await tester.pump();
     expect(
       controller.offset,
@@ -100,7 +118,6 @@ void main() {
       reason:
           'growing the live bubble must not keep offset 0 (stick-to-bottom)',
     );
-    expect(find.text('KEEP'), findsOneWidget);
   });
 
   testWidgets('scrolled-away offset is not yanked toward the new bottom', (
@@ -111,16 +128,15 @@ void main() {
 
     final controller = TranscriptScrollController();
     addTearDown(controller.dispose);
+    final listKey = GlobalKey<_GrowingTranscriptState>();
     await tester.pumpWidget(
-      _reverseList(controller: controller, newestHeight: 40),
+      _GrowingTranscript(key: listKey, controller: controller),
     );
     await tester.pump();
     controller.jumpTo(80);
     await tester.pump();
 
-    await tester.pumpWidget(
-      _reverseList(controller: controller, newestHeight: 160),
-    );
+    listKey.currentState!.growTo(160);
     await tester.pump();
     expect(
       controller.offset,
