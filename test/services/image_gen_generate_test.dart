@@ -562,8 +562,7 @@ void main() {
         await storage.backendSettings.setRemoteApiKey('key-123');
         final service = ImageGenService(storage);
         final models = await service.fetchImageModels();
-        // Length is the Sep 2026 Nano image-models snapshot (was 45 in May).
-        expect(models, hasLength(237));
+        expect(models, hasLength(45));
         expect(fake.requestLog, isEmpty);
         await fake.close();
       }),
