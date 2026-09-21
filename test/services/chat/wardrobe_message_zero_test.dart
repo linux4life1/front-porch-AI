@@ -203,6 +203,28 @@ void main() {
     expect(sidebarSees(), isNull);
   });
 
+  test('turning the switch off hides a record that already exists', () async {
+    // THE READ GATE. Opening with the switch already down (the test above)
+    // never seeds, so `_pockets` stays null and deleting the pocketsFor
+    // early-return still looks green. The gate's comment says it HIDES and
+    // does not erase: seed first, then flip the switch, then the same
+    // sidebar read must be null while the stored record stays.
+    await chat.setActiveCharacter(dressed('Jennifer', 'char-hide'));
+    expectDressed(
+      sidebarSees(),
+      reason: 'need a live record before the switch goes down',
+    );
+
+    await storage.realismSettings.setPocketsEnabled(false);
+    expect(
+      chat.pocketsFor(chat.characterIdFor(chat.activeCharacter!)),
+      isNull,
+      reason:
+          'pocketsFor must hide when the switch is down — the seed already '
+          'ran, so a missing gate would still return the apron and keys',
+    );
+  });
+
   test('a group member arrives dressed too — parity, and a different trap', () async {
     // Parity is mandatory in this project, and the group path had its own
     // ordering hazard: startNewChat's group branch nulls the record and THEN

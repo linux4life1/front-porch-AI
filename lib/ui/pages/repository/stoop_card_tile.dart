@@ -16,6 +16,13 @@ import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+/// Two-line summary matching hub `.hub-tile-summary` (`-webkit-line-clamp: 2`).
+const kStoopTileSummaryMaxLines = 2;
+
+/// Grid cell aspect so the reserved two-line summary plus name/handle/stats fit
+/// under the square art. 0.64 was a few pixels short and clipped mid-word.
+const kStoopCardTileAspectRatio = 0.60;
+
 /// The hub card tile (hub.frontporchai.app .hub-tile): square art on top
 /// with badge pills, then a body — name, @creator, two-line summary, and a
 /// stats foot (▲ score, ⬇ downloads, token count). Lifts with an amber
@@ -182,10 +189,15 @@ class _StoopCardTileState extends State<StoopCardTile> {
             ],
             if (card.summary.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Expanded(
+              // Hub .hub-tile-summary is -webkit-line-clamp: 2. A hard 2-line
+              // box overflowed short test cells; Expanded without a height
+              // clipped mid-word with no ellipsis. Loose Flexible lets the
+              // text take up to two lines and ellipsize when the cell is tight.
+              Flexible(
+                fit: FlexFit.loose,
                 child: Text(
                   stoopResolveMacros(card.summary, card.name),
-                  maxLines: 2,
+                  maxLines: kStoopTileSummaryMaxLines,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: stoopMute(context),
@@ -194,8 +206,8 @@ class _StoopCardTileState extends State<StoopCardTile> {
                   ),
                 ),
               ),
-            ] else
-              const Spacer(),
+            ],
+            const Spacer(),
             const SizedBox(height: 8),
             _statsFoot(card),
           ],

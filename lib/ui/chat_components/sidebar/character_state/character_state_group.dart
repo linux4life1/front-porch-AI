@@ -20,13 +20,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show AmbitionService, PocketSection, Pockets;
+    show AmbitionService, PocketSection, Pockets, StoryClock;
 import 'package:front_porch_ai/services/chat/presence_derive.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart'
     show showPocketItemDialog;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+
 import '../porch_accordion.dart';
 import 'ambitions_row.dart';
 import 'pockets_row.dart';
@@ -111,12 +112,13 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     // the engine off, so gating the strip on realism alone hid the clock in
     // the one configuration where a user can turn the standalone one on — it
     // was spending a model call per turn with nothing to show for it.
-    final clockRunning =
-        chat.timeService.passageOfTimeEnabled &&
-        (chat.realismEnabled ||
-            Provider.of<StorageService>(
-              context,
-            ).realismSettings.standaloneClockEnabled);
+    final clockRunning = StoryClock.isRunning(
+      passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
+      realismEnabled: chat.realismEnabled,
+      standaloneClockEnabled: Provider.of<StorageService>(
+        context,
+      ).realismSettings.standaloneClockEnabled,
+    );
 
     return PorchAccordion(
       key: _accordionKey,
@@ -299,11 +301,11 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                 // Feature off = panel absent. With it ON the panel renders
                 // even for a missing/empty record, so the FIRST item can be
                 // added by hand (2026-08-13 — the panel used to be ✕-only).
-                if (!chat.pocketsFeatureEnabled) {
-                  return const SizedBox.shrink();
-                }
                 final card = chat.activeCharacter!;
                 final id = chat.characterIdFor(card);
+                if (!chat.pocketsEnabledFor(id)) {
+                  return const SizedBox.shrink();
+                }
                 final p = chat.pocketsFor(id) ?? Pockets();
                 return Padding(
                   padding: const EdgeInsets.only(top: 10),

@@ -23,17 +23,6 @@ import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 /// under the project 500 LOC cap while preserving behavior and readability.
 /// These are stateless and test-friendly.
 
-String getModeLabel(ImageGenMode mode) {
-  switch (mode) {
-    case ImageGenMode.customPrompt:
-      return 'Freeform';
-    case ImageGenMode.characterPortrait:
-      return 'Character Portrait';
-    case ImageGenMode.userAvatar:
-      return 'Your Persona';
-  }
-}
-
 String getAcceptLabel(ImageGenMode mode) {
   switch (mode) {
     case ImageGenMode.characterPortrait:

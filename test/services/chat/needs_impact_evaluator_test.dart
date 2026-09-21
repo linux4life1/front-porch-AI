@@ -228,43 +228,6 @@ void main() {
       // no throw
     });
 
-    test(
-      'none reason or empty deltas still reaches applySceneImpact (always notifies/saves unless early return; post simple model contract; legacy name updated)',
-      () async {
-        final localSaves = <String>[];
-        final localSim = NeedsSimulation(
-          onNotify: () {},
-          onSaveChat: () async => localSaves.add('save'),
-          getTimeOfDay: () => 'morning',
-          getRealismEnabled: () => true,
-          getObserverMode: () => false,
-          getCurrentSpeakerIdForRealism: () => 'char-1',
-          getIsGroupNonObserverMode: () => false,
-          getGroupNeeds: (_) => {},
-
-          setGroupNeeds: (_, _) {},
-          getEnjoysLowHygiene: () => false,
-          getNeedsSimEnabled: () => true,
-        );
-        final e = createTestEvaluator(
-          sim: localSim,
-          saves: localSaves,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"reason": "none"}', // minimal; activities/intensity ignored in current leaf
-        );
-        await e.evaluateAndApply('just talking');
-        // applySceneImpact always reached (onSave/onNotify invoked for consistency even on empty deltas / 'none' reason=null); documented actual post-simple-model behavior (no early return for empty impact)
-        expect(true, true);
-      },
-    );
-
     // Legacy shape coverage only (post table/modifiers/buffer removal; straight model deltas + Director authority)
     test(
       'pure romance scene (legacy activities/intensity JSON tolerated; deltas from model only)',
@@ -375,72 +338,6 @@ void main() {
       );
       await e.evaluateAndApply('she ate a full dinner with wine');
       // Path exercised.
-    });
-
-    test(
-      'bathed scene applies model hygiene gain (post buffer removal; no "reduced via modifier" logic in evaluator)',
-      () async {
-        final localSaves = <String>[];
-        final localSim = NeedsSimulation(
-          onNotify: () {},
-          onSaveChat: () async => localSaves.add('save'),
-          getTimeOfDay: () => 'morning',
-          getRealismEnabled: () => true,
-          getObserverMode: () => false,
-          getCurrentSpeakerIdForRealism: () => 'char-1',
-          getIsGroupNonObserverMode: () => false,
-          getGroupNeeds: (_) => {},
-
-          setGroupNeeds: (_, _) {},
-          getEnjoysLowHygiene: () => false,
-          getNeedsSimEnabled: () => true,
-        );
-        final e = createTestEvaluator(
-          sim: localSim,
-          saves: localSaves,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"activities": ["bathed"], "intensity": 6, '
-                  '"hygiene_delta": 25, "comfort_delta": 12, "fun_delta": 6, '
-                  '"reason": "shower"}', // activities/intensity for legacy shape coverage only
-        );
-        await e.evaluateAndApply('she took a long hot shower after');
-        // applySceneImpact reached (saves side effect); no "reduced via modifier" in current leaf
-        expect(true, true);
-      },
-    );
-
-    test('group per-speaker via cbs (apply uses scalar after god dance in prod)', () async {
-      final gn = <String, Map<String, int>>{};
-      final e = createTestEvaluator(
-        groupNeeds: gn,
-        groupNonObsFn: () => true,
-        speakerFn: () => 'char-2',
-        groupCharsFn: () => [
-          CharacterCard(name: 'c1'),
-          CharacterCard(name: 'c2'),
-        ],
-        idFromCardFn: (c) => c.name == 'c2' ? 'char-2' : 'char-1',
-        impactCallFn:
-            (r, {onChunk, strength = 1, userCritique, previousDeltas}) async =>
-                '{"hunger_delta": 20}', // cleaned; activities legacy removed
-      );
-      await e.evaluateAndApply('char2 ate a snack');
-      // Note: applySceneImpact is scalar (see needs_simulation.dart:707 and header);
-      // for group post-gen, god does _loadGroupRealismIntoScalars(speaker) before the
-      // thin _runPostGenNeedsChecks -> evaluator -> apply, then _save after (see
-      // chat_service _runPost... and _loadGroup sites). This test wires the group cbs
-      // (real dispatch for the leaf ctor) and verifies no crash + path taken with
-      // non-obs/speaker provided. Direct gn write from apply is god's (tickDecay has
-      // the if for its timing; apply keeps scalar to preserve 'some coordination thin
-      // in god' per plan). No gn update here is expected/qualified.
-      expect(true, true); // coverage for group cbs in ctor + call without crash
     });
 
     test('fulfillment in impact applies restore', () async {

@@ -42,6 +42,10 @@ extension ChatServiceGroupRealismHelpers on ChatService {
         _groupCharacters.any((c) => _getCharacterIdFromCard(c) == pinned)) {
       return pinned;
     }
+    // A live group turn always pins the speaker (full or lite). Missing pin
+    // must not fall back to next/first — that stole a full member's
+    // Needs/bond/objectives into a soft guest's prompt.
+    if (_isGenerating) return pinned ?? '';
     // Outside a turn (pre-pick): the upcoming speaker if known (round-robin),
     // else the first member.
     final next = nextCharacter;
@@ -87,6 +91,12 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     _turnSpeakerIdForRealism = charId;
   }
 
+  /// Test-only: set the glance bit on a group member slot.
+  @visibleForTesting
+  void debugSetGroupWithUser(String charId, bool? v) {
+    _memberForWrite(charId).withUser = v;
+  }
+
   /// Test-only: live position injection through the wired BehavioralInjection.
   /// Does not stub `getOccupationBrief`.
   @visibleForTesting
@@ -106,6 +116,25 @@ extension ChatServiceGroupRealismHelpers on ChatService {
   @visibleForTesting
   String debugGroupSlotEmotion(String charId) =>
       _groupRealism[charId]?.emotion ?? '';
+
+  /// Test-only: stored needs for a group member. Empty when the slot has
+  /// never carried a vector (does not invent [NeedsSimulation.needDefaults]).
+  @visibleForTesting
+  Map<String, int> debugGroupNeeds(String charId) => _getGroupNeeds(charId);
+
+  /// Test-only: seed a member slot so a later soft turn can prove it does
+  /// not leak this member's Needs / bond into the guest prompt.
+  @visibleForTesting
+  void debugSeedGroupSpeakerState(
+    String charId, {
+    Map<String, int>? needs,
+    int? longTermTier,
+  }) {
+    if (needs != null) _setGroupNeeds(charId, needs);
+    if (longTermTier != null) {
+      _memberForWrite(charId).longTermTier = longTermTier;
+    }
+  }
 
   // ── Per-character realism state access (group mode, typed — U7) ─────────
   /// The one write door to a member's typed state. Outside group mode it
@@ -149,15 +178,8 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     return const {};
   }
 
-  Map<String, int> _getGroupNeeds(String charId) {
-    final raw = _groupRealism[charId]?.needs;
-    final result = <String, int>{};
-    for (final k in NeedsSimulation.needKeys) {
-      final v = raw?[k];
-      result[k] = v ?? (NeedsSimulation.needDefaults[k] ?? 80);
-    }
-    return result;
-  }
+  Map<String, int> _getGroupNeeds(String charId) =>
+      NeedsSimulation.storedNeedsOrEmpty(_groupRealism[charId]?.needs);
 
   void _setGroupNeeds(String charId, Map<String, int> needs) {
     _memberForWrite(charId).needs = needs;
@@ -226,12 +248,12 @@ extension ChatServiceGroupRealismHelpers on ChatService {
   /// SPATIAL STANCE joined them on 2026-08-08, when the posture eval moved to
   /// the post-generation phase so it could read the reply. That moved a WRITE
   /// across the snapshot boundary: without this line every message would
-  /// carry the position the character was in BEFORE her reply, and the regen
+  /// carry the position the character was in BEFORE their reply, and the regen
   /// revert (which rebuilds its baseline from the previous accepted message's
   /// snapshot) would hand the replacement turn a position one exchange stale
   /// — the exact teleport the move was made to stop, reintroduced through the
   /// rewind door. It is also what makes swiping between alternatives move the
-  /// character to where THAT alternative left her.
+  /// character to where THAT alternative left them.
   ///
   /// SPATIAL STANCE ALSO LEAVES A PRE-TURN RECEIPT HERE, and that is not
   /// bookkeeping — it is the other half of moving the write.
@@ -272,7 +294,7 @@ extension ChatServiceGroupRealismHelpers on ChatService {
   /// realism_state, so this no-ops for them.
   Future<void> _restampRealismSnapshotPostGen(ChatMessage msg) async {
     if (msg.isUser) return;
-    // She named a time ("six in the morning") that disagrees with the
+    // They named a time ("six in the morning") that disagrees with the
     // pre-gen snap (new_day → 08:00). Fiction wins so the sidebar matches
     // the line you just read. Gated on a moving clock — a frozen clock
     // must not start chasing dialogue.

@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_settings_dialog.dart';
+import 'package:front_porch_ai/ui/image_studio/comfy_create_panel.dart';
 import 'package:front_porch_ai/ui/image_studio/model_slot_dropdown.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -83,17 +84,20 @@ class EngineStrip extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: _label(context, 'CREATE MODEL'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(child: _createModelPicker(context, c)),
-            ],
-          ),
+          if (c.backend == ImageGenBackend.comfyUi)
+            const ComfyCreatePanel()
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _label(context, 'CREATE MODEL'),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: _createModelPicker(context, c)),
+              ],
+            ),
           const SizedBox(height: 6),
           Text(
             'Bound to the Studio\'s Create-model slot — model memory is split '
@@ -133,7 +137,7 @@ class EngineStrip extends StatelessWidget {
             ? null
             : (b) {
                 if (b == null) return;
-                c.storage.setImageGenBackend(b.key);
+                c.storage.imageGenSettings.setImageGenBackend(b.key);
                 c.refreshEngine();
               },
       ),
@@ -172,7 +176,11 @@ class EngineStrip extends StatelessWidget {
     );
   }
 
-  Widget _statusDot(BuildContext context, {required bool ok, required String text}) {
+  Widget _statusDot(
+    BuildContext context, {
+    required bool ok,
+    required String text,
+  }) {
     // logReady = the app-wide green "connected" status hue (AppColors const).
     final color = ok ? AppColors.logReady : AppColors.formMasterAccent;
     return Row(
@@ -206,8 +214,13 @@ class EngineStrip extends StatelessWidget {
     // Offline fallback: surface the persisted selection even before a fetch.
     final options = c.modelOptions.isNotEmpty
         ? c.modelOptions
-        : (c.storage.imageGenModel.isNotEmpty
-              ? [(value: c.storage.imageGenModel, label: c.storage.imageGenModel)]
+        : (c.storage.imageGenSettings.imageGenModel.isNotEmpty
+              ? [
+                  (
+                    value: c.storage.imageGenSettings.imageGenModel,
+                    label: c.storage.imageGenSettings.imageGenModel,
+                  ),
+                ]
               : const <({String value, String label})>[]);
     if (options.isEmpty) {
       return Padding(
@@ -235,7 +248,10 @@ class EngineStrip extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         isDense: true,
       ),
       options: options,

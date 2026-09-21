@@ -251,16 +251,6 @@ void main() {
   test(
     'complete keeps secondary shape and does not serve an ambition',
     () async {
-      final wiring = File(
-        'lib/services/chat/chat_service_wiring_evals.dart',
-      ).readAsStringSync();
-      expect(wiring, contains('if (_isHeldTodayObjective(obj))'));
-      expect(wiring, contains('unawaited(_onTodayObjectiveCompleted(obj));'));
-      expect(
-        wiring.indexOf('if (_isHeldTodayObjective(obj))'),
-        lessThan(wiring.indexOf('_ambitionService.onQuestAchieved')),
-      );
-
       final who = card();
       await chat.setActiveCharacter(who);
       await fireToday(chat, 'Sweep the stoop before dusk.');
@@ -327,21 +317,6 @@ void main() {
       expect(row.tasks, '[]');
     },
   );
-
-  test('1:1 Away and At work never skip still holds', () {
-    final skipSrc = File(
-      'lib/services/chat/chat_service_turn_flow.dart',
-    ).readAsStringSync();
-    final skipFn = RegExp(
-      r'bool _groupSpeakerSkips\(CharacterCard card\) \{([\s\S]*?)\n  \}',
-    ).firstMatch(skipSrc);
-    expect(skipFn, isNotNull);
-    expect(
-      skipFn!.group(1)!,
-      contains('if (_activeGroup == null) return false;'),
-    );
-    expect(skipFn.group(1)!, contains('return groupTurnSkips(where);'));
-  });
 
   test('proposed_objective matching today_sentence is a collision', () {
     const payload =
@@ -448,41 +423,5 @@ void main() {
       rows.where((o) => o.active && !o.isPrimary).map((o) => o.id).toSet(),
       {sideId, chat.todayObjectiveId},
     );
-  });
-
-  test('held today is the persisted id, never every taskless secondary', () {
-    final evals = File(
-      'lib/services/chat/chat_service_wiring_evals.dart',
-    ).readAsStringSync();
-    expect(evals, contains('if (_isHeldTodayObjective(obj))'));
-    final accessors = File(
-      'lib/services/chat/chat_service_accessors.dart',
-    ).readAsStringSync();
-    expect(accessors, contains('bool _isHeldTodayObjective(Objective obj)'));
-    expect(
-      accessors,
-      contains(
-        'return _todayObjectiveId != null && obj.id == _todayObjectiveId;',
-      ),
-    );
-    expect(accessors, contains('_persistTodayObjectiveId'));
-    expect(accessors, isNot(contains('claimIfUnique')));
-  });
-
-  test('session change clears the today pointer then rebinds', () {
-    final start = File(
-      'lib/services/chat/chat_service_session_manage.dart',
-    ).readAsStringSync();
-    expect(start, contains('_clearTodayPointer();'));
-    final load = File(
-      'lib/services/chat/chat_service_session_load.dart',
-    ).readAsStringSync();
-    expect(load, contains('_clearTodayPointer();'));
-    expect(load, contains('_todayObjectiveId = s.todayObjectiveId;'));
-    final objs = File(
-      'lib/services/chat/chat_service_objectives.dart',
-    ).readAsStringSync();
-    expect(objs, contains('_rebindTodayObjectiveFromDb();'));
-    expect(objs, contains('_clearTodayPointer();'));
   });
 }

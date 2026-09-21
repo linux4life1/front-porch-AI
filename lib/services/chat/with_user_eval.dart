@@ -49,16 +49,26 @@ class WithUserEval {
     required String recentExchange,
     required String stance,
     required bool toolsMode,
+    bool quiet = false,
   }) {
     final stanceLine = stance.trim().isEmpty
         ? ''
         : 'Last known position of $charName (do not change this, only use it): '
               '"$stance".\\n\\n';
+    final sceneLabel = quiet
+        ? 'The current scene (they have not spoken this turn)'
+        : 'The reply that just happened';
+    final sceneBody = quiet
+        ? (recentExchange.trim().isEmpty ? '(stance only)' : recentExchange)
+        : reply;
+    final recentBlock = quiet || recentExchange.trim().isEmpty
+        ? ''
+        : 'Recent exchange for context:\\n$recentExchange\\n\\n';
     return 'Read the scene below and answer one yes/no about $charName.\\n\\n'
         '${rubric(charName, userName)}'
         '$stanceLine'
-        'The reply that just happened:\\n$reply\\n\\n'
-        '${recentExchange.trim().isEmpty ? '' : 'Recent exchange for context:\\n$recentExchange\\n\\n'}'
+        '$sceneLabel:\\n$sceneBody\\n\\n'
+        '$recentBlock'
         '${toolsMode ? 'Report by calling the $kWithUserTool tool with "with_user". Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "with_user" as true or false. '
                   'Do NOT use markdown code blocks — raw JSON only.\\n'
                   'Example: {"with_user": true} or {"with_user": false}'}';
@@ -100,6 +110,37 @@ class WithUserEval {
       );
     } catch (e) {
       debugPrint('[Presence] with_user check failed, glance unchanged: $e');
+      return null;
+    }
+  }
+
+  /// Quiet Away pulse: no new bubble. Stance + recent exchange only.
+  /// null = leave the stored bit alone. Never writes spatial stance.
+  Future<bool?> detectQuiet({
+    required String charName,
+    required String userName,
+    String recentExchange = '',
+    String stance = '',
+  }) async {
+    if (recentExchange.trim().isEmpty && stance.trim().isEmpty) return null;
+    try {
+      return parseWithUser(
+        await fire(
+          debugLabel: 'with_user_quiet',
+          tools: tools,
+          buildPrompt: ({required bool toolsMode}) => buildPrompt(
+            charName: charName,
+            userName: userName,
+            reply: '',
+            recentExchange: recentExchange,
+            stance: stance,
+            toolsMode: toolsMode,
+            quiet: true,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[Presence] away-pulse failed, glance unchanged: $e');
       return null;
     }
   }

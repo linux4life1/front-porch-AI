@@ -26,25 +26,33 @@ extension ChatServiceRealismEvals on ChatService {
   /// Placed AFTER the character name suffix for maximum recency weight.
   /// Consumed after one use (cleared after response generation).
   String _getChanceTimeInjection() {
-    // Thin delegation (full in ChaosInjection per step 8; UI flags stayed in god per plan).
     return _chaosInjection.buildChanceTimeInjection();
   }
-
-  // ── LLM Eval Thins (step 9; full in LlmEvalEngine) + Needs Impact Thins (consolidated) + Objective Proposal Thins (step 11) ──
-  // 0 new god privates beyond required thin delegates (fire/strip/extract/evaluate* thins + _runPostGenNeedsChecks thin (consolidated to evaluator; the prior separate _check* bodies excised as dead/vestigial per task) + generate/_check thins for objective; void_ count 15; +1 late final); thins only (public surface for now per plan); objective proposal coordination + some
-  // prompt/obj mgmt + post-gen needs orchestration (impersonation dance, pre/post group scalars, long-gen, metadata attach) stayed thin in god per plan (qualified in objective_proposal header + here + test + MD).
-  // All call sites (5 firing points for realism evals now via realism_evals step 10, gen/check now via objective_proposal step 11, proposal, direct fire/strip/extract in eval paths, post-gen needs) now delegate; non-eval uses ... also route via these thins (centralized, no parallel).
 
   Future<String?> _fireLLMEval(
     String prompt, {
     void Function(String)? onChunk,
     double repeatPenalty = 1.15,
     String label = 'eval',
-  }) => _llmEvalEngine.fireLLMEval(
-    prompt,
-    onChunk: onChunk,
-    repeatPenalty: repeatPenalty,
-    label: label,
+    bool salvageReasoning = true,
+    int? maxLength,
+    Duration? wallClockTimeout,
+    bool abortClientOnStop = false,
+    bool Function(String accumulated)? stopWhen,
+    void Function()? onGuardAbort,
+  }) => _withWorkerLane(
+    () => _llmEvalEngine.fireLLMEval(
+      prompt,
+      onChunk: onChunk,
+      repeatPenalty: repeatPenalty,
+      label: label,
+      salvageReasoning: salvageReasoning,
+      maxLength: maxLength,
+      wallClockTimeout: wallClockTimeout,
+      abortClientOnStop: abortClientOnStop,
+      stopWhen: stopWhen,
+      onGuardAbort: onGuardAbort,
+    ),
   );
 
   String _stripThinkBlocks(String text) =>
@@ -161,12 +169,12 @@ extension ChatServiceRealismEvals on ChatService {
       }
 
       // Surface verdict in message metadata so swipe history can record it
-      _pendingRealismMetadata = {
+      _writePendingRealismMetadata({
         ...?_pendingRealismMetadata,
         'trust_repair_verdict': verdict,
         'trust_repair_recovery': recovery,
         if (reason.isNotEmpty) 'trust_repair_reason': reason,
-      };
+      });
 
       _saveChat();
       notifyListeners();
@@ -201,6 +209,7 @@ extension ChatServiceRealismEvals on ChatService {
       'cooldownTurnsRemaining': _nsfwService.cooldownTurnsRemaining,
       'cooldownTurnsTotal': _nsfwService.cooldownTurnsTotal,
       'trustLevel': _relationshipService.trustLevel,
+      'pendingTrustRepair': _relationshipService.pendingTrustRepair,
       'activeFixation': _relationshipService.activeFixation,
       'fixationLifespan': _relationshipService.fixationLifespan,
       'spatialStance': _relationshipService.spatialStance,
@@ -208,7 +217,7 @@ extension ChatServiceRealismEvals on ChatService {
       // Pockets & Wardrobe rides the rewind contract like every other
       // per-turn scalar. Without this a regenerate re-runs the detection pass
       // on a NEW reply while the record still carries the discarded reply's
-      // changes — she picks the keys up twice, or is left holding something
+      // changes — they pick the keys up twice, or are left holding something
       // from a version of the scene that no longer exists. Found in review by
       // Grok, 2026-08-07, and required by the design doc in as many words.
       ...(() {
@@ -233,6 +242,7 @@ extension ChatServiceRealismEvals on ChatService {
       // the deltas map on []=).
       final needsSnap = <String, dynamic>{
         'vector': Map<String, int>.from(_needsSimulation.vector),
+        'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
       };
       state['needs'] = needsSnap;
 
@@ -270,6 +280,50 @@ extension ChatServiceRealismEvals on ChatService {
         () => _evaluateNarrativeCall(onChunk: onChunk),
       ),
     ]);
+  }
+
+  /// Shared pre-gen judge dispatch for the dance AND 1:1 regen so a restored
+  /// trust-repair latch cannot skip the repair branch on one path.
+  Future<void> _runPreGenRealismJudges({
+    required void Function(String) onChunk,
+    String? logSpeakerName,
+  }) async {
+    if (_relationshipService.pendingTrustRepair) {
+      debugPrint(
+        '[Realism:Unified] Trust-repair eval'
+        '${logSpeakerName != null ? ' for $logSpeakerName' : ''} '
+        '+ remaining judges (not a full freeze)',
+      );
+      _relationshipService.consumePendingTrustRepair();
+      final userText = _messages
+          .lastWhere(
+            (m) => m.isUser,
+            orElse: () => ChatMessage(text: '', sender: '', isUser: true),
+          )
+          .text;
+      await _evaluateTrustRepairCall(userText, onChunk: onChunk);
+      if (_realismEvalCancelled) return;
+      await _runBatchedRealismVerification(
+        () => _fireTrustRepairRemainingEvals(onChunk),
+      );
+      return;
+    }
+    if (_oneShotActive) {
+      debugPrint(
+        '[Realism:Unified] One-shot eval'
+        '${logSpeakerName != null ? ' for $logSpeakerName' : ''}',
+      );
+      await _evaluateOneShotCall(onChunk: onChunk);
+      return;
+    }
+    debugPrint(
+      '[Realism:Unified] 3-call eval + verifier'
+      '${logSpeakerName != null ? ' for $logSpeakerName' : ''}',
+    );
+    await _runBatchedRealismVerification(
+      () => _fireStaggeredRealismEvals(onChunk),
+      logSpeakerName: logSpeakerName,
+    );
   }
 
   /// Emotion + narrative only — the remaining judges after a trust-repair
@@ -368,46 +422,40 @@ extension ChatServiceRealismEvals on ChatService {
     final speaker = _activeCharacter;
     if (speaker == null) return;
     final userName = _userPersonaService.persona.name.trim();
-    final verdict =
-        await WithUserEval(
-          fire:
-              ({
-                required debugLabel,
-                required tools,
-                required buildPrompt,
-              }) async {
-                return fireStructuredEval(
-                  probe: _toolProbe,
-                  backendIdentity: _evalBackendIdentity,
-                  debugLabel: debugLabel,
-                  tools: tools,
-                  buildPrompt: buildPrompt,
-                  callToText: (resp) => realismToolCallToJson(
-                    WithUserEval.kWithUserTool,
-                    resp.calls,
-                  ),
-                  fireToolEval: _fireToolEval,
-                  toolChoice: WithUserEval.kWithUserTool,
-                  getPreferTextEvals: () =>
-                      _storageService.realismSettings.preferTextEvals,
-                  fireTextEval: (p, {onChunk}) => _fireLLMEval(
-                    p,
-                    repeatPenalty: kScalarEvalRepeatPenalty,
-                    label: 'with_user',
-                  ),
-                );
-              },
-        ).detect(
-          charName: speaker.name,
-          userName: userName.isEmpty ? 'the user' : userName,
-          reply: clampEvalMessage(reply),
-          recentExchange: recentExchange(_messages),
-          stance: _relationshipService.spatialStance,
-        );
+    final verdict = await _makeWithUserEval().detect(
+      charName: speaker.name,
+      userName: userName.isEmpty ? 'the user' : userName,
+      reply: clampEvalMessage(reply),
+      recentExchange: recentExchange(_messages),
+      stance: _relationshipService.spatialStance,
+    );
     _relationshipService.applyWithUserVerdict(verdict);
     debugPrint(
       '[Presence] with_user=$verdict '
       '(glance=${_relationshipService.withUser})',
     );
   }
+
+  WithUserEval _makeWithUserEval() => WithUserEval(
+    fire: ({required debugLabel, required tools, required buildPrompt}) async {
+      return fireStructuredEval(
+        probe: _toolProbe,
+        backendIdentity: _evalBackendIdentity,
+        debugLabel: debugLabel,
+        tools: tools,
+        buildPrompt: buildPrompt,
+        callToText: (resp) =>
+            realismToolCallToJson(WithUserEval.kWithUserTool, resp.calls),
+        fireToolEval: _fireToolEval,
+        toolChoice: WithUserEval.kWithUserTool,
+        getPreferTextEvals: () =>
+            _storageService.realismSettings.preferTextEvals,
+        fireTextEval: (p, {onChunk}) => _fireLLMEval(
+          p,
+          repeatPenalty: kScalarEvalRepeatPenalty,
+          label: 'with_user',
+        ),
+      );
+    },
+  );
 }

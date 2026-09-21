@@ -17,7 +17,13 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
+
+import 'package:front_porch_ai/services/chat/objective_stale_detector.dart'
+    show normalizeObjectiveStaleThreshold;
+
 import 'settings_base.dart';
+
+part 'realism_settings.load.dart';
 
 /// How the pre-generation realism judges are fused (eval review Tier-1 §3.4,
 /// maintainer-approved 2026-08-10). [auto] — the default — uses the fused
@@ -80,7 +86,7 @@ class RealismSettings with SettingsBase {
 
   /// Standing Mood (docs/design/pockets-and-preferences.md is not its home —
   /// see the class doc on MoodBaseline). Lets a character arrive already
-  /// tired, hungry or cheered by the weather, so not every shift in her mood
+  /// tired, hungry or cheered by the weather, so not every shift in their mood
   /// is something the user did.
   ///
   /// Defaults OFF because it changes the felt behaviour of every reply, and
@@ -89,21 +95,21 @@ class RealismSettings with SettingsBase {
   /// about caution, not cost.
   bool _standingMoodEnabled = false;
 
-  /// Whether a character ACTS on her authored intimate preferences — pursues
-  /// what she warms to, in her own register, and turns down what she is not.
+  /// Whether a character ACTS on their authored intimate preferences — pursues
+  /// what they warm to, in their own register, and turns down what they are not.
   ///
   /// HARD DEPENDENCY ON THE REALISM ENGINE, and unusually it is a real one
-  /// rather than an inherited gate. The feature is a loop: she asks, the user
-  /// answers, and being refused or indulged moves her mood, which is what she
-  /// carries into the next reply. The judge that scores that answer IS the
+  /// rather than an inherited gate. The feature is a loop: they ask, the user
+  /// answers, and being refused or indulged moves their mood, which is what they
+  /// carry into the next reply. The judge that scores that answer IS the
   /// engine (`realism_prompt_builder.preferencesBlock` reaches the relationship
-  /// AND emotional-state evals). With the engine off she would ask for things
+  /// AND emotional-state evals). With the engine off they would ask for things
   /// and nothing would ever come of it — half a feature, and the worse half.
   /// So this is gated on realism at the point of use, not merely chipped as
   /// depending on it.
   ///
   /// Defaults OFF. It changes how a character behaves in intimate scenes quite
-  /// noticeably — she initiates, where before she only responded — and that is
+  /// noticeably — they initiate, where before they only responded — and that is
   /// the user's call to make, not a default to inherit. Costs NOTHING per turn:
   /// two prompt sentences, no extra model call.
   bool _intimateAgencyEnabled = false;
@@ -163,6 +169,11 @@ class RealismSettings with SettingsBase {
   /// the only thing that moves ambition progress.
   bool _objectivesEnabled = true;
 
+  /// Consecutive explicit "this quest is no longer relevant" verdicts before
+  /// the quest retires as stale (not achieved). 0 = off. Allowed: 0, 1, 2, 4.
+  /// Default 2. Task-level stale is immediate and ignores this.
+  int _objectiveStaleThreshold = 2;
+
   /// Whether 18+ themes are on for this install. Gates the Porch Life
   /// "After Dark" group (approved sketch: that group is "shown only when 18+
   /// themes are enabled"), and will gate the intimate-preferences section in
@@ -202,6 +213,9 @@ class RealismSettings with SettingsBase {
 
   /// See [_objectivesEnabled]. The switch Objectives never had.
   bool get objectivesEnabled => _objectivesEnabled;
+
+  /// See [_objectiveStaleThreshold].
+  int get objectiveStaleThreshold => _objectiveStaleThreshold;
 
   /// See [_pocketsEnabled]. Costs one short model call per turn while on.
   bool get pocketsEnabled => _pocketsEnabled;
@@ -287,59 +301,6 @@ class RealismSettings with SettingsBase {
   /// spending a user's tokens without telling them is not acceptable.
   bool get promiseLedgerEnabled => _promiseLedgerEnabled;
   List<String> get bannedPhrases => List.unmodifiable(_bannedPhrases);
-
-  void load() {
-    _realismDefault = prefs?.getBool(k('realism_default')) ?? false;
-    _nsfwCooldownDefault = prefs?.getBool(k('nsfw_cooldown_default')) ?? false;
-    _passageOfTimeDefault =
-        prefs?.getBool(k('passage_of_time_default')) ?? true;
-    _needsSimDefault = prefs?.getBool(k('needs_sim_default')) ?? true;
-    _standaloneClockEnabled =
-        prefs?.getBool(k('standalone_clock_enabled')) ?? false;
-    _objectivesEnabled = prefs?.getBool(k('objectives_enabled')) ?? true;
-    _pocketsEnabled = prefs?.getBool(k('pockets_enabled')) ?? false;
-    _standingMoodEnabled = prefs?.getBool(k('standing_mood_enabled')) ?? false;
-    _intimateAgencyEnabled =
-        prefs?.getBool(k('intimate_agency_enabled')) ?? false;
-    _chaosModeDefault = prefs?.getBool(k('chaos_mode_default')) ?? false;
-    _sceneGuestDetectionEnabled =
-        prefs?.getBool(k('scene_guest_detection_enabled')) ?? true;
-    _pocketTransfersEnabled =
-        prefs?.getBool(k('pocket_transfers_enabled')) ?? false;
-    _adultThemesExplicit = prefs?.getBool(k('adult_themes_enabled'));
-    _oneShotMode = switch (prefs?.getString(k('realism_one_shot_mode'))) {
-      'on' => OneShotMode.on,
-      'off' => OneShotMode.off,
-      'auto' => OneShotMode.auto,
-      // Pre-tri-state install: an explicit true was a deliberate opt-in and
-      // stays ON. false was the old default and indistinguishable from
-      // "never touched", so it becomes Auto — the new default, which only
-      // ever differs from off on a remote backend that has proven tools.
-      _ =>
-        (prefs?.getBool(k('realism_one_shot_eval')) ?? false)
-            ? OneShotMode.on
-            : OneShotMode.auto,
-    };
-    _preferTextEvals = prefs?.getBool(k('prefer_text_evals')) ?? false;
-    _weatherEnabled = prefs?.getBool(k('weather_enabled')) ?? true;
-    _weatherFahrenheit = prefs?.getBool(k('weather_fahrenheit')) ?? false;
-    _absenceBannerEnabled = prefs?.getBool(k('absence_banner_enabled')) ?? true;
-    _absenceAckEnabled = prefs?.getBool(k('absence_ack_enabled')) ?? false;
-    _absenceThresholdHours = prefs?.getInt(k('absence_threshold_hours')) ?? 24;
-    _dreamsEnabled = prefs?.getBool(k('dreams_enabled')) ?? true;
-    _ambitionsEnabled = prefs?.getBool(k('ambitions_enabled')) ?? true;
-    _plannerEnabled = prefs?.getBool(k('planner_enabled')) ?? false;
-    _promiseLedgerEnabled = prefs?.getBool(k('promise_ledger_enabled')) ?? true;
-
-    final bannedJson = prefs?.getString(k('banned_phrases'));
-    if (bannedJson != null) {
-      try {
-        _bannedPhrases = List<String>.from(jsonDecode(bannedJson) as List);
-      } catch (_) {
-        _bannedPhrases = [];
-      }
-    }
-  }
 
   Future<void> setAmbitionsEnabled(bool value) async {
     _ambitionsEnabled = value;
@@ -455,6 +416,15 @@ class RealismSettings with SettingsBase {
   Future<void> setObjectivesEnabled(bool value) async {
     _objectivesEnabled = value;
     await prefs?.setBool(k('objectives_enabled'), value);
+    notify();
+  }
+
+  Future<void> setObjectiveStaleThreshold(int value) async {
+    _objectiveStaleThreshold = normalizeObjectiveStaleThreshold(value);
+    await prefs?.setInt(
+      k('objective_stale_threshold'),
+      _objectiveStaleThreshold,
+    );
     notify();
   }
 

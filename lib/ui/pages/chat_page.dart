@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +29,7 @@ import 'package:provider/provider.dart';
 // Barrel imports for high-frequency services, models, utils, and widgets
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
@@ -35,7 +37,7 @@ import 'package:front_porch_ai/ui/chat_components/overlays/absence_recap_banner.
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 
 // Specific dialogs and modules not covered by the barrels (or intentionally direct)
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
@@ -57,6 +59,8 @@ part 'chat_page.input_bar.dart';
 part 'chat_page.sidebar.dart';
 part 'chat_page.sidebar_widgets.dart';
 part 'chat_page.speakers.dart';
+part 'chat_page_overlays.dart';
+part 'chat_page_sidebar_host.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -74,9 +78,16 @@ class _ChatPageState extends State<ChatPage> {
   final StyledTextController _controller = StyledTextController(
     preset: StyledTextPreset.chat,
   );
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController(
+    keepScrollOffset: false,
+  );
+
+  /// Owns the transcript ListView so a Stack sibling toggle or a
+  /// stream rebuild cannot dispose the scroll position (re-anchor
+  /// at newest + scrollbar metrics reset).
+  final GlobalKey _transcriptListKey = GlobalKey();
+
   late final FocusNode _chatFocusNode;
-  bool _autoScroll = true;
   // Journal receipts tap-to-jump: the just-landed-on bubble, briefly tinted.
   ChatMessage? _jumpFlashMessage;
   // Bubble keys for tap-to-jump, owned by THIS page instance. They used to
@@ -155,7 +166,21 @@ class _ChatPageState extends State<ChatPage> {
                 : HardwareKeyboard.instance.isControlPressed)) {
           final chatService = Provider.of<ChatService>(context, listen: false);
           if (!chatService.isGenerating && !chatService.isGuestBusy) {
-            chatService.regenerateLastMessage();
+            final last = chatService.messages.isEmpty
+                ? null
+                : chatService.messages.last;
+            if (last != null &&
+                !last.isUser &&
+                last != chatService.messages.first) {
+              unawaited(
+                promptRegenCritiqueThen(
+                  context,
+                  (c) => chatService.regenerateLastMessage(critique: c),
+                ),
+              );
+            } else {
+              chatService.regenerateLastMessage();
+            }
           }
           return KeyEventResult.handled;
         }
@@ -329,26 +354,6 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
-  void _scrollToBottom() {
-    if (_scrollController.hasClients && _autoScroll) {
-      // ListView is reversed: position 0 = visual bottom (most recent).
-      // While streaming this fires per token batch — each animateTo would
-      // interrupt and restart the previous 300 ms curve, churning the scroll
-      // position every frame. Jump instantly during generation; keep the
-      // smooth ease for one-shot scrolls (send, page open).
-      final chat = context.read<ChatService>();
-      if (chat.isGenerating) {
-        _scrollController.jumpTo(0);
-      } else {
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<ChatService>(
@@ -416,279 +421,12 @@ class _ChatPageState extends State<ChatPage> {
                           },
                         ),
                         Expanded(
-                          child: Builder(
-                            builder: (context) {
-                              final storageService =
-                                  Provider.of<StorageService>(context);
-                              final chatService = Provider.of<ChatService>(
-                                context,
-                                listen: false,
-                              );
-                              final themeOverrides =
-                                  chatService.sessionThemeOverrides;
-                              final themePreset = ChatThemePreset.byId(
-                                themeOverrides.themeId,
-                              );
-                              final bgKey = themePreset != null
-                                  ? themeOverrides.resolvedBackgroundKey(
-                                      themePreset,
-                                    )
-                                  : storageService.chatBackground;
-                              const bgAssets = {
-                                'noir': 'assets/backgrounds/noir.png',
-                                'fantasy': 'assets/backgrounds/fantasy.png',
-                                'grid': 'assets/backgrounds/grid.png',
-                                'roman_market':
-                                    'assets/backgrounds/roman_market.png',
-                                'enchanted_wood':
-                                    'assets/backgrounds/enchanted_wood.png',
-                                'ocean_depth':
-                                    'assets/backgrounds/ocean_depth.png',
-                                'steampunk_bg':
-                                    'assets/backgrounds/steampunk_bg.png',
-                                'cyberpunk_bedroom':
-                                    'assets/backgrounds/cyberpunk_bedroom.png',
-                                'coffee_shop':
-                                    'assets/backgrounds/coffee_shop.png',
-                                'beach': 'assets/backgrounds/beach.png',
-                                'futuristic_city':
-                                    'assets/backgrounds/futuristic_city.png',
-                                'edm_rave': 'assets/backgrounds/edm_rave.png',
-                                'cozy_library':
-                                    'assets/backgrounds/cozy_library.png',
-                                'rainy_japan':
-                                    'assets/backgrounds/rainy_japan.png',
-                                'space_station':
-                                    'assets/backgrounds/space_station.png',
-                                'enchanted_forest':
-                                    'assets/backgrounds/enchanted_forest.png',
-                                'anime_cherry_blossom':
-                                    'assets/backgrounds/anime_cherry_blossom.png',
-                                'anime_rooftop':
-                                    'assets/backgrounds/anime_rooftop.png',
-                                'anime_rooftop_sunset':
-                                    'assets/backgrounds/anime_rooftop_sunset.png',
-                                'cherry_blossom':
-                                    'assets/backgrounds/cherry_blossom.png',
-                                'beach_waves':
-                                    'assets/backgrounds/beach_waves.png',
-                                'waifu_gaming_room':
-                                    'assets/backgrounds/waifu_gaming_room.png',
-                                'waifu_beach_bar':
-                                    'assets/backgrounds/waifu_beach_bar.png',
-                                'waifu_garden':
-                                    'assets/backgrounds/waifu_garden.png',
-                                'waifu_neon':
-                                    'assets/backgrounds/waifu_neon.png',
-                                'waifu_beach':
-                                    'assets/backgrounds/waifu_beach.png',
-                              };
-                              final bgPath = bgAssets[bgKey];
-                              final bgPathExists = bgPath != null;
-
-                              // Check for matching custom background
-                              Map<String, String>? customEntry;
-                              if (!bgPathExists) {
-                                try {
-                                  customEntry = storageService.customBackgrounds
-                                      .firstWhere((e) => e['id'] == bgKey);
-                                } catch (_) {}
-                              }
-                              // Memoized: this builder reruns on every
-                              // streaming token batch; a per-rebuild
-                              // existsSync is the io-lint bug class.
-                              final hasCustomBg =
-                                  customEntry != null &&
-                                  _bgExistsCache.putIfAbsent(
-                                    customEntry['filePath']!,
-                                    () => File(
-                                      customEntry!['filePath']!,
-                                    ).existsSync(), // io-ok: memoized, once per path
-                                  );
-
-                              return Stack(
-                                children: [
-                                  if (bgPath != null) ...[
-                                    Positioned.fill(
-                                      child: IgnorePointer(
-                                        child: Image.asset(
-                                          bgPath,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  // Expression background sprite
-                                  Consumer<ChatService>(
-                                    builder: (context, chat, _) {
-                                      final storage =
-                                          Provider.of<StorageService>(
-                                            context,
-                                            listen: false,
-                                          );
-                                      final displayMode =
-                                          storage.expressionDisplayMode;
-                                      final isEnabled =
-                                          storage.expressionEnabled;
-                                      if (!isEnabled ||
-                                          displayMode == 'sidebar' ||
-                                          chat.isEvaluatingRealism) {
-                                        return const SizedBox.shrink();
-                                      }
-                                      final char = character;
-                                      if (char == null ||
-                                          expressionsFrom(
-                                            char.avatarImages,
-                                          ).isEmpty) {
-                                        return const SizedBox.shrink();
-                                      }
-                                      final avatar = chat
-                                          .resolveExpressionAvatar(
-                                            char,
-                                            rerollIfSame:
-                                                storage.expressionRerollSame,
-                                          );
-                                      if (avatar == null) {
-                                        return const SizedBox.shrink();
-                                      }
-                                      final avatarDir = storage
-                                          .characterAvatarDir(char.name);
-                                      final avatarFile = File(
-                                        '${avatarDir.path}/${avatar.filename}',
-                                      );
-                                      return Positioned.fill(
-                                        child: IgnorePointer(
-                                          child: AnimatedSwitcher(
-                                            duration: const Duration(
-                                              milliseconds: 500,
-                                            ),
-                                            child: Stack(
-                                              key: ValueKey(
-                                                'expr_bg_${avatar.id}',
-                                              ),
-                                              fit: StackFit.expand,
-                                              children: [
-                                                Image.file(
-                                                  avatarFile,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (_, _, _) =>
-                                                      const SizedBox.shrink(),
-                                                ),
-                                                Container(
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.black
-                                                        .withValues(
-                                                          alpha: 0.85,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  if (bgPath != null)
-                                    Positioned.fill(
-                                      child: IgnorePointer(
-                                        child: Container(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.45,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  if (!bgPathExists && hasCustomBg) ...[
-                                    Positioned.fill(
-                                      child: IgnorePointer(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            image: DecorationImage(
-                                              image: FileImage(
-                                                File(customEntry['filePath']!),
-                                              ),
-                                              fit: BoxFit.cover,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned.fill(
-                                      child: IgnorePointer(
-                                        child: Container(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.45,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  ListView.builder(
-                                    controller: _scrollController,
-                                    reverse: true,
-                                    padding: const EdgeInsets.all(20),
-                                    // +1 while an /image run is live: reverse
-                                    // index 0 (visual bottom) shows the
-                                    // "image coming to life" bubble with live
-                                    // preview + progress.
-                                    itemCount:
-                                        messages.length +
-                                        (chatService.isGeneratingChatImage
-                                            ? 1
-                                            : 0),
-                                    itemBuilder: (context, index) {
-                                      if (chatService.isGeneratingChatImage) {
-                                        if (index == 0) {
-                                          return const GeneratingImageBubble();
-                                        }
-                                        index -= 1;
-                                      }
-                                      // Reverse index so newest messages are at the top of the reversed list (visual bottom)
-                                      final reversedIndex =
-                                          messages.length - 1 - index;
-                                      final msg = messages[reversedIndex];
-                                      // Resolve the speaker's avatar + name color
-                                      // from the unified cast (host, group member,
-                                      // or Scene Guest) — one path for all modes.
-                                      final (senderImage, senderColor) =
-                                          _resolveSpeaker(chatService, msg);
-                                      final bubble = MessageBubble(
-                                        message: msg,
-                                        characterImage: senderImage,
-                                        index: reversedIndex,
-                                        senderColor: senderColor,
-                                        externalImagesAllowed:
-                                            _externalImagesAllowed,
-                                        onRequestImagePermission:
-                                            _requestExternalImagePermission,
-                                        character: isGroup && !msg.isUser
-                                            ? resolveGroupSpeakerForMessage(
-                                                chatService.groupCharacters,
-                                                msg,
-                                              )
-                                            : character,
-                                        chatService: chatService,
-                                      );
-                                      // Page-scoped GlobalKey (see
-                                      // _bubbleKeys): same identity for list
-                                      // diffing, locatable for jumpToMessage
-                                      // — but owned by this page instance,
-                                      // so a second live chat route can
-                                      // never claim the same key.
-                                      return JumpFlash(
-                                        key: _bubbleKeyFor(msg),
-                                        flashed: identical(
-                                          msg,
-                                          _jumpFlashMessage,
-                                        ),
-                                        child: bubble,
-                                      );
-                                    },
-                                  ),
-                                ],
-                              );
-                            },
+                          child: _buildChatSurface(
+                            context: context,
+                            chatService: chatService,
+                            character: character,
+                            messages: messages,
+                            isGroup: isGroup,
                           ),
                         ),
                         if (chatService.isGenerating)
@@ -704,48 +442,11 @@ class _ChatPageState extends State<ChatPage> {
                 ],
               ),
             ),
-            if (chatService.isLoadingSession)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: AppColors.backgroundOf(context),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.porchAmberOf(context),
-                    ),
-                  ),
-                ),
-              ),
-            // Voice call overlay
-            if (_isCallActive && character != null && !isGroup)
-              Positioned.fill(
-                child: CallOverlay(
-                  character: character,
-                  onEndCall: () {
-                    setState(() => _isCallActive = false);
-                  },
-                ),
-              ),
-            // Realism Engine processing overlays
-            if (chatService.isEvaluatingRealism ||
-                chatService.isProcessingGreeting ||
-                chatService.isVerifyingRealism)
-              RealismProcessingOverlay(
-                chatService: chatService,
-                isGreeting: chatService.isProcessingGreeting,
-              ),
-            // Objective completion check overlay (only when realism isn't already showing)
-            if (chatService.isCheckingCompletion &&
-                !chatService.isEvaluatingRealism &&
-                !chatService.isProcessingGreeting)
-              ObjectiveCheckOverlay(chatService: chatService),
-            // ONNX model download progress overlay
-            Positioned.fill(
-              child: Consumer<ExpressionClassifierService>(
-                builder: (context, classifier, _) {
-                  if (!classifier.isDownloading) return const SizedBox.shrink();
-                  return OnnxDownloadOverlay(classifierService: classifier);
-                },
-              ),
+            ..._buildPageOverlays(
+              context: context,
+              chatService: chatService,
+              character: character,
+              isGroup: isGroup,
             ),
           ],
         );
@@ -753,168 +454,15 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// Single AppBar for every chat. Driven by the unified [ChatService.cast]:
-  /// a cast of one renders the classic single-character header (avatar + name +
-  /// description); a cast of two or more renders stacked avatars (with emotion
-  /// rings when group realism is active) + a "N characters" subtitle. This is
-  /// the same header whether the extra speakers are full group members or Scene
-  /// Guests, so a 1:1 that gains a guest visually becomes a multi-speaker chat.
-  PreferredSizeWidget _buildAppBar(
-    BuildContext context,
-    ChatService chatService,
-  ) {
-    final cast = chatService.cast;
-    final group = chatService.activeGroup;
-    final isMulti = cast.length > 1;
-
-    final Widget avatars;
-    if (!isMulti) {
-      final card = cast.isNotEmpty ? cast.first.card : null;
-      final cover = card == null ? null : _coverFor(chatService, card);
-      avatars = CircleAvatar(
-        backgroundImage: cover != null ? FileImage(cover) : null,
-        onBackgroundImageError: cover != null ? (_, _) {} : null,
-        child: cover == null ? const Icon(Icons.person) : null,
-      );
-    } else {
-      final shown = cast.length.clamp(0, 4);
-      avatars = SizedBox(
-        width: 24.0 + (shown - 1) * 16,
-        height: 32,
-        child: Stack(
-          children: [
-            for (int i = 0; i < shown; i++)
-              Positioned(
-                left: i * 16.0,
-                child: Builder(
-                  builder: (_) {
-                    final card = cast[i].card;
-                    final emo = chatService.isGroupRealismActive
-                        ? chatService.getEmotionForGroupCharacter(card)
-                        : null;
-                    final fix = chatService.isGroupRealismActive
-                        ? chatService.getFixationForGroupCharacter(card)
-                        : null;
-                    final tooltip = emo == null
-                        ? card.name
-                        : (fix != null && fix.isNotEmpty
-                              ? '${card.name} • $emo\nFixated: $fix'
-                              : '${card.name} • $emo');
-                    return Tooltip(
-                      message: tooltip,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: chatService.isGroupRealismActive
-                              ? Border.all(
-                                  color: EmotionLabels.ringColor(emo),
-                                  width: 2.0,
-                                )
-                              : null,
-                        ),
-                        child: Builder(
-                          builder: (_) {
-                            final cover = _coverFor(chatService, card);
-                            return CircleAvatar(
-                              radius: 16,
-                              backgroundColor: _groupCharacterColor(i),
-                              backgroundImage: cover != null
-                                  ? FileImage(cover)
-                                  : null,
-                              child: cover == null
-                                  ? Text(
-                                      card.name.isNotEmpty ? card.name[0] : '?',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  : null,
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
-    final title = group?.name ?? (cast.isNotEmpty ? cast.first.name : '');
-    final String? subtitle;
-    if (isMulti) {
-      subtitle = group != null
-          ? '${cast.length} characters • ${group.turnOrder.name}'
-          : '${cast.length} characters';
-    } else {
-      final desc = cast.isNotEmpty ? cast.first.card.description : '';
-      subtitle = desc.isEmpty
-          ? null
-          : (desc.length > 30 ? '${desc.substring(0, 30)}...' : desc);
-    }
-
-    return AppBar(
-      backgroundColor: AppColors.surfaceOf(context),
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      title: Row(
-        children: [
-          avatars,
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary(context),
-                ),
-              ),
-              if (subtitle != null)
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textTertiary(context),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-      actions: [
-        IconButton(
-          icon: Icon(
-            _sidebarWidth > 0 ? Icons.last_page : Icons.first_page,
-            color: AppColors.iconSecondary(context),
-          ),
-          tooltip: 'Toggle Sidebar',
-          onPressed: () => setState(
-            () => _sidebarWidth = _sidebarWidth > 0
-                ? 0
-                : SidebarTokens.widthFromEnvironment(),
-          ),
-        ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
-
-  /// Per-character color palette for group chats (single source lives in
-  /// sidebar_tokens.dart, shared with the sidebar widgets).
-  static Color _groupCharacterColor(int index) => groupCharacterColor(index);
-
   /// Re-exposes the protected [setState] for the `part of` extensions
   /// (`chat_page.*.dart`), which hold the sidebar/input/dialog builders but
   /// can't call a State's protected members directly. Same bridge pattern as
   /// settings_page.dart.
   void rebuildState(VoidCallback fn) => setState(fn);
+
+  /// Per-character color palette for group chats (single source lives in
+  /// sidebar_tokens.dart). Class static so sibling parts can call
+  /// `_ChatPageState._groupCharacterColor` — an extension static is not
+  /// that name.
+  static Color _groupCharacterColor(int index) => groupCharacterColor(index);
 }

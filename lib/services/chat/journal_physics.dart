@@ -311,18 +311,25 @@ class JournalPhysics {
   /// a significant event (big bond/trust swing, trust repair verdict, Chance
   /// Time event). Drives the event-triggered maintenance pass — deterministic
   /// salience, never model judgment (design §4.2).
+  /// Same rules as [hasSalientEvent], for the *pending* stamp before it
+  /// lands on a message. Growth reads [eventKickPending], not the window —
+  /// this is the origin that must arm that flag when a scored turn is hot.
+  static bool metadataIsSalient(Map<String, dynamic>? meta) {
+    if (meta == null) return false;
+    final bond = meta['bond_delta'];
+    if (bond is int && bond.abs() >= kEventBondSwing) return true;
+    final trust = meta['trust_delta'];
+    if (trust is int && trust.abs() >= kEventTrustSwing) return true;
+    final repair = meta['trust_repair_verdict'];
+    if (repair is String && repair.isNotEmpty) return true;
+    final chance = meta['chance_time_event'];
+    if (chance is String && chance.isNotEmpty) return true;
+    return false;
+  }
+
   static bool hasSalientEvent(List<ChatMessage> window) {
     for (final m in window) {
-      final meta = m.activeMetadata;
-      if (meta == null) continue;
-      final bond = meta['bond_delta'];
-      if (bond is int && bond.abs() >= kEventBondSwing) return true;
-      final trust = meta['trust_delta'];
-      if (trust is int && trust.abs() >= kEventTrustSwing) return true;
-      final repair = meta['trust_repair_verdict'];
-      if (repair is String && repair.isNotEmpty) return true;
-      final chance = meta['chance_time_event'];
-      if (chance is String && chance.isNotEmpty) return true;
+      if (metadataIsSalient(m.activeMetadata)) return true;
     }
     return false;
   }

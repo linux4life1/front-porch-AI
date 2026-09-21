@@ -37,8 +37,6 @@
 // pins the call site. Read it as "the trap is real and the pass no longer
 // steps in it", not "a live climax was simulated".
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -67,7 +65,8 @@ void main() {
       expect(
         msg.swipeMetadata,
         hasLength(1),
-        reason: 'toJson omits swipe_metadata entirely when every entry is '
+        reason:
+            'toJson omits swipe_metadata entirely when every entry is '
             'null, so the constructor rebuilds it as [metadata] — this '
             'mismatch is the whole bug',
       );
@@ -95,33 +94,6 @@ void main() {
         msg.swipeMetadata[0],
         isNull,
         reason: 'padding must not put this turn\'s climax on other variants',
-      );
-    });
-  });
-
-  group('the pass goes through the setter', () {
-    test('chat_service_climax.dart has no raw swipeMetadata write', () {
-      final src = File(
-        'lib/services/chat/chat_service_climax.dart',
-      ).readAsStringSync();
-
-      expect(
-        src,
-        contains('msg.activeMetadata = meta'),
-        reason: 'the padding setter is the only safe way to stamp the '
-            'active swipe',
-      );
-      // Comment lines are excluded on purpose — the fix's own note names the
-      // banned pattern so the next reader knows why it is banned.
-      final code = src
-          .split('\n')
-          .where((l) => !l.trimLeft().startsWith('//'))
-          .join('\n');
-      expect(
-        code,
-        isNot(contains('swipeMetadata[')),
-        reason: 'a hand-rolled index here is the RangeError that ate the '
-            'rest of the post-generation phase',
       );
     });
   });

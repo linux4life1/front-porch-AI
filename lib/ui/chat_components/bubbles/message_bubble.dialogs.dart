@@ -32,9 +32,10 @@ extension _BubbleDialogs on _MessageBubbleState {
     required String emoji,
     required String text,
   }) {
+    void deleteBanner() => _showDeleteConfirmation(context, index);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onLongPress: () => _showDeleteConfirmation(context, index),
+      onLongPress: deleteBanner,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 32),
         child: Container(
@@ -60,18 +61,23 @@ extension _BubbleDialogs on _MessageBubbleState {
               Text(emoji, style: const TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
               Flexible(
-                child: Text(
-                  text,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.resolve(
-                      context,
-                      const Color(0xFFFFD166),
-                      const Color(0xFFB45309),
+                child: SelectableBubbleBody(
+                  child: GestureDetector(
+                    onLongPress: deleteBanner,
+                    child: Text(
+                      text,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.resolve(
+                          context,
+                          const Color(0xFFFFD166),
+                          const Color(0xFFB45309),
+                        ),
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
-                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ),

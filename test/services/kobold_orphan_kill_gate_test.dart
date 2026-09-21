@@ -59,7 +59,7 @@ void main() {
       SharedPreferences.setMockInitialValues({'backend_type': 'openRouter'});
       final storage = StorageService();
       await storage.initialized;
-      expect(storage.backendType, 'openRouter');
+      expect(storage.backendSettings.backendType, 'openRouter');
 
       final kobold = KoboldService(storage);
       addTearDown(kobold.dispose);

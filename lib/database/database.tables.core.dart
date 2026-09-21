@@ -168,7 +168,7 @@ class Sessions extends Table {
   /// they always survived a reload; a 1:1 chat had NO home for the record at
   /// all. It lived in memory, snapshotted into each message's `realism_state`
   /// — but that snapshot is only restored on regen, swipe and delete, never on
-  /// session load. So closing a 1:1 chat and reopening it emptied her pockets,
+  /// session load. So closing a 1:1 chat and reopening it emptied their pockets,
   /// while the feature's own description promised the opposite. Straight
   /// 1:1-vs-group parity break.
   ///

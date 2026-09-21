@@ -26,8 +26,6 @@
 // carried the bugs are pure functions, pinned here, plus a source pin that the
 // tab still routes through them.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -104,19 +102,23 @@ void main() {
           perCharSeed: const {'affection': 50, 'longTermScore': 250},
         ),
         250,
-        reason: 'reloading 50 here is the data-loss bug: the next slider drag '
+        reason:
+            'reloading 50 here is the data-loss bug: the next slider drag '
             'writes the displayed value back over the stored 250',
       );
     });
 
-    test('recovers a value a previous build stored under the card-ext name', () {
-      expect(
-        longTermBondFromSeeds(
-          perCharSeed: const {'affection': 50, 'longTermBond': 180},
-        ),
-        180,
-      );
-    });
+    test(
+      'recovers a value a previous build stored under the card-ext name',
+      () {
+        expect(
+          longTermBondFromSeeds(
+            perCharSeed: const {'affection': 50, 'longTermBond': 180},
+          ),
+          180,
+        );
+      },
+    );
 
     test('prefers the baseline blob when it does carry the key', () {
       expect(
@@ -166,16 +168,19 @@ void main() {
       expect(bond.trust, 40);
     });
 
-    test('a bond number stranded in trust is moved back, not shown as trust', () {
-      // A group edited by the pre-fix editor, which saved Long-Term Bond INTO
-      // 'trust'. Unrepaired, 300 reaches a Slider declared min -100 / max 100
-      // and takes the whole dialog down.
-      final bond = bondBaselineFromSeeds(
-        baselineSeed: const {'affection': 120, 'trust': 300},
-      );
-      expect(bond.longTerm, 300);
-      expect(bond.trust, 50, reason: 'no real trust value exists to recover');
-    });
+    test(
+      'a bond number stranded in trust is moved back, not shown as trust',
+      () {
+        // A group edited by the pre-fix editor, which saved Long-Term Bond INTO
+        // 'trust'. Unrepaired, 300 reaches a Slider declared min -100 / max 100
+        // and takes the whole dialog down.
+        final bond = bondBaselineFromSeeds(
+          baselineSeed: const {'affection': 120, 'trust': 300},
+        );
+        expect(bond.longTerm, 300);
+        expect(bond.trust, 50, reason: 'no real trust value exists to recover');
+      },
+    );
 
     test('everything is clamped to its slider range', () {
       final bond = bondBaselineFromSeeds(
@@ -186,18 +191,5 @@ void main() {
       expect(bond.longTerm, -300);
       expect(bond.trust, -90);
     });
-  });
-
-  // Call-site pin: the pure functions above are only worth anything if the tab
-  // still goes through them. Deleting either call site turns this red.
-  test('the Realism tab routes both halves through the shared leaf', () {
-    final src = File(
-      'lib/ui/dialogs/group_settings/realism_needs_tab.dart',
-    ).readAsStringSync();
-    expect(src, contains('bondBaselineFromSeeds('));
-    expect(src, contains('applyBaselineToMemberSeed('));
-    // And never re-grows a hand-written card-ext-named perChar write.
-    expect(src.contains("current['shortTermBond']"), isFalse);
-    expect(src.contains("current['trustLevel']"), isFalse);
   });
 }

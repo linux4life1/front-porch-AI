@@ -86,7 +86,8 @@ extension _TtsKokoroSection on _TtsSettingsDialogState {
                       children: [
                         Icon(
                           Icons.check_circle,
-                          color: Colors.green, // theme-keep: engine-ready status, not chrome
+                          color: Colors
+                              .green, // theme-keep: engine-ready status, not chrome
                           size: 16,
                         ),
                         SizedBox(width: 8),
@@ -94,7 +95,8 @@ extension _TtsKokoroSection on _TtsSettingsDialogState {
                           child: Text(
                             'Kokoro model ready ✓ — all voices included',
                             style: TextStyle(
-                              color: Colors.green, // theme-keep: engine-ready status
+                              color: Colors
+                                  .green, // theme-keep: engine-ready status
                               fontSize: 11,
                             ),
                           ),
@@ -132,8 +134,10 @@ extension _TtsKokoroSection on _TtsSettingsDialogState {
                                       : 'Download failed — check connection',
                                 ),
                                 backgroundColor: success
-                                    ? Colors.green // theme-keep: download outcome status
-                                    : Colors.redAccent, // theme-keep: download outcome status
+                                    ? Colors
+                                          .green // theme-keep: download outcome status
+                                    : Colors
+                                          .redAccent, // theme-keep: download outcome status
                               ),
                             );
                           }
@@ -170,8 +174,9 @@ extension _TtsKokoroSection on _TtsSettingsDialogState {
       ),
       const SizedBox(height: 8),
       DropdownButtonFormField<String>(
-        initialValue: voices.any((v) => v.id == storage.ttsVoiceModel)
-            ? storage.ttsVoiceModel
+        initialValue:
+            voices.any((v) => v.id == storage.ttsSettings.ttsVoiceModel)
+            ? storage.ttsSettings.ttsVoiceModel
             : null,
         dropdownColor: AppColors.surfaceContainerOf(context),
         style: TextStyle(color: AppColors.textPrimary(context)),
@@ -233,7 +238,7 @@ extension _TtsKokoroSection on _TtsSettingsDialogState {
         }).toList(),
         onChanged: (val) {
           if (val != null && !val.startsWith('__header_')) {
-            storage.setTtsVoiceModel(val);
+            storage.ttsSettings.setTtsVoiceModel(val);
           }
         },
       ),
@@ -244,7 +249,10 @@ extension _TtsKokoroSection on _TtsSettingsDialogState {
           'All voices are included in the base model — no additional downloads '
           'needed. This is the default voice; a character with its own voice '
           'assigned keeps using that one.',
-          style: TextStyle(color: AppColors.textTertiary(context), fontSize: 10),
+          style: TextStyle(
+            color: AppColors.textTertiary(context),
+            fontSize: 10,
+          ),
         ),
       ),
     ];

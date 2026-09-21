@@ -13,7 +13,7 @@ const HUB_PATH =
 let container: HTMLDivElement;
 let root: Root;
 
-function render(verification: 'gold' | 'blue' | null | undefined) {
+function render(verification: 'gold' | 'blue' | 'silver' | null | undefined) {
   act(() => {
     root.render(createElement(StoopVerifiedBadge, { verification }));
   });
@@ -30,7 +30,7 @@ describe('StoopVerifiedBadge', () => {
     container.remove();
   });
 
-  it('draws the hub path in gold and blue, and nothing otherwise', () => {
+  it('draws the hub path in gold, blue, and silver, and nothing otherwise', () => {
     render('gold');
     const gold = container.querySelector('.stoop-check-gold svg path');
     expect(gold).not.toBeNull();
@@ -42,6 +42,12 @@ describe('StoopVerifiedBadge', () => {
       HUB_PATH,
     );
     expect(container.querySelector('[aria-label="Verified"]')).not.toBeNull();
+
+    render('silver');
+    expect(container.querySelector('.stoop-check-silver svg path')?.getAttribute('d')).toBe(
+      HUB_PATH,
+    );
+    expect(container.querySelector('[aria-label="Developer verified"]')).not.toBeNull();
 
     render(null);
     expect(container.querySelector('.stoop-check')).toBeNull();

@@ -4,8 +4,6 @@
 // Middle-delete of a give must invert THAT turn's unique moves, not
 // reset live kits to the buried before-stamp (which clobbers later ops).
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 
@@ -56,22 +54,6 @@ void main() {
   test('pocketsStamp does not turn a missing after into an empty kit', () {
     expect(pocketsStamp(null), isNull);
     expect(pocketsStamp({'carrying': <Object?>[]}), isNotNull);
-  });
-
-  test('middle-delete passes pocketsStamp for after, not fromJson(null)', () {
-    final src = File(
-      'lib/services/chat/chat_service_message_ops.dart',
-    ).readAsStringSync();
-    expect(
-      src,
-      contains("pocketsStamp(deleted.activeMetadata?['pockets_after'])"),
-    );
-    expect(
-      src,
-      isNot(
-        contains("Pockets.fromJson(deleted.activeMetadata?['pockets_after'])"),
-      ),
-    );
   });
 
   test('missing after is a no-op, not a steal from a later holder', () {

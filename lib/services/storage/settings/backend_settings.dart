@@ -17,20 +17,28 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:io';
+
 import 'settings_base.dart';
 import 'preset_settings.dart'; // for parseKcppsFile (static)
+import 'remote_api_key_vault.dart';
+import 'worker_backend_settings.dart';
 
 /// Backend, remote API, reasoning, Kobold launch flags, model/kcpps paths,
 /// GPU/context etc.
 ///
 /// Lifted Stage 7. kcppsHasModel + context override from active preset logic
 /// preserved exactly.
-class BackendSettings with SettingsBase {
+class BackendSettings with SettingsBase, WorkerBackendFields {
   String _backendType = 'kobold'; // 'kobold' or 'openRouter'
   bool _backendChoiceDone = false; // first-launch engine choice answered
   String _remoteApiKey = '';
   String _remoteApiUrl = 'https://openrouter.ai/api/v1';
   String _remoteModelName = '';
+  RemoteApiKeyVault _remoteApiKeys = RemoteApiKeyVault();
+
+  /// Last model id per host (same slot rule as keys). Reuses the vault
+  /// map type — url → string — not a second key store.
+  RemoteApiKeyVault _remoteApiModels = RemoteApiKeyVault();
 
   bool _reasoningEnabled = false;
   String _reasoningEffort = 'medium';
@@ -60,9 +68,21 @@ class BackendSettings with SettingsBase {
   int _kvQuantizationLevel = 0;
 
   String get backendType => _backendType;
-  String get remoteApiKey => _remoteApiKey;
+
+  /// Key for the *active* URL's vault slot. Image Studio, chat, and Check
+  /// Connection must all read this — never a leftover parked on another host.
+  String get remoteApiKey => _remoteApiKeys.keyFor(_remoteApiUrl);
   String get remoteApiUrl => _remoteApiUrl;
   String get remoteModelName => _remoteModelName;
+
+  /// Key stored for [url], independent of the currently selected host.
+  String remoteApiKeyFor(String url) => _remoteApiKeys.keyFor(url);
+
+  /// Normalized URLs that have a non-empty saved key (web placeholder).
+  List<String> get remoteApiUrlsWithKeys => _remoteApiKeys.urlsWithKeys;
+
+  /// Last model id stored for [url], independent of the live selection.
+  String remoteApiModelFor(String url) => _remoteApiModels.keyFor(url);
   bool get reasoningEnabled => _reasoningEnabled;
   String get reasoningEffort => _reasoningEffort;
   bool get koboldThinkingModel => _koboldThinkingModel;
@@ -136,6 +156,36 @@ class BackendSettings with SettingsBase {
     _remoteApiUrl =
         prefs?.getString(k('remote_api_url')) ?? 'https://openrouter.ai/api/v1';
     _remoteModelName = prefs?.getString(k('remote_model_name')) ?? '';
+    _remoteApiKeys = RemoteApiKeyVault.decode(
+      prefs?.getString(k('remote_api_keys')),
+    );
+    _remoteApiModels = RemoteApiKeyVault.decode(
+      prefs?.getString(k('remote_api_models')),
+    );
+    // Pre-fix installs had one shared key. Never put a leftover `sk-or-`
+    // into the Nano slot (or the inverse) — that is the community stuck
+    // state. Attribute by key shape; persist when migration changes either.
+    final beforeKey = _remoteApiKey;
+    final beforeVault = _remoteApiKeys.encode();
+    _remoteApiKey = applyLegacySharedRemoteApiKey(
+      vault: _remoteApiKeys,
+      activeUrl: _remoteApiUrl,
+      sharedKey: _remoteApiKey,
+    );
+    if (_remoteApiKey != beforeKey || _remoteApiKeys.encode() != beforeVault) {
+      prefs?.setString(k('remote_api_key'), _remoteApiKey);
+      prefs?.setString(k('remote_api_keys'), _remoteApiKeys.encode());
+    }
+    // Seed the live model into this host's slot so a later visit can
+    // still read remoteApiModelFor. The live picker is cleared on
+    // host/type change — it must not restore into the new host.
+    final modelSlot = _modelSlot();
+    if (modelSlot.isNotEmpty &&
+        _remoteModelName.isNotEmpty &&
+        _remoteApiModels.keyFor(modelSlot).isEmpty) {
+      _remoteApiModels.put(modelSlot, _remoteModelName);
+      prefs?.setString(k('remote_api_models'), _remoteApiModels.encode());
+    }
     _reasoningEnabled = prefs?.getBool(k('reasoning_enabled')) ?? false;
     _reasoningEffort = prefs?.getString(k('reasoning_effort')) ?? 'medium';
     _koboldThinkingModel = prefs?.getBool(k('kobold_thinking_model')) ?? false;
@@ -187,10 +237,60 @@ class BackendSettings with SettingsBase {
     _contextSize = prefs?.getInt(k('context_size')) ?? _contextSize;
     _kvQuantizationLevel =
         prefs?.getInt(k('kv_quantization_level')) ?? _kvQuantizationLevel;
+    loadWorkerBackend();
+  }
+
+  /// Write a key into [url]'s vault slot without changing the live mouth
+  /// host. Worker settings reuse the same per-host keys.
+  Future<void> setRemoteApiKeyFor(String url, String value) async {
+    _remoteApiKeys.put(url, value);
+    if (normalizeRemoteApiUrl(url) == normalizeRemoteApiUrl(_remoteApiUrl)) {
+      _remoteApiKey = value;
+      await prefs?.setString(k('remote_api_key'), value);
+    }
+    await _persistRemoteApiKeys();
+    notify();
+  }
+
+  /// Vault slot for the live model: oMLX has a fixed URL so it does not
+  /// steal the OpenRouter/Nano slot when that backend is selected.
+  String _modelSlot({String? backend, String? url}) {
+    final b = backend ?? _backendType;
+    if (b == 'omlx') return normalizeRemoteApiUrl(kOmlxApiV1);
+    return normalizeRemoteApiUrl(url ?? _remoteApiUrl);
+  }
+
+  Future<void> _persistRemoteApiModels() async {
+    await prefs?.setString(k('remote_api_models'), _remoteApiModels.encode());
+  }
+
+  void _stashLiveModel() {
+    final slot = _modelSlot();
+    if (slot.isEmpty) return;
+    // An already-blank picker is not a new last-used id. Putting '' would
+    // wipe a parked vault entry when the user leaves a host they never
+    // picked a model on (or just cleared).
+    if (_remoteModelName.isEmpty) return;
+    _remoteApiModels.put(slot, _remoteModelName);
+  }
+
+  Future<void> _clearLiveRemoteModel() async {
+    _remoteModelName = '';
+    await prefs?.setString(k('remote_model_name'), '');
   }
 
   Future<void> setBackendType(String value) async {
-    _backendType = value;
+    if (value != _backendType) {
+      _stashLiveModel();
+      _backendType = value;
+      // Kobold and OpenRouter share the URL slot — restoring would keep
+      // the previous host's id in the picker. Always blank the live
+      // selection so the user picks a model that belongs here.
+      await _clearLiveRemoteModel();
+      await _persistRemoteApiModels();
+    } else {
+      _backendType = value;
+    }
     await prefs?.setString(k('backend_type'), value);
     notify();
   }
@@ -209,19 +309,41 @@ class BackendSettings with SettingsBase {
 
   Future<void> setRemoteApiKey(String value) async {
     _remoteApiKey = value;
+    _remoteApiKeys.put(_remoteApiUrl, value);
     await prefs?.setString(k('remote_api_key'), value);
+    await _persistRemoteApiKeys();
     notify();
   }
 
   Future<void> setRemoteApiUrl(String value) async {
+    if (_remoteApiKey.isNotEmpty &&
+        remoteApiKeyBelongsToUrl(_remoteApiKey, _remoteApiUrl)) {
+      _remoteApiKeys.put(_remoteApiUrl, _remoteApiKey);
+    }
+    final previousSlot = _modelSlot();
+    _stashLiveModel();
     _remoteApiUrl = value;
+    _remoteApiKey = _remoteApiKeys.keyFor(value);
     await prefs?.setString(k('remote_api_url'), value);
+    await prefs?.setString(k('remote_api_key'), _remoteApiKey);
+    await _persistRemoteApiKeys();
+    if (previousSlot != _modelSlot()) {
+      await _clearLiveRemoteModel();
+    }
+    await _persistRemoteApiModels();
     notify();
+  }
+
+  Future<void> _persistRemoteApiKeys() async {
+    await prefs?.setString(k('remote_api_keys'), _remoteApiKeys.encode());
   }
 
   Future<void> setRemoteModelName(String value) async {
     _remoteModelName = value;
+    final slot = _modelSlot();
+    if (slot.isNotEmpty) _remoteApiModels.put(slot, value);
     await prefs?.setString(k('remote_model_name'), value);
+    await _persistRemoteApiModels();
     notify();
   }
 

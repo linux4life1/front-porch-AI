@@ -42,6 +42,7 @@ class WebChatRoutes {
     router.post('/api/chat/select-group', _selectGroup);
     router.post('/api/chat/start-fresh', _startFresh);
     router.post('/api/chat/send', _send);
+    router.post('/api/chat/guest-picker/dismiss', _dismissGuestPicker);
     router.post('/api/chat/chance-time/accept', _acceptChanceTime);
     router.post('/api/chat/chance-time/spin', _spinChanceTime);
     router.post('/api/chat/stop', _stop);
@@ -79,6 +80,11 @@ class WebChatRoutes {
 
   Future<shelf.Response> _refreshContextBudget(shelf.Request request) async =>
       JsonResponse.ok(await _facade.refreshContextBudget());
+
+  shelf.Response _dismissGuestPicker(shelf.Request request) {
+    _facade.dismissGuestPicker();
+    return JsonResponse.ok({'ok': true});
+  }
 
   /// Re-probe the current model's tool-calling support (web pill retest).
   Future<shelf.Response> _toolTest(shelf.Request request) async =>
@@ -240,11 +246,12 @@ class WebChatRoutes {
 
   Future<shelf.Response> _send(shelf.Request request) async {
     final body = await _json(request);
-    final text = body['text']?.toString();
-    if (text == null || text.trim().isEmpty) {
+    final text = body['text']?.toString() ?? '';
+    final image = decodeChatSendImage(body['imageBase64']);
+    if (text.trim().isEmpty && image == null) {
       return JsonResponse.badRequest('text is required');
     }
-    _facade.send(text);
+    _facade.send(text, imageBytes: image);
     return JsonResponse.ok({'status': 'ok'});
   }
 
@@ -270,8 +277,9 @@ class WebChatRoutes {
     return JsonResponse.ok({'status': 'ok'});
   }
 
-  shelf.Response _regenerate(shelf.Request request) {
-    _facade.regenerate();
+  Future<shelf.Response> _regenerate(shelf.Request request) async {
+    final body = await _json(request);
+    _facade.regenerate(critique: body['critique']?.toString());
     return JsonResponse.ok({'status': 'ok'});
   }
 
@@ -309,7 +317,7 @@ class WebChatRoutes {
     if (index is! int || direction is! int) {
       return JsonResponse.badRequest('messageIndex and direction are required');
     }
-    _facade.swipe(index, direction);
+    _facade.swipe(index, direction, critique: body['critique']?.toString());
     return JsonResponse.ok({'status': 'ok'});
   }
 

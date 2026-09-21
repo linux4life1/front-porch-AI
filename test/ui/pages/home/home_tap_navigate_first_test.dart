@@ -31,7 +31,9 @@ void main() {
   late String src;
 
   setUpAll(() {
-    src = File('lib/ui/pages/home/home_page_chrome.dart').readAsStringSync();
+    src = File(
+      'lib/ui/pages/home/home_page_chrome.actions.dart',
+    ).readAsStringSync();
   });
 
   String handler(String name) {
@@ -52,7 +54,8 @@ void main() {
     expect(
       awaitAt == -1 || awaitAt > pushAt,
       isTrue,
-      reason: 'awaiting setActiveCharacter before _pushChatWhile is the grid freeze',
+      reason:
+          'awaiting setActiveCharacter before _pushChatWhile is the grid freeze',
     );
     expect(body, contains('_getCharacterIdFromCard(character)'));
   });
@@ -69,9 +72,12 @@ void main() {
     );
   });
 
-  test('Start New Chat pushes ChatPage without awaiting startFreshChatWith', () {
-    final body = handler('_startNewChatWith');
-    expect(body, contains('_pushChatWhile'));
-    expect(body.contains('await chatService.startFreshChatWith'), isFalse);
-  });
+  test(
+    'Start New Chat pushes ChatPage without awaiting startFreshChatWith',
+    () {
+      final body = handler('_startNewChatWith');
+      expect(body, contains('_pushChatWhile'));
+      expect(body.contains('await chatService.startFreshChatWith'), isFalse);
+    },
+  );
 }

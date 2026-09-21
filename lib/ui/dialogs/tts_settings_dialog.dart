@@ -33,6 +33,7 @@ part 'tts_settings_dialog.kokoro.dart';
 part 'tts_settings_dialog.openai.dart';
 part 'tts_settings_dialog.piper.dart';
 part 'tts_settings_dialog.elevenlabs.dart';
+part 'tts_settings_dialog.common.dart';
 
 /// Dialog for configuring TTS settings with multi-engine support.
 class TtsSettingsDialog extends StatefulWidget {
@@ -61,9 +62,9 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
     super.initState();
     _loadInstalledVoices();
     final storage = Provider.of<StorageService>(context, listen: false);
-    _apiKeyController.text = storage.openaiTtsApiKey;
-    _baseUrlController.text = storage.openaiTtsBaseUrl;
-    _modelController.text = storage.openaiTtsModel;
+    _apiKeyController.text = storage.ttsSettings.openaiTtsApiKey;
+    _baseUrlController.text = storage.ttsSettings.openaiTtsBaseUrl;
+    _modelController.text = storage.ttsSettings.openaiTtsModel;
   }
 
   @override
@@ -88,7 +89,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
   Widget build(BuildContext context) {
     return Consumer2<StorageService, TtsService>(
       builder: (context, storage, tts, _) {
-        final engineId = storage.ttsEngine;
+        final engineId = storage.ttsSettings.ttsEngine;
         final voices = tts.activeVoices;
 
         return Dialog(
@@ -115,7 +116,10 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.volume_up, color: AppColors.formMasterAccent),
+                      const Icon(
+                        Icons.volume_up,
+                        color: AppColors.formMasterAccent,
+                      ),
                       const SizedBox(width: 12),
                       Text(
                         'Text-to-Speech Settings',
@@ -127,7 +131,10 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: Icon(Icons.close, color: AppColors.iconSecondary(context)),
+                        icon: Icon(
+                          Icons.close,
+                          color: AppColors.iconSecondary(context),
+                        ),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -144,7 +151,9 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                         SwitchListTile(
                           title: Text(
                             'Enable Text-to-Speech',
-                            style: TextStyle(color: AppColors.textPrimary(context)),
+                            style: TextStyle(
+                              color: AppColors.textPrimary(context),
+                            ),
                           ),
                           subtitle: Text(
                             'Add speaker buttons to character messages',
@@ -153,11 +162,11 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                               fontSize: 12,
                             ),
                           ),
-                          value: storage.ttsEnabled,
+                          value: storage.ttsSettings.ttsEnabled,
                           activeTrackColor: AppColors.formMasterAccent,
                           contentPadding: EdgeInsets.zero,
                           onChanged: (val) async {
-                            await storage.setTtsEnabled(val);
+                            await storage.ttsSettings.setTtsEnabled(val);
                             if (!val && context.mounted) {
                               context.read<TtsService>().releaseLocalEngine();
                             }
@@ -197,297 +206,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                         _buildCharacterOverrideNotice(context, voices),
 
                         const SizedBox(height: 20),
-
-                        // ──── Common settings ────
-                        // Speech rate
-                        Row(
-                          children: [
-                            Text(
-                              'Speech Rate',
-                              style: TextStyle(
-                                color: AppColors.textSecondary(context),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              '${storage.ttsSpeechRate.toStringAsFixed(1)}x',
-                              style: const TextStyle(
-                                color: AppColors.formMasterAccent,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Slider(
-                          value: _dragTtsSpeechRate ?? storage.ttsSpeechRate,
-                          min: 0.5,
-                          max: 2.0,
-                          divisions: 15,
-                          activeColor: AppColors.formMasterAccent,
-                          inactiveColor: AppColors.borderOf(context),
-                          onChanged: (val) =>
-                              setState(() => _dragTtsSpeechRate = val),
-                          onChangeEnd: (val) {
-                            _dragTtsSpeechRate = null;
-                            storage.setTtsSpeechRate(val);
-                          },
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Stack(
-                            children: [
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  '0.5x',
-                                  style: TextStyle(
-                                    color: AppColors.textTertiary(context),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                              // 1.0 is at (1.0 - 0.5) / (2.0 - 0.5) = 0.333 of the range
-                              // Convert to -1..1 alignment: 0.333 * 2 - 1 = -0.333
-                              Align(
-                                alignment: const Alignment(-0.333, 0),
-                                child: Text(
-                                  '1.0x',
-                                  style: TextStyle(
-                                    color: AppColors.textTertiary(context),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  '2.0x',
-                                  style: TextStyle(
-                                    color: AppColors.textTertiary(context),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Concurrency (only for Kokoro/OpenAI)
-                        if (engineId != 'piper') ...[
-                          Row(
-                            children: [
-                              Text(
-                                'TTS Workers',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary(context),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Tooltip(
-                                message:
-                                    'Resident Kokoro workers (1-8).\nEach keeps the full model in RAM.\n2–4 is usually best for long narration.\nHigher values help when you have many short lines at once (power users only).',
-                                child: Icon(
-                                  Icons.info_outline,
-                                  color: AppColors.iconSecondary(context),
-                                  size: 14,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                '${(_dragTtsConcurrency ?? storage.ttsConcurrency.toDouble()).round()} workers',
-                                style: const TextStyle(
-                                  color: AppColors.formMasterAccent,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Slider(
-                            value:
-                                _dragTtsConcurrency ??
-                                storage.ttsConcurrency.toDouble(),
-                            min: 1,
-                            max: 8,
-                            divisions: 7,
-                            activeColor: AppColors.formMasterAccent,
-                            inactiveColor: AppColors.borderOf(context),
-                            onChanged: (val) =>
-                                setState(() => _dragTtsConcurrency = val),
-                            onChangeEnd: (val) {
-                              _dragTtsConcurrency = null;
-                              storage.setTtsConcurrency(val.round());
-                            },
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '1',
-                                  style: TextStyle(
-                                    color: AppColors.textTertiary(context),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                                Text(
-                                  '~${_ramForWorkers(storage.ttsConcurrency)} RAM',
-                                  style: TextStyle(
-                                    color: AppColors.textTertiary(context),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                                Text(
-                                  '8',
-                                  style: TextStyle(
-                                    color: AppColors.textTertiary(context),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-
-                        const SizedBox(height: 16),
-
-                        // Auto-play
-                        SwitchListTile(
-                          title: Text(
-                            'Auto-Play',
-                            style: TextStyle(color: AppColors.textPrimary(context)),
-                          ),
-                          subtitle: Text(
-                            'Automatically speak new character messages',
-                            style: TextStyle(
-                              color: AppColors.textSecondary(context),
-                              fontSize: 12,
-                            ),
-                          ),
-                          value: storage.ttsAutoPlay,
-                          activeTrackColor: AppColors.formMasterAccent,
-                          contentPadding: EdgeInsets.zero,
-                          onChanged: (val) => storage.setTtsAutoPlay(val),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // ──── Narration Filters ────
-                        Divider(color: AppColors.borderOf(context)),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Narration Filters',
-                          style: TextStyle(
-                            color: AppColors.textSecondary(context),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        SwitchListTile(
-                          title: Text(
-                            'Only narrate "quotes"',
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
-                              fontSize: 14,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'TTS will only read text inside quotation marks',
-                            style: TextStyle(
-                              color: AppColors.textSecondary(context),
-                              fontSize: 11,
-                            ),
-                          ),
-                          value: storage.ttsNarrateQuotedOnly,
-                          activeTrackColor: AppColors.formMasterAccent,
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          onChanged: (val) =>
-                              storage.setTtsNarrateQuotedOnly(val),
-                        ),
-                        SwitchListTile(
-                          title: Text(
-                            'Ignore *text inside asterisks*',
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
-                              fontSize: 14,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'TTS will skip all narration in *asterisks*, even quotes',
-                            style: TextStyle(
-                              color: AppColors.textSecondary(context),
-                              fontSize: 11,
-                            ),
-                          ),
-                          value: storage.ttsIgnoreAsterisks,
-                          activeTrackColor: AppColors.formMasterAccent,
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          onChanged: (val) =>
-                              storage.setTtsIgnoreAsterisks(val),
-                        ),
-                        SwitchListTile(
-                          title: Text(
-                            'Replace curly quotation marks',
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
-                              fontSize: 14,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Converts “curly quotes” to "straight quotes" before sending to TTS',
-                            style: TextStyle(
-                              color: AppColors.textSecondary(context),
-                              fontSize: 11,
-                            ),
-                          ),
-                          value: storage.ttsReplaceCurlyQuotes,
-                          activeTrackColor: AppColors.formMasterAccent,
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          onChanged: (val) =>
-                              storage.setTtsReplaceCurlyQuotes(val),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Test button
-                        if (storage.ttsVoiceModel.isNotEmpty)
-                          Center(
-                            child: ElevatedButton.icon(
-                              onPressed: tts.isSpeaking
-                                  ? () => tts.stop()
-                                  : () {
-                                      final testText =
-                                          storage.ttsNarrateQuotedOnly
-                                          ? '“Hello! This is a test of the text to speech system.” The quick brown fox jumps over the lazy dog.'
-                                          : 'Hello! This is a test of the text to speech system. The quick brown fox jumps over the lazy dog.';
-                                      tts.speak(testText);
-                                    },
-                              icon: Icon(
-                                tts.isSpeaking ? Icons.stop : Icons.play_arrow,
-                              ),
-                              label: Text(
-                                tts.isSpeaking ? 'Stop' : 'Test Voice',
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: tts.isSpeaking
-                                    ? Colors.redAccent // theme-keep: playback status (stop), not chrome
-                                    : Colors.green, // theme-keep: playback status (start)
-                                foregroundColor: Colors.white, // theme-keep: contrast on status button
-                              ),
-                            ),
-                          ),
+                        ..._buildCommonSettings(storage, tts, engineId),
                       ],
                     ),
                   ),
@@ -498,14 +217,5 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
         );
       },
     );
-  }
-
-  String _ramForWorkers(int workers) {
-    // Rough estimate: ~350 MB per resident Kokoro worker (model + overhead)
-    final ramMB = workers * 350;
-    if (ramMB >= 1000) {
-      return '${(ramMB / 1000).toStringAsFixed(1)} GB';
-    }
-    return '$ramMB MB';
   }
 }

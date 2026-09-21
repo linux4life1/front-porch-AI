@@ -72,10 +72,31 @@ extension _HomePageCharOps on _HomePageState {
         : <String>[];
     if (pngs.isEmpty && byafs.isEmpty) return;
 
-    final total = pngs.length + byafs.length;
-    _runBulkProgressImport(
+    await _importPngAndByafBatch(
       context,
       title: 'Import Folder',
+      pngs: pngs,
+      byafs: byafs,
+      importChats: importChats,
+      applySettings: applySettings,
+    );
+  }
+
+  /// One progress dialog over PNG cards then BYAF archives. Folder import and
+  /// a mixed desktop drop share this so the two kinds never stack dialogs.
+  Future<void> _importPngAndByafBatch(
+    BuildContext context, {
+    required String title,
+    required List<File> pngs,
+    required List<String> byafs,
+    bool importChats = true,
+    bool applySettings = true,
+  }) {
+    final total = pngs.length + byafs.length;
+    if (total == 0) return Future<void>.value();
+    return _runBulkProgressImport(
+      context,
+      title: title,
       totalCount: total,
       runImport: ({required onProgress, required isCancelled}) async {
         var done = 0;
@@ -248,8 +269,8 @@ extension _HomePageCharOps on _HomePageState {
 
   /// Shared bulk PNG import with progress dialog — used by both multi-select
   /// and folder import.
-  void _runBulkImport(BuildContext context, List<File> files) {
-    _runBulkProgressImport(
+  Future<void> _runBulkImport(BuildContext context, List<File> files) {
+    return _runBulkProgressImport(
       context,
       title: 'Bulk Import',
       totalCount: files.length,
@@ -267,7 +288,11 @@ extension _HomePageCharOps on _HomePageState {
   /// Generic bulk-import progress dialog. Drives any import that reports
   /// (current, total, name, error) per item and honors a cancel flag — used by
   /// both the V2 PNG bulk import and the BYAF (Backyard AI) bulk import.
-  void _runBulkProgressImport(
+  ///
+  /// The returned Future completes when [runImport] finishes (file IO done),
+  /// not when the dialog is merely shown. Desktop drop holds macOS bookmarks
+  /// and HomeDropZone._busy on that Future.
+  Future<void> _runBulkProgressImport(
     BuildContext context, {
     required String title,
     required int totalCount,
@@ -278,6 +303,8 @@ extension _HomePageCharOps on _HomePageState {
     })
     runImport,
   }) {
+    if (!context.mounted || totalCount == 0) return Future<void>.value();
+    final finished = Completer<void>();
     bool cancelled = false;
     bool started = false;
     int currentCount = 0;
@@ -295,31 +322,39 @@ extension _HomePageCharOps on _HomePageState {
             if (!started) {
               started = true;
               runImport(
-                isCancelled: () => cancelled,
-                onProgress: (current, total, name, error) {
-                  if (ctx.mounted) {
-                    setDialogState(() {
-                      currentCount = current;
-                      currentName = name;
-                      if (error == null) {
-                        importedCount++;
-                      } else {
-                        failedCount++;
+                    isCancelled: () => cancelled,
+                    onProgress: (current, total, name, error) {
+                      if (ctx.mounted) {
+                        setDialogState(() {
+                          currentCount = current;
+                          currentName = name;
+                          if (error == null) {
+                            importedCount++;
+                          } else {
+                            failedCount++;
+                          }
+                        });
                       }
-                    });
-                  }
-                },
-              ).then((_) {
-                if (ctx.mounted) Navigator.of(ctx).pop();
-                if (context.mounted) {
-                  final msg = failedCount > 0
-                      ? 'Imported $importedCount character${importedCount == 1 ? '' : 's'} ($failedCount failed)'
-                      : 'Imported $importedCount character${importedCount == 1 ? '' : 's'} successfully!';
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(msg)));
-                }
-              });
+                    },
+                  )
+                  .then((_) {
+                    if (ctx.mounted) Navigator.of(ctx).pop();
+                    if (context.mounted) {
+                      final msg = failedCount > 0
+                          ? 'Imported $importedCount character${importedCount == 1 ? '' : 's'} ($failedCount failed)'
+                          : 'Imported $importedCount character${importedCount == 1 ? '' : 's'} successfully!';
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(msg)));
+                    }
+                  })
+                  .catchError((Object e) {
+                    debugPrint('[BulkImport] $e');
+                    if (ctx.mounted) Navigator.of(ctx).pop();
+                  })
+                  .whenComplete(() {
+                    if (!finished.isCompleted) finished.complete();
+                  });
             }
 
             final progress = totalCount > 0 ? currentCount / totalCount : 0.0;
@@ -426,6 +461,7 @@ extension _HomePageCharOps on _HomePageState {
         );
       },
     );
+    return finished.future;
   }
 
   Widget _bulkStatChip(IconData icon, Color color, String label) {

@@ -87,10 +87,8 @@ class _FakeStorageForExpression implements StorageService {
   _FakeStorageForExpression({required this.mode});
 
   @override
-  String get expressionClassificationMode => mode;
-
-  @override
-  ExpressionSettings get expressionSettings => _FakeExpressionSettings(mode: mode);
+  ExpressionSettings get expressionSettings =>
+      _FakeExpressionSettings(mode: mode);
 
   // Unused stubs (satisfy interface for test factory only)
   @override
@@ -290,9 +288,7 @@ void main() {
         );
 
         // A new assistant reply is a new turn: reroll avoids last reply's pick.
-        live.add(
-          ChatMessage(text: 'next', sender: 'char', isUser: false),
-        );
+        live.add(ChatMessage(text: 'next', sender: 'char', isUser: false));
         final m2 = svc.resolveExpressionAvatar(card, rerollIfSame: true);
         expect(m2?.id, anyOf('a2', 'a3'));
         expect(m2?.id, isNot(m1?.id));
@@ -339,13 +335,6 @@ void main() {
       ); // emotion not owned here (reset clears only expression manual/caches); 'angry' maps to 'anger'
     });
 
-    test('invalidateOnnxCacheForNewResponse clears onnx fields', () {
-      final svc = createTestExpression(storageMode: 'onnx');
-      // direct internal access not possible; call via public path is enough for smoke
-      svc.invalidateOnnxCacheForNewResponse();
-      // no crash = ok; deeper exercised in regen paths of integration tests
-    });
-
     test('public surface + reclassify thin', () async {
       final svc = createTestExpression();
       expect(svc.manualExpressionLabel, isNull);
@@ -371,14 +360,6 @@ void main() {
       final l = svc
           .currentExpressionLabel; // triggers reclass path but !ready returns early, no prompt
       expect(l, 'neutral');
-    });
-
-    test('cancel during onnx cb surface wired via factory (smoke)', () {
-      final handled = <String>[];
-      createTestExpression(handledCancels: handled, realismEvalCancelled: true);
-      // construction wires the 4 cancel cbs; full if (cancelled) { await onHandle } reached in classify fallback (ONNX path)
-      expect(handled, isEmpty);
-      // (deeper ONNX classify/cancel exercised via manual + low-level; see qualified header)
     });
 
     test(

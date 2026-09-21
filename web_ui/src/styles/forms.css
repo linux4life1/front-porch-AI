@@ -1,0 +1,170 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Realism + Needs authoring forms, Porch Life settings rows, and the
+   macro-aware field with its fullscreen editor.
+*/
+
+/* ── Realism / Needs form sections (character create + edit) ─────────────── */
+.row-actions { display: flex; gap: 8px; align-items: center; }
+.realism-section { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+.greeting-seed { margin: 8px 0 4px; padding: 0; border: none; }
+.tool-col { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.realism-head {
+  margin: 6px 0 0; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.4px;
+  color: var(--muted); text-transform: uppercase;
+}
+.realism-card { display: flex; flex-direction: column; gap: 14px; }
+.realism-grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+.work-hours { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.work-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 8px; }
+.work-day {
+  padding: 7px 0; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: var(--surface-2); color: var(--text); font-size: 0.78rem; font-weight: 700; cursor: pointer;
+}
+.work-day.on { background: var(--accent); border-color: var(--accent); color: #1a1200; }
+.work-brief { min-height: 4.2em; resize: vertical; }
+.realism-field { display: flex; flex-direction: column; gap: 4px; }
+.realism-field > span { font-size: 0.8rem; color: var(--muted); }
+.realism-slider { display: flex; flex-direction: column; gap: 4px; }
+.realism-slider-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.8rem; color: var(--muted); gap: 8px;
+}
+.realism-badge {
+  font-size: 0.72rem; font-weight: 600; color: var(--text);
+  background: var(--surface-2); border-radius: var(--radius-badge);
+  padding: 2px 8px; white-space: nowrap;
+}
+.realism-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer;
+}
+.realism-toggle input { width: auto; }
+.realism-toggle-text { display: flex; flex-direction: column; gap: 2px; }
+.realism-toggle-text > span { font-size: 0.9rem; color: var(--text); }
+.realism-toggle-text > small { font-size: 0.74rem; color: var(--faint); }
+.needs-row {
+  display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.needs-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+/* ── Porch Life settings (web mirror of porch_life_tab.dart + feature_row.dart) ── */
+.pl-intro { margin-top: -4px; }
+.pl-group {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px 4px; margin: 14px 0;
+}
+.pl-group-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 2px; }
+.pl-group-title { font-weight: 800; font-size: 1rem; color: var(--text); }
+.pl-group-subtitle { font-size: 0.78rem; color: var(--faint); }
+.pl-row { padding: 10px 0; border-top: 1px solid var(--border); }
+.pl-group > .pl-row:first-of-type { border-top: none; }
+.pl-row-main { display: flex; align-items: flex-start; gap: 10px; }
+.pl-row-icon { font-size: 1rem; line-height: 1.3; opacity: 0.85; flex: none; }
+.pl-row-body { flex: 1; min-width: 0; }
+.pl-row-label-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.pl-label { font-weight: 700; font-size: 0.92rem; color: var(--text); }
+.pl-blurb { margin: 3px 0 0; font-size: 0.78rem; line-height: 1.4; color: var(--muted); }
+.pl-switch { flex: none; margin-top: 1px; }
+.pl-switch input { width: auto; }
+.pl-chip {
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.3px;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+}
+/* "works alone" — the independent/no-strings-attached state, same semantic
+   green as the desktop chip's theme-keep marker (dependency legend). */
+.pl-chip-alone {
+  color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+.pl-chip-needs {
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.pl-chip-core {
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 24%, transparent);
+  border-color: var(--accent); text-transform: uppercase;
+}
+.pl-row-dependent { padding-left: 16px; }
+.pl-row-gated { opacity: .45; }
+.pl-row-gated .pl-switch input { cursor: not-allowed; }
+.pl-child { margin: 8px 0 0 28px; }
+/* The standalone-clock opt-in that rides the Passage of Time row. Same shape
+   as a pl-row's main line (body + trailing switch) at sub-row weight, so it
+   reads as part of that row rather than a fourth feature. */
+.pl-substitch { display: flex; align-items: flex-start; gap: 12px; margin: 0; cursor: pointer; }
+.pl-sub-body { display: flex; flex-direction: column; gap: 2px; }
+.pl-sub-label { font-size: 0.8rem; font-weight: 600; color: var(--text-2, var(--muted)); }
+.pl-sub-blurb { font-size: 0.74rem; line-height: 1.4; color: var(--muted); }
+.pl-substitch input { flex: none; width: auto; margin-top: 1px; }
+.pl-away.row-label { margin: 0; gap: 10px; }
+.pl-away select { width: auto; }
+.pl-wiki-acc { margin: 8px 0 4px; }
+.pl-wiki-acc > summary {
+  cursor: pointer; font-size: 0.78rem; font-weight: 600; color: var(--muted);
+}
+.pl-wiki-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pl-wiki-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 0.82rem; color: var(--text);
+}
+.pl-wiki-row button { flex: none; }
+.pl-error { margin: 10px 0 0; }
+.pl-note {
+  margin-top: 4px; padding: 12px 14px; font-size: 0.78rem; line-height: 1.4;
+  color: var(--muted); background: var(--surface-2);
+  border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0;
+}
+.lore-edit-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.world-picker { display: flex; flex-direction: column; gap: 6px; }
+.token-badge {
+  font-size: 0.74rem; font-weight: 600; padding: 3px 9px;
+  border-radius: var(--radius-badge); border: 1px solid var(--border);
+}
+.token-badge.ok { color: var(--ok); border-color: var(--ok); }
+.token-badge.warn { color: var(--logwarn); border-color: var(--logwarn); }
+.token-badge.danger { color: var(--danger); border-color: var(--danger); }
+
+/* ── Macro-aware field: {{macro}} highlighting + fullscreen editor ──────── */
+.macro-field { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
+.macro-field-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.85rem; color: var(--muted); min-height: 18px;
+}
+.macro-expand { font-size: 0.95rem; }
+.macro-area { position: relative; }
+/* Backdrop and textarea MUST share an identical box model so the coloured
+ * overlay stays glued to the caret. Both use a fixed 16px/1.5 (16px also avoids
+ * iOS focus-zoom) regardless of viewport. Scoped under .macro-area so they win
+ * over the generic `.modal textarea` rule inside the fullscreen editor. */
+.macro-area .macro-backdrop,
+.macro-area .macro-input {
+  margin: 0; width: 100%; box-sizing: border-box;
+  font-family: inherit; font-size: 16px; line-height: 1.5;
+  letter-spacing: normal; tab-size: 4;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;
+  scrollbar-gutter: stable;
+}
+.macro-area .macro-backdrop {
+  position: absolute; inset: 0; overflow: hidden;
+  color: var(--text); background: var(--bg);
+  border-color: transparent; pointer-events: none;
+}
+.macro-area .macro-input {
+  position: relative; display: block; resize: vertical;
+  background: transparent; color: transparent; caret-color: var(--text);
+  overflow: auto;
+}
+.macro-area .macro-input::placeholder { color: var(--muted); }
+.macro-token { background: transparent; color: var(--accent); font-weight: 600; }
+.macro-modal { width: min(720px, 94vw); }
+.macro-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 700; color: var(--text);
+}
+.macro-modal .macro-area .macro-input { min-height: 50vh; }
+.lore-edit .macro-field { margin: 0; }
+

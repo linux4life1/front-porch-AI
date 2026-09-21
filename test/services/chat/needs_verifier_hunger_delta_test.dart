@@ -32,39 +32,26 @@
 // hunger_delta tests red (status comes back 'accepted', the spike survives);
 // restored, they are green again.
 //
-// The extractor below is the byte-identical semantic of
-// LlmEvalEngine.extractJsonInt — the exact strict-quote matching whose
-// interaction with the key name IS the bug under guard, so a stub that
-// matched loosely would test nothing.
+// The extractors are the PRODUCT's own (evalJsonInt / evalJsonBool, which
+// LlmEvalEngine.extractJsonInt forwards to). The strict-quote matching is
+// half the bug under guard, so a local copy could drift away from the real
+// regex and leave this suite green while the rule went dead again. It used to
+// be a local copy; it is not any more.
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show RealismVerification;
+    show RealismVerification, evalJsonBool, evalJsonInt;
 
 RealismVerification _verifier() {
-  int? extractInt(String text, String key) {
-    final m = RegExp(
-      '"' + RegExp.escape(key) + r'"\s*:\s*(-?\d+)',
-    ).firstMatch(text);
-    return m != null ? int.tryParse(m.group(1)!) : null;
-  }
-
-  bool? extractBool(String text, String key) {
-    final m = RegExp(
-      '"' + RegExp.escape(key) + r'"\s*:\s*(true|false)',
-    ).firstMatch(text);
-    return m != null ? (m.group(1) == 'true') : null;
-  }
-
   return RealismVerification(
     // Null re-fire: the reprocess loop breaks immediately and verify()
     // returns the RULE's own correction — which is exactly the layer under
     // guard here.
     fireLLMEval: (p, {onChunk}) async => null,
     stripThinkBlocks: (s) => s,
-    extractJsonInt: extractInt,
-    extractJsonBool: extractBool,
+    extractJsonInt: evalJsonInt,
+    extractJsonBool: evalJsonBool,
     getActiveCharacter: () => null,
     getActiveGroup: () => null,
     getIsObserverMode: () => false,

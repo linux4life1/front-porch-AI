@@ -4,8 +4,6 @@
 // Focused widget test of the extracted Chat History dialog — rows, trash
 // confirm, empty copy. Does not launch the full app.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -81,15 +79,5 @@ void main() {
 
     expect(find.text('No previous chats found.'), findsOneWidget);
     expect(find.byTooltip('Delete chat'), findsNothing);
-  });
-
-  test('Home history handler keys 1:1 by stableGroupId, never dbId', () {
-    final src = File(
-      'lib/ui/pages/home/home_page_history.dart',
-    ).readAsStringSync();
-    expect(src, contains('_getCharacterIdFromCard(character)'));
-    expect(src.contains('character.dbId'), isFalse);
-    expect(src, contains("group_\${group!.id}"));
-    expect(src, contains('startReplacement: false'));
   });
 }

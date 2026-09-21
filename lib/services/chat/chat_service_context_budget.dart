@@ -27,13 +27,33 @@ extension ChatServiceContextBudget on ChatService {
     var examples = '';
     var postHistory = '';
 
+    var personaBlock = '';
+    var speakerCard = '';
     if (_activeGroup != null) {
       final g = _activeGroup!;
       systemPrompt = g.systemPrompt;
-      scenario = g.scenario;
-      for (final c in _groupCharacters) {
-        final block = '${c.description}\n${c.personality}'.trim();
-        if (block.isNotEmpty) identity.writeln('${c.name}: $block');
+      scenario = g.scenario.isNotEmpty
+          ? g.scenario
+          : (_groupCharacters.isNotEmpty
+                ? _groupCharacters.first.scenario
+                : '');
+      personaBlock = buildGroupRosterLine(
+        memberNames: [for (final c in _groupCharacters) c.name],
+        userName: _userPersonaService.persona.name,
+        observerMode: _observerMode,
+      );
+      final speaker =
+          _groupManager?.nextSpeaker ??
+          (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
+      if (speaker != null) {
+        final others = [
+          for (final c in _groupCharacters)
+            if (c.name != speaker.name) c.name,
+        ];
+        speakerCard =
+            '${(speaker.isLite ? buildLiteGroupTurnNote : buildSpeakerTurnNote)(speakerName: speaker.name, otherMemberNames: others, userName: _userPersonaService.persona.name, observerMode: _observerMode)}'
+            '${buildSpeakerPersonaLine(name: speaker.name, personality: _getEffectivePersonality(speaker))}\n'
+            '${speaker.mesExample}';
       }
     } else if (_activeCharacter != null) {
       final c = _activeCharacter!;
@@ -63,6 +83,8 @@ extension ChatServiceContextBudget on ChatService {
         userPersonaText: _userPersonaService.persona.persona,
         systemPrompt: systemPrompt,
         identityBlock: identity.toString(),
+        personaBlock: personaBlock,
+        speakerCard: speakerCard,
         scenario: scenario,
         examples: examples,
         postHistory: postHistory,

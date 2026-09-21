@@ -7,6 +7,9 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StepUpFields } from '../StepUpFields';
+import { ComfyCreateFields, type ComfyPreset } from './ComfyCreateFields';
+import { ImageRemoteFields } from './ImageRemoteFields';
+import type { ImageRemoteHost } from './imageRemote';
 
 interface ImageConfig {
   backend: string;
@@ -27,6 +30,11 @@ interface ImageConfig {
   remoteApiUrl: string;
   remoteModelName: string;
   hasApiKey: boolean;
+  imageRemoteHost?: string;
+  imageRemoteHosts?: ImageRemoteHost[];
+  comfyCreateWorkflowId?: string;
+  comfyCreateModelChoices?: Record<string, string>;
+  comfyCreatePresets?: ComfyPreset[];
 }
 
 // Mirrors ImageGenService.styleLabels (desktop) + the Image Studio size list.
@@ -43,7 +51,6 @@ const SIZES = ['512x512', '768x768', '1024x1024', '1536x1024', '1024x1536'];
 export function ImageGen({ onError }: { onError: (s: string) => void }) {
   const [cfg, setCfg] = useState<ImageConfig | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [apiKey, setApiKey] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [filename, setFilename] = useState<string | null>(null);
   const [inserted, setInserted] = useState(false);
@@ -76,6 +83,9 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   if (!cfg) return null;
   const set = (patch: Partial<ImageConfig>) => setCfg({ ...cfg, ...patch });
   const saveConfig = (patch: Record<string, unknown>) => {
+    // Studio host chips (`imageRemoteHost`) are not credentials — they pick
+    // a vault URL already stored in Settings → Backend. Only a raw custom
+    // remoteApiUrl / apiKey / local host still steps up.
     const needsStepUp =
       (typeof patch.remoteApiUrl === 'string' &&
         patch.remoteApiUrl !== savedRemoteApiUrl) ||
@@ -99,7 +109,6 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         if (needsStepUp) {
           setPassword('');
           setTotpCode('');
-          setApiKey('');
         }
       })
       .catch((e) => {
@@ -144,62 +153,22 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         </select>
       </label>
       {cfg.backend === 'remote' ? (
-        <>
-          <label>
-            API URL
-            <input
-              value={cfg.remoteApiUrl}
-              onChange={(e) => set({ remoteApiUrl: e.target.value })}
-              onBlur={() => {
-                if (cfg.remoteApiUrl === savedRemoteApiUrl) return;
-                if (password) void saveConfig({ remoteApiUrl: cfg.remoteApiUrl });
-              }}
-            />
-          </label>
-          <label>
-            Image model
-            <input value={cfg.remoteModelName} onChange={(e) => set({ remoteModelName: e.target.value })} onBlur={() => saveConfig({ remoteModelName: cfg.remoteModelName })} />
-          </label>
-          <label>
-            API key {cfg.hasApiKey && <span className="muted small">(set — leave blank to keep)</span>}
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              onBlur={() => {
-                if (apiKey && password) void saveConfig({ apiKey });
-              }}
-            />
-          </label>
-          {(cfg.remoteApiUrl !== savedRemoteApiUrl || !!apiKey) && (
-            <>
-              <StepUpFields
-                password={password}
-                onPassword={setPassword}
-                totpEnabled={totpEnabled}
-                totpCode={totpCode}
-                onTotp={setTotpCode}
-                reason={
-                  totpEnabled
-                    ? 'Changing the image API URL or key — confirm your web login password and a 2FA code.'
-                    : 'Changing the image API URL or key — confirm your web login password.'
-                }
-              />
-              <button
-                className="ghost"
-                disabled={!password}
-                onClick={() =>
-                  void saveConfig({
-                    remoteApiUrl: cfg.remoteApiUrl,
-                    ...(apiKey ? { apiKey } : {}),
-                  })
-                }
-              >
-                Save API settings
-              </button>
-            </>
-          )}
-        </>
+        <ImageRemoteFields
+          selectedHostId={cfg.imageRemoteHost ?? ''}
+          hosts={cfg.imageRemoteHosts ?? []}
+          modelId={cfg.model}
+          hasApiKey={cfg.hasApiKey}
+          remoteApiUrl={cfg.remoteApiUrl}
+          onHost={(id) => {
+            set({ imageRemoteHost: id });
+            void saveConfig({ imageRemoteHost: id });
+          }}
+          onModel={(id) => {
+            set({ model: id });
+            void saveConfig({ model: id });
+          }}
+          onError={onError}
+        />
       ) : cfg.backend === 'a1111' ? (
         <>
           <label>
@@ -233,10 +202,15 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
               placeholder="http://127.0.0.1:8188"
             />
           </label>
-          <label>
-            Model <span className="muted small">(checkpoint — required for ComfyUI)</span>
-            <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} onBlur={() => saveConfig({ model: cfg.model })} />
-          </label>
+          <ComfyCreateFields
+            workflowId={cfg.comfyCreateWorkflowId ?? 'sd'}
+            modelChoices={cfg.comfyCreateModelChoices ?? {}}
+            presets={cfg.comfyCreatePresets ?? []}
+            onChange={(patch) => {
+              set(patch as Partial<ImageConfig>);
+              void saveConfig(patch);
+            }}
+          />
         </>
       ) : (
         <>

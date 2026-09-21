@@ -4,7 +4,12 @@
 // Barrel for the Settings-local widgets (section headers, sliders,
 // color rows, preset chips, and the settings cards).
 
-export 'api_preset_chip.dart';
+export 'remote_provider_bar.dart';
+export 'remote_provider_apply.dart';
+export 'remote_model_picker_field.dart';
+export 'worker_provider_apply.dart';
+export 'worker_kobold_model_picker.dart';
+export 'worker_kobold_kcpps_picker.dart';
 export 'color_row.dart';
 export 'feature_row.dart';
 export 'image_gen_enable_section.dart';
@@ -18,3 +23,6 @@ export 'spell_check_language_row.dart';
 export 'thinking_settings_block.dart';
 export 'thinking_strength_control.dart';
 export 'web_login_section.dart';
+export 'wiki_url_field.dart';
+export 'wiki_url_list.dart';
+export 'tools_folder_note.dart';

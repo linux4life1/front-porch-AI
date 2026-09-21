@@ -22,7 +22,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'external_image_widget.dart';
 
@@ -127,7 +127,7 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
   _tokenCache = {};
 
   // Style caches (invalidated when any styling input changes).
-  (String?, Color, Color, Color, double)? _styleKey;
+  (String?, Color, Color, Color)? _styleKey;
   TextStyle? _plainStyle;
   TextStyle? _dialogueStyle;
   TextStyle? _actionStyle;
@@ -137,65 +137,67 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
   _tokensFor(String segment) =>
       _tokenCache.putIfAbsent(segment, () => tokenizeChat(segment).toList());
 
-  void _refreshStyles(StorageService storageService, double scaledSize) {
+  void _refreshStyles(StorageService storageService) {
     final character = widget.character;
-    final fontFamily = storageService.getChatFontFamily(
+    final fontFamily = storageService.uiSettings.getChatFontFamily(
       character,
-      widget.themePreset,
-      widget.themeOverrides,
+      themePreset: widget.themePreset,
+      themeOverrides: widget.themeOverrides,
     );
     final textColor = widget.isUser
-        ? storageService.getUserTextColor(
+        ? storageService.uiSettings.getUserTextColor(
             character,
-            widget.themePreset,
-            widget.themeOverrides,
+            themePreset: widget.themePreset,
+            themeOverrides: widget.themeOverrides,
           )
-        : storageService.getAiTextColor(
+        : storageService.uiSettings.getAiTextColor(
             character,
-            widget.themePreset,
-            widget.themeOverrides,
+            themePreset: widget.themePreset,
+            themeOverrides: widget.themeOverrides,
           );
-    final dialogueColor = storageService.getDialogueColor(
+    final dialogueColor = storageService.uiSettings.getDialogueColor(
       character,
-      widget.themePreset,
-      widget.themeOverrides,
+      themePreset: widget.themePreset,
+      themeOverrides: widget.themeOverrides,
     );
-    final actionColor = storageService.getActionColor(
+    final actionColor = storageService.uiSettings.getActionColor(
       character,
-      widget.themePreset,
-      widget.themeOverrides,
+      themePreset: widget.themePreset,
+      themeOverrides: widget.themeOverrides,
     );
-    final key = (fontFamily, textColor, dialogueColor, actionColor, scaledSize);
+    final key = (fontFamily, textColor, dialogueColor, actionColor);
     if (key == _styleKey) return;
     _styleKey = key;
+    // fontSize is the shared reading base. The RichText/Text below get
+    // StorageService.textScale as textScaler — do not also bake it here.
     _plainStyle = _applyGoogleFont(
       fontFamily,
-      TextStyle(color: textColor, fontSize: scaledSize),
+      readingSurfaceStyle(color: textColor),
     );
     _dialogueStyle = _applyGoogleFont(
       fontFamily,
-      TextStyle(
-        color: dialogueColor,
-        fontWeight: FontWeight.w500,
-        fontSize: scaledSize,
-      ),
+      readingSurfaceStyle(color: dialogueColor, fontWeight: FontWeight.w500),
     );
     _actionStyle = _applyGoogleFont(
       fontFamily,
-      TextStyle(color: actionColor, fontSize: scaledSize),
+      readingSurfaceStyle(color: actionColor),
     );
     _rootStyle = _applyGoogleFont(
       fontFamily,
-      TextStyle(color: textColor, fontSize: scaledSize, height: 1.4),
+      readingSurfaceStyle(color: textColor, height: 1.4),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
-    final scaledSize = 14.0 * storageService.textScale;
     final text = widget.text;
-    _refreshStyles(storageService, scaledSize);
+    _refreshStyles(storageService);
+    // Reading Size is this pref. Do not trust ambient MediaQuery — chrome
+    // may scale from it while the transcript sits at 1.0 (or the reverse).
+    final readingScaler = readingTextScaler(
+      storageService.uiSettings.textScale,
+    );
 
     // Check for markdown images (cached per source text).
     if (!identical(text, _parseSource)) {
@@ -206,7 +208,7 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     final imageMatches = _imageMatches!;
     if (imageMatches.isEmpty) {
       // No images — use existing fast path
-      return _buildStyledText(text);
+      return _buildStyledText(text, readingScaler);
     }
 
     // Split text into segments: [text, image, text, image, text]
@@ -218,7 +220,7 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
       if (match.start > lastEnd) {
         final textBefore = text.substring(lastEnd, match.start).trim();
         if (textBefore.isNotEmpty) {
-          widgets.add(_buildStyledText(textBefore));
+          widgets.add(_buildStyledText(textBefore, readingScaler));
         }
       }
 
@@ -242,7 +244,7 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     if (lastEnd < text.length) {
       final textAfter = text.substring(lastEnd).trim();
       if (textAfter.isNotEmpty) {
-        widgets.add(_buildStyledText(textAfter));
+        widgets.add(_buildStyledText(textAfter, readingScaler));
       }
     }
 
@@ -252,41 +254,43 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     );
   }
 
-  Widget _buildStyledText(String segment) {
+  Widget _buildStyledText(String segment, TextScaler readingScaler) {
     final tokens = _tokensFor(segment);
 
     final spans = <TextSpan>[];
     int lastEnd = 0;
     for (final t in tokens) {
       if (t.start > lastEnd) {
-        spans.add(TextSpan(
-          text: segment.substring(lastEnd, t.start),
-          style: _plainStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: segment.substring(lastEnd, t.start),
+            style: _plainStyle,
+          ),
+        );
       }
-      spans.add(TextSpan(
-        text: t.matchText,
-        style: t.type == StyledTokenType.dialogue
-            ? _dialogueStyle
-            : _actionStyle,
-      ));
+      spans.add(
+        TextSpan(
+          text: t.matchText,
+          style: t.type == StyledTokenType.dialogue
+              ? _dialogueStyle
+              : _actionStyle,
+        ),
+      );
       lastEnd = t.end;
     }
     if (lastEnd < segment.length) {
-      spans.add(TextSpan(
-        text: segment.substring(lastEnd),
-        style: _plainStyle,
-      ));
+      spans.add(TextSpan(text: segment.substring(lastEnd), style: _plainStyle));
     }
 
     if (spans.isEmpty) {
-      return SelectionArea(child: Text(segment, style: _rootStyle));
+      return Text(segment, style: _rootStyle, textScaler: readingScaler);
     }
 
-    return SelectionArea(
-      child: RichText(
-        text: TextSpan(style: _rootStyle, children: spans),
-      ),
+    // Text.rich (not raw RichText) so find.text still sees the words
+    // without a nested SelectionArea. textScaler is Reading Size.
+    return Text.rich(
+      TextSpan(style: _rootStyle, children: spans),
+      textScaler: readingScaler,
     );
   }
 }

@@ -43,18 +43,55 @@ class StoopMessage {
   });
 
   /// True for automated decision notices — shown under Notifications, not chat.
-  bool get isSystem => kind == 'SYSTEM';
+  bool get isSystem {
+    final k = kind.trim().toUpperCase();
+    return k == 'SYSTEM' ||
+        k == 'NOTICE' ||
+        k == 'NOTIFICATION' ||
+        k == 'DECISION';
+  }
 
-  factory StoopMessage.fromJson(Map<String, dynamic> j) => StoopMessage(
-    id: (j['id'] ?? '') as String,
-    fromMod: j['fromMod'] == true,
-    kind: (j['kind'] as String?) ?? 'CHAT',
-    body: (j['body'] ?? '') as String,
-    character: j['character'] is Map<String, dynamic>
-        ? StoopMessageCard.fromJson(j['character'] as Map<String, dynamic>)
-        : null,
-    createdAt:
-        DateTime.tryParse((j['createdAt'] ?? '') as String)?.toLocal() ??
-        DateTime.fromMillisecondsSinceEpoch(0),
-  );
+  factory StoopMessage.fromJson(Map<String, dynamic> j) {
+    final characterRaw = j['character'];
+    return StoopMessage(
+      id: _stoopString(j['id']),
+      fromMod: j['fromMod'] == true || j['from_mod'] == true,
+      kind: _stoopKind(j),
+      body: _stoopBody(j),
+      character: characterRaw is Map
+          ? StoopMessageCard.fromJson(Map<String, dynamic>.from(characterRaw))
+          : null,
+      createdAt:
+          DateTime.tryParse(
+            _stoopString(j['createdAt']).isNotEmpty
+                ? _stoopString(j['createdAt'])
+                : _stoopString(j['created_at']),
+          )?.toLocal() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+}
+
+String _stoopString(dynamic v) {
+  if (v == null) return '';
+  if (v is String) return v;
+  if (v is num || v is bool) return v.toString();
+  return '';
+}
+
+String _stoopKind(Map<String, dynamic> j) {
+  if (j['isSystem'] == true || j['is_system'] == true) return 'SYSTEM';
+  for (final key in const ['kind', 'type']) {
+    final s = _stoopString(j[key]).trim();
+    if (s.isNotEmpty) return s;
+  }
+  return 'CHAT';
+}
+
+String _stoopBody(Map<String, dynamic> j) {
+  for (final key in const ['body', 'text', 'message', 'content']) {
+    final s = _stoopString(j[key]).trim();
+    if (s.isNotEmpty) return s;
+  }
+  return '';
 }

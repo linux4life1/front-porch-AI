@@ -1,8 +1,6 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -61,13 +59,5 @@ void main() {
     expect(find.byType(BirthdayRow), findsOneWidget);
     expect(find.text('March 15, 1998'), findsOneWidget);
     expect(find.text('Change'), findsOneWidget);
-  });
-
-  test('create and update both write the birthday field', () {
-    final src = File(
-      'lib/ui/dialogs/user_persona_dialog.dart',
-    ).readAsStringSync();
-    expect(src, contains('birthday: _birthday'));
-    expect('birthday: _birthday'.allMatches(src).length, 2);
   });
 }

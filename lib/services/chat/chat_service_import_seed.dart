@@ -18,6 +18,7 @@ extension ChatServiceImportSeed on ChatService {
     _cancelIdleTimer();
 
     _hasCompletedExchange = false;
+    _awayPulse.reset();
     _greetingIndex = 0;
 
     _summary = '';
@@ -47,7 +48,8 @@ extension ChatServiceImportSeed on ChatService {
     if (_activeCharacter != null && _activeGroup == null) {
       final extSeed =
           _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
-      _realismEnabled = extSeed.realismEnabled ||
+      _realismEnabled =
+          extSeed.realismEnabled ||
           _storageService.realismSettings.realismDefault;
       _relationshipService.resetForFreshChat();
       _relationshipService.seedFromCardV2OrExt(
@@ -62,7 +64,8 @@ extension ChatServiceImportSeed on ChatService {
         timeOfDay: extSeed.timeOfDay,
         storyStartDate: extSeed.storyStartDate,
         storyStartTime: extSeed.storyStartTime,
-        passageOfTimeEnabled: extSeed.passageOfTimeEnabled &&
+        passageOfTimeEnabled:
+            extSeed.passageOfTimeEnabled &&
             _storageService.realismSettings.passageOfTimeDefault,
       );
       _characterEmotion = extSeed.characterEmotion;
@@ -71,7 +74,8 @@ extension ChatServiceImportSeed on ChatService {
       // cooldown are zeroed explicitly on every other fresh path
       // (startNewChat). Without this, ST/.json import bleeds them.
       _nsfwService.seedFromV2OrExt(
-        nsfwCooldownEnabled: extSeed.nsfwCooldownEnabled ||
+        nsfwCooldownEnabled:
+            extSeed.nsfwCooldownEnabled ||
             _storageService.realismSettings.nsfwCooldownDefault,
       );
       _nsfwService.resetRuntimeArousalAndCooldown();
@@ -80,10 +84,10 @@ extension ChatServiceImportSeed on ChatService {
             _storageService.realismSettings.chaosModeDefault,
         false,
       );
-      _needsSimEnabled = extSeed.needsSimEnabled &&
+      _needsSimEnabled =
+          extSeed.needsSimEnabled &&
           _storageService.realismSettings.needsSimDefault;
-      _objectivesEnabled =
-          _storageService.realismSettings.objectivesEnabled;
+      _objectivesEnabled = _storageService.realismSettings.objectivesEnabled;
       _enjoysLowHygiene = extSeed.enjoysLowHygiene;
       if (_needsSimEnabled) {
         _needsSimulation.initializeFreshWithDefaults({
@@ -99,6 +103,11 @@ extension ChatServiceImportSeed on ChatService {
         _needsSimulation.clearVector();
       }
       _needsSimulation.resetBuffers();
+      // Bleed guard for the prior open chat. Suitcase put-back is in
+      // [_applySessionHeadFromPackage] — it must write even when this
+      // card authored Pockets off (HIDES≠erase). Do not skip the null
+      // when restore is gated: transcript-only import would keep the
+      // previous hidden kit.
       _pockets = null;
     } else {
       _relationshipService.resetForFreshChat();
@@ -144,7 +153,8 @@ extension ChatServiceImportSeed on ChatService {
         // startNewChat group branch do (presence-inference: the creator omits
         // the per-member 'needs' sub-map when Needs was off in the wizard),
         // AND-gated by the Porch Life global like every other seed site.
-        _needsSimEnabled = _storageService.realismSettings.needsSimDefault &&
+        _needsSimEnabled =
+            _storageService.realismSettings.needsSimDefault &&
             _groupRealism.values.any((state) {
               final n = state.needs;
               return n != null && n.isNotEmpty;
@@ -169,7 +179,6 @@ extension ChatServiceImportSeed on ChatService {
     _growthStore.invalidate();
   }
 
-
   // ── Phase 1: session snapshot ───────────────────────────────────────────
 
   Map<String, dynamic> _captureSessionHeadForPackage() {
@@ -187,8 +196,7 @@ extension ChatServiceImportSeed on ChatService {
       'long_term_tier': _relationshipService.longTermTier,
       'turns_since_long_term_check':
           _relationshipService.turnsSinceLongTermCheck,
-      'short_term_deltas_summary':
-          _relationshipService.shortTermDeltasSummary,
+      'short_term_deltas_summary': _relationshipService.shortTermDeltasSummary,
       // 1:1 only — captureCadenceAndFeelings is TURN PATH; group speakers
       // already ride group_realism_state (Opus b32789fd finding 3).
       if (_activeGroup == null)
@@ -296,6 +304,19 @@ extension ChatServiceImportSeed on ChatService {
       _restoreRealismStateFromMessage(synth);
     }
 
+    // 1:1 suitcase kit is captured from raw `_pockets` (HIDES≠erase).
+    // Phase-0 nulled it so the prior open chat cannot bleed; the gated
+    // realism_state restore then refuses put-back when this card authored
+    // Pockets off. Write the captured record anyway — restore, not invent.
+    if (_activeGroup == null && head['pockets'] is Map) {
+      final id = _activeCharacter != null
+          ? _getCharacterIdFromCard(_activeCharacter!)
+          : '';
+      if (id.isNotEmpty) {
+        setPocketsFor(id, Pockets.fromJson(head['pockets']));
+      }
+    }
+
     if (head['chaos_mode_enabled'] is bool) {
       _chaosModeService.seedFromGroupOrExt(
         head['chaos_mode_enabled'] as bool,
@@ -316,5 +337,88 @@ extension ChatServiceImportSeed on ChatService {
             ),
       };
     }
+  }
+
+  /// Thin `fpai.cast`: group roster (lite marked) or live 1:1 scene guests.
+  /// Ids + name + tier only — no card blobs. 1:1 guests never rode
+  /// `group_realism_state` in the package (that key is group-only).
+  List<Map<String, dynamic>> _captureCastForPackage() {
+    if (_activeGroup != null) {
+      return [
+        for (final c in _groupCharacters)
+          encodeFpchatCastMember(
+            id: _getCharacterIdFromCard(c),
+            name: c.name,
+            lite: c.isLite,
+          ),
+      ];
+    }
+    return [
+      for (final g in _sceneGuest.cards)
+        encodeFpchatCastMember(
+          id: _getCharacterIdFromCard(g),
+          name: g.name,
+          lite: true,
+        ),
+    ];
+  }
+
+  /// Restore [fpai.cast] after Phase 0 seed wiped guests. Missing/empty
+  /// is a no-op (legacy packages). Unknown ids are skipped — no invented
+  /// cards. Dialogue-only imports never call this.
+  Future<void> _applyCastFromPackage(dynamic raw) async {
+    final cast = parseFpchatCast(raw);
+    if (cast.isEmpty) return;
+    if (_activeGroup != null) {
+      var changed = false;
+      for (final entry in cast) {
+        if (!entry.lite) continue;
+        final live = matchFpchatCastMember(_groupCharacters, entry);
+        if (live == null || live.isLite) continue;
+        final stamped = cloneFrontPorchTier(
+          live.frontPorchExtensions,
+          lite: true,
+        );
+        live.frontPorchExtensions = stamped;
+        if (live.dbId != null) {
+          await _db.updateGroupMember(
+            GroupMembersCompanion(
+              id: drift.Value(live.dbId!),
+              frontPorchExtensions: drift.Value(
+                encodeMemberFrontPorch(stamped),
+              ),
+            ),
+          );
+        }
+        changed = true;
+      }
+      if (changed) await _reloadGroupRoster();
+      return;
+    }
+    final hostId = _activeCharacter != null
+        ? _getCharacterIdFromCard(_activeCharacter!)
+        : '';
+    final library = _characterRepository?.characters ?? const <CharacterCard>[];
+    for (final entry in cast) {
+      if (!entry.lite) continue;
+      final lib = matchFpchatCastMember(library, entry);
+      if (lib == null || lib.dbId == null) continue;
+      if (_getCharacterIdFromCard(lib) == hostId) continue;
+      if (_sceneGuest.ids.contains(lib.dbId)) continue;
+      await _enterSceneGuest(lib, speak: false);
+    }
+  }
+
+  /// Register a 1:1 Scene Guest without an entrance turn (import + tests).
+  @visibleForTesting
+  Future<void> debugEnterSceneGuestSilent(CharacterCard guest) =>
+      _enterSceneGuest(guest, speak: false);
+
+  /// Seed a transcript so [exportToFpchat] has something to pack.
+  @visibleForTesting
+  void debugSeedTranscriptForFpchat(List<ChatMessage> msgs) {
+    _messages
+      ..clear()
+      ..addAll(msgs);
   }
 }

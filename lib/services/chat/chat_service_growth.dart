@@ -135,13 +135,40 @@ extension ChatServiceGrowth on ChatService {
     await _growthService.runGrowthPass(force: true);
   }
 
+  /// One door for Journal + Growth immediacy. [onlyIf] is the pending
+  /// realism stamp: bond/trust/repair/chance must be salient or this is a
+  /// no-op. Omit [onlyIf] when the caller already knows (quest, promise).
+  /// The gate lives here so a hot scene cannot stack a second double-pass.
+  void _requestSalienceKick({Map<String, dynamic>? onlyIf}) {
+    if (onlyIf != null && !JournalPhysics.metadataIsSalient(onlyIf)) return;
+    if (!_growthService.salienceKickGate.allow(
+      sessionId: _currentSessionId,
+      messageCount: _messages.length,
+    )) {
+      debugPrint(
+        '[Journal] salient kick suppressed — within '
+        '$kSalienceKickMinGapMessages messages of the last one',
+      );
+      return;
+    }
+    _journalMaintenance.eventKickPending = true;
+    _growthService.eventKickPending = true;
+  }
+
+  /// Pending-metadata writes that can become salient (relationship eval,
+  /// trust repair, Chance Time) must go through here — a bare assignment
+  /// is how Growth sat at kickPending=false after a bond_delta 13 stamp.
+  void _writePendingRealismMetadata(Map<String, dynamic>? value) {
+    _pendingRealismMetadata = value;
+    _requestSalienceKick(onlyIf: value ?? const {});
+  }
+
   /// Check whether a growth pass is due and trigger it non-blockingly.
   /// Cadence (design §4.2): user messages since the growth cursor vs the
-  /// growthInterval slider, PLUS an immediate pass when the window holds a
-  /// significant engine-stamped event (same deterministic sources as the
-  /// Journal: big bond/trust swing, trust repair, Chance Time) or a quest
-  /// completed (eventKickPending). Deliberately not gated on Director Mode —
-  /// characters keep growing while the user directs (the old evolution rule).
+  /// growthInterval slider, PLUS a gated kick (onSalienceKick / quest
+  /// complete). Bond/trust swings on the window are NOT re-read here —
+  /// that used to bypass the kick cooldown and starve new rings.
+  /// Not gated on Director Mode — characters keep growing while you direct.
   void _maybeRunGrowthPass() {
     if (!_storageService.memorySettings.characterEvolutionEnabled) return;
     if (_isGrowthPassRunning) return;
@@ -164,14 +191,11 @@ extension ChatServiceGrowth on ChatService {
       for (var i = windowStart; i < _messages.length; i++) {
         if (_messages[i].isUser) userMessagesSincePass++;
       }
-      if (userMessagesSincePass == 0) return;
-      final due =
-          userMessagesSincePass >=
-          _storageService.memorySettings.growthInterval;
-      final eventKick =
-          _growthService.eventKickPending ||
-          JournalPhysics.hasSalientEvent(_messages.sublist(windowStart));
-      if (due || eventKick) {
+      if (growthPassIsDue(
+        userMessagesSincePass: userMessagesSincePass,
+        interval: _storageService.memorySettings.growthInterval,
+        kickPending: _growthService.eventKickPending,
+      )) {
         _growthService.runGrowthPass();
       }
     }());

@@ -15,6 +15,23 @@ export function remotePreviewNeedsStepUp(
   return !!apiKey.trim();
 }
 
+/** True when Settings save would persist a new mouth or worker URL/key. */
+export function settingsPersistNeedsStepUp(opts: {
+  remoteApiUrl: string;
+  savedRemoteApiUrl: string;
+  apiKey: string;
+  workerRemoteApiUrl: string;
+  savedWorkerRemoteApiUrl: string;
+  workerApiKey: string;
+}): boolean {
+  return (
+    opts.remoteApiUrl !== opts.savedRemoteApiUrl ||
+    !!opts.apiKey.trim() ||
+    opts.workerRemoteApiUrl !== opts.savedWorkerRemoteApiUrl ||
+    !!opts.workerApiKey.trim()
+  );
+}
+
 export function attachStepUp(
   body: Record<string, unknown>,
   password: string,

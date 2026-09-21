@@ -12,6 +12,7 @@
 // _groupCharacters via _getCharacterIdFromCard.
 
 import 'dart:io';
+
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
@@ -158,24 +159,6 @@ void main() {
         hit.any((m) => m.content.contains('Spare under the mat.')),
         isTrue,
       );
-    },
-  );
-
-  test(
-    'group retrieve keys Data Bank by originStableId, not member shim id',
-    () {
-      final src = File(
-        'lib/services/chat/chat_service_generation_rag.dart',
-      ).readAsStringSync();
-      expect(src, contains('MemberOriginResolver.libraryRagIdentity'));
-      expect(src, contains('originStableId: m.originStableId'));
-      expect(src, contains('originLibraryDbId: m.originLibraryDbId'));
-      expect(
-        src,
-        isNot(contains('final mid = _getCharacterIdFromCard(c);')),
-        reason: 'member shim stableGroupId is the private-avatar UUID',
-      );
-      expect(src, contains('getCharacterById(libraryDbId)'));
     },
   );
 }

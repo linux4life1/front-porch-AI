@@ -8,10 +8,10 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-/// Additive hub check: `gold` (owner) / `blue` (trusted uploader).
+/// Additive hub check: `gold` (owner) / `blue` (trusted) / `silver` (developer).
 /// Missing, empty, or any other value is no badge — older servers omit it.
 String? stoopVerificationOf(Object? raw) {
-  if (raw == 'gold' || raw == 'blue') return raw as String;
+  if (raw == 'gold' || raw == 'blue' || raw == 'silver') return raw as String;
   return null;
 }
 
@@ -24,7 +24,7 @@ class BackporchUser {
   final String email;
   final String displayName;
 
-  /// Hub verification badge: `gold`, `blue`, or null (none / older server).
+  /// Hub verification badge: `gold`, `blue`, `silver`, or null (none / older server).
   final String? verification;
 
   /// One of `USER`, `MOD`, `OWNER`. Regular repo users are always `USER`.

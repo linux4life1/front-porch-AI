@@ -56,6 +56,9 @@ extension ChatServiceHistory on ChatService {
   /// and generated-image shares keep their brackets.
   String _formatHistoryLine(ChatMessage m) => m.toPromptHistoryLine();
 
+  Iterable<String> _promptHistoryLines(Iterable<String> lines) =>
+      lines.where((l) => l.isNotEmpty);
+
   /// Tiny-context floor: keep the latest user line and everything after it.
   /// A guest chime-in used to keep only `_messages.last` (the host reaction)
   /// and the question the guest was meant to answer vanished.
@@ -63,7 +66,9 @@ extension ChatServiceHistory on ChatService {
     if (_messages.isEmpty) return (history: '', droppedCount: 0);
     final start = overflowHistoryStart(_messages);
     return (
-      history: _messages.sublist(start).map(_formatHistoryLine).join('\n'),
+      history: _promptHistoryLines(
+        _messages.sublist(start).map(_formatHistoryLine),
+      ).join('\n'),
       droppedCount: start,
     );
   }
@@ -73,7 +78,10 @@ extension ChatServiceHistory on ChatService {
     if (lines.any((l) => _macroPattern.hasMatch(l))) {
       debugPrint('[MacroResolver] ⚠ Unresolved macro detected in chat history');
     }
-    return spliceDepthLore(lines, depthLore).join("\n");
+    return spliceDepthLore(
+      _promptHistoryLines(lines).toList(),
+      depthLore,
+    ).join('\n');
   }
 
   /// Build chat history that fits within a token budget.
@@ -110,6 +118,9 @@ extension ChatServiceHistory on ChatService {
       final msgText = formatted[i];
       final msgTokens = await _countTokens(msgText);
       counted[i] = msgTokens;
+      if (msgText.isEmpty) {
+        continue;
+      }
       if (usedTokens + msgTokens > tokenBudget && included.isNotEmpty) {
         // This message would exceed budget — drop it and all older messages
         droppedCount = i + 1;
@@ -192,7 +203,7 @@ extension ChatServiceHistory on ChatService {
     String history = spliced.join('\n');
     if (droppedCount > 0) {
       history =
-          '[Earlier messages truncated — see summary above for context]\n$history';
+          '[Earlier messages truncated — see the recap below for context]\n$history';
     }
 
     return (

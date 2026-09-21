@@ -37,6 +37,12 @@ extension _BubbleRealism on _MessageBubbleState {
     final timeSkipTo = metadata['time_skip_to'] as String? ?? '';
     final chanceTimeEvent = metadata['chance_time_event'] as String? ?? '';
     final timeReversal = metadata['time_reversal'] as bool? ?? false;
+    final searchReceipt = metadata['search_receipt'] as Map<String, dynamic>?;
+    final searchQuery = (searchReceipt?['query'] as String?)?.trim() ?? '';
+    final searchOk = searchReceipt?['ok'] == true;
+    final toolReceipt = metadata['tool_receipt'] as Map<String, dynamic>?;
+    final toolName = (toolReceipt?['tool'] as String?)?.trim() ?? '';
+    final toolOk = toolReceipt?['ok'] == true;
     final needsDeltas = metadata['needs_deltas'] as Map<String, dynamic>?;
 
     // Pockets & Wardrobe receipts, read BEFORE the early return below: Pockets
@@ -69,7 +75,9 @@ extension _BubbleRealism on _MessageBubbleState {
         chanceTimeEvent.isEmpty &&
         !timeReversal &&
         verifStatus.isEmpty &&
-        pocketReceipts.isEmpty) {
+        pocketReceipts.isEmpty &&
+        searchQuery.isEmpty &&
+        toolName.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -322,162 +330,21 @@ extension _BubbleRealism on _MessageBubbleState {
       chips.add(maybeTooltip(chip, trustReason));
     }
 
-    // Time reversal chip
-    if (timeReversal) {
-      chips.add(
-        Tooltip(
-          message: 'Time is going backwards?!',
-          preferBelow: false,
-          textStyle: const TextStyle(fontSize: 12, color: Colors.white),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1F2937),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '😵‍💫',
-                style: TextStyle(fontSize: 11),
-              ), // Dizzy face with spirals
-              const SizedBox(width: 4),
-              const Text(
-                'Time Reversal',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.cyanAccent,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (timeSkipTo.isNotEmpty) {
-      chips.add(
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.fast_forward,
-              size: 11,
-              color: AppColors.porchAmberOf(context),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Time skip: $timeSkipTo',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppColors.porchAmberOf(context),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (chanceTimeEvent.isNotEmpty) {
-      chips.add(
-        Tooltip(
-          message: chanceTimeEvent,
-          preferBelow: false,
-          textStyle: const TextStyle(fontSize: 12, color: Colors.white),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1F2937),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('🎰', style: TextStyle(fontSize: 11)),
-              const SizedBox(width: 4),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 160),
-                child: Text(
-                  'Chance Time: ${chanceTimeEvent.length > 30 ? chanceTimeEvent.substring(0, 30) + '…' : chanceTimeEvent}',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFFFD166),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Verifier (Director) status chip — only when present (feature was on for this speaker/turn).
-    // Reuses the chip row style + maybeTooltip. Data from ChatMessage metadata set by god/leaf after verify.
-    // Status + passes; reason in tooltip if provided. Uses AppColors for new/refactored parts.
-    if (verifStatus.isNotEmpty) {
-      final isAccepted = verifStatus == 'accepted';
-      final label = isAccepted
-          ? '✓ Director accepted'
-          : '🕵️ Director corrected ($verifPasses reprocess${verifPasses == 1 ? '' : 'es'})';
-      final icon = isAccepted ? Icons.verified : Icons.fact_check;
-      final chipColor = isAccepted
-          ? AppColors.resolve(context, Colors.greenAccent, Colors.green)
-          : AppColors.resolve(context, Colors.orangeAccent, Colors.deepOrange);
-      final chip = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: chipColor),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: chipColor,
-            ),
-          ),
-        ],
-      );
-      chips.add(
-        maybeTooltip(
-          chip,
-          verifReason.isNotEmpty ? verifReason : 'Realism Verification result',
-        ),
-      );
-    }
-    // Pockets & Wardrobe receipts. Written by the post-generation pass as
-    // plain phrases ("picked up: car keys"), so nothing here parses or
-    // re-derives anything — the applier already decided what changed, and this
-    // shows exactly that. Absent on every turn nothing moved, which is most.
-    for (final text in pocketReceipts) {
-      chips.add(
-        maybeTooltip(
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.checkroom_outlined,
-                size: 11,
-                color: AppColors.porchAmberOf(context),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                text,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.porchAmberOf(context),
-                ),
-              ),
-            ],
-          ),
-          'Pockets & Wardrobe',
-        ),
-      );
-    }
+    _appendEventAndReceiptChips(
+      chips: chips,
+      maybeTooltip: maybeTooltip,
+      timeReversal: timeReversal,
+      timeSkipTo: timeSkipTo,
+      searchQuery: searchQuery,
+      searchOk: searchOk,
+      toolName: toolName,
+      toolOk: toolOk,
+      chanceTimeEvent: chanceTimeEvent,
+      verifStatus: verifStatus,
+      verifPasses: verifPasses,
+      verifReason: verifReason,
+      pocketReceipts: pocketReceipts,
+    );
 
     return _realismChipLayout(chips, needsChipList);
   }

@@ -90,6 +90,23 @@ class NsfwService {
   int get cooldownTurnsTotal => _cooldownTurnsTotal;
   int get arousalLevel => _arousalLevel;
 
+  /// First Afterglow generation after climax — the only turn that may
+  /// force limp / tired / exhausted body language. Later Afterglow turns
+  /// keep the sexual "not yet" and closeness, but energy and comfort
+  /// come from Needs.
+  ///
+  /// Decrement ticks at send start (1:1 in the send handoff, group after
+  /// that speaker's scalars load), so the first afterglow prompt usually
+  /// sees remaining == total - 1. Remaining == total covers Continue of
+  /// the climax reply (no tick) and any read before the tick.
+  bool get isOpeningAfterglowTurn {
+    if (_cooldownTurnsRemaining <= 0) return false;
+    final total = _cooldownTurnsTotal > 0
+        ? _cooldownTurnsTotal
+        : _cooldownTurnsRemaining;
+    return _cooldownTurnsRemaining >= total - 1;
+  }
+
   /// Calculate arousal tier from level score (-100 to +100)
   int get arousalTier => arousalTierForLevel(_arousalLevel);
 

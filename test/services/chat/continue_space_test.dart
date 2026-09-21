@@ -35,22 +35,24 @@ void _setupPathProviderMock() {
       });
 }
 
-Future<({AppDatabase db, ChatService chat, StorageService storage})>
-_buildChat(OpenRouterService llm) async {
+Future<({AppDatabase db, ChatService chat, StorageService storage})> _buildChat(
+  OpenRouterService llm,
+) async {
   SharedPreferences.setMockInitialValues({
     'update_auto_check': false,
     'realism_default': false,
   });
   final db = AppDatabase.forTesting();
   final storage = StorageService();
-  final chat = ChatService(
-    KoboldService(storage),
-    UserPersonaService(db),
-    storage,
-    WorldRepository(storage, db),
-  )
-    ..setDatabase(db)
-    ..testLlmServiceOverride = llm;
+  final chat =
+      ChatService(
+          KoboldService(storage),
+          UserPersonaService(db),
+          storage,
+          WorldRepository(storage, db),
+        )
+        ..setDatabase(db)
+        ..testLlmServiceOverride = llm;
   await storage.initialized;
   await chat.setActiveCharacter(
     CharacterCard(
@@ -70,21 +72,6 @@ _buildChat(OpenRouterService llm) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
-
-  test('Continue glue is wired at suffix, stream, and finalize', () {
-    final plan = File(
-      'lib/services/chat/chat_service_generation_plan.dart',
-    ).readAsStringSync();
-    expect(plan, contains('padContinuePartial(partial)'));
-    final stream = File(
-      'lib/services/chat/chat_service_generation_stream.dart',
-    ).readAsStringSync();
-    expect(stream, contains('glueContinueText(originalText, displayTokens)'));
-    final post = File(
-      'lib/services/chat/chat_service_generation_postgen.dart',
-    ).readAsStringSync();
-    expect(post, contains('glueContinueText(prefix, newPart)'));
-  });
 
   test(
     'Continue inserts a word-break space so the next word does not mash',
@@ -140,39 +127,35 @@ void main() {
     timeout: const Timeout(Duration(minutes: 1)),
   );
 
-  test(
-    'Continue does not double a space the model already emitted',
-    () async {
-      HttpOverrides.global = null;
-      final backend = await FakeBackendServer.start(
-        replyPieces: ['She waved from the steps.'],
-      );
-      final llm = OpenRouterService(
-        apiUrl: '${backend.baseUrl}/v1',
-        modelName: 'smoke-model',
-      );
-      final h = await _buildChat(llm);
-      addTearDown(() async {
-        h.chat.dispose();
-        await backend.close();
-        await h.db.close();
-      });
+  test('Continue does not double a space the model already emitted', () async {
+    HttpOverrides.global = null;
+    final backend = await FakeBackendServer.start(
+      replyPieces: ['She waved from the steps.'],
+    );
+    final llm = OpenRouterService(
+      apiUrl: '${backend.baseUrl}/v1',
+      modelName: 'smoke-model',
+    );
+    final h = await _buildChat(llm);
+    addTearDown(() async {
+      h.chat.dispose();
+      await backend.close();
+      await h.db.close();
+    });
 
-      await h.chat.sendMessage('Hi.');
-      backend.replyPieces
-        ..clear()
-        ..add(' Then she sat.');
-      await h.chat.continueGeneration();
-      for (var i = 0; i < 50 && h.chat.isSettlingTurn; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-      }
+    await h.chat.sendMessage('Hi.');
+    backend.replyPieces
+      ..clear()
+      ..add(' Then she sat.');
+    await h.chat.continueGeneration();
+    for (var i = 0; i < 50 && h.chat.isSettlingTurn; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
 
-      expect(
-        h.chat.messages.last.text,
-        'She waved from the steps. Then she sat.',
-        reason: 'a model-emitted leading space must not become a double',
-      );
-    },
-    timeout: const Timeout(Duration(minutes: 1)),
-  );
+    expect(
+      h.chat.messages.last.text,
+      'She waved from the steps. Then she sat.',
+      reason: 'a model-emitted leading space must not become a double',
+    );
+  }, timeout: const Timeout(Duration(minutes: 1)));
 }

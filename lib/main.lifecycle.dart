@@ -118,6 +118,13 @@ extension _MainLifecycle on _MyAppState {
       debugPrint('AG_DEBUG: Error stopping Kobold on window close: $e');
     }
 
+    try {
+      final oc = Provider.of<OpenCodeManager>(context, listen: false);
+      if (oc.isRunning) await oc.stop();
+    } catch (e) {
+      debugPrint('AG_DEBUG: Error stopping OpenCode on window close: $e');
+    }
+
     // Run pending installer if user deferred the update
     if (UpdateService.isSupported) {
       final updateService = Provider.of<UpdateService>(context, listen: false);

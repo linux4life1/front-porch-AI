@@ -46,7 +46,7 @@ class StoopCreatorRef {
   final String id;
   final String displayName;
 
-  /// Hub verification badge: `gold`, `blue`, or null (none / older server).
+  /// Hub verification badge: `gold`, `blue`, `silver`, or null (none / older server).
   final String? verification;
   const StoopCreatorRef({
     required this.id,

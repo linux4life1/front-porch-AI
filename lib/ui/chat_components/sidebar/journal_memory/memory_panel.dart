@@ -64,7 +64,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
     // If Memory is on but the engine is idle (model missing / not loaded),
     // start setup so the RagEngineCard can show a real progress bar.
     final storage = Provider.of<StorageService>(context);
-    if (storage.ragEnabled) {
+    if (storage.memorySettings.ragEnabled) {
       Provider.of<EmbeddingService>(context, listen: false).ensureReady();
     }
   }
@@ -105,7 +105,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
   @override
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
-    final enabled = storage.ragEnabled;
+    final enabled = storage.memorySettings.ragEnabled;
     final accent = AppColors.journalAccentOf(context);
 
     return Column(
@@ -124,7 +124,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                 onChanged: (val) async {
                   if (!val) {
                     // Turning OFF — no consent needed
-                    storage.setRagEnabled(false);
+                    storage.memorySettings.setRagEnabled(false);
                     return;
                   }
                   // Turning ON — check if consent was given before
@@ -133,7 +133,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                       prefs.getBool('rag_setup_consented') ?? false;
                   if (consented) {
                     // Already consented — just enable
-                    storage.setRagEnabled(true);
+                    storage.memorySettings.setRagEnabled(true);
                     Provider.of<EmbeddingService>(
                       context,
                       listen: false,
@@ -149,7 +149,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   );
                   if (result == true) {
                     await prefs.setBool('rag_setup_consented', true);
-                    storage.setRagEnabled(true);
+                    storage.memorySettings.setRagEnabled(true);
                     if (context.mounted) {
                       Provider.of<EmbeddingService>(
                         context,
@@ -197,9 +197,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
               _link(
                 icon: Icons.tune,
                 label: 'Settings',
-                color: _showSettings
-                    ? accent
-                    : AppColors.textTertiary(context),
+                color: _showSettings ? accent : AppColors.textTertiary(context),
                 iconColor: _showSettings
                     ? accent
                     : AppColors.iconSecondary(context),
@@ -209,9 +207,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                 icon: Icons.people,
                 label:
                     'Sources${_selectedSources.isNotEmpty ? ' (${_selectedSources.length})' : ''}',
-                color: _showSources
-                    ? accent
-                    : AppColors.textTertiary(context),
+                color: _showSources ? accent : AppColors.textTertiary(context),
                 iconColor: _showSources
                     ? accent
                     : AppColors.iconSecondary(context),

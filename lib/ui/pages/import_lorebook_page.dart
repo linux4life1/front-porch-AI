@@ -85,7 +85,9 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
     if (result == null || result.files.isEmpty) return;
     final pickedName = result.files.single.name;
     try {
-      final raw = jsonDecode(utf8.decode(await result.files.single.readAsBytes()));
+      final raw = jsonDecode(
+        utf8.decode(await result.files.single.readAsBytes()),
+      );
       if (raw is! Map<String, dynamic>) {
         throw const FormatException('Not a JSON object');
       }
@@ -123,16 +125,9 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
     return true;
   }
 
-  List<LorebookEntry> _clonedEntries() =>
-      [for (final e in _book!.entries) e.clone()];
+  Lorebook _clonedBook() => cloneLorebook(_book!);
 
-  Lorebook _clonedBook() => Lorebook(
-        entries: _clonedEntries(),
-        scanDepth: _book!.scanDepth,
-        tokenBudget: _book!.tokenBudget,
-        recursiveScanning: _book!.recursiveScanning,
-        extensions: Map<String, dynamic>.from(_book!.extensions),
-      );
+  List<LorebookEntry> _clonedEntries() => _clonedBook().entries;
 
   Future<void> _runImport() async {
     if (_importing) return;
@@ -146,19 +141,18 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
     try {
       switch (_destination) {
         case LoreImportDestination.world:
-          var name = _worldNameCtrl.text.trim();
           final taken = worlds.worlds.map((w) => w.name).toSet();
-          var candidate = name;
-          var i = 2;
-          while (taken.contains(candidate)) {
-            candidate = '$name ($i)';
-            i++;
-          }
-          await worlds.saveWorld(World(
-            name: candidate,
-            description: _worldDescCtrl.text.trim(),
-            lorebook: _clonedBook(),
-          ));
+          final candidate = uniqueWorldName(
+            _worldNameCtrl.text.trim(),
+            taken.contains,
+          );
+          await worlds.saveWorld(
+            World(
+              name: candidate,
+              description: _worldDescCtrl.text.trim(),
+              lorebook: _clonedBook(),
+            ),
+          );
           where = 'the world "$candidate"';
         case LoreImportDestination.characters:
           var count = 0;
@@ -178,13 +172,10 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
           where = '$count character${count == 1 ? '' : 's'}';
         case LoreImportDestination.group:
           final g = chat.activeGroup!;
-          final existing = g.groupLorebook.isEmpty
-              ? Lorebook(entries: [])
-              : Lorebook.fromJson(
-                  jsonDecode(g.groupLorebook) as Map<String, dynamic>,
-                );
-          existing.entries.addAll(_clonedEntries());
-          g.groupLorebook = jsonEncode(existing.toJson());
+          g.groupLorebook = appendToGroupLorebookJson(
+            g.groupLorebook,
+            _clonedEntries(),
+          );
           await groups.save(g);
           where = 'the group "${g.name}"';
         case LoreImportDestination.chat:
@@ -195,8 +186,9 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _importing = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Import failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
       }
       return;
     }
@@ -205,9 +197,7 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'Imported ${_book!.entries.length} entries into $where.',
-        ),
+        content: Text('Imported ${_book!.entries.length} entries into $where.'),
       ),
     );
   }
@@ -249,8 +239,9 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
                       onSelect: (d) => setState(() => _destination = d),
                       worldNameCtrl: _worldNameCtrl,
                       worldDescCtrl: _worldDescCtrl,
-                      allCharacters:
-                          Provider.of<CharacterRepository>(context).characters,
+                      allCharacters: Provider.of<CharacterRepository>(
+                        context,
+                      ).characters,
                       selectedCharacterIds: _selectedCharacterIds,
                       onToggleCharacter: (id, sel) => setState(() {
                         sel

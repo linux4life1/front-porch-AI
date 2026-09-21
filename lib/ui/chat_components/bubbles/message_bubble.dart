@@ -28,7 +28,10 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import '../widgets/inline_chat_image.dart';
+import '../widgets/regen_critique_field.dart';
+import 'live_thought_body.dart';
 import 'live_thinking_timer.dart';
+import 'selectable_bubble_body.dart';
 import 'styled_chat_message.dart';
 import 'theme_border_resolver.dart';
 
@@ -37,6 +40,7 @@ part 'message_bubble.content.dart';
 part 'message_bubble.actions.dart';
 part 'message_bubble.dialogs.dart';
 part 'message_bubble.realism.dart';
+part 'message_bubble.realism_chips.dart';
 part 'message_bubble.realism_layout.dart';
 
 /// Message bubble widget (extracted from chat_page god file).
@@ -51,6 +55,21 @@ class MessageBubble extends StatefulWidget {
   final CharacterCard? character;
   final ChatService? chatService;
 
+  /// When set, drives live Thought expand (Waifu `generatingAt`) and the
+  /// live Thought timer. Chat leaves this null so [_thoughtOpen] stays
+  /// collapsed until the chevron is tapped — never
+  /// [ChatService.isGenerating] (that opens every historical Thought
+  /// while any turn is running).
+  final bool? isGenerating;
+
+  /// Thought-box stick-if-at-end. Chat passes the General setting
+  /// (default ON). Direct [MessageBubble] tests keep the off default.
+  final bool followStreamingReplies;
+
+  /// Waifu Coder session theme. Chat leaves this null and reads
+  /// [ChatService.sessionThemeOverrides] instead.
+  final ChatThemeOverrides? themeOverrides;
+
   const MessageBubble({
     super.key,
     required this.message,
@@ -61,6 +80,9 @@ class MessageBubble extends StatefulWidget {
     this.onRequestImagePermission,
     this.character,
     this.chatService,
+    this.isGenerating,
+    this.followStreamingReplies = false,
+    this.themeOverrides,
   });
 
   @override
@@ -69,6 +91,7 @@ class MessageBubble extends StatefulWidget {
 
 class _MessageBubbleState extends State<MessageBubble> {
   bool _thoughtExpanded = false;
+  bool _thoughtPinned = false;
 
   ChatMessage get message => widget.message;
   File? get characterImage => widget.characterImage;
@@ -82,20 +105,61 @@ class _MessageBubbleState extends State<MessageBubble> {
   /// `rebuildState` bridge, same pattern).
   void rebuildState(VoidCallback fn) => setState(fn);
 
+  /// Chat Thought stays collapsed until the chevron is tapped (the
+  /// pre-Waifu default). Waifu passes [isGenerating] so the live
+  /// tool-loop step can be watched. A tap pins the user's choice so
+  /// [isGenerating] cannot keep the body open (or shut).
+  bool get _thoughtOpen {
+    if (_thoughtPinned) return _thoughtExpanded;
+    if (widget.isGenerating == true && message.hasThinking) return true;
+    return _thoughtExpanded;
+  }
+
+  void _toggleThought() {
+    final next = !_thoughtOpen;
+    rebuildState(() {
+      _thoughtPinned = true;
+      _thoughtExpanded = next;
+    });
+  }
+
+  bool get hasStorage {
+    try {
+      Provider.of<StorageService>(context, listen: false);
+      return true;
+    } on ProviderNotFoundException {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDirectorNote = message.characterId == '__director__';
     final isChanceTimeNarration =
         message.activeMetadata?['is_chance_time_narration'] == true;
-    final storage = Provider.of<StorageService>(context);
-    final bubbleOpacity = storage.bubbleOpacity;
-    final theme = ThemeBorderResolver.resolve(
-      chatService: widget.chatService,
-      storage: storage,
-      character: character,
-      isUser: message.isUser,
-      isDirectorNote: isDirectorNote,
-    );
+    StorageService? storage;
+    try {
+      storage = Provider.of<StorageService>(context);
+    } on ProviderNotFoundException {
+      storage = null;
+    }
+    final bubbleOpacity = storage?.uiSettings.bubbleOpacity ?? 0.95;
+    final theme = storage == null
+        ? ThemeBorderResolver.fallback(
+            textColor: AppColors.textPrimary(context),
+            borderColor: AppColors.borderOf(context),
+            isUser: message.isUser,
+            isDirectorNote: isDirectorNote,
+          )
+        : ThemeBorderResolver.resolve(
+            chatService: widget.chatService,
+            storage: storage,
+            character: character,
+            isUser: message.isUser,
+            isDirectorNote: isDirectorNote,
+            themeOverrides: widget.themeOverrides,
+          );
+    final boundToChat = widget.chatService != null;
 
     // Centered narration banners: Chance Time and Dreams share ONE builder
     // (the chance-time banner was inlined here before dreams arrived; the
@@ -156,20 +220,24 @@ class _MessageBubbleState extends State<MessageBubble> {
                             ).withValues(alpha: 0.12 * bubbleOpacity),
                           )
                         : message.isUser
-                        ? storage
-                              .getUserBubbleColor(
-                                character,
-                                theme.preset,
-                                theme.overrides,
-                              )
-                              .withValues(alpha: bubbleOpacity)
-                        : storage
-                              .getAiBubbleColor(
-                                character,
-                                theme.preset,
-                                theme.overrides,
-                              )
-                              .withValues(alpha: bubbleOpacity),
+                        ? (storage?.uiSettings
+                                  .getUserBubbleColor(
+                                    character,
+                                    themePreset: theme.preset,
+                                    themeOverrides: theme.overrides,
+                                  )
+                                  .withValues(alpha: bubbleOpacity) ??
+                              AppColors.porchAmberOf(
+                                context,
+                              ).withValues(alpha: 0.2))
+                        : (storage?.uiSettings
+                                  .getAiBubbleColor(
+                                    character,
+                                    themePreset: theme.preset,
+                                    themeOverrides: theme.overrides,
+                                  )
+                                  .withValues(alpha: bubbleOpacity) ??
+                              AppColors.cardOf(context)),
                     borderRadius: theme.borderRadius,
                     border: isDirectorNote
                         ? Border.all(
@@ -188,14 +256,22 @@ class _MessageBubbleState extends State<MessageBubble> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _headerActionsRow(context, theme, storage, isDirectorNote),
+                      _headerActionsRow(
+                        context,
+                        theme,
+                        storage,
+                        isDirectorNote,
+                      ),
                       ..._thoughtAndBodyChildren(context, theme),
-                      if (index == 0 && !message.isUser) _greetingSwipeRow(),
-                      if (!message.isUser &&
+                      if (boundToChat && index == 0 && !message.isUser)
+                        _greetingSwipeRow(),
+                      if (boundToChat &&
+                          !message.isUser &&
                           message.sender != 'System' &&
                           message.activeMetadata?['is_generated_image'] != true)
                         _messageActionRow(),
-                      if (!message.isUser &&
+                      if (boundToChat &&
+                          !message.isUser &&
                           message.sender != 'System' &&
                           message.activeMetadata?['is_generated_image'] != true)
                         _suggestActionsColumn(theme),
@@ -224,24 +300,32 @@ class _MessageBubbleState extends State<MessageBubble> {
 
           if (message.isUser) const SizedBox(width: 12),
           if (message.isUser)
-            Consumer<UserPersonaService>(
-              builder: (context, service, _) {
-                final persona = service.personas
-                    .where((p) => p.name == message.sender)
-                    .firstOrNull;
-                if (persona?.avatarPath != null) {
-                  return CircleAvatar(
-                    backgroundImage: FileImage(File(persona!.avatarPath!)),
+            boundToChat
+                ? Consumer<UserPersonaService>(
+                    builder: (context, service, _) {
+                      final persona = service.personas
+                          .where((p) => p.name == message.sender)
+                          .firstOrNull;
+                      if (persona?.avatarPath != null) {
+                        return CircleAvatar(
+                          backgroundImage: FileImage(
+                            File(persona!.avatarPath!),
+                          ),
+                          radius: 16,
+                        );
+                      }
+                      return const CircleAvatar(
+                        backgroundColor: Colors.purple,
+                        radius: 16,
+                        child: Icon(Icons.person, color: Colors.white),
+                      );
+                    },
+                  )
+                : CircleAvatar(
                     radius: 16,
-                  );
-                }
-                return const CircleAvatar(
-                  backgroundColor: Colors.purple,
-                  radius: 16,
-                  child: Icon(Icons.person, color: Colors.white),
-                );
-              },
-            ),
+                    backgroundColor: AppColors.porchAmberOf(context),
+                    child: Icon(Icons.person, color: AppColors.onChaosAccent),
+                  ),
         ],
       ),
     );

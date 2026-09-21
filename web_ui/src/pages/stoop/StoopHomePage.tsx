@@ -9,6 +9,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StoopCardTile } from '../../components/stoop/StoopCardTile';
 import { stoop } from '../../stoop/stoopApi';
+import { useStoop } from '../../stoop/StoopContext';
 import type { StoopCard } from '../../stoop/stoopTypes';
 
 function Carousel({ title, cards }: { title: string; cards: StoopCard[] }) {
@@ -27,6 +28,8 @@ function Carousel({ title, cards }: { title: string; cards: StoopCard[] }) {
 
 export function StoopHomePage() {
   const navigate = useNavigate();
+  const { user } = useStoop();
+  const nsfwEnabled = user?.nsfwEnabled;
   const [q, setQ] = useState('');
   const [picks, setPicks] = useState<StoopCard[]>([]);
   const [following, setFollowing] = useState<StoopCard[]>([]);
@@ -36,6 +39,7 @@ export function StoopHomePage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     Promise.allSettled([
       stoop.browse({ pick: true, take: 12 }),
       stoop.browse({ following: true, sort: 'newest', take: 12 }),
@@ -53,7 +57,7 @@ export function StoopHomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [nsfwEnabled]);
 
   const search = (e: FormEvent) => {
     e.preventDefault();

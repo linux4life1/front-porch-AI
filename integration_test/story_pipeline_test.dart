@@ -112,33 +112,64 @@ void main() {
     await d.tapUntil([
       find.textContaining('Next: Concept'),
     ], find.widgetWithText(TextField, 'Story title...'));
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Story title...').first,
-      'The Porch Light',
+    // Windows CI: live-binding enterText can silently no-op (same class of
+    // flake ChatDriver.sendMessage already guards). Concept step's Next is
+    // gated on a non-empty concept — empty text → snackbar, no advance, then
+    // a 2m wait for Next: Format with Next: Style also gone from the
+    // describe string. Set controllers directly after enterText.
+    const titleText = 'The Porch Light';
+    const conceptText =
+        'A porch light that flickers messages to whoever tends it.';
+    final titleField = find.widgetWithText(TextField, 'Story title...');
+    await tester.ensureVisible(titleField.first);
+    await tester.enterText(titleField.first, titleText);
+    final titleCtrl = tester.widget<TextField>(titleField.first).controller;
+    titleCtrl?.value = TextEditingValue(
+      text: titleText,
+      selection: TextSelection.collapsed(offset: titleText.length),
     );
     // The concept box's hint is long multi-line prose — target the field by
     // its shape (the only 7-line TextField on the step) instead.
     final conceptField = find.byWidgetPredicate(
       (w) => w is TextField && w.maxLines == 7,
     );
-    await tester.enterText(
-      conceptField.first,
-      'A porch light that flickers messages to whoever tends it.',
+    await tester.ensureVisible(conceptField.first);
+    await tester.enterText(conceptField.first, conceptText);
+    final conceptCtrl = tester.widget<TextField>(conceptField.first).controller;
+    conceptCtrl?.value = TextEditingValue(
+      text: conceptText,
+      selection: TextSelection.collapsed(offset: conceptText.length),
     );
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+    // Drop IME focus so the Next button is hittable on Windows runners.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      conceptCtrl?.text.trim(),
+      conceptText,
+      reason: 'concept must stick before Concept→Style (Windows enterText '
+          'gate); empty concept makes _onNextPressed snackbar and never '
+          'reveal Next: Format',
+    );
+    await pumpUntilFound(
+      tester,
+      find.textContaining('Next: Style'),
+      timeout: const Duration(seconds: 15),
+    );
+
     // Concept → Style → Format → Cast → Review, defaults throughout (the
     // fake returns one act regardless of the requested count). Each advance
-    // is delivery-confirmed by the NEXT button's new label.
-    const steps = ['Next: Style', 'Next: Format', 'Next: Cast', 'Next: Review'];
+    // is delivery-confirmed by the NEXT button's new label. Prefer the
+    // stable key (Style body is tall; label-only finders race scroll/IME).
     const after = [
       'Next: Format',
       'Next: Cast',
       'Next: Review',
       'Generate Story Bible',
     ];
-    for (var i = 0; i < steps.length; i++) {
+    for (var i = 0; i < after.length; i++) {
       await d.tapUntil([
-        find.textContaining(steps[i]),
+        find.byKey(const ValueKey('story-setup-next')),
       ], find.textContaining(after[i]));
     }
 

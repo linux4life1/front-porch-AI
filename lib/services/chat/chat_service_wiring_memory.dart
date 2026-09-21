@@ -228,10 +228,7 @@ extension ChatServiceWiringMemory on ChatService {
         return raw == null ? null : _llmEvalEngine.stripThinkBlocks(raw);
       },
       getMaxCards: () => _storageService.memorySettings.journalMaxCards,
-      onWaypoint: () {
-        _journalMaintenance.eventKickPending = true;
-        _growthService.eventKickPending = true;
-      },
+      onWaypoint: () => _requestSalienceKick(),
       onCacheWarmed: () {
         if (!_disposed) notifyListeners();
       },
@@ -261,24 +258,7 @@ extension ChatServiceWiringMemory on ChatService {
       applyBondDelta: (d) {
         if (_realismEnabled) _relationshipService.applyScoreDelta(d);
       },
-      onSalienceKick: () {
-        // Rate-limited (salience_kick_gate.dart): a hot scene clears the
-        // salience bar turn after turn, and every clear used to fire a full
-        // Journal AND Growth pass immediately. A suppressed kick just waits
-        // for the ordinary scheduled cadence.
-        if (!_growthService.salienceKickGate.allow(
-          sessionId: _currentSessionId,
-          messageCount: _messages.length,
-        )) {
-          debugPrint(
-            '[Journal] salient kick suppressed — within '
-            '$kSalienceKickMinGapMessages messages of the last one',
-          );
-          return;
-        }
-        _journalMaintenance.eventKickPending = true;
-        _growthService.eventKickPending = true;
-      },
+      onSalienceKick: () => _requestSalienceKick(),
       onCacheWarmed: () {
         if (!_disposed) notifyListeners();
       },
@@ -297,8 +277,8 @@ extension ChatServiceWiringMemory on ChatService {
       // either driver; with both off it is false, i.e. exactly the old gate.
       isEnabled: () =>
           _clockRunning &&
-          _storageService.journalEnabled &&
-          _storageService.dreamsEnabled,
+          _storageService.memorySettings.journalEnabled &&
+          _storageService.realismSettings.dreamsEnabled,
     );
   }
 
@@ -337,6 +317,8 @@ extension ChatServiceWiringMemory on ChatService {
       },
       runCastScan: runCastDetectionNow,
       speakGuest: speakGuestNow,
+      getHostCharacter: () => _activeCharacter,
+      isTurnBusy: () => _isTurnBusy || _sceneGuest.busy,
       armExitUndo: armSceneGuestExitUndo,
       getGroupMembers: () =>
           _activeGroup != null ? _groupCharacters : const <CharacterCard>[],
@@ -349,14 +331,16 @@ extension ChatServiceWiringMemory on ChatService {
         return exitGroupMember(member, repo);
       },
       speakGroupMember: (member) async {
-        // /speak <name> in a full group: force that member to take their turn now
-        // (jump the rotation), mirroring the Lite-NPC /speak. Same setNextSpeaker
-        // + generate path the goodbye narration uses, minus the removal/directive.
-        if (_activeGroup == null || _isTurnBusy) return;
+        // /speak <name> in a full group: force that member to take their turn
+        // now (jump the rotation), including Away/at-work (forceSpeaker).
+        if (_activeGroup == null) return;
+        if (_isTurnBusy) {
+          _setGuestStatus('Busy — try again in a moment.', isError: true);
+          return;
+        }
         _groupManager?.setNextSpeaker(member);
-        // Same bucket brigade as Next Character: announce the last
-        // decided clock, then post-decide for whoever speaks next.
-        await _generateResponse(GenerationMode.normal);
+        await _generateResponse(GenerationMode.normal, forceSpeaker: member);
+        _groupManager?.clearForcedSpeaker();
       },
       isGroupTurnOrderRandom: () => isGroupTurnOrderRandom,
       setGroupTurnOrder: (random, customOrder) =>
@@ -451,9 +435,16 @@ extension ChatServiceWiringMemory on ChatService {
         label: 'cast',
       ),
       stripThinkBlocks: _stripThinkBlocks,
-      getHostName: () => _activeCharacter?.name ?? '',
+      getHostName: () =>
+          _activeCharacter?.name ??
+          nextCharacter?.name ??
+          _groupCharacters.firstOrNull?.name ??
+          '',
       getUserName: () => _userPersonaService.persona.name,
-      getSceneGuestNames: () => _sceneGuest.cards.map((g) => g.name).toList(),
+      getSceneGuestNames: () => [
+        ..._sceneGuest.cards.map((g) => g.name),
+        ..._groupCharacters.map((c) => c.name),
+      ],
       getOfferedOrIgnoredNames: () => _sceneGuest.offeredOrIgnoredNames,
     );
   }

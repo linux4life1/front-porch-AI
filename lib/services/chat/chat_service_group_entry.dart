@@ -40,6 +40,7 @@ extension ChatServiceGroupEntry on ChatService {
       // Reset AFK idle state when switching to a different group
       _cancelIdleTimer();
       _hasCompletedExchange = false;
+      _awayPulse.reset();
 
       // Reset author notes and summary when starting fresh chat/group (will be overridden if loading existing session)
       _authorNote = '';
@@ -109,7 +110,7 @@ extension ChatServiceGroupEntry on ChatService {
 
       // Auto-start local backend when entering a group chat.
       // Gated by autostartOnChatOpen — when off, the user must start manually.
-      if (_storageService.autostartOnChatOpen) {
+      if (_storageService.backendSettings.autostartOnChatOpen) {
         _llmProvider?.ensureManagedBackendIsRunning();
       }
 
@@ -196,6 +197,8 @@ extension ChatServiceGroupEntry on ChatService {
       // un-delivered manual "SPIN NOW" event, which injects as CANON with no
       // chaos-enabled gate — walked into the group.
       _chaosModeService.resetForFreshChat();
+      _webSearchService.resetForFreshChat();
+      _wikiSearchService.resetForFreshChat();
       _chaosModeService.seedFromGroupOrExt(
         // OR-override, matching the two 1:1 seed sites: the group asks, or the
         // Porch Life global default does. A user who switched Chaos on globally
@@ -205,7 +208,6 @@ extension ChatServiceGroupEntry on ChatService {
             _storageService.realismSettings.chaosModeDefault,
         group.chaosNsfwEnabled,
       );
-
       // v30: For newly created group sessions (no prior state), seed from the group's default realism data.
       // (The actual load of any prior session state happens in _loadLastSession below.)
       if (_messages.isEmpty && _activeGroup != null) {
@@ -288,8 +290,8 @@ extension ChatServiceGroupEntry on ChatService {
 
       // Same as the 1:1 twin in chat_service_chat_entry: message 0 needs every
       // member's authored wardrobe in place, and after the load so a restored
-      // session wins. Parity is not optional here — a group member dressed by her
-      // author must arrive dressed exactly as she would in a 1:1.
+      // session wins. Parity is not optional here — a group member dressed by their
+      // author must arrive dressed exactly as they would in a 1:1.
       seedPocketsFromCards();
 
       // Load the objectives for whoever is the initial next speaker (or first char)

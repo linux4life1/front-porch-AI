@@ -42,6 +42,8 @@ class _StoopCreatorPageState extends State<StoopCreatorPage> {
   int _followers = 0;
   bool _followBusy = false;
   StreamSubscription<StoopCardStats>? _statsSub;
+  bool? _nsfwEnabled;
+  bool _sawNsfwPref = false;
 
   @override
   void initState() {
@@ -52,6 +54,17 @@ class _StoopCreatorPageState extends State<StoopCreatorPage> {
       if (cards != null && s.applyTo(cards) && mounted) setState(() {});
     });
     _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nsfw = context.watch<AuthState>().user?.nsfwEnabled;
+    if (_nsfwEnabled == nsfw) return;
+    final first = !_sawNsfwPref;
+    _sawNsfwPref = true;
+    _nsfwEnabled = nsfw;
+    if (!first) _load();
   }
 
   @override
@@ -107,9 +120,8 @@ class _StoopCreatorPageState extends State<StoopCreatorPage> {
           _following = !want;
           _followers += want ? -1 : 1;
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Follow failed: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Follow failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _followBusy = false);
@@ -171,7 +183,7 @@ class _StoopCreatorPageState extends State<StoopCreatorPage> {
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 230,
-                childAspectRatio: 0.64,
+                childAspectRatio: kStoopCardTileAspectRatio,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
               ),

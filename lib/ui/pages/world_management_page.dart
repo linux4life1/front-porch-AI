@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_page.dart';
 import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
 import 'package:front_porch_ai/utils/world_cover.dart';

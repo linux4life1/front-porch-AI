@@ -8,10 +8,13 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/optimization_service.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/character_creator/widgets/backend_chip.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/setup_backend_picker.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+
+part 'setup_step_fields.dart';
+part 'setup_step_status_dot.dart';
 
 /// Step 0: Backend & Model setup (lifted pure from _buildSetupStep).
 class SetupStep extends StatelessWidget {
@@ -24,7 +27,6 @@ class SetupStep extends StatelessWidget {
     final llmProvider = Provider.of<LLMProvider>(context, listen: false);
     final activeBackend = llmProvider.activeBackend;
     final isKobold = activeBackend == BackendType.kobold;
-    final isAppleSiliconMac = _isAppleSiliconMac();
 
     return Center(
       key: const ValueKey('setup'),
@@ -54,77 +56,7 @@ class SetupStep extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // Backend toggle (uses extracted BackendChip)
-              _inputLabel(context, 'Backend', required: false),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: BackendChip(
-                      label: 'KoboldCpp (Local)',
-                      icon: Icons.computer,
-                      isSelected: isKobold,
-                      onTap: () async {
-                        if (!isKobold) {
-                          await llmProvider.setActiveBackend(
-                            BackendType.kobold,
-                          );
-                          // Trigger scan (was never wired) + notify so Kobold model list appears
-                          // and the conditional picker UI switches. This was the root of the
-                          // "KoboldCpp model picker completely broken" bug.
-                          final storage = Provider.of<StorageService>(
-                            context,
-                            listen: false,
-                          );
-                          state.scanLocalModels(storage);
-                          // Presets are a launch option of the local backend,
-                          // so populate them here too for the optional picker.
-                          state.scanLocalPresets(storage);
-                          state.notify();
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: BackendChip(
-                      label: 'API (Remote)',
-                      icon: Icons.cloud,
-                      isSelected: activeBackend == BackendType.openRouter,
-                      onTap: () async {
-                        if (activeBackend != BackendType.openRouter) {
-                          await llmProvider.setActiveBackend(
-                            BackendType.openRouter,
-                          );
-                          state.loadAvailableModels(llmProvider);
-                        }
-                      },
-                    ),
-                  ),
-                  if (isAppleSiliconMac) ...[
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: BackendChip(
-                        label: 'oMLX',
-                        icon: Icons.apple,
-                        isSelected: activeBackend == BackendType.omlx,
-                        onTap: () async {
-                          if (activeBackend != BackendType.omlx) {
-                            // setActiveBackend(omlx) configures the live
-                            // service onto localhost:8000 synchronously — the
-                            // old re-configure + 100ms "settle" delay here
-                            // were redundant.
-                            await llmProvider.setActiveBackend(
-                              BackendType.omlx,
-                            );
-                            state.loadAvailableModels(llmProvider);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              SetupBackendPicker(state: state),
               const SizedBox(height: 24),
 
               // Model selection — both Kobold (local) and remote/oMLX now use the *exact same*
@@ -136,9 +68,15 @@ class SetupStep extends StatelessWidget {
                 // Identical styled picker field as remote/oMLX
                 InkWell(
                   onTap: () async {
-                    final storage = Provider.of<StorageService>(context, listen: false);
+                    final storage = Provider.of<StorageService>(
+                      context,
+                      listen: false,
+                    );
                     state.scanLocalModels(storage);
-                    final modelManager = Provider.of<ModelManager>(context, listen: false);
+                    final modelManager = Provider.of<ModelManager>(
+                      context,
+                      listen: false,
+                    );
                     await modelManager.refreshModels();
 
                     final models = modelManager.models.isNotEmpty
@@ -156,7 +94,7 @@ class SetupStep extends StatelessWidget {
                         getSubtitle: (f) => f.path,
                         onSelected: (f) {
                           state.selectedLocalModelPath = f.path;
-                          storage.setLastUsedModelPath(f.path);
+                          storage.backendSettings.setLastUsedModelPath(f.path);
                           state.notify();
                         },
                       );
@@ -172,9 +110,7 @@ class SetupStep extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.surfaceContainerOf(context),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppColors.borderOf(context),
-                      ),
+                      border: Border.all(color: AppColors.borderOf(context)),
                     ),
                     child: Row(
                       children: [
@@ -215,36 +151,38 @@ class SetupStep extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const SizedBox(height: 16),
-                Builder(builder: (ctx) {
-                  final k = Provider.of<KoboldService>(ctx);
-                  final isTransitioning =
-                      k.isStarting || (k.isRunning && !k.modelReady);
-                  final dotColor = k.modelReady
-                      ? Colors.green.shade300
-                      : isTransitioning
-                      ? Colors.orange.shade300
-                      : Colors.red.shade300;
-                  final label = k.modelReady
-                      ? 'Ready'
-                      : k.isStarting
-                      ? 'Starting...'
-                      : k.isRunning
-                      ? 'Loading model...'
-                      : 'Stopped';
-                  return Row(
-                    children: [
-                      _BackendStatusDot(
-                        color: dotColor,
-                        isBlinking: isTransitioning,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        label,
-                        style: TextStyle(color: dotColor, fontSize: 12),
-                      ),
-                    ],
-                  );
-                }),
+                Builder(
+                  builder: (ctx) {
+                    final k = Provider.of<KoboldService>(ctx);
+                    final isTransitioning =
+                        k.isStarting || (k.isRunning && !k.modelReady);
+                    final dotColor = k.modelReady
+                        ? Colors.green.shade300
+                        : isTransitioning
+                        ? Colors.orange.shade300
+                        : Colors.red.shade300;
+                    final label = k.modelReady
+                        ? 'Ready'
+                        : k.isStarting
+                        ? 'Starting...'
+                        : k.isRunning
+                        ? 'Loading model...'
+                        : 'Stopped';
+                    return Row(
+                      children: [
+                        _BackendStatusDot(
+                          color: dotColor,
+                          isBlinking: isTransitioning,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          label,
+                          style: TextStyle(color: dotColor, fontSize: 12),
+                        ),
+                      ],
+                    );
+                  },
+                ),
                 const SizedBox(height: 8),
                 StatefulBuilder(
                   builder: (context, setLocalState) {
@@ -290,8 +228,7 @@ class SetupStep extends StatelessWidget {
                                     turns: state.extraSettingsExpanded
                                         ? 0.5
                                         : 0,
-                                    duration:
-                                        const Duration(milliseconds: 200),
+                                    duration: const Duration(milliseconds: 200),
                                     child: const Icon(
                                       Icons.keyboard_arrow_down,
                                       color: Colors.white54,
@@ -304,8 +241,10 @@ class SetupStep extends StatelessWidget {
                           ),
                           AnimatedCrossFade(
                             firstChild: const SizedBox(height: 0),
-                            secondChild:
-                                _buildExtraSettingsBody(context, state),
+                            secondChild: _buildExtraSettingsBody(
+                              context,
+                              state,
+                            ),
                             crossFadeState: state.extraSettingsExpanded
                                 ? CrossFadeState.showSecond
                                 : CrossFadeState.showFirst,
@@ -318,64 +257,67 @@ class SetupStep extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 16),
-                Builder(builder: (ctx) {
-                  final k = Provider.of<KoboldService>(ctx);
-                  final isAnyRunning = k.isRunning || k.isStarting;
-                  final storage = Provider.of<StorageService>(
-                    ctx,
-                    listen: false,
-                  );
-                  // A .kcpps preset that owns its own model can launch the
-                  // backend even without a picker-selected .gguf.
-                  final presetOwnsModel =
-                      storage.kcppsHasModel && storage.kcppsModelFileExists;
-                  final canStart =
-                      state.selectedLocalModelPath.isNotEmpty ||
-                      presetOwnsModel;
-                  return SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: isAnyRunning
-                          ? () {
-                              if (k.isRunning || k.isStarting) {
-                                k.stopKobold();
+                Builder(
+                  builder: (ctx) {
+                    final k = Provider.of<KoboldService>(ctx);
+                    final isAnyRunning = k.isRunning || k.isStarting;
+                    final storage = Provider.of<StorageService>(
+                      ctx,
+                      listen: false,
+                    );
+                    // A .kcpps preset that owns its own model can launch the
+                    // backend even without a picker-selected .gguf.
+                    final presetOwnsModel =
+                        storage.backendSettings.kcppsHasModel &&
+                        storage.backendSettings.kcppsModelFileExists;
+                    final canStart =
+                        state.selectedLocalModelPath.isNotEmpty ||
+                        presetOwnsModel;
+                    return SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: isAnyRunning
+                            ? () {
+                                if (k.isRunning || k.isStarting) {
+                                  k.stopKobold();
+                                }
                               }
-                            }
-                          : !canStart
-                              ? null
-                              : () {
-                                  final llm = Provider.of<LLMProvider>(
-                                    ctx,
-                                    listen: false,
-                                  );
-                                  final backendManager =
-                                      Provider.of<BackendManager>(
-                                    ctx,
-                                    listen: false,
-                                  );
-                                  state.reloadKoboldWithModel(
-                                    state.selectedLocalModelPath,
-                                    llm,
-                                    storage,
-                                    backendManager,
-                                  );
-                                },
-                      icon: Icon(
-                        isAnyRunning ? Icons.stop : Icons.play_arrow,
+                            : !canStart
+                            ? null
+                            : () {
+                                final llm = Provider.of<LLMProvider>(
+                                  ctx,
+                                  listen: false,
+                                );
+                                final backendManager =
+                                    Provider.of<BackendManager>(
+                                      ctx,
+                                      listen: false,
+                                    );
+                                state.reloadKoboldWithModel(
+                                  state.selectedLocalModelPath,
+                                  llm,
+                                  storage,
+                                  backendManager,
+                                );
+                              },
+                        icon: Icon(
+                          isAnyRunning ? Icons.stop : Icons.play_arrow,
+                        ),
+                        label: Text(
+                          isAnyRunning ? 'Stop Backend' : 'Start Backend',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isAnyRunning
+                              ? Colors.redAccent
+                              : Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
                       ),
-                      label: Text(
-                        isAnyRunning ? 'Stop Backend' : 'Start Backend',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isAnyRunning
-                            ? Colors.redAccent
-                            : Colors.green.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                    ),
-                  );
-                }),
+                    );
+                  },
+                ),
               ] else ...[
                 // API (remote) and oMLX — searchable model picker.
                 _inputLabel(
@@ -401,8 +343,7 @@ class SetupStep extends StatelessWidget {
                       await state.loadAvailableModels(llm);
                     }
 
-                    if (context.mounted &&
-                        state.availableModels.isNotEmpty) {
+                    if (context.mounted && state.availableModels.isNotEmpty) {
                       showModelSearchDialog(
                         context,
                         storage,
@@ -414,8 +355,9 @@ class SetupStep extends StatelessWidget {
                             context,
                             listen: false,
                           );
-                          if (s.remoteModelName.isNotEmpty) {
-                            state.selectedModelId = s.remoteModelName;
+                          if (s.backendSettings.remoteModelName.isNotEmpty) {
+                            state.selectedModelId =
+                                s.backendSettings.remoteModelName;
                             state.notify();
                           }
                         }
@@ -432,9 +374,7 @@ class SetupStep extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.surfaceContainerOf(context),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppColors.borderOf(context),
-                      ),
+                      border: Border.all(color: AppColors.borderOf(context)),
                     ),
                     child: Row(
                       children: [
@@ -490,296 +430,15 @@ class SetupStep extends StatelessWidget {
     );
   }
 
-  Widget _inputLabel(
-    BuildContext context,
-    String text, {
-    bool required = false,
-  }) {
-    return Row(
-      children: [
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary(context),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        if (required)
-          Text(
-            ' *',
-            style: TextStyle(
-              color: AppColors.resolve(
-                context,
-                Colors.redAccent,
-                Colors.red.shade700,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// The machine's architecture never changes while the app is running, so the
-  /// `uname` probe below is resolved once per process and cached. It is read
-  /// from `build()`, which re-runs on every CreatorState notification — once a
-  /// second for up to two minutes while a model loads — and a synchronous
-  /// process spawn on that path blocks the frame every time.
-  static bool? _appleSiliconMac;
-
-  /// Check if running on Apple Silicon Mac (arm64 architecture).
-  bool _isAppleSiliconMac() {
-    final cached = _appleSiliconMac;
-    if (cached != null) return cached;
-    if (!Platform.isMacOS) return _appleSiliconMac = false;
-    // Try to detect arm64 architecture
-    bool arm64 = false;
-    try {
-      final result = Process.runSync('uname', ['-m']);
-      if (result.exitCode == 0) {
-        arm64 = result.stdout.toString().trim() == 'arm64';
-      }
-    } catch (_) {}
-    // Fallback: if uname fails, assume it's not Apple Silicon
-    return _appleSiliconMac = arm64;
-  }
-
-  Widget _buildExtraSettingsBody(BuildContext context, CreatorState state) {
-    final storage = Provider.of<StorageService>(context, listen: false);
-    final hardwareService =
-        Provider.of<HardwareService>(context, listen: false);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          KcppsSelector(
-            storage: storage,
-            localPresets: state.localPresets,
-            hint: 'Optional \u2014 select a .kcpps preset',
-            onChanged: (val) {
-              storage.setActiveKcppsPath(val);
-              if (val != null &&
-                  storage.kcppsHasModel &&
-                  storage.kcppsModelFileExists) {
-                state.selectedLocalModelPath = '';
-                state.notify();
-              }
-            },
-            onExternalClear: () => storage.setActiveKcppsPath(null),
-            onBrowsePicked: (_) {
-              if (storage.kcppsHasModel &&
-                  storage.kcppsModelFileExists) {
-                state.selectedLocalModelPath = '';
-                state.notify();
-              }
-            },
-            onModelStatusChanged: (_) => state.notify(),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerOf(context),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: hardwareService.isDetecting
-                ? const Center(
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : hardwareService.hardwareInfo == null
-                    ? const Text(
-                        'Hardware not detected.',
-                        style: TextStyle(color: Colors.redAccent),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildInfoRow(
-                            context,
-                            'GPU',
-                            hardwareService.hardwareInfo!.gpuName,
-                          ),
-                          const SizedBox(height: 4),
-                          _buildInfoRow(
-                            context,
-                            'VRAM',
-                            '${hardwareService.hardwareInfo!.vramMb} MB${hardwareService.hardwareInfo!.isSharedMemory ? ' (Shared)' : ''}',
-                          ),
-                        ],
-                      ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSettingsTextField(
-                  context,
-                  label: 'GPU Layers',
-                  controller: state.gpuLayersController,
-                  isNumber: true,
-                  onChanged: (v) {
-                    final val = int.tryParse(v);
-                    if (val != null) storage.setGpuLayers(val);
-                  },
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildSettingsTextField(
-                  context,
-                  label: 'Context Size',
-                  controller: state.contextSizeController,
-                  isNumber: true,
-                  onChanged: (v) {
-                    final val = int.tryParse(v);
-                    if (val != null) storage.setContextSize(val);
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Text(
-                'KV Quantization:',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary(context),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: storage.kvQuantizationLevel,
-                    isExpanded: true,
-                    dropdownColor:
-                        AppColors.surfaceContainerOf(context),
-                    style: TextStyle(
-                      color: AppColors.textPrimary(context),
-                      fontSize: 13,
-                    ),
-                    onChanged: (val) {
-                      if (val != null) {
-                        storage.setKvQuantizationLevel(val);
-                        state.notify();
-                      }
-                    },
-                    items: const [
-                      DropdownMenuItem(
-                        value: 0,
-                        child: Text('0 - None (FP16)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 1,
-                        child: Text('1 - 8-Bit Q8'),
-                      ),
-                      DropdownMenuItem(
-                        value: 2,
-                        child: Text('2 - 4-Bit Q4'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: () =>
-                    _applyAutoConfigure(context, state, storage),
-                icon: const Icon(
-                  Icons.auto_fix_high,
-                  color: Colors.amber,
-                ),
-                label: const Text(
-                  'Auto-Configure',
-                  style: TextStyle(color: Colors.amber),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(
-    BuildContext context,
-    String label,
-    String value,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontWeight: FontWeight.bold,
-              ),
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsTextField(
-    BuildContext context, {
-    required String label,
-    required TextEditingController controller,
-    required bool isNumber,
-    required ValueChanged<String> onChanged,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType:
-          isNumber ? TextInputType.number : TextInputType.text,
-      style: TextStyle(color: AppColors.textPrimary(context)),
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle:
-            TextStyle(color: AppColors.textSecondary(context)),
-        filled: true,
-        fillColor: AppColors.surfaceContainerOf(context),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
-        ),
-      ),
-    );
-  }
-
   void _applyAutoConfigure(
     BuildContext context,
     CreatorState state,
     StorageService storage,
   ) {
-    final hardware =
-        Provider.of<HardwareService>(context, listen: false).hardwareInfo;
+    final hardware = Provider.of<HardwareService>(
+      context,
+      listen: false,
+    ).hardwareInfo;
     if (hardware == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Hardware not detected yet.')),
@@ -791,24 +450,23 @@ class SetupStep extends StatelessWidget {
     if (state.selectedLocalModelPath.isNotEmpty) {
       try {
         final file = File(state.selectedLocalModelPath);
-        if (file.existsSync()) {
-          modelSize = (file.lengthSync() / (1024 * 1024)).round();
+        final exists = file.existsSync(); // io-ok: Auto-Configure tap
+        if (exists) {
+          final n = file.lengthSync(); // io-ok: Auto-Configure tap
+          modelSize = (n / (1024 * 1024)).round();
         }
       } catch (_) {}
     }
 
     final userContext = int.tryParse(state.contextSizeController.text);
-    final modelManager =
-        Provider.of<ModelManager>(context, listen: false);
+    final modelManager = Provider.of<ModelManager>(context, listen: false);
     int? kvBytesPerToken;
     if (state.selectedLocalModelPath.isNotEmpty) {
       kvBytesPerToken =
-          modelManager.getCachedModelArchitectureInfo(
-                    state.selectedLocalModelPath,
-                  )?.kvBytesPerToken ??
-              modelManager.getCachedKvBytesPerToken(
-                state.selectedLocalModelPath,
-              );
+          modelManager
+              .getCachedModelArchitectureInfo(state.selectedLocalModelPath)
+              ?.kvBytesPerToken ??
+          modelManager.getCachedKvBytesPerToken(state.selectedLocalModelPath);
     }
 
     final suggestion = OptimizationService.calculateSettings(
@@ -816,86 +474,13 @@ class SetupStep extends StatelessWidget {
       modelSizeMb: modelSize,
       requestedContextSize: userContext,
       kvBytesPerToken: kvBytesPerToken,
-      kvQuantizationLevel: storage.kvQuantizationLevel,
+      kvQuantizationLevel: storage.backendSettings.kvQuantizationLevel,
     );
 
     state.gpuLayersController.text = suggestion.gpuLayers.toString();
     state.contextSizeController.text = suggestion.contextSize.toString();
-    storage.setGpuLayers(suggestion.gpuLayers);
-    storage.setContextSize(suggestion.contextSize);
+    storage.backendSettings.setGpuLayers(suggestion.gpuLayers);
+    storage.backendSettings.setContextSize(suggestion.contextSize);
     state.notify();
-  }
-}
-
-/// An 8px pulsing status dot that blinks during transitional states.
-/// Uses the same animation pattern as LogView (800ms easeInOut opacity pulse).
-class _BackendStatusDot extends StatefulWidget {
-  final Color color;
-  final bool isBlinking;
-
-  const _BackendStatusDot({required this.color, required this.isBlinking});
-
-  @override
-  State<_BackendStatusDot> createState() => _BackendStatusDotState();
-}
-
-class _BackendStatusDotState extends State<_BackendStatusDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-    _updateBlinking();
-  }
-
-  @override
-  void didUpdateWidget(_BackendStatusDot oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isBlinking != widget.isBlinking) {
-      _updateBlinking();
-    }
-  }
-
-  void _updateBlinking() {
-    if (widget.isBlinking) {
-      if (!_controller.isAnimating) {
-        _controller.repeat(reverse: true);
-      }
-    } else {
-      _controller.stop();
-      _controller.value = 1.0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return Container(
-          width: 13,
-          height: 13,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: widget.color.withValues(alpha: _animation.value),
-          ),
-        );
-      },
-    );
   }
 }

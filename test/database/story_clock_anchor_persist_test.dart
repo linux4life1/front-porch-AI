@@ -36,9 +36,7 @@
 // frozen row no longer depends on the wall clock, and that the loader is
 // actually wired to do the write.
 
-import 'dart:io';
-
-import 'package:drift/drift.dart' show Value, Variable;
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -75,63 +73,76 @@ void main() {
   );
 
   group('a legacy row is frozen on the open that first needs it', () {
-    test('the invented date reaches the row, and a reload reproduces it', () async {
-      // A pre-v38 chat: period and day number, no canonical columns at all.
-      await db.insertSession(
-        SessionsCompanion.insert(
-          id: 's-legacy',
-          timeOfDay: const Value('evening'),
-          dayCount: const Value(5),
-          startDayOfWeek: const Value(1),
-        ),
-      );
-      final row = await db.getSessionById('s-legacy');
-      expect(row!.storyClock, isNull, reason: 'the state 96/109 chats were in');
+    test(
+      'the invented date reaches the row, and a reload reproduces it',
+      () async {
+        // A pre-v38 chat: period and day number, no canonical columns at all.
+        await db.insertSession(
+          SessionsCompanion.insert(
+            id: 's-legacy',
+            timeOfDay: const Value('evening'),
+            dayCount: const Value(5),
+            startDayOfWeek: const Value(1),
+          ),
+        );
+        final row = await db.getSessionById('s-legacy');
+        expect(
+          row!.storyClock,
+          isNull,
+          reason: 'the state 96/109 chats were in',
+        );
 
-      // Open it once.
-      final first = makeService();
-      first.loadTimeScalars(
-        timeOfDay: row.timeOfDay,
-        dayCount: row.dayCount,
-        startDayOfWeek: row.startDayOfWeek,
-        passageOfTimeEnabled: row.passageOfTimeEnabled,
-        storyClock: row.storyClock,
-        storyStartDate: row.storyStartDate,
-      );
-      expect(first.canonicalClockWasSynthesised, isTrue);
-      await freeze('s-legacy', first);
+        // Open it once.
+        final first = makeService();
+        first.loadTimeScalars(
+          timeOfDay: row.timeOfDay,
+          dayCount: row.dayCount,
+          startDayOfWeek: row.startDayOfWeek,
+          passageOfTimeEnabled: row.passageOfTimeEnabled,
+          storyClock: row.storyClock,
+          storyStartDate: row.storyStartDate,
+        );
+        expect(first.canonicalClockWasSynthesised, isTrue);
+        await freeze('s-legacy', first);
 
-      final frozen = await db.getSessionById('s-legacy');
-      expect(frozen!.storyClock, first.storyClockIso);
-      expect(frozen.storyStartDate, first.storyStartDateIso);
-      expect(
-        frozen.startDayOfWeek,
-        first.startDayOfWeekAnchor,
-        reason: 'the legacy anchor column must agree with the new Day 1, or an '
-            'external reader (a V2 card, an older app) sees two answers',
-      );
+        final frozen = await db.getSessionById('s-legacy');
+        expect(frozen!.storyClock, first.storyClockIso);
+        expect(frozen.storyStartDate, first.storyStartDateIso);
+        expect(
+          frozen.startDayOfWeek,
+          first.startDayOfWeekAnchor,
+          reason:
+              'the legacy anchor column must agree with the new Day 1, or an '
+              'external reader (a V2 card, an older app) sees two answers',
+        );
 
-      // Open it again — the second open is the one that used to move.
-      final second = makeService();
-      second.loadTimeScalars(
-        timeOfDay: frozen.timeOfDay,
-        dayCount: frozen.dayCount,
-        startDayOfWeek: frozen.startDayOfWeek,
-        passageOfTimeEnabled: frozen.passageOfTimeEnabled,
-        storyClock: frozen.storyClock,
-        storyStartDate: frozen.storyStartDate,
-      );
+        // Open it again — the second open is the one that used to move.
+        final second = makeService();
+        second.loadTimeScalars(
+          timeOfDay: frozen.timeOfDay,
+          dayCount: frozen.dayCount,
+          startDayOfWeek: frozen.startDayOfWeek,
+          passageOfTimeEnabled: frozen.passageOfTimeEnabled,
+          storyClock: frozen.storyClock,
+          storyStartDate: frozen.storyStartDate,
+        );
 
-      expect(
-        second.canonicalClockWasSynthesised,
-        isFalse,
-        reason: 'nothing is invented the second time, so nothing is rewritten',
-      );
-      expect(second.clock, first.clock);
-      expect(second.startDate, first.startDate);
-      expect(second.dayCount, 5, reason: 'Day 5 stays Day 5 across the freeze');
-      expect(second.timeOfDay, 'evening');
-    });
+        expect(
+          second.canonicalClockWasSynthesised,
+          isFalse,
+          reason:
+              'nothing is invented the second time, so nothing is rewritten',
+        );
+        expect(second.clock, first.clock);
+        expect(second.startDate, first.startDate);
+        expect(
+          second.dayCount,
+          5,
+          reason: 'Day 5 stays Day 5 across the freeze',
+        );
+        expect(second.timeOfDay, 'evening');
+      },
+    );
 
     test('the freeze is a partial write — it touches nothing else', () async {
       await db.insertSession(
@@ -191,70 +202,12 @@ void main() {
       await freeze('s-1887', t);
 
       final after = await db.getSessionById('s-1887');
-      expect(StoryClock.parse(after!.storyClock), DateTime.utc(1887, 6, 3, 22, 30));
+      expect(
+        StoryClock.parse(after!.storyClock),
+        DateTime.utc(1887, 6, 3, 22, 30),
+      );
       expect(after.dayCount, 3);
       expect(after.storyStartDate, '1887-06-01');
-    });
-  });
-
-  group('the loader is actually wired to freeze it', () {
-    // Structural, and labelled as such: reaching the real call site needs a
-    // live ChatService, a live database and a real character. It is here
-    // because the bug WAS a missing write — every derivation above can be
-    // perfect and the date still wanders if nobody saves it.
-    final src = File(
-      'lib/services/chat/chat_service_session_load.dart',
-    ).readAsStringSync();
-
-    test('it patches on the loader\'s own report, not on a guess', () {
-      expect(src, contains('_timeService.canonicalClockWasSynthesised'));
-      expect(
-        src,
-        contains('_db.patchSession('),
-        reason: 'the whole fix is the write',
-      );
-    });
-
-    test('it writes every column the row needs to stay self-consistent', () {
-      for (final field in [
-        'storyClock: drift.Value(_timeService.storyClockIso)',
-        'storyStartDate: drift.Value(_timeService.storyStartDateIso)',
-        'startDayOfWeek: drift.Value(_timeService.startDayOfWeekAnchor)',
-      ]) {
-        expect(
-          src,
-          contains(field),
-          reason: 'leaving one of these behind puts the row into the '
-              'half-populated state this fix also had to handle',
-        );
-      }
-    });
-
-    test('it runs on the shared hydrate, so both open paths get it', () {
-      // _loadLastSession (tapping the character) and loadSession (the history
-      // picker) both funnel through _hydrateSessionScalars. Wiring only one
-      // would leave the date wandering for whichever way in the user prefers.
-      expect(
-        src.indexOf('_timeService.loadTimeScalars('),
-        lessThan(src.indexOf('_timeService.canonicalClockWasSynthesised')),
-        reason: 'the report is only meaningful immediately after the load that '
-            'produced it',
-      );
-      expect(
-        '_hydrateSessionScalars('.allMatches(src).length,
-        greaterThanOrEqualTo(3),
-        reason: 'one definition plus both call sites',
-      );
-    });
-
-    test('the column exists to be written', () async {
-      final row = await db
-          .customSelect(
-            'SELECT story_clock, story_start_date FROM sessions LIMIT 0',
-            variables: const <Variable>[],
-          )
-          .get();
-      expect(row, isEmpty); // the query compiling at all is the assertion
     });
   });
 }

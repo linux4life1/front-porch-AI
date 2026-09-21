@@ -41,6 +41,7 @@ class ToolSupportTester {
     required this.isBackendReady,
     required this.isBusy,
     required this.onNotify,
+    this.workerLaneReadyForPing,
     this.fetchMetadataToolVerdict,
   });
 
@@ -52,6 +53,10 @@ class ToolSupportTester {
   /// True while a chat generation is streaming — probing then would contend
   /// for the local engine's single generation slot.
   final bool Function() isBusy;
+
+  /// Dual-GGUF: auto-ping must not `withWorkerLane` until the worker is
+  /// resident and generation-ready. Null = always allowed (no swap).
+  final bool Function()? workerLaneReadyForPing;
   final VoidCallback onNotify;
 
   /// Provider-metadata answer for "does the current REMOTE model support tool
@@ -103,6 +108,11 @@ class ToolSupportTester {
   /// [force] forgets any existing verdict first (the pill's tap-to-retest).
   Future<void> test({bool force = false}) async {
     if (_testing || isBusy() || !isBackendReady()) return;
+    if (!force &&
+        workerLaneReadyForPing != null &&
+        !workerLaneReadyForPing!()) {
+      return;
+    }
     final identity = getBackendIdentity();
     if (_inFlightIdentity == identity) return;
     if (force) probe.reset(identity);
@@ -168,6 +178,7 @@ class ToolSupportTester {
     if (identity == _lastAutoTestedIdentity) return;
     if (_inFlightIdentity == identity) return;
     if (!isBackendReady() || isBusy()) return;
+    if (workerLaneReadyForPing != null && !workerLaneReadyForPing!()) return;
     if (probe.supportFor(identity) != ToolCallSupport.untested) {
       _lastAutoTestedIdentity = identity;
       return;

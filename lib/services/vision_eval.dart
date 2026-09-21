@@ -54,6 +54,7 @@ Future<String?> fireVisionEval({
     // 0 emits {enabled: false, max_tokens: 0, exclude: true} — same posture
     // as LlmEvalEngine.fireLLMEval.
     reasoningMaxTokens: 0,
+    mandatoryReasoningHeadroom: true,
     stopSequences: const [],
     images: imagesB64,
   );

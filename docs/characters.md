@@ -31,7 +31,7 @@ Front Porch AI reads and writes the **V2 card format** — the same standard use
 
 Front Porch's own extras (the Realism Engine starting state, chat colors, and so on) ride along inside the card's standard *extensions* area — I call that block "V2.5", but the file itself is still a plain V2 card that any other app can open.
 
-> **Rescuing Backyard AI characters:** Front Porch AI also imports Backyard AI's `.byaf` archive format, so characters stranded there can move in. They're converted to standard V2 cards on the way, and the import screen offers to bring their **chat history** and their **Backyard sampler settings** across too, so the imported chat picks up where it left off and sounds the way it used to.
+> **Rescuing Backyard AI characters:** Front Porch AI also imports Backyard AI's `.byaf` archive format, so characters stranded there can move in. They're converted to standard V2 cards on the way. Every picture in the archive lands in the **Avatar Gallery** (first image is the portrait; the rest are looks). The import screen offers to bring their **chat history** and their **Backyard sampler settings** across too, so the imported chat picks up where it left off and sounds the way it used to. The same `.byaf` import works in the phone/browser library, not only on desktop.
 
 ---
 
@@ -56,6 +56,8 @@ Two things the importer does quietly on your behalf:
 - **A different card with a name you already use** — you get a choice: **Skip**, **Keep both** (rename), or **Replace**. No silent overwrites.
 
 An empty library also offers **Create New**, **Import Card**, **AI Create**, **Bulk Import** and **Import BYAF** buttons right in the middle of the screen.
+
+On the desktop home screen you can also **drag PNG cards and `.byaf` archives** from Finder / Explorer onto the library. Several files import together, the same way the picker does. Anything else (JSON, photos, folders) is skipped with a short notice — use **Import Cards** or **Import Folder** for those.
 
 ### The Stoop — the built-in community hub
 

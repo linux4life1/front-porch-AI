@@ -24,7 +24,7 @@
 // the "continue a chat / start a new one" picker is unreachable for every
 // library character while the group tile's picker still works. This regressed
 // once before (fixed in c72d0484, a duplicate copy of the line survived and
-// was carried into home_page_chrome.dart by the god-file split).
+// was carried into home_page_chrome.actions.dart by the god-file split).
 //
 // _handleTapCharacter is a private method on a `part of home_page.dart` State
 // behind a Provider graph and a route push, so there is no unit seam to pump —
@@ -38,7 +38,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('the home grid resolves sessions by stableGroupId, never the dbId', () {
     final src = File(
-      'lib/ui/pages/home/home_page_chrome.dart',
+      'lib/ui/pages/home/home_page_chrome.actions.dart',
     ).readAsStringSync();
 
     final handler = RegExp(
@@ -48,7 +48,8 @@ void main() {
     expect(
       handler,
       isNotNull,
-      reason: 'could not read _handleTapCharacter — if it moved, move this '
+      reason:
+          'could not read _handleTapCharacter — if it moved, move this '
           'guard with it rather than deleting it',
     );
     final body = handler!.group(0)!;
@@ -61,7 +62,8 @@ void main() {
     expect(
       body.contains('character.dbId'),
       isFalse,
-      reason: 'the tap handler passes the dbId UUID to getSessionsForId, which '
+      reason:
+          'the tap handler passes the dbId UUID to getSessionsForId, which '
           'keys by image-filename basename — it returns [] for every '
           'character and the multi-chat picker never opens',
     );

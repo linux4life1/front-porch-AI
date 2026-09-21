@@ -403,7 +403,8 @@ class FakeBackendServer {
     }
 
     // Objective task generation — plain numbered-list format, not JSON.
-    if (lastContent.contains('numbered list of exactly')) {
+    if (lastContent.contains('numbered list of exactly') ||
+        lastContent.contains('report_objective_tasks')) {
       objectiveTaskRequests++;
       await _streamSse(req, [
         '1. Pour two glasses of lemonade.\n'
@@ -412,6 +413,11 @@ class FakeBackendServer {
             '4. Ask about their favorite weather.\n'
             '5. Watch the sunset together.',
       ]);
+      return;
+    }
+    if (lastContent.contains('Evaluate EACH item below') ||
+        lastContent.contains('report_objective_verdicts')) {
+      await _streamSse(req, ['1: NO']);
       return;
     }
 

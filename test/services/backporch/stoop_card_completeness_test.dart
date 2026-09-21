@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/services/backporch/stoop_card_completeness.dart';
+import 'package:front_porch_ai/services/backporch/backporch.dart';
 
 void main() {
   group('StoopCardCompleteness', () {
@@ -19,10 +19,7 @@ void main() {
       expect(r.missingCritical, contains('First message'));
       expect(r.missingCritical, contains('Description or personality'));
       expect(r.missingCritical, contains('Scenario'));
-      expect(
-        r.notes.any((n) => n.contains('template/shell')),
-        isTrue,
-      );
+      expect(r.notes.any((n) => n.contains('template/shell')), isTrue);
     });
 
     test('accepts solo with identity in description only', () {
@@ -47,9 +44,45 @@ void main() {
       expect(r.missingOptional, contains('Lorebook content'));
     });
 
-    test('world without climate is incomplete', () {
+    test('world without a climate flag or biome is lore-only', () {
+      final r = StoopCardCompleteness.assess({'name': 'Blank'}, 'WORLD');
+      expect(r.incomplete, isFalse);
+      expect(r.missingCritical, isNot(contains('Biome / climate')));
+    });
+
+    test('world with climate explicitly off does not need a biome', () {
       final r = StoopCardCompleteness.assess({
-        'name': 'Blank',
+        'name': 'Library',
+        'climate_enabled': false,
+      }, 'WORLD');
+      expect(r.incomplete, isFalse);
+      expect(r.missingCritical, isNot(contains('Biome / climate')));
+    });
+
+    test('world with climate explicitly on still needs a biome', () {
+      final r = StoopCardCompleteness.assess({
+        'name': 'Blank climate',
+        'climate_enabled': true,
+        'biome': <String, dynamic>{},
+      }, 'WORLD');
+      expect(r.incomplete, isTrue);
+      expect(r.missingCritical, contains('Biome / climate'));
+    });
+
+    test('camel-case climate off accepts an empty biome', () {
+      final r = StoopCardCompleteness.assess({
+        'name': 'Lore shelf',
+        'climateEnabled': false,
+        'biome': <String, dynamic>{},
+      }, 'WORLD');
+      expect(r.incomplete, isFalse);
+      expect(r.missingCritical, isNot(contains('Biome / climate')));
+      expect(r.fields.singleWhere((f) => f.key == 'biome').critical, isFalse);
+    });
+
+    test('legacy world with an empty biome remains climate-on', () {
+      final r = StoopCardCompleteness.assess({
+        'name': 'Broken legacy climate',
         'biome': <String, dynamic>{},
       }, 'WORLD');
       expect(r.incomplete, isTrue);

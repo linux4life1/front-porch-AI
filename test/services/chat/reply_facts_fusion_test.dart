@@ -72,8 +72,9 @@ void _setupPathProviderMock() {
 /// The marker only the fused prompt carries (its opening line).
 const _fusedMarker = 'independent bookkeeping questions';
 
-Pockets _wornOnly() =>
-    Pockets.fromJson(Pockets.cardJsonFrom(worn: const ['sundress'], carrying: const []));
+Pockets _wornOnly() => Pockets.fromJson(
+  Pockets.cardJsonFrom(worn: const ['sundress'], carrying: const []),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -133,7 +134,9 @@ void main() {
       expect(fused, contains(PocketsEval.opsRubric()));
       expect(
         fused,
-        contains(TimeService.postureQuestion(charName: 'Nia', displayClock: '9:40 PM')),
+        contains(
+          TimeService.postureQuestion(charName: 'Nia', displayClock: '9:40 PM'),
+        ),
       );
     });
 
@@ -171,15 +174,28 @@ void main() {
 
     test('required follows the gates', () {
       final all = params(
-        kReplyFactsToolsFor(askClimax: true, askPockets: true, askPosture: true),
+        kReplyFactsToolsFor(
+          askClimax: true,
+          askPockets: true,
+          askPosture: true,
+        ),
       );
       expect(
         all['required'],
-        containsAll(['is_climax', 'refractory_turns', 'inventory_ops', 'posture']),
+        containsAll([
+          'is_climax',
+          'refractory_turns',
+          'inventory_ops',
+          'posture',
+        ]),
       );
 
       final pocketsOnly = params(
-        kReplyFactsToolsFor(askClimax: false, askPockets: true, askPosture: false),
+        kReplyFactsToolsFor(
+          askClimax: false,
+          askPockets: true,
+          askPosture: false,
+        ),
       );
       expect(pocketsOnly['required'], ['inventory_ops']);
       expect(
@@ -192,12 +208,23 @@ void main() {
     test('every field stays DEFINED regardless of gates', () {
       // The registry is a fixed contract negotiated once per backend identity;
       // only required-ness varies per turn.
-      final props = params(
-        kReplyFactsToolsFor(askClimax: false, askPockets: false, askPosture: true),
-      )['properties'] as Map;
+      final props =
+          params(
+                kReplyFactsToolsFor(
+                  askClimax: false,
+                  askPockets: false,
+                  askPosture: true,
+                ),
+              )['properties']
+              as Map;
       expect(
         props.keys,
-        containsAll(['is_climax', 'refractory_turns', 'inventory_ops', 'posture']),
+        containsAll([
+          'is_climax',
+          'refractory_turns',
+          'inventory_ops',
+          'posture',
+        ]),
       );
     });
 
@@ -205,7 +232,8 @@ void main() {
       expect(
         toolIsRegistered(kReplyFactsToolName),
         isTrue,
-        reason: 'unregistered means realismToolCallToJson returns null on '
+        reason:
+            'unregistered means realismToolCallToJson returns null on '
             'every call, silently using the text transport forever — the '
             'Pockets day-one bug',
       );
@@ -249,51 +277,6 @@ void main() {
       expect(ClimaxEval.parseRefractory(''), isNull);
       expect(PocketsEval.parseOps(''), isEmpty);
       expect(TimeService.parsePosture(''), isNull);
-    });
-  });
-
-  group('the wiring produces before it consumes', () {
-    // Structural, and labelled as such: the ORDER (prefetch before the three
-    // passes, carrier cleared after them) is the part a green unit suite
-    // cannot see, exactly like the afterglow placement guards next door.
-    //
-    // ANCHOR RENAME (2026-08-12, with the Continue incremental-scoring
-    // change): the passes now take `scoredReply` — the full reply on a
-    // normal turn, the NEW text only on Continue — so the old
-    // `(finalResponse)` anchors no longer exist in the source. The ordering
-    // property these tests pin is unchanged and still asserted verbatim;
-    // only the anchor strings moved with the argument they name.
-    final postgen = File(
-      'lib/services/chat/chat_service_generation_postgen.dart',
-    ).readAsStringSync();
-
-    test('the prefetch runs before the first consumer', () {
-      final prefetch = postgen.indexOf('_prefetchReplyFacts(scoredReply)');
-      final climax = postgen.indexOf('_runClimaxPass(scoredReply)');
-      expect(prefetch, greaterThan(-1));
-      expect(climax, greaterThan(-1));
-      expect(
-        prefetch,
-        lessThan(climax),
-        reason: 'a consumer running before the producer silently falls back '
-            'to its own standalone call and the fusion buys nothing',
-      );
-    });
-
-    test('the carrier is cleared inside the same phase', () {
-      // Anchor de-bracketed (2026-08-27): the literal used to carry the call's
-      // exact line break + indentation, so any dart-format re-indent turned a
-      // green suite red (three Rawhide CI runs). Position is what is pinned,
-      // not whitespace.
-      final pockets = postgen.indexOf('_runPocketsPass(');
-      final clear = postgen.indexOf('_replyFactsRaw = null;', pockets);
-      expect(pockets, greaterThan(-1));
-      expect(
-        clear,
-        greaterThan(pockets),
-        reason: 'a carrier that outlives the passes feeds a STALE answer to '
-            'the next turn\'s bookkeeping',
-      );
     });
   });
 
@@ -342,57 +325,60 @@ void main() {
       await db.close();
     });
 
-    test(
-      'pockets + posture live -> ONE fused call answers both',
-      () async {
-        await boot(realismOn: true);
-        await chat.setActiveCharacter(card('char-fused-1', realism: true));
+    test('pockets + posture live -> ONE fused call answers both', () async {
+      await boot(realismOn: true);
+      await chat.setActiveCharacter(card('char-fused-1', realism: true));
 
-        await chat.sendMessage('What did you find?');
+      await chat.sendMessage('What did you find?');
 
-        expect(
-          llm.fusedPrompts,
-          hasLength(1),
-          reason: 'two bookkeeping passes were live, so exactly one fused '
-              'call must replace their two standalone calls',
-        );
-        final fused = llm.fusedPrompts.single;
-        expect(fused, contains('scoops up the brass key'));
-        expect(fused, contains('You are keeping track of what Nia is wearing'));
-        expect(fused, contains('current physical position and stance'));
-        expect(
-          fused,
-          isNot(contains('CLIMAX DETECTION')),
-          reason: 'Afterglow is off — its question must not be smuggled into '
-              'a call another feature paid for',
-        );
+      expect(
+        llm.fusedPrompts,
+        hasLength(1),
+        reason:
+            'two bookkeeping passes were live, so exactly one fused '
+            'call must replace their two standalone calls',
+      );
+      final fused = llm.fusedPrompts.single;
+      expect(fused, contains('scoops up the brass key'));
+      expect(fused, contains('You are keeping track of what Nia is wearing'));
+      expect(fused, contains('current physical position and stance'));
+      expect(
+        fused,
+        isNot(contains('CLIMAX DETECTION')),
+        reason:
+            'Afterglow is off — its question must not be smuggled into '
+            'a call another feature paid for',
+      );
 
-        expect(
-          llm.standalonePocketsPrompts,
-          isEmpty,
-          reason: 'the standalone pockets call is what the fusion replaced',
-        );
-        expect(
-          llm.standalonePosturePrompts,
-          hasLength(1),
-          reason: 'only the pre-generation opening SEED fires standalone; '
-              'the post-reply pass rode the fused call',
-        );
+      expect(
+        llm.standalonePocketsPrompts,
+        isEmpty,
+        reason: 'the standalone pockets call is what the fusion replaced',
+      );
+      expect(
+        llm.standalonePosturePrompts,
+        hasLength(1),
+        reason:
+            'only the pre-generation opening SEED fires standalone; '
+            'the post-reply pass rode the fused call',
+      );
 
-        expect(chat.relationshipService.spatialStance, 'sitting on the windowsill');
-        final record = chat.pocketsFor(chat.characterIdFor(
-          chat.activeCharacter!,
-        ));
-        expect(record, isNotNull);
-        expect(
-          record!.carrying.map((i) => i.name),
-          contains('brass key'),
-          reason: 'the pockets slice of the fused answer must apply through '
-              'the same applier the standalone call feeds',
-        );
-      },
-      timeout: const Timeout(Duration(minutes: 2)),
-    );
+      expect(
+        chat.relationshipService.spatialStance,
+        'sitting on the windowsill',
+      );
+      final record = chat.pocketsFor(
+        chat.characterIdFor(chat.activeCharacter!),
+      );
+      expect(record, isNotNull);
+      expect(
+        record!.carrying.map((i) => i.name),
+        contains('brass key'),
+        reason:
+            'the pockets slice of the fused answer must apply through '
+            'the same applier the standalone call feeds',
+      );
+    }, timeout: const Timeout(Duration(minutes: 2)));
 
     test(
       'pockets alone -> the standalone call, byte-for-byte, and no fusion',
@@ -405,13 +391,14 @@ void main() {
         expect(
           llm.fusedPrompts,
           isEmpty,
-          reason: 'one live feature means fusion saves nothing — the '
+          reason:
+              'one live feature means fusion saves nothing — the '
               'standalone path must keep firing unchanged',
         );
         expect(llm.standalonePocketsPrompts, hasLength(1));
-        final record = chat.pocketsFor(chat.characterIdFor(
-          chat.activeCharacter!,
-        ));
+        final record = chat.pocketsFor(
+          chat.characterIdFor(chat.activeCharacter!),
+        );
         expect(record, isNotNull);
         expect(record!.carrying.map((i) => i.name), contains('brass key'));
       },

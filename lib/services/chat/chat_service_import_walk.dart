@@ -46,22 +46,19 @@ extension ChatServiceImportWalk on ChatService {
     _nsfwService.resetRuntimeArousalAndCooldown();
 
     if (keepNeeds) {
-      _needsSimulation.initializeFreshWithDefaults({
-        'hunger': ext.needsBaselineHunger,
-        'bladder': ext.needsBaselineBladder,
-        'energy': ext.needsBaselineEnergy,
-        'social': ext.needsBaselineSocial,
-        'fun': ext.needsBaselineFun,
-        'hygiene': ext.needsBaselineHygiene,
-        'comfort': ext.needsBaselineComfort,
-      });
+      _needsSimulation.initializeFreshWithDefaults(
+        NeedsSimulation.baselinesFromExtensions(ext),
+      );
     } else {
       _needsSimulation.clearVector();
     }
     _needsSimulation.resetBuffers();
 
-    // Pockets on only — null-while-off erases session column (HIDES≠erase).
-    if (_storageService.realismSettings.pocketsEnabled) {
+    // Per-char AND — null-while-off erases session column (HIDES≠erase).
+    // Global on + this card off must leave the hidden kit alone; seed
+    // already skips off characters, so a wipe here would be permanent.
+    final charId = _getCharacterIdFromCard(_activeCharacter!);
+    if (pocketsEnabledFor(charId)) {
       _pockets = null;
       seedPocketsFromCards();
     }
@@ -111,8 +108,6 @@ extension ChatServiceImportWalk on ChatService {
       }
     }
 
-    final pocketsOn = _storageService.realismSettings.pocketsEnabled;
-
     for (final c in _groupCharacters) {
       final sid = _getCharacterIdFromCard(c);
       if (sid.isEmpty) continue;
@@ -132,8 +127,11 @@ extension ChatServiceImportWalk on ChatService {
       if (stamp != null) {
         _restoreRealismStateForSpeaker(stamp);
       } else {
-        final keptPockets =
-            pocketsOn ? null : _groupRealism[sid]?.pockets;
+        // Keep a per-char-off (or global-off) kit — HIDES≠erase. Wiping
+        // then seed-skipping is how import erased authored-off members.
+        final keptPockets = pocketsEnabledFor(sid)
+            ? null
+            : _groupRealism[sid]?.pockets;
         final seed = seeds[sid];
         _groupRealism[sid] = seed != null
             ? GroupMemberRealism.fromJson(Map<String, dynamic>.from(seed))
@@ -143,18 +141,10 @@ extension ChatServiceImportWalk on ChatService {
     }
 
     // Gifts live on the giver's stamp as pockets_before.others. Recipients
-    // who never spoke after the handoff have no own stamp of the item —
-    // apply the newest shared pockets snapshot so fork/import cannot vanish
-    // a gift.
-    if (pocketsOn) {
-      for (var i = start; i >= 0 && i < _messages.length; i--) {
-        final m = _messages[i];
-        if (m.metadata?['pockets_before'] is Map) {
-          _restorePocketsFromStamp(m, after: true);
-          break;
-        }
-      }
-    }
+    // who never spoke after the handoff have no own stamp of the item.
+    // Apply EVERY stamp oldest → newest: a later giver-only move has no
+    // `others`, so it must not wipe Sam's keys from an earlier give.
+    _restorePocketsStampsChronologically(start);
 
     if (clockStamp != null) {
       final rs = clockStamp.activeMetadata!['realism_state'] as Map;
@@ -183,8 +173,9 @@ extension ChatServiceImportWalk on ChatService {
     if (_messages.isNotEmpty) {
       final tip = _messages[start.clamp(0, _messages.length - 1)];
       if (!tip.isUser && tip.sender != 'System') {
-        final hits =
-            _groupCharacters.where((c) => c.name == tip.sender).toList();
+        final hits = _groupCharacters
+            .where((c) => c.name == tip.sender)
+            .toList();
         if (hits.length == 1) scratch = hits.first;
       }
     }
@@ -231,7 +222,8 @@ extension ChatServiceImportWalk on ChatService {
     }
     int? storyDay;
     for (var i = start; i >= 0; i--) {
-      final top = _messages[i].activeMetadata?['story_day'] ??
+      final top =
+          _messages[i].activeMetadata?['story_day'] ??
           _messages[i].metadata?['story_day'];
       if (top is num) {
         storyDay = top.toInt();

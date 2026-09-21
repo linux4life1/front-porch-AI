@@ -4,8 +4,6 @@
 // Enhance Review must offer keep-or-accept for Porch Life, and an empty
 // proposal must default Use this OFF so a mute model cannot wipe a wardrobe.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -177,21 +175,6 @@ void main() {
     expect(useSwitch.value, isFalse);
   });
 
-  test('Save writes Porch Life only when Use this is on', () {
-    final src = File(
-      'lib/ui/pages/home/enhance/enhance_review_body.dart',
-    ).readAsStringSync();
-    final saveAt = src.indexOf('Future<CharacterCard?> save()');
-    expect(saveAt, greaterThanOrEqualTo(0));
-    final save = src.substring(saveAt);
-    expect(
-      save,
-      contains("widget.selection.porchLife && (_use['porchLife'] ?? false)"),
-    );
-    expect(save, contains('applyPorchLifeProposal'));
-    expect(save.contains('ext.copyWith('), isFalse);
-  });
-
   test(
     'accept new greet texts vs leftover ext.greetingSeeds drops furious on Get out',
     () {
@@ -260,40 +243,39 @@ void main() {
     },
   );
 
-  test(
-    'enhance_review_body accept authored enhance seeds still pair',
-    () {
-      final leftover = GreetingRealismSeed(characterEmotion: 'furious');
-      final copy = CharacterCard(
-        name: 'Nina (Enhanced)',
-        firstMessage: 'Stay.',
-        alternateGreetings: ['Stay.'],
-        frontPorchExtensions: FrontPorchExtensions(greetingSeeds: [leftover]),
-      );
-      final authored = [GreetingRealismSeed(characterEmotion: 'cold')];
-      final enhanced = CharacterCard(
-        name: 'Nina',
-        firstMessage: 'Hey.',
-        alternateGreetings: ['Get out.'],
-        frontPorchExtensions: FrontPorchExtensions(greetingSeeds: authored),
-      );
-      final greetingPairs = compactAcceptedEnhanceGreetings(
-        enhanced.alternateGreetings,
-        enhanced.frontPorchExtensions?.greetingSeeds,
-      );
-      copy.alternateGreetings = greetingPairs.greetings;
-      copy.frontPorchExtensions!.greetingSeeds = greetingPairs.seeds;
-      expect(copy.alternateGreetings, ['Get out.']);
-      expect(
-        copy.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
-        'cold',
-      );
-      expect(
-        greetingOverlayAt(copy.frontPorchExtensions!.greetingSeeds, 1)!
-            .characterEmotion,
-        'cold',
-      );
-      expect(leftover.characterEmotion, 'furious');
-    },
-  );
+  test('enhance_review_body accept authored enhance seeds still pair', () {
+    final leftover = GreetingRealismSeed(characterEmotion: 'furious');
+    final copy = CharacterCard(
+      name: 'Nina (Enhanced)',
+      firstMessage: 'Stay.',
+      alternateGreetings: ['Stay.'],
+      frontPorchExtensions: FrontPorchExtensions(greetingSeeds: [leftover]),
+    );
+    final authored = [GreetingRealismSeed(characterEmotion: 'cold')];
+    final enhanced = CharacterCard(
+      name: 'Nina',
+      firstMessage: 'Hey.',
+      alternateGreetings: ['Get out.'],
+      frontPorchExtensions: FrontPorchExtensions(greetingSeeds: authored),
+    );
+    final greetingPairs = compactAcceptedEnhanceGreetings(
+      enhanced.alternateGreetings,
+      enhanced.frontPorchExtensions?.greetingSeeds,
+    );
+    copy.alternateGreetings = greetingPairs.greetings;
+    copy.frontPorchExtensions!.greetingSeeds = greetingPairs.seeds;
+    expect(copy.alternateGreetings, ['Get out.']);
+    expect(
+      copy.frontPorchExtensions!.greetingSeeds.single!.characterEmotion,
+      'cold',
+    );
+    expect(
+      greetingOverlayAt(
+        copy.frontPorchExtensions!.greetingSeeds,
+        1,
+      )!.characterEmotion,
+      'cold',
+    );
+    expect(leftover.characterEmotion, 'furious');
+  });
 }

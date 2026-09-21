@@ -88,12 +88,15 @@ extension _RealismEvalSupport on RealismEvals {
       if (si >= 0 && ei > si) {
         final obj = jsonDecode(noFence.substring(si, ei + 1));
         if (obj is Map) {
-          if (obj['fixation_topic'] != null)
+          if (obj['fixation_topic'] != null) {
             fixationRaw = obj['fixation_topic'].toString().trim();
-          if (obj['proposed_objective'] != null)
+          }
+          if (obj['proposed_objective'] != null) {
             objectiveRaw = obj['proposed_objective'].toString().trim();
-          if (obj['serves_ambition'] != null)
+          }
+          if (obj['serves_ambition'] != null) {
             servesRaw = obj['serves_ambition'].toString().trim();
+          }
         }
       }
     } catch (_) {}

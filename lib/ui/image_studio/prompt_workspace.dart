@@ -252,32 +252,7 @@ class _PromptWorkspaceState extends State<PromptWorkspace> {
     );
   }
 
-  String _cleanForPill(String text) {
-    if (text.isEmpty) return text;
-    // Strip think blocks (completed and unclosed tails) and auto-imported card meta
-    // so the source pills never show the garbage the user complained about (<think>, "Auto-imported from character card: Aerin", etc.).
-    text = text.replaceAll(
-      RegExp(r'<\/?think>.*?<\/think>', dotAll: true, caseSensitive: false),
-      '',
-    );
-    final idx = text.toLowerCase().lastIndexOf('<think>');
-    if (idx != -1) {
-      text = text.substring(0, idx);
-    }
-    text = text.replaceAll(
-      RegExp(r'<\/?think[^>]*>', caseSensitive: false),
-      '',
-    );
-    text = text.replaceAll(
-      RegExp(
-        r'Auto-imported from character card:.*?(?:\n|$)',
-        caseSensitive: false,
-      ),
-      '',
-    );
-    text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
-    return text;
-  }
+  String _cleanForPill(String text) => cleanVisualSourceText(text);
 
   Widget _buildSourcePills(BuildContext context) {
     final ctx = widget.ctx;

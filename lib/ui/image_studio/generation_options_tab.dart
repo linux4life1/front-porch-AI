@@ -6,12 +6,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/ui/image_studio/backend_catalog.dart';
+import 'package:front_porch_ai/ui/image_studio/comfy_create_panel.dart';
 import 'package:front_porch_ai/ui/image_studio/connection_status_card.dart';
 import 'package:front_porch_ai/ui/image_studio/lora_picker.dart';
 import 'package:front_porch_ai/ui/image_studio/model_slot_dropdown.dart';
+import 'package:front_porch_ai/ui/image_studio/remote_image_host_chips.dart';
+import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 part 'generation_options_tab.source.dart';
@@ -74,17 +77,17 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
   void initState() {
     super.initState();
     final s = Provider.of<StorageService>(context, listen: false);
-    _negativePromptController.text = s.imageGenNegativePrompt;
-    _localUrlController.text = s.localImageGenUrl;
-    _seedController.text = s.imageGenSeed.toString();
-    _dtHostController.text = s.drawThingsGrpcHost;
-    _dtPortController.text = s.drawThingsGrpcPort.toString();
-    _comfyUrlController.text = s.comfyUiUrl;
+    _negativePromptController.text = s.imageGenSettings.imageGenNegativePrompt;
+    _localUrlController.text = s.imageGenSettings.localImageGenUrl;
+    _seedController.text = s.imageGenSettings.imageGenSeed.toString();
+    _dtHostController.text = s.imageGenSettings.drawThingsGrpcHost;
+    _dtPortController.text = s.imageGenSettings.drawThingsGrpcPort.toString();
+    _comfyUrlController.text = s.imageGenSettings.comfyUiUrl;
     _fetchModels();
     // Auto-test local backends on open — the status card shows the result and
     // a successful test populates models/samplers/LoRAs, so novices never
     // have to find a Test button. (Post-frame: _testConnection uses Provider.)
-    if (s.imageGenBackend != 'remote') {
+    if (s.imageGenSettings.imageGenBackend != 'remote') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _testConnection();
       });
@@ -106,6 +109,22 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
     setState(() => _loadingModels = true);
     final svc = Provider.of<ImageGenService>(context, listen: false);
     final m = await svc.fetchImageModels();
+    if (!mounted) return;
+    final st = Provider.of<StorageService>(context, listen: false);
+    if (st.imageGenSettings.imageGenBackend == 'remote') {
+      final account = resolveImageStudioRemoteAccount(
+        imageRemoteApiUrl: st.imageGenSettings.imageRemoteApiUrl,
+        chatRemoteApiUrl: st.backendSettings.remoteApiUrl,
+        keyFor: st.backendSettings.remoteApiKeyFor,
+      );
+      final ids = [for (final model in m) model.id];
+      await sanitizeRemoteImageSlot(
+        image: st.imageGenSettings,
+        hostUrl: account.url,
+        editScoped: widget.editScoped,
+        catalogIds: ids,
+      );
+    }
     if (mounted) {
       setState(() {
         _models = m;
@@ -131,7 +150,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
 
   Future<void> _fetchLocalSamplers(String url) async {
     final st = Provider.of<StorageService>(context, listen: false);
-    final isComfy = st.imageGenBackend == 'comfyui';
+    final isComfy = st.imageGenSettings.imageGenBackend == 'comfyui';
     if (!isComfy && url.isEmpty) return;
     final svc = Provider.of<ImageGenService>(context, listen: false);
     // Samplers and schedulers come from the same server (and, for ComfyUI, the
@@ -154,12 +173,12 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
     // Mirrors the _fetchLocalModels guard: Draw Things lists LoRAs over gRPC
     // and ComfyUI via its own URL setting; A1111 needs the local server URL.
     final st = Provider.of<StorageService>(context, listen: false);
-    final backend = st.imageGenBackend;
+    final backend = st.imageGenSettings.imageGenBackend;
     final isDT = backend == 'drawthings';
     final isComfy = backend == 'comfyui';
     if (!isDT && !isComfy && url.isEmpty) return;
-    if (isDT && st.drawThingsGrpcHost.isEmpty) return;
-    if (isComfy && st.comfyUiUrl.isEmpty) return;
+    if (isDT && st.imageGenSettings.drawThingsGrpcHost.isEmpty) return;
+    if (isComfy && st.imageGenSettings.comfyUiUrl.isEmpty) return;
     setState(() => _loadingLoras = true);
     final svc = Provider.of<ImageGenService>(context, listen: false);
     final loras = isDT
@@ -178,7 +197,10 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
   void _randomizeSeed() {
     final sd = DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
     _seedController.text = sd.toString();
-    Provider.of<StorageService>(context, listen: false).setImageGenSeed(sd);
+    Provider.of<StorageService>(
+      context,
+      listen: false,
+    ).imageGenSettings.setImageGenSeed(sd);
   }
 
   Future<void> _testConnection() async {
@@ -222,7 +244,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
   Future<void> _switchModel() async {
     final u = _localUrlController.text.trim();
     final st = Provider.of<StorageService>(context, listen: false);
-    final m = st.imageGenModel;
+    final m = st.imageGenSettings.imageGenModel;
     if (u.isEmpty || m.isEmpty) return;
     setState(() => _switchingModel = true);
     await Provider.of<ImageGenService>(
@@ -272,10 +294,11 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
                     fontSize: 12,
                   ),
                 ),
-                value: storage.imageGenEnabled,
+                value: storage.imageGenSettings.imageGenEnabled,
                 activeTrackColor: AppColors.formMasterAccent,
                 contentPadding: EdgeInsets.zero,
-                onChanged: (v) => storage.setImageGenEnabled(v),
+                onChanged: (v) =>
+                    storage.imageGenSettings.setImageGenEnabled(v),
               ),
               const SizedBox(height: 12),
             ],
@@ -290,7 +313,7 @@ class _GenerationOptionsTabState extends State<GenerationOptionsTab> {
             const SizedBox(height: 4),
             _buildBackendSelector(storage),
             const SizedBox(height: 12),
-            if (storage.imageGenBackend == 'remote')
+            if (storage.imageGenSettings.imageGenBackend == 'remote')
               _buildRemotePanel(storage)
             else
               _buildLocalPanel(storage),

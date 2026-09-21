@@ -69,6 +69,7 @@ export function CharactersPage() {
   const [personas, setPersonas] = useState<PickerPersona[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const byafRef = useRef<HTMLInputElement>(null);
 
   // `webkitdirectory` (whole-folder import) isn't a typed JSX attribute, so set
   // it on the element directly once it mounts.
@@ -137,6 +138,7 @@ export function CharactersPage() {
     importCardMenu({
       onImportCards: () => fileRef.current?.click(),
       onImportFolder: () => folderInputRef.current?.click(),
+      onImportByaf: () => byafRef.current?.click(),
     });
 
   // ── Drag-and-drop (desktop/tablet only; phone uses the menu's Move action) ─
@@ -220,6 +222,17 @@ export function CharactersPage() {
       <input
         ref={folderInputRef}
         type="file"
+        hidden
+        onChange={(e) => {
+          void lib.importFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={byafRef}
+        type="file"
+        accept=".byaf,application/zip"
+        multiple
         hidden
         onChange={(e) => {
           void lib.importFiles(e.target.files);

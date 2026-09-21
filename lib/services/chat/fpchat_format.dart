@@ -23,9 +23,10 @@ const String kFpchatExtension = 'fpchat';
 /// Logical JSON schema version for the outer envelope.
 const int kFpchatFormatVersion = 1;
 
-/// Version of the `realism_state` key contract. Bump when
-/// [_captureRealismState] adds/removes keys that importers must understand.
-const int kFpchatStampVersion = 1;
+/// Version of the suitcase key contract. Bump when importers must
+/// understand new keys. v2 adds thin `fpai.cast` (id / name / lite).
+/// Old files (stamp 1) stay valid — the importer only refuses *newer*.
+const int kFpchatStampVersion = 2;
 
 /// Keys written by ChatService._captureRealismState (plus optional needs).
 /// Guard test must stay in sync — see fpchat_stamp_keys_test.dart.
@@ -50,6 +51,7 @@ const Set<String> kFpchatRealismStateCoreKeys = {
   'cooldownTurnsRemaining',
   'cooldownTurnsTotal',
   'trustLevel',
+  'pendingTrustRepair',
   'activeFixation',
   'fixationLifespan',
   'spatialStance',

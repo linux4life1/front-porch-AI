@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/database/database.dart' show Objective;
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -28,6 +29,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 class EditableTaskRow extends StatefulWidget {
   final String description;
   final bool completed;
+  final bool stale;
   final bool isCurrent;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
@@ -37,6 +39,7 @@ class EditableTaskRow extends StatefulWidget {
     super.key,
     required this.description,
     required this.completed,
+    this.stale = false,
     required this.isCurrent,
     required this.onToggle,
     required this.onDelete,
@@ -87,13 +90,17 @@ class EditableTaskRowState extends State<EditableTaskRow> {
         children: [
           // Checkbox
           GestureDetector(
-            onTap: widget.onToggle,
+            onTap: widget.stale ? null : widget.onToggle,
             child: Icon(
-              widget.completed
+              widget.stale
+                  ? Icons.remove_circle_outline
+                  : widget.completed
                   ? Icons.check_box
                   : Icons.check_box_outline_blank,
               size: 16,
-              color: widget.completed
+              color: widget.stale
+                  ? AppColors.textTertiary(context)
+                  : widget.completed
                   ? AppColors.bondHighOf(context)
                   : widget.isCurrent
                   ? AppColors.taskAccentOf(context)
@@ -136,17 +143,22 @@ class EditableTaskRowState extends State<EditableTaskRow> {
                     onSubmitted: (_) => _save(),
                   )
                 : GestureDetector(
-                    onTap: widget.onToggle,
+                    onTap: widget.stale ? null : widget.onToggle,
                     child: Text(
-                      widget.description,
+                      widget.stale
+                          ? '${widget.description}  · stale-skipped'
+                          : widget.description,
                       style: TextStyle(
                         fontSize: 11,
-                        color: widget.completed
+                        fontStyle: widget.stale
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                        color: widget.stale || widget.completed
                             ? AppColors.textTertiary(context)
                             : widget.isCurrent
                             ? AppColors.textPrimary(context)
                             : AppColors.textSecondary(context),
-                        decoration: widget.completed
+                        decoration: widget.completed && !widget.stale
                             ? TextDecoration.lineThrough
                             : null,
                       ),
@@ -283,7 +295,8 @@ class _SecondaryObjectiveRowState extends State<SecondaryObjectiveRow> {
   Widget build(BuildContext context) {
     final obj = widget.objective;
     final tasks = widget.chatService.tasksForObjective(obj);
-    final completedCount = tasks.where((t) => t['completed'] == true).length;
+    final completedCount = completedQuestTaskCount(tasks);
+    final countable = countableQuestTaskCount(tasks);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -324,7 +337,7 @@ class _SecondaryObjectiveRowState extends State<SecondaryObjectiveRow> {
                   Padding(
                     padding: const EdgeInsets.only(left: 4),
                     child: Text(
-                      '$completedCount/${tasks.length}',
+                      '$completedCount/$countable',
                       style: TextStyle(
                         fontSize: 10,
                         color: AppColors.textTertiary(context),
@@ -366,14 +379,16 @@ class _SecondaryObjectiveRowState extends State<SecondaryObjectiveRow> {
             ...tasks.asMap().entries.map((entry) {
               final i = entry.key;
               final task = entry.value;
-              final completed = task['completed'] == true;
+              final completed = objectiveTaskIsCompleted(task);
+              final stale = objectiveTaskIsStale(task);
               final isCurrent =
-                  !completed &&
-                  tasks.take(i).every((t) => t['completed'] == true);
+                  objectiveTaskIsOpen(task) &&
+                  tasks.take(i).every((t) => !objectiveTaskIsOpen(t));
               return EditableTaskRow(
                 key: ValueKey('side_task_${obj.id}_$i'),
                 description: task['description'] as String,
                 completed: completed,
+                stale: stale,
                 isCurrent: isCurrent,
                 onToggle: () => widget.chatService.toggleTask(obj, i),
                 onDelete: () => widget.chatService.removeTask(obj, i),

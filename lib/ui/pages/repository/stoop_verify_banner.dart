@@ -70,59 +70,81 @@ class _StoopVerifyBannerState extends State<StoopVerifyBanner> {
     final amber = AppColors.porchAmberOf(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: amber.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
-        border: Border(
-          left: BorderSide(color: amber, width: 3),
-          top: BorderSide(color: amber.withValues(alpha: 0.35)),
-          right: BorderSide(color: amber.withValues(alpha: 0.35)),
-          bottom: BorderSide(color: amber.withValues(alpha: 0.35)),
-        ),
+        border: Border.all(color: amber.withValues(alpha: 0.35)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.mark_email_unread_outlined, size: 20, color: amber),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Confirm your email to share cards, report characters, and set a profile photo.',
-                  style: TextStyle(
-                    color: amber,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 3, color: amber),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.mark_email_unread_outlined,
+                        size: 20,
+                        color: amber,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Confirm your email to share cards, report characters, and set a profile photo.',
+                              style: TextStyle(
+                                color: amber,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'We sent a link to ${user.email}. Browsing and downloading '
+                              'work without it — confirming unlocks sharing, reporting, '
+                              'and a profile photo.',
+                              style: TextStyle(
+                                color: stoopCream(
+                                  context,
+                                ).withValues(alpha: 0.85),
+                                fontSize: 12.5,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      TextButton(
+                        onPressed: _sending ? null : () => _resend(auth),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.onChaosAccent,
+                          backgroundColor: amber,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                        ),
+                        child: Text(_sending ? 'Sending…' : 'Send it again'),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  'We sent a link to ${user.email}. Browsing and downloading '
-                  'work without it — confirming unlocks sharing, reporting, '
-                  'and a profile photo.',
-                  style: TextStyle(
-                    color: stoopCream(context).withValues(alpha: 0.85),
-                    fontSize: 12.5,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          TextButton(
-            onPressed: _sending ? null : () => _resend(auth),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.onChaosAccent,
-              backgroundColor: amber,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            ),
-            child: Text(_sending ? 'Sending…' : 'Send it again'),
-          ),
-        ],
+        ),
       ),
     );
   }

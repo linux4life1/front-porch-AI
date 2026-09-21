@@ -122,7 +122,7 @@ class PocketsEval {
 
   static const kPocketsTool = 'report_inventory';
 
-  /// The "what she has right now" lead-in — shared VERBATIM between
+  /// The "what they have right now" lead-in — shared VERBATIM between
   /// [buildPrompt] and the fused reply-facts prompt (ReplyFactsEval), so the
   /// fused and standalone transports can never drift in what they show the
   /// model. Do not re-inline; the fusion parity test pins both callers.
@@ -278,7 +278,7 @@ class PocketsEval {
     if (reply.trim().isEmpty) return const [];
     // Expire BEFORE the prompt is built, not only inside the applier: the
     // model must never be shown yesterday's set-aside clothes, or it will
-    // dutifully re-dress her in them.
+    // dutifully re-dress them in them.
     pockets.expireSetAside(day);
     try {
       final raw = await fire(

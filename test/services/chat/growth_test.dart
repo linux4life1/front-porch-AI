@@ -50,17 +50,79 @@ GrowthRingData _ring({
   metadata: null,
 );
 
-ChatMessage _msg(String sender, String text, {bool isUser = false, String? charId}) =>
-    ChatMessage(text: text, sender: sender, isUser: isUser, characterId: charId);
+ChatMessage _msg(
+  String sender,
+  String text, {
+  bool isUser = false,
+  String? charId,
+}) => ChatMessage(
+  text: text,
+  sender: sender,
+  isUser: isUser,
+  characterId: charId,
+);
 
 void main() {
-  group('GrowthPhysics', () {
+  group('growthPassIsDue', () {
+    test(
+      'under interval with no kick does not fire — even on a hot window',
+      () {
+        expect(
+          growthPassIsDue(
+            userMessagesSincePass: 1,
+            interval: 5,
+            kickPending: false,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test('interval due fires without a kick', () {
+      expect(
+        growthPassIsDue(
+          userMessagesSincePass: 5,
+          interval: 5,
+          kickPending: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test(
+      'gated kick fires immediately when there is at least one user message',
+      () {
+        expect(
+          growthPassIsDue(
+            userMessagesSincePass: 1,
+            interval: 5,
+            kickPending: true,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test('no user messages never fires, even with a kick', () {
+      expect(
+        growthPassIsDue(
+          userMessagesSincePass: 0,
+          interval: 5,
+          kickPending: true,
+        ),
+        isFalse,
+      );
+    });
+
     test('tiers derive from strength; established/pinned never fade', () {
       expect(GrowthPhysics.tierOf(_ring(strength: 0.2)), 'emerging');
       expect(GrowthPhysics.tierOf(_ring(strength: 0.5)), 'developing');
       expect(GrowthPhysics.tierOf(_ring(strength: 0.85)), 'established');
       expect(GrowthPhysics.fadedStrength(_ring(strength: 0.85)), 0.85);
-      expect(GrowthPhysics.fadedStrength(_ring(strength: 0.5, pinned: true)), 0.5);
+      expect(
+        GrowthPhysics.fadedStrength(_ring(strength: 0.5, pinned: true)),
+        0.5,
+      );
       expect(
         GrowthPhysics.fadedStrength(_ring(strength: 0.5)),
         closeTo(0.5 - GrowthPhysics.kFadePerPass, 1e-9),
@@ -68,23 +130,26 @@ void main() {
       expect(GrowthPhysics.reinforced(0.95), 1.0); // clamped
     });
 
-    test('capVictim picks weakest unpinned non-established; null when all protected', () {
-      final weak = _ring(id: 'weak', strength: 0.31);
-      final rings = [
-        _ring(id: 'est', strength: 0.9),
-        _ring(id: 'pin', strength: 0.1, pinned: true),
-        weak,
-        _ring(id: 'mid', strength: 0.6),
-      ];
-      expect(GrowthPhysics.capVictim(rings)!.id, 'weak');
-      expect(
-        GrowthPhysics.capVictim([
-          _ring(id: 'a', strength: 0.9),
-          _ring(id: 'b', pinned: true),
-        ]),
-        isNull,
-      );
-    });
+    test(
+      'capVictim picks weakest unpinned non-established; null when all protected',
+      () {
+        final weak = _ring(id: 'weak', strength: 0.31);
+        final rings = [
+          _ring(id: 'est', strength: 0.9),
+          _ring(id: 'pin', strength: 0.1, pinned: true),
+          weak,
+          _ring(id: 'mid', strength: 0.6),
+        ];
+        expect(GrowthPhysics.capVictim(rings)!.id, 'weak');
+        expect(
+          GrowthPhysics.capVictim([
+            _ring(id: 'a', strength: 0.9),
+            _ring(id: 'b', pinned: true),
+          ]),
+          isNull,
+        );
+      },
+    );
 
     test('injectionSelection reserves prompt slots for in-progress growth', () {
       // 8 or fewer active rings: everything injects, no reserve needed.
@@ -94,7 +159,9 @@ void main() {
       // A settled cast (10 established) + 2 in-progress: the fresh pair takes
       // the reserved slots instead of being crowded out forever (established
       // rings never fade, so without the reserve the prompt would freeze).
-      final est = [for (var i = 0; i < 10; i++) _ring(id: 'e$i', strength: 1.0)];
+      final est = [
+        for (var i = 0; i < 10; i++) _ring(id: 'e$i', strength: 1.0),
+      ];
       final fresh = [
         _ring(id: 'dev', strength: 0.5),
         _ring(id: 'new', strength: 0.3),
@@ -103,41 +170,50 @@ void main() {
       expect(selected, hasLength(GrowthPhysics.kInjectedRings));
       expect(selected.map((r) => r.id), containsAll(['dev', 'new']));
       // Strength ordering is preserved: established first, freshest last.
-      expect(selected.take(6).map((r) => r.id), ['e0', 'e1', 'e2', 'e3', 'e4', 'e5']);
+      expect(selected.take(6).map((r) => r.id), [
+        'e0',
+        'e1',
+        'e2',
+        'e3',
+        'e4',
+        'e5',
+      ]);
       expect(selected.last.id, 'new');
 
       // Overflow with no in-progress rings at all: plain top-8 take.
       final all = [
         for (var i = 0; i < 12; i++) _ring(id: 'a$i', strength: 1.0 - i * 0.01),
       ];
-      expect(
-        GrowthPhysics.injectionSelection(all).map((r) => r.id),
-        [for (var i = 0; i < 8; i++) 'a$i'],
-      );
+      expect(GrowthPhysics.injectionSelection(all).map((r) => r.id), [
+        for (var i = 0; i < 8; i++) 'a$i',
+      ]);
     });
 
-    test('injection lines get deterministic tier prefixes; names keep their capital', () {
-      expect(
-        GrowthPhysics.injectionLine(_ring(strength: 0.9)),
-        'Has started guarding {{user}}\'s sleep',
-      );
-      expect(
-        GrowthPhysics.injectionLine(_ring(strength: 0.5)),
-        startsWith('Increasingly, has started'),
-      );
-      expect(
-        GrowthPhysics.injectionLine(_ring(strength: 0.2)),
-        startsWith('Lately, has started'),
-      );
-      // A ring opening with the owner's name is never case-folded.
-      final named = _ring(strength: 0.2).copyWith(
-        content: 'Mira hums while cooking',
-      );
-      expect(
-        GrowthPhysics.injectionLine(named, charName: 'Mira'),
-        'Lately, Mira hums while cooking',
-      );
-    });
+    test(
+      'injection lines get deterministic tier prefixes; names keep their capital',
+      () {
+        expect(
+          GrowthPhysics.injectionLine(_ring(strength: 0.9)),
+          'Has started guarding {{user}}\'s sleep',
+        );
+        expect(
+          GrowthPhysics.injectionLine(_ring(strength: 0.5)),
+          startsWith('Increasingly, has started'),
+        );
+        expect(
+          GrowthPhysics.injectionLine(_ring(strength: 0.2)),
+          startsWith('Lately, has started'),
+        );
+        // A ring opening with the owner's name is never case-folded.
+        final named = _ring(
+          strength: 0.2,
+        ).copyWith(content: 'Mira hums while cooking');
+        expect(
+          GrowthPhysics.injectionLine(named, charName: 'Mira'),
+          'Lately, Mira hums while cooking',
+        );
+      },
+    );
   });
 
   group('growth ops — XML transport', () {
@@ -164,23 +240,38 @@ Some prose the model wrote.
       expect(ops[4].category, 'habit');
     });
 
-    test('forgiving: unknown categories normalize, garbage yields zero ops', () {
-      expect(normalizeGrowthCategory('attitude'), 'stance');
-      expect(normalizeGrowthCategory('trauma'), 'scar');
-      expect(normalizeGrowthCategory('nonsense'), 'trait');
-      expect(parseGrowthOps('no tags at all'), isEmpty);
-      // Missing handle / empty text ops are dropped, not thrown.
-      expect(parseGrowthOps('<ring action="retire"/><ring action="add"></ring>'), isEmpty);
-    });
+    test(
+      'forgiving: unknown categories normalize, garbage yields zero ops',
+      () {
+        expect(normalizeGrowthCategory('attitude'), 'stance');
+        expect(normalizeGrowthCategory('trauma'), 'scar');
+        expect(normalizeGrowthCategory('nonsense'), 'trait');
+        expect(parseGrowthOps('no tags at all'), isEmpty);
+        // Missing handle / empty text ops are dropped, not thrown.
+        expect(
+          parseGrowthOps('<ring action="retire"/><ring action="add"></ring>'),
+          isEmpty,
+        );
+      },
+    );
 
     test('tool-call transport normalizes to the same ops', () {
       final ops = parseGrowthToolCalls([
-        const LlmToolCall(name: 'add_ring', arguments: {
-          'content': 'Learned to read {{user}}\'s silences',
-          'category': 'skill',
-          'src': [7, '9'],
-        }),
-        const LlmToolCall(name: 'reinforce_ring', arguments: {'id': '2', 'src': [11]}),
+        const LlmToolCall(
+          name: 'add_ring',
+          arguments: {
+            'content': 'Learned to read {{user}}\'s silences',
+            'category': 'skill',
+            'src': [7, '9'],
+          },
+        ),
+        const LlmToolCall(
+          name: 'reinforce_ring',
+          arguments: {
+            'id': '2',
+            'src': [11],
+          },
+        ),
         const LlmToolCall(name: 'retire_ring', arguments: {'id': 1}),
         const LlmToolCall(name: 'unknown_tool', arguments: {}),
       ]);
@@ -193,23 +284,26 @@ Some prose the model wrote.
   });
 
   group('resolveGrowthMacros', () {
-    test('resolves char/user case-insensitively, tolerates spacing, idempotent', () {
-      expect(
-        resolveGrowthMacros(
-          '{{char}} trusts {{ USER }} and {{Char}} knows it',
-          charName: 'Mira',
-          userName: 'Alex',
-        ),
-        'Mira trusts Alex and Mira knows it',
-      );
-      // Unknown owner: {{char}} kept (no guessing), {{user}} still resolves.
-      expect(
-        resolveGrowthMacros('{{char}} met {{user}}', userName: 'Alex'),
-        '{{char}} met Alex',
-      );
-      expect(hasGrowthMacros('plain text'), isFalse);
-      expect(hasGrowthMacros('hi {{user}}'), isTrue);
-    });
+    test(
+      'resolves char/user case-insensitively, tolerates spacing, idempotent',
+      () {
+        expect(
+          resolveGrowthMacros(
+            '{{char}} trusts {{ USER }} and {{Char}} knows it',
+            charName: 'Mira',
+            userName: 'Alex',
+          ),
+          'Mira trusts Alex and Mira knows it',
+        );
+        // Unknown owner: {{char}} kept (no guessing), {{user}} still resolves.
+        expect(
+          resolveGrowthMacros('{{char}} met {{user}}', userName: 'Alex'),
+          '{{char}} met Alex',
+        );
+        expect(hasGrowthMacros('plain text'), isFalse);
+        expect(hasGrowthMacros('hi {{user}}'), isTrue);
+      },
+    );
   });
 
   group('resolvePassOwners (shared with the Journal)', () {
@@ -217,40 +311,43 @@ Some prose the model wrote.
     final guest = CharacterCard(name: 'Rook');
     String idOf(CharacterCard c) => c.name.toLowerCase();
 
-    test('1:1 with guests: guests who spoke are owners (growth); journal passes none', () {
-      final window = [
-        _msg('You', 'hi', isUser: true),
-        _msg('Rook', 'hello', charId: 'rook'),
-      ];
-      final withGuests = resolvePassOwners(
-        window: window,
-        group: null,
-        members: const [],
-        active: host,
-        idOf: idOf,
-        guests: [guest],
-      );
-      expect(withGuests.map((c) => c.name), ['Mira', 'Rook']);
-      // Journal-style call (no guests) → host only.
-      final journalStyle = resolvePassOwners(
-        window: window,
-        group: null,
-        members: const [],
-        active: host,
-        idOf: idOf,
-      );
-      expect(journalStyle.map((c) => c.name), ['Mira']);
-      // A guest who did NOT speak in the window is not an owner.
-      final silent = resolvePassOwners(
-        window: [_msg('You', 'hi', isUser: true)],
-        group: null,
-        members: const [],
-        active: host,
-        idOf: idOf,
-        guests: [guest],
-      );
-      expect(silent.map((c) => c.name), ['Mira']);
-    });
+    test(
+      '1:1 with guests: guests who spoke are owners (growth); journal passes none',
+      () {
+        final window = [
+          _msg('You', 'hi', isUser: true),
+          _msg('Rook', 'hello', charId: 'rook'),
+        ];
+        final withGuests = resolvePassOwners(
+          window: window,
+          group: null,
+          members: const [],
+          active: host,
+          idOf: idOf,
+          guests: [guest],
+        );
+        expect(withGuests.map((c) => c.name), ['Mira', 'Rook']);
+        // Journal-style call (no guests) → host only.
+        final journalStyle = resolvePassOwners(
+          window: window,
+          group: null,
+          members: const [],
+          active: host,
+          idOf: idOf,
+        );
+        expect(journalStyle.map((c) => c.name), ['Mira']);
+        // A guest who did NOT speak in the window is not an owner.
+        final silent = resolvePassOwners(
+          window: [_msg('You', 'hi', isUser: true)],
+          group: null,
+          members: const [],
+          active: host,
+          idOf: idOf,
+          guests: [guest],
+        );
+        expect(silent.map((c) => c.name), ['Mira']);
+      },
+    );
   });
 
   group('GrowthStore (real in-memory DB)', () {
@@ -273,196 +370,235 @@ Some prose the model wrote.
           ),
         );
 
-    test('cap trim retires the weakest unpinned ring on over-cap insert', () async {
-      for (var i = 0; i < GrowthPhysics.kMaxActiveRings; i++) {
+    test(
+      'cap trim retires the weakest unpinned ring on over-cap insert',
+      () async {
+        for (var i = 0; i < GrowthPhysics.kMaxActiveRings; i++) {
+          await store.addRing(
+            sessionId: 's1',
+            characterId: 'c1',
+            content: 'ring $i',
+            category: 'trait',
+            strength: 0.3 + i * 0.01,
+          );
+        }
         await store.addRing(
           sessionId: 's1',
           characterId: 'c1',
-          content: 'ring $i',
+          content: 'over cap',
           category: 'trait',
-          strength: 0.3 + i * 0.01,
         );
-      }
-      await store.addRing(
-        sessionId: 's1',
-        characterId: 'c1',
-        content: 'over cap',
-        category: 'trait',
-      );
-      final rings = await store.ringsFor('s1', 'c1');
-      final active = rings.where((r) => !r.retired);
-      final retired = rings.where((r) => r.retired);
-      expect(active.length, GrowthPhysics.kMaxActiveRings);
-      expect(retired.single.content, 'ring 0'); // the weakest
-    });
+        final rings = await store.ringsFor('s1', 'c1');
+        final active = rings.where((r) => !r.retired);
+        final retired = rings.where((r) => r.retired);
+        expect(active.length, GrowthPhysics.kMaxActiveRings);
+        expect(retired.single.content, 'ring 0'); // the weakest
+      },
+    );
 
-    test('invalidateRingsCitingFrom purges rings that cite rewritten history', () async {
-      await store.addRing(
-        sessionId: 's1',
-        characterId: 'c1',
-        content: 'cites discarded beat',
-        category: 'trait',
-        sourcePositions: [10, 12],
-      );
-      await store.addRing(
-        sessionId: 's1',
-        characterId: 'c1',
-        content: 'manual plant — no receipts',
-        category: 'trait',
-        sourcePositions: const [],
-      );
-      await store.addRing(
-        sessionId: 's1',
-        characterId: 'c1',
-        content: 'only older receipts',
-        category: 'habit',
-        sourcePositions: [2, 3],
-      );
-      final removed = await store.invalidateRingsCitingFrom('s1', 10);
-      expect(removed, 1);
-      final left = await store.ringsFor('s1', 'c1');
-      expect(left.map((r) => r.content).toSet(), {
-        'manual plant — no receipts',
-        'only older receipts',
-      });
-    });
+    test(
+      'invalidateRingsCitingFrom purges rings that cite rewritten history',
+      () async {
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'c1',
+          content: 'cites discarded beat',
+          category: 'trait',
+          sourcePositions: [10, 12],
+        );
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'c1',
+          content: 'manual plant — no receipts',
+          category: 'trait',
+          sourcePositions: const [],
+        );
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'c1',
+          content: 'only older receipts',
+          category: 'habit',
+          sourcePositions: [2, 3],
+        );
+        final removed = await store.invalidateRingsCitingFrom('s1', 10);
+        expect(removed, 1);
+        final left = await store.ringsFor('s1', 'c1');
+        expect(left.map((r) => r.content).toSet(), {
+          'manual plant — no receipts',
+          'only older receipts',
+        });
+      },
+    );
 
-    test('window start caps unconditionally (stuck cursor twin of Journal)', () {
-      // Calls the same pure helper runGrowthPass uses — a reimplemented
-      // formula would stay green if the service drifted (second-look).
-      expect(
-        growthPassWindowStart(590, 9488),
-        9488 - JournalPhysics.kFirstPassCap,
-        reason: 'stuck cursor must jump the gap like Journal',
-      );
-      expect(
-        growthPassWindowStart(0, 200),
-        200 - JournalPhysics.kFirstPassCap,
-        reason: 'virgin long chat still capped',
-      );
-      expect(
-        growthPassWindowStart(5, 20),
-        5,
-        reason: 'under the cap is unchanged',
-      );
-    });
+    test(
+      'window start caps unconditionally (stuck cursor twin of Journal)',
+      () {
+        // Calls the same pure helper runGrowthPass uses — a reimplemented
+        // formula would stay green if the service drifted (second-look).
+        expect(
+          growthPassWindowStart(590, 9488),
+          9488 - JournalPhysics.kFirstPassCap,
+          reason: 'stuck cursor must jump the gap like Journal',
+        );
+        expect(
+          growthPassWindowStart(0, 200),
+          200 - JournalPhysics.kFirstPassCap,
+          reason: 'virgin long chat still capped',
+        );
+        expect(
+          growthPassWindowStart(5, 20),
+          5,
+          reason: 'under the cap is unchanged',
+        );
+      },
+    );
 
-    test('reinforce merges receipts and bumps strength; fade retires at zero', () async {
-      await store.addRing(
-        sessionId: 's1',
-        characterId: 'c1',
-        content: 'young ring',
-        category: 'habit',
-        sourcePositions: [3],
-        strength: GrowthPhysics.kFadePerPass, // one fade from death
-      );
-      var ring = (await store.ringsFor('s1', 'c1')).single;
-      await store.reinforceRing(ring, sourcePositions: [9, 3]);
-      ring = (await store.ringsFor('s1', 'c1')).single;
-      expect(GrowthStore.receiptsOf(ring), [3, 9]);
-      expect(ring.strength, closeTo(GrowthPhysics.kFadePerPass + GrowthPhysics.kReinforceStep, 1e-9));
+    test(
+      'reinforce merges receipts and bumps strength; fade retires at zero',
+      () async {
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'c1',
+          content: 'young ring',
+          category: 'habit',
+          sourcePositions: [3],
+          strength: GrowthPhysics.kFadePerPass, // one fade from death
+        );
+        var ring = (await store.ringsFor('s1', 'c1')).single;
+        await store.reinforceRing(ring, sourcePositions: [9, 3]);
+        ring = (await store.ringsFor('s1', 'c1')).single;
+        expect(GrowthStore.receiptsOf(ring), [3, 9]);
+        expect(
+          ring.strength,
+          closeTo(
+            GrowthPhysics.kFadePerPass + GrowthPhysics.kReinforceStep,
+            1e-9,
+          ),
+        );
 
-      // Fade it without reinforcement until it dies.
-      while (true) {
-        final current = (await store.ringsFor('s1', 'c1')).single;
-        if (current.retired) break;
-        await store.fadeUnreinforced('s1', 'c1', const {});
-      }
-      expect((await store.ringsFor('s1', 'c1')).single.retired, isTrue);
-    });
+        // Fade it without reinforcement until it dies.
+        while (true) {
+          final current = (await store.ringsFor('s1', 'c1')).single;
+          if (current.retired) break;
+          await store.fadeUnreinforced('s1', 'c1', const {});
+        }
+        expect((await store.ringsFor('s1', 'c1')).single.retired, isTrue);
+      },
+    );
 
-    test('archiveLegacyBlob writes a pinned retired archive ring and clears the 1:1 columns', () async {
-      await seedSession('s1', pers: 'old evolved personality', scen: 'old scenario');
-      await store.refresh('s1', charIds: ['c1'], activeCharId: 'c1');
-      expect(store.legacyBlobFor('s1', 'c1'), isNotNull);
+    test(
+      'archiveLegacyBlob writes a pinned retired archive ring and clears the 1:1 columns',
+      () async {
+        await seedSession(
+          's1',
+          pers: 'old evolved personality',
+          scen: 'old scenario',
+        );
+        await store.refresh('s1', charIds: ['c1'], activeCharId: 'c1');
+        expect(store.legacyBlobFor('s1', 'c1'), isNotNull);
 
-      await store.archiveLegacyBlob('s1', 'c1', isGroup: false);
-      final rings = await store.ringsFor('s1', 'c1');
-      final archive = rings.single;
-      expect(archive.category, GrowthPhysics.kArchiveCategory);
-      expect(archive.pinned, isTrue);
-      expect(archive.retired, isTrue);
-      expect(archive.content, contains('old evolved personality'));
-      expect(archive.content, contains('old scenario'));
-      final session = await db.getSessionById('s1');
-      expect(session!.evolvedPersonality, isEmpty);
-      expect(session.evolvedScenario, isEmpty);
-      expect(store.legacyBlobFor('s1', 'c1'), isNull);
-    });
+        await store.archiveLegacyBlob('s1', 'c1', isGroup: false);
+        final rings = await store.ringsFor('s1', 'c1');
+        final archive = rings.single;
+        expect(archive.category, GrowthPhysics.kArchiveCategory);
+        expect(archive.pinned, isTrue);
+        expect(archive.retired, isTrue);
+        expect(archive.content, contains('old evolved personality'));
+        expect(archive.content, contains('old scenario'));
+        final session = await db.getSessionById('s1');
+        expect(session!.evolvedPersonality, isEmpty);
+        expect(session.evolvedScenario, isEmpty);
+        expect(store.legacyBlobFor('s1', 'c1'), isNull);
+      },
+    );
 
-    test('copySessionTo carries rings + cursor + legacy columns into a fork', () async {
-      await seedSession('parent', pers: 'legacy text');
-      await seedSession('fork');
-      await store.addRing(
-        sessionId: 'parent',
-        characterId: 'c1',
-        content: 'carried ring',
-        category: 'stance',
-        strength: 0.7,
-      );
-      await store.copySessionTo('parent', 'fork', cursor: 42);
-      final copied = await store.ringsFor('fork', 'c1');
-      expect(copied.single.content, 'carried ring');
-      expect(await store.cursorFor('fork'), 42);
-      expect((await db.getSessionById('fork'))!.evolvedPersonality, 'legacy text');
-      // Parent untouched.
-      expect((await store.ringsFor('parent', 'c1')).length, 1);
-    });
+    test(
+      'copySessionTo carries rings + cursor + legacy columns into a fork',
+      () async {
+        await seedSession('parent', pers: 'legacy text');
+        await seedSession('fork');
+        await store.addRing(
+          sessionId: 'parent',
+          characterId: 'c1',
+          content: 'carried ring',
+          category: 'stance',
+          strength: 0.7,
+        );
+        await store.copySessionTo('parent', 'fork', cursor: 42);
+        final copied = await store.ringsFor('fork', 'c1');
+        expect(copied.single.content, 'carried ring');
+        expect(await store.cursorFor('fork'), 42);
+        expect(
+          (await db.getSessionById('fork'))!.evolvedPersonality,
+          'legacy text',
+        );
+        // Parent untouched.
+        expect((await store.ringsFor('parent', 'c1')).length, 1);
+      },
+    );
 
-    test('write-time resolution + refresh self-heal fix macro-bearing rings', () async {
-      final resolving = GrowthStore(
-        getDb: () => db,
-        resolveMacros: (charId, text) => resolveGrowthMacros(
-          text,
-          charName: 'Mira',
-          userName: 'Alex',
-        ),
-      );
-      await seedSession('s1');
-      // Write path: addRing resolves before storing.
-      await resolving.addRing(
-        sessionId: 's1',
-        characterId: 'c1',
-        content: '{{char}} leans on {{user}} now',
-        category: 'stance',
-      );
-      expect(
-        (await resolving.ringsFor('s1', 'c1')).single.content,
-        'Mira leans on Alex now',
-      );
-      // Self-heal path: a pre-fix ring written with raw macros (direct DB
-      // insert bypasses the choke point) gets healed by refresh.
-      await db.insertGrowthRing(
-        GrowthRingsCompanion(
-          sessionId: const Value('s1'),
-          characterId: const Value('c1'),
-          content: const Value('{{char}} has developed attachment to {{user}}'),
-          category: const Value('trait'),
-        ),
-      );
-      await resolving.refresh('s1', charIds: ['c1'], activeCharId: 'c1');
-      final healed = resolving.allRingsFor('s1', 'c1');
-      expect(healed.any((r) => hasGrowthMacros(r.content)), isFalse);
-      expect(
-        healed.map((r) => r.content),
-        contains('Mira has developed attachment to Alex'),
-      );
-      // Healed in the DB too, not just the cache.
-      final persisted = await db.getGrowthRings('s1', 'c1');
-      expect(persisted.any((r) => hasGrowthMacros(r.content)), isFalse);
-    });
+    test(
+      'write-time resolution + refresh self-heal fix macro-bearing rings',
+      () async {
+        final resolving = GrowthStore(
+          getDb: () => db,
+          resolveMacros: (charId, text) =>
+              resolveGrowthMacros(text, charName: 'Mira', userName: 'Alex'),
+        );
+        await seedSession('s1');
+        // Write path: addRing resolves before storing.
+        await resolving.addRing(
+          sessionId: 's1',
+          characterId: 'c1',
+          content: '{{char}} leans on {{user}} now',
+          category: 'stance',
+        );
+        expect(
+          (await resolving.ringsFor('s1', 'c1')).single.content,
+          'Mira leans on Alex now',
+        );
+        // Self-heal path: a pre-fix ring written with raw macros (direct DB
+        // insert bypasses the choke point) gets healed by refresh.
+        await db.insertGrowthRing(
+          GrowthRingsCompanion(
+            sessionId: const Value('s1'),
+            characterId: const Value('c1'),
+            content: const Value(
+              '{{char}} has developed attachment to {{user}}',
+            ),
+            category: const Value('trait'),
+          ),
+        );
+        await resolving.refresh('s1', charIds: ['c1'], activeCharId: 'c1');
+        final healed = resolving.allRingsFor('s1', 'c1');
+        expect(healed.any((r) => hasGrowthMacros(r.content)), isFalse);
+        expect(
+          healed.map((r) => r.content),
+          contains('Mira has developed attachment to Alex'),
+        );
+        // Healed in the DB too, not just the cache.
+        final persisted = await db.getGrowthRings('s1', 'c1');
+        expect(persisted.any((r) => hasGrowthMacros(r.content)), isFalse);
+      },
+    );
 
-    test('reassignGrowthRings re-keys an owner within a session (collapse)', () async {
-      await store.addRing(
-        sessionId: 's1',
-        characterId: 'member-id',
-        content: 'ring',
-        category: 'trait',
-      );
-      await db.reassignGrowthRings('member-id', 'origin-id', sessionId: 's1');
-      expect(await store.ringsFor('s1', 'member-id'), isEmpty);
-      expect((await store.ringsFor('s1', 'origin-id')).single.content, 'ring');
-    });
+    test(
+      'reassignGrowthRings re-keys an owner within a session (collapse)',
+      () async {
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'member-id',
+          content: 'ring',
+          category: 'trait',
+        );
+        await db.reassignGrowthRings('member-id', 'origin-id', sessionId: 's1');
+        expect(await store.ringsFor('s1', 'member-id'), isEmpty);
+        expect(
+          (await store.ringsFor('s1', 'origin-id')).single.content,
+          'ring',
+        );
+      },
+    );
   });
 
   group('GrowthService pass (fake LLM, real DB)', () {
@@ -513,11 +649,8 @@ Some prose the model wrote.
         getReviewFirst: () => reviewFirst,
         getIsPassRunning: () => passRunning,
         setIsPassRunning: (v) => passRunning = v,
-        refreshCache: () => store.refresh(
-          's1',
-          charIds: ['mira'],
-          activeCharId: 'mira',
-        ),
+        refreshCache: () =>
+            store.refresh('s1', charIds: ['mira'], activeCharId: 'mira'),
         onNotify: () {},
       );
     }
@@ -540,98 +673,107 @@ Some prose the model wrote.
       _msg('Mira', 'Always', charId: 'mira'),
     ];
 
-    test('XML reply becomes a ring (macros resolved), cursor advances, injection updates', () async {
-      xmlReply =
-          '<ring action="add" category="stance" src="1">{{char}} has stopped testing {{user}}</ring>';
-      final svc = makeService(messages: chatty);
-      await svc.runGrowthPass();
-      final rings = await store.ringsFor('s1', 'mira');
-      // {{char}}/{{user}} resolve to real names before the ring is stored —
-      // the timeline displays content verbatim (the "{{char}} has developed…"
-      // display bug).
-      expect(rings.single.content, 'Mira has stopped testing You');
-      expect(rings.single.strength, GrowthPhysics.kNewRingStrength);
-      expect(await store.cursorFor('s1'), chatty.length);
-      expect(
-        svc.effectivePersonality(host),
-        allOf(
-          contains('Wry, guarded, loyal.'),
-          contains('[Character Growth'),
-          contains('Lately, Mira has stopped testing You'),
-        ),
-      );
-    });
+    test(
+      'XML reply becomes a ring (macros resolved), cursor advances, injection updates',
+      () async {
+        xmlReply =
+            '<ring action="add" category="stance" src="1">{{char}} has stopped testing {{user}}</ring>';
+        final svc = makeService(messages: chatty);
+        await svc.runGrowthPass();
+        final rings = await store.ringsFor('s1', 'mira');
+        // {{char}}/{{user}} resolve to real names before the ring is stored —
+        // the timeline displays content verbatim (the "{{char}} has developed…"
+        // display bug).
+        expect(rings.single.content, 'Mira has stopped testing You');
+        expect(rings.single.strength, GrowthPhysics.kNewRingStrength);
+        expect(await store.cursorFor('s1'), chatty.length);
+        expect(
+          svc.effectivePersonality(host),
+          allOf(
+            contains('Wry, guarded, loyal.'),
+            contains('[Character Growth'),
+            contains('Lately, Mira has stopped testing You'),
+          ),
+        );
+      },
+    );
 
-    test('tools transport failure → XML this round, probe left untested',
-        () async {
-      xmlReply = '<ring action="add">Grew through the glitch</ring>';
-      var toolAttempts = 0;
-      final probe = ToolTransportProbe(); // untested — tools path armed
-      final svc = makeService(
-        messages: chatty,
-        probe: probe,
-        fireToolEval: (p, t) async {
-          toolAttempts++;
-          // Connection torn down mid-call (e.g. character creation fired an
-          // app-wide abortGeneration): a network event, not a capability
-          // verdict.
-          throw Exception('SocketException: Connection reset by peer');
-        },
-      );
-      await svc.runGrowthPass();
-      expect(toolAttempts, 1);
-      // The round still landed over the XML fallback…
-      expect(
-        (await store.ringsFor('s1', 'mira')).single.content,
-        'Grew through the glitch',
-      );
-      // …but the backend was NOT branded XML-only for the run.
-      expect(probe.isXmlOnly('fake'), isFalse);
-    });
+    test(
+      'tools transport failure → XML this round, probe left untested',
+      () async {
+        xmlReply = '<ring action="add">Grew through the glitch</ring>';
+        var toolAttempts = 0;
+        final probe = ToolTransportProbe(); // untested — tools path armed
+        final svc = makeService(
+          messages: chatty,
+          probe: probe,
+          fireToolEval: (p, t) async {
+            toolAttempts++;
+            // Connection torn down mid-call (e.g. character creation fired an
+            // app-wide abortGeneration): a network event, not a capability
+            // verdict.
+            throw Exception('SocketException: Connection reset by peer');
+          },
+        );
+        await svc.runGrowthPass();
+        expect(toolAttempts, 1);
+        // The round still landed over the XML fallback…
+        expect(
+          (await store.ringsFor('s1', 'mira')).single.content,
+          'Grew through the glitch',
+        );
+        // …but the backend was NOT branded XML-only for the run.
+        expect(probe.isXmlOnly('fake'), isFalse);
+      },
+    );
 
-    test('EMPTY tools answer (server-side abort shape) → probe left untested',
-        () async {
-      xmlReply = '<ring action="add">Survived the abort</ring>';
-      final probe = ToolTransportProbe();
-      final svc = makeService(
-        messages: chatty,
-        probe: probe,
-        // A KoboldCpp /api/extra/abort completes an in-flight tool call as a
-        // clean HTTP 200 with zero tokens and no tool_calls — no exception
-        // for the transport classifier. This was the surviving "pill falls
-        // off after a Scene Guest joins" hole.
-        fireToolEval: (p, t) async =>
-            const LlmToolResponse(calls: [], text: ''),
-      );
-      await svc.runGrowthPass();
-      // The round still landed over the XML fallback…
-      expect(
-        (await store.ringsFor('s1', 'mira')).single.content,
-        'Survived the abort',
-      );
-      // …and the backend was NOT branded: empty is never a verdict.
-      expect(probe.isXmlOnly('fake'), isFalse);
-    });
+    test(
+      'EMPTY tools answer (server-side abort shape) → probe left untested',
+      () async {
+        xmlReply = '<ring action="add">Survived the abort</ring>';
+        final probe = ToolTransportProbe();
+        final svc = makeService(
+          messages: chatty,
+          probe: probe,
+          // A KoboldCpp /api/extra/abort completes an in-flight tool call as a
+          // clean HTTP 200 with zero tokens and no tool_calls — no exception
+          // for the transport classifier. This was the surviving "pill falls
+          // off after a Scene Guest joins" hole.
+          fireToolEval: (p, t) async =>
+              const LlmToolResponse(calls: [], text: ''),
+        );
+        await svc.runGrowthPass();
+        // The round still landed over the XML fallback…
+        expect(
+          (await store.ringsFor('s1', 'mira')).single.content,
+          'Survived the abort',
+        );
+        // …and the backend was NOT branded: empty is never a verdict.
+        expect(probe.isXmlOnly('fake'), isFalse);
+      },
+    );
 
-    test('prose answer with no tool call and no tags DOES brand XML-only',
-        () async {
-      xmlReply = '<ring action="add">Prose evidence</ring>';
-      final probe = ToolTransportProbe();
-      final svc = makeService(
-        messages: chatty,
-        probe: probe,
-        fireToolEval: (p, t) async => const LlmToolResponse(
-          calls: [],
-          text: 'I would rather just describe their growth in plain words.',
-        ),
-      );
-      await svc.runGrowthPass();
-      expect(
-        probe.isXmlOnly('fake'),
-        isTrue,
-        reason: 'words-instead-of-tools is real capability evidence',
-      );
-    });
+    test(
+      'prose answer with no tool call and no tags DOES brand XML-only',
+      () async {
+        xmlReply = '<ring action="add">Prose evidence</ring>';
+        final probe = ToolTransportProbe();
+        final svc = makeService(
+          messages: chatty,
+          probe: probe,
+          fireToolEval: (p, t) async => const LlmToolResponse(
+            calls: [],
+            text: 'I would rather just describe their growth in plain words.',
+          ),
+        );
+        await svc.runGrowthPass();
+        expect(
+          probe.isXmlOnly('fake'),
+          isTrue,
+          reason: 'words-instead-of-tools is real capability evidence',
+        );
+      },
+    );
 
     test('empty window (cursor caught up) does not fire; force does', () async {
       xmlReply = '<ring action="add">Bare growth</ring>';
@@ -653,64 +795,79 @@ Some prose the model wrote.
       expect(rings.length, GrowthPhysics.kMaxNewRingsPerPass);
     });
 
-    test('distill: legacy blob raises the cap, seeds developing, archives + clears', () async {
-      await db.patchSession(
-        SessionsCompanion(
-          id: const Value('s1'),
-          evolvedPersonality: const Value('She grew braver over many chats.'),
-        ),
-      );
-      xmlReply =
-          '<ring action="add" category="trait">Braver than she was</ring>'
-          '<ring action="add" category="stance">Leans on {{user}} now</ring>'
-          '<ring action="add" category="habit">Hums while cooking</ring>';
-      await makeService(messages: chatty).runGrowthPass();
-      final rings = await store.ringsFor('s1', 'mira');
-      final active = rings.where((r) => !r.retired).toList();
-      final archive = rings.where((r) => r.retired).toList();
-      expect(active, hasLength(3)); // above the normal 2-cap
-      expect(
-        active.every((r) => r.strength == GrowthPhysics.kDistillSeedStrength),
-        isTrue,
-      );
-      expect(archive.single.category, GrowthPhysics.kArchiveCategory);
-      expect((await db.getSessionById('s1'))!.evolvedPersonality, isEmpty);
-    });
+    test(
+      'distill: legacy blob raises the cap, seeds developing, archives + clears',
+      () async {
+        await db.patchSession(
+          SessionsCompanion(
+            id: const Value('s1'),
+            evolvedPersonality: const Value('She grew braver over many chats.'),
+          ),
+        );
+        xmlReply =
+            '<ring action="add" category="trait">Braver than she was</ring>'
+            '<ring action="add" category="stance">Leans on {{user}} now</ring>'
+            '<ring action="add" category="habit">Hums while cooking</ring>';
+        await makeService(messages: chatty).runGrowthPass();
+        final rings = await store.ringsFor('s1', 'mira');
+        final active = rings.where((r) => !r.retired).toList();
+        final archive = rings.where((r) => r.retired).toList();
+        expect(active, hasLength(3)); // above the normal 2-cap
+        expect(
+          active.every((r) => r.strength == GrowthPhysics.kDistillSeedStrength),
+          isTrue,
+        );
+        expect(archive.single.category, GrowthPhysics.kArchiveCategory);
+        expect((await db.getSessionById('s1'))!.evolvedPersonality, isEmpty);
+      },
+    );
 
-    test('review-first parks instead of applying; apply commits, cursor moves', () async {
-      reviewFirst = true;
-      xmlReply = '<ring action="add" category="scar">Flinches at slammed doors</ring>';
-      final svc = makeService(messages: chatty);
-      await svc.runGrowthPass();
-      expect(await store.ringsFor('s1', 'mira'), isEmpty); // parked, not applied
-      expect(review.hasPendingFor('s1'), isTrue);
-      expect(await store.cursorFor('s1'), 0); // cursor waits for the user
+    test(
+      'review-first parks instead of applying; apply commits, cursor moves',
+      () async {
+        reviewFirst = true;
+        xmlReply =
+            '<ring action="add" category="scar">Flinches at slammed doors</ring>';
+        final svc = makeService(messages: chatty);
+        await svc.runGrowthPass();
+        expect(
+          await store.ringsFor('s1', 'mira'),
+          isEmpty,
+        ); // parked, not applied
+        expect(review.hasPendingFor('s1'), isTrue);
+        expect(await store.cursorFor('s1'), 0); // cursor waits for the user
 
-      // A second auto pass is blocked while the batch is parked.
-      await svc.runGrowthPass();
-      expect(review.pending!.totalProposals, 1);
+        // A second auto pass is blocked while the batch is parked.
+        await svc.runGrowthPass();
+        expect(review.pending!.totalProposals, 1);
 
-      await review.apply();
-      expect((await store.ringsFor('s1', 'mira')).single.content,
-          'Flinches at slammed doors');
-      expect(await store.cursorFor('s1'), chatty.length);
-    });
+        await review.apply();
+        expect(
+          (await store.ringsFor('s1', 'mira')).single.content,
+          'Flinches at slammed doors',
+        );
+        expect(await store.cursorFor('s1'), chatty.length);
+      },
+    );
 
-    test('reinforce op strengthens the handled ring and exempts it from fade', () async {
-      await store.addRing(
-        sessionId: 's1',
-        characterId: 'mira',
-        content: 'existing ring',
-        category: 'trait',
-        strength: 0.5,
-      );
-      xmlReply = '<ring action="reinforce" id="1" src="3"/>';
-      await makeService(messages: chatty).runGrowthPass();
-      final ring = (await store.ringsFor('s1', 'mira')).single;
-      // +0.20 reinforce, no -0.05 fade (engaged rings are exempt).
-      expect(ring.strength, closeTo(0.7, 1e-9));
-      expect(GrowthStore.receiptsOf(ring), [3]);
-    });
+    test(
+      'reinforce op strengthens the handled ring and exempts it from fade',
+      () async {
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'mira',
+          content: 'existing ring',
+          category: 'trait',
+          strength: 0.5,
+        );
+        xmlReply = '<ring action="reinforce" id="1" src="3"/>';
+        await makeService(messages: chatty).runGrowthPass();
+        final ring = (await store.ringsFor('s1', 'mira')).single;
+        // +0.20 reinforce, no -0.05 fade (engaged rings are exempt).
+        expect(ring.strength, closeTo(0.7, 1e-9));
+        expect(GrowthStore.receiptsOf(ring), [3]);
+      },
+    );
 
     test('retire op is refused for user-pinned rings', () async {
       await store.addRing(

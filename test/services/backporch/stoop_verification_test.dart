@@ -1,16 +1,17 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Additive `verification` parse: gold / blue count, anything else is none.
+// Additive `verification` parse: gold / blue / silver count, anything else is none.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 
 void main() {
   group('stoopVerificationOf', () {
-    test('gold and blue pass through', () {
+    test('gold, blue, and silver pass through', () {
       expect(stoopVerificationOf('gold'), 'gold');
       expect(stoopVerificationOf('blue'), 'blue');
+      expect(stoopVerificationOf('silver'), 'silver');
     });
 
     test('missing, empty, and unknown are none', () {
@@ -23,7 +24,7 @@ void main() {
   });
 
   group('fromJson verification', () {
-    test('BackporchUser gold / blue / missing', () {
+    test('BackporchUser gold / blue / silver / missing', () {
       expect(
         BackporchUser.fromJson({
           'id': '1',
@@ -39,6 +40,14 @@ void main() {
           'verification': 'blue',
         }).verification,
         'blue',
+      );
+      expect(
+        BackporchUser.fromJson({
+          'id': '1',
+          'displayName': 'SAMF',
+          'verification': 'silver',
+        }).verification,
+        'silver',
       );
       expect(
         BackporchUser.fromJson({'id': '1', 'displayName': 'Ada'}).verification,
@@ -46,7 +55,7 @@ void main() {
       );
     });
 
-    test('StoopCreatorRef gold / blue / missing', () {
+    test('StoopCreatorRef gold / blue / silver / missing', () {
       expect(
         StoopCreatorRef.fromJson({
           'id': '1',
@@ -62,6 +71,14 @@ void main() {
           'verification': 'blue',
         }).verification,
         'blue',
+      );
+      expect(
+        StoopCreatorRef.fromJson({
+          'id': '1',
+          'displayName': 'SAMF',
+          'verification': 'silver',
+        }).verification,
+        'silver',
       );
       expect(
         StoopCreatorRef.fromJson({

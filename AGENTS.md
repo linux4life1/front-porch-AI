@@ -1,57 +1,57 @@
-# AI Agent Guidelines for Front Porch AI
+# AI agent rules — Front Porch AI
 
-**The project's rules live in [CLAUDE.md](CLAUDE.md). Read that file before
-writing any code — it is the single source of truth, and it is the one that is
-kept current.**
+**Read [CLAUDE.md](CLAUDE.md) before writing code.** That file is the
+project's engineering law. This file exists because many tools look for
+`AGENTS.md` first. The two must not contradict. If they ever do, CLAUDE.md
+wins and this file is stale.
 
-This file exists because `AGENTS.md` is the filename most AI coding tools look for
-(Codex, Cursor, Aider, Gemini CLI and others), while Claude Code reads `CLAUDE.md`.
-Rather than maintain two copies of the same guidance — which is exactly how this
-file rotted last time — it is deliberately a pointer.
+Humans: [CONTRIBUTING.md](CONTRIBUTING.md). Driving agents without reading
+Dart: [docs/maintainer-agent-playbook.md](docs/maintainer-agent-playbook.md).
 
-## Why this is a stub
+## What you must believe
 
-Until 2026-08-01 this file carried its own full copy of the guidelines, and it had
-drifted badly. It still documented Python TTS/STT sidecars and a Rust embedding
-server, all of which were deleted in the 2026-07 sidecar retirement, and it
-included a worked example headed *"Good: Python Sidecar Implementation"* —
-teaching agents to build the exact architecture the project now forbids. It also
-predated the Realism Engine parity rules, the `AppColors` theme system, the
-web/mobile parity requirement, the 500-line file cap and the barrel-import policy,
-and mentioned none of them even once.
+- **No sidecars.** TTS, STT, embeddings, expression, Draw Things run
+  in-process. Do not spawn helper processes. Waifu Coder may manage an
+  OpenCode binary the way the app manages Kobold — that is not a chat sidecar
+  and not a Dart coding loop.
+- **File size.** Handwritten Dart under `lib/` stays **under 500 lines**.
+  That is CI via `test/hygiene/god_file_ratchet_test.dart` (`kGodFileBar`
+  is 500, empty `test/baselines/god_files.json`). Do not add baseline
+  leftovers — split the file. Generated `.g.dart` (including
+  `lib/database/database.g.dart`) is excluded from that ratchet and owned
+  by `test/hygiene/generated_dart_size_test.dart` / Drift
+  `generate_manager: false`. Do not invent a second 500-line gate.
+- **Style.** DRY, readable Dart, few comments. `dart format` the files you
+  already edited. Never `dart format .`. Touched code must be analyzer-clean.
+- **Chat contracts.** `resolveMouthSpeech`: a closed think-only body is
+  spoken; an unclosed cut-off stays tagged. Continue does **not** tick the
+  story clock. Continue `asContinuation` keeps the turn's `pockets_before`.
+  Pockets **hide**, they do not erase. `objectivesActive` is a **live AND**
+  of the per-chat switch and the global switch.
+- **Path-complete chat work** for generation, Continue, regen/swipe/delete,
+  Realism, Needs, Journal, Growth, Pockets, RAG, or group orchestration. Fill
+  [docs/design/path-complete-chat-work.md](docs/design/path-complete-chat-work.md).
+  Continue is not regen-lite. Journal rewrite twins Growth. 1:1 twins group.
+- **Web/desktop parity.** User-visible work ships in Flutter **and**
+  `web_ui/` (including settings/toggles), or the maintainer defers that item
+  in the current conversation.
+- **Realism/Needs 1:1 ↔ group.** Observable behaviour for a character is the
+  same in both modes. Orchestration may differ; results may not.
+- **Tests.** Adding a new test file is fine. Editing or deleting an existing
+  test, golden, baseline, workflow, or `analysis_options.yaml` needs the
+  maintainer's `approved-test-change` label. Do not quietly edit a test to
+  make CI green. A new guard must be proven red, then green.
+- **No stub tests.** Network pins hit a real server or skip when env is
+  missing — never FakeStoopServer, toy HttpServer JSON, or HttpClient 400
+  stubs. See CLAUDE.md ## Testing.
+- **Public text.** No personal names in user-facing copy, release notes, or
+  docs that ship to users.
+- **Never** edit the version in `pubspec.yaml`, run destructive git restore
+  (`git checkout --`, `git restore`) on files, or imply a sandbox launch
+  happened when it did not.
 
-Anything reading it was being actively misled. Keeping one maintained file is the
-fix.
+## Done means
 
-## The short version
-
-If you read only one thing before touching this codebase:
-
-- **All engines run in-process.** No Python, no Rust, no sidecars, no helper
-  processes. See `docs/design/sidecar-retirement.md`. **Do not reintroduce them.**
-- **Every Dart file stays under 500 lines.** If the one you're editing is already
-  over, extract — don't grow it.
-- **Realism/Needs behaviour must be identical** in 1:1 and group chats.
-- **Anything user-visible ships on desktop *and* in `web_ui/`** — including its
-  settings and toggles.
-- **Path-complete chat work** — Continue ≠ regen; group ≠ 1:1 storage; Growth ≠
-  Journal rewrite. Fill
-  [`docs/design/path-complete-chat-work.md`](docs/design/path-complete-chat-work.md)
-  before claiming chat/realism/memory work is done.
-- **Hostile self-review is mandatory** before "done" / ship — green tests are not
-  a second look. See CLAUDE.md "Rules When the Human Cannot Review Code".
-- **Use `AppColors`** — no hard-coded `Color(0xFF…)`, no raw
-  `Colors.whiteXX`/`Colors.blackXX` in new or refactored UI.
-- **Use the barrel imports** where a barrel covers the file.
-- **Never** run `dart format .` (the whole tree), edit the version in
-  `pubspec.yaml`, or use destructive git commands (`git checkout -- <file>`,
-  `git restore <file>`) that discard uncommitted work — the maintainer and other
-  agents routinely have uncommitted edits in the tree. Per-file `dart format`
-  on a file you already touched is required — see CLAUDE.md "Verification".
-- **Run `flutter analyze` and `flutter test`** before claiming anything is done.
-
-All of the above, with the reasoning, the exceptions and everything omitted here,
-is in [CLAUDE.md](CLAUDE.md). Human contributors should also read
-[CONTRIBUTING.md](CONTRIBUTING.md). The maintainer cannot read Dart — see
-[`docs/maintainer-agent-playbook.md`](docs/maintainer-agent-playbook.md) for how
-to drive agents without code review.
+Path-complete checklist when chat/realism/memory is in scope. A 2–5 step
+poke script. `flutter analyze` clean on touched Dart. Web shipped or
+explicitly deferred. Green suite is not ship.

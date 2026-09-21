@@ -25,8 +25,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
+import 'package:front_porch_ai/services/image/image.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/expression_pack_qc.dart';
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -92,26 +93,38 @@ class ExpressionPackDialog extends StatefulWidget {
 
     // Remote APIs have no img2img here, so a remote pack runs entirely
     // through the provider's image-EDIT endpoint — which needs an
-    // edit-capable model in the EDIT slot. Local backends always have the
-    // img2img floor, so they pass regardless.
+    // edit-capable *API id* in the EDIT slot (or the per-host remote map).
+    // A leftover Comfy `.ckpt` used to trip packEditMode via `_edit_` in
+    // the filename, then POST that filename to Nano as invalid_model.
     if (ImageGenBackend.fromKey(storage.imageGenSettings.imageGenBackend) ==
-            ImageGenBackend.remote &&
-        !ImageReferenceResolver.packEditMode(storage.imageGenSettings)) {
-      await showWarmDialog(
-        context,
-        title: 'Edit model needed',
-        icon: Icons.theater_comedy,
-        accent: AppColors.formMasterAccent,
-        content: const WarmDialogText(
-          'On a remote API the pack generates through the provider\'s '
-          'image-edit endpoint, so it needs an edit-capable model (e.g. '
-          'qwen-image-max-edit) in the Edit tab\'s model slot. Pick one '
-          'there — or switch to a local backend (A1111, ComfyUI, or Draw '
-          'Things), which can always fall back to img2img.',
-        ),
-        actions: [warmDialogCancel(context, label: 'Got it')],
+        ImageGenBackend.remote) {
+      final account = resolveImageStudioRemoteAccount(
+        imageRemoteApiUrl: storage.imageGenSettings.imageRemoteApiUrl,
+        chatRemoteApiUrl: storage.backendSettings.remoteApiUrl,
+        keyFor: storage.backendSettings.remoteApiKeyFor,
       );
-      return false;
+      await sanitizeRemoteImageSlot(
+        image: storage.imageGenSettings,
+        hostUrl: account.url,
+        editScoped: true,
+      );
+      if (!ImageReferenceResolver.packEditMode(storage.imageGenSettings)) {
+        await showWarmDialog(
+          context,
+          title: 'Edit model needed',
+          icon: Icons.theater_comedy,
+          accent: AppColors.formMasterAccent,
+          content: const WarmDialogText(
+            'On a remote API the pack generates through the provider\'s '
+            'image-edit endpoint, so it needs a Nano/OpenRouter edit model '
+            '(e.g. qwen-image-max-edit or qwen-image-2.1/edit) — not a '
+            'Comfy/A1111 checkpoint left in the Edit slot. Pick one in '
+            'Image Studio → Edit, or switch to a local backend.',
+          ),
+          actions: [warmDialogCancel(context, label: 'Got it')],
+        );
+        return false;
+      }
     }
 
     // Base portrait: the studio's current result/reference when it has one
@@ -326,18 +339,25 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
             required String negativePrompt,
             required int seed,
             required double denoise,
-          }) => widget.imageGen.generateImage(
-            prompt: prompt,
-            negativePrompt: negativePrompt,
-            size: '${widget.baseWidth}x${widget.baseHeight}',
-            referenceImage: widget.baseImage,
-            seed: seed,
-            denoise: denoise,
-            // Edit path when available: the reference is read as conditioning
-            // and the strength slider becomes the edit strength; else img2img.
-            intent: editMode ? StudioIntent.edit : StudioIntent.create,
-            editStrength: editMode ? denoise : null,
-          ),
+          }) async {
+            final bytes = await widget.imageGen.generateImage(
+              prompt: prompt,
+              negativePrompt: negativePrompt,
+              size: '${widget.baseWidth}x${widget.baseHeight}',
+              referenceImage: widget.baseImage,
+              seed: seed,
+              denoise: denoise,
+              // Edit path when available: the reference is read as conditioning
+              // and the strength slider becomes the edit strength; else img2img.
+              intent: editMode ? StudioIntent.edit : StudioIntent.create,
+              editStrength: editMode ? denoise : null,
+            );
+            if (bytes == null) {
+              final why = widget.imageGen.statusMessage.trim();
+              if (why.isNotEmpty) throw Exception(why);
+            }
+            return bytes;
+          },
     );
     setState(() => _session = session);
     unawaited(session.run());
@@ -398,51 +418,55 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
-    return Dialog(
-      backgroundColor: AppColors.surfaceOf(context),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 720,
-          maxHeight: MediaQuery.of(context).size.height * 0.94,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _header(context),
-            Flexible(
-              child: session == null
-                  ? SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: ExpressionPackSetup(
-                        baseImage: widget.baseImage,
-                        characterName: widget.characterName,
-                        existingEmotions: widget.existingEmotions,
-                        onCancel: () => Navigator.of(context).pop(false),
-                        onStart: _start,
+    return ChangeNotifierProvider<StorageService>.value(
+      value: widget.storage,
+      child: Dialog(
+        backgroundColor: AppColors.surfaceOf(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 720,
+            maxHeight: MediaQuery.of(context).size.height * 0.94,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _header(context),
+              Flexible(
+                child: session == null
+                    ? SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: ExpressionPackSetup(
+                          baseImage: widget.baseImage,
+                          characterName: widget.characterName,
+                          existingEmotions: widget.existingEmotions,
+                          storage: widget.storage,
+                          onCancel: () => Navigator.of(context).pop(false),
+                          onStart: _start,
+                        ),
+                      )
+                    : ExpressionPackGrid(
+                        session: session,
+                        imageGen: widget.imageGen,
+                        cancelRequested: _cancelRequested,
+                        importing: _importing,
+                        qc: _qc,
+                        resolvingVision: _resolvingVision,
+                        onVisionCheck: _runVisionCheck,
+                        onCancel: () {
+                          setState(() => _cancelRequested = true);
+                          session.cancel();
+                        },
+                        onResume: () {
+                          setState(() => _cancelRequested = false);
+                          unawaited(session.run());
+                        },
+                        onImport: _import,
                       ),
-                    )
-                  : ExpressionPackGrid(
-                      session: session,
-                      imageGen: widget.imageGen,
-                      cancelRequested: _cancelRequested,
-                      importing: _importing,
-                      qc: _qc,
-                      resolvingVision: _resolvingVision,
-                      onVisionCheck: _runVisionCheck,
-                      onCancel: () {
-                        setState(() => _cancelRequested = true);
-                        session.cancel();
-                      },
-                      onResume: () {
-                        setState(() => _cancelRequested = false);
-                        unawaited(session.run());
-                      },
-                      onImport: _import,
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

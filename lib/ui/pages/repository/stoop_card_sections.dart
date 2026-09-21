@@ -60,14 +60,14 @@ List<Widget> stoopStandardSections(
       stoopResolveMacros((card[key] ?? '').toString(), name);
   final re = stoopRealismEngine(card);
   return [
+    // Hub names these two drawers separately (views-browse.js).
     stoopTextSection(
       context,
-      'Persona',
-      [
-        s('description'),
-        s('personality'),
-      ].where((x) => x.isNotEmpty).join('\n\n'),
+      'Description',
+      s('description'),
+      initiallyExpanded: true,
     ),
+    stoopTextSection(context, 'Personality', s('personality')),
     stoopTextSection(context, 'Scenario', s('scenario')),
     firstMessage ?? _defaultFirstMessage(context, card, name),
     stoopTextSection(context, 'Example dialogue', s('mes_example')),

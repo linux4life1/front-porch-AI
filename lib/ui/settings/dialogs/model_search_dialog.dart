@@ -21,8 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Shows a full dialog with a search bar to filter and select from available models (extracted, Stage 5).
-/// AppColors exclusive (fixed hards from original).
+/// Search and pick from available models.
 void showModelSearchDialog(
   BuildContext context,
   StorageService storageService,
@@ -34,7 +33,7 @@ void showModelSearchDialog(
     title: 'Select Model',
     getTitle: (m) => m.name,
     getSubtitle: (m) => m.id,
-    onSelected: (m) => storageService.setRemoteModel(m.id),
+    onSelected: (m) => storageService.backendSettings.setRemoteModelName(m.id),
   );
 }
 
@@ -107,24 +106,34 @@ void showGenericModelSearchDialog<T>(
                       itemCount: filtered.length,
                       itemBuilder: (c, i) {
                         final m = filtered[i];
-                        return ListTile(
-                          title: Text(
-                            getTitle(m),
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
+                        // Own Material + tileColor: ListTile paints ink on
+                        // the nearest Material. A colored DecoratedBox
+                        // between here and the dialog Material trips
+                        // "ListTile background color or ink splashes may
+                        // be invisible" once per row (237 Nano models).
+                        final surface = AppColors.surfaceOf(context);
+                        return Material(
+                          color: surface,
+                          child: ListTile(
+                            tileColor: surface,
+                            title: Text(
+                              getTitle(m),
+                              style: TextStyle(
+                                color: AppColors.textPrimary(context),
+                              ),
                             ),
-                          ),
-                          subtitle: Text(
-                            getSubtitle(m),
-                            style: TextStyle(
-                              color: AppColors.textTertiary(context),
-                              fontSize: 11,
+                            subtitle: Text(
+                              getSubtitle(m),
+                              style: TextStyle(
+                                color: AppColors.textTertiary(context),
+                                fontSize: 11,
+                              ),
                             ),
+                            onTap: () {
+                              onSelected(m);
+                              Navigator.pop(ctx);
+                            },
                           ),
-                          onTap: () {
-                            onSelected(m);
-                            Navigator.pop(ctx);
-                          },
                         );
                       },
                     ),

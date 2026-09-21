@@ -69,33 +69,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
 
-  test('Continue infers Scene Guest and id-first group speaker', () {
-    final gen = File(
-      'lib/services/chat/chat_service_generation.dart',
-    ).readAsStringSync();
-    expect(gen, contains('guestSpeaker ??= _sceneGuestForMessage(last)'));
-    expect(gen, contains('_isGuestAuthoredMessage(last)'));
-    expect(
-      gen,
-      contains('forceSpeaker ??= _resolveGroupSpeakerForMessage(last)'),
-    );
-    expect(
-      gen,
-      isNot(contains("c.name == _messages.last.sender")),
-      reason: 'Continue must not first-match by display name',
-    );
-    expect(
-      gen,
-      contains(
-        'speakingCharacter = forceSpeaker ?? _pickPresentGroupSpeaker()',
-      ),
-    );
-    expect(
-      gen,
-      contains('Can’t continue "\${last.sender}" — who said it is ambiguous.'),
-    );
-  });
-
   late AppDatabase db;
   late StorageService storage;
   late ChatService chat;
@@ -202,16 +175,17 @@ void main() {
         isNotEmpty,
         reason: 'Continue must fire a generation',
       );
-      final joined = llm.systems.join('\n');
-      // Group prompts list every member's persona. The YOU ARE line is
-      // who Continue picked. first-match-by-name would have said NORTH.
+      // Overlay sits on Speaker Card after history (not the system head),
+      // so Continue identity is on the user prompt. first-match-by-name
+      // would have said NORTH.
+      final wire = [...llm.systems, ...llm.prompts].join('\n');
       expect(
-        joined,
+        wire,
         contains('You are Alex from the SOUTH dock.'),
         reason: 'Continue must keep speaking as the stamped South Alex',
       );
       expect(
-        joined,
+        wire,
         isNot(contains('You are Alex from the NORTH porch.')),
         reason: 'first-match-by-name would have loaded the first Alex',
       );

@@ -216,14 +216,12 @@ class StoryClock {
   /// OOC / narrative skip destination. [lower] is quote-stripped lowercase.
   /// Callers still gate on skip language; this only interprets the target.
   static DateTime resolveSkipTarget(DateTime clock, String lower) {
-    if (RegExp(
-      r'\b(a|one)? ?month (later|passes)|next month\b',
-    ).hasMatch(lower)) {
+    if (RegExp(r'\b(a|one)? ?month (later|passes)|next month\b')
+        .hasMatch(lower)) {
       return DateTime.utc(clock.year, clock.month + 1, 1, 9);
     }
-    if (RegExp(
-      r'\b((a|one) week (later|passes)|next week|weeks? later)\b',
-    ).hasMatch(lower)) {
+    if (RegExp(r'\b((a|one) week (later|passes)|next week|weeks? later)\b')
+        .hasMatch(lower)) {
       return clock.add(const Duration(days: 7));
     }
     if (isNightSkip(lower)) {
@@ -273,14 +271,12 @@ class StoryClock {
     // so the skip chip stamped a time the strip barely moved.
     final counted = _countedSkip(clock, lower);
     if (counted != null) return counted;
-    if (RegExp(
-      r'\b(several hours|many hours|a long time|hours? pass)\b',
-    ).hasMatch(lower)) {
+    if (RegExp(r'\b(several hours|many hours|a long time|hours? pass)\b')
+        .hasMatch(lower)) {
       return clock.add(const Duration(hours: 3));
     }
-    if (RegExp(
-      r'\b(a few hours|couple.{0,5}hours|2.{0,5}hours|two hours)\b',
-    ).hasMatch(lower)) {
+    if (RegExp(r'\b(a few hours|couple.{0,5}hours|2.{0,5}hours|two hours)\b')
+        .hasMatch(lower)) {
       return clock.add(const Duration(hours: 2));
     }
     return clock.add(const Duration(hours: 1));
@@ -305,9 +301,8 @@ class StoryClock {
 
   /// Digit or word duration ("6 hours", "six hours"). Null if none.
   static DateTime? _countedSkip(DateTime clock, String lower) {
-    final digit = RegExp(
-      r'\b(\d+)\s*(minutes?|hours?|days?)\b',
-    ).firstMatch(lower);
+    final digit = RegExp(r'\b(\d+)\s*(minutes?|hours?|days?)\b')
+        .firstMatch(lower);
     if (digit != null) {
       return _addCounted(
         clock,
@@ -472,4 +467,14 @@ class StoryClock {
       .split('_')
       .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1))
       .join(' ');
+
+  /// True when the story clock is actually moving. Two drivers: the Realism
+  /// Engine, or the opt-in standalone clock. Passage of time must also be on.
+  /// ChatService._clockRunning, the sidebar chevrons, and the web calendar
+  /// all call this so they cannot disagree.
+  static bool isRunning({
+    required bool passageOfTimeEnabled,
+    required bool realismEnabled,
+    required bool standaloneClockEnabled,
+  }) => passageOfTimeEnabled && (realismEnabled || standaloneClockEnabled);
 }

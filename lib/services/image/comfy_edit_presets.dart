@@ -35,6 +35,7 @@
 import 'dart:convert';
 
 import 'comfy_edit_workflow.dart';
+
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 
 /// Qwen-Image-Edit (2509/2511). Node shapes validated live against ComfyUI's
@@ -66,18 +67,21 @@ const ComfyEditPreset kQwenImageEditPreset = ComfyEditPreset(
       loaderClass: 'UNETLoader',
       inputName: 'unet_name',
       label: 'Diffusion model',
+      folderHint: 'diffusion_models',
     ),
     ComfyModelSlot(
       token: '%MODEL_CLIP%',
       loaderClass: 'CLIPLoader',
       inputName: 'clip_name',
       label: 'Text encoder (CLIP)',
+      folderHint: 'text_encoders',
     ),
     ComfyModelSlot(
       token: '%MODEL_VAE%',
       loaderClass: 'VAELoader',
       inputName: 'vae_name',
       label: 'VAE',
+      folderHint: 'vae',
     ),
   ],
   template: {
@@ -205,24 +209,28 @@ const ComfyEditPreset kFluxKontextPreset = ComfyEditPreset(
       loaderClass: 'UNETLoader',
       inputName: 'unet_name',
       label: 'Diffusion model',
+      folderHint: 'diffusion_models',
     ),
     ComfyModelSlot(
       token: '%MODEL_CLIP1%',
       loaderClass: 'DualCLIPLoader',
       inputName: 'clip_name1',
       label: 'Text encoder 1 (CLIP-L)',
+      folderHint: 'text_encoders',
     ),
     ComfyModelSlot(
       token: '%MODEL_CLIP2%',
       loaderClass: 'DualCLIPLoader',
       inputName: 'clip_name2',
       label: 'Text encoder 2 (T5-XXL)',
+      folderHint: 'text_encoders',
     ),
     ComfyModelSlot(
       token: '%MODEL_VAE%',
       loaderClass: 'VAELoader',
       inputName: 'vae_name',
       label: 'VAE',
+      folderHint: 'vae',
     ),
   ],
   template: {
@@ -262,7 +270,10 @@ const ComfyEditPreset kFluxKontextPreset = ComfyEditPreset(
     },
     'pos': {
       'class_type': 'CLIPTextEncode',
-      'inputs': {'text': '%PROMPT%', 'clip': ['clip', 0]},
+      'inputs': {
+        'text': '%PROMPT%',
+        'clip': ['clip', 0],
+      },
     },
     'reflatent': {
       'class_type': 'ReferenceLatent',

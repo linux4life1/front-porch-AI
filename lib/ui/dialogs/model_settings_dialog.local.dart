@@ -37,7 +37,8 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
     // `kcppsHasModel && kcppsModelFileExists` used — so a rebuild without a
     // preset never reads kcppsModelPath or stats a file.
     final kcppsModelExists =
-        storage.kcppsHasModel && _kcppsModelExists.of(storage.kcppsModelPath);
+        storage.backendSettings.kcppsHasModel &&
+        _kcppsModelExists.of(storage.backendSettings.kcppsModelPath);
     if (_selectedModelPath == null &&
         modelManager.models.isNotEmpty &&
         !kcppsModelExists) {
@@ -52,7 +53,8 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
         ModelSelector(
           models: modelManager.models,
           selectedModelPath: _selectedModelPath,
-          showManagedByKcpps: storage.kcppsHasModel && kcppsModelExists,
+          showManagedByKcpps:
+              storage.backendSettings.kcppsHasModel && kcppsModelExists,
           onChanged: (val) {
             if (val == null) {
               rebuildState(() {
@@ -62,14 +64,14 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
               rebuildState(() {
                 _selectedModelPath = val;
               });
-              storage.setLastUsedModelPath(val);
-              final savedPreset = storage.modelPresetMap[val];
+              storage.backendSettings.setLastUsedModelPath(val);
+              final savedPreset = storage.presetSettings.modelPresetMap[val];
               if (savedPreset != null &&
                   savedPreset.isNotEmpty &&
                   _presetFileExists.of(savedPreset)) {
-                storage.setActiveKcppsPath(savedPreset);
+                storage.backendSettings.setActiveKcppsPath(savedPreset);
               } else {
-                storage.setActiveKcppsPath(null);
+                storage.backendSettings.setActiveKcppsPath(null);
               }
               _applyAutoConfiguration();
             }
@@ -91,8 +93,8 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
         Consumer<StorageService>(
           builder: (context, storage, _) {
             final isPresetActive =
-                storage.activeKcppsPath != null &&
-                storage.activeKcppsPath!.isNotEmpty;
+                storage.backendSettings.activeKcppsPath != null &&
+                storage.backendSettings.activeKcppsPath!.isNotEmpty;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -109,33 +111,49 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                   localPresets: _localPresets,
                   hint: 'None (Use App Settings)',
                   onChanged: (val) {
-                    storage.setActiveKcppsPath(val);
+                    storage.backendSettings.setActiveKcppsPath(val);
                     if (_selectedModelPath != null && val != null) {
-                      storage.setModelPreset(_selectedModelPath!, val);
+                      storage.presetSettings.setModelPreset(
+                        _selectedModelPath!,
+                        val,
+                      );
                     } else if (_selectedModelPath != null && val == null) {
-                      storage.setModelPreset(_selectedModelPath!, '');
+                      storage.presetSettings.setModelPreset(
+                        _selectedModelPath!,
+                        '',
+                      );
                     }
                     if (val != null &&
-                        storage.kcppsHasModel &&
-                        _kcppsModelExists.of(storage.kcppsModelPath)) {
+                        storage.backendSettings.kcppsHasModel &&
+                        _kcppsModelExists.of(
+                          storage.backendSettings.kcppsModelPath,
+                        )) {
                       rebuildState(() {
                         _selectedModelPath = null;
                       });
                     }
                   },
                   onExternalClear: () {
-                    storage.setActiveKcppsPath(null);
+                    storage.backendSettings.setActiveKcppsPath(null);
                     if (_selectedModelPath != null) {
-                      storage.setModelPreset(_selectedModelPath!, '');
+                      storage.presetSettings.setModelPreset(
+                        _selectedModelPath!,
+                        '',
+                      );
                     }
                   },
                   onBrowsePicked: (path) {
                     if (_selectedModelPath != null) {
-                      storage.setModelPreset(_selectedModelPath!, path);
+                      storage.presetSettings.setModelPreset(
+                        _selectedModelPath!,
+                        path,
+                      );
                     }
                     _scanLocalPresets();
-                    if (storage.kcppsHasModel &&
-                        _kcppsModelExists.of(storage.kcppsModelPath)) {
+                    if (storage.backendSettings.kcppsHasModel &&
+                        _kcppsModelExists.of(
+                          storage.backendSettings.kcppsModelPath,
+                        )) {
                       rebuildState(() {
                         _selectedModelPath = null;
                       });
@@ -175,7 +193,7 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Controlled by preset: ${path_lib.basename(storage.activeKcppsPath!)}',
+                            'Controlled by preset: ${path_lib.basename(storage.backendSettings.activeKcppsPath!)}',
                             style: const TextStyle(
                               color: AppColors.formMasterAccent,
                               fontSize: 12,
@@ -274,7 +292,7 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                                 child: DropdownButton<int>(
                                   value: Provider.of<StorageService>(
                                     context,
-                                  ).kvQuantizationLevel,
+                                  ).backendSettings.kvQuantizationLevel,
                                   isExpanded: true,
                                   dropdownColor: AppColors.surfaceContainerOf(
                                     context,
@@ -288,7 +306,9 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                                       Provider.of<StorageService>(
                                         context,
                                         listen: false,
-                                      ).setKvQuantizationLevel(val);
+                                      ).backendSettings.setKvQuantizationLevel(
+                                        val,
+                                      );
                                       rebuildState(() {});
                                     }
                                   },

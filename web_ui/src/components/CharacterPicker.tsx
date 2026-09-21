@@ -18,13 +18,17 @@ interface PickChar {
 export function CharacterPicker({
   onPick,
   onClose,
+  initialFull = false,
+  initialFilter = '',
 }: {
   onPick: (name: string, full: boolean) => void;
   onClose: () => void;
+  initialFull?: boolean;
+  initialFilter?: string;
 }) {
   const [chars, setChars] = useState<PickChar[]>([]);
-  const [search, setSearch] = useState('');
-  const [full, setFull] = useState(false);
+  const [search, setSearch] = useState(initialFilter);
+  const [full, setFull] = useState(initialFull);
 
   useEffect(() => {
     api.get<PickChar[]>('/api/characters?sort=name').then(setChars).catch(() => {});

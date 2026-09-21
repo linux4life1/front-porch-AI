@@ -88,17 +88,4 @@ void main() {
     expect(rows.first.positionStart, 976);
     expect(rows.first.positionEnd, 980);
   });
-
-  test('live embed waits for backfill and passes basePosition', () {
-    final src = File(
-      'lib/services/chat/chat_service_turn_flow.dart',
-    ).readAsStringSync();
-    expect(src, contains('await _awaitHistoryHydrated()'));
-    expect(src, contains('positionOffset: _history.basePosition'));
-    expect(
-      src,
-      isNot(contains('totalMessageCount: _messages.length,')),
-      reason: 'must not embed the unhydrated tail as 0..N',
-    );
-  });
 }

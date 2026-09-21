@@ -21,12 +21,13 @@ import 'dart:convert';
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 
 import '../../image/edit_profile.dart';
+import 'image_gen_remote.dart';
 import 'settings_base.dart';
 
 /// Image generation (A1111/Draw Things/remote) + Draw Things gRPC settings.
 ///
 /// Lifted Stage 7.
-class ImageGenSettings with SettingsBase {
+class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   // Default ON since 2026-07: the feature is opt-out. Enabling only shows the
   // ✨ toolbar button and the /image command — nothing generates until a
   // backend is actually configured, so there is no overhead for users who
@@ -89,14 +90,15 @@ class ImageGenSettings with SettingsBase {
   double _editShift = kEditRecommendedShift;
   int _editSeedMode = kEditRecommendedSeedMode;
 
-  // ComfyUI edit: which bundled preset drives an edit (matches a preset id, or
-  // the '__uploaded__' sentinel for a user-supplied workflow), the per-preset
-  // model-slot file choices ("presetId/%TOKEN%" -> filename), and any uploaded
-  // workflow JSON. The DT-flavored edit knobs above still supply steps/CFG/
-  // strength/shift; ComfyUI uses its own sampler/scheduler defaults.
+  // Comfy edit: preset id or '__uploaded__', slot map, uploaded JSON.
   String _comfyEditWorkflowId = 'qwen_image_edit'; // == kQwenImageEditPreset.id
   Map<String, String> _comfyEditModelChoices = {};
   String _comfyEditUploadedWorkflow = '';
+
+  // Comfy Create: family id + slot map + BYO JSON (same shape as edit).
+  String _comfyCreateWorkflowId = 'sd';
+  Map<String, String> _comfyCreateModelChoices = {};
+  String _comfyCreateUploadedWorkflow = '';
 
   bool get imageGenEnabled => _imageGenEnabled;
   String get imageGenBackend => _imageGenBackend;
@@ -143,6 +145,14 @@ class ImageGenSettings with SettingsBase {
   /// The user's chosen file for a preset's model slot, or null if unpicked.
   String? comfyEditModelChoice(String presetId, String token) =>
       _comfyEditModelChoices['$presetId/$token'];
+
+  String get comfyCreateWorkflowId => _comfyCreateWorkflowId;
+  Map<String, String> get comfyCreateModelChoices =>
+      Map.unmodifiable(_comfyCreateModelChoices);
+  String get comfyCreateUploadedWorkflow => _comfyCreateUploadedWorkflow;
+
+  String? comfyCreateModelChoice(String presetId, String token) =>
+      _comfyCreateModelChoices['$presetId/$token'];
 
   void load() {
     _imageGenEnabled = prefs?.getBool(k('image_gen_enabled')) ?? true;
@@ -191,15 +201,18 @@ class ImageGenSettings with SettingsBase {
     _drawThingsCfgZeroStar =
         prefs?.getBool(k('draw_things_cfg_zero_star')) ?? false;
 
-    _editSteps = prefs?.getInt(k('image_gen_edit_steps')) ?? kEditRecommendedSteps;
+    _editSteps =
+        prefs?.getInt(k('image_gen_edit_steps')) ?? kEditRecommendedSteps;
     _editCfgScale =
         prefs?.getDouble(k('image_gen_edit_cfg_scale')) ?? kEditRecommendedCfg;
     _editSampler =
-        prefs?.getInt(k('draw_things_edit_sampler')) ?? kEditRecommendedSamplerInt;
+        prefs?.getInt(k('draw_things_edit_sampler')) ??
+        kEditRecommendedSamplerInt;
     _editShift =
         prefs?.getDouble(k('draw_things_edit_shift')) ?? kEditRecommendedShift;
     _editSeedMode =
-        prefs?.getInt(k('draw_things_edit_seed_mode')) ?? kEditRecommendedSeedMode;
+        prefs?.getInt(k('draw_things_edit_seed_mode')) ??
+        kEditRecommendedSeedMode;
 
     _comfyEditWorkflowId =
         prefs?.getString(k('comfy_edit_workflow_id')) ?? 'qwen_image_edit';
@@ -208,6 +221,14 @@ class ImageGenSettings with SettingsBase {
     );
     _comfyEditUploadedWorkflow =
         prefs?.getString(k('comfy_edit_uploaded_workflow')) ?? '';
+    _comfyCreateWorkflowId =
+        prefs?.getString(k('comfy_create_workflow_id')) ?? 'sd';
+    _comfyCreateModelChoices = _decodeStringMap(
+      prefs?.getString(k('comfy_create_model_choices')),
+    );
+    _comfyCreateUploadedWorkflow =
+        prefs?.getString(k('comfy_create_uploaded_workflow')) ?? '';
+    loadImageRemotePrefs();
   }
 
   static Map<String, String> _decodeStringMap(String? s) {
@@ -445,6 +466,35 @@ class ImageGenSettings with SettingsBase {
   Future<void> setComfyEditUploadedWorkflow(String json) async {
     _comfyEditUploadedWorkflow = json;
     await prefs?.setString(k('comfy_edit_uploaded_workflow'), json);
+    notify();
+  }
+
+  Future<void> setComfyCreateWorkflowId(String value) async {
+    _comfyCreateWorkflowId = value;
+    await prefs?.setString(k('comfy_create_workflow_id'), value);
+    notify();
+  }
+
+  Future<void> setComfyCreateModelChoice(
+    String presetId,
+    String token,
+    String file,
+  ) async {
+    _comfyCreateModelChoices['$presetId/$token'] = file;
+    await prefs?.setString(
+      k('comfy_create_model_choices'),
+      jsonEncode(_comfyCreateModelChoices),
+    );
+    if (presetId == 'sd' && token == '%MODEL_CHECKPOINT%') {
+      _imageGenModel = file;
+      await prefs?.setString(k('image_gen_model'), file);
+    }
+    notify();
+  }
+
+  Future<void> setComfyCreateUploadedWorkflow(String json) async {
+    _comfyCreateUploadedWorkflow = json;
+    await prefs?.setString(k('comfy_create_uploaded_workflow'), json);
     notify();
   }
 }

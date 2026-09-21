@@ -88,8 +88,8 @@ class JournalMemoryGroupState extends State<JournalMemoryGroup> {
     final storage = Provider.of<StorageService>(context);
     final showMemory = !widget.isGroup && !widget.isLite;
     final subtitle =
-        'Journal ${storage.journalEnabled ? 'on' : 'off'}'
-        '${showMemory ? ' · RAG ${storage.ragEnabled ? 'on' : 'off'}' : ''}';
+        'Journal ${storage.memorySettings.journalEnabled ? 'on' : 'off'}'
+        '${showMemory ? ' · RAG ${storage.memorySettings.ragEnabled ? 'on' : 'off'}' : ''}';
 
     return PorchAccordion(
       key: _accordionKey,

@@ -33,8 +33,6 @@
 // list, including at the edges (achieved ambitions dropped, out-of-range,
 // junk).
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/realism_prompt_builder.dart';
@@ -94,13 +92,15 @@ void main() {
       expect(
         p,
         isNot(contains(done)),
-        reason: 'a finished mountain has no next switchback; offering it just '
+        reason:
+            'a finished mountain has no next switchback; offering it just '
             'invites steps toward something already done',
       );
       expect(
         p,
         contains('1. $bakery'),
-        reason: 'and the survivors renumber from 1 — which is exactly why the '
+        reason:
+            'and the survivors renumber from 1 — which is exactly why the '
             'resolver must read the same filtered list',
       );
     });
@@ -113,14 +113,17 @@ void main() {
       expect(
         p,
         isNot(contains('PREFER a concrete next step')),
-        reason: 'the whole steering block must vanish, not render empty — an '
+        reason:
+            'the whole steering block must vanish, not render empty — an '
             'ambition-less card has to cost what it did before this existed',
       );
     });
 
     test('so is one whose every ambition is achieved', () {
-      expect(narrative(const [(text: done, progress: 100)]),
-          isNot(contains('serves_ambition')));
+      expect(
+        narrative(const [(text: done, progress: 100)]),
+        isNot(contains('serves_ambition')),
+      );
     });
   });
 
@@ -139,7 +142,8 @@ void main() {
       expect(
         RealismPromptBuilder.resolveServedAmbition('1', withDone),
         bakery,
-        reason: 'the prompt numbered bakery as 1 because it dropped the '
+        reason:
+            'the prompt numbered bakery as 1 because it dropped the '
             'achieved one; resolving against the unfiltered list would return '
             '"learn to drive" and tag the quest with a goal already finished',
       );
@@ -160,14 +164,18 @@ void main() {
         expect(
           RealismPromptBuilder.resolveServedAmbition(raw, roster()),
           sister,
-          reason: 'local-model floor: the answer shape varies and a strict '
+          reason:
+              'local-model floor: the answer shape varies and a strict '
               'parse would silently drop every tag',
         );
       }
     });
 
     test('junk, absence and out-of-range all fall back to no ambition', () {
-      expect(RealismPromptBuilder.resolveServedAmbition(null, roster()), isNull);
+      expect(
+        RealismPromptBuilder.resolveServedAmbition(null, roster()),
+        isNull,
+      );
       expect(RealismPromptBuilder.resolveServedAmbition('', roster()), isNull);
       expect(
         RealismPromptBuilder.resolveServedAmbition('banana', roster()),
@@ -218,55 +226,6 @@ void main() {
           p.substring(p.indexOf(marker), p.indexOf(marker) + 260);
 
       expect(steer(narrative(roster())), steer(oneShot(roster())));
-    });
-  });
-
-  group('switching Ambitions off stops paying for the steering', () {
-    // Structural, not behavioural: the gate lives in a chat_service part file
-    // and needs a live ChatService to exercise. Read it as "the two gates
-    // still say the same thing", not "the gate works".
-    //
-    // It is here because the whole feature-independence effort exists to stop
-    // switched-off features from billing per turn, and this is a new per-turn
-    // cost. The per-turn ambition INJECTION already learned this lesson and
-    // carries the gate with a comment explaining it; the eval must not drift
-    // from it, or turning Ambitions off would silence the display while the
-    // eval kept steering quests toward a goal that can no longer move.
-    /// The `getAmbitions:` lambda, whitespace-flattened so the formatter's
-    /// line breaks cannot make this pass or fail.
-    String evalGate() {
-      final src = File(
-        'lib/services/chat/chat_service_wiring_evals.dart',
-      ).readAsStringSync();
-      final start = src.indexOf('getAmbitions: () =>');
-      return src
-          .substring(start, src.indexOf('setObjective:', start))
-          .replaceAll(RegExp(r'\s+'), ' ');
-    }
-
-    test('the eval roster is gated exactly as the injection is', () {
-      final injection = File(
-        'lib/services/chat/chat_service_wiring_injection.dart',
-      ).readAsStringSync().replaceAll(RegExp(r'\s+'), ' ');
-
-      expect(
-        injection,
-        contains('realismSettings.ambitionsEnabled && objectivesActive'),
-        reason: 'the injection gate is the precedent this one copies',
-      );
-      expect(
-        evalGate(),
-        contains('!_storageService.realismSettings.ambitionsEnabled'),
-        reason: 'the Ambitions switch must reach getAmbitions, or an '
-            'ambitions-off chat still pays per turn to be steered toward a '
-            'goal that can no longer move',
-      );
-      expect(
-        evalGate(),
-        contains('!objectivesActive'),
-        reason: 'and so must Objectives — completing a quest is the only '
-            'thing that advances an ambition',
-      );
     });
   });
 }

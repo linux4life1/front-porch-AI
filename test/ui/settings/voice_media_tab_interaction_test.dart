@@ -67,69 +67,20 @@ class _ModelsManager extends FakeModelManager {
 }
 
 class _VoiceStorage extends FakeStorageService {
-  @override
-  get expressionFallback => 'none';
-
-  bool _stt = false;
-  @override
-  bool get sttEnabled => _stt;
-  @override
-  Future<void> setSttEnabled(bool v) async {
-    _stt = v;
-    notifyListeners();
+  _VoiceStorage() {
+    expressionSettings.setExpressionFallback('none');
+    expressionSettings.setExpressionEnabled(true);
+    sttSettings.setWhisperModel('base.en');
+    sttSettings.setCallBufferSentences(2);
   }
-
-  @override
-  String get whisperModel => 'base.en';
-  @override
-  Future<void> setWhisperModel(String v) async {}
-  @override
-  bool get autoSendTranscription => false;
-  @override
-  Future<void> setAutoSendTranscription(bool v) async {}
-  @override
-  int get callBufferSentences => 2;
-  @override
-  Future<void> setCallBufferSentences(int v) async {}
-  @override
-  String get callModelName => '';
-  @override
-  Future<void> setCallModelName(String v) async {}
-  @override
-  String get callSystemPrompt => '';
-  @override
-  Future<void> setCallSystemPrompt(String v) async {}
-  @override
-  bool get expressionEnabled => true;
-  @override
-  Future<void> setExpressionEnabled(bool v) async {}
-  @override
-  String get expressionClassificationMode => 'onnx';
-  @override
-  Future<void> setExpressionClassificationMode(String v) async {}
-  @override
-  String get expressionDisplayMode => 'sidebar';
-  @override
-  Future<void> setExpressionDisplayMode(String v) async {}
-  @override
-  bool get expressionEmojiBurst => false;
-  @override
-  Future<void> setExpressionEmojiBurst(bool v) async {}
-  @override
-  double get expressionEmojiBurstSize => 32;
-  @override
-  Future<void> setExpressionEmojiBurstSize(double v) async {}
-  @override
-  bool get expressionRerollSame => false;
-  @override
-  Future<void> setExpressionRerollSame(bool v) async {}
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('every section of the Voice & Media tab renders and takes taps',
-      (tester) async {
+  testWidgets('every section of the Voice & Media tab renders and takes taps', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1000, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -181,28 +132,45 @@ void main() {
       'Enable Voice Input', // stt part
       'Expression Images', // expressions part
     ]) {
-      expect(find.textContaining(landmark), findsWidgets,
-          reason: '"$landmark" landmark missing — its future part would be '
-              'detached');
+      expect(
+        find.textContaining(landmark),
+        findsWidgets,
+        reason:
+            '"$landmark" landmark missing — its future part would be '
+            'detached',
+      );
     }
     // The call section (voice_call part) is gated behind voice input.
-    expect(find.textContaining('Call System Prompt'), findsNothing,
-        reason: 'call settings must stay hidden while voice input is off');
+    expect(
+      find.textContaining('Call System Prompt'),
+      findsNothing,
+      reason: 'call settings must stay hidden while voice input is off',
+    );
 
     // Drive the REAL gate end-to-end: enable voice input via its actual
     // switch and the call section (the future voice_call part) must appear.
     final sttSwitch = find.byType(Switch).first;
-    await tester.scrollUntilVisible(sttSwitch, 120,
-        scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      sttSwitch,
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(sttSwitch, warnIfMissed: true);
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
     final callLandmark = find.textContaining('Call System Prompt');
-    await tester.scrollUntilVisible(callLandmark, 250,
-        scrollable: find.byType(Scrollable).first);
-    expect(callLandmark, findsWidgets,
-        reason: 'enabling voice input must reveal the call section — its '
-            'future part would otherwise be detached');
+    await tester.scrollUntilVisible(
+      callLandmark,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      callLandmark,
+      findsWidgets,
+      reason:
+          'enabling voice input must reveal the call section — its '
+          'future part would otherwise be detached',
+    );
   });
 }

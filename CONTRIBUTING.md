@@ -1,86 +1,65 @@
 # Contributing to Front Porch AI
 
-Thanks for your interest in contributing! Contributions are welcome from developers of all skill levels.
-
-## Table of Contents
-
-- [Licensing](#licensing)
-- [Code of Conduct](#code-of-conduct)
-- [Which Branch Do I Target?](#which-branch-do-i-target)
-- [Development Setup](#development-setup)
-- [Pull Request Process](#pull-request-process)
-- [Required Checks](#required-checks)
-- [Project Rules That Trip People Up](#project-rules-that-trip-people-up)
-- [Testing](#testing)
-- [Building](#building)
-- [Reporting Issues](#reporting-issues)
+Thanks for your interest in contributing. Contributions are welcome from
+developers of all skill levels.
 
 ## Licensing
 
-Front Porch AI is licensed under the **GNU Affero General Public License, version 3
-or (at your option) any later version** (`AGPL-3.0-or-later`). Releases before
-v0.9.0 were GPLv3.
+Front Porch AI is licensed under the **GNU Affero General Public License,
+version 3 or (at your option) any later version** (`AGPL-3.0-or-later`).
+Releases before v0.9.0 were GPLv3.
 
-**By submitting a contribution — code, documentation, assets or anything else —
-you agree that it is licensed under AGPL-3.0-or-later**, and you confirm that you
-have the right to submit it under that license. If you are contributing work you
-do not personally own (employer-owned code, or code copied from another project),
-it is your responsibility to make sure that is permitted and compatible before
-opening a pull request.
+**By submitting a contribution — code, documentation, assets or anything
+else — you agree that it is licensed under AGPL-3.0-or-later**, and you
+confirm that you have the right to submit it under that license. If you are
+contributing work you do not personally own, make sure that is permitted and
+compatible before opening a pull request.
 
-There is no Contributor License Agreement and no copyright assignment. You keep
-the copyright in your own work.
+There is no Contributor License Agreement and no copyright assignment. You
+keep the copyright in your own work.
 
-Practical notes:
-
-- **New source files need the AGPL header.** Copy it from any existing file in
-  `lib/`.
-- **Mind what your dependencies drag in.** A package with an incompatible license
-  cannot be merged, and one that quietly downgrades existing packages will fail the
-  dependency-floor guard (see [Required Checks](#required-checks)).
+- **New source files need the AGPL header.** Copy it from any existing file
+  in `lib/`.
+- **Mind what your dependencies drag in.** A package with an incompatible
+  license cannot be merged. A silent downgrade of an existing package fails
+  the dependency-floor guard (see [Required Checks](#required-checks)).
 - **Model weights are not code.** Anything the app downloads at runtime (TTS
-  voices, embeddings, engines) is fetched by the user from a third party and is
-  covered by that third party's terms, not by this license. If you add a new
-  downloaded model, say in your PR where it comes from and what it is licensed
-  under — several TTS voices carry non-commercial dataset terms.
+  voices, embeddings, engines) is fetched by the user from a third party.
+  If you add a downloaded model, say in the PR where it comes from and what
+  it is licensed under.
 
-If you are not familiar with what the AGPL requires, read it before contributing,
-and get your own legal advice if you need it.
+Read the AGPL before contributing, and get your own legal advice if you
+need it.
 
 ## Code of Conduct
 
-Be respectful and constructive. That's the whole rule.
+Be respectful and constructive.
 
-## Which Branch Do I Target?
-
-This matters — PRs opened against the wrong branch will be asked to move.
+## Which branch do I target?
 
 | Change type | Target branch |
 |---|---|
 | All work (features, fixes, experiments) | `Rawhide` |
 | Tagged stable releases | `main` |
 
-Two branches. There is no `dev` line and no beta series. Direct PRs to `main`
-are almost never accepted.
+Work lands on `Rawhide`. Direct PRs to `main` are almost never accepted.
+PRs opened against the wrong branch will be asked to move.
 
-## Development Setup
+## Development setup
 
 ### Prerequisites
 
-- **Flutter 3.47.0** (what CI uses). The Dart SDK constraint is `^3.10.8`.
-  macOS **12 Monterey** is the floor (Flutter 3.47's minimum).
+- **Flutter 3.47.0** (what CI uses). Dart SDK constraint `^3.10.8`.
+  macOS **12 Monterey** is the floor.
 - [Git](https://git-scm.com/)
 - Windows 10+, macOS 12+, or Linux
-- **Linux only**, for desktop builds:
+- **Linux** desktop builds:
   `libgtk-3-dev ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev`
-- **Node 20+**, only if you are touching the web/mobile UI in `web_ui/`
+- **Node 20+** only if you touch `web_ui/` (CI uses Node 24)
 
-There is **no Rust toolchain, no Python, and no `pip install` step.** Every engine
-runs in-process: TTS (Kokoro/Piper via sherpa-onnx), STT (Whisper via sherpa-onnx),
-expression classification and RAG embeddings (onnxruntime), and Draw Things
-(pure-Dart gRPC). The app spawns no helper processes. See
-`docs/design/sidecar-retirement.md` before touching any engine — **do not
-reintroduce sidecars.**
+There is **no Rust toolchain, no Python, and no `pip install` step.** Every
+engine runs in-process. See `docs/design/sidecar-retirement.md` before
+touching an engine — **do not reintroduce sidecars.**
 
 ### Setup
 
@@ -90,115 +69,120 @@ cd front-porch-AI
 flutter pub get
 
 # Only if you are working on the web/mobile UI
-cd web_ui && npm install
+cd web_ui && npm ci
 ```
 
-Database schema changes additionally need:
+Database schema changes also need:
 
 ```bash
 dart run build_runner build   # regenerates lib/database/database.g.dart
 ```
 
-## Pull Request Process
+## Pull request process
 
-1. Branch from the correct target branch (see the table above)
-2. Make your change, and keep it scoped to one thing
-3. Run the [required checks](#required-checks) locally
+1. Branch from `Rawhide` (or `main` only for a tagged-release chore).
+2. Keep the change scoped to one thing.
+3. Run the [required checks](#required-checks) locally.
 4. Write a commit message that explains **why**, not just what — see the
-   "Commit Messages" section of [CLAUDE.md](CLAUDE.md) for the standard
-5. Open the PR against the same branch you started from — GitHub will fill in the
-   PR template automatically; delete any section that doesn't apply to your change
-6. Say what you tested, and on which platforms
+   commit section of [CLAUDE.md](CLAUDE.md).
+5. Open the PR against the same branch. GitHub fills the PR template;
+   delete sections that do not apply.
+6. Say what you tested, and on which platforms.
 
-**Draft PRs are welcome.** If a feature is half-built and you want direction on
-the approach, open it as a draft — that gets you useful feedback instead of a list
-of unfinished pieces.
+Draft PRs are welcome when you want direction on an approach.
 
-## Required Checks
+## Required checks
 
-CI runs these on every PR to `main` and `Rawhide`. Run them locally first.
+CI runs these on PRs to `main` and `Rawhide`. Run them locally first.
 
 ```bash
-flutter analyze                       # must be clean — the project is at 0 warnings
-flutter test                          # unit + integration
-flutter test --tags golden            # pixel goldens (Linux/CI-authored)
-cd web_ui && npm run lint && npm test  # only if you touched web_ui/
+flutter analyze
+flutter test --concurrency=4 --exclude-tags golden
+flutter test --tags golden              # pixel goldens; authored on Linux
+cd web_ui && npm run lint && npm test   # only if you touched web_ui/
 ```
 
-The CI jobs are:
+Linux goldens that a Mac `flutter test` never executes:
+
+```bash
+./scripts/ci-local.sh
+```
 
 | Job | What fails it |
 |---|---|
-| `analyze` | Any analyzer issue in the Dart files your PR changed |
-| `test` | Any failing test, including the dependency-floor guard |
-| E2E smoke | The app failing to start on Linux/macOS/Windows |
-| `web-tests` | `tsc` type errors or failing vitest specs in `web_ui/` |
+| `analyze` | Analyzer issues in the Dart files your PR changed |
+| `test` | Failing unit/widget test, including the dependency-floor guard |
+| E2E smoke | The app failing a suite in `integration_test/*_test.dart` |
+| `web-tests` | `tsc` errors or failing vitest specs |
 | `theme-lint` | Adding a raw `Colors.blueAccent` under `lib/` |
-| `io-lint` | Adding synchronous I/O (`existsSync`, `readAs*Sync`, …) under `lib/ui/` |
-| `golden` | A pixel golden that changed without being intentionally updated |
+| `io-lint` | Adding synchronous I/O under `lib/ui/` |
+| `golden` | A pixel golden that changed without being updated |
 
-Two of these surprise people:
+Two surprises:
 
-- **The dependency-floor guard** (`test/deps/dependency_floor_test.dart`) fails if
-  any package in `pubspec.lock` moves *backwards*. It exists because a silent
-  `sqlite3` downgrade once shipped a release with no database engine on Linux.
-  **Do not fix a failure by regenerating `test/deps/dependency_floors.json`** — find
-  out what pulled the version back, and explain it in the PR.
-- **`io-lint`** exists because a single `existsSync` in a widget `build()` was
-  invisible on macOS and 10–100× slower on Windows under Defender. A line that
-  genuinely cannot run in a build path can carry a trailing `// io-ok: <reason>`.
+- **Dependency-floor** (`test/deps/dependency_floor_test.dart`) fails if any
+  package in `pubspec.lock` moves *backwards*. Do not fix a failure by
+  regenerating `test/deps/dependency_floors.json` — find what pulled the
+  version back.
+- **`io-lint`** exists because a single `existsSync` in a widget `build()`
+  was invisible on macOS and much slower on Windows under Defender. A line
+  that cannot run in a build path may carry `// io-ok: <reason>`.
+
+**Editing or deleting an existing test, golden, baseline, workflow, or
+`analysis_options.yaml`** fails `test-integrity.yml` until a maintainer
+adds the **`approved-test-change`** label. Adding a **new** test file never
+blocks.
 
 ### Format only the Dart files you already touched
 
-Same law as barrels: if you edited `foo.dart`, run `dart format foo.dart` so
-it leaves on the current tall style. Do **not** run `dart format .` or format
-a directory — that is an 856-file rewrite and it is still forbidden. Do **not**
-format an existing test you were not already changing (`test-integrity.yml`).
-After formatting, fix any lint the wrap introduced (a split `if (x) return;`
-trips `curly_braces_in_flow_control_structures`). A repo-wide reformat is its
-own separate, intentional commit, and it needs `approved-test-change` if it
-touches tests.
+If you edited `foo.dart`, run `dart format foo.dart` (tall style). Do
+**not** run `dart format .` or format a directory. Do **not** format an
+existing test you were not already changing. After formatting, fix any lint
+the wrap introduced.
 
-## Project Rules That Trip People Up
+## Project rules that trip people up
 
-[CLAUDE.md](CLAUDE.md) is the full guide. These are the ones that most often send
-a PR back:
+[CLAUDE.md](CLAUDE.md) is the full engineering law. The ones that most
+often send a PR back:
 
-- **Files stay under 500 lines.** If the file you are editing is already over,
-  don't grow it — extract a focused class instead.
-- **Web/mobile parity is required.** Any user-visible feature or UX change shipped
-  in the Flutter desktop app must also land in `web_ui/` in the same body of work —
-  including its settings and toggles. Adaptation to each form factor is expected;
-  omission is not. Ask if you think a deferral is warranted.
-- **Realism/Needs parity is required.** Observable behaviour must be identical
-  whether a character is in a 1:1 chat or a group.
-- **Use the theme system.** `AppColors` only — no hard-coded `Color(0xFF…)` and no
-  raw `Colors.whiteXX`/`Colors.blackXX` in new or refactored UI. New chrome accents
-  use `AppColors.formMasterAccent` or `AppColors.porchAmberOf(context)`.
-- **Use the barrel imports** (`models/models.dart`, `utils/utils.dart`,
-  `services/services.dart`, `ui/widgets/widgets.dart`, …) rather than
-  single-file imports where a barrel covers the file.
-- **Don't edit `pubspec.yaml` version** — CI/CD normalizes the release version.
-- **Database schema changes need discussion first.** An external community tool
-  (Character Card Forge) writes to this database with raw SQL, so a removed or
-  renamed column can break it.
+- **Handwritten Dart under `lib/` stays under 500 lines.** That is CI
+  (`test/hygiene/god_file_ratchet_test.dart`, empty
+  `test/baselines/god_files.json`). Split instead of growing. Generated
+  `.g.dart` (including `database.g.dart`) is a different test
+  (`generated_dart_size_test.dart`). Do not invent a second 500-line gate.
+- **Web/mobile parity.** A user-visible desktop change ships in `web_ui/`
+  in the same work, including its settings and toggles, unless the
+  maintainer defers that item on the PR.
+- **Realism/Needs parity.** Observable behaviour must match in a 1:1 chat
+  and a group.
+- **Theme system.** `AppColors` only. New chrome accents use
+  `AppColors.formMasterAccent` or `AppColors.porchAmberOf(context)`.
+- **Barrel imports** where a barrel covers the file.
+- **Do not edit `pubspec.yaml` version** — CI/CD normalizes it.
+- **Database schema changes need a plan.** The Drift `onUpgrade` ladder is
+  load-bearing. Additive columns are the safe default. Breaking changes
+  need maintainer confirmation first.
 - **Never silently swallow errors.** Log them or surface them.
+- **Public text has no personal names.**
 
 ## Testing
 
 ```bash
-flutter test                          # everything except pixel goldens
+flutter test --concurrency=4 --exclude-tags golden
 flutter test --coverage
-flutter test test/path/to/file.dart   # one file
-flutter test -n "test name"           # one test
-flutter test --tags golden            # pixel goldens
+flutter test test/path/to/file.dart
+flutter test -n "test name"
+flutter test --tags golden
+# E2E: one file per invocation
+flutter test integration_test/app_smoke_test.dart -d linux
 ```
 
-Aim for 80%+ coverage on new code, and test error paths, not just happy paths.
-Mock external dependencies.
+Aim for 80%+ coverage on new code, and test error paths. Mock external
+dependencies.
 
-For anything that cannot be unit-tested, build and run the app and say in the PR
-what you exercised and on which platform. "It compiles" is not testing.
+For anything that cannot be unit-tested, build and run the app and say in
+the PR what you exercised and on which platform. "It compiles" is not
+testing.
 
 ## Building
 
@@ -208,20 +192,22 @@ flutter build windows
 ./scripts/build-macos.sh   # signs, packages and notarizes
 ```
 
-No post-build copy steps are needed — native libraries ship inside their pub
-packages.
+Native libraries ship inside their pub packages. No post-build copy step.
 
-## Reporting Issues
+## Reporting issues
 
-1. Check existing issues first
-2. Include: steps to reproduce, expected vs actual behaviour, your OS and app
-   version, and logs or screenshots where relevant
-3. Minimal reproduction cases get fixed fastest
+1. Check existing issues first.
+2. Include steps to reproduce, expected vs actual behaviour, OS and app
+   version, and logs or screenshots where relevant.
+3. **Do not open a public issue for a security problem.** Use the
+   [Security tab](https://github.com/linux4life1/front-porch-AI/security)
+   — see [SECURITY.md](SECURITY.md).
 
-## Additional Resources
+## Additional resources
 
-- [CLAUDE.md](CLAUDE.md) — the full contributor/agent guide (AGENTS.md points here)
+- [CLAUDE.md](CLAUDE.md) — engineering law (AGENTS.md points here)
+- [Path-complete chat work](docs/design/path-complete-chat-work.md)
 - [Flutter docs](https://docs.flutter.dev/) · [Effective Dart](https://dart.dev/effective-dart/style)
 - [Discord](https://discord.gg/e4tET6rpdv)
 
-Thanks for contributing to Front Porch AI! 🎭
+Thanks for contributing to Front Porch AI.

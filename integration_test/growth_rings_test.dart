@@ -118,10 +118,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(growthSwitch.first, warnIfMissed: false);
     await d.waitFor(
-      () => storage.characterEvolutionEnabled,
+      () => storage.memorySettings.characterEvolutionEnabled,
       () =>
           'the evolution toggle to stick '
-          '(is ${storage.characterEvolutionEnabled})',
+          '(is ${storage.memorySettings.characterEvolutionEnabled})',
     );
 
     // ── A scored turn's salience kick fires the growth pass ─────────────

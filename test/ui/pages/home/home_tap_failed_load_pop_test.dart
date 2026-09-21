@@ -31,7 +31,9 @@ void main() {
   late String src;
 
   setUpAll(() {
-    src = File('lib/ui/pages/home/home_page_chrome.dart').readAsStringSync();
+    src = File(
+      'lib/ui/pages/home/home_page_chrome.actions.dart',
+    ).readAsStringSync();
   });
 
   String handler(String name) {

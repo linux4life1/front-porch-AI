@@ -59,48 +59,10 @@ extension _ChatPageSidebar on _ChatPageState {
 
   /// Wraps a sidebar widget with a draggable resize handle on its left edge.
   Widget _buildResizableSidebar({required Widget child}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Drag handle
-        MouseRegion(
-          cursor: SystemMouseCursors.resizeColumn,
-          child: GestureDetector(
-            onHorizontalDragUpdate: (details) {
-              rebuildState(() {
-                double newWidth = _sidebarWidth - details.delta.dx;
-                if (newWidth < SidebarTokens.minWidth) {
-                  _sidebarWidth = 0; // Snap to closed
-                } else {
-                  _sidebarWidth = newWidth.clamp(
-                    SidebarTokens.minWidth,
-                    SidebarTokens.maxWidth,
-                  );
-                }
-              });
-            },
-            child: Container(
-              width: 6,
-              color: Colors.transparent,
-              child: Center(
-                child: Container(
-                  width: 3,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.white24,
-                      Colors.black12,
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (_sidebarWidth > 0) SizedBox(width: _sidebarWidth, child: child),
-      ],
+    return ChatResizeSidebar(
+      width: _sidebarWidth,
+      onWidth: (w) => rebuildState(() => _sidebarWidth = w),
+      child: child,
     );
   }
 
@@ -186,14 +148,17 @@ extension _ChatPageSidebar on _ChatPageState {
 
   /// Horizontal roster of all cast participants. Tapping one focuses its
   /// per-character sidebar sections. Shown only when more than one speaker is
-  /// present (1:1 + guests, or a group).
+  /// present (1:1 + guests, or a group). Soft guests show GUEST + Promote
+  /// here — this is the only Promote chrome. Character State may still
+  /// show a GUEST badge; it does not get a second button.
   Widget _buildParticipantRoster(
     ChatService chatService,
     List<ChatParticipant> cast,
     ChatParticipant focused,
   ) {
+    final hasLite = cast.any((p) => p.isLite);
     return Container(
-      height: 66,
+      height: hasLite ? 96 : 66,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         border: Border(
@@ -208,57 +173,26 @@ extension _ChatPageSidebar on _ChatPageState {
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final p = cast[i];
-          final isFocused = p.id == focused.id;
-          final color = _ChatPageState._groupCharacterColor(i);
           final img = p.card.imagePath != null
               ? _resolveCharImage(p.card.imagePath!)
               : null;
-          return InkWell(
-            onTap: () => rebuildState(() => _focusedParticipantId = p.id),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isFocused ? color : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: color,
-                    backgroundImage: img != null ? FileImage(img) : null,
-                    child: img == null
-                        ? Text(
-                            p.name.isNotEmpty ? p.name[0] : '?',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                SizedBox(
-                  width: 48,
-                  child: Text(
-                    p.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: isFocused
-                          ? AppColors.textPrimary(context)
-                          : AppColors.textTertiary(context),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          return CastRosterChip(
+            name: p.name,
+            color: _ChatPageState._groupCharacterColor(i),
+            isFocused: p.id == focused.id,
+            isLite: p.isLite,
+            imageFile: img,
+            promoteEnabled: !chatService.isGenerating,
+            onFocus: () => rebuildState(() => _focusedParticipantId = p.id),
+            onPromote: p.isLite
+                ? () {
+                    if (chatService.isGroupMode) {
+                      unawaited(chatService.promoteGuestToFull(p.card));
+                    } else {
+                      unawaited(chatService.joinFull(p.card));
+                    }
+                  }
+                : null,
           );
         },
       ),
@@ -317,7 +251,8 @@ extension _ChatPageSidebar on _ChatPageState {
             ),
             Consumer<StorageService>(
               builder: (context, storage, _) {
-                chatService.directorDelaySec = storage.directorDelay;
+                chatService.directorDelaySec =
+                    storage.ttsSettings.directorDelay;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -329,7 +264,7 @@ extension _ChatPageSidebar on _ChatPageState {
                         ),
                         const Spacer(),
                         Text(
-                          '${(_dragDirectorDelay ?? storage.directorDelay).toStringAsFixed(1)}s',
+                          '${(_dragDirectorDelay ?? storage.ttsSettings.directorDelay).toStringAsFixed(1)}s',
                           style: const TextStyle(
                             color: Colors.amberAccent,
                             fontSize: 11,
@@ -346,7 +281,9 @@ extension _ChatPageSidebar on _ChatPageState {
                         ),
                       ),
                       child: Slider(
-                        value: _dragDirectorDelay ?? storage.directorDelay,
+                        value:
+                            _dragDirectorDelay ??
+                            storage.ttsSettings.directorDelay,
                         min: 0.5,
                         max: 60.0,
                         divisions: 119,
@@ -356,7 +293,7 @@ extension _ChatPageSidebar on _ChatPageState {
                             rebuildState(() => _dragDirectorDelay = val),
                         onChangeEnd: (val) {
                           _dragDirectorDelay = null;
-                          storage.setDirectorDelay(val);
+                          storage.ttsSettings.setDirectorDelay(val);
                         },
                       ),
                     ),

@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/chat/chat.dart' show StoryClock;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/story_calendar_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -42,7 +43,20 @@ class TimeStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final time = chat.timeService.timeOfDay;
     final day = chat.timeService.dayCount;
-    final canNudge = chat.realismEnabled && !chat.isGenerating;
+    StorageService? storage;
+    try {
+      storage = Provider.of<StorageService>(context);
+    } on ProviderNotFoundException {
+      storage = null;
+    }
+    final canNudge =
+        StoryClock.isRunning(
+          passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
+          realismEnabled: chat.realismEnabled,
+          standaloneClockEnabled:
+              storage?.realismSettings.standaloneClockEnabled ?? false,
+        ) &&
+        !chat.isGenerating;
     final activeDot = AppColors.timeDayAccentOf(context);
 
     final timeStyle = TextStyle(
@@ -114,7 +128,9 @@ class TimeStrip extends StatelessWidget {
           const SizedBox(height: 4),
           WeatherChip(
             chat: chat,
-            fahrenheit: Provider.of<StorageService>(context).weatherFahrenheit,
+            fahrenheit: Provider.of<StorageService>(
+              context,
+            ).realismSettings.weatherFahrenheit,
           ),
         ],
         const SizedBox(height: 4),

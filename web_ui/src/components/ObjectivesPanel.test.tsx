@@ -66,6 +66,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   post.mockClear();
+  primary.tasks = [];
 });
 
 afterEach(() => {
@@ -104,6 +105,22 @@ describe('ObjectivesPanel', () => {
       taskCount: 8,
       nsfw: true,
     });
+  });
+
+  it('stale tasks look skipped, not completed', () => {
+    primary.tasks = [
+      { description: 'Ask at the dock', completed: false, stale: true },
+      { description: 'Walk the cliff', completed: true },
+    ];
+    render();
+    expect(container.textContent).toContain('stale-skipped');
+    const boxes = [...container.querySelectorAll('input[type="checkbox"]')] as HTMLInputElement[];
+    const staleBox = boxes.find((el) => el.disabled);
+    expect(staleBox).toBeTruthy();
+    expect(staleBox!.checked).toBe(false);
+    const done = [...container.querySelectorAll('span.done')].map((el) => el.textContent);
+    expect(done).toContain('Walk the cliff');
+    expect(done.join(' ')).not.toContain('Ask at the dock');
   });
 
   it('Add posts a manual task', () => {

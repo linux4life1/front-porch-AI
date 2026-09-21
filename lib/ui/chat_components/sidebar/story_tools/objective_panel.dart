@@ -19,9 +19,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+
 import '../sidebar_tokens.dart';
 import 'objective_add_goal.dart';
 import 'objective_task_row.dart';
@@ -54,12 +56,11 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
         final pObj = chatService.primaryObjective;
         final secondaries = chatService.secondaryObjectives;
 
-        final primaryTasks = pObj != null
+        final List<Map<String, dynamic>> primaryTasks = pObj != null
             ? chatService.tasksForObjective(pObj)
-            : [];
-        final completedCount = primaryTasks
-            .where((t) => t['completed'] == true)
-            .length;
+            : const [];
+        final completedCount = completedQuestTaskCount(primaryTasks);
+        final countable = countableQuestTaskCount(primaryTasks);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,7 +72,7 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
               accent: AppColors.porchHoneyOf(context),
               trailing: pObj != null
                   ? Text(
-                      '$completedCount/${primaryTasks.length}',
+                      '$completedCount/$countable',
                       style: TextStyle(
                         fontSize: 10,
                         color: AppColors.textTertiary(context),
@@ -96,14 +97,11 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.taskAccentOf(
-                    context,
-                  ).withValues(alpha: 0.1),
+                  color: AppColors.taskAccentOf(context).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: AppColors.taskAccentOf(
-                      context,
-                    ).withValues(alpha: 0.3),
+                    color: AppColors.taskAccentOf(context)
+                        .withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
@@ -143,9 +141,7 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
               // context for the switchback rather than a second heading.
               Padding(
                 padding: const EdgeInsets.only(left: 8),
-                child: AmbitionServedChip(
-                  servedAmbition: pObj.servedAmbition,
-                ),
+                child: AmbitionServedChip(servedAmbition: pObj.servedAmbition),
               ),
 
               // NSFW toggle
@@ -237,14 +233,13 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                         isDense: true,
                         items: [3, 4, 5, 6, 7, 8, 10]
                             .map(
-                              (n) => DropdownMenuItem(
-                                value: n,
-                                child: Text('$n'),
-                              ),
+                              (n) =>
+                                  DropdownMenuItem(value: n, child: Text('$n')),
                             )
                             .toList(),
-                        onChanged: (v) =>
-                            setState(() => chatService.objectiveTaskCount = v ?? 5),
+                        onChanged: (v) => setState(
+                          () => chatService.objectiveTaskCount = v ?? 5,
+                        ),
                       ),
                     ),
                   ],
@@ -297,17 +292,19 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                 ...primaryTasks.asMap().entries.map((entry) {
                   final i = entry.key;
                   final task = entry.value;
-                  final completed = task['completed'] == true;
+                  final completed = objectiveTaskIsCompleted(task);
+                  final stale = objectiveTaskIsStale(task);
                   final isCurrent =
-                      !completed &&
+                      objectiveTaskIsOpen(task) &&
                       primaryTasks
                           .take(i)
-                          .every((t) => t['completed'] == true);
+                          .every((t) => !objectiveTaskIsOpen(t));
 
                   return EditableTaskRow(
                     key: ValueKey('task_$i'),
                     description: task['description'] as String,
                     completed: completed,
+                    stale: stale,
                     isCurrent: isCurrent,
                     onToggle: () => chatService.toggleTask(pObj, i),
                     onDelete: () => chatService.removeTask(pObj, i),
@@ -336,9 +333,8 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                             enabledThumbRadius: 5,
                           ),
                           activeTrackColor: AppColors.textTertiary(context),
-                          inactiveTrackColor: AppColors.borderOf(
-                            context,
-                          ).withValues(alpha: 0.2),
+                          inactiveTrackColor: AppColors.borderOf(context)
+                              .withValues(alpha: 0.2),
                           thumbColor: AppColors.textSecondary(context),
                           overlayShape: SliderComponentShape.noOverlay,
                         ),
@@ -387,7 +383,10 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                           ),
-                          icon: const Icon(Icons.check_circle_outline, size: 12),
+                          icon: const Icon(
+                            Icons.check_circle_outline,
+                            size: 12,
+                          ),
                           label: const Text(
                             'Check now',
                             style: TextStyle(fontSize: 10),

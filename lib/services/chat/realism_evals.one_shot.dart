@@ -91,19 +91,38 @@ extension RealismEvalOneShot on RealismEvals {
         );
     final prompt = buildPrompt(toolsMode: false);
 
+    final sw = Stopwatch()..start();
     try {
       debugPrint('[Realism:OneShot] Evaluating (fused call)...');
-      final raw = await _fireEval(
-        toolName: kOneShotTool,
+      // Tools-first with a forced retry, then tight no-headroom text that
+      // stops at schema-complete JSON, then one recovery. Never the
+      // 4000+16000 think hose — and never skip this turn's deltas if any
+      // attempt returns JSON.
+      final raw = await fireFusedRealismEval(
+        probe: probe,
+        backendIdentity: getBackendIdentity(),
+        debugLabel: kOneShotTool,
         tools: kOneShotEvalTools,
         buildPrompt: buildPrompt,
+        callToText: (resp) => realismToolCallToJson(kOneShotTool, resp.calls),
+        fireToolEval: fireToolEval,
+        fireTightText:
+            fireTightEval ??
+            (prompt, {onChunk, wallClockTimeout}) async =>
+                fusedTextFromRaw(await fireLLMEval(prompt, onChunk: onChunk)),
+        isCancelled: isEvalCancelled,
         onChunk: onChunk,
+        toolChoice: kOneShotTool,
+        getPreferTextEvals: getPreferTextEvals,
       );
       if (raw == null) {
         // Clock decide is post-generation now (same time-only call as the
         // multi-call path). A failed one-shot must not freeze OR pre-move
         // the clock — the post-reply pass owns both the estimate and the
         // failure drift.
+        debugPrint(
+          '[Realism:OneShot] Failed — no JSON (${sw.elapsedMilliseconds} ms)',
+        );
         return;
       }
 
@@ -244,7 +263,8 @@ extension RealismEvalOneShot on RealismEvals {
       ).firstMatch(textForOneShot);
       debugPrint(
         '[Realism:OneShot] Done — Emotion: ${getCharacterEmotion()} (${getEmotionIntensity()}), '
-        'Time: ${timeService.timeOfDay}, Reason: ${reasonMatch?.group(1) ?? 'unknown'}',
+        'Time: ${timeService.timeOfDay}, Reason: ${reasonMatch?.group(1) ?? 'unknown'} '
+        '(${sw.elapsedMilliseconds} ms)',
       );
 
       // Bundle full state snapshot for time-travel forking (god will persist via
@@ -257,7 +277,8 @@ extension RealismEvalOneShot on RealismEvals {
       setPendingRealismMetadata(pending);
     } catch (e) {
       debugPrint(
-        '[Realism:OneShot] Failed: $e — falling back to dual-call on next turn',
+        '[Realism:OneShot] Failed: $e — falling back to dual-call on next turn '
+        '(${sw.elapsedMilliseconds} ms)',
       );
     }
   }

@@ -36,6 +36,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
 import 'package:front_porch_ai/ui/pages/home/dialogs/session_picker_dialog.dart';
 import 'package:front_porch_ai/ui/pages/home/enhance/enhance_wizard_page.dart';
+import 'package:front_porch_ai/ui/pages/home/home_drop_zone.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_mode_toggle.dart';
 import 'package:front_porch_ai/ui/pages/home/open_chat_env.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
@@ -43,18 +44,22 @@ import 'package:front_porch_ai/ui/pages/edit_group_page.dart';
 import 'package:front_porch_ai/services/group_card_importer.dart';
 import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
 import 'package:front_porch_ai/ui/pages/story_home_view.dart';
+import 'package:front_porch_ai/ui/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
-import 'package:front_porch_ai/services/byaf_service.dart';
 
 // State is split across part files (private extensions) to stay under 500.
 part 'home/home_page_chrome.dart';
+part 'home/home_page_chrome.actions.dart';
 part 'home/home_page_handlers.dart';
 part 'home/home_page_dialogs.dart';
+part 'home/home_page_dialogs.import.dart';
+part 'home/home_page_drop.dart';
 part 'home/home_page_char_ops.dart';
 part 'home/home_page_transfer.dart';
 part 'home/home_page_history.dart';
+part 'home/home_page_lifecycle.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -84,8 +89,8 @@ class _HomePageState extends State<HomePage> {
   // Grid scale
   double _gridScale = 300.0;
 
-  // Porch Stories mode toggle
-  bool _showStories = false;
+  // Chats / Porch Stories / Waifu Coder
+  HomeMode _homeMode = HomeMode.chats;
 
   /// Blocks stacked open-chat taps while setActiveCharacter / loadSession
   /// runs (can take seconds). Without this, multi-tap after exit→reenter
@@ -108,33 +113,21 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     final storage = Provider.of<StorageService>(context, listen: false);
-    _sortMode = storage.sortMode;
-    _gridScale = storage.gridScale;
+    _sortMode = storage.uiSettings.sortMode;
+    _gridScale = storage.uiSettings.gridScale;
     // StorageService._init() is async — settings may not be loaded yet.
     // Wait for init to complete so persisted values are reflected.
     storage.initialized.then((_) {
       if (!mounted) return;
       setState(() {
-        _sortMode = storage.sortMode;
-        _gridScale = storage.gridScale;
+        _sortMode = storage.uiSettings.sortMode;
+        _gridScale = storage.uiSettings.gridScale;
       });
     });
     Future.microtask(() => _refreshLastActivityCache());
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _maybeOpenChatFromEnv(),
     );
-  }
-
-  /// The file to show as [c]'s library card cover: the ★ starred gallery
-  /// avatar when set (same star-aware resolution the web library and card
-  /// exports already use — the gallery dialog promises "★ sets the default +
-  /// card cover"), else the portrait.
-  File _resolveCharImage(CharacterCard c) {
-    final repo = Provider.of<CharacterRepository>(context, listen: false);
-    final cover = repo.coverImageFileFor(c);
-    if (cover != null) return cover;
-    final storage = Provider.of<StorageService>(context, listen: false);
-    return storage.resolveCharacterImage(c.imagePath ?? '');
   }
 
   // The notifiers we subscribed to, held so dispose() can unsubscribe: they
@@ -180,189 +173,7 @@ class _HomePageState extends State<HomePage> {
 
   int? _lastHomeResetTick;
 
-  void _onAppStateChanged() {
-    if (!mounted) return;
-    try {
-      final appState = Provider.of<AppState>(context, listen: false);
-      if (appState.homeResetTick != _lastHomeResetTick) {
-        _lastHomeResetTick = appState.homeResetTick;
-        setState(() => _activeFolderId = null);
-      }
-    } catch (_) {}
-  }
-
-  // CharacterRepository notifies for every mutation (a favourite toggle, a
-  // cover change…) and the activity refresh runs two full-table aggregates —
-  // so rapid notifies used to fire overlapping DB scans alongside the grid
-  // rebuild the Consumer already does. Coalesce bursts into one refresh.
   Timer? _activityRefreshDebounce;
-
-  void _onCharactersChanged() {
-    if (!mounted) return;
-    _activityRefreshDebounce?.cancel();
-    _activityRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
-      _activityRefreshDebounce = null;
-      if (mounted) _refreshLastActivityCache();
-    });
-    // Characters often land after Home's first frame — retry the launch hook.
-    _maybeOpenChatFromEnv();
-  }
-
-  void _onKoboldUpdate() {
-    if (!mounted) return;
-    try {
-      final kobold = Provider.of<KoboldService>(context, listen: false);
-      if (kobold.consumeModelReady()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  Icons.check_circle,
-                  color: AppColors.verifiedAccentOf(context),
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Text('Model loaded and ready!'),
-              ],
-            ),
-            backgroundColor: AppColors.surfaceContainerOf(context),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-      setState(() {}); // Rebuild to update status bar
-    } catch (_) {}
-  }
-
-  /// Query the DB to build caches for last activity time and message count per character.
-  ///
-  /// Keys in the output maps are always the stableGroupId (image basename or sanitized name)
-  /// so they match what the grid and sort logic use via CharacterCard.stableGroupId.
-  ///
-  /// We correlate via each library card's dbId because 1:1 sessions currently store the
-  /// integer dbId in sessions.character_id (post group overhaul). Group sessions (with
-  /// groupId set, character_id often null) do not contribute here — this is by design
-  /// for the decoupled model (group activity lives with the private group members).
-  Future<void> _refreshLastActivityCache() async {
-    try {
-      final db = await AppDatabase.instance();
-      final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-
-      // Get counts and activity from DB (keys are whatever was stored in sessions.character_id,
-      // currently the dbId for 1:1 sessions).
-      final msgCounts = await db.getMessageCountsPerCharacter();
-      final lastActivity = await db.getLastActivityPerCharacter();
-
-      // Output maps MUST be keyed by stableGroupId (the value used for all lookups
-      // in the grid for chips + 'recent'/'messages' sorting).
-      final newMsgCount = <String, int>{};
-      final newCache = <String, DateTime>{};
-
-      for (final card in charRepo.characters) {
-        final stableId = card.stableGroupId;
-        if (card.dbId != null) {
-          final dbKey =
-              card.dbId!; // matches what is stored in sessions for 1:1
-          if (msgCounts.containsKey(dbKey)) {
-            newMsgCount[stableId] = msgCounts[dbKey]!;
-          }
-          if (lastActivity.containsKey(dbKey)) {
-            newCache[stableId] = lastActivity[dbKey]!;
-          }
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _lastActivityCache
-            ..clear()
-            ..addAll(newCache);
-          _messageCountCache
-            ..clear()
-            ..addAll(newMsgCount);
-        });
-      }
-    } catch (e) {
-      debugPrint('Error refreshing activity cache: $e');
-      if (mounted) setState(() {});
-    }
-  }
-
-  /// Delegates to the canonical stable group ID.
-  /// See [StableGroupId.stableGroupId] in lib/utils/character_id.dart
-  String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
-
-  /// Legacy alias — prefer _getCharacterIdFromCard for new code.
-  @Deprecated('Use _getCharacterIdFromCard for stable group ID resolution')
-  String getStableCharacterId(CharacterCard card) => card.stableGroupId;
-
-  void _toggleSelectMode() {
-    setState(() {
-      _isSelecting = !_isSelecting;
-      _isOrganizing = false;
-      if (!_isSelecting) {
-        _selectedCharacterIds.clear();
-        _selectedGroupIds.clear();
-      }
-    });
-  }
-
-  void _toggleOrganizeMode() {
-    setState(() {
-      _isOrganizing = !_isOrganizing;
-      _isSelecting = false;
-      if (!_isOrganizing) {
-        _selectedCharacterIds.clear();
-        _selectedGroupIds.clear();
-      }
-    });
-  }
-
-  void _toggleSelect(CharacterCard character) {
-    final id = character.imagePath != null
-        ? path.basenameWithoutExtension(character.imagePath!)
-        : character.name
-              .replaceAll(RegExp(r'[^\w\s]'), '')
-              .replaceAll(' ', '_');
-    setState(() {
-      if (_selectedCharacterIds.contains(id)) {
-        _selectedCharacterIds.remove(id);
-        if (_selectedCharacterIds.isEmpty && _selectedGroupIds.isEmpty) {
-          _isSelecting = false;
-          _isOrganizing = false;
-        }
-      } else {
-        _selectedCharacterIds.add(id);
-      }
-    });
-  }
-
-  /// Group analogue of [_toggleSelect] — groups are selected by their id
-  /// (they have no image-filename key).
-  void _toggleSelectGroup(GroupChat group) {
-    setState(() {
-      if (_selectedGroupIds.contains(group.id)) {
-        _selectedGroupIds.remove(group.id);
-        if (_selectedCharacterIds.isEmpty && _selectedGroupIds.isEmpty) {
-          _isSelecting = false;
-          _isOrganizing = false;
-        }
-      } else {
-        _selectedGroupIds.add(group.id);
-      }
-    });
-  }
-
-  void _cancelSelection() {
-    setState(() {
-      _isSelecting = false;
-      _isOrganizing = false;
-      _selectedCharacterIds.clear();
-      _selectedGroupIds.clear();
-    });
-  }
 
   @override
   void dispose() {
@@ -386,9 +197,9 @@ class _HomePageState extends State<HomePage> {
         // Porch Stories BEFORE the empty-library check: a story needs no
         // characters, so stories mode has to win over the "create your first
         // character" panel. Checked after it, tapping the toggle on a fresh
-        // install set _showStories but still fell into the empty branch, so
+        // install set stories mode but still fell into the empty branch, so
         // the view never opened.
-        if (_showStories) {
+        if (_homeMode == HomeMode.stories) {
           return _wrapWithStatusBar(
             context,
             Column(
@@ -401,138 +212,158 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
+        if (_homeMode == HomeMode.waifu) {
+          return _wrapWithStatusBar(
+            context,
+            Column(
+              children: [
+                _modeToggleBar(),
+                const Expanded(child: WaifuHomeView()),
+              ],
+            ),
+          );
+        }
+
         if (repo.characters.isEmpty && groupRepo.groups.isEmpty) {
           // The mode toggle rides ABOVE the empty state: Porch Stories needs
           // no characters, so a brand-new library must still be able to reach
           // it. Without this the toggle simply did not exist on a fresh
           // install and Stories was unreachable (found by the E2E suite).
-          return Column(
-            children: [
-              _modeToggleBar(),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Get started by creating a new character!',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.color
-                                    ?.withValues(alpha: 0.7),
-                              ),
-                        ),
-                        const SizedBox(height: 24),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 16,
-                          runSpacing: 12,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () => Provider.of<AppState>(
-                                context,
-                                listen: false,
-                              ).setIndex(1),
-                              icon: const Icon(Icons.add_circle_outline),
-                              label: const Text('Create New'),
-                              style: _buttonStyle(),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => _importCharacter(context),
-                              icon: const Icon(Icons.download),
-                              label: const Text('Import Card'),
-                              style: _buttonStyle(),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const CharacterCreatorPage(),
+          return _wrapChatsWithDrop(
+            context,
+            Column(
+              children: [
+                _modeToggleBar(),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Get started by creating a new character!',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.color
+                                      ?.withValues(alpha: 0.7),
                                 ),
-                              ),
-                              icon: const Icon(Icons.auto_awesome),
-                              label: const Text('AI Create'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.porchAmberOf(
+                          ),
+                          const SizedBox(height: 24),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 16,
+                            runSpacing: 12,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () => Provider.of<AppState>(
                                   context,
-                                ),
-                                foregroundColor: AppColors.onChaosAccent,
+                                  listen: false,
+                                ).setIndex(1),
+                                icon: const Icon(Icons.add_circle_outline),
+                                label: const Text('Create New'),
+                                style: _buttonStyle(),
                               ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => _folderImportCharacters(context),
-                              icon: const Icon(Icons.library_add),
-                              label: const Text('Bulk Import'),
-                              style: _buttonStyle(),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () => _importByaf(context),
-                              icon: const Icon(Icons.archive_outlined),
-                              label: const Text('Import BYAF'),
-                              style: _buttonStyle(),
-                            ),
-                          ],
-                        ),
-                      ],
+                              ElevatedButton.icon(
+                                onPressed: () => _importCharacter(context),
+                                icon: const Icon(Icons.download),
+                                label: const Text('Import Card'),
+                                style: _buttonStyle(),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const CharacterCreatorPage(),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.auto_awesome),
+                                label: const Text('AI Create'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.porchAmberOf(
+                                    context,
+                                  ),
+                                  foregroundColor: AppColors.onChaosAccent,
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () =>
+                                    _folderImportCharacters(context),
+                                icon: const Icon(Icons.library_add),
+                                label: const Text('Bulk Import'),
+                                style: _buttonStyle(),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () => _importByaf(context),
+                                icon: const Icon(Icons.archive_outlined),
+                                label: const Text('Import BYAF'),
+                                style: _buttonStyle(),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         }
 
-        return _wrapWithStatusBar(
+        return _wrapChatsWithDrop(
           context,
-          CharacterCardGrid(
-            searchQuery: _searchQuery,
-            searchScope: _searchScope,
-            activeFolderId: _activeFolderId,
-            sortMode: _sortMode,
-            lastActivityCache: _lastActivityCache,
-            messageCountCache: _messageCountCache,
-            gridScale: _gridScale,
-            isSelecting: _isSelecting,
-            isOrganizing: _isOrganizing,
-            selectedCharacterIds: _selectedCharacterIds,
-            selectedGroupIds: _selectedGroupIds,
-            searchController: _searchController,
-            gridScrollController: _gridScrollController,
-            repo: repo,
-            folderService: folderService,
-            groupRepo: groupRepo,
-            modeToggle: _buildModeToggle(),
-            onTapCharacter: _handleTapCharacter,
-            onTapGroup: _handleTapGroup,
-            onToggleSelect: _toggleSelect,
-            onToggleSelectGroup: _toggleSelectGroup,
-            onToggleSelectMode: _toggleSelectMode,
-            onToggleOrganizeMode: _toggleOrganizeMode,
-            onContextMenuAction: _handleContextMenuAction,
-            onImport: _handleImport,
-            onAcceptFolderDrop: _handleAcceptFolderDrop,
-            onFolderDialogAction: _handleFolderDialogAction,
-            onFolderTap: _handleFolderTap,
-            onFolderNavigateBack: _handleFolderNavigateBack,
-            onFolderJump: (id) => setState(() => _activeFolderId = id),
-            onCancelSelection: _cancelSelection,
-            onDeleteSelected: _massDeleteSelected,
-            // onCreateGroup no longer wired — old select-for-group path deprecated.
-            onMoveToFolder: _handleMoveToFolder,
-            onSortChanged: _handleSortChanged,
-            onGridScaleChanged: _handleGridScaleChanged,
-            onGridScaleChangeEnd: _handleGridScaleChangeEnd,
-            onSearchScopeChanged: _handleSearchScopeChanged,
-            onSearchQueryChanged: _handleSearchQueryChanged,
-            onResolveCharImage: _resolveCharImage,
-            onDeleteGroup: _handleDeleteGroup,
-            onAfterNavigateBack: _refreshLastActivityCache,
-            onGroupContextMenuAction: _handleGroupContextMenuAction,
+          _wrapWithStatusBar(
+            context,
+            CharacterCardGrid(
+              searchQuery: _searchQuery,
+              searchScope: _searchScope,
+              activeFolderId: _activeFolderId,
+              sortMode: _sortMode,
+              lastActivityCache: _lastActivityCache,
+              messageCountCache: _messageCountCache,
+              gridScale: _gridScale,
+              isSelecting: _isSelecting,
+              isOrganizing: _isOrganizing,
+              selectedCharacterIds: _selectedCharacterIds,
+              selectedGroupIds: _selectedGroupIds,
+              searchController: _searchController,
+              gridScrollController: _gridScrollController,
+              repo: repo,
+              folderService: folderService,
+              groupRepo: groupRepo,
+              modeToggle: _buildModeToggle(),
+              onTapCharacter: _handleTapCharacter,
+              onTapGroup: _handleTapGroup,
+              onToggleSelect: _toggleSelect,
+              onToggleSelectGroup: _toggleSelectGroup,
+              onToggleSelectMode: _toggleSelectMode,
+              onToggleOrganizeMode: _toggleOrganizeMode,
+              onContextMenuAction: _handleContextMenuAction,
+              onImport: _handleImport,
+              onAcceptFolderDrop: _handleAcceptFolderDrop,
+              onFolderDialogAction: _handleFolderDialogAction,
+              onFolderTap: _handleFolderTap,
+              onFolderNavigateBack: _handleFolderNavigateBack,
+              onFolderJump: (id) => setState(() => _activeFolderId = id),
+              onCancelSelection: _cancelSelection,
+              onDeleteSelected: _massDeleteSelected,
+              // onCreateGroup no longer wired — old select-for-group path deprecated.
+              onMoveToFolder: _handleMoveToFolder,
+              onSortChanged: _handleSortChanged,
+              onGridScaleChanged: _handleGridScaleChanged,
+              onGridScaleChangeEnd: _handleGridScaleChangeEnd,
+              onSearchScopeChanged: _handleSearchScopeChanged,
+              onSearchQueryChanged: _handleSearchQueryChanged,
+              onResolveCharImage: _resolveCharImage,
+              onDeleteGroup: _handleDeleteGroup,
+              onAfterNavigateBack: _refreshLastActivityCache,
+              onGroupContextMenuAction: _handleGroupContextMenuAction,
+            ),
           ),
         );
       },

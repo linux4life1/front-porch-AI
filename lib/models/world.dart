@@ -207,16 +207,14 @@ class World {
   }
 }
 
-/// Whether weather/climate should run for a chat given its attached worlds.
+/// Legacy flat-list climate gate. Prefer [primaryWorldAllowsClimate]:
+/// Primary empty ⇒ weather OFF even when lore climate-on places are attached.
 ///
-/// - No attached worlds → true (legacy temperate default still runs).
-/// - Any attached world with [World.climateEnabled] → true.
-/// - Every attached world has climate off → false (lorebook-only bookshelf).
+/// Kept for older call sites/tests that still pass an unordered attach list.
+/// Empty list now returns false (was true / temperate fallback).
 bool attachedWorldsAllowClimate(Iterable<World> worlds) {
-  var sawAny = false;
   for (final w in worlds) {
-    sawAny = true;
     if (w.climateEnabled) return true;
   }
-  return !sawAny;
+  return false;
 }

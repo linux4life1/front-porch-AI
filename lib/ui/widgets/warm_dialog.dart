@@ -46,8 +46,7 @@ Future<T?> showWarmDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     builder: (ctx) {
-      final tint =
-          destructive ? AppColors.negativeAccentOf(ctx) : accent;
+      final tint = destructive ? AppColors.negativeAccentOf(ctx) : accent;
       return AlertDialog(
         backgroundColor: AppColors.surfaceOf(ctx),
         // One radius (matches the sidebar's warm-porch cards) and one border
@@ -55,7 +54,8 @@ Future<T?> showWarmDialog<T>(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: tint?.withValues(alpha: 0.5) ??
+            color:
+                tint?.withValues(alpha: 0.5) ??
                 AppColors.borderOf(ctx).withValues(alpha: 0.6),
           ),
         ),
@@ -123,11 +123,13 @@ Widget warmDialogConfirm(
   required VoidCallback onPressed,
   bool destructive = false,
   Color? accent,
+  Key? key,
 }) {
   final bg = destructive
       ? AppColors.negativeAccentOf(context)
       : (accent ?? AppColors.porchAmberOf(context));
   return ElevatedButton(
+    key: key,
     style: ElevatedButton.styleFrom(
       backgroundColor: bg,
       foregroundColor: AppColors.resolve(context, Colors.white, Colors.white),

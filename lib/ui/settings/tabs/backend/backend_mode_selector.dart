@@ -22,27 +22,46 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/settings/widgets/section_header.dart';
+import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 
-/// Backend-mode selector (Local KoboldCPP / OpenAI-compatible API / oMLX)
-/// extracted from settings_page's Backend tab. Pure lift; reads LLMProvider +
-/// BackendManager via Provider, switches the active backend, and shows the
-/// per-mode blurb. AppColors exclusive.
+/// Host switcher for the Backend tab. Same one-row bar as Model Settings.
+/// [config] is the chat URL/key/model stack — it stays in this card so
+/// nothing (Side jobs, OpenCode) can wedge between chips and the key.
 class BackendModeSelector extends StatelessWidget {
-  const BackendModeSelector({super.key});
+  const BackendModeSelector({
+    super.key,
+    required this.apiUrlController,
+    required this.apiKeyController,
+    this.config,
+  });
+
+  final TextEditingController apiUrlController;
+  final TextEditingController apiKeyController;
+  final Widget? config;
 
   @override
   Widget build(BuildContext context) {
     final backendManager = Provider.of<BackendManager>(context);
     final llmProvider = Provider.of<LLMProvider>(context);
+    final storage = Provider.of<StorageService>(context);
     final theme = Theme.of(context);
     final muted = AppColors.textTertiary(context);
+    final kind = resolveRemoteProviderKind(
+      backendType: switch (llmProvider.activeBackend) {
+        BackendType.kobold => 'kobold',
+        BackendType.omlx => 'omlx',
+        BackendType.openRouter => 'openRouter',
+      },
+      url: storage.backendSettings.remoteApiUrl,
+    );
 
     return Column(
+      key: const Key('chat-speech-section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader('Backend Mode'),
+        const SectionHeader('Chat speech'),
         const SizedBox(height: 8),
         // Intel Mac warning banner.
         if (backendManager.isIntelMac) ...[
@@ -87,119 +106,21 @@ class BackendModeSelector extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              RadioGroup<BackendType>(
-                groupValue: llmProvider.activeBackend,
-                onChanged: (val) async {
-                  if (val != null) {
-                    await llmProvider.setActiveBackend(val);
-                    if (context.mounted) {
-                      final message = switch (val) {
-                        BackendType.kobold =>
-                          'Switched to local KoboldCPP backend.',
-                        BackendType.openRouter =>
-                          'Switched to OpenAI-Compatible API backend.',
-                        BackendType.omlx => 'Switched to oMLX backend.',
-                      };
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(message)));
-                    }
-                  }
+              RemoteProviderBar(
+                selected: kind,
+                showOmlx: Platform.isMacOS,
+                koboldEnabled: !backendManager.isIntelMac,
+                onSelected: (next) async {
+                  await applyRemoteProvider(
+                    kind: next,
+                    storage: storage,
+                    llm: llmProvider,
+                    urlController: apiUrlController,
+                    keyController: apiKeyController,
+                  );
                 },
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<BackendType>(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Row(
-                          children: [
-                            Icon(
-                              Icons.computer,
-                              size: 18,
-                              color: backendManager.isIntelMac
-                                  ? muted
-                                  : theme.iconTheme.color,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                'Local (KoboldCPP)',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: backendManager.isIntelMac
-                                      ? muted
-                                      : null,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        value: BackendType.kobold,
-                        enabled: !backendManager.isIntelMac,
-                      ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<BackendType>(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Row(
-                          children: [
-                            Icon(
-                              Icons.cloud,
-                              size: 18,
-                              color: theme.iconTheme.color,
-                            ),
-                            const SizedBox(width: 6),
-                            const Flexible(
-                              child: Text(
-                                'OpenAI-Compatible API',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 13),
-                              ),
-                            ),
-                          ],
-                        ),
-                        value: BackendType.openRouter,
-                      ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<BackendType>(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Row(
-                          children: [
-                            Icon(
-                              Icons.apple,
-                              size: 18,
-                              color: Platform.isMacOS
-                                  ? theme.iconTheme.color
-                                  : muted,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                'oMLX',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Platform.isMacOS ? null : muted,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        value: BackendType.omlx,
-                        enabled: Platform.isMacOS,
-                      ),
-                    ),
-                  ],
-                ),
               ),
+              const SizedBox(height: 10),
               if (llmProvider.activeBackend == BackendType.kobold)
                 Text(
                   'Use a local KoboldCPP instance (optionally launched from a '
@@ -212,12 +133,19 @@ class BackendModeSelector extends StatelessWidget {
                   'oMLX running on port 8000.',
                   style: theme.textTheme.bodySmall?.copyWith(color: muted),
                 )
+              else if (kind == RemoteProviderKind.custom)
+                Text(
+                  'Any other OpenAI-compatible endpoint. Paste the URL below.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                )
               else
                 Text(
-                  'Any OpenAI-compatible API — remote (OpenRouter, Nano-GPT) '
-                  'or a local server (LM Studio, vLLM). Set the URL below.',
+                  'Named host — URL and key restore on tap. Pick a model '
+                  'for that host. Custom is for a URL that is not '
+                  'OpenRouter, Nano-GPT, or LM Studio.',
                   style: theme.textTheme.bodySmall?.copyWith(color: muted),
                 ),
+              if (config != null) ...[const SizedBox(height: 16), config!],
             ],
           ),
         ),

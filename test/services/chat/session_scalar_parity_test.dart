@@ -129,24 +129,26 @@ void main() {
   }
 
   group('every stored realism scalar survives a load', () {
-    test('a saved passage-of-time OFF is still off after reopening the chat',
-        () async {
-      // THE REGRESSION. Everything else in this file is scaffolding around it.
-      await seedRichSession('sess-off', 'char-a', passageOfTime: false);
+    test(
+      'a saved passage-of-time OFF is still off after reopening the chat',
+      () async {
+        // THE REGRESSION. Everything else in this file is scaffolding around it.
+        await seedRichSession('sess-off', 'char-a', passageOfTime: false);
 
-      await chat.setActiveCharacter(_card('Alice', 'char-a'));
+        await chat.setActiveCharacter(_card('Alice', 'char-a'));
 
-      expect(
-        chat.timeService.passageOfTimeEnabled,
-        isFalse,
-        reason:
-            'the session stored passageOfTimeEnabled=false. Entering a chat '
-            'calls resetForFreshChat() first, which forces it TRUE, so the '
-            'hydrate step is the only thing that can restore the user\'s '
-            'choice. When loadTimeScalars ignored its own parameter this '
-            'silently read back as true and the next save destroyed the row.',
-      );
-    });
+        expect(
+          chat.timeService.passageOfTimeEnabled,
+          isFalse,
+          reason:
+              'the session stored passageOfTimeEnabled=false. Entering a chat '
+              'calls resetForFreshChat() first, which forces it TRUE, so the '
+              'hydrate step is the only thing that can restore the user\'s '
+              'choice. When loadTimeScalars ignored its own parameter this '
+              'silently read back as true and the next save destroyed the row.',
+        );
+      },
+    );
 
     test('a saved passage-of-time ON survives a chat that had it OFF', () async {
       // Deliberately ordered: load an OFF chat first so the live flag is false,
@@ -163,25 +165,27 @@ void main() {
       expect(chat.timeService.passageOfTimeEnabled, isTrue);
     });
 
-    test('the global default does not override a saved per-chat choice',
-        () async {
-      // The load path used to AND the stored value with the global default.
-      // That global is a seed-time ceiling applied when a chat is CREATED, not
-      // a runtime master — applying it again on every load let switching the
-      // global off retroactively disable time in chats it was turned on for.
-      await storage.setPassageOfTimeDefault(false);
-      await seedRichSession('sess-vs-global', 'char-c', passageOfTime: true);
+    test(
+      'the global default does not override a saved per-chat choice',
+      () async {
+        // The load path used to AND the stored value with the global default.
+        // That global is a seed-time ceiling applied when a chat is CREATED, not
+        // a runtime master — applying it again on every load let switching the
+        // global off retroactively disable time in chats it was turned on for.
+        await storage.realismSettings.setPassageOfTimeDefault(false);
+        await seedRichSession('sess-vs-global', 'char-c', passageOfTime: true);
 
-      await chat.setActiveCharacter(_card('Cleo', 'char-c'));
+        await chat.setActiveCharacter(_card('Cleo', 'char-c'));
 
-      expect(
-        chat.timeService.passageOfTimeEnabled,
-        isTrue,
-        reason:
-            'the chat says on and the row is what was saved; the app-wide '
-            'default must not reach back into an existing chat',
-      );
-    });
+        expect(
+          chat.timeService.passageOfTimeEnabled,
+          isTrue,
+          reason:
+              'the chat says on and the row is what was saved; the app-wide '
+              'default must not reach back into an existing chat',
+        );
+      },
+    );
 
     test('both load paths hydrate identical values for EVERY scalar', () async {
       await seedRichSession('sess-full', 'char-a', passageOfTime: false);

@@ -16,25 +16,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// "Acts on desires" — a character ACTS on her intimate preferences instead of
+// "Acts on desires" — a character ACTS on their intimate preferences instead of
 // merely holding them.
 //
 // THE BET THAT STARTED THIS, and it was correct: intimate preferences did not
-// guide the character into "I want this" or "I don't like that". The line she
-// was given read, in full, "In intimate moments: warms to X; not interested in
+// guide the character into "I want this" or "I don't like that". The line they
+// were given read, in full, "In intimate moments: warms to X; not interested in
 // Y — only relevant when the scene is already there." That is a scope limiter.
 // It says WHEN the facts apply and never what to do with them.
 //
 // Meanwhile the SCORING side had always been directive — weigh the exchange
 // against these, name the one that moved a score — and it reaches the
 // relationship AND emotional-state evals. So bond, trust and emotion were
-// already moving on whether a scene hit her preferences while she never voiced
-// them: silently rewarding and penalising the user over things she would not
-// say out loud.
+// already moving on whether a scene hit their preferences while they never
+// voiced them: silently rewarding and penalising the user over things they
+// would not say out loud.
 //
 // The feature is a LOOP, and both ends are needed or neither works:
-//   she asks  ->  the user answers  ->  being refused moves her mood
-//             ->  that mood is what she carries into the next reply
+//   they ask  ->  the user answers  ->  being refused moves their mood
+//             ->  that mood is what they carry into the next reply
 // The judge that scores the answer is the Realism Engine, which is why this is
 // a hard dependency rather than a chip, and why the gate resolves BOTH the
 // switch and the engine at each call site.
@@ -64,55 +64,58 @@ void main() {
     getIntimateAgencyEnabled: () => agency,
   ).buildPreferencesInjection();
 
-  group('with the switch on, she is told to ACT', () {
+  group('with the switch on, they are told to ACT', () {
     late String txt;
     setUp(() => txt = line(agency: true));
 
-    test('she pursues and may raise it herself', () {
+    test('they pursue and may raise it themselves', () {
       expect(txt, contains('ACT on'));
       expect(
         txt,
-        contains('can raise it herself'),
-        reason: 'the old line forbade initiating outright; the maintainer '
-            'asked for a character who demands snuggle time, which means she '
-            'has to be able to bring it up',
+        contains('can raise it themselves'),
+        reason:
+            'the old line forbade initiating outright; the maintainer '
+            'asked for a character who demands snuggle time, which means they '
+            'have to be able to bring it up',
       );
     });
 
-    test('the register is her own, not one generic voice', () {
+    test('the register is their own, not one generic voice', () {
       // "A dominant character would force the issue, a soft spoken character
       // would softly suggest." Without this the desire is expressed in whatever
       // default voice the model reaches for, and every character asks the same
       // way.
-      expect(txt, contains('in her own register'));
+      expect(txt, contains('in their own register'));
       expect(txt, contains('dominant character presses'));
       expect(txt, contains('soft-spoken one suggests'));
     });
 
-    test('she declines what she is not into, rather than complying', () {
+    test('they decline what they are not into, rather than complying', () {
       expect(
         txt,
         contains('rather than going along with it'),
-        reason: 'a character who never turns anything down is a doormat, and '
-            'an author who typed "not interested in an audience" meant she '
+        reason:
+            'a character who never turns anything down is a doormat, and '
+            'an author who typed "not interested in an audience" meant they '
             'would say so',
       );
     });
 
-    test('being refused colours her mood', () {
-      expect(txt, contains('marks her mood'));
+    test('being refused colours their mood', () {
+      expect(txt, contains('marks their mood'));
       expect(
         txt,
-        contains('as fits who she is'),
-        reason: 'direction follows character — "refused, therefore angry" '
+        contains('as fits who they are'),
+        reason:
+            'direction follows character — "refused, therefore angry" '
             'would make every character the same character',
       );
     });
 
     test('it keeps a proportionality guard', () {
-      // She can initiate now, which is the point. A model told to pursue with
+      // They can initiate now, which is the point. A model told to pursue with
       // no counterweight steers every scene into the same place.
-      expect(txt, contains('not the only thing she wants'));
+      expect(txt, contains('not the only thing they want'));
     });
   });
 
@@ -122,12 +125,12 @@ void main() {
 
       expect(txt, contains('only relevant when the scene is already there'));
       expect(txt, isNot(contains('ACT on')));
-      expect(txt, isNot(contains('can raise it herself')));
+      expect(txt, isNot(contains('can raise it themselves')));
     });
 
     test('the preferences themselves still reach the model', () {
-      // Off means "she does not initiate", NOT "the card is ignored". She still
-      // has tastes inside a scene she is already in.
+      // Off means "they do not initiate", NOT "the card is ignored". They still
+      // have tastes inside a scene they are already in.
       final txt = line(agency: false);
 
       expect(txt, contains('being held down'));
@@ -161,13 +164,14 @@ void main() {
       expect(
         b,
         contains('anger or cold distance in a dominant character'),
-        reason: 'this is the half that makes "refuse her and she gets angry" '
+        reason:
+            'this is the half that makes "refuse them and they get angry" '
             'actually happen — the emotional-state eval reads this block',
       );
     });
 
     test('with the switch off the clause is absent', () {
-      // A judge told to weigh "she asked and was refused" against a character
+      // A judge told to weigh "they asked and were refused" against a character
       // who never asks is being asked to score something that did not happen.
       final b = block(agency: false);
 

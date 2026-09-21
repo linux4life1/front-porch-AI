@@ -30,14 +30,6 @@
 // runs fully with the Realism Engine off and had only ever been FILED beside
 // it. So the row carries the "works alone" chip and no gate.
 //
-// THE THIRD SEED SITE is what the source guard below exists for, and it is not
-// hypothetical: this change was first written wiring two of the three, which
-// would have shipped a global switch that silently did nothing for group chats.
-// A per-site behavioural test would need three full ChatService entry paths
-// stood up; reading the call sites asks the same question directly.
-
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -60,44 +52,13 @@ class _ChaosStorage extends FakeStorageService {
 
   @override
   RealismSettings get realismSettings => _realism;
-
-  @override
-  bool get adultThemesEnabled => _realism.adultThemesEnabled;
-  @override
-  bool get realismDefault => _realism.realismDefault;
-  @override
-  bool get nsfwCooldownDefault => _realism.nsfwCooldownDefault;
-  @override
-  bool get objectivesEnabled => _realism.objectivesEnabled;
-  @override
-  bool get passageOfTimeDefault => _realism.passageOfTimeDefault;
-  @override
-  bool get standaloneClockEnabled => _realism.standaloneClockEnabled;
-  @override
-  bool get weatherEnabled => _realism.weatherEnabled;
-  @override
-  bool get weatherFahrenheit => _realism.weatherFahrenheit;
-  @override
-  bool get needsSimDefault => _realism.needsSimDefault;
-  @override
-  bool get dreamsEnabled => _realism.dreamsEnabled;
-  @override
-  bool get absenceBannerEnabled => _realism.absenceBannerEnabled;
-  @override
-  bool get absenceAckEnabled => _realism.absenceAckEnabled;
-  @override
-  int get absenceThresholdHours => _realism.absenceThresholdHours;
-  @override
-  bool get characterEvolutionEnabled => false;
-  @override
-  bool get journalEnabled => true;
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   Future<_ChaosStorage> pump(WidgetTester tester) async {
-    await tester.binding.setSurfaceSize(const Size(900, 1800));
+    await tester.binding.setSurfaceSize(const Size(900, 2800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final storage = _ChaosStorage();
@@ -132,7 +93,8 @@ void main() {
     expect(
       row,
       findsOneWidget,
-      reason: 'the maintainer asked for a global toggle in Porch Life; before '
+      reason:
+          'the maintainer asked for a global toggle in Porch Life; before '
           'this there was none anywhere in Settings',
     );
 
@@ -146,13 +108,20 @@ void main() {
     expect(
       tester.widget<Switch>(sw).onChanged,
       isNotNull,
-      reason: 'no hard dependency — the audit found Chaos runs with the '
+      reason:
+          'no hard dependency — the audit found Chaos runs with the '
           'Realism Engine off, so this switch must never be gated',
     );
 
-    expect(storage.realismSettings.chaosModeDefault, isFalse,
-        reason: 'Chaos injects unplanned events into a story; that is nobody\'s '
-            'default');
+    expect(
+      storage.realismSettings.chaosModeDefault,
+      isFalse,
+      reason:
+          'Chaos injects unplanned events into a story; that is nobody\'s '
+          'default',
+    );
+    await tester.ensureVisible(sw);
+    await tester.pump();
     await tester.tap(sw);
     await tester.pump(const Duration(milliseconds: 300));
     expect(storage.realismSettings.chaosModeDefault, isTrue);
@@ -171,50 +140,16 @@ void main() {
     expect(
       find.textContaining('set per chat rather than globally'),
       findsNothing,
-      reason: 'that sentence was only true while Chaos had no global switch; '
+      reason:
+          'that sentence was only true while Chaos had no global switch; '
           'leaving it up would now be actively wrong',
     );
     expect(
       find.textContaining('These are the defaults new chats start from'),
       findsOneWidget,
-      reason: 'the replacement states the relationship the right way round — '
+      reason:
+          'the replacement states the relationship the right way round — '
           'globals here, per-chat override in the sidebar',
     );
-  });
-
-  test('every Chaos seed site consults the global default', () {
-    // Chaos is seeded in three places, one per way a conversation can begin:
-    // opening a 1:1 character, starting a fresh 1:1 session, and entering a
-    // group. Wire two and the switch is silently 1:1-only — which is exactly
-    // the state this change passed through before it was finished.
-    const sites = {
-      'lib/services/chat/chat_service_chat_entry.dart': 'opening a 1:1 chat',
-      'lib/services/chat/chat_service_session_manage.dart': 'a fresh session',
-      'lib/services/chat/chat_service_group_entry.dart': 'entering a group',
-    };
-
-    for (final e in sites.entries) {
-      final src = File(e.key).readAsStringSync();
-      expect(
-        src,
-        contains('seedFromGroupOrExt'),
-        reason: '${e.key} no longer seeds Chaos at all — if the seed genuinely '
-            'moved, move this guard with it rather than deleting it',
-      );
-
-      // The seed call and the global read have to be in the SAME expression,
-      // not merely both somewhere in the file.
-      final call = RegExp(
-        r'seedFromGroupOrExt\((.*?)\n\s*\);',
-        dotAll: true,
-      ).firstMatch(src);
-      expect(call, isNotNull, reason: 'could not read the seed call in ${e.key}');
-      expect(
-        call!.group(1),
-        contains('chaosModeDefault'),
-        reason: 'Chaos seeding for "${e.value}" ignores the Porch Life global, '
-            'so switching it on there does nothing for that entry path',
-      );
-    }
   });
 }

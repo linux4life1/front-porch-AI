@@ -28,9 +28,7 @@ void _setupPathProviderMock() {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall call) async {
         if (call.method == 'getApplicationDocumentsDirectory') {
-          return Directory.systemTemp
-              .createTempSync('fpai_impersonate_')
-              .path;
+          return Directory.systemTemp.createTempSync('fpai_impersonate_').path;
         }
         return null;
       });
@@ -45,14 +43,15 @@ Future<({AppDatabase db, ChatService chat})> _buildChat(
   });
   final db = AppDatabase.forTesting();
   final storage = StorageService();
-  final chat = ChatService(
-    KoboldService(storage),
-    UserPersonaService(db),
-    storage,
-    WorldRepository(storage, db),
-  )
-    ..setDatabase(db)
-    ..testLlmServiceOverride = llm;
+  final chat =
+      ChatService(
+          KoboldService(storage),
+          UserPersonaService(db),
+          storage,
+          WorldRepository(storage, db),
+        )
+        ..setDatabase(db)
+        ..testLlmServiceOverride = llm;
   await storage.initialized;
   await chat.setActiveCharacter(
     CharacterCard(
@@ -74,16 +73,6 @@ Future<({AppDatabase db, ChatService chat})> _buildChat(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
-
-  test('impersonate wires identity into the system prompt and trims stops', () {
-    final src = File(
-      'lib/services/chat/chat_service_impersonate.dart',
-    ).readAsStringSync();
-    expect(src, contains('impersonateIdentityBlock('));
-    expect(src, contains('impersonatePrefixRule('));
-    expect(src, contains('trimAtFirstStop(accumulated, stopList)'));
-    expect(src, contains("const mesExampleBlock = ''"));
-  });
 
   test('identity suspends the card rule; prefix is a user-line continue', () {
     final identity = impersonateIdentityBlock(

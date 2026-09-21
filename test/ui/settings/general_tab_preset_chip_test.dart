@@ -28,44 +28,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/storage.dart';
 import 'package:front_porch_ai/ui/settings/tabs/general_tab.dart';
 
 class _FakeStorage extends ChangeNotifier implements StorageService {
-  String stored = 'MY OWN PROMPT';
-
-  @override
-  String get systemPrompt => stored;
-
-  @override
-  Future<void> setSystemPrompt(String v) async {
-    stored = v;
-    notifyListeners();
+  _FakeStorage() {
+    generationSettings.initializeBase(null, notifyListeners);
+    uiSettings.initializeBase(null, notifyListeners);
+    presetSettings.initializeBase(null, notifyListeners);
+    realismSettings.initializeBase(null, notifyListeners);
+    generationSettings.setSystemPrompt('MY OWN PROMPT');
+    realismSettings.setAdultThemesEnabled(false);
   }
 
-  // Build-time reads of GeneralTab (everything else would surface loudly
-  // through noSuchMethod rather than silently returning a wrong default).
   @override
-  bool get isDark => true;
+  final GenerationSettings generationSettings = GenerationSettings();
   @override
-  double get textScale => 1.0;
+  final UiSettings uiSettings = UiSettings();
   @override
-  Color get globalUserBubbleColor => const Color(0xFF334155);
+  final PresetSettings presetSettings = PresetSettings();
   @override
-  Color get globalUserTextColor => const Color(0xFFFFFFFF);
-  @override
-  Color get globalAiBubbleColor => const Color(0xFF1E293B);
-  @override
-  Color get globalAiTextColor => const Color(0xFFFFFFFF);
-  @override
-  Color get globalDialogueColor => const Color(0xFFE2E8F0);
-  @override
-  Color get globalActionColor => const Color(0xFF94A3B8);
-  @override
-  String get globalChatFontFamily => '';
-  @override
-  bool get adultThemesEnabled => false;
-  @override
-  List<Map<String, String>> get savedPrompts => const [];
+  final RealismSettings realismSettings = RealismSettings();
+
   @override
   String get spellCheckLanguage => kSpellCheckOff;
 
@@ -76,52 +60,61 @@ class _FakeStorage extends ChangeNotifier implements StorageService {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('a preset chip updates the visible prompt field, not just storage', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(900, 2400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'a preset chip updates the visible prompt field, not just storage',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(900, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final storage = _FakeStorage();
-    addTearDown(storage.dispose);
-    final controller = TextEditingController(text: storage.systemPrompt);
-    addTearDown(controller.dispose);
+      final storage = _FakeStorage();
+      addTearDown(storage.dispose);
+      final controller = TextEditingController(
+        text: storage.generationSettings.systemPrompt,
+      );
+      addTearDown(controller.dispose);
 
-    await tester.pumpWidget(
-      ChangeNotifierProvider<StorageService>.value(
-        value: storage,
-        child: MaterialApp(
-          home: Scaffold(
-            body: GeneralTab(systemPromptController: controller),
+      await tester.pumpWidget(
+        ChangeNotifierProvider<StorageService>.value(
+          value: storage,
+          child: MaterialApp(
+            home: Scaffold(
+              body: GeneralTab(systemPromptController: controller),
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 100));
+      );
+      await tester.pump(const Duration(milliseconds: 100));
 
-    final chip = find.widgetWithText(ActionChip, '🖥️ KoboldCPP');
-    expect(chip, findsOneWidget);
-    await tester.ensureVisible(chip);
-    // NOT pumpAndSettle: the spell-check row's spinner is an infinite
-    // animation while its platform lookup is pending.
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(chip);
-    await tester.pump();
+      final chip = find.widgetWithText(ActionChip, '🖥️ KoboldCPP');
+      expect(chip, findsOneWidget);
+      await tester.ensureVisible(chip);
+      // NOT pumpAndSettle: the spell-check row's spinner is an infinite
+      // animation while its platform lookup is pending.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(chip);
+      await tester.pump();
 
-    expect(storage.stored, defaultKoboldSystemPrompt);
-    // The field the user is looking at — the half that was missing.
-    expect(controller.text, defaultKoboldSystemPrompt);
+      expect(
+        storage.generationSettings.systemPrompt,
+        defaultKoboldSystemPrompt,
+      );
+      // The field the user is looking at — the half that was missing.
+      expect(controller.text, defaultKoboldSystemPrompt);
 
-    // And the next keystroke can no longer resurrect the old prompt: the
-    // field's onChanged now carries the preset, not the stale text.
-    final field = find.byWidgetPredicate(
-      (w) => w is TextField && w.controller == controller,
-    );
-    expect(field, findsOneWidget);
-    await tester.ensureVisible(field);
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.enterText(field, '${controller.text} extra');
-    await tester.pump();
-    expect(storage.stored, '$defaultKoboldSystemPrompt extra');
-  });
+      // And the next keystroke can no longer resurrect the old prompt: the
+      // field's onChanged now carries the preset, not the stale text.
+      final field = find.byWidgetPredicate(
+        (w) => w is TextField && w.controller == controller,
+      );
+      expect(field, findsOneWidget);
+      await tester.ensureVisible(field);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(field, '${controller.text} extra');
+      await tester.pump();
+      expect(
+        storage.generationSettings.systemPrompt,
+        '$defaultKoboldSystemPrompt extra',
+      );
+    },
+  );
 }

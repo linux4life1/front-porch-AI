@@ -26,9 +26,11 @@ import 'package:front_porch_ai/ui/settings/tabs/backend/backend_mode_selector.da
 import 'package:front_porch_ai/ui/settings/tabs/backend/remote_api_section.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/omlx_section.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/managed_backend_section.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/opencode_managed_section.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/worker_backend_section.dart';
 
-/// Backend tab: backend-mode selector followed by the config section for the
-/// active backend (remote OpenAI-compatible, oMLX, or managed KoboldCPP).
+/// Backend tab: one Chat speech stack (chips + URL/key/check/model, then
+/// host extras), then OpenCode, then subordinate Side jobs.
 /// Extracted from settings_page's _buildBackendTab. Shared launch state
 /// (selected model, presets, controllers, model list) is owned by the page
 /// and threaded through; the state-mutating callbacks stay in the page's
@@ -81,14 +83,18 @@ class BackendTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const BackendModeSelector(),
-          if (llmProvider.activeBackend == BackendType.openRouter)
-            RemoteApiSection(
-              apiUrlController: apiUrlController,
-              apiKeyController: apiKeyController,
-              availableModels: availableModels,
-              onModelsFetched: onModelsFetched,
-            ),
+          BackendModeSelector(
+            apiUrlController: apiUrlController,
+            apiKeyController: apiKeyController,
+            config: llmProvider.activeBackend == BackendType.openRouter
+                ? RemoteApiSection(
+                    apiUrlController: apiUrlController,
+                    apiKeyController: apiKeyController,
+                    availableModels: availableModels,
+                    onModelsFetched: onModelsFetched,
+                  )
+                : null,
+          ),
           if (llmProvider.activeBackend == BackendType.omlx)
             OmlxSection(
               availableModels: availableModels,
@@ -109,6 +115,8 @@ class BackendTab extends StatelessWidget {
               onToggleBackend: onToggleBackend,
               kcppsModelExists: kcppsModelExists,
             ),
+          const OpenCodeManagedSection(),
+          WorkerBackendSection(kcppsPresets: localPresets),
         ],
       ),
     );

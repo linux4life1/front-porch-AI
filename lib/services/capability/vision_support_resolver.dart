@@ -258,18 +258,20 @@ class VisionSupportResolver {
         // Launch semantics: when the active preset carries a model that
         // exists, KoboldCpp loads THAT model (--config wins; the picker
         // model only rides along when the preset has none).
-        final presetModel = storage.kcppsModelPath;
+        final presetModel = storage.backendSettings.kcppsModelPath;
         final presetOwnsModel =
             presetModel != null && File(presetModel).existsSync();
         final modelPath = presetOwnsModel
             ? presetModel
-            : (storage.lastUsedModelPath ?? '');
+            : (storage.backendSettings.lastUsedModelPath ?? '');
         if (modelPath.isEmpty || !File(modelPath).existsSync()) {
           return VisionSupport.none;
         }
         final info = await resolveLocalGgufInfo(modelPath);
-        final mmproj = storage.mmprojForModel(modelPath);
-        final presetMmproj = presetOwnsModel ? storage.kcppsMmprojPath : null;
+        final mmproj = storage.presetSettings.modelMmprojMap[modelPath];
+        final presetMmproj = presetOwnsModel
+            ? storage.backendSettings.kcppsMmprojPath
+            : null;
         return VisionSupport.fromGguf(
           info,
           mmprojConfigured:
@@ -283,7 +285,7 @@ class VisionSupportResolver {
         final (apiUrl, modelName) = _remoteIdentityFor(backend, storage);
         return resolveRemote(
           apiUrl: apiUrl,
-          apiKey: storage.remoteApiKey,
+          apiKey: storage.backendSettings.remoteApiKey,
           modelName: modelName,
         );
     }
@@ -292,10 +294,15 @@ class VisionSupportResolver {
   /// The apiUrl/model identity [resolveRemote] keys its cache on, for a
   /// remote-flavored [backend]. oMLX rides OpenRouterService at its fixed
   /// local URL (see LLMProvider).
-  (String, String) _remoteIdentityFor(BackendType backend, StorageService storage) =>
-      backend == BackendType.omlx
-      ? ('http://localhost:8000/v1', storage.remoteModelName)
-      : (storage.remoteApiUrl, storage.remoteModelName);
+  (String, String) _remoteIdentityFor(
+    BackendType backend,
+    StorageService storage,
+  ) => backend == BackendType.omlx
+      ? ('http://localhost:8000/v1', storage.backendSettings.remoteModelName)
+      : (
+          storage.backendSettings.remoteApiUrl,
+          storage.backendSettings.remoteModelName,
+        );
 
   /// What is ALREADY KNOWN about the active LLM's vision, at zero network
   /// cost: the local-GGUF verdict for Kobold (file parse only — no server is

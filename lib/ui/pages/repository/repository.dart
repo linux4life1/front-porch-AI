@@ -19,6 +19,7 @@ export 'stoop_adult_lock_banner.dart';
 export 'stoop_avatar.dart';
 export 'stoop_browse_view.dart';
 export 'stoop_card_detail_page.dart';
+export 'stoop_detail_top.dart';
 export 'stoop_card_comments.dart';
 export 'stoop_card_sections.dart';
 export 'stoop_collapsible.dart';

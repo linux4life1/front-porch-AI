@@ -99,7 +99,10 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.record_voice_over, color: AppColors.formMasterAccent),
+          const Icon(
+            Icons.record_voice_over,
+            color: AppColors.formMasterAccent,
+          ),
           const SizedBox(width: 12),
           const Text(
             'Voice Model Browser',
@@ -441,15 +444,15 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
                 listen: false,
               );
               // Temporarily enable TTS for preview
-              final wasEnabled = storage.ttsEnabled;
-              if (!wasEnabled) storage.setTtsEnabled(true);
+              final wasEnabled = storage.ttsSettings.ttsEnabled;
+              if (!wasEnabled) storage.ttsSettings.setTtsEnabled(true);
               tts
                   .speak(
                     'Hello! This is a preview of the ${voice.name} voice.',
                     voiceKey: voice.key,
                   )
                   .then((_) {
-                    if (!wasEnabled) storage.setTtsEnabled(false);
+                    if (!wasEnabled) storage.ttsSettings.setTtsEnabled(false);
                   });
             },
           ),

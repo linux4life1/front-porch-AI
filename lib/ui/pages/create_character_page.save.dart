@@ -68,6 +68,7 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
         passageOfTimeEnabled: true, // default on; user can toggle later
         chaosModeEnabled: _realismChaosMode,
         needsSimEnabled: _realismNeedsSim,
+        pocketsEnabled: _realismPocketsEnabled,
         enjoysLowHygiene: _realismEnjoysLowHygiene,
         ambitions: _realismAmbitions,
         planLines: _realismPlanLines,
@@ -107,10 +108,9 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
         needsDecayFun: _needsDecayFun,
         needsDecayHygiene: _needsDecayHygiene,
         needsDecayComfort: _needsDecayComfort,
-        greetingSeeds: compactGreetingPairs(
-          [for (final c in _altGreetingControllers) c.text],
-          _altGreetingSeeds,
-        ).seeds,
+        greetingSeeds: compactGreetingPairs([
+          for (final c in _altGreetingControllers) c.text,
+        ], _altGreetingSeeds).seeds,
       );
 
       fpExt.ensureStableId();
@@ -124,10 +124,9 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
         mesExample: _exampleDialogueController.text,
         systemPrompt: _systemPromptController.text,
         postHistoryInstructions: _postHistoryController.text,
-        alternateGreetings: compactGreetingPairs(
-          [for (final c in _altGreetingControllers) c.text],
-          _altGreetingSeeds,
-        ).greetings,
+        alternateGreetings: compactGreetingPairs([
+          for (final c in _altGreetingControllers) c.text,
+        ], _altGreetingSeeds).greetings,
         tags: List.from(_tags),
         lorebook: _lorebookEntries.isNotEmpty
             ? Lorebook(entries: List.from(_lorebookEntries))
@@ -234,6 +233,7 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
       _realismNsfwCooldown = false;
       _realismChaosMode = false;
       _realismNeedsSim = true;
+      _realismPocketsEnabled = true;
       _realismEnjoysLowHygiene = false;
       _realismAmbitions = const [];
       _realismPlanLines = const [];

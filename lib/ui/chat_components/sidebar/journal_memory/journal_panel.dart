@@ -22,7 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import '../expandable_sidebar_text.dart';
 import '../sidebar_tokens.dart';
 
@@ -110,7 +110,7 @@ class _JournalPanelState extends State<JournalPanel> {
   @override
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
-    if (!storage.journalEnabled) return const SizedBox.shrink();
+    if (!storage.memorySettings.journalEnabled) return const SizedBox.shrink();
     final accent = AppColors.journalAccentOf(context);
 
     // Preview: pinned first (store order), then the freshest unpinned.
@@ -216,10 +216,6 @@ class _JournalPanelState extends State<JournalPanel> {
                           child: ExpandableSidebarText(
                             text: card.content,
                             maxLines: 4,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: AppColors.textSecondary(context),
-                            ),
                           ),
                         ),
                         if (card.pinned)
@@ -319,7 +315,7 @@ class _JournalPanelState extends State<JournalPanel> {
       emotionLabel: draft.feeling,
       storyDay: widget.chatService.timeService.dayCount,
       storyClock: widget.chatService.timeService.storyClockIso,
-      maxCards: storage.journalMaxCards,
+      maxCards: storage.memorySettings.journalMaxCards,
     );
     await _load();
   }

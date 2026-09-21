@@ -97,19 +97,29 @@ extension ChatServiceAccessors on ChatService {
       .toSet();
 
   /// Public attach surface for chat tools / UI (Living Worlds).
-  List<String> get chatWorldIds => List.unmodifiable(_chatWorldIds);
+  /// Primary-first then lore (compatible with lore collectors).
+  List<String> get chatWorldIds => List.unmodifiable(_chatPlaceSlots.allIds);
+
+  /// Setting slot (0..1) — owns weather / room description for this chat.
+  String? get chatPrimaryWorldId => _chatPlaceSlots.primaryId;
+
+  /// Lore slots (0..N) — lorebook entries only; never drive weather.
+  List<String> get chatLoreWorldIds =>
+      List.unmodifiable(_chatPlaceSlots.loreIds);
 
   /// Coarse absence bucket ("a few days"), or null under the threshold /
   /// fresh chat. Words only — never digits (see AbsenceTracker).
   String? get absencePhrase => AbsenceTracker.bucketPhrase(
     _absenceGap,
-    thresholdHours: _storageService.absenceThresholdHours,
+    thresholdHours: _storageService.realismSettings.absenceThresholdHours,
   );
 
   /// [absencePhrase] gated by the welcome-back-banner setting — the ONE gate
   /// both the desktop banner and the web facade read, so they can't drift.
   String? get absenceBannerPhrase =>
-      _storageService.absenceBannerEnabled ? absencePhrase : null;
+      _storageService.realismSettings.absenceBannerEnabled
+      ? absencePhrase
+      : null;
 
   // ── Thin public surface for flat members still read/written by
   // UI/pages/dialogs. Full impl in the respective *Service (chaos_mode_service,
@@ -186,10 +196,12 @@ extension ChatServiceAccessors on ChatService {
   /// along was a MOVING clock, not the engine. With the engine off and the
   /// standalone clock off it is false, which is exactly the frozen-clock state
   /// the old realism gate produced, so nothing changes by default.
-  bool get _clockRunning =>
-      _timeService.passageOfTimeEnabled &&
-      (_realismEnabled ||
-          _storageService.realismSettings.standaloneClockEnabled);
+  bool get _clockRunning => StoryClock.isRunning(
+    passageOfTimeEnabled: _timeService.passageOfTimeEnabled,
+    realismEnabled: _realismEnabled,
+    standaloneClockEnabled:
+        _storageService.realismSettings.standaloneClockEnabled,
+  );
 
   /// Objectives are actually running for this chat: the per-chat switch AND the
   /// global one (docs/design/feature-independence.md). Objectives depend on
@@ -427,183 +439,6 @@ extension ChatServiceAccessors on ChatService {
     notifyListeners();
   }
 
-  /// Today's story weather, or null when off (living-time-features.md §3).
-  /// The story clock's current day, for consumers outside the service — the
-  /// Pockets sidebar rows and the web facade filter set-aside clothing by it
-  /// (yesterday's outfit must not survive the story's morning). One
-  /// forwarder rather than exposing TimeService whole.
-  ///
-  /// MORNING-anchored since 2026-08-15 (maintainer-approved): every consumer
-  /// of this accessor is a set-aside surface, and the calendar day flipping
-  /// at 00:00 deleted the outfit mid-scene the moment a night ran past
-  /// midnight — the docs always promised "the next story morning". Story
-  /// stamps (journal cards, calendars) keep the calendar `dayCount`.
-  int get storyDayCount => _timeService.morningAnchoredDayCount;
-
-  /// Pure recompute from existing state — nothing stored, so save/load and
-  /// group re-entry agree for free. Gate: a MOVING clock + the global toggle.
-  /// Weather is deterministic math over the day count and needs no eval of its
-  /// own, so its realism term was only ever standing in for "the clock is
-  /// frozen"; [_clockRunning] says that directly, and the Porch Life tab has
-  /// always told users weather depends on Passage of Time. Consumed by the
-  /// injection leaf, the needs decay modifiers, the sidebar TimeStrip, and the
-  /// web facade — one source.
-  DailyWeather? get _currentWeatherImpl {
-    if (!_clockRunning || !_storageService.weatherEnabled) {
-      return null;
-    }
-    // Per-world plug: lorebook-only attached worlds silence the weather
-    // machine. Upcoming + segment getters already return null when this
-    // does, so one gate covers the whole pipeline.
-    final attached = <World>[
-      for (final id in _chatWorldIds) ?_worldRepository.resolveWorld(id),
-    ];
-    if (!attachedWorldsAllowClimate(attached)) {
-      return null;
-    }
-    final seed = _currentSessionId;
-    if (seed == null) return null;
-    return WeatherEngine.weatherFor(
-      sessionSeed: seed,
-      dayCount: _timeService.dayCount,
-      date: _timeService.clock,
-      biomeAtDay: _biomeAtDay,
-    );
-  }
-
-  /// Tomorrow's story weather under the same gate as [currentWeather].
-  /// Because the engine is a prefix-stable deterministic walk, this forecast
-  /// is exactly what day dayCount+1 will be when the story clock reaches it
-  /// (dayCount is derived from the calendar date, so +1 day ⇔ +1 dayCount) —
-  /// foreshadowed fronts always arrive (except the first day of a mid-chat
-  /// climate switch — see [WeatherInjection.suppressForeshadow]).
-  /// Recompute is O(dayCount) integer math, called once per turn by the
-  /// injection and once per facade read.
-  DailyWeather? get _upcomingWeatherImpl {
-    if (currentWeather == null) return null;
-    return WeatherEngine.weatherFor(
-      sessionSeed: _currentSessionId!,
-      dayCount: _timeService.dayCount + 1,
-      date: _timeService.clock.add(const Duration(days: 1)),
-      biomeAtDay: _biomeAtDay,
-    );
-  }
-
-  /// The current DAY-PART's weather (Living Time §3 v3): the day script's
-  /// condition for the story-clock hour plus the deterministic °C. Same gate
-  /// and recompute contract as [currentWeather] — nothing stored. Consumed
-  /// by the injection, the needs decay view below, the sidebar chip, and the
-  /// web facade.
-  SegmentWeather? get _currentSegmentWeatherImpl {
-    if (currentWeather == null) return null;
-    return WeatherSegments.segmentWeatherFor(
-      sessionSeed: _currentSessionId!,
-      dayCount: _timeService.dayCount,
-      date: _timeService.clock,
-      hour: _timeService.clock.hour,
-      biomeAtDay: _biomeAtDay,
-    );
-  }
-
-  /// Sidebar/web read surface (Living Time §6): [card]'s ambitions with
-  /// live progress — triggers the lazy cache warm, so first render may show
-  /// "just beginning" and correct itself one notify later. The ONE merge of
-  /// card-authored definitions + per-chat progress; desktop and web both
-  /// read through it so they can't drift.
-  List<({String text, int progress})> _ambitionsForImpl(CharacterCard card) {
-    final sessionId = _currentSessionId;
-    final list = card.frontPorchExtensions?.ambitions ?? const [];
-    if (sessionId == null || list.isEmpty) return const [];
-    final cid = _getCharacterIdFromCard(card);
-    _ambitionService.ensureCacheWarm(sessionId, cid);
-    final progress =
-        _ambitionService.cachedProgress(sessionId, cid) ?? const {};
-    return [for (final a in list) (text: a, progress: progress[a] ?? 0)];
-  }
-
-  /// The unified ordered cast of speakers for the active chat, regardless of
-  /// mode. This is the single roster the UI reads instead of branching on
-  /// `isGroupMode` between `activeCharacter`, `groupCharacters`, and
-  /// `sceneGuestCards`:
-  ///   - Group chat → each group member, in turn order (no distinct host).
-  ///   - 1:1 / NPC chat → the host (`cast[0]`, realism-bearing) followed by any
-  ///     present Scene Guests (lite NPCs, realism off).
-  /// Empty only when no chat is loaded.
-  List<ChatParticipant> get _castImpl {
-    if (isGroupMode) {
-      return [
-        for (final c in groupCharacters)
-          ChatParticipant(card: c, isHost: false),
-      ];
-    }
-    final host = _activeCharacter;
-    return [
-      if (host != null) ChatParticipant(card: host, isHost: true),
-      for (final g in _sceneGuest.cards)
-        ChatParticipant(card: g, isHost: false),
-    ];
-  }
-
-  /// Index of the most recent host (main character) message that is buried only
-  /// under Scene Guest (Lite NPC) chime-in replies — i.e. the tail of the chat
-  /// is one or more guest messages sitting directly on top of it. Returns null
-  /// when the last message is already the host's (use the normal last-message
-  /// regen), when a user/System message breaks the guest tail, or outside a 1:1
-  /// scene. The UI uses this to offer "regenerate the main character" on a host
-  /// bubble that the last-message-only regen button can no longer reach.
-  int? get _regenerableHostBelowGuestsIndexImpl {
-    if (_activeGroup != null || _messages.isEmpty) return null;
-    if (!_isGuestAuthoredMessage(_messages.last)) return null;
-    for (int i = _messages.length - 1; i >= 0; i--) {
-      final m = _messages[i];
-      if (m.isUser || m.sender == 'System') return null;
-      if (!_isGuestAuthoredMessage(m)) return i;
-    }
-    return null;
-  }
-
-  void _editMessageImpl(int index, String newText) async {
-    if (index >= 0 && index < _messages.length) {
-      final msg = _messages[index];
-      // text setter keeps swipe + realism metadata (chips survive edit).
-      msg.text = newText;
-      // Persist index — on-screen 0..23 is a tail window, not the diary cite.
-      _invalidateJournalFrom(
-        persistMessagePosition(base: _history.basePosition, index: index),
-      );
-      await _saveChat();
-      notifyListeners();
-    }
-  }
-
-  void _setSessionGenSettingsImpl(ChatGenerationSettings value) {
-    _sessionGenSettings = value;
-    _saveChat();
-    notifyListeners();
-  }
-
-  void _setSessionThemeOverridesImpl(ChatThemeOverrides value) {
-    _sessionThemeOverrides = value;
-    // Persist only when a chat is actually open. The web facade already guards
-    // this, but a bare `_currentSessionId!` would crash any other caller that
-    // sets the theme with no active session (session close mid-save, tests).
-    final sid = _currentSessionId;
-    if (sid != null) {
-      _db.setThemeOverrides(sid, value.toJsonString());
-    }
-    notifyListeners();
-  }
-
-  /// Stream text with think blocks stripped (for display) — memoized on
-  /// string identity (the overlay + web broadcast read it every notify).
-  /// The `_evalCleanSrc`/`_evalCleanOut` memo fields stay on the class body.
-  String get _realismEvalStreamTextCleanImpl =>
-      identical(_realismEvalStreamText, _evalCleanSrc)
-      ? _evalCleanOut!
-      : _evalCleanOut = _stripThinkBlocks(
-          _evalCleanSrc = _realismEvalStreamText,
-        );
-
   /// Everything [ChatService.dispose] does except the mandatory
   /// `super.dispose()` call, which only the class body can make.
   void _disposeCleanupImpl() {
@@ -641,174 +476,5 @@ extension ChatServiceAccessors on ChatService {
       unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.abandoned));
       unawaited(_deactivateTodayObjective());
     };
-  }
-}
-
-/// Session-scoped today sentence. On this leaf so the god file stays
-/// under the 1000-line ratchet. Day-clear is on the clock advance.
-mixin ChatServiceTodaySentence on ChangeNotifier {
-  String? _todaySentence;
-  String? _todayObjectiveId;
-  String? _todayObjectiveText;
-  void Function(String? held)? _onTodayAbandoned;
-
-  String? get todaySentence => _todaySentence;
-  String? get todayObjectiveId => _todayObjectiveId;
-
-  void setTodaySentence(String? value) {
-    final next = value?.trim();
-    _todaySentence = (next == null || next.isEmpty) ? null : next;
-    notifyListeners();
-  }
-
-  /// User X or empty [today:] tag. Setter stays a plain clear.
-  void abandonToday() {
-    final held = todaySentence;
-    setTodaySentence(null);
-    _onTodayAbandoned?.call(held);
-  }
-
-  String? get todayLine => todaySentence;
-
-  /// Drop the RAM hold. Does not touch the DB row.
-  void _clearTodayPointer() {
-    _todaySentence = null;
-    _todayObjectiveId = null;
-    _todayObjectiveText = null;
-    notifyListeners();
-  }
-}
-
-enum PlannerTodayFate { done, abandoned, dayAte }
-
-extension ChatServicePlannerResolve on ChatService {
-  void _nudgePlannerMood(PlannerTodayFate fate) {
-    _characterEmotion = switch (fate) {
-      PlannerTodayFate.done => 'content',
-      PlannerTodayFate.abandoned || PlannerTodayFate.dayAte => 'annoyed',
-    };
-  }
-
-  Future<void> _persistTodayObjectiveId(String? id) async {
-    final sid = _currentSessionId;
-    if (sid == null) return;
-    await _db.patchSession(
-      SessionsCompanion(
-        id: drift.Value(sid),
-        todayObjectiveId: drift.Value(id),
-      ),
-    );
-  }
-
-  /// Rebind by the persisted session id. Never guess among secondaries.
-  void _rebindTodayObjectiveFromDb() {
-    final id = _todayObjectiveId;
-    if (id == null) return;
-    final live = _activeObjectives.where((o) => o.id == id).firstOrNull;
-    if (live == null) {
-      // Chat-scoped hold lives on another member's list. Keep the
-      // pointer so the next upsert/day-ate still finds the row.
-      return;
-    }
-    _todayObjectiveText = live.objective;
-    if (_todaySentence == null) setTodaySentence(live.objective);
-  }
-
-  bool _isHeldTodayObjective(Objective obj) {
-    return _todayObjectiveId != null && obj.id == _todayObjectiveId;
-  }
-
-  Future<void> _deactivateTodayObjective() async {
-    final id = _todayObjectiveId;
-    if (id == null) return;
-    _todayObjectiveId = null;
-    _todayObjectiveText = null;
-    await _persistTodayObjectiveId(null);
-    // Update by id even when the row is on another member's list —
-    // day-ate after a speaker switch must still retire Ada's row.
-    await _db.updateObjective(
-      ObjectivesCompanion(
-        id: drift.Value(id),
-        active: const drift.Value(false),
-      ),
-    );
-    await _loadActiveObjectives();
-  }
-
-  /// One secondary today-row. Match/replace by held id. Never primary,
-  /// never tasks, never an ambition, never evicts other secondaries.
-  Future<void> _upsertTodayObjective(String line) async {
-    final trimmed = line.trim();
-    if (trimmed.isEmpty || _currentSessionId == null) return;
-    final heldId = _todayObjectiveId;
-    if (heldId != null) {
-      final held = _activeObjectives.where((o) => o.id == heldId).firstOrNull;
-      if (held != null && held.objective == trimmed) {
-        _todayObjectiveText = trimmed;
-        await _persistTodayObjectiveId(heldId);
-        return;
-      }
-      if (held == null &&
-          (_todayObjectiveText == trimmed || todaySentence == trimmed)) {
-        // List has not loaded the held row yet. Do not insert a second.
-        await _persistTodayObjectiveId(heldId);
-        return;
-      }
-      if (held != null && held.objective != trimmed) {
-        await _deactivateTodayObjective();
-      } else if (held == null) {
-        _todayObjectiveId = null;
-        _todayObjectiveText = null;
-        await _persistTodayObjectiveId(null);
-      }
-    }
-    final newId = const Uuid().v4();
-    _todayObjectiveId = newId;
-    _todayObjectiveText = trimmed;
-    final inserted = await _insertTodaySideQuest(trimmed, id: newId);
-    if (inserted == null) {
-      _todayObjectiveId = null;
-      _todayObjectiveText = null;
-      await _persistTodayObjectiveId(null);
-    }
-  }
-
-  Future<void> _onTodayObjectiveCompleted(Objective obj) async {
-    if (!_isHeldTodayObjective(obj)) return;
-    final held = todaySentence ?? obj.objective;
-    _todayObjectiveId = null;
-    _todayObjectiveText = null;
-    setTodaySentence(null);
-    unawaited(() async {
-      await _journalResolvedToday(held, fate: PlannerTodayFate.done);
-      await _persistTodayObjectiveId(null);
-    }());
-  }
-
-  /// Journal a finished or day-eaten line. Capture [held] before clearing.
-  /// Abandoned lines sour mood and do not write a card.
-  Future<void> _journalResolvedToday(
-    String? held, {
-    required PlannerTodayFate fate,
-  }) async {
-    final line = held?.trim();
-    if (line == null || line.isEmpty) return;
-    if (!_storageService.realismSettings.plannerEnabled) return;
-    _nudgePlannerMood(fate);
-    if (fate == PlannerTodayFate.abandoned) return;
-    final sessionId = _currentSessionId;
-    final card = _activeCharacter;
-    if (sessionId == null || card == null) return;
-    await _journalStore.addCard(
-      sessionId: sessionId,
-      characterId: _getCharacterIdFromCard(card),
-      content: line,
-      category: 'moment',
-      kind: 'today',
-      storyDay: _timeService.dayCount,
-      storyClock: _timeService.storyClockIso,
-      emotionLabel: _characterEmotion.isEmpty ? null : _characterEmotion,
-      maxCards: _storageService.memorySettings.journalMaxCards,
-    );
   }
 }

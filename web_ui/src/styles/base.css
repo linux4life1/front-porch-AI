@@ -1,0 +1,161 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Palette tokens mirroring AppColors, reset, iOS-Safari hardening,
+   buttons, inputs, auth screens.
+*/
+
+/* Palette mirrors the Flutter app's AppColors (lib/ui/theme/app_colors.dart)
+   AFTER the warm-porch overhaul: slate grounds (#0F172A/#1F2937/#1E293B) with
+   the warm accent family — terracotta #E29578, honey #E9C46A, amber #F4A259 —
+   replacing the old neon blue/purple chrome. Chat bubbles and bond semantics
+   keep their desktop constants (user bubble stays #3B82F6, bondMid #448AFF). */
+:root {
+  --bg: #0f172a;
+  --surface: #1f2937;
+  --surface-2: #374151;
+  --card: #1e293b;
+  --border: #334155;
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.7);
+  --faint: rgba(255, 255, 255, 0.38);
+  /* Warm-porch accent family (AppColors.porchTerracotta/Honey/Amber). */
+  --porch-terracotta: #e29578;
+  --porch-honey: #e9c46a;
+  --porch-amber: #f4a259;
+  /* Primary chrome accent: porch amber (was neon blue #3b82f6). */
+  --accent: var(--porch-amber);
+  --accent-ink: #ffffff;
+  /* Desktop AppColors.userBubble is still blue — chat bubbles are their own
+     system, deliberately unchanged by the warm-porch chrome restyle. */
+  --user-bubble: #3b82f6;
+  --ai-bubble: #374151;
+  --danger: #ff6b6b;
+  --ok: #69f0ae;
+  --logwarn: #f0c000;
+  /* Active scene-time dot (mirrors the desktop Colors.amber period strip). */
+  --accent-amber: #ffc107;
+  --radius: 12px;
+  --radius-card: 16px;
+  --radius-badge: 4px;
+  /* Chat message coloring (mirrors AppColors.dialogue / action). User-overridable
+     via Settings → Chat colors (chatColors.ts sets these on :root at runtime). */
+  --dialogue: #ffd54f;
+  --action: #90caf9;
+  /* Customizable chat bubble colors (default to the base tokens). */
+  --chat-user-bubble: var(--user-bubble);
+  --chat-user-text: var(--accent-ink);
+  --chat-ai-bubble: var(--surface-2);
+  --chat-ai-text: var(--text);
+  /* Reading size (Settings + in-chat theme drawer). 1 = default. Applied to
+     bubbles, composer, edit, sidebar help — not nav/chips/chrome. */
+  --reading-size: 1;
+  /* Tag pills (honey). */
+  --tag-bg: rgba(233, 196, 106, 0.2);
+  --tag-border: rgba(233, 196, 106, 0.45);
+  --tag-text: #f0d492;
+  /* Group accents — terracotta family (the purple rings died with the
+     warm-porch Home restyle on desktop). */
+  --group-accent: var(--porch-terracotta);
+  --group-accent-bright: #f0b195;
+  --group-border: rgba(226, 149, 120, 0.35);
+  --group-pill-bg: rgba(226, 149, 120, 0.15);
+  --group-pill-text: rgba(240, 177, 149, 0.9);
+  /* Relationship / bond semantics (desktop constants, unchanged). */
+  --bond-high: #69f0ae;
+  --bond-mid: #448aff;
+  --bond-low: #ffab40;
+  --bond-neg: #ff5252;
+  /* Guest badge. */
+  --guest-bg: rgba(255, 64, 129, 0.9);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea { font: inherit; }
+
+/* ── Mobile / iOS-Safari hardening ───────────────────────────────
+   Media never overflows; long ids/urls wrap; taps have no 300ms delay. */
+img, svg, video { max-width: 100%; }
+button, a, [role='button'], .nav-item, summary, label { touch-action: manipulation; }
+/* iOS Safari zooms the page when a focused input's font-size is < 16px.
+   Force 16px on phones so focusing a field never zooms/!shifts the layout. */
+@media (max-width: 767px) {
+  input, textarea, select, .search { font-size: 16px; }
+  /* Reading-size composer/edit must not drop below 16px or iOS zooms the page. */
+  .chat-input .composer-backdrop,
+  .chat-input .composer-input,
+  .msg-edit-body,
+  .msg-edit-backdrop {
+    font-size: max(16px, calc(14px * var(--reading-size, 1)));
+  }
+  .page { overflow-wrap: anywhere; }
+}
+
+.centered { display: grid; place-items: center; height: 100%; }
+.centered-col { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.muted { color: var(--muted); }
+.error { color: var(--danger); margin: 6px 0 0; }
+
+.spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid var(--surface-2); border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Buttons / inputs ─────────────────────────────────────────── */
+button {
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 14px; cursor: pointer; transition: filter 0.15s;
+}
+button:hover { filter: brightness(1.15); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
+.link-btn { background: none; border: none; color: var(--muted); padding: 4px 8px; }
+
+input, textarea, select, .search {
+  width: 100%; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+}
+input[type='checkbox'] { width: auto; }
+.row-label {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 12px 0; color: var(--text);
+}
+label { display: block; margin: 10px 0; font-size: 0.85rem; color: var(--muted); }
+label input { margin-top: 6px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+}
+.side-jobs {
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);
+}
+.side-jobs h4 { margin: 0 0 6px; font-size: 1rem; }
+.side-jobs-seg {
+  display: flex; gap: 8px; margin: 10px 0;
+}
+.side-jobs-seg button {
+  flex: 1; border-radius: 999px; padding: 8px 10px; font-size: 0.85rem;
+  font-weight: 600; border: 1px solid var(--border); cursor: pointer;
+}
+.side-jobs-seg .seg-on {
+  background: var(--accent); color: #1a1200; border-color: var(--accent);
+}
+.side-jobs-seg .seg-off {
+  background: var(--surface-2); color: var(--muted);
+}
+
+/* ── Auth screens ─────────────────────────────────────────────── */
+.auth-screen { display: grid; place-items: center; min-height: 100%; padding: 20px; }
+.auth-card { width: 100%; max-width: 380px; }
+.auth-card h1 { margin: 0 0 4px; }
+

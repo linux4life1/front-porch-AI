@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
 import '../porch_accordion.dart';
 import 'afk_panel.dart';
 import 'chaos_panel.dart';

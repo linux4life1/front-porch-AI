@@ -31,19 +31,19 @@ extension _GenerationOptionsSource on _GenerationOptionsTabState {
           (b) =>
               b != ImageGenBackend.drawThings ||
               isMac ||
-              st.imageGenBackend == b.key,
+              st.imageGenSettings.imageGenBackend == b.key,
         )
         .toList();
     final ac = AppColors.formMasterAccent;
     return Row(
       children: bs.map((b) {
-        final sel = st.imageGenBackend == b.key;
+        final sel = st.imageGenSettings.imageGenBackend == b.key;
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(right: b == bs.last ? 0 : 8),
             child: GestureDetector(
               onTap: () {
-                st.setImageGenBackend(b.key);
+                st.imageGenSettings.setImageGenBackend(b.key);
                 rebuildState(() {
                   _connectionOk = null;
                   _localModels = [];
@@ -102,17 +102,42 @@ extension _GenerationOptionsSource on _GenerationOptionsTabState {
   }
 
   Widget _buildRemotePanel(StorageService st) {
-    // Honesty first (maintainer report, 2026-08-13): "Remote API" here is
-    // the SAME account chat uses, configured in Settings → Backend — this
-    // panel has no key field of its own, so without these lines a user who
-    // never set one saw a working-looking model menu and reasonably
-    // concluded remote images were free. Say where the key lives and who
-    // bills, BEFORE they craft a prompt and hit a dead Generate.
-    final apiKey = st.backendSettings.remoteApiKey;
-    final host = Uri.tryParse(st.backendSettings.remoteApiUrl)?.host ?? '';
+    // Keys live in Settings → Backend (the vault). Studio chips pick which
+    // vault host Image Studio bills — they do not rewrite chat's mouth URL.
+    final account = resolveImageStudioRemoteAccount(
+      imageRemoteApiUrl: st.imageGenSettings.imageRemoteApiUrl,
+      chatRemoteApiUrl: st.backendSettings.remoteApiUrl,
+      keyFor: st.backendSettings.remoteApiKeyFor,
+    );
+    final apiKey = account.key;
+    final host = Uri.tryParse(account.url)?.host ?? '';
+    final selectedId = widget.editScoped
+        ? st.imageGenSettings.imageGenEditModel
+        : st.imageGenSettings.imageGenModel;
+    ImageModelInfo? selected;
+    for (final m in _models) {
+      if (m.id == selectedId) {
+        selected = m;
+        break;
+      }
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        RemoteImageHostChips(
+          selectedUrl: account.url,
+          keyFor: st.backendSettings.remoteApiKeyFor,
+          onSelect: (url) async {
+            await applyImageRemoteHost(
+              image: st.imageGenSettings,
+              url: url,
+              chatRemoteApiUrl: st.backendSettings.remoteApiUrl,
+              editScoped: widget.editScoped,
+            );
+            await _fetchModels();
+          },
+        ),
+        const SizedBox(height: 10),
         if (apiKey.isEmpty) ...[
           Container(
             width: double.infinity,
@@ -126,10 +151,10 @@ extension _GenerationOptionsSource on _GenerationOptionsTabState {
               ),
             ),
             child: Text(
-              'No Remote API key configured. Remote images use the same '
-              'API account as chat — nothing runs locally and nothing is '
-              'free. Add your provider key under Settings → Backend → '
-              'Remote API first; models will list once it\'s set.',
+              'No Remote API key configured for this host. Remote images '
+              'use the same API account as chat — nothing runs locally and '
+              'nothing is free. Add your provider key under Settings → '
+              'Backend → Remote API first; models will list once it\'s set.',
               style: TextStyle(
                 color: AppColors.textPrimary(context),
                 fontSize: 11.5,
@@ -162,19 +187,32 @@ extension _GenerationOptionsSource on _GenerationOptionsTabState {
         Row(
           children: [
             Expanded(
-              child: ModelSlotDropdown(
-                settings: st.imageGenSettings,
-                editSlot: widget.editScoped,
-                keyPrefix: 'remote-model',
-                fontSize: 12,
-                decoration: _deco(
-                  hint: _loadingModels
-                      ? 'Loading...'
-                      : (_models.isEmpty ? 'No models' : 'Select'),
+              child: InkWell(
+                key: const Key('remote-image-model-search'),
+                onTap: _models.isEmpty
+                    ? null
+                    : () => _openRemoteModelSearch(st),
+                borderRadius: BorderRadius.circular(8),
+                child: InputDecorator(
+                  decoration: _deco(
+                    hint: _loadingModels
+                        ? 'Loading...'
+                        : (_models.isEmpty ? 'No models' : 'Search models…'),
+                  ),
+                  child: Text(
+                    selected == null
+                        ? (selectedId.isEmpty ? 'Search models…' : selectedId)
+                        : imageModelListLabel(selected),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: selected == null && selectedId.isEmpty
+                          ? AppColors.textTertiary(context)
+                          : AppColors.textPrimary(context),
+                    ),
+                  ),
                 ),
-                options: [
-                  for (final m in _models) (value: m.id, label: m.displayName),
-                ],
               ),
             ),
             const SizedBox(width: 6),
@@ -189,10 +227,20 @@ extension _GenerationOptionsSource on _GenerationOptionsTabState {
                       ),
                     )
                   : Icon(
-                      Icons.refresh,
+                      Icons.search,
                       color: AppColors.iconSecondary(context),
                       size: 18,
                     ),
+              onPressed: _models.isEmpty || _loadingModels
+                  ? null
+                  : () => _openRemoteModelSearch(st),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.refresh,
+                color: AppColors.iconSecondary(context),
+                size: 18,
+              ),
               onPressed: _loadingModels ? null : _fetchModels,
             ),
           ],
@@ -200,6 +248,35 @@ extension _GenerationOptionsSource on _GenerationOptionsTabState {
         const SizedBox(height: 8),
         _buildSharedFields(st),
       ],
+    );
+  }
+
+  void _openRemoteModelSearch(StorageService st) {
+    final sorted = [..._models]..sort(compareImageModelsForPicker);
+    showGenericModelSearchDialog<ImageModelInfo>(
+      context,
+      sorted,
+      title: 'Select Image Model',
+      getTitle: imageModelListLabel,
+      getSubtitle: (m) => m.id,
+      onSelected: (m) async {
+        if (widget.editScoped) {
+          await st.imageGenSettings.setImageGenEditModel(m.id);
+        } else {
+          await st.imageGenSettings.setImageGenModel(m.id);
+        }
+        final url = resolveImageStudioRemoteAccount(
+          imageRemoteApiUrl: st.imageGenSettings.imageRemoteApiUrl,
+          chatRemoteApiUrl: st.backendSettings.remoteApiUrl,
+          keyFor: st.backendSettings.remoteApiKeyFor,
+        ).url;
+        await st.imageGenSettings.setRemoteImageModelFor(
+          url,
+          m.id,
+          edit: widget.editScoped,
+        );
+        rebuildState(() {});
+      },
     );
   }
 }

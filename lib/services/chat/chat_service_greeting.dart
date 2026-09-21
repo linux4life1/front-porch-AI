@@ -28,7 +28,7 @@ extension ChatServiceGreeting on ChatService {
   /// WHERE SHE IS WHEN IT IS HER TURN TO SPEAK FOR THE FIRST TIME.
   ///
   /// Posture became a POST-generation question on 2026-08-08, because a
-  /// position a character establishes in her own words cannot be known by a
+  /// position a character establishes in their own words cannot be known by a
   /// judge that ran before those words existed. That fixed the teleporting —
   /// and left turn one with nothing at all. The maintainer's requirement is
   /// both halves, verbatim: "we need the part that informs the character where
@@ -113,7 +113,7 @@ extension ChatServiceGreeting on ChatService {
     //
     // Attempted-once is the right rule: the seed exists only to cover the gap
     // before the first reply exists. From the first reply onward the
-    // post-generation pass reads where she actually is, which is the whole
+    // post-generation pass reads where they actually are, which is the whole
     // point of moving posture after the reply.
     // Keyed on session AND SPEAKER. A group has one session but a cast, and
     // every member needs their own opening position in their own _groupRealism
@@ -148,7 +148,8 @@ extension ChatServiceGreeting on ChatService {
   /// Runs once per new session, silently in the background.
   Future<void> _runPostGreetingEval() async {
     if (!_realismEnabled) return;
-    final evalChar = _activeCharacter ??
+    final evalChar =
+        _activeCharacter ??
         _greetingOwnerCard() ??
         (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
     // Groups have a null _activeCharacter; still Read the Room when an
@@ -175,14 +176,17 @@ extension ChatServiceGreeting on ChatService {
             () => _evaluateRelationshipCall(),
           ),
           // WHERE SHE IS WHEN THE STORY OPENS. The greeting IS the opening scene
-          // — "she is rocking in the armchair when you walk in" — so the baseline
+          // — "they are rocking in the armchair when you walk in" — so the baseline
           // is the earliest moment the opening position can be read, and reading
           // it here means the sidebar shows a position before the user has typed
           // anything. It is the SAME seed the pre-turn path uses, and the seed
           // is single-flight (see _seedOpeningPosture): this one is a head
           // start, and a pre-turn dance that arrives while it is still in flight
           // waits for this answer instead of asking again.
-          Future.delayed(_kEvalDispatchStagger * 2, () => _seedOpeningPosture()),
+          Future.delayed(
+            _kEvalDispatchStagger * 2,
+            () => _seedOpeningPosture(),
+          ),
         ]);
 
         if (_realismEvalCancelled ||
@@ -207,7 +211,8 @@ extension ChatServiceGreeting on ChatService {
         if (_messages.isNotEmpty) {
           _messages.first.activeMetadata ??= {};
           if (_characterEmotion.isNotEmpty) {
-            _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
+            _messages.first.activeMetadata!['emotion_label'] =
+                _characterEmotion;
             _messages.first.activeMetadata!['realism_state'] =
                 _captureRealismState();
           }
@@ -232,10 +237,7 @@ extension ChatServiceGreeting on ChatService {
         _isProcessingGreeting = false;
         notifyListeners();
       }
-    }, zoneValues: {
-      _kGreetingEvalToken: token,
-      _kGreetingEvalIndex: indexStamp,
-    });
+    }, zoneValues: {_kGreetingEvalToken: token, _kGreetingEvalIndex: indexStamp});
   }
 
   /// Retroactive baseline eval — fires when Realism is enabled mid-conversation
@@ -283,14 +285,14 @@ extension ChatServiceGreeting on ChatService {
         }
       }
 
-      // Where the history left her. Shared by BOTH branches above and placed
+      // Where the history left them. Shared by BOTH branches above and placed
       // after them for exactly that reason: one-shot's fused JSON no longer
       // carries posture, and the four-call branch's physical-state call is
       // now the clock alone, so neither branch produces a position on its
       // own. Without this, switching Realism on mid-conversation caught the
       // engine up on mood and bond and then wrote the next reply with no
       // staging at all — the same hole turn one had. Guarded like every other
-      // seed: a chat that already knows where she is keeps that answer.
+      // seed: a chat that already knows where they are keeps that answer.
       await _seedOpeningPosture();
 
       // Stamp the baseline on the most recent message so it persists

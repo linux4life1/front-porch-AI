@@ -1,5 +1,14 @@
 name: CI
 
+# Push to Rawhide/main still runs the cheap gates (analyze, full-lint,
+# theme-lint, io-lint, web-tests) plus the one-job unit/integration `test`
+# smoke. The heavy matrix — e2e-smoke (3 OS × 5 shards), widget goldens,
+# and the live Stoop pin — already ran on the PR that landed the commit.
+# Re-queueing them on squash-merge starves open PRs of macOS/golden
+# runners. Those jobs therefore skip when github.event_name == 'push'
+# (`if: github.event_name != 'push'`, ANDed with any existing job `if:`).
+# pull_request and schedule keep the full suite.
+
 on:
   push:
     branches: [main, Rawhide]
@@ -35,11 +44,9 @@ jobs:
       - name: Run Flutter Analyze on changed Dart files only
         run: |
           # Get list of changed Dart files, compared against the *current state of the
-          # target branch itself* (Rawhide for Rawhide work, dev for dev work, etc.).
+          # target branch itself* (Rawhide for Rawhide work, and so on).
           #
-          # The old logic had a hard-coded `|| 'dev'` fallback that made the entire
-          # "changed files only" gate garbage for Rawhide (the primary development
-          # branch). Rawhide pushes must diff against origin/Rawhide, not dev.
+          # Rawhide pushes must diff against origin/Rawhide.
           #
           # - pull_request: github.base_ref is the target (e.g. Rawhide)
           # - push: github.ref_name is the branch being pushed to (e.g. Rawhide)
@@ -62,7 +69,7 @@ jobs:
   full-lint:
     name: Full project lint (scheduled + main pushes)
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Rawhide' || github.ref == 'refs/heads/dev'
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Rawhide'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -124,6 +131,62 @@ jobs:
         run: flutter test --concurrency=4 --reporter expanded --exclude-tags golden
         timeout-minutes: 20
 
+  # Live Stoop pin (#264): talks HTTP to the real hub, not FakeStoopServer.
+  # Secrets stay on this job's env only — never echo them. Fork PRs skip
+  # the job (no secrets). Same-repo PRs run the pin and fail this job if
+  # it fails. Branch pushes skip this job (the PR already ran it; see the
+  # file-header note). The unit job above still skips the tagged suite
+  # when those env vars are absent.
+  stoop-live:
+    name: Stoop live (NSFW refresh)
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: >
+      github.event_name != 'push' &&
+      github.event_name != 'schedule' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check live Stoop secrets
+        id: creds
+        env:
+          STOOP_TEST_EMAIL: ${{ secrets.STOOP_TEST_EMAIL }}
+          STOOP_TEST_PASSWORD: ${{ secrets.STOOP_TEST_PASSWORD }}
+        run: |
+          if [ -z "$STOOP_TEST_EMAIL" ] || [ -z "$STOOP_TEST_PASSWORD" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Live Stoop secrets are not available in this run — skipping (not stubbing)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run live Stoop pin
+        if: steps.creds.outputs.skip != 'true'
+        env:
+          STOOP_TEST_EMAIL: ${{ secrets.STOOP_TEST_EMAIL }}
+          STOOP_TEST_PASSWORD: ${{ secrets.STOOP_TEST_PASSWORD }}
+          STOOP_LIVE_URL: ${{ secrets.STOOP_LIVE_URL }}
+        run: |
+          if [ -z "${STOOP_LIVE_URL:-}" ]; then
+            export STOOP_LIVE_URL="https://api.frontporchai.app"
+          fi
+          flutter test --tags stoop_live \
+            test/ui/pages/repository/stoop_nsfw_refresh_test.dart
+
   # Full-array E2E smoke: boots the REAL desktop app (windowed, on the runner's
   # display session) through a sandboxed two-turn chat against an in-process
   # fake backend, asserting realism evals, needs sim, chaos pressure, objective
@@ -150,6 +213,9 @@ jobs:
   e2e-smoke:
     name: E2E smoke (${{ matrix.device }} ${{ matrix.shard }}/5)
     needs: analyze
+    # Skip on branch push — see the file-header note. PR + schedule keep
+    # the full OS/shard matrix.
+    if: github.event_name != 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -192,7 +258,8 @@ jobs:
           cache: true
 
       # Linux desktop build deps + a virtual display for the windowed test.
-      # GStreamer is for audioplayers_linux; GTK for the shell itself.
+      # GStreamer is for audioplayers_linux; GTK for the shell itself;
+      # libsecret is for flutter_secure_storage_linux.
       #
       # Note what is deliberately NOT here: any spell-check package. The
       # hunspell engine is compiled in from third_party/ and an en_US
@@ -203,7 +270,7 @@ jobs:
         if: matrix.device == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev xvfb \
+          sudo apt-get install -y ninja-build libgtk-3-dev libsecret-1-dev xvfb \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       - name: Install dependencies
@@ -415,6 +482,9 @@ jobs:
     name: Widget Golden Tests
     runs-on: ubuntu-latest
     needs: analyze
+    # Skip on branch push — see the file-header note. PR + schedule still
+    # run pixel goldens.
+    if: github.event_name != 'push'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7

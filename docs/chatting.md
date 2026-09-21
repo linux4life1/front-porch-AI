@@ -22,13 +22,13 @@ How a conversation actually works. If the AI will not talk at all, start with [F
   | Objectives | Goals. Groups open these from the focused member, not a fifth card. |
   | Story Tools | Chaos / Chance Time, Dynamic Responses (AFK), Places, lorebooks. |
 
-  One-on-one shows all five. Groups drop Objectives as its own card. A **scene guest** also drops Character State and Objectives (“Lite NPC”).
+  One-on-one shows all five. Groups drop Objectives as its own card. A **1:1 scene guest** drops Character State and Objectives (“Lite NPC”) — Promote lives on the cast chip only. A **group guest** keeps Character State (GUEST badge, no Needs chrome); Promote is still only on the cast chip.
 
 - **Input bar** — persona avatar, buttons, the box, more buttons. Drag the grip to make the box taller. **Enter** sends. **Shift+Enter** is a new line.
 
 While the AI writes, a red **Stop** appears. Click it to cut the reply short. Text streams in live.
 
-**Attach a photo** (desktop) sits next to the box. If the chat model can see images, it looks. If not, **Photo Understanding** (Settings → Voice & Media) can describe the picture offline. Phone chat has no attach button.
+**Attach a photo** sits next to the box (desktop and phone). If the chat model can see images, it looks. If not, **Photo Understanding** (Settings → Voice & Media) can describe the picture offline.
 
 **Thinking models** (Qwen, DeepSeek, …) put private reasoning in a collapsible **Thought** chip. Ignore it if you do not care.
 
@@ -40,9 +40,9 @@ Type `/` — a helper list appears. `Esc` dismisses it. Type `@` to mention some
 
 | Command | What it does |
 |---|---|
-| `/create <name>: <concept>` | New guest NPC, brought in |
-| `/join [--full] [name]` | Library character in. `--full` = full member (1:1 becomes a group) |
-| `/promote` | Everyone present becomes a full member |
+| `/create <name>: <concept>` | New guest NPC, brought in (works in a group too) |
+| `/join [--full\|--lite] [name]` | Library character in. Lite is a guest (works in a group too). `--full` is a full member (a 1:1 becomes a group; other guests stay Guest) |
+| `/promote [name]` | Named (or the roster Promote button): that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them |
 | `/speak [name]` | Force a turn now |
 | `/exit [name]` | Guest leaves (narrated); in a group, remove that member |
 | `/turnorder [random \| names…]` | Round-robin, random, or an order |
@@ -103,7 +103,7 @@ Each member keeps lorebooks, relationship, needs, expressions, voice.
 
 **A 1:1 and a group are the same chat with a different headcount.** `/join`, `/join --full`, `/promote`, `/exit` change the cast in place. History stays.
 
-If the story keeps naming someone who is not in the cast, a **scene-guest** dialog offers to add them (`/scan` is the typed twin). Guests are Lite NPCs — no Character State / Objectives until you promote.
+If the story keeps naming someone who is not in the cast, a **scene-guest** dialog offers to add them (`/scan` is the typed twin). Guests are Lite NPCs — they keep a **GUEST** badge and skip Needs, diary, and Objectives until you Promote them by name (or the Promote button under their cast avatar). Turning a 1:1 into a group does **not** upgrade them.
 
 **Director Mode** (groups): sidebar toggle. Your input becomes stage direction, not dialogue. **Response Delay** is desktop pacing; phone has the toggle, not the delay slider. Play/pause auto-chat is desktop.
 

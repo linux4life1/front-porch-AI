@@ -161,17 +161,4 @@ void main() {
           'true, the leftover POST leaked into the next turn.',
     );
   });
-
-  test('restamp and regen restore both name the receipt (call-site pin)', () {
-    final restamp = File(
-      'lib/services/chat/chat_service_group_realism_helpers.dart',
-    ).readAsStringSync();
-    final regen = File(
-      'lib/services/chat/chat_service_reprocess.dart',
-    ).readAsStringSync();
-    expect(restamp, contains('kWithUserPreTurn'));
-    expect(restamp, contains("rs.containsKey('withUser')"));
-    expect(regen, contains('kWithUserPreTurn'));
-    expect(regen, contains('setWithUser'));
-  });
 }

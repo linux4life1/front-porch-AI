@@ -16,11 +16,11 @@ void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall call) async {
-    if (call.method == 'getApplicationDocumentsDirectory') {
-      return Directory.systemTemp.createTempSync('fpai_test_').path;
-    }
-    return null;
-  });
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return Directory.systemTemp.createTempSync('fpai_test_').path;
+        }
+        return null;
+      });
 }
 
 void main() {
@@ -54,22 +54,22 @@ void main() {
     });
 
     test('applySettings only writes keys that are present', () async {
-      final beforeWindow = storage.ragWindowSize;
+      final beforeWindow = storage.memorySettings.ragWindowSize;
       await facade.applySettings({
         'ragEnabled': true,
         'journalInterval': 9,
         'unknownKey': 'ignored',
       });
-      expect(storage.ragEnabled, isTrue);
-      expect(storage.journalInterval, 9);
+      expect(storage.memorySettings.ragEnabled, isTrue);
+      expect(storage.memorySettings.journalInterval, 9);
       // A setting we never passed must stay untouched.
-      expect(storage.ragWindowSize, beforeWindow);
+      expect(storage.memorySettings.ragWindowSize, beforeWindow);
     });
 
     test('applySettings ignores wrong-typed values', () async {
-      final before = storage.journalInterval;
+      final before = storage.memorySettings.journalInterval;
       await facade.applySettings({'journalInterval': 'not-an-int'});
-      expect(storage.journalInterval, before);
+      expect(storage.memorySettings.journalInterval, before);
     });
 
     test('objective task ops return false when the id is unknown', () async {

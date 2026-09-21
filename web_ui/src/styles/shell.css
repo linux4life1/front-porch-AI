@@ -1,0 +1,191 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   App shell: desktop side rail, phone drawer, layout rules, remote-access
+   assist, install hint, and the library folder/toolbar chrome.
+*/
+
+/* ── App shell ────────────────────────────────────────────────── */
+/* 100dvh tracks the *dynamic* viewport so the iOS Safari toolbar can't crop the
+   bottom nav / chat input (100vh would). Safe-area insets live on the header
+   (phone) and side rail (desktop) — not here — so they're never doubled. */
+.app-shell {
+  display: flex; flex-direction: column; height: 100%; height: 100dvh;
+}
+.app-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top));
+  border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.hamburger { font-size: 1.4rem; line-height: 1; padding: 6px 10px; }
+.app-title { font-weight: 700; color: var(--text); text-decoration: none; }
+.app-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* Nav items are used in the desktop side rail and the phone drawer (both carry
+   .side-nav, which restyles them as full-width rows below). */
+.nav-item { text-decoration: none; color: var(--muted); }
+.nav-icon { font-size: 1.2rem; }
+
+/* ── Desktop / tablet shell: persistent Dart-style side rail ───── */
+.app-shell.cols { flex-direction: row; }
+.side-nav {
+  width: 250px; flex-shrink: 0; display: flex; flex-direction: column;
+  background: var(--surface); border-right: 1px solid var(--border);
+  padding: 14px 10px; gap: 4px;
+  padding-top: calc(14px + env(safe-area-inset-top));
+}
+.side-brand {
+  display: block; text-decoration: none;
+  font-weight: 800; font-size: 1.05rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text); padding: 6px 10px 14px;
+}
+.side-links { display: flex; flex-direction: column; gap: 2px; }
+.side-nav .nav-item {
+  flex: 0 0 auto; flex-direction: row; align-items: center; gap: 12px;
+  justify-content: flex-start; padding: 11px 12px; border-radius: 8px;
+  font-size: 0.95rem; color: var(--muted);
+}
+.side-nav .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+.side-nav .nav-item.active { background: rgba(244, 162, 89, 0.14); color: var(--accent); font-weight: 700; }
+.side-nav .nav-icon { font-size: 1.2rem; }
+.side-footer {
+  margin-top: auto; display: flex; flex-direction: column; align-items: stretch;
+  gap: 2px; padding: 10px 6px 4px;
+}
+/* Full-width labeled row, mirroring the desktop sidebar's Discord item. */
+.side-discord-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px; border-radius: 8px;
+  text-decoration: none; color: var(--muted); font-size: 0.95rem;
+}
+.side-discord-btn:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+.side-logout { text-align: left; padding: 8px 10px; }
+.app-main { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* ── Phone: hamburger + slide-in nav drawer (replaces bottom tabs) ── */
+/* Higher specificity than the base .drawer-backdrop (which justifies right for
+   the conversations/picker drawers) so the nav drawer opens on the LEFT,
+   regardless of source order. */
+.drawer-backdrop.nav-backdrop { justify-content: flex-start; }
+.nav-drawer {
+  width: min(280px, 86%); height: 100%; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+  border-right: 1px solid var(--border);
+  padding-top: calc(14px + env(safe-area-inset-top));
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  /* Pin to the LEFT regardless of the backdrop's justify-content (auto margin
+     wins over justify-content), so this can never flip to the right side. */
+  margin-right: auto;
+}
+.nav-drawer .drawer-head { padding: 0 6px 10px; }
+
+/* LAYOUT RULE (paired with Layout.tsx writing document root data-layout):
+   desktop-first base CSS; every phone delta is scoped under [data-layout="phone"]
+   so it can NEVER leak to desktop. Width media queries are only for intrinsic
+   reflow + the chat reading cap — not for overriding base rules. */
+.page { padding: 16px; max-width: 720px; margin: 0 auto; }
+/* Grid pages (the library) break out of the reading column to fill wide screens. */
+[data-layout="desktop"] .page.library,
+[data-layout="tablet"] .page.library { max-width: none; padding: 20px 24px; }
+.callout {
+  background: var(--surface-2); border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 16px; font-size: 0.9rem;
+}
+/* Slow-CPU (no AVX2 + no NVIDIA) warning on the Models page. */
+.cpu-warn {
+  background: rgba(244, 162, 89, 0.12);
+  border: 1px solid rgba(244, 162, 89, 0.5);
+  border-radius: 10px; padding: 10px 12px; margin: 4px 0 12px;
+  font-size: 0.82rem; line-height: 1.4; color: var(--text);
+}
+.cpu-warn strong { color: var(--porch-amber); display: block; margin-bottom: 3px; }
+.pill { font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; margin-left: 8px; }
+/* Tri-state control (One-Shot Eval Auto/On/Off) — the desktop sidebar's
+   choice pills, in web clothes. */
+.mode-seg { display: inline-flex; gap: 4px; }
+.mode-seg-btn {
+  font-size: 0.7rem;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.mode-seg-btn.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+  font-weight: 600;
+}
+.pill.ok { background: rgba(105, 240, 174, 0.18); color: var(--ok); }
+.tunnel-url { display: block; color: var(--accent); word-break: break-all; margin: 8px 0; }
+
+/* Remote access assist */
+.page-head { display: flex; align-items: center; justify-content: space-between; }
+button.ghost { background: transparent; border-color: var(--border); }
+.card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.card-head h3 { margin: 0; }
+.badge {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
+  background: rgba(244, 162, 89, 0.18); color: var(--accent);
+  padding: 2px 8px; border-radius: 999px;
+}
+.steps { margin: 8px 0 12px; padding-left: 18px; color: var(--muted); font-size: 0.9rem; }
+.steps li { margin: 4px 0; }
+.btn-link {
+  display: inline-block; text-decoration: none; border-radius: 10px;
+  padding: 10px 14px; margin-top: 4px;
+}
+.btn-link.primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.about-links .btn-link { border: 1px solid var(--border); color: var(--accent); }
+.help-link { display: inline-block; margin-top: 6px; color: var(--accent); font-size: 0.8rem; }
+.tunnel-result { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.tunnel-url-row { display: flex; align-items: center; gap: 8px; width: 100%; }
+.tunnel-url-row .tunnel-url { flex: 1; margin: 0; }
+.small { font-size: 0.78rem; }
+
+/* ── Install hint ─────────────────────────────────────────────── */
+.install-hint {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--surface-2); border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 16px;
+}
+.install-hint-body p { margin: 4px 0 0; }
+.install-hint-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* ── Library: folders / sections / groups ─────────────────────── */
+.breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-bottom: 10px; }
+.breadcrumb .link-btn { color: var(--accent); padding: 4px 4px; }
+.crumb-sep { color: var(--faint); padding: 0 2px; }
+.section-label {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); margin: 14px 0 8px;
+}
+/* (Old library folder/group/circle-avatar styles removed — the library now uses
+   the art-forward .lib-* cards below. The compact .char-* card classes remain
+   for the CharacterPicker modal only.) */
+
+/* ── Library toolbar ──────────────────────────────────────────── */
+.search { margin-bottom: 16px; }
+/* Wraps at whatever width the window (or phone) actually is — there is no
+   fixed desktop toolbar width. */
+.search-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.search-row .search { flex: 1 1 220px; min-width: 0; margin-bottom: 0; }
+.sort-select { width: auto; flex: 0 0 auto; }
+.import-btn { flex: 0 0 auto; white-space: nowrap; }
+.char-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+}
+.char-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px; text-align: center;
+}
+.char-avatar {
+  width: 72px; height: 72px; border-radius: 50%; overflow: hidden;
+  background: var(--surface-2); display: grid; place-items: center;
+}
+.char-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.char-initial { font-size: 1.8rem; color: var(--accent); }
+.char-name { font-size: 0.85rem; font-weight: 600; }
+

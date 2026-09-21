@@ -39,15 +39,15 @@ class VoiceFacade {
 
   /// Capability snapshot for the web client to decide which controls to show.
   Map<String, dynamic> status() => {
-    'ttsEnabled': _storage.ttsEnabled,
-    'ttsEngine': _storage.ttsEngine,
-    'sttEnabled': _storage.sttEnabled,
+    'ttsEnabled': _storage.ttsSettings.ttsEnabled,
+    'ttsEngine': _storage.ttsSettings.ttsEngine,
+    'sttEnabled': _storage.sttSettings.sttEnabled,
     'sttAvailable': _stt.isAvailable,
     // Additive (2026-08-14) for the web character editor's per-character
     // voice picker — an assigned voice overrides the global one, so the
     // browser needs both the choices and the global's name to label
     // "use the global voice". Older clients ignore the extra keys.
-    'globalVoice': _storage.ttsVoiceModel,
+    'globalVoice': _storage.ttsSettings.ttsVoiceModel,
     'voices': _tts.activeVoices
         .map(
           (v) => {
@@ -64,16 +64,16 @@ class VoiceFacade {
   /// remote/phone user can turn TTS/STT on without opening the desktop tab.
   Future<Map<String, dynamic>> apply(Map<String, dynamic> body) async {
     final tts = body['ttsEnabled'];
-    if (tts is bool) await _storage.setTtsEnabled(tts);
+    if (tts is bool) await _storage.ttsSettings.setTtsEnabled(tts);
     final stt = body['sttEnabled'];
-    if (stt is bool) await _storage.setSttEnabled(stt);
+    if (stt is bool) await _storage.sttSettings.setSttEnabled(stt);
     return status();
   }
 
   /// Synthesize [text] to audio bytes (no host playback). Returns the bytes plus
   /// their MIME type, or null when TTS is off / produced nothing.
   Future<AudioPayload?> speak(String text, {String? voiceKey}) async {
-    if (!_storage.ttsEnabled || text.trim().isEmpty) return null;
+    if (!_storage.ttsSettings.ttsEnabled || text.trim().isEmpty) return null;
     final file = await _tts.generateAudioFile(text, voiceKey: voiceKey);
     if (file == null || !file.existsSync()) return null;
     final bytes = await file.readAsBytes();

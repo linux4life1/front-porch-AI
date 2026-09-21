@@ -21,8 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Shows dialog to save current system prompt (extracted helper dialog, Stage 5).
-/// AppColors exclusive (fixed hards from original).
+/// Save the current system prompt.
 void showSavePromptDialog(BuildContext context, StorageService storageService) {
   final controller = TextEditingController();
   showDialog(

@@ -19,15 +19,10 @@
 part of '../chat_service.dart';
 
 /// Builders for the core Realism Engine leaf services (time, chaos mode,
-/// nsfw, needs simulation, relationship, expression). Extracted verbatim from
-/// `chat_service.dart` — the god file's `late final _x = _buildX();` field
-/// declarations call these; laziness (and therefore init order) is unchanged
-/// because `late final` still resolves on first access. Zero behaviour
-/// change: every callback closure is byte-identical to its old inline form.
+/// nsfw, needs simulation, relationship, expression). `late final` still
+/// resolves on first access, so init order is unchanged.
 extension ChatServiceWiringRealism on ChatService {
-  // ── Passage of time (extracted to TimeService) ───────────────────────────
-  // (Declared early among late finals for init safety because needs/others close over its getters via cbs.
-  // Logically added "after the other late finals" per extraction sequence; 0 new god privates.)
+  // Time first: needs and others close over its getters.
   TimeService _buildTimeService() {
     return TimeService(
       onNotify: notifyListeners,
@@ -39,6 +34,7 @@ extension ChatServiceWiringRealism on ChatService {
       onSetPendingRealismMetadata: (key, value) {
         _pendingRealismMetadata ??= {};
         _pendingRealismMetadata![key] = value;
+        _requestSalienceKick(onlyIf: _pendingRealismMetadata);
       },
       onStoryDayChanged: () {
         final held = todaySentence;
@@ -98,6 +94,7 @@ extension ChatServiceWiringRealism on ChatService {
       onSetPendingRealismMetadata: (key, value) {
         _pendingRealismMetadata ??= {};
         _pendingRealismMetadata![key] = value;
+        _requestSalienceKick(onlyIf: _pendingRealismMetadata);
       },
     );
   }
@@ -163,19 +160,20 @@ extension ChatServiceWiringRealism on ChatService {
       onSaveChat: _saveChat,
       getIsGroupActive: () => _activeGroup != null,
       getObserverMode: () => _observerMode,
-      getGroupCharacterCount: () => _groupCharacters.length,
+      getGroupCharacterCount: () =>
+          fullGroupCharacters(_groupCharacters).length,
       getShouldTrackInterCharacterRelationships: () =>
           _shouldTrackInterCharacterRelationships,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
-      getCurrentGroupMemberIds: () =>
-          _groupCharacters.map(_getCharacterIdFromCard).toSet(),
-      getOtherGroupMemberIds: (selfId) => _groupCharacters
-          .map(_getCharacterIdFromCard)
-          .where((id) => id != selfId)
-          .toList(),
+      getCurrentGroupMemberIds: () => fullGroupCharacters(
+        _groupCharacters,
+      ).map(_getCharacterIdFromCard).toSet(),
+      getOtherGroupMemberIds: (selfId) => fullGroupCharacters(
+        _groupCharacters,
+      ).map(_getCharacterIdFromCard).where((id) => id != selfId).toList(),
       getOtherGroupMemberIdToLowerName: (selfId) {
         final m = <String, String>{};
-        for (final other in _groupCharacters) {
+        for (final other in fullGroupCharacters(_groupCharacters)) {
           final oid = _getCharacterIdFromCard(other);
           if (oid == selfId) continue;
           m[oid] = other.name.toLowerCase();
@@ -275,10 +273,7 @@ extension ChatServiceWiringRealism on ChatService {
       getBackendIdentity: () => _evalBackendIdentity,
       getIsEvaluatingRealism: () => _isEvaluatingRealism,
       getStorageService: () => _storageService,
-      getLlmServiceForReclass: () =>
-          testLlmServiceOverride ??
-          _llmProvider?.activeService ??
-          _koboldService,
+      getLlmServiceForReclass: () => _sideLaneLlm,
       getIsGenerating: () => _isGenerating,
       getCharacterEmotion: () => _characterEmotion,
       getMessages: () => _messages,

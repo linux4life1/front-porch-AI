@@ -131,15 +131,9 @@ extension ChatServiceControls on ChatService {
       } else {
         final ext = _activeCharacter?.frontPorchExtensions;
         if (ext != null) {
-          _needsSimulation.initializeFreshWithDefaults({
-            'hunger': ext.needsBaselineHunger,
-            'bladder': ext.needsBaselineBladder,
-            'energy': ext.needsBaselineEnergy,
-            'social': ext.needsBaselineSocial,
-            'fun': ext.needsBaselineFun,
-            'hygiene': ext.needsBaselineHygiene,
-            'comfort': ext.needsBaselineComfort,
-          });
+          _needsSimulation.initializeFreshWithDefaults(
+            NeedsSimulation.baselinesFromExtensions(ext),
+          );
         } else {
           _needsSimulation.initializeFresh();
         }
@@ -167,9 +161,9 @@ extension ChatServiceControls on ChatService {
 
   /// Called by the sidebar chevron buttons. delta = +1 (forward) or -1 (back).
   /// Thin delegation to TimeService (core logic + cb-driven patch). Save/notify
-  /// + realism guard kept in god wrapper (UI coordination).
+  /// + `_clockRunning` guard kept in god wrapper (UI coordination).
   Future<void> nudgeTimePeriod(int delta) async {
-    if (!_realismEnabled) return;
+    if (!_clockRunning) return;
     final before = _timeService.clock;
     await _timeService.nudgeTimePeriod(delta);
     // Day-ate journal rides TimeService.onStoryDayChanged.
@@ -182,7 +176,7 @@ extension ChatServiceControls on ChatService {
   /// Calendar dialog: set the story's current date & time directly.
   /// Same guard/save/notify shape as the nudge (it IS a precise nudge).
   Future<void> setStoryClock(DateTime clock) async {
-    if (!_realismEnabled) return;
+    if (!_clockRunning) return;
     final before = _timeService.clock;
     await _timeService.setClockDirect(clock);
     // Day-ate journal rides TimeService.onStoryDayChanged.
@@ -195,7 +189,7 @@ extension ChatServiceControls on ChatService {
   /// Calendar dialog: re-anchor "story begins on…" — the whole timeline
   /// slides together (Day N is preserved, every date re-derives).
   Future<void> setStoryStartDate(DateTime date) async {
-    if (!_realismEnabled) return;
+    if (!_clockRunning) return;
     _timeService.setStartDate(date);
     unawaited(_ensureBirthdayState());
     await _saveChat();

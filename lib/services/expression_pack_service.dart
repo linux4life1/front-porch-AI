@@ -179,9 +179,8 @@ class ExpressionPackSession extends ChangeNotifier {
   bool get isRunning => _running;
   int get doneCount =>
       _slots.where((s) => s.state == ExpressionSlotState.done).length;
-  int get keptCount => _slots
-      .where((s) => s.state == ExpressionSlotState.done && s.keep)
-      .length;
+  int get keptCount =>
+      _slots.where((s) => s.state == ExpressionSlotState.done && s.keep).length;
   int get pendingCount =>
       _slots.where((s) => s.state == ExpressionSlotState.pending).length;
 
@@ -401,8 +400,8 @@ class ExpressionPackImporter {
     }
 
     final imported = addedIds.length;
-    if (imported > 0 && !storage.expressionEnabled) {
-      await storage.setExpressionEnabled(true);
+    if (imported > 0 && !storage.expressionSettings.expressionEnabled) {
+      await storage.expressionSettings.setExpressionEnabled(true);
     }
     return imported;
   }

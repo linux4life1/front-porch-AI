@@ -90,10 +90,16 @@ export function folderCardMenu(
 export function importCardMenu(a: {
   onImportCards: () => void;
   onImportFolder: () => void;
+  onImportByaf: () => void;
 }): CardMenuItem[] {
   return [
     { label: 'Import cards…', icon: '🖼', onClick: a.onImportCards },
     { label: 'Import a folder…', icon: '📁', onClick: a.onImportFolder },
+    {
+      label: 'Import Backyard AI (.byaf)…',
+      icon: '📦',
+      onClick: a.onImportByaf,
+    },
     {
       label: 'Browse AI Character Cards ↗',
       icon: '🌐',

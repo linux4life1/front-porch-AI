@@ -113,9 +113,24 @@ extension ChatServiceTurnFlow on ChatService {
   /// turn order must not re-roll the same At-work member and miss the
   /// only free one — walk the roster once.
   CharacterCard _pickPresentGroupSpeaker() {
+    // Forced / @ of a present member wins over a quiet Away return.
+    // Serving pendingReturnSpeakId first stole @Bea when Ana flipped.
     final forced = _groupManager?.hasForcedSpeaker ?? false;
+    if (forced) {
+      return _pickNextGroupCharacter();
+    }
+    final returnId = _awayPulse.pendingReturnSpeakId;
+    if (returnId != null) {
+      for (final card in _groupCharacters) {
+        if (_getCharacterIdFromCard(card) == returnId) {
+          _awayPulse.consumingReturnSpeak = true;
+          _groupManager?.advanceAfterRegeneration(card);
+          return card;
+        }
+      }
+    }
     final first = _pickNextGroupCharacter();
-    if (!_groupSpeakerSkips(first) || forced) return first;
+    if (!_groupSpeakerSkips(first)) return first;
     for (final card in _groupCharacters) {
       if (_getCharacterIdFromCard(card) == _getCharacterIdFromCard(first)) {
         continue;
@@ -331,10 +346,10 @@ extension ChatServiceTurnFlow on ChatService {
       final due =
           userMessagesSincePass >=
           _storageService.memorySettings.journalInterval;
-      final eventKick =
-          _journalMaintenance.eventKickPending ||
-          JournalPhysics.hasSalientEvent(_messages.sublist(windowStart));
-      if (due || eventKick) {
+      // Salient immediacy is ONLY eventKickPending, which already passed
+      // [_requestSalienceKick]. Reading the window again would bypass the
+      // shared cooldown Growth already honors.
+      if (due || _journalMaintenance.eventKickPending) {
         _journalMaintenance.runMaintenancePass();
       }
     }());
@@ -418,8 +433,7 @@ extension ChatServiceTurnFlow on ChatService {
     // still works with this off: the complaint this switch answers is being
     // interrupted by offers nobody asked for, and typing `/scan` is asking.
     if (!_storageService.realismSettings.sceneGuestDetectionEnabled) return;
-    if (_activeGroup != null) return; // 1:1 only by design
-    if (_activeCharacter == null) return;
+    if (_activeCharacter == null && _activeGroup == null) return;
     if (_sceneGuest.pendingDetection != null) return; // one offer at a time
 
     _sceneGuest.turnsSinceCastScan++;
@@ -437,7 +451,7 @@ extension ChatServiceTurnFlow on ChatService {
   /// offer popup was raised. Resets the cadence counter so the automatic scan
   /// won't immediately re-fire on the next turn.
   Future<bool> runCastDetectionNow() async {
-    if (_activeGroup != null || _activeCharacter == null) return false;
+    if (_activeCharacter == null && _activeGroup == null) return false;
     if (_sceneGuest.pendingDetection != null) return false;
     _sceneGuest.turnsSinceCastScan = 0;
     // Re-resolve first so any guest whose library card was deleted is pruned
@@ -465,7 +479,7 @@ extension ChatServiceTurnFlow on ChatService {
     // Bail if the chat/character/session changed (or we were disposed) during
     // the eval — otherwise a character detected from chat A's narration would
     // pop as an offer inside chat B and get minted into B's scene.
-    if (_sceneChanged(token) || _activeGroup != null) return null;
+    if (_sceneChanged(token)) return null;
     if (_sceneGuest.pendingDetection != null) return null;
     // Mark as offered immediately so a later scan won't re-propose it even if
     // the user leaves the popup open.

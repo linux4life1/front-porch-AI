@@ -6,7 +6,14 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, type RefObject } from 'react';
+import { memo, useLayoutEffect, useRef, type RefObject } from 'react';
+import {
+  classifyTranscriptGrowth,
+  followTranscriptWhileStreaming,
+  holdTranscriptAfterPrepend,
+  pinTranscriptToLatest,
+  transcriptTipKey,
+} from '../pages/chat/transcriptAutoScroll';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
 import { MessageActions } from './MessageActions';
@@ -98,8 +105,8 @@ type TranscriptProps = {
   busy: boolean;
   canSpeak: boolean;
   onBeginEdit: (m: Message) => void;
-  onSwipe: (index: number, direction: number) => void;
-  onRegenerate: () => void;
+  onSwipe: (index: number, direction: number, critique?: string) => void;
+  onRegenerate: (critique?: string) => void;
   onContinue: () => void;
   onFork: (index: number) => void;
   onDelete: (index: number) => void;
@@ -143,7 +150,7 @@ const TranscriptRows = memo(function TranscriptRows({
         // (desktop parity — same treatment as Chance Time).
         if (m.isDream) {
           return (
-            <div key={m.index} className="msg-row">
+            <div key={m.rowKey ?? m.index} className="msg-row">
               <div className="dream-banner">
                 🌙 <em>{m.sender} dreamt: {m.text}</em>
               </div>
@@ -151,7 +158,7 @@ const TranscriptRows = memo(function TranscriptRows({
           );
         }
         return (
-          <div key={m.index} className="msg-row">
+          <div key={m.rowKey ?? m.index} className="msg-row">
             {multiCast && speaker && <span className="msg-speaker">{speaker.name}</span>}
             {m.hasThinking && m.thinkingContent && (
               <details className="thinking">
@@ -215,17 +222,52 @@ const TranscriptRows = memo(function TranscriptRows({
 });
 
 export function ChatMessageList({
+  sessionId,
   streaming,
   genStatus,
   scrollRef,
   onScroll,
+  followStreamingReplies = true,
   ...transcript
 }: TranscriptProps & {
+  sessionId?: string | null;
   streaming: string;
   genStatus: GenStatus | null;
   scrollRef: RefObject<HTMLDivElement>;
   onScroll?: () => void;
+  followStreamingReplies?: boolean;
 }) {
+  const pinnedOpen = useRef<string | null>(null);
+  const prevTip = useRef('');
+  const prevLen = useRef(0);
+  const prevHeight = useRef(0);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const nextTip = transcriptTipKey(transcript.messages);
+    const kind = classifyTranscriptGrowth({
+      sessionId,
+      prevSession: pinnedOpen.current,
+      prevLen: prevLen.current,
+      prevTip: prevTip.current,
+      nextLen: transcript.messages.length,
+      nextTip,
+    });
+    if (kind === 'open' && el) {
+      pinTranscriptToLatest(el);
+      pinnedOpen.current = sessionId ?? null;
+    } else if (kind === 'prepend' && el) {
+      holdTranscriptAfterPrepend(el, prevHeight.current);
+    } else if (el) {
+      followTranscriptWhileStreaming(el, {
+        followEnabled: followStreamingReplies,
+        generating: !!streaming,
+        previousHeight: prevHeight.current,
+      });
+    }
+    prevLen.current = transcript.messages.length;
+    prevTip.current = nextTip;
+    prevHeight.current = el?.scrollHeight ?? 0;
+  }, [sessionId, transcript.messages, scrollRef, streaming, followStreamingReplies]);
   return (
     <div className="chat-messages" ref={scrollRef} onScroll={onScroll}>
       <TranscriptRows {...transcript} />
@@ -248,12 +290,9 @@ export function ChatMessageList({
           rest = canonical.slice(0, open) + (close === -1 ? '' : after.slice(close + 8));
         }
         return (
-          <div className="bubble ai streaming" aria-live="polite">
+          <div className="bubble ai streaming">
             {thinking.trim() && (
-              <div className="streaming-think">
-                <span className="muted small">💭 thinking…</span>
-                <div className="streaming-think-body">{thinking}</div>
-              </div>
+              <LiveThinkBody text={thinking} followLatest={followStreamingReplies} />
             )}
             {rest && <MessageContent text={rest} />}
           </div>
@@ -279,5 +318,33 @@ export function ChatMessageList({
         );
       })()}
     </div>
+  );
+}
+
+function LiveThinkBody({
+  text,
+  followLatest,
+}: {
+  text: string;
+  followLatest: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const prevHeight = useRef(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    followTranscriptWhileStreaming(el, {
+      followEnabled: followLatest,
+      generating: true,
+      previousHeight: prevHeight.current,
+      slop: 24,
+    });
+    prevHeight.current = el.scrollHeight;
+  }, [text, followLatest]);
+  return (
+    <details className="thinking" open>
+      <summary>💭 thinking…</summary>
+      <div className="thinking-body" ref={ref}>{text}</div>
+    </details>
   );
 }

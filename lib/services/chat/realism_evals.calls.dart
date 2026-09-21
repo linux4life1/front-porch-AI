@@ -255,7 +255,7 @@ extension RealismEvalCalls on RealismEvals {
   /// [timeOnly] is the standalone clock: the engine is off and the user opted
   /// the clock in, so the realism preconditions below do not apply — there is
   /// no speaker to score. [postureOnly] is the other end: no clock at all,
-  /// just "where did this reply leave her", fired AFTER generation from
+  /// just "where did this reply leave them", fired AFTER generation from
   /// chat_service_generation_postgen.dart. Both stay THIS method rather than
   /// becoming siblings, because the part that must not drift is everything
   /// around the call — the six-message window, the character resolution, and

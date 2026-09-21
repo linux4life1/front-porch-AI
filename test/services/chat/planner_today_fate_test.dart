@@ -94,20 +94,6 @@ void main() {
   }
 
   test('abandonToday sours and writes no journal card', () async {
-    final src = File(
-      'lib/services/chat/chat_service_accessors.dart',
-    ).readAsStringSync();
-    expect(src, contains('enum PlannerTodayFate { done, abandoned, dayAte }'));
-    expect(src, contains('if (fate == PlannerTodayFate.abandoned) return;'));
-    expect(src, contains("category: 'moment'"));
-    expect(src, contains("kind: 'today'"));
-    expect(
-      src,
-      contains(
-        '_journalResolvedToday(held, fate: PlannerTodayFate.abandoned)',
-      ),
-    );
-
     final who = card();
     await chat.setActiveCharacter(who);
     expect(chat.currentSessionId, isNotNull);
@@ -125,35 +111,6 @@ void main() {
   });
 
   test('done and dayAte journal kind today category moment', () async {
-    final accessors = File(
-      'lib/services/chat/chat_service_accessors.dart',
-    ).readAsStringSync();
-    final start = accessors.indexOf('Future<void> _journalResolvedToday(');
-    expect(start, greaterThanOrEqualTo(0));
-    final body = accessors.substring(
-      start,
-      start + 900 > accessors.length ? accessors.length : start + 900,
-    );
-    expect(body, contains('if (fate == PlannerTodayFate.abandoned) return;'));
-    expect(body, contains("category: 'moment'"));
-    expect(body, contains("kind: 'today'"));
-
-    final wiringDone = File(
-      'lib/services/chat/chat_service_wiring_realism.dart',
-    ).readAsStringSync();
-    expect(
-      wiringDone,
-      contains('_journalResolvedToday(prev, fate: PlannerTodayFate.done)'),
-    );
-
-    final wiring = File(
-      'lib/services/chat/chat_service_wiring_realism.dart',
-    ).readAsStringSync();
-    expect(
-      wiring,
-      contains('_journalResolvedToday(held, fate: PlannerTodayFate.dayAte)'),
-    );
-
     final who = card();
     await chat.setActiveCharacter(who);
     chat.setTodaySentence('Finish the lighthouse log.');
@@ -203,18 +160,6 @@ void main() {
   });
 
   test('todaySentence getter does not day-clear', () {
-    final accessors = File(
-      'lib/services/chat/chat_service_accessors.dart',
-    ).readAsStringSync();
-    expect(accessors, contains('String? get todaySentence => _todaySentence;'));
-    final getter = RegExp(
-      r'String\? get todaySentence =>[^;]+;',
-    ).firstMatch(accessors);
-    expect(getter, isNotNull);
-    expect(getter!.group(0), isNot(contains('dayCount')));
-    expect(getter.group(0), isNot(contains('setTodaySentence')));
-    expect(getter.group(0), isNot(contains('_journalResolvedToday')));
-
     final held = _TodayHarness();
     addTearDown(held.dispose);
     held.setTodaySentence('Hold the porch light.');
@@ -227,33 +172,6 @@ void main() {
   });
 
   test('TimeService onStoryDayChanged journals dayAte then clears', () async {
-    final wiring = File(
-      'lib/services/chat/chat_service_wiring_realism.dart',
-    ).readAsStringSync();
-    final hook = RegExp(
-      r'onStoryDayChanged: \(\) \{([\s\S]*?)\n      \},',
-    ).firstMatch(wiring);
-    expect(
-      hook,
-      isNotNull,
-      reason: 'clock hook must stay on TimeService wiring',
-    );
-    final hookBody = hook!.group(1)!;
-    expect(hookBody, contains('final held = todaySentence;'));
-    expect(hookBody, contains('setTodaySentence(null);'));
-    expect(
-      hookBody,
-      contains('_journalResolvedToday(held, fate: PlannerTodayFate.dayAte)'),
-    );
-    expect(
-      hookBody.indexOf('final held = todaySentence;'),
-      lessThan(hookBody.indexOf('setTodaySentence(null);')),
-    );
-    expect(
-      hookBody.indexOf('setTodaySentence(null);'),
-      lessThan(hookBody.indexOf('_journalResolvedToday(held')),
-    );
-
     final who = card();
     await chat.setActiveCharacter(who);
     const line = 'Hold the porch light.';

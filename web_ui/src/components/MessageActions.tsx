@@ -5,7 +5,7 @@
 // delete / speak). Extracted from ChatPage to keep that page under the file-size
 // cap.
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
 import { type Message } from './chatTypes';
 import { SpeakButton } from './VoiceControls';
@@ -34,8 +34,8 @@ export function MessageActions({
   greetCount?: number;
   greetingIndex?: number;
   userHasReplied?: boolean;
-  onSwipe: (index: number, direction: number) => void;
-  onRegenerate: () => void;
+  onSwipe: (index: number, direction: number, critique?: string) => void;
+  onRegenerate: (critique?: string) => void;
   onContinue: () => void;
   onFork: () => void;
   onEdit: () => void;
@@ -45,6 +45,8 @@ export function MessageActions({
   const count = m.swipeCount ?? 1;
   const idx = (m.swipeIndex ?? 0) + 1;
   const [picker, setPicker] = useState(false);
+  const [critiqueOpen, setCritiqueOpen] = useState(false);
+  const [draft, setDraft] = useState('');
   // Generated-image messages carry no regenerable text — hide the text-gen
   // actions for them (desktop bubble parity).
   const isImage = !!m.image;
@@ -68,8 +70,19 @@ export function MessageActions({
       .post('/api/chat/select-variant', { messageIndex: 0, variantIndex: next })
       .then(() => onVariantPicked?.());
   };
+  const openCritique = () => {
+    setDraft('');
+    setCritiqueOpen(true);
+  };
+  const closeCritique = () => setCritiqueOpen(false);
+  const confirmCritique = (e?: FormEvent) => {
+    e?.preventDefault();
+    setCritiqueOpen(false);
+    onRegenerate(draft);
+  };
   return (
-    <div className={`msg-actions${m.isUser ? ' user' : ''}`}>
+    <>
+      <div className={`msg-actions${m.isUser ? ' user' : ''}`}>
       {canSwipe && (
         <span className="swipe">
           <button className="icon-btn" title="Previous" disabled={busy}
@@ -93,7 +106,7 @@ export function MessageActions({
       )}
       {!m.isUser && !isImage && isLast && m.index !== 0 && (
         <>
-          <button className="icon-btn" title="Regenerate" disabled={busy} onClick={onRegenerate}>⟳</button>
+          <button className="icon-btn" title="Regenerate" disabled={busy} onClick={openCritique}>⟳</button>
           <button className="icon-btn" title="Continue" disabled={busy} onClick={onContinue}>⏩</button>
         </>
       )}
@@ -105,7 +118,7 @@ export function MessageActions({
           now generates a fresh response from the trailing prompt. Desktop parity
           for #85. */}
       {m.isUser && isLast && (
-        <button className="icon-btn" title="Generate reply" disabled={busy} onClick={onRegenerate}>⟳</button>
+        <button className="icon-btn" title="Generate reply" disabled={busy} onClick={() => onRegenerate()}>⟳</button>
       )}
       {canSpeak && !m.isUser && m.text.trim() !== '' && <SpeakButton text={m.text} />}
       {m.sender !== 'System' && (
@@ -113,6 +126,7 @@ export function MessageActions({
       )}
       <button className="icon-btn" title="Edit" disabled={busy} onClick={onEdit}>✎</button>
       <button className="icon-btn" title="Delete" disabled={busy} onClick={onDelete}>🗑</button>
+      </div>
       {picker && (
         <VariantPickerModal
           messageIndex={m.index}
@@ -123,6 +137,38 @@ export function MessageActions({
           }}
         />
       )}
-    </div>
+      {critiqueOpen && (
+        <div className="drawer-backdrop center" onClick={closeCritique}>
+          <form
+            className="modal regen-critique-modal"
+            data-testid="regen-critique-dialog"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={confirmCritique}
+          >
+            <div className="drawer-head">
+              <span>Regenerate</span>
+              <button type="button" className="link-btn" onClick={closeCritique} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <p className="muted small">Optional note for this swipe. Leave blank to just try again.</p>
+            <textarea
+              className="regen-critique"
+              data-testid="regen-critique-field"
+              rows={3}
+              maxLength={500}
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="why this take was wrong — optional"
+            />
+            <div className="regen-critique-actions">
+              <button type="button" className="link-btn" onClick={closeCritique}>Cancel</button>
+              <button type="submit">Regenerate</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
   );
 }

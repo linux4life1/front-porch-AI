@@ -92,6 +92,9 @@ extension _CreateCharacterRealismStep on _CreateCharacterPageState {
                 chaosModeEnabled: _realismChaosMode,
                 onChaosModeChanged: (v) =>
                     rebuildState(() => _realismChaosMode = v),
+                pocketsEnabled: _realismPocketsEnabled,
+                onPocketsEnabledChanged: (v) =>
+                    rebuildState(() => _realismPocketsEnabled = v),
                 ambitions: _realismAmbitions,
                 onAmbitionsChanged: (v) =>
                     rebuildState(() => _realismAmbitions = v),

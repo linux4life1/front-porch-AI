@@ -25,6 +25,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/utils/native_exit.dart';
 
+part 'update_service_download.dart';
+part 'update_service_install.dart';
+
 // Note: app_version.dart was already imported — UpdateService already used
 // appVersion for _currentVersion. The isPreRelease getter now also guards
 // the update channel so stable builds can never be offered a beta update.
@@ -253,86 +256,12 @@ class UpdateService extends ChangeNotifier {
     }
   }
 
+  void notify() => notifyListeners();
+
   /// Download the installer to a temp directory.
   /// Does NOT run it — call installNow() or let installOnClose() handle it.
-  Future<void> downloadUpdate() async {
-    if (!isSupported || _downloadUrl.isEmpty || _downloading) return;
+  Future<void> downloadUpdate() => _downloadUpdateImpl();
 
-    _downloading = true;
-    _downloadComplete = false;
-    _downloadProgress = 0.0;
-    notifyListeners();
-
-    try {
-      final tempDir = Directory.systemTemp;
-      // Use the resolved asset name so the temp file has the correct
-      // extension for the later install dispatch.
-      final assetName = _selectedAssetName.isNotEmpty
-          ? _selectedAssetName
-          : _platformAsset;
-      final sep = Platform.isWindows ? '\\' : '/';
-      final installerPath = '${tempDir.path}$sep$assetName';
-      final file = File(installerPath);
-
-      final request = http.Request('GET', Uri.parse(_downloadUrl));
-      final client = http.Client();
-      try {
-        final response = await client.send(request);
-        // A 404/500 HTML error page must never become "the installer":
-        // the Linux path deletes the RUNNING AppImage before copying, so a
-        // garbage file that passed this point destroyed the install.
-        if (response.statusCode != 200) {
-          throw Exception('installer download HTTP ${response.statusCode}');
-        }
-
-        final totalBytes = response.contentLength ?? 0;
-        int receivedBytes = 0;
-        final sink = file.openWrite();
-        try {
-          await for (final chunk in response.stream) {
-            sink.add(chunk);
-            receivedBytes += chunk.length;
-            if (totalBytes > 0) {
-              _downloadProgress = receivedBytes / totalBytes;
-              notifyListeners();
-            }
-          }
-        } finally {
-          await sink.close();
-        }
-
-        final invalid = validateInstallerDownload(
-          receivedBytes: receivedBytes,
-          expectedBytes: totalBytes,
-        );
-        if (invalid != null) throw Exception(invalid);
-        // A complete fake 200 (a captive portal / CDN error page big enough
-        // to pass the size floor) must still not become the installer: an
-        // HTML body is text, real installers are binary. First byte '<' (or
-        // a leading doctype after whitespace) = not an installer.
-        final head = await file.openRead(0, 64).fold<List<int>>(
-          <int>[],
-          (a, b) => a..addAll(b),
-        );
-        final headText = String.fromCharCodes(head).trimLeft().toLowerCase();
-        if (headText.startsWith('<')) {
-          throw Exception('installer download is an HTML page, not a binary');
-        }
-
-        _pendingInstallerPath = installerPath;
-        _downloadComplete = true;
-        _downloading = false;
-        notifyListeners();
-      } finally {
-        client.close();
-      }
-    } catch (e) {
-      debugPrint('Download error: $e');
-      _downloading = false;
-      _downloadProgress = 0.0;
-      notifyListeners();
-    }
-  }
 
   /// Reject a download that cannot be a real installer: a truncated stream
   /// (received != Content-Length) or a body so small it is an error page,
@@ -354,221 +283,11 @@ class UpdateService extends ChangeNotifier {
   }
 
   /// Run the update immediately and exit (or relaunch on Linux/macOS).
-  Future<void> installNow() async {
-    if (_pendingInstallerPath == null) return;
-    try {
-      // Stop child processes (KoboldCPP, etc.) before exit(0) which
-      // bypasses the window close handler entirely.
-      if (_shutdownCallback != null) {
-        await _shutdownCallback!();
-      }
-      if (Platform.isLinux) {
-        await _replaceAppImage(_pendingInstallerPath!);
-        await _relaunchAppImage();
-      } else if (Platform.isMacOS) {
-        await _replaceMacApp(_pendingInstallerPath!);
-        await _relaunchMacApp();
-      } else {
-        await _launchWindowsInstaller(_pendingInstallerPath!);
-      }
-      // macOS must skip C++ finalizers or the install-and-relaunch gets
-      // logged as an "Abort trap: 6" crash (see exitWithoutNativeFinalizers).
-      Platform.isMacOS ? exitWithoutNativeFinalizers(0) : exit(0);
-    } catch (e) {
-      debugPrint('Install now failed: $e');
-      rethrow;
-    }
-  }
+  Future<void> installNow() => _installNowImpl();
 
   /// Run the pending update on app close.
   /// Call this from the window close handler.
-  Future<void> installOnClose() async {
-    if (_pendingInstallerPath == null) return;
-    try {
-      // Ensure child processes are stopped even if onWindowClose didn't
-      // reach stopKobold() (e.g. crash or early return).
-      if (_shutdownCallback != null) {
-        await _shutdownCallback!();
-      }
-      if (Platform.isLinux) {
-        await _replaceAppImage(_pendingInstallerPath!);
-      } else if (Platform.isMacOS) {
-        await _replaceMacApp(_pendingInstallerPath!);
-      } else {
-        await _launchWindowsInstaller(_pendingInstallerPath!);
-      }
-    } catch (e) {
-      debugPrint('Install on close failed: $e');
-    }
-  }
-
-  Future<void> _launchWindowsInstaller(String path) async {
-    // Use /SILENT (shows license page) for 0.8→0.9 upgrades (GPL→AGPL change)
-    // Use /VERYSILENT (fully silent) for same-license upgrades
-    final needsLicenseAcceptance = _currentVersion.startsWith('0.8');
-    final silentFlag = needsLicenseAcceptance ? '/SILENT' : '/VERYSILENT';
-
-    // Install in place, on top of the build that is actually running, by telling
-    // the installer the current install directory via /DIR. This is the reliable
-    // way to find AND honor a custom install location: resolvedExecutable is
-    // "<installDir>\front_porch_ai.exe", so its parent is exactly the folder the
-    // user originally chose — default OR a custom drive/path — and the running app
-    // is the only component that authoritatively knows it. The installer can't
-    // safely rediscover a custom Nightly folder from the registry (the pre-split
-    // AppId was shared with Stable/Beta, so guessing risks installing over a
-    // Stable install), so we source the truth here instead.
-    //
-    // Without /DIR, a /VERYSILENT update falls back to the installer's default
-    // directory. After the channel AppId split that is how a Nightly update forked
-    // a second copy into {localappdata} and left the running build (in the user's
-    // chosen folder) untouched — the update loop. /DIR makes every channel update
-    // exactly where it already lives, ending that whole class of bug.
-    var installDir = File(Platform.resolvedExecutable).parent.path;
-    // Defensive: a trailing backslash would escape the closing quote in the
-    // generated command line. Install dirs never end in a separator in practice,
-    // but strip it so the quoted /DIR value can never be malformed.
-    while (installDir.endsWith('\\')) {
-      installDir = installDir.substring(0, installDir.length - 1);
-    }
-
-    await Process.start(path, [
-      silentFlag,
-      '/DIR=$installDir',
-      '/SUPPRESSMSGBOXES',
-      '/NORESTART',
-      '/CLOSEAPPLICATIONS',
-    ]);
-  }
-
-  /// Replace the currently running AppImage with the downloaded update.
-  /// Uses rm + cp instead of Dart's File.copy() because the destination
-  /// may be a running executable — deleting first avoids write conflicts.
-  Future<void> _replaceAppImage(String downloadedPath) async {
-    final currentAppImage = Platform.environment['APPIMAGE'];
-    if (currentAppImage == null || currentAppImage.isEmpty) {
-      debugPrint('APPIMAGE env var not set — cannot replace');
-      return;
-    }
-    debugPrint('Replacing AppImage: $currentAppImage with $downloadedPath');
-
-    // Copy beside the target FIRST, then atomically rename over it. The old
-    // order (rm the running AppImage, then cp) left the user with NO app at
-    // all when the copy failed — a full disk or a bad download uninstalled
-    // Front Porch. rename(2) on the same filesystem atomically replaces the
-    // path while the running process keeps its unlinked inode.
-    final staging = '$currentAppImage.new';
-    final cpResult = await Process.run('cp', [downloadedPath, staging]);
-    if (cpResult.exitCode != 0) {
-      await Process.run('rm', ['-f', staging]);
-      throw Exception('Failed to copy new AppImage: ${cpResult.stderr}');
-    }
-    await Process.run('chmod', ['+x', staging]);
-    final mvResult = await Process.run('mv', ['-f', staging, currentAppImage]);
-    if (mvResult.exitCode != 0) {
-      await Process.run('rm', ['-f', staging]);
-      throw Exception('Failed to swap new AppImage in: ${mvResult.stderr}');
-    }
-    debugPrint('AppImage replaced successfully');
-  }
-
-  /// Relaunch the AppImage after replacing it.
-  Future<void> _relaunchAppImage() async {
-    final currentAppImage = Platform.environment['APPIMAGE'];
-    if (currentAppImage == null || currentAppImage.isEmpty) return;
-    debugPrint('Relaunching AppImage: $currentAppImage');
-    await Process.start(currentAppImage, [], mode: ProcessStartMode.detached);
-  }
-
-  /// Get the current .app bundle path from the resolved executable.
-  /// e.g. /Applications/FrontPorchAI.app/Contents/MacOS/front_porch_ai
-  ///   → /Applications/FrontPorchAI.app
-  String get _currentMacAppPath {
-    final exe = Platform.resolvedExecutable;
-    // Walk up from MacOS/binary → Contents → .app
-    return File(exe).parent.parent.parent.path;
-  }
-
-  /// Install the macOS update (.pkg — the only macOS asset since the legacy
-  /// DMG shim path was deleted 2026-07-27 along with the shim builds).
-  /// Spawns a detached shell script that:
-  ///   1. Waits for this process to exit (by PID)
-  ///   2. `open`s the .pkg so the user gets the standard Installer.app flow
-  ///      (one auth prompt, official Apple path, signed+notarized+stapled
-  ///      package installs the new .app to /Applications).
-  ///
-  /// Cleanup (rm of downloaded installer + script) is best-effort after launch
-  /// of the consumer (Installer.app or the new app). This can race on slow disks
-  /// or with detached exit(0) in the parent (errors only visible in system logs
-  /// after the app has exited). For .pkg we deliberately omit payload rm so the
-  /// Installer can manage its temp. Documented limitation per review feedback.
-  Future<void> _replaceMacApp(String installerPath) async {
-    final currentApp = _currentMacAppPath;
-    final appParent = File(currentApp).parent.path;
-    final appName = currentApp.split('/').last;
-    final destPath = '$appParent/$appName';
-    final currentPid = pid; // Current process PID (dart:io top-level getter)
-
-    debugPrint(
-      'macOS update: will handle PKG $installerPath after PID $currentPid exits (replacing $currentApp)',
-    );
-
-    // Compute the output script filename first (it is independent).
-    // Robust wait + cleanup + error to stderr (bash sidecar spirit).
-    final scriptPath =
-        '${Directory.systemTemp.path}/fp_update_${DateTime.now().millisecondsSinceEpoch}.sh';
-
-    // Defense-in-depth escaping for paths embedded into the generated shell
-    // script (issue #12). Pid is numeric and safe. We use single-quote + ' -> '\''
-    // escaping for the path values so that even if (theoretically) a path
-    // contained a single quote, the generated bash remains correct. Current
-    // values (asset names from GH, dest from resolvedExecutable walk) are
-    // controlled and safe, but this satisfies the nit without changing quoting
-    // style in the templates.
-    String _shellEscape(String p) => p.replaceAll("'", r"'\''");
-    final escInstaller = _shellEscape(installerPath);
-    final escScript = _shellEscape(scriptPath);
-
-    final script =
-        '''#!/bin/bash
-# Wait for the current app process to exit (max 30s)
-for i in {1..60}; do
-  if ! kill -0 $currentPid 2>/dev/null; then
-    break
-  fi
-  sleep 0.5
-done
-
-# Primary .pkg path (signed+notarized+stapled): just hand it to the system
-# Installer. User authenticates in the standard UI; the installer places
-# the new bundle (preserving sidecars etc.) and handles launch.
-open '$escInstaller'
-
-# Clean up the downloaded package and this script (best effort; see race note).
-# For .pkg we omit rm of the payload itself (let Installer.app / system manage
-# the temp file to avoid TOCTOU/race with the launched Installer process).
-rm -f '$escScript' || true
-
-# No explicit relaunch here — Installer.app or the user will start the new app.
-# (The old bundle at $destPath may be replaced in-place by the package.)
-''';
-
-    await File(scriptPath).writeAsString(script);
-    await Process.run('chmod', ['+x', scriptPath]);
-
-    // Launch the script detached — it will outlive this process
-    await Process.start('/bin/bash', [
-      scriptPath,
-    ], mode: ProcessStartMode.detached);
-    debugPrint('macOS update script launched: $scriptPath');
-  }
-
-  /// Relaunch the macOS app after replacing it.
-  /// (Handled by the Installer.app flow the update script launches; kept for
-  /// API symmetry and installOnClose fallback.)
-  Future<void> _relaunchMacApp() async {
-    // The Installer.app flow (opened by the update shell script) handles
-    // placement; the user relaunches from there. Nothing to do here.
-  }
+  Future<void> installOnClose() => _installOnCloseImpl();
 
   /// Picks the release this build's channel should be offered, out of the
   /// full GitHub `/releases` list.

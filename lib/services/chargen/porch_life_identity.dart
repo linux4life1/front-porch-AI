@@ -7,7 +7,8 @@
 
 import 'dart:convert';
 
-import 'package:front_porch_ai/models/models.dart' show FrontPorchExtensions;
+import 'package:front_porch_ai/models/models.dart'
+    show FrontPorchExtensions, FrontPorchExtensionsJson;
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets, kMaxWorn;
 
 /// Chip lists the AI creator can seed onto a new card.

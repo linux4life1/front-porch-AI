@@ -36,8 +36,6 @@ library;
 //   DescriptionDetailChipRow  — 'Standard' selected
 //
 // Not feasible:
-//   _HoverableCard  — private class (_HoverableCard); cannot be instantiated
-//                     from outside its library file.
 //   KcppsSelector   — StatefulWidget with FilePicker platform channel calls
 //                     in initState/didUpdateWidget; not safely pumpable without
 //                     a real platform channel stub.

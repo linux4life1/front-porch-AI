@@ -52,8 +52,10 @@ class _NoticeCard extends StatelessWidget {
     // The server writes fixed templates for decisions; classify for the icon
     // and accent only — unknown phrasing just renders neutral.
     final body = notice.body;
-    final approved = body.contains('approved and') || body.contains('is approved');
-    final rejected = body.contains('wasn’t approved') || body.contains("wasn't approved");
+    final approved =
+        body.contains('approved and') || body.contains('is approved');
+    final rejected =
+        body.contains('wasn’t approved') || body.contains("wasn't approved");
     final accent = approved
         ? stoopTealText(context)
         : rejected
@@ -64,66 +66,88 @@ class _NoticeCard extends StatelessWidget {
         : rejected
         ? AppColors.stoopEmber
         : stoopDusk(context);
+    // Flutter will not paint a rounded BoxDecoration whose BorderSide
+    // colors differ (left accent vs hairline). The card laid out and
+    // then failed in paint(), which is the empty-bar screenshot.
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: stoopCard(context),
         borderRadius: BorderRadius.circular(9),
-        border: Border(
-          left: BorderSide(color: edge, width: 3),
-          top: BorderSide(color: stoopBorder(context)),
-          right: BorderSide(color: stoopBorder(context)),
-          bottom: BorderSide(color: stoopBorder(context)),
-        ),
+        border: Border.all(color: stoopBorder(context)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            approved
-                ? Icons.check_circle_outline
-                : rejected
-                ? Icons.edit_note
-                : Icons.campaign_outlined,
-            size: 20,
-            color: accent,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  body,
-                  style: TextStyle(color: stoopCream2(context), height: 1.35),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    if (notice.character != null) ...[
-                      Flexible(
-                        child: Text(
-                          're: ${notice.character!.name}',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: accent),
-                        ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 3, color: edge),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        approved
+                            ? Icons.check_circle_outline
+                            : rejected
+                            ? Icons.edit_note
+                            : Icons.campaign_outlined,
+                        size: 20,
+                        color: accent,
                       ),
                       const SizedBox(width: 10),
-                    ],
-                    Text(
-                      _timeAgo(notice.createdAt),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: stoopFaint(context),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              body,
+                              style: TextStyle(
+                                color: stoopCream2(context),
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                if (notice.character != null) ...[
+                                  Flexible(
+                                    child: Text(
+                                      're: ${notice.character!.name}',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: accent,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                ],
+                                Text(
+                                  _timeAgo(notice.createdAt),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: stoopFaint(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -18,7 +18,9 @@ void main() {
   });
 
   test('maps STREAMING_NOT_SUPPORTED / HTTP 405 to a settings hint', () {
-    final msg = friendlyGenerationError('Exception: HTTP 405 Method Not Allowed');
+    final msg = friendlyGenerationError(
+      'Exception: HTTP 405 Method Not Allowed',
+    );
     expect(msg, contains('HTTP 405'));
     expect(msg, contains('Settings > Generation Settings'));
   });
@@ -29,8 +31,13 @@ void main() {
   });
 
   test('maps a timeout to a size/speed hint', () {
-    final msg = friendlyGenerationError('TimeoutException after 0:02:00.000000');
-    expect(msg, 'Request timed out. The model may be too large or the server too slow.');
+    final msg = friendlyGenerationError(
+      'TimeoutException after 0:02:00.000000',
+    );
+    expect(
+      msg,
+      'Request timed out. The model may be too large or the server too slow.',
+    );
   });
 
   test('maps a mid-stream connection close to a loading hint', () {
@@ -39,6 +46,20 @@ void main() {
     );
     expect(msg, contains('closed unexpectedly'));
     expect(msg, contains('green ready indicator'));
+  });
+
+  test('empty assistant after PRE-GEN attach is a speech failure', () {
+    expect(emptySpeechAfterPregen(accumulated: '', isContinue: false), isTrue);
+    expect(
+      emptySpeechAfterPregen(accumulated: '\n', isContinue: false),
+      isTrue,
+    );
+    expect(
+      emptySpeechAfterPregen(accumulated: 'Hi', isContinue: false),
+      isFalse,
+    );
+    expect(emptySpeechAfterPregen(accumulated: '', isContinue: true), isFalse);
+    expect(kEmptySpeechAfterPregenNotice, contains('empty'));
   });
 
   test('leaves an unrecognized error message unchanged (minus the prefix)', () {

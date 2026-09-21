@@ -63,10 +63,11 @@ extension _TtsOpenAiSection on _TtsSettingsDialogState {
               color: AppColors.iconSecondary(context),
               size: 18,
             ),
-            onPressed: () => rebuildState(() => _obscureApiKey = !_obscureApiKey),
+            onPressed: () =>
+                rebuildState(() => _obscureApiKey = !_obscureApiKey),
           ),
         ),
-        onChanged: (val) => storage.setOpenaiTtsApiKey(val.trim()),
+        onChanged: (val) => storage.ttsSettings.setOpenaiTtsApiKey(val.trim()),
       ),
       const SizedBox(height: 12),
 
@@ -102,7 +103,7 @@ extension _TtsOpenAiSection on _TtsSettingsDialogState {
             vertical: 10,
           ),
         ),
-        onChanged: (val) => storage.setOpenaiTtsModel(val.trim()),
+        onChanged: (val) => storage.ttsSettings.setOpenaiTtsModel(val.trim()),
       ),
       const SizedBox(height: 12),
 
@@ -146,11 +147,13 @@ extension _TtsOpenAiSection on _TtsSettingsDialogState {
             tooltip: 'Reset to OpenAI default',
             onPressed: () {
               _baseUrlController.text = 'https://api.openai.com/v1';
-              storage.setOpenaiTtsBaseUrl('https://api.openai.com/v1');
+              storage.ttsSettings.setOpenaiTtsBaseUrl(
+                'https://api.openai.com/v1',
+              );
             },
           ),
         ),
-        onChanged: (val) => storage.setOpenaiTtsBaseUrl(val.trim()),
+        onChanged: (val) => storage.ttsSettings.setOpenaiTtsBaseUrl(val.trim()),
       ),
       const SizedBox(height: 12),
 
@@ -165,8 +168,9 @@ extension _TtsOpenAiSection on _TtsSettingsDialogState {
       ),
       const SizedBox(height: 8),
       DropdownButtonFormField<String>(
-        initialValue: voices.any((v) => v.id == storage.ttsVoiceModel)
-            ? storage.ttsVoiceModel
+        initialValue:
+            voices.any((v) => v.id == storage.ttsSettings.ttsVoiceModel)
+            ? storage.ttsSettings.ttsVoiceModel
             : null,
         dropdownColor: AppColors.surfaceContainerOf(context),
         style: TextStyle(color: AppColors.textPrimary(context)),
@@ -221,7 +225,7 @@ extension _TtsOpenAiSection on _TtsSettingsDialogState {
             )
             .toList(),
         onChanged: (val) {
-          if (val != null) storage.setTtsVoiceModel(val);
+          if (val != null) storage.ttsSettings.setTtsVoiceModel(val);
         },
       ),
 

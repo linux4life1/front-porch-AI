@@ -18,16 +18,12 @@
 
 import 'dart:convert';
 
+import 'package:front_porch_ai/services/chargen/chargen.dart';
+
 /// Robust extractor for chargen JSON values from LLM output. Handles markdown
 /// fences, literal newlines, unescaped quotes, and falls back to regex.
 String? extractChargenValue(String raw, String key) {
-  String cleaned = raw
-      .replaceAll(
-        RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false),
-        '',
-      )
-      .replaceAll(RegExp(r'<think>[\s\S]*$', caseSensitive: false), '')
-      .trim();
+  String cleaned = stripThinkBlocks(raw);
   cleaned = cleaned
       .replaceAll(RegExp(r'^```(?:json)?\s*', multiLine: true), '')
       .replaceAll(RegExp(r'^```\s*$', multiLine: true), '')

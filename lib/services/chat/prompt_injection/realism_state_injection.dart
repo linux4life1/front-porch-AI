@@ -205,19 +205,19 @@ class RealismStateInjection {
   /// correctly gated.
   bool get _characterStateEnabled => getRealismEnabled();
 
-  /// The one sentence that lets a character use what she is already carrying.
+  /// The one sentence that lets a character use what they are already carrying.
   ///
   /// Emitted ONLY when the needs fragment and the inventory fragment are both
   /// present — which means Needs is on (so the Realism Engine is too), Pockets
-  /// is on, something is actually biting, and she actually has something. Any
+  /// is on, something is actually biting, and they actually have something. Any
   /// of those missing and this is absent, because it would have nothing to
   /// point at.
   ///
   /// WHY IT EXISTS. Both facts already reached the model — "thoughts keep
   /// returning to when the next meal might come" a few lines above "carrying a
   /// candy bar" — and nothing joined them. A frontier model usually noticed; a
-  /// smaller local one narrated the hunger and walked past the food in her own
-  /// pocket, or went off to cook something. A person eats what is in their
+  /// smaller local one narrated the hunger and walked past the food in their
+  /// own pocket, or went off to cook something. A person eats what is in their
   /// pocket before they go to the kitchen.
   ///
   /// WHY IT IS PHRASED THIS LOOSELY. It names no need and no item on purpose.
@@ -226,11 +226,11 @@ class RealismStateInjection {
   /// hunger, when the same instinct governs a coat in the cold, a bottle when
   /// thirsty and a painkiller for a headache. Letting the model judge relevance
   /// costs nothing and generalises; "if" and "would" leave it free to decide
-  /// that nothing she has helps, which is the common answer.
+  /// that nothing they have helps, which is the common answer.
   ///
-  /// It does NOT suppress the feeling — she still shows the hunger. It only
-  /// stops her from overlooking what is already in her hand.
-  static const _useWhatSheHasLine =
+  /// It does NOT suppress the feeling — they still show the hunger. It only
+  /// stops them from overlooking what is already in their hand.
+  static const _useWhatTheyHaveLine =
       'If something they are already carrying or wearing would ease any of '
       'that, they would reach for it before looking elsewhere.';
 
@@ -253,22 +253,22 @@ class RealismStateInjection {
     // ── WHY THIS ORDER ──────────────────────────────────────────────────────
     // The fragments accumulated one at a time over months, each appended where
     // it happened to be written, and nobody had read the result end to end. It
-    // showed. The block told a character she was starving four lines before
-    // telling her what was in her pocket; it staged her physical position dead
-    // last, after everything she might do from it; it said "she came in not at
-    // her best" before any of the weather or needs that explain why; and it
-    // split how-she-feels-about-people across the very top and the very bottom
-    // with everything else in between.
+    // showed. The block told a character they were starving four lines before
+    // telling them what was in their pocket; it staged their physical position
+    // dead last, after everything they might do from it; it said "they came in
+    // not at their best" before any of the weather or needs that explain why;
+    // and it split how-they-feel-about-people across the very top and the very
+    // bottom with everything else in between.
     //
     // A model reads this top to bottom and every line is conditioned by what
     // came before. So the order is now the order a person would think it:
     //
-    //   1. the scene   — when, where, and where everyone is standing
-    //   2. her people  — who she is with and how she feels about them
-    //   3. her word    — what she owes them
-    //   4. who she is  — the standing facts that do not change with the hour
-    //   5. how she is  — the volatile state, last, right next to the
-    //                    instruction to express it
+    //   1. the scene     — when, where, and where everyone is standing
+    //   2. their people  — who they are with and how they feel about them
+    //   3. their word    — what they owe them
+    //   4. who they are  — the standing facts that do not change with the hour
+    //   5. how they are  — the volatile state, last, right next to the
+    //                      instruction to express it
     //
     // A fact that explains another fact comes first. A directive comes after
     // everything it refers to. Nothing here is cosmetic: it matters least for
@@ -291,23 +291,23 @@ class RealismStateInjection {
       // after it has already written the scene.
       if (_characterStateEnabled) behavioralInjection.buildPositionInjection(),
 
-      // ── 2. HER PEOPLE ───────────────────────────────────────────────────
+      // ── 2. THEIR PEOPLE ─────────────────────────────────────────────────
       if (_characterStateEnabled)
         relationshipInjection.buildRelationshipInjection(),
       if (_characterStateEnabled)
         relationshipInjection.buildTrustBehaviorInjection(),
       // MOVED UP from dead last, to sit with the other two relationship lines.
-      // How she feels about the people in the room is one subject and was
+      // How they feel about the people in the room is one subject and was
       // being told in two places with nine fragments in between.
       if (_characterStateEnabled)
         relationshipInjection.buildInterCharacterFeelingsInjection(),
 
-      // ── 3. HER WORD ─────────────────────────────────────────────────────
+      // ── 3. THEIR WORD ───────────────────────────────────────────────────
       // Directly after the people, because a commitment is owed TO one of them.
       if (getPromisesEnabled?.call() ?? true)
         promiseDebtInjection.buildPromiseDebtInjection(),
 
-      // ── 4. WHO SHE IS ───────────────────────────────────────────────────
+      // ── 4. WHO THEY ARE ─────────────────────────────────────────────────
       // Standing facts, ahead of the volatile state they colour.
       if (getAmbitionsEnabled?.call() ?? true)
         ambitionInjection.buildAmbitionInjection(),
@@ -318,9 +318,9 @@ class RealismStateInjection {
       // self-gates on the card carrying any.
       preferencesInjection.buildPreferencesInjection(),
 
-      // ── 5. HOW SHE IS RIGHT NOW ─────────────────────────────────────────
+      // ── 5. HOW THEY ARE RIGHT NOW ───────────────────────────────────────
       // Last, so the volatile state sits against the closing instruction to
-      // express it. Her head first, then her body and what she has for it.
+      // express it. Their head first, then their body and what they have for it.
       //
       // MOVED DOWN from third overall. The line opens "Before this
       // conversation started, …", so it is the baseline the current mood sits
@@ -334,14 +334,14 @@ class RealismStateInjection {
       if (_characterStateEnabled) behavioralInjection.buildFixationInjection(),
       // Pockets & Wardrobe, immediately ABOVE the needs line.
       //
-      // Placed by function rather than by category: what she carries is
+      // Placed by function rather than by category: what they carry is
       // standing knowledge and would otherwise belong in §4, but nobody
       // discovers the contents of their own pocket at the moment they get
       // hungry. They already knew, and that prior knowledge is what makes
       // reaching for it obvious rather than a realisation. Told the other way
       // round, the model met a vivid directive line ("thoughts drifting
       // uncontrollably to food") and learned about the candy bar afterwards,
-      // by which point a small model had already sent her to the kitchen.
+      // by which point a small model had already sent them to the kitchen.
       //
       // Ungated here for the same reason preferences are (it answers to its own
       // switch and nothing else); the leaf self-gates on the record being
@@ -349,14 +349,14 @@ class RealismStateInjection {
       inventoryLine,
       needsLine,
       if (_characterStateEnabled) nsfwInjection.buildNsfwCooldownInjection(),
-      // The join closes the block. It reads backwards over what she has, what
-      // she needs and how her body is, so it must follow all three — and it
+      // The join closes the block. It reads backwards over what they have, what
+      // they need and how their body is, so it must follow all three — and it
       // lands immediately before "Express all of this…", the strongest position
       // a directive gets. The ONLY place Pockets and Needs meet, and it costs
       // no LLM call: neither engine reads the other's state, the composer just
       // says the sentence that was always implied by having both.
       if (needsLine.trim().isNotEmpty && inventoryLine.trim().isNotEmpty)
-        _useWhatSheHasLine,
+        _useWhatTheyHaveLine,
     ].where((f) => f.trim().isNotEmpty).map((f) => f.trim()).toList();
 
     if (fragments.isEmpty) return '';

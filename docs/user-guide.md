@@ -5,7 +5,7 @@ The complete reference for everything that is not a dedicated page.
 **Read these first, they are the real manuals:**
 
 - [Chatting](chatting.md) — screen, tools, slash, groups, Director
-- [Porch Life](porch-life.md) — every living-character switch, the story clock, skip time, Clock In, Pockets
+- [Porch Life](porch-life.md) — Porch Life defaults, the story clock, skip time, Clock In, Pockets
 - [Image Studio](image-studio.md) — what program to run, ports, Create vs Edit
 - [Web & Phone](web-phone.md) — how to open it, what the phone **cannot** do
 - [Characters](characters.md) · [Realism Engine](realism-engine.md) · [Getting Started](getting-started.md)
@@ -75,7 +75,7 @@ Click any character on the home screen and you're in a chat.
 
 - **Top bar** — the character's avatar, name, and a short description. The back arrow returns you to your library, and the **Toggle Sidebar** button on the right opens or closes the right-hand sidebar. That's all the top bar holds.
 - **The conversation** — your messages and the character's replies, on top of a scene background you can change (see [Appearance](#appearance)). If Character Expressions are enabled, the character's portrait changes as their mood changes. **◀ ▶ on that portrait** flips **looks** from the Avatar Gallery for this chat (a different face, not a different emotion).
-- **Right sidebar** — **Main Settings** sits at the top of the sidebar (not the top bar), opening a menu with Edit Character, Avatar Gallery, UI Settings, Chat Settings, Model Settings and TTS Settings. Because it lives in the sidebar, you need the sidebar open to reach it. Below it are collapsible cards you can open and close independently: **📝 Author's Note**, **🎭 Character State** (mood, bond/trust bars, needs, scene clock, weather, ambitions), **📖 Journal & Memory**, **🎯 Objectives**, and **🎲 Story Tools** (Chaos Mode, Dynamic Responses, Places, lorebooks). A one-on-one chat shows all five; a group chat shows four, because group objectives open from the focused cast member's card instead of getting a card of their own. If the participant you have focused is a lightweight **scene guest** (see [Group Chats](#group-chats)), Character State and Objectives drop away as well — a guest carries no relationship or needs tracking, and a small "Lite NPC" note in the sidebar says so.
+- **Right sidebar** — **Main Settings** sits at the top of the sidebar (not the top bar), opening a menu with Edit Character, Avatar Gallery, UI Settings, Chat Settings, Model Settings and TTS Settings. Because it lives in the sidebar, you need the sidebar open to reach it. Below it are collapsible cards you can open and close independently: **📝 Author's Note**, **🎭 Character State** (mood, bond/trust bars, needs, scene clock, weather, ambitions), **📖 Journal & Memory**, **🎯 Objectives**, and **🎲 Story Tools** (Chaos Mode, Dynamic Responses, Places, lorebooks). A one-on-one chat shows all five; a group chat shows four, because group objectives open from the focused cast member's card instead of getting a card of their own. If the participant you have focused is a lightweight **1:1 scene guest** (see [Group Chats](#group-chats)), Character State and Objectives drop away — Promote lives on the cast chip only. A **group guest** keeps Character State (GUEST badge, no Needs chrome); Promote is still only on the cast chip. Guests carry no relationship or needs tracking.
 - **Input bar** — the strip along the bottom: your persona avatar and a row of buttons, the box you type in, and more buttons after it. Drag the grip to make the box taller. **Enter** sends; **Shift + Enter** makes a new line.
 
 **Sending a message:** type and press Enter. The reply streams in live, word by word — no waiting for the whole thing. A red **Stop** button appears while the AI is writing; click it any time to cut the reply short.
@@ -252,9 +252,9 @@ Groups sit on the home screen next to your characters, and (since 1.2) can be fi
 
 A 1:1 chat and a group are the same chat with a different headcount — so you can change the cast **in place**, with your history and every character's memory and relationships intact. Type `/` in the message box to see the list; the ones that move people around are:
 
-- **`/join <name>`** — bring someone into the scene. In a 1:1 they arrive as a lightweight **scene guest** (they're in the story, but they don't carry their own relationship and needs tracking). In a group, everyone is always a full member.
-- **`/join --full <name>`** — bring someone in as a *full* member. In a solo chat that converts it into a group on the spot, no wizard and no screen change. The newcomer makes an entrance in their own voice and the story just continues.
-- **`/promote`** — turn the scene you're already in into a real group, upgrading every guest present to a full member.
+- **`/join <name>`** (or `/join --lite`) — bring someone into the scene as a lightweight **guest**. In a 1:1 they sit beside the host. In a group they get a **GUEST** badge on the roster: they take turns and can be Away, but they do not get Needs, diary, or the feelings map. A **GUEST** badge after this is success, not a failed Promote.
+- **`/join --full <name>`** — bring someone in as a *full* member. In a solo chat that converts it into a group on the spot, no wizard and no screen change. If they were already a guest, they become full; anyone else who was a guest stays Guest. A new full arrival makes an entrance in their own voice.
+- **`/promote`** / **`/promote <name>`** — named `/promote` (or the roster **Promote** button, or `/join --full` of a present guest) makes **that one** guest a full member. Bare `/promote` (or **Promote to group**) turns a 1:1 into a group; present guests stay Guest until you Promote them.
 - **`/exit <name>`** — write someone out. They get a goodbye, and a one-tap **Undo** appears in case you regret it.
 - **`/speak <name>`** — make a specific character take a turn right now.
 - **`/turnorder`** — set exactly who speaks when, including your own slot (`/turnorder Mara, {{user}}, Kai`). On its own, it shows the current order.
@@ -294,7 +294,7 @@ You can switch the engine (or individual parts of it) on and off globally in **S
 
 ## Porch Life
 
-**Settings → Porch Life** is the home for every living-character switch. It is not Settings → General (that's still theme, system prompt, 18+ themes).
+**Settings → Porch Life** is the defaults board for Realism, Needs, the clock, Journal, Pockets, Objectives, Chaos, Growth, Afterglow, and that family. It is not Settings → General (that's still theme, system prompt, 18+ themes). Clock In is on the character **Details** tab. AFK and RAG live in the chat sidebar.
 
 The important bit since 1.3: **Realism Engine is no longer the master key.** Journal, the story clock, Chaos / Chance Time, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults; an open chat can still overrule them in the sidebar.
 
@@ -578,7 +578,7 @@ The web app is **not** a clone of every desktop button. It covers chats (includi
 - Image Studio (full Create/Edit/LoRA/expression-pack QC). Phone **Models** can still generate a picture and insert it into chat; `/image` works in web chat too
 - Voice Call Mode (push-to-talk mic still works over HTTPS)
 - Suggest Actions
-- Attach a photo to a message / Photo Understanding
+- Photo Understanding (the phone **can** attach a photo; the offline describer is desktop)
 - Sharing / uploading on The Stoop (browse, download, follow, vote, comments work)
 - Backups & Restore
 - Database Scan & Clean / changing the data folder
@@ -601,7 +601,7 @@ Open **Settings** from the left sidebar. Tabs, left to right:
 | Tab | What lives here |
 |---|---|
 | **General** | Dark/light, chat fonts, bubble colors, **Font Size Scale** (whole app, separate from chat text size), **18+ themes**, system prompt + presets, About & License. Pointer to Porch Life. |
-| **Porch Life** | Every living-character switch. See [Porch Life](porch-life.md). |
+| **Porch Life** | Defaults for Realism, Needs, clock, Journal, Pockets, Objectives, Chaos, Growth, Afterglow. Clock In / AFK / RAG live elsewhere. See [Porch Life](porch-life.md). |
 | **Generation** | Samplers, token limits, smooth output buffer, stop sequences, banned phrases (Kobold only), Output Sanitizer, thinking/reasoning effort. |
 | **Voice & Media** | TTS engines (Kokoro / Piper / ElevenLabs / OpenAI). Piper **Add custom voice** = raw `.onnx` + `.onnx.json` next to it (**desktop**). Voice catalog + preview is here, not on the character Voice row. STT/Whisper, Voice Call (separate call model, buffer, call prompt, auto-send), expression display (**sidebar / background / both**), **Image Generation** on/off, **Photo Understanding** uninstall (separate from Image Generation). |
 | **Backend** | Local KoboldCpp / oMLX / OpenAI-compatible (OpenRouter, Nano-GPT, LM Studio, custom). Model picker, presets, process logs. |
@@ -643,9 +643,9 @@ Type `/` in the box. Aliases (`/turn`, `/detect`, `/expression-clear`) exist; th
 
 | Command | What it does |
 |---|---|
-| `/create <name>: <concept>` | Make a new guest NPC and bring them in |
-| `/join [--full] [name]` | Bring a library character in. `--full` = full member (turns a 1:1 into a group) |
-| `/promote` | Everyone present becomes a full member (scene → group) |
+| `/create <name>: <concept>` | Make a new guest NPC and bring them in (works in a group too) |
+| `/join [--full\|--lite] [name]` | Bring a library character in. Lite is a guest (works in a group too). `--full` is a full member (a 1:1 becomes a group; other guests stay Guest) |
+| `/promote [name]` | Named (or the roster Promote button): that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them |
 | `/speak [name]` | Force a turn now |
 | `/exit [name]` | Guest leaves (narrated); in a group, remove that member |
 | `/turnorder [random \| <name>, …]` | Round-robin, random, or an explicit order |

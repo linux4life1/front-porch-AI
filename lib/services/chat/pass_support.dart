@@ -16,14 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
-import 'package:front_porch_ai/services/llm_service.dart'
-    show LlmToolResponse, isToolTransportFailure;
-import 'package:front_porch_ai/services/storage/settings/realism_settings.dart'
-    show OneShotMode;
+import 'package:front_porch_ai/services/services.dart'
+    show LlmToolCall, LlmToolResponse, OneShotMode, isToolTransportFailure;
+
+part 'pass_support_fire.dart';
 
 /// Shared support for the two background maintenance passes (the Journal and
 /// Growth Rings) — extracted from JournalMaintenance so the growth pass
@@ -80,6 +83,18 @@ List<CharacterCard> resolvePassOwners({
 /// A backend identity's native tool-calling verdict, as observed this run.
 enum ToolCallSupport { untested, supported, unsupported }
 
+/// Stable identity for eval transport capability state.
+///
+/// The endpoint component keeps two OpenAI-compatible providers with the same
+/// model slug (for example Nano-GPT and OpenRouter) from sharing tool-probe,
+/// tool-choice-style, or automatic one-shot state.
+String evalBackendIdentityFor({
+  required String backendName,
+  required String remoteApiUrl,
+  required String remoteModelName,
+  required String? modelPath,
+}) => '$backendName|${remoteApiUrl.trim()}|$remoteModelName|${modelPath ?? ''}';
+
 /// Resolve the effective one-shot decision for a turn — pure, so the whole
 /// policy is testable as a truth table (eval review Tier-1 §3.4).
 ///
@@ -124,6 +139,15 @@ bool resolveOneShotMode({
 /// verdicts land (from background passes or the manual test). Identity keys
 /// carry the backend name + model, so switching models resets the verdict to
 /// [ToolCallSupport.untested] by construction.
+///
+/// Distinct from `OpenRouterToolSupport` (services/openrouter_tool_support.dart)
+/// on purpose. That one is inside the HTTP door and answers "is a `tools` POST
+/// to this openrouter.ai route worth making", from the provider catalog and from
+/// 400/404 bodies, keyed by model id. This one sits above any transport and
+/// answers "did a real attempt produce tool calls, and should the next eval in
+/// this send try again", for every backend including Kobold and oMLX. Do not
+/// merge them: the transport would inherit per-send skip/pause bookkeeping, and
+/// this probe would inherit one provider's catalog semantics.
 class ToolTransportProbe extends ChangeNotifier {
   /// true = tools confirmed working, false = XML/text-only.
   final Map<String, bool> _verdicts = {};
@@ -228,114 +252,4 @@ class ToolTransportProbe extends ChangeNotifier {
         false => ToolCallSupport.unsupported,
         null => ToolCallSupport.untested,
       };
-}
-
-/// The ONE tools-vs-text negotiation for structured evals whose downstream
-/// consumes TEXT (realism evals, needs impact, scene time, expression
-/// reclassify, cast detection — everything except the Journal/Growth passes,
-/// which consume the call list directly).
-///
-/// Flow: unless [probe] already marked the backend text-only, fire the
-/// tools-mode prompt; a matching call is converted by [callToText] into the
-/// canonical text the downstream parser expects; a tool-less reply with text
-/// is salvaged through the same parser. Verdict rule: only real evidence
-/// brands the backend — thrown non-transport rejections mark it text-only,
-/// while transport failures, cancellations ([isCancelled]), and EMPTY
-/// answers (null resp, or no call + no text — the shape a server-side abort
-/// produces as a clean 200) are inconclusive: fall back to text for the
-/// round and leave the probe untested to retry next pass. Capability
-/// branding of genuinely tool-less models is the ToolSupportTester ping's
-/// job.
-Future<String?> fireStructuredEval({
-  required ToolTransportProbe probe,
-  required String backendIdentity,
-  required String debugLabel,
-  required List<Map<String, dynamic>> tools,
-  required String Function({required bool toolsMode}) buildPrompt,
-  required String? Function(LlmToolResponse resp) callToText,
-  required Object fireToolEval,
-  required Future<String?> Function(
-    String prompt, {
-    void Function(String)? onChunk,
-  })
-  fireTextEval,
-  bool Function()? isCancelled,
-  void Function(String)? onChunk,
-  String? toolChoice,
-  int maxLength = kScalarToolMaxTokens,
-  double repeatPenalty = kScalarToolRepeatPenalty,
-  bool Function()? getPreferTextEvals,
-}) async {
-  final preferText = getPreferTextEvals?.call() ?? false;
-  if (probe.shouldFireTools(backendIdentity, preferTextEvals: preferText)) {
-    var inconclusive = false;
-    try {
-      onChunk?.call('⏳ $debugLabel…\n');
-      final resp = await invokeToolEval(
-        fireToolEval,
-        ToolEvalSpec(
-          prompt: buildPrompt(toolsMode: true),
-          tools: tools,
-          toolChoice: toolChoice,
-          maxLength: maxLength,
-          repeatPenalty: repeatPenalty,
-          onChunk: onChunk,
-        ),
-      );
-      if (isCancelled?.call() ?? false) return null;
-      if (resp != null) {
-        final text = callToText(resp);
-        if (text != null) {
-          probe.markSupported(backendIdentity);
-          // The overlay/raw-eval trace shows the synthesized text (the tools
-          // lane doesn't stream tokens).
-          onChunk?.call('$text\n');
-          return text;
-        }
-        if (resp.text.trim().isNotEmpty) {
-          onChunk?.call('${resp.text}\n');
-          return resp.text;
-        }
-      }
-      // Null resp, or a resp with no usable call AND no text: an EMPTY
-      // answer is never a capability verdict. A KoboldCpp server-side abort
-      // (/api/extra/abort — fired by stopGeneration, the eval-timeout
-      // teardown, or LlmEvalEngine's ensureServerIdle retry hygiene)
-      // completes the in-flight call NORMALLY: HTTP 200, zero tokens, no
-      // tool_calls — indistinguishable here from "model can't speak tools",
-      // and exactly how the tool-calling pill kept falling to
-      // "not supported" after a Scene Guest join (the guest flow stacks a
-      // long mint generation + a burst of concurrent evals + abort/idle
-      // traffic on the single-slot backend). Models that genuinely can't
-      // speak tools answer with PROSE (salvaged above) and are branded by
-      // the ToolSupportTester ping; an empty answer just falls back to text
-      // for THIS round and leaves the probe untested to retry next pass.
-      inconclusive = true;
-    } catch (e) {
-      debugPrint('[Eval:Tools] $debugLabel attempt failed: $e');
-      if (isCancelled?.call() ?? false) return null;
-      // A transport failure (unreachable backend, client torn down by an
-      // app-side abortGeneration — the "visiting character creation resets
-      // tool calling to not-supported" bug — a whole-call timeout, or a
-      // busy/5xx server) is a network event, not a verdict on the MODEL's
-      // tool support. generateWithTools rethrows those, so they land here
-      // and are filtered instead of branding the backend XML-only.
-      inconclusive = isToolTransportFailure(e);
-    }
-    if (inconclusive) {
-      probe.noteInconclusive(backendIdentity);
-      debugPrint(
-        '[Eval:Tools] skipping (this-send) on $backendIdentity ($debugLabel)',
-      );
-    } else {
-      probe.markXmlOnly(backendIdentity);
-      debugPrint(
-        '[Eval:Tools] Tools unavailable on $backendIdentity — using text '
-        '($debugLabel)',
-      );
-    }
-  } else if (preferText) {
-    debugPrint('[Eval:Tools] skipping (override) on $backendIdentity');
-  }
-  return fireTextEval(buildPrompt(toolsMode: false), onChunk: onChunk);
 }

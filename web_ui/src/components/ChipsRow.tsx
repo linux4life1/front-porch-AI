@@ -42,6 +42,10 @@ export function ChipsRow({
   if (chips.emotionLabel) realism.push({ key: 'mood', label: chips.emotionLabel, cls: 'mood' });
   if (chips.timeSkipTo) realism.push({ key: 'time', label: `⏱ ${chips.timeSkipTo}`, cls: 'time' });
   if (chips.chanceTimeEvent) realism.push({ key: 'chance', label: '🎲 Chance Time', cls: 'time', reason: chips.chanceTimeEvent });
+  if (chips.searchQuery) realism.push({ key: 'search', label: chips.searchOk === false ? '🔎 Looked up — nothing' : '🔎 Looked up', cls: 'time', reason: chips.searchQuery });
+  const toolName = chips.toolName;
+  const toolOk = chips.toolOk;
+  if (toolName) realism.push({ key: 'tool', label: toolOk === false ? `${toolName} — nothing` : toolName, cls: 'time', reason: toolName });
 
   const needs: Pill[] = [];
   for (const [k, v] of Object.entries(chips.needsDeltas ?? {})) {

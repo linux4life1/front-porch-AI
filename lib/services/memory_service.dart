@@ -24,6 +24,10 @@ import 'package:drift/drift.dart' as drift;
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+part 'memory_service_retrieve.dart';
+part 'memory_service_embed.dart';
 
 /// A retrieved memory from the vector store.
 class RetrievedMemory {
@@ -163,7 +167,8 @@ class MemoryService extends ChangeNotifier {
 
   /// Whether RAG memory is fully operational (enabled + embeddings available).
   bool get isOperational =>
-      _storageService.ragEnabled && _embeddingService.isAvailable;
+      _storageService.memorySettings.ragEnabled &&
+      _embeddingService.isAvailable;
 
   /// Get all stored content chunks for the given characters, sorted chronologically.
   /// Used to ground summary generation in real conversation content.
@@ -188,15 +193,13 @@ class MemoryService extends ChangeNotifier {
   /// context, and large texts are very slow on CPU ONNX. 2000 chars ≈ 500 tokens.
   static const int _maxEmbedChars = 2000;
 
-  /// Strip `<think>...</think>` blocks and truncate for embedding.
+  /// Strip reasoning and truncate for embedding.
+  ///
+  /// A closed-block-only strip left an unclosed `<think>` tail in the text,
+  /// which then became a stored memory: the character could later "remember"
+  /// the model's deliberation as something that happened.
   String _cleanForEmbedding(String text) {
-    // Remove think blocks (LLM reasoning, not conversation content)
-    final cleaned = text
-        .replaceAll(
-          RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false),
-          '',
-        )
-        .trim();
+    final cleaned = stripThinkTags(text);
     if (cleaned.length <= _maxEmbedChars) return cleaned;
     return cleaned.substring(0, _maxEmbedChars);
   }
@@ -220,6 +223,8 @@ class MemoryService extends ChangeNotifier {
   /// many *missing* windows are discovered per call (avoids O(N²) full-history
   /// rescans on every chunk). Optional [shouldContinue] aborts mid-pass without
   /// losing already-stored progress.
+  void notify() => notifyListeners();
+
   Future<({int stored, bool hasMore, bool aborted})> embedMessageWindow({
     required String sessionId,
     required String characterId,
@@ -243,178 +248,6 @@ class MemoryService extends ChangeNotifier {
         shouldContinue: shouldContinue,
       ),
     );
-  }
-
-  Future<({int stored, bool hasMore, bool aborted})> _embedMessageWindowBody({
-    required String sessionId,
-    required String characterId,
-    required List<String> formattedMessages,
-    required int totalMessageCount,
-    required int positionOffset,
-    int? maxWindows,
-    bool Function()? shouldContinue,
-  }) async {
-    await _ensureEmbeddingsReady();
-    if (!isOperational) {
-      debugPrint(
-        '[RAG:Memory] embedMessageWindow skipped — not operational (enabled=${_storageService.ragEnabled}, available=${_embeddingService.isAvailable})',
-      );
-      return (stored: 0, hasMore: false, aborted: false);
-    }
-
-    debugPrint(
-      '[RAG:Memory] ── Embedding session $sessionId (char: $characterId, ${formattedMessages.length} msgs, total: $totalMessageCount) ──',
-    );
-
-    _isEmbedding = true;
-    _pendingEmbeddings++;
-    notifyListeners();
-
-    var stored = 0;
-    var aborted = false;
-    var hasMore = false;
-    try {
-      final windowSize = _storageService.ragWindowSize;
-
-      // Ranges only — never load embedding BLOBs for a presence check.
-      final existingRanges = await _db.getEmbeddingRangesForSession(
-        sessionId,
-        characterId: characterId,
-      );
-
-      debugPrint(
-        '[RAG:Memory] Existing ranges: ${existingRanges.length}, window size: $windowSize',
-      );
-
-      // Discover missing windows. When [maxWindows] is set, stop after finding
-      // that many candidates and remember that more may exist past the scan.
-      final newWindows = <({int start, int end, String text})>[];
-      var cappedDiscovery = false;
-
-      for (
-        int i = 0;
-        i <= formattedMessages.length - windowSize;
-        i += windowSize
-      ) {
-        final end = (i + windowSize - 1).clamp(0, formattedMessages.length - 1);
-        // Persist positions — never the in-memory 0..N of a 24-row tail.
-        final persistStart = i + positionOffset;
-        final persistEnd = end + positionOffset;
-        final range = (persistStart, persistEnd);
-
-        if (existingRanges.contains(range)) {
-          continue; // Already embedded
-        }
-
-        final windowText = formattedMessages.sublist(i, end + 1).join('\n');
-        final cleanedText = _cleanForEmbedding(windowText);
-        if (cleanedText.isEmpty) continue; // Skip if only think blocks
-        newWindows.add((
-          start: persistStart,
-          end: persistEnd,
-          text: cleanedText,
-        ));
-        if (maxWindows != null && newWindows.length >= maxWindows) {
-          // Peek whether any further missing range exists without cleaning.
-          for (
-            int j = i + windowSize;
-            j <= formattedMessages.length - windowSize;
-            j += windowSize
-          ) {
-            final jEnd = (j + windowSize - 1).clamp(
-              0,
-              formattedMessages.length - 1,
-            );
-            if (!existingRanges.contains((
-              j + positionOffset,
-              jEnd + positionOffset,
-            ))) {
-              cappedDiscovery = true;
-              break;
-            }
-          }
-          break;
-        }
-      }
-
-      if (newWindows.isEmpty) {
-        debugPrint(
-          '[RAG:Memory] No new windows to embed (all ${existingRanges.length} windows already stored)',
-        );
-        return (stored: 0, hasMore: false, aborted: false);
-      }
-
-      debugPrint(
-        '[RAG:Memory] ▶ Embedding up to ${newWindows.length} window(s)'
-        '${maxWindows != null ? ' (budget $maxWindows)' : ''}'
-        '${cappedDiscovery ? ', more remain' : ''}...',
-      );
-
-      // Embed each window and store. Null embeds skip to the next candidate
-      // in this pass rather than treating the whole backfill as finished.
-      for (var wi = 0; wi < newWindows.length; wi++) {
-        final window = newWindows[wi];
-        if (shouldContinue != null && !shouldContinue()) {
-          aborted = true;
-          hasMore = true;
-          debugPrint(
-            '[RAG:Memory]   ⏸ Aborting mid-pass (shouldContinue=false); '
-            '$stored stored — remaining resume later',
-          );
-          break;
-        }
-        debugPrint(
-          '[RAG:Memory]   Window [${window.start}-${window.end}] (${window.text.length} chars)...',
-        );
-        final vector = await _embeddingService.embed(window.text);
-        if (vector == null) {
-          debugPrint(
-            '[RAG:Memory]   ✗ Embedding returned null for window [${window.start}-${window.end}]',
-          );
-          // Still more work (this window + any after) — do not claim done.
-          hasMore = true;
-          continue;
-        }
-
-        final bytes = Float32List.fromList(
-          vector.map((e) => e.toDouble()).toList(),
-        );
-
-        await _db.insertEmbedding(
-          MessageEmbeddingsCompanion(
-            sessionId: drift.Value(sessionId),
-            characterId: drift.Value(characterId),
-            positionStart: drift.Value(window.start),
-            positionEnd: drift.Value(window.end),
-            content: drift.Value(window.text),
-            embedding: drift.Value(Uint8List.view(bytes.buffer)),
-            dimensions: drift.Value(vector.length),
-          ),
-        );
-        stored++;
-        debugPrint(
-          '[RAG:Memory]   ✅ Stored in DB (${vector.length}d, ${bytes.lengthInBytes} bytes)',
-        );
-      }
-
-      if (!aborted) {
-        hasMore = cappedDiscovery || hasMore;
-      }
-
-      debugPrint(
-        '[RAG:Memory] ── Done: $stored stored this call '
-        '(hasMore=$hasMore aborted=$aborted) ──',
-      );
-    } catch (e) {
-      debugPrint('[RAG:Memory] ✗ Embedding failed: $e');
-      // Fail soft: allow caller to retry later rather than claim finished.
-      hasMore = true;
-    } finally {
-      _pendingEmbeddings--;
-      _isEmbedding = _pendingEmbeddings > 0;
-      notifyListeners();
-    }
-    return (stored: stored, hasMore: hasMore, aborted: aborted);
   }
 
   /// Retrieve relevant past memories for the current conversation context.
@@ -442,191 +275,16 @@ class MemoryService extends ChangeNotifier {
     double minScore = kRagMinScore,
     Map<String, double>? characterPriorities,
     Set<String> sessionScopedCharacterIds = const {},
-  }) async {
-    lastRetrieveError = null;
-    await _ensureEmbeddingsReady();
-    if (!isOperational || queryText.trim().isEmpty) {
-      debugPrint(
-        '[RAG:Memory] retrieve() skipped — not operational or empty query',
-      );
-      return [];
-    }
-
-    // Skip retrieval for brand new sessions with very few messages
-    if (inContextStart < 3) {
-      debugPrint(
-        '[RAG:Memory] retrieve() skipped - session too new (inContextStart=$inContextStart)',
-      );
-      return [];
-    }
-
-    final cleanedQuery = _cleanForEmbedding(queryText);
-    final queryPreview = cleanedQuery.length > 100
-        ? '${cleanedQuery.substring(0, 100)}...'
-        : cleanedQuery;
-    debugPrint(
-      '[RAG:Memory] ── Retrieving memories (limit: $limit, minScore: $minScore) ──',
-    );
-    debugPrint('[RAG:Memory] Query: "$queryPreview"');
-    debugPrint('[RAG:Memory] Source character IDs: $sourceCharacterIds');
-    debugPrint(
-      '[RAG:Memory] Current session: $currentSessionId, inContextStart: $inContextStart',
-    );
-
-    try {
-      // Embed the query
-      final queryVector = await _embeddingService.embed(cleanedQuery);
-      if (queryVector == null) {
-        lastRetrieveError = 'query embed failed';
-        debugPrint(
-          '[RAG:Memory] ✗ Query embedding failed — aborting retrieval',
-        );
-        return [];
-      }
-      debugPrint('[RAG:Memory] Query vector: ${queryVector.length}d');
-
-      // Get all candidate embeddings from the specified characters
-      final candidates = await _db.getEmbeddingsForCharacters(
-        sourceCharacterIds,
-        currentSessionId: currentSessionId,
-        sessionScopedCharacterIds: sessionScopedCharacterIds,
-      );
-      debugPrint('[RAG:Memory] Candidates from DB: ${candidates.length}');
-
-      // Also fetch Data Bank entries with embeddings for these characters
-      final dataBankCandidates = <DataBankEntry>[];
-      for (final charId in sourceCharacterIds) {
-        final entries = await _db.getDataBankEntriesForCharacter(charId);
-        dataBankCandidates.addAll(
-          entries.where((e) => e.embedding != null && e.dimensions > 0),
-        );
-      }
-      if (dataBankCandidates.isNotEmpty) {
-        debugPrint(
-          '[RAG:Memory] Data Bank candidates: ${dataBankCandidates.length}',
-        );
-      }
-
-      if (candidates.isEmpty && dataBankCandidates.isEmpty) {
-        debugPrint(
-          '[RAG:Memory] No stored embeddings or Data Bank entries found',
-        );
-        return [];
-      }
-
-      // Score each candidate against the query
-      final scored = <RetrievedMemory>[];
-      int skippedInContext = 0;
-      int skippedCrossSession = 0;
-      int belowThreshold = 0;
-
-      for (final candidate in candidates) {
-        // Session isolation: the speaker's OWN memories must never cross chats
-        // (stale locations/storylines from a previous chat with the same
-        // character). Explicit cross-character sources are intentionally NOT
-        // session-scoped, so their opt-in cross-session recall still works.
-        if (sessionScopedCharacterIds.contains(candidate.characterId) &&
-            candidate.sessionId != currentSessionId) {
-          skippedCrossSession++;
-          continue;
-        }
-
-        // Current-session windows still in (or too close to) the visible
-        // context — see isWindowEligible for the overlap + min-age rules.
-        if (!isWindowEligible(
-          candidateSessionId: candidate.sessionId,
-          currentSessionId: currentSessionId,
-          positionEnd: candidate.positionEnd,
-          inContextStart: inContextStart,
-        )) {
-          skippedInContext++;
-          continue;
-        }
-
-        // Deserialize the stored embedding
-        final storedVector = bytesToVector(
-          candidate.embedding,
-          candidate.dimensions,
-        );
-        if (storedVector == null) continue;
-
-        // Calculate similarity
-        final rawScore = cosineSimilarity(queryVector, storedVector);
-        final priority = characterPriorities?[candidate.characterId] ?? 1.0;
-        final score = rawScore * priority;
-
-        if (score >= minScore) {
-          scored.add(
-            RetrievedMemory(
-              content: candidate.content,
-              characterId: candidate.characterId,
-              sessionId: candidate.sessionId,
-              positionStart: candidate.positionStart,
-              positionEnd: candidate.positionEnd,
-              score: score,
-            ),
-          );
-        } else {
-          belowThreshold++;
-        }
-      }
-
-      // Score Data Bank entries
-      for (final entry in dataBankCandidates) {
-        final storedVector = bytesToVector(entry.embedding!, entry.dimensions);
-        if (storedVector == null) continue;
-
-        final rawScore = cosineSimilarity(queryVector, storedVector);
-        final priority = characterPriorities?[entry.characterId] ?? 1.0;
-        final score = rawScore * priority;
-
-        if (score >= minScore) {
-          scored.add(
-            RetrievedMemory(
-              content: '[Data Bank: ${entry.title}] ${entry.content}',
-              characterId: entry.characterId,
-              sessionId: 'databank',
-              positionStart: -1,
-              positionEnd: -1,
-              score: score,
-            ),
-          );
-        } else {
-          belowThreshold++;
-        }
-      }
-
-      debugPrint(
-        '[RAG:Memory] Scoring: ${scored.length} above threshold, $belowThreshold below, $skippedInContext skipped (in-context), $skippedCrossSession skipped (cross-session)',
-      );
-
-      // Sort by score descending and take top N
-      scored.sort((a, b) => b.score.compareTo(a.score));
-      final results = scored.take(limit).toList();
-
-      if (results.isNotEmpty) {
-        debugPrint('[RAG:Memory] ── Top ${results.length} results: ──');
-        for (int i = 0; i < results.length; i++) {
-          final m = results[i];
-          final contentPreview = m.content.length > 60
-              ? '${m.content.substring(0, 60)}...'
-              : m.content;
-          debugPrint(
-            '[RAG:Memory]   #${i + 1} score=${m.score.toStringAsFixed(3)} [${m.positionStart}-${m.positionEnd}] char=${m.characterId ?? "n/a"}',
-          );
-          debugPrint('[RAG:Memory]       "$contentPreview"');
-        }
-      } else {
-        debugPrint('[RAG:Memory] No results above threshold $minScore');
-      }
-
-      return results;
-    } catch (e) {
-      lastRetrieveError = '$e';
-      debugPrint('[RAG:Memory] ✗ Retrieval failed: $e');
-      return [];
-    }
-  }
+  }) => _retrieveImpl(
+    queryText: queryText,
+    sourceCharacterIds: sourceCharacterIds,
+    currentSessionId: currentSessionId,
+    inContextStart: inContextStart,
+    limit: limit,
+    minScore: minScore,
+    characterPriorities: characterPriorities,
+    sessionScopedCharacterIds: sessionScopedCharacterIds,
+  );
 
   /// Embed one piece of text, or null when embeddings aren't operational
   /// (RAG off / sidecar unavailable). Availability-guarded single-text door

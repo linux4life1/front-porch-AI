@@ -29,11 +29,7 @@ class SetupService extends ChangeNotifier {
   SetupStep get currentStep => _currentStep;
   String? get errorMessage => _errorMessage;
 
-  SetupService(
-    this._storageService,
-    this._backendManager,
-    this._koboldService,
-  );
+  SetupService(this._storageService, this._backendManager, this._koboldService);
 
   Future<void> runAutoSetup() async {
     if (_currentStep != SetupStep.idle && _currentStep != SetupStep.error) {
@@ -59,12 +55,12 @@ class SetupService extends ChangeNotifier {
       // everything (and record the implicit choice) so first boot for
       // OpenRouter/OMLX users — and the E2E smoke suite, which runs against
       // an in-process fake remote — never touches the network.
-      final backendType = _storageService.backendType;
+      final backendType = _storageService.backendSettings.backendType;
       final isLocalBackend =
           backendType != 'openRouter' && backendType != 'omlx';
       if (!isLocalBackend) {
-        if (!_storageService.backendChoiceDone) {
-          await _storageService.setBackendChoiceDone(true);
+        if (!_storageService.backendSettings.backendChoiceDone) {
+          await _storageService.backendSettings.setBackendChoiceDone(true);
         }
         _currentStep = SetupStep.complete;
         notifyListeners();
@@ -76,7 +72,7 @@ class SetupService extends ChangeNotifier {
       //    hostage on first launch is gone.
       await _backendManager.checkBackendAvailability();
       if (_backendManager.backendPath == null) {
-        if (!_storageService.backendChoiceDone) {
+        if (!_storageService.backendSettings.backendChoiceDone) {
           // Genuine first launch: ask intent (one tap), then the overlay
           // dismisses and any download runs in the background.
           _currentStep = SetupStep.firstRunChoice;
@@ -93,8 +89,8 @@ class SetupService extends ChangeNotifier {
       }
 
       // An installed engine IS the choice — never show the first-run ask.
-      if (!_storageService.backendChoiceDone) {
-        await _storageService.setBackendChoiceDone(true);
+      if (!_storageService.backendSettings.backendChoiceDone) {
+        await _storageService.backendSettings.setBackendChoiceDone(true);
       }
 
       // 3. Dismiss overlay so the user can interact with the app
@@ -109,12 +105,12 @@ class SetupService extends ChangeNotifier {
       //    .kcpps preset that owns the model — the preset used to be its own
       //    "pseudoRemote" backend, but it is now just a launch option of the
       //    local backend, so a single autostart branch handles both.
-      final modelPath = _storageService.lastUsedModelPath;
+      final modelPath = _storageService.backendSettings.lastUsedModelPath;
       final presetOwnsModel =
-          _storageService.kcppsHasModel &&
-          _storageService.kcppsModelFileExists;
+          _storageService.backendSettings.kcppsHasModel &&
+          _storageService.backendSettings.kcppsModelFileExists;
 
-      if (_storageService.autostartBackend &&
+      if (_storageService.backendSettings.autostartBackend &&
           (modelPath != null || presetOwnsModel)) {
         _currentStep = SetupStep.startingBackend;
         notifyListeners();
@@ -122,16 +118,16 @@ class SetupService extends ChangeNotifier {
         await _koboldService.startKobold(
           _backendManager.backendPath!,
           modelPath ?? '',
-          kcppsPath: _storageService.activeKcppsPath,
+          kcppsPath: _storageService.backendSettings.activeKcppsPath,
           mmprojPath: modelPath != null
-              ? _storageService.mmprojForModel(modelPath)
+              ? _storageService.presetSettings.modelMmprojMap[modelPath]
               : null,
-          gpuLayers: _storageService.gpuLayers,
-          contextSize: _storageService.contextSize,
-          useVulkan: _storageService.useVulkan ?? false,
-          useCublas: _storageService.useCublas ?? false,
-          useMetal: _storageService.useMetal ?? false,
-          useRocm: _storageService.useRocm ?? false,
+          gpuLayers: _storageService.backendSettings.gpuLayers,
+          contextSize: _storageService.backendSettings.contextSize,
+          useVulkan: _storageService.backendSettings.useVulkan ?? false,
+          useCublas: _storageService.backendSettings.useCublas ?? false,
+          useMetal: _storageService.backendSettings.useMetal ?? false,
+          useRocm: _storageService.backendSettings.useRocm ?? false,
         );
 
         _currentStep = SetupStep.complete;
@@ -150,7 +146,7 @@ class SetupService extends ChangeNotifier {
   /// chat begins, the engine is already there. Dismisses the overlay
   /// immediately; the engine chip carries the progress.
   Future<void> chooseManagedEngine() async {
-    await _storageService.setBackendChoiceDone(true);
+    await _storageService.backendSettings.setBackendChoiceDone(true);
     unawaited(_backendManager.ensureEngineInstalled());
     _currentStep = SetupStep.complete;
     notifyListeners();
@@ -161,8 +157,8 @@ class SetupService extends ChangeNotifier {
   /// cloud). No engine download, ever; backendType flips to the API kind and
   /// the details are configured in Settings → Backend.
   Future<void> chooseOwnBackend() async {
-    await _storageService.setBackendType('openRouter');
-    await _storageService.setBackendChoiceDone(true);
+    await _storageService.backendSettings.setBackendType('openRouter');
+    await _storageService.backendSettings.setBackendChoiceDone(true);
     _currentStep = SetupStep.complete;
     notifyListeners();
   }

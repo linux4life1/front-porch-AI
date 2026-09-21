@@ -45,11 +45,14 @@ class StudioSettingsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+    // Material — not a colored Container. ExpansionTile / SwitchListTile
+    // paint ink on the nearest Material; a DecoratedBox card in between
+    // trips "ListTile background color or ink splashes may be invisible".
+    return Material(
+      color: AppColors.cardOf(context),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.borderOf(context)),
+        side: BorderSide(color: AppColors.borderOf(context)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Theme(

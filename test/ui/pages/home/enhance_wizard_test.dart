@@ -78,9 +78,9 @@ void main() {
       storage = StorageService();
       await storage.initialized;
       // Remote backend, configured + keyed → ready without a local process.
-      await storage.setBackendType('openRouter');
-      await storage.setRemoteModel('current/model');
-      await storage.setRemoteApiKey('test-key');
+      await storage.backendSettings.setBackendType('openRouter');
+      await storage.backendSettings.setRemoteModelName('current/model');
+      await storage.backendSettings.setRemoteApiKey('test-key');
       kobold = KoboldService(storage);
       backendManager = BackendManager(storage);
       // TestWidgetsFlutterBinding turns every HTTP call into a bodiless

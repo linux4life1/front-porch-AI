@@ -102,8 +102,7 @@ extension CharacterRepositoryImport on CharacterRepository {
 
     // Identity: stableId only. Name is never enough to overwrite or delete.
     // forceReplaceTarget is the explicit single-file "Replace existing" path.
-    final stableMatch =
-        findByStableId(card.frontPorchExtensions?.stableId);
+    final stableMatch = findByStableId(card.frontPorchExtensions?.stableId);
     CharacterCard? target = stableMatch;
     if (target == null && forceReplaceTarget != null) {
       // Resolve against the live list by dbId so we don't hold a stale ref.
@@ -123,8 +122,7 @@ extension CharacterRepositoryImport on CharacterRepository {
     // carry the library character's stableId so future FP reimports still match.
     card.frontPorchExtensions ??= FrontPorchExtensions();
     final incomingStable = card.frontPorchExtensions!.stableId;
-    if ((incomingStable == null || incomingStable.isEmpty) &&
-        target != null) {
+    if ((incomingStable == null || incomingStable.isEmpty) && target != null) {
       final keep = target.frontPorchExtensions?.stableId;
       if (keep != null && keep.isNotEmpty) {
         card.frontPorchExtensions!.stableId = keep;
@@ -186,6 +184,8 @@ extension CharacterRepositoryImport on CharacterRepository {
         }
       }
       card.dbId = target.dbId;
+      // In-place update (stableId or Replace): gallery is the new card only.
+      await clearGalleryLooks(card.dbId!);
 
       // updateCharacter does DB companion + list replace (re-embeds PNG; harmless).
       await updateCharacter(card);

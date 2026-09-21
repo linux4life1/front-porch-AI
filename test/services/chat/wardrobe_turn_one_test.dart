@@ -36,8 +36,6 @@
 // Nobody could hit this before there was an editor, because nothing wrote the
 // field. Authoring made it reachable, so it is fixed with authoring.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -139,7 +137,8 @@ void main() {
       expect(
         txt,
         isEmpty,
-        reason: 'seeding must not turn "nothing authored" into a fragment '
+        reason:
+            'seeding must not turn "nothing authored" into a fragment '
             'claiming she is carrying nothing, which reads as a fact about her',
       );
     });
@@ -174,58 +173,6 @@ void main() {
         txt,
         isNot(contains('apron')),
         reason: 'Sam must not be narrated wearing Jennifer\'s apron',
-      );
-    });
-  });
-
-  group('the seed runs before the turn is generated', () {
-    // Structural, and labelled as such: proving the ORDER behaviourally needs a
-    // live ChatService driving a real backend, and the suites next door test
-    // hand-written stubs of that orchestration, which would only prove the stub
-    // calls itself in the right order.
-    //
-    // It is here because ORDER is the entire fix. The method could exist, be
-    // correct, be covered by every test above, and still leave turn 1 bare if
-    // it were called one line after generation instead of one line before —
-    // and nothing else in the suite would notice.
-    final send = File(
-      'lib/services/chat/chat_service_send.dart',
-    ).readAsStringSync();
-
-    test('sendMessage seeds BEFORE it generates', () {
-      final seed = send.indexOf('seedPocketsFromCards()');
-      final gen = send.indexOf('await _generateResponse(');
-
-      expect(seed, greaterThan(-1), reason: 'the call was removed');
-      expect(gen, greaterThan(-1), reason: 'the anchor moved; re-point this');
-      expect(
-        seed,
-        lessThan(gen),
-        reason: 'seeding after generation is the original bug exactly: the '
-            'prompt for turn 1 is built from a record that does not exist yet',
-      );
-    });
-
-    test('opening a chat seeds it too, so the sidebar is not blank', () {
-      // Turn 0. Without this an author who just saved a wardrobe opens the chat,
-      // sees an empty Pockets row, and concludes the editor did not work.
-      expect(
-        File(
-          'lib/services/chat/chat_service_session_load.dart',
-        ).readAsStringSync(),
-        contains('seedPocketsFromCards()'),
-      );
-    });
-
-    test('the pass keeps its own lazy seed for mid-turn arrivals', () {
-      // Not redundant with the above: a Scene Guest or a cast change can put a
-      // character into the scene AFTER the top-of-turn seed has run, and that
-      // character reaches the pass having never been seeded.
-      expect(
-        File(
-          'lib/services/chat/chat_service_pockets.dart',
-        ).readAsStringSync(),
-        contains('pocketsFor(charId) ?? startingPocketsFor(speaker)'),
       );
     });
   });

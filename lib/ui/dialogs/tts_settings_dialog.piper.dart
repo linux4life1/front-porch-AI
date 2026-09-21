@@ -41,8 +41,10 @@ extension _TtsPiperSection on _TtsSettingsDialogState {
           Expanded(
             child: DropdownButtonFormField<String>(
               initialValue:
-                  _installedPiperVoices.contains(storage.ttsVoiceModel)
-                  ? storage.ttsVoiceModel
+                  _installedPiperVoices.contains(
+                    storage.ttsSettings.ttsVoiceModel,
+                  )
+                  ? storage.ttsSettings.ttsVoiceModel
                   : null,
               dropdownColor: AppColors.surfaceContainerOf(context),
               style: TextStyle(color: AppColors.textPrimary(context)),
@@ -75,7 +77,7 @@ extension _TtsPiperSection on _TtsSettingsDialogState {
                   )
                   .toList(),
               onChanged: (val) {
-                if (val != null) storage.setTtsVoiceModel(val);
+                if (val != null) storage.ttsSettings.setTtsVoiceModel(val);
               },
             ),
           ),

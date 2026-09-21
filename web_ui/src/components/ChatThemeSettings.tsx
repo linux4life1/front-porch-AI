@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import type { ChatThemeOverrides, ChatThemePreset } from './chatTypes';
+import { ReadingSizeSlider } from './ReadingSizeSettings';
 
 // Mirror of the 10 desktop presets (ChatThemePreset.presets).
 const PRESETS: ChatThemePreset[] = [
@@ -148,7 +149,8 @@ export function ChatThemeSettings({ overrides, onSave }: {
   return (
     <section className="card theme-settings">
       <h3>Chat theme</h3>
-      <p className="muted small">Pick a visual theme for this chat. Customize individual colors below.</p>
+      <p className="reading-blurb">Pick a visual theme for this chat. Customize individual colors below.</p>
+      <ReadingSizeSlider />
 
       {/* Preset picker */}
       <div className="theme-presets">

@@ -2,7 +2,7 @@
 
 Front Porch AI ships often: a stable release every few weeks, patch releases in between, and a nightly Rawhide build most days.
 
-**The current stable release is v1.3.2, "Make a Wish", released 2026-09-03.**
+**The current stable release is v1.4.0, "Toolbox".**
 
 This page is the long-form history — the headlines of every release, newest first. The [GitHub Releases page](https://github.com/linux4life1/front-porch-ai/releases) is always the complete and most up-to-date record, and it is also where the nightly builds live.
 
@@ -12,6 +12,7 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ## Table of Contents
 
+- [v1.4.0 — Toolbox](#v140--toolbox)
 - [v1.3.2 — Make a Wish](#v132--make-a-wish)
 - [v1.3.1 — Clock In](#v131--clock-in)
 - [v1.3 — Check Your Pockets](#v13--check-your-pockets)
@@ -31,9 +32,23 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ---
 
+## v1.4.0 — Toolbox
+
+**Released:** v1.4.0 — current stable
+
+- 🛠️ **Waifu Coder runs OpenCode** the way the app already runs Kobold — a private binary you start, stop, and update. Same seat.
+- 🔎 **They can look things up while talking** — web search rides the reply. Wiki is this character’s book. Recipe cards live in the library tools drawer for chat and Waifu.
+- ⚙️ **A second local model** can sit beside chat for feelings and journal, and swap off the GPU.
+- 👥 **Guests can sit without taking the house** — they take turns until you Promote that one person. A shared chat remembers who was a guest.
+- 🖼️ **Image Studio uses their templates** — Comfy Create runs the graph Comfy ships (Z-Image, Qwen-Image, Flux) or one you upload. Remote Studio can be Nano or OpenRouter without moving chat’s backend.
+
+Also in this cut: the porch mic (`/speak`, costume swap, `@Name` to call someone back), Porch Life as defaults rather than a rewrite of the open chat, pockets per person, leftover quests that go stale instead of pretending you won, drag-import of PNG and `.byaf` cards, and copy-a-reply like any other text. Opening a chat lands on the latest line, with follow-streaming as a switch. Afterglow limp lasts the first reply, then tired and comfortable follow Needs. Error banners are not saved as story. A quiet sit does not invent hunger. A lore-only place stays lore. Generic characters use they/them unless the card says otherwise.
+
+---
+
 ## v1.3.2 — Make a Wish
 
-**Released:** 2026-09-03 (v1.3.2) — current stable
+**Released:** 2026-09-03 (v1.3.2)
 
 - 🎂 **Make a wish** — birthdays now appear on character and persona cards and on The Stoop. Discussion authors also wear clear gold or blue verified checks.
 - 🌍 **Worlds can skip the weather** — lorebook-only worlds can turn climate off entirely. Quiet places no longer get sunshine and rain they never asked for.

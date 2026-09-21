@@ -133,9 +133,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(reviewSwitch.first, warnIfMissed: false);
     await d.waitFor(
-      () => storage.journalReviewFirst,
+      () => storage.memorySettings.journalReviewFirst,
       () =>
-          'the review-first toggle to stick (is ${storage.journalReviewFirst})',
+          'the review-first toggle to stick (is ${storage.memorySettings.journalReviewFirst})',
     );
 
     // ── A scored turn parks a batch instead of applying it ──────────────

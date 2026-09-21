@@ -71,6 +71,10 @@ Every text field in the app (chat box, character editor, story editor…) suppor
 | `Ctrl / ⌘ + A` | Select all |
 | Arrow keys, Home, End, PgUp, PgDn | Move around and select text |
 
+Chat bubbles are the same: drag across the spoken line (and an expanded Thought) and use **Copy** or `Ctrl / ⌘ + C`. The name and buttons on the bubble are not part of that selection.
+
+macOS **Edit → Find** (`⌘F`) is not in the menu. It used to be a leftover from the app template and did nothing on the chat canvas. The browser UI may still open the browser’s own Find — that is the browser, not Front Porch.
+
 `Esc` closes most dialogs and `Tab` moves focus between controls — standard behavior on every platform. In the small single-line prompts (renaming a folder, searching for a model, typing a tag), **Enter** confirms instead of adding a line.
 
 On macOS the usual menu-bar items are there too: `⌘Q` to quit, `⌘H` to hide, `⌘M` to minimize, `⌃⌘F` for full screen. One thing to know: **"Preferences…" (`⌘,`) in the app menu does nothing** — it's a leftover from the standard macOS app template that I never wired up. Settings lives in the left sidebar.

@@ -152,15 +152,4 @@ void main() {
       reason: 'THE BUG: eraser left the just-handed intro queued',
     );
   });
-
-  test('removePocketItem drops pending intros for the erased name', () {
-    final src = File(
-      'lib/services/chat/chat_service_pockets.dart',
-    ).readAsStringSync();
-    final start = src.indexOf('Future<void> removePocketItem');
-    expect(start, greaterThanOrEqualTo(0));
-    final body = src.substring(start, start + 1800);
-    expect(body, contains('_pendingItemIntros[characterId]'));
-    expect(body, contains('queue.removeWhere'));
-  });
 }

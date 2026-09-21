@@ -140,6 +140,7 @@ extension ChatServiceChatEntry on ChatService {
       // Reset AFK idle state when switching to a different chat
       _cancelIdleTimer();
       _hasCompletedExchange = false;
+      _awayPulse.reset();
 
       // Clear group mode when switching to 1:1 AND reset author note for new session context
       _authorNote = '';
@@ -173,7 +174,7 @@ extension ChatServiceChatEntry on ChatService {
       // Auto-start the local Kobold backend (native or a .kcpps preset) when
       // entering a chat so the user never has to manually start it just to talk.
       // Gated by autostartOnChatOpen — when off, the user must start manually.
-      if (_storageService.autostartOnChatOpen) {
+      if (_storageService.backendSettings.autostartOnChatOpen) {
         _llmProvider?.ensureManagedBackendIsRunning();
       }
 
@@ -246,7 +247,7 @@ extension ChatServiceChatEntry on ChatService {
         _needsSimulation.clearVector();
         _needsSimulation.resetBuffers();
         // v47: clear the 1:1 Pockets record too. A fresh chat re-seeds from the
-        // card, and leaving the previous chat's record in the scalar meant she
+        // card, and leaving the previous chat's record in the scalar meant they
         // walked into the new conversation still holding the last one's props.
         // Harmless while the record was memory-only; now that it is saved, the
         // bleed would be written to the new chat's row and become permanent.
@@ -260,6 +261,8 @@ extension ChatServiceChatEntry on ChatService {
         // Chaos reset via extracted service (keeps multiple reset blocks in sync).
         // See chaos_mode_service.dart and "keep reset blocks" comments (now lists needs/chaos/relationship/expression/time/nsfw/lorebook_scanner + prompt_injection (stateless builders; no reset calls needed) + llm_eval_engine (stateless or prompt-only; no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed)). (cross-ref setActiveCharacter:1572 etc)
         _chaosModeService.resetForFreshChat();
+        _webSearchService.resetForFreshChat();
+        _wikiSearchService.resetForFreshChat();
         // Nsfw reset via extracted service (keeps multiple reset blocks in sync).
         // See nsfw_service.dart and "keep reset blocks" comments (now lists needs/chaos/relationship/expression/time/nsfw/lorebook_scanner + prompt_injection (stateless builders; no reset calls needed) + llm_eval_engine (stateless or prompt-only; no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed)). (cross-ref setActiveCharacter:1572 etc)
         _nsfwService.resetForFreshChat();
@@ -282,7 +285,7 @@ extension ChatServiceChatEntry on ChatService {
         // Try to load last session
         await _loadLastSession();
 
-        // Message 0 needs her wardrobe too. AFTER the load, so a restored
+        // Message 0 needs their wardrobe too. AFTER the load, so a restored
         // session's own record always wins — this only fills a gap. With no
         // prior session there is nothing to load and this is the only thing
         // standing between an authored wardrobe and a sidebar that draws
@@ -357,15 +360,9 @@ extension ChatServiceChatEntry on ChatService {
             if (_needsSimEnabled) {
               // Brand new conversation for this character (no prior session loaded):
               // seed from card baselines (falls back to needDefaults when the card has no baselines).
-              _needsSimulation.initializeFreshWithDefaults({
-                'hunger': ext.needsBaselineHunger,
-                'bladder': ext.needsBaselineBladder,
-                'energy': ext.needsBaselineEnergy,
-                'social': ext.needsBaselineSocial,
-                'fun': ext.needsBaselineFun,
-                'hygiene': ext.needsBaselineHygiene,
-                'comfort': ext.needsBaselineComfort,
-              });
+              _needsSimulation.initializeFreshWithDefaults(
+                NeedsSimulation.baselinesFromExtensions(ext),
+              );
             } else {
               _needsSimulation.clearVector();
             }
@@ -450,6 +447,7 @@ extension ChatServiceChatEntry on ChatService {
           // Seed chat worlds from the character's attached worlds (Living
           // Worlds) — a paired world's climate/setting applies from turn one.
           await _seedChatWorldsForNewSession();
+          await _seedWikiForNewSession();
           await _saveChat();
           _activeObjectives = [];
           _messagesSinceLastCheck = 0;

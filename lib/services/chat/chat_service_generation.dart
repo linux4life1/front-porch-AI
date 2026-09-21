@@ -45,11 +45,22 @@ class _GenTurn {
     required this.mode,
     required this.guestSpeaker,
     required this.epoch,
+    required this.autonomous,
+    required this.directUserSend,
   });
 
   final GenerationMode mode;
   final CharacterCard? guestSpeaker;
   final int epoch;
+  final bool autonomous;
+
+  /// Explicit allow-list bit for web search. False by default so every
+  /// non-send generation path stays offline unless its caller proves it is
+  /// the direct response to a newly appended user message.
+  final bool directUserSend;
+
+  /// One-shot regen director slip (clip + reason). Empty on every other path.
+  String regenCritique = '';
 
   // ── entry / speaker pick (shell) ──
   late CharacterCard speakingCharacter;
@@ -75,6 +86,7 @@ class _GenTurn {
   late String scenario;
   late String suffix;
   String mesExampleBlock = '';
+  String speakerCardBlock = '';
   String postHistoryBlock = '';
   String authorNoteBlock = '';
   String summaryBlock = '';
@@ -105,6 +117,15 @@ class _GenTurn {
   /// wire shape), or null when retrieval never ran (nothing dropped, RAG
   /// off, or not operational). Stamped as `rag_receipt` on [streamTarget].
   Map<String, dynamic>? ragReceipt;
+
+  /// Stamped as `search_receipt` when this turn ran a web_search lookup.
+  Map<String, dynamic>? searchReceipt;
+
+  /// Stamped as `tool_receipt` when this turn ran a user recipe card.
+  Map<String, dynamic>? toolReceipt;
+
+  /// Recipe cards loaded for this turn from `<library>/tools/`.
+  List<UserToolCard> userToolCards = const [];
 
   // ── request phase → stream/postgen phases ──
   late List<String> stopList;
@@ -155,14 +176,12 @@ extension ChatServiceGeneration on ChatService {
   /// do); this deep guard is the backstop for the non-mutating entries.
   Future<bool> _abortIfBackendDown() async {
     if (_llmProvider?.hasManagedProcess != true ||
-        _storageService.autostartOnChatOpen ||
+        _storageService.backendSettings.autostartOnChatOpen ||
         _llmProvider?.hasAnyManagedProcessRunning == true) {
       return false;
     }
     if (_messages.isEmpty || _messages.last.text != _kBackendDownNotice) {
-      _messages.add(
-        ChatMessage(text: _kBackendDownNotice, sender: 'System', isUser: false),
-      );
+      _messages.add(statusBannerMessage(_kBackendDownNotice));
       notifyListeners();
     }
     return true;
@@ -172,6 +191,10 @@ extension ChatServiceGeneration on ChatService {
     GenerationMode mode, {
     CharacterCard? guestSpeaker,
     CharacterCard? forceSpeaker,
+    bool autonomous = false,
+    bool directUserSend = false,
+    bool skipSpeakerEval = false,
+    String regenCritique = '',
   }) async {
     if (await _abortIfBackendDown()) {
       // No turn will run — terminate BOTH live streams. The sentence stream
@@ -222,7 +245,14 @@ extension ChatServiceGeneration on ChatService {
     _sentenceBuffer = '';
     notifyListeners();
 
-    final t = _GenTurn(mode: mode, guestSpeaker: guestSpeaker, epoch: epoch);
+    final t = _GenTurn(
+      mode: mode,
+      guestSpeaker: guestSpeaker,
+      epoch: epoch,
+      autonomous: autonomous,
+      directUserSend: directUserSend,
+    );
+    t.regenCritique = regenCritique;
 
     try {
       final userName = _userPersonaService.persona.name;
@@ -238,6 +268,16 @@ extension ChatServiceGeneration on ChatService {
       } else if (_activeGroup != null) {
         // Continue resolved forceSpeaker above (id-first, refuse on
         // duplicates). Regen already passes it. Fresh turns pick present.
+        // Auto-play / trigger-next: quiet-pulse Away members on the N=3
+        // cadence. User send already pulsed in send_handoff.
+        if (mode == GenerationMode.normal &&
+            !directUserSend &&
+            forceSpeaker == null) {
+          await _runAwayPulse(
+            userText: _awayPulse.lastUserText,
+            fromUserSend: false,
+          );
+        }
         speakingCharacter = forceSpeaker ?? _pickPresentGroupSpeaker();
       } else {
         speakingCharacter = _activeCharacter!;
@@ -248,7 +288,10 @@ extension ChatServiceGeneration on ChatService {
           _activeGroup != null &&
           mode != GenerationMode.continue_ &&
           forceSpeaker == null &&
-          _groupSpeakerSkips(speakingCharacter)) {
+          AwayPulse.shouldWriteSkipBanner(
+            speakerSkips: _groupSpeakerSkips(speakingCharacter),
+            hasUnconsumedReturn: _awayPulse.pendingReturnSpeakId != null,
+          )) {
         // Whole roster (or a forced @name) is Away / At work. Do not eat
         // the send: write a glance line. No reply to score, so the clock
         // takes the failure-drift step (bucket brigade still moves) and
@@ -275,56 +318,43 @@ extension ChatServiceGeneration on ChatService {
 
       // Pin the realism speaker for the whole turn so prompt injection + decay
       // key on the character actually generating — not nextCharacter (the
-      // *upcoming* speaker, null for random turn order). Scene guests carry no
-      // realism, so they leave it null. Cleared in the finally below.
+      // *upcoming* speaker, null for random turn order). Soft group members
+      // are pinned too: leaving them null made the fallback steal the next
+      // full member's Needs/bond. 1:1 scene guests (guestSpeaker) stay null.
+      // Cleared in the finally below. Lite turns still skip the realism
+      // dance and the realism/objective prompt blocks.
       _turnSpeakerIdForRealism = (_activeGroup != null && guestSpeaker == null)
           ? _getCharacterIdFromCard(speakingCharacter)
           : null;
 
-      // SINGLE realism eval path (group trigger): the picked group member gets
-      // their per-turn eval here, after selection, as it always has. The 1:1
-      // host runs the SAME `_evaluateRealismForUpcomingSpeaker` from sendMessage
-      // instead (fresh turns only) so regen — which calls _generateResponse
-      // directly — does NOT re-evaluate and drift the host's realism. Lite Scene
-      // Guests (guestSpeaker != null) carry no realism.
+      // SINGLE realism eval path (group trigger). 1:1 evals live in
+      // sendMessage so regen/_generateResponse does not re-score the host.
+      // Continue and user-last/retry regen skip the dance (same as 1:1
+      // skipping sendMessage evals) but still LOAD this speaker's scalars.
+      // A normal new group turn still dances. Guests carry no realism.
       if (guestSpeaker == null &&
           _activeGroup != null &&
-          _realismActiveThisMode &&
-          mode == GenerationMode.continue_) {
-        // Continue extends the reply already on screen — the same exchange,
-        // not a new one — so it must NOT re-run the dance: that charged the
-        // speaker a second needs decay tick, a second bond/trust evaluation
-        // and a second clock advance for one turn. The comment above spells
-        // out the intent for 1:1 (its evaluation lives in sendMessage, so a
-        // continuation cannot reach it); the group branch runs inside
-        // _generateResponse and never got the matching guard.
-        //
-        // But it must still LOAD. The previous turn ended by saving this
-        // speaker's scalars back to the map and restoring the pointer to
-        // whoever was active before, so without this the continuation would be
-        // written against another member's bond, trust and needs — the prompt
-        // injection reads the live scalars. Load only: no evaluation, no
-        // second charge, right member.
-        final sid = _getCharacterIdFromCard(speakingCharacter);
-        if (sid.isNotEmpty) _loadGroupRealismIntoScalars(sid);
-      } else if (guestSpeaker == null &&
-          _activeGroup != null &&
+          !_isLiteTurn(t) &&
           _realismActiveThisMode) {
-        await _evaluateRealismForUpcomingSpeaker(speakingCharacter);
-        // Cancel-aborts-generation, group edition: the dance leaves the
-        // cancel flag set for its caller (1:1's sendMessage has the twin
-        // check). Consume it and abort the turn before any prompt is built.
-        // The entry-state flags must be reset by hand — the normal clears
-        // live in the completion path and the catch, which an early return
-        // skips (the finally below only clears the speaker pin).
-        if (_realismEvalCancelled) {
-          _realismEvalCancelled = false;
-          _isGenerating = false;
-          _generationPhase = GenerationPhase.idle;
-          _generationStartTime = null;
-          await _saveChat();
-          notifyListeners();
-          return;
+        if (mode == GenerationMode.continue_ || skipSpeakerEval) {
+          final sid = _getCharacterIdFromCard(speakingCharacter);
+          if (sid.isNotEmpty) _loadGroupRealismIntoScalars(sid);
+        } else {
+          await _evaluateRealismForUpcomingSpeaker(speakingCharacter);
+          // Cancel-aborts-generation, group edition: consume the flag and
+          // abort before any prompt is built. Entry-state flags are reset
+          // by hand — the normal clears live in completion/catch.
+          if (_realismEvalCancelled) {
+            _pendingRealismMetadata = null;
+            _needsSimulation.consumePendingCatastrophe();
+            _realismEvalCancelled = false;
+            _isGenerating = false;
+            _generationPhase = GenerationPhase.idle;
+            _generationStartTime = null;
+            await _saveChat();
+            notifyListeners();
+            return;
+          }
         }
       }
 
@@ -384,9 +414,7 @@ extension ChatServiceGeneration on ChatService {
       // generation_error_messages.dart, not a part — zero ChatService access).
       final errorMsg = friendlyGenerationError(e.toString());
 
-      _messages.add(
-        ChatMessage(text: errorMsg, sender: "System", isUser: false),
-      );
+      _messages.add(statusBannerMessage(errorMsg));
 
       // Signal error to SSE listeners
       _tokenBroadcast.add('__ERROR__');
@@ -409,11 +437,13 @@ extension ChatServiceGeneration on ChatService {
 
       notifyListeners();
     } finally {
+      _llmProvider?.endMouthSpeech();
       // The per-turn realism speaker pin lives only while we generate. Clear it
       // on every exit (normal completion, early return, or error) so the next
       // turn's pre-pick window (e.g. _applyMoodDecay) keeps its prior
       // nextCharacter-based behaviour instead of seeing a stale speaker.
       _turnSpeakerIdForRealism = null;
+      _awayPulse.finishTurn();
       // Settling over, on EVERY exit — restore the CALLER's hold (regen keeps
       // it raised across its swipe-merge); a latched flag would wedge input.
       _isPostGenerating = callerHeldSettling;
@@ -450,9 +480,9 @@ extension ChatServiceGeneration on ChatService {
     }
     await _realismEvals.evaluatePhysicalStateCall(
       timeOnly: true,
-      skipTodayEval: t.guestSpeaker != null,
+      skipTodayEval: _isLiteTurn(t),
     );
-    if (t.guestSpeaker != null) {
+    if (_isLiteTurn(t)) {
       final named = clockNamedInReply(msg.text, _timeService.clock);
       if (named != null) await _timeService.applyReconciledClock(named);
     }

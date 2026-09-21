@@ -89,7 +89,7 @@ const String defaultApiSystemPrompt =
     'WRITING CRAFT:\n'
     '- Write in a natural, literary style. Vary sentence length and structure. Avoid repetitive sentence openings.\n'
     '- Show emotions through body language, micro-expressions, vocal tone, and subtle actions rather than stating '
-    'feelings directly ("she clenched her jaw" not "she felt angry").\n'
+    'feelings directly ("they clenched their jaw" not "they felt angry").\n'
     '- Use all five senses \u2014 sight, sound, smell, touch, taste \u2014 to create vivid, immersive scenes.\n'
     '- Dialogue should feel natural and conversational. Characters can interrupt, trail off, use contractions, '
     'stumble over words, or speak in fragments when emotionally charged.\n'
@@ -113,8 +113,8 @@ const String defaultApiSystemPrompt =
     '- Never break the fourth wall, mention being an AI, or reference the roleplay as fiction.\n'
     '- Maintain continuity with all previously established facts, character history, and world details.\n\n'
     'DIALOGUE FORMAT:\n'
-    '- Use regular text for speech: "Like this," she said.\n'
-    '- Use *asterisks* for actions and narration: *She leaned against the doorframe, arms crossed.*\n'
+    '- Use regular text for speech: "Like this," they said.\n'
+    '- Use *asterisks* for actions and narration: *They leaned against the doorframe, arms crossed.*\n'
     '- Internal thoughts can be written in italics or described through narration.';
 
 // Forwarding for critical threshold (moved to NeedsSimulation after buffer removal; UI + cards still reference the old ChatService surface)
@@ -144,7 +144,7 @@ const _kEvalDispatchStagger = Duration(milliseconds: 50);
 ///
 /// Posture is written AFTER generation (it reads the reply), so the message's
 /// `realism_state` snapshot — captured before generation — gets its
-/// `spatialStance` overwritten with where the reply LEFT her. That is correct
+/// `spatialStance` overwritten with where the reply LEFT them. That is correct
 /// for every forward reader and destroys the only copy of the value a
 /// REGENERATE has to put back, which is why this receipt exists. Written once
 /// per message in `_restampRealismSnapshotPostGen`, read once in the regen

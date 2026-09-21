@@ -176,8 +176,29 @@ const Map<String, ({EditModelKind kind, int maxImages})> _remoteEditModels = {
 /// `microsoft/mai-image-2.5/edit`, `fal-ai/bernini-r/edit-image`, …
 final RegExp _editSegmentRe = RegExp(r'(?:^|[-_/])edit(?:[-_/]|$)');
 
+/// Local checkpoint / weight filenames (Comfy, A1111, Draw Things). Nano and
+/// OpenRouter want API ids (`qwen-image-max-edit`); a leftover `.ckpt` in
+/// the edit slot is what produced `invalid_model` on `/images/edits`.
+///
+/// Slash-separated provider ids (`qwen-image-2.1/edit`) are NOT local —
+/// only weight extensions, Windows/UNC paths, and absolute filesystem paths.
+bool looksLikeLocalImageModel(String modelId) {
+  final s = modelId.trim();
+  if (s.isEmpty) return false;
+  final lower = s.toLowerCase();
+  if (lower.contains(r'\') || lower.startsWith('\\\\')) return true;
+  if (lower.startsWith('file:')) return true;
+  if (lower.startsWith('~/') || lower.startsWith('/')) return true;
+  if (RegExp(r'^[a-z]:[\\/]').hasMatch(lower)) return true;
+  return RegExp(r'\.(ckpt|safetensors|sft|pt|pth)(?:\b|$)').hasMatch(lower);
+}
+
 /// The edit spec for a remote model ID, or null if it isn't an edit model.
 ({EditModelKind kind, int maxImages})? remoteEditSpec(String modelId) {
+  // A Comfy/A1111 filename can contain `_edit_` and would otherwise trip
+  // [_editSegmentRe] — that is how the expression pack posted a `.ckpt`
+  // to Nano. Local weights are never remote API ids.
+  if (looksLikeLocalImageModel(modelId)) return null;
   final id = modelId.trim().toLowerCase();
   final hit = _remoteEditModels[id];
   if (hit != null) return hit;
@@ -257,7 +278,7 @@ ImageReferenceCapability resolveCapability({
       reason =
           backendEditUnavailableReason ??
           'This backend can’t run edit models. Try Draw Things, ComfyUI, or a '
-          'remote edit model — or use Create.';
+              'remote edit model — or use Create.';
     }
   }
 

@@ -47,8 +47,8 @@ class EditRecipeStrip extends StatelessWidget {
     return Consumer<StorageService>(
       builder: (context, st, _) {
         final offRecipe =
-            st.editSampler != kEditRecommendedSamplerInt ||
-            st.editCfgScale > 5.0;
+            st.imageGenSettings.editSampler != kEditRecommendedSamplerInt ||
+            st.imageGenSettings.editCfgScale > 5.0;
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

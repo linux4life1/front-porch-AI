@@ -233,6 +233,21 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
           update: (context, storage, previous) =>
               previous ?? BackendManager(storage),
         ),
+        ChangeNotifierProxyProvider<StorageService, OpenCodeManager>(
+          create: (context) => OpenCodeManager(
+            rootPath:
+                Provider.of<StorageService>(context, listen: false).rootPath ??
+                '',
+          ),
+          update: (context, storage, previous) {
+            final root = storage.rootPath ?? '';
+            if (previous != null && previous.closet.rootPath == root) {
+              return previous;
+            }
+            previous?.dispose();
+            return OpenCodeManager(rootPath: root);
+          },
+        ),
         ChangeNotifierProxyProvider2<
           StorageService,
           DownloadManager,

@@ -25,10 +25,12 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 class ByafImportResult {
   final bool confirmed;
   final bool importChatHistory;
+  final bool importGalleryImages;
   final bool applySettings;
   ByafImportResult({
     required this.confirmed,
     required this.importChatHistory,
+    this.importGalleryImages = true,
     this.applySettings = false,
   });
 }
@@ -46,9 +48,13 @@ class ByafImportDialog extends StatefulWidget {
 class _ByafImportDialogState extends State<ByafImportDialog> {
   bool _importChat = true;
   bool _applySettings = true;
+  bool _importGallery = true;
 
-  ByafImportResult get _cancelResult =>
-      ByafImportResult(confirmed: false, importChatHistory: false);
+  ByafImportResult get _cancelResult => ByafImportResult(
+    confirmed: false,
+    importChatHistory: false,
+    importGalleryImages: false,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +179,13 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                                   Icons.chat_bubble_outline,
                                   'Has greeting',
                                 ),
+                              if (preview.galleryImagePaths.length > 1)
+                                _buildInfoChip(
+                                  Icons.photo_library_outlined,
+                                  'Portrait + '
+                                  '${preview.galleryImagePaths.length - 1} '
+                                  'looks',
+                                ),
                             ],
                           ),
                         ),
@@ -271,6 +284,21 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                         subtitle:
                             'Creates a chat session with the imported messages',
                       ),
+                    if (preview.galleryImagePaths.length > 1) ...[
+                      const SizedBox(height: 8),
+                      _buildToggleTile(
+                        value: _importGallery,
+                        onChanged: (v) =>
+                            setState(() => _importGallery = v ?? true),
+                        title:
+                            'Import gallery images '
+                            '(${preview.galleryImagePaths.length - 1} extra '
+                            '${preview.galleryImagePaths.length == 2 ? 'look' : 'looks'})',
+                        subtitle:
+                            'Adds the pack images as gallery looks '
+                            '(keeps the first image as the portrait)',
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -296,6 +324,7 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                     ByafImportResult(
                       confirmed: true,
                       importChatHistory: _importChat,
+                      importGalleryImages: _importGallery,
                       applySettings: _applySettings,
                     ),
                   ),
@@ -381,28 +410,28 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
       child: Material(
         color: Colors.transparent,
         child: CheckboxListTile(
-        value: value,
-        onChanged: onChanged,
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: AppColors.formMasterAccent,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+          value: value,
+          onChanged: onChanged,
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.formMasterAccent,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
+          subtitle: Text(
+            subtitle,
+            style: TextStyle(
+              color: AppColors.textTertiary(context),
+              fontSize: 11,
+            ),
           ),
-        ),
-        activeColor: AppColors.formMasterAccent,
-        checkColor: AppColors.onChaosAccent,
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        dense: true,
+          activeColor: AppColors.formMasterAccent,
+          checkColor: AppColors.onChaosAccent,
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          dense: true,
         ),
       ),
     );

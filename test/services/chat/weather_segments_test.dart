@@ -17,9 +17,16 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 // Intra-day weather segments + deterministic temperatures (Living Time §3
-// v3). Pins the same contracts the daily engine pins — determinism, golden
-// stability, and the timing-realism invariants the script tables encode —
-// plus the words-only guard: numbers exist for the UI, never for prompts.
+// v3). Pins the segments' own contracts — determinism, golden stability, and
+// the timing-realism invariants the script tables encode — plus the words-only
+// guard: numbers exist for the UI, never for prompts.
+//
+// The DAILY walk has one owner: the 8-day golden in weather_engine_test.dart.
+// A copy lived here too, under the name "adding segments did NOT change the
+// pinned daily walk" — but it never called the segment layer, so it only
+// re-ran the engine and checked the first of the eight days it computed. Two
+// goldens over one sequence means the weaker one gets re-pinned to whatever
+// the code now does; deleted 2026-09-18, engine golden keeps the contract.
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -50,8 +57,7 @@ void main() {
       }
     });
 
-    test('the day script is hour-independent (prefix-stable within a day)',
-        () {
+    test('the day script is hour-independent (prefix-stable within a day)', () {
       final date = DateTime(2026, 3, 10);
       for (int day = 1; day <= 15; day++) {
         final morning = WeatherSegments.segmentWeatherFor(
@@ -75,21 +81,6 @@ void main() {
         );
         expect(morning, morningAgain);
       }
-    });
-
-    test('adding segments did NOT change the pinned daily walk', () {
-      // Mirrors the daily golden in weather_engine_test.dart — the segment
-      // layer must be a pure overlay (independent RNG streams).
-      final date = DateTime(2026, 1, 15);
-      final got = [
-        for (int day = 1; day <= 8; day++)
-          WeatherEngine.weatherFor(
-            sessionSeed: 'golden-session',
-            dayCount: day,
-            date: date,
-          ).toString(),
-      ];
-      expect(got.first, 'DailyWeather(cloudy, cold, winter)');
     });
 
     test('golden segment sequence is pinned (cross-release stability)', () {
@@ -138,8 +129,11 @@ void main() {
               dayCount: day,
               date: date,
             );
-            expect(segs, contains(anchor),
-                reason: 'day $day (${anchor.name}) script $segs');
+            expect(
+              segs,
+              contains(anchor),
+              reason: 'day $day (${anchor.name}) script $segs',
+            );
           }
         }
       }
@@ -160,12 +154,18 @@ void main() {
               date: date,
             );
             if (anchor == WeatherCondition.fog) {
-              expect(segs.first, WeatherCondition.fog,
-                  reason: 'fog days start foggy');
+              expect(
+                segs.first,
+                WeatherCondition.fog,
+                reason: 'fog days start foggy',
+              );
             }
             if (segs.contains(WeatherCondition.storm)) {
-              expect(anchor, WeatherCondition.storm,
-                  reason: 'storm segments only occur on storm days');
+              expect(
+                anchor,
+                WeatherCondition.storm,
+                reason: 'storm segments only occur on storm days',
+              );
             }
           }
         }
@@ -185,35 +185,37 @@ void main() {
   });
 
   group('temperatures', () {
-    test('°C stays consistent with the band, afternoon warmer than morning',
-        () {
-      final date = DateTime(2026, 7, 21);
-      for (int day = 1; day <= 60; day++) {
-        final morning = WeatherSegments.segmentWeatherFor(
-          sessionSeed: 'temps',
-          dayCount: day,
-          date: date,
-          hour: 7,
-        );
-        final afternoon = WeatherSegments.segmentWeatherFor(
-          sessionSeed: 'temps',
-          dayCount: day,
-          date: date,
-          hour: 14,
-        );
-        final night = WeatherSegments.segmentWeatherFor(
-          sessionSeed: 'temps',
-          dayCount: day,
-          date: date,
-          hour: 23,
-        );
-        expect(afternoon.tempC, greaterThan(morning.tempC));
-        expect(night.tempC, lessThan(afternoon.tempC));
-        // Band honesty: the afternoon peak sits within (or a couple of
-        // degrees above) the band; the night trough a few below.
-        expect(afternoon.tempC - night.tempC, 8); // fixed diurnal spread
-      }
-    });
+    test(
+      '°C stays consistent with the band, afternoon warmer than morning',
+      () {
+        final date = DateTime(2026, 7, 21);
+        for (int day = 1; day <= 60; day++) {
+          final morning = WeatherSegments.segmentWeatherFor(
+            sessionSeed: 'temps',
+            dayCount: day,
+            date: date,
+            hour: 7,
+          );
+          final afternoon = WeatherSegments.segmentWeatherFor(
+            sessionSeed: 'temps',
+            dayCount: day,
+            date: date,
+            hour: 14,
+          );
+          final night = WeatherSegments.segmentWeatherFor(
+            sessionSeed: 'temps',
+            dayCount: day,
+            date: date,
+            hour: 23,
+          );
+          expect(afternoon.tempC, greaterThan(morning.tempC));
+          expect(night.tempC, lessThan(afternoon.tempC));
+          // Band honesty: the afternoon peak sits within (or a couple of
+          // degrees above) the band; the night trough a few below.
+          expect(afternoon.tempC - night.tempC, 8); // fixed diurnal spread
+        }
+      },
+    );
 
     test('°F conversion and formatting', () {
       expect(WeatherSegments.tempF(0), 32);
@@ -249,21 +251,20 @@ void main() {
             date: date,
             hour: hour,
           );
-          expect(WeatherSegments.prose(w), isNot(matches(digits)),
-              reason: 'no numbers in generation prompts');
+          expect(
+            WeatherSegments.prose(w),
+            isNot(matches(digits)),
+            reason: 'no numbers in generation prompts',
+          );
           if (prev != null) {
-            expect(
-              WeatherSegments.transition(prev, w),
-              isNot(matches(digits)),
-            );
+            expect(WeatherSegments.transition(prev, w), isNot(matches(digits)));
           }
           prev = w;
         }
       }
     });
 
-    test('prose ends with condition line and starts with the dressing cue',
-        () {
+    test('prose ends with condition line and starts with the dressing cue', () {
       final w = WeatherSegments.segmentWeatherFor(
         sessionSeed: 'cue',
         dayCount: 2,
@@ -275,62 +276,67 @@ void main() {
       expect(p, contains(WeatherSegments.dressCue(w.day.temp)));
     });
 
-    test('injection composes prose + within-day shift + foreshadow, no digits',
-        () {
-      const day = DailyWeather(
-        condition: WeatherCondition.rain,
-        temp: TempBand.cool,
-        season: 'autumn',
-      );
-      const prev = SegmentWeather(
-        day: day,
-        segment: DaySegment.morning,
-        condition: WeatherCondition.overcast,
-        tempC: 6,
-      );
-      const now = SegmentWeather(
-        day: day,
-        segment: DaySegment.afternoon,
-        condition: WeatherCondition.rain,
-        tempC: 11,
-      );
-      final line = WeatherInjection(
-        getWeather: () => now,
-        getPreviousSegment: () => prev,
-        getUpcoming: () => const DailyWeather(
-          condition: WeatherCondition.storm,
+    test(
+      'injection composes prose + within-day shift + foreshadow, no digits',
+      () {
+        const day = DailyWeather(
+          condition: WeatherCondition.rain,
           temp: TempBand.cool,
           season: 'autumn',
-        ),
-      ).buildWeatherInjection();
-      expect(line, contains('Outside it is jacket weather.'));
-      expect(line, contains('rain moved in')); // within-day shift spoken
-      expect(line, contains('storm')); // tomorrow foreshadowed
-      expect(line, isNot(matches(RegExp(r'\d'))),
-          reason: 'temperature numbers are UI-only, never in prompts');
+        );
+        const prev = SegmentWeather(
+          day: day,
+          segment: DaySegment.morning,
+          condition: WeatherCondition.overcast,
+          tempC: 6,
+        );
+        const now = SegmentWeather(
+          day: day,
+          segment: DaySegment.afternoon,
+          condition: WeatherCondition.rain,
+          tempC: 11,
+        );
+        final line = WeatherInjection(
+          getWeather: () => now,
+          getPreviousSegment: () => prev,
+          getUpcoming: () => const DailyWeather(
+            condition: WeatherCondition.storm,
+            temp: TempBand.cool,
+            season: 'autumn',
+          ),
+        ).buildWeatherInjection();
+        expect(line, contains('Outside it is jacket weather.'));
+        expect(line, contains('rain moved in')); // within-day shift spoken
+        expect(line, contains('storm')); // tomorrow foreshadowed
+        expect(
+          line,
+          isNot(matches(RegExp(r'\d'))),
+          reason: 'temperature numbers are UI-only, never in prompts',
+        );
 
-      // Weather off → '' (composer drops the fragment, block shape stable).
-      expect(
-        WeatherInjection(
-          getWeather: () => null,
-          getPreviousSegment: () => null,
-          getUpcoming: () => null,
-        ).buildWeatherInjection(),
-        isEmpty,
-      );
-    });
+        // Weather off → '' (composer drops the fragment, block shape stable).
+        expect(
+          WeatherInjection(
+            getWeather: () => null,
+            getPreviousSegment: () => null,
+            getUpcoming: () => null,
+          ).buildWeatherInjection(),
+          isEmpty,
+        );
+      },
+    );
 
     test('transition is silent on no change, speaks on real change', () {
       SegmentWeather seg(WeatherCondition c, DaySegment s) => SegmentWeather(
-            day: const DailyWeather(
-              condition: WeatherCondition.rain,
-              temp: TempBand.cool,
-              season: 'autumn',
-            ),
-            segment: s,
-            condition: c,
-            tempC: 8,
-          );
+        day: const DailyWeather(
+          condition: WeatherCondition.rain,
+          temp: TempBand.cool,
+          season: 'autumn',
+        ),
+        segment: s,
+        condition: c,
+        tempC: 8,
+      );
       expect(
         WeatherSegments.transition(
           seg(WeatherCondition.rain, DaySegment.morning),

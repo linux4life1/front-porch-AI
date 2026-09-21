@@ -26,8 +26,9 @@ const kDirectTheSceneHint = 'Direct the scene...';
 /// must never leave the normal "type a message" hint in place, and a
 /// recovered connection must never leave the error hint stale.
 ///
-/// [apiReady] is the *connection* flag (`LLMService.isReady`) — configured
-/// + process/model up. A one-off HTTP 500 on a live backend is not this.
+/// [apiReady] is the *connection* flag ([LLMProvider.composerConnectionReady])
+/// — configured / process up. Local GGUF-ready is not this (swaps would
+/// flash the input). A one-off HTTP 500 on a live backend is not this.
 String chatComposerHint({required bool apiReady, required bool observerMode}) {
   if (!apiReady) return kNoApiConnectionHint;
   if (observerMode) return kDirectTheSceneHint;

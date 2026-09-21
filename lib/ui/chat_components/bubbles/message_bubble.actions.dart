@@ -147,9 +147,12 @@ extension _BubbleActions on _MessageBubbleState {
               if (isRegenHostBelowGuests) ...[
                 Tooltip(
                   message:
-                      'Regenerate main character\n(removes the NPC’s reply)',
+                      'Regenerate main character (removes the NPC’s reply)',
                   child: InkWell(
-                    onTap: () => chatService.regenerateMainCharacter(),
+                    onTap: () => promptRegenCritiqueThen(
+                      context,
+                      (c) => chatService.regenerateMainCharacter(critique: c),
+                    ),
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
                       padding: const EdgeInsets.all(4),
@@ -174,7 +177,10 @@ extension _BubbleActions on _MessageBubbleState {
                 Tooltip(
                   message: 'Regenerate',
                   child: InkWell(
-                    onTap: () => chatService.regenerateLastMessage(),
+                    onTap: () => promptRegenCritiqueThen(
+                      context,
+                      (c) => chatService.regenerateLastMessage(critique: c),
+                    ),
                     borderRadius: BorderRadius.circular(12),
                     child: const Padding(
                       padding: EdgeInsets.all(4),

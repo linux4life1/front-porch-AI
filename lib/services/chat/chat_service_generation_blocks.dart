@@ -48,26 +48,30 @@ extension ChatServiceGenerationBlocks on ChatService {
       t.systemPrompt = defaultApiSystemPrompt;
     }
 
-    // Path B: When in a group, always attempt to layer the per-character group override
-    // (and card fallback) on top. A group prompt no longer completely hides per-char instructions.
-    if (_activeGroup != null) {
-      final groupCharPrompt = getSystemPromptForGroupCharacter(
-        t.speakingCharacter,
-      ).trim();
-      if (groupCharPrompt.isNotEmpty) {
-        t.systemPrompt +=
-            '\n\n[Group-specific instructions for ${t.speakingCharacter.name}]\n$groupCharPrompt';
-      } else if (t.speakingCharacter.systemPrompt.isNotEmpty) {
-        // Fallback to the character's own card prompt only if no group-specific override
-        t.systemPrompt +=
-            '\n\n[Specific instructions for ${t.speakingCharacter.name}]\n${t.speakingCharacter.systemPrompt.trim()}';
-      }
-    }
+    // Per-character group overlay used to append here and churn the system
+    // prefix every speaker. It now rides [t.speakerCardBlock] after history.
 
     // In call mode, inject voice-specific instructions for natural conversation
     if (_callMode && _storageService.sttSettings.callSystemPrompt.isNotEmpty) {
       t.systemPrompt +=
           '\n\n[Voice Call Mode] ${_storageService.sttSettings.callSystemPrompt}';
+    }
+
+    if ((_webSearchService.isActive || _wikiSearchService.isActive) &&
+        t.directUserSend &&
+        !t.autonomous &&
+        t.mode != GenerationMode.continue_) {
+      t.systemPrompt += '\n\n$kSearchCharacterLine';
+    }
+    t.userToolCards = loadUserToolCards(_storageService.toolsDir);
+    if (shouldAdvertiseUserTools(
+      hasCards: t.userToolCards.isNotEmpty,
+      directUserSend: t.directUserSend,
+      continueMode: t.mode == GenerationMode.continue_,
+      toolsUnsupported: _toolProbe.isXmlOnly(_evalBackendIdentity),
+      autonomousMode: t.autonomous,
+    )) {
+      t.systemPrompt += '\n\n$kUserToolCharacterLine';
     }
 
     // Lorebook injection: positioned buckets from the injector (group
@@ -94,18 +98,14 @@ extension ChatServiceGenerationBlocks on ChatService {
     t.loreExBottom = loreInjection.examplesBottom;
     t.loreDepth = loreInjection.depthEntries;
 
-    // Build persona block(s)
+    // Build persona block(s). Group: names-only roster in system (stable
+    // prefix). Speaker costume sits in speakerCardBlock after history.
     if (_activeGroup != null) {
-      t.personaBlock = _groupCharacters
-          .map((ch) {
-            final persona = _macroResolver.resolve(
-              _getEffectivePersonality(ch),
-              MacroContext(userName: t.userName, characterName: ch.name),
-              section: 'persona',
-            );
-            return "${ch.name}'s Persona: $persona";
-          })
-          .join('\n');
+      t.personaBlock = buildGroupRosterLine(
+        memberNames: [for (final ch in _groupCharacters) ch.name],
+        userName: t.userName,
+        observerMode: _observerMode,
+      );
     } else {
       t.personaBlock =
           "${t.speakingCharacter.name}'s Persona: ${_macroResolver.resolve(
@@ -138,7 +138,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     // mutated, so a /join'd full character keeps its real scenario for when it
     // is the host). This also self-heals legacy guests minted with the host's
     // scenario baked in (the "model thinks the guest IS the host" bug).
-    if (t.guestSpeaker != null) t.scenario = '';
+    if (_isLiteTurn(t)) t.scenario = '';
 
     t.suffix = "";
 
@@ -151,21 +151,10 @@ extension ChatServiceGenerationBlocks on ChatService {
       t.suffix = "";
     }
 
-    // Build example dialogues block
+    // Build example dialogues block. Group examples ride the speaker card.
     if (_activeGroup != null) {
-      final examples = _groupCharacters
-          .where((ch) => ch.mesExample.isNotEmpty)
-          .map(
-            (ch) => _macroResolver.resolve(
-              ch.mesExample,
-              MacroContext(userName: t.userName, characterName: ch.name),
-              section: 'mesExample',
-            ),
-          )
-          .toList();
-      if (examples.isNotEmpty) {
-        t.mesExampleBlock = '${examples.join('\n')}\n';
-      }
+      t.mesExampleBlock = '';
+      t.speakerCardBlock = _buildGroupSpeakerCard(t);
     } else if (t.speakingCharacter.mesExample.isNotEmpty) {
       t.mesExampleBlock = '${t.speakingCharacter.mesExample}\n';
     }
@@ -276,6 +265,15 @@ extension ChatServiceGenerationBlocks on ChatService {
       }
     }
 
+    if (_activeGroup != null &&
+        _awayPulse.consumingReturnSpeak &&
+        AwayPulse.shouldInjectReturnSpeakHint(
+          forcedByAtMention: _awayPulse.pendingReturnForcedByAt,
+        )) {
+      t.authorNoteBlock +=
+          '${AwayPulse.returnSpeakHint(t.speakingCharacter.name)}\n';
+    }
+
     // Build summary block if available. Role frame (spec §6): the recap is
     // the plot spine; the journal carries feelings; RAG carries exact lines.
     // The text lives in buildRecapBlock (prompt_injection/recap_injection.dart)
@@ -291,15 +289,22 @@ extension ChatServiceGenerationBlocks on ChatService {
     // taking the derivation with it.
     // Guests never journal; a stale host recap is a competing claim about
     // NOW. Reasoning + RAG already pull them onto old beats (Discord
-    // 2026-08-15); do not also hand them "Where we are".
-    t.summaryBlock = t.guestSpeaker != null
-        ? ''
-        : buildRecapBlock(recap: _summary);
+    // 2026-08-15); do not also hand them "Where we are". Journal off: the
+    // last pass's `_summary` still sits in the session — hide it, do not
+    // inject it. RAG compose below still runs.
+    t.summaryBlock = recapBlockForTurn(
+      recap: _summary,
+      journalEnabled: _storageService.memorySettings.journalEnabled,
+      // 1:1 Scene Guest (guestSpeaker) OR a soft group member. Same as
+      // `_isLiteTurn` — written out so the journal-off recap pin still
+      // sees guestSpeaker, and a host/full turn still gets the recap.
+      isGuest: t.guestSpeaker != null || t.speakingCharacter.isLite,
+    );
 
     // Cued query for journal cold-resurface AND RAG (not last-3 live lines
     // alone). Guests skip both. Compose even when the Journal toggle is off
     // so RAG still searches by feeling / fixation / last words.
-    if (t.guestSpeaker == null && _currentSessionId != null) {
+    if (!_isLiteTurn(t) && _currentSessionId != null) {
       final speakerId = _getCharacterIdFromCard(t.speakingCharacter);
       final cards = speakerId.isEmpty
           ? const <JournalMemoryData>[]
@@ -326,7 +331,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     // expanded verbatim this turn — RAG retrieval below excludes them so
     // the exact lines never ride the prompt twice.
     if (_storageService.memorySettings.journalEnabled &&
-        t.guestSpeaker == null &&
+        !_isLiteTurn(t) &&
         _currentSessionId != null) {
       await _ensureBirthdayState();
       final journal = await _journalInjection.buildJournalBlock(
@@ -346,5 +351,60 @@ extension ChatServiceGenerationBlocks on ChatService {
         t.journalCoverLines = journal.injectedContents;
       }
     }
+  }
+
+  /// Slap + speaker-only persona/examples + the per-char overlay that used
+  /// to append onto the system head (and bust the prefix every turn).
+  String _buildGroupSpeakerCard(_GenTurn t) {
+    final speaker = t.speakingCharacter;
+    final others = [
+      for (final ch in _groupCharacters)
+        if (ch.name != speaker.name) ch.name,
+    ];
+    final slap = speaker.isLite
+        ? buildLiteGroupTurnNote(
+            speakerName: speaker.name,
+            otherMemberNames: others,
+            userName: t.userName,
+            observerMode: _observerMode,
+          )
+        : buildSpeakerTurnNote(
+            speakerName: speaker.name,
+            otherMemberNames: others,
+            userName: t.userName,
+            observerMode: _observerMode,
+          );
+    final persona = buildSpeakerPersonaLine(
+      name: speaker.name,
+      personality: _macroResolver.resolve(
+        _getEffectivePersonality(speaker),
+        MacroContext(userName: t.userName, characterName: speaker.name),
+        section: 'persona',
+      ),
+    );
+    var example = '';
+    if (speaker.mesExample.isNotEmpty) {
+      example = _macroResolver.resolve(
+        speaker.mesExample,
+        MacroContext(userName: t.userName, characterName: speaker.name),
+        section: 'mesExample',
+      );
+      if (!example.endsWith('\n')) example = '$example\n';
+    }
+    final groupCharPrompt = getSystemPromptForGroupCharacter(speaker).trim();
+    var overlay = '';
+    if (groupCharPrompt.isNotEmpty) {
+      overlay =
+          '[Group-specific instructions for ${speaker.name}]\n$groupCharPrompt';
+    } else if (speaker.systemPrompt.isNotEmpty) {
+      overlay =
+          '[Specific instructions for ${speaker.name}]\n${speaker.systemPrompt.trim()}';
+    }
+    final buf = StringBuffer()
+      ..write(slap)
+      ..writeln(persona)
+      ..write(example);
+    if (overlay.isNotEmpty) buf.writeln(overlay);
+    return buf.toString();
   }
 }

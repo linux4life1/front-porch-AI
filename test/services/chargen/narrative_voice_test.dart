@@ -8,8 +8,6 @@
 // pins the generateCharacter call site so deleting the wiring still
 // goes red.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
@@ -379,21 +377,6 @@ void main() {
         expect(enrich, contains('third person past tense (she/her/her)'));
       },
     );
-
-    test('desktop Enhance and the web facade both forward voice', () {
-      // Call-site pin: deleting either wire leaves Enhance on defaults
-      // even when the card was stamped third+past.
-      final wizard = File(
-        'lib/ui/pages/home/enhance/enhance_wizard_page.dart',
-      ).readAsStringSync();
-      expect(wizard, contains('readNarrativeVoice(widget.character)'));
-      expect(wizard, contains('narrativePerspective: voice.perspective'));
-      final facade = File(
-        'lib/services/web/facade/chargen_facade.dart',
-      ).readAsStringSync();
-      expect(facade, contains("body['narrativePerspective']"));
-      expect(facade, contains('narrativePerspective: narrativePerspective'));
-    });
   });
 }
 

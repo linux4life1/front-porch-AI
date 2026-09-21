@@ -26,12 +26,11 @@ import '../../golden/support/fakes_services.dart';
 import '../../golden/support/fakes_storage.dart';
 
 class _VoiceStorage extends FakeStorageService {
-  _VoiceStorage(this._voice);
+  _VoiceStorage(this._voice) {
+    ttsSettings.setTtsVoiceModel(_voice);
+    ttsSettings.setTtsEngine('kokoro');
+  }
   final String _voice;
-  @override
-  String get ttsVoiceModel => _voice;
-  @override
-  String get ttsEngine => 'kokoro';
 }
 
 void main() {
@@ -62,12 +61,7 @@ void main() {
 
   testWidgets('with no assigned voice, the global option names the global '
       'voice', (tester) async {
-    await pump(
-      tester,
-      globalVoice: 'am_adam',
-      value: '',
-      onChanged: (_) {},
-    );
+    await pump(tester, globalVoice: 'am_adam', value: '', onChanged: (_) {});
     expect(find.textContaining('Use the global voice'), findsOneWidget);
     expect(find.textContaining('Adam'), findsOneWidget);
   });
@@ -123,8 +117,10 @@ void main() {
   });
 
   test('labelFor falls back to a readable form for an unknown id', () {
-    expect(CharacterVoicePicker.labelFor('am_adam', const []),
-        'Adam (am_adam)');
+    expect(
+      CharacterVoicePicker.labelFor('am_adam', const []),
+      'Adam (am_adam)',
+    );
     expect(CharacterVoicePicker.labelFor('plainid', const []), 'plainid');
   });
 }

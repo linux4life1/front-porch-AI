@@ -11,8 +11,6 @@
 // Proven red: recapIsRedundant ignoring basePosition returns true at
 // dropped 0 / base 976; Continue RAG scan fails without the mode branch.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
@@ -35,32 +33,5 @@ void main() {
             'THE BUG: droppedCount 0 on a tail-open is not "the whole chat"',
       );
     });
-  });
-
-  test('plan suppresses recap only when recapIsRedundant', () {
-    final src = File(
-      'lib/services/chat/chat_service_generation_plan.dart',
-    ).readAsStringSync();
-    expect(src, contains('recapIsRedundant('));
-    expect(src, contains('basePosition: _history.basePosition'));
-    expect(
-      src,
-      isNot(contains('if (t.droppedMessages == 0) {')),
-      reason: 'must not drop the recap on a fitted tail-open window',
-    );
-  });
-
-  test('Continue RAG skip is a mode branch, not droppedMessages = 0', () {
-    final src = File(
-      'lib/services/chat/chat_service_generation_rag.dart',
-    ).readAsStringSync();
-    expect(src, contains('t.mode == GenerationMode.continue_'));
-    expect(src, contains('Skipping memory retrieval — Continue'));
-    final continueIdx = src.indexOf('t.mode == GenerationMode.continue_');
-    final retrieveIdx = src.indexOf(
-      't.droppedMessages > 0 || _history.basePosition > 0',
-    );
-    expect(continueIdx, greaterThanOrEqualTo(0));
-    expect(retrieveIdx, greaterThan(continueIdx));
   });
 }

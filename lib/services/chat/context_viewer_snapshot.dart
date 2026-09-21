@@ -37,12 +37,12 @@ class ContextViewerSnapshot {
   bool get isEmpty => budget.isEmpty;
 
   Map<String, dynamic> toJson() => {
-        'budget': budget,
-        'sections': sections,
-        'source': source.name,
-        if (assembledAt != null) 'assembledAt': assembledAt!.toIso8601String(),
-        if (contextLimit != null) 'contextLimit': contextLimit,
-      };
+    'budget': budget,
+    'sections': sections,
+    'source': source.name,
+    if (assembledAt != null) 'assembledAt': assembledAt!.toIso8601String(),
+    if (contextLimit != null) 'contextLimit': contextLimit,
+  };
 
   String toJsonString() => jsonEncode(toJson());
 
@@ -214,6 +214,8 @@ class ContextBudgetEstimateInput {
   final String userPersonaText;
   final String systemPrompt;
   final String identityBlock;
+  final String personaBlock;
+  final String speakerCard;
   final String scenario;
   final String examples;
   final String postHistory;
@@ -226,6 +228,8 @@ class ContextBudgetEstimateInput {
     this.userPersonaText = '',
     this.systemPrompt = '',
     this.identityBlock = '',
+    this.personaBlock = '',
+    this.speakerCard = '',
     this.scenario = '',
     this.examples = '',
     this.postHistory = '',
@@ -262,6 +266,12 @@ ContextViewerSnapshot buildContextBudgetEstimate(
   }
   if (input.identityBlock.trim().isNotEmpty) {
     add('System Prompt', input.identityBlock);
+  }
+  if (input.personaBlock.trim().isNotEmpty) {
+    add('Persona', input.personaBlock);
+  }
+  if (input.speakerCard.trim().isNotEmpty) {
+    add('Speaker Card', input.speakerCard);
   }
   if (input.scenario.trim().isNotEmpty) add('Scenario', input.scenario);
   if (input.examples.trim().isNotEmpty) add('Examples', input.examples);

@@ -33,9 +33,12 @@ export async function postChatSend(
   text: string,
   post: (path: string, body: unknown) => Promise<unknown> = (p, b) =>
     api.post(p, b),
+  imageBase64?: string,
 ): Promise<SendOutcome> {
   try {
-    await post('/api/chat/send', { text });
+    const body: { text: string; imageBase64?: string } = { text };
+    if (imageBase64) body.imageBase64 = imageBase64;
+    await post('/api/chat/send', body);
     return { ok: true };
   } catch (e) {
     return { ok: false, text, message: describeSendFailure(e) };

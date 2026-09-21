@@ -101,7 +101,9 @@ void main() {
       ChangeNotifierProvider<StorageService>.value(value: storage),
       ChangeNotifierProvider<UserPersonaService>.value(value: persona),
     ],
-    child: MaterialApp(home: Scaffold(body: Center(child: child))),
+    child: MaterialApp(
+      home: Scaffold(body: Center(child: child)),
+    ),
   );
 
   Widget wrapPanel(_JournalChat chat, Widget panel) =>
@@ -117,64 +119,68 @@ void main() {
   }
 
   group('JournalPanel', () {
-    testWidgets('shows count, freshest preview rows, and the pin marker',
-        (tester) async {
+    testWidgets('shows count, freshest preview rows, and the pin marker', (
+      tester,
+    ) async {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      await seedCard('oldest memory');
-      await seedCard('a pinned promise', category: 'promise');
-      await seedCard('newer memory', emotion: 'wistful');
-      await seedCard('newest memory', emotion: 'joyful');
-      final pinTarget = (await store.cardsFor('s1', 'mara'))
-          .firstWhere((c) => c.content == 'a pinned promise');
-      await store.setPinned(pinTarget.id, true);
+        await seedCard('oldest memory');
+        await seedCard('a pinned promise', category: 'promise');
+        await seedCard('newer memory', emotion: 'wistful');
+        await seedCard('newest memory', emotion: 'joyful');
+        final pinTarget = (await store.cardsFor(
+          's1',
+          'mara',
+        )).firstWhere((c) => c.content == 'a pinned promise');
+        await store.setPinned(pinTarget.id, true);
 
-      final chat = _JournalChat(store: store);
-      addTearDown(chat.dispose);
-      await tester.pumpWidget(
-        wrapPanel(
-          chat,
-          JournalPanel(
-            chatService: chat,
-            characterId: 'mara',
-            characterName: 'Mara',
+        final chat = _JournalChat(store: store);
+        addTearDown(chat.dispose);
+        await tester.pumpWidget(
+          wrapPanel(
+            chat,
+            JournalPanel(
+              chatService: chat,
+              characterId: 'mara',
+              characterName: 'Mara',
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('The Journal'), findsOneWidget);
-      expect(find.text('4'), findsOneWidget); // count badge
-      // Preview = pinned first, then the freshest unpinned (3 rows total).
-      expect(find.text('a pinned promise'), findsOneWidget);
-      expect(find.text('newest memory'), findsOneWidget);
-      expect(find.text('newer memory'), findsOneWidget);
-      expect(find.text('oldest memory'), findsNothing);
-      expect(find.byIcon(Icons.push_pin), findsOneWidget);
+        expect(find.text('The Journal'), findsOneWidget);
+        expect(find.text('4'), findsOneWidget); // count badge
+        // Preview = pinned first, then the freshest unpinned (3 rows total).
+        expect(find.text('a pinned promise'), findsOneWidget);
+        expect(find.text('newest memory'), findsOneWidget);
+        expect(find.text('newer memory'), findsOneWidget);
+        expect(find.text('oldest memory'), findsNothing);
+        expect(find.byIcon(Icons.push_pin), findsOneWidget);
       });
     });
 
-    testWidgets('hidden entirely while the Journal is disabled',
-        (tester) async {
+    testWidgets('hidden entirely while the Journal is disabled', (
+      tester,
+    ) async {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      await storage.setJournalEnabled(false);
-      final chat = _JournalChat(store: store);
-      addTearDown(chat.dispose);
-      await tester.pumpWidget(
-        wrapPanel(
-          chat,
-          JournalPanel(
-            chatService: chat,
-            characterId: 'mara',
-            characterName: 'Mara',
+        await storage.memorySettings.setJournalEnabled(false);
+        final chat = _JournalChat(store: store);
+        addTearDown(chat.dispose);
+        await tester.pumpWidget(
+          wrapPanel(
+            chat,
+            JournalPanel(
+              chatService: chat,
+              characterId: 'mara',
+              characterName: 'Mara',
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('The Journal'), findsNothing);
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('The Journal'), findsNothing);
       });
     });
 
@@ -182,184 +188,205 @@ void main() {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      final chat = _JournalChat(store: store);
-      addTearDown(chat.dispose);
-      await tester.pumpWidget(
-        wrapPanel(
-          chat,
-          JournalPanel(
-            chatService: chat,
-            characterId: 'mara',
-            characterName: 'Mara',
+        final chat = _JournalChat(store: store);
+        addTearDown(chat.dispose);
+        await tester.pumpWidget(
+          wrapPanel(
+            chat,
+            JournalPanel(
+              chatService: chat,
+              characterId: 'mara',
+              characterName: 'Mara',
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Plant a memory'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+        await tester.tap(find.text('Plant a memory'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
 
-      await tester.enterText(
-        find.byType(TextField).first,
-        'He fixed the porch light without being asked.',
-      );
-      await tester.pump();
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        await tester.enterText(
+          find.byType(TextField).first,
+          'He fixed the porch light without being asked.',
+        );
+        await tester.pump();
+        await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      final cards = await store.cardsFor('s1', 'mara');
-      expect(cards.single.content, 'He fixed the porch light without being asked.');
-      expect(cards.single.category, 'moment');
-      // The panel refreshed itself with the planted memory.
-      await tester.pump();
-      expect(
-        find.text('He fixed the porch light without being asked.'),
-        findsOneWidget,
-      );
+        final cards = await store.cardsFor('s1', 'mara');
+        expect(
+          cards.single.content,
+          'He fixed the porch light without being asked.',
+        );
+        expect(cards.single.category, 'moment');
+        // The panel refreshed itself with the planted memory.
+        await tester.pump();
+        expect(
+          find.text('He fixed the porch light without being asked.'),
+          findsOneWidget,
+        );
       });
     });
-    testWidgets('pending review shows the banner and applying commits',
-        (tester) async {
+    testWidgets('pending review shows the banner and applying commits', (
+      tester,
+    ) async {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      final chat = _JournalChat(store: store);
-      addTearDown(chat.dispose);
-      chat.journalReview.park(
-        JournalReviewBatch(
-          sessionId: 's1',
-          cursorTarget: 0,
-          owners: [
-            JournalOwnerProposals(
-              ownerId: 'mara',
-              ownerName: 'Mara',
-              ops: [
-                JournalProposedOp(
-                  action: JournalOpAction.add,
-                  text: 'A proposed memory.',
-                ),
-              ],
-            ),
-          ],
-          recap: 'A proposed recap.',
-        ),
-      );
-      sizeForDialog(tester);
-      await tester.pumpWidget(
-        wrapPanel(
-          chat,
-          JournalPanel(
-            chatService: chat,
-            characterId: 'mara',
-            characterName: 'Mara',
+        final chat = _JournalChat(store: store);
+        addTearDown(chat.dispose);
+        chat.journalReview.park(
+          JournalReviewBatch(
+            sessionId: 's1',
+            cursorTarget: 0,
+            owners: [
+              JournalOwnerProposals(
+                ownerId: 'mara',
+                ownerName: 'Mara',
+                ops: [
+                  JournalProposedOp(
+                    action: JournalOpAction.add,
+                    text: 'A proposed memory.',
+                  ),
+                ],
+              ),
+            ],
+            recap: 'A proposed recap.',
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        sizeForDialog(tester);
+        await tester.pumpWidget(
+          wrapPanel(
+            chat,
+            JournalPanel(
+              chatService: chat,
+              characterId: 'mara',
+              characterName: 'Mara',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(
-        find.text('2 proposed update(s) — tap to review'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('2 proposed update(s) — tap to review'));
-      await tester.pumpAndSettle();
+        expect(
+          find.text('2 proposed update(s) — tap to review'),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('2 proposed update(s) — tap to review'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Proposed journal updates'), findsOneWidget);
-      expect(find.text('A proposed memory.'), findsOneWidget);
-      expect(find.text('A proposed recap.'), findsOneWidget);
-      await tester.tap(find.text('Apply selected'));
-      await tester.pumpAndSettle();
+        expect(find.text('Proposed journal updates'), findsOneWidget);
+        expect(find.text('A proposed memory.'), findsOneWidget);
+        expect(find.text('A proposed recap.'), findsOneWidget);
+        await tester.tap(find.text('Apply selected'));
+        await tester.pumpAndSettle();
 
-      expect(
-        (await store.cardsFor('s1', 'mara')).single.content,
-        'A proposed memory.',
-      );
-      expect(chat.journalReview.pending, isNull);
-      // The banner is gone and the applied card shows in the preview.
-      expect(find.textContaining('tap to review'), findsNothing);
-      expect(find.text('A proposed memory.'), findsOneWidget);
+        expect(
+          (await store.cardsFor('s1', 'mara')).single.content,
+          'A proposed memory.',
+        );
+        expect(chat.journalReview.pending, isNull);
+        // The banner is gone and the applied card shows in the preview.
+        expect(find.textContaining('tap to review'), findsNothing);
+        expect(find.text('A proposed memory.'), findsOneWidget);
       });
     });
   });
 
   group('JournalDialog', () {
-    testWidgets('groups by category with feeling lines and the healed arc',
-        (tester) async {
+    testWidgets('groups by category with feeling lines and the healed arc', (
+      tester,
+    ) async {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      await seedCard(
-        'Sam works nights at the hospital.',
-        category: 'about_user',
-        emotion: 'wistful',
-        intensity: 'strong',
-      );
-      await seedCard('We watched the storm together.', category: 'about_us');
-      final healed = (await store.cardsFor('s1', 'mara')).firstWhere(
-        (c) => c.content == 'Sam works nights at the hospital.',
-      );
-      await store.reviseCard(healed, feeling: 'proud');
+        await seedCard(
+          'Sam works nights at the hospital.',
+          category: 'about_user',
+          emotion: 'wistful',
+          intensity: 'strong',
+        );
+        await seedCard('We watched the storm together.', category: 'about_us');
+        final healed = (await store.cardsFor(
+          's1',
+          'mara',
+        )).firstWhere((c) => c.content == 'Sam works nights at the hospital.');
+        await store.reviseCard(healed, feeling: 'proud');
 
-      final chat = _JournalChat(store: store);
-      addTearDown(chat.dispose);
-      sizeForDialog(tester);
-      await tester.pumpWidget(
-        wrap(
-          chat,
-          JournalDialog(chatService: chat, ownerId: 'mara', ownerName: 'Mara'),
-        ),
-      );
-      await tester.pumpAndSettle();
+        final chat = _JournalChat(store: store);
+        addTearDown(chat.dispose);
+        sizeForDialog(tester);
+        await tester.pumpWidget(
+          wrap(
+            chat,
+            JournalDialog(
+              chatService: chat,
+              ownerId: 'mara',
+              ownerName: 'Mara',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text("Mara's Journal"), findsOneWidget);
-      expect(find.textContaining('2 memories from this chat'), findsOneWidget);
-      // Friendly section labels: the user section carries the persona's
-      // actual name; the raw category key never leaks into the UI.
-      expect(
-        find.text('About ${persona.persona.name}'.toUpperCase()),
-        findsOneWidget,
-      );
-      expect(find.text('ABOUT_USER'), findsNothing);
-      expect(find.text('ABOUT US'), findsOneWidget);
-      expect(find.text('once felt wistful — now feels proud'), findsOneWidget);
+        expect(find.text("Mara's Journal"), findsOneWidget);
+        expect(
+          find.textContaining('2 memories from this chat'),
+          findsOneWidget,
+        );
+        // Friendly section labels: the user section carries the persona's
+        // actual name; the raw category key never leaks into the UI.
+        expect(
+          find.text('About ${persona.persona.name}'.toUpperCase()),
+          findsOneWidget,
+        );
+        expect(find.text('ABOUT_USER'), findsNothing);
+        expect(find.text('ABOUT US'), findsOneWidget);
+        expect(
+          find.text('once felt wistful — now feels proud'),
+          findsOneWidget,
+        );
       });
     });
 
-    testWidgets('pin persists and retire (with confirm) deletes',
-        (tester) async {
+    testWidgets('pin persists and retire (with confirm) deletes', (
+      tester,
+    ) async {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      await seedCard('a memory to manage');
-      final chat = _JournalChat(store: store);
-      addTearDown(chat.dispose);
-      sizeForDialog(tester);
-      await tester.pumpWidget(
-        wrap(
-          chat,
-          JournalDialog(chatService: chat, ownerId: 'mara', ownerName: 'Mara'),
-        ),
-      );
-      await tester.pumpAndSettle();
+        await seedCard('a memory to manage');
+        final chat = _JournalChat(store: store);
+        addTearDown(chat.dispose);
+        sizeForDialog(tester);
+        await tester.pumpWidget(
+          wrap(
+            chat,
+            JournalDialog(
+              chatService: chat,
+              ownerId: 'mara',
+              ownerName: 'Mara',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.push_pin_outlined));
-      await tester.pumpAndSettle();
-      expect((await store.cardsFor('s1', 'mara')).single.pinned, isTrue);
-      expect(find.byIcon(Icons.push_pin), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.push_pin_outlined));
+        await tester.pumpAndSettle();
+        expect((await store.cardsFor('s1', 'mara')).single.pinned, isTrue);
+        expect(find.byIcon(Icons.push_pin), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Retire'));
-      await tester.pumpAndSettle();
-      // Confirm dialog — the memory text is quoted, Retire commits.
-      expect(find.text('Retire this memory?'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Retire'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_vert));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Retire'));
+        await tester.pumpAndSettle();
+        // Confirm dialog — the memory text is quoted, Retire commits.
+        expect(find.text('Retire this memory?'), findsOneWidget);
+        await tester.tap(find.widgetWithText(FilledButton, 'Retire'));
+        await tester.pumpAndSettle();
 
-      expect(await store.cardsFor('s1', 'mara'), isEmpty);
-      expect(find.text('a memory to manage'), findsNothing);
+        expect(await store.cardsFor('s1', 'mara'), isEmpty);
+        expect(find.text('a memory to manage'), findsNothing);
       });
     });
 
@@ -367,89 +394,119 @@ void main() {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      await seedCard('He apologized first.', positions: [0, 1]);
-      final chat = _JournalChat(
-        store: store,
-        messages: [
-          ChatMessage(text: 'I was wrong earlier.', sender: 'Sam', isUser: true),
-          ChatMessage(text: 'That means a lot.', sender: 'Mara', isUser: false),
-        ],
-      );
-      addTearDown(chat.dispose);
-      sizeForDialog(tester);
-      await tester.pumpWidget(
-        wrap(
-          chat,
-          JournalDialog(chatService: chat, ownerId: 'mara', ownerName: 'Mara'),
-        ),
-      );
-      await tester.pumpAndSettle();
+        await seedCard('He apologized first.', positions: [0, 1]);
+        final chat = _JournalChat(
+          store: store,
+          messages: [
+            ChatMessage(
+              text: 'I was wrong earlier.',
+              sender: 'Sam',
+              isUser: true,
+            ),
+            ChatMessage(
+              text: 'That means a lot.',
+              sender: 'Mara',
+              isUser: false,
+            ),
+          ],
+        );
+        addTearDown(chat.dispose);
+        sizeForDialog(tester);
+        await tester.pumpWidget(
+          wrap(
+            chat,
+            JournalDialog(
+              chatService: chat,
+              ownerId: 'mara',
+              ownerName: 'Mara',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Where this came from'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_vert));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Where this came from'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Where this memory came from'), findsOneWidget);
-      expect(find.textContaining('#0  Sam: I was wrong earlier.'), findsOneWidget);
-      expect(find.textContaining('#1  Mara: That means a lot.'), findsOneWidget);
-      // No jump callback wired here → no tap affordance offered.
-      expect(find.text('Tap a line to go to it in the chat.'), findsNothing);
+        expect(find.text('Where this memory came from'), findsOneWidget);
+        expect(
+          find.textContaining('#0  Sam: I was wrong earlier.'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('#1  Mara: That means a lot.'),
+          findsOneWidget,
+        );
+        // No jump callback wired here → no tap affordance offered.
+        expect(find.text('Tap a line to go to it in the chat.'), findsNothing);
       });
     });
 
-    testWidgets('tapping a receipt line closes the journal and jumps',
-        (tester) async {
+    testWidgets('tapping a receipt line closes the journal and jumps', (
+      tester,
+    ) async {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      await seedCard('He apologized first.', positions: [1]);
-      final chat = _JournalChat(
-        store: store,
-        messages: [
-          ChatMessage(text: 'I was wrong earlier.', sender: 'Sam', isUser: true),
-          ChatMessage(text: 'That means a lot.', sender: 'Mara', isUser: false),
-        ],
-      );
-      addTearDown(chat.dispose);
-      sizeForDialog(tester);
-      final jumps = <int>[];
-      // Push the journal as a real dialog route so its self-pop on jump is
-      // exercised (pumping it as `home` would pop the only route).
-      await tester.pumpWidget(
-        wrap(
-          chat,
-          Builder(
-            builder: (ctx) => TextButton(
-              onPressed: () => JournalDialog.show(
-                ctx,
-                chatService: chat,
-                ownerId: 'mara',
-                ownerName: 'Mara',
-                onJumpToMessage: jumps.add,
+        await seedCard('He apologized first.', positions: [1]);
+        final chat = _JournalChat(
+          store: store,
+          messages: [
+            ChatMessage(
+              text: 'I was wrong earlier.',
+              sender: 'Sam',
+              isUser: true,
+            ),
+            ChatMessage(
+              text: 'That means a lot.',
+              sender: 'Mara',
+              isUser: false,
+            ),
+          ],
+        );
+        addTearDown(chat.dispose);
+        sizeForDialog(tester);
+        final jumps = <int>[];
+        // Push the journal as a real dialog route so its self-pop on jump is
+        // exercised (pumping it as `home` would pop the only route).
+        await tester.pumpWidget(
+          wrap(
+            chat,
+            Builder(
+              builder: (ctx) => TextButton(
+                onPressed: () => JournalDialog.show(
+                  ctx,
+                  chatService: chat,
+                  ownerId: 'mara',
+                  ownerName: 'Mara',
+                  onJumpToMessage: jumps.add,
+                ),
+                child: const Text('open journal'),
               ),
-              child: const Text('open journal'),
             ),
           ),
-        ),
-      );
-      await tester.tap(find.text('open journal'));
-      await tester.pumpAndSettle();
+        );
+        await tester.tap(find.text('open journal'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Where this came from'));
-      await tester.pumpAndSettle();
-      expect(find.text('Tap a line to go to it in the chat.'), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.more_vert));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Where this came from'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Tap a line to go to it in the chat.'),
+          findsOneWidget,
+        );
 
-      await tester.tap(find.textContaining('#1  Mara: That means a lot.'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('#1  Mara: That means a lot.'));
+        await tester.pumpAndSettle();
 
-      expect(jumps, [1]);
-      // Both the receipts and the journal itself closed — the chat behind
-      // them is what the jump scrolls.
-      expect(find.text("Mara's Journal"), findsNothing);
-      expect(find.text('Where this memory came from'), findsNothing);
+        expect(jumps, [1]);
+        // Both the receipts and the journal itself closed — the chat behind
+        // them is what the jump scrolls.
+        expect(find.text("Mara's Journal"), findsNothing);
+        expect(find.text('Where this memory came from'), findsNothing);
       });
     });
 
@@ -457,25 +514,29 @@ void main() {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      await seedCard('an old faded memory');
-      final card = (await store.cardsFor('s1', 'mara')).single;
-      await db.updateJournalCard(
-        card.id,
-        const JournalMemoriesCompanion(heat: drift.Value(0.1)),
-      );
+        await seedCard('an old faded memory');
+        final card = (await store.cardsFor('s1', 'mara')).single;
+        await db.updateJournalCard(
+          card.id,
+          const JournalMemoriesCompanion(heat: drift.Value(0.1)),
+        );
 
-      final chat = _JournalChat(store: store);
-      addTearDown(chat.dispose);
-      sizeForDialog(tester);
-      await tester.pumpWidget(
-        wrap(
-          chat,
-          JournalDialog(chatService: chat, ownerId: 'mara', ownerName: 'Mara'),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('faded'), findsOneWidget);
-      expect(find.byIcon(Icons.ac_unit), findsOneWidget);
+        final chat = _JournalChat(store: store);
+        addTearDown(chat.dispose);
+        sizeForDialog(tester);
+        await tester.pumpWidget(
+          wrap(
+            chat,
+            JournalDialog(
+              chatService: chat,
+              ownerId: 'mara',
+              ownerName: 'Mara',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('faded'), findsOneWidget);
+        expect(find.byIcon(Icons.ac_unit), findsOneWidget);
       });
     });
   });
@@ -485,26 +546,27 @@ void main() {
       // Real-async escape: drift parks on real timers the fake-async
       // zone never fires; runAsync runs the real event loop instead.
       await tester.runAsync(() async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: JournalCardEditorDialog(
-              title: 'Plant a memory',
-              userName: 'Sam',
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: JournalCardEditorDialog(
+                title: 'Plant a memory',
+                userName: 'Sam',
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
 
-      FilledButton save() =>
-          tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save'));
-      expect(save().onPressed, isNull);
+        FilledButton save() => tester.widget<FilledButton>(
+          find.widgetWithText(FilledButton, 'Save'),
+        );
+        expect(save().onPressed, isNull);
 
-      await tester.enterText(find.byType(TextField).first, 'A real memory.');
-      await tester.pump();
-      expect(save().onPressed, isNotNull);
+        await tester.enterText(find.byType(TextField).first, 'A real memory.');
+        await tester.pump();
+        expect(save().onPressed, isNotNull);
       });
     });
   });

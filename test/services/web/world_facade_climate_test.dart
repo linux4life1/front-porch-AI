@@ -255,25 +255,48 @@ void main() {
       final places = (result['places'] as List).cast<Map<String, dynamic>>();
       expect(places, hasLength(3));
 
+      // Seed partition: first climate-on (Karakura) → Primary; rest → Lore.
+      expect(result['primaryId'], onId);
+      expect(result['climateAuthors'], isTrue);
+
       final off = places.firstWhere((p) => p['id'] == offId);
       expect(off.containsKey('biomeId'), isFalse);
       expect(off['biomeId'], isNot('temperate'));
       expect(off['hasCustomClimate'], isFalse);
+      expect(off['role'], 'lore');
 
       final on = places.firstWhere((p) => p['id'] == onId);
       expect(on['biomeId'], 'temperate');
       expect(on['hasCustomClimate'], isFalse);
+      expect(on['role'], 'primary');
 
       final customOn = places.firstWhere((p) => p['id'] == customOnId);
       expect(customOn['biomeId'], 'custom');
       expect(customOn['hasCustomClimate'], isTrue);
+      expect(customOn['role'], 'lore');
 
       final optionIds = (result['climateOptions'] as List)
           .map((e) => (e as Map)['id'])
           .toList();
+      // Custom climates only from Primary — lore Hueco Mundo stays out.
       expect(optionIds, isNot(contains('world:$offId')));
-      expect(optionIds, contains('world:$customOnId'));
-      expect(optionIds, isNot(contains('world:$onId')));
+      expect(optionIds, isNot(contains('world:$customOnId')));
+      expect(optionIds, isNot(contains('world:$onId'))); // built-in temperate
+      expect(optionIds, contains('temperate'));
+
+      // Promote Hueco Mundo to Setting → its custom appears; Karakura demotes.
+      final promoted = await wired.setChatPlaces(
+        const [],
+        primaryId: customOnId,
+        loreIds: [onId, offId],
+      );
+      expect(promoted['ok'], isTrue);
+      expect(promoted['primaryId'], customOnId);
+      final promotedOptions = (promoted['climateOptions'] as List)
+          .map((e) => (e as Map)['id'])
+          .toList();
+      expect(promotedOptions, contains('world:$customOnId'));
+      expect(promotedOptions, isNot(contains('world:$onId')));
     },
   );
 }

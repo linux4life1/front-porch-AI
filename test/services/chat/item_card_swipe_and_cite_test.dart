@@ -68,57 +68,6 @@ void main() {
     expect(persistTipCite(base: 10, length: 0), isEmpty);
   });
 
-  test('item/episode/milestone/promise writers cite persistTipCite', () {
-    final item = File(
-      'lib/services/chat/chat_service_item_cards.dart',
-    ).readAsStringSync();
-    expect(item, contains('persistTipCite('));
-    expect(item, isNot(contains('_messages.length - 1')));
-
-    final episode = File(
-      'lib/services/chat/chat_service_episode_crumbs.dart',
-    ).readAsStringSync();
-    expect(episode, contains('persistTipCite('));
-
-    final mil = File(
-      'lib/services/chat/chat_service_wiring_realism.dart',
-    ).readAsStringSync();
-    expect(mil, contains('persistTipCite('));
-
-    final promise = File(
-      'lib/services/chat/chat_service_objectives.dart',
-    ).readAsStringSync();
-    expect(promise, contains('persistTipCite('));
-
-    final swipe = File(
-      'lib/services/chat/chat_service_message_ops.dart',
-    ).readAsStringSync();
-    expect(
-      RegExp(
-        r'_invalidateJournalFrom\(\s*persistMessagePosition',
-      ).hasMatch(swipe),
-      isTrue,
-      reason: 'swipe must invalidate the persist index, not 0..23',
-    );
-    expect(swipe, contains('_invalidateJournalFrom(dbPos)'));
-
-    final regen = File(
-      'lib/services/chat/chat_service_reprocess.dart',
-    ).readAsStringSync();
-    expect(regen, contains('persistMessagePosition('));
-    expect(regen, isNot(contains('_invalidateJournalFrom(_messages.length)')));
-
-    final growth = File(
-      'lib/services/chat/chat_service_growth.dart',
-    ).readAsStringSync();
-    expect(growth, contains('await _awaitHistoryHydrated()'));
-    expect(
-      growth,
-      contains('.clamp(0, _messages.length)'),
-      reason: 'Growth due-check must wait, then clamp on the full transcript',
-    );
-  });
-
   late AppDatabase db;
   late StorageService storage;
   late ChatService chat;

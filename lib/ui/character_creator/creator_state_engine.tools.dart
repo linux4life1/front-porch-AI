@@ -94,6 +94,8 @@ extension CreatorEngineTools on CreatorState {
           repeatPenalty: 1.1,
           minP: 0.05,
           reasoningEnabled: false,
+          reasoningMaxTokens: 0,
+          mandatoryReasoningHeadroom: true,
           stopSequences: ['<END>'],
         ),
       )) {
@@ -101,6 +103,10 @@ extension CreatorEngineTools on CreatorState {
       }
       return extractChargenValue(accumulated, 'expanded');
     } catch (e) {
+      if (e is SilentMandatoryReasoningStarveException) {
+        debugPrint('CharacterCreator: $e — failing expand (no more retries)');
+        return null;
+      }
       debugPrint('CharacterCreator: expand narrative failed: $e');
       return null;
     } finally {
@@ -137,6 +143,8 @@ extension CreatorEngineTools on CreatorState {
           repeatPenalty: 1.1,
           minP: 0.05,
           reasoningEnabled: false,
+          reasoningMaxTokens: 0,
+          mandatoryReasoningHeadroom: true,
           stopSequences: ['<END>'],
         ),
       )) {
@@ -145,6 +153,12 @@ extension CreatorEngineTools on CreatorState {
       final name = extractChargenValue(accumulated, 'name');
       if (name != null) nameController.text = name;
     } catch (e) {
+      if (e is SilentMandatoryReasoningStarveException) {
+        debugPrint(
+          'CharacterCreator: $e — failing name roll (no more retries)',
+        );
+        return;
+      }
       debugPrint('CharacterCreator: randomize name failed: $e');
     } finally {
       isRandomizing = false;
@@ -246,6 +260,8 @@ extension CreatorEngineTools on CreatorState {
           repeatPenalty: 1.1,
           minP: 0.05,
           reasoningEnabled: false,
+          reasoningMaxTokens: 0,
+          mandatoryReasoningHeadroom: true,
           stopSequences: ['<END>'],
         ),
       )) {
@@ -261,7 +277,13 @@ extension CreatorEngineTools on CreatorState {
         conceptGenerated = true;
       }
     } catch (e) {
-      debugPrint('CharacterCreator: randomize concept failed: $e');
+      if (e is SilentMandatoryReasoningStarveException) {
+        debugPrint(
+          'CharacterCreator: $e — failing concept roll (no more retries)',
+        );
+      } else {
+        debugPrint('CharacterCreator: randomize concept failed: $e');
+      }
     } finally {
       isRandomizing = false;
       notify();

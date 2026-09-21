@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'background_settings_dialog.dart';
 
@@ -31,7 +31,17 @@ part 'ui_settings_dialog.updates.dart';
 class UiSettingsDialog extends StatefulWidget {
   final CharacterCard? character;
 
-  const UiSettingsDialog({super.key, this.character});
+  /// When set with [onThemeOverrides], theme reads/writes stay on this
+  /// object (Waifu Coder). Chat keeps using [ChatService.sessionThemeOverrides].
+  final ChatThemeOverrides? themeOverrides;
+  final ValueChanged<ChatThemeOverrides>? onThemeOverrides;
+
+  const UiSettingsDialog({
+    super.key,
+    this.character,
+    this.themeOverrides,
+    this.onThemeOverrides,
+  });
 
   @override
   State<UiSettingsDialog> createState() => _UiSettingsDialogState();
@@ -53,6 +63,25 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
   /// State's protected members directly.
   void rebuildState(VoidCallback fn) => setState(fn);
 
+  ChatThemeOverrides? _boundTheme;
+
+  ChatThemeOverrides _themeOf(ChatService chat) {
+    if (widget.onThemeOverrides != null) {
+      return _boundTheme ?? widget.themeOverrides ?? ChatThemeOverrides();
+    }
+    return chat.sessionThemeOverrides;
+  }
+
+  void _commitTheme(ChatService chat, ChatThemeOverrides next) {
+    if (widget.onThemeOverrides != null) {
+      _boundTheme = next;
+      widget.onThemeOverrides!(next);
+      rebuildState(() {});
+      return;
+    }
+    chat.sessionThemeOverrides = next;
+  }
+
   @override
   void dispose() {
     _characterNotifier.dispose();
@@ -64,7 +93,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
   Widget build(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
     final chatService = Provider.of<ChatService>(context);
-    final overrides = chatService.sessionThemeOverrides;
+    final overrides = _themeOf(chatService);
     final activePreset = ChatThemePreset.byId(overrides.themeId);
     final hasTheme = activePreset != null;
 
@@ -147,20 +176,23 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
               const SizedBox(height: 12),
               _buildSlider(
                 'Bubble Opacity',
-                storageService.bubbleOpacity,
+                storageService.uiSettings.bubbleOpacity,
                 0.1,
                 1.0,
-                (val) => storageService.setBubbleOpacity(val),
+                (val) => storageService.uiSettings.setBubbleOpacity(val),
                 divisions: 18,
               ),
               const SizedBox(height: 4),
               _buildSlider(
-                'Chat Text Size',
-                storageService.textScale,
-                0.5,
-                2.0,
-                (val) => storageService.setTextScale(val),
-                divisions: 30,
+                'Reading Size',
+                storageService.uiSettings.textScale.clamp(
+                  kReadingScaleMin,
+                  kReadingScaleMax,
+                ),
+                kReadingScaleMin,
+                kReadingScaleMax,
+                (val) => storageService.uiSettings.setTextScale(val),
+                divisions: 13,
               ),
               if (_characterNotifier.value != null) ...[
                 const SizedBox(height: 8),
@@ -185,7 +217,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedUserBubbleColor(activePreset)
                       : null,
-                  globalColor: storageService.globalUserBubbleColor,
+                  globalColor: storageService.uiSettings.globalUserBubbleColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -201,7 +233,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedUserTextColor(activePreset)
                       : null,
-                  globalColor: storageService.globalUserTextColor,
+                  globalColor: storageService.uiSettings.globalUserTextColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -217,7 +249,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedAiBubbleColor(activePreset)
                       : null,
-                  globalColor: storageService.globalAiBubbleColor,
+                  globalColor: storageService.uiSettings.globalAiBubbleColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -233,7 +265,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedAiTextColor(activePreset)
                       : null,
-                  globalColor: storageService.globalAiTextColor,
+                  globalColor: storageService.uiSettings.globalAiTextColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -249,7 +281,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedDialogueColor(activePreset)
                       : null,
-                  globalColor: storageService.globalDialogueColor,
+                  globalColor: storageService.uiSettings.globalDialogueColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -265,7 +297,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   themeColor: hasTheme
                       ? overrides.resolvedActionColor(activePreset)
                       : null,
-                  globalColor: storageService.globalActionColor,
+                  globalColor: storageService.uiSettings.globalActionColor,
                   charColor: _characterNotifier
                       .value
                       ?.frontPorchExtensions
@@ -319,7 +351,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
     required Color globalColor,
     required Color? charColor,
   }) {
-    final overrides = chatService.sessionThemeOverrides;
+    final overrides = _themeOf(chatService);
     if (overrides.hasTheme && themeColor != null) return themeColor;
     return charColor ?? globalColor;
   }

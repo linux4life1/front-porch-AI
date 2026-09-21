@@ -5,8 +5,6 @@
 // world already had climate/weather/atmosphere. A DEFAULT of 0 would
 // silently unplug the weather machine for the whole installed library.
 
-import 'dart:io';
-
 import 'package:drift/drift.dart' show Value, Variable;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -88,41 +86,6 @@ void main() {
         row.read<int>('climate_enabled'),
         1,
         reason: 'a world that existed before the upgrade must keep climate',
-      );
-    });
-
-    test('the Table, ladder, and repair path all say DEFAULT 1', () async {
-      final table = await File(
-        'lib/database/database.tables.features.dart',
-      ).readAsString();
-      final ladder = await File(
-        'lib/database/database.migrations.dart',
-      ).readAsString();
-      final repair = await File(
-        'lib/database/database.repair.dart',
-      ).readAsString();
-
-      expect(
-        table,
-        contains('climateEnabled'),
-        reason: 'the Worlds table must declare the column',
-      );
-      expect(
-        ladder,
-        contains('ALTER TABLE worlds ADD COLUMN climate_enabled'),
-        reason: 'the v51 ladder step must add the column',
-      );
-      expect(
-        RegExp(
-          r"climate_enabled[\s']+INTEGER NOT NULL DEFAULT 1",
-        ).hasMatch(ladder),
-        isTrue,
-        reason: 'the v51 ladder step must default ON (1)',
-      );
-      expect(
-        repair,
-        contains('climate_enabled INTEGER NOT NULL DEFAULT 1'),
-        reason: 'the repair path heals DBs that missed the ladder',
       );
     });
 

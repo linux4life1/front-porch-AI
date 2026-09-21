@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
+import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart'
     show ImageGenBackend;
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
@@ -100,9 +101,23 @@ class ImageReferenceResolver {
   /// plain checkpoint can always do) takes over.
   static bool packEditMode(ImageGenSettings settings) {
     final backend = ImageGenBackend.fromKey(settings.imageGenBackend);
+    var modelName = settings.imageGenEditModel;
+    if (backend == ImageGenBackend.remote) {
+      // Per-host API id wins over a leftover Comfy `.ckpt` in the shared
+      // edit slot. A local filename is never a Nano/OpenRouter edit model.
+      final picked = pickRemoteImageModelId(
+        slotModel: modelName,
+        hostModel: settings.remoteImageModelFor(
+          settings.imageRemoteApiUrl,
+          edit: true,
+        ),
+      );
+      if (picked == null) return false;
+      modelName = picked;
+    }
     var editMode = resolveForBackend(
       backend: backend,
-      modelName: settings.imageGenEditModel,
+      modelName: modelName,
     ).supportsEdit;
     if (editMode && backend == ImageGenBackend.comfyUi) {
       editMode = comfyEditReady(

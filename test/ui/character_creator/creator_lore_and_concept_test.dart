@@ -138,60 +138,58 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setupPathProviderMock();
 
-  test(
-    'attached world lore still reaches the prompt when the local context '
-    'window is at or under the 3K generation reservation',
-    () async {
-      final storage = await makeGoldenStorage();
-      // The app's own low-VRAM recommendation, applied by a button in this
-      // same wizard — the exact value that used to erase all lore.
-      await storage.setContextSize(2048);
+  test('attached world lore still reaches the prompt when the local context '
+      'window is at or under the 3K generation reservation', () async {
+    final storage = await makeGoldenStorage();
+    // The app's own low-VRAM recommendation, applied by a button in this
+    // same wizard — the exact value that used to erase all lore.
+    await storage.backendSettings.setContextSize(2048);
 
-      final llm = _ScriptedLlm(_cannedCardJson());
-      final provider = _makeProvider(llm, storage);
-      addTearDown(provider.dispose);
-      final persona = await _makePersonaService();
+    final llm = _ScriptedLlm(_cannedCardJson());
+    final provider = _makeProvider(llm, storage);
+    addTearDown(provider.dispose);
+    final persona = await _makePersonaService();
 
-      const lore =
-          'The Saltmarrow Compact binds the seven tide-houses of Brelth. '
-          'Its signatories may not raise a levy above the high-water mark, '
-          'and any dispute is settled at the Drowned Assizes on the first '
-          'slack tide after midwinter. Breaking the Compact costs a house '
-          'its name, its charts and its right to anchor anywhere in the '
-          'inner reach.';
-      final state = CreatorState();
-      addTearDown(state.dispose);
-      state.creatorMode = CreatorMode.automated;
-      state.nameController.text = 'Sable Marrow';
-      state.conceptController.text = 'A tide-house cartographer.';
-      state.loreFiles = [
-        MemoryPlatformFile(
-          name: 'compact.txt',
-          bytes: Uint8List.fromList(utf8.encode(lore)),
-        ),
-      ];
+    const lore =
+        'The Saltmarrow Compact binds the seven tide-houses of Brelth. '
+        'Its signatories may not raise a levy above the high-water mark, '
+        'and any dispute is settled at the Drowned Assizes on the first '
+        'slack tide after midwinter. Breaking the Compact costs a house '
+        'its name, its charts and its right to anchor anywhere in the '
+        'inner reach.';
+    final state = CreatorState();
+    addTearDown(state.dispose);
+    state.creatorMode = CreatorMode.automated;
+    state.nameController.text = 'Sable Marrow';
+    state.conceptController.text = 'A tide-house cartographer.';
+    state.loreFiles = [
+      MemoryPlatformFile(
+        name: 'compact.txt',
+        bytes: Uint8List.fromList(utf8.encode(lore)),
+      ),
+    ];
 
-      await state.generateFromMode(
-        llmProvider: provider,
-        storage: storage,
-        personaService: persona,
-      );
+    await state.generateFromMode(
+      llmProvider: provider,
+      storage: storage,
+      personaService: persona,
+    );
 
-      expect(llm.capturedPrompts, isNotEmpty);
-      final basePrompt = llm.capturedPrompts.first;
-      expect(
-        basePrompt,
-        contains('Saltmarrow Compact'),
-        reason: 'the gathered lore must survive a 2048-token context, not be '
-            'truncated to zero characters',
-      );
-      expect(
-        basePrompt,
-        isNot(contains('TRUNCATED DUE TO CONTEXT LIMITS')),
-        reason: 'lore this short needs no truncation marker at all',
-      );
-    },
-  );
+    expect(llm.capturedPrompts, isNotEmpty);
+    final basePrompt = llm.capturedPrompts.first;
+    expect(
+      basePrompt,
+      contains('Saltmarrow Compact'),
+      reason:
+          'the gathered lore must survive a 2048-token context, not be '
+          'truncated to zero characters',
+    );
+    expect(
+      basePrompt,
+      isNot(contains('TRUNCATED DUE TO CONTEXT LIMITS')),
+      reason: 'lore this short needs no truncation marker at all',
+    );
+  });
 
   test(
     'automated mode with an empty concept box builds a description that does '
@@ -224,7 +222,8 @@ void main() {
       expect(
         card!.description,
         'Physical appearance: Elf race/species, Athletic build',
-        reason: 'the assembled fragments must stand on their own when there '
+        reason:
+            'the assembled fragments must stand on their own when there '
             'is no concept in front of them',
       );
     },

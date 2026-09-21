@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
+import 'package:front_porch_ai/ui/image_studio/comfy_create_panel.dart';
 import 'package:front_porch_ai/ui/image_studio/model_slot_dropdown.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -96,12 +97,15 @@ class ExpressionsSection extends StatelessWidget {
             ],
           ),
           if (packOn) ...[const SizedBox(height: 8), _editModelRow(context, c)],
-          if (!c.packPossible && c.backend == ImageGenBackend.remote && c.engineReady) ...[
+          if (!c.packPossible &&
+              c.backend == ImageGenBackend.remote &&
+              c.engineReady) ...[
             const SizedBox(height: 8),
             Text(
               'On a remote API the pack runs through the provider\'s '
-              'image-edit endpoint — pick an edit-capable model (e.g. '
-              'qwen-image-max-edit) in the Edit model slot to enable it.',
+              'image-edit endpoint — pick a Nano/OpenRouter edit id '
+              '(e.g. qwen-image-max-edit), not a leftover Comfy '
+              '.ckpt, in the Edit model slot.',
               style: TextStyle(
                 color: AppColors.textTertiary(context),
                 fontSize: 11,
@@ -221,18 +225,21 @@ class ExpressionsSection extends StatelessWidget {
           ],
         );
       case ImageGenBackend.comfyUi:
-        final ready = c.packEditModeNow;
-        return Row(
+        final editReady = c.packEditModeNow;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _label(context, 'Edit workflow'),
-            const SizedBox(width: 10),
+            const ComfyCreatePanel(),
+            const SizedBox(height: 8),
             _readiness(
               context,
-              ok: ready,
-              text: ready
-                  ? 'Ready — ${c.storage.imageGenSettings.comfyEditWorkflowId}'
-                  : 'Not set up (img2img fallback) — configure it in Image '
-                        'Studio → Edit',
+              ok: editReady,
+              text: editReady
+                  ? 'Edit workflow ready — pack uses Edit when it can; '
+                        'otherwise the Create family above (img2img).'
+                  : 'Pack uses the Create family above (img2img). Optional: '
+                        'set up Qwen-Image-Edit or Flux Kontext in Image '
+                        'Studio → Edit.',
             ),
           ],
         );
@@ -249,25 +256,34 @@ class ExpressionsSection extends StatelessWidget {
     }
   }
 
-  Widget _readiness(BuildContext context, {required bool ok, required String text}) {
+  Widget _readiness(
+    BuildContext context, {
+    required bool ok,
+    required String text,
+  }) {
     // logReady = the app-wide green "ready" status hue (AppColors const).
     final color = ok ? AppColors.logReady : AppColors.formMasterAccent;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(ok ? Icons.check_circle : Icons.info_outline, size: 13, color: color),
+        Icon(
+          ok ? Icons.check_circle : Icons.info_outline,
+          size: 13,
+          color: color,
+        ),
         const SizedBox(width: 5),
         Flexible(
-          child: Text(
-            text,
-            style: TextStyle(color: color, fontSize: 11.5),
-          ),
+          child: Text(text, style: TextStyle(color: color, fontSize: 11.5)),
         ),
       ],
     );
   }
 
-  Widget _footer(BuildContext context, AvatarCreationController c, bool packOn) {
+  Widget _footer(
+    BuildContext context,
+    AvatarCreationController c,
+    bool packOn,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -302,7 +318,10 @@ class ExpressionsSection extends StatelessWidget {
     );
   }
 
-  Future<void> _importZip(BuildContext context, AvatarCreationController c) async {
+  Future<void> _importZip(
+    BuildContext context,
+    AvatarCreationController c,
+  ) async {
     final zipBytes = await pickZipBytes();
     if (zipBytes == null || !context.mounted) return;
     final (added, unrecognized) = await c.importExpressionZip(zipBytes);
@@ -311,6 +330,8 @@ class ExpressionsSection extends StatelessWidget {
         ? 'Imported $added expression image${added == 1 ? '' : 's'}'
               '${unrecognized > 0 ? ' · $unrecognized unrecognized' : ''}.'
         : 'No emotion-named images found in that ZIP.';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }

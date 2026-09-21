@@ -237,27 +237,49 @@ export function RealismFormSection({
             helper="What makes this character bristle. Phrases, not paragraphs — one thing per chip reads best in a scene."
           />
 
-          {/* ── Pockets & Wardrobe ── mirrors identity_chip_lists.dart. What
-              the character already has when a chat opens; the runtime seeds
-              its record from exactly this map. */}
-          <ChipList
-            label="Wearing"
-            values={inventoryToChips(v.inventory).worn}
-            onChange={(a) =>
-              set({ inventory: chipsToInventory(a, inventoryToChips(v.inventory).carrying) })
-            }
-            placeholder="e.g. flour-dusted apron"
-            helper='What this character already has when a chat opens. Add a condition in brackets — "sundress (rain-soaked)" — and it is kept and updated as the story uses the item.'
-          />
-          <ChipList
-            label="Carrying"
-            values={inventoryToChips(v.inventory).carrying}
-            onChange={(a) =>
-              set({ inventory: chipsToInventory(inventoryToChips(v.inventory).worn, a) })
-            }
-            placeholder="e.g. car keys"
-            helper="Tracked once Pockets & Wardrobe is switched on in Settings → Porch Life. Up to 8 of each; the oldest drops off if a character picks up more."
-          />
+          {/* ── Pockets & Wardrobe ── per-character switch lives ON the
+              starting-kit card (desktop IdentityChipLists / WardrobeChipSection).
+              Global Porch Life remains the master kill. */}
+          <h4 className="realism-head">Pockets &amp; Wardrobe</h4>
+          <div className="card realism-card" data-testid="character-pockets-panel">
+            <ToggleRow
+              label="Pockets & Wardrobe"
+              hint="When off, this character skips inventory tracking even if Porch Life has Pockets on. Old cards stay on."
+              value={v.pocketsEnabled}
+              onChange={(b) => set({ pocketsEnabled: b })}
+            />
+            {v.pocketsEnabled ? (
+              <>
+                <p className="muted small">
+                  What this character already has when a chat opens. Add a condition
+                  in brackets — &quot;sundress (rain-soaked)&quot; — and it is kept
+                  and updated as the story uses the item.
+                </p>
+                <ChipList
+                  label="Wearing"
+                  values={inventoryToChips(v.inventory).worn}
+                  onChange={(a) =>
+                    set({ inventory: chipsToInventory(a, inventoryToChips(v.inventory).carrying) })
+                  }
+                  placeholder="e.g. flour-dusted apron"
+                />
+                <ChipList
+                  label="Carrying"
+                  values={inventoryToChips(v.inventory).carrying}
+                  onChange={(a) =>
+                    set({ inventory: chipsToInventory(inventoryToChips(v.inventory).worn, a) })
+                  }
+                  placeholder="e.g. car keys"
+                  helper="Tracked when this character's Pockets switch is on and Porch Life has Pockets on. Up to 8 of each; the oldest drops off if a character picks up more."
+                />
+              </>
+            ) : (
+              <p className="muted small">
+                Wearing and carrying stay on the card. Turn this on to edit the
+                starting kit.
+              </p>
+            )}
+          </div>
 
           {/* The 18+ pair, only for an install that asked for it. */}
           {showIntimate && (

@@ -241,8 +241,7 @@ class RelationshipInjection {
       -6 => 'Right now $name is openly antagonistic.',
       -7 => 'Right now $name is combative and argumentative.',
       -8 => 'Right now $name holds contemptuous views of {{user}}.',
-      -9 =>
-        'Right now $name is demeaning and disrespectful toward {{user}}.',
+      -9 => 'Right now $name is demeaning and disrespectful toward {{user}}.',
       _ => 'Right now $name actively hates {{user}}, with pure hostility.',
     };
   }
@@ -327,7 +326,7 @@ class RelationshipInjection {
       final otherCard = chars
           .where((c) => getCharacterIdFromCard(c) == entry.key)
           .firstOrNull;
-      if (otherCard == null) continue;
+      if (otherCard == null || otherCard.isLite) continue;
       final delta = entry.value;
       final String attitude;
       if (delta >= 60) {

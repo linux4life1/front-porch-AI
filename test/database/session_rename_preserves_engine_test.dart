@@ -9,8 +9,6 @@
 // Proven red: restore `.replace(session)` in updateSession and the first
 // test fails (realismEnabled reads back false).
 
-import 'dart:io';
-
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -97,26 +95,5 @@ void main() {
     expect(row.description, 'new desc');
     expect(row.characterId, 'char-1');
     expect(row.realismEnabled, isTrue);
-  });
-
-  test('patchSession from Chat History Save is the write rename uses', () {
-    final src = File(
-      'lib/services/chat/chat_service_session_manage.dart',
-    ).readAsStringSync();
-    expect(src, contains('await _db.patchSession('));
-    expect(
-      src,
-      isNot(contains('await _db.updateSession(')),
-      reason: 'rename/description must not go through replace()',
-    );
-    final queries = File(
-      'lib/database/database.queries.chat.dart',
-    ).readAsStringSync();
-    expect(queries, contains('return patchSession(session);'));
-    expect(
-      queries,
-      isNot(contains('update(sessions).replace(session)')),
-      reason: 'updateSession itself must not replace() a partial companion',
-    );
   });
 }

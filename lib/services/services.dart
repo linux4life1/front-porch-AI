@@ -53,11 +53,17 @@ export 'database_rebind.dart';
 
 // LLM & chat
 export 'llm_provider.dart';
+export 'worker_backend.dart';
+export 'worker_gpu_swap.dart';
+export 'worker_gpu_hosts.dart';
+export 'kobold_admin_swap.dart';
 export 'llm_service.dart';
 export 'kobold_service.dart';
 export 'chat_service.dart';
 export 'backend_manager.dart';
+export 'opencode/opencode.dart';
 export 'open_router_service.dart';
+export 'openrouter_structured_eval.dart';
 export 'remote_reachability.dart';
 export 'reasoning_effort.dart';
 export 'reasoning_effort_probe.dart';
@@ -72,10 +78,13 @@ export 'chat/context_viewer_snapshot.dart';
 export 'tts_service.dart';
 export 'tts_voice_info.dart';
 export 'stt_service.dart';
+export 'sherpa_runtime.dart';
 export 'image_gen_service.dart';
 
 // Sync & data
 export 'v2_card_service.dart';
+export 'byaf_service.dart';
+export 'byaf_import_ops.dart';
 export 'user_persona_service.dart';
 export 'folder_service.dart';
 

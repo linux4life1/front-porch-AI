@@ -34,6 +34,7 @@ import 'porch_accordion.dart';
 import 'sidebar_tokens.dart';
 import 'story_tools/story_tools.dart';
 import 'tool_calling_pill.dart';
+import 'wiki_panel.dart';
 
 /// The scrolling body of the warm-porch chat sidebar: the lite-NPC banner
 /// plus accordion groups (Author's Note · Character State · Journal ·
@@ -104,7 +105,7 @@ class _SidebarBodyState extends State<SidebarBody> {
     }
     final chat = widget.chatService;
     final isGroup = chat.isGroupMode;
-    final isLite = !isGroup && !widget.focused.realismEnabled;
+    final isLite = widget.focused.isLite;
     final section = OpenSectionEnv.name;
 
     // Objectives: a first-frame isLite/null-key no-op must retry — UIC
@@ -149,7 +150,7 @@ class _SidebarBodyState extends State<SidebarBody> {
         final ui = storage.uiSettings;
         final character = widget.focused.card;
         final isGroup = chat.isGroupMode;
-        final isLite = !isGroup && !widget.focused.realismEnabled;
+        final isLite = widget.focused.isLite;
 
         return ListView(
           padding: const EdgeInsets.all(12),
@@ -178,7 +179,18 @@ class _SidebarBodyState extends State<SidebarBody> {
                   ui.setSidebarGroupExpanded('author_note', v),
               child: AuthorNoteSection(chatService: chat),
             ),
-            if (!isLite)
+            WikiPanel(
+              chatService: chat,
+              initiallyExpanded: ui.sidebarGroupExpanded(
+                'wiki',
+                fallback: true,
+              ),
+              onExpansionChanged: (v) => ui.setSidebarGroupExpanded('wiki', v),
+            ),
+            if (characterStateAccordionVisible(
+              isLite: isLite,
+              isGroup: isGroup,
+            ))
               CharacterStateGroup(
                 key: _characterStateKey,
                 chat: chat,
@@ -305,7 +317,8 @@ class _SidebarBodyState extends State<SidebarBody> {
   }
 }
 
-/// "Lite NPC" banner for realism-off scene guests (moved from chat_page).
+/// Status-only banner for a focused lite guest. Promote lives on the
+/// cast avatar strip — do not add a second control here.
 class _LiteNpcBanner extends StatelessWidget {
   const _LiteNpcBanner();
 
@@ -335,6 +348,21 @@ class _LiteNpcBanner extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textSecondary(context),
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: AppColors.porchAmberOf(context).withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'GUEST',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: AppColors.porchAmberOf(context),
               ),
             ),
           ),

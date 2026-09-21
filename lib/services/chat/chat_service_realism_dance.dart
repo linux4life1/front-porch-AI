@@ -62,7 +62,18 @@ extension ChatServiceRealismDance on ChatService {
     // skips group observer mode and realism-off. This is the single realism eval
     // path — the former centralized 1:1 block was removed in favour of this.
     if (!_realismActiveThisMode) return;
+    if (_speakerIsSoft(speaker)) {
+      debugPrint('[Realism:Unified] skip lite speaker: ${speaker.name}');
+      return;
+    }
+    return _withWorkerLane(
+      () => _evaluateRealismForUpcomingSpeakerUnheld(speaker),
+    );
+  }
 
+  Future<void> _evaluateRealismForUpcomingSpeakerUnheld(
+    CharacterCard speaker,
+  ) async {
     final charId = _getCharacterIdFromCard(speaker);
     if (charId.isEmpty) return;
 
@@ -98,10 +109,9 @@ extension ChatServiceRealismDance on ChatService {
       final currentForSpeaker = _getGroupNeeds(sidForDecay);
       final preDecay = currentForSpeaker.isNotEmpty
           ? Map<String, int>.from(currentForSpeaker)
-          : {
-              for (final k in NeedsSimulation.needKeys)
-                k: NeedsSimulation.needDefaults[k] ?? 80,
-            };
+          : NeedsSimulation.baselinesFromExtensions(
+              speaker.frontPorchExtensions,
+            );
       // Stash the true pre-decay for this speaker so post-gen chip delta computation
       // (and regen) see the correct baseline including the decay portion of the turn.
       _pendingRealismMetadata ??= {};
@@ -248,45 +258,12 @@ extension ChatServiceRealismDance on ChatService {
         debugPrint('[Realism:Posture] Opening seed failed (continuing): $e');
       }
 
-      if (_relationshipService.pendingTrustRepair) {
-        // Trust-repair is a RELATIONSHIP substitute, not a full pre-gen freeze
-        // (audit P1.11). Docs once claimed it only replaced the relationship
-        // judge; the code ran ONLY trust-repair and skipped emotion/narrative
-        // — freezing mood for a turn. After the repair call we still run
-        // emotion + narrative. Scene-time is post-generation.
-        debugPrint(
-          '[Realism:Unified] Trust-repair eval for ${speaker.name} ($charId) '
-          '+ remaining judges (not a full freeze)',
-        );
-        _relationshipService.consumePendingTrustRepair();
-        final userText = _messages
-            .lastWhere(
-              (m) => m.isUser,
-              orElse: () => ChatMessage(text: '', sender: '', isUser: true),
-            )
-            .text;
-        await _evaluateTrustRepairCall(userText, onChunk: handleChunk);
-        if (_realismEvalCancelled) return;
-        await _runBatchedRealismVerification(
-          () => _fireTrustRepairRemainingEvals(handleChunk),
-        );
-      } else if (_oneShotActive) {
-        debugPrint(
-          '[Realism:Unified] One-shot eval for ${speaker.name} ($charId)',
-        );
-        await _evaluateOneShotCall(onChunk: handleChunk);
-      } else {
-        // The three judges (relationship / emotional / narrative). Scene-time
-        // moved to post-generation — it decides the NEXT speaker's clock
-        // from the reply that does not exist yet.
-        debugPrint(
-          '[Realism:Unified] 3-call eval + verifier for ${speaker.name} ($charId)',
-        );
-        await _runBatchedRealismVerification(
-          () => _fireStaggeredRealismEvals(handleChunk),
-          logSpeakerName: speaker.name,
-        );
-      }
+      // Trust-repair is a RELATIONSHIP substitute, not a full pre-gen freeze
+      // (audit P1.11). Shared with 1:1 regen so a restored latch still fires.
+      await _runPreGenRealismJudges(
+        onChunk: handleChunk,
+        logSpeakerName: speaker.name,
+      );
 
       // Handle cancellation after the eval calls. The flag is deliberately
       // left set — the caller (sendMessage / _generateResponse) consumes it
@@ -350,11 +327,8 @@ extension ChatServiceRealismDance on ChatService {
     _characterEmotion = _groupRealism[charId]?.emotion ?? '';
     _emotionIntensity = _groupRealism[charId]?.emotionIntensity ?? 'moderate';
 
-    // Needs vector. _getGroupNeeds fills every key in NeedsSimulation.needKeys,
-    // falling back to needDefaults, so it can never come back empty — the
-    // "member has never had needs" branch that used to sit here was
-    // unreachable, and its comment claimed a starting value (full 100) that
-    // initializeFresh does not use either.
+    // Needs vector. No stored map → empty (never invent needDefaults here;
+    // first decay / live-add seed from the card instead).
     _needsSimulation.restoreFromSnapshot({'vector': _getGroupNeeds(charId)});
   }
 

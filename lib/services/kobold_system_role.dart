@@ -78,8 +78,10 @@ class KoboldSystemRole {
     // the model — so fall through to the preset's own path.
     _identity = systemRoleIdentityFor(
       backendName: backendName,
-      remoteModelName: storage.remoteModelName,
-      modelPath: storage.lastUsedModelPath ?? storage.kcppsModelPath,
+      remoteModelName: storage.backendSettings.remoteModelName,
+      modelPath:
+          storage.backendSettings.lastUsedModelPath ??
+          storage.backendSettings.kcppsModelPath,
     );
     return _probe.ensureProbed(
       baseUrl: baseUrl,

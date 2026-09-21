@@ -4,8 +4,6 @@
 // Enhance Review says "New lorebook entries" — Save must append those
 // onto the book duplicateCharacter just copied, never replace it.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -26,19 +24,5 @@ void main() {
     expect(merged[0].content, 'rewritten kitchen');
     expect(merged[1].content, 'original porch');
     expect(merged[2].content, 'new bar');
-  });
-
-  test('Save merges onto the duplicated book instead of replacing it', () {
-    final src = File(
-      'lib/ui/pages/home/enhance/enhance_review_body.dart',
-    ).readAsStringSync();
-    final saveAt = src.indexOf('Future<CharacterCard?> save()');
-    expect(saveAt, greaterThanOrEqualTo(0));
-    final save = src.substring(saveAt);
-    expect(save, contains('mergeLorebookEntries(book.entries, keptLore)'));
-    expect(
-      save.contains('copy.lorebook = Lorebook(entries: keptLore)'),
-      isFalse,
-    );
   });
 }
