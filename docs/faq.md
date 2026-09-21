@@ -128,7 +128,7 @@ You need the internet for: cloud AI, cloud voices, The Stoop, downloading new mo
 
 ### Stable vs Nightly?
 
-- **Stable** — the one you should install. Current is **v1.3.1, "Clock In"**.
+- **Stable** — the one you should install. Current is **v1.4.0, "Toolbox"**.
 - **Nightly** — new stuff, rougher. Uses a **different folder** (`FrontPorchAI-Beta`) so it cannot eat your real library. On nightlies, Backups & Restore shows a notice (auto-snapshots still run; you just can't click restore there).
 
 ---
@@ -589,7 +589,7 @@ No cloud sync (it was deleted on purpose). Copy the `FrontPorchAI` folder, or us
 
 ### Updates
 
-Windows/Mac: in-app “What's New.” Linux APT/RPM: normal system update. AppImage: in-app too. AUR is behind (1.1.2 vs current 1.3.1) — use APT/RPM/AppImage if you want Places files.
+Windows/Mac: in-app “What's New.” Linux APT/RPM: normal system update. AppImage: in-app too. AUR is behind (1.1.2 vs current 1.4.0) — use APT/RPM/AppImage if you want Places files.
 
 ### Report a bug
 

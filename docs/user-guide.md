@@ -12,7 +12,7 @@ The complete reference for everything that is not a dedicated page.
 
 This page is Settings, voice, Stoop, Porch Stories, generation, backend, backups.
 
-It describes **Front Porch AI 1.3.1 ("Clock In")**.
+It describes **Front Porch AI 1.4.0 ("Toolbox")**.
 
 > **Tip:** Many actions have hotkeys — see [Keyboard Shortcuts](keyboard-shortcuts.md).
 
