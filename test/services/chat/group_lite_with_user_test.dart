@@ -86,15 +86,15 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
 
-  late AppDatabase db;
-  late StorageService storage;
-  late ChatService chat;
-  late _ScriptedLlm llm;
+  AppDatabase? db;
+  StorageService? storage;
+  ChatService? chat;
+  _ScriptedLlm? llm;
 
   Future<void> drainTurn() async {
     for (
       var i = 0;
-      i < 400 && (chat.isGenerating || chat.isSettlingTurn);
+      i < 400 && (chat!.isGenerating || chat!.isSettlingTurn);
       i++
     ) {
       await Future<void>.delayed(Duration.zero);
@@ -116,21 +116,21 @@ void main() {
     llm = _ScriptedLlm(softWithUser: softWithUser);
     chat =
         ChatService(
-            KoboldService(storage),
-            UserPersonaService(db),
-            storage,
-            WorldRepository(storage, db),
+            KoboldService(storage!),
+            UserPersonaService(db!),
+            storage!,
+            WorldRepository(storage!, db!),
           )
-          ..setDatabase(db)
-          ..setCharacterRepository(CharacterRepository(db, storage))
-          ..setGroupChatRepository(GroupChatRepository(storage, db))
+          ..setDatabase(db!)
+          ..setCharacterRepository(CharacterRepository(db!, storage!))
+          ..setGroupChatRepository(GroupChatRepository(storage!, db!))
           ..testLlmServiceOverride = llm;
-    await storage.initialized;
+    await storage!.initialized;
 
-    await db.insertGroup(
+    await db!.insertGroup(
       GroupsCompanion.insert(id: 'grp-lite-wu', name: 'The Porch'),
     );
-    await db.insertGroupMember(
+    await db!.insertGroupMember(
       GroupMembersCompanion.insert(
         id: 'mem-full-0',
         groupId: 'grp-lite-wu',
@@ -140,7 +140,7 @@ void main() {
         frontPorchExtensions: const Value(_off),
       ),
     );
-    await db.insertGroupMember(
+    await db!.insertGroupMember(
       GroupMembersCompanion.insert(
         id: 'mem-soft-0',
         groupId: 'grp-lite-wu',
@@ -150,16 +150,16 @@ void main() {
         frontPorchExtensions: const Value(_lite),
       ),
     );
-    await chat.setActiveGroup(
+    await chat!.setActiveGroup(
       GroupChat(id: 'grp-lite-wu', name: 'The Porch'),
-      groupRepo: GroupChatRepository(storage, db),
+      groupRepo: GroupChatRepository(storage!, db!),
     );
-    await chat.setRealismEnabled(true);
-    await chat.setNeedsSimEnabled(false);
+    await chat!.setRealismEnabled(true);
+    await chat!.setNeedsSimEnabled(false);
   }
 
   CharacterCard named(String name) =>
-      chat.groupCharacters.firstWhere((c) => c.name == name);
+      chat!.groupCharacters.firstWhere((c) => c.name == name);
 
   PresenceWhere glance(CharacterCard card) => derivePresence(
     occupation: '',
@@ -167,23 +167,23 @@ void main() {
     clockMinutes: 0,
     weekday: DateTime.tuesday,
     inScene: inSceneForPresence(
-      stance: chat.spatialStanceForGroupCharacter(card),
-      withUser: chat.withUserForGroupCharacter(card),
+      stance: chat!.spatialStanceForGroupCharacter(card),
+      withUser: chat!.withUserForGroupCharacter(card),
     ),
   );
 
   void expectNoRealismDance() {
-    expect(llm.kinds, contains('with_user'));
-    expect(llm.kinds, isNot(contains('needs')));
-    expect(llm.kinds, isNot(contains('relationship')));
-    expect(llm.kinds, isNot(contains('climax')));
-    expect(llm.kinds, isNot(contains('posture')));
-    expect(llm.kinds, isNot(contains('emotion')));
+    expect(llm!.kinds, contains('with_user'));
+    expect(llm!.kinds, isNot(contains('needs')));
+    expect(llm!.kinds, isNot(contains('relationship')));
+    expect(llm!.kinds, isNot(contains('climax')));
+    expect(llm!.kinds, isNot(contains('posture')));
+    expect(llm!.kinds, isNot(contains('emotion')));
   }
 
   tearDown(() async {
-    chat.dispose();
-    await db.close();
+    chat?.dispose();
+    await db?.close();
   });
 
   test('quiet pulse includes a soft Away member', () {
@@ -205,15 +205,15 @@ void main() {
     'soft leave-scene reply sets Away without Needs/Realism dance',
     () async {
       await boot(softWithUser: false);
-      chat.debugSetGroupWithUser(named('Flora').stableGroupId, true);
-      chat.setNextCharacter(named('Misty'));
-      await chat.sendMessage('Go check the mailbox.');
+      chat!.debugSetGroupWithUser(named('Flora').stableGroupId, true);
+      chat!.setNextCharacter(named('Misty'));
+      await chat!.sendMessage('Go check the mailbox.');
       await drainTurn();
 
-      expect(chat.withUserForGroupCharacter(named('Misty')), isFalse);
+      expect(chat!.withUserForGroupCharacter(named('Misty')), isFalse);
       expect(glance(named('Misty')), PresenceWhere.away);
       expect(
-        chat.withUserForGroupCharacter(named('Flora')),
+        chat!.withUserForGroupCharacter(named('Flora')),
         isTrue,
         reason: 'full-member glance must not move on a soft turn',
       );
@@ -223,11 +223,11 @@ void main() {
 
   test('soft stay-scene reply keeps With you', () async {
     await boot(softWithUser: true);
-    chat.setNextCharacter(named('Misty'));
-    await chat.sendMessage('Stay on the porch.');
+    chat!.setNextCharacter(named('Misty'));
+    await chat!.sendMessage('Stay on the porch.');
     await drainTurn();
 
-    expect(chat.withUserForGroupCharacter(named('Misty')), isTrue);
+    expect(chat!.withUserForGroupCharacter(named('Misty')), isTrue);
     expect(glance(named('Misty')), PresenceWhere.withYou);
     expectNoRealismDance();
   });
