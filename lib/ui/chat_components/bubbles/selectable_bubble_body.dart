@@ -34,6 +34,7 @@ class SelectableBubbleBody extends StatelessWidget {
     return SelectionArea(
       child: ListView(
         key: const Key('bubble-body-scroll-absorb'),
+        primary: false,
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
         padding: EdgeInsets.zero,

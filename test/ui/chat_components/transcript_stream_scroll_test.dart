@@ -159,5 +159,10 @@ void main() {
     ).readAsStringSync();
     expect(selectable.contains('NeverScrollableScrollPhysics'), isTrue);
     expect(selectable.contains('bubble-body-scroll-absorb'), isTrue);
+    expect(
+      selectable.contains('primary: false'),
+      isTrue,
+      reason: 'inner absorb must not steal PrimaryScrollController',
+    );
   });
 }
