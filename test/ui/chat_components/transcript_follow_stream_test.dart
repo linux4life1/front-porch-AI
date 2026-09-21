@@ -104,7 +104,6 @@ void main() {
     expect(list.contains('CustomScrollView'), isFalse);
     expect(list.contains('heldTranscriptOffset'), isFalse);
     expect(list.contains('followTranscriptWhileStreaming'), isTrue);
-    expect(list.contains('startOfStream:'), isTrue);
     expect(
       File(
         'lib/ui/chat_components/bubbles/selectable_bubble_body.dart',
@@ -191,42 +190,6 @@ void main() {
         isFalse,
       );
       expect(controller.offset, 80, reason: 'scrolled away stays put');
-
-      expect(
-        followTranscriptWhileStreaming(
-          controller,
-          followEnabled: true,
-          generating: true,
-          previousMax: controller.position.maxScrollExtent,
-          startOfStream: true,
-        ),
-        isTrue,
-      );
-      await tester.pump();
-      expect(
-        controller.offset,
-        controller.position.maxScrollExtent,
-        reason:
-            'ON + send/stream start jumps to the live reply from mid-history',
-      );
-
-      controller.jumpTo(80);
-      await tester.pump();
-      expect(
-        followTranscriptWhileStreaming(
-          controller,
-          followEnabled: false,
-          generating: true,
-          previousMax: controller.position.maxScrollExtent,
-          startOfStream: true,
-        ),
-        isFalse,
-      );
-      expect(
-        controller.offset,
-        80,
-        reason: 'OFF never jumps, even at stream start',
-      );
 
       applyTranscriptAutoScroll(controller, generating: true);
       await tester.pump();

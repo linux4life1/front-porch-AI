@@ -38,14 +38,13 @@ export function transcriptTipKey(
   return tip ? `${tip.sender}\0${tip.text}` : '';
 }
 
-/** Follow the live reply. startOfStream jumps from mid-history; later tokens stick if at bottom. */
+/** Stick-if-at-bottom while a reply is streaming. applyTranscriptAutoScroll stays a no-op. */
 export function followTranscriptWhileStreaming(
   el: TranscriptEl | null,
   args: {
     followEnabled: boolean;
     generating: boolean;
     previousHeight: number;
-    startOfStream?: boolean;
     slop?: number;
   },
 ): boolean {
@@ -53,7 +52,7 @@ export function followTranscriptWhileStreaming(
   const slop = args.slop ?? 64;
   const client = el.clientHeight ?? 0;
   const edge = client > 0 ? el.scrollTop + client : el.scrollTop;
-  if (!args.startOfStream && edge < args.previousHeight - slop) return false;
+  if (edge < args.previousHeight - slop) return false;
   pinTranscriptToLatest(el);
   return true;
 }

@@ -241,7 +241,6 @@ export function ChatMessageList({
   const prevTip = useRef('');
   const prevLen = useRef(0);
   const prevHeight = useRef(0);
-  const prevStreaming = useRef(false);
   useLayoutEffect(() => {
     const el = scrollRef.current;
     const nextTip = transcriptTipKey(transcript.messages);
@@ -253,8 +252,6 @@ export function ChatMessageList({
       nextLen: transcript.messages.length,
       nextTip,
     });
-    const newRow = transcript.messages.length > prevLen.current;
-    const startOfStream = !!streaming && (!prevStreaming.current || newRow);
     if (kind === 'open' && el) {
       pinTranscriptToLatest(el);
       pinnedOpen.current = sessionId ?? null;
@@ -265,12 +262,10 @@ export function ChatMessageList({
         followEnabled: followStreamingReplies,
         generating: !!streaming,
         previousHeight: prevHeight.current,
-        startOfStream,
       });
     }
     prevLen.current = transcript.messages.length;
     prevTip.current = nextTip;
-    prevStreaming.current = !!streaming;
     prevHeight.current = el?.scrollHeight ?? 0;
   }, [sessionId, transcript.messages, scrollRef, streaming, followStreamingReplies]);
   return (

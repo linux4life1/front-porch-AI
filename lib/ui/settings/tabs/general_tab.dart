@@ -77,8 +77,8 @@ class GeneralTab extends StatelessWidget {
               style: TextStyle(color: AppColors.textPrimary(context)),
             ),
             subtitle: Text(
-              'Jump to the live reply when it starts writing, even if you '
-              'were reading older messages. Scroll up to stop following.',
+              'Keep the chat pinned to the newest words while a reply is '
+              'writing, as long as you are at the bottom. Scroll up to stop.',
               style: TextStyle(
                 fontSize: 12.5,
                 color: AppColors.textSecondary(context),

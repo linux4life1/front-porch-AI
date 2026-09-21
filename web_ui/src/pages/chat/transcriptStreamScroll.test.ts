@@ -93,7 +93,6 @@ describe('transcript stream scroll (option B)', () => {
     expect(list).not.toMatch(/scrollTop\s*=\s*.*scrollHeight/);
     expect(list).toMatch(/holdTranscriptAfterPrepend/);
     expect(list).toMatch(/followTranscriptWhileStreaming/);
-    expect(list).toMatch(/startOfStream/);
     expect(list).toMatch(/classifyTranscriptGrowth/);
     expect(list).not.toMatch(/applyTranscriptAutoScroll/);
     expect(list).not.toMatch(/ownedTop/);
@@ -133,28 +132,6 @@ describe('transcript stream scroll (option B)', () => {
       }),
     ).toBe(false);
     expect(away.scrollTop).toBe(80);
-
-    const catchUp = { scrollTop: 80, scrollHeight: 900, clientHeight: 64 };
-    expect(
-      followTranscriptWhileStreaming(catchUp, {
-        followEnabled: true,
-        generating: true,
-        previousHeight: 800,
-        startOfStream: true,
-      }),
-    ).toBe(true);
-    expect(catchUp.scrollTop).toBe(900);
-
-    const offStart = { scrollTop: 80, scrollHeight: 900, clientHeight: 64 };
-    expect(
-      followTranscriptWhileStreaming(offStart, {
-        followEnabled: false,
-        generating: true,
-        previousHeight: 800,
-        startOfStream: true,
-      }),
-    ).toBe(false);
-    expect(offStart.scrollTop).toBe(80);
   });
 
   it('Settings places Follow streaming replies above Reading size', () => {

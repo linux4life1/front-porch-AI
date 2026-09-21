@@ -35,8 +35,8 @@ export function FollowStreamingSettings() {
     <section className="card" data-testid="follow-streaming-card">
       <h3>Follow streaming replies</h3>
       <p className="reading-blurb">
-        Jump to the live reply when it starts writing, even if you were
-        reading older messages. Scroll up to stop following.
+        Keep the chat pinned to the newest words while a reply is writing, as
+        long as you are at the bottom. Scroll up to stop.
       </p>
       <label>
         <input
