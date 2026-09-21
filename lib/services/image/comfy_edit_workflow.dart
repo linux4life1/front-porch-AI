@@ -51,9 +51,16 @@ class ComfyEditTokens {
   /// without a shift node simply never reference this token).
   static const String shift = '%SHIFT%';
 
+  /// Create-family canvas size (EmptyLatentImage / EmptySD3LatentImage).
+  static const String width = '%WIDTH%';
+  static const String height = '%HEIGHT%';
+
   /// The two an edit graph genuinely CANNOT work without — the reference image
   /// and the instruction. A BYO workflow missing either is rejected.
   static const List<String> required = [image, prompt];
+
+  /// Create BYO only needs a prompt; `%IMAGE%` is optional (img2img / pack).
+  static const List<String> createRequired = [prompt];
 
   /// Every standard (non-model) token the app can fill, for BYO detection + docs.
   static const List<String> all = [
@@ -67,6 +74,8 @@ class ComfyEditTokens {
     sampler,
     scheduler,
     shift,
+    width,
+    height,
   ];
 }
 
@@ -88,11 +97,17 @@ class ComfyModelSlot {
   /// Human label for the dropdown, e.g. `Diffusion model`.
   final String label;
 
+  /// Comfy models-folder name this loader reads (`checkpoints`,
+  /// `diffusion_models`, `text_encoders`, `vae`). Empty-state copy names the
+  /// drawer so "this family is empty" is distinct from "wrong family".
+  final String folderHint;
+
   const ComfyModelSlot({
     required this.token,
     required this.loaderClass,
     required this.inputName,
     required this.label,
+    this.folderHint = '',
   });
 }
 

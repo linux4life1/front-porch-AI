@@ -203,46 +203,11 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
             onSubmitted: (_) => _testConnection(),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Checkpoint Model',
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (_loadingLocalModels)
-            const Center(
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.formMasterAccent,
-                ),
-              ),
-            )
-          else if (_localModels.isEmpty)
-            Text(
-              'No models found yet — Retry above once ComfyUI is running.',
-              style: TextStyle(
-                color: AppColors.textTertiary(context),
-                fontSize: 10,
-              ),
-            )
-          else
-            // Always the CREATE slot — ComfyUI's edit models live in the
-            // comfyEdit* workflow slots, never here.
-            ModelSlotDropdown(
-              settings: st.imageGenSettings,
-              editSlot: false,
-              keyPrefix: 'comfy-checkpoint',
-              decoration: _deco(hint: 'Select'),
-              options: [for (final m in _localModels) (value: m, label: m)],
-            ),
+          const ComfyCreatePanel(),
           const SizedBox(height: 4),
           Text(
-            'The model is applied per generation — no separate load step.',
+            'The selected family is applied per generation — no separate load '
+            'step. Expression packs use this same stove.',
             style: TextStyle(
               color: AppColors.textTertiary(context),
               fontSize: 9,

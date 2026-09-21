@@ -22,8 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
-import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
-import 'package:front_porch_ai/services/image/comfy_edit_workflow.dart';
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -202,6 +201,11 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
                 const SizedBox(height: 12),
                 for (final slot in preset.modelSlots) ...[
                   _modelSlotRow(context, st, preset.id, slot),
+                  if (!_loading &&
+                      (_modelOptions['${slot.loaderClass}/${slot.inputName}'] ??
+                              const [])
+                          .isEmpty)
+                    _slotEmptyHint(context, slot),
                   const SizedBox(height: 8),
                 ],
               ],
@@ -305,6 +309,16 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _slotEmptyHint(BuildContext context, ComfyModelSlot slot) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 110, bottom: 4),
+      child: Text(
+        comfySlotEmptyMessage(slot),
+        style: TextStyle(fontSize: 10.5, color: AppColors.textTertiary(context)),
+      ),
     );
   }
 

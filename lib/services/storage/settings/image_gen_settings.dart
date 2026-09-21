@@ -98,6 +98,11 @@ class ImageGenSettings with SettingsBase {
   Map<String, String> _comfyEditModelChoices = {};
   String _comfyEditUploadedWorkflow = '';
 
+  // Comfy Create: family id + slot map + BYO JSON (same shape as edit).
+  String _comfyCreateWorkflowId = 'sd';
+  Map<String, String> _comfyCreateModelChoices = {};
+  String _comfyCreateUploadedWorkflow = '';
+
   bool get imageGenEnabled => _imageGenEnabled;
   String get imageGenBackend => _imageGenBackend;
   String get localImageGenUrl => _localImageGenUrl;
@@ -143,6 +148,14 @@ class ImageGenSettings with SettingsBase {
   /// The user's chosen file for a preset's model slot, or null if unpicked.
   String? comfyEditModelChoice(String presetId, String token) =>
       _comfyEditModelChoices['$presetId/$token'];
+
+  String get comfyCreateWorkflowId => _comfyCreateWorkflowId;
+  Map<String, String> get comfyCreateModelChoices =>
+      Map.unmodifiable(_comfyCreateModelChoices);
+  String get comfyCreateUploadedWorkflow => _comfyCreateUploadedWorkflow;
+
+  String? comfyCreateModelChoice(String presetId, String token) =>
+      _comfyCreateModelChoices['$presetId/$token'];
 
   void load() {
     _imageGenEnabled = prefs?.getBool(k('image_gen_enabled')) ?? true;
@@ -208,6 +221,13 @@ class ImageGenSettings with SettingsBase {
     );
     _comfyEditUploadedWorkflow =
         prefs?.getString(k('comfy_edit_uploaded_workflow')) ?? '';
+    _comfyCreateWorkflowId =
+        prefs?.getString(k('comfy_create_workflow_id')) ?? 'sd';
+    _comfyCreateModelChoices = _decodeStringMap(
+      prefs?.getString(k('comfy_create_model_choices')),
+    );
+    _comfyCreateUploadedWorkflow =
+        prefs?.getString(k('comfy_create_uploaded_workflow')) ?? '';
   }
 
   static Map<String, String> _decodeStringMap(String? s) {
@@ -445,6 +465,35 @@ class ImageGenSettings with SettingsBase {
   Future<void> setComfyEditUploadedWorkflow(String json) async {
     _comfyEditUploadedWorkflow = json;
     await prefs?.setString(k('comfy_edit_uploaded_workflow'), json);
+    notify();
+  }
+
+  Future<void> setComfyCreateWorkflowId(String value) async {
+    _comfyCreateWorkflowId = value;
+    await prefs?.setString(k('comfy_create_workflow_id'), value);
+    notify();
+  }
+
+  Future<void> setComfyCreateModelChoice(
+    String presetId,
+    String token,
+    String file,
+  ) async {
+    _comfyCreateModelChoices['$presetId/$token'] = file;
+    await prefs?.setString(
+      k('comfy_create_model_choices'),
+      jsonEncode(_comfyCreateModelChoices),
+    );
+    if (presetId == 'sd' && token == '%MODEL_CHECKPOINT%') {
+      _imageGenModel = file;
+      await prefs?.setString(k('image_gen_model'), file);
+    }
+    notify();
+  }
+
+  Future<void> setComfyCreateUploadedWorkflow(String json) async {
+    _comfyCreateUploadedWorkflow = json;
+    await prefs?.setString(k('comfy_create_uploaded_workflow'), json);
     notify();
   }
 }

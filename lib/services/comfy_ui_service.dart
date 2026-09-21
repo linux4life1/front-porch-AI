@@ -25,7 +25,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'comfy_workflow.dart';
+import 'image/comfy_catalog.dart';
 import 'image/comfy_edit_workflow.dart';
+import 'image/comfy_template_index.dart';
+
+part 'comfy_ui_service.catalog.dart';
 
 /// ComfyUI backend client (plain HTTP — no sidecar). The novice contract:
 /// ComfyUI runs on http://127.0.0.1:8188 out of the box, everything the UI
@@ -176,26 +180,6 @@ class ComfyUiService {
     }
   }
 
-  /// One /object_info fetch shared by the model/LoRA/sampler listings.
-  Future<Map<String, dynamic>?> _objectInfo() async {
-    try {
-      final r = await http
-          .get(Uri.parse('$_root/object_info'))
-          .timeout(const Duration(seconds: 15));
-      if (r.statusCode != 200) return null;
-      return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) {
-      debugPrint('ComfyUI: object_info failed: $e');
-      return null;
-    }
-  }
-
-  Future<List<String>> fetchModels() async {
-    final info = await _objectInfo();
-    if (info == null) return const [];
-    return optionsFromObjectInfo(info, 'CheckpointLoaderSimple', 'ckpt_name');
-  }
-
   Future<List<String>> fetchLoras() async {
     final info = await _objectInfo();
     if (info == null) return const [];
@@ -314,16 +298,11 @@ class ComfyUiService {
     return requiredNodes.where((n) => !info.containsKey(n)).toList();
   }
 
-  /// The model files this ComfyUI offers for a loader slot (e.g.
-  /// `UNETLoader.unet_name`) — feeds the Edit tab's "pick your model" dropdowns.
-  Future<List<String>> fetchModelFilesFor(
-    String loaderClass,
-    String inputName,
-  ) async {
-    final info = await _objectInfo();
-    if (info == null) return const [];
-    return optionsFromObjectInfo(info, loaderClass, inputName);
-  }
+  /// Submit an already-built API-format graph (Create families / BYO).
+  Future<Uint8List> runPromptGraph(
+    Map<String, dynamic> workflow, {
+    void Function(double? progress, Uint8List? preview)? onProgress,
+  }) => _runWorkflow(workflow, onProgress);
 
   /// Run an EDIT: upload the reference image, splice it (as `%IMAGE%`) plus the
   /// caller's [tokenValues] into the token-placeholdered [workflowTemplate] (a

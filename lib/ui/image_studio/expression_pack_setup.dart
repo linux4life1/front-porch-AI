@@ -19,10 +19,14 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+import 'comfy_create_panel.dart';
 
 /// Step 1 of the Expression-pack dialog: the setup form. Owns its own local
 /// choices (set size, variation strength, replace-existing) and reports them
@@ -35,8 +39,10 @@ class ExpressionPackSetup extends StatefulWidget {
     required this.existingEmotions,
     required this.onCancel,
     required this.onStart,
+    this.storage,
   });
 
+  final StorageService? storage;
   final Uint8List baseImage;
   final String characterName;
 
@@ -108,6 +114,24 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
           ],
         ),
         const SizedBox(height: 16),
+        if (ImageGenBackend.fromKey(
+              (widget.storage ?? context.read<StorageService>())
+                  .imageGenSettings
+                  .imageGenBackend,
+            ) ==
+            ImageGenBackend.comfyUi) ...[
+          const ComfyCreatePanel(),
+          const SizedBox(height: 10),
+          Text(
+            'Pack generation uses this Create family (img2img off the base). '
+            'No extra ControlNet graph.',
+            style: TextStyle(
+              color: AppColors.textTertiary(context),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         _setChoice(
           context,
           selected: !_fullSet,

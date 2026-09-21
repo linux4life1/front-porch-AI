@@ -43,6 +43,7 @@ part 'image_gen_service.backends.dart';
 part 'image_gen_service.backends.generate.dart';
 part 'image_gen_service.catalog.dart';
 part 'image_gen_service.payload.dart';
+part 'image_gen_service.comfy.dart';
 
 /// Service for generating images via the remote API. Reuses the same API
 /// URL/key configured for text generation (OpenRouter, Nano-GPT, or any
@@ -363,6 +364,14 @@ class ImageGenService extends ChangeNotifier {
   /// GET /object_info payload (see [ComfyUiService]); URL from settings.
   Future<List<String>> fetchComfyModels(String baseUrl) =>
       _ensureComfyUi.fetchModels();
+
+  /// Checkpoints + diffusion_models + encoders + VAE + LoRAs.
+  Future<ComfyFileCatalog> fetchComfyCatalog(String baseUrl) =>
+      _ensureComfyUi.fetchCatalog();
+
+  /// Live Comfy `/templates` Create list (empty when that install has none).
+  Future<List<ComfyTemplateEntry>> fetchComfyCreateTemplates(String baseUrl) =>
+      _ensureComfyUi.fetchCreateTemplates();
 
   /// ComfyUI LoRAs, enriched with base-model family. Names come from
   /// /object_info; the family is read per-LoRA from the embedded safetensors

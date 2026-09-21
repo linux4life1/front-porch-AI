@@ -21,6 +21,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 /// Web adapter for image generation: read/flip the backend config (Local A1111 /
@@ -59,6 +60,47 @@ class ImageFacade {
       'remoteApiUrl': b.remoteApiUrl,
       'remoteModelName': b.remoteModelName,
       'hasApiKey': b.remoteApiKeyFor(b.remoteApiUrl).isNotEmpty,
+      'comfyCreateWorkflowId': img.comfyCreateWorkflowId,
+      'comfyCreateModelChoices': img.comfyCreateModelChoices,
+      'comfyCreateUploadedWorkflow':
+          img.comfyCreateUploadedWorkflow.trim().isNotEmpty,
+      'comfyCreatePresets': [
+        for (final p in kComfyCreatePresets)
+          {
+            'id': p.id,
+            'label': p.label,
+            'comfyTemplateName': p.comfyTemplateName,
+            'usesCheckpointBuilder': p.usesCheckpointBuilder,
+            'slots': [
+              for (final s in p.modelSlots)
+                {
+                  'token': s.token,
+                  'label': s.label,
+                  'loaderClass': s.loaderClass,
+                  'inputName': s.inputName,
+                  'folderHint': s.folderHint,
+                },
+            ],
+          },
+      ],
+    };
+  }
+
+  /// Live Comfy drawers + template names for Create / pack slot dropdowns.
+  Future<Map<String, dynamic>> comfyCatalog() async {
+    final url = _storage.imageGenSettings.comfyUiUrl;
+    final cat = await _image.fetchComfyCatalog(url);
+    final templates = await _image.fetchComfyCreateTemplates(url);
+    return {
+      'checkpoints': cat.checkpoints,
+      'diffusionModels': cat.diffusionModels,
+      'textEncoders': cat.textEncoders,
+      'vaes': cat.vaes,
+      'loras': cat.loras,
+      'createDiscovery': cat.createDiscovery,
+      'templates': [
+        for (final t in templates) {'id': t.pickerId, 'name': t.name, 'title': t.title},
+      ],
     };
   }
 
@@ -109,6 +151,22 @@ class ImageFacade {
     }
     final apiKey = f['apiKey']?.toString();
     if (apiKey != null && apiKey.isNotEmpty) await b.setRemoteApiKey(apiKey);
+    if (f['comfyCreateWorkflowId'] is String) {
+      await img.setComfyCreateWorkflowId(f['comfyCreateWorkflowId'] as String);
+    }
+    final choices = f['comfyCreateModelChoices'];
+    if (choices is Map) {
+      for (final e in choices.entries) {
+        final key = e.key.toString();
+        final slash = key.indexOf('/');
+        if (slash <= 0) continue;
+        await img.setComfyCreateModelChoice(
+          key.substring(0, slash),
+          key.substring(slash + 1),
+          e.value.toString(),
+        );
+      }
+    }
   }
 
   /// Generate an image from [prompt] using the configured backend. Returns the

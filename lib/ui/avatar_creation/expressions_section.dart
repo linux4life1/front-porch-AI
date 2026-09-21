@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
+import 'package:front_porch_ai/ui/image_studio/comfy_create_panel.dart';
 import 'package:front_porch_ai/ui/image_studio/model_slot_dropdown.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -221,18 +222,21 @@ class ExpressionsSection extends StatelessWidget {
           ],
         );
       case ImageGenBackend.comfyUi:
-        final ready = c.packEditModeNow;
-        return Row(
+        final editReady = c.packEditModeNow;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _label(context, 'Edit workflow'),
-            const SizedBox(width: 10),
+            const ComfyCreatePanel(),
+            const SizedBox(height: 8),
             _readiness(
               context,
-              ok: ready,
-              text: ready
-                  ? 'Ready — ${c.storage.imageGenSettings.comfyEditWorkflowId}'
-                  : 'Not set up (img2img fallback) — configure it in Image '
-                        'Studio → Edit',
+              ok: editReady,
+              text: editReady
+                  ? 'Edit workflow ready — pack uses Edit when it can; '
+                        'otherwise the Create family above (img2img).'
+                  : 'Pack uses the Create family above (img2img). Optional: '
+                        'set up Qwen-Image-Edit or Flux Kontext in Image '
+                        'Studio → Edit.',
             ),
           ],
         );

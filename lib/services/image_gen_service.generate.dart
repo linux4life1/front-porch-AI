@@ -312,83 +312,20 @@ extension _ImageGenGenerate on ImageGenService {
           );
         }
       } else if (backend == ImageGenBackend.comfyUi) {
-        // ── ComfyUI (HTTP + bundled txt2img workflow) ──────────────────
         _statusMessage = 'Connecting to ComfyUI...';
         _notify();
         try {
-          final comfy = _ensureComfyUi;
-          final (width, height) = _parseSize(
-            size ?? _storage.imageGenSettings.imageGenSize,
+          imageBytes = await _generateViaComfy(
+            prompt: prompt,
+            negativePrompt: negativePrompt,
+            size: size,
+            refModelName: refModelName,
+            referenceImage: referenceImage,
+            seed: seed,
+            denoise: denoise,
+            editStrength: editStrength,
+            refRole: refRole,
           );
-          // The stored sampler is shared across backends and may be an
-          // A1111-style name; normalize it against what this server offers.
-          final available = await comfy.fetchSamplers();
-          final storedSampler = _storage.imageGenSettings.imageGenSampler;
-          // An explicit user scheduler wins; 'Automatic' derives it from the
-          // sampler (Karras-flavored names → karras, else normal) exactly as
-          // before, so the default path is unchanged.
-          final storedScheduler = _storage.imageGenSettings.imageGenScheduler;
-          final scheduler =
-              (storedScheduler.isNotEmpty && storedScheduler != 'Automatic')
-              ? storedScheduler
-              : ComfyUiService.schedulerFor(storedSampler);
-          if (refRole == ImageReferenceRole.editConditioning &&
-              referenceImage != null) {
-            // ComfyUI instruction-edit: run the SELECTED workflow (a bundled
-            // preset or the user's uploaded graph) via the token engine. The
-            // edit-scoped knobs supply steps/CFG/strength(→denoise)/shift; the
-            // sampler/scheduler use ComfyUI-friendly defaults (the DT sampler
-            // int doesn't map cleanly). Model slots come from the user's picks.
-            _statusMessage = 'Editing with ComfyUI...';
-            _notify();
-            final storedSeed = seed ?? _storage.imageGenSettings.imageGenSeed;
-            final req = resolveComfyEditRequest(
-              workflowId: _storage.imageGenSettings.comfyEditWorkflowId,
-              uploadedWorkflowJson:
-                  _storage.imageGenSettings.comfyEditUploadedWorkflow,
-              modelChoices: _storage.imageGenSettings.comfyEditModelChoices,
-              prompt: prompt,
-              negative: negativePrompt,
-              seed: storedSeed == -1 ? Random().nextInt(1 << 31) : storedSeed,
-              steps: _storage.imageGenSettings.editSteps,
-              cfg: _storage.imageGenSettings.editCfgScale,
-              denoise: editStrength ?? kEditRecommendedStrength,
-              shift: _storage.imageGenSettings.editShift,
-            );
-            if (req == null) {
-              throw Exception(
-                'No ComfyUI edit workflow is set up. Pick a preset (and its '
-                'models) or upload a workflow in the Edit tab.',
-              );
-            }
-            imageBytes = await comfy.generateImageEdit(
-              referenceImageBytes: referenceImage,
-              workflowTemplate: req.template,
-              tokenValues: req.values,
-              onProgress: _updateGenProgress,
-            );
-          } else {
-            imageBytes = await comfy.generateImage(
-              prompt: prompt,
-              negativePrompt: negativePrompt,
-              model: refModelName,
-              width: width,
-              height: height,
-              steps: _storage.imageGenSettings.imageGenSteps,
-              cfgScale: _storage.imageGenSettings.imageGenCfgScale,
-              seed: seed ?? _storage.imageGenSettings.imageGenSeed,
-              samplerName: ComfyUiService.normalizeSampler(
-                storedSampler,
-                available,
-              ),
-              scheduler: scheduler,
-              loraName: _storage.imageGenSettings.imageGenLora,
-              loraWeight: _storage.imageGenSettings.imageGenLoraWeight,
-              referenceImageBytes: referenceImage,
-              denoise: denoise ?? _storage.imageGenSettings.imageGenDenoise,
-              onProgress: _updateGenProgress,
-            );
-          }
         } catch (e) {
           // Sanitize for user display (mirrors the Draw Things branch).
           final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');

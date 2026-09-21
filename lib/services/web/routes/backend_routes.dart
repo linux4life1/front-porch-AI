@@ -68,6 +68,7 @@ class WebBackendRoutes {
       router.post('/api/image/config', _imageUpdateConfig);
       router.post('/api/image/generate', _imageGenerate);
       router.get('/api/image/saved/<name>', _imageSaved);
+      router.get('/api/image/comfy-catalog', _imageComfyCatalog);
     }
   }
 
@@ -301,6 +302,9 @@ class WebBackendRoutes {
     }
     return JsonResponse.ok(result);
   }
+
+  Future<shelf.Response> _imageComfyCatalog(shelf.Request r) async =>
+      JsonResponse.ok(await _image!.comfyCatalog());
 
   Future<shelf.Response> _imageSaved(shelf.Request r, String name) async {
     final file = _image!.savedImageFile(name);

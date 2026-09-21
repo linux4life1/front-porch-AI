@@ -398,7 +398,9 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
-    return Dialog(
+    return ChangeNotifierProvider<StorageService>.value(
+      value: widget.storage,
+      child: Dialog(
       backgroundColor: AppColors.surfaceOf(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -419,6 +421,7 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
                         baseImage: widget.baseImage,
                         characterName: widget.characterName,
                         existingEmotions: widget.existingEmotions,
+                        storage: widget.storage,
                         onCancel: () => Navigator.of(context).pop(false),
                         onStart: _start,
                       ),
@@ -444,6 +447,7 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

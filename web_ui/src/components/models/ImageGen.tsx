@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StepUpFields } from '../StepUpFields';
+import { ComfyCreateFields, type ComfyPreset } from './ComfyCreateFields';
 
 interface ImageConfig {
   backend: string;
@@ -27,6 +28,9 @@ interface ImageConfig {
   remoteApiUrl: string;
   remoteModelName: string;
   hasApiKey: boolean;
+  comfyCreateWorkflowId?: string;
+  comfyCreateModelChoices?: Record<string, string>;
+  comfyCreatePresets?: ComfyPreset[];
 }
 
 // Mirrors ImageGenService.styleLabels (desktop) + the Image Studio size list.
@@ -233,10 +237,15 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
               placeholder="http://127.0.0.1:8188"
             />
           </label>
-          <label>
-            Model <span className="muted small">(checkpoint — required for ComfyUI)</span>
-            <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} onBlur={() => saveConfig({ model: cfg.model })} />
-          </label>
+          <ComfyCreateFields
+            workflowId={cfg.comfyCreateWorkflowId ?? 'sd'}
+            modelChoices={cfg.comfyCreateModelChoices ?? {}}
+            presets={cfg.comfyCreatePresets ?? []}
+            onChange={(patch) => {
+              set(patch as Partial<ImageConfig>);
+              void saveConfig(patch);
+            }}
+          />
         </>
       ) : (
         <>

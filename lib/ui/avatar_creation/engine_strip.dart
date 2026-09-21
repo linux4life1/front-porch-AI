@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_settings_dialog.dart';
+import 'package:front_porch_ai/ui/image_studio/comfy_create_panel.dart';
 import 'package:front_porch_ai/ui/image_studio/model_slot_dropdown.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -83,17 +84,20 @@ class EngineStrip extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: _label(context, 'CREATE MODEL'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(child: _createModelPicker(context, c)),
-            ],
-          ),
+          if (c.backend == ImageGenBackend.comfyUi)
+            const ComfyCreatePanel()
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _label(context, 'CREATE MODEL'),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: _createModelPicker(context, c)),
+              ],
+            ),
           const SizedBox(height: 6),
           Text(
             'Bound to the Studio\'s Create-model slot — model memory is split '
