@@ -15,11 +15,13 @@
 
 **A local-first AI companion for character chat & roleplay — Windows, macOS, and Linux.** Runs fully offline with local LLMs (KoboldCpp, oMLX, LM Studio, …), driven by a living **Realism Engine** (emotion, trust, needs, memory, pockets) with built-in **TTS and image generation** — and supports remote APIs like OpenRouter, Nano-GPT, and OpenAI with no lock-in when you want them. Open-source (**AGPL-3.0**). Built as a home for people who lost theirs when Backyard AI killed its desktop app.
 
-> ### 🎂 New in 1.3.2 — Make a Wish
-> - **Birthdays are real.** Characters and personas show their birthday on the card panel, on The Stoop, with gold/blue checks next to verified creators.
-> - **Worlds can skip the weather.** A lorebook-only world opts out of climate entirely — quiet places stay quiet.
-> - **Tool calls got faster.** Evals stop stalling on empty responses, and the judges share their prompt prefix.
-> Plus the repairs: swapping a portrait no longer wipes Journal, Growth, quests, or RAG; AFK owns the clock; regen keeps its chips. Details in the in-app What's New.
+> ### 🧰 New in 1.4.0 — Toolbox
+> - **Waifu Coder runs OpenCode** the way the app already runs Kobold — private binary, start / stop / update. Same Waifu seat.
+> - **They can look things up while talking** — web search rides the reply. Wiki is this character’s book. Recipe cards live in the library `tools/` drawer.
+> - **A second local model** can sit beside chat for feelings and journal, and swap off the GPU.
+> - **Guests sit in a group** without becoming full members until you Promote them. `.fpchat` remembers who was a guest.
+>
+> Also: porch mic (`/speak`, costume swap, `@Name` to call someone back), Porch Life is defaults not the open chat, pockets per person, leftover quests go stale, drop PNG/`.byaf` on the home porch, copy a reply like text. Details in the in-app What's New.
 
 ## 🕯️ Why Does This Exist?
 
@@ -94,39 +96,42 @@ New in 1.3.1 — Clock In.
 
 ### 🎁 Pockets & Wardrobe
 
-New in 1.3. She has pockets, clothes, and a set-aside pile — and the app keeps the record, not just the prose.
+New in 1.3, tightened in 1.4. They have pockets, clothes, and a set-aside pile — and the app keeps the record, not just the prose.
 
-- **Hand her something and she has it** — accept a gift, pick it up, put it down, pass it to someone else in a group. An offer she ignores or turns down stays out of her pockets.
-- **Clothes come off into the pile**, not into nowhere. What she set aside lasts the night and is gone at the story's next morning.
-- **Authors can dress her on the card** — starting clothes and carried items seed the first chat. The Stoop card page shows that wardrobe.
+- **Hand them something and they have it** — accept a gift, pick it up, put it down, pass it to someone else in a group. An offer they ignore or turn down stays out of their pockets.
+- **Clothes come off into the pile**, not into nowhere. What they set aside lasts the night and is gone at the story's next morning.
+- **Authors can dress them on the card** — starting clothes and carried items seed the first chat. The Stoop card page shows that wardrobe.
+- **Per-character switch** on the Wearing / Carrying panel. Porch Life still turns the feature off for everyone.
 - **The Journal keeps a Belongings tab** of where things went.
-- **Own switch.** Does not need the Realism Engine. If Needs is on too, a hungry character reaches for the food already in her pocket before looking elsewhere.
+- **Own switch.** Does not need the Realism Engine. If Needs is on too, a hungry character reaches for the food already in their pocket before looking elsewhere.
 
 ### 💬 Chat
 - **Immersive roleplay** with V2-spec character cards — full SillyTavern / Backyard AI compatibility
 - **Smooth output buffer** — text drips at your reading pace, not your GPU's pace
 - **Rich text styling** — dialogue highlighted in amber (straight, curly, and international quotes alike), actions in grey
 - **Regenerate, Continue, Impersonate, Edit** — full message control. **Impersonate is on the phone too**; a start you already typed is continued as you, not answered as the character
-- **Take a chat with you** — export a conversation as a Front Porch `.fpchat` (history, diary, growth, the lot) or SillyTavern JSONL, and bring it back on desktop or the phone
-- **Photo attachments** — send your character a picture and vision-capable models genuinely see and react to it (with a fully local description fallback for text-only models)
+- **Take a chat with you** — export a conversation as a Front Porch `.fpchat` (history, diary, growth, guests, the lot) or SillyTavern JSONL, and bring it back on desktop or the phone
+- **Copy a reply like text** — drag across the words (including an open Thought) and Copy. The name and buttons stay out of it
+- **Photo attachments** — send your character a picture and vision-capable models genuinely see and react to it (desktop and phone; local description fallback for text-only models)
+- **Look-up tools** — web search rides the character’s reply. Wiki is the book you picked for this chat. Recipe cards live in the library `tools/` folder for both chat and Waifu Coder
 - **Per-chat visual themes** — ten presets plus full color customization, desktop and web
 - **Output Sanitizer** — automatic find-and-replace on model output (goodbye em-dash tics), with per-chat overrides
-- **Slash commands** — `/image`, `/join`, `/exit`, `/speak`, `/turnorder`, `/afk`, and more, with a `/` helper panel
+- **Slash commands** — `/image`, `/join`, `/join --lite`, `/exit`, `/speak`, `/turnorder`, `/promote`, `/afk`, `/scan`, and more, with a `/` helper panel
 - **Persistent sessions** — chat history auto-saved and restored per character
 - **Chat branching** — fork from any message to explore alternate storylines
 
 ### 🏡 Porch Life & the Realism Engine
-- **Porch Life** — one Settings home for every living-character switch, instead of hunting them across the app
+- **Porch Life** — one Settings home for every living-character switch. Those are **defaults for new chats**. Flipping them does not rewrite the story you have open — use the sidebar for that
 - **À la carte** — Journal, Chaos / Chance Time, the story clock, Pockets, and Objectives each have their own switch. Turn on what you want. The Realism Engine is no longer the master key
 - **Emotion tracking** — character mood evolves naturally across the conversation, carrying inertia between turns
-- **Likes & Dislikes** — give her tastes (thunderstorms, being interrupted) and she acts on them. Moments that hit what she actually cares about move bond and trust harder
-- **Intimate preferences get said** — not just scored in the background. She can ask for what she wants, and she can turn something down
-- **A bad day that isn't about you** — optional, off by default. She can arrive tired, hungry, or weather-beaten from her own life, and the sidebar says why. Nothing is invented
+- **Likes & Dislikes** — give them tastes (thunderstorms, being interrupted) and they act on them. Moments that hit what they actually care about move bond and trust harder
+- **Intimate preferences get said** — not just scored in the background. They can ask for what they want, and they can turn something down
+- **A bad day that isn't about you** — optional, off by default. They can arrive tired, hungry, or weather-beaten from their own life, and the sidebar says why. Nothing is invented
 - **Relationship & Trust system** — earn a character's trust over time; it shifts how open and vulnerable they allow themselves to be
 - **Sims-style Needs** — hunger, energy, social, fun, hygiene, comfort: they decay on their own, respond to what actually happens in the scene, and bottoming one out has real consequences
-- **Story clock** — time advances every turn from what just happened (not a six-turn gate). It can run with the engine off. If she names 6am, the clock becomes 6am
+- **Story clock** — time advances every turn from what just happened (not a six-turn gate). It can run with the engine off. If they name 6am, the clock becomes 6am
 - **Weather & dreams** — hour-by-hour story weather, and a short dream when a story night passes
-- **Character quests** — self-chosen goals become real main quests with concrete steps. **Ambitions on the card steer those quests**, and you can set them when you create her
+- **Character quests** — self-chosen goals become real main quests with concrete steps. **Ambitions on the card steer those quests.** Leftover quests can go stale instead of pretending you won
 - **Promises** — commitments land in a Journal tab you can mark kept or broken yourself
 - **Fixation Engine** — active emotional obsessions that subtly color every response
 - **Growth Rings** — visible, receipt-backed character growth: real changes become rings that strengthen into permanence or fade into a viewable past
@@ -137,6 +142,7 @@ New in 1.3. She has pockets, clothes, and a set-aside pile — and the app keeps
 ### 🎭 Character Management
 - **V2 spec support** — fully compatible with the V2 character card specification (PNG & JSON)
 - **One-click import** — any V2 character card PNG/JSON, or grab community cards straight from **The Stoop** — no browser needed
+- **Drop cards on the home porch** — drag a PNG or a `.byaf` archive onto the library. Extra `.byaf` pictures land in the Avatar Gallery
 - **Backyard AI (.byaf) importer** — rescue your characters from the archive format Backyard AI left behind
 - **AI Enhance** — grow a character from a real chat. Walks you through it, review old-vs-new, and bring those chats along onto the enhanced copy. The original card is never overwritten
 - **Folder organization**, including group casts, global search, tag editor, bulk PNG import, mass delete with confirmation
@@ -154,12 +160,14 @@ New in 1.3. She has pockets, clothes, and a set-aside pile — and the app keeps
 ### 👥 Group Chat & Director Mode
 - **Multi-character conversations** — 2+ characters interacting with each other and with you
 - **One chat, a changing cast** — turn a solo chat into a group **in place** with `/join --full`, add/remove characters live with `/join` and `/exit` (goodbye + undo), and collapse back to a clean 1:1 with the **original** character — no forking or orphan copies
-- **Macros** — `/turnorder` (set who speaks when, including your own slot), `/speak` (force a character to take a turn now), `/promote` (promote a scene guest to a full member)
+- **Guests vs full members** — `/create`, `/join --lite`, and `/scan` seat a guest. They take turns and can be Away. Needs, diary, quests, and the feelings map stay off until you **Promote** that one person (`/promote Name` or the roster button). Bare `/promote` only turns a 1:1 into a group
+- **Macros** — `/turnorder` (set who speaks when, including your own slot), `/speak` (the porch mic — who talks now), costume swap from the group, `@Name` to call someone back from Away
 - **Director Mode** — let characters chat autonomously, or manually choose who speaks next
-- **Per-character everything** — realism, needs, pockets, expression images, author notes, and growth are tracked per member and carried losslessly when converting between 1:1 and group
+- **Per-character everything** — realism, needs, pockets, expression images, author notes, and growth are tracked per **full** member and carried losslessly when converting between 1:1 and group
 
 ### 🌍 Worlds
 - **Author a place** — climates, temperature bands, atmosphere and gravity. Mars does not come with breathable air; characters feel the weather and dress for it
+- **A lore-only place stays lore** — skip climate entirely; opening an older build against a newer library does not put weather back
 - **Share a world on The Stoop** like a character. A new chat can inherit its character's world automatically
 - **`.fpworld` packages** — take a place between installs (Front Porch 1.2 or newer)
 
@@ -204,6 +212,15 @@ New in 1.3. She has pockets, clothes, and a set-aside pile — and the app keeps
 - **Generate a pack in-app** — the Image Studio can paint a full expression set from one portrait, so any character can have live expressions
 - **26 emotion categories** mapped to your character's expression image set (compatible with SillyTavern expression packs)
 - **Sidebar and fullscreen display modes** — float the expression portrait or dock it beside the chat, with an optional emoji burst on mood changes
+
+### 👩‍💻 Waifu Coder
+- **OpenCode in the closet** — Front Porch downloads and manages a private OpenCode binary the way it already manages Kobold. First sit-down still fetches it if the closet is empty
+- **Same Waifu seat** — you still talk to Waifu. OpenCode does the file work. “Check for updates” in Settings also covers that GitHub lookup
+- **Recipe cards** — chat and Waifu share one library `tools/` drawer. OpenCode’s own read/edit/grep stay OpenCode’s; Porch does not duplicate them into chat
+
+### 🧠 Worker model (feelings & journal)
+- A second local GGUF can sit beside chat for Realism evals, journal, and similar side work, and **unload / swap** off the GPU when chat needs the card
+- Pick that model from **in-chat Model Settings** — same as chat, or a different host. Phone Settings already had this
 
 ### ⚙️ KoboldCpp Integration
 - Automated download and update of the KoboldCpp backend — including an automatic compatible build for older CPUs without AVX2
