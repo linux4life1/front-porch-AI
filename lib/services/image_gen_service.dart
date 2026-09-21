@@ -43,6 +43,7 @@ part 'image_gen_service.local_admin.dart';
 part 'image_gen_service.backends.dart';
 part 'image_gen_service.backends.generate.dart';
 part 'image_gen_service.catalog.dart';
+part 'image_gen_service.nano_models.dart';
 part 'image_gen_service.payload.dart';
 part 'image_gen_service.comfy.dart';
 
@@ -218,8 +219,9 @@ class ImageGenService extends ChangeNotifier {
   /// - If API fails: returns empty list with error logged
   ///
   /// **Nano-GPT and others**:
-  /// - Returns the curated list of known image models (Nano-GPT's /models
-  ///   endpoint only returns text models; there is no image-specific listing API)
+  /// - Returns the curated snapshot in `_commonImageModels` (Nano's chat
+  ///   `/models` is text-only; Image Studio does not live-fetch image
+  ///   discovery — refresh that const from the Nano image models page)
   Future<List<ImageModelInfo>> fetchImageModels() async {
     final apiUrl = _storage.backendSettings.remoteApiUrl;
     final apiKey = _storage.backendSettings.remoteApiKeyFor(apiUrl);
@@ -276,7 +278,8 @@ class ImageGenService extends ChangeNotifier {
     String? lastMessage,
     String? characterName,
     String? characterDescription,
-    String? characterPersonality, // kept for signature compatibility during transition (ignored for visuals)
+    String?
+    characterPersonality, // kept for signature compatibility during transition (ignored for visuals)
     String? scenario,
     String? worldInfo,
     String? personaName,
