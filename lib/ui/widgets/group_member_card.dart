@@ -279,6 +279,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                 GestureDetector(
                   onSecondaryTapUp: _showEditGroupMenu,
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
                         decoration: BoxDecoration(
@@ -309,104 +310,123 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          widget.character.name,
-                          style: TextStyle(
-                            fontSize: widget.isExpanded ? 14 : 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.character.name,
+                              style: TextStyle(
+                                fontSize: widget.isExpanded ? 14 : 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            // Soft + NEXT used to sit in the name Row and
+                            // overflow the sidebar (~52px). Wrap the trailers.
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                presence,
+                                if (widget.isNextSpeaker)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: widget.avatarColor.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'NEXT',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                if (widget.ringCount > 0)
+                                  Tooltip(
+                                    message:
+                                        '${widget.ringCount} growth ring'
+                                        '${widget.ringCount == 1 ? '' : 's'}',
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.porchHoneyOf(
+                                          context,
+                                        ).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '🌱${widget.ringCount}',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          color: AppColors.porchHoneyOf(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (widget.character.isLite)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.porchAmberOf(
+                                        context,
+                                      ).withValues(alpha: 0.18),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'GUEST',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.porchAmberOf(context),
+                                      ),
+                                    ),
+                                  ),
+                                if (widget.character.isLite &&
+                                    widget.onPromote != null)
+                                  TextButton(
+                                    onPressed: chat.isGenerating
+                                        ? null
+                                        : widget.onPromote,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.onChaosAccent,
+                                      backgroundColor:
+                                          AppColors.formMasterAccent,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 0,
+                                      ),
+                                      minimumSize: const Size(0, 24),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text(
+                                      'Promote',
+                                      style: TextStyle(fontSize: 11),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      presence,
-                      const SizedBox(width: 6),
-                      if (widget.isNextSpeaker)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: widget.avatarColor.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'NEXT',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      if (widget.ringCount > 0) ...[
-                        const SizedBox(width: 4),
-                        Tooltip(
-                          message:
-                              '${widget.ringCount} growth ring'
-                              '${widget.ringCount == 1 ? '' : 's'}',
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.porchHoneyOf(
-                                context,
-                              ).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '🌱${widget.ringCount}',
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: AppColors.porchHoneyOf(context),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (widget.character.isLite) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.porchAmberOf(
-                              context,
-                            ).withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'GUEST',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.porchAmberOf(context),
-                            ),
-                          ),
-                        ),
-                        if (widget.onPromote != null)
-                          TextButton(
-                            onPressed: chat.isGenerating
-                                ? null
-                                : widget.onPromote,
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.onChaosAccent,
-                              backgroundColor: AppColors.formMasterAccent,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 0,
-                              ),
-                              minimumSize: const Size(0, 24),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              'Promote',
-                              style: TextStyle(fontSize: 11),
-                            ),
-                          ),
-                      ],
                       if (widget.canRemove && widget.onRemove != null)
                         IconButton(
                           icon: const Icon(Icons.close, size: 14),
