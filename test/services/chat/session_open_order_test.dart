@@ -35,6 +35,17 @@ void main() {
     );
   });
 
+  test('backfill pages older rows, never re-fetches 0→current', () {
+    final backfill = window
+        .split('Future<void> _runBackgroundBackfill')
+        .last
+        .split('Future<bool> _prependOlderPage')
+        .first;
+    expect(backfill.contains('_prependOlderPage'), isTrue);
+    expect(backfill.contains('getMessagesForSession'), isFalse);
+    expect(window.contains('notifyListeners()'), isTrue);
+  });
+
   test('older history pages backward from the window, not from 0', () {
     expect(window.contains('getMessagesBeforePosition'), isTrue);
     expect(window.contains('_prependOlderPage'), isTrue);

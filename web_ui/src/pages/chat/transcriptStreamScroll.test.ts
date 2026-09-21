@@ -54,6 +54,16 @@ describe('transcript stream scroll (option B)', () => {
         nextTip: 'Iris\0new reply',
       }),
     ).toBe('other');
+    expect(
+      classifyTranscriptGrowth({
+        sessionId: 's1',
+        prevSession: 's1',
+        prevLen: 224,
+        prevTip: 'Iris\0latest',
+        nextLen: 224,
+        nextTip: 'Iris\0latest',
+      }),
+    ).toBe('other');
   });
 
   it('prepend holds the viewport instead of dumping at first_message', () => {

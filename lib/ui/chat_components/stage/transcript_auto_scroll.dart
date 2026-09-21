@@ -23,8 +23,9 @@ void applyTranscriptAutoScroll(
   required bool generating,
 }) {
   // Option B: never jumpTo(0) / pin to newest on send or stream. Do not
-  // rewrite the reverse-list offset when content grows — that fight with
-  // Flutter's own applyContentDimensions is what made the chat page jump.
+  // rewrite the reverse-list offset when content grows. #289's hold
+  // (offset += newMax - previousMax) treated older-page prepends and
+  // idle layout as newest-end growth and fought applyContentDimensions.
 }
 
 /// Reverse list: offset 0 is the newest end. One-shot for open / session
