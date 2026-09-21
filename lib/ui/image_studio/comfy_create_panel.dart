@@ -68,7 +68,9 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
         ...await comfy.fetchCreateTemplates(),
         ...await comfy.fetchUserWorkflows(),
       ];
-      final name = comfyTemplateNameFor(st.imageGenSettings.comfyCreateWorkflowId);
+      final name = comfyTemplateNameFor(
+        st.imageGenSettings.comfyCreateWorkflowId,
+      );
       Map<String, dynamic>? liveJson;
       if (name != null) liveJson = await comfy.fetchTemplateJson(name);
       final slots = _slotsFor(st, preset, liveJson);
@@ -106,7 +108,9 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
     ComfyCreatePreset? preset, [
     Map<String, dynamic>? liveTemplate,
   ]) {
-    if (preset != null && preset.modelSlots.isNotEmpty) return preset.modelSlots;
+    if (preset != null && preset.modelSlots.isNotEmpty) {
+      return preset.modelSlots;
+    }
     final source = loadComfyCreateSource(
       workflowId: st.imageGenSettings.comfyCreateWorkflowId,
       uploadedWorkflowJson: st.imageGenSettings.comfyCreateUploadedWorkflow,
@@ -132,7 +136,9 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
       final text = utf8.decode(bytes);
       final decoded = jsonDecode(text);
       if (decoded is! Map) {
-        setState(() => _uploadError = 'That file isn’t a ComfyUI graph object.');
+        setState(
+          () => _uploadError = 'That file isn’t a ComfyUI graph object.',
+        );
         return;
       }
       final api = ensureComfyApiGraph(decoded.cast<String, dynamic>());
@@ -203,7 +209,10 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
                 const SizedBox(height: 6),
               ],
             ],
-            if (isUpload) ...[const SizedBox(height: 8), _uploadRow(context, st)],
+            if (isUpload) ...[
+              const SizedBox(height: 8),
+              _uploadRow(context, st),
+            ],
             const SizedBox(height: 8),
             _readyLine(context, st, preset, isUpload),
           ],
@@ -319,7 +328,9 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
   }
 
   Widget _uploadRow(BuildContext context, StorageService st) {
-    final has = st.imageGenSettings.comfyCreateUploadedWorkflow.trim().isNotEmpty;
+    final has = st.imageGenSettings.comfyCreateUploadedWorkflow
+        .trim()
+        .isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -331,7 +342,10 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
         const SizedBox(height: 6),
         Text(
           'Comfy Save or API JSON. Studio fills prompt/seed/size/models.',
-          style: TextStyle(fontSize: 11, color: AppColors.textTertiary(context)),
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.textTertiary(context),
+          ),
         ),
         if (_uploadError.isNotEmpty)
           Text(
@@ -368,7 +382,8 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
       color = AppColors.textTertiary(context);
       icon = Icons.hourglass_empty;
     } else if (_missingNodes == null) {
-      text = 'Can’t reach ComfyUI. Make sure it’s running at the configured URL.';
+      text =
+          'Can’t reach ComfyUI. Make sure it’s running at the configured URL.';
       color = AppColors.logWarn;
       icon = Icons.error_outline;
     } else if (_missingNodes!.isNotEmpty) {

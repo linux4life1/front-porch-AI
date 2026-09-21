@@ -25,11 +25,18 @@
 const Map<String, dynamic> kComfyStarterZit = {
   '28': {
     'class_type': 'UNETLoader',
-    'inputs': {'unet_name': 'z_image_turbo_bf16.safetensors', 'weight_dtype': 'default'},
+    'inputs': {
+      'unet_name': 'z_image_turbo_bf16.safetensors',
+      'weight_dtype': 'default',
+    },
   },
   '30': {
     'class_type': 'CLIPLoader',
-    'inputs': {'clip_name': 'qwen_3_4b.safetensors', 'type': 'lumina2', 'device': 'default'},
+    'inputs': {
+      'clip_name': 'qwen_3_4b.safetensors',
+      'type': 'lumina2',
+      'device': 'default',
+    },
   },
   '29': {
     'class_type': 'VAELoader',
@@ -37,11 +44,16 @@ const Map<String, dynamic> kComfyStarterZit = {
   },
   '27': {
     'class_type': 'CLIPTextEncode',
-    'inputs': {'text': 'placeholder', 'clip': ['30', 0]},
+    'inputs': {
+      'text': 'placeholder',
+      'clip': ['30', 0],
+    },
   },
   '33': {
     'class_type': 'ConditioningZeroOut',
-    'inputs': {'conditioning': ['27', 0]},
+    'inputs': {
+      'conditioning': ['27', 0],
+    },
   },
   '13': {
     'class_type': 'EmptySD3LatentImage',
@@ -49,7 +61,10 @@ const Map<String, dynamic> kComfyStarterZit = {
   },
   '11': {
     'class_type': 'ModelSamplingAuraFlow',
-    'inputs': {'model': ['28', 0], 'shift': 3},
+    'inputs': {
+      'model': ['28', 0],
+      'shift': 3,
+    },
   },
   '3': {
     'class_type': 'KSampler',
@@ -68,11 +83,17 @@ const Map<String, dynamic> kComfyStarterZit = {
   },
   '8': {
     'class_type': 'VAEDecode',
-    'inputs': {'samples': ['3', 0], 'vae': ['29', 0]},
+    'inputs': {
+      'samples': ['3', 0],
+      'vae': ['29', 0],
+    },
   },
   '9': {
     'class_type': 'SaveImage',
-    'inputs': {'filename_prefix': 'FrontPorchAI', 'images': ['8', 0]},
+    'inputs': {
+      'filename_prefix': 'FrontPorchAI',
+      'images': ['8', 0],
+    },
   },
 };
 
@@ -80,7 +101,10 @@ const Map<String, dynamic> kComfyStarterZit = {
 const Map<String, dynamic> kComfyStarterFlux = {
   'unet': {
     'class_type': 'UNETLoader',
-    'inputs': {'unet_name': 'flux1-schnell.safetensors', 'weight_dtype': 'default'},
+    'inputs': {
+      'unet_name': 'flux1-schnell.safetensors',
+      'weight_dtype': 'default',
+    },
   },
   'clip': {
     'class_type': 'DualCLIPLoader',
@@ -97,15 +121,23 @@ const Map<String, dynamic> kComfyStarterFlux = {
   },
   'pos': {
     'class_type': 'CLIPTextEncode',
-    'inputs': {'text': 'placeholder', 'clip': ['clip', 0]},
+    'inputs': {
+      'text': 'placeholder',
+      'clip': ['clip', 0],
+    },
   },
   'guidance': {
     'class_type': 'FluxGuidance',
-    'inputs': {'conditioning': ['pos', 0], 'guidance': 3.5},
+    'inputs': {
+      'conditioning': ['pos', 0],
+      'guidance': 3.5,
+    },
   },
   'neg': {
     'class_type': 'ConditioningZeroOut',
-    'inputs': {'conditioning': ['pos', 0]},
+    'inputs': {
+      'conditioning': ['pos', 0],
+    },
   },
   'latent': {
     'class_type': 'EmptyLatentImage',
@@ -128,11 +160,17 @@ const Map<String, dynamic> kComfyStarterFlux = {
   },
   'decode': {
     'class_type': 'VAEDecode',
-    'inputs': {'samples': ['sampler', 0], 'vae': ['vae', 0]},
+    'inputs': {
+      'samples': ['sampler', 0],
+      'vae': ['vae', 0],
+    },
   },
   'save': {
     'class_type': 'SaveImage',
-    'inputs': {'filename_prefix': 'FrontPorchAI', 'images': ['decode', 0]},
+    'inputs': {
+      'filename_prefix': 'FrontPorchAI',
+      'images': ['decode', 0],
+    },
   },
 };
 
@@ -140,11 +178,18 @@ const Map<String, dynamic> kComfyStarterFlux = {
 const Map<String, dynamic> kComfyStarterQwen = {
   'unet': {
     'class_type': 'UNETLoader',
-    'inputs': {'unet_name': 'qwen_image_fp8_e4m3fn.safetensors', 'weight_dtype': 'default'},
+    'inputs': {
+      'unet_name': 'qwen_image_fp8_e4m3fn.safetensors',
+      'weight_dtype': 'default',
+    },
   },
   'clip': {
     'class_type': 'CLIPLoader',
-    'inputs': {'clip_name': 'qwen_2.5_vl_7b.safetensors', 'type': 'qwen_image', 'device': 'default'},
+    'inputs': {
+      'clip_name': 'qwen_2.5_vl_7b.safetensors',
+      'type': 'qwen_image',
+      'device': 'default',
+    },
   },
   'vae': {
     'class_type': 'VAELoader',
@@ -152,19 +197,31 @@ const Map<String, dynamic> kComfyStarterQwen = {
   },
   'pos': {
     'class_type': 'CLIPTextEncode',
-    'inputs': {'text': 'placeholder', 'clip': ['clip', 0]},
+    'inputs': {
+      'text': 'placeholder',
+      'clip': ['clip', 0],
+    },
   },
   'neg': {
     'class_type': 'CLIPTextEncode',
-    'inputs': {'text': '', 'clip': ['clip', 0]},
+    'inputs': {
+      'text': '',
+      'clip': ['clip', 0],
+    },
   },
   'modelsampling': {
     'class_type': 'ModelSamplingAuraFlow',
-    'inputs': {'model': ['unet', 0], 'shift': 3.1},
+    'inputs': {
+      'model': ['unet', 0],
+      'shift': 3.1,
+    },
   },
   'cfgnorm': {
     'class_type': 'CFGNorm',
-    'inputs': {'model': ['modelsampling', 0], 'strength': 1.0},
+    'inputs': {
+      'model': ['modelsampling', 0],
+      'strength': 1.0,
+    },
   },
   'latent': {
     'class_type': 'EmptySD3LatentImage',
@@ -187,11 +244,17 @@ const Map<String, dynamic> kComfyStarterQwen = {
   },
   'decode': {
     'class_type': 'VAEDecode',
-    'inputs': {'samples': ['sampler', 0], 'vae': ['vae', 0]},
+    'inputs': {
+      'samples': ['sampler', 0],
+      'vae': ['vae', 0],
+    },
   },
   'save': {
     'class_type': 'SaveImage',
-    'inputs': {'filename_prefix': 'FrontPorchAI', 'images': ['decode', 0]},
+    'inputs': {
+      'filename_prefix': 'FrontPorchAI',
+      'images': ['decode', 0],
+    },
   },
 };
 

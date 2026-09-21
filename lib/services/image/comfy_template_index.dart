@@ -36,8 +36,7 @@ class ComfyTemplateEntry {
 
   String get pickerId => 'comfy:$name';
 
-  bool get isCreate =>
-      _has(_kCreateTags) && !_has(_kBlockedTags) && openSource;
+  bool get isCreate => _has(_kCreateTags) && !_has(_kBlockedTags) && openSource;
 
   bool get isEdit => _has(_kEditTags) && !_has(_kBlockedTags) && openSource;
 

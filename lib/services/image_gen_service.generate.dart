@@ -271,8 +271,7 @@ extension _ImageGenGenerate on ImageGenService {
                 msg.contains('connect') ||
                 msg.contains('gRPC') ||
                 msg.contains('timed out')) {
-              safe =
-                  'Draw Things generation failed. Check that the gRPC server is enabled in Draw Things and the host/port are correct.';
+              safe = 'Draw Things generation failed. Check that the gRPC server is enabled in Draw Things and the host/port are correct.';
             } else {
               safe = 'Draw Things connection or generation failed.';
             }

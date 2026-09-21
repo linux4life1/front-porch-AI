@@ -401,53 +401,53 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
     return ChangeNotifierProvider<StorageService>.value(
       value: widget.storage,
       child: Dialog(
-      backgroundColor: AppColors.surfaceOf(context),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 720,
-          maxHeight: MediaQuery.of(context).size.height * 0.94,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _header(context),
-            Flexible(
-              child: session == null
-                  ? SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: ExpressionPackSetup(
-                        baseImage: widget.baseImage,
-                        characterName: widget.characterName,
-                        existingEmotions: widget.existingEmotions,
-                        storage: widget.storage,
-                        onCancel: () => Navigator.of(context).pop(false),
-                        onStart: _start,
+        backgroundColor: AppColors.surfaceOf(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 720,
+            maxHeight: MediaQuery.of(context).size.height * 0.94,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _header(context),
+              Flexible(
+                child: session == null
+                    ? SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: ExpressionPackSetup(
+                          baseImage: widget.baseImage,
+                          characterName: widget.characterName,
+                          existingEmotions: widget.existingEmotions,
+                          storage: widget.storage,
+                          onCancel: () => Navigator.of(context).pop(false),
+                          onStart: _start,
+                        ),
+                      )
+                    : ExpressionPackGrid(
+                        session: session,
+                        imageGen: widget.imageGen,
+                        cancelRequested: _cancelRequested,
+                        importing: _importing,
+                        qc: _qc,
+                        resolvingVision: _resolvingVision,
+                        onVisionCheck: _runVisionCheck,
+                        onCancel: () {
+                          setState(() => _cancelRequested = true);
+                          session.cancel();
+                        },
+                        onResume: () {
+                          setState(() => _cancelRequested = false);
+                          unawaited(session.run());
+                        },
+                        onImport: _import,
                       ),
-                    )
-                  : ExpressionPackGrid(
-                      session: session,
-                      imageGen: widget.imageGen,
-                      cancelRequested: _cancelRequested,
-                      importing: _importing,
-                      qc: _qc,
-                      resolvingVision: _resolvingVision,
-                      onVisionCheck: _runVisionCheck,
-                      onCancel: () {
-                        setState(() => _cancelRequested = true);
-                        session.cancel();
-                      },
-                      onResume: () {
-                        setState(() => _cancelRequested = false);
-                        unawaited(session.run());
-                      },
-                      onImport: _import,
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

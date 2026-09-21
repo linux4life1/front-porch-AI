@@ -89,11 +89,7 @@ class ImageGenSettings with SettingsBase {
   double _editShift = kEditRecommendedShift;
   int _editSeedMode = kEditRecommendedSeedMode;
 
-  // ComfyUI edit: which bundled preset drives an edit (matches a preset id, or
-  // the '__uploaded__' sentinel for a user-supplied workflow), the per-preset
-  // model-slot file choices ("presetId/%TOKEN%" -> filename), and any uploaded
-  // workflow JSON. The DT-flavored edit knobs above still supply steps/CFG/
-  // strength/shift; ComfyUI uses its own sampler/scheduler defaults.
+  // Comfy edit: preset id or '__uploaded__', slot map, uploaded JSON.
   String _comfyEditWorkflowId = 'qwen_image_edit'; // == kQwenImageEditPreset.id
   Map<String, String> _comfyEditModelChoices = {};
   String _comfyEditUploadedWorkflow = '';
@@ -204,15 +200,18 @@ class ImageGenSettings with SettingsBase {
     _drawThingsCfgZeroStar =
         prefs?.getBool(k('draw_things_cfg_zero_star')) ?? false;
 
-    _editSteps = prefs?.getInt(k('image_gen_edit_steps')) ?? kEditRecommendedSteps;
+    _editSteps =
+        prefs?.getInt(k('image_gen_edit_steps')) ?? kEditRecommendedSteps;
     _editCfgScale =
         prefs?.getDouble(k('image_gen_edit_cfg_scale')) ?? kEditRecommendedCfg;
     _editSampler =
-        prefs?.getInt(k('draw_things_edit_sampler')) ?? kEditRecommendedSamplerInt;
+        prefs?.getInt(k('draw_things_edit_sampler')) ??
+        kEditRecommendedSamplerInt;
     _editShift =
         prefs?.getDouble(k('draw_things_edit_shift')) ?? kEditRecommendedShift;
     _editSeedMode =
-        prefs?.getInt(k('draw_things_edit_seed_mode')) ?? kEditRecommendedSeedMode;
+        prefs?.getInt(k('draw_things_edit_seed_mode')) ??
+        kEditRecommendedSeedMode;
 
     _comfyEditWorkflowId =
         prefs?.getString(k('comfy_edit_workflow_id')) ?? 'qwen_image_edit';

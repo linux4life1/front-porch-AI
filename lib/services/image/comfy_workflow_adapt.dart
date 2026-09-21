@@ -81,16 +81,24 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
     }
     final ins = Map<String, dynamic>.from(inputs);
 
-    void slot(String token, String loader, String input, String label, String folder) {
+    void slot(
+      String token,
+      String loader,
+      String input,
+      String label,
+      String folder,
+    ) {
       _tokenIfLiteral(ins, input, token);
       if (!slots.any((s) => s.token == token)) {
-        slots.add(ComfyModelSlot(
-          token: token,
-          loaderClass: loader,
-          inputName: input,
-          label: label,
-          folderHint: folder,
-        ));
+        slots.add(
+          ComfyModelSlot(
+            token: token,
+            loaderClass: loader,
+            inputName: input,
+            label: label,
+            folderHint: folder,
+          ),
+        );
       }
     }
 
@@ -99,7 +107,9 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         diffusionN++;
         modelNodeId = modelNodeId.isEmpty ? e.key : modelNodeId;
         slot(
-          diffusionN == 1 ? '%MODEL_DIFFUSION%' : '%MODEL_DIFFUSION_$diffusionN%',
+          diffusionN == 1
+              ? '%MODEL_DIFFUSION%'
+              : '%MODEL_DIFFUSION_$diffusionN%',
           'UNETLoader',
           'unet_name',
           diffusionN == 1 ? 'Diffusion model' : 'Diffusion model $diffusionN',
@@ -117,8 +127,20 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         );
       case 'DualCLIPLoader':
         clipNodeId = clipNodeId.isEmpty ? e.key : clipNodeId;
-        slot('%MODEL_CLIP1%', 'DualCLIPLoader', 'clip_name1', 'Text encoder 1 (CLIP-L)', 'text_encoders');
-        slot('%MODEL_CLIP2%', 'DualCLIPLoader', 'clip_name2', 'Text encoder 2 (T5-XXL)', 'text_encoders');
+        slot(
+          '%MODEL_CLIP1%',
+          'DualCLIPLoader',
+          'clip_name1',
+          'Text encoder 1 (CLIP-L)',
+          'text_encoders',
+        );
+        slot(
+          '%MODEL_CLIP2%',
+          'DualCLIPLoader',
+          'clip_name2',
+          'Text encoder 2 (T5-XXL)',
+          'text_encoders',
+        );
       case 'VAELoader':
         vaeN++;
         vaeNodeId = vaeNodeId.isEmpty ? e.key : vaeNodeId;
@@ -168,7 +190,9 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
             _tokenIfLiteral(
               ins,
               key,
-              promptCount == 1 ? ComfyEditTokens.prompt : ComfyEditTokens.negative,
+              promptCount == 1
+                  ? ComfyEditTokens.prompt
+                  : ComfyEditTokens.negative,
             );
             break;
           }
@@ -181,7 +205,8 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
 
   if (vaeNodeId.isEmpty) {
     for (final e in graph.entries) {
-      if (e.value is Map && (e.value as Map)['class_type'] == 'CheckpointLoaderSimple') {
+      if (e.value is Map &&
+          (e.value as Map)['class_type'] == 'CheckpointLoaderSimple') {
         vaeNodeId = e.key;
         break;
       }

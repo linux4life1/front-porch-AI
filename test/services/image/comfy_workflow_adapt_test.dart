@@ -40,7 +40,10 @@ void main() {
     final byo = {
       'pos': {
         'class_type': 'CLIPTextEncode',
-        'inputs': {'text': '%PROMPT%', 'clip': ['c', 0]},
+        'inputs': {
+          'text': '%PROMPT%',
+          'clip': ['c', 0],
+        },
       },
     };
     final adapted = adaptComfyApiWorkflow(byo);

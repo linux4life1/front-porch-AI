@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
@@ -275,8 +276,7 @@ class ImageGenService extends ChangeNotifier {
     String? lastMessage,
     String? characterName,
     String? characterDescription,
-    String?
-    characterPersonality, // kept for signature compatibility during transition (ignored for visuals)
+    String? characterPersonality, // kept for signature compatibility during transition (ignored for visuals)
     String? scenario,
     String? worldInfo,
     String? personaName,

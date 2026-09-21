@@ -193,9 +193,8 @@ class ComfyUiService {
   /// fall back to file-name detection, so this is strictly best-effort.
   Future<Map<String, dynamic>> fetchLoraMetadata(String filename) async {
     try {
-      final uri = Uri.parse(
-        '$_root/view_metadata/loras',
-      ).replace(queryParameters: {'filename': filename});
+      final uri = Uri.parse('$_root/view_metadata/loras')
+          .replace(queryParameters: {'filename': filename});
       final r = await http.get(uri).timeout(const Duration(seconds: 8));
       if (r.statusCode != 200 || r.body.isEmpty) return const {};
       final decoded = jsonDecode(r.body);
@@ -254,7 +253,8 @@ class ComfyUiService {
     final effectiveSeed = seed == -1 ? Random().nextInt(1 << 31) : seed;
     // img2img when a reference image is supplied: upload it first so a
     // LoadImage node can name it, then feed the encoded latent to the sampler.
-    final hasRef = referenceImageBytes != null && referenceImageBytes.isNotEmpty;
+    final hasRef =
+        referenceImageBytes != null && referenceImageBytes.isNotEmpty;
     final workflow = hasRef
         ? ComfyWorkflow.buildImg2ImgWorkflow(
             model: model,
@@ -355,9 +355,9 @@ class ComfyUiService {
       } catch (_) {}
       throw Exception('ComfyUI rejected the workflow: $detail');
     }
-    final promptId =
-        (jsonDecode(submit.body) as Map<String, dynamic>)['prompt_id']
-            ?.toString();
+    final promptId = (jsonDecode(
+      submit.body,
+    ) as Map<String, dynamic>)['prompt_id']?.toString();
     if (promptId == null || promptId.isEmpty) {
       throw Exception('ComfyUI did not return a prompt_id');
     }
@@ -372,9 +372,8 @@ class ComfyUiService {
         final wsRoot = _root
             .replaceFirst('https://', 'wss://')
             .replaceFirst('http://', 'ws://');
-        ws = await WebSocket.connect(
-          '$wsRoot/ws?clientId=$clientId',
-        ).timeout(const Duration(seconds: 3));
+        ws = await WebSocket.connect('$wsRoot/ws?clientId=$clientId')
+            .timeout(const Duration(seconds: 3));
         ws.listen(
           (frame) {
             try {
@@ -389,9 +388,8 @@ class ComfyUiService {
                   }
                 }
               } else if (frame is List<int> && frame.length > 8) {
-                final header = Uint8List.fromList(
-                  frame.sublist(0, 4),
-                ).buffer.asByteData();
+                final header = Uint8List.fromList(frame.sublist(0, 4)).buffer
+                    .asByteData();
                 if (header.getInt32(0) == 1) {
                   onProgress(null, Uint8List.fromList(frame.sublist(8)));
                 }

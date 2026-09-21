@@ -77,14 +77,13 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
       _fullSet ? kFullExpressionSet : kCuratedExpressionSet;
   int get _existingInChosen =>
       _chosenSet.where(widget.existingEmotions.contains).length;
-  int get _effectiveCount => _skipExisting
-      ? _chosenSet.length - _existingInChosen
-      : _chosenSet.length;
+  int get _effectiveCount =>
+      _skipExisting ? _chosenSet.length - _existingInChosen : _chosenSet.length;
 
   @override
   Widget build(BuildContext context) {
-    final count = (_fullSet ? kFullExpressionSet : kCuratedExpressionSet)
-        .length;
+    final count =
+        (_fullSet ? kFullExpressionSet : kCuratedExpressionSet).length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

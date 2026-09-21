@@ -105,8 +105,16 @@ extension ComfyUiCatalogApi on ComfyUiService {
       for (final n in names)
         if (n.toLowerCase().endsWith('.json'))
           ComfyTemplateEntry(
-            name: n.replaceAll('\\', '/').split('/').last.replaceAll('.json', ''),
-            title: n.replaceAll('\\', '/').split('/').last.replaceAll('.json', ''),
+            name: n
+                .replaceAll('\\', '/')
+                .split('/')
+                .last
+                .replaceAll('.json', ''),
+            title: n
+                .replaceAll('\\', '/')
+                .split('/')
+                .last
+                .replaceAll('.json', ''),
             tags: const ['Text to Image'],
             source: 'userdata',
           ),

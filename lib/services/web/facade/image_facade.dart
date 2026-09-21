@@ -62,8 +62,9 @@ class ImageFacade {
       'hasApiKey': b.remoteApiKeyFor(b.remoteApiUrl).isNotEmpty,
       'comfyCreateWorkflowId': img.comfyCreateWorkflowId,
       'comfyCreateModelChoices': img.comfyCreateModelChoices,
-      'comfyCreateUploadedWorkflow':
-          img.comfyCreateUploadedWorkflow.trim().isNotEmpty,
+      'comfyCreateUploadedWorkflow': img.comfyCreateUploadedWorkflow
+          .trim()
+          .isNotEmpty,
       'comfyCreatePresets': [
         for (final p in kComfyCreatePresets)
           {
@@ -99,7 +100,8 @@ class ImageFacade {
       'loras': cat.loras,
       'createDiscovery': cat.createDiscovery,
       'templates': [
-        for (final t in templates) {'id': t.pickerId, 'name': t.name, 'title': t.title},
+        for (final t in templates)
+          {'id': t.pickerId, 'name': t.name, 'title': t.title},
       ],
     };
   }

@@ -140,7 +140,10 @@ void _rewire(
     if (inputs is! Map) continue;
     for (final k in inputs.keys.toList()) {
       final v = inputs[k];
-      if (v is List && v.length == 2 && '${v[0]}' == '${from[0]}' && v[1] == from[1]) {
+      if (v is List &&
+          v.length == 2 &&
+          '${v[0]}' == '${from[0]}' &&
+          v[1] == from[1]) {
         inputs[k] = to;
       }
     }

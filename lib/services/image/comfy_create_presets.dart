@@ -252,7 +252,8 @@ ComfyCreateRequest? resolveComfyCreateRequest({
   if (workflowId == 'sd' ||
       (comfyCreatePresetById(workflowId)?.usesCheckpointBuilder ?? false)) {
     final file =
-        modelChoices['$workflowId/$kComfyCheckpointToken'] ?? checkpointFallback;
+        modelChoices['$workflowId/$kComfyCheckpointToken'] ??
+        checkpointFallback;
     return ComfyCreateRequest(
       template: const {},
       values: values,

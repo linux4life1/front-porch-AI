@@ -74,9 +74,13 @@ Map<String, dynamic>? ensureComfyApiGraph(
   Map<String, dynamic>? objectInfo,
 }) {
   if (isComfyApiWorkflow(raw)) {
-    return raw.map((k, v) => MapEntry(k, v is Map ? Map<String, dynamic>.from(v) : v));
+    return raw.map(
+      (k, v) => MapEntry(k, v is Map ? Map<String, dynamic>.from(v) : v),
+    );
   }
-  if (isComfyUiWorkflow(raw)) return convertComfyUiToApi(raw, objectInfo: objectInfo);
+  if (isComfyUiWorkflow(raw)) {
+    return convertComfyUiToApi(raw, objectInfo: objectInfo);
+  }
   return null;
 }
 
@@ -99,7 +103,12 @@ Map<String, dynamic> convertComfyUiToApi(
       if (linkId == null) continue;
       final link = linksById[linkId];
       if (link == null) continue;
-      final origin = _followReroute(link.originId, link.originSlot, nodesById, linksById);
+      final origin = _followReroute(
+        link.originId,
+        link.originSlot,
+        nodesById,
+        linksById,
+      );
       if (origin == null) continue;
       inputs[inp.name] = [origin.$1, origin.$2];
     }
@@ -116,13 +125,19 @@ Map<String, dynamic> convertComfyUiToApi(
   return out;
 }
 
-List<String> comfyWidgetInputNames(Map<String, dynamic>? objectInfo, String type) {
+List<String> comfyWidgetInputNames(
+  Map<String, dynamic>? objectInfo,
+  String type,
+) {
   final fromInfo = _widgetNamesFromObjectInfo(objectInfo, type);
   if (fromInfo.isNotEmpty) return fromInfo;
   return kComfyFallbackWidgets[type] ?? const [];
 }
 
-List<String> _widgetNamesFromObjectInfo(Map<String, dynamic>? info, String type) {
+List<String> _widgetNamesFromObjectInfo(
+  Map<String, dynamic>? info,
+  String type,
+) {
   if (info == null) return const [];
   final node = info[type];
   if (node is! Map) return const [];
@@ -232,7 +247,12 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
       if (subgraphs.containsKey(type)) {
         final sg = subgraphs[type]!;
         walk(_asList(sg['nodes']), _asList(sg['links']), '${id}_');
-        _recordSubgraphOutputs(sg, prefix: '${id}_', parentId: id, into: outputRewire);
+        _recordSubgraphOutputs(
+          sg,
+          prefix: '${id}_',
+          parentId: id,
+          into: outputRewire,
+        );
         continue;
       }
       final node = _readNode(raw, id);
@@ -252,13 +272,15 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
   for (final l in links) {
     final hit = outputRewire['${l.originId}:${l.originSlot}'];
     if (hit != null) {
-      remapped.add(_UiLink(
-        id: l.id,
-        originId: hit.$1,
-        originSlot: hit.$2,
-        targetId: l.targetId,
-        targetSlot: l.targetSlot,
-      ));
+      remapped.add(
+        _UiLink(
+          id: l.id,
+          originId: hit.$1,
+          originSlot: hit.$2,
+          targetId: l.targetId,
+          targetSlot: l.targetSlot,
+        ),
+      );
     } else {
       remapped.add(l);
     }
@@ -297,7 +319,12 @@ _UiNode _readNode(Map raw, String id) {
       inputs.add(_UiIn(name, link is num ? link.toInt() : null));
     }
   }
-  return _UiNode(id: id, type: raw['type']?.toString() ?? '', widgets: widgets, inputs: inputs);
+  return _UiNode(
+    id: id,
+    type: raw['type']?.toString() ?? '',
+    widgets: widgets,
+    inputs: inputs,
+  );
 }
 
 _UiLink? _readLink(Object? raw, String prefix) {
@@ -315,10 +342,13 @@ _UiLink? _readLink(Object? raw, String prefix) {
   );
 }
 
-bool _isIoId(String id) => id == '-10' || id == '-20' || id.endsWith('-10') || id.endsWith('-20');
+bool _isIoId(String id) =>
+    id == '-10' || id == '-20' || id.endsWith('-10') || id.endsWith('-20');
 
 int? _linkId(Object? raw) {
-  if (raw is List && raw.isNotEmpty && raw[0] is num) return (raw[0] as num).toInt();
+  if (raw is List && raw.isNotEmpty && raw[0] is num) {
+    return (raw[0] as num).toInt();
+  }
   if (raw is Map && raw['id'] is num) return (raw['id'] as num).toInt();
   return null;
 }

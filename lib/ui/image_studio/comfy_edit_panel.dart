@@ -317,7 +317,10 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
       padding: const EdgeInsets.only(left: 110, bottom: 4),
       child: Text(
         comfySlotEmptyMessage(slot),
-        style: TextStyle(fontSize: 10.5, color: AppColors.textTertiary(context)),
+        style: TextStyle(
+          fontSize: 10.5,
+          color: AppColors.textTertiary(context),
+        ),
       ),
     );
   }

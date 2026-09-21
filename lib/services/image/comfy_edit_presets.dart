@@ -35,6 +35,7 @@
 import 'dart:convert';
 
 import 'comfy_edit_workflow.dart';
+
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 
 /// Qwen-Image-Edit (2509/2511). Node shapes validated live against ComfyUI's
@@ -269,7 +270,10 @@ const ComfyEditPreset kFluxKontextPreset = ComfyEditPreset(
     },
     'pos': {
       'class_type': 'CLIPTextEncode',
-      'inputs': {'text': '%PROMPT%', 'clip': ['clip', 0]},
+      'inputs': {
+        'text': '%PROMPT%',
+        'clip': ['clip', 0],
+      },
     },
     'reflatent': {
       'class_type': 'ReferenceLatent',

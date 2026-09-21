@@ -72,7 +72,12 @@ void main() {
             },
           ],
         },
-        {'id': 35, 'type': 'MarkdownNote', 'widgets_values': ['docs'], 'inputs': <Map>[]},
+        {
+          'id': 35,
+          'type': 'MarkdownNote',
+          'widgets_values': ['docs'],
+          'inputs': <Map>[],
+        },
       ],
       'links': [
         [62, 57, 0, 9, 0, 'IMAGE'],
@@ -110,9 +115,27 @@ void main() {
               },
             ],
             'links': [
-              {'id': 26, 'origin_id': 28, 'origin_slot': 0, 'target_id': 3, 'target_slot': 0},
-              {'id': 14, 'origin_id': 3, 'origin_slot': 0, 'target_id': 8, 'target_slot': 0},
-              {'id': 16, 'origin_id': 8, 'origin_slot': 0, 'target_id': -20, 'target_slot': 0},
+              {
+                'id': 26,
+                'origin_id': 28,
+                'origin_slot': 0,
+                'target_id': 3,
+                'target_slot': 0,
+              },
+              {
+                'id': 14,
+                'origin_id': 3,
+                'origin_slot': 0,
+                'target_id': 8,
+                'target_slot': 0,
+              },
+              {
+                'id': 16,
+                'origin_id': 8,
+                'origin_slot': 0,
+                'target_id': -20,
+                'target_slot': 0,
+              },
             ],
           },
         ],
@@ -121,7 +144,10 @@ void main() {
     final api = convertComfyUiToApi(ui.cast<String, dynamic>());
     expect(api.containsKey('35'), isFalse, reason: 'notes must drop');
     expect(api['57_28']['class_type'], 'UNETLoader');
-    expect(api['57_28']['inputs']['unet_name'], 'z_image_turbo_bf16.safetensors');
+    expect(
+      api['57_28']['inputs']['unet_name'],
+      'z_image_turbo_bf16.safetensors',
+    );
     expect(api['57_3']['inputs']['steps'], 8);
     expect(api['57_3']['inputs']['model'], ['57_28', 0]);
     expect(api['9']['inputs']['images'], ['57_8', 0]);

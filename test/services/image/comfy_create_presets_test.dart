@@ -30,7 +30,11 @@ void main() {
     });
 
     test('ZIT and Qwen read diffusion_models, not checkpoints', () {
-      for (final p in [kZitCreatePreset, kQwenCreatePreset, kFluxCreatePreset]) {
+      for (final p in [
+        kZitCreatePreset,
+        kQwenCreatePreset,
+        kFluxCreatePreset,
+      ]) {
         expect(
           p.modelSlots.any((s) => s.folderHint == 'diffusion_models'),
           isTrue,
@@ -193,11 +197,17 @@ void main() {
       final live = {
         '1': {
           'class_type': 'UNETLoader',
-          'inputs': {'unet_name': 'from-comfy.safetensors', 'weight_dtype': 'default'},
+          'inputs': {
+            'unet_name': 'from-comfy.safetensors',
+            'weight_dtype': 'default',
+          },
         },
         '2': {
           'class_type': 'CLIPTextEncode',
-          'inputs': {'text': 'stock prompt', 'clip': ['1', 0]},
+          'inputs': {
+            'text': 'stock prompt',
+            'clip': ['1', 0],
+          },
         },
         '3': {
           'class_type': 'KSampler',
