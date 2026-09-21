@@ -113,8 +113,11 @@ extension ChatServiceIdleAutonomous on ChatService {
       if (sid.isNotEmpty) _loadGroupRealismIntoScalars(sid);
     }
 
-    // Capture pre-AFK needs vector so the needs delta chip has a baseline
-    if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
+    // Capture pre-AFK needs vector so the needs delta chip has a baseline.
+    // Soft group speakers skip Needs — do not park a leftover vector.
+    if (_needsSimEnabled &&
+        _needsSimulation.vector.isNotEmpty &&
+        (afkSpeaker == null || !_speakerIsSoft(afkSpeaker))) {
       _pendingRealismMetadata ??= {};
       _pendingRealismMetadata!['needs_pre_turn_vector'] = Map<String, int>.from(
         _needsSimulation.vector,

@@ -26,10 +26,15 @@ extension ChatServiceGroupLite on ChatService {
   List<CharacterCard> get fullGroupRoster =>
       fullGroupCharacters(_groupCharacters);
 
+  /// Soft on the card **or** a same-id/name roster guest. GuestPoke leaked
+  /// Realism when the speaking copy lost `tier` while the roster stayed GUEST.
+  bool _speakerIsSoft(CharacterCard speaker) =>
+      speaker.isLite || _presentSoftMatching(speaker) != null;
+
   /// 1:1 guest turn **or** a soft group member speaking. Do not set
   /// `guestSpeaker` for the latter — that skip would drop Away / pick.
   bool _isLiteTurn(_GenTurn t) =>
-      t.guestSpeaker != null || t.speakingCharacter.isLite;
+      t.guestSpeaker != null || _speakerIsSoft(t.speakingCharacter);
 
   bool _sceneNameTaken(String name) {
     final wanted = name.trim().toLowerCase();

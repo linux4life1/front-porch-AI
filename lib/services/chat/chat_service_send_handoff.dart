@@ -26,7 +26,13 @@ extension ChatServiceSendHandoff on ChatService {
     // (bond/trust/arousal) use.
     Map<String, int>? preTurnVector;
     if (_realismActiveThisMode && addressedGuest == null) {
-      if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
+      // 1:1 only. Group per-speaker stamp lives in the realism dance —
+      // writing it here used the last loaded (full) member's vector, then
+      // a soft turn skipped the dance and attached that leftover to the
+      // guest bubble.
+      if (_activeGroup == null &&
+          _needsSimEnabled &&
+          _needsSimulation.vector.isNotEmpty) {
         preTurnVector = Map<String, int>.from(_needsSimulation.vector);
         _pendingRealismMetadata ??= {};
         _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;

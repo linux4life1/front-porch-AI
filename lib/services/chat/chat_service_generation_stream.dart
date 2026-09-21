@@ -83,12 +83,12 @@ extension ChatServiceGenerationStream on ChatService {
           ? t.speakingCharacter.name
           : _userPersonaService.persona.name;
       isUserTarget = t.mode == GenerationMode.impersonate;
-      // A Scene Guest turn carries NO Realism/Needs, so its message must never
-      // inherit _pendingRealismMetadata — which still holds the HOST turn's
-      // verification result (the leftover "✓ Director accepted" chip), bond
-      // deltas, etc. Guests get clean (null) metadata.
+      // A Scene Guest / soft roster turn carries NO Realism/Needs, so its
+      // message must never inherit `_pendingRealismMetadata` — leftover
+      // host/full-member `needs_pre_turn_vector` and chips. 1:1 guests
+      // already skipped via `guestSpeaker`; group lite must too.
       final initialMetadata =
-          (t.guestSpeaker != null || _pendingRealismMetadata == null)
+          (_isLiteTurn(t) || _pendingRealismMetadata == null)
           ? null
           : Map<String, dynamic>.from(_pendingRealismMetadata!);
       debugPrint(

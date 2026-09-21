@@ -351,7 +351,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
   Future<void> _runLiteGroupGlancePass(_GenTurn t, String scoredReply) async {
     if (_activeGroup == null) return;
     if (t.guestSpeaker != null) return;
-    if (!t.speakingCharacter.isLite) return;
+    if (!_speakerIsSoft(t.speakingCharacter)) return;
     if (scoredReply.trim().isEmpty) return;
     if (!_realismEnabled) return;
     if (_postGenAbortRequested) return;
@@ -369,6 +369,10 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         t.streamTarget.activeMetadata = meta;
       }
       await _runWithUserPass(scoredReply);
+      debugPrint(
+        '[Presence] lite-glance ${t.speakingCharacter.name}='
+        '${_relationshipService.withUser}',
+      );
       if (sid.isNotEmpty) {
         _memberForWrite(sid).withUser = _relationshipService.withUser;
       }

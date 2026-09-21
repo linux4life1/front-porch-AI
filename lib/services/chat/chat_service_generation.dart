@@ -334,7 +334,7 @@ extension ChatServiceGeneration on ChatService {
       // A normal new group turn still dances. Guests carry no realism.
       if (guestSpeaker == null &&
           _activeGroup != null &&
-          !speakingCharacter.isLite &&
+          !_isLiteTurn(t) &&
           _realismActiveThisMode) {
         if (mode == GenerationMode.continue_ || skipSpeakerEval) {
           final sid = _getCharacterIdFromCard(speakingCharacter);
