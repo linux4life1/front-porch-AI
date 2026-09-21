@@ -180,6 +180,9 @@ extension ChatServiceChatPackageImport on ChatService {
       } else if (_messages.isNotEmpty) {
         await _restoreRealismStateWalkingBack(fromIndex: _messages.length - 1);
       }
+      // After seed wiped guests: restore `fpai.cast` on a matching open
+      // chat. Mismatched / dialogue-only never reaches here (`full` is false).
+      await _applyCastFromPackage(fpai[kFpchatCastKey]);
       final remapTo = ownerRemapFrom == null
           ? null
           : _getCharacterIdFromCard(_activeCharacter!);

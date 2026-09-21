@@ -20,6 +20,7 @@ export 'context_viewer_snapshot.dart';
 export 'continue_glue.dart';
 export 'dream_service.dart';
 export 'expression_classifier.dart';
+export 'fpchat_cast.dart';
 export 'fpchat_codec.dart';
 export 'fpchat_format.dart';
 export 'fpchat_image_names.dart';

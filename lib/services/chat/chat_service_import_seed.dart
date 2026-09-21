@@ -338,4 +338,87 @@ extension ChatServiceImportSeed on ChatService {
       };
     }
   }
+
+  /// Thin `fpai.cast`: group roster (lite marked) or live 1:1 scene guests.
+  /// Ids + name + tier only — no card blobs. 1:1 guests never rode
+  /// `group_realism_state` in the package (that key is group-only).
+  List<Map<String, dynamic>> _captureCastForPackage() {
+    if (_activeGroup != null) {
+      return [
+        for (final c in _groupCharacters)
+          encodeFpchatCastMember(
+            id: _getCharacterIdFromCard(c),
+            name: c.name,
+            lite: c.isLite,
+          ),
+      ];
+    }
+    return [
+      for (final g in _sceneGuest.cards)
+        encodeFpchatCastMember(
+          id: _getCharacterIdFromCard(g),
+          name: g.name,
+          lite: true,
+        ),
+    ];
+  }
+
+  /// Restore [fpai.cast] after Phase 0 seed wiped guests. Missing/empty
+  /// is a no-op (legacy packages). Unknown ids are skipped — no invented
+  /// cards. Dialogue-only imports never call this.
+  Future<void> _applyCastFromPackage(dynamic raw) async {
+    final cast = parseFpchatCast(raw);
+    if (cast.isEmpty) return;
+    if (_activeGroup != null) {
+      var changed = false;
+      for (final entry in cast) {
+        if (!entry.lite) continue;
+        final live = matchFpchatCastMember(_groupCharacters, entry);
+        if (live == null || live.isLite) continue;
+        final stamped = cloneFrontPorchTier(
+          live.frontPorchExtensions,
+          lite: true,
+        );
+        live.frontPorchExtensions = stamped;
+        if (live.dbId != null) {
+          await _db.updateGroupMember(
+            GroupMembersCompanion(
+              id: drift.Value(live.dbId!),
+              frontPorchExtensions: drift.Value(
+                encodeMemberFrontPorch(stamped),
+              ),
+            ),
+          );
+        }
+        changed = true;
+      }
+      if (changed) await _reloadGroupRoster();
+      return;
+    }
+    final hostId = _activeCharacter != null
+        ? _getCharacterIdFromCard(_activeCharacter!)
+        : '';
+    final library = _characterRepository?.characters ?? const <CharacterCard>[];
+    for (final entry in cast) {
+      if (!entry.lite) continue;
+      final lib = matchFpchatCastMember(library, entry);
+      if (lib == null || lib.dbId == null) continue;
+      if (_getCharacterIdFromCard(lib) == hostId) continue;
+      if (_sceneGuest.ids.contains(lib.dbId)) continue;
+      await _enterSceneGuest(lib, speak: false);
+    }
+  }
+
+  /// Register a 1:1 Scene Guest without an entrance turn (import + tests).
+  @visibleForTesting
+  Future<void> debugEnterSceneGuestSilent(CharacterCard guest) =>
+      _enterSceneGuest(guest, speak: false);
+
+  /// Seed a transcript so [exportToFpchat] has something to pack.
+  @visibleForTesting
+  void debugSeedTranscriptForFpchat(List<ChatMessage> msgs) {
+    _messages
+      ..clear()
+      ..addAll(msgs);
+  }
 }

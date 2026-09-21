@@ -39,6 +39,7 @@ extension ChatServiceChatPackage on ChatService {
         if (_activeGroup != null) 'group_name': _activeGroup!.name,
       },
       'session': _captureSessionHeadForPackage(),
+      kFpchatCastKey: _captureCastForPackage(),
       'messages_extra': extras,
       'journal': await _exportJournalCardsForPackage(),
       if (growth.isNotEmpty) 'growth': growth,

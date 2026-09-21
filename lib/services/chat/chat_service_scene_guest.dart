@@ -120,11 +120,14 @@ extension ChatServiceSceneGuest on ChatService {
   /// entrance via the parity-safe guest-turn path. Shared by `/create`,
   /// `/join`, and the cast-detection accept flow so there is exactly ONE enter
   /// path (no duplicated add/resolve/save/generate logic).
-  Future<void> _enterSceneGuest(CharacterCard guest) async {
+  Future<void> _enterSceneGuest(
+    CharacterCard guest, {
+    bool speak = true,
+  }) async {
     if (guest.dbId != null) _sceneGuest.ids.add(guest.dbId!);
     await _resolveSceneGuestCards();
     await _saveChat();
-    await generateGuestTurn(guest);
+    if (speak) await generateGuestTurn(guest);
   }
 
   /// Update the transient Scene Guest status line (the inline banner). [sticky]
