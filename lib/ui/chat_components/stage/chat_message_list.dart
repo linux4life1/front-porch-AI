@@ -26,10 +26,12 @@ import 'package:front_porch_ai/ui/chat_components/bubbles/message_bubble.dart';
 import 'package:front_porch_ai/ui/chat_components/widgets/generating_image_bubble.dart';
 import 'package:front_porch_ai/ui/chat_components/widgets/message_jump.dart';
 
+import 'transcript_scroll_controller.dart';
+
 /// Reverse chat transcript of [MessageBubble]s. ChatPage owns keys, speaker
 /// resolution, and the image-gen placeholder. Waifu Coder passes
 /// [chatService] null so Continue / Regen / realism stay off.
-class ChatMessageList extends StatelessWidget {
+class ChatMessageList extends StatefulWidget {
   const ChatMessageList({
     super.key,
     required this.messages,
@@ -73,22 +75,39 @@ class ChatMessageList extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   @override
+  State<ChatMessageList> createState() => _ChatMessageListState();
+}
+
+class _ChatMessageListState extends State<ChatMessageList> {
+  TranscriptScrollController? _owned;
+
+  ScrollController get _scroll =>
+      widget.controller ?? (_owned ??= TranscriptScrollController());
+
+  @override
+  void dispose() {
+    _owned?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final messages = widget.messages;
     return ListView.builder(
-      controller: controller,
+      controller: _scroll,
       reverse: true,
-      padding: padding,
-      itemCount: messages.length + (generatingImage ? 1 : 0),
+      padding: widget.padding,
+      itemCount: messages.length + (widget.generatingImage ? 1 : 0),
       itemBuilder: (context, index) {
-        if (generatingImage) {
+        if (widget.generatingImage) {
           if (index == 0) return const GeneratingImageBubble();
           index -= 1;
         }
         final reversedIndex = messages.length - 1 - index;
         final msg = messages[reversedIndex];
-        final (senderImage, senderColor) = resolveSpeaker(msg);
-        final above = aboveBubble?.call(msg, reversedIndex);
-        final extra = belowBubble?.call(msg, reversedIndex);
+        final (senderImage, senderColor) = widget.resolveSpeaker(msg);
+        final above = widget.aboveBubble?.call(msg, reversedIndex);
+        final extra = widget.belowBubble?.call(msg, reversedIndex);
         // Always a Column so a tool-chip appearing beside the bubble does
         // not swap MessageBubble's parent and reset Thought toggle state.
         final bubble = Column(
@@ -101,20 +120,22 @@ class ChatMessageList extends StatelessWidget {
               characterImage: senderImage,
               index: reversedIndex,
               senderColor: senderColor,
-              externalImagesAllowed: externalImagesAllowed,
-              onRequestImagePermission: onRequestImagePermission,
-              character: characterFor?.call(msg),
-              chatService: chatService,
-              isGenerating: generatingAt?.call(reversedIndex) ?? isGenerating,
-              themeOverrides: themeOverrides,
+              externalImagesAllowed: widget.externalImagesAllowed,
+              onRequestImagePermission: widget.onRequestImagePermission,
+              character: widget.characterFor?.call(msg),
+              chatService: widget.chatService,
+              isGenerating:
+                  widget.generatingAt?.call(reversedIndex) ??
+                  widget.isGenerating,
+              themeOverrides: widget.themeOverrides,
             ),
             ?extra,
           ],
         );
-        final key = bubbleKeyOf?.call(msg);
+        final key = widget.bubbleKeyOf?.call(msg);
         return JumpFlash(
           key: key,
-          flashed: identical(msg, jumpFlash),
+          flashed: identical(msg, widget.jumpFlash),
           child: bubble,
         );
       },

@@ -164,6 +164,7 @@
   margin-top: 6px;
   max-height: 10rem;
   overflow-y: auto;
+  overflow-anchor: none;
 }
 .note-input { resize: vertical; }
 .summary-recap-view {

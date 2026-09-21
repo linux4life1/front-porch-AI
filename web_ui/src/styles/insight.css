@@ -218,7 +218,7 @@
 .lore-dest > div > input { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 0.85rem; }
 .small { font-size: 0.78rem; }
 .danger.small { color: var(--danger); }
-.chat-messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.chat-messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; display: flex; flex-direction: column; gap: 10px; overflow-anchor: none; }
 .bubble {
   max-width: 85%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap;
   line-height: 1.4; word-break: break-word;
@@ -230,7 +230,7 @@
   user-select: text;
   -webkit-user-select: text;
 }
-.thinking-body { user-select: text; -webkit-user-select: text; }
+.thinking-body { user-select: text; -webkit-user-select: text; overflow-anchor: none; }
 .msg-speaker { user-select: none; -webkit-user-select: none; }
 .bubble.user { align-self: flex-end; background: var(--chat-user-bubble); color: var(--chat-user-text); border-bottom-right-radius: 4px; }
 .bubble.ai { align-self: flex-start; background: var(--chat-ai-bubble); color: var(--chat-ai-text); border-bottom-right-radius: 16px; border-bottom-left-radius: 4px; }

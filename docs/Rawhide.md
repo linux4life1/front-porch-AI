@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260920.5fe816e`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 📜 **Replies stay where you left them while they generate** — new words no longer drag the chat (or the thought box) toward the newest line. Scroll yourself if you want to follow along. Same on the phone.
+
 - 👥 **Guests can sit in a group without becoming full members** — `/create`, `/join --lite`, and `/scan` work in a group now. They take turns and can be Away like anyone else (a guest who walks off is marked Away; Needs and Realism still stay off). Promote them with `/promote Name` or the roster button. Turning a 1:1 into a group keeps the guests as guests. Same on the phone.
 
 - 📦 **Guests survive a Full Front Porch chat share** — exporting a `.fpchat` now remembers who was a Scene Guest (1:1) or a soft group member. Importing onto the same open cast puts them back as guests. Old files still open. Same on the phone.

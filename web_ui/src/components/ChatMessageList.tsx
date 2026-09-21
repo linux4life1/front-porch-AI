@@ -6,7 +6,8 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, useEffect, useRef, type RefObject } from 'react';
+import { memo, useLayoutEffect, useRef, type RefObject } from 'react';
+import { applyTranscriptAutoScroll } from '../pages/chat/transcriptAutoScroll';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
 import { MessageActions } from './MessageActions';
@@ -226,8 +227,20 @@ export function ChatMessageList({
   scrollRef: RefObject<HTMLDivElement>;
   onScroll?: () => void;
 }) {
+  const ownedTop = useRef<number | null>(null);
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (el) ownedTop.current = el.scrollTop;
+    onScroll?.();
+  };
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (ownedTop.current == null) ownedTop.current = el.scrollTop;
+    applyTranscriptAutoScroll(el, ownedTop.current);
+  }, [streaming, transcript.messages.length]);
   return (
-    <div className="chat-messages" ref={scrollRef} onScroll={onScroll}>
+    <div className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
       <TranscriptRows {...transcript} />
       {streaming && (() => {
         // Separate a (possibly still-open) <think> block so reasoning streams
@@ -248,7 +261,7 @@ export function ChatMessageList({
           rest = canonical.slice(0, open) + (close === -1 ? '' : after.slice(close + 8));
         }
         return (
-          <div className="bubble ai streaming" aria-live="polite">
+          <div className="bubble ai streaming">
             {thinking.trim() && <LiveThinkBody text={thinking} />}
             {rest && <MessageContent text={rest} />}
           </div>
@@ -278,27 +291,10 @@ export function ChatMessageList({
 }
 
 function LiveThinkBody({ text }: { text: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const pinned = useRef(true);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || !pinned.current) return;
-    el.scrollTop = el.scrollHeight;
-  }, [text]);
   return (
     <details className="thinking" open>
       <summary>💭 thinking…</summary>
-      <div
-        className="thinking-body"
-        ref={ref}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          pinned.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 24;
-        }}
-      >
-        {text}
-      </div>
+      <div className="thinking-body">{text}</div>
     </details>
   );
 }

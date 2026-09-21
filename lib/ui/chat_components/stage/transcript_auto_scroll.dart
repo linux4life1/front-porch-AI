@@ -22,5 +22,24 @@ void applyTranscriptAutoScroll(
   ScrollController controller, {
   required bool generating,
 }) {
-  // Option B: the user scrolls. [generating] is unused on purpose.
+  // Option B: never jumpTo(0) / pin to newest. [generating] is unused
+  // on purpose. Viewport hold on reverse-list growth lives on
+  // [TranscriptScrollController] via [heldTranscriptOffset].
+}
+
+/// Reverse-list hold. Offset is distance from the newest edge; when that
+/// end grows, add the growth so the same rows stay on screen — even at
+/// offset 0 (already watching generation).
+double heldTranscriptOffset({
+  required double offset,
+  required double previousMax,
+  required double newMax,
+  required double minExtent,
+}) {
+  final growth = newMax - previousMax;
+  if (growth == 0) return offset;
+  final next = offset + growth;
+  if (next < minExtent) return minExtent;
+  if (next > newMax) return newMax;
+  return next;
 }

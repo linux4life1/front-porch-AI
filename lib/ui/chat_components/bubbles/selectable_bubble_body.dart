@@ -25,7 +25,21 @@ class SelectableBubbleBody extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => SelectionArea(child: child);
+  Widget build(BuildContext context) {
+    // SelectionArea's selectable text calls bringIntoView on each geometry
+    // change. During streaming that is every token, and the nearest
+    // Scrollable is the transcript — so the list jumps even with no
+    // jumpTo. An inner never-scrollable view absorbs ensureVisible
+    // (extent 0) without adding a real nested scroller.
+    return SelectionArea(
+      child: SingleChildScrollView(
+        key: const Key('bubble-body-scroll-absorb'),
+        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
+        child: child,
+      ),
+    );
+  }
 }
 
 /// Header, thought chip, swipe/action rows, chips — not bubble content.
