@@ -195,6 +195,23 @@ extension ImageGenBackendsGenerate on ImageGenService {
     return url.contains('openrouter.ai');
   }
 
+  /// Remote image POST only — not catalog (15s) or URL download (30s).
+  /// Ceiling is [kRemoteImageHttpTimeout] (600s), same as A1111 model load.
+  Future<http.Response> _postRemoteImage(
+    http.Client client, {
+    required Uri uri,
+    required Map<String, String> headers,
+    required String body,
+  }) async {
+    try {
+      return await client
+          .post(uri, headers: headers, body: body)
+          .timeout(kRemoteImageHttpTimeout);
+    } on TimeoutException {
+      throw Exception(formatRemoteImageTimeoutMessage());
+    }
+  }
+
   /// Generate via OpenAI-compatible /images/generations endpoint.
   /// Works with Nano-GPT, direct OpenAI, and local A1111/SD servers.
   ///
@@ -237,16 +254,15 @@ extension ImageGenBackendsGenerate on ImageGenService {
 
     final client = http.Client();
     try {
-      final response = await client
-          .post(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $apiKey',
-            },
-            body: jsonEncode(payload),
-          )
-          .timeout(const Duration(seconds: 120));
+      final response = await _postRemoteImage(
+        client,
+        uri: uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode(payload),
+      );
 
       if (response.statusCode != 200) {
         debugPrint('ImageGen: HTTP ${response.statusCode} from $imageEndpoint');
@@ -332,18 +348,17 @@ extension ImageGenBackendsGenerate on ImageGenService {
 
     final client = http.Client();
     try {
-      final response = await client
-          .post(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $apiKey',
-              'HTTP-Referer': 'https://github.com/linux4life1/front-porch-AI',
-              'X-Title': 'Front Porch AI',
-            },
-            body: jsonEncode(payload),
-          )
-          .timeout(const Duration(seconds: 120));
+      final response = await _postRemoteImage(
+        client,
+        uri: uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+          'HTTP-Referer': 'https://github.com/linux4life1/front-porch-AI',
+          'X-Title': 'Front Porch AI',
+        },
+        body: jsonEncode(payload),
+      );
 
       if (response.statusCode != 200) {
         String errorMsg = 'HTTP ${response.statusCode}';

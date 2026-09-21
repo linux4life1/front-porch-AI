@@ -108,6 +108,21 @@ const kRemoteLocalCheckpointMessage =
     'Pick a Remote API image model. A local checkpoint '
     '(.ckpt / .safetensors) cannot be sent to Nano-GPT or OpenRouter.';
 
+/// Remote Nano/OpenRouter image POST patience. Matches A1111's model-load
+/// ceiling — Nano gens often exceed 2 minutes. Catalog (15s) and URL
+/// downloads (30s) stay short; only `/images/generations`, `/images/edits`,
+/// and OpenRouter `/chat/completions` image POSTs use this.
+const kRemoteImageHttpTimeout = Duration(seconds: 600);
+
+/// User-facing copy when a remote image POST hits [kRemoteImageHttpTimeout].
+String formatRemoteImageTimeoutMessage([
+  Duration timeout = kRemoteImageHttpTimeout,
+]) {
+  final minutes = timeout.inMinutes;
+  return 'Remote image timed out after ${minutes}m — '
+      'try again or a faster model';
+}
+
 /// First non-empty candidate that is a remote API id (and in [catalogIds]
 /// when that set is provided). Local filenames never win.
 String? pickRemoteImageModelId({

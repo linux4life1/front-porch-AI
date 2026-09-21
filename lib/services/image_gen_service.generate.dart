@@ -431,7 +431,10 @@ extension _ImageGenGenerate on ImageGenService {
       _notify();
       return imageBytes;
     } catch (e) {
-      _statusMessage = 'Generation failed: $e';
+      final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+      _statusMessage = msg.startsWith('Remote image timed out')
+          ? msg
+          : 'Generation failed: $e';
       _notify();
       return null;
     } finally {

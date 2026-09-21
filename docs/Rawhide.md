@@ -13,6 +13,7 @@ Last shipped nightly: `rawhide.20260920.5fe816e`. Everything below is unreleased
 - 🖼️ **Nano-GPT Image Studio lists current image models** — Qwen Image 2.1/3, GPT Image 2.5, FLUX.2, Ideogram V4, Midjourney, and the rest of today’s Nano image page (subscription ones still marked included). Same on the phone.
 - 🖼️ **Image Studio Remote API: Nano or OpenRouter** — pick the host with chips (each uses the key you already saved in Settings → Backend). Search the model list; Nano rows say Pro vs paid. Switching Studio chips does not change chat’s backend. Same on the phone.
 - 🖼️ **Expression packs on Nano no longer send a leftover Comfy checkpoint** — the pack (and Edit) need a Nano edit id such as Qwen Image Max Edit. A `.ckpt` sitting in the Edit slot is cleared instead of billed as an invalid model. Same on the phone.
+- 🖼️ **Nano Create waits up to 10 minutes** — slow remote image models no longer fail at two minutes with a raw timeout dump. You’ll see “try again or a faster model” if it still runs long. Same on the phone.
 
 - 👥 **Guests can sit in a group without becoming full members** — `/create`, `/join --lite`, and `/scan` work in a group now. They take turns and can be Away like anyone else (a guest who walks off is marked Away; Needs and Realism still stay off). Promote them with `/promote Name` or the roster button. Turning a 1:1 into a group keeps the guests as guests. Same on the phone.
 

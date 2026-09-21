@@ -174,6 +174,25 @@ void main() {
     },
   );
 
+  test(
+    'remote image HTTP ceiling is 600s and surfaces minutes, not TimeoutException',
+    () {
+      expect(kRemoteImageHttpTimeout, const Duration(seconds: 600));
+      expect(
+        formatRemoteImageTimeoutMessage(),
+        'Remote image timed out after 10m — try again or a faster model',
+      );
+      expect(
+        formatRemoteImageTimeoutMessage(const Duration(seconds: 300)),
+        'Remote image timed out after 5m — try again or a faster model',
+      );
+      expect(
+        formatRemoteImageTimeoutMessage(),
+        isNot(contains('TimeoutException')),
+      );
+    },
+  );
+
   test('sanitizeRemoteImageSlot restores the per-host edit id', () async {
     final image = ImageGenSettings();
     await image.setImageRemoteApiUrl(kNanoGptApiV1);
