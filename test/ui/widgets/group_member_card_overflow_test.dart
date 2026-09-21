@@ -1,9 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Soft guest + NEXT + presence + Promote used to sit in one header Row and
-// overflow the Group Settings sidebar (~52px). Proven red: put those
-// trailers back in the name Row (no Wrap) and 280px overflows.
+// Soft guest + NEXT + presence used to sit in one header Row and overflow
+// the Group Settings sidebar. Promote does NOT live on this card — only
+// GUEST as status. Proven red: a lite card that still builds a Promote
+// button fails the findsNothing pin.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,7 +27,6 @@ Future<void> _pumpCard(
   required CharacterCard character,
   required FakeChatService chat,
   required bool isNext,
-  VoidCallback? onPromote,
 }) async {
   tester.view.physicalSize = Size(width + 40, 400);
   tester.view.devicePixelRatio = 1.0;
@@ -46,7 +46,6 @@ Future<void> _pumpCard(
             isNextSpeaker: isNext,
             isExpanded: true,
             onTap: () {},
-            onPromote: onPromote,
           ),
         ),
       ),
@@ -63,7 +62,6 @@ void main() {
   ) async {
     final chat = FakeChatService(realismEnabled: false);
     addTearDown(chat.dispose);
-    var promoted = false;
 
     // 280/320 are the live sidebar. 200 is the test-font width that
     // still overflows a non-wrapping trailer Row (same class as the
@@ -75,7 +73,6 @@ void main() {
         character: _lite('GuestPollen'),
         chat: chat,
         isNext: true,
-        onPromote: () => promoted = true,
       );
       expect(
         tester.takeException(),
@@ -83,13 +80,26 @@ void main() {
         reason: 'header overflowed at $width',
       );
       expect(find.text('GUEST'), findsOneWidget);
-      expect(find.text('Promote'), findsOneWidget);
+      expect(find.text('Promote'), findsNothing);
       expect(find.text('NEXT'), findsOneWidget);
       expect(find.text('With you'), findsOneWidget);
       expect(find.text('GuestPollen'), findsOneWidget);
     }
+  });
 
-    await tester.tap(find.text('Promote'));
-    expect(promoted, isTrue);
+  testWidgets('lite Character State card is GUEST status only', (tester) async {
+    final chat = FakeChatService(realismEnabled: false);
+    addTearDown(chat.dispose);
+    await _pumpCard(
+      tester,
+      width: 320,
+      character: _lite('Misty'),
+      chat: chat,
+      isNext: false,
+    );
+    expect(find.text('GUEST'), findsOneWidget);
+    expect(find.text('Misty'), findsOneWidget);
+    expect(find.text('Promote'), findsNothing);
+    expect(find.byType(TextButton), findsNothing);
   });
 }

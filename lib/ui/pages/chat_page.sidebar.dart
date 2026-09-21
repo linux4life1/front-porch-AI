@@ -149,8 +149,8 @@ extension _ChatPageSidebar on _ChatPageState {
   /// Horizontal roster of all cast participants. Tapping one focuses its
   /// per-character sidebar sections. Shown only when more than one speaker is
   /// present (1:1 + guests, or a group). Soft guests show GUEST + Promote
-  /// here so those controls stay reachable when Character State is hidden
-  /// (1:1) or collapsed (group).
+  /// here — this is the only Promote chrome. Character State may still
+  /// show a GUEST badge; it does not get a second button.
   Widget _buildParticipantRoster(
     ChatService chatService,
     List<ChatParticipant> cast,

@@ -64,7 +64,6 @@ class GroupMemberCard extends StatefulWidget {
   final int ringCount;
   final bool canRemove;
   final VoidCallback? onRemove;
-  final VoidCallback? onPromote;
   final VoidCallback? onOpenObjectives;
 
   const GroupMemberCard({
@@ -79,7 +78,6 @@ class GroupMemberCard extends StatefulWidget {
     this.ringCount = 0,
     this.canRemove = false,
     this.onRemove,
-    this.onPromote,
     this.onOpenObjectives,
   });
 
@@ -397,29 +395,6 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                                         fontWeight: FontWeight.bold,
                                         color: AppColors.porchAmberOf(context),
                                       ),
-                                    ),
-                                  ),
-                                if (widget.character.isLite &&
-                                    widget.onPromote != null)
-                                  TextButton(
-                                    onPressed: chat.isGenerating
-                                        ? null
-                                        : widget.onPromote,
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: AppColors.onChaosAccent,
-                                      backgroundColor:
-                                          AppColors.formMasterAccent,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 0,
-                                      ),
-                                      minimumSize: const Size(0, 24),
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    child: const Text(
-                                      'Promote',
-                                      style: TextStyle(fontSize: 11),
                                     ),
                                   ),
                               ],

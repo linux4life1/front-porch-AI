@@ -159,18 +159,7 @@ class _SidebarBodyState extends State<SidebarBody> {
             // users shouldn't have to guess why evals silently run in text
             // mode (and it retests itself on model/backend switches).
             ToolCallingPill(chatService: chat),
-            if (isLite)
-              _LiteNpcBanner(
-                onPromote: chat.isGenerating
-                    ? null
-                    : () {
-                        if (isGroup) {
-                          chat.promoteGuestToFull(character);
-                        } else {
-                          chat.joinFull(character);
-                        }
-                      },
-              ),
+            if (isLite) const _LiteNpcBanner(),
             // Author's Note leads the sidebar as its own card (it was the
             // always-first section in the old design; burying it inside
             // Story Tools made it hard to find — user feedback).
@@ -314,9 +303,6 @@ class _SidebarBodyState extends State<SidebarBody> {
               await chat.removeCharacterFromGroup(character, groupRepo);
             }
           : null,
-      onPromote: character.isLite
-          ? () => chat.promoteGuestToFull(character)
-          : null,
       onOpenObjectives: () {
         showDialog(
           context: context,
@@ -331,11 +317,10 @@ class _SidebarBodyState extends State<SidebarBody> {
   }
 }
 
-/// "Lite NPC" banner for realism-off scene guests (moved from chat_page).
+/// Status-only banner for a focused lite guest. Promote lives on the
+/// cast avatar strip — do not add a second control here.
 class _LiteNpcBanner extends StatelessWidget {
-  final VoidCallback? onPromote;
-
-  const _LiteNpcBanner({this.onPromote});
+  const _LiteNpcBanner();
 
   @override
   Widget build(BuildContext context) {
@@ -381,20 +366,6 @@ class _LiteNpcBanner extends StatelessWidget {
               ),
             ),
           ),
-          if (onPromote != null) ...[
-            const SizedBox(width: 6),
-            TextButton(
-              onPressed: onPromote,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.onChaosAccent,
-                backgroundColor: AppColors.formMasterAccent,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 24),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text('Promote', style: TextStyle(fontSize: 11)),
-            ),
-          ],
         ],
       ),
     );

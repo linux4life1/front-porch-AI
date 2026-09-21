@@ -1,9 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Desktop cast chips must show GUEST + Promote for soft guests — Character
-// State used to hide both when the focused speaker was lite. Proven red:
-// drop isLite / onPromote and these fail.
+// Desktop cast chips are the only Promote chrome for soft guests.
+// Proven red: drop isLite / onPromote and these fail. The member-card
+// twin (group_member_card_overflow_test) asserts Promote is absent.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

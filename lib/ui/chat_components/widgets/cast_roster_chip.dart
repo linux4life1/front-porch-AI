@@ -23,8 +23,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// One face in the desktop cast strip. Soft guests carry the amber GUEST
-/// mark and a Promote control so they match the web CastBar — Character
-/// State used to hide both when the focused speaker was lite.
+/// mark and the **only** Promote control (member card / Lite NPC banner
+/// stay status-only). Matches the web CastBar.
 class CastRosterChip extends StatelessWidget {
   final String name;
   final Color color;
