@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// Thin `fpai.cast` list — portable id + name + optional lite tier.
 /// No card blobs or avatars. Added with [kFpchatStampVersion] 2.
