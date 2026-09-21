@@ -21,9 +21,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:front_porch_ai/ui/chat_components/stage/transcript_auto_scroll.dart';
-import 'package:front_porch_ai/ui/chat_components/stage/transcript_scroll_controller.dart';
-
 class _GrowingTranscript extends StatefulWidget {
   const _GrowingTranscript({super.key, required this.controller});
 
@@ -65,43 +62,13 @@ class _GrowingTranscriptState extends State<_GrowingTranscript> {
 }
 
 void main() {
-  test('heldTranscriptOffset keeps rows still when the newest end grows', () {
-    expect(
-      heldTranscriptOffset(
-        offset: 0,
-        previousMax: 400,
-        newMax: 480,
-        minExtent: 0,
-      ),
-      80,
-      reason: 'already at newest: growth must not pin to the new bottom',
-    );
-    expect(
-      heldTranscriptOffset(
-        offset: 240,
-        previousMax: 400,
-        newMax: 480,
-        minExtent: 0,
-      ),
-      320,
-      reason: 'scrolled away: growth must not yank toward the new bottom',
-    );
-    expect(
-      heldTranscriptOffset(
-        offset: 240,
-        previousMax: 400,
-        newMax: 400,
-        minExtent: 0,
-      ),
-      240,
-    );
-  });
-
-  testWidgets('stream growth at newest does not pin offset 0', (tester) async {
+  testWidgets('stream growth does not rewrite a stock reverse-list offset', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(400, 600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final controller = TranscriptScrollController();
+    final controller = ScrollController();
     addTearDown(controller.dispose);
     final listKey = GlobalKey<_GrowingTranscriptState>();
     await tester.pumpWidget(
@@ -114,19 +81,26 @@ void main() {
     await tester.pump();
     expect(
       controller.offset,
-      greaterThan(0),
-      reason:
-          'growing the live bubble must not keep offset 0 (stick-to-bottom)',
+      0,
+      reason: 'hold/correctPixels would push offset off 0 and jitter the page',
+    );
+
+    listKey.currentState!.growTo(280);
+    await tester.pump();
+    expect(
+      controller.offset,
+      0,
+      reason: 'a second growth must not accumulate a rewritten offset',
     );
   });
 
-  testWidgets('scrolled-away offset is not yanked toward the new bottom', (
+  testWidgets('scrolled-away offset is not rewritten on newest-end growth', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final controller = TranscriptScrollController();
+    final controller = ScrollController();
     addTearDown(controller.dispose);
     final listKey = GlobalKey<_GrowingTranscriptState>();
     await tester.pumpWidget(
@@ -140,15 +114,36 @@ void main() {
     await tester.pump();
     expect(
       controller.offset,
-      greaterThan(80),
-      reason:
-          'growth + preserved pixels-from-bottom is the yank; hold adds growth',
+      80,
+      reason: 'hold added growth to pixels and fought Flutter; stock keeps 80',
     );
   });
 
   test('chat page and bubble body honor the no-force-scroll contract', () {
     final page = File('lib/ui/pages/chat_page.dart').readAsStringSync();
-    expect(page.contains('TranscriptScrollController'), isTrue);
+    expect(page.contains('TranscriptScrollController'), isFalse);
+    expect(page.contains('resetHold'), isFalse);
+    expect(page.contains('heldTranscriptOffset'), isFalse);
+    expect(
+      File(
+        'lib/ui/chat_components/stage/transcript_scroll_controller.dart',
+      ).existsSync(),
+      isFalse,
+    );
+    expect(
+      File(
+        'lib/ui/chat_components/stage/transcript_auto_scroll.dart',
+      ).readAsStringSync().contains('heldTranscriptOffset'),
+      isFalse,
+    );
+    final list = File(
+      'lib/ui/chat_components/stage/chat_message_list.dart',
+    ).readAsStringSync();
+    expect(
+      list.contains('class ChatMessageList extends StatelessWidget'),
+      isTrue,
+    );
+    expect(list.contains('TranscriptScrollController'), isFalse);
     final bubble = File(
       'lib/ui/chat_components/bubbles/message_bubble.content.dart',
     ).readAsStringSync();
@@ -157,12 +152,9 @@ void main() {
     final selectable = File(
       'lib/ui/chat_components/bubbles/selectable_bubble_body.dart',
     ).readAsStringSync();
-    expect(selectable.contains('NeverScrollableScrollPhysics'), isTrue);
-    expect(selectable.contains('bubble-body-scroll-absorb'), isTrue);
-    expect(
-      selectable.contains('primary: false'),
-      isTrue,
-      reason: 'inner absorb must not steal PrimaryScrollController',
-    );
+    expect(selectable.contains('NeverScrollableScrollPhysics'), isFalse);
+    expect(selectable.contains('bubble-body-scroll-absorb'), isFalse);
+    expect(selectable.contains('ListView'), isFalse);
+    expect(selectable.contains('SelectionArea(child: child)'), isTrue);
   });
 }

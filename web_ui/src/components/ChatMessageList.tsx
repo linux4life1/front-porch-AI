@@ -6,8 +6,7 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, useLayoutEffect, useRef, type RefObject } from 'react';
-import { applyTranscriptAutoScroll } from '../pages/chat/transcriptAutoScroll';
+import { memo, type RefObject } from 'react';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
 import { MessageActions } from './MessageActions';
@@ -227,20 +226,8 @@ export function ChatMessageList({
   scrollRef: RefObject<HTMLDivElement>;
   onScroll?: () => void;
 }) {
-  const ownedTop = useRef<number | null>(null);
-  const handleScroll = () => {
-    const el = scrollRef.current;
-    if (el) ownedTop.current = el.scrollTop;
-    onScroll?.();
-  };
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (ownedTop.current == null) ownedTop.current = el.scrollTop;
-    applyTranscriptAutoScroll(el, ownedTop.current);
-  }, [streaming, transcript.messages.length]);
   return (
-    <div className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
+    <div className="chat-messages" ref={scrollRef} onScroll={onScroll}>
       <TranscriptRows {...transcript} />
       {streaming && (() => {
         // Separate a (possibly still-open) <think> block so reasoning streams

@@ -4,24 +4,19 @@ import { describe, expect, it } from 'vitest';
 import { applyTranscriptAutoScroll } from './transcriptAutoScroll';
 
 describe('transcript stream scroll (option B)', () => {
-  it('restores a yanked scrollTop to the user-owned offset', () => {
+  it('does not rewrite scrollTop on a stream tick', () => {
     const el = { scrollTop: 360, scrollHeight: 800 };
     applyTranscriptAutoScroll(el, 80);
-    expect(el.scrollTop).toBe(80);
+    expect(el.scrollTop).toBe(360);
   });
 
-  it('does not move scrollTop when the user already owns that offset', () => {
-    const el = { scrollTop: 80, scrollHeight: 800 };
-    applyTranscriptAutoScroll(el, 80);
-    expect(el.scrollTop).toBe(80);
-  });
-
-  it('ChatMessageList holds the transcript and does not pin inner think', () => {
+  it('ChatMessageList does not pin the transcript or the inner think box', () => {
     const list = readFileSync(
       join(__dirname, '../../components/ChatMessageList.tsx'),
       'utf8',
     );
-    expect(list).toMatch(/applyTranscriptAutoScroll/);
+    expect(list).not.toMatch(/applyTranscriptAutoScroll/);
+    expect(list).not.toMatch(/ownedTop/);
     expect(list).not.toMatch(/scrollTop\s*=\s*[^\n]*scrollHeight/);
     expect(list).not.toMatch(/className="bubble ai streaming" aria-live/);
   });

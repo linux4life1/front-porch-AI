@@ -33,7 +33,6 @@ export 'sidebar/chat_main_settings.dart';
 export 'stage/chat_message_list.dart';
 export 'stage/chat_resize_sidebar.dart';
 export 'stage/transcript_auto_scroll.dart';
-export 'stage/transcript_scroll_controller.dart';
 export 'sidebar/expandable_sidebar_text.dart';
 export 'chat_composer_hint.dart';
 export 'sidebar/emoji_burst.dart';
