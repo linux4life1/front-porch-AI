@@ -64,8 +64,6 @@ bool pinTranscriptToLatest(ScrollController controller) {
 }
 
 /// One-shot when older rows are prepended. Not for tokens, not per layout.
-/// Call after maxScrollExtent has settled — the first frame after a
-/// prepend can report a stale (too large) max.
 void holdTranscriptAfterPrepend(
   ScrollController controller,
   double previousMax,
@@ -78,21 +76,6 @@ void holdTranscriptAfterPrepend(
     controller.position.maxScrollExtent,
   );
   if ((next - controller.offset).abs() > 0.5) controller.jumpTo(next);
-}
-
-/// Keep the open-window's first row as the CustomScrollView center so
-/// older pages grow above the viewport. No offset rewrite.
-int nextTranscriptCenterIndex({
-  required int prevCenter,
-  required TranscriptGrowth kind,
-  required int prevLen,
-  required int nextLen,
-}) {
-  if (kind == TranscriptGrowth.open) return 0;
-  if (kind == TranscriptGrowth.prepend && nextLen > prevLen) {
-    return prevCenter + (nextLen - prevLen);
-  }
-  return prevCenter;
 }
 
 /// Apply the one-shot open / prepend move after this frame's layout.

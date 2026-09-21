@@ -170,10 +170,8 @@ void main() {
     ).readAsStringSync();
     expect(list.contains('ScrollCacheExtent.pixels(4000)'), isTrue);
     expect(list.contains('primary: false'), isTrue);
-    expect(list.contains('findChildIndexCallback'), isTrue);
-    expect(list.contains('_rowKey'), isTrue);
-    expect(list.contains('nextTranscriptCenterIndex'), isTrue);
-    expect(list.contains('CustomScrollView'), isTrue);
+    expect(list.contains('identityKey'), isTrue);
+    expect(list.contains('applyTranscriptGrowth'), isTrue);
     expect(list.contains('TranscriptScrollController'), isFalse);
   });
 }
