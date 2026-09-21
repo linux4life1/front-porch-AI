@@ -21,6 +21,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/ui/chat_components/stage/transcript_auto_scroll.dart';
+
 class _GrowingTranscript extends StatefulWidget {
   const _GrowingTranscript({super.key, required this.controller});
 
@@ -62,6 +64,57 @@ class _GrowingTranscriptState extends State<_GrowingTranscript> {
 }
 
 void main() {
+  testWidgets('open/load pins a reverse list to newest once', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final controller = ScrollController(keepScrollOffset: false);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(_GrowingTranscript(controller: controller));
+    await tester.pump();
+    controller.jumpTo(80);
+    await tester.pump();
+    expect(controller.offset, 80, reason: 'stale leftover from the last chat');
+
+    expect(pinTranscriptToLatest(controller), isTrue);
+    await tester.pump();
+    expect(
+      controller.offset,
+      0,
+      reason: 'open/load must land on the newest end (reverse offset 0)',
+    );
+
+    applyTranscriptAutoScroll(controller, generating: true);
+    await tester.pump();
+    expect(
+      controller.offset,
+      0,
+      reason: 'stream helper must not move after the one-shot pin',
+    );
+  });
+
+  testWidgets('idle user scroll is not rewritten by leftover hold plumbing', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final controller = ScrollController(keepScrollOffset: false);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(_GrowingTranscript(controller: controller));
+    await tester.pump();
+    controller.jumpTo(80);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(
+      controller.offset,
+      80,
+      reason:
+          'applyContentDimensions hold would buck idle scrolling on every layout',
+    );
+  });
+
   testWidgets('stream growth does not rewrite a stock reverse-list offset', (
     tester,
   ) async {
@@ -124,6 +177,14 @@ void main() {
     expect(page.contains('TranscriptScrollController'), isFalse);
     expect(page.contains('resetHold'), isFalse);
     expect(page.contains('heldTranscriptOffset'), isFalse);
+    expect(page.contains('pinTranscriptToLatest'), isTrue);
+    expect(page.contains('keepScrollOffset: false'), isTrue);
+    expect(page.contains('_scrollToBottom'), isFalse);
+    final open = File(
+      'lib/services/chat/chat_service_session_window.dart',
+    ).readAsStringSync();
+    expect(open.contains('getMessagesTailForSession'), isTrue);
+    expect(open.contains('_prependOlderPage'), isTrue);
     expect(
       File(
         'lib/ui/chat_components/stage/transcript_scroll_controller.dart',

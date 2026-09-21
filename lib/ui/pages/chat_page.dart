@@ -78,7 +78,12 @@ class _ChatPageState extends State<ChatPage> {
   final StyledTextController _controller = StyledTextController(
     preset: StyledTextPreset.chat,
   );
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController(
+    keepScrollOffset: false,
+  );
+
+  /// Session we already one-shot-pinned to newest. Not a stream follow.
+  String? _pinnedOpenSession;
   late final FocusNode _chatFocusNode;
   // Journal receipts tap-to-jump: the just-landed-on bubble, briefly tinted.
   ChatMessage? _jumpFlashMessage;
@@ -365,6 +370,20 @@ class _ChatPageState extends State<ChatPage> {
           // CallOverlay, whose dispose is the one call teardown (mic, TTS,
           // callMode). No setState: we are already inside this build.
           _isCallActive = false;
+          _pinnedOpenSession = null;
+        }
+
+        final sessionId = chatService.currentSessionId;
+        if (sessionId != null &&
+            sessionId != _pinnedOpenSession &&
+            messages.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (_pinnedOpenSession == sessionId) return;
+            if (pinTranscriptToLatest(_scrollController)) {
+              _pinnedOpenSession = sessionId;
+            }
+          });
         }
 
         if (character == null && !isGroup) {

@@ -6,7 +6,13 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, type RefObject } from 'react';
+import { memo, useLayoutEffect, useRef, type RefObject } from 'react';
+import {
+  classifyTranscriptGrowth,
+  holdTranscriptAfterPrepend,
+  pinTranscriptToLatest,
+  transcriptTipKey,
+} from '../pages/chat/transcriptAutoScroll';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
 import { MessageActions } from './MessageActions';
@@ -215,17 +221,44 @@ const TranscriptRows = memo(function TranscriptRows({
 });
 
 export function ChatMessageList({
+  sessionId,
   streaming,
   genStatus,
   scrollRef,
   onScroll,
   ...transcript
 }: TranscriptProps & {
+  sessionId?: string | null;
   streaming: string;
   genStatus: GenStatus | null;
   scrollRef: RefObject<HTMLDivElement>;
   onScroll?: () => void;
 }) {
+  const pinnedOpen = useRef<string | null>(null);
+  const prevTip = useRef('');
+  const prevLen = useRef(0);
+  const prevHeight = useRef(0);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const nextTip = transcriptTipKey(transcript.messages);
+    const kind = classifyTranscriptGrowth({
+      sessionId,
+      prevSession: pinnedOpen.current,
+      prevLen: prevLen.current,
+      prevTip: prevTip.current,
+      nextLen: transcript.messages.length,
+      nextTip,
+    });
+    if (kind === 'open' && el) {
+      pinTranscriptToLatest(el);
+      pinnedOpen.current = sessionId ?? null;
+    } else if (kind === 'prepend' && el) {
+      holdTranscriptAfterPrepend(el, prevHeight.current);
+    }
+    prevLen.current = transcript.messages.length;
+    prevTip.current = nextTip;
+    prevHeight.current = el?.scrollHeight ?? 0;
+  }, [sessionId, transcript.messages, scrollRef]);
   return (
     <div className="chat-messages" ref={scrollRef} onScroll={onScroll}>
       <TranscriptRows {...transcript} />

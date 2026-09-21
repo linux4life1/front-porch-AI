@@ -31,7 +31,7 @@ export function ChatPage() {
   const {
     opening, state, loadError, streaming, chance, imageProg, genStatus,
     processing, showSessions, setShowSessions, sessions, loadingSessions,
-    toolsBump, voice, impersonateFill, scrollRef, refresh, stop, revealFate,
+    toolsBump, voice, impersonateFill, scrollRef, onTranscriptScroll, refresh, stop, revealFate,
     acceptFate, cancelRealism, openSessions, loadSession, newChat,
   } = session;
   const {
@@ -329,6 +329,7 @@ export function ChatPage() {
           </div>
         )}
         <ChatMessageList
+          sessionId={state.sessionId}
           messages={state.messages}
           castById={castById}
           multiCast={multiCast}
@@ -337,6 +338,7 @@ export function ChatPage() {
           streaming={streaming}
           genStatus={state.isGenerating ? genStatus : null}
           scrollRef={scrollRef}
+          onScroll={onTranscriptScroll}
           canSpeak={!!voice?.ttsEnabled}
           onBeginEdit={beginEdit}
           onSwipe={swipe}

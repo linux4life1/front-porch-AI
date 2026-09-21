@@ -49,6 +49,7 @@ export function useChatSession() {
   // Live Impersonate composer fill (dedicated WS event — not the AI bubble).
   const [impersonateFill, setImpersonateFill] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const loadingOlder = useRef(false);
   // Coalesces bursts of `chat_updated` (a single turn fires several: send, guest
   // actions, realism chip-attach, …) into one refresh so the transcript doesn't
   // reload repeatedly while the engines work.
@@ -307,6 +308,20 @@ export function useChatSession() {
     setChance(null);
     tokenSessionRef.current = null;
   };
+  const onTranscriptScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || loadingOlder.current) return;
+    if (!state?.hasOlderHistory || state.isBackfillingHistory) return;
+    if (el.scrollTop > 64) return;
+    loadingOlder.current = true;
+    void api
+      .post('/api/chat/history-older')
+      .then(() => refresh())
+      .finally(() => {
+        loadingOlder.current = false;
+      });
+  }, [state?.hasOlderHistory, state?.isBackfillingHistory, refresh]);
+
   const loadSession = async (sessionId: string) => {
     setShowSessions(false);
     clearLiveTurnUi();
@@ -337,6 +352,7 @@ export function useChatSession() {
     voice,
     impersonateFill,
     scrollRef,
+    onTranscriptScroll,
     refresh,
     stop,
     revealFate,

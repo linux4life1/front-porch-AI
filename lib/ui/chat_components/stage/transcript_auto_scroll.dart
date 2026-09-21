@@ -22,7 +22,15 @@ void applyTranscriptAutoScroll(
   ScrollController controller, {
   required bool generating,
 }) {
-  // Option B: never jumpTo(0) / pin to newest. Do not rewrite the reverse
-  // list offset when content grows — that fight with Flutter's own
-  // applyContentDimensions is what made the chat page jump around.
+  // Option B: never jumpTo(0) / pin to newest on send or stream. Do not
+  // rewrite the reverse-list offset when content grows — that fight with
+  // Flutter's own applyContentDimensions is what made the chat page jump.
+}
+
+/// Reverse list: offset 0 is the newest end. One-shot for open / session
+/// restore only — not for tokens or a newly completed bubble.
+bool pinTranscriptToLatest(ScrollController controller) {
+  if (!controller.hasClients) return false;
+  if (controller.offset != 0) controller.jumpTo(0);
+  return true;
 }

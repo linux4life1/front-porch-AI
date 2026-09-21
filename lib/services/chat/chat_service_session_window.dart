@@ -100,7 +100,8 @@ extension ChatServiceSessionWindow on ChatService {
   }
 
   /// One older page. Returns false when the prefix is done or the
-  /// session changed. Does not notify — the background loop does once.
+  /// session changed. The background loop notifies once at the end so
+  /// idle scrolling is not rebuilt on every page.
   Future<bool> _prependOlderPage(String sessionId, int epoch) async {
     if (!_history.hasMore) return false;
     final older = await _db.getMessagesBeforePosition(
@@ -126,9 +127,13 @@ extension ChatServiceSessionWindow on ChatService {
     return _history.hasMore;
   }
 
-  /// Public page for the web relay; the desktop path uses the background
-  /// loop. Safe to call — no-ops while the loop is already running.
+  /// One older page for scroll-up. No-op while the background loop
+  /// is already paging newest → older, or when the prefix is done.
   Future<void> loadOlderHistory({int count = kSessionOlderPage}) async {
-    await _awaitHistoryHydrated();
+    if (_history.isBackfilling) return;
+    final sid = _currentSessionId;
+    if (sid == null || !_history.hasMore) return;
+    await _prependOlderPage(sid, _history.epoch);
+    notifyListeners();
   }
 }

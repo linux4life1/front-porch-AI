@@ -1,11 +1,60 @@
+type TranscriptEl = {
+  scrollTop: number;
+  scrollHeight: number;
+  scrollTo?: (init: ScrollToOptions) => void;
+};
+
 export function applyTranscriptAutoScroll(
-  _el: {
-    scrollTop: number;
-    scrollHeight: number;
-    scrollTo?: (init: ScrollToOptions) => void;
-  } | null,
+  _el: TranscriptEl | null,
   _ownedTop?: number | null,
 ): void {
   // Option B: the user scrolls. Do not rewrite scrollTop on stream ticks —
   // that restore fought the browser and jumped the page around.
+}
+
+/** Forward list: latest is the bottom. One-shot for open / session restore. */
+export function pinTranscriptToLatest(el: TranscriptEl | null): void {
+  if (!el) return;
+  const top = el.scrollHeight;
+  if (el.scrollTo) el.scrollTo({ top });
+  else el.scrollTop = top;
+}
+
+/** Keep the same rows on screen when older history is prepended above. */
+export function holdTranscriptAfterPrepend(
+  el: TranscriptEl | null,
+  prevHeight: number,
+): void {
+  if (!el) return;
+  const grew = el.scrollHeight - prevHeight;
+  if (grew > 0) el.scrollTop += grew;
+}
+
+export function transcriptTipKey(
+  messages: { sender: string; text: string }[],
+): string {
+  const tip = messages.length > 0 ? messages[messages.length - 1] : undefined;
+  return tip ? `${tip.sender}\0${tip.text}` : '';
+}
+
+export function classifyTranscriptGrowth(args: {
+  sessionId?: string | null;
+  prevSession: string | null;
+  prevLen: number;
+  prevTip: string;
+  nextLen: number;
+  nextTip: string;
+}): 'open' | 'prepend' | 'other' {
+  if (!args.sessionId) return 'other';
+  if (args.prevSession !== args.sessionId) {
+    return args.nextLen > 0 ? 'open' : 'other';
+  }
+  if (
+    args.nextLen > args.prevLen &&
+    args.nextTip !== '' &&
+    args.nextTip === args.prevTip
+  ) {
+    return 'prepend';
+  }
+  return 'other';
 }
