@@ -75,7 +75,10 @@ void main() {
       'hidream',
       'flux-2-pro',
     ]);
-    expect(filterImageModels(models, 'paid').single.id, 'flux-2-pro');
+    expect(filterImageModels(models, 'paid').map((m) => m.id), [
+      'flux-2-pro',
+      'qwen-image-3',
+    ]);
     expect(filterImageModels(models, 'nope'), isEmpty);
   });
 

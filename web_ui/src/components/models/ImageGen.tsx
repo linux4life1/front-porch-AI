@@ -51,7 +51,6 @@ const SIZES = ['512x512', '768x768', '1024x1024', '1536x1024', '1024x1536'];
 export function ImageGen({ onError }: { onError: (s: string) => void }) {
   const [cfg, setCfg] = useState<ImageConfig | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [apiKey, setApiKey] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [filename, setFilename] = useState<string | null>(null);
   const [inserted, setInserted] = useState(false);
@@ -110,7 +109,6 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         if (needsStepUp) {
           setPassword('');
           setTotpCode('');
-          setApiKey('');
         }
       })
       .catch((e) => {

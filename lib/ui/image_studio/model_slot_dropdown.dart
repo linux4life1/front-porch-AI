@@ -66,42 +66,52 @@ class ModelSlotDropdown extends StatelessWidget {
         ? settings.imageGenEditModel
         : settings.imageGenModel;
     final known = options.any((o) => o.value == current);
+    // Menu surface + ListTileTheme: local/Comfy lists stay on this dropdown.
+    // If a future Flutter menu paints items as ListTiles, tileColor matches
+    // the menu Material so ink is not hidden (the 237-row remote catalog
+    // uses showGenericModelSearchDialog instead).
+    final menuSurface = AppColors.surfaceContainerOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        DropdownButtonFormField<String>(
-          key: ValueKey('$keyPrefix-$current'),
-          initialValue: known ? current : null,
-          dropdownColor: AppColors.surfaceContainerOf(context),
-          style: TextStyle(
-            color: AppColors.textPrimary(context),
-            fontSize: fontSize,
-          ),
-          isExpanded: true,
-          menuMaxHeight: 400,
-          decoration: decoration,
-          items: options
-              .map(
-                (o) => DropdownMenuItem(
-                  value: o.value,
-                  child: Text(
-                    o.label,
-                    style: TextStyle(
-                      color: AppColors.textPrimary(context),
-                      fontSize: fontSize,
+        Theme(
+          data: Theme.of(
+            context,
+          ).copyWith(listTileTheme: ListTileThemeData(tileColor: menuSurface)),
+          child: DropdownButtonFormField<String>(
+            key: ValueKey('$keyPrefix-$current'),
+            initialValue: known ? current : null,
+            dropdownColor: menuSurface,
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontSize: fontSize,
+            ),
+            isExpanded: true,
+            menuMaxHeight: 400,
+            decoration: decoration,
+            items: options
+                .map(
+                  (o) => DropdownMenuItem(
+                    value: o.value,
+                    child: Text(
+                      o.label,
+                      style: TextStyle(
+                        color: AppColors.textPrimary(context),
+                        fontSize: fontSize,
+                      ),
                     ),
                   ),
-                ),
-              )
-              .toList(),
-          onChanged: (v) {
-            if (v == null) return;
-            if (editSlot) {
-              settings.setImageGenEditModel(v);
-            } else {
-              settings.setImageGenModel(v);
-            }
-          },
+                )
+                .toList(),
+            onChanged: (v) {
+              if (v == null) return;
+              if (editSlot) {
+                settings.setImageGenEditModel(v);
+              } else {
+                settings.setImageGenModel(v);
+              }
+            },
+          ),
         ),
         if (!editSlot) EditModelInCreateSlotWarning(modelName: current),
       ],
