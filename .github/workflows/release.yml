@@ -523,8 +523,14 @@ jobs:
           # AppRun - symlink to the binary in usr/bin
           ln -s usr/bin/front_porch_ai AppDir/AppRun
           
-          # Create AppImage
-          curl -L https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -o appimagetool
+          # AppImageKit `continuous` now 404s as HTML. Pin maintained appimagetool.
+          curl -fL https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage -o appimagetool
+          if ! file appimagetool | grep -qi ELF; then
+            echo "appimagetool download is not an ELF binary:" >&2
+            file appimagetool
+            ls -l appimagetool
+            exit 1
+          fi
           chmod +x appimagetool
           ./appimagetool AppDir Front_Porch_AI-Linux.AppImage
           
