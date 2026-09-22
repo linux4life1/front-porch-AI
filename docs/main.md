@@ -4,29 +4,31 @@ These notes feed the in-app "Update Available" dialog for stable releases on `ma
 
 ## v1.4.0 — Toolbox
 
-The drawer got real tools. Search, wiki, a second local model, Waifu’s OpenCode, and guests who can sit without taking the whole house.
+New stage. New fighters. Same porch.
 
-- 🛠️ **Waifu Coder runs OpenCode like Kobold** — a private binary you start, stop, and update. Same Waifu seat. First sit-down still downloads if the closet is empty. Turning off “Check for updates” stops the launch GitHub check; a tap still checks or installs.
+- 🛠️ **Waifu Coder joins the battle.** A private OpenCode binary you start, stop, and update. Same seat. First sit-down still downloads if the closet is empty.
 
-- 🔎 **They can look things up while talking** — web search rides the reply, not a silent pre-pass. Wiki is this character’s book (pick a saved wiki per chat), not a Google dump. Recipe cards live in the library `tools/` drawer for chat and Waifu. Same on the phone.
+- 🔎 **A challenger approaches… the web.** Search rides the reply. The open internet, not a silent pass before they speak. Same on the phone.
 
-- ⚙️ **A second local model for feelings and journal** — a worker GGUF can sit beside chat and swap off the GPU. Pick Realism evals from the in-chat Model Settings sheet (same as chat, or a different host). Same on the phone.
+- 📖 **Skip the handwriting.** A wiki can sit in for a lorebook, or next to one. Point at the site instead of copying the whole thing into cards by hand. They open the page when the scene needs it. Same on the phone.
 
-- 👥 **Guests on the group couch** — `/create`, `/join --lite`, and `/scan` work in a group. They take turns and can be Away. Needs, diary, quests, and the feelings map stay off until you Promote that one person (`/promote Name` or the roster button). Turning a 1:1 into a group keeps guests as guests. A Full Front Porch `.fpchat` remembers Scene Guests and soft members. Old files still open. Same on the phone.
+- ⚙️ **New fighter: the second local model.** Feelings and journal can sit beside chat and swap off the GPU. Pick them from the in-chat Model Settings sheet. Same on the phone.
 
-- 🎤 **The group porch mic** — `/speak` is who talks. Swap costumes from the group. `@Name` asks them back from Away; just saying the name does not. `/join --full` turns a 1:1 into a group. Same on the phone.
+- 👥 **Guests have entered the match.** They take turns until you Promote that one person. Needs, diary, and quests stay off until then. Same on the phone.
 
-- 🏡 **Porch Life is the factory default** — flipping Needs, Realism, Passage of Time, Objectives, or Afterglow in Settings does not rewrite the chat you have open. Lived-in meters stay. Use the sidebar for that one story. Same on the phone.
+- 🎤 **The mic is live.** `/speak` picks who talks. `@Name` calls someone back from Away. Just saying the name does not. Same on the phone.
 
-- 👜 **Pockets per person** — the switch sits on the Wearing / Carrying panel. Porch Life still turns the feature off for everyone. A group hand-off will not tuck items into someone you turned off. Same on the phone.
+- 🏡 **Porch Life is the default stage.** Flipping a switch in Settings does not rewrite the chat you have open. Same on the phone.
 
-- 📜 **Leftover quests go stale** — if the story moved on, a quest or step can be marked stale-skipped instead of pretending you won. Same on the phone.
+- 👜 **Pockets, per fighter.** The switch sits on the Wearing / Carrying panel. Same on the phone.
 
-- 📥 **Drop cards on the home porch** — drag a PNG character card or a `.byaf` archive onto the home library. Several files at once is fine. A `.byaf` puts the first image on the portrait and the rest in the Avatar Gallery. Phone and browser import `.byaf` the same way.
+- 📜 **Quests can time out.** If the story moved on, a leftover quest goes stale instead of pretending you won. Same on the phone.
 
-- 📋 **Copy a reply like any other text** — drag across the words (including an open Thought) and Copy. Sending a new line no longer yanks the transcript if you had scrolled up. Same on the phone.
+- 📥 **Drop in.** Drag a PNG card or a `.byaf` onto the home library. Same on the phone.
 
-- 🖼️ **Image Studio uses their templates, not a copy we own** — Comfy Create picks Z-Image, Qwen-Image, or Flux and runs the graph Comfy ships, or one you upload. Remote Studio can be Nano or OpenRouter without changing chat’s backend. Search the list; Nano rows say included vs paid. A leftover checkpoint is not sent to Nano, and a slow remote model gets ten minutes instead of two. Same on the phone.
+- 📋 **Copy, like any other text.** Drag across the words, including an open Thought. Same on the phone.
+
+- 🖼️ **Image Studio grabs their templates.** Comfy Create runs the graph they ship. Remote Studio can be Nano or OpenRouter without moving chat. Same on the phone.
 
 **Fixes that ride along**
 
