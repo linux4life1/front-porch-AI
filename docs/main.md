@@ -12,8 +12,6 @@ New stage. New fighters. Same porch.
 
 - 📖 **Skip the handwriting.** A wiki can sit in for a lorebook, or next to one. Point at the site instead of copying the whole thing into cards by hand. They open the page when the scene needs it. Same on the phone.
 
-- 🃏 **Recipe cards, in the drawer.** One tools folder in the library, for chat and Waifu.
-
 - ⚙️ **New fighter: the second local model.** Feelings and journal can sit beside chat and swap off the GPU. Pick them from the in-chat Model Settings sheet. Same on the phone.
 
 - 👥 **Guests have entered the match.** They take turns until you Promote that one person. Needs, diary, and quests stay off until then. Same on the phone.
