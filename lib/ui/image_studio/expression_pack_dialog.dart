@@ -37,6 +37,8 @@ import 'expression_pack_grid.dart';
 import 'expression_pack_setup.dart';
 import 'vision_gate.dart';
 
+part 'expression_pack_dialog.base.dart';
+
 /// The Expression-pack flow: turn one base portrait into a labeled set of
 /// expression avatars — edit-first (instruction edits off the base) with an
 /// automatic img2img fallback where edit truly doesn't exist. [launch] runs
@@ -204,48 +206,6 @@ class ExpressionPackDialog extends StatefulWidget {
       ),
     );
     return imported == true;
-  }
-
-  /// The best on-disk portrait for [characterDbId]: the prime (else first)
-  /// expression avatar when any exist, else the character's MAIN card avatar
-  /// ([CharacterCard.imagePath]). The card avatar is the load-bearing case —
-  /// a character about to get their first expression pack has no expression
-  /// images yet (creating them is the whole point), but almost always has a
-  /// card portrait. Null only when the character has no image at all.
-  static Future<Uint8List?> _primeAvatarBytes(
-    CharacterRepository repository,
-    StorageService storage,
-    String characterDbId,
-    String characterName,
-  ) async {
-    CharacterCard? card;
-    for (final c in repository.characters) {
-      if (c.dbId == characterDbId) {
-        card = c;
-        break;
-      }
-    }
-
-    final avatars = await repository.getAvatarImages(characterDbId);
-    if (avatars.isNotEmpty) {
-      // primeAvatarIndex is 1-based; clamp handles stale indices.
-      final primeIdx = ((card?.primeAvatarIndex ?? 1) - 1).clamp(
-        0,
-        avatars.length - 1,
-      );
-      final dirPath = storage.characterAvatarDir(characterName).path;
-      for (final avatar in [avatars[primeIdx], ...avatars]) {
-        final file = avatar.file(dirPath);
-        if (await file.exists()) return file.readAsBytes();
-      }
-    }
-
-    final imagePath = card?.imagePath;
-    if (imagePath != null && imagePath.isNotEmpty) {
-      final file = File(imagePath);
-      if (await file.exists()) return file.readAsBytes();
-    }
-    return null;
   }
 
   @override

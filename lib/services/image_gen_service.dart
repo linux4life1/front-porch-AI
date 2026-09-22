@@ -46,6 +46,7 @@ part 'image_gen_service.catalog.dart';
 part 'image_gen_service.nano_models.dart';
 part 'image_gen_service.payload.dart';
 part 'image_gen_service.comfy.dart';
+part 'image_gen_service.clients.dart';
 
 /// Service for generating images via the remote API. Studio's host is
 /// [ImageGenSettings.imageRemoteApiUrl] (Nano / OpenRouter chips); keys
@@ -94,34 +95,10 @@ class ImageGenService extends ChangeNotifier {
   String? get lastSavedPath => _lastSavedPath;
 
   /// Whether image gen is configured and ready to use.
-  bool get isConfigured {
-    if (!_storage.imageGenSettings.imageGenEnabled) return false;
-    final backend = ImageGenBackend.fromKey(
-      _storage.imageGenSettings.imageGenBackend,
-    );
-    switch (backend) {
-      case ImageGenBackend.remote:
-        return _imageRemoteAccount.key.isNotEmpty &&
-            _storage.imageGenSettings.imageGenModel.isNotEmpty;
-      case ImageGenBackend.a1111:
-        return _storage.imageGenSettings.localImageGenUrl.isNotEmpty;
-      case ImageGenBackend.drawThings:
-        return _storage.imageGenSettings.drawThingsGrpcHost.isNotEmpty;
-      case ImageGenBackend.comfyUi:
-        return _storage.imageGenSettings.comfyUiUrl.isNotEmpty;
-    }
-  }
+  bool get isConfigured => _isConfiguredImpl;
 
   DrawThingsGrpcService? _drawThingsGrpc;
   ComfyUiService? _comfyUi;
-
-  ComfyUiService get _ensureComfyUi {
-    final url = _storage.imageGenSettings.comfyUiUrl;
-    if (_comfyUi == null || _comfyUi!.baseUrl != url) {
-      _comfyUi = ComfyUiService(baseUrl: url);
-    }
-    return _comfyUi!;
-  }
 
   // Thin delegation hook for prompt construction.
   // Full ownership of ImageGenContext mapping semantics, mode contracts
@@ -136,43 +113,12 @@ class ImageGenService extends ChangeNotifier {
   // See ImagePromptBuilder for the authoritative mode semantics and style rules.
   late final ImagePromptBuilder _promptBuilder = ImagePromptBuilder();
 
-  DrawThingsGrpcService get _ensureDrawThingsGrpc {
-    final h = _storage.imageGenSettings.drawThingsGrpcHost;
-    final p = _storage.imageGenSettings.drawThingsGrpcPort;
-    // Recreate if host/port changed since last use (cheap; keeps things in sync with settings)
-    if (_drawThingsGrpc == null ||
-        _drawThingsGrpc!.host != h ||
-        _drawThingsGrpc!.port != p) {
-      _drawThingsGrpc = DrawThingsGrpcService(host: h, port: p);
-    }
-    return _drawThingsGrpc!;
-  }
-
   ImageGenService(this._storage);
-
-  /// Studio host + vault key. Empty Studio URL falls back to chat's mouth
-  /// without writing it — flipping Studio chips never changes chat.
-  ({String url, String key}) get _imageRemoteAccount =>
-      resolveImageStudioRemoteAccount(
-        imageRemoteApiUrl: _storage.imageGenSettings.imageRemoteApiUrl,
-        chatRemoteApiUrl: _storage.backendSettings.remoteApiUrl,
-        keyFor: _storage.backendSettings.remoteApiKeyFor,
-      );
 
   /// Best-effort ComfyUI VRAM nudge before a create→edit model swap (the
   /// creator pack's "Switching to edit model" stage). No-op on every other
   /// backend — DT/remote load-unload per request on their own.
-  Future<void> nudgeComfyFree() async {
-    final backend = ImageGenBackend.fromKey(
-      _storage.imageGenSettings.imageGenBackend,
-    );
-    if (backend != ImageGenBackend.comfyUi) return;
-    await _ensureComfyUi.freeMemory();
-  }
-
-  /// Build the images directory path.
-  Directory get _imagesDir =>
-      Directory(path.join(_storage.rootPath ?? '', 'KoboldManager', 'images'));
+  Future<void> nudgeComfyFree() => _nudgeComfyFreeImpl();
 
   /// Generate an image from a prompt.
   ///
@@ -288,8 +234,7 @@ class ImageGenService extends ChangeNotifier {
     String? lastMessage,
     String? characterName,
     String? characterDescription,
-    String?
-    characterPersonality, // kept for signature compatibility during transition (ignored for visuals)
+    String? characterPersonality, // kept for signature compatibility during transition (ignored for visuals)
     String? scenario,
     String? worldInfo,
     String? personaName,
