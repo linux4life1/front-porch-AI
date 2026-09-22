@@ -11,14 +11,13 @@ import 'package:front_porch_ai/services/lore_extraction_service.dart';
 import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 void main() {
-  test('pubspec pins file_picker ^12.1.1 not 12.0 or 12.1.0', () {
+  test('pubspec pins file_picker ^13.1.0', () {
     final yaml = File('pubspec.yaml').readAsStringSync();
-    expect(yaml, contains('file_picker: ^12.1.1'));
-    expect(yaml.contains('file_picker: ^12.0'), isFalse);
-    expect(yaml.contains('file_picker: ^12.1.0'), isFalse);
+    expect(yaml, contains('file_picker: ^13.1.0'));
+    expect(yaml.contains('file_picker: ^12.'), isFalse);
   });
 
-  test('lock resolves file_picker at least 12.1.1', () {
+  test('lock resolves file_picker at least 13.1.0', () {
     final lock = File('pubspec.lock').readAsStringSync();
     final idx = lock.indexOf('\n  file_picker:\n');
     expect(
@@ -29,11 +28,8 @@ void main() {
     final block = lock.substring(idx, idx + 500);
     final version = RegExp(r'version: "([^"]+)"').firstMatch(block)!.group(1)!;
     final parts = version.split('.').map(int.parse).toList();
-    expect(parts[0], 12);
+    expect(parts[0], 13);
     expect(parts[1], greaterThanOrEqualTo(1));
-    if (parts[1] == 1) {
-      expect(parts[2], greaterThanOrEqualTo(1));
-    }
   });
 
   test('package_info_plus is constraint-only (no Dart import)', () {
@@ -64,7 +60,7 @@ void main() {
     expect(await FilePickerResult([]).firstBytes(), isNull);
   });
 
-  test('MemoryPlatformFile readAsBytes and extension (12.1 getter)', () async {
+  test('MemoryPlatformFile readAsBytes, extension, and lengthSync', () async {
     final file = MemoryPlatformFile(
       name: 'lore.md',
       bytes: Uint8List.fromList(utf8.encode('# Tide')),
@@ -72,6 +68,30 @@ void main() {
     expect(file.extension, 'md');
     expect(await file.readAsBytes(), utf8.encode('# Tide'));
     expect(await file.length(), 6);
+    expect(file.lengthSync(), 6);
+  });
+
+  test('testPickFilesOverride short-circuits pickFiles', () async {
+    PickerPrefs.testPickFilesOverride =
+        ({required String category, List<String>? allowedExtensions}) async {
+          expect(category, PickerPrefs.catImport);
+          expect(allowedExtensions, ['json']);
+          return FilePickerResult([
+            MemoryPlatformFile(
+              name: 'card.json',
+              bytes: Uint8List.fromList(utf8.encode('{"ok":true}')),
+            ),
+          ]);
+        };
+    addTearDown(() => PickerPrefs.testPickFilesOverride = null);
+
+    final result = await PickerPrefs.pickFiles(
+      category: PickerPrefs.catImport,
+      allowedExtensions: ['json'],
+    );
+    expect(result, isNotNull);
+    expect(result!.files.single.name, 'card.json');
+    expect(await result.firstBytes(), utf8.encode('{"ok":true}'));
   });
 
   test('uriToSavePath converts file Uri to a filesystem path', () {
@@ -122,7 +142,7 @@ void main() {
     expect(File(path!).readAsStringSync(), '{"ok":true}');
   });
 
-  test('lock resolves win32 6 with file_picker 12', () {
+  test('lock resolves win32 6 with file_picker 13', () {
     final lock = File('pubspec.lock').readAsStringSync();
     final idx = lock.indexOf('\n  win32:\n');
     expect(idx, greaterThanOrEqualTo(0), reason: 'win32 missing from lock');

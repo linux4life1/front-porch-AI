@@ -47,7 +47,9 @@ Future<Uint8List?> pickChatImageAttachment() async {
   final file = result.files.first;
   try {
     final length = await file.length();
-    if (length <= 0 || length > kChatImageMaxFileBytes) return null;
+    if (length == null || length <= 0 || length > kChatImageMaxFileBytes) {
+      return null;
+    }
     final raw = await readBoundedImageBytes(file.readAsByteStream());
     if (raw == null) return null;
     return await prepareChatImageBytes(raw);

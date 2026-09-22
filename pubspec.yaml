@@ -35,7 +35,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
-  file_picker: ^12.1.1
+  file_picker: ^13.1.0
   # Native file-drop onto the chat / Waifu Coder composer (Win/Linux/macOS).
   desktop_drop: ^0.7.1
   cross_file: ^0.3.5
@@ -108,9 +108,9 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   # Flutter 3.47.0 / Dart 3.13: riverpod_generator 4.0.8 + drift_dev 2.34.5
-  # + analyzer 13 resolve together. file_picker ^12.1.1 (not 12.0.0 or 12.1.0 —
-  # 12.0 facade does not forward flags; skipEntitlementsChecks is a no-op until
-  # 12.1.1; FilePickerResult shimmed in picker_prefs.dart).
+  # + analyzer 13 resolve together. file_picker ^13.1.0 (FilePickerResult
+  # shimmed in picker_prefs.dart; 13 dropped top-level lockParentWindow /
+  # allowMultiple / withData).
   # xml 7 still blocked by webdav_client 1.2.2.
   riverpod_generator: ^4.0.8
   integration_test:

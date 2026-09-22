@@ -20,10 +20,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/app_version.dart';
 
 // Re-export the file_picker types call sites need. FilePickerResult is gone
-// in file_picker 12; we keep a local shim below.
+// since file_picker 12; we keep a local shim below.
 export 'package:file_picker/file_picker.dart' show FileType, PlatformFile;
 
-/// Compatibility shim for file_picker 12, which dropped [FilePickerResult]
+/// Compatibility shim for file_picker 12+, which dropped [FilePickerResult]
 /// and now returns `List<PlatformFile>` (empty list = cancel).
 class FilePickerResult {
   const FilePickerResult(this.files);
@@ -44,9 +44,10 @@ class FilePickerResult {
 
 /// In-memory [PlatformFile] for tests and the web chargen facade.
 /// file_picker 12 made [PlatformFile] an abstract base with no constructor.
+/// file_picker 13 / platform_interface 4.0 added abstract [lengthSync].
 base class MemoryPlatformFile extends PlatformFile {
   MemoryPlatformFile({required this.name, required Uint8List bytes})
-      : _bytes = bytes;
+    : _bytes = bytes;
 
   @override
   final String name;
@@ -60,7 +61,10 @@ base class MemoryPlatformFile extends PlatformFile {
   XFile get xFile => XFile.fromData(_bytes, name: name);
 
   @override
-  Future<int> length() async => _bytes.length;
+  int? lengthSync() => _bytes.length;
+
+  @override
+  Future<int?> length() async => _bytes.length;
 
   @override
   Future<Uint8List> readAsBytes() async => _bytes;
@@ -72,13 +76,13 @@ base class MemoryPlatformFile extends PlatformFile {
 /// Thin wrapper around `FilePicker` that remembers the last folder
 /// used per [category] and reopens the native dialog there (#84).
 ///
-/// file_picker ≥12.1.1 is required: 12.0.0's facade does not forward
-/// allowMultiple/withData/withReadStream, and skipEntitlementsChecks is a
-/// no-op until 12.1.1. 12.1.0 restored [PlatformFile.extension] but still
-/// is not the pin. Single-file picks go through [FilePicker.pickFile]
-/// because 12 defaults [FilePicker.pickFiles] `allowMultiple` to true.
+/// file_picker ≥13.1.0 is required. 13 removed top-level
+/// `lockParentWindow` / `allowMultiple` / `withData` on the FilePicker
+/// facade; modal lock is [WindowsOptions] / [LinuxOptions], multi-file
+/// is [FilePicker.pickFiles] (always multi), single-file is
+/// [FilePicker.pickFile], and bytes come from [PlatformFile.readAsBytes].
 /// Android SAF persistable URI grants are never enabled (we never pass
-/// FilePickerAndroidOptions).
+/// AndroidOptions).
 ///
 /// Every open/save/directory dialog previously started at the OS default (root
 /// of the drive on macOS), which made repetitive imports from the same folder
@@ -121,7 +125,7 @@ class PickerPrefs {
     }
   }
 
-  /// Convert file_picker 12's [Uri?] save result back to the [String?] path
+  /// Convert file_picker's [Uri?] save result back to the [String?] path
   /// callers still expect. File URIs become filesystem paths; other schemes
   /// keep `toString()`.
   @visibleForTesting
@@ -159,8 +163,8 @@ class PickerPrefs {
   /// the last folder used for [category].
   ///
   /// [allowMultiple] defaults to false and routes through [FilePicker.pickFile]
-  /// so a 12.x default of true cannot leak in. Bytes are read later via
-  /// [PlatformFile.readAsBytes] — `withData` is not passed. pickFiles itself
+  /// so file_picker 13's always-multi [FilePicker.pickFiles] cannot leak in.
+  /// Bytes are read later via [PlatformFile.readAsBytes]. pickFiles itself
   /// does not eager-read GGUF/ZIP/PDF.
   static Future<FilePickerResult?> pickFiles({
     required String category,
@@ -176,6 +180,8 @@ class PickerPrefs {
     }
     final prefs = await SharedPreferences.getInstance();
     final initialDirectory = _read(prefs, category);
+    final windowsOptions = WindowsOptions(lockParentWindow: lockParentWindow);
+    final linuxOptions = LinuxOptions(lockParentWindow: lockParentWindow);
 
     if (allowMultiple) {
       final files = await FilePicker.pickFiles(
@@ -183,8 +189,8 @@ class PickerPrefs {
         initialDirectory: initialDirectory,
         type: type,
         allowedExtensions: allowedExtensions,
-        allowMultiple: true,
-        lockParentWindow: lockParentWindow,
+        windowsOptions: windowsOptions,
+        linuxOptions: linuxOptions,
       );
       if (files.isEmpty) return null;
       final path = files.first.path;
@@ -197,7 +203,8 @@ class PickerPrefs {
       initialDirectory: initialDirectory,
       type: type,
       allowedExtensions: allowedExtensions,
-      lockParentWindow: lockParentWindow,
+      windowsOptions: windowsOptions,
+      linuxOptions: linuxOptions,
     );
     if (file == null) return null;
     final path = file.path;
@@ -205,7 +212,7 @@ class PickerPrefs {
     return FilePickerResult([file]);
   }
 
-  /// Save [bytes] through the native dialog. file_picker 12 writes those
+  /// Save [bytes] through the native dialog. file_picker writes those
   /// bytes itself (Windows/Linux/macOS `writeAsBytes` after the dialog).
   /// [bytes] is required and must be non-empty — a dummy `Uint8List(0)`
   /// truncates/wipes the chosen file.
@@ -222,7 +229,7 @@ class PickerPrefs {
       throw ArgumentError.value(
         bytes,
         'bytes',
-        'file_picker 12 writes these bytes; empty would wipe the chosen file',
+        'file_picker writes these bytes; empty would wipe the chosen file',
       );
     }
     final prefs = await SharedPreferences.getInstance();
@@ -233,7 +240,8 @@ class PickerPrefs {
       initialDirectory: _read(prefs, category),
       type: type,
       allowedExtensions: allowedExtensions,
-      lockParentWindow: lockParentWindow,
+      windowsOptions: WindowsOptions(lockParentWindow: lockParentWindow),
+      linuxOptions: LinuxOptions(lockParentWindow: lockParentWindow),
     );
     final path = uriToSavePath(uri);
     if (path != null) await _remember(prefs, category, p.dirname(path));
@@ -297,7 +305,8 @@ class PickerPrefs {
     final path = await FilePicker.getDirectoryPath(
       dialogTitle: dialogTitle,
       initialDirectory: _read(prefs, category),
-      lockParentWindow: lockParentWindow,
+      windowsOptions: WindowsOptions(lockParentWindow: lockParentWindow),
+      linuxOptions: LinuxOptions(lockParentWindow: lockParentWindow),
     );
     if (path != null) await _remember(prefs, category, path);
     return path;
