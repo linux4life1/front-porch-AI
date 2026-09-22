@@ -34,10 +34,16 @@ Future<Map<String, dynamic>> waifuOpenCodeMcpMap(
   required bool optIn,
   Directory? toolsDir,
   PorchToolsMcpHost? host,
-}) {
-  if (!optIn) return Future.value(const {});
+}) async {
+  if (!optIn) {
+    await releasePorchToolsMcp(host: host);
+    return const {};
+  }
   final dir = toolsDir ?? _toolsDirOf(context);
-  if (dir == null) return Future.value(const {});
+  if (dir == null) {
+    await releasePorchToolsMcp(host: host);
+    return const {};
+  }
   return buildPorchToolsMcpMap(optIn: true, toolsDir: dir, host: host);
 }
 

@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -31,6 +32,24 @@ const _kMcpProtocol = '2025-03-26';
 
 /// Process-wide host so sit-down and later list/call share one port.
 final porchToolsMcpHost = PorchToolsMcpHost();
+
+/// Production stop — page dispose, tools opt-out, empty/no-mcp reseat.
+Future<void> releasePorchToolsMcp({PorchToolsMcpHost? host}) =>
+    (host ?? porchToolsMcpHost).stop();
+
+/// Sit-down MCP block. Opt-out, missing builder, or empty map releases.
+Future<Map<String, dynamic>?> porchToolsMcpForSitDown({
+  required bool optIn,
+  FutureOr<Map<String, dynamic>> Function()? mcpConfigOf,
+  PorchToolsMcpHost? host,
+}) async {
+  if (optIn && mcpConfigOf != null) {
+    final mcp = await Future<Map<String, dynamic>>.value(mcpConfigOf());
+    if (mcp.isNotEmpty) return mcp;
+  }
+  await releasePorchToolsMcp(host: host);
+  return null;
+}
 
 /// OpenCode remote MCP block (flat map: name → {type, url, …}).
 Map<String, dynamic> porchToolsOpenCodeMcpEntry({
@@ -54,11 +73,13 @@ Future<Map<String, dynamic>> buildPorchToolsMcpMap({
   required Directory toolsDir,
   PorchToolsMcpHost? host,
 }) async {
-  if (!optIn) return const {};
-  final cards = loadUserToolCards(toolsDir);
-  if (cards.isEmpty) return const {};
-  final bound = await (host ?? porchToolsMcpHost).ensureStarted(toolsDir);
-  return porchToolsOpenCodeMcpEntry(url: bound.url, token: bound.token);
+  final bound = host ?? porchToolsMcpHost;
+  if (!optIn || loadUserToolCards(toolsDir).isEmpty) {
+    await releasePorchToolsMcp(host: bound);
+    return const {};
+  }
+  final started = await bound.ensureStarted(toolsDir);
+  return porchToolsOpenCodeMcpEntry(url: started.url, token: started.token);
 }
 
 /// Sync JSON-RPC (list / initialize / ping). Call uses [handlePorchToolsMcpRpcAsync].
@@ -173,6 +194,8 @@ class PorchToolsMcpHost {
   }
 
   String? get token => _token;
+
+  bool get isRunning => _server != null;
 
   Future<({Uri url, String token})> ensureStarted(Directory toolsDir) async {
     _toolsDir = toolsDir;

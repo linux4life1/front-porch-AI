@@ -5,6 +5,7 @@
 // Empty drawer stays empty. Execute still rides executeUserToolCard.
 //
 // Proven red: the old waifuOpenCodeMcpMap stub always returned {}.
+// Host-stop: dropping release from the empty-map path left isRunning true.
 
 import 'dart:convert';
 import 'dart:io';
@@ -154,4 +155,88 @@ void main() {
       );
     },
   );
+
+  test('production empty map / sit-down / release stop the host', () async {
+    await writeCard();
+    expect(
+      await buildPorchToolsMcpMap(
+        optIn: true,
+        toolsDir: toolsDir(),
+        host: host,
+      ),
+      isNotEmpty,
+    );
+    expect(host.isRunning, isTrue);
+
+    expect(
+      await buildPorchToolsMcpMap(
+        optIn: false,
+        toolsDir: toolsDir(),
+        host: host,
+      ),
+      isEmpty,
+    );
+    expect(host.isRunning, isFalse);
+
+    expect(
+      await buildPorchToolsMcpMap(
+        optIn: true,
+        toolsDir: toolsDir(),
+        host: host,
+      ),
+      isNotEmpty,
+    );
+    expect(await porchToolsMcpForSitDown(optIn: false, host: host), isNull);
+    expect(host.isRunning, isFalse);
+
+    expect(
+      await buildPorchToolsMcpMap(
+        optIn: true,
+        toolsDir: toolsDir(),
+        host: host,
+      ),
+      isNotEmpty,
+    );
+    await File('${toolsDir().path}/neokosmos.json').delete();
+    expect(
+      await buildPorchToolsMcpMap(
+        optIn: true,
+        toolsDir: toolsDir(),
+        host: host,
+      ),
+      isEmpty,
+    );
+    expect(host.isRunning, isFalse);
+
+    await writeCard();
+    expect(
+      await buildPorchToolsMcpMap(
+        optIn: true,
+        toolsDir: toolsDir(),
+        host: host,
+      ),
+      isNotEmpty,
+    );
+    expect(
+      await waifuOpenCodeMcpMap(
+        null,
+        optIn: false,
+        toolsDir: toolsDir(),
+        host: host,
+      ),
+      isEmpty,
+    );
+    expect(host.isRunning, isFalse);
+
+    expect(
+      await buildPorchToolsMcpMap(
+        optIn: true,
+        toolsDir: toolsDir(),
+        host: host,
+      ),
+      isNotEmpty,
+    );
+    await releasePorchToolsMcp(host: host);
+    expect(host.isRunning, isFalse);
+  });
 }

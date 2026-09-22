@@ -113,6 +113,7 @@ class _WaifuPageState extends State<WaifuPage> {
       h.onChanged = null;
       h.abort();
     }
+    unawaited(releasePorchToolsMcp());
     super.dispose();
   }
 
@@ -379,6 +380,7 @@ class _WaifuPageState extends State<WaifuPage> {
                 setState(() => session.mcpOptIn = v);
                 final h = widget.harness ?? _created;
                 if (h != null) h.mcpOptIn = v;
+                if (!v) unawaited(releasePorchToolsMcp());
                 unawaited(_storeOf(context)?.saveLast(session));
               },
               harness: harness,

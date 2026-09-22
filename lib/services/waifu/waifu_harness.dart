@@ -31,6 +31,7 @@ import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_speech.dart';
 import 'package:front_porch_ai/services/waifu/waifu_store.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
+import 'package:front_porch_ai/services/waifu/waifu_tools_mcp.dart';
 
 const kWaifuPhotosUnsupported =
     'Photos are not in this OpenCode version — the text still went through.';
@@ -273,9 +274,10 @@ class WaifuHarness implements OpenCodeEventSink {
       pathMode: session.pathMode,
       mode: session.mode,
       backend: back,
-      mcp: session.mcpOptIn && mcpConfigOf != null
-          ? await Future<Map<String, dynamic>>.value(mcpConfigOf!())
-          : null,
+      mcp: await porchToolsMcpForSitDown(
+        optIn: session.mcpOptIn,
+        mcpConfigOf: mcpConfigOf,
+      ),
       skillsDir: skillsDirOf?.call(),
     );
     _sessionId = info.id;
