@@ -30,6 +30,7 @@ const kRootDirsToMove = [
   'chats',
   'worlds',
   'tools',
+  'skills',
   'models',
   'koboldcpp_bin',
   'groups',

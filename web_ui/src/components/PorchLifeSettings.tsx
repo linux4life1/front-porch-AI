@@ -680,8 +680,13 @@ export function PorchLifeSettings() {
         />
         <p className="muted small" data-testid="user-tools-folder-note">
           Extra tools are JSON recipe cards in the desktop library <code>tools</code> folder
-          (same place as chats and worlds). Phone and browser use built-in web search —
-          there is no file picker here.
+          — the same drawer character chat and Waifu Coder share (next to chats and worlds).
+          Phone and browser use built-in web search — there is no file picker here.
+        </p>
+        <p className="muted small" data-testid="user-skills-folder-note">
+          Waifu Coder also reads OpenCode skill folders from the desktop library <code>skills</code> folder
+          (<code>skills/&lt;name&gt;/SKILL.md</code>). Character chat does not use them. Phone and browser
+          have no file picker here.
         </p>
       </FeatureGroup>
 

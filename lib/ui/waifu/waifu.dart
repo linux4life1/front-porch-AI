@@ -31,6 +31,7 @@ export 'waifu_new_porch_card.dart';
 export 'waifu_new_session_dialog.dart';
 export 'waifu_project_card.dart';
 export 'waifu_language_help.dart';
+export 'waifu_library_tools_tile.dart';
 export 'waifu_mcp_bind.dart';
 export 'waifu_opencode_status.dart';
 export 'waifu_mode_bar.dart';

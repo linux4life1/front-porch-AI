@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_context_bar.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_library_tools_tile.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_opencode_status.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mode_bar.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_todo_list.dart';
@@ -40,6 +41,7 @@ class WaifuSidebar extends StatelessWidget {
     required this.onMode,
     this.onPathMode,
     this.onPreserveThinking,
+    this.onToolsOptIn,
     this.harness,
     this.onThemeChanged,
     this.onCompact,
@@ -50,6 +52,7 @@ class WaifuSidebar extends StatelessWidget {
   final ValueChanged<WaifuMode> onMode;
   final ValueChanged<WaifuPathMode>? onPathMode;
   final ValueChanged<bool>? onPreserveThinking;
+  final ValueChanged<bool>? onToolsOptIn;
   final WaifuHarness? harness;
   WaifuTodos? get todos => harness?.todos;
   final VoidCallback? onThemeChanged;
@@ -124,15 +127,24 @@ class WaifuSidebar extends StatelessWidget {
                     subtitle: session.mode.name,
                     accent: amber,
                     initiallyExpanded: true,
-                    child: WaifuModeBar(
-                      mode: session.mode,
-                      pathMode: session.pathMode,
-                      enabled: !session.running,
-                      pathEnabled: true,
-                      onChanged: onMode,
-                      onPathMode: onPathMode,
-                      preserveThinking: session.preserveThinking,
-                      onPreserveThinking: onPreserveThinking,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        WaifuModeBar(
+                          mode: session.mode,
+                          pathMode: session.pathMode,
+                          enabled: !session.running,
+                          pathEnabled: true,
+                          onChanged: onMode,
+                          onPathMode: onPathMode,
+                          preserveThinking: session.preserveThinking,
+                          onPreserveThinking: onPreserveThinking,
+                        ),
+                        WaifuLibraryToolsTile(
+                          session: session,
+                          onChanged: onToolsOptIn,
+                        ),
+                      ],
                     ),
                   ),
                   if (todos != null && todos!.items.isNotEmpty) ...[

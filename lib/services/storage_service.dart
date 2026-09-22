@@ -76,6 +76,7 @@ class StorageService extends ChangeNotifier {
   Directory get chatsDir => directories.chatsDir;
   Directory get worldsDir => directories.worldsDir;
   Directory get toolsDir => directories.toolsDir;
+  Directory get skillsDir => directories.skillsDir;
 
   Directory get charactersDir => directories.charactersDir;
 
@@ -172,6 +173,7 @@ class StorageService extends ChangeNotifier {
       groupsDir,
       customBackgroundDir,
       toolsDir,
+      skillsDir,
     ]) {
       try {
         dir.createSync(recursive: true);
@@ -273,6 +275,7 @@ class StorageService extends ChangeNotifier {
       modelsDir,
       worldsDir,
       toolsDir,
+      skillsDir,
       charactersDir,
       groupsDir,
       customBackgroundDir,
@@ -373,6 +376,7 @@ class StorageService extends ChangeNotifier {
     await modelsDir.create(recursive: true);
     await worldsDir.create(recursive: true);
     await toolsDir.create(recursive: true);
+    await skillsDir.create(recursive: true);
     await charactersDir.create(recursive: true);
     await groupsDir.create(recursive: true);
     await customBackgroundDir.create(recursive: true);

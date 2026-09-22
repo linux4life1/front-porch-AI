@@ -16,19 +16,41 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:flutter/material.dart';
+import 'dart:io';
 
-/// Character-chat MCP servers are gone. OpenCode still accepts an `mcp`
-/// block; we send an empty one so Waifu Coder compiles without a Docker
-/// MCP path.
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/waifu/waifu.dart';
+
+/// Character-chat MCP servers are gone. Kept so older call sites compile.
 Map<String, dynamic> openCodeMcpFromServers(Iterable<Object> _) => const {};
 
-/// Empty when opt-in is off, and empty when it is on — there is no Porch
-/// MCP catalog left to forward.
-Map<String, dynamic> waifuOpenCodeMcpMap(
-  BuildContext _, {
+/// Points OpenCode at the Porch tools adapter when opt-in and cards exist.
+Future<Map<String, dynamic>> waifuOpenCodeMcpMap(
+  BuildContext? context, {
   required bool optIn,
+  Directory? toolsDir,
+  PorchToolsMcpHost? host,
 }) {
-  if (!optIn) return const {};
-  return const {};
+  if (!optIn) return Future.value(const {});
+  final dir = toolsDir ?? _toolsDirOf(context);
+  if (dir == null) return Future.value(const {});
+  return buildPorchToolsMcpMap(optIn: true, toolsDir: dir, host: host);
+}
+
+int waifuLoadedToolCardCount(Directory? toolsDir) {
+  if (toolsDir == null) return 0;
+  return loadUserToolCards(toolsDir).length;
+}
+
+Directory? _toolsDirOf(BuildContext? context) {
+  if (context == null) return null;
+  try {
+    return Provider.of<StorageService>(context, listen: false).toolsDir;
+  } catch (_) {
+    return null;
+  }
 }

@@ -100,7 +100,7 @@ class _WaifuPageState extends State<WaifuPage> {
       session: widget.session,
       harness: _harnessOf(context),
       store: _storeOf(context),
-      mcpToolCount: _mcpToolCount(context),
+      mcpToolCount: _libraryToolCount(context),
     );
   }
 
@@ -120,7 +120,15 @@ class _WaifuPageState extends State<WaifuPage> {
     if (mounted) setState(() {});
   }
 
-  int _mcpToolCount(BuildContext _) => 0;
+  int _libraryToolCount(BuildContext context) {
+    if (!widget.session.mcpOptIn) return 0;
+    try {
+      final storage = Provider.of<StorageService>(context, listen: false);
+      return waifuLoadedToolCardCount(storage.toolsDir);
+    } catch (_) {
+      return 0;
+    }
+  }
 
   void _syncToolsSupported(BuildContext context) {
     try {
@@ -166,6 +174,13 @@ class _WaifuPageState extends State<WaifuPage> {
       onQuestion: _askQuestion,
       mcpConfigOf: () =>
           waifuOpenCodeMcpMap(context, optIn: widget.session.mcpOptIn),
+      skillsDirOf: () {
+        try {
+          return Provider.of<StorageService>(context, listen: false).skillsDir;
+        } catch (_) {
+          return null;
+        }
+      },
     );
   }
 
@@ -358,6 +373,12 @@ class _WaifuPageState extends State<WaifuPage> {
               onPreserveThinking: (v) {
                 setState(() => session.preserveThinking = v);
                 (widget.harness ?? _created)?.refreshMeter();
+                unawaited(_storeOf(context)?.saveLast(session));
+              },
+              onToolsOptIn: (v) {
+                setState(() => session.mcpOptIn = v);
+                final h = widget.harness ?? _created;
+                if (h != null) h.mcpOptIn = v;
                 unawaited(_storeOf(context)?.saveLast(session));
               },
               harness: harness,

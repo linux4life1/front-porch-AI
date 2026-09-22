@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:front_porch_ai/services/services.dart';
@@ -49,6 +50,7 @@ class WaifuHarness implements OpenCodeEventSink {
     this.store,
     this.mcpOptIn = false,
     this.mcpConfigOf,
+    this.skillsDirOf,
   }) : _client = client,
        _sessionId = sessionId,
        _seatedBackend = backend;
@@ -62,7 +64,8 @@ class WaifuHarness implements OpenCodeEventSink {
   WaifuAskFn? onAsk;
   WaifuQuestionFn? onQuestion;
   bool mcpOptIn;
-  final Map<String, dynamic> Function()? mcpConfigOf;
+  final FutureOr<Map<String, dynamic>> Function()? mcpConfigOf;
+  final Directory? Function()? skillsDirOf;
 
   OpenCodeClient? _client;
   String? _sessionId;
@@ -270,7 +273,10 @@ class WaifuHarness implements OpenCodeEventSink {
       pathMode: session.pathMode,
       mode: session.mode,
       backend: back,
-      mcp: session.mcpOptIn ? mcpConfigOf?.call() : null,
+      mcp: session.mcpOptIn && mcpConfigOf != null
+          ? await Future<Map<String, dynamic>>.value(mcpConfigOf!())
+          : null,
+      skillsDir: skillsDirOf?.call(),
     );
     _sessionId = info.id;
     _seatedBackend = back;

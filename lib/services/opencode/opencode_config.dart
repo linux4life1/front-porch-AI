@@ -85,6 +85,7 @@ Map<String, dynamic> buildOpenCodeConfigMap({
   required Map<String, dynamic> permission,
   String defaultAgent = 'waifu',
   Map<String, dynamic>? mcp,
+  Map<String, dynamic>? skills,
   String? voicePrompt,
   String? pluginPath,
 }) {
@@ -136,6 +137,7 @@ Map<String, dynamic> buildOpenCodeConfigMap({
     },
     'permission': permission,
     if (mcp != null && mcp.isNotEmpty) 'mcp': mcp,
+    if (skills != null && skills.isNotEmpty) 'skills': skills,
   };
 }
 

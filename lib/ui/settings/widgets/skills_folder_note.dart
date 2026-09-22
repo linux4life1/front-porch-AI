@@ -19,21 +19,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-/// Dummy-proof note plus a JSON-only file picker that copies recipe cards
-/// into the library `tools/` folder.
-class ToolsFolderNote extends StatefulWidget {
-  const ToolsFolderNote({super.key});
+/// Waifu-only note. Creates `skills/` on first copy, not during build.
+class SkillsFolderNote extends StatefulWidget {
+  const SkillsFolderNote({super.key});
 
   @override
-  State<ToolsFolderNote> createState() => _ToolsFolderNoteState();
+  State<SkillsFolderNote> createState() => _SkillsFolderNoteState();
 }
 
-class _ToolsFolderNoteState extends State<ToolsFolderNote> {
+class _SkillsFolderNoteState extends State<SkillsFolderNote> {
   bool _busy = false;
 
   Future<void> _chooseFiles() async {
@@ -42,7 +41,7 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
     final result = await PickerPrefs.pickFiles(
       category: PickerPrefs.catImport,
       type: FileType.custom,
-      allowedExtensions: const ['json'],
+      allowedExtensions: const ['md'],
       allowMultiple: true,
     );
     if (!mounted) return;
@@ -52,7 +51,7 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
       for (final file in result.files)
         if (file.path != null && file.path!.isNotEmpty) file.path!,
     ];
-    final copied = copyJsonFilesIntoTools(storage.toolsDir, paths);
+    final copied = copySkillSourcesIntoLibrary(storage.skillsDir, paths);
     if (!mounted) return;
     setState(() => _busy = false);
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -60,10 +59,10 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
       SnackBar(
         content: Text(
           copied == 0
-              ? 'No JSON recipe cards were copied.'
+              ? 'No SKILL.md folders were copied.'
               : copied == 1
-              ? 'Copied 1 recipe card into tools.'
-              : 'Copied $copied recipe cards into tools.',
+              ? 'Copied 1 skill into skills.'
+              : 'Copied $copied skills into skills.',
         ),
       ),
     );
@@ -72,11 +71,11 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
   @override
   Widget build(BuildContext context) {
     final storage = context.watch<StorageService>();
-    final toolsPath = storage.rootPath == null
-        ? 'tools'
-        : storage.toolsDir.path;
+    final skillsPath = storage.rootPath == null
+        ? 'skills'
+        : '${storage.rootPath}/skills';
     return Padding(
-      key: const Key('user-tools-folder-note'),
+      key: const Key('user-skills-folder-note'),
       padding: const EdgeInsets.only(top: 4, bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,7 +86,7 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Icon(
-                  Icons.folder_outlined,
+                  Icons.menu_book_outlined,
                   size: 18,
                   color: AppColors.iconSecondary(context),
                 ),
@@ -95,12 +94,9 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Extra tools are JSON recipe cards you drop in the tools '
-                  'folder next to chats and worlds — the same drawer character '
-                  'chat and Waifu Coder share. Not programs, and not a Docker '
-                  'server. Each card is a name, a short description, and an '
-                  'HTTP address. Disabled or broken cards are skipped. '
-                  'That folder is:\n$toolsPath',
+                  'Waifu Coder also reads OpenCode skill folders here — '
+                  'one folder per skill, with a SKILL.md inside. Character '
+                  'chat does not use these. That folder is:\n$skillsPath',
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.35,
@@ -112,14 +108,14 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
           ),
           const SizedBox(height: 8),
           FilledButton.icon(
-            key: const Key('tools-choose-json'),
+            key: const Key('skills-choose-md'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.porchAmberOf(context),
               foregroundColor: AppColors.onChaosAccent,
             ),
             onPressed: _busy ? null : _chooseFiles,
             icon: const Icon(Icons.file_open, size: 16),
-            label: Text(_busy ? 'Copying…' : 'Choose files'),
+            label: Text(_busy ? 'Copying…' : 'Choose SKILL.md'),
           ),
         ],
       ),

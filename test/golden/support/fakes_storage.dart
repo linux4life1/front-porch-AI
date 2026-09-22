@@ -88,6 +88,9 @@ class FakeStorageService extends ChangeNotifier implements StorageService {
   Directory get toolsDir =>
       Directory('${Directory.systemTemp.path}/fpai_fake_tools');
   @override
+  Directory get skillsDir =>
+      Directory('${Directory.systemTemp.path}/fpai_fake_skills');
+  @override
   Directory get binDir => Directory.systemTemp;
   @override
   String? get customModelsPath => null;

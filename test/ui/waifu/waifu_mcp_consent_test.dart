@@ -6,9 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mcp_bind.dart';
 
 void main() {
-  test('OpenCode mcp map is empty — chat MCP servers are gone', () {
+  test('OpenCode mcp map is empty — chat MCP servers are gone', () async {
     expect(openCodeMcpFromServers(const []), isEmpty);
-    expect(waifuOpenCodeMcpMap(_FakeContext(), optIn: true), isEmpty);
+    expect(await waifuOpenCodeMcpMap(_FakeContext(), optIn: true), isEmpty);
   });
 }
 

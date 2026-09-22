@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -24,6 +25,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu_coworker_prompt.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
+import 'package:front_porch_ai/services/waifu/waifu_skills.dart';
 
 class OpenCodePorchBackend {
   const OpenCodePorchBackend({
@@ -91,6 +93,7 @@ Future<void> writeWaifuOpenCodeConfig({
   required WaifuPathMode pathMode,
   required WaifuMode mode,
   Map<String, dynamic>? mcp,
+  Directory? skillsDir,
 }) async {
   await writeOpenCodeVoicePluginFile(closet);
   return writeOpenCodeConfigFile(
@@ -108,6 +111,7 @@ Future<void> writeWaifuOpenCodeConfig({
       ),
       defaultAgent: 'waifu',
       mcp: mcp,
+      skills: skillsDir == null ? null : openCodeSkillsConfig(skillsDir),
     ),
   );
 }
@@ -122,6 +126,7 @@ Future<OpenCodeSessionInfo> waifuOpenCodeSitDown({
   required WaifuMode mode,
   required OpenCodePorchBackend backend,
   Map<String, dynamic>? mcp,
+  Directory? skillsDir,
 }) async {
   await writeWaifuOpenCodeConfig(
     closet: manager.closet,
@@ -130,6 +135,7 @@ Future<OpenCodeSessionInfo> waifuOpenCodeSitDown({
     pathMode: pathMode,
     mode: mode,
     mcp: mcp,
+    skillsDir: skillsDir,
   );
   // Plugins load at serve start. Reuse of a healthy process would keep
   // the previous waifu-voice.js in memory.
@@ -151,6 +157,7 @@ Future<void> waifuRetargetOpenCode({
   required WaifuMode mode,
   required OpenCodePorchBackend backend,
   Map<String, dynamic>? mcp,
+  Directory? skillsDir,
 }) async {
   await writeWaifuOpenCodeConfig(
     closet: closet,
@@ -159,6 +166,7 @@ Future<void> waifuRetargetOpenCode({
     pathMode: pathMode,
     mode: mode,
     mcp: mcp,
+    skillsDir: skillsDir,
   );
   await client.patchConfig(
     buildOpenCodeConfigMap(
@@ -174,6 +182,7 @@ Future<void> waifuRetargetOpenCode({
       ),
       defaultAgent: 'waifu',
       mcp: mcp,
+      skills: skillsDir == null ? null : openCodeSkillsConfig(skillsDir),
     ),
   );
 }

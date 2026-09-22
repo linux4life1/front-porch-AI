@@ -47,6 +47,9 @@ class AppDirectories {
   /// User recipe cards (`*.json`). Same library root as chats/ and worlds/.
   Directory get toolsDir => Directory(path.join(rootPath ?? '', 'tools'));
 
+  /// OpenCode-style skill folders (`<name>/SKILL.md`). Waifu Coder only.
+  Directory get skillsDir => Directory(path.join(rootPath ?? '', 'skills'));
+
   Directory get charactersDir =>
       Directory(path.join(rootPath ?? '', 'KoboldManager', 'Characters'));
 

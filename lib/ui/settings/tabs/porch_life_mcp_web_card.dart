@@ -54,6 +54,7 @@ class PorchLifeMcpWebCard extends StatelessWidget {
         ),
         const WikiUrlList(),
         const ToolsFolderNote(),
+        const SkillsFolderNote(),
       ],
     );
   }

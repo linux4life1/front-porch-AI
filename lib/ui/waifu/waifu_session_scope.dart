@@ -16,6 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -73,7 +76,8 @@ WaifuHarness? waifuBindSessionHarness({
   void Function()? onChanged,
   WaifuAskFn? onAsk,
   WaifuQuestionFn? onQuestion,
-  Map<String, dynamic> Function()? mcpConfigOf,
+  FutureOr<Map<String, dynamic>> Function()? mcpConfigOf,
+  Directory? Function()? skillsDirOf,
 }) {
   OpenCodePorchBackend? backend;
   OpenCodePorchBackend? Function()? backendOf;
@@ -101,5 +105,6 @@ WaifuHarness? waifuBindSessionHarness({
     onQuestion: onQuestion,
     mcpOptIn: session.mcpOptIn,
     mcpConfigOf: mcpConfigOf,
+    skillsDirOf: skillsDirOf,
   );
 }

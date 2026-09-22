@@ -126,12 +126,12 @@ String waifuEmptyPrompt(WaifuPathMode pathMode, String coworker) =>
 
 String waifuMcpScopeWarning(WaifuPathMode pathMode) => switch (pathMode) {
   WaifuPathMode.folderJail =>
-    'The folder jail covers Waifu Coder’s own file and bash tools. MCP tools '
-        'answer to their server, beyond that fence — only invite servers you '
-        'trust.',
+    'The folder jail covers Waifu Coder’s own file and bash tools. Library '
+        'recipe cards still call the HTTP address on the card — that is '
+        'outside the fence.',
   WaifuPathMode.wholeDisk =>
-    'Whole-disk access is already open. MCP tools also answer to their own '
-        'server — only invite servers you trust.',
+    'Whole-disk access is already open. Library recipe cards still call the '
+        'HTTP address on the card.',
 };
 
 const kWaifuToolsUnsupported =
@@ -145,6 +145,7 @@ const kWaifuRedoNeedsRevert =
     'Redo restores the last OpenCode revert — nothing is waiting.';
 
 const kWaifuMcpOpenCodeHonesty =
-    'MCP servers you invite here are written into Porch’s isolated OpenCode '
-    'config at sit-down. OpenCode owns those tools — they are not an '
-    'in-process Dart loop. Character-chat MCP is a separate catalog.';
+    'Recipe cards from the shared library tools drawer are written into '
+    'Porch’s isolated OpenCode config at sit-down. OpenCode owns those tools — '
+    'they ride a Porch loopback adapter, not Docker and not extra MCP servers. '
+    'Character chat uses the same cards.';

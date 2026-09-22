@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260920.5fe816e`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🛠️ **Waifu Coder can use the same recipe cards as chat** — drop JSON in the library `tools` folder, opt in from the Waifu harness, and they show up as tools. Skills are a separate Waifu-only drawer (`skills/<name>/SKILL.md`). Not Docker, not extra MCP servers. Same on Porch Life.
+
 - 📜 **Opening a chat lands you on the latest messages** — no more marathon scroll from the first greeting. Older history loads backward as you scroll up. Fast-scrubbing the transcript should stay smooth (theme on or off). **Follow streaming replies** (Settings → General, on by default) keeps the chat pinned to the newest words while a reply is writing if you are already at the bottom — scroll up to stop, return to the bottom to follow again. Turn it off if you want the chat to stay put. Same on the phone.
 - 💫 **Afterglow no longer keeps them limp the whole cooldown** — the first reply after a scene can still feel wrecked and heavy. After that, how tired or comfortable they are follows energy and comfort (Needs), not a stuck exhausted pose. Same in a group.
 - 🖼️ **Comfy Create rides Comfy’s own templates** — Z-Image Turbo, Qwen-Image, and Flux/Krea use the graphs Comfy ships (or a replaceable starter / your uploaded workflow), not a Porch-owned copy we have to rewrite every model bump. Pick the family, fill the model drawers, Generate. Expression packs still Edit first; plain models fall back to img2img. Same on the phone.
