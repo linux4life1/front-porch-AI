@@ -43,7 +43,7 @@ extension ChatServiceBodyWear on ChatService {
     final paces = <String, BodyPace>{};
     final on = <String, List<String>>{};
     for (final card in _groupCharacters) {
-      if (_groupSpeakerSkips(card)) continue;
+      if (_groupSpeakerSkips(card) || isSoftGroupMember(card)) continue;
       final id = _getCharacterIdFromCard(card);
       final current = _getGroupNeeds(id);
       before[id] = current.isNotEmpty

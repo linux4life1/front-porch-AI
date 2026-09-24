@@ -171,30 +171,38 @@ extension ChatServiceGenerationPostGen on ChatService {
       _lorebookScanner.decrementLoreDepthForEntries(preAiTriggered);
 
       // ── Scene Guest (Lite NPC) parity guard ──────────────────────────
-      // A guest turn must NOT touch the active character's Realism Engine,
-      // Needs simulation, inter-character feelings, chips, or the
-      // periodic (facts/evolution/summary/RAG) evaluators. The guest carries
-      // no such state. The chat clock is the exception — it is chat-scoped
-      // and ticks after this guard so the next speaker is told an honest
-      // time. Everything from here through the periodic evals is
-      // gated so guest presence/turns leave the primary's state untouched.
-      // (Lorebook scan + _saveChat above still ran for the guest.)
+      // A guest turn must NOT run the guest's own Realism Engine,
+      // Needs scene eval, inter-character feelings, or the periodic
+      // (facts/evolution/summary/RAG) evaluators. The guest carries
+      // no such state. The chat clock is the exception — it is chat-
+      // scoped and ticks after this guard so the next speaker is told
+      // an honest time. Present full members wear that beat; the guest
+      // themselves never invent a Needs map. Everything from here
+      // through the periodic evals is gated so the guest's own state
+      // stays empty. (Lorebook scan + _saveChat above still ran.)
       if (!_isLiteTurn(t)) {
         await _runPostGenEngineAndPeriodic(t, newPart, finalResponse);
       }
 
-      // Lite / Scene Guest: no Realism/Needs. Group soft roster
-      // members still get the glance-only withUser pass so Away /
-      // With you can move. 1:1 guestSpeaker stays out of Away
-      // rotation. The chat clock still hands off. The early
-      // `_saveChat` above ran BEFORE this tick — persist the new
-      // clock, glance bit, and rewind stamp or a reload loses them.
+      // Lite / Scene Guest: no Realism/Needs on the speaker. Group
+      // soft roster members still get the glance-only withUser pass
+      // so Away / With you can move. 1:1 guestSpeaker stays out of
+      // Away rotation. The chat clock still hands off, and present
+      // full members wear that beat (soft slots stay empty — they
+      // have no Needs). The early `_saveChat` above ran BEFORE this
+      // tick — persist the new clock, wear, glance bit, and rewind
+      // stamp or a reload loses them.
       if (_isLiteTurn(t)) {
         final scored = t.mode == GenerationMode.continue_
             ? (_isGuestAuthoredMessage(t.streamTarget) ? '' : newPart.trim())
             : finalResponse;
         await _runLiteGroupGlancePass(t, scored);
+        if (t.mode == GenerationMode.continue_ || !_clockRunning) {
+          _timeService.clearBodyBeat();
+        }
         await _maybeAdvanceStoryClockAfterReply(t);
+        _wearBodiesAfterClock(t);
+        _stampTimePassedChip(t.streamTarget);
         _maybeKickDreamPrefetch();
         await _saveChat();
       }
