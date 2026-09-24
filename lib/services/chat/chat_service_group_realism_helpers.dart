@@ -122,6 +122,13 @@ extension ChatServiceGroupRealismHelpers on ChatService {
   @visibleForTesting
   Map<String, int> debugGroupNeeds(String charId) => _getGroupNeeds(charId);
 
+  /// Test-only: mark the in-flight post-gen as rejected so lite/engine
+  /// finalize can prove they skip wear (same flag `_yieldSettlingTurn` sets).
+  @visibleForTesting
+  void debugRequestPostGenAbort() {
+    _postGenAbortRequested = true;
+  }
+
   /// Test-only: seed a member slot so a later soft turn can prove it does
   /// not leak this member's Needs / bond into the guest prompt.
   @visibleForTesting

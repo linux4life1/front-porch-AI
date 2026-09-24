@@ -30,8 +30,14 @@ extension ChatServiceRegenRevert on ChatService {
     required String regenSpeakerSid,
   }) {
     // Revert realism state from the rejected swipe and re-evaluate.
-    // Guest messages carry no Realism/Needs state (regenGuest != null skips).
-    //
+    // Guest messages carry no speaker Realism/Needs of their own, but a
+    // lite tick still wears present bodies (the 1:1 host). Restore that
+    // pre-wear snapshot before replay; do not run the host speaker revert.
+    if (regenGuest != null) {
+      _restorePresentBodiesForReplay(lastMsg);
+      return;
+    }
+
     // GROUP parity: the revert must operate on the rejected SPEAKER's
     // _groupRealism entry, not on whichever member's state happens to be in
     // the scalar fields. Impersonate + load their map state (the same
@@ -368,8 +374,9 @@ extension ChatServiceRegenRevert on ChatService {
       }
       _messages.add(lastMsg);
       // Host messages restore the active character's Realism/Needs from the
-      // accepted swipe (in groups: the speaker's own _groupRealism entry);
-      // guest messages carry none, so leave host state intact.
+      // accepted swipe (in groups: the speaker's own _groupRealism entry).
+      // Guest swipes wear present bodies (1:1 host); the replay just wore
+      // them once — do not pull a host realism_state the guest never had.
       if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg);
       await _saveChat();
       notifyListeners();

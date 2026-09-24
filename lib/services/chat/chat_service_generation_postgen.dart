@@ -200,11 +200,25 @@ extension ChatServiceGenerationPostGen on ChatService {
         if (t.mode == GenerationMode.continue_ || !_clockRunning) {
           _timeService.clearBodyBeat();
         }
-        await _maybeAdvanceStoryClockAfterReply(t);
-        _wearBodiesAfterClock(t);
-        _stampTimePassedChip(t.streamTarget);
-        _maybeKickDreamPrefetch();
-        await _saveChat();
+        // Same abort contract as the engine path: a rejected finalize
+        // must not keep the tick, wear, chip, or save. Regen waits up
+        // to 5s in `_yieldSettlingTurn` — without this gate the aborted
+        // wear lands, then replay wears again.
+        final clockBeforeIso = _timeService.storyClockIso;
+        if (!_postGenAbortRequested) {
+          await _maybeAdvanceStoryClockAfterReply(t);
+          if (_postGenAbortRequested &&
+              _timeService.storyClockIso != clockBeforeIso) {
+            _timeService.restoreTimeFromRealismState({
+              'storyClock': clockBeforeIso,
+            });
+          } else if (!_postGenAbortRequested) {
+            _wearBodiesAfterClock(t);
+            _stampTimePassedChip(t.streamTarget);
+            _maybeKickDreamPrefetch();
+            await _saveChat();
+          }
+        }
       }
 
       // (Task completion check now runs pre-generation in sendMessage)

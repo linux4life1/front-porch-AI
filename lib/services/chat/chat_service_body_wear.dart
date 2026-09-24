@@ -23,15 +23,28 @@ extension ChatServiceBodyWear on ChatService {
     if (!_needsSimEnabled || !_realismEnabled) return;
     final minutes = _awakeMinutesForTurn(t);
     if (_activeGroup == null) {
+      final host = _activeCharacter;
+      final hostId = host != null ? _getCharacterIdFromCard(host) : '';
+      final before = Map<String, int>.from(_needsSimulation.vector);
       final wear = awakeWearDeltas(
         minutes,
-        _paceOf(_activeCharacter),
+        _paceOf(host),
         needsThatAreOn(
           NeedsSimulation.needKeys,
-          _activeCharacter?.frontPorchExtensions?.needsOff ?? const [],
+          host?.frontPorchExtensions?.needsOff ?? const [],
         ),
       );
       _applyWearToLiveVector(wear);
+      // Guest lite ticks wear the 1:1 host. Stamp the pre-wear bars so
+      // regen/swipe/delete can restore them — host regen still uses
+      // needs_pre_turn_vector + chips, so only guest turns need this receipt.
+      if (t.guestSpeaker != null && hostId.isNotEmpty && before.isNotEmpty) {
+        _stampPresentWear(
+          t,
+          {hostId: before},
+          {hostId: Map<String, int>.from(_needsSimulation.vector)},
+        );
+      }
       _pendingRealismMetadata ??= {};
       _pendingRealismMetadata!['needs_time_wear'] = wear;
       return;
@@ -123,6 +136,10 @@ extension ChatServiceBodyWear on ChatService {
       msg.activeMetadata?[kNeedsPreWearByMember],
     );
     if (before.isEmpty) return;
+    if (_activeGroup == null) {
+      _restoreLiveHostFromBodyMap(before);
+      return;
+    }
     final worn = <String, Map<String, int>>{};
     for (final id in before.keys) {
       final live = _getGroupNeeds(id);
@@ -136,6 +153,20 @@ extension ChatServiceBodyWear on ChatService {
     }
   }
 
+  /// 1:1 host bars live on the scalar vector, not `_groupRealism`.
+  void _restoreLiveHostFromBodyMap(Map<String, Map<String, int>> bodies) {
+    if (bodies.isEmpty) return;
+    final hostId = _activeCharacter != null
+        ? _getCharacterIdFromCard(_activeCharacter!)
+        : '';
+    final snap =
+        bodies[hostId] ?? (bodies.length == 1 ? bodies.values.first : null);
+    if (snap == null || snap.isEmpty) return;
+    _needsSimulation.restoreFromSnapshot({
+      'vector': Map<String, int>.from(snap),
+    });
+  }
+
   /// Delete gives back this beat's wear to everyone except the speaker.
   /// [capturedBeforeRestore] is those bars before time-travel. The speaker
   /// is refunded from their chip, which already includes wear.
@@ -144,7 +175,7 @@ extension ChatServiceBodyWear on ChatService {
     String? speakerId,
     Map<String, Map<String, int>> capturedBeforeRestore,
   ) {
-    if (!_needsSimEnabled || _activeGroup == null) return;
+    if (!_needsSimEnabled) return;
     final refunded = refundCoPresentWear(
       captured: capturedBeforeRestore,
       preWear: presentBodiesFromMeta(
@@ -153,6 +184,10 @@ extension ChatServiceBodyWear on ChatService {
       worn: presentBodiesFromMeta(deleted.activeMetadata?[kNeedsWornByMember]),
       skipId: speakerId,
     );
+    if (_activeGroup == null) {
+      _restoreLiveHostFromBodyMap(refunded);
+      return;
+    }
     for (final entry in refunded.entries) {
       _setGroupNeeds(entry.key, entry.value);
     }
@@ -172,6 +207,12 @@ extension ChatServiceBodyWear on ChatService {
     };
     final out = <String, Map<String, int>>{};
     for (final id in ids) {
+      if (_activeGroup == null) {
+        final live = _needsSimulation.vector;
+        if (live.isEmpty) continue;
+        out[id] = Map<String, int>.from(live);
+        continue;
+      }
       final live = _getGroupNeeds(id);
       if (live.isEmpty) continue;
       out[id] = Map<String, int>.from(live);
@@ -183,6 +224,14 @@ extension ChatServiceBodyWear on ChatService {
   /// from their own snapshot, which also includes the scene.
   void _restoreWornBodiesExceptSpeaker(ChatMessage msg, String speakerId) {
     final worn = presentBodiesFromMeta(msg.activeMetadata?[kNeedsWornByMember]);
+    if (_activeGroup == null) {
+      final hostOnly = <String, Map<String, int>>{
+        for (final entry in worn.entries)
+          if (entry.key != speakerId) entry.key: entry.value,
+      };
+      _restoreLiveHostFromBodyMap(hostOnly);
+      return;
+    }
     for (final entry in worn.entries) {
       if (entry.key == speakerId) continue;
       _setGroupNeeds(entry.key, Map<String, int>.from(entry.value));

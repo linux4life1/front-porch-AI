@@ -52,9 +52,10 @@ extension ChatServiceMessageOps on ChatService {
     }
   }
 
-  /// Apply an already-stored swipe index. Guest replies never rewind
-  /// Realism/Needs; only the tip of the chat restores that snapshot
-  /// (re-reading an old variant is navigation, not time travel).
+  /// Apply an already-stored swipe index. Host tip restores the speaker
+  /// snapshot. A last-in-chat guest swipe restores the host wear that
+  /// beat left (guest replies have no speaker Realism of their own).
+  /// Buried swipes are navigation, not time travel.
   Future<void> _commitSwipeIndex(int messageIndex, int newIndex) async {
     final msg = _messages[messageIndex];
     if (newIndex == msg.swipeIndex) return;
@@ -64,9 +65,13 @@ extension ChatServiceMessageOps on ChatService {
     final isTip =
         !isGuestMsg &&
         _messages.skip(messageIndex + 1).every(_isGuestAuthoredMessage);
+    final isGuestTip = isGuestMsg && messageIndex == _messages.length - 1;
 
     msg.swipeIndex = newIndex;
     if (isTip) _syncRealismStateForSwipe(msg);
+    if (isGuestTip) {
+      _restoreWornBodiesExceptSpeaker(msg, msg.characterId ?? '');
+    }
     // Pockets follow the selected variant too — this swipe's own
     // post-turn record, or the shared pre-turn base when this variant's
     // pass changed nothing (hostile review 2026-08-11).

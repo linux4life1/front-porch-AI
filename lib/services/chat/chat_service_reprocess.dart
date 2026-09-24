@@ -399,12 +399,14 @@ extension ChatServiceReprocess on ChatService {
 
       // Generate into a new message — it will be appended by _generateResponse.
       // For a guest message we pass guestSpeaker so the new swipe is spoken as
-      // the guest and the entire Realism/Needs post-gen block is skipped (the
-      // `guestSpeaker == null` guard). For a host message regenGuest is null and
-      // this is the unchanged host path: _generateResponse runs the post-gen
-      // needs checks AND the chip attach — a regen runs in normal mode, so
-      // needs_deltas land on the streamed message exactly like a fresh turn
-      // (1:1 and group alike) and ride newMetadata into the swipe-merge below.
+      // the guest. The guest has no speaker Realism/Needs, but lite post-gen
+      // still ticks the clock and wears present bodies (the 1:1 host). The
+      // revert above restored that pre-wear snapshot so replay wears once.
+      // For a host message regenGuest is null and this is the unchanged host
+      // path: _generateResponse runs the post-gen needs checks AND the chip
+      // attach — a regen runs in normal mode, so needs_deltas land on the
+      // streamed message exactly like a fresh turn (1:1 and group alike) and
+      // ride newMetadata into the swipe-merge below.
       // The duplicate post-generation recompute that used to live here was a
       // second source of truth for the same numbers; deleted 2026-08-04.
       final preGenLen = _messages.length;
