@@ -87,8 +87,6 @@ class GroupMemberRealismEditor extends StatelessWidget {
         onEnabledChanged: onNeedsEnabledChanged,
         enjoysLowHygiene: (seed['enjoysLowHygiene'] as bool?) ?? false,
         onEnjoysLowHygieneChanged: (v) => onUpdate({'enjoysLowHygiene': v}),
-        needsSimStrength: _i('needsSimStrength', 1),
-        onNeedsSimStrengthChanged: (v) => onUpdate({'needsSimStrength': v}),
         needsPace: (seed['needsPace'] as String?) ?? 'normal',
         onNeedsPaceChanged: (v) => onUpdate({'needsPace': v}),
         needsOff: [

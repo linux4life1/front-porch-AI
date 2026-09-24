@@ -100,10 +100,6 @@ extension _GroupWizardMemberRealismCard on _CreateGroupChatPageState {
                   });
                   _updateMemberRealism(id, {'enjoysLowHygiene': v});
                 },
-                needsSimStrength: (seed['needsSimStrength'] as int?) ?? 1,
-                onNeedsSimStrengthChanged: (v) {
-                  _updateMemberRealism(id, {'needsSimStrength': v});
-                },
                 needsPace: (seed['needsPace'] as String?) ?? 'normal',
                 onNeedsPaceChanged: (v) =>
                     _updateMemberRealism(id, {'needsPace': v}),

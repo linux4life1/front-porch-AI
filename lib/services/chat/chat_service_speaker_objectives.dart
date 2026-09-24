@@ -378,7 +378,6 @@ extension ChatServiceSpeakerObjectives on ChatService {
       _pendingRealismMetadata!['_afk_needs_vector'] = Map<String, int>.from(
         needsSimulation.vector,
       );
-      _pendingRealismMetadata!['_afk_decay_turns'] = 0;
     }
     final passed = _timeService.bodyTimeLabel;
     _needsImpactEvaluator.beatNote = passed == null
@@ -386,9 +385,8 @@ extension ChatServiceSpeakerObjectives on ChatService {
         : 'THIS BEAT: $passed. Time wear is already applied. '
               'Report only what the scene did.';
     await _needsImpactEvaluator.evaluateAndApply(responseText, isAfk: wasAfk);
-    // During AFK, clear the scene-level reason so per-need reasons
-    // ("Scene action", "Natural decay") appear in the delta chip
-    // instead of the evaluator's single scene-level reason.
+    // During time away, clear the scene-level reason so each need's own
+    // reason shows on the chip.
     if (wasAfk) {
       needsSimulation.clearLastSceneReason();
     }

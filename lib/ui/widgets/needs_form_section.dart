@@ -29,8 +29,6 @@ class NeedsFormSection extends StatelessWidget {
   final ValueChanged<bool> onEnabledChanged;
   final bool enjoysLowHygiene;
   final ValueChanged<bool> onEnjoysLowHygieneChanged;
-  final int needsSimStrength;
-  final ValueChanged<int>? onNeedsSimStrengthChanged;
   final String needsPace;
   final ValueChanged<String>? onNeedsPaceChanged;
   final List<String> needsOff;
@@ -58,8 +56,6 @@ class NeedsFormSection extends StatelessWidget {
     required this.onEnabledChanged,
     required this.enjoysLowHygiene,
     required this.onEnjoysLowHygieneChanged,
-    required this.needsSimStrength,
-    this.onNeedsSimStrengthChanged,
     this.needsPace = 'normal',
     this.onNeedsPaceChanged,
     this.needsOff = const [],

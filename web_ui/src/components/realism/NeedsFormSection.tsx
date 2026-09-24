@@ -2,17 +2,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Shared Needs Simulation configuration form — the web mirror of the Flutter
-// needs_form_section.dart. Per-need starting baseline (0-100) + decay rate per
-// turn (0-20), an "enjoys low hygiene" inversion toggle, and a 1×-5× delta
-// strength. Reused by character create + edit so both author identical needs
-// seeds (and the same FrontPorchExtensions the desktop writes).
+// needs_form_section.dart. Per-need on/off, a starting baseline (0-100), pace,
+// and an "enjoys low hygiene" toggle. Reused by character create + edit.
 
 import { Slider, ToggleRow } from './controls';
 import { type RealismValues } from './realismTypes';
 
 type Patch = (patch: Partial<RealismValues>) => void;
 
-// [label, baseline key, decay key] for the 7 Sims-style needs.
+// [label, baseline key] for the seven needs.
 const NEEDS: [string, keyof RealismValues][] = [
   ['Hunger', 'needsBaselineHunger'],
   ['Bladder', 'needsBaselineBladder'],

@@ -128,7 +128,6 @@ Map<String, dynamic> defaultGroupMemberRealismSeed() => {
   'verificationMaxReprocesses': 1,
   'verificationStrictness': 3,
   'needsDirectorAuthority': false,
-  'needsSimStrength': 1,
   'needsPace': 'normal',
   'needsOff': <String>[],
   'needsBaselineHunger': 80,
@@ -138,13 +137,6 @@ Map<String, dynamic> defaultGroupMemberRealismSeed() => {
   'needsBaselineFun': 80,
   'needsBaselineHygiene': 80,
   'needsBaselineComfort': 80,
-  'needsDecayHunger': 5,
-  'needsDecayBladder': 5,
-  'needsDecayEnergy': 5,
-  'needsDecaySocial': 5,
-  'needsDecayFun': 5,
-  'needsDecayHygiene': 5,
-  'needsDecayComfort': 5,
   'relationships': <String, int>{},
 };
 

@@ -111,7 +111,6 @@ extension ChatServiceSessionStateSave on ChatService {
       });
 
       groupRealismJson = jsonEncode({
-        'globalDecayRates': _groupDecayRates,
         'perChar': _groupRealism,
         'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
         'authorNotes': _groupAuthorNotes,

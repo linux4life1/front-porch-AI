@@ -18,7 +18,7 @@ Unchanged in the chat, on desktop and on the phone:
 - Regen and swipe still put the bars back and replay that reply.
 - Continue still extends the same moment.
 
-The character editor and the group needs tab lose the seven decay sliders and the strength slider. In their place, one pace control per character: **Sloth**, **Normal**, **Fast**. Normal is the default. Old saved tick rates and strength values are ignored. Each need also has its own on/off, on desktop and on the phone.
+The character editor and the group needs tab lose the seven decay sliders and the strength slider. In their place, one pace control per character: **Sloth**, **Normal**, **Fast**. Normal is the default. An older card still opens. Its saved tick rates and strength values are not read and are not written back. Each need also has its own on/off, on desktop and on the phone.
 
 ## Needs can be turned off one by one
 

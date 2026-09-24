@@ -152,7 +152,10 @@ extension _CreateCharacterRealismStep on _CreateCharacterPageState {
                   enjoysLowHygiene: _realismEnjoysLowHygiene,
                   onEnjoysLowHygieneChanged: (v) =>
                       rebuildState(() => _realismEnjoysLowHygiene = v),
-                  needsSimStrength: 1, // default, not editable in creator
+                  needsPace: _needsPace,
+                  onNeedsPaceChanged: (v) => rebuildState(() => _needsPace = v),
+                  needsOff: _needsOff,
+                  onNeedsOffChanged: (v) => rebuildState(() => _needsOff = v),
                   baselineHunger: _needsBaselineHunger,
                   onBaselineHungerChanged: (v) =>
                       rebuildState(() => _needsBaselineHunger = v),

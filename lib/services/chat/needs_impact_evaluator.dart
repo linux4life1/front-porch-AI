@@ -31,16 +31,15 @@ part 'needs_impact_bound.dart';
 ///
 /// Model provides net signed deltas for the scene (open prompt, like bond/emotion evals).
 /// Optional Director/Verifier corrects when authority is enabled on the card.
-/// Simple clamps only. Decay is handled separately in NeedsSimulation.
+/// Pace and time-wear are applied in code, after the model answers.
 class NeedsImpactEvaluator {
   final Future<String?> Function(
     String responseText, {
     void Function(String)? onChunk,
-    int strength,
     String? userCritique,
     Map<String, int>? previousDeltas,
     Map<String, int>? currentNeeds,
-    int? decayTurns,
+    bool awayScene,
     Set<String> onlyNeeds,
   })
   evaluateNeedsImpactCall;
@@ -126,8 +125,7 @@ class NeedsImpactEvaluator {
       // Check metadata for AFK needs context (set by _runPostGenNeedsChecks)
       final meta = getPendingRealismMetadata?.call();
       final afkNeeds = meta?['_afk_needs_vector'] as Map<String, int>?;
-      final afkDecayTurns = meta?['_afk_decay_turns'] as int?;
-      // Clean up immediately so it doesn't leak into message metadata
+      // Clean up immediately so it doesn't leak into message metadata.
       if (meta != null) {
         meta.remove('_afk_needs_vector');
         meta.remove('_afk_decay_turns');
@@ -142,7 +140,7 @@ class NeedsImpactEvaluator {
       final text = await evaluateNeedsImpactCall(
         noted,
         currentNeeds: afkNeeds,
-        decayTurns: afkDecayTurns,
+        awayScene: isAfk,
         onlyNeeds: on.toSet(),
       );
       if (text == null) return;
@@ -201,22 +199,7 @@ class NeedsImpactEvaluator {
         '${effectiveText.substring(0, effectiveText.length > 300 ? 300 : effectiveText.length)}',
       );
       final deltas = _parseNeedDeltas(effectiveText);
-
-      // The Director is EXEMPT — see _boundDeltas. Its authority is opt-in and
-      // off by default; turning it on is asking for a second, scene-checked
-      // pass to overrule the evaluator, so bounding it would make the switch
-      // mean less than it says.
       _boundDeltas(deltas);
-
-      // Strength (1-5x) is communicated to the model on the first needs-impact call and (when
-      // Director authority is enabled) to the verifier critique so both emit/correct at the
-      // user-requested magnitude in a single pass. We do NOT post-multiply here — that would
-      // cause the Director to take an already-scaled delta (e.g. -15 at 5x) and multiply it
-      // again (→ -75). The numbers that come back from the (Director-corrected) effective text
-      // are the final deltas to apply. (See user clarification 2026-06: multiplier is applied
-      // at first run / in the prompt to model+Director; Director must not re-scale the scaled value.)
-      // If the model ignores the scale instruction the deltas will simply be smaller than desired
-      // (model compliance issue, not a post-hoc multiplication).
 
       final reasonMatch = RegExp(
         r'"reason"\s*:\s*"([^"]*)"',

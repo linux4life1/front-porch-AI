@@ -101,13 +101,8 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
         needsBaselineFun: _needsBaselineFun,
         needsBaselineHygiene: _needsBaselineHygiene,
         needsBaselineComfort: _needsBaselineComfort,
-        needsDecayHunger: _needsDecayHunger,
-        needsDecayBladder: _needsDecayBladder,
-        needsDecayEnergy: _needsDecayEnergy,
-        needsDecaySocial: _needsDecaySocial,
-        needsDecayFun: _needsDecayFun,
-        needsDecayHygiene: _needsDecayHygiene,
-        needsDecayComfort: _needsDecayComfort,
+        needsPace: _needsPace,
+        needsOff: _needsOff,
         greetingSeeds: compactGreetingPairs([
           for (final c in _altGreetingControllers) c.text,
         ], _altGreetingSeeds).seeds,
@@ -259,13 +254,8 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
       _needsBaselineFun = 80;
       _needsBaselineHygiene = 80;
       _needsBaselineComfort = 80;
-      _needsDecayHunger = 5;
-      _needsDecayBladder = 5;
-      _needsDecayEnergy = 5;
-      _needsDecaySocial = 5;
-      _needsDecayFun = 5;
-      _needsDecayHygiene = 5;
-      _needsDecayComfort = 5;
+      _needsPace = 'normal';
+      _needsOff = const [];
       _tokenNotifier.value = 0;
     });
   }

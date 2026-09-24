@@ -130,16 +130,8 @@ class FrontPorchExtensions {
   int
   realismVerificationStrictness; // 1-5 (default 3 = Balanced; higher = stricter director)
 
-  // Director authority on needs deltas (simple model+Director path): when true, verified/corrected deltas from Director review loop take authority for needs_impact (straight decay ticks + model deltas + optional director corrections; no legacy buffers/table/spaghetti). Off by default for conservative behavior.
+  // Director authority on needs deltas. Off by default.
   bool realismNeedsDirectorAuthority;
-
-  // User-chosen exponent (1-5) for Needs Simulation delta magnitude. 1 = baseline (current behavior).
-  // Higher values make swings larger (e.g. model/Director emits -3 hygiene → at 5x becomes -15).
-  // The value is injected into the first-pass needs impact eval prompt and the Director (needs_impact)
-  // so both the model emission and any corrections are produced at the user-requested scale.
-  // Applied as rawDelta * strength (safety) in the evaluator for both authority and legacy paths.
-  // Stored per-card (and per-member via frontPorch in groups). Default 1 = no behavior change.
-  int needsSimStrength;
 
   /// Body pace: sloth, normal, or fast. Scales drops only.
   String needsPace;
@@ -157,16 +149,6 @@ class FrontPorchExtensions {
   int needsBaselineFun;
   int needsBaselineHygiene;
   int needsBaselineComfort;
-
-  // Old per-need rates. Loaded so an older card still opens. The body
-  // does not read them. Pace is the only speed control.
-  int needsDecayHunger;
-  int needsDecayBladder;
-  int needsDecayEnergy;
-  int needsDecaySocial;
-  int needsDecayFun;
-  int needsDecayHygiene;
-  int needsDecayComfort;
 
   // Avatar behavior
   bool
@@ -250,14 +232,8 @@ class FrontPorchExtensions {
     this.realismVerificationMaxReprocesses = 1,
     this.realismVerificationStrictness = 3,
 
-    // Director authority on needs deltas (simple model+Director path; off default = legacy conservative)
     this.realismNeedsDirectorAuthority = false,
 
-    // Needs delta strength (1-5). Injected into the first needs-impact model call and (when Director
-    // authority is enabled) the verifier prompt so the model and Director emit/correct deltas at the
-    // requested magnitude on the first pass. The Director must not receive an already-scaled value
-    // and then scale it again. What the (Director-corrected) call returns is applied directly.
-    this.needsSimStrength = 1,
     this.needsPace = 'normal',
     this.needsOff = const [],
 
@@ -269,14 +245,6 @@ class FrontPorchExtensions {
     this.needsBaselineFun = 80,
     this.needsBaselineHygiene = 80,
     this.needsBaselineComfort = 80,
-
-    this.needsDecayHunger = 2,
-    this.needsDecayBladder = 3,
-    this.needsDecayEnergy = 3,
-    this.needsDecaySocial = 2,
-    this.needsDecayFun = 2,
-    this.needsDecayHygiene = 1,
-    this.needsDecayComfort = 2,
 
     // Avatar behavior
     this.avatarLocked = false,
@@ -352,7 +320,6 @@ class FrontPorchExtensions {
           realism['realism_verification_strictness'] as int? ?? 3,
       realismNeedsDirectorAuthority:
           realism['realism_needs_director_authority'] as bool? ?? false,
-      needsSimStrength: realism['needs_sim_strength'] as int? ?? 1,
       needsPace: realism['needs_pace'] as String? ?? 'normal',
       needsOff: realism['needs_off'] is List
           ? [
@@ -367,13 +334,6 @@ class FrontPorchExtensions {
       needsBaselineFun: realism['needs_baseline_fun'] as int? ?? 80,
       needsBaselineHygiene: realism['needs_baseline_hygiene'] as int? ?? 80,
       needsBaselineComfort: realism['needs_baseline_comfort'] as int? ?? 80,
-      needsDecayHunger: realism['needs_decay_hunger'] as int? ?? 2,
-      needsDecayBladder: realism['needs_decay_bladder'] as int? ?? 3,
-      needsDecayEnergy: realism['needs_decay_energy'] as int? ?? 3,
-      needsDecaySocial: realism['needs_decay_social'] as int? ?? 2,
-      needsDecayFun: realism['needs_decay_fun'] as int? ?? 2,
-      needsDecayHygiene: realism['needs_decay_hygiene'] as int? ?? 1,
-      needsDecayComfort: realism['needs_decay_comfort'] as int? ?? 2,
       avatarLocked: realism['avatar_locked'] as bool? ?? false,
 
       // Chat appearance colors (null = use global default)

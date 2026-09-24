@@ -57,7 +57,6 @@ extension ChatServiceGroupEntry on ChatService {
       _isSummaryGenerating =
           false; // explicit secondary zero on setActiveGroup (incomplete zeroing ... now complete; keep-sync lists + journal_maintenance + " ; authority for needs deltas thin path)") + "needsSimulation. (reason support kept for Director chips) ; cleared via sim initializeFresh/clearVector/resetBuffers on all paths; now complete)"
       _groupRealism = {};
-      _groupDecayRates = {};
       _groupAuthorNotes = {};
       _groupAuthorNoteStrengths = {};
       _groupCharacterSystemPrompts = {};

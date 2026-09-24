@@ -5,13 +5,11 @@
 //
 // It rewrote the three local maps in the dialog's State and called
 // resetRealismForGroupCharacter, which only drops the live _groupRealism slot.
-// The member's card extension — the thing runtime _activeDecayRates() reads
-// every turn — kept the hand-tuned decay rate and baselines. So a character the
-// user had just "reset" went on decaying hunger at 20/turn while the slider
-// read 4, and the old number reappeared the moment the dialog was reopened.
+// The member's card extension — the thing the chat reads — kept the old
+// baselines. Reset has to write that card.
 //
 // WHY THIS IS A SOURCE PIN AND NOT AN INTERACTION TEST. Every ChatService door
-// this tab writes through (setGroupNeedsDecayRate, resetRealismForGroupCharacter)
+// this tab writes through (persistGroupMemberExtensions, resetRealismForGroupCharacter)
 // is an EXTENSION member: it resolves on the static ChatService type, so a test
 // double cannot intercept it — the real body runs and reaches ChatService's
 // private _groupManager field, which no `implements ChatService` fake can have.

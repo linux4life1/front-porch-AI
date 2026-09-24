@@ -137,13 +137,8 @@ extension CreatorEngine on CreatorState {
         needsBaselineFun: needsBaselineFun,
         needsBaselineHygiene: needsBaselineHygiene,
         needsBaselineComfort: needsBaselineComfort,
-        needsDecayHunger: needsDecayHunger,
-        needsDecayBladder: needsDecayBladder,
-        needsDecayEnergy: needsDecayEnergy,
-        needsDecaySocial: needsDecaySocial,
-        needsDecayFun: needsDecayFun,
-        needsDecayHygiene: needsDecayHygiene,
-        needsDecayComfort: needsDecayComfort,
+        needsPace: needsPace,
+        needsOff: needsOff,
         greetingSeeds: greetingPairs.seeds,
       );
       // Save is MULTI-SHOT now (the Portrait & Avatars panel persists before

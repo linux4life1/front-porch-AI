@@ -292,19 +292,12 @@ mixin ChatServiceFieldBag {
   // resume) — see [isAwaitingChanceTime] / [acceptPendingChanceTime].
   String? _webChanceTimeEvent;
 
-  // ── Sims/Needs Simulation (extracted) + Needs Impact Evaluator ──
-  // Straight decay ticks in _needsSimulation; model deltas (+ optional Director review when authority) in _needsImpactEvaluator.
-  // See CLAUDE.md for full reset keep-sync + "incomplete zeroing now complete" + buffer removal + authority decision (simple model+Director path).
+  // ── Needs simulation + scene-impact evaluator ──
   bool _needsSimEnabled = false;
   // Per-chat Objectives switch (v45). Defaults true; read via objectivesActive.
   bool _objectivesEnabled = true;
   bool _enjoysLowHygiene =
       false; // inversion for hygiene (enjoys being dirty/sweaty/musky)
-
-  // Legacy shared group decay map. No longer the runtime source of truth (that
-  // is each member's card ext, via `_activeDecayRates()`); retained only as a
-  // load/save + fallback bridge for pre-per-member groups (see session state).
-  Map<String, int> _groupDecayRates = {};
 
   /// Per-chat lore session state (ST sticky/cooldown timers, macro locals,
   /// chat-scoped lorebook) — persisted inside the session's groupRealismState

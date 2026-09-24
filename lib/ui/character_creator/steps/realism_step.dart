@@ -245,10 +245,7 @@ class RealismStep extends StatelessWidget {
                   state.saveState();
                   state.notify();
                 },
-                // Full needs editor (enable, enjoys-low-hygiene, custom 0-100
-                // baselines + per-tick decay rates) — same widget the character
-                // editor uses, so AI-created characters can ship custom needs
-                // tuning. Strength stays at the default (not exposed here).
+                // Same needs editor the character editor uses.
                 needsFormSection: NeedsFormSection(
                   enabled: state.realismNeedsSim,
                   onEnabledChanged: (v) {
@@ -260,7 +257,16 @@ class RealismStep extends StatelessWidget {
                     state.realismEnjoysLowHygiene = v;
                     state.notify();
                   },
-                  needsSimStrength: 1,
+                  needsPace: state.needsPace,
+                  onNeedsPaceChanged: (v) {
+                    state.needsPace = v;
+                    state.notify();
+                  },
+                  needsOff: state.needsOff,
+                  onNeedsOffChanged: (v) {
+                    state.needsOff = v;
+                    state.notify();
+                  },
                   baselineHunger: state.needsBaselineHunger,
                   onBaselineHungerChanged: (v) {
                     state.needsBaselineHunger = v;

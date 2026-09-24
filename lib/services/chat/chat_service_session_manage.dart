@@ -279,7 +279,7 @@ extension ChatServiceSessionManage on ChatService {
         // state lives in _groupRealism, which startNewChat never reset (the leak).
         // This mirrors the 1:1 branch's resetForFreshChat + card re-seed (parity).
         // Only _groupRealism is reset — group config (per-char system prompts, RAG
-        // priorities, author notes, decay rates) is intentionally preserved, which
+        // priorities, author notes) is intentionally preserved, which
         // is why we do NOT route through _loadGroupRealismStateFromSession(null):
         // defaultMemberRealismState is perChar-only, so that path would wipe those
         // config maps. parseGroupRealismSeeds pulls just the perChar baselines.

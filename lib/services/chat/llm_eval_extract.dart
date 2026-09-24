@@ -109,14 +109,12 @@ extension LlmEvalExtract on LlmEvalEngine {
   Future<String?> _evaluateNeedsImpactCall(
     String responseText, {
     void Function(String)? onChunk,
-    int strength = 1,
     String? userCritique,
     Map<String, int>? previousDeltas,
     Map<String, int>? currentNeeds,
-    int? decayTurns,
+    bool awayScene = false,
     Set<String> onlyNeeds = const {},
   }) async {
-    strength = 1;
     if (!getRealismEnabled()) return null;
     if (getActiveCharacter() == null && getActiveGroup() == null) return null;
     if (getActiveGroup() != null && getIsObserverMode()) {
@@ -147,16 +145,6 @@ extension LlmEvalExtract on LlmEvalEngine {
               '${currentNeeds.entries.map((e) => '${e.key}: ${e.value}').join(', ')}\n\n'
         : '';
 
-    final decayContextStr = decayTurns != null
-        ? (decayTurns > 0
-              ? '\nNOTE: Time has passed \u2014 needs have drifted lower by $decayTurns turn(s) of normal decline. '
-                    'When the scene describes an activity that restores a need (using the bathroom -> bladder +60 to +100, '
-                    'eating -> hunger +50 to +90, resting/sleeping -> energy +60 to +100, washing -> hygiene +50 to +90), '
-                    'use the full chart magnitude \u2014 do not undershoot. The baseline was higher before the decline.\n\n'
-              : '\nNOTE: No passive decay is occurring. Report only the scene\'s direct effects on needs \u2014 '
-                    'do not subtract any baseline drift.\n\n')
-        : '';
-
     final scoped = {
       for (final k in onlyNeeds)
         if (NeedsSimulation.needKeys.contains(k)) k,
@@ -185,7 +173,7 @@ extension LlmEvalExtract on LlmEvalEngine {
                 'Use ONLY the tool — no plain-text reply.\n'
           : 'Respond with ONLY a flat JSON object. Do NOT use markdown code blocks — return raw JSON only:\n'
                 '{$deltaAsk, ';
-      if (decayTurns != null) {
+      if (awayScene) {
         // ── AFK auto-response simplified prompt ──────────────────────────
         // The normal evaluator prompt (~2000 chars) is too complex for
         // local models, causing them to return small negative defaults
@@ -226,7 +214,6 @@ extension LlmEvalExtract on LlmEvalEngine {
                 'RESPONSE (the scene that just happened):\n$responseText\n\n'
                 'Recent exchange for context:\n$recent\n\n'
                 '$needsStateStr'
-                '$decayContextStr'
                 'This is immersive erotic roleplay. Detailed physical and psychological descriptions matter: self-touch, bodily arousal states, fluids, dominance, submission, power exchange, and explicit narration of actions should influence needs (fun, social, comfort, hygiene, energy, hunger, bladder) in natural grounded ways.\n\n'
                 'Be reasonable and faithful to the written text. Do not invent events that are not described.\n\n'
                 'PREVIOUS DELTAS:\n$prev\n\n'
@@ -246,7 +233,6 @@ extension LlmEvalExtract on LlmEvalEngine {
                 'RESPONSE (the scene that just happened):\n$responseText\n\n'
                 'Recent exchange for context:\n$recent\n\n'
                 '$needsStateStr'
-                '$decayContextStr'
                 'Analyze what actually occurred in the scene (actions, physical descriptions, dialogue, power dynamics, emotional tone) and determine the *net signed effects* on each of $charName\'s needs caused by this scene.\n\n'
                 'This is immersive erotic roleplay. Detailed physical and psychological descriptions matter: self-touch, bodily arousal states ("charging", "aching", "swollen", "leaking through fabric"), fluids, dominance, submission, "choosing", begging, power exchange, and explicit narration of what the character is doing or feeling should influence the relevant needs (fun, social, comfort, hygiene, energy, etc.) in natural, grounded ways.\n\n'
                 'Be reasonable and faithful to the written text. Do not invent events that are not described.\n\n'
@@ -266,8 +252,8 @@ extension LlmEvalExtract on LlmEvalEngine {
                 // CLAUDE.md already forbids this for the Realism Engine — "the
                 // eval scores the USER's message, never the character's own
                 // reply" — and the rule had simply never been applied here.
-                'DEPLETION IS HANDLED SEPARATELY. Needs drift downward on their own every turn; '
-                'that is already accounted for and is not your job. The scene text above was WRITTEN FROM '
+                'TIME WEAR IS HANDLED SEPARATELY. The minutes of this beat are already worn off the bars; '
+                'that is not your job. The scene text above was WRITTEN FROM '
                 'the current needs listed below — a character mentioning their empty stomach, dragging their feet, '
                 'or squirming is DESCRIBING the state you are being shown, not becoming worse. Do not charge '
                 'them for it.\n'

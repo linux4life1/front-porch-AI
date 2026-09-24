@@ -94,7 +94,6 @@ export interface RealismValues {
   // Needs Simulation
   needsSimEnabled: boolean;
   enjoysLowHygiene: boolean;
-  needsSimStrength: number;
   /** sloth | normal | fast. Scales drops only. */
   needsPace: string;
   /** Need keys this character has turned off. Empty means all are on. */
@@ -106,13 +105,6 @@ export interface RealismValues {
   needsBaselineFun: number;
   needsBaselineHygiene: number;
   needsBaselineComfort: number;
-  needsDecayHunger: number;
-  needsDecayBladder: number;
-  needsDecayEnergy: number;
-  needsDecaySocial: number;
-  needsDecayFun: number;
-  needsDecayHygiene: number;
-  needsDecayComfort: number;
   /**
    * Sparse opening-state overlays, parallel to `alternateGreetings`.
    * `null` = this alt still reads the room. `{}` = inherit card defaults.
@@ -177,7 +169,6 @@ export const REALISM_DEFAULTS: RealismValues = {
   pocketsEnabled: true,
   needsSimEnabled: true,
   enjoysLowHygiene: false,
-  needsSimStrength: 1,
   needsPace: 'normal',
   needsOff: [],
   needsBaselineHunger: 80,
@@ -187,13 +178,6 @@ export const REALISM_DEFAULTS: RealismValues = {
   needsBaselineFun: 80,
   needsBaselineHygiene: 80,
   needsBaselineComfort: 80,
-  needsDecayHunger: 2,
-  needsDecayBladder: 3,
-  needsDecayEnergy: 3,
-  needsDecaySocial: 2,
-  needsDecayFun: 2,
-  needsDecayHygiene: 1,
-  needsDecayComfort: 2,
   greetingSeeds: [],
 };
 

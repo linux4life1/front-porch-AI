@@ -92,7 +92,6 @@ Widget _needsForm() => NeedsFormSection(
   onEnabledChanged: (_) {},
   enjoysLowHygiene: false,
   onEnjoysLowHygieneChanged: (_) {},
-  needsSimStrength: 2,
   baselineHunger: 70,
   onBaselineHungerChanged: (_) {},
   baselineBladder: 55,
@@ -149,8 +148,7 @@ void main() {
     );
   });
 
-  testWidgets('RealismProgressRow — positive bond Close tier',
-      (tester) async {
+  testWidgets('RealismProgressRow — positive bond Close tier', (tester) async {
     await expectThemedGoldens(
       tester,
       child: const RealismProgressRow(

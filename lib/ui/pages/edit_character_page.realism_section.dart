@@ -146,7 +146,6 @@ extension _EditCharacterRealismSection on _EditCharacterPageState {
               _realismEnjoysLowHygiene = v;
               _realismSettingsModified = true;
             }),
-            needsSimStrength: _needsSimStrength,
             needsPace: _needsPace,
             onNeedsPaceChanged: (v) => rebuildState(() {
               _needsPace = v;
@@ -155,10 +154,6 @@ extension _EditCharacterRealismSection on _EditCharacterPageState {
             needsOff: _needsOff,
             onNeedsOffChanged: (v) => rebuildState(() {
               _needsOff = v;
-              _realismSettingsModified = true;
-            }),
-            onNeedsSimStrengthChanged: (v) => rebuildState(() {
-              _needsSimStrength = v;
               _realismSettingsModified = true;
             }),
             baselineHunger: _needsBaselineHunger,

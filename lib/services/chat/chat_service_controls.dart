@@ -250,8 +250,7 @@ extension ChatServiceControls on ChatService {
   // Deletion of the now-redundant per-site try/catch guard in _loadActiveObjectives
   // (and its comment) is part of this task (see that site for the removed code).
   /// Write a group member's current extensions (pace, which needs are on,
-  /// baselines) to the avatar and the group-members row. Does not apply a
-  /// decay rate.
+  /// baselines) to the avatar and the group-members row.
   Future<void> persistGroupMemberExtensions({String? memberId}) async {
     if (_activeGroup == null) return;
 

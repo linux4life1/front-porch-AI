@@ -108,7 +108,6 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
             realismVerificationMaxReprocesses,
         'realism_verification_strictness': realismVerificationStrictness,
         'realism_needs_director_authority': realismNeedsDirectorAuthority,
-        'needs_sim_strength': needsSimStrength,
         'needs_pace': needsPace,
         if (needsOff.isNotEmpty) 'needs_off': needsOff,
         // Per-need baseline values
@@ -119,14 +118,6 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
         'needs_baseline_fun': needsBaselineFun,
         'needs_baseline_hygiene': needsBaselineHygiene,
         'needs_baseline_comfort': needsBaselineComfort,
-
-        'needs_decay_hunger': needsDecayHunger,
-        'needs_decay_bladder': needsDecayBladder,
-        'needs_decay_energy': needsDecayEnergy,
-        'needs_decay_social': needsDecaySocial,
-        'needs_decay_fun': needsDecayFun,
-        'needs_decay_hygiene': needsDecayHygiene,
-        'needs_decay_comfort': needsDecayComfort,
 
         'avatar_locked': avatarLocked,
 
@@ -186,7 +177,6 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
     int? realismVerificationMaxReprocesses,
     int? realismVerificationStrictness,
     bool? realismNeedsDirectorAuthority,
-    int? needsSimStrength,
     String? needsPace,
     List<String>? needsOff,
     int? needsBaselineHunger,
@@ -196,13 +186,6 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
     int? needsBaselineFun,
     int? needsBaselineHygiene,
     int? needsBaselineComfort,
-    int? needsDecayHunger,
-    int? needsDecayBladder,
-    int? needsDecayEnergy,
-    int? needsDecaySocial,
-    int? needsDecayFun,
-    int? needsDecayHygiene,
-    int? needsDecayComfort,
     bool? avatarLocked,
 
     // Chat appearance colors (null = use global default)
@@ -260,7 +243,6 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
           realismVerificationStrictness ?? this.realismVerificationStrictness,
       realismNeedsDirectorAuthority:
           realismNeedsDirectorAuthority ?? this.realismNeedsDirectorAuthority,
-      needsSimStrength: needsSimStrength ?? this.needsSimStrength,
       needsPace: needsPace ?? this.needsPace,
       needsOff: needsOff ?? this.needsOff,
       needsBaselineHunger: needsBaselineHunger ?? this.needsBaselineHunger,
@@ -270,13 +252,6 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
       needsBaselineFun: needsBaselineFun ?? this.needsBaselineFun,
       needsBaselineHygiene: needsBaselineHygiene ?? this.needsBaselineHygiene,
       needsBaselineComfort: needsBaselineComfort ?? this.needsBaselineComfort,
-      needsDecayHunger: needsDecayHunger ?? this.needsDecayHunger,
-      needsDecayBladder: needsDecayBladder ?? this.needsDecayBladder,
-      needsDecayEnergy: needsDecayEnergy ?? this.needsDecayEnergy,
-      needsDecaySocial: needsDecaySocial ?? this.needsDecaySocial,
-      needsDecayFun: needsDecayFun ?? this.needsDecayFun,
-      needsDecayHygiene: needsDecayHygiene ?? this.needsDecayHygiene,
-      needsDecayComfort: needsDecayComfort ?? this.needsDecayComfort,
       avatarLocked: avatarLocked ?? this.avatarLocked,
 
       // Chat appearance colors (null = use global default)

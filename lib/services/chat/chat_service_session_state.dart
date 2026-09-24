@@ -77,7 +77,6 @@ extension ChatServiceSessionState on ChatService {
     }
 
     _groupRealism = {};
-    _groupDecayRates = {};
     _groupAuthorNotes = {};
     _groupAuthorNoteStrengths = {};
     _groupCharacterSystemPrompts = {};
@@ -105,14 +104,6 @@ extension ChatServiceSessionState on ChatService {
               'vector': _needsSimulation.vector,
               'hygiene_crisis_acked': hygieneAck,
             });
-          }
-
-          // Global group decay rates
-          final globalDecay = map['globalDecayRates'];
-          if (globalDecay is Map) {
-            _groupDecayRates = globalDecay.map(
-              (k, v) => MapEntry(k.toString(), (v as num).toInt()),
-            );
           }
 
           // Per-char author notes (scoped to this group)
