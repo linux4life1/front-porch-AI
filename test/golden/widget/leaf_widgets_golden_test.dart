@@ -285,7 +285,8 @@ void main() {
       child: SizedBox(width: 520, child: _needsForm()),
       group: 'leaf_widgets',
       name: 'needs_form_section',
-      surface: const Size(580, 900),
+      // Pace + per-need on/off grew this past the old 900px box (~139px overflow).
+      surface: const Size(580, 1200),
     );
   });
 }
