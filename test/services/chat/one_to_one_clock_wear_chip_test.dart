@@ -1,11 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Live Mac fail (Carmen 1:1, PR #303): Porch Life + card have Realism,
-// Needs, and Passage of Time ON, Trust chips move, but Needs stay ~80
-// and no time_passed chip lands on a normal send.
-// Proven red: 1:1 send with those flags and a 30-min clock verdict
-// must wear once and stamp the chip.
+// Live Mac fail (Carmen 1:1, PR #303): Passage of Time is on but no
+// time_passed chip lands, and a flat clock tax drops every Need each
+// turn (80→78 board-wide "natural decay"). Clock still advances and
+// stamps the chip. Needs move from the scene eval, not a per-beat
+// body tax on Hunger+Bladder+Energy+Social+Fun+Hygiene+Comfort.
 
 import 'dart:io';
 
@@ -166,7 +166,8 @@ void main() {
     return carmen;
   }
 
-  int hunger() => chat!.needsSimulation.vector['hunger'] ?? -1;
+  Map<String, int> bars() =>
+      Map<String, int>.from(chat!.needsSimulation.vector);
 
   ChatMessage lastBot() => chat!.messages.lastWhere((m) => !m.isUser);
 
@@ -182,10 +183,10 @@ void main() {
   });
 
   test(
-    '1:1 send with PoT + Needs + Realism wears once and stamps time_passed',
+    '1:1 send stamps time_passed and does not tax every Need from the clock',
     () async {
       await boot();
-      expect(hunger(), 80);
+      expect(bars(), _carmenNeeds);
       expect(chat!.timeService.passageOfTimeEnabled, isTrue);
       expect(chat!.needsSimEnabled, isTrue);
       expect(chat!.realismEnabled, isTrue);
@@ -194,9 +195,11 @@ void main() {
       await drainTurn();
 
       expect(
-        hunger(),
-        78,
-        reason: '30 min at Normal is 2 points — Carmen 1:1 must wear',
+        bars(),
+        _carmenNeeds,
+        reason:
+            'scene eval returned zeros — a 30-min clock must not '
+            'drop Hunger+Bladder+Energy+Social+Fun+Hygiene+Comfort',
       );
       expect(
         lastBot().activeMetadata?['time_passed'],
@@ -231,41 +234,34 @@ void main() {
       await chat!.sendMessage('How are you?');
       await drainTurn();
 
-      expect(hunger(), 78);
+      expect(bars(), _carmenNeeds);
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
     },
   );
 
-  test(
-    'frozen 1:1 clock still wears one beat and does not stamp time_passed',
-    () async {
-      await boot();
-      await chat!.setPassageOfTimeEnabled(false);
-      expect(chat!.timeService.passageOfTimeEnabled, isFalse);
+  test('frozen 1:1 clock does not stamp time_passed or invent wear', () async {
+    await boot();
+    await chat!.setPassageOfTimeEnabled(false);
+    expect(chat!.timeService.passageOfTimeEnabled, isFalse);
 
-      await chat!.sendMessage('How are you?');
-      await drainTurn();
+    await chat!.sendMessage('How are you?');
+    await drainTurn();
 
-      expect(
-        hunger(),
-        78,
-        reason: 'clock off is one ordinary beat — Needs must still wear',
-      );
-      expect(
-        lastBot().activeMetadata?['time_passed'],
-        isNull,
-        reason: 'design: no duration chip when the clock did not move',
-      );
-    },
-  );
+    expect(bars(), _carmenNeeds, reason: 'a stopped clock is not a body tax');
+    expect(
+      lastBot().activeMetadata?['time_passed'],
+      isNull,
+      reason: 'design: no duration chip when the clock did not move',
+    );
+  });
 
   test(
-    '1:1 regen wears once from the pre-wear stamp and restamps time_passed',
+    '1:1 regen restamps time_passed and does not invent clock wear',
     () async {
       await boot();
       await chat!.sendMessage('How are you?');
       await drainTurn();
-      expect(hunger(), 78);
+      expect(bars(), _carmenNeeds);
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
       final firstSwipe = lastBot().swipeIndex;
 
@@ -279,70 +275,53 @@ void main() {
       );
       expect(lastBot().swipeIndex, isNot(firstSwipe));
       expect(
-        hunger(),
-        78,
+        bars(),
+        _carmenNeeds,
         reason:
-            'regen must restore the pre-wear bars then wear once — '
-            'not stay 80 (skip) and not drop to 76 (double)',
+            'regen must not apply a board-wide clock tax — '
+            'scene eval is still zeros',
       );
       expect(
         lastBot().activeMetadata?['time_passed'],
         '30 min',
-        reason: 'regen is GenerationMode.normal — clock→wear→chip must run',
+        reason: 'regen is GenerationMode.normal — clock→chip must run',
       );
 
       final regenIndex = chat!.messages.indexOf(lastBot());
       await chat!.swipeMessage(regenIndex, -1);
       await drainTurn();
-      expect(
-        hunger(),
-        78,
-        reason: 'swipe back to the first reply keeps that swipe\'s worn bars',
-      );
+      expect(bars(), _carmenNeeds);
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
     },
   );
 
-  test(
-    '1:1 send and regen wear when Realism is off and the clock still runs',
-    () async {
-      await boot(
-        globalRealism: false,
-        cardRealism: false,
-        standaloneClock: true,
-      );
-      expect(chat!.realismEnabled, isFalse);
-      expect(chat!.needsSimEnabled, isTrue);
-      expect(chat!.timeService.passageOfTimeEnabled, isTrue);
-      expect(hunger(), 80);
+  test('1:1 send and regen stamp time when Realism is off and the clock still runs', () async {
+    await boot(globalRealism: false, cardRealism: false, standaloneClock: true);
+    expect(chat!.realismEnabled, isFalse);
+    expect(chat!.needsSimEnabled, isTrue);
+    expect(chat!.timeService.passageOfTimeEnabled, isTrue);
+    expect(bars(), _carmenNeeds);
 
-      await chat!.sendMessage('How are you?');
-      await drainTurn();
-      expect(
-        hunger(),
-        78,
-        reason:
-            'Needs wear answers to the Needs switch, not the '
-            'Realism header — a 30-min send must drop 80→78',
-      );
-      expect(
-        lastBot().activeMetadata?['time_passed'],
-        '30 min',
-        reason:
-            'standalone clock + PoT still stamps the chip when '
-            'the Realism engine is off',
-      );
+    await chat!.sendMessage('How are you?');
+    await drainTurn();
+    expect(
+      bars(),
+      _carmenNeeds,
+      reason:
+          'Needs stay put when the scene eval is zero — the '
+          'clock chip is not a body tax',
+    );
+    expect(
+      lastBot().activeMetadata?['time_passed'],
+      '30 min',
+      reason:
+          'standalone clock + PoT still stamps the chip when '
+          'the Realism engine is off',
+    );
 
-      await chat!.regenerateLastMessage();
-      await drainTurn();
-      expect(
-        hunger(),
-        78,
-        reason:
-            'regen must restore the pre-wear bars then wear once '
-            'even when Realism is off',
-      );
-      expect(lastBot().activeMetadata?['time_passed'], '30 min');
-    },
-  );
+    await chat!.regenerateLastMessage();
+    await drainTurn();
+    expect(bars(), _carmenNeeds);
+    expect(lastBot().activeMetadata?['time_passed'], '30 min');
+  });
 }

@@ -5,13 +5,19 @@
 // Porch Life Needs ON, Trust chips move, but the sidebar Needs strip is
 // missing — the chat acts like Needs is off.
 //
-// Cause: sessions.needs_sim_enabled defaults FALSE and hydrate trusts
-// only that column. Card + Porch Life are AND-ed at new-chat seed, not
-// on load. Sidebar bars require chat.needsSimEnabled && vector.isNotEmpty.
-// Opening a lived-in 1:1 after checkout therefore clears the vector.
+// Cause: sessions.needs_sim_enabled defaults FALSE and hydrate used to
+// trust only that column. Card + Porch Life are AND-ed at new-chat seed,
+// not on load. Sidebar bars require chat.needsSimEnabled &&
+// vector.isNotEmpty. A lived-in 1:1 that never flipped the column (no
+// saved vector) still promotes ON when card + Porch Life ask for Needs.
 //
-// Proven red on 5eccc1b0: load of a Carmen row with needsSimEnabled=false
-// left chat.needsSimEnabled false and an empty vector.
+// The chat-gear switch must stick both ways. Explicit OFF keeps the
+// saved vector (hide ≠ erase) so false+vector is not a stale never-seeded
+// row and hydrate does not flip it back ON. Explicit ON and never-seeded
+// 1:1 (false, no vector, card+Porch Life ON) stay / promote ON.
+//
+// Send still stamps time_passed when the clock advances. It must not
+// tax every on-need from the clock.
 
 import 'dart:convert';
 import 'dart:io';
@@ -111,58 +117,76 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
 
-  test('needsSimAfterHydrate promotes stale 1:1 off, not groups or vetoes', () {
-    expect(
-      needsSimAfterHydrate(
-        sessionEnabled: false,
-        cardEnabled: true,
-        globalDefault: true,
-        hasSavedVector: false,
-        isGroup: false,
-      ),
-      isTrue,
-    );
-    expect(
-      needsSimAfterHydrate(
-        sessionEnabled: false,
-        cardEnabled: false,
-        globalDefault: true,
-        hasSavedVector: false,
-        isGroup: false,
-      ),
-      isFalse,
-    );
-    expect(
-      needsSimAfterHydrate(
-        sessionEnabled: false,
-        cardEnabled: true,
-        globalDefault: false,
-        hasSavedVector: false,
-        isGroup: false,
-      ),
-      isFalse,
-    );
-    expect(
-      needsSimAfterHydrate(
-        sessionEnabled: false,
-        cardEnabled: false,
-        globalDefault: false,
-        hasSavedVector: true,
-        isGroup: false,
-      ),
-      isTrue,
-    );
-    expect(
-      needsSimAfterHydrate(
-        sessionEnabled: false,
-        cardEnabled: true,
-        globalDefault: true,
-        hasSavedVector: false,
-        isGroup: true,
-      ),
-      isFalse,
-    );
-  });
+  test(
+    'needsSimAfterHydrate promotes stale 1:1 off, not user-off or groups',
+    () {
+      expect(
+        needsSimAfterHydrate(
+          sessionEnabled: false,
+          cardEnabled: true,
+          globalDefault: true,
+          hasSavedVector: false,
+          isGroup: false,
+        ),
+        isTrue,
+        reason: 'never-seeded column default + empty vector still promotes',
+      );
+      expect(
+        needsSimAfterHydrate(
+          sessionEnabled: false,
+          cardEnabled: true,
+          globalDefault: true,
+          hasSavedVector: true,
+          isGroup: false,
+        ),
+        isFalse,
+        reason:
+            'false + a saved vector is chat-gear OFF — do not promote '
+            'just because card + Porch Life stay ON',
+      );
+      expect(
+        needsSimAfterHydrate(
+          sessionEnabled: true,
+          cardEnabled: false,
+          globalDefault: false,
+          hasSavedVector: true,
+          isGroup: false,
+        ),
+        isTrue,
+        reason: 'an explicit session ON stays ON',
+      );
+      expect(
+        needsSimAfterHydrate(
+          sessionEnabled: false,
+          cardEnabled: false,
+          globalDefault: true,
+          hasSavedVector: false,
+          isGroup: false,
+        ),
+        isFalse,
+      );
+      expect(
+        needsSimAfterHydrate(
+          sessionEnabled: false,
+          cardEnabled: true,
+          globalDefault: false,
+          hasSavedVector: false,
+          isGroup: false,
+        ),
+        isFalse,
+      );
+      expect(
+        needsSimAfterHydrate(
+          sessionEnabled: false,
+          cardEnabled: true,
+          globalDefault: true,
+          hasSavedVector: false,
+          isGroup: true,
+        ),
+        isFalse,
+      );
+    },
+  );
 
   test('empty needsOff does not empty the strip', () {
     const vector = {'hunger': 80, 'bladder': 80};
@@ -251,6 +275,18 @@ void main() {
     return chat!.needsSimEnabled && chat!.needsSimulation.vector.isNotEmpty;
   }
 
+  String wornNeedsVectorJson({int hunger = 71}) => jsonEncode({
+    'vector': {
+      'hunger': hunger,
+      'bladder': 80,
+      'energy': 80,
+      'social': 80,
+      'fun': 80,
+      'hygiene': 80,
+      'comfort': 80,
+    },
+  });
+
   tearDown(() async {
     debugPrint = previousPrint ?? debugPrint;
     chat?.dispose();
@@ -259,58 +295,65 @@ void main() {
     await _drain();
   });
 
-  test(
-    '1:1 Carmen: card+Porch Life ON promote a session that still has needsSim false',
-    () async {
-      await boot();
-      await plantSession(sessionNeeds: false);
-      final carmen = _carmen(cardNeeds: true);
-      final c = chat!;
-      await c.setActiveCharacter(carmen);
+  test('1:1 Carmen: card+Porch Life ON promote a session that still has needsSim false', () async {
+    await boot();
+    await plantSession(sessionNeeds: false);
+    final carmen = _carmen(cardNeeds: true);
+    final c = chat!;
+    await c.setActiveCharacter(carmen);
 
-      expect(
-        c.needsSimEnabled,
-        isTrue,
-        reason:
-            'hydrate must not treat sessions.needs_sim_enabled=false as '
-            'user-off when the card and Porch Life both ask for Needs',
-      );
-      expect(
+    expect(
+      c.needsSimEnabled,
+      isTrue,
+      reason:
+          'hydrate must not treat sessions.needs_sim_enabled=false as '
+          'user-off when the card and Porch Life both ask for Needs',
+    );
+    expect(
+      c.needsSimulation.vector,
+      isNotEmpty,
+      reason: 'sidebar bars also require a live vector',
+    );
+    expect(sidebarWouldShowBars(), isTrue);
+    expect(
+      visibleNeeds(
         c.needsSimulation.vector,
-        isNotEmpty,
-        reason: 'sidebar bars also require a live vector',
-      );
-      expect(sidebarWouldShowBars(), isTrue);
-      expect(
-        visibleNeeds(
-          c.needsSimulation.vector,
-          carmen.frontPorchExtensions?.needsOff ?? const [],
-        ),
-        isNotEmpty,
-        reason: 'empty needsOff must not empty the strip',
-      );
-      expect(c.needsSimulation.vector['hunger'], 80);
+        carmen.frontPorchExtensions?.needsOff ?? const [],
+      ),
+      isNotEmpty,
+      reason: 'empty needsOff must not empty the strip',
+    );
+    expect(c.needsSimulation.vector['hunger'], 80);
 
-      await c.sendMessage('Still here?');
-      for (var i = 0; i < 400 && (c.isGenerating || c.isSettlingTurn); i++) {
-        await Future<void>.delayed(Duration.zero);
-      }
-      for (var i = 0; i < 20; i++) {
-        await Future<void>.delayed(Duration.zero);
-      }
+    await c.sendMessage('Still here?');
+    for (var i = 0; i < 400 && (c.isGenerating || c.isSettlingTurn); i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    for (var i = 0; i < 20; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
 
-      expect(
-        c.needsSimulation.vector['hunger'],
-        78,
-        reason: 'once bars exist, a 30-min 1:1 send must wear',
-      );
-      expect(
-        c.messages.lastWhere((m) => !m.isUser).activeMetadata?['time_passed'],
-        '30 min',
-        reason: 'live fail: no time_passed chip on a normal 1:1 send',
-      );
-    },
-  );
+    expect(
+      c.needsSimulation.vector,
+      {
+        'hunger': 80,
+        'bladder': 80,
+        'energy': 80,
+        'social': 80,
+        'fun': 80,
+        'hygiene': 80,
+        'comfort': 80,
+      },
+      reason:
+          'send must not tax every on-need from the clock — '
+          'scene eval returned zeros, so the bars stay put',
+    );
+    expect(
+      c.messages.lastWhere((m) => !m.isUser).activeMetadata?['time_passed'],
+      '30 min',
+      reason: 'live fail: no time_passed chip on a normal 1:1 send',
+    );
+  });
 
   test('1:1 does not invent Needs when the card is still off', () async {
     await boot();
@@ -340,33 +383,115 @@ void main() {
   });
 
   test(
-    'saved needs vector is restored even if the session flag is still false',
+    'user-off with a saved vector stays off; toggle-on restores the bars',
     () async {
       await boot();
       await plantSession(
         sessionNeeds: false,
-        needsVector: jsonEncode({
-          'vector': {
-            'hunger': 71,
-            'bladder': 80,
-            'energy': 80,
-            'social': 80,
-            'fun': 80,
-            'hygiene': 80,
-            'comfort': 80,
-          },
-        }),
+        needsVector: wornNeedsVectorJson(),
       );
       final c = chat!;
-      await c.setActiveCharacter(_carmen(cardNeeds: false));
+      await c.setActiveCharacter(_carmen(cardNeeds: true));
+
+      expect(
+        c.needsSimEnabled,
+        isFalse,
+        reason:
+            'false + a saved vector is chat-gear OFF — card + Porch '
+            'Life ON must not force the switch back on',
+      );
+      expect(
+        sidebarWouldShowBars(),
+        isFalse,
+        reason: 'off hides the strip even while the kit is still in memory',
+      );
+      expect(
+        c.needsSimulation.vector['hunger'],
+        71,
+        reason: 'hide ≠ erase — the worn vector stays restorable',
+      );
+
+      await c.setNeedsSimEnabled(true);
+      expect(c.needsSimEnabled, isTrue);
+      expect(
+        c.needsSimulation.vector['hunger'],
+        71,
+        reason: 'toggle-on must restore the saved bars, not reseed 80',
+      );
+      expect(sidebarWouldShowBars(), isTrue);
+    },
+  );
+
+  test('chat-gear Needs OFF survives save and hydrate when card+Porch Life stay ON', () async {
+    await boot();
+    await plantSession(sessionNeeds: true, needsVector: wornNeedsVectorJson());
+    final c = chat!;
+    await c.setActiveCharacter(_carmen(cardNeeds: true));
+    expect(c.needsSimEnabled, isTrue);
+    expect(c.needsSimulation.vector['hunger'], 71);
+
+    await c.setNeedsSimEnabled(false);
+    expect(c.needsSimEnabled, isFalse);
+    expect(sidebarWouldShowBars(), isFalse);
+    expect(
+      c.needsSimulation.vector['hunger'],
+      71,
+      reason: 'off hides the strip; it does not wipe the live vector',
+    );
+
+    final sid = c.currentSessionId!;
+    final row = await db!.getSessionById(sid);
+    expect(row, isNotNull);
+    expect(
+      row!.needsSimEnabled,
+      isFalse,
+      reason: 'save must persist the chat-gear OFF flag',
+    );
+    expect(
+      row.needsVector,
+      isNotNull,
+      reason: 'save must keep the vector so reopen can tell OFF from stale',
+    );
+    expect(row.needsVector, contains('71'));
+
+    await c.loadSession(sid);
+    expect(
+      c.needsSimEnabled,
+      isFalse,
+      reason:
+          'reopen must not promote user-off just because card + '
+          'Porch Life still ask for Needs',
+    );
+    expect(sidebarWouldShowBars(), isFalse);
+    expect(c.needsSimulation.vector['hunger'], 71);
+
+    await c.setNeedsSimEnabled(true);
+    expect(c.needsSimEnabled, isTrue);
+    expect(c.needsSimulation.vector['hunger'], 71);
+    expect(sidebarWouldShowBars(), isTrue);
+  });
+
+  test(
+    'explicit Needs ON survives hydrate with bars when card+Porch Life stay ON',
+    () async {
+      await boot();
+      await plantSession(
+        sessionNeeds: true,
+        needsVector: wornNeedsVectorJson(),
+      );
+      final c = chat!;
+      await c.setActiveCharacter(_carmen(cardNeeds: true));
 
       expect(
         c.needsSimEnabled,
         isTrue,
-        reason:
-            'a stored vector means this chat already ran Needs — '
-            'hide ≠ erase; do not clear it because the column defaulted 0',
+        reason: 'session ON must stay ON — do not trade OFF-persist for this',
       );
+      expect(c.needsSimulation.vector['hunger'], 71);
+      expect(sidebarWouldShowBars(), isTrue);
+
+      await c.loadSession(c.currentSessionId!);
+      expect(c.needsSimEnabled, isTrue);
       expect(c.needsSimulation.vector['hunger'], 71);
       expect(sidebarWouldShowBars(), isTrue);
     },

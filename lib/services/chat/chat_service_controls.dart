@@ -106,7 +106,8 @@ extension ChatServiceControls on ChatService {
   /// Toggles the Needs Simulation for the current session.
   ///
   /// - `true`: initializes the default need vector (if empty) then begins tracking.
-  /// - `false`: clears the in-memory vector (levels are discarded for this session).
+  /// - `false`: hides the strip. The live vector stays so save can tell
+  ///   explicit OFF from a never-seeded row (hide ≠ erase).
   ///
   /// The change is persisted with the session and broadcast via [notifyListeners].
   /// Matches the side-effect style of [setNsfwCooldownEnabled] and [setChaosModeEnabled].
@@ -116,8 +117,9 @@ extension ChatServiceControls on ChatService {
     // chat_entry/group_entry), so a toggle-on after a needs-off start leaves it
     // empty and the sidebar shows no scores. Seed it now from the active
     // character/group baselines, mirroring the chat-start init so 1:1 and group
-    // behave identically. Off clears the live vector (levels for this
-    // session are discarded) so the next on always reseeds.
+    // behave identically. Off must not wipe the kit — a later save of
+    // false+null looks like a stale never-seeded row and hydrate would
+    // flip Needs back on.
     if (enabled && _needsSimulation.vector.isEmpty) {
       if (_activeGroup != null) {
         _needsSimulation.initializeFreshWithDefaults(const {
@@ -139,8 +141,6 @@ extension ChatServiceControls on ChatService {
           _needsSimulation.initializeFresh();
         }
       }
-    } else if (!enabled) {
-      _needsSimulation.clearVector();
     }
     // Paint first. A save that throws (unmodifiable needsOff used to)
     // must not leave the switch ON and the strip empty.

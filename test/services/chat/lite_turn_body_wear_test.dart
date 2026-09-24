@@ -1,12 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// HOLD K1: a lite/guest reply still moves the chat clock, so present
-// full members must wear and the time chip must stamp. HOLD K2: soft
-// slots must not be invented/worn/persisted — promote then seeds a
-// real vector only because the slot stayed empty.
-// Proven red: lite post-gen advanced the clock without wear; present
-// wear invented GuestPoke and poisoned promoteGuestToFull.
+// HOLD K1: a lite/guest reply still moves the chat clock and stamps
+// the time chip. HOLD K2: soft slots must not be invented/persisted —
+// promote then seeds a real vector only because the slot stayed empty.
+// The clock is not a board-wide body tax on present full members.
 
 import 'dart:io';
 
@@ -18,7 +16,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -197,10 +194,10 @@ void main() {
       expect(reply.sender, 'GuestPoke');
       expect(
         floraNeeds()['hunger'],
-        38,
+        40,
         reason:
-            'lite/guest clock advance must wear present full members '
-            '(30 min at Normal is 2 points)',
+            'lite/guest clock advance stamps time — it does not '
+            'tax Flora\'s hunger from the clock',
       );
       expect(
         guestNeeds(),
@@ -210,13 +207,8 @@ void main() {
       expect(
         reply.activeMetadata?['time_passed'],
         '30 min',
-        reason: 'clock minutes that wear bodies also stamp the time chip',
+        reason: 'live fail: lite clock minutes must still stamp the time chip',
       );
-      final preWear = presentBodiesFromMeta(
-        reply.activeMetadata?[kNeedsPreWearByMember],
-      );
-      expect(preWear.containsKey(named('Flora').stableGroupId), isTrue);
-      expect(preWear.containsKey(named('GuestPoke').stableGroupId), isFalse);
 
       await chat!.promoteGuestToFull(named('GuestPoke'));
       expect(named('GuestPoke').isLite, isFalse);
@@ -236,7 +228,7 @@ void main() {
     },
   );
 
-  test('full-member clock wear does not invent Needs on a soft slot', () async {
+  test('full-member clock tick does not invent Needs on a soft slot', () async {
     await boot();
     expect(guestNeeds(), isEmpty);
 
@@ -244,11 +236,11 @@ void main() {
     await chat!.sendMessage('How are you?');
     await drainTurn();
 
-    expect(floraNeeds()['hunger'], lessThan(40));
+    expect(floraNeeds()['hunger'], 40);
     expect(
       guestNeeds(),
       isEmpty,
-      reason: 'soft must stay empty when a full member wears the beat',
+      reason: 'soft must stay empty when a full member takes a beat',
     );
 
     await chat!.promoteGuestToFull(named('GuestPoke'));
@@ -260,14 +252,14 @@ void main() {
     chat!.setNextCharacter(named('GuestPoke'));
     await chat!.sendMessage('Say hello.');
     await drainTurn();
-    expect(floraNeeds()['hunger'], 38);
+    expect(floraNeeds()['hunger'], 40);
 
     await chat!.continueGeneration();
     await drainTurn();
     expect(
       floraNeeds()['hunger'],
-      38,
-      reason: 'Continue is the same beat — no second wear',
+      40,
+      reason: 'Continue is the same beat — no clock tax, no second wear',
     );
     expect(guestNeeds(), isEmpty);
   });

@@ -1,131 +1,20 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Awake-time wear, after the clock commits. Continue does not wear.
-// A night, a skip, or time away does not wear. Everyone present wears.
-// The speaker's scene is applied later, on top.
+// Clock beat bookkeeping. The story clock still advances and the time
+// chip still stamps. Needs move from the scene eval — not a flat tax on
+// every on-need each turn. Continue does not invent a second beat.
 
 part of '../chat_service.dart';
 
 extension ChatServiceBodyWear on ChatService {
-  BodyPace _paceOf(CharacterCard? card) =>
-      BodyPace.parse(card?.frontPorchExtensions?.needsPace);
-
-  int _awakeMinutesForTurn(_GenTurn t) => awakeMinutesForBeat(
-    continues: t.mode == GenerationMode.continue_,
-    clockRunning: _clockRunning,
-    committedAwakeMinutes: _timeService.awakeWearMinutes,
-  );
-
-  /// Wear every present body for this beat, then reload the speaker so the
-  /// scene eval sees the worn bars. Stashes the wear for the needs chip.
+  /// After the clock commits. Does not tax every on-need from the minutes —
+  /// scene eval moves the bars. Continue is the same beat.
   void _wearBodiesAfterClock(_GenTurn t) {
     if (!_needsSimEnabled) return;
-    final minutes = _awakeMinutesForTurn(t);
-    if (_activeGroup == null) {
-      final host = _activeCharacter;
-      final hostId = host != null ? _getCharacterIdFromCard(host) : '';
-      final before = Map<String, int>.from(_needsSimulation.vector);
-      final wear = awakeWearDeltas(
-        minutes,
-        _paceOf(host),
-        needsThatAreOn(
-          NeedsSimulation.needKeys,
-          host?.frontPorchExtensions?.needsOff ?? const [],
-        ),
-      );
-      _applyWearToLiveVector(wear);
-      // 1:1 host (and guest lite ticks that wear the host). Stamp the
-      // pre-wear bars so regen/swipe restore them, then wear once.
-      if (hostId.isNotEmpty && before.isNotEmpty) {
-        _stampPresentWear(
-          t,
-          {hostId: before},
-          {hostId: Map<String, int>.from(_needsSimulation.vector)},
-        );
-      }
-      _pendingRealismMetadata ??= {};
-      _pendingRealismMetadata!['needs_time_wear'] = wear;
-      return;
-    }
-    String? speakerId;
-    final active = _activeCharacter;
-    if (active != null) speakerId = _getCharacterIdFromCard(active);
-    final before = <String, Map<String, int>>{};
-    final paces = <String, BodyPace>{};
-    final on = <String, List<String>>{};
-    for (final card in _groupCharacters) {
-      if (_groupSpeakerSkips(card) || isSoftGroupMember(card)) continue;
-      final id = _getCharacterIdFromCard(card);
-      final current = _getGroupNeeds(id);
-      before[id] = current.isNotEmpty
-          ? Map<String, int>.from(current)
-          : NeedsSimulation.baselinesFromExtensions(card.frontPorchExtensions);
-      paces[id] = _paceOf(card);
-      on[id] = needsThatAreOn(
-        NeedsSimulation.needKeys,
-        card.frontPorchExtensions?.needsOff ?? const [],
-      );
-    }
-    final worn = wearPresentBodies(
-      before: before,
-      minutes: minutes,
-      paceOf: (id) => paces[id] ?? BodyPace.normal,
-      needsOn: (id) => on[id] ?? const [],
-    );
-    for (final entry in worn.entries) {
-      final prior = before[entry.key];
-      if (prior != null && _sameNeedBars(prior, entry.value)) continue;
-      _setGroupNeeds(entry.key, entry.value);
-    }
-    Map<String, int> speakerWear = const {};
-    if (speakerId != null && before.containsKey(speakerId)) {
-      speakerWear = awakeWearDeltas(
-        minutes,
-        paces[speakerId] ?? BodyPace.normal,
-        on[speakerId] ?? const [],
-      );
-      _loadGroupRealismIntoScalars(speakerId);
-      _needsSimulation.applyCatastropheIfNeeded(
-        ignore: active?.frontPorchExtensions?.needsOff ?? const [],
-      );
-      _setGroupNeeds(speakerId, Map<String, int>.from(_needsSimulation.vector));
-    }
-    _stampPresentWear(t, before, worn);
+    if (t.mode == GenerationMode.continue_) return;
     _pendingRealismMetadata ??= {};
-    _pendingRealismMetadata!['needs_time_wear'] = speakerWear;
-  }
-
-  bool _sameNeedBars(Map<String, int> a, Map<String, int> b) {
-    if (a.length != b.length) return false;
-    for (final entry in a.entries) {
-      if (b[entry.key] != entry.value) return false;
-    }
-    return true;
-  }
-
-  /// Keep the pre-wear snapshot from the first pass of this reply. Continue
-  /// must not replace it, or a later regen would start from bars that were
-  /// already worn.
-  void _stampPresentWear(
-    _GenTurn t,
-    Map<String, Map<String, int>> before,
-    Map<String, Map<String, int>> worn,
-  ) {
-    final meta = Map<String, dynamic>.from(
-      t.streamTarget.activeMetadata ?? const {},
-    );
-    meta.putIfAbsent(kNeedsPreWearByMember, () {
-      return {
-        for (final entry in before.entries)
-          entry.key: Map<String, int>.from(entry.value),
-      };
-    });
-    meta[kNeedsWornByMember] = {
-      for (final entry in worn.entries)
-        entry.key: Map<String, int>.from(entry.value),
-    };
-    t.streamTarget.activeMetadata = meta;
+    _pendingRealismMetadata!['needs_time_wear'] = const <String, int>{};
   }
 
   /// 1:1 regen when Needs is on: prefer the send-time pre-turn vector,
@@ -212,12 +101,10 @@ extension ChatServiceBodyWear on ChatService {
     ChatMessage deleted,
   ) {
     final ids = <String>{
-      ...presentBodiesFromMeta(
-        deleted.activeMetadata?[kNeedsPreWearByMember],
-      ).keys,
-      ...presentBodiesFromMeta(
-        deleted.activeMetadata?[kNeedsWornByMember],
-      ).keys,
+      ...presentBodiesFromMeta(deleted.activeMetadata?[kNeedsPreWearByMember])
+          .keys,
+      ...presentBodiesFromMeta(deleted.activeMetadata?[kNeedsWornByMember])
+          .keys,
     };
     final out = <String, Map<String, int>>{};
     for (final id in ids) {
@@ -252,31 +139,17 @@ extension ChatServiceBodyWear on ChatService {
     }
   }
 
-  void _applyWearToLiveVector(Map<String, int> wear) {
-    if (wear.isEmpty || _needsSimulation.vector.isEmpty) return;
-    final next = Map<String, int>.from(_needsSimulation.vector);
-    for (final entry in wear.entries) {
-      final cur = next[entry.key] ?? 80;
-      next[entry.key] = (cur + entry.value).clamp(0, 100);
-    }
-    _needsSimulation.restoreFromSnapshot({'vector': next});
-    _needsSimulation.applyCatastropheIfNeeded(
-      ignore: _activeCharacter?.frontPorchExtensions?.needsOff ?? const [],
-    );
-  }
-
   void _stampTimePassedChip(ChatMessage? target) {
     final label = _timeService.bodyTimeLabel;
     if (label == null || label.isEmpty || target == null) return;
-    final existing = target.activeMetadata;
-    if (existing != null &&
-        (existing['time_skip_to'] as String? ?? '').isNotEmpty) {
+    // Always write the swipe slot. Mutating the getter fallback (legacy
+    // `metadata` when swipeMetadata[i] is null) is lost as soon as a later
+    // pass assigns a new swipe map — live Mac: bars moved, no time chip.
+    final existing = Map<String, dynamic>.from(target.activeMetadata ?? {});
+    if ((existing['time_skip_to'] as String? ?? '').isNotEmpty) {
       return;
     }
-    if (existing != null) {
-      existing['time_passed'] = label;
-    } else {
-      target.activeMetadata = {'time_passed': label};
-    }
+    existing['time_passed'] = label;
+    target.activeMetadata = existing;
   }
 }

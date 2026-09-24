@@ -212,9 +212,9 @@ extension ChatServiceSessionHydrate on ChatService {
         _activeGroup == null &&
         (_activeCharacter?.frontPorchExtensions?.needsSimEnabled ?? false);
     // Session flag is seed-time AND, column default FALSE. A lived-in 1:1
-    // whose card + Porch Life now ask for Needs must not keep the sidebar
-    // empty. Same hide≠erase as pockets: a stored vector is not discarded
-    // because the column never flipped.
+    // that never flipped the column (no saved vector) still promotes ON
+    // when card + Porch Life ask for Needs. Explicit OFF keeps its vector
+    // so false+kit is not that stale row. Explicit ON stays ON.
     _needsSimEnabled = needsSimAfterHydrate(
       sessionEnabled: s.needsSimEnabled,
       cardEnabled: cardWantsNeeds,
@@ -238,6 +238,8 @@ extension ChatServiceSessionHydrate on ChatService {
       if (hasSavedNeeds) {
         applyNeedsPersist(_needsSimulation, jsonDecode(nv));
       }
+    } else if (hasSavedNeeds) {
+      applyNeedsPersist(_needsSimulation, jsonDecode(nv));
     } else {
       _needsSimulation.clearVector();
     }

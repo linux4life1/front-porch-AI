@@ -226,8 +226,10 @@ extension ChatServiceSessionStateSave on ChatService {
         nsfwCooldownEnabled: drift.Value(_nsfwService.nsfwCooldownEnabled),
         needsSimEnabled: drift.Value(_needsSimEnabled),
         objectivesEnabled: drift.Value(_objectivesEnabled),
+        // Persist the kit even when the chat-gear switch is off (hide ≠
+        // erase). false+null is a never-seeded row; false+vector is OFF.
         needsVector: drift.Value(
-          _needsSimEnabled
+          _needsSimulation.vector.isNotEmpty
               ? jsonEncode(encodeNeedsPersist(_needsSimulation))
               : null,
         ),

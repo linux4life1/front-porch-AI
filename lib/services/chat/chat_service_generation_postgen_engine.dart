@@ -100,8 +100,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       final scoredReply = t.mode == GenerationMode.continue_
           ? (_isGuestAuthoredMessage(t.streamTarget) ? '' : newPart.trim())
           : finalResponse;
-      // Clock first, then wear, then the needs eval. The reply was written
-      // from the body as it was. A rejected reply does not keep the tick.
+      // Clock first, then the time chip, then the needs eval. The reply
+      // was written from the body as it was. A rejected reply does not
+      // keep the tick. The clock is not a flat tax on every Need.
       final clockBeforeIso = _timeService.storyClockIso;
       if (t.mode == GenerationMode.continue_ || !_clockRunning) {
         _timeService.clearBodyBeat();

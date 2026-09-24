@@ -1,11 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// HOLD: 1:1 Scene Guest lite ticks wear the host. Regen/swipe/delete must
-// restore the pre-wear snapshot then re-wear once — never double. An aborted
-// lite finalize must not leave that wear applied.
-// Proven red: guest regen skipped host restore (40 → 38 → 36); lite postgen
-// ignored _postGenAbortRequested and wore before regen replayed.
+// HOLD: 1:1 Scene Guest lite ticks still move the chat clock. They must
+// not tax the host's Needs from the clock. An aborted lite finalize must
+// not invent that tax either.
 
 import 'dart:async';
 import 'dart:io';
@@ -17,7 +15,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 void _setupPathProviderMock() {
@@ -198,7 +195,7 @@ void main() {
   });
 
   test(
-    '1:1 guest turn wears the host once; regen/swipe do not double',
+    '1:1 guest turn stamps time without taxing the host; regen/swipe stay put',
     () async {
       await boot(_ScriptedLlm());
       expect(hunger(), 40);
@@ -207,48 +204,35 @@ void main() {
       await drainTurn();
       expect(
         hunger(),
-        38,
-        reason: '30 min at Normal wears the 1:1 host once (40 → 38)',
+        40,
+        reason: '30 min on the clock is not a host body tax',
       );
       final reply = chat!.messages.lastWhere((m) => !m.isUser);
       expect(reply.sender, 'Riley');
+      expect(reply.activeMetadata?['time_passed'], '30 min');
 
       await chat!.regenerateLastMessage();
       await drainTurn();
       expect(
         hunger(),
-        38,
-        reason:
-            'guest regen must restore host pre-wear then wear once — '
-            'not 36 from stacking a second wear on 38',
+        40,
+        reason: 'guest regen must not invent a clock tax on the host',
       );
       expect(chat!.messages.last.swipes.length, greaterThan(1));
-      final preWear = presentBodiesFromMeta(
-        chat!.messages.last.activeMetadata?[kNeedsPreWearByMember],
-      );
-      expect(
-        preWear[chat!.characterIdFor(chat!.activeCharacter!)]?['hunger'],
-        40,
-        reason: 'guest reply must stamp the host pre-wear snapshot',
-      );
+      expect(chat!.messages.last.activeMetadata?['time_passed'], '30 min');
 
       final idx = chat!.messages.indexOf(chat!.messages.last);
       await chat!.swipeMessage(idx, -1);
       await drainTurn();
-      expect(
-        hunger(),
-        38,
-        reason:
-            'swiping back to the first guest swipe keeps the once-worn bars',
-      );
+      expect(hunger(), 40);
     },
   );
 
-  test('delete of a 1:1 guest reply refunds the host wear', () async {
+  test('delete of a 1:1 guest reply does not invent host wear', () async {
     await boot(_ScriptedLlm());
     await chat!.speakGuestNow(liveGuest());
     await drainTurn();
-    expect(hunger(), 38);
+    expect(hunger(), 40);
 
     final idx = chat!.messages.indexWhere(
       (m) => !m.isUser && m.sender == 'Riley' && m == chat!.messages.last,
@@ -259,7 +243,7 @@ void main() {
     expect(
       hunger(),
       40,
-      reason: 'tail-delete of the guest beat must give the host wear back',
+      reason: 'tail-delete must not invent a drop the clock never applied',
     );
   });
 
@@ -284,9 +268,7 @@ void main() {
     expect(
       hunger(),
       40,
-      reason:
-          'aborted lite finalize must not wear the host — 38 means '
-          'clock→wear ran after abort the way the engine refuses to',
+      reason: 'aborted lite finalize must not invent a clock tax on the host',
     );
   }, timeout: const Timeout(Duration(seconds: 30)));
 }

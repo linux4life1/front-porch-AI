@@ -187,11 +187,10 @@ extension ChatServiceGenerationPostGen on ChatService {
       // Lite / Scene Guest: no Realism/Needs on the speaker. Group
       // soft roster members still get the glance-only withUser pass
       // so Away / With you can move. 1:1 guestSpeaker stays out of
-      // Away rotation. The chat clock still hands off, and present
-      // full members wear that beat (soft slots stay empty — they
-      // have no Needs). The early `_saveChat` above ran BEFORE this
-      // tick — persist the new clock, wear, glance bit, and rewind
-      // stamp or a reload loses them.
+      // Away rotation. The chat clock still hands off and stamps
+      // time (soft slots stay empty — they have no Needs). The early
+      // `_saveChat` above ran BEFORE this tick — persist the new clock,
+      // glance bit, and rewind stamp or a reload loses them.
       if (_isLiteTurn(t)) {
         final scored = t.mode == GenerationMode.continue_
             ? (_isGuestAuthoredMessage(t.streamTarget) ? '' : newPart.trim())
