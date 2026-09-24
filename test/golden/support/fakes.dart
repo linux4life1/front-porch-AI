@@ -351,6 +351,13 @@ class FakeChatService extends ChangeNotifier implements ChatService {
 
   @override
   TimeService get timeService => _time;
+
+  @override
+  Future<void> setPassageOfTimeEnabled(bool enabled) async {
+    _time.setPassageOfTimeEnabled(enabled);
+    notifyListeners();
+  }
+
   @override
   NsfwService get nsfwService => _nsfw;
   @override

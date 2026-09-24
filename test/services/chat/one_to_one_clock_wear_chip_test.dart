@@ -433,10 +433,10 @@ void main() {
       await boot(explicitChatToggles: false);
       expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
 
-      // Carmen is not Day 1 9:00 — pick up from a lived-in session clock.
+      // Carmen is not Day 1 9:00 — plant a lived-in session clock on the row.
+      const livedIso = '2026-06-30T14:30:00.000Z';
+      const startIso = '2026-06-28';
       final lived = DateTime.utc(2026, 6, 30, 14, 30);
-      await chat!.setStoryClock(lived);
-      expect(chat!.timeService.clock, lived);
 
       final sid = chat!.currentSessionId!;
       await db!.patchSession(
@@ -444,9 +444,10 @@ void main() {
           id: Value(sid),
           passageOfTimeEnabled: const Value(false),
           passageOfTimeGateMigrated: const Value(false),
-          storyClock: Value(chat!.timeService.storyClockIso),
-          timeOfDay: Value(chat!.timeService.timeOfDay),
-          dayCount: Value(chat!.timeService.dayCount),
+          storyClock: const Value(livedIso),
+          storyStartDate: const Value(startIso),
+          timeOfDay: const Value('afternoon'),
+          dayCount: const Value(3),
         ),
       );
 

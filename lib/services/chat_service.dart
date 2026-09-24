@@ -461,6 +461,11 @@ class ChatService extends ChangeNotifier
   /// Per-session Needs (Sims-style) simulation active. Seeded from the card.
   bool get needsSimEnabled => _needsSimEnabled;
 
+  /// Chat-settings Automatic Passage of Time. Class-pinned so goldens/fakes
+  /// can override; body writes [TimeService.passageOfTimeEnabled].
+  Future<void> setPassageOfTimeEnabled(bool enabled) =>
+      _setPassageOfTimeEnabledImpl(enabled);
+
   bool get chaosNsfwEnabled => _chaosModeService.chaosNsfwEnabled;
 
   int? get regenerableHostBelowGuestsIndex =>

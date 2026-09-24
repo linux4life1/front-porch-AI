@@ -97,7 +97,7 @@ extension ChatServiceControls on ChatService {
     notifyListeners();
   }
 
-  Future<void> setPassageOfTimeEnabled(bool enabled) async {
+  Future<void> _setPassageOfTimeEnabledImpl(bool enabled) async {
     _timeService.setPassageOfTimeEnabled(enabled);
     _timeService.markClockGateSource('chat_settings');
     await _saveChat();
