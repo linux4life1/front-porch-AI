@@ -169,8 +169,7 @@ class TimeService {
   int _awakeWearMinutes = 0;
   int get awakeWearMinutes => _awakeWearMinutes;
 
-  /// Chip text for that beat. Null when the skip chip already says it,
-  /// or when the clock did not move enough to show.
+  /// Chip text for that beat. Null when the skip chip already says it.
   String? _timePassedLabel;
   String? get bodyTimeLabel => _timePassedLabel;
 

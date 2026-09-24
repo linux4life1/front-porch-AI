@@ -1,11 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Live Mac fail (Carmen 1:1, PR #303): Passage of Time is on but no
-// time_passed chip lands, and a flat clock tax drops every Need each
-// turn (80→78 board-wide "natural decay"). Clock still advances and
-// stamps the chip. Needs move from the scene eval, not a per-beat
-// body tax on Hunger+Bladder+Energy+Social+Fun+Hygiene+Comfort.
+// Live Mac fail (Carmen 1:1, PR #303 a80): Passage of Time is on but
+// the story clock does not advance on send — Needs + PoT with Realism
+// off left _clockRunning false, so the time eval never ran. Missing
+// chip is a symptom. Needs is a clock driver. No flat clock tax.
 
 import 'dart:io';
 
@@ -307,6 +306,39 @@ void main() {
       await drainTurn();
       expect(bars(), _carmenNeeds);
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
+    },
+  );
+
+  test(
+    '1:1 PoT+Needs send advances story time when Realism and standalone are off',
+    () async {
+      await boot(
+        globalRealism: false,
+        cardRealism: false,
+        standaloneClock: false,
+      );
+      expect(chat!.realismEnabled, isFalse);
+      expect(chat!.needsSimEnabled, isTrue);
+      expect(chat!.timeService.passageOfTimeEnabled, isTrue);
+      final before = chat!.timeService.clock;
+
+      await chat!.sendMessage('How are you?');
+      await drainTurn();
+
+      expect(
+        chat!.timeService.clock.difference(before).inMinutes,
+        30,
+        reason:
+            'live Mac a80: PoT ON + Needs ON + Realism off left '
+            '_clockRunning false, so the time eval never ran and '
+            'minutes stayed 0. Needs is a clock driver.',
+      );
+      expect(
+        lastBot().activeMetadata?['time_passed'],
+        '30 min',
+        reason: 'clock beat must stamp the swipe-slot chip',
+      );
+      expect(bars(), _carmenNeeds);
     },
   );
 

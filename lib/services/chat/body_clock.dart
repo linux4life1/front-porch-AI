@@ -126,9 +126,9 @@ int clampSceneDrop({required int current, required int delta}) {
   return delta;
 }
 
-/// Chip text for minutes the clock actually applied. Null when there is
-/// nothing to show. A skip uses the time-skip chip instead, so pass
-/// [isSkip] and this returns null.
+/// Chip text for minutes the clock actually applied. A skip uses the
+/// time-skip chip instead, so pass [isSkip] and this returns null.
+/// Zero minutes still names the beat ("same moment") so the chip paints.
 String? timePassedLabel({
   required int minutes,
   required bool nextMorning,
@@ -136,7 +136,7 @@ String? timePassedLabel({
 }) {
   if (isSkip) return null;
   if (nextMorning) return 'Next morning';
-  if (minutes < 1) return null;
+  if (minutes < 1) return 'same moment';
   if (minutes < 60) return '$minutes min';
   final hours = minutes ~/ 60;
   final rest = minutes % 60;

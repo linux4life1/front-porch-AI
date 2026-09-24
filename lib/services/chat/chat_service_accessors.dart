@@ -193,14 +193,15 @@ extension ChatServiceAccessors on ChatService {
   /// The story clock is actually moving, by whichever driver. This is the
   /// gate for everything that reads the clock rather than advancing it — the
   /// time prompt fragment, weather, dreams — because what those needed all
-  /// along was a MOVING clock, not the engine. With the engine off and the
-  /// standalone clock off it is false, which is exactly the frozen-clock state
-  /// the old realism gate produced, so nothing changes by default.
+  /// along was a MOVING clock, not the engine. Needs is a driver too: this
+  /// branch shows bars without Realism, and a PoT beat with no driver left
+  /// the eval uncalled (live Mac: minutes stayed 0).
   bool get _clockRunning => StoryClock.isRunning(
     passageOfTimeEnabled: _timeService.passageOfTimeEnabled,
     realismEnabled: _realismEnabled,
     standaloneClockEnabled:
         _storageService.realismSettings.standaloneClockEnabled,
+    needsSimEnabled: _needsSimEnabled,
   );
 
   /// Objectives are actually running for this chat: the per-chat switch AND the

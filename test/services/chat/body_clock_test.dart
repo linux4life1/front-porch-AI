@@ -5,40 +5,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
 
 void main() {
-  test('continue does not wear, a frozen clock is one beat, a night wears nothing', () {
-    expect(
-      awakeMinutesForBeat(
-        continues: true,
-        clockRunning: true,
-        committedAwakeMinutes: 90,
-      ),
-      0,
-    );
-    expect(
-      awakeMinutesForBeat(
-        continues: false,
-        clockRunning: false,
-        committedAwakeMinutes: 90,
-      ),
-      kBodyBeatMinutes,
-    );
-    expect(
-      awakeMinutesForBeat(
-        continues: false,
-        clockRunning: true,
-        committedAwakeMinutes: 0,
-      ),
-      0,
-    );
-    expect(
-      awakeMinutesForBeat(
-        continues: false,
-        clockRunning: true,
-        committedAwakeMinutes: 90,
-      ),
-      90,
-    );
-  });
+  test(
+    'continue does not wear, a frozen clock is one beat, a night wears nothing',
+    () {
+      expect(
+        awakeMinutesForBeat(
+          continues: true,
+          clockRunning: true,
+          committedAwakeMinutes: 90,
+        ),
+        0,
+      );
+      expect(
+        awakeMinutesForBeat(
+          continues: false,
+          clockRunning: false,
+          committedAwakeMinutes: 90,
+        ),
+        kBodyBeatMinutes,
+      );
+      expect(
+        awakeMinutesForBeat(
+          continues: false,
+          clockRunning: true,
+          committedAwakeMinutes: 0,
+        ),
+        0,
+      );
+      expect(
+        awakeMinutesForBeat(
+          continues: false,
+          clockRunning: true,
+          committedAwakeMinutes: 90,
+        ),
+        90,
+      );
+    },
+  );
 
   test('a need that is off is neither worn nor shown', () {
     const keys = ['hunger', 'bladder', 'energy'];
@@ -112,7 +115,7 @@ void main() {
     );
     expect(
       timePassedLabel(minutes: 0, nextMorning: false, isSkip: false),
-      isNull,
+      'same moment',
     );
   });
 }

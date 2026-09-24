@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Clock mutators (nudge / set clock / set start date) must gate on the clock
-// actually running — engine OR standalone — not the engine alone.
+// actually running — engine, standalone, or Needs — not the engine alone.
 
 import 'dart:io';
 
@@ -36,7 +36,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
 
-  test('StoryClock.isRunning matches the two-driver rule', () {
+  test('StoryClock.isRunning matches the driver rule', () {
     expect(
       StoryClock.isRunning(
         passageOfTimeEnabled: true,
@@ -55,9 +55,21 @@ void main() {
     );
     expect(
       StoryClock.isRunning(
+        passageOfTimeEnabled: true,
+        realismEnabled: false,
+        standaloneClockEnabled: false,
+        needsSimEnabled: true,
+      ),
+      isTrue,
+      reason:
+          'Needs + PoT is a clock driver (bars already run without Realism)',
+    );
+    expect(
+      StoryClock.isRunning(
         passageOfTimeEnabled: false,
         realismEnabled: true,
         standaloneClockEnabled: true,
+        needsSimEnabled: true,
       ),
       isFalse,
     );
@@ -156,7 +168,7 @@ void main() {
     addTearDown(storage.dispose);
     await storage.realismSettings.setStandaloneClockEnabled(false);
 
-    final chat = FakeChatService(realismEnabled: false);
+    final chat = FakeChatService(realismEnabled: false, needsSimEnabled: false);
     addTearDown(chat.dispose);
 
     await tester.pumpWidget(
@@ -180,7 +192,7 @@ void main() {
     addTearDown(storage.dispose);
     await storage.initialized;
     await storage.realismSettings.setStandaloneClockEnabled(true);
-    final fake = FakeChatService(realismEnabled: false);
+    final fake = FakeChatService(realismEnabled: false, needsSimEnabled: false);
     addTearDown(fake.dispose);
     final facade = ChatToolsFacade(fake, storage, null);
     final time = facade.state()['time'] as Map;
@@ -188,6 +200,23 @@ void main() {
       time['clockRunning'],
       isTrue,
       reason: 'engine off + standalone on is a moving clock',
+    );
+  });
+
+  test('web tools snapshot: Needs + PoT is a moving clock', () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = StorageService();
+    addTearDown(storage.dispose);
+    await storage.initialized;
+    await storage.realismSettings.setStandaloneClockEnabled(false);
+    final fake = FakeChatService(realismEnabled: false, needsSimEnabled: true);
+    addTearDown(fake.dispose);
+    final facade = ChatToolsFacade(fake, storage, null);
+    final time = facade.state()['time'] as Map;
+    expect(
+      time['clockRunning'],
+      isTrue,
+      reason: 'Needs + PoT must move the web clock the same as desktop',
     );
   });
 }

@@ -107,17 +107,17 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     final ambitions = chat.activeCharacter == null
         ? const <({String text, int progress})>[]
         : chat.ambitionsFor(chat.activeCharacter!);
-    // Mirrors ChatService._clockRunning: the clock has TWO drivers, the engine
-    // or the opt-in standalone clock. Porch Life only OFFERS that switch with
-    // the engine off, so gating the strip on realism alone hid the clock in
-    // the one configuration where a user can turn the standalone one on — it
-    // was spending a model call per turn with nothing to show for it.
+    // Mirrors ChatService._clockRunning: engine, standalone, or Needs.
+    // Porch Life only OFFERS standalone with the engine off, so gating
+    // the strip on realism alone hid the clock when Needs + PoT ran
+    // without Realism — the live Mac frozen-clock case.
     final clockRunning = StoryClock.isRunning(
       passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
       realismEnabled: chat.realismEnabled,
       standaloneClockEnabled: Provider.of<StorageService>(
         context,
       ).realismSettings.standaloneClockEnabled,
+      needsSimEnabled: chat.needsSimEnabled,
     );
 
     return PorchAccordion(

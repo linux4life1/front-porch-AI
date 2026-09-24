@@ -55,6 +55,7 @@ class TimeStrip extends StatelessWidget {
           realismEnabled: chat.realismEnabled,
           standaloneClockEnabled:
               storage?.realismSettings.standaloneClockEnabled ?? false,
+          needsSimEnabled: chat.needsSimEnabled,
         ) &&
         !chat.isGenerating;
     final activeDot = AppColors.timeDayAccentOf(context);

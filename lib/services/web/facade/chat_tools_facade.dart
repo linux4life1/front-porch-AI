@@ -64,6 +64,7 @@ class ChatToolsFacade {
       passageOfTimeEnabled: time.passageOfTimeEnabled,
       realismEnabled: _chat.realismEnabled,
       standaloneClockEnabled: rs.standaloneClockEnabled,
+      needsSimEnabled: _chat.needsSimEnabled,
     );
     final weather = _chat.currentWeather;
     final focused = _focusedParticipant(participantId);

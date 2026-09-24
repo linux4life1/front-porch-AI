@@ -125,6 +125,7 @@ class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
           realismEnabled: _chat.realismEnabled,
           standaloneClockEnabled:
               storage?.realismSettings.standaloneClockEnabled ?? false,
+          needsSimEnabled: _chat.needsSimEnabled,
         ) &&
         !_chat.isGenerating;
 
