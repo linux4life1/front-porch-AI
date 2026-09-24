@@ -263,10 +263,12 @@ export function ChatInsight({
         <p className="muted realism-off">
           Lite NPC — no realism or needs tracking for this guest.
         </p>
-      ) : realism.realismEnabled === false ? (
+      ) : (
+      <>
+      {realism.realismEnabled === false ? (
         <p className="muted realism-off">
           Realism Mode is off — flip the switch to track bond, trust, mood,
-          needs, and scene time for this character.
+          and scene time for this character.
         </p>
       ) : (
       <>
@@ -286,6 +288,8 @@ export function ChatInsight({
       />
       <div className="stat-line"><span>Mood</span><span className="muted">{realism.mood || realism.emotion || '—'}</span></div>
       <div className="stat-line"><span>Arousal</span><span className="muted">{realism.arousal.tier} · {realism.arousal.level}</span></div>
+      </>
+      )}
       {realism.needsEnabled && Object.keys(realism.needs).length > 0 && (
         <>
           <h4 className="section-label">Needs</h4>

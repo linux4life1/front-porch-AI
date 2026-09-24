@@ -87,13 +87,13 @@ Future<void> _drain() async {
   }
 }
 
-CharacterCard _carmen({required bool cardNeeds}) {
+CharacterCard _carmen({required bool cardNeeds, bool cardRealism = true}) {
   return CharacterCard(
     name: 'Carmen',
     firstMessage: 'Evening.',
     imagePath: '/tmp/carmen-gate.png',
     frontPorchExtensions: FrontPorchExtensions(
-      realismEnabled: true,
+      realismEnabled: cardRealism,
       needsSimEnabled: cardNeeds,
       passageOfTimeEnabled: true,
       needsBaselineHunger: 80,
@@ -180,11 +180,14 @@ void main() {
     debugPrint = (String? message, {int? wrapWidth}) {};
   });
 
-  Future<void> boot({bool needsGlobal = true}) async {
+  Future<void> boot({
+    bool needsGlobal = true,
+    bool realismGlobal = true,
+  }) async {
     SharedPreferences.setMockInitialValues({
       'update_auto_check': false,
       'needs_sim_default': needsGlobal,
-      'realism_default': true,
+      'realism_default': realismGlobal,
       'passage_of_time_default': true,
     });
     db = AppDatabase.forTesting(sameIsolate: true);
@@ -243,7 +246,8 @@ void main() {
   }
 
   bool sidebarWouldShowBars() {
-    // Mirrors character_state_group.dart 1:1 gate.
+    // Mirrors character_state_group.dart 1:1 gate. Realism is NOT
+    // part of it — bars answer to the Needs switch.
     return chat!.needsSimEnabled && chat!.needsSimulation.vector.isNotEmpty;
   }
 
@@ -364,6 +368,116 @@ void main() {
             'hide ≠ erase; do not clear it because the column defaulted 0',
       );
       expect(c.needsSimulation.vector['hunger'], 71);
+      expect(sidebarWouldShowBars(), isTrue);
+    },
+  );
+
+  test(
+    'brand-new 1:1 startNewChat seeds bars when card+Porch Life Needs are ON',
+    () async {
+      await boot();
+      final carmen = _carmen(cardNeeds: true);
+      await repo!.addCharacter(carmen);
+      final c = chat!;
+      await c.setActiveCharacter(carmen);
+      await c.startNewChat();
+
+      expect(
+        c.needsSimEnabled,
+        isTrue,
+        reason:
+            'New Chat must AND the card with Porch Life, not leave '
+            'the chat-scoped flag false',
+      );
+      expect(
+        c.needsSimulation.vector,
+        isNotEmpty,
+        reason:
+            'live Mac: brand-new Carmen, Needs toggle ON, sidebar had '
+            'no bars — vector was empty',
+      );
+      expect(sidebarWouldShowBars(), isTrue);
+      expect(c.needsSimulation.vector['hunger'], 80);
+    },
+  );
+
+  test('Needs off then on reseeds the 1:1 vector so bars come back', () async {
+    await boot();
+    final carmen = _carmen(cardNeeds: true);
+    await repo!.addCharacter(carmen);
+    final c = chat!;
+    await c.setActiveCharacter(carmen);
+    await c.startNewChat();
+    await c.setNeedsSimEnabled(false);
+    expect(c.needsSimEnabled, isFalse);
+    expect(sidebarWouldShowBars(), isFalse, reason: 'off must hide the strip');
+
+    await c.setNeedsSimEnabled(true);
+    expect(c.needsSimEnabled, isTrue);
+    expect(
+      c.needsSimulation.vector,
+      isNotEmpty,
+      reason:
+          'live Mac: flip Needs off→on still no bars — re-enable must '
+          'seed a vector, not leave {}',
+    );
+    expect(sidebarWouldShowBars(), isTrue);
+    expect(
+      () => (carmen.frontPorchExtensions!.needsOff).add('fun'),
+      returnsNormally,
+      reason: 're-enable Save must not hit an unmodifiable needsOff',
+    );
+  });
+
+  test('chat Needs toggle seeds bars even when the card never asked', () async {
+    await boot();
+    final carmen = _carmen(cardNeeds: false);
+    await repo!.addCharacter(carmen);
+    final c = chat!;
+    await c.setActiveCharacter(carmen);
+    await c.startNewChat();
+    expect(c.needsSimEnabled, isFalse);
+    expect(c.needsSimulation.vector, isEmpty);
+
+    await c.setNeedsSimEnabled(true);
+    expect(
+      c.needsSimEnabled,
+      isTrue,
+      reason: 'the chat-scoped switch is the live gate, not the card',
+    );
+    expect(
+      c.needsSimulation.vector,
+      isNotEmpty,
+      reason:
+          'flip Needs on mid-chat must seed baselines — empty '
+          '{} is the live Mac no-bars fail',
+    );
+    expect(sidebarWouldShowBars(), isTrue);
+  });
+
+  test(
+    'brand-new 1:1 seeds Needs bars when Realism default is still off',
+    () async {
+      await boot(realismGlobal: false);
+      final carmen = _carmen(cardNeeds: true, cardRealism: false);
+      await repo!.addCharacter(carmen);
+      final c = chat!;
+      await c.setActiveCharacter(carmen);
+      await c.startNewChat();
+
+      expect(
+        c.realismEnabled,
+        isFalse,
+        reason: 'Porch Life Realism default is off and the card did not ask',
+      );
+      expect(c.needsSimEnabled, isTrue);
+      expect(
+        c.needsSimulation.vector,
+        isNotEmpty,
+        reason:
+            'Needs is its own switch — a brand-new chat must seed '
+            'bars even when the Realism header stays off',
+      );
       expect(sidebarWouldShowBars(), isTrue);
     },
   );

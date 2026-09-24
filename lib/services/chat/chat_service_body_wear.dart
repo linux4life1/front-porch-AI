@@ -20,7 +20,7 @@ extension ChatServiceBodyWear on ChatService {
   /// Wear every present body for this beat, then reload the speaker so the
   /// scene eval sees the worn bars. Stashes the wear for the needs chip.
   void _wearBodiesAfterClock(_GenTurn t) {
-    if (!_needsSimEnabled || !_realismEnabled) return;
+    if (!_needsSimEnabled) return;
     final minutes = _awakeMinutesForTurn(t);
     if (_activeGroup == null) {
       final host = _activeCharacter;
@@ -35,10 +35,9 @@ extension ChatServiceBodyWear on ChatService {
         ),
       );
       _applyWearToLiveVector(wear);
-      // Guest lite ticks wear the 1:1 host. Stamp the pre-wear bars so
-      // regen/swipe/delete can restore them — host regen still uses
-      // needs_pre_turn_vector + chips, so only guest turns need this receipt.
-      if (t.guestSpeaker != null && hostId.isNotEmpty && before.isNotEmpty) {
+      // 1:1 host (and guest lite ticks that wear the host). Stamp the
+      // pre-wear bars so regen/swipe restore them, then wear once.
+      if (hostId.isNotEmpty && before.isNotEmpty) {
         _stampPresentWear(
           t,
           {hostId: before},
@@ -127,6 +126,21 @@ extension ChatServiceBodyWear on ChatService {
         entry.key: Map<String, int>.from(entry.value),
     };
     t.streamTarget.activeMetadata = meta;
+  }
+
+  /// 1:1 regen when Needs is on: prefer the send-time pre-turn vector,
+  /// then the present-body stamp. Realism-off still has to rewind or
+  /// the replay wears a second time (80 → 78 → 76).
+  void _restoreNeedsBaselineForReplay(ChatMessage msg) {
+    if (!_needsSimEnabled) return;
+    final preTurn = msg.activeMetadata?['needs_pre_turn_vector'];
+    if (preTurn is Map && preTurn.isNotEmpty) {
+      _needsSimulation.restoreFromSnapshot({
+        'vector': Map<String, int>.from(preTurn),
+      });
+      return;
+    }
+    _restorePresentBodiesForReplay(msg);
   }
 
   /// Regen loads every present body from the pre-wear snapshot, then the

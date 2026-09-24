@@ -107,13 +107,17 @@ void main() {
     bool explicitChatToggles = true,
     bool globalPot = true,
     bool cardPot = true,
+    bool globalRealism = true,
+    bool cardRealism = true,
+    bool standaloneClock = false,
   }) async {
     HttpOverrides.global = null;
     SharedPreferences.setMockInitialValues({
       'update_auto_check': false,
-      'realism_default': true,
+      'realism_default': globalRealism,
       'needs_sim_default': true,
       'passage_of_time_default': globalPot,
+      'standalone_clock_enabled': standaloneClock,
     });
     db = AppDatabase.forTesting();
     storage = StorageService();
@@ -129,13 +133,16 @@ void main() {
           ..setCharacterRepository(repo!)
           ..testLlmServiceOverride = _ScriptedLlm();
     await storage!.initialized;
+    if (standaloneClock) {
+      await storage!.realismSettings.setStandaloneClockEnabled(true);
+    }
 
     final carmen = CharacterCard(
       name: 'Carmen',
       firstMessage: 'Evening.',
       imagePath: '/tmp/carmen-11.png',
       frontPorchExtensions: FrontPorchExtensions(
-        realismEnabled: true,
+        realismEnabled: cardRealism,
         needsSimEnabled: true,
         passageOfTimeEnabled: cardPot,
         needsBaselineHunger: 80,
@@ -150,7 +157,7 @@ void main() {
     await repo!.addCharacter(carmen);
     await chat!.setActiveCharacter(carmen);
     if (explicitChatToggles) {
-      await chat!.setRealismEnabled(true);
+      await chat!.setRealismEnabled(cardRealism || globalRealism);
       await chat!.setNeedsSimEnabled(true);
       await chat!.setPassageOfTimeEnabled(true);
     }
@@ -249,6 +256,93 @@ void main() {
         isNull,
         reason: 'design: no duration chip when the clock did not move',
       );
+    },
+  );
+
+  test(
+    '1:1 regen wears once from the pre-wear stamp and restamps time_passed',
+    () async {
+      await boot();
+      await chat!.sendMessage('How are you?');
+      await drainTurn();
+      expect(hunger(), 78);
+      expect(lastBot().activeMetadata?['time_passed'], '30 min');
+      final firstSwipe = lastBot().swipeIndex;
+
+      await chat!.regenerateLastMessage();
+      await drainTurn();
+
+      expect(
+        lastBot().swipes.length,
+        greaterThan(1),
+        reason: 'regen is a new swipe, not a replace',
+      );
+      expect(lastBot().swipeIndex, isNot(firstSwipe));
+      expect(
+        hunger(),
+        78,
+        reason:
+            'regen must restore the pre-wear bars then wear once — '
+            'not stay 80 (skip) and not drop to 76 (double)',
+      );
+      expect(
+        lastBot().activeMetadata?['time_passed'],
+        '30 min',
+        reason: 'regen is GenerationMode.normal — clock→wear→chip must run',
+      );
+
+      final regenIndex = chat!.messages.indexOf(lastBot());
+      await chat!.swipeMessage(regenIndex, -1);
+      await drainTurn();
+      expect(
+        hunger(),
+        78,
+        reason: 'swipe back to the first reply keeps that swipe\'s worn bars',
+      );
+      expect(lastBot().activeMetadata?['time_passed'], '30 min');
+    },
+  );
+
+  test(
+    '1:1 send and regen wear when Realism is off and the clock still runs',
+    () async {
+      await boot(
+        globalRealism: false,
+        cardRealism: false,
+        standaloneClock: true,
+      );
+      expect(chat!.realismEnabled, isFalse);
+      expect(chat!.needsSimEnabled, isTrue);
+      expect(chat!.timeService.passageOfTimeEnabled, isTrue);
+      expect(hunger(), 80);
+
+      await chat!.sendMessage('How are you?');
+      await drainTurn();
+      expect(
+        hunger(),
+        78,
+        reason:
+            'Needs wear answers to the Needs switch, not the '
+            'Realism header — a 30-min send must drop 80→78',
+      );
+      expect(
+        lastBot().activeMetadata?['time_passed'],
+        '30 min',
+        reason:
+            'standalone clock + PoT still stamps the chip when '
+            'the Realism engine is off',
+      );
+
+      await chat!.regenerateLastMessage();
+      await drainTurn();
+      expect(
+        hunger(),
+        78,
+        reason:
+            'regen must restore the pre-wear bars then wear once '
+            'even when Realism is off',
+      );
+      expect(lastBot().activeMetadata?['time_passed'], '30 min');
     },
   );
 }

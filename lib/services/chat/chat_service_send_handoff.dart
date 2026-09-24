@@ -24,18 +24,21 @@ extension ChatServiceSendHandoff on ChatService {
     // can use the same delta-revert mechanism the classic realism fields
     // (bond/trust/arousal) use.
     Map<String, int>? preTurnVector;
+    // Needs is its own switch. Stamp the pre-wear body even when the
+    // Realism engine is off so regen can rewind (hide ≠ skip restore).
+    if (addressedGuest == null &&
+        _activeGroup == null &&
+        _needsSimEnabled &&
+        _needsSimulation.vector.isNotEmpty) {
+      preTurnVector = Map<String, int>.from(_needsSimulation.vector);
+      _pendingRealismMetadata ??= {};
+      _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
+    }
     if (_realismActiveThisMode && addressedGuest == null) {
       // 1:1 only. Group per-speaker stamp lives in the realism dance —
       // writing it here used the last loaded (full) member's vector, then
       // a soft turn skipped the dance and attached that leftover to the
       // guest bubble.
-      if (_activeGroup == null &&
-          _needsSimEnabled &&
-          _needsSimulation.vector.isNotEmpty) {
-        preTurnVector = Map<String, int>.from(_needsSimulation.vector);
-        _pendingRealismMetadata ??= {};
-        _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
-      }
 
       // Short-term bond decay: 1:1 host only. In group mode the speaker isn't
       // picked yet — the old call here fell back to the FIRST member under

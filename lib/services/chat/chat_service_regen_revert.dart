@@ -38,6 +38,13 @@ extension ChatServiceRegenRevert on ChatService {
       return;
     }
 
+    // Needs answers to its own switch. Sitting this rewind inside
+    // `_realismEnabled` left a Realism-off 1:1 wearing twice on regen.
+    // Groups still impersonate + restore inside the engine gate.
+    if (_needsSimEnabled && _activeGroup == null) {
+      _restoreNeedsBaselineForReplay(lastMsg);
+    }
+
     // GROUP parity: the revert must operate on the rejected SPEAKER's
     // _groupRealism entry, not on whichever member's state happens to be in
     // the scalar fields. Impersonate + load their map state (the same

@@ -116,7 +116,8 @@ extension ChatServiceControls on ChatService {
     // chat_entry/group_entry), so a toggle-on after a needs-off start leaves it
     // empty and the sidebar shows no scores. Seed it now from the active
     // character/group baselines, mirroring the chat-start init so 1:1 and group
-    // behave identically.
+    // behave identically. Off clears the live vector (levels for this
+    // session are discarded) so the next on always reseeds.
     if (enabled && _needsSimulation.vector.isEmpty) {
       if (_activeGroup != null) {
         _needsSimulation.initializeFreshWithDefaults(const {
@@ -138,9 +139,13 @@ extension ChatServiceControls on ChatService {
           _needsSimulation.initializeFresh();
         }
       }
+    } else if (!enabled) {
+      _needsSimulation.clearVector();
     }
-    await _saveChat();
+    // Paint first. A save that throws (unmodifiable needsOff used to)
+    // must not leave the switch ON and the strip empty.
     notifyListeners();
+    await _saveChat();
   }
 
   /// Per-chat Objectives switch (v45). Off means the quests stop running: no

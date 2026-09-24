@@ -172,7 +172,7 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
           if (!realismOn && !widget.isGroup)
             Text(
               'Realism Mode is off — flip the switch to track bond, trust, '
-              'mood, needs, and scene time for this character.',
+              'mood, and scene time for this character.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textTertiary(context),
@@ -251,28 +251,33 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                 compact: false,
               ),
             ],
-            // ── Needs ──
-            if (chat.needsSimEnabled &&
-                chat.needsSimulation.vector.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Needs',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary(context),
-                ),
+          ],
+          // Needs answers to its own switch, not the Realism header. Sitting
+          // inside that branch hid the bars on a brand-new 1:1 whose Porch
+          // Life Realism default is still off while Needs (card + chat gear)
+          // was already on — the same dead-switch class Ambitions/Pockets
+          // were lifted out of.
+          if (!widget.isGroup &&
+              chat.needsSimEnabled &&
+              chat.needsSimulation.vector.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Needs',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary(context),
               ),
-              const SizedBox(height: 4),
-              NeedsGrid(
-                needs: visibleNeeds(
-                  chat.needsSimulation.vector,
-                  chat.activeCharacter?.frontPorchExtensions?.needsOff ??
-                      const [],
-                ),
-                mini: false,
-                crossAxisCount: 2,
+            ),
+            const SizedBox(height: 4),
+            NeedsGrid(
+              needs: visibleNeeds(
+                chat.needsSimulation.vector,
+                chat.activeCharacter?.frontPorchExtensions?.needsOff ??
+                    const [],
               ),
-            ],
+              mini: false,
+              crossAxisCount: 2,
+            ),
           ],
           // ── Ambitions (Living Time §6) ──
           // Deliberately OUTSIDE the realism branch above. Ambitions are
