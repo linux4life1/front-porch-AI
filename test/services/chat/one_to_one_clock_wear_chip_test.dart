@@ -7,6 +7,7 @@
 // moment needs an explicit continuous_instant flag. PoT is the only
 // clock driver. No flat clock tax.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -432,17 +433,10 @@ void main() {
     () async {
       await boot(explicitChatToggles: false);
       expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
-
-      // Carmen is a lived-in transcript, not greeting-only. Reload of a
-      // one-message chat re-seeds Day 1 9:00 from the card overlay
-      // (_reapplyOpeningOverlayIfNeeded). One send makes hydrate keep
-      // the planted clock — the same shape as the existing Mac chat.
-      await chat!.sendMessage('Hey.');
-      await drainTurn();
       await chat!.flushPendingSaves();
 
       // First-open freeze writes storyClock via an unawaited patch. Wait
-      // until that lands so our leftover plant is not overwritten.
+      // until that lands so the leftover plant is not overwritten.
       final sid = chat!.currentSessionId!;
       for (var i = 0; i < 40; i++) {
         final seeded = await db!.getSessionById(sid);
@@ -452,10 +446,60 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
 
+      // Carmen is a pre-PR transcript: leftover per-chat PoT false, a
+      // lived-in session clock, and every existing bot stamp is
+      // pre-calendar (timeOfDay + dayCount, no storyClock, no
+      // story_clock_before). The greeting snap is Day 1 morning — the
+      // "rolled back to match timeline" trap that used to pin 9:00 AM.
+      // Stall (_turnsSinceClockMoved) is in-memory and reset on load;
+      // leftover PoT false is the persisted pause.
       const livedIso = '2026-06-30T14:30:00.000Z';
       const startIso = '2026-06-28';
       final lived = DateTime.utc(2026, 6, 30, 14, 30);
+      const day1Morning = {
+        'timeOfDay': 'morning',
+        'dayCount': 1,
+        'characterEmotion': 'neutral',
+        'emotionIntensity': 'mild',
+      };
+      final greetingMeta = jsonEncode({'realism_state': day1Morning});
+      final lastBotMeta = jsonEncode({'realism_state': day1Morning});
 
+      await db!.deleteMessagesForSession(sid);
+      await db!.insertMessage(
+        MessagesCompanion.insert(
+          id: 'carmen-old-g',
+          sessionId: sid,
+          position: 0,
+          sender: 'Carmen',
+          isUser: false,
+          swipes: Value(jsonEncode(['Evening.'])),
+          metadata: Value(greetingMeta),
+          swipeMetadata: Value(jsonEncode([jsonDecode(greetingMeta)])),
+        ),
+      );
+      await db!.insertMessage(
+        MessagesCompanion.insert(
+          id: 'carmen-old-u',
+          sessionId: sid,
+          position: 1,
+          sender: 'You',
+          isUser: true,
+          swipes: Value(jsonEncode(['Hey.'])),
+        ),
+      );
+      await db!.insertMessage(
+        MessagesCompanion.insert(
+          id: 'carmen-old-b',
+          sessionId: sid,
+          position: 2,
+          sender: 'Carmen',
+          isUser: false,
+          swipes: Value(jsonEncode(['*Carmen leans on the rail.*'])),
+          metadata: Value(lastBotMeta),
+          swipeMetadata: Value(jsonEncode([jsonDecode(lastBotMeta)])),
+        ),
+      );
       await db!.patchSession(
         SessionsCompanion(
           id: Value(sid),
@@ -474,11 +518,17 @@ void main() {
         reason: 'leftover plant must survive the first-open clock freeze',
       );
 
-      // Same-card setActiveCharacter is a no-op. Reload the patched row.
       await chat!.reloadCurrentSession();
       await drainTurn();
 
-      expect(chat!.timeService.clock, lived);
+      expect(
+        chat!.timeService.clock,
+        lived,
+        reason:
+            'hydrate must pick up the session clock, not synthesize '
+            'Day 1 9:00 from the pre-calendar greeting snap',
+      );
+      expect(chat!.messages.length, greaterThanOrEqualTo(3));
       final row = await db!.getSessionById(sid);
       expect(
         row!.passageOfTimeGateMigrated,
@@ -493,18 +543,35 @@ void main() {
       expect(chat!.timeService.passageOfTimeEnabled, isTrue);
       expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
 
-      await chat!.sendMessage('How are you?');
+      // Regen the existing last reply first — no story_clock_before, and
+      // the previous accepted snap is Day 1 morning. Must keep the
+      // session clock, not synthesize 9:00 AM.
+      await chat!.regenerateLastMessage();
       await drainTurn();
       expect(
         chat!.timeService.clock.difference(lived).inMinutes,
         30,
-        reason: 'send must advance from the saved lived-in clock, not 9:00 AM',
+        reason:
+            'regen of a pre-calendar last bot must advance from the '
+            'saved session clock, not Day 1 9:00 AM',
       );
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
 
+      await chat!.sendMessage('How are you?');
+      await drainTurn();
+      expect(
+        chat!.timeService.clock.difference(lived).inMinutes,
+        60,
+        reason: 'send must keep advancing from the lived-in clock, not 9:00 AM',
+      );
+      expect(lastBot().activeMetadata?['time_passed'], '30 min');
+
+      // Rejected swipe looks like the old last bot: pre-calendar snap,
+      // no storyClock. story_clock_before on this send still rewinds.
       final rs = lastBot().activeMetadata?['realism_state'];
       if (rs is Map) {
         rs.remove('storyClock');
+        rs.remove('storyStartDate');
         rs['timeOfDay'] = 'morning';
         rs['dayCount'] = 1;
       }
@@ -513,10 +580,10 @@ void main() {
       await drainTurn();
       expect(
         chat!.timeService.clock.difference(lived).inMinutes,
-        30,
+        60,
         reason:
-            'regen on an old snap without storyClock must not pin '
-            'the sidebar back to Day 1 9:00',
+            'regen must not apply the previous bot\'s Day 1 morning snap '
+            'or roll the sidebar back to 9:00 AM',
       );
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
     },
