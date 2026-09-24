@@ -2,7 +2,7 @@
 
 The living-character **defaults** live in **Settings → Porch Life**. Not General. Clock In is on the character card. AFK and RAG live in the chat sidebar.
 
-**Realism Engine is not the master key.** Journal, the story clock, Chaos, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults. An open chat can still override most of them (Character State → **tune**, or Group Settings → Realism). **Passage of Time** is the exception: Settings → Porch Life is the live switch for every chat.
+**Realism Engine is not the master key.** Journal, the story clock, Chaos, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults. An open chat can still override them (Character State → **tune**, or Group Settings → Realism). **Passage of Time** seeds from this tab AND the card; the live switch is **Automatic Passage of Time** in Character State → tune.
 
 **18+ themes** is Settings → **General**. Off hides After Dark and intimate card fields. It does not erase what you already set.
 
@@ -46,7 +46,7 @@ The story has **its own clock**. It is not your wall clock. It is **not allowed*
 
 ### Turn it on
 
-Settings → Porch Life → **Passage of Time**. That row is the live switch for every chat.
+Settings → Porch Life → **Passage of Time** is the default for new chats. Open a chat and use Character State → **tune** → **Automatic Passage of Time** to run or pause that chat's clock.
 
 | Realism Engine | Clock |
 |---|---|

@@ -146,8 +146,7 @@ class TimeService {
   /// the held today sentence here — not in a getter.
   final FutureOr<void> Function()? onStoryDayChanged;
 
-  /// Porch Life → Passage of Time. The only clock gate. Null in isolated
-  /// TimeService unit tests, which fall back to [_passageOfTimeEnabled].
+  /// Optional Porch Life default, for [Clock] logs only. Not a gate.
   final bool Function()? getPorchLifePassageOfTime;
 
   /// When true, the scene-time eval (and one-shot text) asks for
@@ -165,6 +164,7 @@ class TimeService {
   );
   DateTime _startDate = StoryClock.todayAnchor();
   bool _passageOfTimeEnabled = true;
+  String _clockGateSource = 'chat_settings';
   int _turnsSinceClockMoved = 0; // stall backstop counter (not a pacing gate)
   bool _canonicalClockWasSynthesised = false;
   // One clock authority per turn: set when detectOocTimeSkip moves the clock,
@@ -298,11 +298,13 @@ class TimeService {
     required String timeOfDay,
     String? storyStartDate,
     String? storyStartTime,
+    bool? passageOfTimeEnabled,
   }) => _seedFromV2OrExt(
     dayCount: dayCount,
     timeOfDay: timeOfDay,
     storyStartDate: storyStartDate,
     storyStartTime: storyStartTime,
+    passageOfTimeEnabled: passageOfTimeEnabled,
   );
 
   // ── Public surface ────────────────────────────────────────────────────────
@@ -321,8 +323,10 @@ class TimeService {
   /// See [StoryClock.morningDayCountFor].
   int get morningAnchoredDayCount =>
       StoryClock.morningDayCountFor(_clock, _startDate);
-  bool get passageOfTimeEnabled =>
-      getPorchLifePassageOfTime?.call() ?? _passageOfTimeEnabled;
+  bool get passageOfTimeEnabled => _passageOfTimeEnabled;
+  String get clockGateSource => _clockGateSource;
+
+  void markClockGateSource(String source) => _clockGateSource = source;
   String get narrativeWeekday => StoryClock.weekdayName(_clock);
 
   /// Derived legacy anchor — still written to the session row / snapshots so
@@ -364,6 +368,7 @@ class TimeService {
 
   void setPassageOfTimeEnabled(bool enabled) {
     _passageOfTimeEnabled = enabled;
+    _clockGateSource = 'chat_settings';
   }
 
   void resetForFreshChat() {

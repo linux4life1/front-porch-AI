@@ -223,6 +223,7 @@ extension ChatServiceSessionStateSave on ChatService {
         storyClock: drift.Value(_timeService.storyClockIso),
         storyStartDate: drift.Value(_timeService.storyStartDateIso),
         passageOfTimeEnabled: drift.Value(_timeService.passageOfTimeEnabled),
+        passageOfTimeGateMigrated: const drift.Value(true),
         nsfwCooldownEnabled: drift.Value(_nsfwService.nsfwCooldownEnabled),
         needsSimEnabled: drift.Value(_needsSimEnabled),
         objectivesEnabled: drift.Value(_objectivesEnabled),

@@ -98,7 +98,9 @@ extension ChatServiceControls on ChatService {
   }
 
   Future<void> setPassageOfTimeEnabled(bool enabled) async {
-    await _storageService.realismSettings.setPassageOfTimeDefault(enabled);
+    _timeService.setPassageOfTimeEnabled(enabled);
+    _timeService.markClockGateSource('chat_settings');
+    await _saveChat();
     notifyListeners();
   }
 

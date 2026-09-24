@@ -207,6 +207,9 @@ extension AppDatabaseMaintenance on AppDatabase {
         'generation_settings TEXT',
         'user_persona_id TEXT',
         'passage_of_time_enabled INTEGER NOT NULL DEFAULT 1',
+        // v53 — one-shot leftover-PoT re-derive. DEFAULT 0: existing rows
+        // are unmigrated. Must match the Table and the ladder.
+        'passage_of_time_gate_migrated INTEGER NOT NULL DEFAULT 0',
         'nsfw_cooldown_enabled INTEGER NOT NULL DEFAULT 0',
         'cooldown_turns_remaining INTEGER NOT NULL DEFAULT 0',
         'cooldown_turns_total INTEGER NOT NULL DEFAULT 0',

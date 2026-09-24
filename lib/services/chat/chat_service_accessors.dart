@@ -178,11 +178,25 @@ extension ChatServiceAccessors on ChatService {
     preferTextEvals: _storageService.realismSettings.preferTextEvals,
   );
 
-  /// The story clock is actually moving. Porch Life → Passage of Time
-  /// is the only gate — leftover per-chat / card values do not veto it.
+  /// The story clock is actually moving. Same field the chat-settings
+  /// Automatic Passage of Time toggle shows and writes.
   bool get _clockRunning => StoryClock.isRunning(
-    passageOfTimeEnabled: _storageService.realismSettings.passageOfTimeDefault,
+    passageOfTimeEnabled: _timeService.passageOfTimeEnabled,
   );
+
+  /// Card AND Porch Life default — new-chat seed and leftover migrate.
+  bool get _seededPassageOfTime => derivedPassageOfTimeEnabled(
+    cardEnabled: _activeGroup != null
+        ? true
+        : (_activeCharacter?.frontPorchExtensions?.passageOfTimeEnabled ??
+              true),
+    porchLifeDefault: _storageService.realismSettings.passageOfTimeDefault,
+  );
+
+  void _applySeededPassageOfTime() {
+    _timeService.setPassageOfTimeEnabled(_seededPassageOfTime);
+    _timeService.markClockGateSource('chat_settings');
+  }
 
   /// Objectives are actually running for this chat: the per-chat switch AND the
   /// global one (docs/design/feature-independence.md). Objectives depend on

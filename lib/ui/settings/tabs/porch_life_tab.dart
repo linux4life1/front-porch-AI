@@ -111,10 +111,12 @@ class PorchLifeTab extends StatelessWidget {
               need: FeatureNeed.alone,
               blurb:
                   'The story keeps its own clock — dawn to morning to evening '
-                  'to night, day after day. This is the live switch for every '
-                  'chat. The AI judges how long each exchange actually took, '
-                  'so a shared meal moves the clock further than a passing '
-                  'hello. A normal send always moves at least a minute or two.',
+                  'to night, day after day. This is the default for new chats. '
+                  'Each open chat has its own switch under Character State → '
+                  'tune — that is what runs the clock. The AI judges how long '
+                  'each exchange actually took, so a shared meal moves the '
+                  'clock further than a passing hello. A normal send always '
+                  'moves at least a minute or two.',
               value: timeOn,
               onChanged: storage.realismSettings.setPassageOfTimeDefault,
             ),

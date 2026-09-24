@@ -23,8 +23,9 @@
 // are not claimed here.
 //
 // Why this file exists, in one sentence: session-row realism scalars must
-// survive a round trip. Passage of Time is no longer one of those scalars —
-// Porch Life is the only clock gate, and leftover per-chat values are ignored.
+// survive a round trip. Unmigrated leftover Passage of Time re-derives
+// (card AND Porch Life default) once; a migrated value is the chat-settings
+// toggle and must survive.
 //
 // The pre-existing session_load_regression_test.dart already compares the two
 // load paths, but only for four fields — and its own fixture seeds an emotion it
@@ -104,6 +105,7 @@ void main() {
     String sessionId,
     String characterId, {
     required bool passageOfTime,
+    bool migrated = false,
   }) async {
     await db.insertSession(
       SessionsCompanion.insert(
@@ -121,6 +123,7 @@ void main() {
         chaosModeEnabled: const Value(true),
         chaosPressure: const Value(9),
         passageOfTimeEnabled: Value(passageOfTime),
+        passageOfTimeGateMigrated: Value(migrated),
         dayCount: const Value(4),
       ),
     );
@@ -128,7 +131,7 @@ void main() {
 
   group('every stored realism scalar survives a load', () {
     test(
-      'a leftover per-chat PoT false is ignored when Porch Life is ON',
+      'an unmigrated leftover per-chat PoT false re-derives when card AND Porch Life are ON',
       () async {
         await seedRichSession('sess-off', 'char-a', passageOfTime: false);
 
@@ -138,14 +141,33 @@ void main() {
           chat.timeService.passageOfTimeEnabled,
           isTrue,
           reason:
-              'Porch Life is the only clock gate. Stale sessions.passage_of_time_enabled '
-              'must not freeze an existing chat.',
+              'legacy auto-seed false cannot be told from a user Off. '
+              'One-shot migrate re-derives card AND Porch Life.',
         );
       },
     );
 
     test(
-      'Porch Life OFF pauses every chat, leftover session ON included',
+      'a migrated per-chat PoT false sticks when Porch Life is ON',
+      () async {
+        await seedRichSession(
+          'sess-user-off',
+          'char-a',
+          passageOfTime: false,
+          migrated: true,
+        );
+
+        await chat.setActiveCharacter(_card('Alice', 'char-a'));
+        expect(
+          chat.timeService.passageOfTimeEnabled,
+          isFalse,
+          reason: 'chat-settings Off must not be overwritten on reload',
+        );
+      },
+    );
+
+    test(
+      'unmigrated leftover ON re-derives to false when Porch Life is OFF',
       () async {
         await storage.realismSettings.setPassageOfTimeDefault(false);
         await seedRichSession('sess-on', 'char-b', passageOfTime: true);
@@ -156,7 +178,7 @@ void main() {
     );
 
     test(
-      'Porch Life ON runs even when the leftover session column is false',
+      'unmigrated leftover false re-derives ON when card AND Porch Life are ON',
       () async {
         await storage.realismSettings.setPassageOfTimeDefault(true);
         await seedRichSession('sess-vs-global', 'char-c', passageOfTime: false);
@@ -166,7 +188,7 @@ void main() {
         expect(
           chat.timeService.passageOfTimeEnabled,
           isTrue,
-          reason: 'the Porch Life row is the live switch',
+          reason: 'one-shot migrate uses card AND Porch Life default',
         );
       },
     );

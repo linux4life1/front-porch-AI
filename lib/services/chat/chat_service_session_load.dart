@@ -92,6 +92,7 @@ extension ChatServiceSessionLoad on ChatService {
             storyStartDate: timeSeed.storyStartDate,
             storyStartTime: timeSeed.storyStartTime,
           );
+          _applySeededPassageOfTime();
         }
       }
       _nsfwService.resetForFreshChat();

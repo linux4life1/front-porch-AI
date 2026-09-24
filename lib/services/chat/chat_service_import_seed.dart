@@ -65,6 +65,7 @@ extension ChatServiceImportSeed on ChatService {
         storyStartDate: extSeed.storyStartDate,
         storyStartTime: extSeed.storyStartTime,
       );
+      _applySeededPassageOfTime();
       _characterEmotion = extSeed.characterEmotion;
       _emotionIntensity = extSeed.emotionIntensity;
       // seedFromV2OrExt only sets the *enabled* flag — runtime arousal and
@@ -122,6 +123,7 @@ extension ChatServiceImportSeed on ChatService {
             storyStartDate: timeSeed.storyStartDate,
             storyStartTime: timeSeed.storyStartTime,
           );
+          _applySeededPassageOfTime();
         }
         _groupRealism = parseGroupRealismSeeds(
           _activeGroup!.defaultMemberRealismState,

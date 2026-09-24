@@ -118,6 +118,7 @@ extension ChatServiceGreetingSeed on ChatService {
       storyStartDate: resolved.storyStartDate,
       storyStartTime: resolved.storyStartTime,
     );
+    _applySeededPassageOfTime();
     _nsfwService.resetRuntimeArousalAndCooldown();
 
     if (_needsSimEnabled) {
@@ -238,6 +239,7 @@ extension ChatServiceGreetingSeed on ChatService {
       storyStartDate: timeResolved.storyStartDate,
       storyStartTime: timeResolved.storyStartTime,
     );
+    _applySeededPassageOfTime();
 
     for (final c in _groupCharacters) {
       final memberId = _getCharacterIdFromCard(c);

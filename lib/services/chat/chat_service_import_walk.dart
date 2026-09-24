@@ -38,6 +38,7 @@ extension ChatServiceImportWalk on ChatService {
       storyStartDate: _timeService.storyStartDateIso,
       storyStartTime: ext.storyStartTime,
     );
+    _applySeededPassageOfTime();
     _characterEmotion = ext.characterEmotion;
     _emotionIntensity = ext.emotionIntensity;
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: keepNsfwCooldown);
@@ -161,6 +162,7 @@ extension ChatServiceImportWalk on ChatService {
         storyStartDate: _timeService.storyStartDateIso,
         storyStartTime: timeSeed?.storyStartTime,
       );
+      _applySeededPassageOfTime();
     }
 
     seedPocketsFromCards();

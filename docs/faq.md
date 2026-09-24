@@ -366,7 +366,7 @@ The story has **its own clock**. It is **not** your wall clock and it does **not
 
 **Turn it on:** Settings → **Porch Life** → **Passage of Time**.
 
-That row does **not** need the Realism Engine. **Passage of Time on is enough, engine on or off.** The Porch Life row is the only control — leftover per-chat or card values do not gate the clock.
+That row does **not** need the Realism Engine. **Passage of Time on is enough, engine on or off.** Porch Life is the default for new chats. Each open chat has **Automatic Passage of Time** under Character State → tune — that switch is what runs the clock.
 
 **What “auto” means**
 

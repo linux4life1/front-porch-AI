@@ -174,7 +174,11 @@ extension TimeServiceEval on TimeService {
     // its own post-generation pass above — so a frozen clock now costs the
     // user nothing at all rather than one posture request per turn.
     if (!passageOfTimeEnabled) {
-      debugPrint('[Clock] running=false porchLife=false reason=porch_life_off');
+      debugPrint(
+        '[Clock] running=false source=$clockGateSource '
+        'perChat=false porchLife=${getPorchLifePassageOfTime?.call()} '
+        'reason=chat_settings_off',
+      );
       return;
     }
     if (skipClockAdvance) {

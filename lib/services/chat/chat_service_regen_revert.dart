@@ -245,10 +245,18 @@ extension ChatServiceRegenRevert on ChatService {
       // previousMessageState in 1:1. The decay cadence is NOT session-level:
       // it is per-character, so it rides previousMessageState above instead.
       if (previousSessionState != null) {
-        _timeService.restoreTimeForSwipeOrRegen(
-          previousSessionState,
-          wasNudged: wasNudged,
-        );
+        final before = lastMsg.activeMetadata?['story_clock_before'] as String?;
+        if (before != null) {
+          _timeService.restoreTimeFromRealismState({'storyClock': before});
+        } else if (previousSessionState['storyClock'] is String) {
+          _timeService.restoreTimeForSwipeOrRegen(
+            previousSessionState,
+            wasNudged: wasNudged,
+          );
+        }
+        // No canonical clock on the snap: keep the live session clock.
+        // Synthesizing morning/Day 1 from a pre-calendar leftover pinned
+        // lived-in chats back to 9:00 AM on regen.
       }
       // Clock suppression is an argument on Next Character only. Regen
       // rewinds above and then re-runs the scene-time eval with the

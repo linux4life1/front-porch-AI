@@ -154,6 +154,7 @@ extension ChatServiceSessionManage on ChatService {
         storyStartDate: extSeed.storyStartDate,
         storyStartTime: extSeed.storyStartTime,
       );
+      _applySeededPassageOfTime();
       _characterEmotion = extSeed.characterEmotion;
       _emotionIntensity = extSeed.emotionIntensity;
       _nsfwService.seedFromV2OrExt(
@@ -247,6 +248,7 @@ extension ChatServiceSessionManage on ChatService {
               storyStartDate: timeSeed.storyStartDate,
               storyStartTime: timeSeed.storyStartTime,
             );
+            _applySeededPassageOfTime();
           }
         }
         _nsfwService.resetForFreshChat();

@@ -209,7 +209,9 @@ extension ChatServiceGenerationPostGen on ChatService {
         final clockBeforeIso = _timeService.storyClockIso;
         if (_postGenAbortRequested) {
           debugPrint(
-            '[Clock] running=$_clockRunning porchLife='
+            '[Clock] running=$_clockRunning '
+            'source=${_timeService.clockGateSource} '
+            'perChat=${_timeService.passageOfTimeEnabled} porchLife='
             '${_storageService.realismSettings.passageOfTimeDefault} '
             'reason=abort',
           );
@@ -285,15 +287,22 @@ extension ChatServiceGenerationPostGen on ChatService {
   Future<void> _maybeAdvanceStoryClockAfterReply(_GenTurn t) async {
     final porch = _storageService.realismSettings.passageOfTimeDefault;
     debugPrint(
-      '[Clock] running=$_clockRunning porchLife=$porch '
+      '[Clock] running=$_clockRunning '
+      'source=${_timeService.clockGateSource} '
+      'perChat=${_timeService.passageOfTimeEnabled} porchLife=$porch '
       'mode=${t.mode.name} abort=$_postGenAbortRequested',
     );
     if (t.mode == GenerationMode.continue_) {
-      debugPrint('[Clock] return reason=continue porchLife=$porch');
+      debugPrint(
+        '[Clock] return reason=continue source=${_timeService.clockGateSource}',
+      );
       return;
     }
     if (!_clockRunning) {
-      debugPrint('[Clock] return reason=porch_life_off porchLife=$porch');
+      debugPrint(
+        '[Clock] return reason=chat_settings_off '
+        'source=${_timeService.clockGateSource} porchLife=$porch',
+      );
       return;
     }
     final before = _timeService.clock;
@@ -322,7 +331,9 @@ extension ChatServiceGenerationPostGen on ChatService {
     }
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     debugPrint(
-      '[Clock] running=$_clockRunning porchLife=$porch '
+      '[Clock] running=$_clockRunning '
+      'source=${_timeService.clockGateSource} '
+      'perChat=${_timeService.passageOfTimeEnabled} porchLife=$porch '
       'minutes=${_timeService.clock.difference(before).inMinutes} '
       'stamped=${_timeService.bodyTimeLabel} '
       'slot=${t.streamTarget.swipeIndex}',

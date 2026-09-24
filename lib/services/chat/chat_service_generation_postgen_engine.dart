@@ -109,7 +109,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       }
       if (_postGenAbortRequested) {
         debugPrint(
-          '[Clock] running=$_clockRunning porchLife='
+          '[Clock] running=$_clockRunning '
+          'source=${_timeService.clockGateSource} '
+          'perChat=${_timeService.passageOfTimeEnabled} porchLife='
           '${_storageService.realismSettings.passageOfTimeDefault} '
           'reason=abort',
         );

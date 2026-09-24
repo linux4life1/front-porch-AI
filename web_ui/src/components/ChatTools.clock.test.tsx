@@ -19,6 +19,7 @@ describe('ChatTools clock chevrons', () => {
     expect(src).not.toContain(
       'Realism Mode is off, so the story clock is paused',
     );
+    expect(src).toContain('Automatic Passage of Time');
     expect(src).not.toContain('Auto passage of time');
   });
 });

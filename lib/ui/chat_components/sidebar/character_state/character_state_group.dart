@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
     show AmbitionService, PocketSection, Pockets, StoryClock, visibleNeeds;
@@ -107,12 +106,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     final ambitions = chat.activeCharacter == null
         ? const <({String text, int progress})>[]
         : chat.ambitionsFor(chat.activeCharacter!);
-    // Mirrors ChatService._clockRunning: Porch Life Passage of Time.
+    // Mirrors ChatService._clockRunning: the chat-settings toggle.
     final clockRunning = StoryClock.isRunning(
-      passageOfTimeEnabled: context
-          .watch<StorageService>()
-          .realismSettings
-          .passageOfTimeDefault,
+      passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
     );
 
     return PorchAccordion(

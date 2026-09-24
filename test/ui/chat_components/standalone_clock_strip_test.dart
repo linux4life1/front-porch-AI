@@ -32,6 +32,7 @@ Future<void> _pumpPanel(
   await storage.realismSettings.setPassageOfTimeDefault(passageOfTime);
 
   final chat = FakeChatService(realismEnabled: realismEnabled);
+  chat.timeService.setPassageOfTimeEnabled(passageOfTime);
   addTearDown(chat.dispose);
 
   await tester.binding.setSurfaceSize(const Size(420, 900));

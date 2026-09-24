@@ -7,7 +7,7 @@
 
 part of 'database.dart';
 
-/// Schema v40 → v52 of the onUpgrade ladder. Blocks are byte-verbatim.
+/// Schema v40 → v53 of the onUpgrade ladder. Blocks are byte-verbatim.
 extension _AppDatabaseMigrationLate on AppDatabase {
   Future<void> _upgradeFromV40(Migrator m, int from, int to) async {
     if (from < 40) {
@@ -195,6 +195,21 @@ extension _AppDatabaseMigrationLate on AppDatabase {
           '[DB] v52: is_primary already present — skipping backfill '
           '(re-entry after a rollback)',
         );
+      }
+    }
+    if (from < 53) {
+      // v52→v53: one-shot flag so leftover per-chat Passage of Time
+      // (old card-AND / auto-seed false) can be re-derived once. DEFAULT 0
+      // — every existing row is unmigrated. Additive with a default, so
+      // raw external writers to `sessions` keep working.
+      try {
+        await customStatement(
+          'ALTER TABLE sessions ADD COLUMN '
+          'passage_of_time_gate_migrated INTEGER NOT NULL DEFAULT 0',
+        );
+        debugPrint('[DB] v53: added sessions.passage_of_time_gate_migrated');
+      } catch (_) {
+        // already present (re-run / dual-version)
       }
     }
   }

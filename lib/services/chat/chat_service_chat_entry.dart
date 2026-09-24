@@ -326,6 +326,7 @@ extension ChatServiceChatEntry on ChatService {
               storyStartDate: ext.storyStartDate,
               storyStartTime: ext.storyStartTime,
             );
+            _applySeededPassageOfTime();
             _characterEmotion = ext.characterEmotion;
             _emotionIntensity = ext.emotionIntensity;
             _nsfwService.seedFromV2OrExt(

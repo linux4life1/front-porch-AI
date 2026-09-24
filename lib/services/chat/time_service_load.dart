@@ -30,6 +30,7 @@ extension TimeServiceLoad on TimeService {
     required String timeOfDay,
     String? storyStartDate,
     String? storyStartTime,
+    bool? passageOfTimeEnabled,
   }) {
     final anchor = StoryClock.parse(storyStartDate);
     final safeDay = dayCount.clamp(1, 9999);
@@ -57,6 +58,10 @@ extension TimeServiceLoad on TimeService {
     _turnsSinceClockMoved = 0;
     todayLine = null;
     _todayLineDayCount = null;
+    if (passageOfTimeEnabled != null) {
+      _passageOfTimeEnabled = passageOfTimeEnabled;
+      _clockGateSource = 'chat_settings';
+    }
   }
 
   /// Load from a session row. Canonical columns win; legacy rows synthesize
