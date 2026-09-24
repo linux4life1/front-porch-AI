@@ -72,7 +72,8 @@ class PorchLifeTab extends StatelessWidget {
 
     // The engine gates everything in "needs Realism" rows; passage of time
     // additionally gates weather and dreams, and weather gates the °F display.
-    // Passage of Time is the LIVE clock switch — not a new-chat default.
+    // This row is the default for new chats. The live clock switch is
+    // Character State → Automatic Passage of Time.
     final engineOn = storage.realismSettings.realismDefault;
     final timeOn = storage.realismSettings.passageOfTimeDefault;
     final weatherOn = storage.realismSettings.weatherEnabled;
@@ -82,9 +83,6 @@ class PorchLifeTab extends StatelessWidget {
     // thing that moves ambition progress.
     final objectivesOn = storage.realismSettings.objectivesEnabled;
     final adultOn = storage.realismSettings.adultThemesEnabled;
-
-    // Weather and dreams gate on the Passage of Time FLAG. This row is
-    // the live clock switch for every chat.
 
     return ListView(
       padding: const EdgeInsets.all(16),

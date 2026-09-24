@@ -132,6 +132,8 @@ void main() {
 
     final chat = FakeChatService(realismEnabled: false, needsSimEnabled: false);
     addTearDown(chat.dispose);
+    // Chevrons follow the same field _clockRunning reads — not Porch Life.
+    chat.timeService.setPassageOfTimeEnabled(false);
 
     await tester.pumpWidget(
       MultiProvider(

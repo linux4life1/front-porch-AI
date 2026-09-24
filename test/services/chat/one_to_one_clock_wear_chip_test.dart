@@ -433,12 +433,29 @@ void main() {
       await boot(explicitChatToggles: false);
       expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
 
-      // Carmen is not Day 1 9:00 — plant a lived-in session clock on the row.
+      // Carmen is a lived-in transcript, not greeting-only. Reload of a
+      // one-message chat re-seeds Day 1 9:00 from the card overlay
+      // (_reapplyOpeningOverlayIfNeeded). One send makes hydrate keep
+      // the planted clock — the same shape as the existing Mac chat.
+      await chat!.sendMessage('Hey.');
+      await drainTurn();
+      await chat!.flushPendingSaves();
+
+      // First-open freeze writes storyClock via an unawaited patch. Wait
+      // until that lands so our leftover plant is not overwritten.
+      final sid = chat!.currentSessionId!;
+      for (var i = 0; i < 40; i++) {
+        final seeded = await db!.getSessionById(sid);
+        if (seeded?.storyClock != null && seeded!.storyClock!.isNotEmpty) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+
       const livedIso = '2026-06-30T14:30:00.000Z';
       const startIso = '2026-06-28';
       final lived = DateTime.utc(2026, 6, 30, 14, 30);
 
-      final sid = chat!.currentSessionId!;
       await db!.patchSession(
         SessionsCompanion(
           id: Value(sid),
@@ -449,6 +466,12 @@ void main() {
           timeOfDay: const Value('afternoon'),
           dayCount: const Value(3),
         ),
+      );
+      final planted = await db!.getSessionById(sid);
+      expect(
+        planted!.storyClock,
+        livedIso,
+        reason: 'leftover plant must survive the first-open clock freeze',
       );
 
       // Same-card setActiveCharacter is a no-op. Reload the patched row.
