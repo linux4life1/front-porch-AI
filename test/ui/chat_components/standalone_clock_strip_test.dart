@@ -1,19 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// THE STORY CLOCK HAS TWO DRIVERS, AND THE SIDEBAR ONLY KNEW ABOUT ONE.
-//
-// TimeStrip (clock, date, period dots, weather chip) was rendered under
-// `if (realismOn || isGroup)`. But the clock also runs on the opt-in
-// standalone driver — ChatService._clockRunning is
-// `passageOfTimeEnabled && (realismEnabled || standaloneClockEnabled)` — and
-// Porch Life only OFFERS that switch when the engine is OFF. So the one
-// configuration in which a user can turn the standalone clock on was exactly
-// the configuration in which the sidebar showed no clock at all: an extra
-// model call every turn with nothing on screen to show for it.
-//
-// This drives the real CharacterStateGroup with the real StorageService flag
-// and asserts the strip appears/disappears with the standalone switch.
+// TimeStrip visibility follows Passage of Time, the only story-clock
+// driver. Realism, Needs, and the leftover standalone pref do not hide
+// a live clock.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
@@ -32,15 +22,15 @@ import '../../golden/support/fakes.dart';
 Future<void> _pumpPanel(
   WidgetTester tester, {
   required bool realismEnabled,
-  required bool standaloneClock,
+  bool passageOfTime = true,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final storage = StorageService();
   addTearDown(storage.dispose);
-  await storage.realismSettings.setStandaloneClockEnabled(standaloneClock);
 
   final chat = FakeChatService(realismEnabled: realismEnabled);
   addTearDown(chat.dispose);
+  chat.timeService.setPassageOfTimeEnabled(passageOfTime);
 
   await tester.binding.setSurfaceSize(const Size(420, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -73,22 +63,18 @@ Future<void> _pumpPanel(
 void main() {
   setupPathProviderMock();
 
-  testWidgets('engine off + standalone clock on → the strip is visible', (
-    tester,
-  ) async {
-    await _pumpPanel(tester, realismEnabled: false, standaloneClock: true);
+  testWidgets('engine off + PoT on → the strip is visible', (tester) async {
+    await _pumpPanel(tester, realismEnabled: false);
     expect(find.byType(TimeStrip), findsOneWidget);
   });
 
-  testWidgets('engine off + standalone clock off → no strip', (tester) async {
-    await _pumpPanel(tester, realismEnabled: false, standaloneClock: false);
+  testWidgets('engine off + PoT off → no strip', (tester) async {
+    await _pumpPanel(tester, realismEnabled: false, passageOfTime: false);
     expect(find.byType(TimeStrip), findsNothing);
   });
 
-  testWidgets('engine on → the strip is visible regardless of the switch', (
-    tester,
-  ) async {
-    await _pumpPanel(tester, realismEnabled: true, standaloneClock: false);
+  testWidgets('engine on + PoT on → the strip is visible', (tester) async {
+    await _pumpPanel(tester, realismEnabled: true);
     expect(find.byType(TimeStrip), findsOneWidget);
   });
 }

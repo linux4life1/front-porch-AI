@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
     show AmbitionService, PocketSection, Pockets, StoryClock, visibleNeeds;
@@ -107,17 +106,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     final ambitions = chat.activeCharacter == null
         ? const <({String text, int progress})>[]
         : chat.ambitionsFor(chat.activeCharacter!);
-    // Mirrors ChatService._clockRunning: engine, standalone, or Needs.
-    // Porch Life only OFFERS standalone with the engine off, so gating
-    // the strip on realism alone hid the clock when Needs + PoT ran
-    // without Realism — the live Mac frozen-clock case.
+    // Mirrors ChatService._clockRunning: Passage of Time is the only driver.
     final clockRunning = StoryClock.isRunning(
       passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
-      realismEnabled: chat.realismEnabled,
-      standaloneClockEnabled: Provider.of<StorageService>(
-        context,
-      ).realismSettings.standaloneClockEnabled,
-      needsSimEnabled: chat.needsSimEnabled,
     );
 
     return PorchAccordion(

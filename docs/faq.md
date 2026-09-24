@@ -366,12 +366,7 @@ The story has **its own clock**. It is **not** your wall clock and it does **not
 
 **Turn it on:** Settings → **Porch Life** → **Passage of Time**.
 
-That row does **not** need the Realism Engine. Two different cases:
-
-| Realism Engine | What the clock does |
-|---|---|
-| **On** | Clock is judged as part of work the engine already does. No extra switch. |
-| **Off** | Passage of Time being on is **not enough**. You must also turn on **Keep the clock running without the engine** (the small switch under that row). That costs **one extra AI call per turn**. Leave it off and the clock **holds still**. |
+That row does **not** need the Realism Engine. **Passage of Time** is the only clock driver — on in Porch Life it seeds new chats; the live switch is chat-gear **Automatic Passage of Time**. Realism off does not freeze a chat whose Passage of Time is on.
 
 **What “auto” means**
 
@@ -379,9 +374,9 @@ That row does **not** need the Realism Engine. Two different cases:
 2. **After** the reply, the app asks the AI: “how many minutes did that beat take?”
 3. The clock moves by that amount. Next speaker is told the new time.
 
-- A hello might be 2 minutes. A long drive might be two hours.
+- A hello is at least **1–2 minutes**. A long drive might be two hours. **Same moment** only when the scene is one continuous instant.
 - **Hard cap: 180 minutes (3 hours) per turn.** Bigger jumps are skips (below), not auto.
-- If that AI call fails or returns garbage: the clock creeps **5 minutes**. It never freezes on a failed call.
+- If that AI call fails or returns garbage: the clock creeps **5 minutes**. A bare “0 minutes” on a normal send floors to **2 minutes**, not a freeze.
 - If it still hasn't moved after **12 turns**, the app hops to the next time of day by itself.
 - **Continue does not tick.** Same beat. New message = new beat.
 - **Regenerate / swipe** rewind the clock to before that reply, then judge again. It will not double-advance.
@@ -419,11 +414,10 @@ Set the **opening date and clock** on the character card if this is 1887, not �
 
 Do these in order:
 
-1. Settings → **Porch Life** → **Passage of Time** is on (and the **chat** didn't override it off in Character State → tune).
-2. Realism Engine **off**? Then **Keep the clock running without the engine** must be on, or the clock is supposed to sit still.
-3. You hit **Continue** — that does not advance time. Send a new message.
-4. No model / backend not running — auto time is an AI question. It cannot judge minutes without a model.
-5. You expected a 6-hour jump from one reply — auto **cannot** do that. [Skip](#how-do-i-skip-time).
+1. Settings → **Porch Life** → **Passage of Time** is on (new chats), and this chat’s **Automatic Passage of Time** is on in Character State / chat-gear.
+2. You hit **Continue** — that does not advance time. Send a new message.
+3. No model / backend not running — auto time is an AI question. It cannot judge minutes without a model.
+4. You expected a 6-hour jump from one reply — auto **cannot** do that. [Skip](#how-do-i-skip-time).
 
 ### How do I skip time?
 

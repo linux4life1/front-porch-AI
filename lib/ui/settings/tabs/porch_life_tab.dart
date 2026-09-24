@@ -58,13 +58,10 @@ import 'porch_life_mcp_web_card.dart';
 /// Dependency truths per the maintainer: Needs and Afterglow genuinely REQUIRE
 /// the engine.
 ///
-/// Passage of Time no longer does (2026-08-06). What the clock needs is a model
-/// call sizing each exchange, not bond and trust — so it now runs on its own
-/// eval when the engine is off, behind the opt-in sub-switch on that row. The
-/// deterministic drift underneath remains what it always was: the cushion for
-/// one failed call, never a mode and never offered as one. Weather and Dreams
-/// follow the CLOCK rather than the engine, which is what this tab already
-/// told users they did.
+/// Passage of Time no longer does (2026-08-06). What the clock needs is a
+/// model call sizing each exchange, not bond and trust. This row is the
+/// default for new chats; the live switch is chat-gear "Automatic Passage
+/// of Time". Weather and Dreams follow the CLOCK rather than the engine.
 class PorchLifeTab extends StatelessWidget {
   const PorchLifeTab({super.key});
 
@@ -85,16 +82,10 @@ class PorchLifeTab extends StatelessWidget {
     final objectivesOn = storage.realismSettings.objectivesEnabled;
     final adultOn = storage.realismSettings.adultThemesEnabled;
 
-    // Weather and dreams gate on the Passage of Time FLAG, deliberately not on
-    // whether the clock is currently moving (ChatService._clockRunning). An
-    // earlier draft used the latter, on the theory that it was more honest —
-    // it is not, it is the old bug wearing a new hat. With the engine off and
-    // the standalone opt-in off, gating on it greys out Story Weather again,
-    // which is precisely the dead-switch problem this tab was built to end.
-    // This tab sets DEFAULTS: a user must be able to record what they want now
-    // and have it apply the moment the clock starts moving. The one fact that
-    // subtlety depends on — "left off, the clock simply holds still" — is
-    // stated on the row that owns it, one row above.
+    // Weather and dreams gate on the Passage of Time FLAG. This tab sets
+    // DEFAULTS: a user must be able to record what they want now and have
+    // it apply the moment a new chat seeds. The live switch is chat-gear
+    // "Automatic Passage of Time".
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -121,22 +112,13 @@ class PorchLifeTab extends StatelessWidget {
               need: FeatureNeed.alone,
               blurb:
                   'The story keeps its own clock — dawn to morning to evening '
-                  'to night, day after day. The AI judges how long each '
-                  'exchange actually took, so a shared meal moves the clock '
-                  'further than a passing hello.',
+                  'to night, day after day. This row is the default for new '
+                  'chats. The live switch is chat-gear "Automatic Passage of '
+                  'Time". The AI judges how long each exchange actually took, '
+                  'so a shared meal moves the clock further than a passing '
+                  'hello. A normal send always moves at least a minute or two.',
               value: timeOn,
               onChanged: storage.realismSettings.setPassageOfTimeDefault,
-              // Shown only with the engine off. With it on, the clock already
-              // rides the engine's own reading of the scene and costs nothing
-              // extra, so offering a switch there would be a choice about
-              // nothing.
-              child: engineOn
-                  ? null
-                  : StandaloneClockSwitch(
-                      value: realism.standaloneClockEnabled,
-                      onChanged:
-                          storage.realismSettings.setStandaloneClockEnabled,
-                    ),
             ),
             FeatureRow(
               icon: Icons.cloud_outlined,

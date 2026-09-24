@@ -61,7 +61,7 @@ extension TimeServiceApply on TimeService {
       _oocSkipMovedClockThisTurn = false;
       return;
     }
-    await _applyElapsed(minutes: null, newDay: false);
+    await _applyElapsed(minutes: StoryClock.failureDriftMinutes, newDay: false);
     onNotify();
   }
 
@@ -206,17 +206,22 @@ extension TimeServiceApply on TimeService {
 
   // ── Per-turn time advance (delegated from the physical / one-shot evals) ──
 
-  /// Apply one turn's elapsed time. [minutes] null means the eval failed —
-  /// deterministic drift applies. Returns whether the clock moved.
+  /// Apply one turn's elapsed time. Null or ≤0 minutes on a normal send
+  /// fail-closed to [StoryClock.conversationalFloorMinutes] unless
+  /// [continuousInstant] or [newDay]. Eval-failure callers pass
+  /// [StoryClock.failureDriftMinutes] explicitly. Returns whether the
+  /// clock moved.
   Future<bool> _applyElapsed({
     required int? minutes,
     required bool newDay,
+    bool continuousInstant = false,
   }) async {
     final dayBefore = dayCount;
     var moved = false;
-    final m = (minutes ?? StoryClock.failureDriftMinutes).clamp(
-      0,
-      StoryClock.maxMinutesPerTurn,
+    final m = StoryClock.resolvedElapsedMinutes(
+      minutes: minutes,
+      newDay: newDay,
+      continuousInstant: continuousInstant,
     );
     if (m > 0) {
       _clock = _clock.add(Duration(minutes: m));
@@ -255,6 +260,7 @@ extension TimeServiceApply on TimeService {
         wearAwake: false,
       );
     }
+    debugPrint('[Realism:Time] committed $m min');
     await _ifDayChanged(dayBefore);
     return moved;
   }

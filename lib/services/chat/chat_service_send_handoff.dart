@@ -78,7 +78,7 @@ extension ChatServiceSendHandoff on ChatService {
         // before generation — preserving the cancel-aborts-generation escape.)
         await _evaluateRealismForUpcomingSpeaker(_activeCharacter!);
       }
-    } else if (_standaloneClockActive && addressedGuest == null) {
+    } else if (_clockRunning && addressedGuest == null) {
       // Standalone clock: announce the current time in the prompt; the
       // post-reply decide lives in _finalizeGenerationTurn with the engine
       // path (bucket brigade, Scene Guests included). Only stamp the user

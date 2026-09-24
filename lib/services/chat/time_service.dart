@@ -91,9 +91,9 @@ part 'time_service_load.dart';
 ///    `realism_state` is the per-message swipe/regen REWIND snapshot, not
 ///    persistence. No migration exists to perform.
 ///
-/// The standalone clock is opt-in (`standaloneClockEnabled`, default off)
-/// because it costs one model call per turn — see that flag for why the
-/// existing Passage-of-Time default could not be treated as consent.
+/// Passage of Time is the single clock driver. The leftover
+/// `standaloneClockEnabled` pref is still readable for old PWAs but no
+/// longer gates the decide.
 ///
 /// Regen/swipe rewind the clock from the rejected reply's
 /// `story_clock_before` stamp, then the post-reply eval decides again —

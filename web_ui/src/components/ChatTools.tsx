@@ -271,9 +271,8 @@ export function ChatTools({
               </div>
             ))}
           </div>
-          {/* Disabled when the clock is not actually moving (engine off AND
-              standalone off, or passage off). Desktop TimeStrip uses the
-              same StoryClock.isRunning gate. */}
+          {/* Disabled when Passage of Time is off. Desktop TimeStrip uses
+              the same StoryClock.isRunning gate. */}
           <div className="tool-row">
             <button
               disabled={!clockRunning}

@@ -421,15 +421,39 @@ void main() {
       expect(t.clock, DateTime.utc(2026, 7, 2, 9, 45));
     });
 
+    test('bare minutes_elapsed 0 floors to the conversational beat', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      await runEval(t, oneShotText: '{"minutes_elapsed": 0, "new_day": false}');
+      expect(
+        t.clock,
+        DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+      );
+    });
+
+    test('explicit continuous_instant keeps the same moment', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      await runEval(
+        t,
+        oneShotText:
+            '{"minutes_elapsed": 0, "new_day": false, '
+            '"continuous_instant": true}',
+      );
+      expect(t.clock, DateTime.utc(2026, 7, 2, 9, 0));
+    });
+
     test(
-      'stall backstop snaps to the next period after enough 0-minute turns',
+      'stall backstop snaps after enough explicit same-moment turns',
       () async {
         final t = makeService();
         seedFixed(t, timeOfDay: 'morning'); // 09:00
         for (var i = 0; i < StoryClock.stallBackstopTurns; i++) {
           await runEval(
             t,
-            oneShotText: '{"minutes_elapsed": 0, "new_day": false}',
+            oneShotText:
+                '{"minutes_elapsed": 0, "new_day": false, '
+                '"continuous_instant": true}',
           );
         }
         // The final stalled turn triggered the snap (morning → late_morning).

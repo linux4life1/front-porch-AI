@@ -127,10 +127,10 @@ None of the mechanics ever appear in the chat itself — no numbers, no "cooldow
 
 With **Automatic Passage of Time** on, the story runs on a real clock and a real calendar — **the story's**, not yours. The date is not allowed to follow the real-world calendar when you reopen the chat.
 
-- **Time moves after each reply.** The engine asks how long that exchange took and advances the clock. A glance might be two minutes, a long drive a couple of hours. A single turn can never move the clock more than **three hours** (180 minutes); bigger jumps are new days and out-of-character skips. **Continue does not tick.** Regen/swipe rewind, then judge again.
-- **It can never freeze and it can never run away.** If the model fumbles the question, the clock drifts **five minutes**. If it hasn't moved for **twelve** turns, the app snaps to the next period.
+- **Time moves after each reply.** The app asks how long that exchange took and advances the clock. A glance is at least one or two minutes, a long drive a couple of hours. A single turn can never move the clock more than **three hours** (180 minutes); bigger jumps are new days and out-of-character skips. **Same moment** only when the scene is one continuous instant. **Continue does not tick.** Regen/swipe rewind, then judge again.
+- **It can never freeze and it can never run away.** A bare “0 minutes” on a normal send floors to **two minutes**. If the model fumbles the question, the clock drifts **five minutes**. If it hasn't moved for **twelve** turns, the app snaps to the next period.
 - **Six periods, real dates.** Dawn (6:00), morning (9:00), late morning (11:30), afternoon (2:30), evening (6:30), night (10:30). Rolling past midnight advances the story day. The sidebar shows both halves: *Morning · 9:00 AM* and *Wed, Mar 3 · Day 3*.
-- **Realism Engine off:** Passage of Time still has its own switch, but the nested **Keep the clock running without the engine** must also be on or the clock holds still (one extra model call per turn). Dummy steps: [FAQ](faq.md#how-does-time-work).
+- **Realism Engine off:** Passage of Time is still the driver. Dummy steps: [FAQ](faq.md#how-does-time-work).
 
 **You stay in control:**
 

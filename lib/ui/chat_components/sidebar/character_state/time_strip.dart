@@ -43,19 +43,9 @@ class TimeStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final time = chat.timeService.timeOfDay;
     final day = chat.timeService.dayCount;
-    StorageService? storage;
-    try {
-      storage = Provider.of<StorageService>(context);
-    } on ProviderNotFoundException {
-      storage = null;
-    }
     final canNudge =
         StoryClock.isRunning(
           passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
-          realismEnabled: chat.realismEnabled,
-          standaloneClockEnabled:
-              storage?.realismSettings.standaloneClockEnabled ?? false,
-          needsSimEnabled: chat.needsSimEnabled,
         ) &&
         !chat.isGenerating;
     final activeDot = AppColors.timeDayAccentOf(context);

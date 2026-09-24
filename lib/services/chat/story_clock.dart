@@ -39,6 +39,10 @@ class StoryClock {
   /// garbage — a flaky local model degrades to gentle creep, never a freeze.
   static const int failureDriftMinutes = 5;
 
+  /// Fail-closed floor for a finished spoken reply. Bare `minutes_elapsed: 0`
+  /// or a missing parse is not a freeze — that needs [continuousInstant].
+  static const int conversationalFloorMinutes = 2;
+
   /// If the clock has not moved for this many turns, snap to the next
   /// period — preserves the old system's "time can never freeze forever"
   /// guarantee without its 6-turn gate.
@@ -473,17 +477,19 @@ class StoryClock {
       .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1))
       .join(' ');
 
-  /// True when the story clock is actually moving. Drivers: the Realism
-  /// Engine, the opt-in standalone clock, or Needs (Needs-on-the-clock:
-  /// bars already run without Realism). Passage of time must also be on.
-  /// ChatService._clockRunning, the sidebar chevrons, and the web calendar
-  /// all call this so they cannot disagree.
-  static bool isRunning({
-    required bool passageOfTimeEnabled,
-    required bool realismEnabled,
-    required bool standaloneClockEnabled,
-    bool needsSimEnabled = false,
-  }) =>
-      passageOfTimeEnabled &&
-      (realismEnabled || standaloneClockEnabled || needsSimEnabled);
+  /// Passage of Time is the only driver. Sidebar, web, and ChatService agree.
+  static bool isRunning({required bool passageOfTimeEnabled}) =>
+      passageOfTimeEnabled;
+
+  /// Fail-closed minutes for a send. [continuousInstant] is the only 0.
+  static int resolvedElapsedMinutes({
+    required int? minutes,
+    required bool newDay,
+    required bool continuousInstant,
+  }) {
+    if (newDay) return (minutes ?? 0).clamp(0, maxMinutesPerTurn);
+    if (continuousInstant) return 0;
+    if (minutes == null || minutes <= 0) return conversationalFloorMinutes;
+    return minutes.clamp(0, maxMinutesPerTurn);
+  }
 }

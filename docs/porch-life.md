@@ -50,8 +50,7 @@ Settings → Porch Life → **Passage of Time**. Per chat: Character State → *
 
 | Realism Engine | Clock |
 |---|---|
-| **On** | Judged as part of work the engine already does. |
-| **Off** | Passage of Time **on is not enough.** You must also enable **Keep the clock running without the engine** (nested under that row). That is **one extra AI call per turn**. Default **off** — otherwise every engine-off user would suddenly pay that call. Left off, the clock **holds still on purpose**. |
+| **On or off** | Passage of Time is the only driver. Porch Life seeds new chats; the live switch is chat-gear **Automatic Passage of Time**. |
 
 ### Auto (after each reply)
 
@@ -60,6 +59,7 @@ Settings → Porch Life → **Passage of Time**. Per chat: Character State → *
 3. The clock moves. The next speaker is told the new time.
 
 - Cap: **180 minutes (3 hours)** per turn. Bigger jumps are **skips**.
+- A normal send always moves at least **1–2 minutes**. Same moment needs an explicit continuous instant.
 - Failed / garbage eval: **+5 minutes**. Never a freeze on a failed call.
 - Still stuck after **12 turns**: snap to the next period.
 - **Continue does not tick.**

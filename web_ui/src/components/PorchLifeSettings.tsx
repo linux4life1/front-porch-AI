@@ -453,33 +453,10 @@ export function PorchLifeSettings() {
           icon="⏰"
           label="Passage of Time"
           need="alone"
-          blurb="The story keeps its own clock — dawn to morning to evening to night, day after day. The AI judges how long each exchange actually took, so a shared meal moves the clock further than a passing hello."
+          blurb={'The story keeps its own clock — dawn to morning to evening to night, day after day. This row is the default for new chats. The live switch is chat-gear "Automatic Passage of Time". The AI judges how long each exchange actually took, so a shared meal moves the clock further than a passing hello. A normal send always moves at least a minute or two.'}
           value={timeOn}
           onChange={(v) => set('passageOfTimeDefault', v)}
-        >
-          {/* Shown only with the engine off — with it on the clock already
-              rides the engine's reading of the scene and costs nothing extra,
-              so a switch there would be a choice about nothing. Mirrors the
-              desktop `_StandaloneClockSwitch`. */}
-          {!engineOn && (
-            <label className="pl-substitch">
-              <span className="pl-sub-body">
-                <span className="pl-sub-label">Keep the clock running without the engine</span>
-                <span className="pl-sub-blurb">
-                  The engine normally judges how long each exchange took as part of work it is
-                  already doing. With it off, the clock needs one short AI call of its own each
-                  turn — so this costs a little speed. Left off, the clock simply holds still.
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                checked={st.standaloneClockEnabled}
-                onChange={(e) => set('standaloneClockEnabled', e.target.checked)}
-                aria-label="Keep the clock running without the engine"
-              />
-            </label>
-          )}
-        </FeatureRow>
+        />
         <FeatureRow
           icon="☁️"
           label="Story Weather"

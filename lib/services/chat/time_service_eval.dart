@@ -23,6 +23,11 @@ int? _extractMinutes(String text) {
   return m == null ? null : int.tryParse(m.group(1)!);
 }
 
+bool _extractContinuousInstant(
+  String text,
+  bool? Function(String, String) extractJsonBool,
+) => extractJsonBool(text, 'continuous_instant') ?? false;
+
 /// LLM minutes decide + the posture-only post-gen pass.
 extension TimeServiceEval on TimeService {
   /// Fire one scene-time or posture eval through the shared tools-vs-text
@@ -215,6 +220,7 @@ extension TimeServiceEval on TimeService {
       await _applyElapsed(
         minutes: _extractMinutes(text),
         newDay: saidNewDay && newDayCorroborated,
+        continuousInstant: _extractContinuousInstant(text, extractJsonBool),
       );
       if (!skipTodayEval) await _maybeApplyTodayEval(text);
       debugPrint(
@@ -228,13 +234,15 @@ extension TimeServiceEval on TimeService {
     // editing one copy.
     final plannerToday = getPlannerEnabled?.call() ?? false;
     final timeRules =
-        '1. "minutes_elapsed": how many in-story minutes passed during the reply that was JUST written (integer, 0-${StoryClock.maxMinutesPerTurn}). '
+        '1. "minutes_elapsed": how many in-story minutes passed during the completed reply that was JUST written (integer, 1-${StoryClock.maxMinutesPerTurn} for a finished spoken exchange). '
         'This sets the clock the NEXT speaker will be told. '
-        'Most conversational exchanges take 2-15 minutes; activities (a meal, a walk, a task, travel) take longer. '
-        'Use 0 ONLY when the scene is a continuous instant (mid-action, mid-sentence).\n'
-        '2. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise. '
+        'Most conversational exchanges take 2-15 minutes; if unsure, use 5. Activities (a meal, a walk, a task, travel) take longer. '
+        'Do NOT report 0 for a finished spoken reply.\n'
+        '2. "continuous_instant": true ONLY when the scene is one continuous instant (mid-action, mid-sentence, the same moment with no time passing). '
+        'A completed spoken reply is never a continuous instant. When true, minutes_elapsed is ignored and the clock stays still.\n'
+        '3. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise. '
         'Merely MENTIONING yesterday, tomorrow, or another day does NOT count — the characters must actually cross a night.\n'
-        '${plannerToday ? '3. "today_sentence": one sentence of what they are doing or planning today. '
+        '${plannerToday ? '4. "today_sentence": one sentence of what they are doing or planning today. '
                   'Empty or "none" abandons the current hold. Omit to keep it.\n' : ''}';
 
     // ONE time prompt for both drivers. The engine adds its scene framing
@@ -252,7 +260,7 @@ extension TimeServiceEval on TimeService {
         'Current story time: $displayClock on $narrativeWeekday, Day $dayCount.\n\n'
         '$timeRules\n'
         'Recent conversation:\n$recent\n\n'
-        '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "minutes_elapsed" and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "minutes_elapsed" and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. '
+        '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "minutes_elapsed", "continuous_instant", and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "minutes_elapsed", "continuous_instant", and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. '
                   'Do NOT use markdown code blocks — return raw JSON only.'}';
 
     try {
@@ -279,24 +287,30 @@ extension TimeServiceEval on TimeService {
           await _applyElapsed(
             minutes: _extractMinutes(text),
             newDay: saidNewDay && newDayCorroborated,
+            continuousInstant: _extractContinuousInstant(text, extractJsonBool),
           );
         }
         if (!skipTodayEval) await _maybeApplyTodayEval(text);
       } else if (!skipOwnsClock) {
-        await _applyElapsed(minutes: null, newDay: false);
+        await _applyElapsed(
+          minutes: StoryClock.failureDriftMinutes,
+          newDay: false,
+        );
       }
     } catch (e) {
       // Eval failed — deterministic drift so time never freezes (unless the
       // OOC skip already moved this turn's clock).
       if (!skipOwnsClock) {
-        await _applyElapsed(minutes: null, newDay: false);
+        await _applyElapsed(
+          minutes: StoryClock.failureDriftMinutes,
+          newDay: false,
+        );
       }
       debugPrint('[Realism:Time] Eval error, drifted to $displayClock: $e');
     }
 
     debugPrint(
-      '${timeOnly ? '[Clock:Standalone]' : '[Realism:Time]'} '
-      'Time: $displayClock $displayShortDate (Day $dayCount)',
+      '[Realism:Time] Time: $displayClock $displayShortDate (Day $dayCount)',
     );
   }
 }

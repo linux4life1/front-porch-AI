@@ -326,7 +326,6 @@ extension ChatServiceChatEntry on ChatService {
               storyStartDate: ext.storyStartDate,
               storyStartTime: ext.storyStartTime,
               passageOfTimeEnabled:
-                  ext.passageOfTimeEnabled &&
                   _storageService.realismSettings.passageOfTimeDefault,
             );
             _characterEmotion = ext.characterEmotion;
