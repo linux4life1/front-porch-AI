@@ -39,40 +39,140 @@ extension ChatServiceBodyWear on ChatService {
     String? speakerId;
     final active = _activeCharacter;
     if (active != null) speakerId = _getCharacterIdFromCard(active);
-    Map<String, int> speakerWear = const {};
+    final before = <String, Map<String, int>>{};
+    final paces = <String, BodyPace>{};
+    final on = <String, List<String>>{};
     for (final card in _groupCharacters) {
       if (_groupSpeakerSkips(card)) continue;
       final id = _getCharacterIdFromCard(card);
       final current = _getGroupNeeds(id);
-      final base = current.isNotEmpty
+      before[id] = current.isNotEmpty
           ? Map<String, int>.from(current)
           : NeedsSimulation.baselinesFromExtensions(card.frontPorchExtensions);
-      final wear = awakeWearDeltas(
-        minutes,
-        _paceOf(card),
-        needsThatAreOn(
-          NeedsSimulation.needKeys,
-          card.frontPorchExtensions?.needsOff ?? const [],
-        ),
+      paces[id] = _paceOf(card);
+      on[id] = needsThatAreOn(
+        NeedsSimulation.needKeys,
+        card.frontPorchExtensions?.needsOff ?? const [],
       );
-      if (wear.isEmpty) continue;
-      final next = Map<String, int>.from(base);
-      for (final entry in wear.entries) {
-        final cur = next[entry.key] ?? 80;
-        next[entry.key] = (cur + entry.value).clamp(0, 100);
-      }
-      _setGroupNeeds(id, next);
-      if (id == speakerId) speakerWear = wear;
     }
-    if (speakerId != null) {
+    final worn = wearPresentBodies(
+      before: before,
+      minutes: minutes,
+      paceOf: (id) => paces[id] ?? BodyPace.normal,
+      needsOn: (id) => on[id] ?? const [],
+    );
+    for (final entry in worn.entries) {
+      final prior = before[entry.key];
+      if (prior != null && _sameNeedBars(prior, entry.value)) continue;
+      _setGroupNeeds(entry.key, entry.value);
+    }
+    Map<String, int> speakerWear = const {};
+    if (speakerId != null && before.containsKey(speakerId)) {
+      speakerWear = awakeWearDeltas(
+        minutes,
+        paces[speakerId] ?? BodyPace.normal,
+        on[speakerId] ?? const [],
+      );
       _loadGroupRealismIntoScalars(speakerId);
       _needsSimulation.applyCatastropheIfNeeded(
         ignore: active?.frontPorchExtensions?.needsOff ?? const [],
       );
       _setGroupNeeds(speakerId, Map<String, int>.from(_needsSimulation.vector));
     }
+    _stampPresentWear(t, before, worn);
     _pendingRealismMetadata ??= {};
     _pendingRealismMetadata!['needs_time_wear'] = speakerWear;
+  }
+
+  bool _sameNeedBars(Map<String, int> a, Map<String, int> b) {
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (b[entry.key] != entry.value) return false;
+    }
+    return true;
+  }
+
+  /// Keep the pre-wear snapshot from the first pass of this reply. Continue
+  /// must not replace it, or a later regen would start from bars that were
+  /// already worn.
+  void _stampPresentWear(
+    _GenTurn t,
+    Map<String, Map<String, int>> before,
+    Map<String, Map<String, int>> worn,
+  ) {
+    final meta = Map<String, dynamic>.from(
+      t.streamTarget.activeMetadata ?? const {},
+    );
+    meta.putIfAbsent(kNeedsPreWearByMember, () {
+      return {
+        for (final entry in before.entries)
+          entry.key: Map<String, int>.from(entry.value),
+      };
+    });
+    meta[kNeedsWornByMember] = {
+      for (final entry in worn.entries)
+        entry.key: Map<String, int>.from(entry.value),
+    };
+    t.streamTarget.activeMetadata = meta;
+  }
+
+  /// Regen loads every present body from the pre-wear snapshot, then the
+  /// replayed reply wears them once.
+  void _restorePresentBodiesForReplay(ChatMessage msg) {
+    final before = presentBodiesFromMeta(
+      msg.activeMetadata?[kNeedsPreWearByMember],
+    );
+    if (before.isEmpty) return;
+    final worn = <String, Map<String, int>>{};
+    for (final id in before.keys) {
+      final live = _getGroupNeeds(id);
+      worn[id] = live.isNotEmpty
+          ? Map<String, int>.from(live)
+          : Map<String, int>.from(before[id]!);
+    }
+    final restored = presentBodiesForReplay(before: before, worn: worn);
+    for (final entry in restored.entries) {
+      _setGroupNeeds(entry.key, entry.value);
+    }
+  }
+
+  /// Delete gives back this beat's wear to everyone except the speaker.
+  /// The speaker is refunded from their chip, which already includes wear.
+  void _refundPresentWearExcept(ChatMessage deleted, String? speakerId) {
+    if (!_needsSimEnabled || _activeGroup == null) return;
+    final before = presentBodiesFromMeta(
+      deleted.activeMetadata?[kNeedsPreWearByMember],
+    );
+    final worn = presentBodiesFromMeta(
+      deleted.activeMetadata?[kNeedsWornByMember],
+    );
+    for (final id in before.keys) {
+      if (id == speakerId) continue;
+      final pre = before[id];
+      final post = worn[id];
+      if (pre == null || post == null) continue;
+      final live = _getGroupNeeds(id);
+      if (live.isEmpty) continue;
+      final next = Map<String, int>.from(live);
+      var changed = false;
+      for (final key in post.keys) {
+        final delta = post[key]! - (pre[key] ?? post[key]!);
+        if (delta == 0 || !next.containsKey(key)) continue;
+        next[key] = (next[key]! - delta).clamp(0, 100);
+        changed = true;
+      }
+      if (changed) _setGroupNeeds(id, next);
+    }
+  }
+
+  /// A swipe shows the bodies that beat left behind. The speaker is restored
+  /// from their own snapshot, which also includes the scene.
+  void _restoreWornBodiesExceptSpeaker(ChatMessage msg, String speakerId) {
+    final worn = presentBodiesFromMeta(msg.activeMetadata?[kNeedsWornByMember]);
+    for (final entry in worn.entries) {
+      if (entry.key == speakerId) continue;
+      _setGroupNeeds(entry.key, Map<String, int>.from(entry.value));
+    }
   }
 
   void _applyWearToLiveVector(Map<String, int> wear) {

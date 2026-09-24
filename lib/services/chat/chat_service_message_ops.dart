@@ -98,6 +98,10 @@ extension ChatServiceMessageOps on ChatService {
     // Natively restore the frozen runtime variables for the selected alternate
     // timeline — in groups, into the swiped speaker's own _groupRealism entry.
     _restoreRealismStateForSpeaker(msg);
+    final speaker = _resolveGroupSpeakerForMessage(msg);
+    if (_activeGroup != null && speaker != null) {
+      _restoreWornBodiesExceptSpeaker(msg, _getCharacterIdFromCard(speaker));
+    }
   }
 
   /// Abort in-flight post-gen evals so a mutation (regen/continue) can

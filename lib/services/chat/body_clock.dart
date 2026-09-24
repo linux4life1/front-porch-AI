@@ -118,3 +118,81 @@ String? timePassedLabel({
   if (rest == 0) return hours == 1 ? '1 hr' : '$hours hr';
   return '$hours hr $rest min';
 }
+
+/// Stamped on the reply before awake wear. Regen starts from this, not from
+/// the bars the beat already wore down.
+const String kNeedsPreWearByMember = 'needs_pre_wear_by_member';
+
+/// Where every present body landed after that beat's wear. A swipe shows this.
+const String kNeedsWornByMember = 'needs_worn_by_member';
+
+/// Wear [minutes] off each present body. [before] is the bars at the start
+/// of the beat. An empty wear (a few minutes, or Continue) leaves them.
+Map<String, Map<String, int>> wearPresentBodies({
+  required Map<String, Map<String, int>> before,
+  required int minutes,
+  required BodyPace Function(String id) paceOf,
+  required List<String> Function(String id) needsOn,
+}) {
+  final out = <String, Map<String, int>>{};
+  for (final entry in before.entries) {
+    final wear = awakeWearDeltas(
+      minutes,
+      paceOf(entry.key),
+      needsOn(entry.key),
+    );
+    final next = Map<String, int>.from(entry.value);
+    for (final change in wear.entries) {
+      final cur = next[change.key] ?? 80;
+      next[change.key] = (cur + change.value).clamp(0, 100);
+    }
+    out[entry.key] = next;
+  }
+  return out;
+}
+
+/// The bars a regen must load before it wears the beat again.
+///
+/// [worn] is where the bodies are now, after the beat being replaced.
+/// Starting the replay there wears them a second time (80 → 78 → 76).
+Map<String, Map<String, int>> presentBodiesForReplay({
+  required Map<String, Map<String, int>> before,
+  required Map<String, Map<String, int>> worn,
+}) {
+  // [worn] is the wrong base. Keep the parameter so a replay that feeds
+  // the live bars in is still forced to start from [before].
+  if (worn.isEmpty && before.isEmpty) return const {};
+  return {for (final id in before.keys) id: Map<String, int>.from(before[id]!)};
+}
+
+/// One beat, then a regen of that same beat. The second wear starts from
+/// [before], so a Normal half hour leaves hunger at 78, not 76.
+Map<String, Map<String, int>> replayPresentWear({
+  required Map<String, Map<String, int>> before,
+  required Map<String, Map<String, int>> worn,
+  required int minutes,
+  required BodyPace Function(String id) paceOf,
+  required List<String> Function(String id) needsOn,
+}) {
+  return wearPresentBodies(
+    before: presentBodiesForReplay(before: before, worn: worn),
+    minutes: minutes,
+    paceOf: paceOf,
+    needsOn: needsOn,
+  );
+}
+
+/// Read a stamped present-body map. Metadata comes back untyped.
+Map<String, Map<String, int>> presentBodiesFromMeta(Object? raw) {
+  if (raw is! Map) return const {};
+  final out = <String, Map<String, int>>{};
+  for (final entry in raw.entries) {
+    final body = entry.value;
+    if (body is! Map) continue;
+    out[entry.key.toString()] = {
+      for (final need in body.entries)
+        if (need.value is num) need.key.toString(): (need.value as num).toInt(),
+    };
+  }
+  return out;
+}

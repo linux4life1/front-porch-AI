@@ -282,11 +282,14 @@ extension ChatServiceRegenRevert on ChatService {
       }
 
       if (isGroupHostRegen) {
+        // Everyone who was present wore this beat. The speaker's scalars
+        // above are their pre-wear bars. The others live only in the
+        // snapshot — restoring just the speaker and then wearing again
+        // drops the rest a second time (80 → 78 → 76).
+        _restorePresentBodiesForReplay(lastMsg);
         // Persist the reverted baseline into the speaker's _groupRealism
-        // entry and drop the impersonation. Decay + re-eval for the regen
-        // turn happen inside _generateResponse via
-        // _evaluateRealismForUpcomingSpeaker (forced to this speaker above),
-        // exactly like the turn being replaced did.
+        // entry and drop the impersonation. The replayed reply wears
+        // everyone present once, inside _generateResponse.
         _saveScalarsIntoGroupRealism(regenSpeakerSid);
         _activeCharacter = preRegenActiveCharacter;
       }

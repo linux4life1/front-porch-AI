@@ -328,6 +328,7 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     Map<String, int> liveBefore, {
     String? groupSid,
   }) {
+    _refundPresentWearExcept(deleted, groupSid);
     if (!_needsSimEnabled || liveBefore.isEmpty) return;
     final raw = deleted.activeMetadata?['needs_deltas'];
     if (raw is! Map || raw.isEmpty) return;
