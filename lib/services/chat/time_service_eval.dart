@@ -177,7 +177,7 @@ extension TimeServiceEval on TimeService {
       debugPrint(
         '[Clock] running=false source=$clockGateSource '
         'perChat=false porchLife=${getPorchLifePassageOfTime?.call()} '
-        'reason=chat_settings_off',
+        'reason=porch_life_off',
       );
       return;
     }

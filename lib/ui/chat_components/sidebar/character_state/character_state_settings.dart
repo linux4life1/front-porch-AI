@@ -69,21 +69,6 @@ class CharacterStateSettings extends StatelessWidget {
         children: [
           _toggleRow(
             context,
-            icon: Icons.schedule,
-            label: 'Automatic Passage of Time',
-            caption:
-                'The story clock moves after each reply. This switch is '
-                'what actually runs the clock for this chat. Porch Life '
-                'Passage of Time is the default for new chats.',
-            value: chat.timeService.passageOfTimeEnabled,
-            accent: AppColors.porchAmberOf(context),
-            onChanged: chat.isGenerating
-                ? null
-                : (val) => chat.setPassageOfTimeEnabled(val),
-          ),
-          const SizedBox(height: 10),
-          _toggleRow(
-            context,
             icon: Icons.battery_std,
             label: 'Needs Simulation',
             caption:

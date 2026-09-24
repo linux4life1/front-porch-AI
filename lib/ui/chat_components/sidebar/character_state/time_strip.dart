@@ -45,7 +45,9 @@ class TimeStrip extends StatelessWidget {
     final day = chat.timeService.dayCount;
     final canNudge =
         StoryClock.isRunning(
-          passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
+          passageOfTimeEnabled: Provider.of<StorageService>(
+            context,
+          ).realismSettings.passageOfTimeDefault,
         ) &&
         !chat.isGenerating;
     final activeDot = AppColors.timeDayAccentOf(context);

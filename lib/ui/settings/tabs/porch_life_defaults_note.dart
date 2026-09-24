@@ -40,8 +40,10 @@ class PorchLifeDefaultsNote extends StatelessWidget {
       ),
       child: Text(
         'These are the defaults new chats start from. Any single chat can '
-        'overrule them from its sidebar — Chaos Mode, Needs, Objectives '
-        'and Growth Rings all have a switch there for that one story.',
+        'overrule most of them from its sidebar — Chaos Mode, Needs, '
+        'Objectives and Growth Rings all have a switch there for that one '
+        'story. Passage of Time is the exception: that row is the live '
+        'clock switch for every open chat.',
         style: TextStyle(
           fontSize: 12.5,
           color: AppColors.textSecondary(context),

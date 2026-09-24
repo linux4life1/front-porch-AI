@@ -21,8 +21,9 @@
 // else queued in the page's big Save button.
 //
 // Scope note (mirrors the desktop doc comment): this card holds global Porch
-// Life settings. The closing note names the few defaults a chat can overrule.
-// Web Search is intentionally global-only and has no ChatTools/sidebar toggle.
+// Life settings. The closing note names the defaults a chat can overrule —
+// except Passage of Time, which is the live clock switch. Web Search is
+// intentionally global-only and has no ChatTools/sidebar toggle.
 
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -451,7 +452,7 @@ export function PorchLifeSettings() {
           icon="⏰"
           label="Passage of Time"
           need="alone"
-          blurb={'The story keeps its own clock — dawn to morning to evening to night, day after day. This is the default for new chats. Each open chat has its own switch in Character State — that is what runs the clock. The AI judges how long each exchange actually took, so a shared meal moves the clock further than a passing hello. A normal send always moves at least a minute or two.'}
+          blurb={'The story keeps its own clock — dawn to morning to evening to night, day after day. This switch is what runs the clock in every open chat. Off pauses them immediately; on starts them again. The AI judges how long each exchange actually took, so a shared meal moves the clock further than a passing hello. A normal send always moves at least a minute or two.'}
           value={timeOn}
           onChange={(v) => set('passageOfTimeDefault', v)}
         />
@@ -668,7 +669,7 @@ export function PorchLifeSettings() {
       {error && <p className="error pl-error">{error}</p>}
 
       <div className="pl-note">
-        These are the defaults new chats start from. Any single chat can overrule them from its sidebar — Chaos Mode, Needs, Objectives and Growth Rings all have a switch there for that one story.
+        These are the defaults new chats start from. Any single chat can overrule most of them from its sidebar — Chaos Mode, Needs, Objectives and Growth Rings all have a switch there for that one story. Passage of Time is the exception: that row is the live clock switch for every open chat.
       </div>
       {/* After Dark — the approved sketch gives the 18+ feature its own group,
           "shown only when 18+ themes are enabled": absent, not greyed out, for

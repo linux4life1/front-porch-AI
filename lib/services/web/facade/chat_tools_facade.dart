@@ -61,7 +61,7 @@ class ChatToolsFacade {
     final rs = _storage.realismSettings;
     final mem = _storage.memorySettings;
     final clockRunning = StoryClock.isRunning(
-      passageOfTimeEnabled: time.passageOfTimeEnabled,
+      passageOfTimeEnabled: rs.passageOfTimeDefault,
     );
     final weather = _chat.currentWeather;
     final focused = _focusedParticipant(participantId);
@@ -181,7 +181,7 @@ class ChatToolsFacade {
         'timeOfDay': time.timeOfDay,
         'dayCount': time.dayCount,
         'weekday': time.narrativeWeekday,
-        'passageEnabled': time.passageOfTimeEnabled,
+        'passageEnabled': rs.passageOfTimeDefault,
         'clockRunning': clockRunning,
         'weather': weather == null
             ? null

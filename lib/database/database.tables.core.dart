@@ -124,10 +124,10 @@ class Sessions extends Table {
   BoolColumn get passageOfTimeEnabled => boolean().withDefault(
     const Constant(true),
   )(); // sub-toggle for automatic time advancement
-  /// v53 — one-shot: leftover `passage_of_time_enabled` from the old
-  /// card-AND / auto-seed cannot be told from a user-set false. First
-  /// hydrate after this column exists re-derives (card AND Porch Life
-  /// default) and sets this true so a later chat-settings Off sticks.
+  /// v53 — leftover `passage_of_time_enabled` is storage only. Porch
+  /// Life `passageOfTimeDefault` is the live gate. First hydrate after
+  /// this column exists logs the leftover once and sets this true so
+  /// we stop rewriting it as if it were a gate.
   BoolColumn get passageOfTimeGateMigrated =>
       boolean().withDefault(const Constant(false))();
   IntColumn get arousalLevel =>

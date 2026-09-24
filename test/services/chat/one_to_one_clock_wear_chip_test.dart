@@ -410,28 +410,27 @@ void main() {
     },
   );
 
-  test('1:1 card PoT OFF seeds the chat-settings toggle off', () async {
+  test('1:1 card PoT OFF is ignored when Porch Life is ON', () async {
     await boot(explicitChatToggles: false, cardPot: false, globalPot: true);
+    expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
     expect(
       chat!.timeService.passageOfTimeEnabled,
-      isFalse,
-      reason:
-          'new-chat seed is card AND Porch Life. Card off means the '
-          'chat-settings toggle starts off.',
+      isTrue,
+      reason: 'Porch Life is the only clock gate. Card off is not a veto.',
     );
     final before = chat!.timeService.clock;
 
     await chat!.sendMessage('How are you?');
     await drainTurn();
 
-    expect(chat!.timeService.clock, before);
-    expect(lastBot().activeMetadata?['time_passed'], isNull);
+    expect(chat!.timeService.clock.difference(before).inMinutes, 30);
+    expect(lastBot().activeMetadata?['time_passed'], '30 min');
   });
 
   test(
     '1:1 old-schema leftover PoT false + lived-in clock migrates, sends, and regens',
     () async {
-      await boot(explicitChatToggles: false);
+      await boot(explicitChatToggles: false, cardPot: false);
       expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
       await chat!.flushPendingSaves();
 
@@ -536,11 +535,12 @@ void main() {
         reason: 'one-shot migrate must set the flag',
       );
       expect(
-        row.passageOfTimeEnabled,
+        chat!.timeService.passageOfTimeEnabled,
         isTrue,
-        reason: 'legacy auto-seed false re-derives card AND Porch Life',
+        reason:
+            'Porch Life ON runs the clock. Leftover per-chat false and '
+            'card OFF are not a gate.',
       );
-      expect(chat!.timeService.passageOfTimeEnabled, isTrue);
       expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
 
       // Regen the existing last reply first — no story_clock_before, and
@@ -586,12 +586,24 @@ void main() {
             'or roll the sidebar back to 9:00 AM',
       );
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
+
+      await storage!.realismSettings.setPassageOfTimeDefault(false);
+      expect(chat!.timeService.passageOfTimeEnabled, isFalse);
+      final frozen = chat!.timeService.clock;
+      await chat!.sendMessage('Still there?');
+      await drainTurn();
+      expect(
+        chat!.timeService.clock,
+        frozen,
+        reason: 'Porch Life OFF freezes even with leftover per-chat ignored',
+      );
+      expect(lastBot().activeMetadata?['time_passed'], isNull);
     },
   );
 
-  test('1:1 chat-settings PoT OFF means no advance', () async {
+  test('1:1 Porch Life OFF means no advance', () async {
     await boot();
-    await chat!.setPassageOfTimeEnabled(false);
+    await storage!.realismSettings.setPassageOfTimeDefault(false);
     expect(chat!.timeService.passageOfTimeEnabled, isFalse);
     final before = chat!.timeService.clock;
 
@@ -602,9 +614,9 @@ void main() {
     expect(lastBot().activeMetadata?['time_passed'], isNull);
   });
 
-  test('1:1 chat-settings PoT OFF then ON flips live', () async {
+  test('1:1 Porch Life OFF then ON flips live on an open chat', () async {
     await boot();
-    await chat!.setPassageOfTimeEnabled(false);
+    await storage!.realismSettings.setPassageOfTimeDefault(false);
     expect(chat!.timeService.passageOfTimeEnabled, isFalse);
     final origin = chat!.timeService.clock;
 
@@ -613,7 +625,7 @@ void main() {
     expect(chat!.timeService.clock, origin);
     expect(lastBot().activeMetadata?['time_passed'], isNull);
 
-    await chat!.setPassageOfTimeEnabled(true);
+    await storage!.realismSettings.setPassageOfTimeDefault(true);
     expect(chat!.timeService.passageOfTimeEnabled, isTrue);
 
     await chat!.sendMessage('Still there?');

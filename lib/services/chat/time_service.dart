@@ -146,7 +146,8 @@ class TimeService {
   /// the held today sentence here — not in a getter.
   final FutureOr<void> Function()? onStoryDayChanged;
 
-  /// Optional Porch Life default, for [Clock] logs only. Not a gate.
+  /// Live Porch Life Passage of Time. When set, [passageOfTimeEnabled]
+  /// follows this — not a seeded per-chat copy.
   final bool Function()? getPorchLifePassageOfTime;
 
   /// When true, the scene-time eval (and one-shot text) asks for
@@ -164,7 +165,7 @@ class TimeService {
   );
   DateTime _startDate = StoryClock.todayAnchor();
   bool _passageOfTimeEnabled = true;
-  String _clockGateSource = 'chat_settings';
+  String _clockGateSource = 'porch_life';
   int _turnsSinceClockMoved = 0; // stall backstop counter (not a pacing gate)
   bool _canonicalClockWasSynthesised = false;
   // One clock authority per turn: set when detectOocTimeSkip moves the clock,
@@ -323,7 +324,8 @@ class TimeService {
   /// See [StoryClock.morningDayCountFor].
   int get morningAnchoredDayCount =>
       StoryClock.morningDayCountFor(_clock, _startDate);
-  bool get passageOfTimeEnabled => _passageOfTimeEnabled;
+  bool get passageOfTimeEnabled =>
+      getPorchLifePassageOfTime?.call() ?? _passageOfTimeEnabled;
   String get clockGateSource => _clockGateSource;
 
   void markClockGateSource(String source) => _clockGateSource = source;
@@ -368,7 +370,9 @@ class TimeService {
 
   void setPassageOfTimeEnabled(bool enabled) {
     _passageOfTimeEnabled = enabled;
-    _clockGateSource = 'chat_settings';
+    if (getPorchLifePassageOfTime == null) {
+      _clockGateSource = 'porch_life';
+    }
   }
 
   void resetForFreshChat() {

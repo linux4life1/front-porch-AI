@@ -45,9 +45,10 @@ class RealismSettings with SettingsBase {
   bool _passageOfTimeDefault = true;
 
   /// Global Needs switch. Defaults TRUE and AND-gates the card's own setting
-  /// (same shape as [_passageOfTimeDefault], not the NSFW OR-override): with
-  /// it on nothing changes, with it off Needs stops for new chats regardless
-  /// of what a card asks for. Added 2026-08-07 — Needs had no global switch at
+  /// (not the NSFW OR-override): with it on nothing changes, with it off
+  /// Needs stops for new chats regardless of what a card asks for. Passage
+  /// of Time is a different shape — [_passageOfTimeDefault] is the live
+  /// clock gate, not a card AND. Added 2026-08-07 — Needs had no global switch at
   /// all, so the Porch Life tab had nothing to show.
   bool _needsSimDefault = true;
 

@@ -45,7 +45,7 @@ afterEach(() => {
 describe('Porch Life Passage of Time', () => {
   it('is the live clock switch and does not nest a standalone switch', () => {
     expect(container.textContent).toContain('Passage of Time');
-    expect(container.textContent).toContain('default for new chats');
+    expect(container.textContent).toContain('every open chat');
     expect(container.textContent).not.toContain('Automatic Passage of Time');
     expect(container.textContent).not.toContain(
       'Keep the clock running without the engine',

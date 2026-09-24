@@ -296,7 +296,7 @@ You can switch the engine (or individual parts of it) on and off globally in **S
 
 **Settings → Porch Life** is the defaults board for Realism, Needs, the clock, Journal, Pockets, Objectives, Chaos, Growth, Afterglow, and that family. It is not Settings → General (that's still theme, system prompt, 18+ themes). Clock In is on the character **Details** tab. AFK and RAG live in the chat sidebar.
 
-The important bit since 1.3: **Realism Engine is no longer the master key.** Journal, the story clock, Chaos / Chance Time, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults; an open chat can still overrule them in the sidebar.
+The important bit since 1.3: **Realism Engine is no longer the master key.** Journal, the story clock, Chaos / Chance Time, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults; an open chat can still overrule most of them in the sidebar. **Passage of Time** is the exception: Settings → Porch Life is the only live clock switch.
 
 Other rows on that tab, in plain English:
 
@@ -321,7 +321,7 @@ Dummy version is on the [FAQ](faq.md#how-does-time-work). This is the same facts
 
 The story clock is **chat-scoped** (one clock for a group). It is **not** allowed to follow the real calendar — Monday in the story stays Monday if you reopen the chat on Saturday.
 
-**On:** Settings → Porch Life → Passage of Time is the default for new chats. Open a chat and use Character State → **tune** → **Automatic Passage of Time** to run or pause that chat's clock. Engine on or off does not matter.
+**On:** Settings → Porch Life → Passage of Time. That row is the only live clock switch. On means every open chat's clock runs. Off pauses them immediately. Engine on or off does not matter.
 
 **After each reply** (not Continue): scene-time eval → `minutes_elapsed` → clamp **180**. Bare 0, a negative, garbage, or a failed eval floors to **2 minutes** unless the scene is an explicit continuous instant. **12** stalled same-moment turns → snap to next period (dawn 6:00, morning 9:00, late morning 11:30, afternoon 2:30, evening 6:30, night 10:30). Regen/swipe restore `story_clock_before` then eval again.
 

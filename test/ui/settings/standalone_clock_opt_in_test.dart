@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Passage of Time is the single clock driver. The Porch Life row is the
-// default for new chats; the leftover standalone sub-switch is gone. The
+// Passage of Time is the single live clock driver. The Porch Life row
+// runs every open chat; the leftover standalone sub-switch is gone. The
 // standaloneClockEnabled pref is still readable for old PWAs.
 
 import 'package:flutter/material.dart';
@@ -58,7 +58,7 @@ void main() {
   }
 
   testWidgets(
-    'Porch Life Passage of Time is the new-chat default; standalone switch is gone',
+    'Porch Life Passage of Time is the live clock switch; standalone is gone',
     (tester) async {
       final (storage, _) = await pumpTab(tester);
 
@@ -74,14 +74,14 @@ void main() {
       await tester.scrollUntilVisible(timeRow, 300, scrollable: scrollable);
       expect(timeRow, findsOneWidget);
       expect(
-        find.textContaining('default for new chats'),
-        findsOneWidget,
-        reason: 'Porch Life seeds new chats; chat settings run the clock',
+        find.textContaining('every open chat'),
+        findsWidgets,
+        reason: 'Porch Life is the only live clock switch',
       );
       expect(
         find.textContaining('Automatic Passage of Time'),
         findsNothing,
-        reason: 'the live switch lives on Character State, not this tab',
+        reason: 'chat settings must not offer a second clock switch',
       );
       expect(
         find.text(kRetiredSubLabel),

@@ -124,7 +124,7 @@ void main() {
     expect(find.byIcon(Icons.chevron_left), findsOneWidget);
   });
 
-  testWidgets('PoT off → TimeStrip chevrons are hidden', (tester) async {
+  testWidgets('Porch Life off → TimeStrip chevrons are hidden', (tester) async {
     SharedPreferences.setMockInitialValues({'passage_of_time_default': false});
     final storage = StorageService();
     addTearDown(storage.dispose);
@@ -132,8 +132,7 @@ void main() {
 
     final chat = FakeChatService(realismEnabled: false, needsSimEnabled: false);
     addTearDown(chat.dispose);
-    // Chevrons follow the same field _clockRunning reads — not Porch Life.
-    chat.timeService.setPassageOfTimeEnabled(false);
+    // Chevrons follow Porch Life live — leftover per-chat is not a gate.
 
     await tester.pumpWidget(
       MultiProvider(
@@ -167,14 +166,14 @@ void main() {
     );
   });
 
-  test('web tools snapshot: PoT off is a paused clock', () async {
+  test('web tools snapshot: Porch Life off is a paused clock', () async {
     SharedPreferences.setMockInitialValues({});
     final storage = StorageService();
     addTearDown(storage.dispose);
     await storage.initialized;
+    await storage.realismSettings.setPassageOfTimeDefault(false);
     final fake = FakeChatService(realismEnabled: true, needsSimEnabled: true);
     addTearDown(fake.dispose);
-    fake.timeService.setPassageOfTimeEnabled(false);
     final facade = ChatToolsFacade(fake, storage, null);
     final time = facade.state()['time'] as Map;
     expect(time['clockRunning'], isFalse);

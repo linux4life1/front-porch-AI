@@ -60,7 +60,7 @@ extension TimeServiceLoad on TimeService {
     _todayLineDayCount = null;
     if (passageOfTimeEnabled != null) {
       _passageOfTimeEnabled = passageOfTimeEnabled;
-      _clockGateSource = 'chat_settings';
+      _clockGateSource = 'porch_life';
     }
   }
 

@@ -40,8 +40,9 @@ import 'porch_life_mcp_web_card.dart';
 /// it; the chips on each row report that finding rather than a guess.
 ///
 /// Scope note: this tab holds global Porch Life settings. The closing card
-/// names the defaults a single chat can overrule. Web Search is intentionally
-/// global-only and has no sidebar override.
+/// names the defaults a single chat can overrule — except Passage of Time,
+/// which is the live clock switch. Web Search is intentionally global-only
+/// and has no sidebar override.
 ///
 /// Chaos Mode joined the tab on 2026-08-08 (maintainer: "Chaos mode should have
 /// a global toggle in Porch life with no hard dep"). It was the last feature the
@@ -72,8 +73,7 @@ class PorchLifeTab extends StatelessWidget {
 
     // The engine gates everything in "needs Realism" rows; passage of time
     // additionally gates weather and dreams, and weather gates the °F display.
-    // This row is the default for new chats. The live clock switch is
-    // Character State → Automatic Passage of Time.
+    // Porch Life Passage of Time is the only live clock gate.
     final engineOn = storage.realismSettings.realismDefault;
     final timeOn = storage.realismSettings.passageOfTimeDefault;
     final weatherOn = storage.realismSettings.weatherEnabled;
@@ -109,12 +109,12 @@ class PorchLifeTab extends StatelessWidget {
               need: FeatureNeed.alone,
               blurb:
                   'The story keeps its own clock — dawn to morning to evening '
-                  'to night, day after day. This is the default for new chats. '
-                  'Each open chat has its own switch under Character State → '
-                  'tune — that is what runs the clock. The AI judges how long '
-                  'each exchange actually took, so a shared meal moves the '
-                  'clock further than a passing hello. A normal send always '
-                  'moves at least a minute or two.',
+                  'to night, day after day. This switch is what runs the clock '
+                  'in every open chat. Off pauses them immediately; on starts '
+                  'them again. The AI judges how long each exchange actually '
+                  'took, so a shared meal moves the clock further than a '
+                  'passing hello. A normal send always moves at least a '
+                  'minute or two.',
               value: timeOn,
               onChanged: storage.realismSettings.setPassageOfTimeDefault,
             ),

@@ -300,8 +300,8 @@ extension ChatServiceGenerationPostGen on ChatService {
     }
     if (!_clockRunning) {
       debugPrint(
-        '[Clock] return reason=chat_settings_off '
-        'source=${_timeService.clockGateSource} porchLife=$porch',
+        '[Clock] return reason=porch_life_off '
+        'source=porch_life porchLife=$porch',
       );
       return;
     }

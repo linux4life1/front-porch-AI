@@ -164,34 +164,28 @@ extension ChatServiceSessionHydrate on ChatService {
       storyClock: s.storyClock,
       storyStartDate: s.storyStartDate,
     );
-    // Leftover per-chat false from the old card-AND / auto-seed cannot be
-    // told from a user Off — there was no chat-settings toggle. Re-derive
-    // once (card AND Porch Life default), then the new toggle owns the field.
+    // Leftover per-chat is not a gate. Porch Life is live. One-shot flag
+    // so we log the leftover once and stop rewriting it as if it mattered.
     if (!s.passageOfTimeGateMigrated) {
       final leftover = s.passageOfTimeEnabled;
-      final derived = _seededPassageOfTime;
-      _timeService.setPassageOfTimeEnabled(derived);
+      final porch = _storageService.realismSettings.passageOfTimeDefault;
       _timeService.markClockGateSource(
-        'migrate leftover=$leftover derived=$derived '
-        'card=${_activeGroup != null ? true : (_activeCharacter?.frontPorchExtensions?.passageOfTimeEnabled ?? true)} '
-        'porchLife=${_storageService.realismSettings.passageOfTimeDefault}',
+        'porch_life leftover=$leftover ignored porchLife=$porch',
       );
       debugPrint(
-        '[Clock] migrate leftover=$leftover derived=$derived '
+        '[Clock] migrate leftover=$leftover ignored '
         'source=${_timeService.clockGateSource}',
       );
       unawaited(
         _db.patchSession(
           SessionsCompanion(
             id: drift.Value(s.id),
-            passageOfTimeEnabled: drift.Value(derived),
             passageOfTimeGateMigrated: const drift.Value(true),
           ),
         ),
       );
     } else {
-      _timeService.setPassageOfTimeEnabled(s.passageOfTimeEnabled);
-      _timeService.markClockGateSource('chat_settings');
+      _timeService.markClockGateSource('porch_life');
     }
     // Freeze a synthesised story date into the row the FIRST time we invent it.
     // The v38 ladder note promised legacy rows would "synthesize on first

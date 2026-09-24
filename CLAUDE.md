@@ -206,10 +206,9 @@ finds the kit still there.
 the global off must take effect on the next turn.
 
 **Clock.** Passage of time needs a **model call**, not the Realism Engine.
-`_clockRunning` is the per-chat Automatic Passage of Time toggle
-(`TimeService.passageOfTimeEnabled`) — the same field chat settings show
-and write. New chats and leftover unmigrated rows seed
-`card AND Porch Life default`. Regen/swipe rewind from
+`_clockRunning` is Porch Life `passageOfTimeDefault` **live** — the same
+row Settings → Porch Life shows. Card veto and leftover per-chat
+`passageOfTimeEnabled` are not a gate. Regen/swipe rewind from
 `story_clock_before`. Continue does not tick. One-shot must not apply
 minutes (would double).
 
