@@ -23,6 +23,8 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show kNeedsUnaffectedMeta;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/facade/chat_session_facade.dart';
@@ -191,6 +193,7 @@ class ChatFacade {
     final rs = md['realism_state'];
     if (rs is Map && rs['needs'] != null) out['needsReprocessable'] = true;
     if (md['needs_deltas_pre_reprocess'] is Map) out['needsRevertable'] = true;
+    if (md[kNeedsUnaffectedMeta] == true) out['needsUnaffected'] = true;
     final search = md['search_receipt'];
     if (search is Map) {
       final q = (search['query'] as String?)?.trim() ?? '';

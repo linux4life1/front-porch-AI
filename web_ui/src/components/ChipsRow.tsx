@@ -55,6 +55,9 @@ export function ChipsRow({
     if (!delta) continue;
     needs.push({ key: `need-${k}`, label: `${NEED_LABELS[k] ?? k} ${signed(delta)}`, cls: delta > 0 ? 'up' : 'down', reason });
   }
+  if (chips.needsUnaffected && needs.length === 0) {
+    needs.push({ key: 'unaffected', label: 'No needs affected', cls: 'time' });
+  }
 
   const showReprocess = isLast && !busy && !!chips.needsReprocessable;
   const showRevert = isLast && !busy && !!chips.needsRevertable;

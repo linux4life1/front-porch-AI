@@ -45,6 +45,7 @@ extension _BubbleRealism on _MessageBubbleState {
     final toolName = (toolReceipt?['tool'] as String?)?.trim() ?? '';
     final toolOk = toolReceipt?['ok'] == true;
     final needsDeltas = metadata['needs_deltas'] as Map<String, dynamic>?;
+    final needsUnaffected = metadata[kNeedsUnaffectedMeta] == true;
 
     // Pockets & Wardrobe receipts, read BEFORE the early return below: Pockets
     // answers to its own switch and runs with the Realism Engine off, so a
@@ -68,6 +69,7 @@ extension _BubbleRealism on _MessageBubbleState {
     final verifReason = (verifData?['reason'] as String? ?? '').trim();
 
     if ((needsDeltas == null || needsDeltas.isEmpty) &&
+        !needsUnaffected &&
         bondDelta == 0 &&
         emotionLabel.isEmpty &&
         arousalDelta == 0 &&
@@ -192,6 +194,27 @@ extension _BubbleRealism on _MessageBubbleState {
 
         needsChipList.add(maybeTooltip(chip, reason));
       });
+    }
+
+    if (needsUnaffected && needsChipList.isEmpty) {
+      final amber = AppColors.porchAmberOf(context);
+      needsChipList.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule, size: 11, color: amber),
+            const SizedBox(width: 4),
+            Text(
+              kNeedsUnaffectedLabel,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: amber,
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     if (bondDelta != 0) {

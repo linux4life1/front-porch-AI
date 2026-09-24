@@ -428,9 +428,23 @@ extension ChatServiceGroupRealismHelpers on ChatService {
             : passed;
       }
     }
-    if (needsDeltas.isEmpty) return;
-    _messages.last.activeMetadata ??= {};
-    _messages.last.activeMetadata!['needs_deltas'] = needsDeltas;
+    final meta = Map<String, dynamic>.from(
+      _messages.last.activeMetadata ?? const {},
+    );
+    if (needsDeltas.isEmpty) {
+      // Write the swipe slot. A short no-action turn must still prove
+      // Needs ran — bars stay put, this chip is the receipt.
+      meta[kNeedsUnaffectedMeta] = true;
+      meta.remove('needs_deltas');
+      _messages.last.activeMetadata = meta;
+      debugPrint(
+        '[Realism:Needs] Chip: no needs affected for ${_messages.last.sender}',
+      );
+      return;
+    }
+    meta.remove(kNeedsUnaffectedMeta);
+    meta['needs_deltas'] = needsDeltas;
+    _messages.last.activeMetadata = meta;
     debugPrint(
       '[Realism:Needs] Chip: ${needsDeltas.length} need delta(s) attached for '
       '${_messages.last.sender}',

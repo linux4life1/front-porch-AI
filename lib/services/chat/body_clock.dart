@@ -144,6 +144,12 @@ String? timePassedLabel({
   return '$hours hr $rest min';
 }
 
+/// Short no-action turn: Needs ran, bars did not move. Shown as its own chip.
+const String kNeedsUnaffectedMeta = 'needs_unaffected';
+
+/// Copy on the chip. Keep in lockstep with `web_ui` ChipsRow.
+const String kNeedsUnaffectedLabel = 'No needs affected';
+
 /// Stamped on the reply before awake wear. Regen starts from this, not from
 /// the bars the beat already wore down.
 const String kNeedsPreWearByMember = 'needs_pre_wear_by_member';

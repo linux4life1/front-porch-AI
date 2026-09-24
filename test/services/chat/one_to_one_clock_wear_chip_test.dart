@@ -16,6 +16,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show kNeedsUnaffectedMeta;
 import 'package:front_porch_ai/services/services.dart';
 
 void _setupPathProviderMock() {
@@ -206,6 +208,13 @@ void main() {
         '30 min',
         reason: 'live fail: no time_passed chip on a normal 1:1 send',
       );
+      expect(
+        lastBot().activeMetadata?[kNeedsUnaffectedMeta],
+        isTrue,
+        reason:
+            'short no-action turn must stamp No needs affected so '
+            'the UI proves Needs ran without moving bars',
+      );
     },
   );
 
@@ -236,6 +245,7 @@ void main() {
 
       expect(bars(), _carmenNeeds);
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
+      expect(lastBot().activeMetadata?[kNeedsUnaffectedMeta], isTrue);
     },
   );
 
@@ -252,6 +262,11 @@ void main() {
       lastBot().activeMetadata?['time_passed'],
       isNull,
       reason: 'design: no duration chip when the clock did not move',
+    );
+    expect(
+      lastBot().activeMetadata?[kNeedsUnaffectedMeta],
+      isTrue,
+      reason: 'no-action still proves Needs ran when time did not move',
     );
   });
 
@@ -295,33 +310,40 @@ void main() {
     },
   );
 
-  test('1:1 send and regen stamp time when Realism is off and the clock still runs', () async {
-    await boot(globalRealism: false, cardRealism: false, standaloneClock: true);
-    expect(chat!.realismEnabled, isFalse);
-    expect(chat!.needsSimEnabled, isTrue);
-    expect(chat!.timeService.passageOfTimeEnabled, isTrue);
-    expect(bars(), _carmenNeeds);
+  test(
+    '1:1 send and regen stamp time when Realism is off and the clock still runs',
+    () async {
+      await boot(
+        globalRealism: false,
+        cardRealism: false,
+        standaloneClock: true,
+      );
+      expect(chat!.realismEnabled, isFalse);
+      expect(chat!.needsSimEnabled, isTrue);
+      expect(chat!.timeService.passageOfTimeEnabled, isTrue);
+      expect(bars(), _carmenNeeds);
 
-    await chat!.sendMessage('How are you?');
-    await drainTurn();
-    expect(
-      bars(),
-      _carmenNeeds,
-      reason:
-          'Needs stay put when the scene eval is zero — the '
-          'clock chip is not a body tax',
-    );
-    expect(
-      lastBot().activeMetadata?['time_passed'],
-      '30 min',
-      reason:
-          'standalone clock + PoT still stamps the chip when '
-          'the Realism engine is off',
-    );
+      await chat!.sendMessage('How are you?');
+      await drainTurn();
+      expect(
+        bars(),
+        _carmenNeeds,
+        reason:
+            'Needs stay put when the scene eval is zero — the '
+            'clock chip is not a body tax',
+      );
+      expect(
+        lastBot().activeMetadata?['time_passed'],
+        '30 min',
+        reason:
+            'standalone clock + PoT still stamps the chip when '
+            'the Realism engine is off',
+      );
 
-    await chat!.regenerateLastMessage();
-    await drainTurn();
-    expect(bars(), _carmenNeeds);
-    expect(lastBot().activeMetadata?['time_passed'], '30 min');
-  });
+      await chat!.regenerateLastMessage();
+      await drainTurn();
+      expect(bars(), _carmenNeeds);
+      expect(lastBot().activeMetadata?['time_passed'], '30 min');
+    },
+  );
 }
