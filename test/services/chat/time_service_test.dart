@@ -42,7 +42,6 @@ void seedFixed(TimeService t, {String timeOfDay = 'evening'}) =>
     t.seedFromV2OrExt(
       dayCount: 3,
       timeOfDay: timeOfDay,
-      passageOfTimeEnabled: true,
       storyStartDate: '2026-06-30', // a Tuesday
     );
 
@@ -88,7 +87,6 @@ void main() {
       t.seedFromV2OrExt(
         dayCount: 1,
         timeOfDay: 'night',
-        passageOfTimeEnabled: true,
         storyStartDate: '1887-06-01',
         storyStartTime: '23:47',
       );
@@ -100,11 +98,7 @@ void main() {
 
     test('legacy-only seed anchors on today (Day N = today)', () {
       final t = makeService();
-      t.seedFromV2OrExt(
-        dayCount: 5,
-        timeOfDay: 'morning',
-        passageOfTimeEnabled: true,
-      );
+      t.seedFromV2OrExt(dayCount: 5, timeOfDay: 'morning');
       expect(t.dayCount, 5);
       expect(StoryClock.dateOnly(t.clock), StoryClock.todayAnchor());
     });
@@ -115,7 +109,6 @@ void main() {
         timeOfDay: 'morning', // stale derived value — must lose
         dayCount: 1,
         startDayOfWeek: 1,
-        passageOfTimeEnabled: true,
         storyClock: '2026-07-02T21:40:00.000Z',
         storyStartDate: '2026-06-30',
       );
@@ -127,12 +120,7 @@ void main() {
     test('legacy row synthesis preserves the displayed weekday', () {
       final t = makeService();
       // startDayOfWeek=1 (Mon), Day 5 → the old modulo-7 math showed Friday.
-      t.loadTimeScalars(
-        timeOfDay: 'morning',
-        dayCount: 5,
-        startDayOfWeek: 1,
-        passageOfTimeEnabled: true,
-      );
+      t.loadTimeScalars(timeOfDay: 'morning', dayCount: 5, startDayOfWeek: 1);
       expect(t.narrativeWeekday, 'Friday');
       expect(t.dayCount, 5);
       expect(t.timeOfDay, 'morning');

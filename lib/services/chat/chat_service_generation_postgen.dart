@@ -32,6 +32,9 @@ extension ChatServiceGenerationPostGen on ChatService {
     // [openWorkerLane] or finalize deadlocks waiting on itself.
     _llmProvider?.endMouthSpeech();
     _isGenerating = false;
+    // Leftover abort from a prior yield/regen hold must not skip THIS
+    // turn's clock. A user abort during this finalize re-sets the flags.
+    _clearPostGenAbortFlags();
     // Settling starts the instant the last token lands — the finalization
     // below (sanitizer, lorebook, _saveChat, post-gen checks, chip attach)
     // is still the turn; the old late raise let a new turn interleave
@@ -204,7 +207,13 @@ extension ChatServiceGenerationPostGen on ChatService {
         // to 5s in `_yieldSettlingTurn` — without this gate the aborted
         // wear lands, then replay wears again.
         final clockBeforeIso = _timeService.storyClockIso;
-        if (!_postGenAbortRequested) {
+        if (_postGenAbortRequested) {
+          debugPrint(
+            '[Clock] running=$_clockRunning porchLife='
+            '${_storageService.realismSettings.passageOfTimeDefault} '
+            'reason=abort',
+          );
+        } else {
           await _maybeAdvanceStoryClockAfterReply(t);
           if (_postGenAbortRequested &&
               _timeService.storyClockIso != clockBeforeIso) {
@@ -267,5 +276,56 @@ extension ChatServiceGenerationPostGen on ChatService {
     if (t.originalModelName != null && _llmProvider != null) {
       _llmProvider!.openRouterService.configure(modelName: t.originalModelName);
     }
+  }
+
+  /// Post-reply clock decide. Announced time was already in the prompt;
+  /// this sets what the NEXT speaker is told. Continue is the same beat.
+  /// Scene Guests carry no Realism/Needs but the clock is chat-scoped, so
+  /// they tick time-only (no Today rewrite).
+  Future<void> _maybeAdvanceStoryClockAfterReply(_GenTurn t) async {
+    final porch = _storageService.realismSettings.passageOfTimeDefault;
+    debugPrint(
+      '[Clock] running=$_clockRunning porchLife=$porch '
+      'mode=${t.mode.name} abort=$_postGenAbortRequested',
+    );
+    if (t.mode == GenerationMode.continue_) {
+      debugPrint('[Clock] return reason=continue porchLife=$porch');
+      return;
+    }
+    if (!_clockRunning) {
+      debugPrint('[Clock] return reason=porch_life_off porchLife=$porch');
+      return;
+    }
+    final before = _timeService.clock;
+    final msg = t.streamTarget;
+    if (!msg.isUser) {
+      // Stamp the LIVE swipe map. Writing `metadata` is a no-op for
+      // regen when swipeMetadata[i] is already set — activeMetadata
+      // returns that slot, not the legacy field.
+      final existing = msg.activeMetadata;
+      if (existing != null) {
+        existing.putIfAbsent(
+          'story_clock_before',
+          () => _timeService.storyClockIso,
+        );
+      } else {
+        msg.activeMetadata = {'story_clock_before': _timeService.storyClockIso};
+      }
+    }
+    await _realismEvals.evaluatePhysicalStateCall(
+      timeOnly: true,
+      skipTodayEval: _isLiteTurn(t),
+    );
+    if (_isLiteTurn(t)) {
+      final named = clockNamedInReply(msg.text, _timeService.clock);
+      if (named != null) await _timeService.applyReconciledClock(named);
+    }
+    await _maybeMintEpisodeCrumbs(before, _timeService.clock);
+    debugPrint(
+      '[Clock] running=$_clockRunning porchLife=$porch '
+      'minutes=${_timeService.clock.difference(before).inMinutes} '
+      'stamped=${_timeService.bodyTimeLabel} '
+      'slot=${t.streamTarget.swipeIndex}',
+    );
   }
 }

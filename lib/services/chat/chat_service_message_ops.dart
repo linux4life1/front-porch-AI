@@ -112,9 +112,20 @@ extension ChatServiceMessageOps on ChatService {
   /// Abort in-flight post-gen evals so a mutation (regen/continue) can
   /// start. Streaming (`_isGenerating`) and import still refuse — those
   /// are not "I already have the reply and I don't want it scored."
+  void _clearPostGenAbortFlags() {
+    _postGenAbortRequested = false;
+    _isCancellingRealismEval = false;
+    _realismEvalCancelled = false;
+  }
+
   Future<bool> _yieldSettlingTurn() async {
     if (_isGenerating || _isImporting) return false;
-    if (!_isPostGenerating) return true;
+    if (!_isPostGenerating) {
+      // Fast path used to return without touching the flags, so a leftover
+      // latch from a prior yield survived into the next regen.
+      _clearPostGenAbortFlags();
+      return true;
+    }
     _postGenAbortRequested = true;
     _isCancellingRealismEval = true;
     _realismEvalCancelled = true;
@@ -123,10 +134,11 @@ extension ChatServiceMessageOps on ChatService {
     while (_isPostGenerating && DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(const Duration(milliseconds: 16));
     }
-    // Do not clear abort flags here. If we timed out, post-gen is still
-    // running and must keep skipping applies. The finishing generate
-    // finally clears the flags when settling actually drops.
-    return !_isPostGenerating;
+    // Timeout: post-gen is still running and must keep skipping applies.
+    // Success: the next turn starts clean so regen can tick the clock.
+    final done = !_isPostGenerating;
+    if (done) _clearPostGenAbortFlags();
+    return done;
   }
 
   Future<void> continueGeneration() async {

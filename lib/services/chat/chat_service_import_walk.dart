@@ -21,7 +21,6 @@ extension ChatServiceImportWalk on ChatService {
     final keepChaosNsfw = _chaosModeService.chaosNsfwEnabled;
     final keepPressure = _chaosModeService.chaosPressure;
     final keepNsfwCooldown = _nsfwService.nsfwCooldownEnabled;
-    final keepPassage = _timeService.passageOfTimeEnabled;
 
     _relationshipService.resetForFreshChat();
     _relationshipService.seedFromCardV2OrExt(
@@ -38,7 +37,6 @@ extension ChatServiceImportWalk on ChatService {
       // create; never today-anchor (group twin).
       storyStartDate: _timeService.storyStartDateIso,
       storyStartTime: ext.storyStartTime,
-      passageOfTimeEnabled: keepPassage,
     );
     _characterEmotion = ext.characterEmotion;
     _emotionIntensity = ext.emotionIntensity;
@@ -77,7 +75,6 @@ extension ChatServiceImportWalk on ChatService {
     final keepChaos = _chaosModeService.chaosModeEnabled;
     final keepChaosNsfw = _chaosModeService.chaosNsfwEnabled;
     final keepPressure = _chaosModeService.chaosPressure;
-    final keepPassage = _timeService.passageOfTimeEnabled;
 
     _relationshipService.resetForFreshChat();
     _expressionService.resetForFreshChat();
@@ -163,7 +160,6 @@ extension ChatServiceImportWalk on ChatService {
         // Live chat Day 1 (never card/today) — user may have re-anchored.
         storyStartDate: _timeService.storyStartDateIso,
         storyStartTime: timeSeed?.storyStartTime,
-        passageOfTimeEnabled: keepPassage,
       );
     }
 

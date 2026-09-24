@@ -366,7 +366,7 @@ The story has **its own clock**. It is **not** your wall clock and it does **not
 
 **Turn it on:** Settings → **Porch Life** → **Passage of Time**.
 
-That row does **not** need the Realism Engine. **Passage of Time on is enough, engine on or off.** A new chat seeds as the **card switch AND** the Porch Life default. After that, chat-gear **Automatic Passage of Time** is what counts.
+That row does **not** need the Realism Engine. **Passage of Time on is enough, engine on or off.** The Porch Life row is the only control — leftover per-chat or card values do not gate the clock.
 
 **What “auto” means**
 
@@ -414,7 +414,7 @@ Set the **opening date and clock** on the character card if this is 1887, not �
 
 Do these in order:
 
-1. The **card** has Passage of Time on **and** Settings → **Porch Life** → **Passage of Time** is on (new chats), and this chat’s **Automatic Passage of Time** is on in Character State / chat-gear.
+1. Settings → **Porch Life** → **Passage of Time** is on.
 2. You hit **Continue** — that does not advance time. Send a new message.
 3. No model / backend not running — auto time is an AI question. It cannot judge minutes without a model.
 4. You expected a 6-hour jump from one reply — auto **cannot** do that. [Skip](#how-do-i-skip-time).

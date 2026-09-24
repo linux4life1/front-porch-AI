@@ -76,7 +76,6 @@ void main() {
       t.seedFromV2OrExt(
         dayCount: 1,
         timeOfDay: 'evening',
-        passageOfTimeEnabled: true,
         storyStartDate: '2026-08-22',
         storyStartTime: '20:31',
       );
@@ -123,7 +122,6 @@ void main() {
       t.seedFromV2OrExt(
         dayCount: 1,
         timeOfDay: 'evening',
-        passageOfTimeEnabled: true,
         storyStartDate: '2026-08-22',
         storyStartTime: '20:31',
       );

@@ -36,7 +36,6 @@ class GroupRealismNeedsTab extends StatefulWidget {
 
 class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
   bool _realismEnabled = false;
-  bool _passageOfTimeEnabled = true;
   bool _chaosModeEnabled = false;
   bool _chaosNsfwEnabled = false;
   bool _nsfwEnhancementsEnabled = false;
@@ -88,7 +87,6 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
     _chars = cs.groupCharacters;
 
     _realismEnabled = cs.realismEnabled;
-    _passageOfTimeEnabled = cs.timeService.passageOfTimeEnabled;
     _chaosModeEnabled = cs.chaosModeService.chaosModeEnabled;
     _chaosNsfwEnabled = cs.chaosModeService.chaosNsfwEnabled;
     // Group NSFW Enhancements (arousal/Lust + post-climax cooldowns). Uses the

@@ -56,7 +56,6 @@ void main() {
     t.seedFromV2OrExt(
       dayCount: 3,
       timeOfDay: 'morning',
-      passageOfTimeEnabled: true,
       storyStartDate: '2026-06-30',
     );
     return t;

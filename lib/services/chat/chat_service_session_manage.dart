@@ -153,9 +153,6 @@ extension ChatServiceSessionManage on ChatService {
         timeOfDay: extSeed.timeOfDay,
         storyStartDate: extSeed.storyStartDate,
         storyStartTime: extSeed.storyStartTime,
-        passageOfTimeEnabled:
-            extSeed.passageOfTimeEnabled &&
-            _storageService.realismSettings.passageOfTimeDefault,
       );
       _characterEmotion = extSeed.characterEmotion;
       _emotionIntensity = extSeed.emotionIntensity;
@@ -249,8 +246,6 @@ extension ChatServiceSessionManage on ChatService {
               timeOfDay: timeSeed.timeOfDay,
               storyStartDate: timeSeed.storyStartDate,
               storyStartTime: timeSeed.storyStartTime,
-              passageOfTimeEnabled:
-                  _storageService.realismSettings.passageOfTimeDefault,
             );
           }
         }

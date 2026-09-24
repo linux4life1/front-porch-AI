@@ -30,10 +30,9 @@ TimeService makeService() => TimeService(
 
 /// Day 3, Thursday 2026-07-02, 6:30 PM — the same fixed anchor the engine-path
 /// suite uses, so numbers can be compared across the two files by eye.
-void seedFixed(TimeService t, {bool passage = true}) => t.seedFromV2OrExt(
+void seedFixed(TimeService t) => t.seedFromV2OrExt(
   dayCount: 3,
   timeOfDay: 'evening',
-  passageOfTimeEnabled: passage,
   storyStartDate: '2026-06-30',
 );
 
@@ -282,7 +281,8 @@ void main() {
       'passage of time off means no call at all, not a silent one',
       () async {
         final t = makeService();
-        seedFixed(t, passage: false);
+        seedFixed(t);
+        t.setPassageOfTimeEnabled(false);
         final before = t.clock;
         var called = false;
         await runTurn(

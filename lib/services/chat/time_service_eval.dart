@@ -173,7 +173,10 @@ extension TimeServiceEval on TimeService {
     // Nothing to advance. Posture no longer falls back to this call — it has
     // its own post-generation pass above — so a frozen clock now costs the
     // user nothing at all rather than one posture request per turn.
-    if (!_passageOfTimeEnabled) return;
+    if (!passageOfTimeEnabled) {
+      debugPrint('[Clock] running=false porchLife=false reason=porch_life_off');
+      return;
+    }
     if (skipClockAdvance) {
       debugPrint('[Realism:Time] follow-up speaker — clock already moved');
       return;

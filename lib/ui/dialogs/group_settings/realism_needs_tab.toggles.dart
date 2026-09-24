@@ -65,16 +65,6 @@ extension _GroupRealismNeedsToggles on _GroupRealismNeedsTabState {
     widget.chatService.setRealismEnabled(value);
   }
 
-  void _updatePassageOfTime(bool value) {
-    rebuildState(() {
-      _passageOfTimeEnabled = value;
-    });
-    // Through the ChatService wrapper (saves + notifies) — the raw
-    // TimeService setter is side-effect-free, so the old direct call never
-    // persisted the toggle beyond this dialog's local state.
-    widget.chatService.setPassageOfTimeEnabled(value);
-  }
-
   void _updateChaosMode(bool value) {
     rebuildState(() {
       _chaosModeEnabled = value;

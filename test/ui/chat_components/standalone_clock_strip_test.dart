@@ -24,13 +24,15 @@ Future<void> _pumpPanel(
   required bool realismEnabled,
   bool passageOfTime = true,
 }) async {
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues({
+    'passage_of_time_default': passageOfTime,
+  });
   final storage = StorageService();
   addTearDown(storage.dispose);
+  await storage.realismSettings.setPassageOfTimeDefault(passageOfTime);
 
   final chat = FakeChatService(realismEnabled: realismEnabled);
   addTearDown(chat.dispose);
-  chat.timeService.setPassageOfTimeEnabled(passageOfTime);
 
   await tester.binding.setSurfaceSize(const Size(420, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));

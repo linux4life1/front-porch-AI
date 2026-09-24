@@ -36,7 +36,10 @@ void _setupPathProviderMock() {
       });
 }
 
-String _memberExt({required List<String> worn, required List<String> carrying}) {
+String _memberExt({
+  required List<String> worn,
+  required List<String> carrying,
+}) {
   return jsonEncode({
     'realism_engine': {
       'realism_enabled': true,
@@ -74,15 +77,16 @@ void main() {
   Future<void> seedGroupSession({
     required String tipBlob,
     required List<
-            ({
-              String id,
-              int pos,
-              String sender,
-              bool isUser,
-              String text,
-              Map<String, dynamic>? realism
-            })>
-        messages,
+      ({
+        String id,
+        int pos,
+        String sender,
+        bool isUser,
+        String text,
+        Map<String, dynamic>? realism,
+      })
+    >
+    messages,
     required GroupRealismBlobs blobs,
   }) async {
     await db.insertGroup(
@@ -271,7 +275,8 @@ void main() {
       expect(
         chat.timeService.dayCount,
         9,
-        reason: 'nearest stamp from fork is Ana day 9 — NOT last-roster '
+        reason:
+            'nearest stamp from fork is Ana day 9 — NOT last-roster '
             'Bea day 40 (the pre-fix bug) and NOT tip 99',
       );
       expect(chat.timeService.timeOfDay, 'afternoon');
@@ -468,7 +473,11 @@ void main() {
       expect(chat.getAffectionForGroupCharacter(ana), 35);
       final after = chat.getRealismStateForGroupCharacter(ana);
       final pockets = after?['pockets'];
-      expect(pockets, isNotNull, reason: 'HIDES≠erase: stamp-less reseed kept kit');
+      expect(
+        pockets,
+        isNotNull,
+        reason: 'HIDES≠erase: stamp-less reseed kept kit',
+      );
       expect(
         (pockets as Map)['worn']?.toString() ?? '',
         contains('acquired cloak'),
@@ -644,7 +653,6 @@ void main() {
         dayCount: 4,
         timeOfDay: 'morning',
         storyStartDate: '1890-03-01',
-        passageOfTimeEnabled: true,
       );
       expect(chat.timeService.storyStartDateIso, '1890-03-01');
 
@@ -655,9 +663,12 @@ void main() {
         '1890-03-01',
         reason: 'group floor must keep live re-anchor, not blob 1887',
       );
-      expect(chat.getAffectionForGroupCharacter(
-        chat.groupCharacters.firstWhere((c) => c.name == 'Ana'),
-      ), 35);
+      expect(
+        chat.getAffectionForGroupCharacter(
+          chat.groupCharacters.firstWhere((c) => c.name == 'Ana'),
+        ),
+        35,
+      );
     },
   );
 
@@ -708,9 +719,11 @@ void main() {
         MessagesCompanion(
           id: const Value('m1'),
           metadata: Value(jsonEncode({'story_day': 5})),
-          swipeMetadata: Value(jsonEncode([
-            {'story_day': 5},
-          ])),
+          swipeMetadata: Value(
+            jsonEncode([
+              {'story_day': 5},
+            ]),
+          ),
         ),
       );
 
@@ -729,7 +742,6 @@ void main() {
         dayCount: 30,
         timeOfDay: 'night',
         storyStartDate: '2026-06-01',
-        passageOfTimeEnabled: true,
       );
       final anchorBefore = chat.timeService.storyStartDateIso;
       expect(chat.timeService.dayCount, 30);

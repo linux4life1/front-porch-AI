@@ -74,14 +74,14 @@ void main() {
       await tester.scrollUntilVisible(timeRow, 300, scrollable: scrollable);
       expect(timeRow, findsOneWidget);
       expect(
-        find.textContaining('default for new chats'),
+        find.textContaining('live switch for every chat'),
         findsOneWidget,
-        reason: 'the row must say it seeds new chats, not live chat-gear',
+        reason: 'Porch Life is the only clock control',
       );
       expect(
         find.textContaining('Automatic Passage of Time'),
-        findsOneWidget,
-        reason: 'the live switch lives on chat-gear',
+        findsNothing,
+        reason: 'chat-gear is no longer a second clock switch',
       );
       expect(
         find.text(kRetiredSubLabel),

@@ -163,15 +163,6 @@ extension ChatServiceSessionHydrate on ChatService {
       startDayOfWeek: s.startDayOfWeek,
       storyClock: s.storyClock,
       storyStartDate: s.storyStartDate,
-      // The saved per-chat value, NOT AND-ed with the global default. That
-      // global is a seed-time ceiling: the four seedFromV2OrExt callers apply
-      // it when a chat is first created ("Global ceiling applied before
-      // passing"). Applying it again on every load would let switching the
-      // global off retroactively disable time in chats the user had already
-      // turned it on for. Until now the AND was computed and then thrown away
-      // by loadTimeScalars, so it was inert; assigning the parameter without
-      // removing it here would have quietly switched that behaviour on.
-      passageOfTimeEnabled: s.passageOfTimeEnabled,
     );
     // Freeze a synthesised story date into the row the FIRST time we invent it.
     // The v38 ladder note promised legacy rows would "synthesize on first

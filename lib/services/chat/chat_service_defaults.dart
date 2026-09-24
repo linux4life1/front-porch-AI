@@ -167,7 +167,8 @@ bool _realismEvalCancelled = false;
 
 /// Set when regenerate/continue abort in-flight post-gen evals (needs,
 /// climax, pockets, posture) so the rejected reply is not scored. Cleared
-/// once settling has exited.
+/// after a successful yield, at finalize start, and in regen's finally —
+/// leftover latch must not survive into the next turn.
 bool _postGenAbortRequested = false;
 
 /// Bumped on regen / settling abort so a fire-and-forget Journal or Growth

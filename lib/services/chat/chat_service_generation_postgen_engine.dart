@@ -107,7 +107,13 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       if (t.mode == GenerationMode.continue_ || !_clockRunning) {
         _timeService.clearBodyBeat();
       }
-      if (!_postGenAbortRequested) {
+      if (_postGenAbortRequested) {
+        debugPrint(
+          '[Clock] running=$_clockRunning porchLife='
+          '${_storageService.realismSettings.passageOfTimeDefault} '
+          'reason=abort',
+        );
+      } else {
         await _maybeAdvanceStoryClockAfterReply(t);
         if (_postGenAbortRequested &&
             _timeService.storyClockIso != clockBeforeIso) {
@@ -138,8 +144,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         try {
           await Future.wait([
             _runPostGenNeedsChecks(scoredReply),
-            Future<void>.delayed(_kEvalDispatchStagger)
-                .then((_) => _prefetchReplyFacts(scoredReply)),
+            Future<void>.delayed(
+              _kEvalDispatchStagger,
+            ).then((_) => _prefetchReplyFacts(scoredReply)),
           ]);
         } catch (e) {
           if (!_postGenAbortRequested) rethrow;

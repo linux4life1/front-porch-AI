@@ -28,7 +28,6 @@ extension TimeServiceLoad on TimeService {
   void _seedFromV2OrExt({
     required int dayCount,
     required String timeOfDay,
-    required bool passageOfTimeEnabled,
     String? storyStartDate,
     String? storyStartTime,
   }) {
@@ -55,7 +54,6 @@ extension TimeServiceLoad on TimeService {
             hhmm.$2,
           )
         : StoryClock.representativeTime(current, timeOfDay);
-    _passageOfTimeEnabled = passageOfTimeEnabled;
     _turnsSinceClockMoved = 0;
     todayLine = null;
     _todayLineDayCount = null;
@@ -78,18 +76,9 @@ extension TimeServiceLoad on TimeService {
     required String timeOfDay,
     required int dayCount,
     required int startDayOfWeek,
-    required bool passageOfTimeEnabled,
     String? storyClock,
     String? storyStartDate,
   }) {
-    // Load-bearing: this was declared `required` and then never assigned, so a
-    // chat's saved setting was read out of the database, handed to us, and
-    // dropped. Because TimeService outlives a single chat, the value left over
-    // from whatever came before stayed in place — and since entering a chat
-    // runs resetForFreshChat() first (which forces true), a saved `false` could
-    // never survive a reopen, and the next save wrote `true` back over it. The
-    // setting was not merely ignored; it was destroyed.
-    _passageOfTimeEnabled = passageOfTimeEnabled;
     clearTodayLine();
 
     final clock = StoryClock.parse(storyClock);
@@ -131,7 +120,7 @@ extension TimeServiceLoad on TimeService {
     Map<String, dynamic> previousState, {
     bool wasNudged = false,
   }) {
-    if (_passageOfTimeEnabled && !wasNudged) {
+    if (passageOfTimeEnabled && !wasNudged) {
       restoreTimeFromRealismState(previousState);
     }
   }

@@ -58,7 +58,6 @@ TimeService makeService({void Function(String, dynamic)? onPending}) =>
 void seedFixed(TimeService t) => t.seedFromV2OrExt(
   dayCount: 3,
   timeOfDay: 'evening',
-  passageOfTimeEnabled: true,
   storyStartDate: '2026-06-30',
 );
 
@@ -70,14 +69,14 @@ void main() {
         timeOfDay: 'morning',
         dayCount: 5,
         startDayOfWeek: 1,
-        passageOfTimeEnabled: true,
         // Both canonical columns NULL — the 96-of-109 case.
       );
 
       expect(
         t.canonicalClockWasSynthesised,
         isTrue,
-        reason: 'the loader is the only place that knows the date was made up. '
+        reason:
+            'the loader is the only place that knows the date was made up. '
             'If it does not say so, the caller cannot write it back, and the '
             'chat gets a different date the next time it is opened',
       );
@@ -94,7 +93,6 @@ void main() {
         timeOfDay: 'morning',
         dayCount: 1,
         startDayOfWeek: 1,
-        passageOfTimeEnabled: true,
         storyClock: '2026-07-02T21:40:00.000Z',
         storyStartDate: '2026-06-30',
       );
@@ -102,53 +100,56 @@ void main() {
       expect(
         t.canonicalClockWasSynthesised,
         isFalse,
-        reason: 're-writing a row that is already correct on every single chat '
+        reason:
+            're-writing a row that is already correct on every single chat '
             'open is a pointless write on the hot open path',
       );
       expect(t.clock, DateTime.utc(2026, 7, 2, 21, 40));
     });
   });
 
-  group('a half-populated row is completed from the story, not the calendar', () {
-    test('an anchor without a clock counts Day N forward from Day 1', () {
-      final t = makeService();
-      t.loadTimeScalars(
-        timeOfDay: 'evening',
-        dayCount: 3,
-        startDayOfWeek: 0,
-        passageOfTimeEnabled: true,
-        storyStartDate: '1887-06-01',
-      );
+  group(
+    'a half-populated row is completed from the story, not the calendar',
+    () {
+      test('an anchor without a clock counts Day N forward from Day 1', () {
+        final t = makeService();
+        t.loadTimeScalars(
+          timeOfDay: 'evening',
+          dayCount: 3,
+          startDayOfWeek: 0,
+          storyStartDate: '1887-06-01',
+        );
 
-      // Day 3 of an 1887 story is 1887-06-03. The old path put the "current"
-      // moment on today's real date while keeping 1887 as Day 1, which made
-      // this a chat on roughly Day 50,000.
-      expect(t.clock, DateTime.utc(1887, 6, 3, 18, 30));
-      expect(t.dayCount, 3);
-      expect(t.startDate, DateTime.utc(1887, 6, 1));
-    });
+        // Day 3 of an 1887 story is 1887-06-03. The old path put the "current"
+        // moment on today's real date while keeping 1887 as Day 1, which made
+        // this a chat on roughly Day 50,000.
+        expect(t.clock, DateTime.utc(1887, 6, 3, 18, 30));
+        expect(t.dayCount, 3);
+        expect(t.startDate, DateTime.utc(1887, 6, 1));
+      });
 
-    test('a clock without an anchor puts Day 1 behind it, not on today', () {
-      final t = makeService();
-      t.loadTimeScalars(
-        timeOfDay: 'evening',
-        dayCount: 4,
-        startDayOfWeek: 0,
-        passageOfTimeEnabled: true,
-        storyClock: '2026-07-02T18:30:00.000Z',
-      );
+      test('a clock without an anchor puts Day 1 behind it, not on today', () {
+        final t = makeService();
+        t.loadTimeScalars(
+          timeOfDay: 'evening',
+          dayCount: 4,
+          startDayOfWeek: 0,
+          storyClock: '2026-07-02T18:30:00.000Z',
+        );
 
-      expect(t.clock, DateTime.utc(2026, 7, 2, 18, 30));
-      expect(
-        t.startDate,
-        DateTime.utc(2026, 6, 29),
-        reason: 'Day 4 means Day 1 was three days ago; deriving it from the '
-            'wall calendar instead made Day N a function of when you opened '
-            'the chat rather than of the story',
-      );
-      expect(t.dayCount, 4);
-    });
-  });
+        expect(t.clock, DateTime.utc(2026, 7, 2, 18, 30));
+        expect(
+          t.startDate,
+          DateTime.utc(2026, 6, 29),
+          reason:
+              'Day 4 means Day 1 was three days ago; deriving it from the '
+              'wall calendar instead made Day N a function of when you opened '
+              'the chat rather than of the story',
+        );
+        expect(t.dayCount, 4);
+      });
+    },
+  );
 
   group('a swipe on an old message must not drag the timeline to today', () {
     test('a pre-calendar snapshot is read against this story\'s Day 1', () {
@@ -161,7 +162,8 @@ void main() {
       expect(
         t.clock,
         DateTime.utc(2026, 7, 1, 18, 30),
-        reason: 'Day 2 of THIS story is the day after its Day 1. Synthesising '
+        reason:
+            'Day 2 of THIS story is the day after its Day 1. Synthesising '
             'it against the real calendar moved the whole conversation onto '
             'whatever date the user happened to be swiping on — mid-chat, and '
             'contradicting every message above it',
@@ -199,7 +201,8 @@ void main() {
       expect(
         t.clock,
         before,
-        reason: 'asking about next week is not going to next week. This exact '
+        reason:
+            'asking about next week is not going to next week. This exact '
             'line moved a real chat from Day 1 to Day 8',
       );
       expect(t.dayCount, 3);
@@ -229,7 +232,8 @@ void main() {
       expect(
         t.clock,
         before,
-        reason: 'the sentence says the waking already happened, hours ago and '
+        reason:
+            'the sentence says the waking already happened, hours ago and '
             'behind us. Matching `woke up` fired nextMorning and threw the '
             'story to 8am the following day',
       );
@@ -272,7 +276,8 @@ void main() {
       expect(
         t.clock,
         before,
-        reason: 'phones and word processors produce these by default, so a '
+        reason:
+            'phones and word processors produce these by default, so a '
             'straight-quotes-only strip would leave the bug alive for anyone '
             'typing on one',
       );
@@ -285,7 +290,8 @@ void main() {
       expect(
         t.clock,
         DateTime.utc(2026, 7, 2, 21, 30),
-        reason: 'a lone quote mark must not swallow the rest of the message — '
+        reason:
+            'a lone quote mark must not swallow the rest of the message — '
             'the conservative direction is to behave exactly as before',
       );
     });
@@ -328,7 +334,6 @@ void main() {
           timeOfDay: args.timeOfDay,
           dayCount: args.dayCount,
           startDayOfWeek: args.startDayOfWeek,
-          passageOfTimeEnabled: true,
           storyClock: args.storyClock,
           storyStartDate: args.storyStartDate,
         );

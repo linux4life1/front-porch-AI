@@ -451,7 +451,7 @@ export function PorchLifeSettings() {
           icon="⏰"
           label="Passage of Time"
           need="alone"
-          blurb={'The story keeps its own clock — dawn to morning to evening to night, day after day. This row is the default for new chats. The live switch is chat-gear "Automatic Passage of Time". The AI judges how long each exchange actually took, so a shared meal moves the clock further than a passing hello. A normal send always moves at least a minute or two.'}
+          blurb={'The story keeps its own clock — dawn to morning to evening to night, day after day. This is the live switch for every chat. The AI judges how long each exchange actually took, so a shared meal moves the clock further than a passing hello. A normal send always moves at least a minute or two.'}
           value={timeOn}
           onChange={(v) => set('passageOfTimeDefault', v)}
         />

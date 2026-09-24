@@ -112,7 +112,6 @@ extension ChatServiceCastShrink on ChatService {
     // pocketsEnabled alone, so a survivor can be holding their keys with the
     // engine off. Dropping this is how a collapse would empty their hands.
     final Pockets? solePockets = _groupRealism[soleId]?.pockets;
-    final bool solePassageEnabled = _timeService.passageOfTimeEnabled;
     final bool soleChaosEnabled = _chaosModeService.chaosModeEnabled;
     final int soleChaosPressure = _chaosModeService.chaosPressure;
     final String soleAuthorNote = _groupAuthorNotes[soleId] ?? '';
@@ -225,7 +224,6 @@ extension ChatServiceCastShrink on ChatService {
     // note are not reset to defaults on collapse.
     _pockets = solePockets;
     _nsfwService.setNsfwCooldownEnabled(soleNsfwEnabled);
-    _timeService.setPassageOfTimeEnabled(solePassageEnabled);
     _chaosModeService.loadScalars(
       modeEnabled: soleChaosEnabled,
       pressure: soleChaosPressure,
@@ -312,9 +310,6 @@ extension ChatServiceCastShrink on ChatService {
     // both modes) + author note + evolution + objectives carry REGARDLESS.
     _nsfwService.setNsfwCooldownEnabled(
       state['nsfwCooldownEnabled'] as bool? ?? false,
-    );
-    _timeService.setPassageOfTimeEnabled(
-      state['passageOfTimeEnabled'] as bool? ?? true,
     );
     _chaosModeService.loadScalars(
       modeEnabled: state['chaosModeEnabled'] as bool? ?? false,

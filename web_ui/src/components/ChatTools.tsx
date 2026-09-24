@@ -285,7 +285,6 @@ export function ChatTools({
               onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: 1 }))}
             >Later ▶</button>
           </div>
-          <Toggle label="Auto passage of time" value={t.time.passageEnabled} onChange={(v) => toggle('passageOfTime', v)} />
         </div>
       </details>
 

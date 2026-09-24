@@ -60,8 +60,8 @@ import 'porch_life_mcp_web_card.dart';
 ///
 /// Passage of Time no longer does (2026-08-06). What the clock needs is a
 /// model call sizing each exchange, not bond and trust. This row is the
-/// default for new chats; the live switch is chat-gear "Automatic Passage
-/// of Time". Weather and Dreams follow the CLOCK rather than the engine.
+/// live clock switch for every chat. Weather and Dreams follow the CLOCK
+/// rather than the engine.
 class PorchLifeTab extends StatelessWidget {
   const PorchLifeTab({super.key});
 
@@ -72,6 +72,7 @@ class PorchLifeTab extends StatelessWidget {
 
     // The engine gates everything in "needs Realism" rows; passage of time
     // additionally gates weather and dreams, and weather gates the °F display.
+    // Passage of Time is the LIVE clock switch — not a new-chat default.
     final engineOn = storage.realismSettings.realismDefault;
     final timeOn = storage.realismSettings.passageOfTimeDefault;
     final weatherOn = storage.realismSettings.weatherEnabled;
@@ -82,10 +83,8 @@ class PorchLifeTab extends StatelessWidget {
     final objectivesOn = storage.realismSettings.objectivesEnabled;
     final adultOn = storage.realismSettings.adultThemesEnabled;
 
-    // Weather and dreams gate on the Passage of Time FLAG. This tab sets
-    // DEFAULTS: a user must be able to record what they want now and have
-    // it apply the moment a new chat seeds. The live switch is chat-gear
-    // "Automatic Passage of Time".
+    // Weather and dreams gate on the Passage of Time FLAG. This row is
+    // the live clock switch for every chat.
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -112,9 +111,8 @@ class PorchLifeTab extends StatelessWidget {
               need: FeatureNeed.alone,
               blurb:
                   'The story keeps its own clock — dawn to morning to evening '
-                  'to night, day after day. This row is the default for new '
-                  'chats. The live switch is chat-gear "Automatic Passage of '
-                  'Time". The AI judges how long each exchange actually took, '
+                  'to night, day after day. This is the live switch for every '
+                  'chat. The AI judges how long each exchange actually took, '
                   'so a shared meal moves the clock further than a passing '
                   'hello. A normal send always moves at least a minute or two.',
               value: timeOn,

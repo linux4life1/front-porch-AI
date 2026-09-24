@@ -43,10 +43,12 @@ class TimeStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final time = chat.timeService.timeOfDay;
     final day = chat.timeService.dayCount;
+    final porchLifePot = context
+        .watch<StorageService>()
+        .realismSettings
+        .passageOfTimeDefault;
     final canNudge =
-        StoryClock.isRunning(
-          passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
-        ) &&
+        StoryClock.isRunning(passageOfTimeEnabled: porchLifePot) &&
         !chat.isGenerating;
     final activeDot = AppColors.timeDayAccentOf(context);
 

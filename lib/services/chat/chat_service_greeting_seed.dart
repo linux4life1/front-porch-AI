@@ -117,7 +117,6 @@ extension ChatServiceGreetingSeed on ChatService {
       timeOfDay: resolved.timeOfDay,
       storyStartDate: resolved.storyStartDate,
       storyStartTime: resolved.storyStartTime,
-      passageOfTimeEnabled: _timeService.passageOfTimeEnabled,
     );
     _nsfwService.resetRuntimeArousalAndCooldown();
 
@@ -238,7 +237,6 @@ extension ChatServiceGreetingSeed on ChatService {
       timeOfDay: timeResolved.timeOfDay,
       storyStartDate: timeResolved.storyStartDate,
       storyStartTime: timeResolved.storyStartTime,
-      passageOfTimeEnabled: _timeService.passageOfTimeEnabled,
     );
 
     for (final c in _groupCharacters) {

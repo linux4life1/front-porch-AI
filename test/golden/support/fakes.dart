@@ -172,7 +172,6 @@ class FakeChatService extends ChangeNotifier implements ChatService {
         )..seedFromV2OrExt(
           timeOfDay: timeOfDay,
           dayCount: dayCount,
-          passageOfTimeEnabled: true,
           storyStartDate: '2026-06-30',
         );
     _nsfw = NsfwService(

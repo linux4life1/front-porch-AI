@@ -305,11 +305,9 @@ extension ChatServiceGroupRealismHelpers on ChatService {
         rs['pockets'] = p.toJson();
       }
     }
-    if (rs.containsKey('storyClock')) {
-      rs['storyClock'] = _timeService.storyClockIso;
-      rs['timeOfDay'] = _timeService.timeOfDay;
-      rs['dayCount'] = _timeService.dayCount;
-    }
+    rs['storyClock'] = _timeService.storyClockIso;
+    rs['timeOfDay'] = _timeService.timeOfDay;
+    rs['dayCount'] = _timeService.dayCount;
   }
 
   /// Give back what a deleted message spent.

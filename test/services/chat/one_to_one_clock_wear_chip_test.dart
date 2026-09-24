@@ -9,7 +9,7 @@
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -146,7 +146,6 @@ void main() {
   StorageService? storage;
   CharacterRepository? repo;
   ChatService? chat;
-  DebugPrintCallback? previousPrint;
 
   Future<void> drainTurn() async {
     for (
@@ -167,7 +166,6 @@ void main() {
     bool cardPot = true,
     bool globalRealism = true,
     bool cardRealism = true,
-    bool standaloneClock = false,
     bool needsEnabled = true,
     LLMService? llm,
   }) async {
@@ -177,7 +175,6 @@ void main() {
       'realism_default': globalRealism,
       'needs_sim_default': true,
       'passage_of_time_default': globalPot,
-      'standalone_clock_enabled': standaloneClock,
     });
     db = AppDatabase.forTesting();
     storage = StorageService();
@@ -193,9 +190,6 @@ void main() {
           ..setCharacterRepository(repo!)
           ..testLlmServiceOverride = llm ?? _ScriptedLlm();
     await storage!.initialized;
-    if (standaloneClock) {
-      await storage!.realismSettings.setStandaloneClockEnabled(true);
-    }
 
     final carmen = CharacterCard(
       name: 'Carmen',
@@ -231,13 +225,7 @@ void main() {
 
   ChatMessage lastBot() => chat!.messages.lastWhere((m) => !m.isUser);
 
-  setUp(() {
-    previousPrint = debugPrint;
-    debugPrint = (String? message, {int? wrapWidth}) {};
-  });
-
   tearDown(() async {
-    debugPrint = previousPrint ?? debugPrint;
     chat?.dispose();
     await db?.close();
   });
@@ -344,12 +332,7 @@ void main() {
   });
 
   test('1:1 PoT ON with Realism and Needs OFF still advances', () async {
-    await boot(
-      globalRealism: false,
-      cardRealism: false,
-      standaloneClock: false,
-      needsEnabled: false,
-    );
+    await boot(globalRealism: false, cardRealism: false, needsEnabled: false);
     expect(chat!.realismEnabled, isFalse);
     expect(chat!.needsSimEnabled, isFalse);
     expect(chat!.timeService.passageOfTimeEnabled, isTrue);
@@ -363,7 +346,7 @@ void main() {
       30,
       reason:
           'PoT is the only clock driver. Realism OFF + Needs OFF must '
-          'not freeze a chat whose Automatic Passage of Time is on.',
+          'not freeze a chat whose Porch Life Passage of Time is on.',
     );
     expect(
       lastBot().activeMetadata?['time_passed'],
@@ -413,8 +396,8 @@ void main() {
         chat!.timeService.passageOfTimeEnabled,
         isTrue,
         reason:
-            'card PoT AND Porch Life passageOfTimeDefault seed a new chat. '
-            'The live switch after that is chat-gear.',
+            'Porch Life Passage of Time is the only clock gate. '
+            'A new chat with that row ON must run.',
       );
 
       await chat!.sendMessage('How are you?');
@@ -426,15 +409,94 @@ void main() {
     },
   );
 
-  test('1:1 card PoT OFF seeds a frozen clock — no tick and no chip', () async {
+  test('1:1 card PoT OFF does not freeze a Porch Life ON chat', () async {
     await boot(explicitChatToggles: false, cardPot: false, globalPot: true);
     expect(
       chat!.timeService.passageOfTimeEnabled,
-      isFalse,
+      isTrue,
       reason:
-          'the card Passage of Time switch is live at seed: OFF AND '
-          'the Porch Life default must start the chat stopped',
+          'Porch Life is the only gate. Card PoT must not AND-veto '
+          'a chat whose Porch Life row is ON.',
     );
+    final before = chat!.timeService.clock;
+
+    await chat!.sendMessage('How are you?');
+    await drainTurn();
+
+    expect(chat!.timeService.clock.difference(before).inMinutes, 30);
+    expect(lastBot().activeMetadata?['time_passed'], '30 min');
+  });
+
+  test(
+    '1:1 old-schema stale per-chat PoT false still ticks when Porch Life is ON',
+    () async {
+      await boot(explicitChatToggles: false);
+      expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
+
+      final sid = chat!.currentSessionId!;
+      await db!.patchSession(
+        SessionsCompanion(
+          id: Value(sid),
+          passageOfTimeEnabled: const Value(false),
+        ),
+      );
+
+      // Same-card setActiveCharacter is a no-op. Reload the patched row.
+      await chat!.reloadCurrentSession();
+      await drainTurn();
+
+      final row = await db!.getSessionById(sid);
+      expect(
+        row!.passageOfTimeEnabled,
+        isFalse,
+        reason:
+            'the leftover session column stays stale — we do not migrate it',
+      );
+      expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
+      expect(
+        chat!.timeService.passageOfTimeEnabled,
+        isTrue,
+        reason:
+            'hydrate must ignore the leftover per-chat column and '
+            'read the Porch Life toggle',
+      );
+
+      final origin = chat!.timeService.clock;
+      await chat!.sendMessage('How are you?');
+      await drainTurn();
+      expect(
+        chat!.timeService.clock.difference(origin).inMinutes,
+        30,
+        reason:
+            'live Carmen: existing chat with leftover session false '
+            'never called the time eval. Porch Life ON must tick send.',
+      );
+      expect(lastBot().activeMetadata?['time_passed'], '30 min');
+
+      final rs = lastBot().activeMetadata?['realism_state'];
+      if (rs is Map) {
+        rs.remove('storyClock');
+        rs['timeOfDay'] = 'morning';
+        rs['dayCount'] = 1;
+      }
+
+      await chat!.regenerateLastMessage();
+      await drainTurn();
+      expect(
+        chat!.timeService.clock.difference(origin).inMinutes,
+        30,
+        reason:
+            'regen on an old snap without storyClock must not pin '
+            'the sidebar back to Day 1 9:00',
+      );
+      expect(lastBot().activeMetadata?['time_passed'], '30 min');
+    },
+  );
+
+  test('1:1 Porch Life PoT OFF means no advance', () async {
+    await boot();
+    await storage!.realismSettings.setPassageOfTimeDefault(false);
+    expect(chat!.timeService.passageOfTimeEnabled, isFalse);
     final before = chat!.timeService.clock;
 
     await chat!.sendMessage('How are you?');
@@ -442,6 +504,26 @@ void main() {
 
     expect(chat!.timeService.clock, before);
     expect(lastBot().activeMetadata?['time_passed'], isNull);
+  });
+
+  test('1:1 Porch Life PoT OFF then ON flips live', () async {
+    await boot();
+    await chat!.setPassageOfTimeEnabled(false);
+    expect(storage!.realismSettings.passageOfTimeDefault, isFalse);
+    final origin = chat!.timeService.clock;
+
+    await chat!.sendMessage('How are you?');
+    await drainTurn();
+    expect(chat!.timeService.clock, origin);
+    expect(lastBot().activeMetadata?['time_passed'], isNull);
+
+    await chat!.setPassageOfTimeEnabled(true);
+    expect(storage!.realismSettings.passageOfTimeDefault, isTrue);
+
+    await chat!.sendMessage('Still there?');
+    await drainTurn();
+    expect(chat!.timeService.clock.difference(origin).inMinutes, 30);
+    expect(lastBot().activeMetadata?['time_passed'], '30 min');
   });
 
   test(
@@ -496,11 +578,18 @@ void main() {
     '1:1 regen restamps time_passed and does not invent clock wear',
     () async {
       await boot();
+      final origin = chat!.timeService.clock;
       await chat!.sendMessage('How are you?');
       await drainTurn();
       expect(bars(), _carmenNeeds);
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
+      expect(
+        chat!.timeService.clock.difference(origin).inMinutes,
+        30,
+        reason: 'send path must stay the working +30 contract',
+      );
       final firstSwipe = lastBot().swipeIndex;
+      final firstChip = lastBot().activeMetadata?['time_passed'];
 
       await chat!.regenerateLastMessage();
       await drainTurn();
@@ -523,11 +612,59 @@ void main() {
         '30 min',
         reason: 'regen is GenerationMode.normal — clock→chip must run',
       );
+      expect(
+        chat!.timeService.clock.difference(origin).inMinutes,
+        30,
+        reason:
+            'regen rewinds to story_clock_before then re-applies. '
+            'Live Mac 87d79eba: merge rollback left the sidebar at Day 1 9:00.',
+      );
+
+      for (var i = 0; i < 2; i++) {
+        await chat!.regenerateLastMessage();
+        await drainTurn();
+      }
+      expect(
+        chat!.timeService.clock.difference(origin).inMinutes,
+        30,
+        reason: 'three regens must not accumulate minutes',
+      );
 
       final regenIndex = chat!.messages.indexOf(lastBot());
       await chat!.swipeMessage(regenIndex, -1);
       await drainTurn();
       expect(bars(), _carmenNeeds);
+      expect(
+        lastBot().activeMetadata?['time_passed'],
+        firstChip,
+        reason: 'older swipe keeps its own time chip',
+      );
+    },
+  );
+
+  test(
+    '1:1 leftover abort under regen settling hold still advances the clock',
+    () async {
+      await boot();
+      final origin = chat!.timeService.clock;
+      await chat!.sendMessage('How are you?');
+      await drainTurn();
+      expect(chat!.timeService.clock.difference(origin).inMinutes, 30);
+
+      // Yield's fast path used to leave this latched. Regen then holds
+      // settling, so generate's finally never cleared it, and postgen
+      // skipped clock + stamp (live Carmen regen, no [Realism:Time]).
+      chat!.debugRequestPostGenAbort();
+      await chat!.regenerateLastMessage();
+      await drainTurn();
+
+      expect(
+        chat!.timeService.clock.difference(origin).inMinutes,
+        30,
+        reason:
+            'abort leftover from a prior yield must not freeze regen. '
+            'Rewind, re-eval, apply the same 30, no accumulation.',
+      );
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
     },
   );
@@ -553,12 +690,7 @@ void main() {
   test(
     '1:1 send and regen stamp time when Realism is off and the clock still runs',
     () async {
-      await boot(
-        globalRealism: false,
-        cardRealism: false,
-        standaloneClock: false,
-        needsEnabled: false,
-      );
+      await boot(globalRealism: false, cardRealism: false, needsEnabled: false);
       expect(chat!.realismEnabled, isFalse);
       expect(chat!.needsSimEnabled, isFalse);
       expect(chat!.timeService.passageOfTimeEnabled, isTrue);

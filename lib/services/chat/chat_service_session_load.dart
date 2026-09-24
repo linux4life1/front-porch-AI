@@ -91,8 +91,6 @@ extension ChatServiceSessionLoad on ChatService {
             timeOfDay: timeSeed.timeOfDay,
             storyStartDate: timeSeed.storyStartDate,
             storyStartTime: timeSeed.storyStartTime,
-            passageOfTimeEnabled:
-                _storageService.realismSettings.passageOfTimeDefault,
           );
         }
       }

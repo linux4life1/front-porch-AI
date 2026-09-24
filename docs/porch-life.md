@@ -2,7 +2,7 @@
 
 The living-character **defaults** live in **Settings → Porch Life**. Not General. Clock In is on the character card. AFK and RAG live in the chat sidebar.
 
-**Realism Engine is not the master key.** Journal, the story clock, Chaos, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults. An open chat can still override them (Character State → **tune**, or Group Settings → Realism).
+**Realism Engine is not the master key.** Journal, the story clock, Chaos, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults. An open chat can still override most of them (Character State → **tune**, or Group Settings → Realism). **Passage of Time** is the exception: Settings → Porch Life is the live switch for every chat.
 
 **18+ themes** is Settings → **General**. Off hides After Dark and intimate card fields. It does not erase what you already set.
 
@@ -46,11 +46,11 @@ The story has **its own clock**. It is not your wall clock. It is **not allowed*
 
 ### Turn it on
 
-Settings → Porch Life → **Passage of Time**. Per chat: Character State → **tune** → Automatic Passage of Time.
+Settings → Porch Life → **Passage of Time**. That row is the live switch for every chat.
 
 | Realism Engine | Clock |
 |---|---|
-| **On or off** | Passage of Time on is enough. New chats seed as **card AND Porch Life default**. After that, chat-gear **Automatic Passage of Time** is what counts. |
+| **On or off** | Passage of Time on is enough. The Porch Life row is the only control. |
 
 ### Auto (after each reply)
 
@@ -97,7 +97,7 @@ AFK story-time pace (hours / half day / full day) is the Dynamic Responses gear,
 
 ### Clock not moving?
 
-1. Passage of Time on (Porch Life default **and** the card, then chat-gear).
+1. Passage of Time on in Settings → Porch Life.
 2. Passage of Time on is enough, engine on or off.
 3. You hit Continue.
 4. No model running — auto time *is* an AI question.

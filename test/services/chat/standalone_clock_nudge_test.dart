@@ -68,10 +68,7 @@ void main() {
       final card = CharacterCard(
         name: 'Nia',
         firstMessage: 'Hey.',
-        frontPorchExtensions: FrontPorchExtensions(
-          realismEnabled: false,
-          passageOfTimeEnabled: true,
-        ),
+        frontPorchExtensions: FrontPorchExtensions(realismEnabled: false),
       )..dbId = 'char-clock-1';
       await chat.setActiveCharacter(card);
       await chat.setRealismEnabled(false);
@@ -128,13 +125,13 @@ void main() {
   });
 
   testWidgets('PoT off → TimeStrip chevrons are hidden', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'passage_of_time_default': false});
     final storage = StorageService();
     addTearDown(storage.dispose);
+    await storage.realismSettings.setPassageOfTimeDefault(false);
 
     final chat = FakeChatService(realismEnabled: false, needsSimEnabled: false);
     addTearDown(chat.dispose);
-    chat.timeService.setPassageOfTimeEnabled(false);
 
     await tester.pumpWidget(
       MultiProvider(

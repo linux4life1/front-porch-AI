@@ -302,7 +302,11 @@ extension ChatServiceGeneration on ChatService {
         // takes the failure-drift step (bucket brigade still moves) and
         // Today is not rewritten.
         if (_clockRunning) {
-          await _timeService.applyFailureDrift();
+          await _timeService.applyFailureDrift(
+            minutes: directUserSend
+                ? StoryClock.conversationalFloorMinutes
+                : StoryClock.failureDriftMinutes,
+          );
         }
         _messages.add(
           ChatMessage(
@@ -458,39 +462,5 @@ extension ChatServiceGeneration on ChatService {
         _realismEvalCancelled = false;
       }
     }
-  }
-
-  /// Post-reply clock decide. Announced time was already in the prompt;
-  /// this sets what the NEXT speaker is told. Continue is the same beat.
-  /// Scene Guests carry no Realism/Needs but the clock is chat-scoped, so
-  /// they tick time-only (no Today rewrite).
-  Future<void> _maybeAdvanceStoryClockAfterReply(_GenTurn t) async {
-    if (t.mode == GenerationMode.continue_) return;
-    if (!_clockRunning) return;
-    final before = _timeService.clock;
-    final msg = t.streamTarget;
-    if (!msg.isUser) {
-      // Stamp the LIVE swipe map. Writing `metadata` is a no-op for
-      // regen when swipeMetadata[i] is already set — activeMetadata
-      // returns that slot, not the legacy field.
-      final existing = msg.activeMetadata;
-      if (existing != null) {
-        existing.putIfAbsent(
-          'story_clock_before',
-          () => _timeService.storyClockIso,
-        );
-      } else {
-        msg.activeMetadata = {'story_clock_before': _timeService.storyClockIso};
-      }
-    }
-    await _realismEvals.evaluatePhysicalStateCall(
-      timeOnly: true,
-      skipTodayEval: _isLiteTurn(t),
-    );
-    if (_isLiteTurn(t)) {
-      final named = clockNamedInReply(msg.text, _timeService.clock);
-      if (named != null) await _timeService.applyReconciledClock(named);
-    }
-    await _maybeMintEpisodeCrumbs(before, _timeService.clock);
   }
 }

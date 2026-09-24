@@ -22,12 +22,9 @@
 // deliberately the session row — needs, journal and growth live elsewhere and
 // are not claimed here.
 //
-// Why this file exists, in one sentence: a `required` parameter was accepted by
-// TimeService.loadTimeScalars and then never assigned, so a chat's saved
-// "Automatic Passage of Time" setting was read out of the database, handed to
-// the loader, and dropped — and because entering a chat resets that flag to
-// true first, the next save wrote `true` back over the user's choice. The
-// setting could not be made to stick, and nothing in a 2,800-test suite noticed.
+// Why this file exists, in one sentence: session-row realism scalars must
+// survive a round trip. Passage of Time is no longer one of those scalars —
+// Porch Life is the only clock gate, and leftover per-chat values are ignored.
 //
 // The pre-existing session_load_regression_test.dart already compares the two
 // load paths, but only for four fields — and its own fixture seeds an emotion it
@@ -72,6 +69,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     db = AppDatabase.forTesting();
     storage = StorageService();
+    await storage.initialized;
     final personas = UserPersonaService(db);
     final worlds = WorldRepository(storage, db);
     chat = ChatService(KoboldService(storage), personas, storage, worlds)
@@ -130,59 +128,45 @@ void main() {
 
   group('every stored realism scalar survives a load', () {
     test(
-      'a saved passage-of-time OFF is still off after reopening the chat',
+      'a leftover per-chat PoT false is ignored when Porch Life is ON',
       () async {
-        // THE REGRESSION. Everything else in this file is scaffolding around it.
         await seedRichSession('sess-off', 'char-a', passageOfTime: false);
 
         await chat.setActiveCharacter(_card('Alice', 'char-a'));
 
         expect(
           chat.timeService.passageOfTimeEnabled,
-          isFalse,
+          isTrue,
           reason:
-              'the session stored passageOfTimeEnabled=false. Entering a chat '
-              'calls resetForFreshChat() first, which forces it TRUE, so the '
-              'hydrate step is the only thing that can restore the user\'s '
-              'choice. When loadTimeScalars ignored its own parameter this '
-              'silently read back as true and the next save destroyed the row.',
+              'Porch Life is the only clock gate. Stale sessions.passage_of_time_enabled '
+              'must not freeze an existing chat.',
         );
       },
     );
 
-    test('a saved passage-of-time ON survives a chat that had it OFF', () async {
-      // Deliberately ordered: load an OFF chat first so the live flag is false,
-      // THEN load the ON chat. A plain "ON stays on" assertion would also pass
-      // under the original bug, because entering a chat forces the flag true —
-      // it has to be driven from false to be worth anything.
-      await seedRichSession('sess-off2', 'char-a', passageOfTime: false);
-      await seedRichSession('sess-on', 'char-b', passageOfTime: true);
+    test(
+      'Porch Life OFF pauses every chat, leftover session ON included',
+      () async {
+        await storage.realismSettings.setPassageOfTimeDefault(false);
+        await seedRichSession('sess-on', 'char-b', passageOfTime: true);
 
-      await chat.setActiveCharacter(_card('Alice', 'char-a'));
-      expect(chat.timeService.passageOfTimeEnabled, isFalse);
-
-      await chat.setActiveCharacter(_card('Bob', 'char-b'));
-      expect(chat.timeService.passageOfTimeEnabled, isTrue);
-    });
+        await chat.setActiveCharacter(_card('Bob', 'char-b'));
+        expect(chat.timeService.passageOfTimeEnabled, isFalse);
+      },
+    );
 
     test(
-      'the global default does not override a saved per-chat choice',
+      'Porch Life ON runs even when the leftover session column is false',
       () async {
-        // The load path used to AND the stored value with the global default.
-        // That global is a seed-time ceiling applied when a chat is CREATED, not
-        // a runtime master — applying it again on every load let switching the
-        // global off retroactively disable time in chats it was turned on for.
-        await storage.realismSettings.setPassageOfTimeDefault(false);
-        await seedRichSession('sess-vs-global', 'char-c', passageOfTime: true);
+        await storage.realismSettings.setPassageOfTimeDefault(true);
+        await seedRichSession('sess-vs-global', 'char-c', passageOfTime: false);
 
         await chat.setActiveCharacter(_card('Cleo', 'char-c'));
 
         expect(
           chat.timeService.passageOfTimeEnabled,
           isTrue,
-          reason:
-              'the chat says on and the row is what was saved; the app-wide '
-              'default must not reach back into an existing chat',
+          reason: 'the Porch Life row is the live switch',
         );
       },
     );
@@ -217,7 +201,7 @@ void main() {
         'arousal': 25,
         'chaosEnabled': true,
         'chaosPressure': 9,
-        'passageOfTime': false,
+        'passageOfTime': true,
         'dayCount': 4,
       };
 
@@ -258,7 +242,7 @@ void main() {
       expect(chat.nsfwService.arousalLevel, 25);
       expect(chat.chaosModeService.chaosModeEnabled, isTrue);
       expect(chat.chaosModeService.chaosPressure, 9);
-      expect(chat.timeService.passageOfTimeEnabled, isFalse);
+      expect(chat.timeService.passageOfTimeEnabled, isTrue);
       expect(chat.timeService.dayCount, 4);
       expect(chat.relationshipService.activeFixation, 'the way she hums');
       expect(chat.relationshipService.fixationLifespan, 6);

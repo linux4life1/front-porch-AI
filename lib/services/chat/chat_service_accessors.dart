@@ -178,11 +178,10 @@ extension ChatServiceAccessors on ChatService {
     preferTextEvals: _storageService.realismSettings.preferTextEvals,
   );
 
-  /// The story clock is actually moving. Passage of Time is the only
-  /// driver — this is the gate for the time prompt, weather, dreams, and
-  /// the post-reply decide.
+  /// The story clock is actually moving. Porch Life → Passage of Time
+  /// is the only gate — leftover per-chat / card values do not veto it.
   bool get _clockRunning => StoryClock.isRunning(
-    passageOfTimeEnabled: _timeService.passageOfTimeEnabled,
+    passageOfTimeEnabled: _storageService.realismSettings.passageOfTimeDefault,
   );
 
   /// Objectives are actually running for this chat: the per-chat switch AND the

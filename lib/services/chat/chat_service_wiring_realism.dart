@@ -44,6 +44,8 @@ extension ChatServiceWiringRealism on ChatService {
           await _deactivateTodayObjective();
         }();
       },
+      getPorchLifePassageOfTime: () =>
+          _storageService.realismSettings.passageOfTimeDefault,
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       onTodayEval: (line) {
         if (line.isEmpty) {

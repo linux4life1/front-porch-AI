@@ -115,6 +115,7 @@ extension ChatServiceReprocess on ChatService {
       await _regenerateLastMessageHeld(critique: critique);
     } finally {
       _isPostGenerating = false;
+      _clearPostGenAbortFlags();
     }
   }
 

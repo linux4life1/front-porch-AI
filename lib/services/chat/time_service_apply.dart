@@ -52,16 +52,19 @@ extension TimeServiceApply on TimeService {
     await _ifDayChanged(dayBefore);
   }
 
-  /// All-away skip banner: no reply to score, so no LLM. Still the
-  /// 5-minute AFK step — not the send-path floor. An OOC skip that
-  /// already owned this turn is left alone.
-  Future<void> applyFailureDrift() async {
-    if (!_passageOfTimeEnabled) return;
+  /// All-away skip banner: no reply to score, so no LLM. AFK uses the
+  /// 5-minute step; a user send that lands here uses the 2-minute floor.
+  /// An OOC skip that already owned this turn is left alone.
+  Future<void> applyFailureDrift({int? minutes}) async {
+    if (!passageOfTimeEnabled) return;
     if (_oocSkipMovedClockThisTurn) {
       _oocSkipMovedClockThisTurn = false;
       return;
     }
-    await _applyElapsed(minutes: StoryClock.failureDriftMinutes, newDay: false);
+    await _applyElapsed(
+      minutes: minutes ?? StoryClock.failureDriftMinutes,
+      newDay: false,
+    );
     onNotify();
   }
 
@@ -117,7 +120,7 @@ extension TimeServiceApply on TimeService {
   /// Owns the turn the same way an OOC skip does: the post-reply time
   /// eval must not add minutes on top of the AFK snap.
   void advanceTimePeriods(int count) {
-    if (!_passageOfTimeEnabled) return;
+    if (!passageOfTimeEnabled) return;
     final before = _clock;
     for (var i = 0; i < count; i++) {
       _clock = StoryClock.snapToNextPeriod(_clock);
@@ -171,7 +174,7 @@ extension TimeServiceApply on TimeService {
   /// evidence that a night was really crossed and quietly stop day rolls
   /// altogether. Opposite question, opposite answer.
   Future<void> detectOocTimeSkip(String text) async {
-    if (!_passageOfTimeEnabled) {
+    if (!passageOfTimeEnabled) {
       debugPrint(
         '[Realism:OOC] Time-skip requested but passageOfTimeEnabled=false, ignoring',
       );

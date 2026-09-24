@@ -46,10 +46,11 @@ part 'time_service_load.dart';
 /// beat that was just written, and that instant is what the NEXT speaker is
 /// told — group bucket brigade, Scene Guests included. Continue does not
 /// tick (same beat). Hard-clamped by [StoryClock.maxMinutesPerTurn], with
-/// [StoryClock.failureDriftMinutes] as the deterministic floor on eval
-/// failure and a [StoryClock.stallBackstopTurns]-turn backstop so time can
-/// never freeze forever. The old 6-turn gate, its `hold_time` veto, and the
-/// eligible/not-eligible prompt branching are gone.
+/// [StoryClock.conversationalFloorMinutes] as the fail-closed floor on a
+/// spoken reply, [StoryClock.failureDriftMinutes] as the AFK / no-reply
+/// skip-banner step, and a [StoryClock.stallBackstopTurns]-turn backstop
+/// so time can never freeze forever. The old 6-turn gate, its `hold_time`
+/// veto, and the eligible/not-eligible prompt branching are gone.
 ///
 /// ── PASSAGE OF TIME AND THE REALISM ENGINE: THE SEAM, AND WHERE IT IS ────
 ///
@@ -65,12 +66,14 @@ part 'time_service_load.dart';
 ///
 ///   THE QUALITY OF TIME *IS* AN LLM EVAL. How far the clock moves comes from
 ///   [_fireSceneTimeEval] asking a model how long the latest exchange took.
-///   Remove that and the only thing left is [StoryClock.failureDriftMinutes],
-///   which is a FAILURE fallback, not a time model: a two-line greeting and a
-///   two-hour dinner would advance the clock by the same fixed constant. Time
-///   would keep ticking and stop meaning anything. The deterministic drift
-///   below is therefore NEVER a mode, never surfaced, never a reason to claim
-///   the clock works without a model — it is the cushion for one failed call.
+///   Remove that and the only thing left is
+///   [StoryClock.conversationalFloorMinutes] on a spoken reply (or
+///   [StoryClock.failureDriftMinutes] on AFK / skip-banner). Those are
+///   cushions, not a time model: a two-line greeting and a two-hour dinner
+///   would advance the clock by the same fixed constant. Time would keep
+///   ticking and stop meaning anything. The deterministic drift is therefore
+///   NEVER a mode, never surfaced, never a reason to claim the clock works
+///   without a model.
 ///
 /// What the other three turned out to be:
 ///
@@ -142,6 +145,10 @@ class TimeService {
   /// Fires when the story day actually rolls. ChatService journals
   /// the held today sentence here — not in a getter.
   final FutureOr<void> Function()? onStoryDayChanged;
+
+  /// Porch Life → Passage of Time. The only clock gate. Null in isolated
+  /// TimeService unit tests, which fall back to [_passageOfTimeEnabled].
+  final bool Function()? getPorchLifePassageOfTime;
 
   /// When true, the scene-time eval (and one-shot text) asks for
   /// `today_sentence`. Default off so existing constructors stay valid.
@@ -232,6 +239,7 @@ class TimeService {
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,
+    this.getPorchLifePassageOfTime,
     this.getPlannerEnabled,
     this.onTodayEval,
   });
@@ -288,13 +296,11 @@ class TimeService {
   void seedFromV2OrExt({
     required int dayCount,
     required String timeOfDay,
-    required bool passageOfTimeEnabled,
     String? storyStartDate,
     String? storyStartTime,
   }) => _seedFromV2OrExt(
     dayCount: dayCount,
     timeOfDay: timeOfDay,
-    passageOfTimeEnabled: passageOfTimeEnabled,
     storyStartDate: storyStartDate,
     storyStartTime: storyStartTime,
   );
@@ -315,7 +321,8 @@ class TimeService {
   /// See [StoryClock.morningDayCountFor].
   int get morningAnchoredDayCount =>
       StoryClock.morningDayCountFor(_clock, _startDate);
-  bool get passageOfTimeEnabled => _passageOfTimeEnabled;
+  bool get passageOfTimeEnabled =>
+      getPorchLifePassageOfTime?.call() ?? _passageOfTimeEnabled;
   String get narrativeWeekday => StoryClock.weekdayName(_clock);
 
   /// Derived legacy anchor — still written to the session row / snapshots so
