@@ -107,7 +107,7 @@ void main() {
         getEmotionIntensity: () => '',
         timeOnly: true,
       );
-      expect(t.awakeWearMinutes, 90);
+      expect(t.awakeWearMinutes, 0, reason: 'clock apply never wears Needs');
       expect(t.bodyTimeLabel, '1 hr 30 min');
     });
 

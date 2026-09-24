@@ -321,11 +321,9 @@ Dummy version is on the [FAQ](faq.md#how-does-time-work). This is the same facts
 
 The story clock is **chat-scoped** (one clock for a group). It is **not** allowed to follow the real calendar — Monday in the story stays Monday if you reopen the chat on Saturday.
 
-**On:** Settings → Porch Life → Passage of Time. Per chat: Character State → **tune** → Automatic Passage of Time.
+**On:** Settings → Porch Life → Passage of Time **and** the character card. Per chat after that: Character State → **tune** → Automatic Passage of Time. Engine on or off does not matter.
 
-**With Realism off:** Passage of Time still runs. The leftover standalone pref is not a gate.
-
-**After each reply** (not Continue): scene-time eval → `minutes_elapsed` → clamp **180**. Bare 0 floors to **2 minutes** unless the scene is an explicit continuous instant. Eval fail → **+5 minutes**. **12** stalled same-moment turns → snap to next period (dawn 6:00, morning 9:00, late morning 11:30, afternoon 2:30, evening 6:30, night 10:30). Regen/swipe restore `story_clock_before` then eval again.
+**After each reply** (not Continue): scene-time eval → `minutes_elapsed` → clamp **180**. Bare 0, a negative, garbage, or a failed eval floors to **2 minutes** unless the scene is an explicit continuous instant. **12** stalled same-moment turns → snap to next period (dawn 6:00, morning 9:00, late morning 11:30, afternoon 2:30, evening 6:30, night 10:30). Regen/swipe restore `story_clock_before` then eval again.
 
 **Skip:** OOC / skip phrases in [FAQ → skip](faq.md#how-do-i-skip-time); ‹ › period nudge; tap date → Story Calendar. Night-skip language lands morning.
 

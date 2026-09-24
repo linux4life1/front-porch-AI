@@ -97,7 +97,7 @@ part 'time_service_load.dart';
 ///
 /// Regen/swipe rewind the clock from the rejected reply's
 /// `story_clock_before` stamp, then the post-reply eval decides again —
-/// engine, standalone, and Scene Guest share that receipt. Without it a
+/// engine-on, time-only, and Scene Guest share that receipt. Without it a
 /// swipe would double-advance.
 ///
 /// The OOC time-skip path ([detectOocTimeSkip]) is pure regex and stands on

@@ -51,19 +51,8 @@ class RealismSettings with SettingsBase {
   /// all, so the Porch Life tab had nothing to show.
   bool _needsSimDefault = true;
 
-  /// Run the story clock on its own eval when the Realism Engine is OFF
-  /// (docs/design/feature-independence.md, "Passage of Time" — decoupled
-  /// 2026-08-06, superseding the 2026-08-02 ruling).
-  ///
-  /// Defaults FALSE on purpose, and the default is the whole point. Passage of
-  /// Time already defaults TRUE, but with the engine off that flag was inert —
-  /// nobody chose it in a world where it did anything. Treating it as consent
-  /// would hand a per-turn model call to every existing realism-off user
-  /// without asking, which is exactly the cost the maintainer declined
-  /// (2026-08-06). So standalone advancement needs its own deliberate yes.
-  ///
-  /// Read only when the engine is off: with realism ON the fused scene-time
-  /// eval already drives the clock for free and this flag is ignored.
+  /// Leftover pref. Loaded and written so old PWAs do not 400. It gates
+  /// nothing — Passage of Time is the only clock driver.
   bool _standaloneClockEnabled = false;
 
   /// Pockets & Wardrobe — whether the app tracks what a character is wearing
@@ -207,8 +196,7 @@ class RealismSettings with SettingsBase {
   bool get passageOfTimeDefault => _passageOfTimeDefault;
   bool get needsSimDefault => _needsSimDefault;
 
-  /// See [_standaloneClockEnabled]. Costs one model call per turn while it is
-  /// doing anything, which is why it is opt-in and says so in the UI.
+  /// Leftover pref for old PWAs. Ignored by the story clock.
   bool get standaloneClockEnabled => _standaloneClockEnabled;
 
   /// See [_objectivesEnabled]. The switch Objectives never had.
@@ -260,8 +248,8 @@ class RealismSettings with SettingsBase {
   bool get realismOneShotEval => _oneShotMode == OneShotMode.on;
 
   /// Living Time story weather (living-time-features.md §3). Effective
-  /// whenever the story clock is actually moving — under the engine, or on
-  /// the standalone clock. ChatService gates that (`_clockRunning`); weather
+  /// whenever the story clock is actually moving (Passage of Time on).
+  /// ChatService gates that (`_clockRunning`); weather
   /// itself is deterministic math and needs no eval of its own.
   bool get weatherEnabled => _weatherEnabled;
 
@@ -279,7 +267,7 @@ class RealismSettings with SettingsBase {
   int get absenceThresholdHours => _absenceThresholdHours;
 
   /// Living Time dreams (living-time-features.md §1). Effective when the
-  /// story clock is moving (engine or standalone) and the Journal is on —
+  /// story clock is moving (Passage of Time on) and the Journal is on —
   /// ChatService gates. Dreams fire on day crossings, so what they actually
   /// need is a clock that crosses days, not the engine per se.
   bool get dreamsEnabled => _dreamsEnabled;

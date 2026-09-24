@@ -154,6 +154,7 @@ extension ChatServiceSessionManage on ChatService {
         storyStartDate: extSeed.storyStartDate,
         storyStartTime: extSeed.storyStartTime,
         passageOfTimeEnabled:
+            extSeed.passageOfTimeEnabled &&
             _storageService.realismSettings.passageOfTimeDefault,
       );
       _characterEmotion = extSeed.characterEmotion;

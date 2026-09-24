@@ -33,7 +33,6 @@ interface PorchLifeState {
   nsfwCooldownDefault: boolean;
   needsSimDefault: boolean;
   passageOfTimeDefault: boolean;
-  standaloneClockEnabled: boolean;
   objectivesEnabled: boolean;
   objectiveStaleThreshold: number;
   weatherEnabled: boolean;
@@ -69,7 +68,6 @@ const DEFAULTS: PorchLifeState = {
   nsfwCooldownDefault: false,
   needsSimDefault: true,
   passageOfTimeDefault: true,
-  standaloneClockEnabled: false,
   objectivesEnabled: true,
   objectiveStaleThreshold: 2,
   weatherEnabled: true,

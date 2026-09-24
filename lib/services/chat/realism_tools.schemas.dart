@@ -250,13 +250,9 @@ final List<Map<String, dynamic>> kSceneTimeEvalTools = [
   ),
 ];
 
-/// The per-turn clock advance — BOTH drivers, the engine's and the standalone
-/// one (TimeService's `timeOnly` mode is only about how much scene framing the
-/// PROMPT carries; the schema is one). Deliberately the SAME tool name as the
-/// posture variant, so [realismToolCallToJson] and every parse step downstream
-/// are literally the same code path; it just drops `posture`. Field
-/// definitions are reused from [_sceneTimeFields] rather than restated, so the
-/// two variants cannot drift.
+/// The per-turn clock advance. `timeOnly` only changes how much scene
+/// framing the prompt carries; the schema is one. Same tool name as the
+/// posture variant so [realismToolCallToJson] stays one parse path.
 final List<Map<String, dynamic>> kSceneTimeOnlyEvalTools = [
   _tool(
     kSceneTimeTool,

@@ -50,7 +50,7 @@ Settings → Porch Life → **Passage of Time**. Per chat: Character State → *
 
 | Realism Engine | Clock |
 |---|---|
-| **On or off** | Passage of Time is the only driver. Porch Life seeds new chats; the live switch is chat-gear **Automatic Passage of Time**. |
+| **On or off** | Passage of Time on is enough. New chats seed as **card AND Porch Life default**. After that, chat-gear **Automatic Passage of Time** is what counts. |
 
 ### Auto (after each reply)
 
@@ -60,7 +60,7 @@ Settings → Porch Life → **Passage of Time**. Per chat: Character State → *
 
 - Cap: **180 minutes (3 hours)** per turn. Bigger jumps are **skips**.
 - A normal send always moves at least **1–2 minutes**. Same moment needs an explicit continuous instant.
-- Failed / garbage eval: **+5 minutes**. Never a freeze on a failed call.
+- Failed / garbage eval: **+2 minutes**, same as a bare 0. The chip names those minutes.
 - Still stuck after **12 turns**: snap to the next period.
 - **Continue does not tick.**
 - **Regenerate / swipe** rewind to `story_clock_before`, then judge again (no double advance).
@@ -97,8 +97,8 @@ AFK story-time pace (hours / half day / full day) is the Dynamic Responses gear,
 
 ### Clock not moving?
 
-1. Passage of Time on (chat tune didn’t override it off).
-2. Engine off → standalone nested switch on.
+1. Passage of Time on (Porch Life default **and** the card, then chat-gear).
+2. Passage of Time on is enough, engine on or off.
 3. You hit Continue.
 4. No model running — auto time *is* an AI question.
 5. You wanted a 6-hour jump — skip.

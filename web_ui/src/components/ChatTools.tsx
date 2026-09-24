@@ -106,7 +106,7 @@ export function ChatTools({
 
   if (!t) return null;
 
-  const clockRunning = t.time.clockRunning ?? t.realismEnabled;
+  const clockRunning = t.time.clockRunning ?? false;
 
   return (
     <div className="chat-tools">

@@ -405,7 +405,8 @@ void main() {
         await runEval(t, fire: (_) async => throw Exception('backend down'));
         expect(
           t.clock,
-          DateTime.utc(2026, 7, 2, 9, StoryClock.failureDriftMinutes),
+          DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+          reason: 'send-path failure uses the same floor as a missing key',
         );
       },
     );
@@ -425,6 +426,47 @@ void main() {
       final t = makeService();
       seedFixed(t, timeOfDay: 'morning');
       await runEval(t, oneShotText: '{"minutes_elapsed": 0, "new_day": false}');
+      expect(
+        t.clock,
+        DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+      );
+    });
+
+    test(
+      'quoted continuous_instant string fails closed to the floor',
+      () async {
+        final t = makeService();
+        seedFixed(t, timeOfDay: 'morning');
+        await runEval(
+          t,
+          oneShotText:
+              '{"minutes_elapsed": 0, "new_day": false, '
+              '"continuous_instant": "true"}',
+        );
+        expect(
+          t.clock,
+          DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+        );
+      },
+    );
+
+    test('negative minutes_elapsed fails closed to the floor', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      await runEval(
+        t,
+        oneShotText: '{"minutes_elapsed": -8, "new_day": false}',
+      );
+      expect(
+        t.clock,
+        DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+      );
+    });
+
+    test('null raw uses the same floor as a missing key', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      await runEval(t, fire: (_) async => null);
       expect(
         t.clock,
         DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),

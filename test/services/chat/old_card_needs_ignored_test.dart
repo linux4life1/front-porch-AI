@@ -4,7 +4,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
-import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 
 void main() {
   test('an older card opens and its saved rates do not move a bar', () {
@@ -26,14 +25,6 @@ void main() {
     expect(saved.containsKey('needs_decay_hunger'), isFalse);
     expect(saved.containsKey('needs_decay_energy'), isFalse);
     expect(saved.containsKey('needs_sim_strength'), isFalse);
-
-    expect(
-      awakeWearDeltas(
-        30,
-        BodyPace.parse(ext.needsPace),
-        NeedsSimulation.needKeys,
-      )['hunger'],
-      -kBodyWearPerBeat,
-    );
+    expect(BodyPace.parse(ext.needsPace), BodyPace.normal);
   });
 }

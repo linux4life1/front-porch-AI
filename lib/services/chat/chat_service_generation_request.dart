@@ -340,7 +340,7 @@ extension ChatServiceGenerationRequest on ChatService {
 
   /// Pre-turn half of the call-model swap (voice call safe speed lane): the
   /// old swap fired only in the request phase, so every pre-generation LLM
-  /// call of a voice turn — the realism judges, the standalone clock, the
+  /// call of a voice turn — the realism judges, the time eval, the
   /// objective check — still waited on the full-size main model, which is
   /// where the "Thinking…" silence actually lived. sendMessage enters the
   /// swap before that work; the request phase above adopts it into

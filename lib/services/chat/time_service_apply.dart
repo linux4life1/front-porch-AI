@@ -52,9 +52,9 @@ extension TimeServiceApply on TimeService {
     await _ifDayChanged(dayBefore);
   }
 
-  /// All-away skip banner: no reply to score, so no LLM. Same 5-minute
-  /// floor the eval uses on failure. An OOC skip that already owned this
-  /// turn is left alone (and consumes the flag, matching the eval).
+  /// All-away skip banner: no reply to score, so no LLM. Still the
+  /// 5-minute AFK step — not the send-path floor. An OOC skip that
+  /// already owned this turn is left alone.
   Future<void> applyFailureDrift() async {
     if (!_passageOfTimeEnabled) return;
     if (_oocSkipMovedClockThisTurn) {
@@ -206,11 +206,10 @@ extension TimeServiceApply on TimeService {
 
   // ── Per-turn time advance (delegated from the physical / one-shot evals) ──
 
-  /// Apply one turn's elapsed time. Null or ≤0 minutes on a normal send
-  /// fail-closed to [StoryClock.conversationalFloorMinutes] unless
-  /// [continuousInstant] or [newDay]. Eval-failure callers pass
-  /// [StoryClock.failureDriftMinutes] explicitly. Returns whether the
-  /// clock moved.
+  /// Apply one turn's elapsed time. Null, garbage, 0, or negative on a
+  /// normal send fail-closed to [StoryClock.conversationalFloorMinutes]
+  /// unless [continuousInstant] or [newDay]. Clock apply never wears
+  /// Needs. Returns whether the clock moved.
   Future<bool> _applyElapsed({
     required int? minutes,
     required bool newDay,
@@ -250,7 +249,7 @@ extension TimeServiceApply on TimeService {
         minutes: m,
         nextMorning: newDay,
         isSkip: false,
-        wearAwake: !newDay,
+        wearAwake: false,
       );
     } else {
       _noteBodyBeat(

@@ -5,58 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
 
 void main() {
-  test(
-    'continue does not wear, a frozen clock is one beat, a night wears nothing',
-    () {
-      expect(
-        awakeMinutesForBeat(
-          continues: true,
-          clockRunning: true,
-          committedAwakeMinutes: 90,
-        ),
-        0,
-      );
-      expect(
-        awakeMinutesForBeat(
-          continues: false,
-          clockRunning: false,
-          committedAwakeMinutes: 90,
-        ),
-        kBodyBeatMinutes,
-      );
-      expect(
-        awakeMinutesForBeat(
-          continues: false,
-          clockRunning: true,
-          committedAwakeMinutes: 0,
-        ),
-        0,
-      );
-      expect(
-        awakeMinutesForBeat(
-          continues: false,
-          clockRunning: true,
-          committedAwakeMinutes: 90,
-        ),
-        90,
-      );
-    },
-  );
-
   test('a need that is off is neither worn nor shown', () {
     const keys = ['hunger', 'bladder', 'energy'];
     expect(needsThatAreOn(keys, const ['bladder']), ['hunger', 'energy']);
     expect(
       visibleNeeds(const {'hunger': 40, 'bladder': 10}, const ['bladder']),
       {'hunger': 40},
-    );
-    expect(
-      awakeWearDeltas(
-        120,
-        BodyPace.normal,
-        needsThatAreOn(keys, const ['bladder']),
-      ),
-      isNot(containsPair('bladder', anything)),
     );
   });
 
@@ -70,20 +24,6 @@ void main() {
     expect(paceScaledDrop(-30, BodyPace.sloth), -20);
     expect(paceScaledDrop(-30, BodyPace.normal), -30);
     expect(paceScaledDrop(-30, BodyPace.fast), -40);
-  });
-
-  test('a few minutes do not wear the body', () {
-    expect(awakeWearPoints(5), 0);
-    expect(awakeWearDeltas(5, BodyPace.fast, ['hygiene']), isEmpty);
-  });
-
-  test('half an hour is one ordinary beat and two hours are four', () {
-    expect(awakeWearPoints(30), kBodyWearPerBeat);
-    expect(awakeWearPoints(120), 8);
-    final sloth = awakeWearDeltas(120, BodyPace.sloth, ['hygiene']);
-    final fast = awakeWearDeltas(120, BodyPace.fast, ['hygiene']);
-    expect(sloth['hygiene']!.abs(), lessThan(8));
-    expect(fast['hygiene']!.abs(), greaterThan(8));
   });
 
   test('one scene cannot empty a bar', () {

@@ -101,7 +101,7 @@ extension ChatServiceImportWalk on ChatService {
         clockStamp = m;
         break;
       }
-      // Standalone clock (engine off) stamps top-level story_day only.
+      // Engine-off PoT stamps top-level story_day only.
       if (storyDayOnly == null) {
         final top = m.activeMetadata?['story_day'] ?? m.metadata?['story_day'];
         if (top is num) storyDayOnly = top.toInt();

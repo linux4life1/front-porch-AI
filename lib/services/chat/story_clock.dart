@@ -482,6 +482,8 @@ class StoryClock {
       passageOfTimeEnabled;
 
   /// Fail-closed minutes for a send. [continuousInstant] is the only 0.
+  /// Missing, garbage, 0, or negative all use [conversationalFloorMinutes].
+  /// A negative is a failed verdict, not a rewind.
   static int resolvedElapsedMinutes({
     required int? minutes,
     required bool newDay,
@@ -489,7 +491,8 @@ class StoryClock {
   }) {
     if (newDay) return (minutes ?? 0).clamp(0, maxMinutesPerTurn);
     if (continuousInstant) return 0;
-    if (minutes == null || minutes <= 0) return conversationalFloorMinutes;
+    if (minutes == null || minutes < 0) return conversationalFloorMinutes;
+    if (minutes == 0) return conversationalFloorMinutes;
     return minutes.clamp(0, maxMinutesPerTurn);
   }
 }

@@ -64,6 +64,39 @@ class _ContinuousInstantLlm extends _ScriptedLlm {
   }
 }
 
+class _QuotedInstantLlm extends _ScriptedLlm {
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    if (params.prompt.contains('minutes_elapsed')) {
+      yield '{"minutes_elapsed": 0, "new_day": false, '
+          '"continuous_instant": "true"}';
+      return;
+    }
+    yield* super.generateStream(params);
+  }
+}
+
+class _NegativeMinuteLlm extends _ScriptedLlm {
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    if (params.prompt.contains('minutes_elapsed')) {
+      yield '{"minutes_elapsed": -8, "new_day": false}';
+      return;
+    }
+    yield* super.generateStream(params);
+  }
+}
+
+class _ThrowingTimeLlm extends _ScriptedLlm {
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    if (params.prompt.contains('minutes_elapsed')) {
+      throw Exception('time eval down');
+    }
+    yield* super.generateStream(params);
+  }
+}
+
 class _ScriptedLlm extends LLMService {
   @override
   Stream<String> generateStream(GenerationParams params) async* {
@@ -380,8 +413,8 @@ void main() {
         chat!.timeService.passageOfTimeEnabled,
         isTrue,
         reason:
-            'Porch Life passageOfTimeDefault seeds new chats. The card '
-            'must not AND-veto the live clock.',
+            'card PoT AND Porch Life passageOfTimeDefault seed a new chat. '
+            'The live switch after that is chat-gear.',
       );
 
       await chat!.sendMessage('How are you?');
@@ -393,23 +426,71 @@ void main() {
     },
   );
 
+  test('1:1 card PoT OFF seeds a frozen clock — no tick and no chip', () async {
+    await boot(explicitChatToggles: false, cardPot: false, globalPot: true);
+    expect(
+      chat!.timeService.passageOfTimeEnabled,
+      isFalse,
+      reason:
+          'the card Passage of Time switch is live at seed: OFF AND '
+          'the Porch Life default must start the chat stopped',
+    );
+    final before = chat!.timeService.clock;
+
+    await chat!.sendMessage('How are you?');
+    await drainTurn();
+
+    expect(chat!.timeService.clock, before);
+    expect(lastBot().activeMetadata?['time_passed'], isNull);
+  });
+
   test(
-    '1:1 global PoT seed is not AND-vetoed by a card that left PoT off',
+    '1:1 quoted continuous_instant string fails closed to the floor',
     () async {
-      await boot(explicitChatToggles: false, cardPot: false, globalPot: true);
-      expect(
-        chat!.timeService.passageOfTimeEnabled,
-        isTrue,
-        reason:
-            'chat-gear Automatic Passage of Time starts from the Porch '
-            'Life default, not card ∧ default',
-      );
+      await boot(llm: _QuotedInstantLlm());
+      final before = chat!.timeService.clock;
 
       await chat!.sendMessage('How are you?');
       await drainTurn();
-      expect(lastBot().activeMetadata?['time_passed'], '30 min');
+
+      expect(
+        chat!.timeService.clock.difference(before).inMinutes,
+        2,
+        reason:
+            'only a real JSON boolean true is same-moment. '
+            '"continuous_instant":"true" is garbage — floor, not freeze',
+      );
+      expect(lastBot().activeMetadata?['time_passed'], '2 min');
+      expect(bars(), _carmenNeeds);
     },
   );
+
+  test('1:1 negative minutes_elapsed fails closed to the floor', () async {
+    await boot(llm: _NegativeMinuteLlm());
+    final before = chat!.timeService.clock;
+
+    await chat!.sendMessage('How are you?');
+    await drainTurn();
+
+    expect(chat!.timeService.clock.difference(before).inMinutes, 2);
+    expect(lastBot().activeMetadata?['time_passed'], '2 min');
+    expect(bars(), _carmenNeeds);
+  });
+
+  test('1:1 time-eval throw uses the same floor as a missing key', () async {
+    await boot(llm: _ThrowingTimeLlm());
+    final before = chat!.timeService.clock;
+
+    await chat!.sendMessage('How are you?');
+    await drainTurn();
+
+    expect(
+      chat!.timeService.clock.difference(before).inMinutes,
+      2,
+      reason: 'every send-path failure is conversationalFloorMinutes, not 5',
+    );
+    expect(lastBot().activeMetadata?['time_passed'], '2 min');
+  });
 
   test(
     '1:1 regen restamps time_passed and does not invent clock wear',

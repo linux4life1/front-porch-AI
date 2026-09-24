@@ -79,10 +79,9 @@ extension ChatServiceSendHandoff on ChatService {
         await _evaluateRealismForUpcomingSpeaker(_activeCharacter!);
       }
     } else if (_clockRunning && addressedGuest == null) {
-      // Standalone clock: announce the current time in the prompt; the
-      // post-reply decide lives in _finalizeGenerationTurn with the engine
-      // path (bucket brigade, Scene Guests included). Only stamp the user
-      // turn's story day here so RAG can ground retrieved lines.
+      // PoT is on and the engine did not run this turn. Stamp the user
+      // turn's story day so RAG can ground retrieved lines. The post-reply
+      // decide still lives in _finalizeGenerationTurn.
       if (_messages.isNotEmpty) {
         final last = _messages.last;
         if (last.isUser) {

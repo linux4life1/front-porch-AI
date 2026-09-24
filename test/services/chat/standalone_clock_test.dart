@@ -130,7 +130,7 @@ void main() {
           2,
           18,
           30,
-        ).add(Duration(minutes: StoryClock.failureDriftMinutes)),
+        ).add(Duration(minutes: StoryClock.conversationalFloorMinutes)),
       );
     });
 

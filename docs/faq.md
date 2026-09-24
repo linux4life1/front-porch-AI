@@ -366,7 +366,7 @@ The story has **its own clock**. It is **not** your wall clock and it does **not
 
 **Turn it on:** Settings → **Porch Life** → **Passage of Time**.
 
-That row does **not** need the Realism Engine. **Passage of Time** is the only clock driver — on in Porch Life it seeds new chats; the live switch is chat-gear **Automatic Passage of Time**. Realism off does not freeze a chat whose Passage of Time is on.
+That row does **not** need the Realism Engine. **Passage of Time on is enough, engine on or off.** A new chat seeds as the **card switch AND** the Porch Life default. After that, chat-gear **Automatic Passage of Time** is what counts.
 
 **What “auto” means**
 
@@ -376,7 +376,7 @@ That row does **not** need the Realism Engine. **Passage of Time** is the only c
 
 - A hello is at least **1–2 minutes**. A long drive might be two hours. **Same moment** only when the scene is one continuous instant.
 - **Hard cap: 180 minutes (3 hours) per turn.** Bigger jumps are skips (below), not auto.
-- If that AI call fails or returns garbage: the clock creeps **5 minutes**. A bare “0 minutes” on a normal send floors to **2 minutes**, not a freeze.
+- If that AI call fails or returns garbage — or a bare “0 minutes” — the clock floors to **2 minutes**, not a freeze. The chip names those minutes.
 - If it still hasn't moved after **12 turns**, the app hops to the next time of day by itself.
 - **Continue does not tick.** Same beat. New message = new beat.
 - **Regenerate / swipe** rewind the clock to before that reply, then judge again. It will not double-advance.
@@ -414,7 +414,7 @@ Set the **opening date and clock** on the character card if this is 1887, not �
 
 Do these in order:
 
-1. Settings → **Porch Life** → **Passage of Time** is on (new chats), and this chat’s **Automatic Passage of Time** is on in Character State / chat-gear.
+1. The **card** has Passage of Time on **and** Settings → **Porch Life** → **Passage of Time** is on (new chats), and this chat’s **Automatic Passage of Time** is on in Character State / chat-gear.
 2. You hit **Continue** — that does not advance time. Send a new message.
 3. No model / backend not running — auto time is an AI question. It cannot judge minutes without a model.
 4. You expected a 6-hour jump from one reply — auto **cannot** do that. [Skip](#how-do-i-skip-time).

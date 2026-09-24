@@ -91,8 +91,7 @@ extension SettingsFacadeUpdate on SettingsFacade {
       if (mood is bool) {
         await _storage.realismSettings.setStandingMoodEnabled(mood);
       }
-      // No live-chat push for either of these, and for the same reason the
-      // standalone clock has none: both are read straight off StorageService at
+      // No live-chat push: both are read straight off StorageService at
       // the moment they matter. "Acts on desires" is resolved per turn when the
       // preferences fragment is built, and Chaos seeds when a chat is entered —
       // so writing the setting IS the whole update.

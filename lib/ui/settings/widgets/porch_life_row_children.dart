@@ -21,73 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-// The two sub-controls that ride inside a FeatureRow's `child` slot on the
-// Porch Life tab. Lifted out of porch_life_tab.dart when Chaos Mode's row was
-// added: the tab was already past the 500-line cap, and CLAUDE.md's rule for
-// that case is not "add carefully" but "extract something". Moving these two
-// takes the tab back UNDER the cap while it gains a row — the
-// character_grid_card precedent.
-//
-// They are public here rather than private because a file can only hold
-// private classes for itself. Nothing else should use them; they are named for
-// the rows they belong to.
-
-/// The opt-in that keeps the story clock running with the Realism Engine off.
-///
-/// It exists as its own switch, rather than reading the Passage of Time row
-/// above it, because that row already defaults ON — for years it meant nothing
-/// while the engine was off, so nobody chose it in a world where it cost a
-/// model call. Treating it as consent would hand every engine-off user a new
-/// per-turn call without asking. Hence a separate, deliberate yes, and copy
-/// that states the cost in the same breath as the benefit.
-class StandaloneClockSwitch extends StatelessWidget {
-  const StandaloneClockSwitch({
-    super.key,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Keep the clock running without the engine',
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'The engine normally judges how long each exchange took as '
-                'part of work it is already doing. With it off, the clock '
-                'needs one short AI call of its own each turn — so this costs '
-                'a little speed. Left off, the clock simply holds still.',
-                style: TextStyle(
-                  color: AppColors.textTertiary(context),
-                  fontSize: 11,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Switch(value: value, onChanged: onChanged),
-      ],
-    );
-  }
-}
+// Sub-controls that ride inside a FeatureRow's `child` slot on the Porch
+// Life tab. Public because a file can only hold private classes for itself.
 
 /// How many consecutive "this quest is no longer relevant" verdicts retire
 /// a quest as stale (not achieved). Task-level stale is immediate.

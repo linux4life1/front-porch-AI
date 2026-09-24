@@ -1,8 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// How a body wears with the story clock. Pace scales drops only.
-// One ordinary beat is half an hour. There is no per-need tick rate.
+// Pace scales scene drops only. There is no clock tax.
 
 /// How fast awake time wears this body down.
 enum BodyPace {
@@ -61,28 +60,6 @@ bool needsSimAfterHydrate({
   return cardEnabled && globalDefault;
 }
 
-/// How many awake minutes this beat should wear.
-///
-/// Continue is the same moment. A frozen clock is one ordinary beat.
-/// Otherwise the clock's committed awake minutes are the whole story
-/// (zero on a night, a skip, or time away).
-int awakeMinutesForBeat({
-  required bool continues,
-  required bool clockRunning,
-  required int committedAwakeMinutes,
-}) {
-  if (continues) return 0;
-  if (!clockRunning) return kBodyBeatMinutes;
-  if (committedAwakeMinutes < 0) return 0;
-  return committedAwakeMinutes;
-}
-
-/// Minutes that count as one ordinary beat when the clock is off.
-const int kBodyBeatMinutes = 30;
-
-/// Points every need loses per ordinary beat, before pace.
-const int kBodyWearPerBeat = 2;
-
 /// Two thirds, one, or four thirds. Applied only to negative numbers.
 int paceScaledDrop(int delta, BodyPace pace) {
   if (delta >= 0) return delta;
@@ -91,24 +68,6 @@ int paceScaledDrop(int delta, BodyPace pace) {
     BodyPace.normal => delta,
     BodyPace.fast => (delta * 4) ~/ 3,
   };
-}
-
-/// Awake-time wear at Normal, before pace. A few minutes round to nothing.
-int awakeWearPoints(int minutes) {
-  if (minutes <= 0) return 0;
-  return (kBodyWearPerBeat * minutes) ~/ kBodyBeatMinutes;
-}
-
-/// Negative wear for every need, already scaled by [pace]. Empty when
-/// the minutes are too short to move a bar.
-Map<String, int> awakeWearDeltas(
-  int minutes,
-  BodyPace pace,
-  List<String> keys,
-) {
-  final points = paceScaledDrop(-awakeWearPoints(minutes), pace);
-  if (points == 0) return const {};
-  return {for (final key in keys) key: points};
 }
 
 void scaleNegativeDrops(Map<String, int> deltas, BodyPace pace) {
@@ -157,31 +116,6 @@ const String kNeedsPreWearByMember = 'needs_pre_wear_by_member';
 /// Where every present body landed after that beat's wear. A swipe shows this.
 const String kNeedsWornByMember = 'needs_worn_by_member';
 
-/// Wear [minutes] off each present body. [before] is the bars at the start
-/// of the beat. An empty wear (a few minutes, or Continue) leaves them.
-Map<String, Map<String, int>> wearPresentBodies({
-  required Map<String, Map<String, int>> before,
-  required int minutes,
-  required BodyPace Function(String id) paceOf,
-  required List<String> Function(String id) needsOn,
-}) {
-  final out = <String, Map<String, int>>{};
-  for (final entry in before.entries) {
-    final wear = awakeWearDeltas(
-      minutes,
-      paceOf(entry.key),
-      needsOn(entry.key),
-    );
-    final next = Map<String, int>.from(entry.value);
-    for (final change in wear.entries) {
-      final cur = next[change.key] ?? 80;
-      next[change.key] = (cur + change.value).clamp(0, 100);
-    }
-    out[entry.key] = next;
-  }
-  return out;
-}
-
 /// The bars a regen must load before it wears the beat again.
 ///
 /// [worn] is where the bodies are now, after the beat being replaced.
@@ -194,23 +128,6 @@ Map<String, Map<String, int>> presentBodiesForReplay({
   // the live bars in is still forced to start from [before].
   if (worn.isEmpty && before.isEmpty) return const {};
   return {for (final id in before.keys) id: Map<String, int>.from(before[id]!)};
-}
-
-/// One beat, then a regen of that same beat. The second wear starts from
-/// [before], so a Normal half hour leaves hunger at 78, not 76.
-Map<String, Map<String, int>> replayPresentWear({
-  required Map<String, Map<String, int>> before,
-  required Map<String, Map<String, int>> worn,
-  required int minutes,
-  required BodyPace Function(String id) paceOf,
-  required List<String> Function(String id) needsOn,
-}) {
-  return wearPresentBodies(
-    before: presentBodiesForReplay(before: before, worn: worn),
-    minutes: minutes,
-    paceOf: paceOf,
-    needsOn: needsOn,
-  );
 }
 
 /// Undo one beat's wear for everyone except the deleted speaker.

@@ -313,6 +313,15 @@ void main() {
         ),
         0,
       );
+      expect(
+        StoryClock.resolvedElapsedMinutes(
+          minutes: -8,
+          newDay: false,
+          continuousInstant: false,
+        ),
+        StoryClock.conversationalFloorMinutes,
+        reason: 'a negative is a failed verdict, not a rewind',
+      );
     });
   });
 }

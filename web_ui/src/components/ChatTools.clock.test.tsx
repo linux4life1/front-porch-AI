@@ -12,7 +12,7 @@ describe('ChatTools clock chevrons', () => {
   );
 
   it('gates Earlier/Later and the calendar on clockRunning, not realism alone', () => {
-    expect(src).toContain('const clockRunning = t.time.clockRunning ?? t.realismEnabled');
+    expect(src).toContain('const clockRunning = t.time.clockRunning ?? false');
     expect(src).toContain('disabled={!clockRunning}');
     expect(src).toContain('canEdit={clockRunning}');
     expect(src).toContain('Story clock is paused');
