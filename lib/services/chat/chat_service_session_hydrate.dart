@@ -206,15 +206,36 @@ extension ChatServiceSessionHydrate on ChatService {
       cooldownTurnsRemaining: s.cooldownTurnsRemaining,
       cooldownTurnsTotal: s.cooldownTurnsTotal,
     );
-    _needsSimEnabled = s.needsSimEnabled;
+    final nv = s.needsVector;
+    final hasSavedNeeds = nv is String && nv.isNotEmpty;
+    final cardWantsNeeds =
+        _activeGroup == null &&
+        (_activeCharacter?.frontPorchExtensions?.needsSimEnabled ?? false);
+    // Session flag is seed-time AND, column default FALSE. A lived-in 1:1
+    // whose card + Porch Life now ask for Needs must not keep the sidebar
+    // empty. Same hide≠erase as pockets: a stored vector is not discarded
+    // because the column never flipped.
+    _needsSimEnabled = needsSimAfterHydrate(
+      sessionEnabled: s.needsSimEnabled,
+      cardEnabled: cardWantsNeeds,
+      globalDefault: _storageService.realismSettings.needsSimDefault,
+      hasSavedVector: hasSavedNeeds,
+      isGroup: _activeGroup != null,
+    );
     _objectivesEnabled = s.objectivesEnabled;
     if (_needsSimEnabled) {
       // Seed defaults first, then overlay the saved vector ONLY when it has
       // values. A blank saved vector (e.g. needs was toggled on mid-chat before
       // it seeded) must NOT clobber the defaults, or the sidebar shows no scores.
-      _needsSimulation.initializeFresh();
-      final nv = s.needsVector;
-      if (nv is String && nv.isNotEmpty) {
+      final ext = _activeCharacter?.frontPorchExtensions;
+      if (ext != null && _activeGroup == null) {
+        _needsSimulation.initializeFreshWithDefaults(
+          NeedsSimulation.baselinesFromExtensions(ext),
+        );
+      } else {
+        _needsSimulation.initializeFresh();
+      }
+      if (hasSavedNeeds) {
         applyNeedsPersist(_needsSimulation, jsonDecode(nv));
       }
     } else {

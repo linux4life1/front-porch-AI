@@ -244,7 +244,7 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
       realismNeedsDirectorAuthority:
           realismNeedsDirectorAuthority ?? this.realismNeedsDirectorAuthority,
       needsPace: needsPace ?? this.needsPace,
-      needsOff: needsOff ?? this.needsOff,
+      needsOff: List<String>.from(needsOff ?? this.needsOff),
       needsBaselineHunger: needsBaselineHunger ?? this.needsBaselineHunger,
       needsBaselineBladder: needsBaselineBladder ?? this.needsBaselineBladder,
       needsBaselineEnergy: needsBaselineEnergy ?? this.needsBaselineEnergy,

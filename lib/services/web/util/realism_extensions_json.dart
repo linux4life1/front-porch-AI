@@ -60,7 +60,7 @@ FrontPorchExtensions frontPorchFromFields(
   /// soft.
   List<String> asStrList(String key, List<String> fallback) {
     final v = fields[key];
-    if (v is! List) return fallback;
+    if (v is! List) return List<String>.from(fallback);
     return [
       for (final e in v)
         if (e is String && e.trim().isNotEmpty) e.trim(),

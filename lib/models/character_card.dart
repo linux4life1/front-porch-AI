@@ -138,6 +138,8 @@ class FrontPorchExtensions {
 
   /// Need keys this character has turned off. Empty means all seven are on.
   /// The stored bar stays; it is just not worn, shown, or scored.
+  /// Growable — Save / persist mutate this in place when a need is
+  /// toggled. A const default throws "Cannot modify an unmodifiable list".
   List<String> needsOff;
 
   // Per-need baseline values (0-100). Used to seed the needs vector when starting a new session
@@ -235,7 +237,7 @@ class FrontPorchExtensions {
     this.realismNeedsDirectorAuthority = false,
 
     this.needsPace = 'normal',
-    this.needsOff = const [],
+    List<String>? needsOff,
 
     // Per-need baseline values (0-100). Default 80 matches legacy initialization.
     this.needsBaselineHunger = 80,
@@ -265,7 +267,7 @@ class FrontPorchExtensions {
     this.stableId,
     this.tier,
     this.favoriteAvatarId,
-  });
+  }) : needsOff = List<String>.from(needsOff ?? const []);
 
   factory FrontPorchExtensions.fromJson(
     Map<String, dynamic> json, {
@@ -326,7 +328,7 @@ class FrontPorchExtensions {
               for (final item in realism['needs_off'] as List)
                 if (item is String) item,
             ]
-          : const [],
+          : <String>[],
       needsBaselineHunger: realism['needs_baseline_hunger'] as int? ?? 80,
       needsBaselineBladder: realism['needs_baseline_bladder'] as int? ?? 80,
       needsBaselineEnergy: realism['needs_baseline_energy'] as int? ?? 80,

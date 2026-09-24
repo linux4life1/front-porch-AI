@@ -28,12 +28,33 @@ List<String> needsThatAreOn(List<String> all, List<String> off) {
 }
 
 /// The bars a person should see. Stored values for off needs stay put.
+/// An empty [off] list leaves the vector as-is — it does not hide the strip.
 Map<String, int> visibleNeeds(Map<String, int> vector, List<String> off) {
   if (off.isEmpty) return vector;
   return {
     for (final entry in vector.entries)
       if (!off.contains(entry.key)) entry.key: entry.value,
   };
+}
+
+/// Whether a loaded session should run Needs (sidebar bars + wear).
+///
+/// `sessions.needs_sim_enabled` defaults FALSE and is AND-ed with the card
+/// and Porch Life only when a chat is first seeded. A lived-in 1:1 opened
+/// after those two were turned ON still has the column at 0, so hydrate
+/// used to clear the vector and the sidebar acted like Needs was off.
+/// Promote that stale off. A saved vector wins too (hide ≠ erase). Groups
+/// keep the stored flag — their on/off is derived from member seeds.
+bool needsSimAfterHydrate({
+  required bool sessionEnabled,
+  required bool cardEnabled,
+  required bool globalDefault,
+  required bool hasSavedVector,
+  required bool isGroup,
+}) {
+  if (sessionEnabled || hasSavedVector) return true;
+  if (isGroup) return false;
+  return cardEnabled && globalDefault;
 }
 
 /// How many awake minutes this beat should wear.
