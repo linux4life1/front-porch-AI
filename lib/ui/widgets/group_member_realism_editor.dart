@@ -20,7 +20,7 @@ import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 ///
 /// Reads every value from [seed] (a member's realism seed map: `affection`,
 /// `trust`, `emotion`, `emotionIntensity`, `verification*`,
-/// `needsSimStrength`, `enjoysLowHygiene`, `needsBaseline*`, `needsDecay*`, …) and
+/// `needsPace`, `needsOff`, `enjoysLowHygiene`, `needsBaseline*`, …) and
 /// reports each edit through [onUpdate] as a `{key: value}` delta that the caller
 /// merges back into the seed (and rebuilds). Needs enabled/disabled is group-wide,
 /// so it is threaded through [needsEnabled] / [onNeedsEnabledChanged].
@@ -39,8 +39,7 @@ class GroupMemberRealismEditor extends StatelessWidget {
   });
 
   int _i(String key, int fallback) => (seed[key] as num?)?.toInt() ?? fallback;
-  String _s(String key, String fallback) =>
-      (seed[key] as String?) ?? fallback;
+  String _s(String key, String fallback) => (seed[key] as String?) ?? fallback;
 
   @override
   Widget build(BuildContext context) {
@@ -73,8 +72,7 @@ class GroupMemberRealismEditor extends StatelessWidget {
       showMasterEnabledToggle: false,
       realismVerificationEnabled:
           (seed['verificationEnabled'] as bool?) ?? false,
-      onRealismVerificationChanged: (v) =>
-          onUpdate({'verificationEnabled': v}),
+      onRealismVerificationChanged: (v) => onUpdate({'verificationEnabled': v}),
       realismVerificationMaxReprocesses:
           (seed['verificationMaxReprocesses'] as int?) ?? 1,
       onRealismVerificationMaxReprocessesChanged: (v) =>

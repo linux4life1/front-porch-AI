@@ -22,7 +22,7 @@ import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 /// - `defaultMemberRealismState` = `{ "perChar": { memberId: <full seed> } }`,
 ///   where the full seed carries `affection`/`trust`/`emotion`/`emotionIntensity`,
 ///   the `needs` map, the `relationships` map (intragroup feelings, targetId→int),
-///   and the per-need baseline/decay fields.
+///   and the per-need baseline / Pace / on-off fields.
 /// - `baselineRealismState` = `{ memberId: {affection, trust, emotion,
 ///   emotionIntensity, timeOfDay, dayCount} }` — scalars only (no needs/relationships).
 class GroupRealismBlobs {
@@ -129,6 +129,8 @@ Map<String, dynamic> defaultGroupMemberRealismSeed() => {
   'verificationStrictness': 3,
   'needsDirectorAuthority': false,
   'needsSimStrength': 1,
+  'needsPace': 'normal',
+  'needsOff': <String>[],
   'needsBaselineHunger': 80,
   'needsBaselineBladder': 80,
   'needsBaselineEnergy': 80,

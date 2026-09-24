@@ -52,7 +52,6 @@ class NeedsFormSection extends StatelessWidget {
   final int baselineComfort;
   final ValueChanged<int> onBaselineComfortChanged;
 
-  // Decay rates (per turn)
   const NeedsFormSection({
     super.key,
     required this.enabled,

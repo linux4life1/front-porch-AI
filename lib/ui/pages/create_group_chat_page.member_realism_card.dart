@@ -104,6 +104,15 @@ extension _GroupWizardMemberRealismCard on _CreateGroupChatPageState {
                 onNeedsSimStrengthChanged: (v) {
                   _updateMemberRealism(id, {'needsSimStrength': v});
                 },
+                needsPace: (seed['needsPace'] as String?) ?? 'normal',
+                onNeedsPaceChanged: (v) =>
+                    _updateMemberRealism(id, {'needsPace': v}),
+                needsOff: [
+                  for (final item in (seed['needsOff'] as List?) ?? const [])
+                    if (item is String) item,
+                ],
+                onNeedsOffChanged: (v) =>
+                    _updateMemberRealism(id, {'needsOff': v}),
                 baselineHunger: _memberNeedsBaselines[id]?['hunger'] ?? 80,
                 onBaselineHungerChanged: (v) {
                   rebuildState(() {
@@ -153,8 +162,7 @@ extension _GroupWizardMemberRealismCard on _CreateGroupChatPageState {
                   });
                   _updateMemberRealism(id, {'needsBaselineComfort': v});
                 },
-                // Per-member decay ("tick rate") — each member
-                // decays at its own rate, exactly like a solo card.
+                // Pace + per-need on/off — same seed keys edit-group writes.
               ),
               showVerificationToggle: true,
             ),

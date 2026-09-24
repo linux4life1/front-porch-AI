@@ -75,40 +75,83 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
 
           _needsSlider(
             'Hunger',
+            _kHunger,
             baselines[_kHunger] ?? 80,
             (v) => _updateNeedsBaseline(id, _kHunger, v),
+            id,
           ),
           _needsSlider(
             'Bladder',
+            _kBladder,
             baselines[_kBladder] ?? 80,
             (v) => _updateNeedsBaseline(id, _kBladder, v),
+            id,
           ),
           _needsSlider(
             'Energy',
+            _kEnergy,
             baselines[_kEnergy] ?? 80,
             (v) => _updateNeedsBaseline(id, _kEnergy, v),
+            id,
           ),
           _needsSlider(
             'Social',
+            _kSocial,
             baselines[_kSocial] ?? 80,
             (v) => _updateNeedsBaseline(id, _kSocial, v),
+            id,
           ),
           _needsSlider(
             'Fun',
+            _kFun,
             baselines[_kFun] ?? 80,
             (v) => _updateNeedsBaseline(id, _kFun, v),
+            id,
           ),
           _needsSlider(
             'Hygiene',
+            _kHygiene,
             baselines[_kHygiene] ?? 80,
             (v) => _updateNeedsBaseline(id, _kHygiene, v),
+            id,
           ),
           _needsSlider(
             'Comfort',
+            _kComfort,
             baselines[_kComfort] ?? 80,
             (v) => _updateNeedsBaseline(id, _kComfort, v),
+            id,
           ),
 
+          const SizedBox(height: 8),
+          Divider(color: AppColors.borderOf(context), height: 1),
+          const SizedBox(height: 8),
+          Text(
+            'Pace',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'How fast needs drop as time passes. A meal or a bath stays the same.',
+            style: TextStyle(
+              fontSize: 10,
+              color: AppColors.textTertiary(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'sloth', label: Text('Sloth')),
+              ButtonSegment(value: 'normal', label: Text('Normal')),
+              ButtonSegment(value: 'fast', label: Text('Fast')),
+            ],
+            selected: {_needsPace[id] ?? 'normal'},
+            onSelectionChanged: (next) => _updateNeedsPace(id, next.first),
+          ),
           const SizedBox(height: 8),
           Divider(color: AppColors.borderOf(context), height: 1),
           const SizedBox(height: 8),
@@ -152,7 +195,15 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
     );
   }
 
-  Widget _needsSlider(String label, int value, ValueChanged<int> onChanged) {
+  Widget _needsSlider(
+    String label,
+    String needKey,
+    int value,
+    ValueChanged<int> onChanged,
+    String memberId,
+  ) {
+    final off = _needsOff[memberId] ?? const <String>[];
+    final alive = !off.contains(needKey);
     final baseline = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -173,6 +224,18 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
                 fontSize: 10,
                 color: AppColors.textSecondary(context),
               ),
+            ),
+            Switch(
+              value: alive,
+              onChanged: (next) {
+                final nextOff = [...off];
+                if (next) {
+                  nextOff.remove(needKey);
+                } else if (!nextOff.contains(needKey)) {
+                  nextOff.add(needKey);
+                }
+                _updateNeedsOff(memberId, nextOff);
+              },
             ),
           ],
         ),

@@ -126,10 +126,10 @@ extension _GroupWizardCommit on _CreateGroupChatPageState {
                     if (item is String) item,
                 ]
               : source.frontPorchExtensions!.needsOff,
-          // Carry the group-creator's per-member needs baselines + decay
-          // choices (the seed). Without these two blocks, cards that already
-          // ship a FrontPorchExtensions (the common case) silently lost every
-          // baseline/decay adjustment made in the creator at save time.
+          // Carry the group-creator's per-member needs baselines, Pace, and
+          // on/off (the seed). Without these blocks, cards that already ship a
+          // FrontPorchExtensions (the common case) silently lost every
+          // adjustment made in the creator at save time.
           needsBaselineHunger:
               (seed['needsBaselineHunger'] as int?) ??
               source.frontPorchExtensions!.needsBaselineHunger,
