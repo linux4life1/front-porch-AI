@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20260921.f50f22e`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🍽️ **Needs follow the clock** — time wears the body after the reply, not once per message. Pace is Sloth, Normal, or Fast, and it only changes drops. Each need can be turned off. A normal reply shows how many minutes passed. Same on the phone.
+
 - 🛠️ **Waifu Coder can use the same recipe cards as chat** — drop JSON in the library `tools` folder, opt in from the Waifu harness, and they show up as tools. Skills are a separate Waifu-only drawer (`skills/<name>/SKILL.md`). Not Docker, not extra MCP servers. Same on Porch Life.
 
 - 🖼️ **Comfy Create rides Comfy’s own templates** — Z-Image Turbo, Qwen-Image, and Flux/Krea use the graphs Comfy ships (or a replaceable starter / your uploaded workflow), not a Porch-owned copy we have to rewrite every model bump. Pick the family, fill the model drawers, Generate. Expression packs still Edit first; plain models fall back to img2img. Same on the phone.

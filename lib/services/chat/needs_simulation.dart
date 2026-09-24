@@ -19,19 +19,8 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/weather_engine.dart';
 
 part 'needs_simulation.tables.dart';
-
-/// Documented decay modifier for the `tickDecay` pipeline.
-/// Name for logs; condition decides applicability; factor the multiplier.
-/// Applied after base decay + time-of-day.
-typedef DecayModifier = ({
-  String name,
-  bool Function(String key, Map<String, int> vector, NeedsSimulation ctx)
-  condition,
-  double Function(String key, int current, NeedsSimulation ctx) factor,
-});
 
 /// Plain (non-ChangeNotifier) domain service owning the Needs simulation.
 ///
@@ -58,19 +47,6 @@ class NeedsSimulation {
   final void Function(String charId, Map<String, int> needs) setGroupNeeds;
   final bool Function() getEnjoysLowHygiene;
   final bool Function() getNeedsSimEnabled;
-  final Map<String, int>? Function()? getCustomDecayRates;
-
-  /// The card's Needs delta strength (1–5). Optional: absent means 1x, which
-  /// is what every existing test harness and the group-member path assume.
-  /// Read only by [sceneDepletionCap].
-  final int Function()? getNeedsSimStrength;
-
-  /// Today's story weather, or null when the feature is off. Optional so
-  /// existing construction sites/tests are untouched; the weather decay
-  /// modifiers below no-op on null. Per-chat shared state → both the 1:1 and
-  /// group ticks see the identical value through [decayedValueFor] (parity
-  /// by construction).
-  final DailyWeather? Function()? getWeather;
 
   Map<String, int> _vector = {};
   String? _pendingCatastrophe;
@@ -93,9 +69,6 @@ class NeedsSimulation {
     required this.setGroupNeeds,
     required this.getEnjoysLowHygiene,
     required this.getNeedsSimEnabled,
-    this.getNeedsSimStrength,
-    this.getCustomDecayRates,
-    this.getWeather,
   });
 
   Map<String, int> get vector => Map<String, int>.unmodifiable(_vector);
@@ -132,10 +105,6 @@ class NeedsSimulation {
     };
   }
 
-  static const Map<String, int> needDecay = _needDecay;
-  static const Map<String, int> needRestore = _needRestore;
-  static const int needRestoreDefault = 30;
-
   static const int needUrgentThreshold = 35;
   static const int needCriticalThreshold = 20;
 
@@ -148,34 +117,13 @@ class NeedsSimulation {
   static const Map<String, int> needPostCatastropheFloor =
       _needPostCatastropheFloor;
   static const List<String> catastropheNeeds = _catastropheNeeds;
-  static final List<DecayModifier> decayModifiers = _decayModifiers;
+
   void initializeFresh() {
     _vector = Map<String, int>.from(needDefaults);
     _pendingCatastrophe = null;
     _lastSceneReason = null;
     _hygieneCrisisAcked.clear();
     // No buffer state to zero.
-  }
-
-  /// THE single per-key decay rule (rate + modifier pipeline + clamp), shared
-  /// by the 1:1 tick, the group tick, and the group per-speaker decay in the
-  /// realism dance — so a group member decays exactly like the same card in a
-  /// 1:1 chat (parity). [vector] is the live map the modifier conditions read;
-  /// pass the map being decayed so later keys see earlier keys' decayed values
-  /// (the historical in-loop semantics).
-  int decayedValueFor(
-    String key,
-    int current,
-    Map<String, int> vector,
-    Map<String, int> customRates,
-  ) {
-    int decay = customRates[key] ?? needDecay[key] ?? 0;
-    for (final mod in decayModifiers) {
-      if (mod.condition(key, vector, this)) {
-        decay = (decay * mod.factor(key, current, this)).round();
-      }
-    }
-    return (current - decay).clamp(0, 100);
   }
 
   /// Initialize the needs vector from card-specific baseline values.
@@ -205,24 +153,6 @@ class NeedsSimulation {
     _hygieneCrisisAcked.clear();
   }
 
-  static const Map<String, int> sceneDepletionAt1x = _sceneDepletionAt1x;
-
-  /// Fallback for a key not in the table (there is none today; a future need
-  /// gets a middling number until someone chooses one for it).
-  static const int sceneDepletionFallback = 10;
-
-  /// [key]'s depletion bound at the card's Needs strength (1–5).
-  ///
-  /// `base + 2 per notch above 1x`, so every notch does something and the
-  /// widest bite tops out at 26 — still under the old fixed −30, so no strength
-  /// setting is worse off than before this change. A multiplicative scale would
-  /// have put bladder at 54 and reintroduced exactly the cliff being fixed.
-  int sceneDepletionCapFor(String key) {
-    final base = sceneDepletionAt1x[key] ?? sceneDepletionFallback;
-    final strength = (getNeedsSimStrength?.call() ?? 1).clamp(1, 5);
-    return base + (strength - 1) * 2;
-  }
-
   /// Apply a scene's deltas. A PURE MUTATOR — it does not judge magnitude.
   ///
   /// The depletion policy deliberately does NOT live here, and that was worth
@@ -231,8 +161,7 @@ class NeedsSimulation {
   /// composer test making a character hungry, and the raw-clamp golden) — the
   /// bound was reaching past the bug. What needs limiting is what a MODEL
   /// proposes about a scene, not what the simulation is allowed to hold.
-  /// See [sceneDepletionCap] and its single application point in
-  /// needs_impact_evaluator.
+  /// Scene drops are limited in the needs evaluator, after pace.
   void applySceneImpact(NeedsImpact impact) {
     if (impact.deltas.isNotEmpty) {
       for (final entry in impact.deltas.entries) {
@@ -281,49 +210,14 @@ class NeedsSimulation {
     return out;
   }
 
-  void tickDecay() {
-    if (!getNeedsSimEnabled() || !getRealismEnabled()) return;
-
-    final customRates = getCustomDecayRates?.call() ?? {};
-    final isGroupNonObserver = getIsGroupNonObserverMode();
-    if (isGroupNonObserver) {
-      final sid = getCurrentSpeakerIdForRealism();
-      var needs = getGroupNeeds(sid);
-      if (needs.isEmpty) {
-        needs = Map.fromEntries(needKeys.map((k) => MapEntry(k, 80)));
-      }
-
-      for (final key in needKeys) {
-        final current = needs[key] ?? 80;
-        needs[key] = decayedValueFor(key, current, needs, customRates);
-      }
-      setGroupNeeds(sid, needs);
-      return;
-    }
-
-    // 1:1 scalar path (pure decay + simplified modifiers, no buffer damp/crash)
-    for (final key in needKeys) {
-      final current = _vector[key];
-      if (current == null) continue;
-      _vector[key] = decayedValueFor(key, current, _vector, customRates);
-    }
-
-    // Fire a catastrophe if any hard-event need bottomed out this tick.
-    applyCatastropheIfNeeded();
-
-    onSaveChat();
-    onNotify();
-  }
-
   /// When a hard-event need has bottomed out (≤0) this turn, arm ONE mandatory
   /// catastrophe (the worst such need) for the prompt builder. Needs with a
   /// [needPostCatastropheFloor] lift so they can't instantly re-fire; hygiene
   /// has none — they stay filthy until a scene actually washes them. Operates
-  /// on the live [_vector] — the 1:1 host's (called from [tickDecay]), or a
-  /// group speaker's after their scalars are loaded (called from the realism
-  /// dance), so 1:1 and group behave identically. Enjoys-low-hygiene skips
+  /// on the live [_vector] — the 1:1 host, or a group speaker after their
+  /// scalars are loaded — so 1:1 and group behave identically. Enjoys-low-hygiene skips
   /// the hygiene beat (0 is comfort for them).
-  void applyCatastropheIfNeeded() {
+  void applyCatastropheIfNeeded({Iterable<String> ignore = const []}) {
     if (!getNeedsSimEnabled() || !getRealismEnabled()) return;
     if (_pendingCatastrophe != null) return; // one pending event at a time
     final speaker = getCurrentSpeakerIdForRealism();
@@ -334,6 +228,7 @@ class NeedsSimulation {
     String? worst;
     int worstVal = 1; // only needs at 0 or below qualify
     for (final key in catastropheNeeds) {
+      if (ignore.contains(key)) continue;
       if (key == 'hygiene' && enjoysLow) continue;
       if (key == 'hygiene' && _hygieneCrisisAcked.contains(speaker)) continue;
       final v = _vector[key];
@@ -390,10 +285,6 @@ class NeedsSimulation {
 
   void consumePendingCatastrophe() {
     _pendingCatastrophe = null;
-  }
-
-  int needRestoreAmount(String need) {
-    return needRestore[need] ?? needRestoreDefault;
   }
 
   int getNeedStep(String need, int value) {

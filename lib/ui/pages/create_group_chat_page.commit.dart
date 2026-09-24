@@ -117,6 +117,15 @@ extension _GroupWizardCommit on _CreateGroupChatPageState {
           needsSimStrength:
               (seed['needsSimStrength'] as int?) ??
               source.frontPorchExtensions!.needsSimStrength,
+          needsPace:
+              (seed['needsPace'] as String?) ??
+              source.frontPorchExtensions!.needsPace,
+          needsOff: seed['needsOff'] is List
+              ? [
+                  for (final item in seed['needsOff'] as List)
+                    if (item is String) item,
+                ]
+              : source.frontPorchExtensions!.needsOff,
           // Carry the group-creator's per-member needs baselines + decay
           // choices (the seed). Without these two blocks, cards that already
           // ship a FrontPorchExtensions (the common case) silently lost every
@@ -190,6 +199,11 @@ extension _GroupWizardCommit on _CreateGroupChatPageState {
           needsDecayHygiene: (seed['needsDecayHygiene'] as int?) ?? 5,
           needsDecayComfort: (seed['needsDecayComfort'] as int?) ?? 5,
           needsSimStrength: (seed['needsSimStrength'] as int?) ?? 1,
+          needsPace: (seed['needsPace'] as String?) ?? 'normal',
+          needsOff: [
+            for (final item in (seed['needsOff'] as List?) ?? const [])
+              if (item is String) item,
+          ],
         );
         memberFp.ensureStableId();
       }

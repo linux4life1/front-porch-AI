@@ -141,6 +141,13 @@ class FrontPorchExtensions {
   // Stored per-card (and per-member via frontPorch in groups). Default 1 = no behavior change.
   int needsSimStrength;
 
+  /// Body pace: sloth, normal, or fast. Scales drops only.
+  String needsPace;
+
+  /// Need keys this character has turned off. Empty means all seven are on.
+  /// The stored bar stays; it is just not worn, shown, or scored.
+  List<String> needsOff;
+
   // Per-need baseline values (0-100). Used to seed the needs vector when starting a new session
   // with this character. Default 80 matches legacy initialization behavior.
   int needsBaselineHunger;
@@ -151,8 +158,8 @@ class FrontPorchExtensions {
   int needsBaselineHygiene;
   int needsBaselineComfort;
 
-  // Per-need decay rates (0-10). Applied as base decay per turn in tickDecay().
-  // Defaults match the legacy hardcoded NeedsSimulation.needDecay values.
+  // Old per-need rates. Loaded so an older card still opens. The body
+  // does not read them. Pace is the only speed control.
   int needsDecayHunger;
   int needsDecayBladder;
   int needsDecayEnergy;
@@ -251,6 +258,8 @@ class FrontPorchExtensions {
     // requested magnitude on the first pass. The Director must not receive an already-scaled value
     // and then scale it again. What the (Director-corrected) call returns is applied directly.
     this.needsSimStrength = 1,
+    this.needsPace = 'normal',
+    this.needsOff = const [],
 
     // Per-need baseline values (0-100). Default 80 matches legacy initialization.
     this.needsBaselineHunger = 80,
@@ -344,6 +353,13 @@ class FrontPorchExtensions {
       realismNeedsDirectorAuthority:
           realism['realism_needs_director_authority'] as bool? ?? false,
       needsSimStrength: realism['needs_sim_strength'] as int? ?? 1,
+      needsPace: realism['needs_pace'] as String? ?? 'normal',
+      needsOff: realism['needs_off'] is List
+          ? [
+              for (final item in realism['needs_off'] as List)
+                if (item is String) item,
+            ]
+          : const [],
       needsBaselineHunger: realism['needs_baseline_hunger'] as int? ?? 80,
       needsBaselineBladder: realism['needs_baseline_bladder'] as int? ?? 80,
       needsBaselineEnergy: realism['needs_baseline_energy'] as int? ?? 80,

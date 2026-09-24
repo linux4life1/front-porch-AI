@@ -118,12 +118,20 @@ extension TimeServiceApply on TimeService {
   /// eval must not add minutes on top of the AFK snap.
   void advanceTimePeriods(int count) {
     if (!_passageOfTimeEnabled) return;
+    final before = _clock;
     for (var i = 0; i < count; i++) {
       _clock = StoryClock.snapToNextPeriod(_clock);
     }
     if (count > 0) {
       _turnsSinceClockMoved = 0;
       _oocSkipMovedClockThisTurn = true;
+      final jumped = _clock.difference(before).inMinutes;
+      _noteBodyBeat(
+        minutes: jumped < 0 ? 0 : jumped,
+        nextMorning: false,
+        isSkip: false,
+        wearAwake: false,
+      );
     }
   }
 
@@ -179,6 +187,12 @@ extension TimeServiceApply on TimeService {
     _clock = next;
     _turnsSinceClockMoved = 0;
     _oocSkipMovedClockThisTurn = true;
+    _noteBodyBeat(
+      minutes: 0,
+      nextMorning: isNightSkip(lower),
+      isSkip: true,
+      wearAwake: false,
+    );
     onSetPendingRealismMetadata(
       'time_skip_to',
       '$displayShortDate · $displayClock',
@@ -216,13 +230,30 @@ extension TimeServiceApply on TimeService {
       _clock = StoryClock.nextMorning(_clock);
       moved = true;
     }
+    var stalled = false;
     if (moved) {
       _turnsSinceClockMoved = 0;
     } else if (++_turnsSinceClockMoved >= StoryClock.stallBackstopTurns) {
       _clock = StoryClock.snapToNextPeriod(_clock);
       _turnsSinceClockMoved = 0;
       moved = true;
+      stalled = true;
       debugPrint('[Realism:Time] Stall backstop — snapped to $timeOfDay');
+    }
+    if (!stalled) {
+      _noteBodyBeat(
+        minutes: m,
+        nextMorning: newDay,
+        isSkip: false,
+        wearAwake: !newDay,
+      );
+    } else {
+      _noteBodyBeat(
+        minutes: 0,
+        nextMorning: false,
+        isSkip: false,
+        wearAwake: false,
+      );
     }
     await _ifDayChanged(dayBefore);
     return moved;

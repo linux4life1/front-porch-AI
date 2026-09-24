@@ -32,14 +32,8 @@ extension NeedsImpactBound on NeedsImpactEvaluator {
   /// applier in chat_service_needs_reprocess. A rule enforced by whoever
   /// remembers it drifts by construction. One helper, both sites, no copies.
   ///
-  /// ASYMMETRIC ON PURPOSE — decay owns depletion (maintainer ruling). A need
-  /// falling is slow and ambient and `tickDecay` models it; a scene may take
-  /// only [NeedsSimulation.sceneDepletionCapFor] extra, and the prompt now tells
-  /// the eval to report a negative ONLY for something the scene explicitly
-  /// describes costing them. Positives stay wide open: eating a meal really does
-  /// fill you in one go, and the prompt spends a paragraph fighting models that
-  /// lowball exactly that. Capping the fill would be a worse bug than the one
-  /// this fixes.
+  /// Pace scales drops only. A scene drop cannot empty a bar by itself.
+  /// Pluses stay as the model wrote them.
   ///
   /// PER-NEED, not one number: "I want variability but not wide swings"
   /// (maintainer). The cap is roughly inverse to each need's decay rate, so
@@ -63,11 +57,18 @@ extension NeedsImpactBound on NeedsImpactEvaluator {
   /// use the mutator merely to ARRANGE a state — the bound was reaching past
   /// the bug. What needs limiting is what a MODEL proposes, which is here.
   void _boundDeltas(Map<String, int> deltas) {
+    final ext = getActiveCharacter()?.frontPorchExtensions;
+    final off = ext?.needsOff ?? const <String>[];
+    if (off.isNotEmpty) deltas.removeWhere((key, _) => off.contains(key));
+    final pace = BodyPace.parse(ext?.needsPace);
+    scaleNegativeDrops(deltas, pace);
     for (final k in deltas.keys.toList()) {
-      deltas[k] = deltas[k]!.clamp(
-        -needsSimulation.sceneDepletionCapFor(k),
-        100,
-      );
+      final v = deltas[k];
+      if (v == null) continue;
+      deltas[k] = clampSceneDrop(
+        current: needsSimulation.vector[k] ?? 0,
+        delta: v,
+      ).clamp(-100, 100);
     }
   }
 }

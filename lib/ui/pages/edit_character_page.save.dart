@@ -153,6 +153,8 @@ extension _EditCharacterSave on _EditCharacterPageState {
         realismVerificationStrictness: _realismVerificationStrictness,
         realismNeedsDirectorAuthority: _realismNeedsDirectorAuthority,
         needsSimStrength: _needsSimStrength,
+        needsPace: _needsPace,
+        needsOff: _needsOff,
         needsBaselineHunger: _needsBaselineHunger,
         needsBaselineBladder: _needsBaselineBladder,
         needsBaselineEnergy: _needsBaselineEnergy,

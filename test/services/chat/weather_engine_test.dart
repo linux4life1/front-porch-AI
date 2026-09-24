@@ -18,7 +18,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 
 void main() {
@@ -262,61 +261,4 @@ void main() {
     });
   });
 
-  group('Weather needs decay modifiers (1:1/group parity by construction)', () {
-    NeedsSimulation sim(DailyWeather? weather) => NeedsSimulation(
-      onNotify: () {},
-      onSaveChat: () async {},
-      getTimeOfDay: () => 'morning',
-      getRealismEnabled: () => true,
-      getObserverMode: () => false,
-      getCurrentSpeakerIdForRealism: () => '',
-      getIsGroupNonObserverMode: () => false,
-      getGroupNeeds: (_) => {},
-      setGroupNeeds: (_, _) {},
-      getEnjoysLowHygiene: () => false,
-      getNeedsSimEnabled: () => true,
-      getWeather: () => weather,
-    );
-
-    const storm = DailyWeather(
-      condition: WeatherCondition.storm,
-      temp: TempBand.cold,
-      season: 'winter',
-    );
-    const clear = DailyWeather(
-      condition: WeatherCondition.clear,
-      temp: TempBand.mild,
-      season: 'spring',
-    );
-    final calmVector = {
-      for (final k in NeedsSimulation.needKeys) k: 80,
-    };
-
-    test('rough weather speeds comfort decay (2 -> 3)', () {
-      expect(sim(null).decayedValueFor('comfort', 80, calmVector, {}), 78);
-      expect(sim(storm).decayedValueFor('comfort', 80, calmVector, {}), 77);
-    });
-
-    test('clear day slows fun decay (2 -> 1)', () {
-      expect(sim(null).decayedValueFor('fun', 80, calmVector, {}), 78);
-      expect(sim(clear).decayedValueFor('fun', 80, calmVector, {}), 79);
-    });
-
-    test('weather off (null) leaves every need untouched', () {
-      for (final k in NeedsSimulation.needKeys) {
-        expect(
-          sim(null).decayedValueFor(k, 80, calmVector, {}),
-          sim(null).decayedValueFor(k, 80, calmVector, {}),
-        );
-      }
-      // Clear weather must not affect anything except fun.
-      for (final k in NeedsSimulation.needKeys.where((k) => k != 'fun')) {
-        expect(
-          sim(clear).decayedValueFor(k, 80, calmVector, {}),
-          sim(null).decayedValueFor(k, 80, calmVector, {}),
-          reason: '$k must be unaffected by clear weather',
-        );
-      }
-    });
-  });
 }

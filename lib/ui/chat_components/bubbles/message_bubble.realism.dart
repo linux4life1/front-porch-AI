@@ -35,6 +35,7 @@ extension _BubbleRealism on _MessageBubbleState {
     final bondReason = metadata['bond_reason'] as String? ?? '';
     final trustReason = metadata['trust_reason'] as String? ?? '';
     final timeSkipTo = metadata['time_skip_to'] as String? ?? '';
+    final timePassed = metadata['time_passed'] as String? ?? '';
     final chanceTimeEvent = metadata['chance_time_event'] as String? ?? '';
     final timeReversal = metadata['time_reversal'] as bool? ?? false;
     final searchReceipt = metadata['search_receipt'] as Map<String, dynamic>?;
@@ -72,6 +73,7 @@ extension _BubbleRealism on _MessageBubbleState {
         arousalDelta == 0 &&
         trustDelta == 0 &&
         timeSkipTo.isEmpty &&
+        timePassed.isEmpty &&
         chanceTimeEvent.isEmpty &&
         !timeReversal &&
         verifStatus.isEmpty &&
@@ -335,6 +337,7 @@ extension _BubbleRealism on _MessageBubbleState {
       maybeTooltip: maybeTooltip,
       timeReversal: timeReversal,
       timeSkipTo: timeSkipTo,
+      timePassed: timePassed,
       searchQuery: searchQuery,
       searchOk: searchOk,
       toolName: toolName,

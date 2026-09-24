@@ -109,6 +109,8 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
         'realism_verification_strictness': realismVerificationStrictness,
         'realism_needs_director_authority': realismNeedsDirectorAuthority,
         'needs_sim_strength': needsSimStrength,
+        'needs_pace': needsPace,
+        if (needsOff.isNotEmpty) 'needs_off': needsOff,
         // Per-need baseline values
         'needs_baseline_hunger': needsBaselineHunger,
         'needs_baseline_bladder': needsBaselineBladder,
@@ -185,6 +187,8 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
     int? realismVerificationStrictness,
     bool? realismNeedsDirectorAuthority,
     int? needsSimStrength,
+    String? needsPace,
+    List<String>? needsOff,
     int? needsBaselineHunger,
     int? needsBaselineBladder,
     int? needsBaselineEnergy,
@@ -257,6 +261,8 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
       realismNeedsDirectorAuthority:
           realismNeedsDirectorAuthority ?? this.realismNeedsDirectorAuthority,
       needsSimStrength: needsSimStrength ?? this.needsSimStrength,
+      needsPace: needsPace ?? this.needsPace,
+      needsOff: needsOff ?? this.needsOff,
       needsBaselineHunger: needsBaselineHunger ?? this.needsBaselineHunger,
       needsBaselineBladder: needsBaselineBladder ?? this.needsBaselineBladder,
       needsBaselineEnergy: needsBaselineEnergy ?? this.needsBaselineEnergy,

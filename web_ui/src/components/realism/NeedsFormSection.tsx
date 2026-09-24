@@ -8,19 +8,19 @@
 // seeds (and the same FrontPorchExtensions the desktop writes).
 
 import { Slider, ToggleRow } from './controls';
-import { type RealismValues, decayDescription } from './realismTypes';
+import { type RealismValues } from './realismTypes';
 
 type Patch = (patch: Partial<RealismValues>) => void;
 
 // [label, baseline key, decay key] for the 7 Sims-style needs.
-const NEEDS: [string, keyof RealismValues, keyof RealismValues][] = [
-  ['Hunger', 'needsBaselineHunger', 'needsDecayHunger'],
-  ['Bladder', 'needsBaselineBladder', 'needsDecayBladder'],
-  ['Energy', 'needsBaselineEnergy', 'needsDecayEnergy'],
-  ['Social', 'needsBaselineSocial', 'needsDecaySocial'],
-  ['Fun', 'needsBaselineFun', 'needsDecayFun'],
-  ['Hygiene', 'needsBaselineHygiene', 'needsDecayHygiene'],
-  ['Comfort', 'needsBaselineComfort', 'needsDecayComfort'],
+const NEEDS: [string, keyof RealismValues][] = [
+  ['Hunger', 'needsBaselineHunger'],
+  ['Bladder', 'needsBaselineBladder'],
+  ['Energy', 'needsBaselineEnergy'],
+  ['Social', 'needsBaselineSocial'],
+  ['Fun', 'needsBaselineFun'],
+  ['Hygiene', 'needsBaselineHygiene'],
+  ['Comfort', 'needsBaselineComfort'],
 ];
 
 export function NeedsFormSection({ v, set }: { v: RealismValues; set: Patch }) {
@@ -36,26 +36,35 @@ export function NeedsFormSection({ v, set }: { v: RealismValues; set: Patch }) {
       {v.needsSimEnabled && (
         <>
           <div className="card realism-card">
-            {NEEDS.map(([label, baseKey, decayKey]) => (
-              <div className="needs-row" key={label}>
-                <Slider
-                  label={label}
-                  min={0}
-                  max={100}
-                  value={v[baseKey] as number}
-                  badge={`${v[baseKey]} / 100`}
-                  onChange={(n) => set({ [baseKey]: n } as Partial<RealismValues>)}
-                />
-                <Slider
-                  label="Decay / turn"
-                  min={0}
-                  max={20}
-                  value={v[decayKey] as number}
-                  badge={decayDescription(v[decayKey] as number)}
-                  onChange={(n) => set({ [decayKey]: n } as Partial<RealismValues>)}
-                />
-              </div>
-            ))}
+            {NEEDS.map(([label, baseKey]) => {
+              const key = String(baseKey).replace('needsBaseline', '').toLowerCase();
+              const on = !(v.needsOff ?? []).includes(key);
+              return (
+                <div className="needs-row" key={label}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={(e) => {
+                        const off = new Set(v.needsOff ?? []);
+                        if (e.target.checked) off.delete(key);
+                        else off.add(key);
+                        set({ needsOff: [...off] });
+                      }}
+                    />
+                    {' '}On
+                  </label>
+                  <Slider
+                    label={label}
+                    min={0}
+                    max={100}
+                    value={v[baseKey] as number}
+                    badge={`${v[baseKey]} / 100`}
+                    onChange={(n) => set({ [baseKey]: n } as Partial<RealismValues>)}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           <ToggleRow
@@ -65,14 +74,19 @@ export function NeedsFormSection({ v, set }: { v: RealismValues; set: Patch }) {
             onChange={(b) => set({ enjoysLowHygiene: b })}
           />
 
-          <Slider
-            label="Needs delta strength"
-            min={1}
-            max={5}
-            value={v.needsSimStrength}
-            badge={`${v.needsSimStrength}× (1× baseline; 5× = 5× larger swings)`}
-            onChange={(n) => set({ needsSimStrength: n })}
-          />
+          <div className="needs-pace" role="group" aria-label="Pace">
+            <span>Pace — how fast needs drop as time passes</span>
+            {(['sloth', 'normal', 'fast'] as const).map((pace) => (
+              <button
+                key={pace}
+                type="button"
+                className={(v.needsPace ?? 'normal') === pace ? 'pace on' : 'pace'}
+                onClick={() => set({ needsPace: pace })}
+              >
+                {pace[0].toUpperCase() + pace.slice(1)}
+              </button>
+            ))}
+          </div>
         </>
       )}
     </div>

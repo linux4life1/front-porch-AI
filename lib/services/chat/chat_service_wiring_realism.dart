@@ -130,27 +130,6 @@ extension ChatServiceWiringRealism on ChatService {
       setGroupNeeds: _setGroupNeeds,
       getEnjoysLowHygiene: () => enjoysLowHygiene,
       getNeedsSimEnabled: () => _needsSimEnabled,
-      getCustomDecayRates: () => _activeDecayRates(),
-      // Same source the needs-impact eval reads for its prompt scaling, so the
-      // bound and the instruction can never disagree about what "5x" means.
-      getNeedsSimStrength: () =>
-          (_activeCharacter?.frontPorchExtensions?.needsSimStrength ?? 1),
-      // Needs modifiers sample the CURRENT DAY-PART (v3): an afternoon storm
-      // speeds comfort decay even on a day whose headline is "cloudy", and a
-      // clear evening earns the fun bonus after a rainy morning. Same
-      // DailyWeather view the modifiers always took — condition swapped for
-      // the segment's, band/season stay the day's — so NeedsSimulation is
-      // untouched and 1:1/group parity is inherited (weather is per-chat
-      // shared; both paths tick through these same modifiers).
-      getWeather: () {
-        final seg = currentSegmentWeather;
-        if (seg == null) return null;
-        return DailyWeather(
-          condition: seg.condition,
-          temp: seg.day.temp,
-          season: seg.day.season,
-        );
-      },
     );
   }
 

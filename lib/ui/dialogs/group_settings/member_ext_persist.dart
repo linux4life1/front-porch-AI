@@ -54,13 +54,8 @@ class GroupMemberExtPersister {
     _timers.remove(id)?.cancel();
     final char = _queued.remove(id);
     if (char == null) return;
-    final ext = char.frontPorchExtensions;
     try {
-      await chatService.setGroupNeedsDecayRate(
-        'hunger',
-        ext?.needsDecayHunger ?? 4,
-        memberId: id,
-      );
+      await chatService.persistGroupMemberExtensions(memberId: id);
     } catch (e) {
       debugPrint('[GroupSettings] Failed to persist member ext for $id: $e');
     }

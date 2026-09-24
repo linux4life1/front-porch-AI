@@ -26,6 +26,7 @@ extension _BubbleRealismChips on _MessageBubbleState {
     required Widget Function(Widget child, String tip) maybeTooltip,
     required bool timeReversal,
     required String timeSkipTo,
+    required String timePassed,
     required String searchQuery,
     required bool searchOk,
     required String toolName,
@@ -66,6 +67,30 @@ extension _BubbleRealismChips on _MessageBubbleState {
               ),
             ],
           ),
+        ),
+      );
+    }
+
+    if (timePassed.isNotEmpty) {
+      chips.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.schedule,
+              size: 11,
+              color: AppColors.porchAmberOf(context),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              timePassed,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.porchAmberOf(context),
+              ),
+            ),
+          ],
         ),
       );
     }

@@ -20,6 +20,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/skip_language.dart';
@@ -162,6 +163,36 @@ class TimeService {
   // One clock authority per turn: set when detectOocTimeSkip moves the clock,
   // consumed by the per-turn eval so it can't re-count the same exchange.
   bool _oocSkipMovedClockThisTurn = false;
+
+  /// Awake minutes the body should wear for the beat just committed.
+  /// Zero when this beat is a night, a skip, or time away.
+  int _awakeWearMinutes = 0;
+  int get awakeWearMinutes => _awakeWearMinutes;
+
+  /// Chip text for that beat. Null when the skip chip already says it,
+  /// or when the clock did not move enough to show.
+  String? _timePassedLabel;
+  String? get bodyTimeLabel => _timePassedLabel;
+
+  void clearBodyBeat() {
+    _awakeWearMinutes = 0;
+    _timePassedLabel = null;
+  }
+
+  void _noteBodyBeat({
+    required int minutes,
+    required bool nextMorning,
+    required bool isSkip,
+    required bool wearAwake,
+  }) {
+    _awakeWearMinutes = wearAwake ? minutes : 0;
+    _timePassedLabel = timePassedLabel(
+      minutes: minutes,
+      nextMorning: nextMorning,
+      isSkip: isSkip,
+    );
+  }
+
   String? todayLine;
   int? _todayLineDayCount;
 

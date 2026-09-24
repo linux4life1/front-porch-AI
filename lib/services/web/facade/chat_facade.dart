@@ -158,6 +158,7 @@ class ChatFacade {
       'bond_reason': 'bondReason',
       'trust_reason': 'trustReason',
       'time_skip_to': 'timeSkipTo',
+      'time_passed': 'timePassed',
       'chance_time_event': 'chanceTimeEvent',
     }.entries) {
       final v = md[entry.key];

@@ -147,6 +147,16 @@ extension _EditCharacterRealismSection on _EditCharacterPageState {
               _realismSettingsModified = true;
             }),
             needsSimStrength: _needsSimStrength,
+            needsPace: _needsPace,
+            onNeedsPaceChanged: (v) => rebuildState(() {
+              _needsPace = v;
+              _realismSettingsModified = true;
+            }),
+            needsOff: _needsOff,
+            onNeedsOffChanged: (v) => rebuildState(() {
+              _needsOff = v;
+              _realismSettingsModified = true;
+            }),
             onNeedsSimStrengthChanged: (v) => rebuildState(() {
               _needsSimStrength = v;
               _realismSettingsModified = true;
@@ -184,41 +194,6 @@ extension _EditCharacterRealismSection on _EditCharacterPageState {
             baselineComfort: _needsBaselineComfort,
             onBaselineComfortChanged: (v) => rebuildState(() {
               _needsBaselineComfort = v;
-              _realismSettingsModified = true;
-            }),
-            decayHunger: _needsDecayHunger,
-            onDecayHungerChanged: (v) => rebuildState(() {
-              _needsDecayHunger = v;
-              _realismSettingsModified = true;
-            }),
-            decayBladder: _needsDecayBladder,
-            onDecayBladderChanged: (v) => rebuildState(() {
-              _needsDecayBladder = v;
-              _realismSettingsModified = true;
-            }),
-            decayEnergy: _needsDecayEnergy,
-            onDecayEnergyChanged: (v) => rebuildState(() {
-              _needsDecayEnergy = v;
-              _realismSettingsModified = true;
-            }),
-            decaySocial: _needsDecaySocial,
-            onDecaySocialChanged: (v) => rebuildState(() {
-              _needsDecaySocial = v;
-              _realismSettingsModified = true;
-            }),
-            decayFun: _needsDecayFun,
-            onDecayFunChanged: (v) => rebuildState(() {
-              _needsDecayFun = v;
-              _realismSettingsModified = true;
-            }),
-            decayHygiene: _needsDecayHygiene,
-            onDecayHygieneChanged: (v) => rebuildState(() {
-              _needsDecayHygiene = v;
-              _realismSettingsModified = true;
-            }),
-            decayComfort: _needsDecayComfort,
-            onDecayComfortChanged: (v) => rebuildState(() {
-              _needsDecayComfort = v;
               _realismSettingsModified = true;
             }),
           ),

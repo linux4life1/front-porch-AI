@@ -186,6 +186,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   bool _realismNeedsDirectorAuthority = false;
   int _needsSimStrength =
       1; // 1-5 multiplier for needs deltas (injected to model + Director)
+  String _needsPace = 'normal';
+  List<String> _needsOff = const [];
 
   // Per-need baseline values (0-100).
   int _needsBaselineHunger = 80;
@@ -288,6 +290,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _realismVerificationStrictness = ext.realismVerificationStrictness;
       _realismNeedsDirectorAuthority = ext.realismNeedsDirectorAuthority;
       _needsSimStrength = ext.needsSimStrength;
+      _needsPace = ext.needsPace;
+      _needsOff = List<String>.from(ext.needsOff);
       _needsBaselineHunger = ext.needsBaselineHunger;
       _needsBaselineBladder = ext.needsBaselineBladder;
       _needsBaselineEnergy = ext.needsBaselineEnergy;

@@ -249,20 +249,11 @@ extension ChatServiceControls on ChatService {
   // rules (void _ count must stay exactly 15 live grep after every edit + final).
   // Deletion of the now-redundant per-site try/catch guard in _loadActiveObjectives
   // (and its comment) is part of this task (see that site for the removed code).
-  /// Update a group member's needs decay rate. With [memberId] null this targets
-  /// every member (legacy "apply to all"); with a [memberId] it targets that one
-  /// member — the per-character path the Group Settings UI now uses so each
-  /// member decays at its own rate. Persists to the member card ext + PNG + the
-  /// GroupMembers row, which is exactly what runtime `_activeDecayRates()` reads.
-  Future<void> setGroupNeedsDecayRate(
-    String key,
-    int value, {
-    String? memberId,
-  }) async {
+  /// Write a group member's current extensions (pace, which needs are on,
+  /// baselines) to the avatar and the group-members row. Does not apply a
+  /// decay rate.
+  Future<void> persistGroupMemberExtensions({String? memberId}) async {
     if (_activeGroup == null) return;
-    // The legacy shared map only has meaning for the "apply to all" call; a
-    // per-member edit writes straight to that member's card ext below.
-    if (memberId == null) _groupDecayRates[key] = value;
 
     if (_characterRepository != null) {
       final v2Service = V2CardService();
@@ -275,17 +266,8 @@ extension ChatServiceControls on ChatService {
             );
       for (final char in targets) {
         final ext = char.frontPorchExtensions ?? FrontPorchExtensions();
-        final newExt = ext.copyWith(
-          needsDecayHunger: key == 'hunger' ? value : null,
-          needsDecayBladder: key == 'bladder' ? value : null,
-          needsDecayEnergy: key == 'energy' ? value : null,
-          needsDecaySocial: key == 'social' ? value : null,
-          needsDecayFun: key == 'fun' ? value : null,
-          needsDecayHygiene: key == 'hygiene' ? value : null,
-          needsDecayComfort: key == 'comfort' ? value : null,
-        );
-        newExt.ensureStableId();
-        char.frontPorchExtensions = newExt;
+        ext.ensureStableId();
+        char.frontPorchExtensions = ext;
 
         if (char.imagePath != null) {
           final file = File(char.imagePath!);
@@ -302,7 +284,7 @@ extension ChatServiceControls on ChatService {
           await db.updateGroupMember(
             GroupMembersCompanion(
               id: drift.Value(char.dbId!),
-              frontPorchExtensions: drift.Value(jsonEncode(newExt.toJson())),
+              frontPorchExtensions: drift.Value(jsonEncode(ext.toJson())),
             ),
           );
         }
@@ -310,28 +292,6 @@ extension ChatServiceControls on ChatService {
     }
 
     await _saveChat();
-    notifyListeners();
-  }
-
-  /// Update a decay rate for the active 1:1 character
-  Future<void> setNeedsDecayRate(String key, int value) async {
-    if (_activeCharacter == null || _characterRepository == null) return;
-
-    final ext =
-        _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
-    final newExt = ext.copyWith(
-      needsDecayHunger: key == 'hunger' ? value : null,
-      needsDecayBladder: key == 'bladder' ? value : null,
-      needsDecayEnergy: key == 'energy' ? value : null,
-      needsDecaySocial: key == 'social' ? value : null,
-      needsDecayFun: key == 'fun' ? value : null,
-      needsDecayHygiene: key == 'hygiene' ? value : null,
-      needsDecayComfort: key == 'comfort' ? value : null,
-    );
-    newExt.ensureStableId();
-    _activeCharacter!.frontPorchExtensions = newExt;
-
-    await _characterRepository!.updateCharacter(_activeCharacter!);
     notifyListeners();
   }
 }

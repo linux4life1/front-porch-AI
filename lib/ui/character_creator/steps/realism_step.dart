@@ -296,41 +296,6 @@ class RealismStep extends StatelessWidget {
                     state.needsBaselineComfort = v;
                     state.notify();
                   },
-                  decayHunger: state.needsDecayHunger,
-                  onDecayHungerChanged: (v) {
-                    state.needsDecayHunger = v;
-                    state.notify();
-                  },
-                  decayBladder: state.needsDecayBladder,
-                  onDecayBladderChanged: (v) {
-                    state.needsDecayBladder = v;
-                    state.notify();
-                  },
-                  decayEnergy: state.needsDecayEnergy,
-                  onDecayEnergyChanged: (v) {
-                    state.needsDecayEnergy = v;
-                    state.notify();
-                  },
-                  decaySocial: state.needsDecaySocial,
-                  onDecaySocialChanged: (v) {
-                    state.needsDecaySocial = v;
-                    state.notify();
-                  },
-                  decayFun: state.needsDecayFun,
-                  onDecayFunChanged: (v) {
-                    state.needsDecayFun = v;
-                    state.notify();
-                  },
-                  decayHygiene: state.needsDecayHygiene,
-                  onDecayHygieneChanged: (v) {
-                    state.needsDecayHygiene = v;
-                    state.notify();
-                  },
-                  decayComfort: state.needsDecayComfort,
-                  onDecayComfortChanged: (v) {
-                    state.needsDecayComfort = v;
-                    state.notify();
-                  },
                 ),
               ),
             ],

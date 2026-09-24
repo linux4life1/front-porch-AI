@@ -174,27 +174,6 @@ extension _CreateCharacterRealismStep on _CreateCharacterPageState {
                   baselineComfort: _needsBaselineComfort,
                   onBaselineComfortChanged: (v) =>
                       rebuildState(() => _needsBaselineComfort = v),
-                  decayHunger: _needsDecayHunger,
-                  onDecayHungerChanged: (v) =>
-                      rebuildState(() => _needsDecayHunger = v),
-                  decayBladder: _needsDecayBladder,
-                  onDecayBladderChanged: (v) =>
-                      rebuildState(() => _needsDecayBladder = v),
-                  decayEnergy: _needsDecayEnergy,
-                  onDecayEnergyChanged: (v) =>
-                      rebuildState(() => _needsDecayEnergy = v),
-                  decaySocial: _needsDecaySocial,
-                  onDecaySocialChanged: (v) =>
-                      rebuildState(() => _needsDecaySocial = v),
-                  decayFun: _needsDecayFun,
-                  onDecayFunChanged: (v) =>
-                      rebuildState(() => _needsDecayFun = v),
-                  decayHygiene: _needsDecayHygiene,
-                  onDecayHygieneChanged: (v) =>
-                      rebuildState(() => _needsDecayHygiene = v),
-                  decayComfort: _needsDecayComfort,
-                  onDecayComfortChanged: (v) =>
-                      rebuildState(() => _needsDecayComfort = v),
                 ),
               ),
 

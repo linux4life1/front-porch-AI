@@ -71,7 +71,6 @@ NeedsImpactEvaluator createTestEvaluator({
   })?
   verifyFn,
   bool Function()? authorityFn,
-  int Function()? strengthFn,
 }) {
   final n = notifies ?? <String>[];
   final s = saves ?? <String>[];
@@ -134,7 +133,6 @@ NeedsImpactEvaluator createTestEvaluator({
     getNeedsSimEnabled: needsEnabledFn ?? () => true,
     getRealismEnabled: realismFn ?? () => true,
     getNeedsModelAuthorityEnabled: authorityFn ?? () => false,
-    getNeedsSimStrength: strengthFn ?? () => 1,
   );
 }
 

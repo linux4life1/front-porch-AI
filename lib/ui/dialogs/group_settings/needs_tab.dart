@@ -51,7 +51,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
   // Per-character needs decay rates ("tick rate"): char-id → field-name → value.
   // Each member decays at its own rate (parity with solo cards); persisted to
   // that member's card ext via ChatService.setGroupNeedsDecayRate(memberId: …).
-  final Map<String, Map<String, int>> _decayRates = {};
+
 
   // Per-character static preference overrides (e.g. enjoys low hygiene) for this group.
   final Map<String, bool> _enjoysLowHygiene = {};
@@ -99,18 +99,6 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
         _kComfort: ext?.needsBaselineComfort ?? 80,
       };
 
-      // Seed per-member decay from ext (fallbacks = the engine's needDecay
-      // defaults, which equal the FrontPorchExtensions decay defaults).
-      _decayRates[id] = {
-        _kHunger: ext?.needsDecayHunger ?? 2,
-        _kBladder: ext?.needsDecayBladder ?? 3,
-        _kEnergy: ext?.needsDecayEnergy ?? 3,
-        _kSocial: ext?.needsDecaySocial ?? 2,
-        _kFun: ext?.needsDecayFun ?? 2,
-        _kHygiene: ext?.needsDecayHygiene ?? 1,
-        _kComfort: ext?.needsDecayComfort ?? 2,
-      };
-
       _enjoysLowHygiene[id] = ext?.enjoysLowHygiene ?? false;
     }
   }
@@ -153,15 +141,6 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
     // key that nothing in lib/ or web_ui/ ever read back.
   }
 
-  // Local display update while a decay slider is dragged. The persist (member
-  // card ext + PNG + DB row) is deferred to the slider's onChangeEnd →
-  // ChatService.setGroupNeedsDecayRate(memberId: …) to avoid PNG-encode jank.
-  void _updateMemberDecay(String id, String field, int value) {
-    setState(() {
-      _decayRates[id] = {...?_decayRates[id], field: value};
-    });
-  }
-
   void _updateMemberEnjoysLowHygiene(CharacterCard char, bool value) {
     final id = _getCharId(char);
     setState(() {
@@ -193,35 +172,17 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
   /// the live `_groupRealism` slot, it never touches the card.
   Future<void> _resetCharacterNeeds(CharacterCard character) async {
     final id = _getCharId(character);
-    final previousDecay = Map<String, int>.from(
-      _decayRates[id] ?? _defaultDecayRates,
-    );
-
-    // _defaultDecayRates is keyed by the same seven need names as the baselines.
+    final ext = character.frontPorchExtensions ?? FrontPorchExtensions();
+    ext.needsPace = 'normal';
+    ext.needsOff = const [];
+    character.frontPorchExtensions = ext;
     for (final field in _defaultDecayRates.keys) {
       _updateNeedsBaseline(id, field, 80);
-      _updateMemberDecay(id, field, _defaultDecayRates[field]!);
     }
     _updateMemberEnjoysLowHygiene(character, false);
     widget.chatService.resetRealismForGroupCharacter(character);
-
-    // The lines above queued this member's ext; write it HERE, before the
-    // decay writes below, so no debounced save is ever in flight at the same
-    // time as one of them — two concurrent saves would race on the same PNG.
     await _extPersister.flushMember(id);
-
-    // The decay persist (member card ext + PNG + GroupMembers row) is the
-    // expensive one: only the needs that actually changed are written, and
-    // strictly one at a time — two concurrent saves would race on the same PNG.
-    for (final entry in _defaultDecayRates.entries) {
-      if (previousDecay[entry.key] != entry.value) {
-        await widget.chatService.setGroupNeedsDecayRate(
-          entry.key,
-          entry.value,
-          memberId: id,
-        );
-      }
-    }
+    await widget.chatService.persistGroupMemberExtensions(memberId: id);
   }
 
   @override

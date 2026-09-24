@@ -294,10 +294,8 @@ extension ChatServiceReprocess on ChatService {
               Map<String, int>.from(_needsSimulation.vector);
         }
 
-        // Apply decay and cooldown — mirrors the normal path, which decays
-        // AFTER capturing the baseline so the chips record decay + impact.
+        // Wear waits until the clock commits on the replayed reply.
         _applyMoodDecay();
-        _needsSimulation.tickDecay();
         _nsfwService.decrementCooldownIfActive();
 
         await _runPreGenRealismJudges(

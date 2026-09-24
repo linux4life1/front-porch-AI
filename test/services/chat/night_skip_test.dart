@@ -84,6 +84,38 @@ void main() {
       await t.detectOocTimeSkip('We sleep through the night.');
       expect(t.clock, DateTime.utc(2026, 8, 23, 8, 0));
       expect(t.dayCount, 2);
+      expect(t.awakeWearMinutes, 0);
+    });
+
+    test('a measured reply wears those minutes', () async {
+      final t = _clock();
+      await t.evaluateTimeProgressAndPostureIfNeeded(
+        charName: 'Nia',
+        recent: 'User: hi\nNia: hello',
+        shortTermTierName: 'Warm',
+        onChunk: null,
+        fireLLMEval: (prompt, {onChunk}) async =>
+            '{"minutes_elapsed": 90, "new_day": false}',
+        stripThinkBlocks: (s) => s,
+        extractJsonBool: (text, key) {
+          final m = RegExp('"$key"\\s*:\\s*(true|false)').firstMatch(text);
+          return m == null ? null : m.group(1) == 'true';
+        },
+        setSpatialStance: (_) {},
+        getCurrentSpatialStance: () => '',
+        getCharacterEmotion: () => '',
+        getEmotionIntensity: () => '',
+        timeOnly: true,
+      );
+      expect(t.awakeWearMinutes, 90);
+      expect(t.bodyTimeLabel, '1 hr 30 min');
+    });
+
+    test('time away does not add awake wear', () {
+      final t = _clock();
+      t.advanceTimePeriods(1);
+      expect(t.awakeWearMinutes, 0);
+      expect(t.bodyTimeLabel, isNotNull);
     });
 
     test("detectOocTimeSkip ignores let's go to bed", () async {
@@ -97,38 +129,6 @@ void main() {
       );
       await t.detectOocTimeSkip("Let's go to bed.");
       expect(t.clock.hour, 20);
-    });
-  });
-
-  group('body restore', () {
-    test('energy floors at 90, comfort bumps, hunger stays', () {
-      final next = applyNightSkipToNeeds({
-        'energy': 20,
-        'comfort': 40,
-        'hunger': 30,
-        'bladder': 50,
-      });
-      expect(next['energy'], 90);
-      expect(next['comfort'], 55);
-      expect(next['hunger'], 30);
-      expect(next['bladder'], 50);
-    });
-
-    test('already-rested energy is not lowered', () {
-      expect(applyNightSkipToNeeds({'energy': 96})['energy'], 96);
-    });
-
-    test('after-reply sleep fill is dropped; coffee-sized bump stays', () {
-      final sleep = {'energy': 50, 'comfort': 20, 'hunger': 40};
-      suppressSleepDoubleApply(sleep);
-      expect(sleep['energy'], 0);
-      expect(sleep['comfort'], 0);
-      expect(sleep['hunger'], 40);
-
-      final coffee = {'energy': 7, 'hunger': 35};
-      suppressSleepDoubleApply(coffee);
-      expect(coffee['energy'], 7);
-      expect(coffee['hunger'], 35);
     });
   });
 }

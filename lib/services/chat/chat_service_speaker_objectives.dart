@@ -380,6 +380,11 @@ extension ChatServiceSpeakerObjectives on ChatService {
       );
       _pendingRealismMetadata!['_afk_decay_turns'] = 0;
     }
+    final passed = _timeService.bodyTimeLabel;
+    _needsImpactEvaluator.beatNote = passed == null
+        ? 'Time wear for this beat is already applied. Report only what the scene did.'
+        : 'THIS BEAT: $passed. Time wear is already applied. '
+              'Report only what the scene did.';
     await _needsImpactEvaluator.evaluateAndApply(responseText, isAfk: wasAfk);
     // During AFK, clear the scene-level reason so per-need reasons
     // ("Scene action", "Natural decay") appear in the delta chip

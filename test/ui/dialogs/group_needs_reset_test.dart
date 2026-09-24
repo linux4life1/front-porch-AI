@@ -37,10 +37,9 @@ void main() {
       src.indexOf('_resetCharacterNeeds(CharacterCard'),
     );
 
-    // Decay is read off the member card ext every turn (_activeDecayRates), and
-    // setGroupNeedsDecayRate(memberId:) is the only thing that writes it there
-    // (+ PNG + the GroupMembers row). A reset that skips it is the bug.
-    expect(reset, contains('setGroupNeedsDecayRate('));
+    // The member card is what the chat reads. Reset must write that card,
+    // not only the dialog's local maps.
+    expect(reset, contains('persistGroupMemberExtensions('));
     expect(reset, contains('memberId: id'));
 
     // Baselines and the hygiene preference go through the same setters the
@@ -58,7 +57,7 @@ void main() {
     // The member id must be the one every service stores a member under. The
     // hand-rolled version answered '' for a member with no avatar file (group
     // members resolve to an EMPTY imagePath, not null) and truncated at the
-    // first dot otherwise — and setGroupNeedsDecayRate matches its target by
+    // first dot otherwise — and persistGroupMemberExtensions matches its target by
     // exactly this id, so a mismatch silently persists nothing.
     expect(src, contains('_getCharId(CharacterCard c) => c.stableGroupId'));
   });

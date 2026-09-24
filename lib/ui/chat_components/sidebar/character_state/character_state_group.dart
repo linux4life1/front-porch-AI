@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show AmbitionService, PocketSection, Pockets, StoryClock;
+    show AmbitionService, PocketSection, Pockets, StoryClock, visibleNeeds;
 import 'package:front_porch_ai/services/chat/presence_derive.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart'
@@ -264,7 +264,11 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
               ),
               const SizedBox(height: 4),
               NeedsGrid(
-                needs: chat.needsSimulation.vector,
+                needs: visibleNeeds(
+                  chat.needsSimulation.vector,
+                  chat.activeCharacter?.frontPorchExtensions?.needsOff ??
+                      const [],
+                ),
                 mini: false,
                 crossAxisCount: 2,
               ),

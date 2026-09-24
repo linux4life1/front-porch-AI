@@ -13,6 +13,7 @@ export interface Chips {
   bondReason?: string;
   trustReason?: string;
   timeSkipTo?: string;
+  timePassed?: string;
   chanceTimeEvent?: string;
   searchQuery?: string;
   searchOk?: boolean;

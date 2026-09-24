@@ -95,6 +95,10 @@ export interface RealismValues {
   needsSimEnabled: boolean;
   enjoysLowHygiene: boolean;
   needsSimStrength: number;
+  /** sloth | normal | fast. Scales drops only. */
+  needsPace: string;
+  /** Need keys this character has turned off. Empty means all are on. */
+  needsOff: string[];
   needsBaselineHunger: number;
   needsBaselineBladder: number;
   needsBaselineEnergy: number;
@@ -174,6 +178,8 @@ export const REALISM_DEFAULTS: RealismValues = {
   needsSimEnabled: true,
   enjoysLowHygiene: false,
   needsSimStrength: 1,
+  needsPace: 'normal',
+  needsOff: [],
   needsBaselineHunger: 80,
   needsBaselineBladder: 80,
   needsBaselineEnergy: 80,

@@ -100,7 +100,25 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       final scoredReply = t.mode == GenerationMode.continue_
           ? (_isGuestAuthoredMessage(t.streamTarget) ? '' : newPart.trim())
           : finalResponse;
-      if (scoredReply.isNotEmpty) {
+      // Clock first, then wear, then the needs eval. The reply was written
+      // from the body as it was. A rejected reply does not keep the tick.
+      final clockBeforeIso = _timeService.storyClockIso;
+      if (t.mode == GenerationMode.continue_ || !_clockRunning) {
+        _timeService.clearBodyBeat();
+      }
+      if (!_postGenAbortRequested) {
+        await _maybeAdvanceStoryClockAfterReply(t);
+        if (_postGenAbortRequested &&
+            _timeService.storyClockIso != clockBeforeIso) {
+          _timeService.restoreTimeFromRealismState({
+            'storyClock': clockBeforeIso,
+          });
+        } else {
+          _wearBodiesAfterClock(t);
+          _stampTimePassedChip(t.streamTarget);
+        }
+      }
+      if (scoredReply.isNotEmpty && !_postGenAbortRequested) {
         // The needs-impact eval and the fused reply-facts fetch run
         // CONCURRENTLY (same pattern as the pre-generation 4-eval block,
         // same stagger so KoboldCpp's FIFO queue sees them in intended
@@ -119,9 +137,8 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         try {
           await Future.wait([
             _runPostGenNeedsChecks(scoredReply),
-            Future<void>.delayed(
-              _kEvalDispatchStagger,
-            ).then((_) => _prefetchReplyFacts(scoredReply)),
+            Future<void>.delayed(_kEvalDispatchStagger)
+                .then((_) => _prefetchReplyFacts(scoredReply)),
           ]);
         } catch (e) {
           if (!_postGenAbortRequested) rethrow;
@@ -202,13 +219,8 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         }
       }
 
-      // Clock decide BEFORE restamp so the snapshot carries the time
-      // the NEXT speaker will be told (bucket brigade). Named-clock
-      // reconcile still runs inside the restamp. Skip when regen
-      // aborted this scoring — the rejected reply must not tick.
+      // Restamp after the clock, the wear, and the needs pass.
       if (!_postGenAbortRequested) {
-        await _maybeAdvanceStoryClockAfterReply(t);
-
         // Keep this message's realism_state snapshot TRUTHFUL now that the
         // post-gen checks have run — needs vector AND the NSFW scalars a
         // climax just changed. See the helper for the two bugs this

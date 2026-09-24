@@ -7,6 +7,7 @@
 
 export 'absence_tracker.dart';
 export 'birthday.dart';
+export 'body_clock.dart';
 export 'afk_cue_speaker.dart';
 export 'afk_flavor.dart';
 export 'ambition_service.dart';
