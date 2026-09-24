@@ -137,32 +137,46 @@ extension ChatServiceBodyWear on ChatService {
   }
 
   /// Delete gives back this beat's wear to everyone except the speaker.
-  /// The speaker is refunded from their chip, which already includes wear.
-  void _refundPresentWearExcept(ChatMessage deleted, String? speakerId) {
+  /// [capturedBeforeRestore] is those bars before time-travel. The speaker
+  /// is refunded from their chip, which already includes wear.
+  void _refundPresentWearExcept(
+    ChatMessage deleted,
+    String? speakerId,
+    Map<String, Map<String, int>> capturedBeforeRestore,
+  ) {
     if (!_needsSimEnabled || _activeGroup == null) return;
-    final before = presentBodiesFromMeta(
-      deleted.activeMetadata?[kNeedsPreWearByMember],
+    final refunded = refundCoPresentWear(
+      captured: capturedBeforeRestore,
+      preWear: presentBodiesFromMeta(
+        deleted.activeMetadata?[kNeedsPreWearByMember],
+      ),
+      worn: presentBodiesFromMeta(deleted.activeMetadata?[kNeedsWornByMember]),
+      skipId: speakerId,
     );
-    final worn = presentBodiesFromMeta(
-      deleted.activeMetadata?[kNeedsWornByMember],
-    );
-    for (final id in before.keys) {
-      if (id == speakerId) continue;
-      final pre = before[id];
-      final post = worn[id];
-      if (pre == null || post == null) continue;
+    for (final entry in refunded.entries) {
+      _setGroupNeeds(entry.key, entry.value);
+    }
+  }
+
+  /// Live bars for everyone this reply wore, read before delete time-travel.
+  Map<String, Map<String, int>> _capturePresentNeedsBeforeDelete(
+    ChatMessage deleted,
+  ) {
+    final ids = <String>{
+      ...presentBodiesFromMeta(
+        deleted.activeMetadata?[kNeedsPreWearByMember],
+      ).keys,
+      ...presentBodiesFromMeta(
+        deleted.activeMetadata?[kNeedsWornByMember],
+      ).keys,
+    };
+    final out = <String, Map<String, int>>{};
+    for (final id in ids) {
       final live = _getGroupNeeds(id);
       if (live.isEmpty) continue;
-      final next = Map<String, int>.from(live);
-      var changed = false;
-      for (final key in post.keys) {
-        final delta = post[key]! - (pre[key] ?? post[key]!);
-        if (delta == 0 || !next.containsKey(key)) continue;
-        next[key] = (next[key]! - delta).clamp(0, 100);
-        changed = true;
-      }
-      if (changed) _setGroupNeeds(id, next);
+      out[id] = Map<String, int>.from(live);
     }
+    return out;
   }
 
   /// A swipe shows the bodies that beat left behind. The speaker is restored

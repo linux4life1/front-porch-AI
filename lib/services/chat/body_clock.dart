@@ -182,6 +182,38 @@ Map<String, Map<String, int>> replayPresentWear({
   );
 }
 
+/// Undo one beat's wear for everyone except the deleted speaker.
+///
+/// [captured] is each body BEFORE delete time-travel. The previous speaker's
+/// snapshot is already their post-turn bars (78). Ana's beat wore those to
+/// 76. Refunding the restored 78 adds the drop back (80). Refund the capture.
+Map<String, Map<String, int>> refundCoPresentWear({
+  required Map<String, Map<String, int>> captured,
+  required Map<String, Map<String, int>> preWear,
+  required Map<String, Map<String, int>> worn,
+  String? skipId,
+}) {
+  final out = <String, Map<String, int>>{};
+  for (final id in preWear.keys) {
+    if (id == skipId) continue;
+    final pre = preWear[id];
+    final post = worn[id];
+    final base = captured[id];
+    if (pre == null || post == null || base == null) continue;
+    final next = Map<String, int>.from(base);
+    var changed = false;
+    for (final key in post.keys) {
+      if (!next.containsKey(key)) continue;
+      final delta = post[key]! - (pre[key] ?? post[key]!);
+      if (delta == 0) continue;
+      next[key] = (next[key]! - delta).clamp(0, 100);
+      changed = true;
+    }
+    if (changed) out[id] = next;
+  }
+  return out;
+}
+
 /// Read a stamped present-body map. Metadata comes back untyped.
 Map<String, Map<String, int>> presentBodiesFromMeta(Object? raw) {
   if (raw is! Map) return const {};

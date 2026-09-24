@@ -327,8 +327,9 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     ChatMessage deleted,
     Map<String, int> liveBefore, {
     String? groupSid,
+    Map<String, Map<String, int>> presentBeforeDelete = const {},
   }) {
-    _refundPresentWearExcept(deleted, groupSid);
+    _refundPresentWearExcept(deleted, groupSid, presentBeforeDelete);
     if (!_needsSimEnabled || liveBefore.isEmpty) return;
     final raw = deleted.activeMetadata?['needs_deltas'];
     if (raw is! Map || raw.isEmpty) return;

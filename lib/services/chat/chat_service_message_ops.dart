@@ -253,6 +253,9 @@ extension ChatServiceMessageOps on ChatService {
           : (deletedSid != null
                 ? Map<String, int>.from(_getGroupNeeds(deletedSid))
                 : Map<String, int>.from(_needsSimulation.vector));
+      // Co-present bars, before the snapshot restore below. Ana's wear is
+      // undone from these, not from the restored snapshot.
+      final presentBeforeDelete = _capturePresentNeedsBeforeDelete(deleted);
 
       _messages.removeAt(index);
 
@@ -307,6 +310,7 @@ extension ChatServiceMessageOps on ChatService {
         deleted,
         needsBeforeDelete,
         groupSid: deletedSid,
+        presentBeforeDelete: presentBeforeDelete,
       );
 
       if (!deleted.isUser && deleted.sender != 'System') {

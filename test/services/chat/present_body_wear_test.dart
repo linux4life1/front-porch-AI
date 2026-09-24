@@ -36,4 +36,26 @@ void main() {
     );
     expect(replayed['speaker']!['hunger'], 78);
   });
+
+  test('tail-delete refunds co-present wear from the pre-restore bars', () {
+    // Bea finished her turn at 78. Ana's beat wore her to 76. Deleting Ana
+    // restores Bea's snapshot to 78 first. The refund has to start from 76.
+    final refunded = refundCoPresentWear(
+      captured: {
+        'bea': {'hunger': 76},
+      },
+      preWear: {
+        'bea': {'hunger': 78},
+      },
+      worn: {
+        'bea': {'hunger': 76},
+      },
+      skipId: 'ana',
+    );
+    expect(
+      refunded['bea']!['hunger'],
+      78,
+      reason: 'refunding the restored 78 would land on 80',
+    );
+  });
 }
