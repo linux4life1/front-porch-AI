@@ -101,10 +101,11 @@ extension ChatServiceMessageClock on ChatService {
   }
 
   /// Abort may only undo a clock change THIS turn made. Continue never
-  /// ticks. Porch Life off never writes. Abort-write sets after=before
-  /// so hold-spec / K2 read the pre-turn clock. A planted midnight
-  /// after is not restored here — finally [_applyTipClock] then sees
-  /// the abort pair.
+  /// ticks. Porch Life off never writes. A live send that already
+  /// committed a chip is this turn's tick — abort-write sets
+  /// after=before (hold-spec / K2). A planted slot with no chip did
+  /// not tick this turn: leave the pair and apply the tip so a kept
+  /// reply stays on its after (ops-gaps midnight 23:40).
   void _abortSlotClockIfThisTurnTicked(_GenTurn t) {
     if (t.mode == GenerationMode.continue_) {
       _applyTipClock();
@@ -114,7 +115,15 @@ extension ChatServiceMessageClock on ChatService {
       _applyTipClock();
       return;
     }
-    _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
+    final chip =
+        t.streamTarget.metadata?['time_passed'] as String? ??
+        t.streamTarget.activeMetadata?['time_passed'] as String?;
+    if (chip != null && chip.isNotEmpty) {
+      _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
+      return;
+    }
+    _timeService.restoreCapturedClock();
+    _applyTipClock();
   }
 
   /// Tail-delete of a nudged tip restores the pre-nudge clock onto
