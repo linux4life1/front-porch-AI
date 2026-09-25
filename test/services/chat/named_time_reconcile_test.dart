@@ -1,9 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// K-A: a tip at 08:00 whose reply names 7:30 a.m. must move live,
-// sidebar, prompt, and the stored pair to 07:30 (not inverted).
-// Continue's named-time reconcile survives swipe and reload.
+// K-A: a named reconcile overwrites the slot's own before, so the
+// pair is 07:30/07:30 and the clamp still holds — the clamp never
+// beats a named story time. Live, sidebar, and the next prompt
+// read 07:30. Continue goes through _writeSlotClock the same way
+// and survives swipe away/back and reopen.
 
 import 'dart:io';
 
@@ -135,8 +137,13 @@ void main() {
     );
     final before = slotClockBefore(lastBot().activeMetadata);
     final after = slotClockAfter(lastBot().activeMetadata);
-    expect(before, _at0730, reason: '$reason — pair before');
-    expect(after, _at0730, reason: '$reason — pair after, not inverted');
+    expect(before, _at0730, reason: '$reason — stored before == 07:30');
+    expect(after, _at0730, reason: '$reason — stored after == 07:30');
+    expect(
+      before,
+      after,
+      reason: '$reason — named overwrite; pair is 07:30/07:30',
+    );
   }
 
   tearDown(() => disposeChatThenCloseDb(chat, db));
@@ -147,6 +154,14 @@ void main() {
     await chat!.sendMessage('What time is it?');
     await drain();
     expectSevenThirty(reason: 'send that names 7:30 a.m.');
+
+    llm.reply = 'Another swipe.';
+    await chat!.regenerateLastMessage();
+    await drain();
+    final swipeIdx = chat!.messages.indexOf(lastBot());
+    await chat!.swipeMessage(swipeIdx, -1);
+    await drain();
+    expectSevenThirty(reason: 'swipe away and back keeps 07:30');
 
     llm.reply = '*Nia nods at the clock.*';
     llm.prompts.clear();
@@ -190,6 +205,16 @@ void main() {
       await chat!.loadSession(chat!.currentSessionId!);
       await drain();
       expectSevenThirty(reason: 'reload after Continue keeps 07:30');
+
+      llm.reply = '*Nia nods at the clock.*';
+      llm.prompts.clear();
+      await chat!.sendMessage('Still morning?');
+      await drain();
+      expect(
+        llm.prompts.any((p) => p.contains('7:30 AM') || p.contains('7:30')),
+        isTrue,
+        reason: 'the next prompt after Continue reopen reads 07:30',
+      );
     },
   );
 }
