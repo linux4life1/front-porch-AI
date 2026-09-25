@@ -3,9 +3,11 @@
 //
 // One resolver for every slot. The ladder is the contract. Live is
 // never a real stamp. History never reads live except tip TOD at
-// step 4. A bot's own before includes the user turn it answers.
-// Other neighbour stamps stay below tip-live. Inverted stored
-// pairs clamp to own before.
+// step 4. A tip with nothing stored takes live above its own
+// before (clamp is the floor). A greeting with nothing stored
+// takes the next neighbour's before, else Day 1. A later
+// neighbour contributes its before; an earlier neighbour its
+// after. Inverted stored pairs clamp to own before.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -127,6 +129,8 @@ bool slotDerivedAfterIsStale(
 /// Frozen copy: equal to the greeting clock AND not later than this
 /// slot's own before. A snap later than own before is real, even when
 /// it equals the greeting wall-clock (v1.4 before + later snap).
+/// When message 0 has no snap, [greetingClock] is the earliest reply
+/// snap — a lone Day-1 09:00 leftover is frozen, not a lived-in clock.
 bool slotSnapIsFrozen(
   DateTime clock, {
   DateTime? greetingClock,
@@ -137,6 +141,39 @@ bool slotSnapIsFrozen(
   return true;
 }
 
+DateTime day1StartClock(DateTime startDate) =>
+    StoryClock.representativeTime(StoryClock.dateOnly(startDate), 'morning');
+
+/// Closest earlier AFTER, else closest later BEFORE. Live is never
+/// in either map.
+DateTime? directionalNeighbourStamp({
+  required int index,
+  required Map<int, DateTime> earlierAfter,
+  required Map<int, DateTime> laterBefore,
+}) {
+  DateTime? earlier;
+  var earlierDist = 1 << 30;
+  DateTime? later;
+  var laterDist = 1 << 30;
+  for (final e in earlierAfter.entries) {
+    if (e.key >= index) continue;
+    final dist = index - e.key;
+    if (dist < earlierDist) {
+      earlierDist = dist;
+      earlier = e.value;
+    }
+  }
+  for (final e in laterBefore.entries) {
+    if (e.key <= index) continue;
+    final dist = e.key - index;
+    if (dist < laterDist) {
+      laterDist = dist;
+      later = e.value;
+    }
+  }
+  return earlier ?? later;
+}
+
 /// Resolve the story-clock after for slot S (tip flag [isTip]).
 ///
 /// Walks this ordered ladder and returns the first hit:
@@ -145,19 +182,20 @@ bool slotSnapIsFrozen(
 ///     counts as own after.
 ///  3. S's own snap. Skip only if frozen: equal to the greeting
 ///     clock AND not later than S's own before. A snap later than
-///     own before is real.
+///     own before is real. Greeting clock is message 0's snap, or
+///     the earliest reply snap when message 0 has none.
 ///  4. S's own stored dayCount>1 for the DAY. Own TOD if stored,
 ///     else the nearest REAL neighbour stamp. If none: tip uses
 ///     the live time of day; history uses 09:00.
-///  5. S's own before. If S has no before, the stored clock of the
-///     user turn this bot answers (the message immediately before
-///     S) is own before. That ranks ABOVE tip-live. A story_day
-///     on that user turn is never dropped. Other neighbour stamps
-///     still rank below tip-live.
-///  6. Tip only: the loaded session/live clock. An empty tip ranks
-///     this ABOVE a general neighbour stamp.
-///  7. The nearest REAL neighbour stamp.
-///  8. History with nothing: leave empty, never live.
+///  5. Tip that is not the greeting, and 1–4 missed: the loaded
+///     session/live clock. Ranks ABOVE S's own before. Own before
+///     (including the answering user turn) is the clamp floor, so
+///     after = max(live, own before). History never takes live.
+///  6. S's own before, including the answering user turn.
+///  7. The nearest REAL neighbour stamp. A later neighbour
+///     contributes its BEFORE; an earlier neighbour its AFTER.
+///  8. Greeting with nothing stored: Day 1 of [startDate].
+///  9. History with nothing: leave empty, never live.
 ///
 /// Then CLAMP: after is never earlier than S's own before, including
 /// a stored rung-1 after. A turn cannot go backward.
@@ -175,8 +213,10 @@ DateTime? resolveSlotAfter(
   DateTime? greetingClock,
   DateTime? neighbourStamp,
   DateTime? answeredUserBefore,
+  bool isGreeting = false,
 }) {
   final before = slotClockBefore(slot) ?? answeredUserBefore;
+  final start = startDate ?? StoryClock.dateOnly(liveClock);
   DateTime? hit;
   final keptAfter = slotClockAfter(slot);
   if (keptAfter != null) {
@@ -199,7 +239,7 @@ DateTime? resolveSlotAfter(
         if (dc != null && dc > 1) {
           hit = dayCountClock(
             dayCount: dc,
-            startDate: startDate ?? StoryClock.dateOnly(liveClock),
+            startDate: start,
             timeOfDay: slotTimeOfDay(slot),
             liveClock: dayCountTodClock(
               isTip: isTip,
@@ -207,12 +247,14 @@ DateTime? resolveSlotAfter(
               neighbourStamp: neighbourStamp,
             ),
           );
+        } else if (isTip && !isGreeting) {
+          hit = liveClock;
         } else if (before != null) {
           hit = before;
-        } else if (isTip) {
-          hit = liveClock;
-        } else {
+        } else if (neighbourStamp != null) {
           hit = neighbourStamp;
+        } else if (isGreeting) {
+          hit = day1StartClock(start);
         }
       }
     }

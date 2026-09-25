@@ -42,20 +42,25 @@ extension ChatServiceMessageClock on ChatService {
   /// THE reader. Live clock = the visible tip slot's resolved after.
   /// Never another swipe's after — a cancelled regen swipe must not
   /// inherit the rejected pair. Every path goes through [resolveSlotAfter].
+  /// Porch Life off never moves the live clock.
   void _applyTipClock() {
+    if (!_clockRunning) return;
     final after = _resolveVisibleAfter();
     if (after != null) _timeService.applySlotClock(resolved: after);
   }
 
   /// One ladder for the visible tip. Uses the stored slot so load
-  /// recover and abort keep step 1. The answering user turn is own
-  /// before (rung 5). A far neighbour stamp stays below tip-live.
+  /// recover and abort keep step 1. Tip-live ranks above own before
+  /// (clamp floor). A greeting with nothing takes the neighbour
+  /// before, else Day 1. A far neighbour stamp stays below tip-live.
   DateTime? _resolveVisibleAfter({ChatMessage? tip, DateTime? liveClock}) {
     final target = tip ?? _visibleTipMessage();
     if (target == null) return null;
     final greetingClock = _openingGreetingSnap();
     final clock = liveClock ?? _timeService.clock;
     final idx = _messages.indexWhere((m) => identical(m, target));
+    final greetingSlot =
+        idx == 0 && !target.isUser && target.sender != 'System';
     final answered = answeredUserClock(
       _messages,
       idx,
@@ -71,7 +76,7 @@ extension ChatServiceMessageClock on ChatService {
     );
     var slot = target.activeMetadata;
     // A load-guessed live pair is not own after. It must not hide
-    // the answering user's story_day (rung 5 above tip-live).
+    // the answering user's story_day (clamp floor above a Day-1 live).
     if (answered != null &&
         slotHasCompletePair(slot) &&
         !slotHasAuthoredClock(slot) &&
@@ -89,6 +94,7 @@ extension ChatServiceMessageClock on ChatService {
       greetingClock: greetingClock,
       neighbourStamp: _nearestStoredStamp(target, greetingClock: greetingClock),
       answeredUserBefore: answered,
+      isGreeting: greetingSlot,
     );
   }
 
@@ -177,7 +183,9 @@ extension ChatServiceMessageClock on ChatService {
         if (restored != null) {
           final tip = _visibleTipMessage();
           if (tip != null) _writeResolvedTipAfter(tip, restored);
-          _timeService.applySlotClock(resolved: restored);
+          if (_clockRunning) {
+            _timeService.applySlotClock(resolved: restored);
+          }
           return;
         }
       }
@@ -190,7 +198,9 @@ extension ChatServiceMessageClock on ChatService {
         final after = _resolveVisibleAfter(tip: tip, liveClock: rewind);
         if (after != null) {
           _writeResolvedTipAfter(tip, after);
-          _timeService.applySlotClock(resolved: after);
+          if (_clockRunning) {
+            _timeService.applySlotClock(resolved: after);
+          }
           return;
         }
       }
@@ -206,15 +216,32 @@ extension ChatServiceMessageClock on ChatService {
     _timeService.rewindToBeforeIso(knownStoryClockBefore(lastMsg));
   }
 
-  /// First known before for this message position.
+  /// First known before for this message position. A frozen Day-1
+  /// snap is not a pre-reply — first regen must rewind to the slot's
+  /// real before (or live) and add only the new swipe's minutes.
   void _discoverAndPersistMessageBefore(ChatMessage msg) {
     var before = knownStoryClockBefore(msg);
+    final slot = msg.activeMetadata;
+    final snap = slotSnapClock(slot);
+    // Regen pops the tip before rewind. The popped snap is still the
+    // earliest-reply greeting clock when message 0 has no stamp.
+    final greeting = _openingGreetingSnap() ?? snap;
+    final known = StoryClock.parse(before);
+    if (known != null &&
+        snap != null &&
+        known == snap &&
+        slotSnapIsFrozen(snap, greetingClock: greeting)) {
+      before = null;
+    }
     if (before == null) {
-      final mins = minutesRecordedForClockRewind(msg.activeMetadata);
-      if (mins != null && mins > 0) {
-        final from = slotClockAfter(msg.activeMetadata) ?? _timeService.clock;
+      final mins = minutesRecordedForClockRewind(slot);
+      final storedAfter = slotClockAfter(slot);
+      final afterIsFrozen =
+          storedAfter != null &&
+          slotSnapIsFrozen(storedAfter, greetingClock: greeting);
+      if (mins != null && mins > 0 && storedAfter != null && !afterIsFrozen) {
         before = StoryClock.serializeClock(
-          from.subtract(Duration(minutes: mins)),
+          storedAfter.subtract(Duration(minutes: mins)),
         );
       } else {
         before = _timeService.storyClockIso;
@@ -265,43 +292,33 @@ extension ChatServiceMessageClock on ChatService {
     return StoryClock.representativeTime(start, tod);
   }
 
-  DateTime? _openingGreetingSnap() {
-    if (_messages.isEmpty) return null;
-    final first = _messages.first;
-    if (first.isUser || first.sender == 'System') return null;
-    final raw = first.activeMetadata?['realism_state'];
-    if (raw is! Map) return null;
-    return StoryClock.parse(raw['storyClock'] as String?);
-  }
+  DateTime? _openingGreetingSnap() => frozenDetectionGreetingClock(_messages);
 
   DateTime? _nearestStoredStamp(ChatMessage tip, {DateTime? greetingClock}) {
     final idx = _messages.indexWhere((m) => identical(m, tip));
-    DateTime? earlier;
-    var earlierDist = 1 << 30;
-    DateTime? later;
-    var laterDist = 1 << 30;
+    final earlierAfter = <int, DateTime>{};
+    final laterBefore = <int, DateTime>{};
     for (var i = 0; i < _messages.length; i++) {
       if (i == idx || _messages[i].sender == 'System') continue;
+      final slot = clockSlotForResolve(_messages[i]);
       final stamp = resolveSlotAfter(
-        clockSlotForResolve(_messages[i]),
+        slot,
         isTip: false,
         liveClock: _timeService.clock,
         startDate: _timeService.startDate,
         greetingClock: greetingClock,
       );
-      if (stamp == null) continue;
-      final dist = (i - idx).abs();
-      if (i <= idx) {
-        if (dist < earlierDist) {
-          earlierDist = dist;
-          earlier = stamp;
-        }
-      } else if (dist < laterDist) {
-        laterDist = dist;
-        later = stamp;
-      }
+      if (stamp != null) earlierAfter[i] = stamp;
+      final before =
+          slotClockBefore(slot) ??
+          StoryClock.parse(knownStoryClockBefore(_messages[i]));
+      if (before != null) laterBefore[i] = before;
     }
-    return earlier ?? later;
+    return directionalNeighbourStamp(
+      index: idx,
+      earlierAfter: earlierAfter,
+      laterBefore: laterBefore,
+    );
   }
 
   /// Fork lands on the fork-point slot via the one resolver. Day 1
@@ -313,7 +330,7 @@ extension ChatServiceMessageClock on ChatService {
     final leftOpening = _prefixLeftTheOpening();
     final tip = _visibleTipMessage();
     if (tip == null) {
-      if (!leftOpening) {
+      if (!leftOpening && _clockRunning) {
         _timeService.applySlotClock(resolved: _day1OfStoryStart());
       }
       return;
@@ -329,7 +346,9 @@ extension ChatServiceMessageClock on ChatService {
     final after = _resolveVisibleAfter(tip: tip, liveClock: live);
     if (after != null) {
       _writeResolvedTipAfter(tip, after);
-      _timeService.applySlotClock(resolved: after);
+      if (_clockRunning) {
+        _timeService.applySlotClock(resolved: after);
+      }
       return;
     }
     _applyTipClock();

@@ -70,6 +70,40 @@ Iterable<Map<String, dynamic>?> _messageSlots(ChatMessage msg) sync* {
   }
 }
 
+/// Message 0's snap only. A stamp-less greeting is null even when
+/// later replies carry Day-1 leftovers — repair uses this, frozen
+/// detection does not.
+DateTime? openingGreetingSnap(List<ChatMessage> messages) {
+  if (messages.isEmpty) return null;
+  final first = messages.first;
+  if (first.isUser || first.sender == 'System') return null;
+  for (final slot in _messageSlots(first)) {
+    final snap = slotSnapClock(slot);
+    if (snap != null) return snap;
+  }
+  return null;
+}
+
+/// Earliest `storyClock` on a reply after message 0.
+DateTime? earliestReplySnap(List<ChatMessage> messages) {
+  DateTime? earliest;
+  for (var i = 1; i < messages.length; i++) {
+    final msg = messages[i];
+    if (msg.isUser || msg.sender == 'System') continue;
+    for (final slot in _messageSlots(msg)) {
+      final snap = slotSnapClock(slot);
+      if (snap == null) continue;
+      if (earliest == null || snap.isBefore(earliest)) earliest = snap;
+    }
+  }
+  return earliest;
+}
+
+/// Frozen-detection greeting clock: message 0's snap, else the
+/// earliest reply snap (Carmen / v1.4 lived-in, no greeting stamp).
+DateTime? frozenDetectionGreetingClock(List<ChatMessage> messages) =>
+    openingGreetingSnap(messages) ?? earliestReplySnap(messages);
+
 const _kClockBackfillDone = 'clock_backfill_done';
 
 /// v1.4 / stamp-less greeting: later snap was treated as the greeting
@@ -135,8 +169,9 @@ bool _refreshDerivedDayPair(
 /// are not a clock. dayCount-only is a clock only when THAT message
 /// stored dayCount > 1. Day-without-TOD takes the neighbour stamp's
 /// TOD; if none, the tip uses [liveClock] and history uses 09:00.
-/// Never invents Day 1. [floorUnstampedToDay1] is accepted and does
-/// not floor. Never overwrites an existing before or after. Guess
+/// A greeting with nothing stored takes the next neighbour's before,
+/// else Day 1. [floorUnstampedToDay1] is accepted and does not floor
+/// history. Never overwrites an existing before or after. Guess
 /// runs once per chat ([_kClockBackfillDone]) — the marker must not
 /// block a writer from refreshing a derived pair when start moved.
 bool backfillSlotClocks(
@@ -147,15 +182,8 @@ bool backfillSlotClocks(
 }) {
   final alreadyGuessed = _firstBotBackfillDone(messages);
   final start = startDate ?? StoryClock.dateOnly(liveClock);
-  DateTime? greetingClock;
-  if (messages.isNotEmpty &&
-      !messages.first.isUser &&
-      messages.first.sender != 'System') {
-    for (final slot in _messageSlots(messages.first)) {
-      greetingClock = slotSnapClock(slot);
-      if (greetingClock != null) break;
-    }
-  }
+  final openingSnap = openingGreetingSnap(messages);
+  final greetingClock = frozenDetectionGreetingClock(messages);
   var tipIndex = -1;
   for (var i = 0; i < messages.length; i++) {
     final msg = messages[i];
@@ -163,25 +191,28 @@ bool backfillSlotClocks(
     tipIndex = i;
   }
 
-  // Stored-data stamps only. isTip:false so live never enters this
-  // set — neighbour TOD at step 4 and history step 7 read these.
-  final realByIndex = <int, DateTime>{};
+  // Stored-data stamps only. isTip:false / isGreeting:false so live
+  // and Day 1 never enter this set. Later neighbours donate BEFORE;
+  // earlier neighbours donate AFTER.
+  final earlierAfter = <int, DateTime>{};
+  final laterBefore = <int, DateTime>{};
   for (var i = 0; i < messages.length; i++) {
     final msg = messages[i];
     if (msg.sender == 'System') continue;
-    DateTime? stored;
+    DateTime? storedAfter;
+    DateTime? storedBefore = StoryClock.parse(knownStoryClockBefore(msg));
     for (final slot in _messageSlots(msg)) {
-      stored = resolveSlotAfter(
+      storedAfter ??= resolveSlotAfter(
         slot,
         isTip: false,
         liveClock: liveClock,
         startDate: start,
         greetingClock: greetingClock,
       );
-      if (stored != null) break;
+      storedBefore ??= slotClockBefore(slot);
     }
-    if (stored == null && msg.metadata != null) {
-      stored = resolveSlotAfter(
+    if (storedAfter == null && msg.metadata != null) {
+      storedAfter = resolveSlotAfter(
         msg.metadata,
         isTip: false,
         liveClock: liveClock,
@@ -189,29 +220,15 @@ bool backfillSlotClocks(
         greetingClock: greetingClock,
       );
     }
-    if (stored != null) realByIndex[i] = stored;
+    if (storedAfter != null) earlierAfter[i] = storedAfter;
+    if (storedBefore != null) laterBefore[i] = storedBefore;
   }
 
-  DateTime? nearestReal(int index) {
-    DateTime? earlier;
-    var earlierDist = 1 << 30;
-    DateTime? later;
-    var laterDist = 1 << 30;
-    for (final entry in realByIndex.entries) {
-      if (entry.key == index) continue;
-      final dist = (entry.key - index).abs();
-      if (entry.key <= index) {
-        if (dist < earlierDist) {
-          earlierDist = dist;
-          earlier = entry.value;
-        }
-      } else if (dist < laterDist) {
-        laterDist = dist;
-        later = entry.value;
-      }
-    }
-    return earlier ?? later;
-  }
+  DateTime? nearestReal(int index) => directionalNeighbourStamp(
+    index: index,
+    earlierAfter: earlierAfter,
+    laterBefore: laterBefore,
+  );
 
   DateTime? ownDay(
     int index,
@@ -237,14 +254,17 @@ bool backfillSlotClocks(
     Map<String, dynamic>? slot, {
     required bool tipSlot,
   }) {
+    final greetingSlot =
+        index == 0 &&
+        !messages[index].isUser &&
+        messages[index].sender != 'System';
     return resolveSlotAfter(
       slot,
       isTip: tipSlot,
       liveClock: liveClock,
       startDate: start,
       greetingClock: greetingClock,
-      neighbourStamp:
-          nearestReal(index) ?? (tipSlot ? null : realByIndex[index]),
+      neighbourStamp: nearestReal(index),
       answeredUserBefore: answeredUserClock(
         messages,
         index,
@@ -253,6 +273,7 @@ bool backfillSlotClocks(
         greetingClock: greetingClock,
         neighbourStamp: nearestReal(index - 1),
       ),
+      isGreeting: greetingSlot,
     );
   }
 
@@ -280,7 +301,7 @@ bool backfillSlotClocks(
           : null;
       if (existing == null && s > 0) continue;
       final slot = existing ?? (s == 0 ? msg.metadata : null);
-      if (_shouldRepairWrongGreetingPair(slot, greetingClock: greetingClock)) {
+      if (_shouldRepairWrongGreetingPair(slot, greetingClock: openingSnap)) {
         final snap = slotSnapClock(slot)!;
         final dest = existing ?? msg.metadata!;
         writeSlotClockPair(
@@ -329,7 +350,7 @@ bool backfillSlotClocks(
     }
     if (msg.metadata != null) {
       final meta = msg.metadata!;
-      if (_shouldRepairWrongGreetingPair(meta, greetingClock: greetingClock)) {
+      if (_shouldRepairWrongGreetingPair(meta, greetingClock: openingSnap)) {
         final snap = slotSnapClock(meta)!;
         writeSlotClockPair(
           meta,

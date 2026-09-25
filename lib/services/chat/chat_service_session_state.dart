@@ -178,7 +178,7 @@ extension ChatServiceSessionState on ChatService {
       }
     }
     if (await _rekeyGroupStores()) {
-      unawaited(_saveChat());
+      await _saveChat();
     }
   }
 
