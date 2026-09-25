@@ -112,13 +112,17 @@ extension ChatServiceGreetingSeed on ChatService {
     );
     _characterEmotion = resolved.characterEmotion;
     _emotionIntensity = resolved.emotionIntensity;
-    _timeService.seedFromV2OrExt(
-      dayCount: resolved.dayCount,
-      timeOfDay: resolved.timeOfDay,
-      storyStartDate: resolved.storyStartDate,
-      storyStartTime: resolved.storyStartTime,
-    );
-    _applySeededPassageOfTime();
+    // Reload re-applies authored mood/needs. It must not invent a
+    // Day-1 / today clock over a lived-in session row (HIGH-1).
+    if (scheduleEval) {
+      _timeService.seedFromV2OrExt(
+        dayCount: resolved.dayCount,
+        timeOfDay: resolved.timeOfDay,
+        storyStartDate: resolved.storyStartDate,
+        storyStartTime: resolved.storyStartTime,
+      );
+      _applySeededPassageOfTime();
+    }
     _nsfwService.resetRuntimeArousalAndCooldown();
 
     if (_needsSimEnabled) {
@@ -164,11 +168,17 @@ extension ChatServiceGreetingSeed on ChatService {
       if (_characterEmotion.isNotEmpty) {
         _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
       }
-      _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
-      _writeSlotClock(
-        _messages.isEmpty ? null : _messages.first,
-        kind: _SlotClockWrite.seed,
-      );
+      // Reload must not invent a greeting snap / dayCount. That leftover
+      // is frozen (equals itself) and the dayCount rung then synthesises
+      // afternoon instead of the session live clock (HIGH-1).
+      if (scheduleEval) {
+        _messages.first.activeMetadata!['realism_state'] =
+            _captureRealismState();
+        _writeSlotClock(
+          _messages.isEmpty ? null : _messages.first,
+          kind: _SlotClockWrite.seed,
+        );
+      }
     }
 
     if (!scheduleEval) return;
@@ -237,13 +247,15 @@ extension ChatServiceGreetingSeed on ChatService {
       ),
       overlay,
     );
-    _timeService.seedFromV2OrExt(
-      dayCount: timeResolved.dayCount,
-      timeOfDay: timeResolved.timeOfDay,
-      storyStartDate: timeResolved.storyStartDate,
-      storyStartTime: timeResolved.storyStartTime,
-    );
-    _applySeededPassageOfTime();
+    if (scheduleEval) {
+      _timeService.seedFromV2OrExt(
+        dayCount: timeResolved.dayCount,
+        timeOfDay: timeResolved.timeOfDay,
+        storyStartDate: timeResolved.storyStartDate,
+        storyStartTime: timeResolved.storyStartTime,
+      );
+      _applySeededPassageOfTime();
+    }
 
     for (final c in _groupCharacters) {
       final memberId = _getCharacterIdFromCard(c);
@@ -279,11 +291,14 @@ extension ChatServiceGreetingSeed on ChatService {
       if (_characterEmotion.isNotEmpty) {
         _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
       }
-      _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
-      _writeSlotClock(
-        _messages.isEmpty ? null : _messages.first,
-        kind: _SlotClockWrite.seed,
-      );
+      if (scheduleEval) {
+        _messages.first.activeMetadata!['realism_state'] =
+            _captureRealismState();
+        _writeSlotClock(
+          _messages.isEmpty ? null : _messages.first,
+          kind: _SlotClockWrite.seed,
+        );
+      }
     }
 
     if (!scheduleEval) return;
