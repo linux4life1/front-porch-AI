@@ -78,24 +78,35 @@ extension ChatServiceRegenRevert on ChatService {
       // message of ANY speaker (time is shared).
       Map<String, dynamic>? previousMessageState;
       Map<String, dynamic>? previousSessionState;
-      if (_messages.length >= 2) {
+      var unreadableBaseline = false;
+      if (_messages.isNotEmpty) {
         // Look back through messages to find the last bot message before the one we're regenerating
         for (int i = _messages.length - 1; i >= 0; i--) {
           if (!_messages[i].isUser && _messages[i].sender != 'System') {
             final meta = _messages[i].activeMetadata;
-            if (meta != null && meta.containsKey('realism_state')) {
-              final state = meta['realism_state'] as Map<String, dynamic>;
-              previousSessionState ??= state;
-              if (!isGroupHostRegen || _messages[i].sender == lastMsg.sender) {
-                previousMessageState = state;
-                debugPrint(
-                  '[Realism:Regen] Found previous accepted message baseline state at message index $i',
-                );
-                break;
-              }
+            if (meta == null || !meta.containsKey('realism_state')) continue;
+            if (meta['realism_state'] is! Map) {
+              unreadableBaseline = true;
+              continue;
+            }
+            final state = Map<String, dynamic>.from(
+              meta['realism_state'] as Map,
+            );
+            previousSessionState ??= state;
+            if (!isGroupHostRegen || _messages[i].sender == lastMsg.sender) {
+              previousMessageState = state;
+              debugPrint(
+                '[Realism:Regen] Found previous accepted message baseline state at message index $i',
+              );
+              break;
             }
           }
         }
+      }
+      if (previousMessageState == null && unreadableBaseline) {
+        _messages.add(lastMsg);
+        _applyTipClock();
+        return;
       }
 
       // Did we restore needs from the rejected message's OWN needs_pre_turn_vector

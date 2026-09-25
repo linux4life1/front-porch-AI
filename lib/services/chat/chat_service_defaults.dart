@@ -171,6 +171,10 @@ bool _realismEvalCancelled = false;
 /// leftover latch must not survive into the next turn.
 bool _postGenAbortRequested = false;
 
+/// Pre-nudge live clock, stamped on the slot as `nudge_from` so a tail
+/// delete can restore it without rewriting `story_clock_before`.
+DateTime? _pendingNudgeBefore;
+
 /// Bumped on regen / settling abort so a fire-and-forget Journal or Growth
 /// pass started against the rejected window cannot apply (or fall through
 /// to XML) after abortGeneration tore the tools call down.

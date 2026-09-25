@@ -336,7 +336,7 @@ extension ChatServiceMessageOps on ChatService {
 
       if (!deleted.isUser && deleted.sender != 'System') {
         _rewindPocketsForDeletedMessage(deleted, wasTail: wasTail);
-        _applyTipClock();
+        _applyClockAfterDelete(deleted, wasTail: wasTail);
       }
 
       if (wasTail && _history.hasMore) {

@@ -37,10 +37,24 @@ extension ChatServiceMessageClock on ChatService {
     persistStoryClockBefore(msg, StoryClock.serializeClock(clock));
   }
 
-  /// THE reader. Live clock = the visible tip slot's after.
+  /// THE reader. Live clock = the visible tip slot's after, then
+  /// message-level / any swipe after (a new regen swipe may be empty).
   void _applyTipClock() {
-    final after = slotClockAfter(_visibleTipMessage()?.activeMetadata);
+    final tip = _visibleTipMessage();
+    if (tip == null) return;
+    final after =
+        slotClockAfter(tip.activeMetadata) ??
+        slotClockAfter(tip.metadata) ??
+        _anySlotAfter(tip);
     if (after != null) _timeService.applySlotClock(resolved: after);
+  }
+
+  DateTime? _anySlotAfter(ChatMessage msg) {
+    for (final slot in msg.swipeMetadata) {
+      final after = slotClockAfter(slot);
+      if (after != null) return after;
+    }
+    return null;
   }
 
   /// Fill missing pairs from the live clock / nearest real time.
@@ -84,16 +98,57 @@ extension ChatServiceMessageClock on ChatService {
   }
 
   /// Abort may only undo a clock change THIS turn made. Continue never
-  /// ticks. Porch Life off never writes.
+  /// ticks. Porch Life off never writes. A live send that already
+  /// committed a chip rewinds to before; a planted slot with no chip
+  /// puts the captured after back so cancel cannot leave the rewind.
   void _abortSlotClockIfThisTurnTicked(_GenTurn t) {
-    if (t.mode == GenerationMode.continue_) return;
-    if (!_clockRunning) return;
-    _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
+    if (t.mode == GenerationMode.continue_) {
+      _applyTipClock();
+      return;
+    }
+    if (!_clockRunning) {
+      _applyTipClock();
+      return;
+    }
+    final chip =
+        t.streamTarget.metadata?['time_passed'] as String? ??
+        t.streamTarget.activeMetadata?['time_passed'] as String?;
+    if (chip != null && chip.isNotEmpty) {
+      _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
+      return;
+    }
+    _timeService.restoreCapturedClock();
+    _applyTipClock();
+  }
+
+  /// Tail-delete of a nudged tip restores the pre-nudge clock onto
+  /// the new visible tip so hold-spec (clock == tip.after) and the
+  /// pre-nudge pin agree.
+  void _applyClockAfterDelete(ChatMessage deleted, {required bool wasTail}) {
+    if (wasTail && deleted.activeMetadata?['time_nudged'] == true) {
+      final restored =
+          StoryClock.parse(deleted.activeMetadata?['nudge_from'] as String?) ??
+          slotClockBefore(deleted.activeMetadata);
+      if (restored != null) {
+        final tip = _visibleTipMessage();
+        if (tip != null) {
+          writeSlotClockPair(
+            _clockWriteSlot(tip),
+            before: restored,
+            after: restored,
+          );
+        }
+        _timeService.applySlotClock(resolved: restored);
+        return;
+      }
+    }
+    _applyTipClock();
   }
 
   /// Pre-reply clock for regen evals. After backfill the pair exists.
   void _rewindClockToPreReply(ChatMessage lastMsg) {
     if (!_clockRunning) return;
+    _timeService.captureLiveClock();
     _discoverAndPersistMessageBefore(lastMsg);
     _timeService.rewindToBeforeIso(knownStoryClockBefore(lastMsg));
   }
@@ -156,14 +211,23 @@ extension ChatServiceMessageClock on ChatService {
     if (kind == _SlotClockWrite.tick || kind == _SlotClockWrite.nudge) {
       persistStoryClockBefore(target, StoryClock.serializeClock(before));
     }
+    final slot = _clockWriteSlot(target);
     writeSlotClockPair(
-      _clockWriteSlot(target),
+      slot,
       before: before,
       after: after,
       timePassed: chip,
       clearChip: clearChip,
       timeNudged: kind == _SlotClockWrite.nudge,
     );
+    if (kind == _SlotClockWrite.nudge && _pendingNudgeBefore != null) {
+      final from = StoryClock.serializeClock(_pendingNudgeBefore!);
+      slot['nudge_from'] = from;
+      if (target.metadata != null && !identical(target.metadata, slot)) {
+        target.metadata!['nudge_from'] = from;
+      }
+    }
+    _pendingNudgeBefore = null;
     if (kind == _SlotClockWrite.nudge &&
         target.metadata != null &&
         !identical(target.metadata, target.activeMetadata)) {

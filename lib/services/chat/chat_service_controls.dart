@@ -170,6 +170,7 @@ extension ChatServiceControls on ChatService {
   Future<void> nudgeTimePeriod(int delta) async {
     if (!_clockRunning) return;
     final before = _timeService.clock;
+    _pendingNudgeBefore = before;
     await _timeService.nudgeTimePeriod(delta);
     _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.nudge);
     // Day-ate journal rides TimeService.onStoryDayChanged.
@@ -184,6 +185,7 @@ extension ChatServiceControls on ChatService {
   Future<void> setStoryClock(DateTime clock) async {
     if (!_clockRunning) return;
     final before = _timeService.clock;
+    _pendingNudgeBefore = before;
     await _timeService.setClockDirect(clock);
     _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.nudge);
     // Day-ate journal rides TimeService.onStoryDayChanged.

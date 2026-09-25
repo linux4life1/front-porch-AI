@@ -212,7 +212,6 @@ bool backfillSlotClocks(
   bool floorUnstampedToDay1 = false,
 }) {
   final start = startDate ?? StoryClock.dateOnly(liveClock);
-  final alreadyDone = _firstBotBackfillDone(messages);
   DateTime? greetingClock;
   if (messages.isNotEmpty &&
       !messages.first.isUser &&
@@ -280,9 +279,7 @@ bool backfillSlotClocks(
   }
 
   final dayClock =
-      !alreadyDone &&
-          !anyStoryClock &&
-          (dayCountOnly != null || floorUnstampedToDay1)
+      !anyStoryClock && (dayCountOnly != null || floorUnstampedToDay1)
       ? _dayCountClock(
           dayCount: dayCountOnly ?? 1,
           liveClock: liveClock,
@@ -292,7 +289,10 @@ bool backfillSlotClocks(
       : null;
 
   DateTime fallback(int index, {required bool tipSlot}) {
-    if (tipSlot) return liveClock;
+    if (tipSlot) {
+      if (dayClock != null && dayCountOnly != null) return dayClock;
+      return liveClock;
+    }
     if (dayClock != null) return dayClock;
     return nearestReal(index) ?? liveClock;
   }

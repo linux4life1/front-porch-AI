@@ -184,6 +184,14 @@ extension ChatServiceGreetingSeed on ChatService {
       _runPostGreetingEval();
     } else if (_realismActiveThisMode) {
       unawaited(_seedOpeningPosture().catchError((Object _) {}));
+      // First-greet RtR is skipped so authored emotion stays. A
+      // relationship baseline still runs so the first user send is not
+      // the card-default trust eval.
+      try {
+        await _evaluateRelationshipCall();
+      } catch (e, st) {
+        debugPrint('[Realism] Opening relationship baseline failed: $e\n$st');
+      }
     }
   }
 
@@ -297,6 +305,7 @@ extension ChatServiceGreetingSeed on ChatService {
       _runPostGreetingEval();
     } else if (_realismActiveThisMode) {
       unawaited(_seedOpeningPosture().catchError((Object _) {}));
+      await _evaluateRelationshipCall();
     }
   }
 
