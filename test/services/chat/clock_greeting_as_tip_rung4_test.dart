@@ -2,10 +2,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // E: rung 4 applies to a greeting-as-tip (reverses b2a83292's
-// strip). Own dayCount>1 opens at that day, not live. Live wins
-// only when the greeting has no own after, no chip, no real snap
-// and no dayCount above 1. A today's-date seed-leak snap is not
-// a real snap.
+// strip in _resolveVisibleAfter). Own dayCount>1 opens at that
+// day, not live. Live wins only when the greeting has no own
+// after, no chip, no real snap and no dayCount above 1. A
+// today's-date seed-leak snap is not a real snap.
+//
+// Open of a planted greeting runs backfill AFTER the first
+// applyTip. backfill calls resolveSlotAfter (no strip) and
+// writes a pair, so a pin that observes the post-backfill
+// clock never sees the strip. The Day 5 open pin marks
+// clock_backfill_done and stores dayCount only inside
+// realism_state (the _captureRealismState shape) so hydrate
+// ends on _resolveVisibleAfter.
 
 import 'dart:convert';
 import 'dart:io';
@@ -200,8 +208,21 @@ void main() {
     await boot();
     await plant(
       greetingMeta: {
-        'realism_state': {'dayCount': 5},
-        'story_day': 5,
+        // Same keys _applyGreetingOpeningSeed writes onto
+        // activeMetadata via _captureRealismState. Loaded
+        // messages have empty swipeMetadata, so
+        // activeMetadata == metadata. No stored pair.
+        // clock_backfill_done stops backfill from writing
+        // a Day-5 pair through resolveSlotAfter (no strip)
+        // and hiding the _resolveVisibleAfter strip.
+        'realism_state': {
+          'affectionScore': 0,
+          'trustLevel': 0,
+          'dayCount': 5,
+          'timeOfDay': 'night',
+          'storyStartDate': _startIso,
+        },
+        'clock_backfill_done': true,
       },
       clock: StoryClock.serializeClock(_liveLate),
       day: 90,
