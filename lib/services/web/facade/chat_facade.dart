@@ -106,7 +106,7 @@ class ChatFacade {
 
   /// The unified cast as JSON. Each entry carries enough to render a roster
   /// (avatar, role, emotion, next-up) and to scope the sidebar via [id]
-  /// (stableGroupId). Avatars resolve to the character endpoint for host/guests
+  /// ([groupMemberStoreId] in groups). Avatars resolve to the character endpoint for host/guests
   /// and the group-member endpoint for members.
   List<Map<String, dynamic>> _castJson() {
     final groupId = _chat.activeGroup?.id;

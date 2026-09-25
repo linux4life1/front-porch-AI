@@ -128,6 +128,7 @@ extension ChatServiceImportSeed on ChatService {
         _groupRealism = parseGroupRealismSeeds(
           _activeGroup!.defaultMemberRealismState,
         ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));
+        _rekeyGroupStores();
         _chaosModeService.seedFromGroupOrExt(
           _activeGroup!.chaosModeEnabled ||
               _storageService.realismSettings.chaosModeDefault,
@@ -347,6 +348,7 @@ extension ChatServiceImportSeed on ChatService {
               Map<String, dynamic>.from(e.value as Map),
             ),
       };
+      _rekeyGroupStores();
     }
   }
 

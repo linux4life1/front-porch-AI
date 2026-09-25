@@ -361,8 +361,8 @@ extension ChatServiceAccessors on ChatService {
       _expressionService.setExpressionClassifierService(service);
 
   /// Returns a stable ID string for a character card.
-  /// Delegates to the canonical stable ID for group contexts.
-  /// See [StableGroupId.stableGroupId] in lib/utils/character_id.dart
+  /// Group members use [groupMemberStoreId] (UUID-first). 1:1 stays
+  /// on [CharacterCard.stableGroupId] (library identity).
   String _getCharacterIdFromCard(CharacterCard card) {
     if (_activeGroup != null) return groupMemberStoreId(card);
     return card.stableGroupId;

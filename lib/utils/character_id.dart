@@ -34,10 +34,52 @@ String stableGroupIdFrom(String? imagePath, String name) {
   return name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
 }
 
-/// Group-member store key. Always [CharacterCard.stableGroupId] so
-/// seeds, `_groupRealism`, openings, posture, and Group Settings
-/// share one key. An empty image path keys by name, not UUID.
-String groupMemberStoreId(CharacterCard card) => card.stableGroupId;
+/// Group-member store key for realism, needs, openings, posture,
+/// Group Settings, and seeds.
+///
+/// UUID-first: [CharacterCard.dbId] / `GroupMember.id` when the member
+/// has one. [CharacterCard.stableGroupId] only for legacy members with
+/// no UUID (empty image path used to key by name).
+String groupMemberStoreId(CharacterCard card) {
+  final id = card.dbId;
+  if (id != null && id.isNotEmpty) return id;
+  return card.stableGroupId;
+}
+
+/// Move a member's legacy [CharacterCard.stableGroupId] entry onto
+/// [groupMemberStoreId] when the dest key is absent. If both exist,
+/// drop the legacy key. Never keeps both. Idempotent. Returns true
+/// when [store] was mutated.
+bool migrateGroupStoreKeys<T>(
+  Map<String, T> store,
+  Iterable<CharacterCard> members,
+) {
+  var changed = false;
+  for (final member in members) {
+    final dest = groupMemberStoreId(member);
+    final legacy = member.stableGroupId;
+    if (dest == legacy) continue;
+    if (!store.containsKey(legacy)) continue;
+    final moved = store.remove(legacy);
+    if (!store.containsKey(dest) && moved is T) {
+      store[dest] = moved;
+    }
+    changed = true;
+  }
+  return changed;
+}
+
+/// Legacy name/stableGroupId → UUID for members that have a dbId.
+Map<String, String> groupMemberLegacyIdMap(Iterable<CharacterCard> members) {
+  final map = <String, String>{};
+  for (final member in members) {
+    final dest = groupMemberStoreId(member);
+    if (dest != member.stableGroupId) {
+      map[member.stableGroupId] = dest;
+    }
+  }
+  return map;
+}
 
 extension StableGroupId on CharacterCard {
   /// The canonical stable identifier for *singular/library* CharacterCards only.

@@ -80,7 +80,7 @@ class GroupCardExporter {
     final memberObjectives = <String, List<Map<String, dynamic>>>{};
     try {
       for (final card in memberCards) {
-        final charId = card.stableGroupId;
+        final charId = groupMemberStoreId(card);
         final objs = await _db.getObjectivesForCharacter(charId);
         if (objs.isNotEmpty) {
           memberObjectives[charId] = objs

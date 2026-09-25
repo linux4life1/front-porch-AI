@@ -177,6 +177,9 @@ extension ChatServiceSessionState on ChatService {
         _groupRealism = {};
       }
     }
+    if (_rekeyGroupStores()) {
+      unawaited(_saveChat());
+    }
   }
 
   /// Evaluates emotion + relationship baseline from the greeting message only.

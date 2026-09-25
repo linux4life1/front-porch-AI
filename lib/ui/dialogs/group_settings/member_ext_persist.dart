@@ -40,7 +40,7 @@ class GroupMemberExtPersister {
 
   /// Queue [char]'s ext for persistence, restarting its debounce window.
   void schedule(CharacterCard char) {
-    final id = char.stableGroupId;
+    final id = groupMemberStoreId(char);
     _queued[id] = char;
     _timers[id]?.cancel();
     _timers[id] = Timer(delay, () => flushMember(id));
