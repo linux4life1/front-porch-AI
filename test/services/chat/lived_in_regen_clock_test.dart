@@ -293,7 +293,11 @@ void main() {
     () async {
       await boot();
       await plantOldTranscript();
-      expect(lastBot().activeMetadata?['story_clock_before'], isNull);
+      expect(
+        lastBot().activeMetadata?['story_clock_before'],
+        isNotNull,
+        reason: 'one-path backfill fills the pair from the live clock',
+      );
 
       await chat!.regenerateLastMessage();
       await drainTurn();
@@ -314,7 +318,11 @@ void main() {
     () async {
       await boot();
       await plantOldTranscript(timePassed: '5 min');
-      expect(lastBot().activeMetadata?['story_clock_before'], isNull);
+      expect(
+        lastBot().activeMetadata?['story_clock_before'],
+        isNotNull,
+        reason: 'one-path backfill fills the pair from live minus chip minutes',
+      );
       expect(lastBot().activeMetadata?['time_passed'], '5 min');
 
       await chat!.regenerateLastMessage();

@@ -196,11 +196,11 @@ bool backfillSlotClocks(
   }
   for (var i = messages.length - 1; i >= 0; i--) {
     final msg = messages[i];
-    if (msg.isUser || msg.sender == 'System') continue;
     var found = false;
     for (final slot in _messageSlots(msg)) {
       final dc = _slotDayCount(slot);
-      if (dc == null) continue;
+      // Day 1 is the greeting-era leftover, not a clock (Carmen).
+      if (dc == null || dc <= 1) continue;
       dayCountOnly = dc;
       dayCountTod = _slotTimeOfDay(slot);
       found = true;

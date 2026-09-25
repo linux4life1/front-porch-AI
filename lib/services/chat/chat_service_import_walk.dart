@@ -189,7 +189,7 @@ extension ChatServiceImportWalk on ChatService {
         '[Realism] No stamp in prefix (index ≤ $fromIndex) — rewind scalars '
         'from card, keep feature toggles',
       );
-      await _rewindScalarsFromCardKeepingToggles();
+      await _rewindScalarsFromCardKeepingToggles(seedClock: true);
     }
     _syncLoadedSlotClocks();
   }

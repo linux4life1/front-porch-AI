@@ -117,6 +117,19 @@ void main() {
     expect(slotClockAfter(lived.metadata), live);
   });
 
+  test('dayCount 1 is frozen; tip takes live', () {
+    final msg = _bot('Morning.', {
+      'realism_state': {'dayCount': 1, 'timeOfDay': 'morning'},
+    });
+    final live = DateTime.utc(2026, 6, 30, 14, 30);
+    backfillSlotClocks(
+      [msg],
+      liveClock: live,
+      startDate: DateTime.utc(2026, 6, 28),
+    );
+    expect(slotClockAfter(msg.metadata), live);
+  });
+
   test('dayCount-derived pair refreshes when start moves', () {
     final msg = _bot('Day five.', {'story_day': 5});
     final live = DateTime.utc(2026, 9, 25, 22, 30);
