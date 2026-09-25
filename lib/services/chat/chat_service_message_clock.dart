@@ -120,6 +120,25 @@ extension ChatServiceMessageClock on ChatService {
       debugPrint('[Clock] backfill failed: $e\n$st');
     }
     _applyTipClock();
+    _holdNamedReconcileIfSameMoment();
+  }
+
+  /// A named pair stores `same moment` at the live clock. Reopen and
+  /// backfill must re-arm the hold so a later 0-minute eval cannot
+  /// land the 2-minute floor on that pair.
+  void _holdNamedReconcileIfSameMoment() {
+    final clock = _timeService.clock;
+    for (final msg in _messages) {
+      if (msg.isUser || msg.sender == 'System') continue;
+      for (final slot in [msg.metadata, ...msg.swipeMetadata]) {
+        if (minutesFromTimePassed(slot?['time_passed']) != 0) continue;
+        final after = slotClockAfter(slot);
+        if (after != null && after == clock) {
+          _timeService.holdNamedReconcileExact();
+          return;
+        }
+      }
+    }
   }
 
   /// Session scalars first, then tip resolve. Live must not stay
@@ -134,6 +153,7 @@ extension ChatServiceMessageClock on ChatService {
       storyStartDate: s.storyStartDate,
     );
     _applyTipClock();
+    _holdNamedReconcileIfSameMoment();
     final sid = _currentSessionId;
     final epoch = _history.epoch;
     final pending = _history.backfill;
@@ -153,6 +173,7 @@ extension ChatServiceMessageClock on ChatService {
     try {
       final changed = _backfillLoadedSlotClocks();
       _applyTipClock();
+      _holdNamedReconcileIfSameMoment();
       if (changed) unawaited(_saveChat());
       notifyListeners();
     } catch (e, st) {

@@ -99,6 +99,7 @@ extension TimeServiceLoad on TimeService {
   }) {
     clearTodayLine();
     _clearCapturedClock();
+    _namedReconcileExact = false;
 
     final clock = StoryClock.parse(storyClock);
     final anchor = StoryClock.parse(storyStartDate);

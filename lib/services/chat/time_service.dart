@@ -171,6 +171,10 @@ class TimeService {
   // One clock authority per turn: set when detectOocTimeSkip moves the clock,
   // consumed by the per-turn eval so it can't re-count the same exchange.
   bool _oocSkipMovedClockThisTurn = false;
+  // Named wall-clock is exact. A later 0 / missing minutes_elapsed
+  // must not land the 2-minute floor on that pair (follow-up,
+  // backfill, reopen).
+  bool _namedReconcileExact = false;
   DateTime? _capturedClock;
   DateTime? _capturedStartDate;
   String? _capturedSessionId;
@@ -304,6 +308,9 @@ class TimeService {
 
   void rewindToBeforeIso(String? beforeIso) => _rewindToBeforeIso(beforeIso);
 
+  /// Re-arm after load / backfill when a stored named pair is still live.
+  void holdNamedReconcileExact() => _namedReconcileExact = true;
+
   void applySlotClock({DateTime? resolved, String? after}) {
     final clock = resolved ?? StoryClock.parse(after);
     if (clock == null) return;
@@ -414,6 +421,7 @@ class TimeService {
     _clock = StoryClock.representativeTime(_startDate, 'morning');
     _turnsSinceClockMoved = 0;
     _oocSkipMovedClockThisTurn = false;
+    _namedReconcileExact = false;
     _passageOfTimeEnabled = true;
     // A brand-new chat has nothing to write back — its clock reaches the row
     // through the ordinary save. Leaving a previous chat's `true` standing here

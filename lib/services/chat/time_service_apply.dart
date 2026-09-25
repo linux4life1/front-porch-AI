@@ -94,6 +94,7 @@ extension TimeServiceApply on TimeService {
     final labelMins = minutesFromTimePassed(_timePassedLabel);
     _setClockPullingStartDate(newClock);
     _turnsSinceClockMoved = 0;
+    _namedReconcileExact = true;
     if (labelMins != null) {
       final adjusted = labelMins + _clock.difference(oldClock).inMinutes;
       _noteBodyBeat(
@@ -249,11 +250,17 @@ extension TimeServiceApply on TimeService {
   }) async {
     final dayBefore = dayCount;
     var moved = false;
+    final namedHolds =
+        _namedReconcileExact &&
+        !newDay &&
+        !continuousInstant &&
+        (minutes == null || minutes <= 0);
     final m = StoryClock.resolvedElapsedMinutes(
       minutes: minutes,
       newDay: newDay,
-      continuousInstant: continuousInstant,
+      continuousInstant: continuousInstant || namedHolds,
     );
+    if (m > 0 || newDay) _namedReconcileExact = false;
     if (m > 0) {
       _clock = _clock.add(Duration(minutes: m));
       moved = true;
