@@ -131,9 +131,10 @@ bool _shouldRepairWrongGreetingPair(
   if (snap == null) return false;
   final after = slotClockAfter(slot)!;
   final before = slotClockBefore(slot)!;
-  // A real later after must never be pulled back to an older snap
-  // (14:00 snap, 16:00 after). Chip-less skip is the named case.
-  if (after.isAfter(snap)) return false;
+  // A real later after (skip / writer) must never be pulled back
+  // to an older snap (14:00 snap, 16:00 after). A guessed
+  // neighbour after still yields to the surviving snap (B1).
+  if (after.isAfter(snap) && slotIsWriterPair(slot)) return false;
   if (after == snap || after == before) return false;
   if ((slot?['time_passed'] as String?)?.isNotEmpty == true) return false;
   if (slot?['time_nudged'] == true) return false;
