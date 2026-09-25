@@ -44,8 +44,10 @@ const _day1NineIso = '2026-06-28T09:00:00.000Z';
 const _day1SixIso = '2026-06-28T18:00:00.000Z';
 const _day3Iso = '2026-06-30T16:00:00.000Z';
 const _day12Iso = '2026-07-09T16:00:00.000Z';
-const _midnightIso = '2026-06-28T00:10:00.000Z';
 const _preMidnightIso = '2026-06-27T23:40:00.000Z';
+// Default reply length is +30. Planted after must differ so a test
+// that only reads the live clock cannot pass by recomputing default.
+const _plus47Iso = '2026-06-28T00:27:00.000Z';
 
 class _ScriptedLlm extends LLMService {
   int nextMinutes = 30;
@@ -61,12 +63,15 @@ class _ScriptedLlm extends LLMService {
       yield nextReply;
       return;
     }
+    // Regen is a 1:1 host path: relationship eval lives on sendMessage,
+    // so the throw must fire on the first eval the regen actually calls
+    // (time / needs / emotion), not only relationship_delta.
+    if (throwOnEval) {
+      throwOnEval = false;
+      throw Exception('hold-spec eval throw');
+    }
     final p = params.prompt;
     if (p.contains('relationship_delta')) {
-      if (throwOnEval) {
-        throwOnEval = false;
-        throw Exception('hold-spec eval throw');
-      }
       yield '{"relationship_delta":0,"trust_delta":1,'
           '"bond_reason":"steady","trust_reason":"warm"}';
       return;
@@ -727,6 +732,8 @@ void main() {
         start: _startIso,
       );
       expect(chat!.timeService.clock, DateTime.utc(2026, 6, 29, 16, 37));
+      llm.throwOnEval = true;
+      llm.nextMinutes = 47;
       try {
         await chat!.regenerateLastMessage();
       } catch (_) {}
@@ -756,49 +763,54 @@ void main() {
       );
     });
 
-    test(
-      'throw across Day-1 midnight restores 00:10, day 1, start 6/28',
-      () async {
-        await boot();
-        await plant(
-          rows: [
-            {
-              'sender': 'Nia',
-              'user': false,
-              'text': 'Greeting.',
-              'meta': {'realism_state': 'broken'},
-            },
-            {'sender': 'You', 'user': true, 'text': 'Hi.'},
-            {
-              'sender': 'Nia',
-              'user': false,
-              'text': 'Late.',
-              'meta': {
-                'story_clock_before': _preMidnightIso,
-                'story_clock_after': _midnightIso,
-                'realism_state': {
-                  'storyClock': _midnightIso,
-                  'storyStartDate': _startIso,
-                },
+    test('throw across Day-1 midnight restores planted +47 after', () async {
+      await boot();
+      await plant(
+        rows: [
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Greeting.',
+            'meta': {'realism_state': 'broken'},
+          },
+          {'sender': 'You', 'user': true, 'text': 'Hi.'},
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Late.',
+            'meta': {
+              'story_clock_before': _preMidnightIso,
+              'story_clock_after': _plus47Iso,
+              'realism_state': {
+                'storyClock': _plus47Iso,
+                'storyStartDate': _startIso,
               },
             },
-          ],
-          clock: _midnightIso,
-          start: _startIso,
-          day: 1,
-          tod: 'night',
-        );
-        expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 10));
-        expect(chat!.timeService.dayCount, 1);
-        try {
-          await chat!.regenerateLastMessage();
-        } catch (_) {}
-        await drain();
-        expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 10));
-        expect(chat!.timeService.dayCount, 1);
-        expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 28));
-      },
-    );
+          },
+        ],
+        clock: _plus47Iso,
+        start: _startIso,
+        day: 1,
+        tod: 'night',
+      );
+      expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 27));
+      expect(chat!.timeService.dayCount, 1);
+      llm.throwOnEval = true;
+      llm.nextMinutes = 30;
+      try {
+        await chat!.regenerateLastMessage();
+      } catch (_) {}
+      await drain();
+      expect(
+        chat!.timeService.clock,
+        DateTime.utc(2026, 6, 28, 0, 27),
+        reason:
+            'planted after is before+47, not the default +30 (00:10). '
+            'Ignoring the plant and recomputing default would pass the old pin',
+      );
+      expect(chat!.timeService.dayCount, 1);
+      expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 28));
+    });
 
     test('new swipes pin per-slot after and shared before', () async {
       await boot();
