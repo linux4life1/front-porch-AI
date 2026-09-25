@@ -18,6 +18,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -174,8 +175,7 @@ void main() {
 
   tearDown(() async {
     debugPrint = previousPrint ?? debugPrint;
-    chat?.dispose();
-    await db?.close();
+    await disposeChatThenCloseDb(chat, db);
   });
 
   test(

@@ -17,6 +17,7 @@ import 'package:front_porch_ai/services/chat/fpchat_codec.dart';
 import 'package:front_porch_ai/services/chat/fpchat_format.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -125,10 +126,7 @@ void main() {
     personaId = personas.persona.id;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<void> drain() async {
     for (var i = 0; i < 80 && (chat.isGenerating || chat.isSettlingTurn); i++) {

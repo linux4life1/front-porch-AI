@@ -18,6 +18,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 
+import '../../helpers/chat_db_teardown.dart';
 import 'needs_simulation_test.dart' show createTestSim;
 
 void _setupPathProviderMock() {
@@ -152,10 +153,7 @@ void main() {
           )
           ..setDatabase(db)
           ..setCharacterRepository(CharacterRepository(db, storage));
-    addTearDown(() async {
-      chat.dispose();
-      await db.close();
-    });
+    addTearDown(() => disposeChatThenCloseDb(chat, db));
     await storage.initialized;
     await chat.setActiveCharacter(
       CharacterCard(

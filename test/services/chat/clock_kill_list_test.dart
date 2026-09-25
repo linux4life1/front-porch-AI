@@ -20,6 +20,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -313,10 +314,7 @@ void main() {
       await drain();
     }
 
-    tearDown(() async {
-      chat?.dispose();
-      await db?.close();
-    });
+    tearDown(() => disposeChatThenCloseDb(chat, db));
 
     test('K1 fixture: swipe HostOn pos 6 lands on 10:30 not 10:00', () async {
       HttpOverrides.global = null;

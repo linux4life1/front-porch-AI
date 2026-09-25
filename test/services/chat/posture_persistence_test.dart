@@ -54,6 +54,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -190,28 +191,23 @@ void main() {
     await storage.initialized;
   }
 
-  CharacterCard porchCard(
-    String name,
-    String id, {
-    bool needs = false,
-  }) => CharacterCard(
-    name: name,
-    description: 'Exists only inside the posture-persistence test.',
-    firstMessage: 'She is already out on the porch when you arrive.',
-    frontPorchExtensions: FrontPorchExtensions(
-      realismEnabled: true,
-      needsSimEnabled: needs,
-      chaosModeEnabled: false,
-    ),
-  )..dbId = id;
+  CharacterCard porchCard(String name, String id, {bool needs = false}) =>
+      CharacterCard(
+        name: name,
+        description: 'Exists only inside the posture-persistence test.',
+        firstMessage: 'She is already out on the porch when you arrive.',
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          needsSimEnabled: needs,
+          chaosModeEnabled: false,
+        ),
+      )..dbId = id;
 
   /// The session row exactly as a reload would find it.
-  Future<Session> row() async => (await db.getSessionById(chat.currentSessionId!))!;
+  Future<Session> row() async =>
+      (await db.getSessionById(chat.currentSessionId!))!;
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test(
     'Needs OFF: the reply\'s posture is in the session row when the turn ends',
@@ -278,9 +274,10 @@ void main() {
       // PRE-FIX RESULT: FAILED on the Needs-OFF leg only — which IS the
       // coupling: the sole save that could follow the pass lived inside
       // _attachNeedsDeltaChipToLastMessage, behind `if (!_needsSimEnabled)`.
-      await boot([
-        '*She crosses the room and settles on the windowsill.*',
-      ], prefs: {'needs_sim_default': true});
+      await boot(
+        ['*She crosses the room and settles on the windowsill.*'],
+        prefs: {'needs_sim_default': true},
+      );
       await chat.setActiveCharacter(
         porchCard('Nia', 'char-pp-needs-on', needs: true),
       );
@@ -288,8 +285,7 @@ void main() {
       await chat.sendMessage('Where did you get to?');
       final withNeeds = (await row()).spatialStance;
 
-      chat.dispose();
-      await db.close();
+      await disposeChatThenCloseDb(chat, db);
 
       await boot(['*She crosses the room and settles on the windowsill.*']);
       await chat.setActiveCharacter(porchCard('Nia', 'char-pp-needs-off'));
@@ -392,13 +388,10 @@ void main() {
       Future<String> stanceAfterTurn({required bool oneShot}) async {
         await boot(['*She crosses the room and settles on the windowsill.*']);
         await storage.realismSettings.setRealismOneShotEval(oneShot);
-        await chat.setActiveCharacter(
-          porchCard('Nia', 'char-pp-os-$oneShot'),
-        );
+        await chat.setActiveCharacter(porchCard('Nia', 'char-pp-os-$oneShot'));
         await chat.sendMessage('Where did you get to?');
         final stance = (await row()).spatialStance;
-        chat.dispose();
-        await db.close();
+        await disposeChatThenCloseDb(chat, db);
         return stance;
       }
 
@@ -425,76 +418,68 @@ void main() {
     timeout: const Timeout(Duration(minutes: 3)),
   );
 
-  test(
-    'turn one has a position: the greeting baseline seeds it',
-    () async {
-      // PRE-FIX RESULT: FAILED — no posture prompt fired at the baseline and
-      // the first reply's prompt carried no Position line at all, because the
-      // baseline's _evaluatePhysicalStateCall() now only advances the clock.
-      await boot(['*She keeps rocking.*']);
-      final plain = CharacterCard(
-        name: 'Nia',
-        description: 'No Front Porch extensions — the imported-card shape.',
-        firstMessage: 'She is rocking in the armchair when you walk in.',
-      )..dbId = 'char-pp-greet';
-      await chat.setActiveCharacter(plain);
-      await chat.setRealismEnabled(true);
-      await chat.startNewChat();
+  test('turn one has a position: the greeting baseline seeds it', () async {
+    // PRE-FIX RESULT: FAILED — no posture prompt fired at the baseline and
+    // the first reply's prompt carried no Position line at all, because the
+    // baseline's _evaluatePhysicalStateCall() now only advances the clock.
+    await boot(['*She keeps rocking.*']);
+    final plain = CharacterCard(
+      name: 'Nia',
+      description: 'No Front Porch extensions — the imported-card shape.',
+      firstMessage: 'She is rocking in the armchair when you walk in.',
+    )..dbId = 'char-pp-greet';
+    await chat.setActiveCharacter(plain);
+    await chat.setRealismEnabled(true);
+    await chat.startNewChat();
 
-      // The baseline is fire-and-forget behind the greeting overlay flag.
-      for (var i = 0; i < 200 && chat.isProcessingGreeting; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
+    // The baseline is fire-and-forget behind the greeting overlay flag.
+    for (var i = 0; i < 200 && chat.isProcessingGreeting; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
 
-      expect(
-        chat.relationshipService.spatialStance,
-        'curled in the armchair',
-        reason:
-            'the maintainer asked for "the part that informs the character '
-            'where they are when they start their turn" — with posture moved '
-            'to post-generation, turn one has no answer unless the greeting '
-            'baseline seeds one from the opening scene',
-      );
+    expect(
+      chat.relationshipService.spatialStance,
+      'curled in the armchair',
+      reason:
+          'the maintainer asked for "the part that informs the character '
+          'where they are when they start their turn" — with posture moved '
+          'to post-generation, turn one has no answer unless the greeting '
+          'baseline seeds one from the opening scene',
+    );
 
-      await chat.sendMessage('Morning.');
-      expect(
-        llm.chatPrompts.first,
-        contains('Position: curled in the armchair'),
-        reason: 'and the very first reply must be grounded in it',
-      );
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+    await chat.sendMessage('Morning.');
+    expect(
+      llm.chatPrompts.first,
+      contains('Position: curled in the armchair'),
+      reason: 'and the very first reply must be grounded in it',
+    );
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
-  test(
-    'switching Realism on mid-chat seeds a position too',
-    () async {
-      // PRE-FIX RESULT: FAILED — the retroactive scan fired the clock eval and
-      // nothing else, so the next reply had no Position line.
-      await boot(['*She keeps rocking.*', '*Still rocking.*']);
-      final plain = CharacterCard(
-        name: 'Nia',
-        description: 'No Front Porch extensions.',
-        firstMessage: 'She is rocking in the armchair when you walk in.',
-      )..dbId = 'char-pp-retro';
-      await chat.setActiveCharacter(plain);
-      await chat.setRealismEnabled(false);
-      await chat.sendMessage('Morning.');
+  test('switching Realism on mid-chat seeds a position too', () async {
+    // PRE-FIX RESULT: FAILED — the retroactive scan fired the clock eval and
+    // nothing else, so the next reply had no Position line.
+    await boot(['*She keeps rocking.*', '*Still rocking.*']);
+    final plain = CharacterCard(
+      name: 'Nia',
+      description: 'No Front Porch extensions.',
+      firstMessage: 'She is rocking in the armchair when you walk in.',
+    )..dbId = 'char-pp-retro';
+    await chat.setActiveCharacter(plain);
+    await chat.setRealismEnabled(false);
+    await chat.sendMessage('Morning.');
 
-      await chat.setRealismEnabled(true);
-      for (var i = 0; i < 200 && chat.isProcessingGreeting; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
+    await chat.setRealismEnabled(true);
+    for (var i = 0; i < 200 && chat.isProcessingGreeting; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
 
-      expect(
-        chat.relationshipService.spatialStance,
-        isNotEmpty,
-        reason:
-            'the retroactive scan exists so the engine catches up on the whole '
-            'visible history; a blank position means the next reply is written '
-            'with no staging at all',
-      );
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+    expect(
+      chat.relationshipService.spatialStance,
+      isNotEmpty,
+      reason:
+          'the retroactive scan exists so the engine catches up on the whole '
+          'visible history; a blank position means the next reply is written '
+          'with no staging at all',
+    );
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }

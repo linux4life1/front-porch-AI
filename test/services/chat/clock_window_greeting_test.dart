@@ -16,6 +16,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -61,10 +62,7 @@ void main() {
     }
   }
 
-  tearDown(() async {
-    chat?.dispose();
-    await db?.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test(
     'B1: 30-row v1.4 open keeps pos 2 at the reply snap, not tail Day 4',

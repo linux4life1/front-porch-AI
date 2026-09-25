@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 import '../../golden/support/fakes.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 class _IdleSearchLlm extends LLMService {
   final List<String> webSearchPrompts = [];
@@ -132,9 +133,8 @@ void main() {
           ..setCharacterRepository(CharacterRepository(db, storage))
           ..setLLMProvider(provider);
     addTearDown(() async {
-      chat.dispose();
+      await disposeChatThenCloseDb(chat, db);
       provider.dispose();
-      await db.close();
     });
 
     await storage.initialized;

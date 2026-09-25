@@ -21,6 +21,7 @@ import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 
 import '../../golden/support/fakes.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -75,10 +76,7 @@ void main() {
       await chat.setNeedsSimEnabled(false);
     });
 
-    tearDown(() async {
-      chat.dispose();
-      await db.close();
-    });
+    tearDown(() => disposeChatThenCloseDb(chat, db));
 
     test('Realism off + Needs off + PoT on → nudge succeeds', () async {
       expect(chat.timeService.passageOfTimeEnabled, isTrue);

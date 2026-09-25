@@ -20,6 +20,7 @@ import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 import 'time_service_test.dart' show makeService, runEval, seedFixed;
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -250,10 +251,7 @@ void main() {
       await repo!.loadCharacters();
     }
 
-    tearDown(() async {
-      chat?.dispose();
-      await db?.close();
-    });
+    tearDown(() => disposeChatThenCloseDb(chat, db));
 
     test('Clocked pos 2 is 09:30, not later 18:00', () async {
       await bootFixture();
@@ -382,10 +380,7 @@ void main() {
       await drain();
     }
 
-    tearDown(() async {
-      chat?.dispose();
-      await db?.close();
-    });
+    tearDown(() => disposeChatThenCloseDb(chat, db));
 
     test(
       'regen cancel during pre-reply judges keeps the reply banner',

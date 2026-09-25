@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/routes/routes.dart';
 
 import '../../golden/support/fakes.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -57,10 +58,7 @@ void main() {
     WebChatToolsRoutes(ChatToolsFacade(chat, storage, null), router);
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<shelf.Response> post(String path, Map<String, dynamic> body) {
     return router.call(

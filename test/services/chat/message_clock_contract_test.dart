@@ -21,6 +21,7 @@ import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -273,10 +274,7 @@ void main() {
 
   int lastBotIndex() => chat!.messages.lastIndexWhere((m) => !m.isUser);
 
-  tearDown(() async {
-    chat?.dispose();
-    await db?.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   TimeService _time({bool porch = true}) {
     return TimeService(
@@ -404,25 +402,28 @@ void main() {
       );
     });
 
-    test('rewind before Day 1 leaves the start date; tip.after restores it', () {
-      final t = _time();
-      t.applySlotClock(resolved: DateTime.utc(2026, 6, 28, 0, 10));
-      t.loadTimeScalars(
-        timeOfDay: 'night',
-        dayCount: 1,
-        startDayOfWeek: DateTime.utc(2026, 6, 28).weekday,
-        storyClock: '2026-06-28T00:10:00.000Z',
-        storyStartDate: _startIso,
-      );
-      t.rewindToBeforeIso('2026-06-27T23:40:00.000Z');
-      expect(t.clock, DateTime.utc(2026, 6, 27, 23, 40));
-      expect(t.dayCount, 1);
-      expect(t.startDate, DateTime.utc(2026, 6, 28));
-      t.applySlotClock(resolved: DateTime.utc(2026, 6, 28, 0, 10));
-      expect(t.clock, DateTime.utc(2026, 6, 28, 0, 10));
-      expect(t.dayCount, 1);
-      expect(t.startDate, DateTime.utc(2026, 6, 28));
-    });
+    test(
+      'rewind before Day 1 leaves the start date; tip.after restores it',
+      () {
+        final t = _time();
+        t.applySlotClock(resolved: DateTime.utc(2026, 6, 28, 0, 10));
+        t.loadTimeScalars(
+          timeOfDay: 'night',
+          dayCount: 1,
+          startDayOfWeek: DateTime.utc(2026, 6, 28).weekday,
+          storyClock: '2026-06-28T00:10:00.000Z',
+          storyStartDate: _startIso,
+        );
+        t.rewindToBeforeIso('2026-06-27T23:40:00.000Z');
+        expect(t.clock, DateTime.utc(2026, 6, 27, 23, 40));
+        expect(t.dayCount, 1);
+        expect(t.startDate, DateTime.utc(2026, 6, 28));
+        t.applySlotClock(resolved: DateTime.utc(2026, 6, 28, 0, 10));
+        expect(t.clock, DateTime.utc(2026, 6, 28, 0, 10));
+        expect(t.dayCount, 1);
+        expect(t.startDate, DateTime.utc(2026, 6, 28));
+      },
+    );
 
     test('message before is shared across slots via putIfAbsent', () {
       final msg = ChatMessage(
@@ -846,7 +847,8 @@ void main() {
     expect(
       chat!.timeService.clock,
       DateTime.utc(2026, 6, 28, 0, 10),
-      reason: 'tail delete reads the remaining tip after, not the deleted before',
+      reason:
+          'tail delete reads the remaining tip after, not the deleted before',
     );
     expect(chat!.timeService.dayCount, 1);
     expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 28));

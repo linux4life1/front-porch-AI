@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -57,10 +58,7 @@ void main() {
     personaId = personas.persona.id;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   /// Non-zero card seeds so tests distinguish seed-from-card (45) vs zero (0)
   /// vs tip bleed (200) — Opus eae4e8f2 finding 3.

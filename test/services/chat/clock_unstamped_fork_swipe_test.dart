@@ -18,6 +18,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show slotClockAfter;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -32,7 +33,6 @@ void _setupPathProviderMock() {
 
 const _startIso = '2026-06-28';
 const _livedIso = '2026-07-01T00:10:00.000Z';
-final _lived = DateTime.utc(2026, 7, 1, 0, 10);
 
 class _SilentLlm extends LLMService {
   @override
@@ -181,10 +181,7 @@ void main() {
 
   ChatMessage botAt(int i) => chat!.messages[i];
 
-  tearDown(() async {
-    chat?.dispose();
-    await db?.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test(
     '1:1 fork at an older unstamped reply uses that reply after, not the tip',

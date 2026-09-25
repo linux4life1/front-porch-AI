@@ -19,6 +19,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -234,10 +235,7 @@ void main() {
 
   ChatMessage lastBot() => chat!.messages.lastWhere((m) => !m.isUser);
 
-  tearDown(() async {
-    chat?.dispose();
-    await db?.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test('minutesFromTimePassed reads chip text only', () {
     expect(minutesFromTimePassed('5 min'), 5);

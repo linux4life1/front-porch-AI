@@ -42,6 +42,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -97,10 +98,7 @@ void main() {
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test('switching chats swaps the quest list with it', () async {
     final card = CharacterCard(
@@ -137,29 +135,32 @@ void main() {
     expect(chat.secondaryObjectives, isEmpty);
   }, timeout: const Timeout(Duration(minutes: 2)));
 
-  test('a chat with no quests shows none, rather than the last chat\'s',
-      () async {
-    final card = CharacterCard(
-      name: 'Alice',
-      description: 'Exists only inside the objective-switch test.',
-      firstMessage: 'The porch light hums.',
-    )..dbId = 'char-objsw-2';
-    await chat.setActiveCharacter(card);
+  test(
+    'a chat with no quests shows none, rather than the last chat\'s',
+    () async {
+      final card = CharacterCard(
+        name: 'Alice',
+        description: 'Exists only inside the objective-switch test.',
+        firstMessage: 'The porch light hums.',
+      )..dbId = 'char-objsw-2';
+      await chat.setActiveCharacter(card);
 
-    final chatA = chat.currentSessionId!;
-    await chat.setObjective('Find the lost key');
-    await chat.startNewChat();
-    final chatB = chat.currentSessionId!;
+      final chatA = chat.currentSessionId!;
+      await chat.setObjective('Find the lost key');
+      await chat.startNewChat();
+      final chatB = chat.currentSessionId!;
 
-    await chat.loadSession(chatA);
-    expect(chat.primaryObjective, isNotNull);
-    await chat.loadSession(chatB);
-    expect(
-      chat.primaryObjective,
-      isNull,
-      reason:
-          'a fresh chat has no quests; carrying the previous one over is how '
-          "the other chat's rows got written by this chat's turns",
-    );
-  }, timeout: const Timeout(Duration(minutes: 2)));
+      await chat.loadSession(chatA);
+      expect(chat.primaryObjective, isNotNull);
+      await chat.loadSession(chatB);
+      expect(
+        chat.primaryObjective,
+        isNull,
+        reason:
+            'a fresh chat has no quests; carrying the previous one over is how '
+            "the other chat's rows got written by this chat's turns",
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
 }

@@ -41,6 +41,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -65,21 +66,19 @@ void main() {
     SharedPreferences.setMockInitialValues({'update_auto_check': false});
     db = AppDatabase.forTesting(sameIsolate: true);
     storage = StorageService();
-    chat = ChatService(
-      KoboldService(storage),
-      UserPersonaService(db),
-      storage,
-      WorldRepository(storage, db),
-    )
-      ..setDatabase(db)
-      ..setCharacterRepository(CharacterRepository(db, storage));
+    chat =
+        ChatService(
+            KoboldService(storage),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..setCharacterRepository(CharacterRepository(db, storage));
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<GroupChat> seedGroup({required bool needsEnabled}) async {
     final blobs = buildGroupRealismBlobs(
@@ -134,7 +133,8 @@ void main() {
     expect(
       chat.needsSimEnabled,
       isTrue,
-      reason: 'needs stayed off after New Chat — the flag is then persisted '
+      reason:
+          'needs stayed off after New Chat — the flag is then persisted '
           'onto the new session row and read back on every reload',
     );
     // The flag really is what gets written for the new session.
@@ -142,21 +142,23 @@ void main() {
     expect(row?.needsSimEnabled, isTrue);
   });
 
-  test('a group authored WITHOUT needs still starts a new chat with them off',
-      () async {
-    final group = await seedGroup(needsEnabled: false);
-    await chat.setActiveGroup(
-      group,
-      groupRepo: GroupChatRepository(storage, db),
-    );
-    expect(chat.needsSimEnabled, isFalse);
+  test(
+    'a group authored WITHOUT needs still starts a new chat with them off',
+    () async {
+      final group = await seedGroup(needsEnabled: false);
+      await chat.setActiveGroup(
+        group,
+        groupRepo: GroupChatRepository(storage, db),
+      );
+      expect(chat.needsSimEnabled, isFalse);
 
-    await chat.startNewChat();
+      await chat.startNewChat();
 
-    expect(
-      chat.needsSimEnabled,
-      isFalse,
-      reason: 'presence-inference must not invent needs the creator omitted',
-    );
-  });
+      expect(
+        chat.needsSimEnabled,
+        isFalse,
+        reason: 'presence-inference must not invent needs the creator omitted',
+      );
+    },
+  );
 }
