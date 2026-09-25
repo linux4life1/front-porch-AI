@@ -433,6 +433,8 @@ extension ChatServiceChatEntry on ChatService {
                 card: _activeCharacter!,
                 index: 0,
               );
+            } else {
+              await _runOpeningRelationshipBaseline();
             }
           }
           // Note: for the direct 0-session setActiveCharacter path (fresh import via home grid <=1 session),

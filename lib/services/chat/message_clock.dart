@@ -231,6 +231,8 @@ bool backfillSlotClocks(
     tipIndex = i;
     for (final slot in _messageSlots(msg)) {
       if (_snapStoryClock(slot) != null ||
+          slotClockBefore(slot) != null ||
+          slotClockAfter(slot) != null ||
           (slotHasCompletePair(slot) &&
               slot?['clock_from_day_count'] != true)) {
         anyStoryClock = true;

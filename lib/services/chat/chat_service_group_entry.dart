@@ -349,6 +349,8 @@ extension ChatServiceGroupEntry on ChatService {
               card: _groupCharacters.first,
               index: 0,
             );
+          } else {
+            await _runOpeningRelationshipBaseline();
           }
         }
         _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
