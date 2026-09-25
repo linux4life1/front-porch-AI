@@ -374,7 +374,7 @@ bool backfillSlotClocks(
       final before =
           keptBefore ??
           (mins != null && mins > 0
-              ? after.subtract(Duration(minutes: mins))
+              ? chipDerivedBefore(after: after, minutes: mins, startDate: start)
               : after);
       final day = dayOf(slot);
       writeSlotClockPair(

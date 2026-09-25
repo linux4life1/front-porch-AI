@@ -182,7 +182,7 @@ extension ChatServiceSessionFork on ChatService {
     if (_messages.isNotEmpty) {
       await _restoreRealismStateWalkingBack(
         fromIndex: _messages.length - 1,
-        seedClockIfUnstamped: false,
+        seedClockIfUnstamped: true,
       );
       _applyForkPointClock(parentStartDate: parentStart);
     }

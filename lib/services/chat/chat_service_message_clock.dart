@@ -207,14 +207,17 @@ extension ChatServiceMessageClock on ChatService {
         }
       }
       final deletedSlot = deleted.activeMetadata;
-      final writerBefore = slotClockBefore(deletedSlot);
-      // Writer pairs rewind to their own before. A chip-derived
-      // backfill before (Day-1 leftover) is not that — keep live
-      // so greeting-as-tip stays on the deleted after.
-      final rewind =
-          (deletedSlot?['clock_from_writer'] == true && writerBefore != null)
-          ? writerBefore
-          : _timeService.clock;
+      final storedBefore = slotClockBefore(deletedSlot);
+      final start = _timeService.startDate;
+      final day1 = day1OfStart(start);
+      // Only a stored before. Chip-derived after-minus-chip (even
+      // when floored at Day 1) is not stored — keep live.
+      DateTime? rewind;
+      if (storedBefore != null &&
+          !slotBeforeIsChipDerived(deletedSlot, startDate: start)) {
+        rewind = storedBefore.isBefore(day1) ? day1 : storedBefore;
+      }
+      rewind ??= _timeService.clock;
       final tip = _visibleTipMessage();
       if (tip != null) {
         final after = _resolveVisibleAfter(tip: tip, liveClock: rewind);

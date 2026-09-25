@@ -133,6 +133,39 @@ DateTime day1OfStart(
   return StoryClock.representativeTime(date, timeOfDay);
 }
 
+/// after minus chip minutes, never earlier than Day 1 of [startDate].
+DateTime chipDerivedBefore({
+  required DateTime after,
+  required int minutes,
+  required DateTime startDate,
+}) {
+  final raw = after.subtract(Duration(minutes: minutes));
+  final day1 = day1OfStart(startDate);
+  return raw.isBefore(day1) ? day1 : raw;
+}
+
+/// True when before is the backfill after-minus-chip (or that value
+/// floored at Day 1). Writer pairs are stored befores.
+bool slotBeforeIsChipDerived(
+  Map<String, dynamic>? slot, {
+  required DateTime startDate,
+}) {
+  if (slot?['clock_from_writer'] == true) return false;
+  final before = slotClockBefore(slot);
+  final after = slotClockAfter(slot);
+  final mins = minutesRecordedForClockRewind(slot);
+  if (before == null || after == null || mins == null || mins <= 0) {
+    return false;
+  }
+  final raw = after.subtract(Duration(minutes: mins));
+  final floored = chipDerivedBefore(
+    after: after,
+    minutes: mins,
+    startDate: startDate,
+  );
+  return before == raw || before == floored;
+}
+
 /// A derived day pair is stale when start moved: the stored after's
 /// calendar day no longer equals start + (dayCount-1). Chip / nudge /
 /// snap pairs are real stamps and are not rewritten. Live TOD changing
