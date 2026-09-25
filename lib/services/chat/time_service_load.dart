@@ -120,38 +120,30 @@ extension TimeServiceLoad on TimeService {
     }
   }
 
-  DateTime get _storyStartFloor =>
-      DateTime.utc(_startDate.year, _startDate.month, _startDate.day);
-
-  void _setClockClamped(DateTime next) {
-    final floor = _storyStartFloor;
-    _clock = next.isBefore(floor) ? floor : next;
-  }
-
   void _captureLiveClock() => _capturedClock = _clock;
 
   void _restoreCapturedClock() {
     final captured = _capturedClock;
-    if (captured != null) _setClockClamped(captured);
+    if (captured != null) _setClockPullingStartDate(captured);
   }
 
   void _clearCapturedClock() => _capturedClock = null;
 
   void _rewindToBeforeIso(String? beforeIso) {
     final before = StoryClock.parse(beforeIso);
-    if (before != null) _setClockClamped(before);
+    if (before != null) _setClockPullingStartDate(before);
   }
 
   void _applySelectedSlotClock({String? after, String? before, int? minutes}) {
     final afterClock = StoryClock.parse(after);
     if (afterClock != null) {
-      _setClockClamped(afterClock);
+      _setClockPullingStartDate(afterClock);
       return;
     }
     final beforeClock = StoryClock.parse(before);
     if (beforeClock != null) {
       final add = (minutes != null && minutes > 0) ? minutes : 0;
-      _setClockClamped(beforeClock.add(Duration(minutes: add)));
+      _setClockPullingStartDate(beforeClock.add(Duration(minutes: add)));
     }
   }
 
@@ -165,13 +157,13 @@ extension TimeServiceLoad on TimeService {
     if (!restoreClock) return;
     final afterClock = StoryClock.parse(after);
     if (afterClock != null) {
-      _setClockClamped(afterClock);
+      _setClockPullingStartDate(afterClock);
       return;
     }
     final beforeClock = StoryClock.parse(before);
     if (beforeClock != null) {
       final add = (minutes != null && minutes > 0) ? minutes : 0;
-      _setClockClamped(beforeClock.add(Duration(minutes: add)));
+      _setClockPullingStartDate(beforeClock.add(Duration(minutes: add)));
       return;
     }
     if (snap != null) restoreTimeFromRealismState(snap);

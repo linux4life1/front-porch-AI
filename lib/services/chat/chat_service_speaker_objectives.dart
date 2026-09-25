@@ -300,7 +300,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
   void _restoreRealismStateFromMessage(
     ChatMessage? msg, {
     String? groupSpeakerId,
-    bool restoreClock = true,
+    bool restoreClock = false,
   }) {
     if (msg == null) return;
 
@@ -309,9 +309,10 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final rawState = meta?['realism_state'];
     final state = rawState is Map ? Map<String, dynamic>.from(rawState) : null;
 
-    // Regen/swipe/delete pass restoreClock: false — TimeService owns
-    // those clocks. Fork/import pass true: stamped after, else before
-    // plus minutes, else the snap only if the message is unstamped.
+    // Default false. Regen/swipe/delete never pass true — TimeService
+    // owns those clocks and swipe never reads a snap. Fork/import pass
+    // true: stamped after, else before plus minutes, else the snap
+    // only if the message is unstamped.
     if (restoreClock) {
       _timeService.restoreImportedClock(
         after: meta?['story_clock_after'] as String?,

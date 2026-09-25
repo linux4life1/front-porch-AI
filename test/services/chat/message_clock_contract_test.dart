@@ -364,15 +364,16 @@ void main() {
       expect(t.clock, _day3);
     });
 
-    test('rewind never goes below Day 1 00:00', () {
+    test('rewind before Day 1 pulls the start date, same as reconcile', () {
       final t = _time();
       t.restoreTimeFromRealismState({
         'storyClock': '2026-06-28T00:10:00.000Z',
         'storyStartDate': _startIso,
       });
       t.rewindToBeforeIso('2026-06-27T23:40:00.000Z');
-      expect(t.clock, DateTime.utc(2026, 6, 28, 0, 0));
+      expect(t.clock, DateTime.utc(2026, 6, 27, 23, 40));
       expect(t.dayCount, 1);
+      expect(t.startDate, DateTime.utc(2026, 6, 27));
     });
 
     test('message before is shared across slots via putIfAbsent', () {
@@ -414,6 +415,26 @@ void main() {
       await drainTurn();
       expect(chat!.timeService.clock, first);
       expect(lastBot().activeMetadata?['story_clock_before'], _livedIso);
+    },
+  );
+
+  test(
+    'regen three times on a lived-in chat stays on the same clock',
+    () async {
+      await boot();
+      await plantOldTranscript();
+      await chat!.regenerateLastMessage();
+      await drainTurn();
+      final first = chat!.timeService.clock;
+      expect(first, DateTime.utc(2026, 6, 29, 17, 7));
+      await chat!.regenerateLastMessage();
+      await drainTurn();
+      expect(chat!.timeService.clock, first);
+      await chat!.regenerateLastMessage();
+      await drainTurn();
+      expect(chat!.timeService.clock, first);
+      expect(lastBot().activeMetadata?['story_clock_before'], _livedIso);
+      expect(lastBot().swipes.length, 4);
     },
   );
 
@@ -518,6 +539,23 @@ void main() {
     await chat!.regenerateLastMessage();
     await drainTurn();
     expect(chat!.timeService.clock, accepted);
+  });
+
+  test('non-tail delete leaves the live clock alone', () async {
+    await boot();
+    await plantOldTranscript();
+    expect(chat!.timeService.clock, _lived);
+    // Greeting (index 0) carries a Day 1 09:00 snap. Deleting the user
+    // line in the middle must not restore that snap — or the last bot's.
+    chat!.deleteMessage(1);
+    await drainTurn();
+    expect(
+      chat!.timeService.clock,
+      _lived,
+      reason:
+          'non-tail delete must not take the new last message\'s '
+          'realism_state.storyClock (old chats freeze that at Day 1 09:00)',
+    );
   });
 
   test('delete tail rewinds to the shared before', () async {
@@ -676,71 +714,69 @@ void main() {
     );
   });
 
-  test(
-    'Day-1 floor: a nudged tail delete does not rewind below 00:00',
-    () async {
-      await boot();
-      await chat!.flushPendingSaves();
-      final sid = chat!.currentSessionId!;
-      final dawnIso = '2026-06-28T00:10:00.000Z';
-      final lastMeta = jsonEncode({
-        'realism_state': {
-          ..._day1NineSnap,
-          'storyClock': dawnIso,
-          'dayCount': 1,
-          'timeOfDay': 'night',
-        },
-        'time_passed': '30 min',
-      });
-      await db!.deleteMessagesForSession(sid);
-      await db!.insertMessage(
-        MessagesCompanion.insert(
-          id: 'floor-g',
-          sessionId: sid,
-          position: 0,
-          sender: 'Nia',
-          isUser: false,
-          swipes: Value(jsonEncode(['Evening.'])),
-          metadata: Value(jsonEncode({'realism_state': _day1NineSnap})),
-          swipeMetadata: Value(
-            jsonEncode([
-              {'realism_state': _day1NineSnap},
-            ]),
-          ),
+  test('Day-1 rewind pulls the start date so dayCount stays 1', () async {
+    await boot();
+    await chat!.flushPendingSaves();
+    final sid = chat!.currentSessionId!;
+    final dawnIso = '2026-06-28T00:10:00.000Z';
+    final lastMeta = jsonEncode({
+      'realism_state': {
+        ..._day1NineSnap,
+        'storyClock': dawnIso,
+        'dayCount': 1,
+        'timeOfDay': 'night',
+      },
+      'time_passed': '30 min',
+    });
+    await db!.deleteMessagesForSession(sid);
+    await db!.insertMessage(
+      MessagesCompanion.insert(
+        id: 'floor-g',
+        sessionId: sid,
+        position: 0,
+        sender: 'Nia',
+        isUser: false,
+        swipes: Value(jsonEncode(['Evening.'])),
+        metadata: Value(jsonEncode({'realism_state': _day1NineSnap})),
+        swipeMetadata: Value(
+          jsonEncode([
+            {'realism_state': _day1NineSnap},
+          ]),
         ),
-      );
-      await db!.insertMessage(
-        MessagesCompanion.insert(
-          id: 'floor-b',
-          sessionId: sid,
-          position: 1,
-          sender: 'Nia',
-          isUser: false,
-          swipes: Value(jsonEncode(['Almost midnight.'])),
-          metadata: Value(lastMeta),
-          swipeMetadata: Value(jsonEncode([jsonDecode(lastMeta)])),
-        ),
-      );
-      await db!.patchSession(
-        SessionsCompanion(
-          id: Value(sid),
-          passageOfTimeEnabled: const Value(true),
-          passageOfTimeGateMigrated: const Value(true),
-          storyClock: Value(dawnIso),
-          storyStartDate: const Value(_startIso),
-          timeOfDay: const Value('night'),
-          dayCount: const Value(1),
-        ),
-      );
-      await chat!.reloadCurrentSession();
-      await drainTurn();
-      expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 10));
-      chat!.deleteMessage(lastBotIndex());
-      await drainTurn();
-      expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 0));
-      expect(chat!.timeService.dayCount, 1);
-    },
-  );
+      ),
+    );
+    await db!.insertMessage(
+      MessagesCompanion.insert(
+        id: 'floor-b',
+        sessionId: sid,
+        position: 1,
+        sender: 'Nia',
+        isUser: false,
+        swipes: Value(jsonEncode(['Almost midnight.'])),
+        metadata: Value(lastMeta),
+        swipeMetadata: Value(jsonEncode([jsonDecode(lastMeta)])),
+      ),
+    );
+    await db!.patchSession(
+      SessionsCompanion(
+        id: Value(sid),
+        passageOfTimeEnabled: const Value(true),
+        passageOfTimeGateMigrated: const Value(true),
+        storyClock: Value(dawnIso),
+        storyStartDate: const Value(_startIso),
+        timeOfDay: const Value('night'),
+        dayCount: const Value(1),
+      ),
+    );
+    await chat!.reloadCurrentSession();
+    await drainTurn();
+    expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 10));
+    chat!.deleteMessage(lastBotIndex());
+    await drainTurn();
+    expect(chat!.timeService.clock, DateTime.utc(2026, 6, 27, 23, 40));
+    expect(chat!.timeService.dayCount, 1);
+    expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 27));
+  });
 
   test('Porch Life OFF leaves the clock unchanged on regen', () async {
     await boot(porchLife: false);

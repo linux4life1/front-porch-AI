@@ -103,7 +103,7 @@ extension ChatServiceMessageOps on ChatService {
 
     // Natively restore the frozen runtime variables for the selected alternate
     // timeline — in groups, into the swiped speaker's own _groupRealism entry.
-    _restoreRealismStateForSpeaker(msg);
+    _restoreRealismStateForSpeaker(msg, restoreClock: false);
     final speaker = _resolveGroupSpeakerForMessage(msg);
     if (_activeGroup != null && speaker != null) {
       _restoreWornBodiesExceptSpeaker(msg, _getCharacterIdFromCard(speaker));
@@ -285,9 +285,12 @@ extension ChatServiceMessageOps on ChatService {
       // of whether this was the last message. This ensures needs state
       // (and all realism fields) reset to their previous saved values — in
       // groups, inside the NEW LAST speaker's own _groupRealism entry.
+      // Clock stays off: a non-tail delete must not apply the new last
+      // message's frozen snap (old chats sit at Day 1 09:00). Tail
+      // rewind is [_rewindClockToPreReply] below.
       if (_messages.isNotEmpty) {
         final newLast = _messages.last;
-        _restoreRealismStateForSpeaker(newLast);
+        _restoreRealismStateForSpeaker(newLast, restoreClock: false);
       }
 
       // Group: also roll back the DELETED speaker's OWN _groupRealism entry to
@@ -316,7 +319,7 @@ extension ChatServiceMessageOps on ChatService {
           if (speaker != null &&
               _getCharacterIdFromCard(speaker) == deletedSid &&
               m.activeMetadata?['realism_state'] is Map) {
-            _restoreRealismStateForSpeaker(m);
+            _restoreRealismStateForSpeaker(m, restoreClock: false);
             break;
           }
         }

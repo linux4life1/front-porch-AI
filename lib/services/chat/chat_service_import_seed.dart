@@ -298,7 +298,7 @@ extension ChatServiceImportSeed on ChatService {
         isUser: false,
         metadata: {'realism_state': state},
       );
-      _restoreRealismStateFromMessage(synth);
+      _restoreRealismStateFromMessage(synth, restoreClock: true);
     }
 
     // 1:1 suitcase kit is captured from raw `_pockets` (HIDES≠erase).

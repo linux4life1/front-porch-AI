@@ -73,14 +73,7 @@ extension TimeServiceApply on TimeService {
   /// earlier). Same swipe-survival patch as a nudge.
   Future<void> _setClockDirect(DateTime newClock) async {
     final dayBefore = dayCount;
-    _clock = DateTime.utc(
-      newClock.year,
-      newClock.month,
-      newClock.day,
-      newClock.hour,
-      newClock.minute,
-    );
-    if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
+    _setClockPullingStartDate(newClock);
     _turnsSinceClockMoved = 0;
     onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
     await _ifDayChanged(dayBefore);
@@ -90,6 +83,15 @@ extension TimeServiceApply on TimeService {
   /// nudge — swipe/regen still rewind from the previous snapshot.
   Future<void> applyReconciledClock(DateTime newClock) async {
     final dayBefore = dayCount;
+    _setClockPullingStartDate(newClock);
+    _turnsSinceClockMoved = 0;
+    await _ifDayChanged(dayBefore);
+  }
+
+  /// Live clock, plus the Day-1 pull-back already used by the calendar
+  /// set and a named-clock reconcile. Rewind/swipe/import reuse this
+  /// instead of inventing a floor helper.
+  void _setClockPullingStartDate(DateTime newClock) {
     _clock = DateTime.utc(
       newClock.year,
       newClock.month,
@@ -98,8 +100,6 @@ extension TimeServiceApply on TimeService {
       newClock.minute,
     );
     if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
-    _turnsSinceClockMoved = 0;
-    await _ifDayChanged(dayBefore);
   }
 
   /// Calendar dialog: re-anchor "story begins on…". Shifts the clock by the

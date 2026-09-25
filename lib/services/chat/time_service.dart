@@ -294,12 +294,7 @@ class TimeService {
   /// Class door for the calendar set. Continue still does not tick.
   Future<void> setClockDirect(DateTime newClock) => _setClockDirect(newClock);
 
-  DateTime get storyStartFloor =>
-      DateTime.utc(_startDate.year, _startDate.month, _startDate.day);
-
   bool get hasCapturedClock => _capturedClock != null;
-
-  void setClockClamped(DateTime next) => _setClockClamped(next);
 
   void captureLiveClock() => _captureLiveClock();
 
