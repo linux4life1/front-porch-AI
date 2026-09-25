@@ -28,7 +28,9 @@ extension ChatServiceMessageClock on ChatService {
   }
 
   /// Opening greeting: pair after == before == live. Not a nudge.
+  /// Porch Life off never writes the clock.
   void _stampOpeningClockPair() {
+    if (!_clockRunning) return;
     final msg = _messages.isEmpty ? null : _messages.first;
     if (msg == null || msg.isUser) return;
     if (slotHasCompletePair(msg.activeMetadata)) return;
@@ -52,6 +54,7 @@ extension ChatServiceMessageClock on ChatService {
   bool _backfillLoadedSlotClocks() {
     // The 24-row open window is not a clock. Guessing here treats the
     // first tail bot as the greeting (B1). Wait for the full history.
+    if (!_clockRunning) return false;
     if (_history.hasMore || _history.isBackfilling) return false;
     return backfillSlotClocks(
       _messages,
