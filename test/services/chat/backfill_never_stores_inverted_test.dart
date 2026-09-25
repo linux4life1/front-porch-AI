@@ -3,9 +3,10 @@
 //
 // Backfill never STORES an inverted pair. Reload/hydrate runs
 // backfillSlotClocks, then every complete metadata pair is read
-// DIRECTLY (not only the resolver). Writer-tagged chips that
-// repairInvertedPair currently skips must stay red until lib
-// writes a non-inverted pair.
+// DIRECTLY (not only the resolver). Legacy inverted writer pairs
+// lift AFTER to BEFORE so the served clock matches the read
+// clamp. repairInvertedPair currently skips writer tags — those
+// four pins stay red until lib writes that.
 
 import 'dart:convert';
 import 'dart:io';
@@ -18,7 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show StoryClock, slotClockAfter, slotClockBefore;
+    show StoryClock, resolveSlotAfter, slotClockAfter, slotClockBefore;
 import 'package:front_porch_ai/services/services.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -211,6 +212,43 @@ void main() {
     );
   }
 
+  /// Legacy writer repair lifts after to before. Reads the keys on
+  /// [slot] (message.metadata), not the resolver. Served clock
+  /// (live or resolved after) must stay that same before so a
+  /// reload does not change what the user saw.
+  void expectLiftedWriterPair(
+    Map<String, dynamic>? slot, {
+    required String iso,
+    required DateTime served,
+    required String site,
+  }) {
+    expect(
+      slot?['story_clock_before'],
+      iso,
+      reason: '$site stored story_clock_before',
+    );
+    expect(
+      slot?['story_clock_after'],
+      iso,
+      reason: '$site stored story_clock_after (lift after to before)',
+    );
+    expect(
+      resolveSlotAfter(
+        slot,
+        isTip: true,
+        liveClock: chat!.timeService.clock,
+        startDate: chat!.timeService.startDate,
+      ),
+      served,
+      reason: '$site resolved after must stay $iso',
+    );
+    expect(
+      chat!.timeService.clock,
+      served,
+      reason: '$site live must stay $iso after reload',
+    );
+  }
+
   tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test(
@@ -336,24 +374,15 @@ void main() {
             'time_passed': '30 min',
           },
         },
-        {'sender': 'You', 'user': true, 'text': 'And.'},
-        {
-          'sender': 'Nia',
-          'user': false,
-          'text': 'Tip.',
-          'meta': {
-            'story_clock_before': _d1_1600,
-            'story_clock_after': _d1_1600,
-          },
-        },
       ],
       clock: _d1_1600,
       tod: 'afternoon',
     );
-    expectPairNotInverted(
+    expectLiftedWriterPair(
       botAt(2).metadata,
-      site: 'repairInvertedPair skip (time_passed writer)',
-      which: 'metadata',
+      iso: _d1_1600,
+      served: DateTime.utc(2026, 6, 28, 16, 0),
+      site: 'repairInvertedPair lift (time_passed writer)',
     );
   });
 
@@ -378,24 +407,15 @@ void main() {
             'time_nudged': true,
           },
         },
-        {'sender': 'You', 'user': true, 'text': 'And.'},
-        {
-          'sender': 'Nia',
-          'user': false,
-          'text': 'Tip.',
-          'meta': {
-            'story_clock_before': _d1_1600,
-            'story_clock_after': _d1_1600,
-          },
-        },
       ],
       clock: _d1_1600,
       tod: 'afternoon',
     );
-    expectPairNotInverted(
+    expectLiftedWriterPair(
       botAt(2).metadata,
-      site: 'repairInvertedPair skip (time_nudged writer)',
-      which: 'metadata',
+      iso: _d1_1600,
+      served: DateTime.utc(2026, 6, 28, 16, 0),
+      site: 'repairInvertedPair lift (time_nudged writer)',
     );
   });
 
@@ -420,24 +440,15 @@ void main() {
             'time_skip_to': '09:00',
           },
         },
-        {'sender': 'You', 'user': true, 'text': 'And.'},
-        {
-          'sender': 'Nia',
-          'user': false,
-          'text': 'Tip.',
-          'meta': {
-            'story_clock_before': _d1_1600,
-            'story_clock_after': _d1_1600,
-          },
-        },
       ],
       clock: _d1_1600,
       tod: 'afternoon',
     );
-    expectPairNotInverted(
+    expectLiftedWriterPair(
       botAt(2).metadata,
-      site: 'repairInvertedPair skip (time_skip_to writer)',
-      which: 'metadata',
+      iso: _d1_1600,
+      served: DateTime.utc(2026, 6, 28, 16, 0),
+      site: 'repairInvertedPair lift (time_skip_to writer)',
     );
   });
 
@@ -462,147 +473,152 @@ void main() {
             'clock_from_writer': true,
           },
         },
+      ],
+      clock: _named0800,
+      tod: 'morning',
+    );
+    expectLiftedWriterPair(
+      botAt(2).metadata,
+      iso: _named0800,
+      served: DateTime.utc(2026, 6, 28, 8, 0),
+      site: 'repairInvertedPair lift (named clock_from_writer)',
+    );
+  });
+
+  test('wrong-greeting swipe :330 does not store inverted', () async {
+    await boot(storyStartTime: '20:00');
+    await plant(
+      rows: [
+        {
+          'sender': 'Nia',
+          'user': false,
+          'text': 'Evening.',
+          'meta': <String, dynamic>{},
+        },
+        {'sender': 'You', 'user': true, 'text': 'Hey.'},
+        {
+          'sender': 'Nia',
+          'user': false,
+          'text': 'Swipe repair.',
+          'meta': Map<String, dynamic>.from(_validPair),
+          'swipes': [
+            {
+              'story_clock_before': _d1_2000,
+              'story_clock_after': _d1_1600,
+              'realism_state': {
+                'storyClock': _d1_0900,
+                'storyStartDate': _startIso,
+                'timeOfDay': 'morning',
+                'dayCount': 1,
+              },
+            },
+          ],
+        },
         {'sender': 'You', 'user': true, 'text': 'And.'},
+        {
+          'sender': 'Nia',
+          'user': false,
+          'text': 'Meta repair.',
+          'meta': {
+            'story_clock_before': _d1_2000,
+            'story_clock_after': _d1_1600,
+            'realism_state': {
+              'storyClock': _d1_0900,
+              'storyStartDate': _startIso,
+              'timeOfDay': 'morning',
+              'dayCount': 1,
+            },
+          },
+          'swipes': [Map<String, dynamic>.from(_validPair)],
+        },
+        {'sender': 'You', 'user': true, 'text': 'Tip user.'},
         {
           'sender': 'Nia',
           'user': false,
           'text': 'Tip.',
           'meta': {
-            'story_clock_before': _d1_1600,
-            'story_clock_after': _d1_1600,
+            'story_clock_before': _d1_2000,
+            'story_clock_after': _d1_2000,
           },
         },
       ],
-      clock: _d1_1600,
-      tod: 'afternoon',
+      clock: _d1_2000,
+      tod: 'evening',
     );
-    expectPairNotInverted(
-      botAt(2).metadata,
-      site: 'repairInvertedPair skip (named clock_from_writer)',
-      which: 'metadata',
+    final swipe = botAt(2).swipeMetadata.first;
+    final swipeBefore = StoryClock.parse(
+      swipe?['story_clock_before'] as String?,
+    );
+    final swipeAfter = StoryClock.parse(swipe?['story_clock_after'] as String?);
+    expect(swipeBefore, isNotNull, reason: ':330 swipe stored before');
+    expect(swipeAfter, isNotNull, reason: ':330 swipe stored after');
+    expect(
+      swipeBefore!.isAfter(swipeAfter!),
+      isFalse,
+      reason:
+          'wrong-greeting swipe :330 (evening card, morning snap) '
+          'must store before <= after; '
+          'before=${StoryClock.serializeClock(swipeBefore)} '
+          'after=${StoryClock.serializeClock(swipeAfter)}',
     );
   });
 
-  test(
-    'wrong-greeting swipe :330 does not store inverted',
-    () async {
-      await boot(storyStartTime: '20:00');
-      await plant(
-        rows: [
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Evening.',
-            'meta': <String, dynamic>{},
-          },
-          {'sender': 'You', 'user': true, 'text': 'Hey.'},
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Swipe repair.',
-            'meta': Map<String, dynamic>.from(_validPair),
-            'swipes': [
-              {
-                'story_clock_before': _d1_2000,
-                'story_clock_after': _d1_1600,
-                'realism_state': {
-                  'storyClock': _d1_0900,
-                  'storyStartDate': _startIso,
-                  'timeOfDay': 'morning',
-                  'dayCount': 1,
-                },
-              },
-            ],
-          },
-          {'sender': 'You', 'user': true, 'text': 'And.'},
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Meta repair.',
-            'meta': {
-              'story_clock_before': _d1_2000,
-              'story_clock_after': _d1_1600,
-              'realism_state': {
-                'storyClock': _d1_0900,
-                'storyStartDate': _startIso,
-                'timeOfDay': 'morning',
-                'dayCount': 1,
-              },
-            },
-            'swipes': [Map<String, dynamic>.from(_validPair)],
-          },
-          {'sender': 'You', 'user': true, 'text': 'Tip user.'},
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Tip.',
-            'meta': {
-              'story_clock_before': _d1_2000,
-              'story_clock_after': _d1_2000,
+  test('wrong-greeting metadata :393 does not store inverted', () async {
+    await boot(storyStartTime: '20:00');
+    await plant(
+      rows: [
+        {
+          'sender': 'Nia',
+          'user': false,
+          'text': 'Evening.',
+          'meta': <String, dynamic>{},
+        },
+        {'sender': 'You', 'user': true, 'text': 'Hey.'},
+        {
+          'sender': 'Nia',
+          'user': false,
+          'text': 'Meta repair.',
+          'meta': {
+            'story_clock_before': _d1_2000,
+            'story_clock_after': _d1_1600,
+            'realism_state': {
+              'storyClock': _d1_0900,
+              'storyStartDate': _startIso,
+              'timeOfDay': 'morning',
+              'dayCount': 1,
             },
           },
-        ],
-        clock: _d1_2000,
-        tod: 'evening',
-      );
-      expectPairNotInverted(
-        botAt(2).swipeMetadata.first,
-        site: 'wrong-greeting swipe :330 (evening card, morning snap)',
-        which: 'swipe[0]',
-      );
-    },
-  );
-
-  test(
-    'wrong-greeting metadata :393 does not store inverted',
-    () async {
-      await boot(storyStartTime: '20:00');
-      await plant(
-        rows: [
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Evening.',
-            'meta': <String, dynamic>{},
+          'swipes': [Map<String, dynamic>.from(_validPair)],
+        },
+        {'sender': 'You', 'user': true, 'text': 'Tip user.'},
+        {
+          'sender': 'Nia',
+          'user': false,
+          'text': 'Tip.',
+          'meta': {
+            'story_clock_before': _d1_2000,
+            'story_clock_after': _d1_2000,
           },
-          {'sender': 'You', 'user': true, 'text': 'Hey.'},
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Meta repair.',
-            'meta': {
-              'story_clock_before': _d1_2000,
-              'story_clock_after': _d1_1600,
-              'realism_state': {
-                'storyClock': _d1_0900,
-                'storyStartDate': _startIso,
-                'timeOfDay': 'morning',
-                'dayCount': 1,
-              },
-            },
-            'swipes': [Map<String, dynamic>.from(_validPair)],
-          },
-          {'sender': 'You', 'user': true, 'text': 'Tip user.'},
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Tip.',
-            'meta': {
-              'story_clock_before': _d1_2000,
-              'story_clock_after': _d1_2000,
-            },
-          },
-        ],
-        clock: _d1_2000,
-        tod: 'evening',
-      );
-      expectPairNotInverted(
-        botAt(2).metadata,
-        site: 'wrong-greeting metadata :393 (evening card, morning snap)',
-        which: 'metadata',
-      );
-    },
-  );
+        },
+      ],
+      clock: _d1_2000,
+      tod: 'evening',
+    );
+    final meta = botAt(2).metadata;
+    final metaBefore = StoryClock.parse(meta?['story_clock_before'] as String?);
+    final metaAfter = StoryClock.parse(meta?['story_clock_after'] as String?);
+    expect(metaBefore, isNotNull, reason: ':393 metadata stored before');
+    expect(metaAfter, isNotNull, reason: ':393 metadata stored after');
+    expect(
+      metaBefore!.isAfter(metaAfter!),
+      isFalse,
+      reason:
+          'wrong-greeting metadata :393 (evening card, morning snap) '
+          'must store before <= after; '
+          'before=${StoryClock.serializeClock(metaBefore)} '
+          'after=${StoryClock.serializeClock(metaAfter)}',
+    );
+  });
 
   test('stale derived-day :352 and :409 do not store inverted', () async {
     await boot();
