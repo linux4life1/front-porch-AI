@@ -182,4 +182,21 @@ void main() {
     expect(second, isFalse);
     expect(slotClockAfter(msg.metadata), DateTime.utc(2026, 6, 30, 16, 0));
   });
+
+  test('backfill is idempotent for guessed pairs', () {
+    final msg = _bot('Hi.', {});
+    final live = DateTime.utc(2026, 6, 30, 16, 0);
+    final first = backfillSlotClocks([msg], liveClock: live);
+    expect(first, isTrue);
+    expect(slotClockAfter(msg.metadata), live);
+    final second = backfillSlotClocks([
+      msg,
+    ], liveClock: DateTime.utc(2026, 6, 30, 18, 0));
+    expect(second, isFalse);
+    expect(
+      slotClockAfter(msg.metadata),
+      live,
+      reason: 'guessed pair must not be rewritten on a later open',
+    );
+  });
 }

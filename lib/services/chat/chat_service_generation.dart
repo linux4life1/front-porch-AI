@@ -307,6 +307,8 @@ extension ChatServiceGeneration on ChatService {
                 ? StoryClock.conversationalFloorMinutes
                 : StoryClock.failureDriftMinutes,
           );
+          // F3: persist the drift on the tip so reopen cannot rewind it.
+          _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.tick);
         }
         _messages.add(
           ChatMessage(

@@ -60,6 +60,9 @@ extension ChatServiceMessageClock on ChatService {
   /// Fill missing pairs from the live clock / nearest real time.
   /// Mutates in-memory slots; the load path persists when this returns true.
   bool _backfillLoadedSlotClocks() {
+    // The 24-row open window is not a clock. Guessing here treats the
+    // first tail bot as the greeting (B1). Wait for the full history.
+    if (_history.hasMore || _history.isBackfilling) return false;
     return backfillSlotClocks(
       _messages,
       liveClock: _timeService.clock,
