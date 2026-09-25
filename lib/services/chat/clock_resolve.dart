@@ -5,9 +5,8 @@
 // never a real stamp. History never reads live except tip TOD at
 // step 4. A tip (including greeting-as-tip) with nothing stored
 // takes live above its own before (clamp is the floor). A history
-// greeting with nothing takes the next neighbour's before and
-// otherwise stays empty — Day 1 is the fork empty-pre-user seed,
-// not a history write. A later neighbour contributes its before;
+// greeting with nothing takes the next neighbour's before, else
+// Day 1 of the start. A later neighbour contributes its before;
 // an earlier neighbour its after. Inverted stored pairs clamp to
 // own before.
 
@@ -143,6 +142,9 @@ bool slotSnapIsFrozen(
   return true;
 }
 
+DateTime day1StartClock(DateTime startDate) =>
+    StoryClock.representativeTime(StoryClock.dateOnly(startDate), 'morning');
+
 /// Closest earlier AFTER, else closest later BEFORE. Live is never
 /// in either map.
 DateTime? directionalNeighbourStamp({
@@ -190,12 +192,13 @@ DateTime? directionalNeighbourStamp({
 ///     session/live clock. Ranks ABOVE S's own before. Own before
 ///     (including the answering user turn) is the clamp floor, so
 ///     after = max(live, own before). History never takes live.
-///     Day 1 of the start is the fork empty-pre-user seed, not a
-///     resolver hit — a lived-in greeting-as-tip must keep live.
 ///  6. S's own before, including the answering user turn.
 ///  7. The nearest REAL neighbour stamp. A later neighbour
 ///     contributes its BEFORE; an earlier neighbour its AFTER.
-///  8. History with nothing: leave empty, never live.
+///  8. History greeting with nothing and no neighbour: Day 1 of
+///     [startDate]. Greeting-as-tip never takes this rung (rung 5
+///     already took live). History non-greeting with nothing stays
+///     empty.
 ///
 /// Then CLAMP: after is never earlier than S's own before, including
 /// a stored rung-1 after. A turn cannot go backward.
@@ -216,9 +219,6 @@ DateTime? resolveSlotAfter(
   bool isGreeting = false,
   bool greetingIsTip = false,
 }) {
-  // [isGreeting] is caller documentation: Day 1 is the fork seed, not
-  // a resolver hit. Greeting-as-tip is [greetingIsTip] / [isTip].
-  assert(isGreeting || !greetingIsTip);
   final before = slotClockBefore(slot) ?? answeredUserBefore;
   final start = startDate ?? StoryClock.dateOnly(liveClock);
   DateTime? hit;
@@ -257,6 +257,8 @@ DateTime? resolveSlotAfter(
           hit = before;
         } else if (neighbourStamp != null) {
           hit = neighbourStamp;
+        } else if (isGreeting) {
+          hit = day1StartClock(start);
         }
       }
     }

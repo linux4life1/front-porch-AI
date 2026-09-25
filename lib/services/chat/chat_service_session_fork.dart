@@ -110,6 +110,7 @@ extension ChatServiceSessionFork on ChatService {
     }
     final tip = await _resolveHydratedIndex(messageIndex);
     if (tip == null) return;
+    final parentStart = _timeService.startDate;
 
     // Near-miss: fork copies the live greeting so eval would land on the
     // same alt, but this is a new session opening. Bump gen before the
@@ -183,7 +184,7 @@ extension ChatServiceSessionFork on ChatService {
         fromIndex: _messages.length - 1,
         seedClockIfUnstamped: false,
       );
-      _applyForkPointClock();
+      _applyForkPointClock(parentStartDate: parentStart);
     }
 
     await _saveChat();

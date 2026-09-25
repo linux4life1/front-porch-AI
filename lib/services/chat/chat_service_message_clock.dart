@@ -266,7 +266,7 @@ extension ChatServiceMessageClock on ChatService {
 
   /// Day 1 of this story's start. Does not mutate the live clock —
   /// the writer / [_applyTipClock] do that from the resolved after.
-  DateTime _day1OfStoryStart() {
+  DateTime _day1OfStoryStart({DateTime? startDate}) {
     var tod = 'morning';
     String? startTime;
     if (_activeGroup != null) {
@@ -285,7 +285,7 @@ extension ChatServiceMessageClock on ChatService {
         startTime = ext.storyStartTime;
       }
     }
-    final start = _timeService.startDate;
+    final start = startDate ?? _timeService.startDate;
     final hhmm = StoryClock.parseHHMM(startTime);
     if (hhmm != null) {
       return DateTime.utc(start.year, start.month, start.day, hhmm.$1, hhmm.$2);
@@ -327,12 +327,14 @@ extension ChatServiceMessageClock on ChatService {
   /// with nothing stored — a transcript that opens with a user turn
   /// and already has a later bot is not that case. A neighbour
   /// story_day is not this slot's clock (rung 6 is live).
-  void _applyForkPointClock() {
+  void _applyForkPointClock({DateTime? parentStartDate}) {
     final leftOpening = _prefixLeftTheOpening();
     final tip = _visibleTipMessage();
     if (tip == null) {
       if (!leftOpening && _clockRunning) {
-        _timeService.applySlotClock(resolved: _day1OfStoryStart());
+        _timeService.applySlotClock(
+          resolved: _day1OfStoryStart(startDate: parentStartDate),
+        );
       }
       return;
     }
@@ -349,7 +351,7 @@ extension ChatServiceMessageClock on ChatService {
         (!slotHasStoredClockData(slot, greetingClock: greetingClock) ||
             guessedLive);
     if (emptyPreUser) {
-      final day1 = _day1OfStoryStart();
+      final day1 = _day1OfStoryStart(startDate: parentStartDate);
       _writeResolvedTipAfter(tip, day1);
       if (_clockRunning) {
         _timeService.applySlotClock(resolved: day1);
