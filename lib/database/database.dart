@@ -48,6 +48,7 @@ part 'database.queries.groups.dart';
 part 'database.queries.worlds.dart';
 part 'database.queries.memory.dart';
 part 'database.queries.objectives_rekey.dart';
+part 'database.queries.memory_rekey.dart';
 
 const _uuid = Uuid();
 

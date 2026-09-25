@@ -62,8 +62,11 @@ extension ChatServiceSessionState on ChatService {
     }
   }
 
-  Future<void> _loadGroupRealismStateFromSession(Session? session) async {
-    if (_activeGroup == null) return;
+  /// Returns true when a session-scoped map moved. Caller persists
+  /// once after [_hydrateSessionScalars] — a save here races the
+  /// history-drawer path, which hydrates after this load.
+  Future<bool> _loadGroupRealismStateFromSession(Session? session) async {
+    if (_activeGroup == null) return false;
 
     String? stateJson = session?.groupRealismState;
 
@@ -177,9 +180,7 @@ extension ChatServiceSessionState on ChatService {
         _groupRealism = {};
       }
     }
-    if (await _rekeyGroupStores()) {
-      await _saveChat();
-    }
+    return _rekeyGroupStores();
   }
 
   /// Evaluates emotion + relationship baseline from the greeting message only.

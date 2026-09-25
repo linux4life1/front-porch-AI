@@ -43,8 +43,29 @@ extension ChatServiceGroupStoreMigrate on ChatService {
       }
     }
     await _rekeyGroupObjectiveRows(members);
+    await _rekeyGroupMemoryRows(members);
     await _hydrateGroupObjectivesFromDb(members);
     return sessionChanged;
+  }
+
+  /// Session-scoped journal / growth / embeddings. Other chats that
+  /// still key a same-name member stay put. Safe to repeat.
+  Future<void> _rekeyGroupMemoryRows(Iterable<CharacterCard> members) async {
+    final sid = _currentSessionId;
+    if (sid == null) return;
+    var moved = false;
+    try {
+      for (final member in members) {
+        final dest = groupMemberStoreId(member);
+        final legacy = member.stableGroupId;
+        if (dest == legacy) continue;
+        await _db.rekeySessionMemoryCharacterId(legacy, dest, sessionId: sid);
+        moved = true;
+      }
+    } catch (e) {
+      debugPrint('[GroupStore] Failed to rekey journal/growth rows: $e');
+    }
+    if (moved) await _refreshGrowthCache();
   }
 
   /// Fill the existing [_groupObjectives] map from DB after rekey.

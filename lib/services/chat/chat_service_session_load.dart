@@ -154,7 +154,9 @@ extension ChatServiceSessionLoad on ChatService {
       // from the session column (or fall back to group defaults). Must happen for group entry paths
       // so that _groupRealism is populated before any eval, prompt injection, or UI read.
       if (_activeGroup != null) {
-        await _loadGroupRealismStateFromSession(lastSession);
+        if (await _loadGroupRealismStateFromSession(lastSession)) {
+          await _saveChat();
+        }
       } else {
         // 1:1 session: the group realism column ('{}' for plain sessions) may
         // carry persisted Scene Guest (Lite NPC) dbIds. Tolerant of legacy/empty.
@@ -349,6 +351,7 @@ extension ChatServiceSessionLoad on ChatService {
       // and get re-persisted into the loaded session's blob, contaminating it,
       // while this session's own guests are never restored. Mirror the
       // _loadLastSession 1:1 branch: full reset, then load this session's blob.
+      var rekeyedGroupStores = false;
       if (_activeGroup == null) {
         _sceneGuest.pendingDeparture = null;
         _sceneGuest.pendingPickerFilter = null;
@@ -363,9 +366,12 @@ extension ChatServiceSessionLoad on ChatService {
         // session column — mirrors the _loadLastSession group branch so resuming
         // an OLDER group session via the in-chat history drawer no longer drops
         // each member's bond/trust/emotion/fixation/arousal/needs.
-        await _loadGroupRealismStateFromSession(session);
+        rekeyedGroupStores = await _loadGroupRealismStateFromSession(session);
       }
       await _hydrateSessionScalars(session);
+      if (rekeyedGroupStores) {
+        await _saveChat();
+      }
       if (sameSession && liveRecap.isNotEmpty && _summary != liveRecap) {
         _summary = liveRecap;
         await _journalStore.persistRecap(sessionId, liveRecap);
