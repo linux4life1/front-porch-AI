@@ -386,11 +386,14 @@ void main() {
         timeOfDay: 'night',
         storyStartDate: '2026-06-01',
       );
-      // Production stamps story_day on the user turn (sendMessage).
+      // Fork-point is the bot at index 1. Own dayCount>1 must live
+      // on that slot — a user-turn neighbour is not the fork clock.
       final sid = chat.currentSessionId!;
       final msgs = chat.messages;
       expect(msgs, hasLength(2));
-      msgs[0].metadata = {'story_day': 5};
+      expect(msgs[0].isUser, isTrue);
+      expect(msgs[1].isUser, isFalse);
+      msgs[1].metadata = {'story_day': 5};
       final anchorBefore = chat.timeService.storyStartDateIso;
       expect(anchorBefore, '2026-06-01');
 
@@ -405,6 +408,95 @@ void main() {
       // Bond still rewinds from card.
       expect(chat.relationshipService.affectionScore, 45);
       expect(chat.parentSessionId, sid);
+    },
+  );
+
+  test(
+    '1:1 story_day on the user neighbour is not the fork-point clock',
+    () async {
+      await chat.startFreshChatWith(
+        character: mistyCard(),
+        personaId: personaId,
+      );
+      await chat.importChatPackage(stTranscriptBytes());
+      chat.timeService.seedFromV2OrExt(
+        dayCount: 12,
+        timeOfDay: 'night',
+        storyStartDate: '2026-06-01',
+      );
+      final msgs = chat.messages;
+      expect(msgs, hasLength(2));
+      expect(msgs[0].isUser, isTrue);
+      msgs[0].metadata = {'story_day': 5};
+      expect(msgs[1].metadata, isNull);
+      final anchorBefore = chat.timeService.storyStartDateIso;
+
+      await chat.forkFromMessage(1);
+
+      expect(
+        chat.timeService.dayCount,
+        1,
+        reason:
+            'empty bot tip takes live (card Day 1 after restore), not '
+            'the user-turn neighbour\'s story_day 5',
+      );
+      expect(chat.timeService.storyStartDateIso, anchorBefore);
+    },
+  );
+
+  test('1:1 user-open fork at the bot lands on that reply after', () async {
+    await chat.startFreshChatWith(character: mistyCard(), personaId: personaId);
+    await chat.importChatPackage(stTranscriptBytes());
+    chat.timeService.seedFromV2OrExt(
+      dayCount: 12,
+      timeOfDay: 'night',
+      storyStartDate: '2026-06-01',
+    );
+    final msgs = chat.messages;
+    expect(msgs.first.isUser, isTrue);
+    expect(msgs[1].isUser, isFalse);
+    msgs[1].metadata = {
+      'story_clock_before': '2026-06-07T14:30:00.000Z',
+      'story_clock_after': '2026-06-07T14:30:00.000Z',
+    };
+
+    await chat.forkFromMessage(1);
+
+    expect(chat.timeService.dayCount, 7);
+    expect(chat.timeService.clock, DateTime.utc(2026, 6, 7, 14, 30));
+    expect(chat.timeService.storyStartDateIso, '2026-06-01');
+  });
+
+  test(
+    '1:1 user-open fork at the first user turn is Day 1 of the start',
+    () async {
+      await chat.startFreshChatWith(
+        character: mistyCard(),
+        personaId: personaId,
+      );
+      await chat.importChatPackage(stTranscriptBytes());
+      chat.timeService.seedFromV2OrExt(
+        dayCount: 12,
+        timeOfDay: 'night',
+        storyStartDate: '2026-06-01',
+      );
+      final msgs = chat.messages;
+      expect(msgs.first.isUser, isTrue);
+      msgs[1].metadata = {
+        'story_clock_before': '2026-06-07T14:30:00.000Z',
+        'story_clock_after': '2026-06-07T14:30:00.000Z',
+      };
+
+      await chat.forkFromMessage(0);
+
+      expect(
+        chat.timeService.dayCount,
+        1,
+        reason:
+            'fork at/before the first user turn with nothing stored '
+            'is Day 1 of the start',
+      );
+      expect(chat.timeService.storyStartDateIso, '2026-06-01');
     },
   );
 
