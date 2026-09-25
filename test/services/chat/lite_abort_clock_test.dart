@@ -259,14 +259,23 @@ void main() {
     final metaBefore = tip.metadata?['story_clock_before'];
     final metaAfter = tip.metadata?['story_clock_after'];
 
-    hang.hangNextMouth = true;
-    final continued = chat!.continueGeneration();
-    await waitUntil(() => hang.isHanging);
-    expect(chat!.isGenerating || chat!.isSettlingTurn, isTrue);
+    var fired = false;
+    void onSettle() {
+      if (!fired && chat!.isSettlingTurn && !chat!.isGenerating) {
+        fired = true;
+        chat!.debugRequestPostGenAbort();
+      }
+    }
 
-    chat!.debugRequestPostGenAbort();
-    hang.releaseHang();
-    await continued;
+    chat!.addListener(onSettle);
+    addTearDown(() => chat?.removeListener(onSettle));
+    try {
+      final continued = chat!.continueGeneration();
+      await continued;
+    } finally {
+      chat!.removeListener(onSettle);
+    }
+    expect(fired, isTrue, reason: 'abort must land during post-gen');
     await drainTurn();
 
     expect(

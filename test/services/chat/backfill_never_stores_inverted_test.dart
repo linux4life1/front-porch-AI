@@ -5,8 +5,9 @@
 // backfillSlotClocks, then every complete metadata pair is read
 // DIRECTLY (not only the resolver). Legacy inverted writer pairs
 // lift AFTER to BEFORE so the served clock matches the read
-// clamp. repairInvertedPair currently skips writer tags — those
-// four pins stay red until lib writes that.
+// clamp. Guess-write normalize keeps before <= after the same
+// way. Live _writeSlotClock still keeps the after (named
+// 07:30/07:30).
 
 import 'dart:convert';
 import 'dart:io';
@@ -50,6 +51,8 @@ const _d1_0900 = '2026-06-28T09:00:00.000Z';
 const _d1_1600 = '2026-06-28T16:00:00.000Z';
 const _d1_2000 = '2026-06-28T20:00:00.000Z';
 const _d2_1400 = '2026-06-29T14:00:00.000Z';
+const _d2_1600 = '2026-06-29T16:00:00.000Z';
+const _d2_1700 = '2026-06-29T17:00:00.000Z';
 const _d3_1430 = '2026-06-30T14:30:00.000Z';
 const _wrongDay = '2026-09-01T14:30:00.000Z';
 const _named0730 = '2026-06-28T07:30:00.000Z';
@@ -484,6 +487,121 @@ void main() {
       site: 'repairInvertedPair lift (named clock_from_writer)',
     );
   });
+
+  test(
+    'guess-write lifts after to a later stored before (Day 2, not the tip)',
+    () async {
+      await boot();
+      await plant(
+        rows: [
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Hi.',
+            'meta': Map<String, dynamic>.from(_validPair),
+          },
+          {'sender': 'You', 'user': true, 'text': 'Hey.'},
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Later before, earlier snap.',
+            'meta': {
+              'story_clock_before': _d2_1600,
+              'realism_state': {
+                'storyClock': _d2_1400,
+                'storyStartDate': _startIso,
+                'timeOfDay': 'afternoon',
+                'dayCount': 2,
+              },
+            },
+          },
+          {'sender': 'You', 'user': true, 'text': 'And.'},
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Tip.',
+            'meta': {
+              'story_clock_before': _d2_1700,
+              'story_clock_after': _d2_1700,
+            },
+          },
+        ],
+        clock: _d2_1700,
+        tod: 'afternoon',
+        day: 2,
+      );
+      final meta = botAt(2).metadata;
+      expect(
+        meta?['story_clock_before'],
+        _d2_1600,
+        reason: 'guess-write keeps the stored before',
+      );
+      expect(
+        meta?['story_clock_after'],
+        _d2_1600,
+        reason: 'guess-write lifts after to before (matches the clamp)',
+      );
+    },
+  );
+
+  test(
+    'mid-chat legacy time_nudged lifts to 16:00/16:00; later pair untouched',
+    () async {
+      await boot();
+      await plant(
+        rows: [
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Hi.',
+            'meta': Map<String, dynamic>.from(_validPair),
+          },
+          {'sender': 'You', 'user': true, 'text': 'Hey.'},
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Nudged mid-chat.',
+            'meta': {
+              'story_clock_before': _d1_1600,
+              'story_clock_after': _d1_0900,
+              'time_nudged': true,
+            },
+          },
+          {'sender': 'You', 'user': true, 'text': 'And.'},
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Later tip.',
+            'meta': {
+              'story_clock_before': _d2_1700,
+              'story_clock_after': _d2_1700,
+            },
+          },
+        ],
+        clock: _d2_1700,
+        tod: 'afternoon',
+        day: 2,
+      );
+      final mid = botAt(2).metadata;
+      expect(mid?['story_clock_before'], _d1_1600);
+      expect(
+        mid?['story_clock_after'],
+        _d1_1600,
+        reason: 'mid-chat legacy time_nudged lifts after to before',
+      );
+      final later = botAt(4).metadata;
+      expect(
+        later?['story_clock_before'],
+        _d2_1700,
+        reason: 'later pair before must stay untouched',
+      );
+      expect(
+        later?['story_clock_after'],
+        _d2_1700,
+        reason: 'later pair after must stay untouched',
+      );
+    },
+  );
 
   test('wrong-greeting swipe :330 does not store inverted', () async {
     await boot(storyStartTime: '20:00');
