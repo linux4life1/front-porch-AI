@@ -20,7 +20,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show StoryClock, resolveSlotAfter, slotClockAfter, slotClockBefore;
+    show
+        StoryClock,
+        backfillSlotClocks,
+        resolveSlotAfter,
+        slotClockAfter,
+        slotClockBefore;
 import 'package:front_porch_ai/services/services.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -490,54 +495,55 @@ void main() {
 
   test(
     'guess-write lifts after to a later stored before (Day 2, not the tip)',
-    () async {
-      await boot();
-      await plant(
-        rows: [
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Hi.',
-            'meta': Map<String, dynamic>.from(_validPair),
+    () {
+      // One pass, swipe slot distinct from metadata. Sharing the
+      // map lets the metadata-loop repairInvertedPair hide a
+      // guess-write invert on the same call.
+      final start = DateTime.utc(2026, 6, 28);
+      final live = DateTime.utc(2026, 6, 29, 17);
+      final swipe = <String, dynamic>{
+        'story_clock_before': _d2_1600,
+        'realism_state': {
+          'storyClock': _d2_1400,
+          'storyStartDate': _startIso,
+          'timeOfDay': 'afternoon',
+          'dayCount': 2,
+        },
+      };
+      final messages = [
+        ChatMessage(
+          text: 'Hi.',
+          sender: 'Nia',
+          isUser: false,
+          metadata: Map<String, dynamic>.from(_validPair),
+        ),
+        ChatMessage(text: 'Hey.', sender: 'You', isUser: true),
+        ChatMessage(
+          text: 'Later before, earlier snap.',
+          sender: 'Nia',
+          isUser: false,
+          metadata: Map<String, dynamic>.from(_validPair),
+          swipeMetadata: [swipe],
+        ),
+        ChatMessage(text: 'And.', sender: 'You', isUser: true),
+        ChatMessage(
+          text: 'Tip.',
+          sender: 'Nia',
+          isUser: false,
+          metadata: {
+            'story_clock_before': _d2_1700,
+            'story_clock_after': _d2_1700,
           },
-          {'sender': 'You', 'user': true, 'text': 'Hey.'},
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Later before, earlier snap.',
-            'meta': {
-              'story_clock_before': _d2_1600,
-              'realism_state': {
-                'storyClock': _d2_1400,
-                'storyStartDate': _startIso,
-                'timeOfDay': 'afternoon',
-                'dayCount': 2,
-              },
-            },
-          },
-          {'sender': 'You', 'user': true, 'text': 'And.'},
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Tip.',
-            'meta': {
-              'story_clock_before': _d2_1700,
-              'story_clock_after': _d2_1700,
-            },
-          },
-        ],
-        clock: _d2_1700,
-        tod: 'afternoon',
-        day: 2,
-      );
-      final meta = botAt(2).metadata;
+        ),
+      ];
+      backfillSlotClocks(messages, liveClock: live, startDate: start);
       expect(
-        meta?['story_clock_before'],
+        swipe['story_clock_before'],
         _d2_1600,
         reason: 'guess-write keeps the stored before',
       );
       expect(
-        meta?['story_clock_after'],
+        swipe['story_clock_after'],
         _d2_1600,
         reason: 'guess-write lifts after to before (matches the clamp)',
       );
