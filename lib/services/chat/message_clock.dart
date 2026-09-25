@@ -274,6 +274,7 @@ bool backfillSlotClocks(
         neighbourStamp: nearestReal(index - 1),
       ),
       isGreeting: greetingSlot,
+      greetingIsTip: greetingSlot && index == tipIndex,
     );
   }
 

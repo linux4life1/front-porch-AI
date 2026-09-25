@@ -194,7 +194,9 @@ DateTime? directionalNeighbourStamp({
 ///  6. S's own before, including the answering user turn.
 ///  7. The nearest REAL neighbour stamp. A later neighbour
 ///     contributes its BEFORE; an earlier neighbour its AFTER.
-///  8. Greeting with nothing stored: Day 1 of [startDate].
+///  8. History greeting with nothing stored: Day 1 of [startDate].
+///     A greeting that is the chat tip (or a sibling swipe on that
+///     tip) takes live, same as any other empty tip.
 ///  9. History with nothing: leave empty, never live.
 ///
 /// Then CLAMP: after is never earlier than S's own before, including
@@ -214,6 +216,7 @@ DateTime? resolveSlotAfter(
   DateTime? neighbourStamp,
   DateTime? answeredUserBefore,
   bool isGreeting = false,
+  bool greetingIsTip = false,
 }) {
   final before = slotClockBefore(slot) ?? answeredUserBefore;
   final start = startDate ?? StoryClock.dateOnly(liveClock);
@@ -253,8 +256,10 @@ DateTime? resolveSlotAfter(
           hit = before;
         } else if (neighbourStamp != null) {
           hit = neighbourStamp;
-        } else if (isGreeting) {
+        } else if (isGreeting && !greetingIsTip) {
           hit = day1StartClock(start);
+        } else if (isTip || greetingIsTip) {
+          hit = liveClock;
         }
       }
     }

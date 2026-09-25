@@ -95,6 +95,7 @@ extension ChatServiceMessageClock on ChatService {
       neighbourStamp: _nearestStoredStamp(target, greetingClock: greetingClock),
       answeredUserBefore: answered,
       isGreeting: greetingSlot,
+      greetingIsTip: greetingSlot,
     );
   }
 
