@@ -74,14 +74,6 @@ extension ChatServiceMessageClock on ChatService {
           : null,
     );
     var slot = target.activeMetadata;
-    // Greeting-as-tip: own snap / dayCount are leftover card copies,
-    // not a stored pair. Tip reads pair or live (HIGH-1).
-    if (greetingSlot && slot != null && slotClockAfter(slot) == null) {
-      final copy = Map<String, dynamic>.from(slot);
-      copy.remove('realism_state');
-      copy.remove('story_day');
-      slot = copy;
-    }
     // A load-guessed live pair is not own after. It must not hide
     // the answering user's story_day (clamp floor above a Day-1 live).
     if (answered != null &&

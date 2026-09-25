@@ -36,7 +36,8 @@ extension ChatServiceMessageClockWrite on ChatService {
     if (kind == _SlotClockWrite.resolved) {
       final resolved = after;
       if (resolved == null) return;
-      final storedBefore = slotClockBefore(target.activeMetadata) ?? resolved;
+      var storedBefore = slotClockBefore(target.activeMetadata) ?? resolved;
+      if (resolved.isBefore(storedBefore)) storedBefore = resolved;
       writeSlotClockPair(
         _clockWriteSlot(target),
         before: storedBefore,
@@ -65,11 +66,11 @@ extension ChatServiceMessageClockWrite on ChatService {
       _SlotClockWrite.abort => slotBefore,
       _ => _timeService.clock,
     };
-    // Named reconcile can land earlier than the turn's before
-    // (08:00 tip, "7:30 a.m."). Fiction wins: overwrite the slot
-    // before so the pair is never inverted. Message-level before
-    // stays on persistStoryClockBefore (putIfAbsent) for regen rewind.
-    if (kind == _SlotClockWrite.tick && slotAfter.isBefore(slotBefore)) {
+    // Any write that lands earlier than the turn's before (named
+    // 07:30, backward nudge, skip) stores before = after so the
+    // pair is never inverted. Clamp stays global. Message-level
+    // before stays on persistStoryClockBefore (putIfAbsent).
+    if (slotAfter.isBefore(slotBefore)) {
       slotBefore = slotAfter;
     }
 

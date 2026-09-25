@@ -27,12 +27,21 @@ extension ChatServiceGreetingSeed on ChatService {
   bool get _isOpeningGreetingChat =>
       _messages.length == 1 && !_messages.first.isUser;
 
-  /// Existing chat start. Null when start is still today so a new
-  /// chat can seed today once. Never re-anchors an older start.
+  /// Existing chat start. Null only for a new chat whose live is
+  /// still today so creation can seed today once. A lived-in clock
+  /// that already left today is never treated as unseeded.
   String? _keptPersistedStartIso() {
     final loaded = StoryClock.dateOnly(_timeService.startDate);
-    if (loaded == StoryClock.todayAnchor()) return null;
-    return _timeService.storyStartDateIso;
+    final today = StoryClock.todayAnchor();
+    if (loaded != today) return _timeService.storyStartDateIso;
+    if (StoryClock.dateOnly(_timeService.clock) != today) {
+      return StoryClock.serializeDate(
+        StoryClock.dateOnly(
+          _timeService.clock,
+        ).subtract(Duration(days: _timeService.dayCount - 1)),
+      );
+    }
+    return null;
   }
 
   GreetingOpeningBase _openingBaseFor(

@@ -44,10 +44,15 @@ extension TimeServiceLoad on TimeService {
     } else {
       final loaded = StoryClock.dateOnly(_startDate);
       final today = StoryClock.todayAnchor();
+      final liveDay = StoryClock.dateOnly(_clock);
       if (loaded != today) {
         // Existing chat already has a persisted start. Do not
         // re-anchor to today on open, fork, or greeting re-seed.
         current = loaded.add(Duration(days: safeDay - 1));
+      } else if (liveDay != today) {
+        // Start still reads as today but live already left it —
+        // this is an existing chat, not a new-chat seed.
+        current = _clock;
       } else {
         current = today;
         _startDate = current.subtract(Duration(days: safeDay - 1));

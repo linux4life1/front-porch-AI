@@ -7,8 +7,8 @@
 // takes live above its own before (clamp is the floor). A history
 // greeting with nothing takes the next neighbour's before, else
 // Day 1 of the start. A later neighbour contributes its before;
-// an earlier neighbour its after. Inverted guessed / backfilled
-// pairs clamp to own before. A writer pair is never clamped.
+// an earlier neighbour its after. Inverted stored pairs clamp to
+// own before. The clamp is last and global.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -24,8 +24,8 @@ bool slotHasCompletePair(Map<String, dynamic>? slot) =>
     slotClockBefore(slot) != null && slotClockAfter(slot) != null;
 
 /// Tick / nudge / skip / seed wrote this pair. Guessed backfill
-/// pairs never set these. Clamp and inverted-pair repair skip them
-/// so a named 07:30 is not discarded (K-A).
+/// pairs never set these. Inverted-pair repair skips them; the
+/// resolver clamp does not.
 bool slotIsWriterPair(Map<String, dynamic>? slot) {
   if (slot == null) return false;
   if (slot['clock_from_writer'] == true) return true;
@@ -260,8 +260,9 @@ DateTime? directionalNeighbourStamp({
 ///     lived-in Carmen greeting.
 ///
 /// Then CLAMP: after is never earlier than S's own before, including
-/// a stored rung-1 after, except a real writer pair (named
-/// reconcile). Guessed / backfilled pairs still clamp.
+/// a stored rung-1 after. The clamp is last and global. A named
+/// reconcile is already 07:30/07:30 at write time, so clamp is a
+/// no-op on that pair.
 ///
 /// [liveClock] is never a neighbour stamp — do not put it in
 /// [neighbourStamp] or any real-stamp set. [answeredUserBefore] is
@@ -323,12 +324,7 @@ DateTime? resolveSlotAfter(
       }
     }
   }
-  if (hit != null &&
-      before != null &&
-      hit.isBefore(before) &&
-      !slotIsWriterPair(slot)) {
-    return before;
-  }
+  if (hit != null && before != null && hit.isBefore(before)) return before;
   return hit;
 }
 
