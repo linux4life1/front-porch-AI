@@ -206,23 +206,17 @@ extension ChatServiceMessageClock on ChatService {
           return;
         }
       }
+      final deletedSlot = deleted.activeMetadata;
+      final writerBefore = slotClockBefore(deletedSlot);
+      // Writer pairs rewind to their own before. A chip-derived
+      // backfill before (Day-1 leftover) is not that — keep live
+      // so greeting-as-tip stays on the deleted after.
       final rewind =
-          slotClockBefore(deleted.activeMetadata) ??
-          StoryClock.parse(knownStoryClockBefore(deleted)) ??
-          _timeService.clock;
+          (deletedSlot?['clock_from_writer'] == true && writerBefore != null)
+          ? writerBefore
+          : _timeService.clock;
       final tip = _visibleTipMessage();
       if (tip != null) {
-        // Greeting-as-tip with nothing stored takes live (HIGH-1 /
-        // Day-1 rewind). Deleted before is the clamp floor for a
-        // stored remaining pair, not a rewrite of an empty greeting.
-        final greetingAsTip =
-            _messages.isNotEmpty &&
-            identical(tip, _messages.first) &&
-            !tip.isUser;
-        if (greetingAsTip && slotClockAfter(tip.activeMetadata) == null) {
-          _applyTipClock();
-          return;
-        }
         final after = _resolveVisibleAfter(tip: tip, liveClock: rewind);
         if (after != null) {
           _writeSlotClock(tip, kind: _SlotClockWrite.resolved, after: after);
