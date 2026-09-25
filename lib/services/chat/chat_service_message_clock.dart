@@ -59,7 +59,12 @@ extension ChatServiceMessageClock on ChatService {
     final target = tip ?? _visibleTipMessage();
     if (target == null) return null;
     final greetingClock = _openingGreetingSnap();
-    var slot = clockSlotForResolve(target);
+    // clockSlotForResolve strips a complete unauthored pair so fork
+    // can see story_day. Apply / delete / abort must keep that pair —
+    // it is the stored after (Day-3 recover, abort after=before).
+    var slot = inheritStoryDay
+        ? clockSlotForResolve(target)
+        : target.activeMetadata;
     if (inheritStoryDay) {
       slot = inheritNearestStoryDay(
         slot,
