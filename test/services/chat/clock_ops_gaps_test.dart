@@ -284,54 +284,23 @@ void main() {
     );
   });
 
-  test('cancel across Day-1 midnight leaves clock and start date', () async {
-    await boot();
-    await plant(
-      rows: [
-        {
-          'sender': 'Nia',
-          'user': false,
-          'text': 'Greeting.',
-          'meta': {
-            'story_clock_before': _startIso,
-            'story_clock_after': '2026-06-28T23:10:00.000Z',
-          },
-        },
-        {'sender': 'You', 'user': true, 'text': 'Hi.'},
-        {
-          'sender': 'Nia',
-          'user': false,
-          'text': 'Late.',
-          'meta': {
-            'story_clock_before': '2026-06-28T23:10:00.000Z',
-            'story_clock_after': _preCrossIso,
-            'realism_state': {
-              'storyClock': _preCrossIso,
-              'storyStartDate': _startIso,
-            },
-          },
-        },
-      ],
-      clock: _preCrossIso,
-      start: _startIso,
-      day: 1,
-      tod: 'night',
-    );
-    expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 23, 40));
-    expect(chat!.timeService.dayCount, 1);
-    final start = chat!.timeService.startDate;
-    llm.nextMinutes = 30;
-    llm.cancelOnMinutes = true;
-    await chat!.regenerateLastMessage();
-    await drain();
+  ChatMessage tipBot() =>
+      chat!.messages.lastWhere((m) => !m.isUser && m.sender != 'System');
+
+  /// Active/visible slot owns the live clock. A fallback to another
+  /// swipe (slot0 after while swipe1 after is null) must fail this.
+  void expectActiveTipAfterOwnsClock() {
+    final tip = tipBot();
+    final after = tip.activeMetadata?['story_clock_after'];
     expect(
-      chat!.timeService.clock,
-      DateTime.utc(2026, 6, 28, 23, 40),
-      reason: 'cancelled regen must not cross into Day 2',
+      after,
+      isNotNull,
+      reason:
+          'active tip slot must carry story_clock_after; '
+          'must not inherit another swipe via applyTipClock fallback',
     );
-    expect(chat!.timeService.dayCount, 1);
-    expect(chat!.timeService.startDate, start);
-  });
+    expect(chat!.timeService.clock, DateTime.parse(after as String));
+  }
 
   Future<void> plantMidnightTip() async {
     await plant(
@@ -366,6 +335,117 @@ void main() {
       tod: 'night',
     );
   }
+
+  test(
+    'cancel across Day-1 midnight abort-writes swipe 1 at 23:10, no chip',
+    () async {
+      await boot();
+      await plantMidnightTip();
+      expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 23, 40));
+      expect(chat!.timeService.dayCount, 1);
+      final start = chat!.timeService.startDate;
+      llm.nextMinutes = 30;
+      llm.cancelOnMinutes = true;
+      await chat!.regenerateLastMessage();
+      await drain();
+      expect(
+        chat!.timeService.clock,
+        DateTime.utc(2026, 6, 28, 23, 10),
+        reason: 'cancelled regen abort-writes after=before (23:10), not 23:40',
+      );
+      expect(chat!.timeService.dayCount, 1);
+      expect(chat!.timeService.startDate, start);
+      final tip = tipBot();
+      expect(tip.swipeIndex, 1);
+      expect(tip.swipes.length, greaterThanOrEqualTo(2));
+      expect(
+        tip.activeMetadata?['story_clock_before'],
+        '2026-06-28T23:10:00.000Z',
+      );
+      expect(
+        tip.activeMetadata?['story_clock_after'],
+        '2026-06-28T23:10:00.000Z',
+      );
+      expect(tip.activeMetadata?['time_passed'], isNull);
+      expect(
+        chat!.guestActivityStatus,
+        contains('Reply kept. Scene time and needs weren\'t updated.'),
+      );
+    },
+  );
+
+  test(
+    '1:1 cancel: active tip slot after is non-null and equals the clock',
+    () async {
+      await boot();
+      await plantMidnightTip();
+      llm.nextMinutes = 30;
+      llm.cancelOnMinutes = true;
+      await chat!.regenerateLastMessage();
+      await drain();
+      expectActiveTipAfterOwnsClock();
+    },
+  );
+
+  test(
+    '1:1 post-gen abort: active tip slot after is non-null and equals the clock',
+    () async {
+      await boot();
+      llm.nextMinutes = 30;
+      await chat!.sendMessage('Hey.');
+      await drain();
+      llm.cancelOnMinutes = true;
+      await chat!.regenerateLastMessage();
+      await drain();
+      expectActiveTipAfterOwnsClock();
+    },
+  );
+
+  test(
+    'group cancel: active tip slot after is non-null and equals the clock',
+    () async {
+      await boot();
+      await enterGroup();
+      await plant(
+        rows: [
+          {
+            'sender': 'Nia',
+            'user': false,
+            'cid': 'mem-nia',
+            'text': 'First.',
+            'meta': {
+              'story_clock_before': '2026-06-28T23:10:00.000Z',
+              'story_clock_after': _preCrossIso,
+            },
+          },
+        ],
+        clock: _preCrossIso,
+        start: _startIso,
+        day: 1,
+        tod: 'night',
+      );
+      llm.nextMinutes = 30;
+      llm.cancelOnMinutes = true;
+      await chat!.regenerateLastMessage();
+      await drain();
+      expectActiveTipAfterOwnsClock();
+    },
+  );
+
+  test(
+    'group post-gen abort: active tip slot after is non-null and equals the clock',
+    () async {
+      await boot();
+      await enterGroup();
+      llm.nextMinutes = 30;
+      await chat!.sendMessage('Hey.');
+      await drain();
+      llm.cancelOnMinutes = true;
+      await chat!.regenerateLastMessage();
+      await drain();
+      expectActiveTipAfterOwnsClock();
+    },
+  );
 
   List<ChatMessage> spoken() =>
       chat!.messages.where((m) => m.sender != 'System').toList();

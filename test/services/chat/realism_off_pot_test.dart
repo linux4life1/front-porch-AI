@@ -203,6 +203,15 @@ void main() {
         reason: 'Needs impact is gated on Realism — no hunger_delta call',
       );
       expect(
+        llm.calls.where(
+          (c) => c != 'chat' && c != 'time' && c != 'tools:report_scene_time',
+        ),
+        isEmpty,
+        reason:
+            'no eval/relationship/needs/tool call at the LLM boundary — '
+            'every non-character, non-time call must be zero',
+      );
+      expect(
         llm.calls.where((c) => c == 'time'),
         hasLength(1),
         reason: 'exactly one time-only LLM call per turn',

@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart' show kSessionOpenWindow;
 import 'package:front_porch_ai/services/services.dart';
 
 void _setupPathProviderMock() {
@@ -164,7 +165,10 @@ void main() {
     await drain();
   }
 
-  Map<String, Object?> snapshot() {
+  ChatMessage tipBot() =>
+      chat!.messages.lastWhere((m) => !m.isUser && m.sender != 'System');
+
+  Map<String, Object?> memorySnapshot() {
     return {
       'clock': chat!.timeService.storyClockIso,
       'day': chat!.timeService.dayCount,
@@ -179,18 +183,126 @@ void main() {
     };
   }
 
-  Future<void> expectIdempotentSecondOpen() async {
-    final first = snapshot();
-    final sid = chat!.currentSessionId!;
-    final rowBefore = await db!.getSessionById(sid);
-    await chat!.reloadCurrentSession();
+  Object? _stampField(String? raw, String key, {int? swipeIndex}) {
+    if (raw == null || raw.isEmpty) return null;
+    final decoded = jsonDecode(raw);
+    if (decoded is Map) return decoded[key];
+    if (decoded is List) {
+      if (swipeIndex != null &&
+          swipeIndex >= 0 &&
+          swipeIndex < decoded.length &&
+          decoded[swipeIndex] is Map) {
+        return (decoded[swipeIndex] as Map)[key];
+      }
+      for (final slot in decoded.reversed) {
+        if (slot is Map && slot[key] != null) return slot[key];
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, Object?>> persistedSnapshot(String sid) async {
+    final row = await db!.getSessionById(sid);
+    final rows = await db!.getMessagesForSession(sid);
+    return {
+      'clock': row?.storyClock,
+      'day': row?.dayCount,
+      'start': row?.storyStartDate,
+      'stamps': [
+        for (final r in rows)
+          {
+            'before':
+                _stampField(
+                  r.swipeMetadata,
+                  'story_clock_before',
+                  swipeIndex: r.swipeIndex,
+                ) ??
+                _stampField(r.metadata, 'story_clock_before'),
+            'after':
+                _stampField(
+                  r.swipeMetadata,
+                  'story_clock_after',
+                  swipeIndex: r.swipeIndex,
+                ) ??
+                _stampField(r.metadata, 'story_clock_after'),
+          },
+      ],
+    };
+  }
+
+  Future<void> expectPersistedMatchesMemory(String sid) async {
+    final mem = memorySnapshot();
+    final saved = await persistedSnapshot(sid);
+    expect(
+      saved['clock'],
+      mem['clock'],
+      reason: 'session-row storyClock must equal the in-memory clock',
+    );
+    expect(saved['day'], mem['day']);
+    expect(saved['start'], mem['start']);
+    expect(
+      saved['stamps'],
+      mem['stamps'],
+      reason: 'saved per-message stamps must equal in-memory stamps',
+    );
+  }
+
+  Future<ChatService> coldOpen(String sid) async {
+    final name =
+        chat?.activeCharacter?.name ??
+        repo!.characters.firstWhere((c) => c.name == 'Carmen').name;
+    chat?.dispose();
+    chat =
+        ChatService(
+            KoboldService(storage!),
+            UserPersonaService(db!),
+            storage!,
+            WorldRepository(storage!, db!),
+          )
+          ..setDatabase(db!)
+          ..setCharacterRepository(repo!)
+          ..testLlmServiceOverride = _SilentLlm();
+    final card = repo!.characters.firstWhere((c) => c.name == name);
+    await chat!.setActiveCharacter(card);
+    await chat!.loadSession(sid);
     await drain();
-    final second = snapshot();
-    expect(second, first, reason: 'second open must not move clock or stamps');
-    final rowAfter = await db!.getSessionById(sid);
-    expect(rowAfter!.storyClock, rowBefore!.storyClock);
-    expect(rowAfter.dayCount, rowBefore.dayCount);
-    expect(rowAfter.storyStartDate, rowBefore.storyStartDate);
+    return chat!;
+  }
+
+  Future<void> expectIdempotentSecondOpen() async {
+    await chat!.flushPendingSaves();
+    final sid = chat!.currentSessionId!;
+    final firstMem = memorySnapshot();
+    await expectPersistedMatchesMemory(sid);
+    final firstSaved = await persistedSnapshot(sid);
+    await coldOpen(sid);
+    final secondMem = memorySnapshot();
+    expect(
+      secondMem,
+      firstMem,
+      reason: 'cold second open must not rewrite clock or stamps',
+    );
+    await expectPersistedMatchesMemory(sid);
+    final secondSaved = await persistedSnapshot(sid);
+    expect(
+      secondSaved,
+      firstSaved,
+      reason: 'persisted stamps must be identical across the two opens',
+    );
+  }
+
+  void expectTipSlotStamps() {
+    final tip = tipBot();
+    expect(
+      tip.activeMetadata?['story_clock_before'],
+      isNotNull,
+      reason: 'tip slot must carry story_clock_before after open',
+    );
+    expect(
+      tip.activeMetadata?['story_clock_after'],
+      isNotNull,
+      reason: 'tip slot must carry story_clock_after after open',
+    );
   }
 
   tearDown(() async {
@@ -228,9 +340,11 @@ void main() {
       start: _startIso,
       day: 3,
     );
-    expect(chat!.timeService.dayCount, greaterThanOrEqualTo(3));
+    expect(chat!.timeService.dayCount, 3);
     expect(chat!.timeService.dayCount, isNot(1));
     expect(chat!.timeService.clock, DateTime.utc(2026, 6, 30, 16, 0));
+    expectTipSlotStamps();
+    expect(tipBot().activeMetadata?['story_clock_after'], _day3Iso);
     await expectIdempotentSecondOpen();
   });
 
@@ -257,16 +371,21 @@ void main() {
         },
       ],
       clock: null,
-      start: null,
+      start: _startIso,
       day: 12,
       tod: 'afternoon',
     );
     expect(
       chat!.timeService.dayCount,
-      greaterThanOrEqualTo(12),
-      reason: 'dayCount-only chat must not collapse to Day 1',
+      12,
+      reason: 'dayCount-only chat must land on Day 12, not >=12',
     );
-    expect(chat!.timeService.dayCount, isNot(1));
+    expect(
+      chat!.timeService.clock,
+      DateTime.utc(2026, 7, 9, 14, 30),
+      reason: 'Day 12 afternoon is 2026-07-09 14:30',
+    );
+    expectTipSlotStamps();
     await expectIdempotentSecondOpen();
   });
 
@@ -298,13 +417,15 @@ void main() {
       start: _startIso,
       day: 3,
     );
-    expect(chat!.timeService.dayCount, greaterThanOrEqualTo(3));
+    expect(chat!.timeService.dayCount, 3);
     expect(chat!.timeService.clock, DateTime.utc(2026, 6, 30, 16, 0));
     expect(
       chat!.timeService.clock,
       isNot(DateTime.utc(2026, 6, 28, 18, 0)),
       reason: 'frozen greeting 18:00 is not the live clock',
     );
+    expectTipSlotStamps();
+    expect(tipBot().activeMetadata?['story_clock_after'], _day3Iso);
     await expectIdempotentSecondOpen();
   });
 
@@ -335,7 +456,113 @@ void main() {
     await drain();
     expect(chat!.timeService.dayCount, greaterThanOrEqualTo(4));
     expect(chat!.timeService.clock, DateTime.utc(2026, 9, 28, 19, 0));
+    expectTipSlotStamps();
+    expect(
+      tipBot().activeMetadata?['story_clock_after'],
+      chat!.timeService.storyClockIso,
+    );
     await expectIdempotentSecondOpen();
     dir.deleteSync(recursive: true);
+  });
+
+  test(
+    'windowed open (more than $kSessionOpenWindow rows) keeps the tip clock',
+    () async {
+      await boot();
+      final n = kSessionOpenWindow + 6;
+      await plant(
+        rows: [
+          {
+            'sender': 'Carmen',
+            'user': false,
+            'text': 'Greeting.',
+            'meta': {
+              'story_clock_before': _day1NineIso,
+              'story_clock_after': _day1NineIso,
+            },
+          },
+          for (var i = 0; i < n - 3; i++)
+            {
+              'sender': i.isEven ? 'You' : 'Carmen',
+              'user': i.isEven,
+              'text': 'Fill $i.',
+              if (!i.isEven)
+                'meta': {
+                  'story_clock_before': _day1NineIso,
+                  'story_clock_after': _day1NineIso,
+                },
+            },
+          {'sender': 'You', 'user': true, 'text': 'Still here?'},
+          {
+            'sender': 'Carmen',
+            'user': false,
+            'text': 'Tip.',
+            'meta': {
+              'story_clock_before': _day3Iso,
+              'story_clock_after': _day3Iso,
+            },
+          },
+        ],
+        clock: _day3Iso,
+        start: _startIso,
+        day: 3,
+      );
+      await chat!.flushPendingSaves();
+      final sid = chat!.currentSessionId!;
+      expect(chat!.messages.length, greaterThan(kSessionOpenWindow));
+      await coldOpen(sid);
+      expect(
+        chat!.messages.length,
+        greaterThan(kSessionOpenWindow),
+        reason: 'fixture is larger than the open window after hydrate',
+      );
+      expect(chat!.timeService.clock, DateTime.utc(2026, 6, 30, 16, 0));
+      expect(chat!.timeService.dayCount, 3);
+      expectTipSlotStamps();
+      expect(tipBot().text, 'Tip.');
+      expect(tipBot().activeMetadata?['story_clock_after'], _day3Iso);
+      await expectIdempotentSecondOpen();
+    },
+  );
+
+  test('null session storyClock recovers Day 3 from message stamps', () async {
+    await boot();
+    await plant(
+      rows: [
+        {
+          'sender': 'Carmen',
+          'user': false,
+          'text': 'Greeting.',
+          'meta': {
+            'story_clock_before': _day1NineIso,
+            'story_clock_after': _day1NineIso,
+          },
+        },
+        {'sender': 'You', 'user': true, 'text': 'Hi.'},
+        {
+          'sender': 'Carmen',
+          'user': false,
+          'text': 'Lived in.',
+          'meta': {
+            'story_clock_before': _day3Iso,
+            'story_clock_after': _day3Iso,
+          },
+        },
+      ],
+      clock: null,
+      start: _startIso,
+      day: 1,
+      tod: 'morning',
+    );
+    expect(
+      chat!.timeService.clock,
+      DateTime.utc(2026, 6, 30, 16, 0),
+      reason: 'missing session storyClock must recover the tip after',
+    );
+    expect(chat!.timeService.dayCount, 3);
+    expect(chat!.timeService.dayCount, isNot(1));
+    expectTipSlotStamps();
+    expect(tipBot().activeMetadata?['story_clock_after'], _day3Iso);
+    await expectIdempotentSecondOpen();
   });
 }
