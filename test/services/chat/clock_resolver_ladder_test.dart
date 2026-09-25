@@ -13,6 +13,7 @@ const _d1_0900 = '2026-06-28T09:00:00.000Z';
 const _d1_1600 = '2026-06-28T16:00:00.000Z';
 const _d1_1830 = '2026-06-28T18:30:00.000Z';
 const _d2_0800 = '2026-06-29T08:00:00.000Z';
+const _d3_1830 = '2026-06-30T18:30:00.000Z';
 const _d3_2340 = '2026-06-30T23:40:00.000Z';
 
 final _june28 = DateTime.utc(2026, 6, 28);
@@ -25,6 +26,7 @@ final _day5Live = DateTime.utc(2026, 9, 5, 22, 30);
 final _day5Morning = DateTime.utc(2026, 9, 5, 9, 0);
 final _day5Evening = DateTime.utc(2026, 7, 2, 18, 30);
 final _day3Before = DateTime.utc(2026, 6, 30, 23, 40);
+final _liveDay1 = DateTime.utc(2026, 6, 28, 9, 0);
 
 ChatMessage _bot(String text, Map<String, dynamic> meta) {
   return ChatMessage(
@@ -34,6 +36,15 @@ ChatMessage _bot(String text, Map<String, dynamic> meta) {
     metadata: Map<String, dynamic>.from(meta),
     swipeIndex: 0,
     swipes: [text],
+  );
+}
+
+ChatMessage _user(String text, [Map<String, dynamic>? meta]) {
+  return ChatMessage(
+    text: text,
+    sender: 'You',
+    isUser: true,
+    metadata: meta == null ? null : Map<String, dynamic>.from(meta),
   );
 }
 
@@ -155,6 +166,32 @@ final _rows = <_Row>[
     ],
     read: 0,
     expected: _at1600,
+  ),
+  // Day-only answering user: TOD from the real Day-3 neighbour (18:30),
+  // not live-for-tip and not 09:00. Neighbour after is Day 3 18:30 so a
+  // lib that picks the far stamp fails against Day 5 18:30.
+  _Row(
+    name: 'rung 5 answering user turn is the bot tip own before -> Day 5',
+    build: () => [
+      _bot('day three.', _pair(_d3_1830)),
+      _user('day five.', {'story_day': 5}),
+      _bot('empty tip.', {}),
+    ],
+    read: 2,
+    expected: _day5Evening,
+    live: _liveDay1,
+  ),
+  _Row(
+    name:
+        'rung 6 tip live above far neighbour when answering user stores nothing',
+    build: () => [
+      _bot('day three.', _pair(_d3_1830)),
+      _user('nothing.'),
+      _bot('empty tip.', {}),
+    ],
+    read: 2,
+    expected: _liveDay1,
+    live: _liveDay1,
   ),
   _Row(
     name: 'rung 6 tip live',

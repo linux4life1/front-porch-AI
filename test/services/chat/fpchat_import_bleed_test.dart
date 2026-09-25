@@ -412,7 +412,7 @@ void main() {
   );
 
   test(
-    '1:1 story_day on the user neighbour is not the fork-point clock',
+    '1:1 story_day on the answering user turn carries to the fork-point bot',
     () async {
       await chat.startFreshChatWith(
         character: mistyCard(),
@@ -430,16 +430,11 @@ void main() {
       msgs[0].metadata = {'story_day': 5};
       expect(msgs[1].metadata, isNull);
       final anchorBefore = chat.timeService.storyStartDateIso;
+      expect(anchorBefore, '2026-06-01');
 
       await chat.forkFromMessage(1);
 
-      expect(
-        chat.timeService.dayCount,
-        1,
-        reason:
-            'empty bot tip takes live (card Day 1 after restore), not '
-            'the user-turn neighbour\'s story_day 5',
-      );
+      expect(chat.timeService.dayCount, 5);
       expect(chat.timeService.storyStartDateIso, anchorBefore);
     },
   );
