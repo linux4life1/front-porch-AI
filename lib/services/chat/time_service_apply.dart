@@ -79,12 +79,30 @@ extension TimeServiceApply on TimeService {
     await _ifDayChanged(dayBefore);
   }
 
-  /// Post-reply: they named a time, so the live clock follows. After
-  /// and the chip are stamped from this final clock. Not a user nudge.
+  /// Regen of a skip/AFK reply: the rejected slot already moved
+  /// the clock. Replay must not tick again.
+  void reclaimSkipOwnership() {
+    _oocSkipMovedClockThisTurn = true;
+  }
+
+  /// Post-reply: they named a time, so the live clock follows.
+  /// A counted chip (`5 min`, `1 hr`) is re-noted by the reconcile
+  /// delta. Next morning and skip labels stay as they are.
   Future<void> applyReconciledClock(DateTime newClock) async {
     final dayBefore = dayCount;
+    final oldClock = _clock;
+    final labelMins = minutesFromTimePassed(_timePassedLabel);
     _setClockPullingStartDate(newClock);
     _turnsSinceClockMoved = 0;
+    if (labelMins != null) {
+      final adjusted = labelMins + _clock.difference(oldClock).inMinutes;
+      _noteBodyBeat(
+        minutes: adjusted < 0 ? 0 : adjusted,
+        nextMorning: false,
+        isSkip: false,
+        wearAwake: false,
+      );
+    }
     await _ifDayChanged(dayBefore);
   }
 
@@ -237,9 +255,11 @@ extension TimeServiceApply on TimeService {
       moved = true;
     }
     var stalled = false;
+    DateTime? stallFrom;
     if (moved) {
       _turnsSinceClockMoved = 0;
     } else if (++_turnsSinceClockMoved >= StoryClock.stallBackstopTurns) {
+      stallFrom = _clock;
       _clock = StoryClock.snapToNextPeriod(_clock);
       _turnsSinceClockMoved = 0;
       moved = true;
@@ -255,7 +275,7 @@ extension TimeServiceApply on TimeService {
       );
     } else {
       _noteBodyBeat(
-        minutes: 0,
+        minutes: _clock.difference(stallFrom!).inMinutes,
         nextMorning: false,
         isSkip: false,
         wearAwake: false,

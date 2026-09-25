@@ -459,7 +459,10 @@ extension ChatServiceMessageOps on ChatService {
     // Transient banner only — NEVER a chat message. The old code appended an
     // "evaluation interrupted" line attributed to the character, which then
     // permanently rode chat history, prompts, RAG, and journal windows.
-    final replyKept = _isPostGenerating && !_isEvaluatingRealism;
+    // Regen holds _isPostGenerating from the first revert through
+    // post-gen. Cancel during the pre-reply judges is still a regen:
+    // the popped reply is put back. Do not require !_isEvaluatingRealism.
+    final replyKept = _isPostGenerating;
     _setGuestStatus(
       replyKept
           ? 'Reply kept. Scene time and needs weren\'t updated.'

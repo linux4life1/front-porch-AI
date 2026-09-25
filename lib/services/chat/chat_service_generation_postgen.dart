@@ -214,6 +214,7 @@ extension ChatServiceGenerationPostGen on ChatService {
             '${_storageService.realismSettings.passageOfTimeDefault} '
             'reason=abort',
           );
+          _abortSlotClockIfThisTurnTicked(t);
         } else {
           await _maybeAdvanceStoryClockAfterReply(t);
           if (_postGenAbortRequested) {

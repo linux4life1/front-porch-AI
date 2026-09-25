@@ -438,6 +438,41 @@ void main() {
   );
 
   test(
+    'reload-then-fork of stamp-less ST does not inherit parent trust',
+    () async {
+      await chat.startFreshChatWith(
+        character: mistyCard(),
+        personaId: personaId,
+      );
+      await chat.importChatPackage(stTranscriptBytes());
+      chat.relationshipService.loadScalars(
+        affectionScore: 200,
+        longTermScore: 0,
+        trustLevel: 200,
+      );
+      await chat.flushPendingSaves();
+      await chat.reloadCurrentSession();
+      for (var i = 0; i < 40; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      chat.relationshipService.loadScalars(
+        affectionScore: 200,
+        longTermScore: 0,
+        trustLevel: 200,
+      );
+      await chat.forkFromMessage(1);
+      expect(
+        chat.relationshipService.trustLevel,
+        -20,
+        reason:
+            'after reopen, backfill stamps a clock pair; walk-back must '
+            'still rewind to the card seed, not keep tip trust 200',
+      );
+      expect(chat.relationshipService.affectionScore, 45);
+    },
+  );
+
+  test(
     '1:1 stamp-less fork prefers user re-anchor over card storyStartDate',
     () async {
       // Card authored 1887; user moved the calendar mid-chat; fork must keep

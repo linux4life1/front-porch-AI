@@ -267,22 +267,34 @@ bool backfillSlotClocks(
   }
 
   DateTime? nearestReal(int index) {
-    DateTime? found;
-    var best = 1 << 30;
+    DateTime? earlier;
+    var earlierDist = 1 << 30;
+    DateTime? later;
+    var laterDist = 1 << 30;
     for (final entry in realByIndex.entries) {
       final dist = (entry.key - index).abs();
-      if (dist < best) {
-        best = dist;
-        found = entry.value;
+      if (entry.key <= index) {
+        if (dist < earlierDist) {
+          earlierDist = dist;
+          earlier = entry.value;
+        }
+      } else if (dist < laterDist) {
+        laterDist = dist;
+        later = entry.value;
       }
     }
-    return found;
+    return earlier ?? later;
   }
 
+  final liveDay =
+      StoryClock.dateOnly(
+        liveClock,
+      ).difference(StoryClock.dateOnly(start)).inDays +
+      1;
   final dayClock =
       !anyStoryClock && (dayCountOnly != null || floorUnstampedToDay1)
       ? _dayCountClock(
-          dayCount: dayCountOnly ?? 1,
+          dayCount: dayCountOnly ?? liveDay.clamp(1, 9999),
           liveClock: liveClock,
           startDate: start,
           timeOfDay: dayCountTod,

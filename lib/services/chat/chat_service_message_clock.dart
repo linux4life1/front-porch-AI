@@ -191,16 +191,6 @@ extension ChatServiceMessageClock on ChatService {
         chip = null;
       } else {
         chip = _timeService.bodyTimeLabel;
-        if (chip == null || chip.isEmpty) {
-          final mins = after.difference(before).inMinutes;
-          if (mins != 0) {
-            chip = timePassedLabel(
-              minutes: mins < 0 ? 0 : mins,
-              nextMorning: false,
-              isSkip: false,
-            );
-          }
-        }
       }
     }
 

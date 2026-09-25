@@ -23,7 +23,10 @@ part of '../chat_service.dart';
 /// 1:1 and group share this helper. Group impersonates the rejected speaker,
 /// reverts, then saves back into `_groupRealism`. Continue is not this file.
 extension ChatServiceRegenRevert on ChatService {
-  void _revertRegenRealismBaseline({
+  /// Returns false when the greeting baseline is unreadable. The
+  /// caller must put [lastMsg] back and return without generating —
+  /// a void return here used to fall through and duplicate the tip.
+  bool _revertRegenRealismBaseline({
     required ChatMessage lastMsg,
     required CharacterCard? regenGuest,
     required CharacterCard? regenSpeakerCard,
@@ -35,7 +38,7 @@ extension ChatServiceRegenRevert on ChatService {
     // pre-wear snapshot before replay; do not run the host speaker revert.
     if (regenGuest != null) {
       _restorePresentBodiesForReplay(lastMsg);
-      return;
+      return true;
     }
 
     // Needs answers to its own switch. Sitting this rewind inside
@@ -104,9 +107,7 @@ extension ChatServiceRegenRevert on ChatService {
         }
       }
       if (previousMessageState == null && unreadableBaseline) {
-        _messages.add(lastMsg);
-        _applyTipClock();
-        return;
+        return false;
       }
 
       // Did we restore needs from the rejected message's OWN needs_pre_turn_vector
@@ -304,6 +305,7 @@ extension ChatServiceRegenRevert on ChatService {
         _activeCharacter = preRegenActiveCharacter;
       }
     }
+    return true;
   }
 
   Future<void> _mergeOrRestoreRegenSwipe({

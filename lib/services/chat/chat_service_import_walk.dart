@@ -168,7 +168,9 @@ extension ChatServiceImportWalk on ChatService {
       return;
     }
 
-    // 1:1 — nearest stamp for bond/needs/pockets. Clock is backfill + tip.
+    // 1:1 — nearest Map realism_state for bond/needs/pockets. A
+    // clock pair is not a stamp: backfill writes those on every bot
+    // message, and stopping here would keep the parent's live trust.
     var restored = false;
     for (var i = start; i >= 0; i--) {
       final m = _messages[i];

@@ -248,12 +248,19 @@ extension ChatServiceReprocess on ChatService {
       // Then rewind to the shared message-level before (every swipe).
       _rewindClockToPreReply(lastMsg);
 
-      _revertRegenRealismBaseline(
+      if (!_revertRegenRealismBaseline(
         lastMsg: lastMsg,
         regenGuest: regenGuest,
         regenSpeakerCard: regenSpeakerCard,
         regenSpeakerSid: regenSpeakerSid,
-      );
+      )) {
+        _messages.add(lastMsg);
+        _timeService.restoreCapturedClock();
+        _applyTipClock();
+        _restoreRealismStateForSpeaker(lastMsg);
+        _restorePocketsFromStamp(lastMsg, after: true);
+        return;
+      }
 
       // 1:1 only: replay decay + the realism eval inline here (groups replay
       // via the per-speaker dance inside _generateResponse).
@@ -396,6 +403,15 @@ extension ChatServiceReprocess on ChatService {
       // ride newMetadata into the swipe-merge below.
       // The duplicate post-generation recompute that used to live here was a
       // second source of truth for the same numbers; deleted 2026-08-04.
+      final skipTo =
+          lastMsg.activeMetadata?['time_skip_to'] as String? ??
+          preservedRejectedMeta?['time_skip_to'] as String?;
+      if (skipTo != null && skipTo.isNotEmpty) {
+        _pendingRealismMetadata ??= {};
+        _pendingRealismMetadata!['time_skip_to'] = skipTo;
+        _timeService.reclaimSkipOwnership();
+      }
+
       final preGenLen = _messages.length;
       await _generateResponse(
         GenerationMode.normal,
