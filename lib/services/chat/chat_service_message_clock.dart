@@ -113,18 +113,27 @@ extension ChatServiceMessageClock on ChatService {
   /// the new visible tip so hold-spec (clock == tip.after) and the
   /// pre-nudge pin agree. Otherwise live follows the new tip's after.
   void _applyClockAfterDelete(ChatMessage deleted, {required bool wasTail}) {
-    if (wasTail && deleted.activeMetadata?['time_nudged'] == true) {
-      final restored =
-          StoryClock.parse(deleted.activeMetadata?['nudge_from'] as String?) ??
-          slotClockBefore(deleted.activeMetadata);
+    if (wasTail) {
+      final restored = deleted.activeMetadata?['time_nudged'] == true
+          ? StoryClock.parse(
+                  deleted.activeMetadata?['nudge_from'] as String?,
+                ) ??
+                slotClockBefore(deleted.activeMetadata)
+          : slotClockBefore(deleted.activeMetadata) ??
+                StoryClock.parse(knownStoryClockBefore(deleted));
       if (restored != null) {
         final tip = _visibleTipMessage();
+        if (tip != null && slotHasCompletePair(tip.activeMetadata)) {
+          _applyTipClock();
+          return;
+        }
         if (tip != null && _clockRunning) {
           writeSlotClockPair(
             _clockWriteSlot(tip),
             before: restored,
             after: restored,
           );
+          persistStoryClockBefore(tip, StoryClock.serializeClock(restored));
         }
         _timeService.applySlotClock(resolved: restored);
         return;

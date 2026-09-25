@@ -112,6 +112,10 @@ DateTime? resolveSlotAfter(
   final keptAfter = slotClockAfter(slot);
   if (keptAfter != null) return keptAfter;
   final before = slotClockBefore(slot);
+  final mins = minutesRecordedForClockRewind(slot);
+  if (before != null && mins != null && mins > 0) {
+    return before.add(Duration(minutes: mins));
+  }
   final snap = slotSnapClock(slot);
   if (snap != null &&
       !slotSnapIsFrozen(
@@ -132,14 +136,8 @@ DateTime? resolveSlotAfter(
     if (before != null && fromDay.isBefore(before)) return before;
     return fromDay;
   }
-  if (before != null) {
-    final mins = minutesRecordedForClockRewind(slot);
-    if (mins != null && mins > 0) {
-      return before.add(Duration(minutes: mins));
-    }
-    return before;
-  }
-  if (neighbourStamp != null) return neighbourStamp;
+  if (before != null) return before;
+  if (!isTip && neighbourStamp != null) return neighbourStamp;
   if (isTip) return liveClock;
   return null;
 }
