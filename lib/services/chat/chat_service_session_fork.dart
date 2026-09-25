@@ -180,6 +180,7 @@ extension ChatServiceSessionFork on ChatService {
     // per-chat feature toggles and fork lineage.
     if (_messages.isNotEmpty) {
       await _restoreRealismStateWalkingBack(fromIndex: _messages.length - 1);
+      _applyForkPointClock();
     }
 
     await _saveChat();

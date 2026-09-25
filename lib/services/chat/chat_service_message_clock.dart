@@ -154,9 +154,84 @@ extension ChatServiceMessageClock on ChatService {
     persistStoryClockBefore(msg, before);
   }
 
-  /// THE writer. Tick / nudge / abort all land here, then [_applyTipClock].
+  /// Visible prefix has a user turn and a later bot reply.
+  bool _prefixLeftTheOpening() {
+    var sawUser = false;
+    for (final m in _messages) {
+      if (m.isUser) {
+        sawUser = true;
+        continue;
+      }
+      if (sawUser && m.sender != 'System') return true;
+    }
+    return false;
+  }
+
+  /// Day 1 of this story's start. Keeps [startDate]; TOD from the
+  /// group time seed or the 1:1 card, else morning.
+  void _seedLiveClockToStoryStart() {
+    var tod = 'morning';
+    String? startTime;
+    if (_activeGroup != null) {
+      final seed = parseGroupTimeSeed(
+        _activeGroup!.defaultMemberRealismState,
+        _activeGroup!.baselineRealismState,
+      );
+      if (seed != null) {
+        tod = seed.timeOfDay;
+        startTime = seed.storyStartTime;
+      }
+    } else {
+      final ext = _activeCharacter?.frontPorchExtensions;
+      if (ext != null) {
+        if (ext.timeOfDay.isNotEmpty) tod = ext.timeOfDay;
+        startTime = ext.storyStartTime;
+      }
+    }
+    _timeService.seedFromV2OrExt(
+      dayCount: 1,
+      timeOfDay: tod,
+      storyStartDate: _timeService.storyStartDateIso,
+      storyStartTime: startTime,
+    );
+    _applySeededPassageOfTime();
+  }
+
+  /// Fork lands on the fork-point slot's clock. An unstamped
+  /// greeting / pre-first-user slot is Day 1 of the start — load
+  /// backfill may have painted the parent's live Day N. A lived-in
+  /// snap or a pair already on Day 1 is left for [_applyTipClock].
+  void _applyForkPointClock() {
+    final tip = _visibleTipMessage();
+    if (tip == null) return;
+    if (_prefixLeftTheOpening()) {
+      _applyTipClock();
+      return;
+    }
+    if (slotHasAuthoredClock(tip.activeMetadata)) {
+      _applyTipClock();
+      return;
+    }
+    final after = slotClockAfter(tip.activeMetadata);
+    if (after != null &&
+        StoryClock.dayCountFor(after, _timeService.startDate) <= 1) {
+      _applyTipClock();
+      return;
+    }
+    _seedLiveClockToStoryStart();
+    _writeSlotClock(tip, kind: _SlotClockWrite.seed);
+  }
+
+  /// THE writer. Tick / nudge / abort / seed all land here, then
+  /// [_applyTipClock].
   void _writeSlotClock(ChatMessage? target, {required _SlotClockWrite kind}) {
     if (target == null || target.isUser) return;
+    if (kind == _SlotClockWrite.seed) {
+      final clock = _timeService.clock;
+      writeSlotClockPair(_clockWriteSlot(target), before: clock, after: clock);
+      _applyTipClock();
+      return;
+    }
     if (!_clockRunning) return;
 
     final known = StoryClock.parse(knownStoryClockBefore(target));
@@ -216,4 +291,4 @@ extension ChatServiceMessageClock on ChatService {
   }
 }
 
-enum _SlotClockWrite { tick, nudge, abort }
+enum _SlotClockWrite { tick, nudge, abort, seed }

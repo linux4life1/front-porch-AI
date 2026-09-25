@@ -43,6 +43,18 @@ DateTime? slotClockBefore(Map<String, dynamic>? slot) =>
 bool slotHasCompletePair(Map<String, dynamic>? slot) =>
     slotClockBefore(slot) != null && slotClockAfter(slot) != null;
 
+/// Authored clock on this slot — snap, chip, nudge, or a stored day
+/// past Day 1. A load-backfill pair painted from the parent live
+/// clock is not authored.
+bool slotHasAuthoredClock(Map<String, dynamic>? slot) {
+  if (_snapStoryClock(slot) != null) return true;
+  if ((slot?['time_passed'] as String?)?.isNotEmpty == true) return true;
+  if (slot?['time_nudged'] == true) return true;
+  if (slot?['clock_from_day_count'] == true) return true;
+  final dc = _slotDayCount(slot);
+  return dc != null && dc > 1;
+}
+
 /// Write the pair (and optional chip / nudge mark) onto [slot].
 void writeSlotClockPair(
   Map<String, dynamic> slot, {
