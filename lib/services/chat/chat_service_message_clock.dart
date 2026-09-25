@@ -130,9 +130,8 @@ extension ChatServiceMessageClock on ChatService {
     _applyTipClock();
   }
 
-  /// Greeting overlay may re-seed the card clock. Session row is live.
-  /// Does not wait for older pages — tip reads its stored pair, or
-  /// live if it has none. History backfill chains after the window.
+  /// Session scalars first, then tip resolve. Live must not stay
+  /// on the TimeService default (today) while greeting-as-tip reads it.
   Future<void> _reloadSessionClockThenSync(Session s) async {
     _timeService.clearCapturedClock();
     _timeService.loadTimeScalars(
@@ -280,11 +279,12 @@ extension ChatServiceMessageClock on ChatService {
     return false;
   }
 
-  /// Day 1 of this story's start. Does not mutate the live clock —
-  /// the writer / [_applyTipClock] do that from the resolved after.
+  /// Day 1 of this story's persisted start. Never [StoryClock.todayAnchor]
+  /// when the chat already has a start date (session, parent fork, card).
   DateTime _day1OfStoryStart({DateTime? startDate}) {
     var tod = 'morning';
     String? startTime;
+    String? cardStart;
     if (_activeGroup != null) {
       final seed = parseGroupTimeSeed(
         _activeGroup!.defaultMemberRealismState,
@@ -293,20 +293,32 @@ extension ChatServiceMessageClock on ChatService {
       if (seed != null) {
         tod = seed.timeOfDay;
         startTime = seed.storyStartTime;
+        cardStart = seed.storyStartDate;
       }
     } else {
       final ext = _activeCharacter?.frontPorchExtensions;
       if (ext != null) {
         if (ext.timeOfDay.isNotEmpty) tod = ext.timeOfDay;
         startTime = ext.storyStartTime;
+        cardStart = ext.storyStartDate;
       }
     }
-    final start = startDate ?? _timeService.startDate;
-    final hhmm = StoryClock.parseHHMM(startTime);
-    if (hhmm != null) {
-      return DateTime.utc(start.year, start.month, start.day, hhmm.$1, hhmm.$2);
-    }
-    return StoryClock.representativeTime(start, tod);
+    final start = _persistedStoryStart(
+      startDate: startDate,
+      cardStartDate: cardStart,
+    );
+    return day1OfStart(start, timeOfDay: tod, startTime: startTime);
+  }
+
+  /// Session / parent / card start wins. Today is only a fresh chat.
+  DateTime _persistedStoryStart({DateTime? startDate, String? cardStartDate}) {
+    if (startDate != null) return StoryClock.dateOnly(startDate);
+    final loaded = StoryClock.dateOnly(_timeService.startDate);
+    final today = StoryClock.todayAnchor();
+    if (loaded != today) return loaded;
+    final card = StoryClock.parse(cardStartDate);
+    if (card != null) return StoryClock.dateOnly(card);
+    return loaded;
   }
 
   DateTime? _nearestStoredStamp(ChatMessage tip, {DateTime? greetingClock}) {

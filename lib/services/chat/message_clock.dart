@@ -357,6 +357,16 @@ bool backfillSlotClocks(
       if (alreadyGuessed) continue;
       final after = resolveAfter(i, slot, tipSlot: tipSlot);
       if (after == null) continue;
+      if (_skipLivedInGreetingDay1(
+        messages,
+        index: i,
+        isTip: isTip,
+        after: after,
+        start: start,
+        greetingClock: greetingClock,
+      )) {
+        continue;
+      }
       final keptAfter = slotClockAfter(slot);
       final keptBefore = slotClockBefore(slot);
       final mins = minutesRecordedForClockRewind(slot);
@@ -403,6 +413,16 @@ bool backfillSlotClocks(
       if (alreadyGuessed) continue;
       final after = resolveAfter(i, meta, tipSlot: isTip);
       if (after == null) continue;
+      if (_skipLivedInGreetingDay1(
+        messages,
+        index: i,
+        isTip: isTip,
+        after: after,
+        start: start,
+        greetingClock: greetingClock,
+      )) {
+        continue;
+      }
       final keptAfter = slotClockAfter(meta);
       final day = dayOf(meta);
       final before = slotClockBefore(meta) ?? after;
@@ -418,4 +438,33 @@ bool backfillSlotClocks(
   }
   if (!alreadyGuessed) _markClockBackfillDone(messages);
   return changed;
+}
+
+/// Lived-in Carmen: a later frozen snap is not a neighbour, but
+/// persisting Day 1 09:00 on the history greeting would stamp the
+/// leftover. Rung 8 still resolves Day 1 for an empty later chat.
+bool _skipLivedInGreetingDay1(
+  List<ChatMessage> messages, {
+  required int index,
+  required bool isTip,
+  required DateTime after,
+  required DateTime start,
+  DateTime? greetingClock,
+}) {
+  final msg = messages[index];
+  final greetingSlot = index == 0 && !msg.isUser && msg.sender != 'System';
+  if (isTip || !greetingSlot || after != day1OfStart(start)) {
+    return false;
+  }
+  for (var j = index + 1; j < messages.length; j++) {
+    if (messages[j].sender == 'System') continue;
+    for (final slot in _messageSlots(messages[j])) {
+      final snap = slotSnapClock(slot);
+      if (snap != null &&
+          slotSnapIsFrozen(snap, greetingClock: greetingClock)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }

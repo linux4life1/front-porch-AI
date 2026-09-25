@@ -118,6 +118,21 @@ DateTime dayCountClock({
   return StoryClock.representativeTime(date, 'morning');
 }
 
+/// Day 1 of [startDate] at the story's opening time. [startDate] is
+/// the chat's persisted start — never [StoryClock.todayAnchor].
+DateTime day1OfStart(
+  DateTime startDate, {
+  String timeOfDay = 'morning',
+  String? startTime,
+}) {
+  final date = StoryClock.dateOnly(startDate);
+  final hhmm = StoryClock.parseHHMM(startTime);
+  if (hhmm != null) {
+    return DateTime.utc(date.year, date.month, date.day, hhmm.$1, hhmm.$2);
+  }
+  return StoryClock.representativeTime(date, timeOfDay);
+}
+
 /// A derived day pair is stale when start moved: the stored after's
 /// calendar day no longer equals start + (dayCount-1). Chip / nudge /
 /// snap pairs are real stamps and are not rewritten. Live TOD changing
@@ -204,9 +219,12 @@ DateTime? directionalNeighbourStamp({
 ///  6. S's own before, including the answering user turn.
 ///  7. The nearest REAL neighbour stamp. A later neighbour
 ///     contributes its BEFORE; an earlier neighbour its AFTER.
-///  8. History greeting with nothing: leave empty so a lived-in
-///     open cannot persist 09:00. Day 1 of the start is the fork
-///     empty-pre-user seed, not a history write.
+///  8. Non-tip greeting with nothing and no neighbour: Day 1 of
+///     [startDate] at opening time (09:00 morning unless a start
+///     time is stored). Never live, never today. Greeting-as-tip
+///     already took live at step 5. A later frozen snap is not a
+///     neighbour — backfill must not persist this Day-1 onto a
+///     lived-in Carmen greeting.
 ///
 /// Then CLAMP: after is never earlier than S's own before, including
 /// a stored rung-1 after, except a real writer pair (named
@@ -266,6 +284,8 @@ DateTime? resolveSlotAfter(
           hit = before;
         } else if (neighbourStamp != null) {
           hit = neighbourStamp;
+        } else if (isGreeting) {
+          hit = day1OfStart(start);
         }
       }
     }
