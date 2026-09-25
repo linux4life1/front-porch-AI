@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Group Needs Reset must target the per-member store id
-// (groupMemberStoreId == stableGroupId). Members with no avatar file
-// have store id == name and dbId == member UUID — those two disagree.
-// Resetting Bea must clear Bea's live Needs and leave Ava's alone.
+// (groupMemberStoreId == member UUID when present). Members with no
+// avatar file still have dbId == GroupMember.id; stableGroupId is the
+// name. Resetting Bea must clear Bea's live Needs and leave Ava's alone.
 
 import 'dart:io';
 
@@ -76,7 +76,7 @@ void main() {
 
       const groupId = 'grp-needs-reset';
       final blobs = buildGroupRealismBlobs(
-        seeds: {'Ava': _dirtySeed(30), 'Bea': _dirtySeed(20)},
+        seeds: {'mem-ava': _dirtySeed(30), 'mem-bea': _dirtySeed(20)},
         needsEnabled: true,
         timeOfDay: 'morning',
         dayCount: 1,
@@ -119,8 +119,9 @@ void main() {
       final bea = chat.groupCharacters.firstWhere((c) => c.name == 'Bea');
       expect(ava.imagePath, anyOf(isNull, isEmpty));
       expect(bea.imagePath, anyOf(isNull, isEmpty));
-      expect(groupMemberStoreId(bea), bea.stableGroupId);
-      expect(groupMemberStoreId(bea), isNot(bea.dbId));
+      expect(groupMemberStoreId(bea), bea.dbId);
+      expect(groupMemberStoreId(bea), 'mem-bea');
+      expect(groupMemberStoreId(bea), isNot(bea.stableGroupId));
 
       expect(chat.getNeedsForGroupCharacter(ava)['hunger'], 30);
       expect(chat.getNeedsForGroupCharacter(bea)['hunger'], 20);
@@ -130,7 +131,7 @@ void main() {
       expect(
         chat.getNeedsForGroupCharacter(bea),
         isEmpty,
-        reason: 'Bea\'s store-id slot must be dropped — not keyed by UUID',
+        reason: 'Bea\'s store-id slot must be dropped — not keyed by name',
       );
       expect(
         chat.getNeedsForGroupCharacter(ava)['hunger'],

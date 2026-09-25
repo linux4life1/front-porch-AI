@@ -116,9 +116,10 @@ class _ScriptedLlm extends LLMService {
     // The conversational turn is the only call that carries a system prompt.
     if (params.systemPrompt != null) {
       chatPrompts.add('${params.systemPrompt}\n$p');
-      final reply = chatReplies[_chatIndex < chatReplies.length
-          ? _chatIndex
-          : chatReplies.length - 1];
+      final reply =
+          chatReplies[_chatIndex < chatReplies.length
+              ? _chatIndex
+              : chatReplies.length - 1];
       _chatIndex++;
       yield reply;
       return;
@@ -226,90 +227,86 @@ void main() {
   // writes and everything The Stoop serves. This is the population the shipped
   // seed skipped, because startNewChat gates the greeting baseline on
   // `frontPorchExtensions == null`.
-  test(
-    'authored card (frontPorchExtensions): the FIRST prompt is staged, and '
-    'the post-reply pass still owns every turn after it',
-    () async {
-      // PRE-FIX RESULT: FAILED at the first `Position:` assertion — the opening
-      // prompt carried no Position line at all (posture only ever ran after the
-      // reply, and this card never reaches the greeting baseline).
-      await boot(
-        replies: [
-          '*She crosses to the window.*',
-          '*She drifts back to the chair.*',
+  test('authored card (frontPorchExtensions): the FIRST prompt is staged, and '
+      'the post-reply pass still owns every turn after it', () async {
+    // PRE-FIX RESULT: FAILED at the first `Position:` assertion — the opening
+    // prompt carried no Position line at all (posture only ever ran after the
+    // reply, and this card never reaches the greeting baseline).
+    await boot(
+      replies: [
+        '*She crosses to the window.*',
+        '*She drifts back to the chair.*',
+      ],
+      postures: {
+        'Nia': [
+          'rocking on the porch swing', // 0 — the opening seed
+          'standing at the window', // 1 — after reply one
+          'curled in the armchair', // 2 — after reply two
         ],
-        postures: {
-          'Nia': [
-            'rocking on the porch swing', // 0 — the opening seed
-            'standing at the window', // 1 — after reply one
-            'curled in the armchair', // 2 — after reply two
-          ],
-        },
-      );
-      await chat.setActiveCharacter(
-        CharacterCard(
-          name: 'Nia',
-          description: 'Authored in Front Porch AI — carries realism setup.',
-          firstMessage: 'She is rocking on the porch swing when you walk up.',
-          frontPorchExtensions: FrontPorchExtensions(
-            realismEnabled: true,
-            needsSimEnabled: false,
-            chaosModeEnabled: false,
-          ),
-        )..dbId = 'char-seed-ext',
-      );
-      expect(
-        chat.activeCharacter!.frontPorchExtensions,
-        isNotNull,
-        reason: 'this guard is specifically about the authored-card shape',
-      );
+      },
+    );
+    await chat.setActiveCharacter(
+      CharacterCard(
+        name: 'Nia',
+        description: 'Authored in Front Porch AI — carries realism setup.',
+        firstMessage: 'She is rocking on the porch swing when you walk up.',
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          needsSimEnabled: false,
+          chaosModeEnabled: false,
+        ),
+      )..dbId = 'char-seed-ext',
+    );
+    expect(
+      chat.activeCharacter!.frontPorchExtensions,
+      isNotNull,
+      reason: 'this guard is specifically about the authored-card shape',
+    );
 
-      await chat.sendMessage('Morning.');
+    await chat.sendMessage('Morning.');
 
-      expect(
-        llm.chatPrompts.first,
-        contains('Position: rocking on the porch swing'),
-        reason:
-            'THE REGRESSION. Turn one must be staged before the first prompt '
-            'is built — "the part that informs the character where they are '
-            'when they start their turn". At HEAD the pre-generation eval did '
-            'this for every card; the replacement seed reached almost none.',
-      );
-      expect(
-        chat.relationshipService.spatialStance,
-        'standing at the window',
-        reason:
-            'and the post-reply pass still runs and still wins — the seed is '
-            'an opening baseline, not a return to pre-generation evaluation',
-      );
+    expect(
+      llm.chatPrompts.first,
+      contains('Position: rocking on the porch swing'),
+      reason:
+          'THE REGRESSION. Turn one must be staged before the first prompt '
+          'is built — "the part that informs the character where they are '
+          'when they start their turn". At HEAD the pre-generation eval did '
+          'this for every card; the replacement seed reached almost none.',
+    );
+    expect(
+      chat.relationshipService.spatialStance,
+      'standing at the window',
+      reason:
+          'and the post-reply pass still runs and still wins — the seed is '
+          'an opening baseline, not a return to pre-generation evaluation',
+    );
 
-      await chat.sendMessage('Stay a while.');
+    await chat.sendMessage('Stay a while.');
 
-      expect(
-        llm.chatPrompts[1],
-        contains('Position: standing at the window'),
-        reason:
-            'turn two is grounded in where the REPLY left her, not in the seed',
-      );
-      expect(
-        (await row()).spatialStance,
-        'curled in the armchair',
-        reason:
-            'and turn two\'s post-reply answer still reaches the database, '
-            'which is where a reload and every later prompt read it from',
-      );
-      expect(
-        llm.postureCallsFor('Nia'),
-        3,
-        reason:
-            'exactly one seed for the conversation plus one pass per reply. A '
-            'seed that re-fired every turn would be the pre-generation '
-            'evaluation this design removed, and would overwrite the '
-            'post-reply answer it just wrote.',
-      );
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+    expect(
+      llm.chatPrompts[1],
+      contains('Position: standing at the window'),
+      reason:
+          'turn two is grounded in where the REPLY left her, not in the seed',
+    );
+    expect(
+      (await row()).spatialStance,
+      'curled in the armchair',
+      reason:
+          'and turn two\'s post-reply answer still reaches the database, '
+          'which is where a reload and every later prompt read it from',
+    );
+    expect(
+      llm.postureCallsFor('Nia'),
+      3,
+      reason:
+          'exactly one seed for the conversation plus one pass per reply. A '
+          'seed that re-fired every turn would be the pre-generation '
+          'evaluation this design removed, and would overwrite the '
+          'post-reply answer it just wrote.',
+    );
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   // ── (b) a card WITHOUT frontPorchExtensions ──────────────────────────────
   //
@@ -501,7 +498,8 @@ void main() {
           jsonDecode((await row()).groupRealismState) as Map<String, dynamic>;
       final perChar = blob['perChar'] as Map<String, dynamic>;
       String? storedStance(CharacterCard c) =>
-          (perChar[c.stableGroupId] as Map<String, dynamic>?)?['spatialStance']
+          (perChar[groupMemberStoreId(c)]
+                  as Map<String, dynamic>?)?['spatialStance']
               as String?;
 
       expect(storedStance(nia), 'back on the porch rail');
