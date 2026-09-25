@@ -196,16 +196,14 @@ extension ChatServiceMessageClock on ChatService {
           _timeService.clock;
       final tip = _visibleTipMessage();
       if (tip != null) {
-        // Remaining tip after wins (rung 1). A stamp-less greeting
-        // keeps the live clock — do not apply the deleted before
-        // (chip rewind) as live. Empty resolve still takes rewind.
-        final kept = slotClockAfter(tip.activeMetadata);
-        final after = kept ?? _resolveVisibleAfter(tip: tip) ?? rewind;
-        _writeResolvedTipAfter(tip, after);
-        if (_clockRunning) {
-          _timeService.applySlotClock(resolved: after);
+        final after = _resolveVisibleAfter(tip: tip, liveClock: rewind);
+        if (after != null) {
+          _writeResolvedTipAfter(tip, after);
+          if (_clockRunning) {
+            _timeService.applySlotClock(resolved: after);
+          }
+          return;
         }
-        return;
       }
     }
     _applyTipClock();
