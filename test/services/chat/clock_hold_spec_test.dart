@@ -54,22 +54,23 @@ class _ScriptedLlm extends LLMService {
   bool nextDay = false;
   String nextReply = '*Nia leans on the rail.*';
   bool cancelOnMinutes = false;
-  bool throwOnEval = false;
+  bool throwOnGeneration = false;
   Future<void> Function()? cancel;
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
     if (params.systemPrompt != null) {
+      if (throwOnGeneration) {
+        throwOnGeneration = false;
+        throw Exception('hold-spec generation throw');
+      }
       yield nextReply;
       return;
     }
-    // Regen is a 1:1 host path: relationship eval lives on sendMessage,
-    // so the throw must fire on the first eval the regen actually calls
-    // (time / needs / emotion), not only relationship_delta.
-    if (throwOnEval) {
-      throwOnEval = false;
-      throw Exception('hold-spec eval throw');
-    }
+    // The first eval on a 1:1 regen is the relationship eval. A throw
+    // there is retried / null-returned by llm_eval_engine and is not a
+    // failed regen. A real failed regen throws from this generation
+    // branch (systemPrompt != null).
     final p = params.prompt;
     if (p.contains('relationship_delta')) {
       yield '{"relationship_delta":0,"trust_delta":1,'
@@ -703,48 +704,66 @@ void main() {
       },
     );
 
-    test('K5 throw path restores the clock and start date', () async {
-      await boot();
-      await plant(
-        rows: [
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Greeting.',
-            'meta': {'realism_state': 'broken'},
-          },
-          {'sender': 'You', 'user': true, 'text': 'Hi.'},
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Night.',
-            'meta': {
-              'story_clock_before': '2026-06-29T16:07:00.000Z',
-              'story_clock_after': _livedIso,
-              'realism_state': {
-                'storyClock': _livedIso,
-                'storyStartDate': _startIso,
+    test(
+      'unreadable greeting realism_state aborts regen: clock, message count, and reply restored',
+      () async {
+        await boot();
+        await plant(
+          rows: [
+            {
+              'sender': 'Nia',
+              'user': false,
+              'text': 'Greeting.',
+              'meta': {'realism_state': 'broken'},
+            },
+            {'sender': 'You', 'user': true, 'text': 'Hi.'},
+            {
+              'sender': 'Nia',
+              'user': false,
+              'text': 'Night.',
+              'meta': {
+                'story_clock_before': '2026-06-29T16:07:00.000Z',
+                'story_clock_after': _livedIso,
+                'realism_state': {
+                  'storyClock': _livedIso,
+                  'storyStartDate': _startIso,
+                },
               },
             },
-          },
-        ],
-        clock: _livedIso,
-        start: _startIso,
-      );
-      expect(chat!.timeService.clock, DateTime.utc(2026, 6, 29, 16, 37));
-      llm.throwOnEval = true;
-      llm.nextMinutes = 47;
-      try {
+          ],
+          clock: _livedIso,
+          start: _startIso,
+        );
+        expect(chat!.timeService.clock, DateTime.utc(2026, 6, 29, 16, 37));
+        expect(chat!.messages.length, 3);
+        final tip = chat!.messages.last;
+        final beforeIso = tip.activeMetadata?['story_clock_before'];
+        final afterIso = tip.activeMetadata?['story_clock_after'];
         await chat!.regenerateLastMessage();
-      } catch (_) {}
-      await drain();
-      expect(
-        chat!.timeService.clock,
-        DateTime.utc(2026, 6, 29, 16, 37),
-        reason: 'throw between capture and merge must restore the live clock',
-      );
-      expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 28));
-    });
+        await drain();
+        expect(
+          chat!.timeService.clock,
+          DateTime.utc(2026, 6, 29, 16, 37),
+          reason: 'unreadable greeting baseline must not move the live clock',
+        );
+        expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 28));
+        expect(chat!.messages.length, 3);
+        expect(chat!.messages.last.text, 'Night.');
+        expect(
+          chat!.messages.last.activeMetadata?['story_clock_before'],
+          beforeIso,
+        );
+        expect(
+          chat!.messages.last.activeMetadata?['story_clock_after'],
+          afterIso,
+        );
+        expect(
+          chat!.messages.where((m) => identical(m, chat!.messages.last)).length,
+          1,
+          reason: 'regen must not insert the same tip object twice',
+        );
+      },
+    );
 
     test('nudge then tail delete follows the new tip after', () async {
       await boot();
@@ -763,54 +782,135 @@ void main() {
       );
     });
 
-    test('throw across Day-1 midnight restores planted +47 after', () async {
-      await boot();
-      await plant(
-        rows: [
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Greeting.',
-            'meta': {'realism_state': 'broken'},
-          },
-          {'sender': 'You', 'user': true, 'text': 'Hi.'},
-          {
-            'sender': 'Nia',
-            'user': false,
-            'text': 'Late.',
-            'meta': {
-              'story_clock_before': _preMidnightIso,
-              'story_clock_after': _plus47Iso,
-              'realism_state': {
-                'storyClock': _plus47Iso,
-                'storyStartDate': _startIso,
+    test(
+      'unreadable greeting realism_state aborts midnight regen: clock, count, and reply restored',
+      () async {
+        await boot();
+        await plant(
+          rows: [
+            {
+              'sender': 'Nia',
+              'user': false,
+              'text': 'Greeting.',
+              'meta': {'realism_state': 'broken'},
+            },
+            {'sender': 'You', 'user': true, 'text': 'Hi.'},
+            {
+              'sender': 'Nia',
+              'user': false,
+              'text': 'Late.',
+              'meta': {
+                'story_clock_before': _preMidnightIso,
+                'story_clock_after': _plus47Iso,
+                'realism_state': {
+                  'storyClock': _plus47Iso,
+                  'storyStartDate': _startIso,
+                },
               },
             },
-          },
-        ],
-        clock: _plus47Iso,
-        start: _startIso,
-        day: 1,
-        tod: 'night',
-      );
-      expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 27));
-      expect(chat!.timeService.dayCount, 1);
-      llm.throwOnEval = true;
-      llm.nextMinutes = 30;
-      try {
+          ],
+          clock: _plus47Iso,
+          start: _startIso,
+          day: 1,
+          tod: 'night',
+        );
+        expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 27));
+        expect(chat!.timeService.dayCount, 1);
+        expect(chat!.messages.length, 3);
+        final tip = chat!.messages.last;
+        final beforeIso = tip.activeMetadata?['story_clock_before'];
+        final afterIso = tip.activeMetadata?['story_clock_after'];
         await chat!.regenerateLastMessage();
-      } catch (_) {}
-      await drain();
-      expect(
-        chat!.timeService.clock,
-        DateTime.utc(2026, 6, 28, 0, 27),
-        reason:
-            'planted after is before+47, not the default +30 (00:10). '
-            'Ignoring the plant and recomputing default would pass the old pin',
-      );
-      expect(chat!.timeService.dayCount, 1);
-      expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 28));
-    });
+        await drain();
+        expect(
+          chat!.timeService.clock,
+          DateTime.utc(2026, 6, 28, 0, 27),
+          reason: 'unreadable greeting baseline must keep planted +47 after',
+        );
+        expect(chat!.timeService.dayCount, 1);
+        expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 28));
+        expect(chat!.messages.length, 3);
+        expect(chat!.messages.last.text, 'Late.');
+        expect(
+          chat!.messages.last.activeMetadata?['story_clock_before'],
+          beforeIso,
+        );
+        expect(
+          chat!.messages.last.activeMetadata?['story_clock_after'],
+          afterIso,
+        );
+        expect(
+          chat!.messages.where((m) => identical(m, chat!.messages.last)).length,
+          1,
+          reason: 'regen must not insert the same tip object twice',
+        );
+      },
+    );
+
+    test(
+      'generation throw on a valid greeting restores clock and keeps the tip',
+      () async {
+        await boot();
+        await plant(
+          rows: [
+            {
+              'sender': 'Nia',
+              'user': false,
+              'text': 'Greeting.',
+              'meta': {
+                'story_clock_before': '2026-06-29T16:07:00.000Z',
+                'story_clock_after': '2026-06-29T16:07:00.000Z',
+                'realism_state': {
+                  'storyClock': '2026-06-29T16:07:00.000Z',
+                  'storyStartDate': _startIso,
+                },
+              },
+            },
+            {'sender': 'You', 'user': true, 'text': 'Hi.'},
+            {
+              'sender': 'Nia',
+              'user': false,
+              'text': 'Night.',
+              'meta': {
+                'story_clock_before': '2026-06-29T16:07:00.000Z',
+                'story_clock_after': _livedIso,
+                'realism_state': {
+                  'storyClock': _livedIso,
+                  'storyStartDate': _startIso,
+                },
+              },
+            },
+          ],
+          clock: _livedIso,
+          start: _startIso,
+        );
+        expect(chat!.timeService.clock, DateTime.utc(2026, 6, 29, 16, 37));
+        final spokenBefore = chat!.messages
+            .where((m) => m.sender != 'System')
+            .length;
+        llm.throwOnGeneration = true;
+        await chat!.regenerateLastMessage();
+        await drain();
+        expect(
+          chat!.timeService.clock,
+          DateTime.utc(2026, 6, 29, 16, 37),
+          reason: 'generation-stream throw must restore the pre-regen clock',
+        );
+        expect(
+          chat!.messages.where((m) => m.sender != 'System').length,
+          spokenBefore,
+        );
+        expect(
+          chat!.messages.lastWhere((m) => m.sender != 'System').text,
+          'Night.',
+        );
+        expect(
+          chat!.messages.any((m) => m.sender == 'System'),
+          isTrue,
+          reason: 'failed generation must surface a System banner',
+        );
+      },
+    );
 
     test('new swipes pin per-slot after and shared before', () async {
       await boot();

@@ -43,7 +43,10 @@ const _trustDelta = 5;
 const _expectedTrust = _defaultTrust + _trustDelta;
 
 class _ScriptedLlm extends LLMService {
-  int relationshipCalls = 0;
+  /// Greeting / opening relationship evals stay at 0. Arm only for the
+  /// user send (and regen after rehydrate) so the first call is not
+  /// assumed to be a greeting that never ran.
+  bool armed = false;
   int nextMinutes = 30;
 
   @override
@@ -54,10 +57,7 @@ class _ScriptedLlm extends LLMService {
     }
     final p = params.prompt;
     if (p.contains('relationship_delta')) {
-      relationshipCalls++;
-      // Greeting eval (if any) stays at the card default. The user
-      // send is the first non-zero trust delta.
-      final delta = relationshipCalls == 1 ? 0 : _trustDelta;
+      final delta = armed ? _trustDelta : 0;
       yield '{"relationship_delta":0,"trust_delta":$delta,'
           '"bond_reason":"steady","trust_reason":"warm"}';
       return;
@@ -162,7 +162,7 @@ void main() {
 
   Future<ChatService> rehydrate(String sessionId) async {
     chat?.dispose();
-    llm = _ScriptedLlm()..relationshipCalls = 2;
+    llm = _ScriptedLlm()..armed = true;
     chat =
         ChatService(
             KoboldService(storage!),
@@ -201,6 +201,7 @@ void main() {
       expect(chat!.realismEnabled, isTrue);
       final beforeClock = chat!.timeService.clock;
 
+      llm.armed = true;
       await chat!.sendMessage('I kept my word.');
       await drain();
 
@@ -244,6 +245,62 @@ void main() {
         chat!.relationshipService.trustLevel,
         _expectedTrust,
         reason: '(d) swipe back to slot A keeps $_expectedTrust, not 12',
+      );
+    },
+  );
+
+  test(
+    'trust delta after greeting opening seed survives stamp (real boot)',
+    () async {
+      await boot();
+      final personas = UserPersonaService(db!);
+      final card = CharacterCard(
+        name: 'NiaOpen',
+        firstMessage: '',
+        alternateGreetings: const ['Evening.'],
+        imagePath: '/tmp/nia-trust-open.png',
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: true,
+          needsSimEnabled: true,
+          passageOfTimeEnabled: true,
+          trustLevel: _defaultTrust,
+          needsBaselineHunger: 80,
+          needsBaselineBladder: 80,
+          needsBaselineEnergy: 80,
+          needsBaselineSocial: 80,
+          needsBaselineFun: 80,
+          needsBaselineHygiene: 80,
+          needsBaselineComfort: 80,
+        ),
+      );
+      await repo!.addCharacter(card);
+      await chat!.startFreshChatWith(
+        character: card,
+        personaId: personas.persona.id,
+      );
+      await drain();
+      // Opening seed schedules an unawaited relationship eval. Let it
+      // finish while still unarmed so the user send is the only +5.
+      for (var i = 0; i < 40; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      }
+      expect(chat!.realismEnabled, isTrue);
+      expect(chat!.timeService.passageOfTimeEnabled, isTrue);
+      expect(
+        chat!.relationshipService.trustLevel,
+        _defaultTrust,
+        reason: 'opening seed + unarmed greeting eval must leave card 12',
+      );
+
+      llm.armed = true;
+      await chat!.sendMessage('I kept my word.');
+      await drain();
+      expect(
+        chat!.relationshipService.trustLevel,
+        _expectedTrust,
+        reason:
+            'user send after _applyGreetingOpeningSeed / '
+            '_evaluateRelationshipCall must land trust at 17, not 12',
       );
     },
   );

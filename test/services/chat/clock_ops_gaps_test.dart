@@ -49,11 +49,16 @@ class _ScriptedLlm extends LLMService {
   int nextMinutes = 30;
   bool cancelOnMinutes = false;
   bool throwOnMinutes = false;
+  bool throwOnGeneration = false;
   Future<void> Function()? cancel;
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
     if (params.systemPrompt != null) {
+      if (throwOnGeneration) {
+        throwOnGeneration = false;
+        throw Exception('gaps generation throw');
+      }
       yield '*Nia leans on the rail.*';
       return;
     }
@@ -328,8 +333,7 @@ void main() {
     expect(chat!.timeService.startDate, start);
   });
 
-  test('error across Day-1 midnight leaves clock and start date', () async {
-    await boot();
+  Future<void> plantMidnightTip() async {
     await plant(
       rows: [
         {
@@ -361,20 +365,70 @@ void main() {
       day: 1,
       tod: 'night',
     );
-    final start = chat!.timeService.startDate;
-    llm.nextMinutes = 30;
-    llm.throwOnMinutes = true;
-    try {
+  }
+
+  List<ChatMessage> spoken() =>
+      chat!.messages.where((m) => m.sender != 'System').toList();
+
+  test(
+    'generation throw across Day-1 midnight leaves clock, start, and tip',
+    () async {
+      await boot();
+      await plantMidnightTip();
+      expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 23, 40));
+      expect(chat!.timeService.dayCount, 1);
+      final start = chat!.timeService.startDate;
+      final beforeCount = spoken().length;
+      llm.nextMinutes = 60;
+      llm.throwOnGeneration = true;
       await chat!.regenerateLastMessage();
-    } catch (_) {}
+      await drain();
+      expect(
+        chat!.timeService.clock,
+        DateTime.utc(2026, 6, 28, 23, 40),
+        reason: 'generation-stream throw must not cross into Day 2',
+      );
+      expect(chat!.timeService.dayCount, 1);
+      expect(chat!.timeService.startDate, start);
+      expect(spoken().length, beforeCount);
+      expect(
+        spoken().lastWhere((m) => !m.isUser).text,
+        'Late.',
+        reason: 'failed regen must keep the original tip text',
+      );
+    },
+  );
+
+  test('regen with 60 minutes from 23:10 lands on Day 2 00:10', () async {
+    await boot();
+    await plantMidnightTip();
+    llm.nextMinutes = 60;
+    await chat!.regenerateLastMessage();
     await drain();
     expect(
       chat!.timeService.clock,
-      DateTime.utc(2026, 6, 28, 23, 40),
-      reason: 'failed regen must not cross into Day 2',
+      DateTime.utc(2026, 6, 29, 0, 10),
+      reason: 'control: 23:40 + 30 is a real midnight crossing',
+    );
+    expect(chat!.timeService.dayCount, 2);
+  });
+
+  test('eval throw falls back to 2-minute floor', () async {
+    await boot();
+    await plantMidnightTip();
+    llm.throwOnMinutes = true;
+    await chat!.regenerateLastMessage();
+    await drain();
+    expect(
+      chat!.timeService.clock,
+      DateTime.utc(2026, 6, 28, 23, 12),
+      reason: 'null time eval uses conversationalFloorMinutes = 2',
     );
     expect(chat!.timeService.dayCount, 1);
-    expect(chat!.timeService.startDate, start);
+    final tip = chat!.messages.lastWhere(
+      (m) => !m.isUser && m.sender != 'System',
+    );
+    expect(tip.activeMetadata?['time_passed'], '2 min');
   });
 
   test('1:1 mid-chat bot delete leaves the clock unchanged', () async {
