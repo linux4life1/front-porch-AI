@@ -251,7 +251,11 @@ void main() {
     }
   }
 
-  tearDown(() => disposeChatThenCloseDb(chat, db));
+  tearDown(() async {
+    await disposeChatThenCloseDb(chat, db);
+    chat = null;
+    db = null;
+  });
 
   test('HIGH-1 v1.4 open keeps Day 3 16:00 and persists no 09:00', () async {
     await boot();
