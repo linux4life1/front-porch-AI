@@ -179,12 +179,6 @@ extension ChatServiceReprocess on ChatService {
         );
         return;
       }
-      _invalidateJournalFrom(
-        persistMessagePosition(
-          base: _history.basePosition,
-          index: _messages.length,
-        ),
-      );
       // Snapshot the rejected swipe's metadata (e.g. manual needs reprocess) before
       // we add a new swipe — regen must not clobber prior swipe timelines.
       final rejectedSwipeIndex = lastMsg.swipeIndex;
@@ -261,6 +255,15 @@ extension ChatServiceReprocess on ChatService {
         _restorePocketsFromStamp(lastMsg, after: true);
         return;
       }
+
+      // After the unreadable-baseline bail: the bubble stays, so its
+      // journal/growth cites must stay too (same rule as a departed guest).
+      _invalidateJournalFrom(
+        persistMessagePosition(
+          base: _history.basePosition,
+          index: _messages.length,
+        ),
+      );
 
       // 1:1 only: replay decay + the realism eval inline here (groups replay
       // via the per-speaker dance inside _generateResponse).
