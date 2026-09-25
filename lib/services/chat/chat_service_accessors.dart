@@ -361,11 +361,22 @@ extension ChatServiceAccessors on ChatService {
       _expressionService.setExpressionClassifierService(service);
 
   /// Returns a stable ID string for a character card.
-  /// Group members use [groupMemberStoreId] (UUID-first). 1:1 stays
-  /// on [CharacterCard.stableGroupId] (library identity).
+  /// Roster members use [groupMemberStoreId] (UUID-first). A library
+  /// card looked up during a group (cast collapse origin, 1:1 host)
+  /// stays on [CharacterCard.stableGroupId].
   String _getCharacterIdFromCard(CharacterCard card) {
-    if (_activeGroup != null) return groupMemberStoreId(card);
+    if (_activeGroup != null && _isGroupRosterCard(card)) {
+      return groupMemberStoreId(card);
+    }
     return card.stableGroupId;
+  }
+
+  bool _isGroupRosterCard(CharacterCard card) {
+    for (final c in _groupCharacters) {
+      if (identical(c, card)) return true;
+      if (card.dbId != null && card.dbId == c.dbId) return true;
+    }
+    return false;
   }
 
   String _getCharacterId() {
