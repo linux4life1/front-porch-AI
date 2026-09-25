@@ -43,7 +43,13 @@ void main() {
     final live = DateTime.utc(2026, 6, 30, 16, 0);
     backfillSlotClocks(messages, liveClock: live);
     expect(slotClockAfter(messages.last.activeMetadata), live);
-    expect(slotClockAfter(messages.first.activeMetadata), live);
+    expect(
+      slotClockAfter(messages.first.activeMetadata),
+      isNull,
+      reason:
+          'Carmen greeting is history with nothing stored; history never '
+          'takes live',
+    );
   });
 
   test('dayCount-only sibling swipe keeps live Day 12', () {
@@ -98,7 +104,8 @@ void main() {
     final start = DateTime.utc(2026, 6, 28);
     backfillSlotClocks([bea, ana], liveClock: live, startDate: start);
     expect(slotClockAfter(ana.metadata), DateTime.utc(2026, 7, 6, 14, 30));
-    expect(slotClockAfter(bea.metadata), DateTime.utc(2026, 7, 6, 14, 30));
+    // Bea: start 2026-06-28 + dayCount 40 = 2026-08-06, own TOD evening 18:30.
+    expect(slotClockAfter(bea.metadata), DateTime.utc(2026, 8, 6, 18, 30));
   });
 
   test('unstamped tip takes the live clock, never a Day 1 floor', () {
@@ -135,6 +142,9 @@ void main() {
   });
 
   test('dayCount-derived pair refreshes when start moves', () {
+    // Fixture: lone story_day 5, no TOD — the tip, no neighbour. Day
+    // comes from the slot; TOD comes from live (22:30). History with
+    // no neighbour would be 09:00; a neighbour stamp would donate TOD.
     final msg = _bot('Day five.', {'story_day': 5});
     final live = DateTime.utc(2026, 9, 25, 22, 30);
     backfillSlotClocks(
@@ -142,13 +152,21 @@ void main() {
       liveClock: live,
       startDate: DateTime.utc(2026, 9, 1),
     );
-    expect(slotClockAfter(msg.metadata), DateTime.utc(2026, 9, 5, 22, 30));
+    expect(
+      slotClockAfter(msg.metadata),
+      DateTime.utc(2026, 9, 5, 22, 30),
+      reason: 'tip, no neighbour: Day 5 at live TOD 22:30',
+    );
     backfillSlotClocks(
       [msg],
       liveClock: live,
       startDate: DateTime.utc(2026, 6, 1),
     );
-    expect(slotClockAfter(msg.metadata), DateTime.utc(2026, 6, 5, 22, 30));
+    expect(
+      slotClockAfter(msg.metadata),
+      DateTime.utc(2026, 6, 5, 22, 30),
+      reason: 'start move refreshes the date; live TOD stays',
+    );
   });
 
   test('v1.4 before + later snap fills after from the snap', () {
