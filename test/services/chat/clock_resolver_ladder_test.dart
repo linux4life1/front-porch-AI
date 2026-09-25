@@ -189,6 +189,17 @@ final _rows = <_Row>[
     read: 1,
     expected: _day3Before,
   ),
+  _Row(
+    name: 'clamp rung 1 own after earlier than own before -> own before',
+    build: () => [
+      _bot('rewound.', {
+        'story_clock_before': _d1_1600,
+        'story_clock_after': _d1_0900,
+      }),
+    ],
+    read: 0,
+    expected: _at1600,
+  ),
 ];
 
 void main() {
