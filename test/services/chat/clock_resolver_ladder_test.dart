@@ -119,14 +119,17 @@ final _rows = <_Row>[
     read: 0,
     expected: _at0930,
   ),
+  // Frozen snap is skipped (rung 3). The tip then takes max(live,
+  // own before). Live is later, so the hit is live — not 09:00 and
+  // not the 16:00 before.
   _Row(
-    name: 'rung 3 frozen skip -> own before',
+    name: 'rung 3 frozen skip then tip max(live, own before) -> live',
     build: () => [
       _bot('greet.', _snap(_d1_0900)),
       _bot('later.', _snap(_d1_0900, before: _d1_1600)),
     ],
     read: 1,
-    expected: _at1600,
+    expected: _live,
   ),
   _Row(
     name: 'rung 3 snap later than before wins',
@@ -165,20 +168,25 @@ final _rows = <_Row>[
     expected: _day5Morning,
     start: _sept1,
   ),
+  // A lone before-only bot is the greeting (rung 8), not a tip.
+  // The tip-max rows keep a stamp-less greeting so the read slot
+  // is a real tip.
   _Row(
     name: 'tip max(live, own before) live later -> live',
     build: () => [
+      _bot('greet.', {}),
       _bot('before only.', {'story_clock_before': _d1_1600}),
     ],
-    read: 0,
+    read: 1,
     expected: _live,
   ),
   _Row(
     name: 'tip max(live, own before) live earlier -> own before',
     build: () => [
+      _bot('greet.', {}),
       _bot('before only.', {'story_clock_before': _d1_1600}),
     ],
-    read: 0,
+    read: 1,
     expected: _at1600,
     live: _liveDay1,
   ),
@@ -216,10 +224,10 @@ final _rows = <_Row>[
     live: _liveDay1,
   ),
   _Row(
-    name: 'rung 6 tip live',
-    build: () => [_bot('empty tip.', {})],
+    name: 'rung 8 greeting nothing -> Day 1 start',
+    build: () => [_bot('empty greet.', {})],
     read: 0,
-    expected: _live,
+    expected: DateTime.utc(2026, 6, 28, 9, 0),
   ),
   _Row(
     name: 'rung 6 tip live above neighbour',
@@ -245,10 +253,16 @@ final _rows = <_Row>[
     read: 0,
     expected: DateTime.utc(2026, 6, 28, 9, 0),
   ),
+  // Pos 0 empty is a greeting (Day 1), not history. History-null
+  // needs a non-greeting empty slot with no directional neighbour.
   _Row(
-    name: 'rung 8 history nothing -> null',
-    build: () => [_bot('empty history.', {}), _bot('empty tip.', {})],
-    read: 0,
+    name: 'rung 9 history nothing -> null',
+    build: () => [
+      _user('nothing.'),
+      _bot('empty history.', {}),
+      _bot('empty tip.', {}),
+    ],
+    read: 1,
     expected: null,
   ),
   _Row(
