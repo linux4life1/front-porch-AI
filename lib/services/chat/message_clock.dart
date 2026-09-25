@@ -302,10 +302,11 @@ bool backfillSlotClocks(
         return false;
       }
     }
-    // Writer pairs (named reconcile included) are not guesses.
-    // Collapsing 07:30/08:00 to 08:00/08:00 discards fiction (K-A).
-    if (slotIsWriterPair(slot)) return false;
     if (!slotPairIsInverted(slot)) return false;
+    // Legacy stored invert only. Lift after to before so the pair
+    // matches the read clamp (16:00/09:00 → 16:00/16:00, named
+    // 08:00/07:30 → 08:00/08:00). Live _writeSlotClock still keeps
+    // the after (named 07:30 stays 07:30/07:30).
     final before = slotClockBefore(slot)!;
     writeSlotClockPair(dest, before: before, after: before);
     persistStoryClockBefore(msg, StoryClock.serializeClock(before));
@@ -327,11 +328,8 @@ bool backfillSlotClocks(
       if (_shouldRepairWrongGreetingPair(slot, greetingClock: openingSnap)) {
         final snap = slotSnapClock(slot)!;
         final dest = existing ?? msg.metadata!;
-        writeSlotClockPair(
-          dest,
-          before: slotClockBefore(slot) ?? snap,
-          after: snap,
-        );
+        // Neighbour before (20:00) is not the greeting. Snap is.
+        writeSlotClockPair(dest, before: snap, after: snap);
         persistStoryClockBefore(msg, StoryClock.serializeClock(snap));
         changed = true;
         continue;
@@ -391,11 +389,7 @@ bool backfillSlotClocks(
       final meta = msg.metadata!;
       if (_shouldRepairWrongGreetingPair(meta, greetingClock: openingSnap)) {
         final snap = slotSnapClock(meta)!;
-        writeSlotClockPair(
-          meta,
-          before: slotClockBefore(meta) ?? snap,
-          after: snap,
-        );
+        writeSlotClockPair(meta, before: snap, after: snap);
         persistStoryClockBefore(msg, StoryClock.serializeClock(snap));
         changed = true;
         continue;

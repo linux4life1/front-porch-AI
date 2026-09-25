@@ -24,8 +24,8 @@ bool slotHasCompletePair(Map<String, dynamic>? slot) =>
     slotClockBefore(slot) != null && slotClockAfter(slot) != null;
 
 /// Tick / nudge / skip / seed wrote this pair. Guessed backfill
-/// pairs never set these. Inverted-pair repair skips them; the
-/// resolver clamp does not.
+/// pairs never set these. Legacy inverted repair lifts after to
+/// before (same as the read clamp). Live writes keep the after.
 bool slotIsWriterPair(Map<String, dynamic>? slot) {
   if (slot == null) return false;
   if (slot['clock_from_writer'] == true) return true;
