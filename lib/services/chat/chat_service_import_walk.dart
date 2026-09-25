@@ -150,14 +150,19 @@ extension ChatServiceImportWalk on ChatService {
 
   /// Walk backward for stamps; stamp-less rewinds scalars (1:1 card / group
   /// per-member seeds) while keeping feature toggles.
-  Future<void> _restoreRealismStateWalkingBack({required int fromIndex}) async {
+  Future<void> _restoreRealismStateWalkingBack({
+    required int fromIndex,
+    bool seedClockIfUnstamped = true,
+  }) async {
     _cancelIdleTimer();
 
     if (_messages.isEmpty) {
       if (_activeGroup != null) {
         await _restoreGroupRealismWalkingBack(0);
       } else {
-        await _rewindScalarsFromCardKeepingToggles(seedClock: true);
+        await _rewindScalarsFromCardKeepingToggles(
+          seedClock: seedClockIfUnstamped,
+        );
       }
       return;
     }
@@ -189,7 +194,9 @@ extension ChatServiceImportWalk on ChatService {
         '[Realism] No stamp in prefix (index ≤ $fromIndex) — rewind scalars '
         'from card, keep feature toggles',
       );
-      await _rewindScalarsFromCardKeepingToggles(seedClock: true);
+      await _rewindScalarsFromCardKeepingToggles(
+        seedClock: seedClockIfUnstamped,
+      );
     }
     _syncLoadedSlotClocks();
   }

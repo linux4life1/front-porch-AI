@@ -179,7 +179,10 @@ extension ChatServiceSessionFork on ChatService {
     // (legacy/ST): rewind bond/emotion/arousal from the card but keep
     // per-chat feature toggles and fork lineage.
     if (_messages.isNotEmpty) {
-      await _restoreRealismStateWalkingBack(fromIndex: _messages.length - 1);
+      await _restoreRealismStateWalkingBack(
+        fromIndex: _messages.length - 1,
+        seedClockIfUnstamped: false,
+      );
       _applyForkPointClock();
     }
 
