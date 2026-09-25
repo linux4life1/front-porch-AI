@@ -289,6 +289,19 @@ extension ChatServiceGenerationPostGen on ChatService {
       'mode=${t.mode.name} abort=$_postGenAbortRequested',
     );
     if (t.mode == GenerationMode.continue_) {
+      // Continue does not add minutes. A named time in the new
+      // text still stamps the slot — live-only leave swipe/load
+      // on the old pair (C1 / K-A).
+      if (_clockRunning) {
+        final named = clockNamedInReply(
+          t.streamTarget.text,
+          _timeService.clock,
+        );
+        if (named != null) {
+          await _timeService.applyReconciledClock(named);
+          _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.tick);
+        }
+      }
       debugPrint(
         '[Clock] return reason=continue source=${_timeService.clockGateSource}',
       );

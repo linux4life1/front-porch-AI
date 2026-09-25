@@ -233,6 +233,7 @@ extension ChatServiceMessageClock on ChatService {
   /// snap is not a pre-reply — first regen must rewind to the slot's
   /// real before (or live) and add only the new swipe's minutes.
   void _discoverAndPersistMessageBefore(ChatMessage msg) {
+    if (!_clockRunning) return;
     var before = knownStoryClockBefore(msg);
     final slot = msg.activeMetadata;
     final snap = slotSnapClock(slot);

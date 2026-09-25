@@ -379,7 +379,7 @@ extension ChatServiceRegenRevert on ChatService {
       if (newMetadata != null) {
         lastMsg.swipeMetadata[newSwipeIndex] = newMetadata;
       }
-      _discoverAndPersistMessageBefore(lastMsg);
+      if (_clockRunning) _discoverAndPersistMessageBefore(lastMsg);
       _messages.add(lastMsg);
       // Host messages restore the active character's Realism/Needs from the
       // accepted swipe (in groups: the speaker's own _groupRealism entry).

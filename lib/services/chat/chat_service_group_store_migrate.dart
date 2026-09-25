@@ -57,10 +57,19 @@ extension ChatServiceGroupStoreMigrate on ChatService {
     try {
       for (final member in members) {
         final dest = groupMemberStoreId(member);
-        final legacy = member.stableGroupId;
-        if (dest == legacy) continue;
-        await _db.rekeySessionMemoryCharacterId(legacy, dest, sessionId: sid);
-        moved = true;
+        final fromIds = <String>{member.stableGroupId};
+        // Avatar-less members were also keyed by display name
+        // (embeddings especially). Re-key those rows too.
+        final path = member.imagePath;
+        if (path == null || path.isEmpty) {
+          fromIds.add(member.name);
+          fromIds.add(stableGroupIdFrom(null, member.name));
+        }
+        for (final legacy in fromIds) {
+          if (dest == legacy || legacy.isEmpty) continue;
+          await _db.rekeySessionMemoryCharacterId(legacy, dest, sessionId: sid);
+          moved = true;
+        }
       }
     } catch (e) {
       debugPrint('[GroupStore] Failed to rekey journal/growth rows: $e');

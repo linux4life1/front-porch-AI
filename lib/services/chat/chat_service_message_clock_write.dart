@@ -22,7 +22,12 @@ extension ChatServiceMessageClockWrite on ChatService {
         return;
       }
       final clock = _timeService.clock;
-      writeSlotClockPair(_clockWriteSlot(target), before: clock, after: clock);
+      writeSlotClockPair(
+        _clockWriteSlot(target),
+        before: clock,
+        after: clock,
+        fromWriter: true,
+      );
       persistStoryClockBefore(target, StoryClock.serializeClock(clock));
       _applyTipClock();
       return;
@@ -36,6 +41,7 @@ extension ChatServiceMessageClockWrite on ChatService {
         _clockWriteSlot(target),
         before: storedBefore,
         after: resolved,
+        fromWriter: true,
       );
       persistStoryClockBefore(target, StoryClock.serializeClock(storedBefore));
       _applyTipClock();
@@ -51,7 +57,7 @@ extension ChatServiceMessageClockWrite on ChatService {
     }
 
     final known = StoryClock.parse(knownStoryClockBefore(target));
-    final slotBefore = switch (kind) {
+    var slotBefore = switch (kind) {
       _SlotClockWrite.nudge => _timeService.clock,
       _ => known ?? _timeService.clock,
     };
@@ -59,6 +65,13 @@ extension ChatServiceMessageClockWrite on ChatService {
       _SlotClockWrite.abort => slotBefore,
       _ => _timeService.clock,
     };
+    // Named reconcile can land earlier than the turn's before
+    // (08:00 tip, "7:30 a.m."). Fiction wins: overwrite the slot
+    // before so the pair is never inverted. Message-level before
+    // stays on persistStoryClockBefore (putIfAbsent) for regen rewind.
+    if (kind == _SlotClockWrite.tick && slotAfter.isBefore(slotBefore)) {
+      slotBefore = slotAfter;
+    }
 
     String? chip;
     var clearChip = false;
@@ -92,6 +105,7 @@ extension ChatServiceMessageClockWrite on ChatService {
       timePassed: chip,
       clearChip: clearChip,
       timeNudged: kind == _SlotClockWrite.nudge,
+      fromWriter: true,
     );
     if (kind == _SlotClockWrite.nudge && _pendingNudgeBefore != null) {
       final from = StoryClock.serializeClock(_pendingNudgeBefore!);
@@ -109,6 +123,7 @@ extension ChatServiceMessageClockWrite on ChatService {
         before: slotBefore,
         after: slotAfter,
         timeNudged: true,
+        fromWriter: true,
       );
     }
     _applyTipClock();

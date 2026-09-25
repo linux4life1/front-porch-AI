@@ -47,6 +47,7 @@ void writeSlotClockPair(
   bool clearChip = false,
   bool timeNudged = false,
   bool fromDayCount = false,
+  bool fromWriter = false,
 }) {
   slot['story_clock_before'] = StoryClock.serializeClock(before);
   slot['story_clock_after'] = StoryClock.serializeClock(after);
@@ -60,6 +61,11 @@ void writeSlotClockPair(
     slot['clock_from_day_count'] = true;
   } else {
     slot.remove('clock_from_day_count');
+  }
+  if (fromWriter) {
+    slot['clock_from_writer'] = true;
+  } else {
+    slot.remove('clock_from_writer');
   }
 }
 
@@ -298,6 +304,9 @@ bool backfillSlotClocks(
         return false;
       }
     }
+    // Writer pairs (named reconcile included) are not guesses.
+    // Collapsing 07:30/08:00 to 08:00/08:00 discards fiction (K-A).
+    if (slotIsWriterPair(slot)) return false;
     if (!slotPairIsInverted(slot)) return false;
     final before = slotClockBefore(slot)!;
     writeSlotClockPair(dest, before: before, after: before);
