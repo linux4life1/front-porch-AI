@@ -328,9 +328,14 @@ bool backfillSlotClocks(
       if (_shouldRepairWrongGreetingPair(slot, greetingClock: openingSnap)) {
         final snap = slotSnapClock(slot)!;
         final dest = existing ?? msg.metadata!;
-        // Neighbour before (20:00) is not the greeting. Snap is.
-        writeSlotClockPair(dest, before: snap, after: snap);
-        persistStoryClockBefore(msg, StoryClock.serializeClock(snap));
+        final keptBefore = slotClockBefore(slot);
+        // Neighbour after yields to the snap (B1). A neighbour
+        // before later than the snap is not greeting data.
+        final pairBefore = (keptBefore != null && !keptBefore.isAfter(snap))
+            ? keptBefore
+            : snap;
+        writeSlotClockPair(dest, before: pairBefore, after: snap);
+        persistStoryClockBefore(msg, StoryClock.serializeClock(pairBefore));
         changed = true;
         continue;
       }
@@ -389,8 +394,12 @@ bool backfillSlotClocks(
       final meta = msg.metadata!;
       if (_shouldRepairWrongGreetingPair(meta, greetingClock: openingSnap)) {
         final snap = slotSnapClock(meta)!;
-        writeSlotClockPair(meta, before: snap, after: snap);
-        persistStoryClockBefore(msg, StoryClock.serializeClock(snap));
+        final keptBefore = slotClockBefore(meta);
+        final pairBefore = (keptBefore != null && !keptBefore.isAfter(snap))
+            ? keptBefore
+            : snap;
+        writeSlotClockPair(meta, before: pairBefore, after: snap);
+        persistStoryClockBefore(msg, StoryClock.serializeClock(pairBefore));
         changed = true;
         continue;
       }
