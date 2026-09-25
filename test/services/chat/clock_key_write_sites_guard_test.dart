@@ -4,8 +4,11 @@
 // Direct writes of story_clock_before / story_clock_after: index
 // assignment, putIfAbsent, remove, or a key-constant equivalent.
 // Allowlist: writeSlotClockPair, persistStoryClockBefore, and
-// clock_shift.dart (calendar re-anchor). Reads, comments, and
-// strings that are not writes are ignored.
+// clock_shift.dart (calendar re-anchor). A mutation on a local
+// declared from Map.from / Map.of / a map literal is a read-only
+// copy, not a persist. Aliases of metadata / activeMetadata / a
+// message field still count. Reads, comments, and strings that
+// are not writes are ignored.
 
 import 'dart:io';
 
@@ -93,7 +96,7 @@ _KeyScan _scanClockKeyWrites(String source, {required String file}) {
   var brace = 0;
   String? pendingFn;
   var pendingParen = 0;
-  final stack = <({String name, int bodyDepth})>[];
+  final stack = <({String name, int bodyDepth, Set<String> copies})>[];
 
   String enclosing() =>
       stack.isEmpty ? '<top>' : stack.map((f) => f.name).join('>');
@@ -177,7 +180,112 @@ _KeyScan _scanClockKeyWrites(String source, {required String file}) {
     return false;
   }
 
-  void recordWrite(String key, String op, int atLine) {
+  bool isCopyLocal(String? name) {
+    if (name == null) return false;
+    if (name == 'metadata' || name == 'activeMetadata') return false;
+    return stack.isNotEmpty && stack.last.copies.contains(name);
+  }
+
+  bool rhsIsCopy(int rhsStart) {
+    var j = skipWsForward(rhsStart);
+    if (j >= source.length) return false;
+    if (source[j] == '{') return true;
+    final head = identAt(j);
+    if (head != 'Map') return false;
+    j += 3;
+    j = skipWsForward(j);
+    if (j < source.length && source[j] == '<') {
+      var depth = 0;
+      while (j < source.length) {
+        if (source[j] == '<') depth++;
+        if (source[j] == '>') {
+          depth--;
+          if (depth == 0) {
+            j++;
+            break;
+          }
+        }
+        j++;
+      }
+      j = skipWsForward(j);
+    }
+    if (j >= source.length || source[j] != '.') return false;
+    j = skipWsForward(j + 1);
+    final ctor = identAt(j);
+    return ctor == 'from' || ctor == 'of';
+  }
+
+  void tryBindLocal(int afterKeyword) {
+    if (stack.isEmpty) return;
+    var j = afterKeyword;
+    String? lastIdent;
+    var angle = 0;
+    var paren = 0;
+    while (j < source.length) {
+      final c = source[j];
+      if (c == '\n' || c == ';' || (c == '{' && angle == 0 && paren == 0)) {
+        return;
+      }
+      if (c == '<') angle++;
+      if (c == '>') angle--;
+      if (c == '(') paren++;
+      if (c == ')') paren--;
+      if (angle == 0 &&
+          paren == 0 &&
+          c == '=' &&
+          (j + 1 >= source.length || source[j + 1] != '=')) {
+        if (lastIdent != null && rhsIsCopy(j + 1)) {
+          stack.last.copies.add(lastIdent);
+        }
+        return;
+      }
+      if (angle == 0 && paren == 0 && _isIdentStart(source.codeUnitAt(j))) {
+        lastIdent = identAt(j);
+        j += lastIdent!.length;
+        continue;
+      }
+      j++;
+    }
+  }
+
+  String? receiverBeforeCall(int openParen) {
+    var j = skipWsBack(openParen - 1);
+    if (j < 0 || !_isIdent(source.codeUnitAt(j))) return null;
+    while (j > 0 && _isIdent(source.codeUnitAt(j - 1))) {
+      j--;
+    }
+    j = skipWsBack(j - 1);
+    if (j >= 0 && source[j] == '!') j = skipWsBack(j - 1);
+    if (j >= 1 && source[j] == '.' && source[j - 1] == '?') {
+      j = skipWsBack(j - 2);
+    } else if (j >= 0 && source[j] == '.') {
+      j = skipWsBack(j - 1);
+    } else {
+      return null;
+    }
+    if (j >= 0 && source[j] == '!') j = skipWsBack(j - 1);
+    if (j >= 0 && !_isIdent(source.codeUnitAt(j))) return null;
+    var s = j;
+    while (s > 0 && _isIdent(source.codeUnitAt(s - 1))) {
+      s--;
+    }
+    return identAt(s);
+  }
+
+  String? receiverBeforeIndex(int bracket) {
+    var j = skipWsBack(bracket - 1);
+    if (j >= 0 && source[j] == '!') j = skipWsBack(j - 1);
+    if (j >= 0 && source[j] == '?') j = skipWsBack(j - 1);
+    if (j < 0 || !_isIdent(source.codeUnitAt(j))) return null;
+    var s = j;
+    while (s > 0 && _isIdent(source.codeUnitAt(s - 1))) {
+      s--;
+    }
+    return identAt(s);
+  }
+
+  void recordWrite(String key, String op, int atLine, {String? receiver}) {
+    if (isCopyLocal(receiver)) return;
     writes.add(
       _Hit(file: file, line: atLine, enclosing: enclosing(), key: key, op: op),
     );
@@ -246,7 +354,7 @@ _KeyScan _scanClockKeyWrites(String source, {required String file}) {
     if (before >= 0 && source[before] == '(') {
       final call = prevIdent(before);
       if (call == 'remove' || call == 'putIfAbsent') {
-        recordWrite(key, call!, line);
+        recordWrite(key, call!, line, receiver: receiverBeforeCall(before));
         return;
       }
     }
@@ -257,7 +365,12 @@ _KeyScan _scanClockKeyWrites(String source, {required String file}) {
         if (k < source.length &&
             source[k] == '=' &&
             (k + 1 >= source.length || source[k + 1] != '=')) {
-          recordWrite(key, 'assign', line);
+          recordWrite(
+            key,
+            'assign',
+            line,
+            receiver: receiverBeforeIndex(before),
+          );
           return;
         }
       }
@@ -275,7 +388,7 @@ _KeyScan _scanClockKeyWrites(String source, {required String file}) {
     if (before >= 0 && source[before] == '(') {
       final call = prevIdent(before);
       if (call == 'remove' || call == 'putIfAbsent') {
-        recordWrite(key, call!, line);
+        recordWrite(key, call!, line, receiver: receiverBeforeCall(before));
         return;
       }
     }
@@ -286,7 +399,12 @@ _KeyScan _scanClockKeyWrites(String source, {required String file}) {
         if (k < source.length &&
             source[k] == '=' &&
             (k + 1 >= source.length || source[k + 1] != '=')) {
-          recordWrite(key, 'assign', line);
+          recordWrite(
+            key,
+            'assign',
+            line,
+            receiver: receiverBeforeIndex(before),
+          );
         }
       }
     }
@@ -345,6 +463,12 @@ _KeyScan _scanClockKeyWrites(String source, {required String file}) {
           name != 'Function' &&
           (pendingFn == null || pendingParen <= 0) &&
           isDecl(name, nameStart);
+      if (name == 'final' ||
+          name == 'var' ||
+          name == 'late' ||
+          name == 'const') {
+        tryBindLocal(i + name.length);
+      }
       if (decl) {
         pendingFn = name;
         pendingParen = 0;
@@ -377,7 +501,7 @@ _KeyScan _scanClockKeyWrites(String source, {required String file}) {
       brace++;
       final opened = pendingFn;
       if (opened != null && pendingParen <= 0) {
-        stack.add((name: opened, bodyDepth: brace));
+        stack.add((name: opened, bodyDepth: brace, copies: <String>{}));
         pendingFn = null;
       }
       i++;
@@ -447,6 +571,61 @@ void _stampOpeningClockPair() {
         '_stampOpeningClockPair remove story_clock_before',
       ],
     );
+  });
+
+  test('scanner self-test: local-copy remove is allowed', () {
+    const src = '''
+void _resolveVisibleAfter() {
+  final copy = Map<String, dynamic>.from(slot!);
+  copy.remove('story_clock_after');
+  copy.remove('story_clock_before');
+}
+void clockSlotForResolve() {
+  final copy = Map.of(active!);
+  copy.remove('story_clock_after');
+}
+void spread() {
+  final copy = {...slot};
+  copy.remove('story_clock_before');
+}
+''';
+    final scan = _scanClockKeyWrites(
+      src,
+      file: 'lib/services/chat/random.dart',
+    );
+    expect(scan.offenders, isEmpty);
+    expect(scan.writes, isEmpty);
+  });
+
+  test('scanner self-test: remove on msg.metadata is flagged', () {
+    const src = '''
+void _bad() {
+  msg.metadata!.remove('story_clock_after');
+}
+''';
+    final scan = _scanClockKeyWrites(
+      src,
+      file: 'lib/services/chat/random.dart',
+    );
+    expect(scan.offenders, hasLength(1));
+    expect(scan.offenders.single.enclosing, '_bad');
+    expect(scan.offenders.single.op, 'remove');
+  });
+
+  test('scanner self-test: alias of metadata is flagged', () {
+    const src = '''
+void _bad() {
+  final m = msg.metadata;
+  m.remove('story_clock_after');
+}
+''';
+    final scan = _scanClockKeyWrites(
+      src,
+      file: 'lib/services/chat/random.dart',
+    );
+    expect(scan.offenders, hasLength(1));
+    expect(scan.offenders.single.enclosing, '_bad');
+    expect(scan.offenders.single.key, 'story_clock_after');
   });
 
   test('scanner self-test: clock_shift writes are allowed', () {
