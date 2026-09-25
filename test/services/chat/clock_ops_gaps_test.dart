@@ -84,7 +84,6 @@ class _ScriptedLlm extends LLMService {
         return;
       }
       if (throwOnMinutes) {
-        throwOnMinutes = false;
         throw Exception('gaps midnight eval throw');
       }
       yield '{"minutes_elapsed": $nextMinutes, "new_day": false}';
