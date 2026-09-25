@@ -138,6 +138,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     this.tokensPerSecond = 0.0,
     this.prefillElapsedSeconds = 0.0,
     this.prefillPromptTokens = 0,
+    this.prefillMetricsAreMeasured = true,
     this.lastPerfData,
     // Realism-processing overlay surface.
     this.isVerifyingRealism = false,
@@ -325,6 +326,8 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   final double prefillElapsedSeconds;
   @override
   final int prefillPromptTokens;
+  @override
+  final bool prefillMetricsAreMeasured;
   @override
   final Map<String, dynamic>? lastPerfData;
 
