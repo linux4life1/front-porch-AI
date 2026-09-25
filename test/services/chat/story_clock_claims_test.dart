@@ -60,10 +60,7 @@ void main() {
         clockNamedInReply('stay until 6am if you have to', eightOhFive),
         isNull,
       );
-      expect(
-        clockNamedInReply('be there by 6:00 AM', eightOhFive),
-        isNull,
-      );
+      expect(clockNamedInReply('be there by 6:00 AM', eightOhFive), isNull);
     });
 
     test('a 2pm scene saying midnight is too far to trust', () {
@@ -90,6 +87,28 @@ void main() {
           eightOhFive,
         ),
         DateTime.utc(2026, 8, 14, 6, 15),
+      );
+    });
+
+    test('it is / it\'s / it\u2019s all name a present 7:15', () {
+      final fivePm = DateTime.utc(2026, 8, 14, 17, 0);
+      final sevenFifteen = DateTime.utc(2026, 8, 14, 19, 15);
+      expect(clockNamedInReply("It's 7:15 pm", fivePm), sevenFifteen);
+      expect(clockNamedInReply('It\u2019s 7:15 pm', fivePm), sevenFifteen);
+      expect(
+        clockNamedInReply("it's seven in the evening", fivePm),
+        DateTime.utc(2026, 8, 14, 19, 0),
+      );
+      expect(clockNamedInReply('It is 7:15 p.m.', fivePm), sevenFifteen);
+    });
+
+    test('a possessive \'s hour is still a schedule, not the present', () {
+      expect(
+        clockNamedInReply(
+          "Bob's 7:15 pm train",
+          DateTime.utc(2026, 8, 14, 17, 0),
+        ),
+        isNull,
       );
     });
   });
