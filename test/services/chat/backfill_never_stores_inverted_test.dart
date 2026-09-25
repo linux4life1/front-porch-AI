@@ -496,6 +496,10 @@ void main() {
   test(
     'guess-write lifts after to a later stored before (Day 2, not the tip)',
     () {
+      // No boot — clear the prior test's handles so tearDown
+      // does not dispose an already-disposed ChatService.
+      chat = null;
+      db = null;
       // One pass, swipe slot distinct from metadata. Sharing the
       // map lets the metadata-loop repairInvertedPair hide a
       // guess-write invert on the same call.
