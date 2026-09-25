@@ -314,12 +314,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     // before+chip, else snap, else before. Unstamped Carmen tip
     // keeps the live clock.
     if (restoreClock) {
-      _timeService.applySlotClock(
-        after: meta?['story_clock_after'] as String?,
-        before: knownStoryClockBefore(msg),
-        minutes: minutesRecordedForClockRewind(meta),
-        snap: state,
-      );
+      _applyResolvedImportClock(msg);
     }
 
     if (state == null) {

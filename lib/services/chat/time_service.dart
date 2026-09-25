@@ -21,7 +21,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/body_clock.dart';
-import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/skip_language.dart';
@@ -93,18 +92,18 @@ part 'time_service_load.dart';
 ///    (`sessions.story_clock` / `story_start_date` / `passage_of_time_enabled`),
 ///    written and read unconditionally, engine or no engine.
 ///    `realism_state.storyClock` is a last-resort swipe/fork fallback
-///    when a slot has no `story_clock_after` and no chip minutes (v1.4).
-///    Regen and delete never read that snap.
+///    when a slot has no `story_clock_after` and no chip minutes, and
+///    the snap is not the greeting freeze. Regen and delete never
+///    read that snap. dayCount-only snaps are not a clock.
 ///
 /// Passage of Time is the single clock driver. The leftover
 /// `standaloneClockEnabled` pref is still readable for old PWAs but no
 /// longer gates the decide.
 ///
-/// Regen/swipe rewind from the message-level `story_clock_before`
+/// Regen rewinds from the message-level `story_clock_before`
 /// (shared by every swipe). Each slot stores `story_clock_after`.
-/// Swipe/fork apply after, else before+chip, else the slot snap, else
-/// before. Then the post-reply eval decides again — engine-on,
-/// time-only, and Scene Guest share that receipt.
+/// Swipe/fork use [resolveSlotClock]: after, else before+chip, else a
+/// non-frozen snap storyClock, else keep live. Never before+0.
 ///
 /// The OOC time-skip path ([detectOocTimeSkip]) is pure regex and stands on
 /// its own — but it is a narrow fast path over enumerated phrasings and does
@@ -308,44 +307,10 @@ class TimeService {
 
   void rewindToBeforeIso(String? beforeIso) => _rewindToBeforeIso(beforeIso);
 
-  void applySlotClock({
-    String? after,
-    String? before,
-    int? minutes,
-    Map<String, dynamic>? snap,
-  }) => _applySlotClock(
-    after: after,
-    before: before,
-    minutes: minutes,
-    snap: snap,
-  );
-
-  void applySelectedSlotClock({
-    String? after,
-    String? before,
-    int? minutes,
-    Map<String, dynamic>? snap,
-  }) => applySlotClock(
-    after: after,
-    before: before,
-    minutes: minutes,
-    snap: snap,
-  );
-
-  void restoreImportedClock({
-    String? after,
-    String? before,
-    int? minutes,
-    Map<String, dynamic>? snap,
-  }) => applySlotClock(
-    after: after,
-    before: before,
-    minutes: minutes,
-    snap: snap,
-  );
-
-  void restoreAbortedTick(String? clockBeforeIso) =>
-      _restoreAbortedTick(clockBeforeIso);
+  void applySlotClock({DateTime? resolved, String? after}) {
+    final clock = resolved ?? StoryClock.parse(after);
+    if (clock != null) _setClockPullingStartDate(clock);
+  }
 
   /// Class door for V2 / ext-seed. Callers that only have the [TimeService]
   /// type (tests via `chat.timeService`, goldens) cannot see the load

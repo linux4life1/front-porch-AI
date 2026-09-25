@@ -110,7 +110,6 @@ extension TimeServiceApply on TimeService {
     _clock = _clock.add(anchored.difference(_startDate));
     _startDate = anchored;
     _turnsSinceClockMoved = 0;
-    onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
   }
 
   /// Advance the clock by [count] period-steps (skip LLM eval).

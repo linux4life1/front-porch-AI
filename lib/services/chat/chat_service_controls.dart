@@ -199,13 +199,52 @@ extension ChatServiceControls on ChatService {
     if (!_clockRunning) return;
     final oldStart = _timeService.startDate;
     _timeService.setStartDate(date);
-    shiftMessageClockStamps(
-      _messages,
-      _timeService.startDate.difference(oldStart),
-    );
+    final delta = _timeService.startDate.difference(oldStart);
+    shiftMessageClockStamps(_messages, delta);
+    await _shiftPersistedSessionClockStamps(delta);
     unawaited(_ensureBirthdayState());
     await _saveChat();
     notifyListeners();
+  }
+
+  Future<void> _shiftPersistedSessionClockStamps(Duration delta) async {
+    final sid = _currentSessionId;
+    if (sid == null || delta == Duration.zero) return;
+    final rows = await _db.getMessagesForSession(sid);
+    final seen = Set<Map>.identity();
+    for (final row in rows) {
+      var changed = false;
+      Map<String, dynamic>? meta;
+      if (row.metadata != null) {
+        meta = Map<String, dynamic>.from(
+          jsonDecode(row.metadata!) as Map<String, dynamic>,
+        );
+        if (shiftClockFields(meta, delta, seen)) changed = true;
+      }
+      List<dynamic>? swipes;
+      if (row.swipeMetadata != null) {
+        swipes = [
+          for (final e in jsonDecode(row.swipeMetadata!) as List<dynamic>)
+            e == null
+                ? null
+                : () {
+                    final m = Map<String, dynamic>.from(e as Map);
+                    if (shiftClockFields(m, delta, seen)) changed = true;
+                    return m;
+                  }(),
+        ];
+      }
+      if (!changed) continue;
+      await _db.updateMessage(
+        MessagesCompanion(
+          id: drift.Value(row.id),
+          metadata: drift.Value(meta == null ? null : jsonEncode(meta)),
+          swipeMetadata: drift.Value(
+            swipes == null ? null : jsonEncode(swipes),
+          ),
+        ),
+      );
+    }
   }
 
   // ── Chaos Mode / Chance Time (thin delegation to extracted service) ──────

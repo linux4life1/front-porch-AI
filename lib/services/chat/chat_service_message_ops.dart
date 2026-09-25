@@ -67,7 +67,7 @@ extension ChatServiceMessageOps on ChatService {
         _messages.skip(messageIndex + 1).every(_isGuestAuthoredMessage);
     final isGuestTip = isGuestMsg && messageIndex == _messages.length - 1;
 
-    final previousResolved = _resolvedSlotClock(msg);
+    final previousResolved = _resolveMessageSlot(msg);
     final guestsBelow = isTip && messageIndex < _messages.length - 1;
     msg.swipeIndex = newIndex;
     if (isTip || isGuestTip) {
@@ -345,12 +345,7 @@ extension ChatServiceMessageOps on ChatService {
       if (!deleted.isUser && deleted.sender != 'System') {
         _rewindPocketsForDeletedMessage(deleted, wasTail: wasTail);
         if (wasTail) {
-          final nudged =
-              deleted.activeMetadata?['realism_state'] is Map &&
-              (deleted.activeMetadata!['realism_state']
-                      as Map)['time_nudged'] ==
-                  true;
-          _rewindClockToPreReply(deleted, wasNudged: nudged);
+          _rewindClockToPreReply(deleted, wasNudged: _clockWasNudged(deleted));
         }
       }
 
@@ -474,9 +469,12 @@ extension ChatServiceMessageOps on ChatService {
     // Transient banner only — NEVER a chat message. The old code appended an
     // "evaluation interrupted" line attributed to the character, which then
     // permanently rode chat history, prompts, RAG, and journal windows.
+    final replyKept = _isPostGenerating && !_isEvaluatingRealism;
     _setGuestStatus(
-      'Realism evaluation cancelled — no reply was generated. '
-      'Regenerate (or send again) to retry.',
+      replyKept
+          ? 'Reply kept. Scene time and needs weren\'t updated.'
+          : 'Realism evaluation cancelled — no reply was generated. '
+                'Regenerate (or send again) to retry.',
     );
 
     debugPrint('[Realism] Realism eval cancel requested');

@@ -7,6 +7,7 @@
 // activeMetadata still falls back to message metadata.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 
 /// First known `story_clock_before` on the message or any swipe slot.
@@ -33,35 +34,82 @@ void persistStoryClockBefore(ChatMessage msg, String iso) {
   }
 }
 
-/// Greeting-era snap (Day 1 09:00) on a chat whose live clock has moved on.
-bool snapIsFrozenGreeting(Map<String, dynamic>? snap, DateTime liveClock) {
-  if (snap == null) return false;
-  final clock = StoryClock.parse(snap['storyClock'] as String?);
-  if (clock == null) return false;
-  final start = StoryClock.parse(snap['storyStartDate'] as String?);
-  final anchor = start != null
-      ? StoryClock.dateOnly(start)
-      : StoryClock.dateOnly(clock);
-  final greeting = StoryClock.representativeTime(anchor, 'morning');
-  return clock == greeting && liveClock.isAfter(clock);
+/// One slot-clock resolver. Null means keep the live clock.
+///
+/// 1. `story_clock_after`
+/// 2. else `story_clock_before` + known chip minutes
+/// 3. else snap `storyClock` that is not frozen
+/// 4. else null
+///
+/// A snap is frozen when it equals the session greeting snap, or when it
+/// is earlier than the message's known before. dayCount-only snaps are
+/// never a clock.
+DateTime? resolveSlotClock(
+  Map<String, dynamic>? slot,
+  ChatMessage message, {
+  DateTime? greetingClock,
+}) {
+  final after = StoryClock.parse(slot?['story_clock_after'] as String?);
+  if (after != null) return after;
+
+  final mins = minutesRecordedForClockRewind(slot);
+  final slotBefore = StoryClock.parse(slot?['story_clock_before'] as String?);
+  final before = slotBefore ?? StoryClock.parse(knownStoryClockBefore(message));
+  if (before != null && mins != null && mins > 0) {
+    return before.add(Duration(minutes: mins));
+  }
+
+  final raw = slot?['realism_state'];
+  if (raw is Map) {
+    final snap = StoryClock.parse(raw['storyClock'] as String?);
+    if (snap != null &&
+        !slotSnapIsFrozen(
+          snap,
+          greetingClock: greetingClock,
+          knownBefore: before,
+        )) {
+      return snap;
+    }
+  }
+  return null;
+}
+
+/// Greeting-era snap, or a snap that predates this message's before.
+bool slotSnapIsFrozen(
+  DateTime clock, {
+  DateTime? greetingClock,
+  DateTime? knownBefore,
+}) {
+  if (greetingClock != null && clock == greetingClock) return true;
+  if (knownBefore != null && clock.isBefore(knownBefore)) return true;
+  return false;
 }
 
 /// Slide every clock stamp by [delta] (calendar re-anchor).
+/// Each map (top-level and inner `realism_state`) moves once.
 void shiftMessageClockStamps(List<ChatMessage> messages, Duration delta) {
   if (delta == Duration.zero) return;
+  final seen = Set<Map>.identity();
   for (final msg in messages) {
-    _shiftClockMap(msg.metadata, delta);
+    shiftClockFields(msg.metadata, delta, seen);
     for (final slot in msg.swipeMetadata) {
-      _shiftClockMap(slot, delta);
+      shiftClockFields(slot, delta, seen);
     }
   }
 }
 
-void _shiftClockMap(Map<String, dynamic>? map, Duration delta) {
-  if (map == null) return;
+/// Shift clock keys on [map]. Returns whether anything changed.
+bool shiftClockFields(
+  Map<String, dynamic>? map,
+  Duration delta,
+  Set<Map> seen,
+) {
+  if (map == null || !seen.add(map)) return false;
+  var changed = false;
   String? shift(Object? raw) {
     final t = StoryClock.parse(raw is String ? raw : null);
     if (t == null) return raw is String ? raw : null;
+    changed = true;
     return StoryClock.serializeClock(t.add(delta));
   }
 
@@ -72,7 +120,8 @@ void _shiftClockMap(Map<String, dynamic>? map, Duration delta) {
     map['story_clock_after'] = shift(map['story_clock_after']);
   }
   final rs = map['realism_state'];
-  if (rs is! Map) return;
+  if (rs is! Map) return changed;
+  if (!seen.add(rs)) return changed;
   if (rs['storyClock'] is String) {
     rs['storyClock'] = shift(rs['storyClock']);
   }
@@ -80,6 +129,8 @@ void _shiftClockMap(Map<String, dynamic>? map, Duration delta) {
     final d = StoryClock.parse(rs['storyStartDate'] as String?);
     if (d != null) {
       rs['storyStartDate'] = StoryClock.serializeDate(d.add(delta));
+      changed = true;
     }
   }
+  return changed;
 }

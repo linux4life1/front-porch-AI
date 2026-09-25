@@ -61,29 +61,10 @@ extension ChatServiceWiringRealism on ChatService {
           await _upsertTodayObjective(line);
         }();
       },
-      onPatchLastMessageRealismState: (tod, dc, clockIso) {
-        // Patch the newest REAL message — never a narration banner. Dream /
-        // chance-time messages carry only their banner flag; stamping a full
-        // realism snapshot onto one corrupts it (2026-07-28) and makes a
-        // banner the time authority for swipe/regen restores.
-        for (final lastMsg in _messages.reversed) {
-          if (lastMsg.activeMetadata?['is_dream'] == true ||
-              lastMsg.activeMetadata?['is_chance_time_narration'] == true) {
-            continue;
-          }
-          lastMsg.activeMetadata ??= {};
-          final existingState = lastMsg.activeMetadata!['realism_state'];
-          if (existingState is Map<String, dynamic>) {
-            existingState['timeOfDay'] = tod;
-            existingState['dayCount'] = dc;
-            existingState['storyClock'] = clockIso;
-            existingState['time_nudged'] = true;
-          } else {
-            lastMsg.activeMetadata!['realism_state'] = _captureRealismState();
-            lastMsg.activeMetadata!['realism_state']['time_nudged'] = true;
-          }
-          break;
-        }
+      onPatchLastMessageRealismState: (_, _, _) {
+        // Clock stamps are written only by
+        // _syncActiveSlotClockAfterManualSet. This hook must not
+        // insert a snapshot or mark user messages.
       },
     );
   }

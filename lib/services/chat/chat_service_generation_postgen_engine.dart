@@ -117,11 +117,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         );
       } else {
         await _maybeAdvanceStoryClockAfterReply(t);
-        if (_postGenAbortRequested &&
-            _timeService.storyClockIso != clockBeforeIso) {
-          _timeService.restoreAbortedTick(clockBeforeIso);
-          _discardStampedAfter(t.streamTarget);
-        } else if (!_postGenAbortRequested) {
+        if (_postGenAbortRequested) {
+          _abortVisibleSlotClock(t.streamTarget, clockBeforeIso);
+        } else {
           _wearBodiesAfterClock(t);
         }
       }
@@ -234,7 +232,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // climax just changed. See the helper for the two bugs this
         // prevents (hygiene snap-back; climax erased by the regen merge).
         await _restampRealismSnapshotPostGen(t.streamTarget);
-        if (_clockRunning) _stampFinalClockOnMessage(t.streamTarget);
+        if (_clockRunning && t.mode != GenerationMode.continue_) {
+          _stampFinalClockOnMessage(t.streamTarget);
+        }
 
         if (prePostActiveChar != null) {
           _activeCharacter = prePostActiveChar;
@@ -302,6 +302,8 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           await _saveChat();
           notifyListeners();
         }
+      } else {
+        _abortVisibleSlotClock(t.streamTarget, clockBeforeIso);
       }
     } finally {
       await _closeWorkerLane();

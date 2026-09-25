@@ -151,44 +151,6 @@ extension TimeServiceLoad on TimeService {
     if (before != null) _setClockPullingStartDate(before);
   }
 
-  /// after → before+chip minutes → snap storyClock → before.
-  /// Unknown chip minutes do not count as before+0.
-  void _applySlotClock({
-    String? after,
-    String? before,
-    int? minutes,
-    Map<String, dynamic>? snap,
-  }) {
-    final afterClock = StoryClock.parse(after);
-    if (afterClock != null) {
-      _setClockPullingStartDate(afterClock);
-      return;
-    }
-    final beforeClock = StoryClock.parse(before);
-    final add = (minutes != null && minutes > 0) ? minutes : null;
-    if (beforeClock != null && add != null) {
-      _setClockPullingStartDate(beforeClock.add(Duration(minutes: add)));
-      return;
-    }
-    if (snap != null &&
-        !snapIsFrozenGreeting(snap, _clock) &&
-        (StoryClock.parse(snap['storyClock'] as String?) != null ||
-            snap['dayCount'] is num ||
-            snap['timeOfDay'] is String)) {
-      restoreTimeFromRealismState(snap);
-      return;
-    }
-    if (beforeClock != null) _setClockPullingStartDate(beforeClock);
-  }
-
-  void _restoreAbortedTick(String? clockBeforeIso) {
-    if (_capturedClock != null) {
-      _restoreCapturedClock();
-      return;
-    }
-    _rewindToBeforeIso(clockBeforeIso);
-  }
-
   /// Restore from a realism_state snapshot (message metadata, 1:1<->group
   /// conversion carry). Restores REGARDLESS of passage-of-time — a fixed
   /// scene time is meaningful even with auto-advance off. Prefers the

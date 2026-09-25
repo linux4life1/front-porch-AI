@@ -116,6 +116,7 @@ extension ChatServiceReprocess on ChatService {
     } finally {
       _isPostGenerating = false;
       _clearPostGenAbortFlags();
+      _timeService.restoreCapturedClock(sessionId: _currentSessionId);
       _timeService.clearCapturedClock();
     }
   }
@@ -434,5 +435,6 @@ extension ChatServiceReprocess on ChatService {
       // that dance from running a second time (Continue still LOADs).
       await _generateResponse(GenerationMode.normal, skipSpeakerEval: true);
     }
+    _timeService.clearCapturedClock();
   }
 }

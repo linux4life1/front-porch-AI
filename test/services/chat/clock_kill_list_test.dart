@@ -121,10 +121,19 @@ void main() {
 
   test('K1: before without a chip falls through to the snap, not before+0', () {
     final t = time();
-    t.restoreImportedClock(
-      before: _tenIso,
-      snap: {'storyClock': _tenThirtyIso, 'storyStartDate': '2026-09-25'},
+    final msg = ChatMessage(
+      text: 'Hi.',
+      sender: 'Nia',
+      isUser: false,
+      metadata: {
+        'story_clock_before': _tenIso,
+        'realism_state': {
+          'storyClock': _tenThirtyIso,
+          'storyStartDate': '2026-09-25',
+        },
+      },
     );
+    t.applySlotClock(resolved: resolveSlotClock(msg.metadata, msg));
     expect(
       t.clock,
       DateTime.utc(2026, 9, 25, 10, 30),
@@ -389,20 +398,22 @@ void main() {
         llm.nextMinutes = 30;
         await chat!.sendMessage('Hey.');
         await drain();
-        final accepted = chat!.timeService.clock;
+        final last = chat!.messages.lastWhere((m) => !m.isUser);
+        final beforeIso = last.activeMetadata?['story_clock_before'] as String;
         llm.cancelOnMinutes = true;
         await chat!.regenerateLastMessage();
         await drain();
-        expect(chat!.timeService.clock, accepted);
-        final last = chat!.messages.lastWhere((m) => !m.isUser);
-        final after = last.activeMetadata?['story_clock_after'] as String?;
-        if (after != null) {
-          expect(
-            DateTime.parse(after),
-            accepted,
-            reason: 'aborted slot must not keep a stamped after from the tick',
-          );
-        }
+        expect(
+          chat!.timeService.clock,
+          DateTime.parse(beforeIso),
+          reason: 'abort sets the clock to B\'s before, not A\'s after',
+        );
+        expect(last.activeMetadata?['story_clock_after'], beforeIso);
+        expect(last.activeMetadata?['time_passed'], isNull);
+        expect(
+          chat!.guestActivityStatus,
+          contains('Reply kept. Scene time and needs weren\'t updated.'),
+        );
       },
     );
 
@@ -607,8 +618,8 @@ void main() {
       await drain();
       expect(
         chat!.timeService.clock,
-        isNot(DateTime.utc(2026, 6, 28, 9, 0)),
-        reason: 'lived-in Carmen fork must not land on the greeting snap',
+        DateTime.utc(2026, 6, 30, 16, 0),
+        reason: 'lived-in Carmen mid-history fork keeps the live clock',
       );
     });
   });

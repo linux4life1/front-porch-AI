@@ -217,13 +217,10 @@ extension ChatServiceGenerationPostGen on ChatService {
           );
         } else {
           await _maybeAdvanceStoryClockAfterReply(t);
-          if (_postGenAbortRequested &&
-              _timeService.storyClockIso != clockBeforeIso) {
-            _timeService.restoreAbortedTick(clockBeforeIso);
-            _discardStampedAfter(t.streamTarget);
-          } else if (!_postGenAbortRequested) {
+          if (_postGenAbortRequested) {
+            _abortVisibleSlotClock(t.streamTarget, clockBeforeIso);
+          } else {
             _wearBodiesAfterClock(t);
-            _stampFinalClockOnMessage(t.streamTarget);
             _maybeKickDreamPrefetch();
             await _saveChat();
           }
@@ -319,7 +316,7 @@ extension ChatServiceGenerationPostGen on ChatService {
       timeOnly: true,
       skipTodayEval: _isLiteTurn(t),
     );
-    if (_isLiteTurn(t)) {
+    if (_isLiteTurn(t) && _clockRunning) {
       final named = clockNamedInReply(msg.text, _timeService.clock);
       if (named != null) await _timeService.applyReconciledClock(named);
       _stampFinalClockOnMessage(msg);

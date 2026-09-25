@@ -86,31 +86,28 @@ extension ChatServiceImportWalk on ChatService {
     );
 
     // Chat clock AFTER member loop so speaker restore cannot thrash the day.
-    bool hasClock(Map s) =>
-        s['storyClock'] is String ||
-        s['timeOfDay'] is String ||
-        s['dayCount'] is num;
-    ChatMessage? clockStamp;
+    DateTime? resolvedClock;
     int? storyDayOnly;
+    var anyStoryClock = false;
+    for (final m in _messages) {
+      final rs = m.activeMetadata?['realism_state'];
+      if (rs is Map && StoryClock.parse(rs['storyClock'] as String?) != null) {
+        anyStoryClock = true;
+        break;
+      }
+    }
     for (var i = start; i >= 0 && i < _messages.length; i--) {
       final m = _messages[i];
+      final resolved = _resolveMessageSlot(m);
+      if (resolved != null) {
+        resolvedClock = resolved;
+        break;
+      }
       final meta = m.activeMetadata;
-      if (knownStoryClockBefore(m) != null ||
-          meta?['story_clock_after'] is String) {
-        clockStamp = m;
-        break;
-      }
       final rs = meta?['realism_state'];
-      if (rs is Map &&
-          hasClock(rs) &&
-          !snapIsFrozenGreeting(
-            Map<String, dynamic>.from(rs),
-            _timeService.clock,
-          )) {
-        clockStamp = m;
-        break;
+      if (!anyStoryClock && rs is Map && rs['dayCount'] is num) {
+        storyDayOnly ??= (rs['dayCount'] as num).toInt();
       }
-      // Engine-off PoT stamps top-level story_day only.
       if (storyDayOnly == null) {
         final top = meta?['story_day'] ?? m.metadata?['story_day'];
         if (top is num) storyDayOnly = top.toInt();
@@ -155,32 +152,14 @@ extension ChatServiceImportWalk on ChatService {
     // `others`, so it must not wipe Sam's keys from an earlier give.
     _restorePocketsStampsChronologically(start);
 
-    if (clockStamp != null) {
-      final meta = clockStamp.activeMetadata;
-      final rs = meta?['realism_state'];
-      _timeService.applySlotClock(
-        after: meta?['story_clock_after'] as String?,
-        before: knownStoryClockBefore(clockStamp),
-        minutes: minutesRecordedForClockRewind(meta),
-        snap: rs is Map ? Map<String, dynamic>.from(rs) : null,
-      );
-    } else if (storyDayOnly != null) {
-      // Keep this story's anchor; only the day number rewinds.
+    if (resolvedClock != null) {
+      _timeService.applySlotClock(resolved: resolvedClock);
+    } else if (storyDayOnly != null && !anyStoryClock) {
+      // .fpchat dayCount-only stamps: that day at the live time of day,
+      // and only when the chat has no storyClock anywhere.
       _timeService.restoreTimeFromRealismState({'dayCount': storyDayOnly});
-    } else {
-      final timeSeed = parseGroupTimeSeed(
-        _activeGroup!.defaultMemberRealismState,
-        _activeGroup!.baselineRealismState,
-      );
-      _timeService.seedFromV2OrExt(
-        dayCount: timeSeed?.dayCount ?? 1,
-        timeOfDay: timeSeed?.timeOfDay ?? 'morning',
-        // Live chat Day 1 (never card/today) — user may have re-anchored.
-        storyStartDate: _timeService.storyStartDateIso,
-        storyStartTime: timeSeed?.storyStartTime,
-      );
-      _applySeededPassageOfTime();
     }
+    // else keep the live session clock. Never seed Day 1 on a lived-in chat.
 
     seedPocketsFromCards();
 
@@ -231,10 +210,8 @@ extension ChatServiceImportWalk on ChatService {
       if (meta?['realism_state'] is Map ||
           knownStoryClockBefore(m) != null ||
           meta?['story_clock_after'] is String) {
-        _restoreRealismStateForSpeaker(
-          m,
-          restoreClock: _importedClockShouldApply(m),
-        );
+        _restoreRealismStateForSpeaker(m, restoreClock: false);
+        _applyResolvedImportClock(m);
         if (m.metadata?['pockets_before'] is Map) {
           _restorePocketsFromStamp(m, after: true);
         }

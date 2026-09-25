@@ -18,6 +18,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/message_clock.dart';
+import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 
@@ -319,45 +320,80 @@ void main() {
 
     test('swipe applies after, else before plus minutes, else keeps live', () {
       final t = _time();
-      t.applySelectedSlotClock(
-        after: _day1NineThirtyIso,
-        before: _day1NineIso,
-        minutes: 5,
+      ChatMessage slot(Map<String, dynamic> meta) => ChatMessage(
+        text: 'Hi.',
+        sender: 'Nia',
+        isUser: false,
+        metadata: meta,
+      );
+
+      t.applySlotClock(
+        resolved: resolveSlotClock({
+          'story_clock_after': _day1NineThirtyIso,
+          'story_clock_before': _day1NineIso,
+          'time_passed': '5 min',
+        }, slot({})),
       );
       expect(t.clock, _day1NineThirty);
 
-      t.applySelectedSlotClock(before: _day1NineIso, minutes: 5);
+      t.applySlotClock(
+        resolved: resolveSlotClock({
+          'story_clock_before': _day1NineIso,
+          'time_passed': '5 min',
+        }, slot({})),
+      );
       expect(t.clock, DateTime.utc(2026, 6, 28, 9, 5));
 
-      t.applySelectedSlotClock();
+      t.applySlotClock(resolved: resolveSlotClock({}, slot({})));
       expect(t.clock, DateTime.utc(2026, 6, 28, 9, 5));
     });
 
     test('import prefers after, else before plus minutes, else snap', () {
       final t = _time();
-      t.restoreImportedClock(
-        after: _day1NineThirtyIso,
-        before: _day1NineIso,
-        minutes: 5,
-        snap: {'storyClock': _day3Iso},
+      ChatMessage slot(Map<String, dynamic> meta) => ChatMessage(
+        text: 'Hi.',
+        sender: 'Nia',
+        isUser: false,
+        metadata: meta,
+      );
+
+      t.applySlotClock(
+        resolved: resolveSlotClock({
+          'story_clock_after': _day1NineThirtyIso,
+          'story_clock_before': _day1NineIso,
+          'time_passed': '5 min',
+          'realism_state': {'storyClock': _day3Iso},
+        }, slot({})),
       );
       expect(t.clock, _day1NineThirty);
 
-      t.restoreImportedClock(
-        before: _day1NineIso,
-        minutes: 30,
-        snap: {'storyClock': _day3Iso},
+      t.applySlotClock(
+        resolved: resolveSlotClock({
+          'story_clock_before': _day1NineIso,
+          'time_passed': '30 min',
+          'realism_state': {'storyClock': _day3Iso},
+        }, slot({})),
       );
       expect(t.clock, _day1NineThirty);
 
-      t.restoreImportedClock(
-        snap: {'storyClock': _day3Iso, 'storyStartDate': _startIso},
+      t.applySlotClock(
+        resolved: resolveSlotClock({
+          'realism_state': {
+            'storyClock': _day3Iso,
+            'storyStartDate': _startIso,
+          },
+        }, slot({})),
       );
       expect(t.clock, _day3);
 
-      t.restoreImportedClock(
-        before: _day1NineIso,
-        snap: {'storyClock': _day3Iso, 'storyStartDate': _startIso},
+      t.applySlotClock(
+        resolved: resolveSlotClock({
+          'story_clock_before': _day1NineIso,
+          'realism_state': {
+            'storyClock': _day3Iso,
+            'storyStartDate': _startIso,
+          },
+        }, slot({})),
       );
       expect(
         t.clock,
@@ -506,6 +542,18 @@ void main() {
     await drainTurn();
     expect(chat!.timeService.clock, before.add(const Duration(minutes: 5)));
     expect(lastBot().swipes.length, greaterThanOrEqualTo(2));
+    expect(
+      lastBot().swipeMetadata[0]?['story_clock_after'],
+      StoryClock.serializeClock(before.add(const Duration(minutes: 30))),
+    );
+    expect(
+      lastBot().swipeMetadata[1]?['story_clock_after'],
+      StoryClock.serializeClock(before.add(const Duration(minutes: 5))),
+    );
+    for (final slot in lastBot().swipeMetadata) {
+      expect(slot?['story_clock_before'], beforeIso);
+    }
+    expect(lastBot().metadata?['story_clock_before'], beforeIso);
 
     final idx = lastBotIndex();
     await chat!.selectSwipe(idx, 0);
@@ -552,13 +600,13 @@ void main() {
     expect(chat!.timeService.clock, accepted);
   });
 
-  test('non-tail delete leaves the live clock alone', () async {
+  test('delete greeting (non-tail) leaves the live clock alone', () async {
     await boot();
     await plantOldTranscript();
     expect(chat!.timeService.clock, _lived);
-    // Greeting (index 0) carries a Day 1 09:00 snap. Deleting the
-    // middle bot (the lived-in tail's older sibling) must not restore
-    // that snap onto the live clock.
+    // Greeting at index 0 carries a Day 1 09:00 snap. Deleting it must
+    // not restore that snap onto the live clock. Mid-chat delete is
+    // pinned in clock_hold_spec_test.
     chat!.deleteMessage(0);
     await drainTurn();
     expect(
