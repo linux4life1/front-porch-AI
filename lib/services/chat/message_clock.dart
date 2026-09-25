@@ -117,12 +117,9 @@ const _kClockBackfillDone = 'clock_backfill_done';
 bool _shouldRepairWrongGreetingPair(
   Map<String, dynamic>? slot, {
   DateTime? greetingClock,
-  bool isGreeting = false,
 }) {
-  // Later replies keep their own pair. A stamp-less message 0 must
-  // not rewrite a chip-less skip whose snap is older than after.
-  if (!isGreeting) return false;
   if (greetingClock != null || !slotHasCompletePair(slot)) return false;
+  // Chip-less skip: time_skip_to + snap older than after. Leave it.
   if ((slot?['time_skip_to'] as String?)?.isNotEmpty == true) return false;
   final snap = slotSnapClock(slot);
   if (snap == null) return false;
@@ -316,7 +313,6 @@ bool backfillSlotClocks(
     final msg = messages[i];
     if (msg.isUser || msg.sender == 'System') continue;
     final isTip = i == tipIndex;
-    final greetingSlot = i == 0;
     final slotCount = msg.swipes.isEmpty ? 1 : msg.swipes.length;
     for (var s = 0; s < slotCount; s++) {
       final existing = s < msg.swipeMetadata.length
@@ -324,11 +320,7 @@ bool backfillSlotClocks(
           : null;
       if (existing == null && s > 0) continue;
       final slot = existing ?? (s == 0 ? msg.metadata : null);
-      if (_shouldRepairWrongGreetingPair(
-        slot,
-        greetingClock: openingSnap,
-        isGreeting: greetingSlot,
-      )) {
+      if (_shouldRepairWrongGreetingPair(slot, greetingClock: openingSnap)) {
         final snap = slotSnapClock(slot)!;
         final dest = existing ?? msg.metadata!;
         writeSlotClockPair(
@@ -379,11 +371,7 @@ bool backfillSlotClocks(
     }
     if (msg.metadata != null) {
       final meta = msg.metadata!;
-      if (_shouldRepairWrongGreetingPair(
-        meta,
-        greetingClock: openingSnap,
-        isGreeting: greetingSlot,
-      )) {
+      if (_shouldRepairWrongGreetingPair(meta, greetingClock: openingSnap)) {
         final snap = slotSnapClock(meta)!;
         writeSlotClockPair(
           meta,
