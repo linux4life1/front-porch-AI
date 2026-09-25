@@ -339,12 +339,24 @@ extension ChatServiceMessageClock on ChatService {
     _backfillLoadedSlotClocks();
     final greetingClock = _openingGreetingSnap();
     final slot = tip.activeMetadata;
+    final guessedLive =
+        slotHasCompletePair(slot) &&
+        !slotHasAuthoredClock(slot) &&
+        slotClockAfter(slot) == _timeService.clock;
     final emptyPreUser =
         !leftOpening &&
         !slotHasAuthoredClock(slot) &&
-        !slotHasStoredClockData(slot, greetingClock: greetingClock);
-    final live = emptyPreUser ? _day1OfStoryStart() : _timeService.clock;
-    final after = _resolveVisibleAfter(tip: tip, liveClock: live);
+        (!slotHasStoredClockData(slot, greetingClock: greetingClock) ||
+            guessedLive);
+    if (emptyPreUser) {
+      final day1 = _day1OfStoryStart();
+      _writeResolvedTipAfter(tip, day1);
+      if (_clockRunning) {
+        _timeService.applySlotClock(resolved: day1);
+      }
+      return;
+    }
+    final after = _resolveVisibleAfter(tip: tip, liveClock: _timeService.clock);
     if (after != null) {
       _writeResolvedTipAfter(tip, after);
       if (_clockRunning) {
