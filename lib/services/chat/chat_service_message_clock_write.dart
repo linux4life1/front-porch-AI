@@ -79,9 +79,7 @@ extension ChatServiceMessageClockWrite on ChatService {
       clearChip = true;
     } else if (kind == _SlotClockWrite.tick) {
       final existing = target.activeMetadata;
-      if ((existing?['time_passed'] as String?) == 'Next morning') {
-        chip = 'Next morning';
-      } else if ((existing?['time_skip_to'] as String? ?? '').isNotEmpty) {
+      if ((existing?['time_skip_to'] as String? ?? '').isNotEmpty) {
         chip = null;
       } else if (_timeService.bodyTimeLabel == 'Next morning') {
         chip = 'Next morning';

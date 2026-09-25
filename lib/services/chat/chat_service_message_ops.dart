@@ -119,7 +119,6 @@ extension ChatServiceMessageOps on ChatService {
     _postGenAbortRequested = false;
     _isCancellingRealismEval = false;
     _realismEvalCancelled = false;
-    _replacingSettlingReply = false;
   }
 
   Future<bool> _yieldSettlingTurn() async {
@@ -133,7 +132,6 @@ extension ChatServiceMessageOps on ChatService {
     _postGenAbortRequested = true;
     _isCancellingRealismEval = true;
     _realismEvalCancelled = true;
-    _replacingSettlingReply = true;
     _abortAllLanes();
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (_isPostGenerating && DateTime.now().isBefore(deadline)) {

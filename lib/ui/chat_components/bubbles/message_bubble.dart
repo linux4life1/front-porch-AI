@@ -92,8 +92,6 @@ class MessageBubble extends StatefulWidget {
 class _MessageBubbleState extends State<MessageBubble> {
   bool _thoughtExpanded = false;
   bool _thoughtPinned = false;
-  File? _avatarChecked;
-  bool _avatarExists = false;
 
   ChatMessage get message => widget.message;
   File? get characterImage => widget.characterImage;
@@ -123,24 +121,6 @@ class _MessageBubbleState extends State<MessageBubble> {
       _thoughtPinned = true;
       _thoughtExpanded = next;
     });
-  }
-
-  bool get _hasAvatarFile {
-    final file = characterImage;
-    if (!identical(file, _avatarChecked)) {
-      _avatarChecked = file;
-      _avatarExists =
-          file != null && file.existsSync(); // io-ok: memoized per path
-    }
-    return _avatarExists;
-  }
-
-  Widget _avatarLetter() {
-    final name = (character?.name ?? message.sender).trim();
-    return Text(
-      name.isNotEmpty ? name[0] : '?',
-      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-    );
   }
 
   bool get hasStorage {
@@ -214,15 +194,15 @@ class _MessageBubbleState extends State<MessageBubble> {
           if (!message.isUser && !isDirectorNote)
             CircleAvatar(
               radius: 16,
-              child: !_hasAvatarFile
-                  ? _avatarLetter()
+              child: characterImage == null
+                  ? const Icon(Icons.person)
                   : ClipOval(
                       child: Image.file(
                         characterImage!,
                         width: 32,
                         height: 32,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => _avatarLetter(),
+                        errorBuilder: (_, _, _) => const Icon(Icons.person),
                       ),
                     ),
             ),

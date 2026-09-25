@@ -171,11 +171,6 @@ bool _realismEvalCancelled = false;
 /// leftover latch must not survive into the next turn.
 bool _postGenAbortRequested = false;
 
-/// True while [_yieldSettlingTurn] is aborting post-gen so a regen or
-/// swipe can replace the reply. Abort-write skips the "Reply kept"
-/// banner on this path only.
-bool _replacingSettlingReply = false;
-
 /// Pre-nudge live clock, stamped on the slot as `nudge_from` so a tail
 /// delete can restore it without rewriting `story_clock_before`.
 DateTime? _pendingNudgeBefore;

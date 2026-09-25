@@ -180,11 +180,7 @@ extension ChatServiceMessageClock on ChatService {
       _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
       _applyTipClock();
     }
-    // Real post-gen abort keeps the reply. Regen/swipe via
-    // `_yieldSettlingTurn` is replacing it — do not claim it was kept.
-    if (!_replacingSettlingReply) {
-      _setGuestStatus('Reply kept. Scene time and needs weren\'t updated.');
-    }
+    _setGuestStatus('Reply kept. Scene time and needs weren\'t updated.');
   }
 
   /// Tail-delete goes through the one resolver. Nudge overwrites with
