@@ -15,7 +15,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/message_clock.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show StoryClock, backfillSlotClocks, slotClockAfter, slotClockBefore;
 import 'package:front_porch_ai/services/services.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -267,7 +268,7 @@ void main() {
     await expectNothingPersistedAs0900(chat!.currentSessionId!);
   });
 
-  test('HIGH-1 regen / fork-from-tip / delete keep Day 3 16:00', () async {
+  test('HIGH-1 regen ticks once from Day 3 16:00; nothing is 09:xx', () async {
     await boot();
     await plant(rows: v14Rows(), clock: _day3Iso, day: 3);
     expect(chat!.timeService.clock, _day3);
@@ -275,8 +276,30 @@ void main() {
     llm.nextMinutes = 0;
     await chat!.regenerateLastMessage();
     await drain();
+    final tip = tipBot();
+    final before = slotClockBefore(tip.activeMetadata);
+    expect(before, _day3, reason: 'regen rewinds to the tip before');
+    final elapsed = StoryClock.resolvedElapsedMinutes(
+      minutes: llm.nextMinutes,
+      newDay: false,
+      continuousInstant: false,
+    );
+    final after = before!.add(Duration(minutes: elapsed));
+    expect(
+      slotClockAfter(tip.activeMetadata),
+      after,
+      reason: 'after is before + resolvedElapsedMinutes, not a hardcoded 2',
+    );
+    expect(chat!.timeService.clock, after);
+    expect(chat!.timeService.clock.hour, isNot(9));
+    expect(before, isNot(_day1Start));
+    expect(after, isNot(_day1Start));
+  });
+
+  test('HIGH-1 fork-from-tip / delete keep Day 3 16:00', () async {
+    await boot();
+    await plant(rows: v14Rows(), clock: _day3Iso, day: 3);
     expect(chat!.timeService.clock, _day3);
-    expect(chat!.timeService.clock, isNot(_day1Start));
 
     final sid = chat!.currentSessionId!;
     await chat!.forkFromMessage(2);
@@ -291,6 +314,21 @@ void main() {
     expect(chat!.timeService.clock, beforeDelete);
     expect(chat!.timeService.clock, isNot(_day1Start));
   });
+
+  test(
+    'v1.4 fork at pos 2 is Day 3 16:00 (tip-live; no stored after)',
+    () async {
+      await boot();
+      await plant(rows: v14Rows(), clock: _day3Iso, day: 3);
+      // Pos 2 has a frozen Day-1 snap and no stored after/chip. Ladder:
+      // skip frozen snap, then tip-live = the session clock (Day 3 16:00).
+      // Neighbour AFTER would be 09:30 only if a later pair donated it.
+      await chat!.forkFromMessage(2);
+      await drain();
+      expect(chat!.timeService.clock, _day3);
+      expect(chat!.timeService.clock, isNot(DateTime.utc(2026, 6, 28, 9, 30)));
+    },
+  );
 
   test('HIGH-1 first regen ticks the eval once, never twice', () async {
     await boot();
