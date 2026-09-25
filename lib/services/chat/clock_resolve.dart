@@ -137,7 +137,7 @@ DateTime? resolveSlotAfter(
     return fromDay;
   }
   if (before != null) return before;
-  if (!isTip && neighbourStamp != null) return neighbourStamp;
+  if (neighbourStamp != null) return neighbourStamp;
   if (isTip) return liveClock;
   return null;
 }

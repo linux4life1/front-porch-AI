@@ -114,7 +114,8 @@ extension ChatServiceMessageClock on ChatService {
   /// pre-nudge pin agree. Otherwise live follows the new tip's after.
   void _applyClockAfterDelete(ChatMessage deleted, {required bool wasTail}) {
     if (wasTail) {
-      final restored = deleted.activeMetadata?['time_nudged'] == true
+      final nudged = deleted.activeMetadata?['time_nudged'] == true;
+      final restored = nudged
           ? StoryClock.parse(
                   deleted.activeMetadata?['nudge_from'] as String?,
                 ) ??
@@ -123,7 +124,7 @@ extension ChatServiceMessageClock on ChatService {
                 StoryClock.parse(knownStoryClockBefore(deleted));
       if (restored != null) {
         final tip = _visibleTipMessage();
-        if (tip != null && slotHasCompletePair(tip.activeMetadata)) {
+        if (!nudged && tip != null && slotHasCompletePair(tip.activeMetadata)) {
           _applyTipClock();
           return;
         }
