@@ -48,20 +48,47 @@ extension ChatServiceMessageClock on ChatService {
   }
 
   /// One ladder for the visible tip. Uses the stored slot so load
-  /// recover and abort keep step 1. A neighbour story_day is not
-  /// copied onto an empty tip (rung 6 is live). [liveClock] is the
-  /// session clock, a delete rewind, or Day 1 of start.
+  /// recover and abort keep step 1. The answering user turn is own
+  /// before (rung 5). A far neighbour stamp stays below tip-live.
   DateTime? _resolveVisibleAfter({ChatMessage? tip, DateTime? liveClock}) {
     final target = tip ?? _visibleTipMessage();
     if (target == null) return null;
     final greetingClock = _openingGreetingSnap();
+    final clock = liveClock ?? _timeService.clock;
+    final idx = _messages.indexWhere((m) => identical(m, target));
+    final answered = answeredUserClock(
+      _messages,
+      idx,
+      liveClock: clock,
+      startDate: _timeService.startDate,
+      greetingClock: greetingClock,
+      neighbourStamp: idx > 0
+          ? _nearestStoredStamp(
+              _messages[idx - 1],
+              greetingClock: greetingClock,
+            )
+          : null,
+    );
+    var slot = target.activeMetadata;
+    // A load-guessed live pair is not own after. It must not hide
+    // the answering user's story_day (rung 5 above tip-live).
+    if (answered != null &&
+        slotHasCompletePair(slot) &&
+        !slotHasAuthoredClock(slot) &&
+        slotClockAfter(slot) == clock) {
+      final copy = Map<String, dynamic>.from(slot!);
+      copy.remove('story_clock_after');
+      copy.remove('story_clock_before');
+      slot = copy;
+    }
     return resolveSlotAfter(
-      target.activeMetadata,
+      slot,
       isTip: true,
-      liveClock: liveClock ?? _timeService.clock,
+      liveClock: clock,
       startDate: _timeService.startDate,
       greetingClock: greetingClock,
       neighbourStamp: _nearestStoredStamp(target, greetingClock: greetingClock),
+      answeredUserBefore: answered,
     );
   }
 

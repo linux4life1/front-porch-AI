@@ -3,7 +3,9 @@
 //
 // One resolver for every slot. The ladder is the contract. Live is
 // never a real stamp. History never reads live except tip TOD at
-// step 4. A neighbour story_day is not the fork-point clock.
+// step 4. A bot's own before includes the user turn it answers.
+// Other neighbour stamps stay below tip-live. Inverted stored
+// pairs clamp to own before.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -17,6 +19,14 @@ DateTime? slotClockBefore(Map<String, dynamic>? slot) =>
 
 bool slotHasCompletePair(Map<String, dynamic>? slot) =>
     slotClockBefore(slot) != null && slotClockAfter(slot) != null;
+
+/// Stored after earlier than own before. The writer must repair
+/// this once — the resolver clamp alone does not rewrite the pair.
+bool slotPairIsInverted(Map<String, dynamic>? slot) {
+  final after = slotClockAfter(slot);
+  final before = slotClockBefore(slot);
+  return after != null && before != null && after.isBefore(before);
+}
 
 /// Authored clock on this slot — snap, chip, nudge, or a stored day
 /// past Day 1. A load-backfill pair painted from the parent live
@@ -139,19 +149,24 @@ bool slotSnapIsFrozen(
 ///  4. S's own stored dayCount>1 for the DAY. Own TOD if stored,
 ///     else the nearest REAL neighbour stamp. If none: tip uses
 ///     the live time of day; history uses 09:00.
-///  5. S's own before.
+///  5. S's own before. If S has no before, the stored clock of the
+///     user turn this bot answers (the message immediately before
+///     S) is own before. That ranks ABOVE tip-live. A story_day
+///     on that user turn is never dropped. Other neighbour stamps
+///     still rank below tip-live.
 ///  6. Tip only: the loaded session/live clock. An empty tip ranks
-///     this ABOVE a neighbour stamp.
+///     this ABOVE a general neighbour stamp.
 ///  7. The nearest REAL neighbour stamp.
 ///  8. History with nothing: leave empty, never live.
 ///
-/// Then CLAMP: after is never earlier than S's own before. A turn
-/// cannot go backward.
+/// Then CLAMP: after is never earlier than S's own before, including
+/// a stored rung-1 after. A turn cannot go backward.
 ///
 /// [liveClock] is never a neighbour stamp — do not put it in
-/// [neighbourStamp] or any real-stamp set. Stale derived pairs are
-/// a writer refresh, not a resolver skip. History never reads
-/// [liveClock] except as tip TOD at step 4.
+/// [neighbourStamp] or any real-stamp set. [answeredUserBefore] is
+/// own data, not a neighbour. Stale derived pairs are a writer
+/// refresh, not a resolver skip. History never reads [liveClock]
+/// except as tip TOD at step 4.
 DateTime? resolveSlotAfter(
   Map<String, dynamic>? slot, {
   required bool isTip,
@@ -159,8 +174,9 @@ DateTime? resolveSlotAfter(
   DateTime? startDate,
   DateTime? greetingClock,
   DateTime? neighbourStamp,
+  DateTime? answeredUserBefore,
 }) {
-  final before = slotClockBefore(slot);
+  final before = slotClockBefore(slot) ?? answeredUserBefore;
   DateTime? hit;
   final keptAfter = slotClockAfter(slot);
   if (keptAfter != null) {
@@ -203,6 +219,30 @@ DateTime? resolveSlotAfter(
   }
   if (hit != null && before != null && hit.isBefore(before)) return before;
   return hit;
+}
+
+/// Stored clock of the user turn [botIndex] answers. Null when the
+/// previous message is not a user turn. Always [isTip]:false so live
+/// never becomes this own-before.
+DateTime? answeredUserClock(
+  List<ChatMessage> messages,
+  int botIndex, {
+  required DateTime liveClock,
+  DateTime? startDate,
+  DateTime? greetingClock,
+  DateTime? neighbourStamp,
+}) {
+  if (botIndex <= 0 || botIndex >= messages.length) return null;
+  final prev = messages[botIndex - 1];
+  if (!prev.isUser) return null;
+  return resolveSlotAfter(
+    prev.activeMetadata ?? prev.metadata,
+    isTip: false,
+    liveClock: liveClock,
+    startDate: startDate,
+    greetingClock: greetingClock,
+    neighbourStamp: neighbourStamp,
+  );
 }
 
 /// After / non-frozen snap / dayCount>1 / before. Frozen Day-1 snaps

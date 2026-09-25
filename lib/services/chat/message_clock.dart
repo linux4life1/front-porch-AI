@@ -245,7 +245,27 @@ bool backfillSlotClocks(
       greetingClock: greetingClock,
       neighbourStamp:
           nearestReal(index) ?? (tipSlot ? null : realByIndex[index]),
+      answeredUserBefore: answeredUserClock(
+        messages,
+        index,
+        liveClock: liveClock,
+        startDate: start,
+        greetingClock: greetingClock,
+        neighbourStamp: nearestReal(index - 1),
+      ),
     );
+  }
+
+  bool repairInvertedPair(
+    Map<String, dynamic>? slot,
+    Map<String, dynamic> dest,
+    ChatMessage msg,
+  ) {
+    if (!slotPairIsInverted(slot)) return false;
+    final before = slotClockBefore(slot)!;
+    writeSlotClockPair(dest, before: before, after: before);
+    persistStoryClockBefore(msg, StoryClock.serializeClock(before));
+    return true;
   }
 
   var changed = false;
@@ -275,14 +295,13 @@ bool backfillSlotClocks(
       final tipSlot = isTip && s == msg.swipeIndex;
       DateTime? dayOf(Map<String, dynamic>? s) =>
           ownDay(i, s, tipSlot: tipSlot);
+      final dest = existing ?? (msg.metadata ??= {});
+      if (repairInvertedPair(slot, dest, msg)) {
+        changed = true;
+        continue;
+      }
       if (slotHasCompletePair(slot)) {
-        if (_refreshDerivedDayPair(
-          slot,
-          existing ?? msg.metadata!,
-          msg,
-          start,
-          dayOf,
-        )) {
+        if (_refreshDerivedDayPair(slot, dest, msg, start, dayOf)) {
           changed = true;
         }
         continue;
@@ -298,7 +317,6 @@ bool backfillSlotClocks(
           (mins != null && mins > 0
               ? after.subtract(Duration(minutes: mins))
               : after);
-      final dest = existing ?? (msg.metadata ??= {});
       final day = dayOf(slot);
       writeSlotClockPair(
         dest,
@@ -323,6 +341,10 @@ bool backfillSlotClocks(
         continue;
       }
       DateTime? dayOf(Map<String, dynamic>? s) => ownDay(i, s, tipSlot: isTip);
+      if (repairInvertedPair(meta, meta, msg)) {
+        changed = true;
+        continue;
+      }
       if (_refreshDerivedDayPair(meta, meta, msg, start, dayOf)) {
         changed = true;
         continue;
