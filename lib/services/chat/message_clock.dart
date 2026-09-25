@@ -183,11 +183,7 @@ bool backfillSlotClocks(
         greetingClock: greetingClock,
       );
     }
-    if (stored != null) {
-      realByIndex[i] = stored;
-    } else if (i == tipIndex) {
-      realByIndex[i] = liveClock;
-    }
+    if (stored != null) realByIndex[i] = stored;
   }
 
   DateTime? nearestReal(int index) {

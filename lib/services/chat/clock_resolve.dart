@@ -123,12 +123,14 @@ DateTime? resolveSlotAfter(
   }
   final dc = slotDayCount(slot);
   if (dc != null && dc > 1) {
-    return dayCountClock(
+    final fromDay = dayCountClock(
       dayCount: dc,
       startDate: startDate ?? StoryClock.dateOnly(liveClock),
       timeOfDay: slotTimeOfDay(slot),
-      liveClock: liveClock,
+      liveClock: before ?? liveClock,
     );
+    if (before != null && fromDay.isBefore(before)) return before;
+    return fromDay;
   }
   if (before != null) {
     final mins = minutesRecordedForClockRewind(slot);
