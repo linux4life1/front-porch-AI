@@ -199,15 +199,14 @@ DateTime _dayCountClock({
 /// Fill missing before/after pairs. The only snap / dayCount reader.
 ///
 /// Tip (last bot, active slot) takes [liveClock] unless it already has
-/// after, or a dayClock (stamp or synthesised Day-1 floor) exists.
-/// History takes the nearest real, non-frozen time. Frozen greeting
-/// snaps (any hour) are not a clock. dayCount-only is a clock only
-/// when no storyClock exists on any message — nearest from the tip
-/// backward, at that stamp's timeOfDay. No stamp anywhere floors to
-/// Day 1 of [startDate] only when [floorUnstampedToDay1] (a
-/// synthesised session row, not a lived-in clock). Never overwrites
-/// an existing before or after. Guess runs once per chat
-/// ([_kClockBackfillDone]).
+/// after. History takes the nearest real, non-frozen time. Frozen
+/// greeting snaps (any hour) are not a clock. dayCount-only is a clock
+/// only when a message actually stored dayCount > 1 and no storyClock
+/// exists — nearest from the tip backward, at that stamp's timeOfDay.
+/// Never invents Day 1 and never derives a day from the real-world
+/// calendar. [floorUnstampedToDay1] is accepted for callers and does
+/// not floor. Never overwrites an existing before or after. Guess
+/// runs once per chat ([_kClockBackfillDone]).
 bool backfillSlotClocks(
   List<ChatMessage> messages, {
   required DateTime liveClock,
@@ -289,10 +288,12 @@ bool backfillSlotClocks(
     return earlier ?? later;
   }
 
-  final dayClock =
-      !anyStoryClock && (dayCountOnly != null || floorUnstampedToDay1)
+  // dayCountOnly is a value a message stored (story_day / realism
+  // dayCount > 1). Do not substitute 1 — that snaps lived-in chats
+  // to Day 1.
+  final dayClock = !anyStoryClock && dayCountOnly != null
       ? _dayCountClock(
-          dayCount: dayCountOnly ?? 1,
+          dayCount: dayCountOnly,
           liveClock: liveClock,
           startDate: start,
           timeOfDay: dayCountTod,
@@ -300,8 +301,11 @@ bool backfillSlotClocks(
       : null;
 
   DateTime fallback(int index, {required bool tipSlot}) {
+    if (tipSlot) {
+      if (dayClock != null) return dayClock;
+      return liveClock;
+    }
     if (dayClock != null) return dayClock;
-    if (tipSlot) return liveClock;
     return nearestReal(index) ?? liveClock;
   }
 
