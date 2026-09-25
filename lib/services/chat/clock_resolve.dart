@@ -133,19 +133,21 @@ DateTime day1OfStart(
   return StoryClock.representativeTime(date, timeOfDay);
 }
 
-/// after minus chip minutes, never earlier than Day 1 of [startDate].
+/// after minus chip minutes, never earlier than midnight of [startDate].
+/// The Day-1 floor is start-of-date 00:00, not the 09:00 opening
+/// ([day1OfStart] stays the new-chat / empty-greeting clock).
 DateTime chipDerivedBefore({
   required DateTime after,
   required int minutes,
   required DateTime startDate,
 }) {
   final raw = after.subtract(Duration(minutes: minutes));
-  final day1 = day1OfStart(startDate);
-  return raw.isBefore(day1) ? day1 : raw;
+  final floor = StoryClock.dateOnly(startDate);
+  return raw.isBefore(floor) ? floor : raw;
 }
 
 /// True when before is the backfill after-minus-chip (or that value
-/// floored at Day 1). Writer pairs are stored befores.
+/// floored at start-of-date 00:00). Writer pairs are stored befores.
 bool slotBeforeIsChipDerived(
   Map<String, dynamic>? slot, {
   required DateTime startDate,

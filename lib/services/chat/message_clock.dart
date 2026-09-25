@@ -371,11 +371,12 @@ bool backfillSlotClocks(
       final keptAfter = slotClockAfter(slot);
       final keptBefore = slotClockBefore(slot);
       final mins = minutesRecordedForClockRewind(slot);
-      final before =
+      var before =
           keptBefore ??
           (mins != null && mins > 0
               ? chipDerivedBefore(after: after, minutes: mins, startDate: start)
               : after);
+      if (after.isBefore(before)) before = after;
       final day = dayOf(slot);
       writeSlotClockPair(
         dest,
@@ -434,7 +435,8 @@ bool backfillSlotClocks(
       }
       final keptAfter = slotClockAfter(meta);
       final day = dayOf(meta);
-      final before = slotClockBefore(meta) ?? after;
+      var before = slotClockBefore(meta) ?? after;
+      if (after.isBefore(before)) before = after;
       writeSlotClockPair(
         meta,
         before: before,

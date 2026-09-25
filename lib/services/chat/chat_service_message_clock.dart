@@ -187,7 +187,9 @@ extension ChatServiceMessageClock on ChatService {
   void _abortSlotClockIfThisTurnTicked(_GenTurn t) {
     if (t.mode == GenerationMode.continue_) {
       _applyTipClock();
-    } else if (!_clockRunning) {
+      return;
+    }
+    if (!_clockRunning) {
       _applyTipClock();
     } else {
       _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
@@ -221,13 +223,13 @@ extension ChatServiceMessageClock on ChatService {
       final deletedSlot = deleted.activeMetadata;
       final storedBefore = slotClockBefore(deletedSlot);
       final start = _timeService.startDate;
-      final day1 = day1OfStart(start);
+      final floor = StoryClock.dateOnly(start);
       // Only a stored before. Chip-derived after-minus-chip (even
-      // when floored at Day 1) is not stored — keep live.
+      // when floored at Day 1 midnight) is not stored — keep live.
       DateTime? rewind;
       if (storedBefore != null &&
           !slotBeforeIsChipDerived(deletedSlot, startDate: start)) {
-        rewind = storedBefore.isBefore(day1) ? day1 : storedBefore;
+        rewind = storedBefore.isBefore(floor) ? floor : storedBefore;
       }
       rewind ??= _timeService.clock;
       final tip = _visibleTipMessage();
