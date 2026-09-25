@@ -34,6 +34,18 @@ String stableGroupIdFrom(String? imagePath, String name) {
   return name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
 }
 
+/// Group-member store key. Empty [CharacterCard.imagePath] falls back
+/// to [CharacterCard.dbId] (the member UUID) so Needs/trust match the
+/// engine. Tabs must use this — `stableGroupId` alone keys by name.
+String groupMemberStoreId(CharacterCard card) {
+  final path = card.imagePath;
+  if (path == null || path.isEmpty) {
+    final id = card.dbId;
+    if (id != null && id.isNotEmpty) return id;
+  }
+  return card.stableGroupId;
+}
+
 extension StableGroupId on CharacterCard {
   /// The canonical stable identifier for *singular/library* CharacterCards only.
   ///

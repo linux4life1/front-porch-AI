@@ -117,7 +117,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       } else {
         await _maybeAdvanceStoryClockAfterReply(t);
         if (_postGenAbortRequested) {
-          _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
+          _abortSlotClockIfThisTurnTicked(t);
         } else {
           _wearBodiesAfterClock(t);
         }
@@ -302,7 +302,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           notifyListeners();
         }
       } else {
-        _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
+        _abortSlotClockIfThisTurnTicked(t);
       }
     } finally {
       await _closeWorkerLane();

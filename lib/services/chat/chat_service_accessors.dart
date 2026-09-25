@@ -364,13 +364,7 @@ extension ChatServiceAccessors on ChatService {
   /// Delegates to the canonical stable ID for group contexts.
   /// See [StableGroupId.stableGroupId] in lib/utils/character_id.dart
   String _getCharacterIdFromCard(CharacterCard card) {
-    if (_activeGroup != null) {
-      final path = card.imagePath;
-      if (path == null || path.isEmpty) {
-        final id = card.dbId;
-        if (id != null && id.isNotEmpty) return id;
-      }
-    }
+    if (_activeGroup != null) return groupMemberStoreId(card);
     return card.stableGroupId;
   }
 

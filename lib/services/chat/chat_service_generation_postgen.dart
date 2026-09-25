@@ -217,7 +217,7 @@ extension ChatServiceGenerationPostGen on ChatService {
         } else {
           await _maybeAdvanceStoryClockAfterReply(t);
           if (_postGenAbortRequested) {
-            _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
+            _abortSlotClockIfThisTurnTicked(t);
           } else {
             _wearBodiesAfterClock(t);
             _maybeKickDreamPrefetch();

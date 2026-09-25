@@ -138,6 +138,44 @@ DateTime? _realTimeOnSlot(
   return null;
 }
 
+const _kClockBackfillDone = 'clock_backfill_done';
+
+/// v1.4 / stamp-less greeting: later snap was treated as the greeting
+/// and the pair was copied from a neighbour. Snap survives; no chip.
+bool _shouldRepairWrongGreetingPair(
+  Map<String, dynamic>? slot, {
+  DateTime? greetingClock,
+}) {
+  if (greetingClock != null || !slotHasCompletePair(slot)) return false;
+  final snap = _snapStoryClock(slot);
+  if (snap == null) return false;
+  final after = slotClockAfter(slot)!;
+  final before = slotClockBefore(slot)!;
+  if (after == snap || after == before) return false;
+  if ((slot?['time_passed'] as String?)?.isNotEmpty == true) return false;
+  if (slot?['time_nudged'] == true) return false;
+  if (slot?['clock_from_day_count'] == true) return false;
+  final mins = minutesRecordedForClockRewind(slot);
+  return mins == null || mins <= 0;
+}
+
+bool _firstBotBackfillDone(List<ChatMessage> messages) {
+  for (final msg in messages) {
+    if (msg.isUser || msg.sender == 'System') continue;
+    return msg.metadata?[_kClockBackfillDone] == true;
+  }
+  return false;
+}
+
+void _markClockBackfillDone(List<ChatMessage> messages) {
+  for (final msg in messages) {
+    if (msg.isUser || msg.sender == 'System') continue;
+    msg.metadata ??= {};
+    msg.metadata![_kClockBackfillDone] = true;
+    return;
+  }
+}
+
 DateTime _dayCountClock({
   required int dayCount,
   required DateTime liveClock,
@@ -164,11 +202,9 @@ DateTime _dayCountClock({
 /// after. History takes the nearest real, non-frozen time. Frozen
 /// greeting snaps (any hour) are not a clock. dayCount-only is a clock
 /// only when no storyClock exists on any message — nearest from the
-/// tip backward, at that stamp's timeOfDay. No stamp anywhere floors
-/// to Day 1 of [startDate] only when [floorUnstampedToDay1] (a
-/// synthesised session row, not a lived-in clock). Idempotent against
-/// the same start; a later start change refreshes dayCount-derived
-/// pairs so fork sees Day N of the current anchor.
+/// tip backward, at that stamp's timeOfDay. Never overwrites an
+/// existing before or after. Guess runs once per chat
+/// ([_kClockBackfillDone]). [floorUnstampedToDay1] is test-only.
 bool backfillSlotClocks(
   List<ChatMessage> messages, {
   required DateTime liveClock,
@@ -176,7 +212,16 @@ bool backfillSlotClocks(
   bool floorUnstampedToDay1 = false,
 }) {
   final start = startDate ?? StoryClock.dateOnly(liveClock);
+  final alreadyDone = _firstBotBackfillDone(messages);
   DateTime? greetingClock;
+  if (messages.isNotEmpty &&
+      !messages.first.isUser &&
+      messages.first.sender != 'System') {
+    for (final slot in _messageSlots(messages.first)) {
+      greetingClock = _snapStoryClock(slot);
+      if (greetingClock != null) break;
+    }
+  }
   var anyStoryClock = false;
   int? dayCountOnly;
   String? dayCountTod;
@@ -191,7 +236,6 @@ bool backfillSlotClocks(
               slot?['clock_from_day_count'] != true)) {
         anyStoryClock = true;
       }
-      greetingClock ??= _snapStoryClock(slot);
     }
   }
   for (var i = messages.length - 1; i >= 0; i--) {
@@ -236,7 +280,9 @@ bool backfillSlotClocks(
   }
 
   final dayClock =
-      !anyStoryClock && (dayCountOnly != null || floorUnstampedToDay1)
+      !alreadyDone &&
+          !anyStoryClock &&
+          (dayCountOnly != null || floorUnstampedToDay1)
       ? _dayCountClock(
           dayCount: dayCountOnly ?? 1,
           liveClock: liveClock,
@@ -246,8 +292,8 @@ bool backfillSlotClocks(
       : null;
 
   DateTime fallback(int index, {required bool tipSlot}) {
-    if (dayClock != null) return dayClock;
     if (tipSlot) return liveClock;
+    if (dayClock != null) return dayClock;
     return nearestReal(index) ?? liveClock;
   }
 
@@ -261,7 +307,20 @@ bool backfillSlotClocks(
       final existing = s < msg.swipeMetadata.length
           ? msg.swipeMetadata[s]
           : null;
+      if (existing == null && s > 0) continue;
       final slot = existing ?? (s == 0 ? msg.metadata : null);
+      if (_shouldRepairWrongGreetingPair(slot, greetingClock: greetingClock)) {
+        final snap = _snapStoryClock(slot)!;
+        final dest = existing ?? msg.metadata!;
+        writeSlotClockPair(
+          dest,
+          before: slotClockBefore(slot) ?? snap,
+          after: snap,
+        );
+        persistStoryClockBefore(msg, StoryClock.serializeClock(snap));
+        changed = true;
+        continue;
+      }
       if (slotHasCompletePair(slot)) {
         final derived = slot?['clock_from_day_count'] == true;
         if (!derived || dayClock == null || slotClockAfter(slot) == dayClock) {
@@ -269,72 +328,75 @@ bool backfillSlotClocks(
         }
       }
       final tipSlot = isTip && s == msg.swipeIndex;
+      final keptAfter = slotClockAfter(slot);
+      final keptBefore = slotClockBefore(slot);
       final after =
-          dayClock ??
-          slotClockAfter(slot) ??
+          keptAfter ??
           _realTimeOnSlot(slot, greetingClock: greetingClock) ??
           fallback(i, tipSlot: tipSlot);
       final mins = minutesRecordedForClockRewind(slot);
-      final before = dayClock != null
-          ? (mins != null && mins > 0
-                ? after.subtract(Duration(minutes: mins))
-                : after)
-          : (slotClockBefore(slot) ??
-                (mins != null && mins > 0
-                    ? after.subtract(Duration(minutes: mins))
-                    : after));
+      final before =
+          keptBefore ??
+          (mins != null && mins > 0
+              ? after.subtract(Duration(minutes: mins))
+              : after);
       void write(Map<String, dynamic> dest) {
         writeSlotClockPair(
           dest,
           before: before,
           after: after,
-          fromDayCount: dayClock != null,
+          fromDayCount: dayClock != null && keptAfter == null,
         );
       }
 
       if (existing != null) {
         write(existing);
-      } else if (s == 0) {
+      } else {
         msg.metadata ??= {};
         write(msg.metadata!);
-      } else {
-        while (msg.swipeMetadata.length <= s) {
-          msg.swipeMetadata.add(null);
-        }
-        final created = <String, dynamic>{};
-        write(created);
-        msg.swipeMetadata[s] = created;
       }
       persistStoryClockBefore(msg, StoryClock.serializeClock(before));
       changed = true;
     }
     if (msg.metadata != null) {
       final meta = msg.metadata!;
+      if (_shouldRepairWrongGreetingPair(meta, greetingClock: greetingClock)) {
+        final snap = _snapStoryClock(meta)!;
+        writeSlotClockPair(
+          meta,
+          before: slotClockBefore(meta) ?? snap,
+          after: snap,
+        );
+        persistStoryClockBefore(msg, StoryClock.serializeClock(snap));
+        changed = true;
+        continue;
+      }
       final derived = meta['clock_from_day_count'] == true;
       final staleDerived =
           derived && dayClock != null && slotClockAfter(meta) != dayClock;
       if (slotHasCompletePair(meta) && !staleDerived) {
         continue;
       }
-      if (!slotHasCompletePair(meta) || staleDerived) {
-        final after =
-            dayClock ??
-            slotClockAfter(meta) ??
-            _realTimeOnSlot(meta, greetingClock: greetingClock) ??
-            fallback(i, tipSlot: isTip);
-        final before = dayClock != null
-            ? after
-            : (slotClockBefore(meta) ?? after);
-        writeSlotClockPair(
-          meta,
-          before: before,
-          after: after,
-          fromDayCount: dayClock != null,
-        );
-        persistStoryClockBefore(msg, StoryClock.serializeClock(before));
-        changed = true;
-      }
+      final keptAfter = slotClockAfter(meta);
+      final keptBefore = slotClockBefore(meta);
+      final after =
+          keptAfter ??
+          _realTimeOnSlot(meta, greetingClock: greetingClock) ??
+          fallback(i, tipSlot: isTip);
+      final before = keptBefore ?? after;
+      writeSlotClockPair(
+        meta,
+        before: before,
+        after: after,
+        fromDayCount: dayClock != null && keptAfter == null,
+      );
+      persistStoryClockBefore(msg, StoryClock.serializeClock(before));
+      changed = true;
     }
+  }
+  if (!_firstBotBackfillDone(messages)) {
+    _markClockBackfillDone(messages);
+    changed = true;
   }
   return changed;
 }

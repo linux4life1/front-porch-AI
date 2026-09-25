@@ -204,8 +204,6 @@ extension ChatServiceCastShrink on ChatService {
       _emotionIntensity =
           (snapshot['emotionIntensity'] as String?) ?? _emotionIntensity;
       _nsfwService.restoreNsfwFromMessageState(snapshot);
-      final carried = StoryClock.parse(snapshot['storyClock'] as String?);
-      if (carried != null) _timeService.applySlotClock(resolved: carried);
       _syncLoadedSlotClocks();
       if (wasNeedsOn) {
         final needs = snapshot['needs'];
@@ -292,8 +290,6 @@ extension ChatServiceCastShrink on ChatService {
       _emotionIntensity =
           (state['emotionIntensity'] as String?) ?? _emotionIntensity;
       _nsfwService.restoreNsfwFromMessageState(state);
-      final carried = StoryClock.parse(state['storyClock'] as String?);
-      if (carried != null) _timeService.applySlotClock(resolved: carried);
       _syncLoadedSlotClocks();
       if (needsEnabled) {
         final needs = state['needs'];

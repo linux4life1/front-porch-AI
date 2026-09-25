@@ -121,10 +121,14 @@ extension ChatServiceSessionWindow on ChatService {
     _messages.clear();
     _hydrateMessagesFromRows(older);
     _messages.addAll(kept);
-    _backfillLoadedSlotClocks();
     _history.basePosition = older.first.position;
     _history.hasMore =
         older.length == kSessionOlderPage && older.first.position > 0;
+    try {
+      _backfillLoadedSlotClocks();
+    } catch (e, st) {
+      debugPrint('[Clock] page backfill failed: $e\n$st');
+    }
     return _history.hasMore;
   }
 

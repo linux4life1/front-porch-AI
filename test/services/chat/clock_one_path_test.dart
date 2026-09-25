@@ -101,7 +101,7 @@ void main() {
     expect(slotClockAfter(bea.metadata), DateTime.utc(2026, 7, 6, 14, 30));
   });
 
-  test('no stamp floors to Day 1 only when asked', () {
+  test('unstamped tip takes the live clock, never a Day 1 floor', () {
     final msg = _bot('yo', {});
     final live = DateTime.utc(2026, 9, 25, 22, 30);
     final start = DateTime.utc(2026, 6, 18);
@@ -111,7 +111,11 @@ void main() {
       startDate: start,
       floorUnstampedToDay1: true,
     );
-    expect(slotClockAfter(msg.metadata), DateTime.utc(2026, 6, 18, 22, 30));
+    expect(
+      slotClockAfter(msg.metadata),
+      live,
+      reason: 'B3: synthesised row already carries Day N; tip is live',
+    );
     final lived = _bot('still here', {});
     backfillSlotClocks([lived], liveClock: live, startDate: start);
     expect(slotClockAfter(lived.metadata), live);

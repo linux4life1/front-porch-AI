@@ -173,9 +173,7 @@ extension ChatServiceImportWalk on ChatService {
     for (var i = start; i >= 0; i--) {
       final m = _messages[i];
       final meta = m.activeMetadata;
-      if (meta?['realism_state'] is Map ||
-          knownStoryClockBefore(m) != null ||
-          meta?['story_clock_after'] is String) {
+      if (meta?['realism_state'] is Map) {
         _restoreRealismStateForSpeaker(m, restoreClock: false);
         if (m.metadata?['pockets_before'] is Map) {
           _restorePocketsFromStamp(m, after: true);

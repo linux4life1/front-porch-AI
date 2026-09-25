@@ -290,16 +290,30 @@ extension ChatServiceImportSeed on ChatService {
           ),
         },
     };
+    if (head['story_clock'] != null || head['story_start_date'] != null) {
+      _timeService.loadTimeScalars(
+        timeOfDay: head['time_of_day'] as String? ?? _timeService.timeOfDay,
+        dayCount: (head['day_count'] as num?)?.toInt() ?? _timeService.dayCount,
+        startDayOfWeek:
+            (head['start_day_of_week'] as num?)?.toInt() ??
+            _timeService.startDayOfWeekAnchor,
+        storyClock: head['story_clock'] as String?,
+        storyStartDate: head['story_start_date'] as String?,
+      );
+    }
     if (state.isNotEmpty) {
-      // Synthetic message to reuse restore path
+      // Synthetic message to reuse restore path. Clock is the head
+      // scalars above, then backfill + tip.after — not applyTipClock
+      // alone, which would ignore an unstamped import.
       final synth = ChatMessage(
         text: '',
         sender: _activeCharacter?.name ?? '',
         isUser: false,
         metadata: {'realism_state': state},
       );
-      _restoreRealismStateFromMessage(synth, restoreClock: true);
+      _restoreRealismStateFromMessage(synth, restoreClock: false);
     }
+    _syncLoadedSlotClocks();
 
     // 1:1 suitcase kit is captured from raw `_pockets` (HIDES≠erase).
     // Phase-0 nulled it so the prior open chat cannot bleed; the gated

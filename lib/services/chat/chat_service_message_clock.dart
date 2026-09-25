@@ -43,24 +43,29 @@ extension ChatServiceMessageClock on ChatService {
     if (after != null) _timeService.applySlotClock(resolved: after);
   }
 
-  /// Fill missing pairs from the live clock / nearest real time, persist.
+  /// Fill missing pairs from the live clock / nearest real time.
+  /// Mutates in-memory slots; the load path persists when this returns true.
   bool _backfillLoadedSlotClocks() {
     return backfillSlotClocks(
       _messages,
       liveClock: _timeService.clock,
       startDate: _timeService.startDate,
-      floorUnstampedToDay1: _timeService.canonicalClockWasSynthesised,
     );
   }
 
   /// Load / reload / fork / import: backfill then tip.after.
   void _syncLoadedSlotClocks() {
-    _backfillLoadedSlotClocks();
+    try {
+      _backfillLoadedSlotClocks();
+    } catch (e, st) {
+      debugPrint('[Clock] backfill failed: $e\n$st');
+    }
     _applyTipClock();
   }
 
   /// Greeting overlay may re-seed the card clock. Session row is live.
-  void _reloadSessionClockThenSync(Session s) {
+  /// Waits for the full history so the 24-row window cannot guess.
+  Future<void> _reloadSessionClockThenSync(Session s) async {
     _timeService.loadTimeScalars(
       timeOfDay: s.timeOfDay,
       dayCount: s.dayCount,
@@ -68,7 +73,22 @@ extension ChatServiceMessageClock on ChatService {
       storyClock: s.storyClock,
       storyStartDate: s.storyStartDate,
     );
-    _syncLoadedSlotClocks();
+    await _awaitHistoryHydrated();
+    try {
+      final changed = _backfillLoadedSlotClocks();
+      _applyTipClock();
+      if (changed) unawaited(_saveChat());
+    } catch (e, st) {
+      debugPrint('[Clock] load backfill failed: $e\n$st');
+    }
+  }
+
+  /// Abort may only undo a clock change THIS turn made. Continue never
+  /// ticks. Porch Life off never writes.
+  void _abortSlotClockIfThisTurnTicked(_GenTurn t) {
+    if (t.mode == GenerationMode.continue_) return;
+    if (!_clockRunning) return;
+    _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
   }
 
   /// Pre-reply clock for regen evals. After backfill the pair exists.
@@ -98,7 +118,7 @@ extension ChatServiceMessageClock on ChatService {
   /// THE writer. Tick / nudge / abort all land here, then [_applyTipClock].
   void _writeSlotClock(ChatMessage? target, {required _SlotClockWrite kind}) {
     if (target == null || target.isUser) return;
-    if (kind != _SlotClockWrite.abort && !_clockRunning) return;
+    if (!_clockRunning) return;
 
     final known = StoryClock.parse(knownStoryClockBefore(target));
     final before = switch (kind) {

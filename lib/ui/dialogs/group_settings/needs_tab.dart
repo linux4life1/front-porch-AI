@@ -103,12 +103,8 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
     }
   }
 
-  // The engine keys every per-member store by CharacterCard.stableGroupId
-  // (ChatService._getCharacterIdFromCard). Deriving it by hand here split on
-  // '/' only and cut at the FIRST dot, so a Windows path or a filename with a
-  // dot in it produced an id no service call could match — persist
-  // (persistGroupMemberExtensions(memberId:)) matches members by that exact id.
-  String _getCharId(CharacterCard c) => c.stableGroupId;
+  // Must match ChatService._getCharacterIdFromCard / groupMemberStoreId.
+  String _getCharId(CharacterCard c) => groupMemberStoreId(c);
 
   CharacterCard? _findCharById(String id) {
     for (final c in _chars) {

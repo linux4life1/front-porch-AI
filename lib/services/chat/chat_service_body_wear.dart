@@ -101,10 +101,12 @@ extension ChatServiceBodyWear on ChatService {
     ChatMessage deleted,
   ) {
     final ids = <String>{
-      ...presentBodiesFromMeta(deleted.activeMetadata?[kNeedsPreWearByMember])
-          .keys,
-      ...presentBodiesFromMeta(deleted.activeMetadata?[kNeedsWornByMember])
-          .keys,
+      ...presentBodiesFromMeta(
+        deleted.activeMetadata?[kNeedsPreWearByMember],
+      ).keys,
+      ...presentBodiesFromMeta(
+        deleted.activeMetadata?[kNeedsWornByMember],
+      ).keys,
     };
     final out = <String, Map<String, int>>{};
     for (final id in ids) {
@@ -137,19 +139,5 @@ extension ChatServiceBodyWear on ChatService {
       if (entry.key == speakerId) continue;
       _setGroupNeeds(entry.key, Map<String, int>.from(entry.value));
     }
-  }
-
-  void _stampTimePassedChip(ChatMessage? target) {
-    final label = _timeService.bodyTimeLabel;
-    if (label == null || label.isEmpty || target == null) return;
-    // Always write the swipe slot. Mutating the getter fallback (legacy
-    // `metadata` when swipeMetadata[i] is null) is lost as soon as a later
-    // pass assigns a new swipe map — live Mac: bars moved, no time chip.
-    final existing = Map<String, dynamic>.from(target.activeMetadata ?? {});
-    if ((existing['time_skip_to'] as String? ?? '').isNotEmpty) {
-      return;
-    }
-    existing['time_passed'] = label;
-    target.activeMetadata = existing;
   }
 }
