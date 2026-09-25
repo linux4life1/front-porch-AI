@@ -136,7 +136,7 @@ extension ChatServiceMessageClock on ChatService {
         !slotHasCompletePair(tip.activeMetadata)) {
       final greetingClock = _openingGreetingSnap();
       final after = resolveSlotAfter(
-        tip.activeMetadata,
+        clockSlotForResolve(tip),
         isTip: true,
         liveClock: _timeService.clock,
         startDate: _timeService.startDate,
@@ -252,10 +252,11 @@ extension ChatServiceMessageClock on ChatService {
   void _applyForkPointClock() {
     final tip = _visibleTipMessage();
     if (tip == null) return;
-    final slot = tip.activeMetadata;
+    final slot = clockSlotForResolve(tip);
     final greetingClock = _openingGreetingSnap();
     final emptyPreUser =
         !_prefixLeftTheOpening() &&
+        !slotHasAuthoredClock(slot) &&
         !slotHasStoredClockData(slot, greetingClock: greetingClock);
     final live = emptyPreUser ? _day1OfStoryStart() : _timeService.clock;
     final after = resolveSlotAfter(
@@ -266,7 +267,9 @@ extension ChatServiceMessageClock on ChatService {
       greetingClock: greetingClock,
       neighbourStamp: _nearestStoredStamp(tip, greetingClock: greetingClock),
     );
-    if (after != null && _clockRunning && !slotHasCompletePair(slot)) {
+    if (after != null &&
+        _clockRunning &&
+        slotClockAfter(tip.activeMetadata) != after) {
       writeSlotClockPair(_clockWriteSlot(tip), before: after, after: after);
       persistStoryClockBefore(tip, StoryClock.serializeClock(after));
     }

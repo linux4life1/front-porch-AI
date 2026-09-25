@@ -249,6 +249,33 @@ bool slotHasStoredClockData(
       null;
 }
 
+/// Message-level clock view. A guessed backfill pair (after, not authored)
+/// is not stored data — [story_day] / snap on [ChatMessage.metadata] still
+/// are. Fork and delete resolve this map, then write the visible slot.
+Map<String, dynamic>? clockSlotForResolve(ChatMessage msg) {
+  final active = msg.activeMetadata;
+  if (slotHasAuthoredClock(active)) return active;
+  final meta = msg.metadata;
+  if (meta != null &&
+      (slotHasAuthoredClock(meta) ||
+          slotHasStoredClockData(meta) && !slotHasCompletePair(active))) {
+    return meta;
+  }
+  if (slotHasCompletePair(active) && !slotHasAuthoredClock(active)) {
+    final copy = Map<String, dynamic>.from(active!);
+    copy.remove('story_clock_after');
+    copy.remove('story_clock_before');
+    if (meta != null) {
+      if (meta['story_day'] != null) copy['story_day'] = meta['story_day'];
+      if (meta['realism_state'] is Map && copy['realism_state'] is! Map) {
+        copy['realism_state'] = meta['realism_state'];
+      }
+    }
+    return copy;
+  }
+  return active ?? meta;
+}
+
 /// Fill missing before/after pairs. The only snap / dayCount reader.
 ///
 /// One resolver for every slot, tip included. Frozen greeting snaps
