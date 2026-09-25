@@ -125,5 +125,34 @@ void main() {
     expect(slotClockBefore(d2.metadata), DateTime.utc(2026, 6, 29, 8, 0));
     expect(slotClockBefore(d3.metadata), DateTime.utc(2026, 6, 30, 23, 40));
     expect(slotClockAfter(d3.metadata), live);
+    expect(
+      slotClockAfter(d1.metadata),
+      isNot(live),
+      reason: 'non-tip after must be that reply\'s own clock, not the live tip',
+    );
+    expect(
+      slotClockAfter(d2.metadata),
+      isNot(live),
+      reason: 'non-tip after must be that reply\'s own clock, not the live tip',
+    );
+  });
+
+  test('B2: unstamped rows keep non-tip after off the live tip clock', () {
+    final d1 = _bot('one', {'story_day': 1});
+    final d2 = _bot('two', {'story_day': 2});
+    final d3 = _bot('three', {'story_day': 3});
+    final live = DateTime.utc(2026, 7, 1, 0, 10);
+    backfillSlotClocks(
+      [d1, d2, d3],
+      liveClock: live,
+      startDate: DateTime.utc(2026, 6, 28),
+    );
+    expect(slotClockAfter(d3.metadata), isNotNull);
+    expect(
+      slotClockAfter(d1.metadata),
+      isNot(live),
+      reason: 'backfill must not paint every older slot with the tip clock',
+    );
+    expect(slotClockAfter(d2.metadata), isNot(live));
   });
 }
