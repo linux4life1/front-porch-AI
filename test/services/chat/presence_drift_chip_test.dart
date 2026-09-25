@@ -34,6 +34,7 @@ void _setupPathProviderMock() {
 
 class _ScriptedLlm extends LLMService {
   int nextMinutes = 30;
+  bool withUser = true;
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
@@ -48,7 +49,7 @@ class _ScriptedLlm extends LLMService {
       return;
     }
     if (p.contains('WITH USER') || p.contains('"with_user"')) {
-      yield '{"with_user": true}';
+      yield '{"with_user": $withUser}';
       return;
     }
     if (p.contains('hunger_delta')) {
@@ -189,6 +190,26 @@ void main() {
       );
       expect(lastBot().activeMetadata?['time_passed'], firstChip);
       expect(slotClockAfter(lastBot().activeMetadata), firstAfter);
+    },
+  );
+
+  test(
+    'presence-drift Away path (with_user false) still matches the pair',
+    () async {
+      await boot();
+      llm.withUser = false;
+      llm.nextMinutes = 30;
+      await chat!.sendMessage('Where did you go?');
+      await drainTurn();
+      expect(
+        chat!.relationshipService.withUser,
+        isFalse,
+        reason: 'with_user: false must land on the Away glance',
+      );
+      _expectChipMatchesPair(
+        lastBot(),
+        reason: 'Away path still stamps a chip that names the pair minutes',
+      );
     },
   );
 }
