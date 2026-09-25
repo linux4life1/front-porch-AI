@@ -230,11 +230,10 @@ bool backfillSlotClocks(
     if (msg.isUser || msg.sender == 'System') continue;
     tipIndex = i;
     for (final slot in _messageSlots(msg)) {
+      if (slot?['clock_from_day_count'] == true) continue;
       if (_snapStoryClock(slot) != null ||
           slotClockBefore(slot) != null ||
-          slotClockAfter(slot) != null ||
-          (slotHasCompletePair(slot) &&
-              slot?['clock_from_day_count'] != true)) {
+          slotClockAfter(slot) != null) {
         anyStoryClock = true;
       }
     }
