@@ -3,11 +3,13 @@
 //
 // One resolver for every slot. The ladder is the contract. Live is
 // never a real stamp. History never reads live except tip TOD at
-// step 4. A tip with nothing stored takes live above its own
-// before (clamp is the floor). A greeting with nothing stored
-// takes the next neighbour's before, else Day 1. A later
-// neighbour contributes its before; an earlier neighbour its
-// after. Inverted stored pairs clamp to own before.
+// step 4. A non-greeting tip with nothing stored takes live above
+// its own before (clamp is the floor). A greeting with nothing
+// stored takes the next neighbour's before; a greeting that is
+// the tip then takes Day 1. History greeting stays empty so a
+// lived-in open cannot persist 09:00. A later neighbour
+// contributes its before; an earlier neighbour its after.
+// Inverted stored pairs clamp to own before.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -194,11 +196,10 @@ DateTime? directionalNeighbourStamp({
 ///  6. S's own before, including the answering user turn.
 ///  7. The nearest REAL neighbour stamp. A later neighbour
 ///     contributes its BEFORE; an earlier neighbour its AFTER.
-///  8. Greeting that is the chat tip, with nothing stored and no
-///     neighbour: Day 1 of [startDate]. History greeting with
-///     nothing stays empty so a lived-in open cannot persist 09:00
-///     onto later frozen replies' greeting.
-///  9. History with nothing: leave empty, never live.
+///  8. Greeting that is the chat tip, with nothing stored: Day 1
+///     of [startDate]. History greeting with nothing stays empty
+///     so a lived-in open cannot persist 09:00 onto later frozen
+///     replies.
 ///
 /// Then CLAMP: after is never earlier than S's own before, including
 /// a stored rung-1 after. A turn cannot go backward.
@@ -257,7 +258,7 @@ DateTime? resolveSlotAfter(
           hit = before;
         } else if (neighbourStamp != null) {
           hit = neighbourStamp;
-        } else if (isGreeting && greetingIsTip) {
+        } else if (isGreeting && (isTip || greetingIsTip)) {
           hit = day1StartClock(start);
         }
       }
