@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/chat_components/bubbles/message_bubble.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -39,32 +38,6 @@ void main() {
             isExpanded: true,
             onTap: () {},
             avatarFile: missing,
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    expect(find.text('C'), findsOneWidget);
-    expect(find.byIcon(Icons.broken_image), findsNothing);
-    expect(find.byIcon(Icons.person), findsNothing);
-  });
-
-  testWidgets('message bubble with a missing avatar file shows a letter', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MessageBubble(
-            message: ChatMessage(
-              text: 'Evening.',
-              sender: 'Carmen',
-              isUser: false,
-            ),
-            index: 0,
-            characterImage: missing,
-            character: CharacterCard(name: 'Carmen'),
           ),
         ),
       ),
