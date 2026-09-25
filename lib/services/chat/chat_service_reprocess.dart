@@ -247,12 +247,7 @@ extension ChatServiceReprocess on ChatService {
           lastMsg.activeMetadata?['realism_state'] is Map &&
           (lastMsg.activeMetadata!['realism_state'] as Map)['time_nudged'] ==
               true;
-      if (_clockRunning && !clockWasNudged) {
-        final before = lastMsg.activeMetadata?['story_clock_before'] as String?;
-        if (StoryClock.parse(before) != null) {
-          _timeService.restoreTimeFromRealismState({'storyClock': before});
-        }
-      }
+      _rewindClockToPreReply(lastMsg, wasNudged: clockWasNudged);
 
       _revertRegenRealismBaseline(
         lastMsg: lastMsg,
@@ -385,13 +380,13 @@ extension ChatServiceReprocess on ChatService {
         }
       }
 
-      // story_clock_before wins over previousSessionState. A guest (no
-      // realism_state) can sit between two host lines; restoring the last
-      // stamped host snapshot would rewind PAST that guest's decide.
+      // story_clock_before again so a guest (no realism_state) between
+      // two host lines cannot be overwritten by a later snap restore.
+      // Minutes rewind is not repeated — that would double-subtract.
       if (_clockRunning && !clockWasNudged) {
         final before = lastMsg.activeMetadata?['story_clock_before'] as String?;
         if (StoryClock.parse(before) != null) {
-          _timeService.restoreTimeFromRealismState({'storyClock': before});
+          _timeService.rewindClockToPreReply(storyClockBefore: before);
         }
       }
 

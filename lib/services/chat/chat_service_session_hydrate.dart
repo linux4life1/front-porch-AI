@@ -168,10 +168,7 @@ extension ChatServiceSessionHydrate on ChatService {
     // so we log the leftover once and stop rewriting it as if it mattered.
     if (!s.passageOfTimeGateMigrated) {
       final leftover = s.passageOfTimeEnabled;
-      final porch = _storageService.realismSettings.passageOfTimeDefault;
-      _timeService.markClockGateSource(
-        'porch_life leftover=$leftover ignored porchLife=$porch',
-      );
+      _timeService.markClockGateLeftover(leftover);
       debugPrint(
         '[Clock] migrate leftover=$leftover ignored '
         'source=${_timeService.clockGateSource}',

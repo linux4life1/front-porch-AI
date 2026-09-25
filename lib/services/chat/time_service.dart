@@ -99,9 +99,10 @@ part 'time_service_load.dart';
 /// longer gates the decide.
 ///
 /// Regen/swipe rewind the clock from the rejected reply's
-/// `story_clock_before` stamp, then the post-reply eval decides again —
-/// engine-on, time-only, and Scene Guest share that receipt. Without it a
-/// swipe would double-advance.
+/// `story_clock_before` stamp, else by recorded `time_passed` minutes,
+/// else they keep the live session clock. They never take time from a
+/// `realism_state` snap. Then the post-reply eval decides again —
+/// engine-on, time-only, and Scene Guest share that receipt.
 ///
 /// The OOC time-skip path ([detectOocTimeSkip]) is pure regex and stands on
 /// its own — but it is a narrow fast path over enumerated phrasings and does
@@ -166,6 +167,7 @@ class TimeService {
   DateTime _startDate = StoryClock.todayAnchor();
   bool _passageOfTimeEnabled = true;
   String _clockGateSource = 'porch_life';
+  bool? _clockGateLeftover;
   int _turnsSinceClockMoved = 0; // stall backstop counter (not a pacing gate)
   bool _canonicalClockWasSynthesised = false;
   // One clock authority per turn: set when detectOocTimeSkip moves the clock,
@@ -326,9 +328,18 @@ class TimeService {
       StoryClock.morningDayCountFor(_clock, _startDate);
   bool get passageOfTimeEnabled =>
       getPorchLifePassageOfTime?.call() ?? _passageOfTimeEnabled;
-  String get clockGateSource => _clockGateSource;
+  String get clockGateSource {
+    final porch = getPorchLifePassageOfTime?.call() ?? _passageOfTimeEnabled;
+    if (_clockGateLeftover != null) {
+      return 'porch_life leftover=$_clockGateLeftover ignored '
+          'porchLife=$porch';
+    }
+    return '$_clockGateSource porchLife=$porch';
+  }
 
   void markClockGateSource(String source) => _clockGateSource = source;
+
+  void markClockGateLeftover(bool leftover) => _clockGateLeftover = leftover;
   String get narrativeWeekday => StoryClock.weekdayName(_clock);
 
   /// Derived legacy anchor — still written to the session row / snapshots so

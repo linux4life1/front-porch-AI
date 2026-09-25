@@ -23,6 +23,16 @@ part of '../chat_service.dart';
 /// 1:1 and group share this helper. Group impersonates the rejected speaker,
 /// reverts, then saves back into `_groupRealism`. Continue is not this file.
 extension ChatServiceRegenRevert on ChatService {
+  /// Pre-reply clock for regen/swipe. Never a realism_state snap.
+  void _rewindClockToPreReply(ChatMessage lastMsg, {required bool wasNudged}) {
+    if (!_clockRunning || wasNudged) return;
+    _timeService.rewindClockToPreReply(
+      storyClockBefore:
+          lastMsg.activeMetadata?['story_clock_before'] as String?,
+      minutesPassed: minutesRecordedForClockRewind(lastMsg.activeMetadata),
+    );
+  }
+
   void _revertRegenRealismBaseline({
     required ChatMessage lastMsg,
     required CharacterCard? regenGuest,
@@ -96,13 +106,6 @@ extension ChatServiceRegenRevert on ChatService {
             }
           }
         }
-      }
-
-      bool wasNudged = false;
-      if (lastMsg.activeMetadata != null &&
-          lastMsg.activeMetadata!['realism_state'] is Map) {
-        wasNudged =
-            lastMsg.activeMetadata!['realism_state']['time_nudged'] == true;
       }
 
       // Did we restore needs from the rejected message's OWN needs_pre_turn_vector
@@ -240,26 +243,11 @@ extension ChatServiceRegenRevert on ChatService {
         );
       }
 
-      // Session-level baseline (the shared story clock) comes from the most
-      // recent stamped bot message of ANY speaker — identical to
-      // previousMessageState in 1:1. The decay cadence is NOT session-level:
-      // it is per-character, so it rides previousMessageState above instead.
-      if (previousSessionState != null) {
-        final before = lastMsg.activeMetadata?['story_clock_before'] as String?;
-        if (before != null) {
-          _timeService.restoreTimeFromRealismState({'storyClock': before});
-        } else if (previousSessionState['storyClock'] is String) {
-          _timeService.restoreTimeForSwipeOrRegen(
-            previousSessionState,
-            wasNudged: wasNudged,
-          );
-        }
-        // No canonical clock on the snap: keep the live session clock.
-        // Synthesizing morning/Day 1 from a pre-calendar leftover pinned
-        // lived-in chats back to 9:00 AM on regen.
-      }
+      // Clock rewind lives in [_rewindClockToPreReply] (reprocess). A
+      // realism_state.storyClock / timeOfDay / dayCount snap is not the
+      // pre-reply time — old chats freeze those at Day 1 09:00.
       // Clock suppression is an argument on Next Character only. Regen
-      // rewinds above and then re-runs the scene-time eval with the
+      // rewinds in reprocess and then re-runs the scene-time eval with the
       // default (advance), so time does not walk backward.
 
       // ── Where they were BEFORE the reply being discarded ──────────────

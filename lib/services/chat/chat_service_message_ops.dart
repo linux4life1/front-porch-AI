@@ -333,11 +333,12 @@ extension ChatServiceMessageOps on ChatService {
       if (!deleted.isUser && deleted.sender != 'System') {
         _rewindPocketsForDeletedMessage(deleted, wasTail: wasTail);
         if (wasTail) {
-          final before =
-              deleted.activeMetadata?['story_clock_before'] as String?;
-          if (_clockRunning && StoryClock.parse(before) != null) {
-            _timeService.restoreTimeFromRealismState({'storyClock': before});
-          }
+          final nudged =
+              deleted.activeMetadata?['realism_state'] is Map &&
+              (deleted.activeMetadata!['realism_state']
+                      as Map)['time_nudged'] ==
+                  true;
+          _rewindClockToPreReply(deleted, wasNudged: nudged);
         }
       }
 

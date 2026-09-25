@@ -103,6 +103,41 @@ String? timePassedLabel({
   return '$hours hr $rest min';
 }
 
+/// Inverse of [timePassedLabel] for regen/swipe clock rewind.
+///
+/// Numeric fields pass through. Chip text (`5 min`, `1 hr`, `2 hr 5 min`,
+/// `same moment`) becomes minutes. `Next morning` is not an exact span.
+int? minutesFromTimePassed(Object? raw) {
+  if (raw is num) return raw.toInt();
+  if (raw is! String) return null;
+  final text = raw.trim();
+  if (text.isEmpty) return null;
+  if (text == 'same moment') return 0;
+  if (text == 'Next morning') return null;
+  final hrMin = RegExp(r'^(\d+)\s*hr(?:\s+(\d+)\s*min)?$').firstMatch(text);
+  if (hrMin != null) {
+    final hours = int.parse(hrMin.group(1)!);
+    final mins = int.parse(hrMin.group(2) ?? '0');
+    return hours * 60 + mins;
+  }
+  final mins = RegExp(r'^(\d+)\s*min$').firstMatch(text);
+  if (mins != null) return int.parse(mins.group(1)!);
+  return null;
+}
+
+/// Minutes a rejected turn recorded: `time_passed` chip first, then a
+/// numeric `minutes` / `minutes_elapsed` field.
+int? minutesRecordedForClockRewind(Map<String, dynamic>? meta) {
+  if (meta == null) return null;
+  final fromChip = minutesFromTimePassed(meta['time_passed']);
+  if (fromChip != null) return fromChip;
+  final minutes = meta['minutes'];
+  if (minutes is num) return minutes.toInt();
+  final elapsed = meta['minutes_elapsed'];
+  if (elapsed is num) return elapsed.toInt();
+  return null;
+}
+
 /// Short no-action turn: Needs ran, bars did not move. Shown as its own chip.
 const String kNeedsUnaffectedMeta = 'needs_unaffected';
 

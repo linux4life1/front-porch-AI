@@ -130,6 +130,19 @@ extension TimeServiceLoad on TimeService {
     }
   }
 
+  /// Regen/swipe pre-reply clock. Never reads a realism_state snap.
+  /// [storyClockBefore] wins; else rewind live by [minutesPassed]; else keep.
+  void rewindClockToPreReply({String? storyClockBefore, int? minutesPassed}) {
+    final before = StoryClock.parse(storyClockBefore);
+    if (before != null) {
+      _clock = before;
+      return;
+    }
+    if (minutesPassed != null && minutesPassed > 0) {
+      _clock = _clock.subtract(Duration(minutes: minutesPassed));
+    }
+  }
+
   /// Restore from a realism_state snapshot (message metadata, 1:1<->group
   /// conversion carry). Restores REGARDLESS of passage-of-time — a fixed
   /// scene time is meaningful even with auto-advance off. Prefers the

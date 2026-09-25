@@ -258,7 +258,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
   /// into the wrong member's entry would corrupt that member's state.
   void _restoreRealismStateForSpeaker(ChatMessage msg) {
     if (_activeGroup == null) {
-      _restoreRealismStateFromMessage(msg);
+      _restoreRealismStateFromMessage(msg, restoreClock: false);
       return;
     }
     final speaker = _resolveGroupSpeakerForMessage(msg);
@@ -269,7 +269,11 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final state = msg.activeMetadata?['realism_state'];
     final stampHasNeeds = state is Map && state['needs'] is Map;
     _loadGroupRealismIntoScalars(sid);
-    _restoreRealismStateFromMessage(msg, groupSpeakerId: sid);
+    _restoreRealismStateFromMessage(
+      msg,
+      groupSpeakerId: sid,
+      restoreClock: false,
+    );
     if (!hadStoredNeeds && !stampHasNeeds) {
       // The load's initializeFresh() filled the scalar vector for a member
       // with no needs history, and the stamp carries none either — clear it
@@ -293,6 +297,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
   void _restoreRealismStateFromMessage(
     ChatMessage? msg, {
     String? groupSpeakerId,
+    bool restoreClock = true,
   }) {
     if (msg == null) return;
 
@@ -315,7 +320,12 @@ extension ChatServiceSpeakerObjectives on ChatService {
     _emotionIntensity =
         state['emotionIntensity'] as String? ?? _emotionIntensity;
 
-    _timeService.restoreTimeFromRealismState(state);
+    // Regen/swipe/merge never take the clock from a realism_state snap.
+    // Those snaps are frozen or pre-calendar on old chats. Import still
+    // restores clock via [restoreClock].
+    if (restoreClock) {
+      _timeService.restoreTimeFromRealismState(state);
+    }
 
     _nsfwService.restoreNsfwFromRealismState(state);
 
