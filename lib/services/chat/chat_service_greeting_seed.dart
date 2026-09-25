@@ -27,18 +27,6 @@ extension ChatServiceGreetingSeed on ChatService {
   bool get _isOpeningGreetingChat =>
       _messages.length == 1 && !_messages.first.isUser;
 
-  /// First-greet RtR is skipped so authored emotion stays. A relationship
-  /// call still has to run here so the first user send is not the
-  /// card-default trust eval.
-  Future<void> _runOpeningRelationshipBaseline() async {
-    if (!_realismActiveThisMode) return;
-    try {
-      await _evaluateRelationshipCall();
-    } catch (e, st) {
-      debugPrint('[Realism] Opening relationship baseline failed: $e\n$st');
-    }
-  }
-
   GreetingOpeningBase _openingBaseFor(
     CharacterCard card, {
     required String? memberId,
@@ -196,7 +184,6 @@ extension ChatServiceGreetingSeed on ChatService {
       _runPostGreetingEval();
     } else if (_realismActiveThisMode) {
       unawaited(_seedOpeningPosture().catchError((Object _) {}));
-      await _runOpeningRelationshipBaseline();
     }
   }
 
@@ -310,7 +297,6 @@ extension ChatServiceGreetingSeed on ChatService {
       _runPostGreetingEval();
     } else if (_realismActiveThisMode) {
       unawaited(_seedOpeningPosture().catchError((Object _) {}));
-      await _runOpeningRelationshipBaseline();
     }
   }
 

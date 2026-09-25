@@ -37,24 +37,14 @@ extension ChatServiceMessageClock on ChatService {
     persistStoryClockBefore(msg, StoryClock.serializeClock(clock));
   }
 
-  /// THE reader. Live clock = the visible tip slot's after, then
-  /// message-level / any swipe after (a new regen swipe may be empty).
+  /// THE reader. Live clock = the visible tip slot's after. Never
+  /// another swipe's after — a cancelled regen swipe must not inherit
+  /// the rejected pair.
   void _applyTipClock() {
     final tip = _visibleTipMessage();
     if (tip == null) return;
-    final after =
-        slotClockAfter(tip.activeMetadata) ??
-        slotClockAfter(tip.metadata) ??
-        _anySlotAfter(tip);
+    final after = slotClockAfter(tip.activeMetadata);
     if (after != null) _timeService.applySlotClock(resolved: after);
-  }
-
-  DateTime? _anySlotAfter(ChatMessage msg) {
-    for (final slot in msg.swipeMetadata) {
-      final after = slotClockAfter(slot);
-      if (after != null) return after;
-    }
-    return null;
   }
 
   /// Fill missing pairs from the live clock / nearest real time.
@@ -67,6 +57,7 @@ extension ChatServiceMessageClock on ChatService {
       _messages,
       liveClock: _timeService.clock,
       startDate: _timeService.startDate,
+      floorUnstampedToDay1: _timeService.canonicalClockWasSynthesised,
     );
   }
 
@@ -101,12 +92,8 @@ extension ChatServiceMessageClock on ChatService {
   }
 
   /// Abort may only undo a clock change THIS turn made. Continue never
-  /// ticks. Porch Life off never writes. Regen streams into a new
-  /// message, so the chip lives on the popped original
-  /// ([_clockPriorTurnHadChip]). A live send that already committed a
-  /// chip abort-writes after=before (hold-spec / K2). A planted slot
-  /// with no chip did not tick this turn: leave the pair and apply the
-  /// tip so the kept reply stays on its after (ops-gaps midnight).
+  /// ticks. Porch Life off never writes. Abort-write sets after=before
+  /// on the kept tip so live clock equals that pair.
   void _abortSlotClockIfThisTurnTicked(_GenTurn t) {
     if (t.mode == GenerationMode.continue_) {
       _applyTipClock();
@@ -116,25 +103,8 @@ extension ChatServiceMessageClock on ChatService {
       _applyTipClock();
       return;
     }
-    if (_clockPriorTurnHadChip || _messageHasTimePassedChip(t.streamTarget)) {
-      _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
-      return;
-    }
-    _timeService.restoreCapturedClock();
-    _applyTipClock();
+    _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
   }
-
-  bool _messageHasTimePassedChip(ChatMessage msg) {
-    if (_slotHasTimePassedChip(msg.metadata)) return true;
-    if (_slotHasTimePassedChip(msg.activeMetadata)) return true;
-    for (final slot in msg.swipeMetadata) {
-      if (_slotHasTimePassedChip(slot)) return true;
-    }
-    return false;
-  }
-
-  bool _slotHasTimePassedChip(Map<String, dynamic>? slot) =>
-      (slot?['time_passed'] as String?)?.isNotEmpty == true;
 
   /// Tail-delete of a nudged tip restores the pre-nudge clock onto
   /// the new visible tip so hold-spec (clock == tip.after) and the
@@ -164,7 +134,6 @@ extension ChatServiceMessageClock on ChatService {
   void _rewindClockToPreReply(ChatMessage lastMsg) {
     if (!_clockRunning) return;
     _timeService.captureLiveClock();
-    _clockPriorTurnHadChip = _messageHasTimePassedChip(lastMsg);
     _discoverAndPersistMessageBefore(lastMsg);
     _timeService.rewindToBeforeIso(knownStoryClockBefore(lastMsg));
   }

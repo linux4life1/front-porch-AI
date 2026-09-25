@@ -465,7 +465,6 @@ extension ChatServiceGeneration on ChatService {
         _postGenAbortRequested = false;
         _isCancellingRealismEval = false;
         _realismEvalCancelled = false;
-        _clockPriorTurnHadChip = false;
       }
     }
   }

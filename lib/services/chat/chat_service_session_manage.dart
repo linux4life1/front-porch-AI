@@ -422,8 +422,6 @@ extension ChatServiceSessionManage on ChatService {
         _stampOpeningClockPair();
         if (_activeCharacter!.firstMessage.trim().isEmpty) {
           await _applyGreetingOpeningSeed(card: _activeCharacter!, index: 0);
-        } else {
-          await _runOpeningRelationshipBaseline();
         }
       }
     }

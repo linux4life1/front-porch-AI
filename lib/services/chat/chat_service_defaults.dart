@@ -175,11 +175,6 @@ bool _postGenAbortRequested = false;
 /// delete can restore it without rewriting `story_clock_before`.
 DateTime? _pendingNudgeBefore;
 
-/// Regen pops the original tip before generate. The new stream target
-/// has no chip, so abort must remember whether the kept reply already
-/// ticked (hold-spec / K2) versus a planted pair with no chip (midnight).
-bool _clockPriorTurnHadChip = false;
-
 /// Bumped on regen / settling abort so a fire-and-forget Journal or Growth
 /// pass started against the rejected window cannot apply (or fall through
 /// to XML) after abortGeneration tore the tools call down.

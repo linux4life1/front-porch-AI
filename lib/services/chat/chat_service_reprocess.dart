@@ -119,7 +119,6 @@ extension ChatServiceReprocess on ChatService {
     } finally {
       _isPostGenerating = false;
       _clearPostGenAbortFlags();
-      _clockPriorTurnHadChip = false;
       _applyTipClock();
     }
   }
