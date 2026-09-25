@@ -1,8 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// One resolver for every slot, tip included. Own after → non-frozen
-// snap → dayCount>1 → before → neighbour. Live only for an empty tip.
+// One resolver for every slot, tip included. Own after → chip →
+// non-frozen snap → dayCount>1 → before → neighbour. Live only after
+// own data and nearestReal are empty, and only for the tip. History
+// never takes live. Day-without-TOD: own day, neighbour TOD, else
+// tip = live TOD / history = 09:00.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -58,6 +61,17 @@ String? slotTimeOfDay(Map<String, dynamic>? slot) {
   return null;
 }
 
+/// Neighbour stamp's TOD, else the tip's live clock, else null (09:00).
+DateTime? dayCountTodClock({
+  required bool isTip,
+  required DateTime liveClock,
+  DateTime? neighbourStamp,
+}) {
+  if (neighbourStamp != null) return neighbourStamp;
+  if (isTip) return liveClock;
+  return null;
+}
+
 DateTime dayCountClock({
   required int dayCount,
   required DateTime startDate,
@@ -81,6 +95,27 @@ DateTime dayCountClock({
   return StoryClock.representativeTime(date, 'morning');
 }
 
+/// A derived day pair is stale when start moved: the stored after's
+/// calendar day no longer equals start + (dayCount-1). Chip / nudge /
+/// snap pairs are real stamps and are not rewritten. Live TOD changing
+/// alone is not stale — only the date vs start.
+bool slotDerivedAfterIsStale(
+  Map<String, dynamic>? slot,
+  DateTime keptAfter, {
+  DateTime? startDate,
+}) {
+  if (startDate == null) return false;
+  final dc = slotDayCount(slot);
+  if (dc == null || dc <= 1) return false;
+  final expected = StoryClock.dateOnly(startDate).add(Duration(days: dc - 1));
+  if (StoryClock.dateOnly(keptAfter) == expected) return false;
+  if (slot?['clock_from_day_count'] == true) return true;
+  if (slot?['time_nudged'] == true) return false;
+  if ((slot?['time_passed'] as String?)?.isNotEmpty == true) return false;
+  if (slotSnapClock(slot) != null) return false;
+  return true;
+}
+
 /// Greeting-era snap, or a snap that predates this message's before.
 /// A snap later than this slot's own before is this reply's clock
 /// (v1.4 before + snap, no after) even when that wall-clock equals
@@ -98,9 +133,12 @@ bool slotSnapIsFrozen(
   return false;
 }
 
-/// Own stored after → non-frozen snap → dayCount>1 → before →
-/// [neighbourStamp]. Live only when [isTip] and nothing is stored.
-/// History never takes [liveClock] as a first-class fallback.
+/// Own stored after → chip → non-frozen snap → dayCount>1 → before →
+/// [neighbourStamp]. Live only when [isTip] and own data plus
+/// [neighbourStamp] are empty. A derived day after whose calendar day
+/// does not match [startDate] is stale (start moved) and is recomputed.
+/// Day-without-TOD takes [neighbourStamp]'s TOD; if none, the tip uses
+/// [liveClock] and history uses 09:00. History never takes [liveClock].
 DateTime? resolveSlotAfter(
   Map<String, dynamic>? slot, {
   required bool isTip,
@@ -110,7 +148,10 @@ DateTime? resolveSlotAfter(
   DateTime? neighbourStamp,
 }) {
   final keptAfter = slotClockAfter(slot);
-  if (keptAfter != null) return keptAfter;
+  if (keptAfter != null &&
+      !slotDerivedAfterIsStale(slot, keptAfter, startDate: startDate)) {
+    return keptAfter;
+  }
   final before = slotClockBefore(slot);
   final mins = minutesRecordedForClockRewind(slot);
   if (before != null && mins != null && mins > 0) {
@@ -131,7 +172,11 @@ DateTime? resolveSlotAfter(
       dayCount: dc,
       startDate: startDate ?? StoryClock.dateOnly(liveClock),
       timeOfDay: slotTimeOfDay(slot),
-      liveClock: before ?? liveClock,
+      liveClock: dayCountTodClock(
+        isTip: isTip,
+        liveClock: liveClock,
+        neighbourStamp: neighbourStamp,
+      ),
     );
     if (before != null && fromDay.isBefore(before)) return before;
     return fromDay;

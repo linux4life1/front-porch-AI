@@ -108,20 +108,23 @@ void _markClockBackfillDone(List<ChatMessage> messages) {
   }
 }
 
-/// Rewrite a `clock_from_day_count` pair only when start moved
-/// (calendar day changed). Live TOD changing — a fork re-seeding
-/// the card clock — must not clobber the stored after.
+/// Rewrite a derived day pair only when start moved (calendar day
+/// changed). Live TOD changing — a fork re-seeding the card clock —
+/// must not clobber the stored after. [alreadyGuessed] does not
+/// block this: the marker means don't re-guess, not don't rewrite
+/// a pair measured against an old start.
 bool _refreshDerivedDayPair(
   Map<String, dynamic>? slot,
   Map<String, dynamic> dest,
   ChatMessage msg,
+  DateTime start,
   DateTime? Function(Map<String, dynamic>?) ownDay,
 ) {
-  if (slot?['clock_from_day_count'] != true) return false;
-  final day = ownDay(slot);
   final stored = slotClockAfter(slot);
-  if (day == null || stored == null) return false;
-  if (StoryClock.dateOnly(stored) == StoryClock.dateOnly(day)) return false;
+  if (stored == null) return false;
+  if (!slotDerivedAfterIsStale(slot, stored, startDate: start)) return false;
+  final day = ownDay(slot);
+  if (day == null) return false;
   writeSlotClockPair(dest, before: day, after: day, fromDayCount: true);
   persistStoryClockBefore(msg, StoryClock.serializeClock(day));
   return true;
@@ -131,10 +134,12 @@ bool _refreshDerivedDayPair(
 ///
 /// One resolver for every slot, tip included. Frozen greeting snaps
 /// are not a clock. dayCount-only is a clock only when THAT message
-/// stored dayCount > 1. Never invents Day 1. [floorUnstampedToDay1]
-/// is accepted and does not floor. Never overwrites an existing
-/// before or after. Guess runs once per chat ([_kClockBackfillDone]);
-/// derived `clock_from_day_count` pairs still refresh when start moves.
+/// stored dayCount > 1. Day-without-TOD takes the neighbour stamp's
+/// TOD; if none, the tip uses [liveClock] and history uses 09:00.
+/// Never invents Day 1. [floorUnstampedToDay1] is accepted and does
+/// not floor. Never overwrites an existing before or after. Guess
+/// runs once per chat ([_kClockBackfillDone]) — the marker must not
+/// block a writer from refreshing a derived pair when start moved.
 bool backfillSlotClocks(
   List<ChatMessage> messages, {
   required DateTime liveClock,
@@ -192,6 +197,7 @@ bool backfillSlotClocks(
     DateTime? later;
     var laterDist = 1 << 30;
     for (final entry in realByIndex.entries) {
+      if (entry.key == index) continue;
       final dist = (entry.key - index).abs();
       if (entry.key <= index) {
         if (dist < earlierDist) {
@@ -206,14 +212,22 @@ bool backfillSlotClocks(
     return earlier ?? later;
   }
 
-  DateTime? ownDay(Map<String, dynamic>? slot) {
+  DateTime? ownDay(
+    int index,
+    Map<String, dynamic>? slot, {
+    required bool tipSlot,
+  }) {
     final dc = slotDayCount(slot);
     if (dc == null || dc <= 1) return null;
     return dayCountClock(
       dayCount: dc,
       startDate: start,
       timeOfDay: slotTimeOfDay(slot),
-      liveClock: liveClock,
+      liveClock: dayCountTodClock(
+        isTip: tipSlot,
+        liveClock: liveClock,
+        neighbourStamp: nearestReal(index),
+      ),
     );
   }
 
@@ -256,19 +270,22 @@ bool backfillSlotClocks(
         changed = true;
         continue;
       }
+      final tipSlot = isTip && s == msg.swipeIndex;
+      DateTime? dayOf(Map<String, dynamic>? s) =>
+          ownDay(i, s, tipSlot: tipSlot);
       if (slotHasCompletePair(slot)) {
         if (_refreshDerivedDayPair(
           slot,
           existing ?? msg.metadata!,
           msg,
-          ownDay,
+          start,
+          dayOf,
         )) {
           changed = true;
         }
         continue;
       }
       if (alreadyGuessed) continue;
-      final tipSlot = isTip && s == msg.swipeIndex;
       final after = resolveAfter(i, slot, tipSlot: tipSlot);
       if (after == null) continue;
       final keptAfter = slotClockAfter(slot);
@@ -280,12 +297,12 @@ bool backfillSlotClocks(
               ? after.subtract(Duration(minutes: mins))
               : after);
       final dest = existing ?? (msg.metadata ??= {});
+      final day = dayOf(slot);
       writeSlotClockPair(
         dest,
         before: before,
         after: after,
-        fromDayCount:
-            ownDay(slot) != null && keptAfter == null && after == ownDay(slot),
+        fromDayCount: day != null && keptAfter == null && after == day,
       );
       persistStoryClockBefore(msg, StoryClock.serializeClock(before));
       changed = true;
@@ -303,7 +320,8 @@ bool backfillSlotClocks(
         changed = true;
         continue;
       }
-      if (_refreshDerivedDayPair(meta, meta, msg, ownDay)) {
+      DateTime? dayOf(Map<String, dynamic>? s) => ownDay(i, s, tipSlot: isTip);
+      if (_refreshDerivedDayPair(meta, meta, msg, start, dayOf)) {
         changed = true;
         continue;
       }
@@ -314,7 +332,7 @@ bool backfillSlotClocks(
       final after = resolveAfter(i, meta, tipSlot: isTip);
       if (after == null) continue;
       final keptAfter = slotClockAfter(meta);
-      final day = ownDay(meta);
+      final day = dayOf(meta);
       final before = slotClockBefore(meta) ?? after;
       writeSlotClockPair(
         meta,

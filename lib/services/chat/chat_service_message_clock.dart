@@ -111,7 +111,9 @@ extension ChatServiceMessageClock on ChatService {
 
   /// Tail-delete of a nudged tip restores the pre-nudge clock onto
   /// the new visible tip so hold-spec (clock == tip.after) and the
-  /// pre-nudge pin agree. Otherwise live follows the new tip's after.
+  /// pre-nudge pin agree. Non-nudge tail delete writes the deleted
+  /// message's before onto the new tip — a neighbour-painted pair
+  /// on the greeting must not keep the deleted after (17:07 vs 16:37).
   void _applyClockAfterDelete(ChatMessage deleted, {required bool wasTail}) {
     if (wasTail) {
       final nudged = deleted.activeMetadata?['time_nudged'] == true;
@@ -124,10 +126,6 @@ extension ChatServiceMessageClock on ChatService {
                 StoryClock.parse(knownStoryClockBefore(deleted));
       if (restored != null) {
         final tip = _visibleTipMessage();
-        if (!nudged && tip != null && slotHasCompletePair(tip.activeMetadata)) {
-          _applyTipClock();
-          return;
-        }
         if (tip != null && _clockRunning) {
           writeSlotClockPair(
             _clockWriteSlot(tip),
@@ -260,6 +258,9 @@ extension ChatServiceMessageClock on ChatService {
   void _applyForkPointClock() {
     final tip = _visibleTipMessage();
     if (tip == null) return;
+    // Refresh derived day pairs against the current start. The load
+    // marker must not leave a pair measured against an old start.
+    _backfillLoadedSlotClocks();
     final slot = clockSlotForResolve(tip);
     final greetingClock = _openingGreetingSnap();
     final emptyPreUser =
