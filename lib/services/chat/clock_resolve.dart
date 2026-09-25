@@ -1,10 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// One resolver for every slot. The ladder is the contract; callers
-// assemble S (inherit user story_day on fork) then call this. Live
-// is never a real stamp. History never reads live except tip TOD
-// at step 4.
+// One resolver for every slot. The ladder is the contract. Live is
+// never a real stamp. History never reads live except tip TOD at
+// step 4. A neighbour story_day is not the fork-point clock.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -204,26 +203,6 @@ DateTime? resolveSlotAfter(
   }
   if (hit != null && before != null && hit.isBefore(before)) return before;
   return hit;
-}
-
-/// Copy the nearest authored story_day onto [slot] when the slot
-/// itself has none. Fork assembles S this way so step 4 sees the
-/// user-turn day. [neighbours] are in transcript order; the last
-/// day found is the nearest earlier stamp.
-Map<String, dynamic>? inheritNearestStoryDay(
-  Map<String, dynamic>? slot, {
-  required Iterable<Map<String, dynamic>?> neighbours,
-}) {
-  if (slotDayCount(slot) != null) return slot;
-  int? day;
-  for (final n in neighbours) {
-    final d = slotDayCount(n);
-    if (d != null) day = d;
-  }
-  if (day == null) return slot;
-  final copy = Map<String, dynamic>.from(slot ?? {});
-  copy['story_day'] = day;
-  return copy;
 }
 
 /// After / non-frozen snap / dayCount>1 / before. Frozen Day-1 snaps

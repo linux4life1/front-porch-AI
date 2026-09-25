@@ -47,36 +47,16 @@ extension ChatServiceMessageClock on ChatService {
     if (after != null) _timeService.applySlotClock(resolved: after);
   }
 
-  /// One ladder for the visible tip. [inheritStoryDay] is fork-only
-  /// so an empty bot sitting on a user-turn story_day hits step 4.
-  /// [liveClock] is the session clock, or a delete rewind, or Day 1
-  /// of start for an empty pre-user fork.
-  DateTime? _resolveVisibleAfter({
-    ChatMessage? tip,
-    DateTime? liveClock,
-    bool inheritStoryDay = false,
-  }) {
+  /// One ladder for the visible tip. Uses the stored slot so load
+  /// recover and abort keep step 1. A neighbour story_day is not
+  /// copied onto an empty tip (rung 6 is live). [liveClock] is the
+  /// session clock, a delete rewind, or Day 1 of start.
+  DateTime? _resolveVisibleAfter({ChatMessage? tip, DateTime? liveClock}) {
     final target = tip ?? _visibleTipMessage();
     if (target == null) return null;
     final greetingClock = _openingGreetingSnap();
-    // clockSlotForResolve strips a complete unauthored pair so fork
-    // can see story_day. Apply / delete / abort must keep that pair —
-    // it is the stored after (Day-3 recover, abort after=before).
-    var slot = inheritStoryDay
-        ? clockSlotForResolve(target)
-        : target.activeMetadata;
-    if (inheritStoryDay) {
-      slot = inheritNearestStoryDay(
-        slot,
-        neighbours: [
-          for (final m in _messages)
-            if (!identical(m, target) && m.sender != 'System')
-              clockSlotForResolve(m),
-        ],
-      );
-    }
     return resolveSlotAfter(
-      slot,
+      target.activeMetadata,
       isTip: true,
       liveClock: liveClock ?? _timeService.clock,
       startDate: _timeService.startDate,
@@ -298,32 +278,28 @@ extension ChatServiceMessageClock on ChatService {
   }
 
   /// Fork lands on the fork-point slot via the one resolver. Day 1
-  /// of the start is the empty-tip live clock only when the fork is
-  /// at or before the first user turn and the slot has nothing stored.
-  /// Porch Life off still reads tip.after into the live clock.
+  /// of the start applies only at or before the first user turn
+  /// with nothing stored — a transcript that opens with a user turn
+  /// and already has a later bot is not that case. A neighbour
+  /// story_day is not this slot's clock (rung 6 is live).
   void _applyForkPointClock() {
+    final leftOpening = _prefixLeftTheOpening();
     final tip = _visibleTipMessage();
-    if (tip == null) return;
+    if (tip == null) {
+      if (!leftOpening) {
+        _timeService.applySlotClock(resolved: _day1OfStoryStart());
+      }
+      return;
+    }
     _backfillLoadedSlotClocks();
     final greetingClock = _openingGreetingSnap();
-    final slot = inheritNearestStoryDay(
-      clockSlotForResolve(tip),
-      neighbours: [
-        for (final m in _messages)
-          if (!identical(m, tip) && m.sender != 'System')
-            clockSlotForResolve(m),
-      ],
-    );
+    final slot = tip.activeMetadata;
     final emptyPreUser =
-        !_prefixLeftTheOpening() &&
+        !leftOpening &&
         !slotHasAuthoredClock(slot) &&
         !slotHasStoredClockData(slot, greetingClock: greetingClock);
     final live = emptyPreUser ? _day1OfStoryStart() : _timeService.clock;
-    final after = _resolveVisibleAfter(
-      tip: tip,
-      liveClock: live,
-      inheritStoryDay: true,
-    );
+    final after = _resolveVisibleAfter(tip: tip, liveClock: live);
     if (after != null) {
       _writeResolvedTipAfter(tip, after);
       _timeService.applySlotClock(resolved: after);
