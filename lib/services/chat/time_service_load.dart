@@ -171,6 +171,7 @@ extension TimeServiceLoad on TimeService {
       return;
     }
     if (snap != null &&
+        !snapIsFrozenGreeting(snap, _clock) &&
         (StoryClock.parse(snap['storyClock'] as String?) != null ||
             snap['dayCount'] is num ||
             snap['timeOfDay'] is String)) {

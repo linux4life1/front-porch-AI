@@ -21,6 +21,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/body_clock.dart';
+import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/skip_language.dart';
