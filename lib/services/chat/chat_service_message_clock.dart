@@ -174,13 +174,16 @@ extension ChatServiceMessageClock on ChatService {
   void _abortSlotClockIfThisTurnTicked(_GenTurn t) {
     if (t.mode == GenerationMode.continue_) {
       _applyTipClock();
-      return;
-    }
-    if (!_clockRunning) {
+    } else if (!_clockRunning) {
       _applyTipClock();
     } else {
       _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
       _applyTipClock();
+    }
+    // Real post-gen abort keeps the reply. Regen/swipe via
+    // `_yieldSettlingTurn` is replacing it — do not claim it was kept.
+    if (!_replacingSettlingReply) {
+      _setGuestStatus('Reply kept. Scene time and needs weren\'t updated.');
     }
   }
 
