@@ -235,8 +235,17 @@ DateTime? answeredUserClock(
   if (botIndex <= 0 || botIndex >= messages.length) return null;
   final prev = messages[botIndex - 1];
   if (!prev.isUser) return null;
+  final slot = prev.activeMetadata ?? prev.metadata;
+  if (slot == null) return null;
+  // An empty user turn is not own data. Resolving it with a
+  // neighbour stamp would smuggle a far bot into rung 5.
+  if (!slotHasAuthoredClock(slot) &&
+      slotClockBefore(slot) == null &&
+      slotClockAfter(slot) == null) {
+    return null;
+  }
   return resolveSlotAfter(
-    prev.activeMetadata ?? prev.metadata,
+    slot,
     isTip: false,
     liveClock: liveClock,
     startDate: startDate,
