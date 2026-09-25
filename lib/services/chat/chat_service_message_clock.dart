@@ -15,15 +15,25 @@ extension ChatServiceMessageClock on ChatService {
     return null;
   }
 
+  /// Visible slot, created once. Never [Map.from] — that shares the
+  /// inner `realism_state` and then replaces the swipe map, so a later
+  /// restore can pin pre-eval trust/needs.
+  Map<String, dynamic> _clockWriteSlot(ChatMessage target) {
+    final existing = target.activeMetadata;
+    if (existing != null) return existing;
+    final slot = <String, dynamic>{};
+    target.metadata ??= slot;
+    target.activeMetadata = slot;
+    return slot;
+  }
+
   /// Opening greeting: pair after == before == live. Not a nudge.
   void _stampOpeningClockPair() {
     final msg = _messages.isEmpty ? null : _messages.first;
     if (msg == null || msg.isUser) return;
     if (slotHasCompletePair(msg.activeMetadata)) return;
     final clock = _timeService.clock;
-    final slot = Map<String, dynamic>.from(msg.activeMetadata ?? {});
-    writeSlotClockPair(slot, before: clock, after: clock);
-    msg.activeMetadata = slot;
+    writeSlotClockPair(_clockWriteSlot(msg), before: clock, after: clock);
     persistStoryClockBefore(msg, StoryClock.serializeClock(clock));
   }
 
@@ -126,18 +136,17 @@ extension ChatServiceMessageClock on ChatService {
     if (kind == _SlotClockWrite.tick || kind == _SlotClockWrite.nudge) {
       persistStoryClockBefore(target, StoryClock.serializeClock(before));
     }
-    final slot = Map<String, dynamic>.from(target.activeMetadata ?? {});
     writeSlotClockPair(
-      slot,
+      _clockWriteSlot(target),
       before: before,
       after: after,
       timePassed: chip,
       clearChip: clearChip,
       timeNudged: kind == _SlotClockWrite.nudge,
     );
-    target.activeMetadata = slot;
-    if (kind == _SlotClockWrite.nudge) {
-      target.metadata ??= {};
+    if (kind == _SlotClockWrite.nudge &&
+        target.metadata != null &&
+        !identical(target.metadata, target.activeMetadata)) {
       writeSlotClockPair(
         target.metadata!,
         before: before,
