@@ -1,13 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// C1: writeSlotClockPair( only inside backfillSlotClocks and
-// _writeSlotClock. applySlotClock( only inside _applyTipClock,
+// C1: writeSlotClockPair only inside backfillSlotClocks and
+// _writeSlotClock. applySlotClock only inside _applyTipClock,
 // exactly one _applyDay1Clock, and exactly one
 // _rewindLiveToSlotBefore. Empty-pre-user Day 1 and the fork share
 // that Day-1 helper. Abort goes through _writeSlotClock then
-// _applyTipClock. _stampOpeningClockPair and _writeResolvedTipAfter
-// must be deleted. Keyed by enclosing function, not line numbers.
+// _applyTipClock. Any identifier reference counts — calls,
+// tear-offs, assignments, arguments — not only name(. Comments,
+// strings, and the two definitions are excluded.
 
 import 'dart:io';
 
@@ -242,30 +243,35 @@ _Scan _scanClockSites(String source, {required String file}) {
         if (source[k] == '\n') line++;
         k++;
       }
-      if (k < source.length && source[k] == '(') {
-        final decl =
-            name != 'Function' &&
-            (pendingFn == null || pendingParen <= 0) &&
-            isDecl(name, nameStart);
-        if (decl) {
-          if (_helpers.contains(name)) {
-            defs[name] = (defs[name] ?? 0) + 1;
-          }
-          pendingFn = name;
-          pendingParen = 0;
-        } else if (name == 'writeSlotClockPair' || name == 'applySlotClock') {
-          final site = _Site(
-            file: file,
-            line: line,
-            enclosing: enclosing(),
-            kind: name == 'writeSlotClockPair' ? 'write' : 'apply',
-          );
-          if (site.kind == 'write') {
-            writes.add(site);
-          } else {
-            applies.add(site);
-          }
+      final followedByParen = k < source.length && source[k] == '(';
+      final decl =
+          followedByParen &&
+          name != 'Function' &&
+          (pendingFn == null || pendingParen <= 0) &&
+          isDecl(name, nameStart);
+      if (decl) {
+        if (_helpers.contains(name)) {
+          defs[name] = (defs[name] ?? 0) + 1;
         }
+        pendingFn = name;
+        pendingParen = 0;
+        i = k;
+        continue;
+      }
+      if (name == 'writeSlotClockPair' || name == 'applySlotClock') {
+        final site = _Site(
+          file: file,
+          line: line,
+          enclosing: enclosing(),
+          kind: name == 'writeSlotClockPair' ? 'write' : 'apply',
+        );
+        if (site.kind == 'write') {
+          writes.add(site);
+        } else {
+          applies.add(site);
+        }
+      }
+      if (followedByParen) {
         i = k;
         continue;
       }
@@ -361,6 +367,54 @@ void _stampOpeningClockPair() {
       greaterThan(scan.writes.first.line),
     );
     expect(scan.defs['_writeSlotClock'], 1);
+  });
+
+  test('scanner self-test: tear-off assignment in a disallowed function', () {
+    const src = '''
+void _abortSlotClockIfThisTurnTicked() {
+  final w = writeSlotClockPair;
+  final a = _timeService.applySlotClock;
+}
+''';
+    final scan = _scanClockSites(src, file: 'inline.dart');
+    expect(scan.writeOffenders, hasLength(1));
+    expect(
+      scan.writeOffenders.single.enclosing,
+      '_abortSlotClockIfThisTurnTicked',
+    );
+    expect(scan.applyOffenders, hasLength(1));
+    expect(
+      scan.applyOffenders.single.enclosing,
+      '_abortSlotClockIfThisTurnTicked',
+    );
+  });
+
+  test('scanner self-test: tear-off passed as an argument is flagged', () {
+    const src = '''
+void _bad() {
+  foo(writeSlotClockPair);
+  bar(_timeService.applySlotClock);
+}
+''';
+    final scan = _scanClockSites(src, file: 'inline.dart');
+    expect(scan.writeOffenders.single.enclosing, '_bad');
+    expect(scan.applyOffenders.single.enclosing, '_bad');
+  });
+
+  test('scanner self-test: allowed direct call is not flagged', () {
+    const src = '''
+void _writeSlotClock() {
+  writeSlotClockPair(slot, before: a, after: b);
+}
+void _applyTipClock() {
+  applySlotClock(resolved: x);
+}
+''';
+    final scan = _scanClockSites(src, file: 'inline.dart');
+    expect(scan.writes, hasLength(1));
+    expect(scan.applies, hasLength(1));
+    expect(scan.writeOffenders, isEmpty);
+    expect(scan.applyOffenders, isEmpty);
   });
 
   test('writeSlotClockPair and applySlotClock call sites are gated', () {
