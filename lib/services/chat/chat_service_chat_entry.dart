@@ -427,6 +427,7 @@ extension ChatServiceChatEntry on ChatService {
             );
             // Scan first message for lore (thin delegation to extracted scanner).
             _lorebookScanner.scanLatest();
+            _stampOpeningClockPair();
             if (_activeCharacter!.firstMessage.trim().isEmpty) {
               await _applyGreetingOpeningSeed(
                 card: _activeCharacter!,

@@ -15,6 +15,18 @@ extension ChatServiceMessageClock on ChatService {
     return null;
   }
 
+  /// Opening greeting: pair after == before == live. Not a nudge.
+  void _stampOpeningClockPair() {
+    final msg = _messages.isEmpty ? null : _messages.first;
+    if (msg == null || msg.isUser) return;
+    if (slotHasCompletePair(msg.activeMetadata)) return;
+    final clock = _timeService.clock;
+    final slot = Map<String, dynamic>.from(msg.activeMetadata ?? {});
+    writeSlotClockPair(slot, before: clock, after: clock);
+    msg.activeMetadata = slot;
+    persistStoryClockBefore(msg, StoryClock.serializeClock(clock));
+  }
+
   /// THE reader. Live clock = the visible tip slot's after.
   void _applyTipClock() {
     final after = slotClockAfter(_visibleTipMessage()?.activeMetadata);

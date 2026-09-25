@@ -14,7 +14,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
@@ -221,24 +220,7 @@ void main() {
           dayCount: Value(day),
         ),
       );
-      await chat!.flushPendingSaves();
-      await db!.patchSession(
-        SessionsCompanion(
-          id: Value(sid),
-          storyClock: Value(clock),
-          storyStartDate: Value(start),
-          timeOfDay: Value(tod),
-          dayCount: Value(day),
-        ),
-      );
       await chat!.reloadCurrentSession();
-      chat!.timeService.loadTimeScalars(
-        timeOfDay: tod,
-        dayCount: day,
-        startDayOfWeek: DateTime.parse(start).weekday,
-        storyClock: clock,
-        storyStartDate: start,
-      );
       await drain();
     }
 

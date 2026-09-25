@@ -148,7 +148,14 @@ extension TimeServiceLoad on TimeService {
 
   void _rewindToBeforeIso(String? beforeIso) {
     final before = StoryClock.parse(beforeIso);
-    if (before != null) _setClockPullingStartDate(before);
+    if (before == null) return;
+    _clock = DateTime.utc(
+      before.year,
+      before.month,
+      before.day,
+      before.hour,
+      before.minute,
+    );
   }
 
   /// Restore from a realism_state snapshot (message metadata, 1:1<->group

@@ -404,7 +404,7 @@ void main() {
       );
     });
 
-    test('rewind before Day 1 pulls the start date, same as reconcile', () {
+    test('rewind before Day 1 leaves the start date; tip.after restores it', () {
       final t = _time();
       t.applySlotClock(resolved: DateTime.utc(2026, 6, 28, 0, 10));
       t.loadTimeScalars(
@@ -417,7 +417,11 @@ void main() {
       t.rewindToBeforeIso('2026-06-27T23:40:00.000Z');
       expect(t.clock, DateTime.utc(2026, 6, 27, 23, 40));
       expect(t.dayCount, 1);
-      expect(t.startDate, DateTime.utc(2026, 6, 27));
+      expect(t.startDate, DateTime.utc(2026, 6, 28));
+      t.applySlotClock(resolved: DateTime.utc(2026, 6, 28, 0, 10));
+      expect(t.clock, DateTime.utc(2026, 6, 28, 0, 10));
+      expect(t.dayCount, 1);
+      expect(t.startDate, DateTime.utc(2026, 6, 28));
     });
 
     test('message before is shared across slots via putIfAbsent', () {
@@ -839,9 +843,13 @@ void main() {
     expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 10));
     chat!.deleteMessage(lastBotIndex());
     await drainTurn();
-    expect(chat!.timeService.clock, DateTime.utc(2026, 6, 27, 23, 40));
+    expect(
+      chat!.timeService.clock,
+      DateTime.utc(2026, 6, 28, 0, 10),
+      reason: 'tail delete reads the remaining tip after, not the deleted before',
+    );
     expect(chat!.timeService.dayCount, 1);
-    expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 27));
+    expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 28));
   });
 
   test('Porch Life OFF leaves the clock unchanged on regen', () async {

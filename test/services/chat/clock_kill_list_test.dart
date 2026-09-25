@@ -152,14 +152,14 @@ void main() {
     t.captureLiveClock();
     t.rewindToBeforeIso('2026-09-24T23:40:00.000Z');
     expect(t.dayCount, 1);
-    expect(t.startDate, DateTime.utc(2026, 9, 24));
-    t.restoreCapturedClock();
-    expect(t.clock, DateTime.utc(2026, 9, 25, 0, 10));
     expect(
       t.startDate,
       DateTime.utc(2026, 9, 25),
-      reason: 'cancel across Day-1 midnight must not keep the pulled start',
+      reason: 'regen rewind must not pull Day 1; tip.after restores the clock',
     );
+    t.restoreCapturedClock();
+    expect(t.clock, DateTime.utc(2026, 9, 25, 0, 10));
+    expect(t.startDate, DateTime.utc(2026, 9, 25));
   });
 
   test('K6: persistStoryClockBefore never creates a bare slot map', () {
