@@ -284,7 +284,7 @@ extension ChatServiceSessionManage on ChatService {
           _groupRealism = parseGroupRealismSeeds(
             _activeGroup!.defaultMemberRealismState,
           ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));
-          _rekeyGroupStores();
+          await _rekeyGroupStores();
           // Re-derive Needs from those seeds, exactly as FRESH GROUP ENTRY
           // does (chat_service_group_entry.dart — presence-inference: the
           // creator omits the per-member 'needs' sub-map when Needs was off

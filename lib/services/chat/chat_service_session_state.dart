@@ -62,7 +62,7 @@ extension ChatServiceSessionState on ChatService {
     }
   }
 
-  void _loadGroupRealismStateFromSession(Session? session) {
+  Future<void> _loadGroupRealismStateFromSession(Session? session) async {
     if (_activeGroup == null) return;
 
     String? stateJson = session?.groupRealismState;
@@ -177,7 +177,7 @@ extension ChatServiceSessionState on ChatService {
         _groupRealism = {};
       }
     }
-    if (_rekeyGroupStores()) {
+    if (await _rekeyGroupStores()) {
       unawaited(_saveChat());
     }
   }

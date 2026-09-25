@@ -10,6 +10,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 
+export 'clock_shift.dart';
+
 /// First known `story_clock_before` on the message or any swipe slot.
 String? knownStoryClockBefore(ChatMessage msg) {
   final fromMsg = StoryClock.parse(
@@ -127,29 +129,6 @@ Iterable<Map<String, dynamic>?> _messageSlots(ChatMessage msg) sync* {
   }
 }
 
-DateTime? _realTimeOnSlot(
-  Map<String, dynamic>? slot, {
-  DateTime? greetingClock,
-}) {
-  final after = slotClockAfter(slot);
-  if (after != null) return after;
-  final before = slotClockBefore(slot);
-  final mins = minutesRecordedForClockRewind(slot);
-  if (before != null && mins != null && mins > 0) {
-    return before.add(Duration(minutes: mins));
-  }
-  final snap = _snapStoryClock(slot);
-  if (snap != null &&
-      !slotSnapIsFrozen(
-        snap,
-        greetingClock: greetingClock,
-        knownBefore: before,
-      )) {
-    return snap;
-  }
-  return null;
-}
-
 const _kClockBackfillDone = 'clock_backfill_done';
 
 /// v1.4 / stamp-less greeting: later snap was treated as the greeting
@@ -192,32 +171,99 @@ DateTime _dayCountClock({
   required int dayCount,
   required DateTime startDate,
   String? timeOfDay,
+  DateTime? liveClock,
 }) {
   final day = dayCount.clamp(1, 9999);
   final date = StoryClock.dateOnly(startDate).add(Duration(days: day - 1));
-  return StoryClock.representativeTime(
-    date,
-    timeOfDay != null && timeOfDay.isNotEmpty ? timeOfDay : 'morning',
-  );
+  if (timeOfDay != null && timeOfDay.isNotEmpty) {
+    return StoryClock.representativeTime(date, timeOfDay);
+  }
+  if (liveClock != null) {
+    return DateTime.utc(
+      date.year,
+      date.month,
+      date.day,
+      liveClock.hour,
+      liveClock.minute,
+    );
+  }
+  return StoryClock.representativeTime(date, 'morning');
+}
+
+/// Own stored after → non-frozen snap → dayCount>1 → before →
+/// [neighbourStamp]. Live only when [isTip] and nothing is stored.
+/// History never takes [liveClock] as a first-class fallback.
+DateTime? resolveSlotAfter(
+  Map<String, dynamic>? slot, {
+  required bool isTip,
+  required DateTime liveClock,
+  DateTime? startDate,
+  DateTime? greetingClock,
+  DateTime? neighbourStamp,
+}) {
+  final keptAfter = slotClockAfter(slot);
+  if (keptAfter != null) return keptAfter;
+  final before = slotClockBefore(slot);
+  final snap = _snapStoryClock(slot);
+  if (snap != null &&
+      !slotSnapIsFrozen(
+        snap,
+        greetingClock: greetingClock,
+        knownBefore: before,
+      )) {
+    return snap;
+  }
+  final dc = _slotDayCount(slot);
+  if (dc != null && dc > 1) {
+    return _dayCountClock(
+      dayCount: dc,
+      startDate: startDate ?? StoryClock.dateOnly(liveClock),
+      timeOfDay: _slotTimeOfDay(slot),
+      liveClock: liveClock,
+    );
+  }
+  if (before != null) {
+    final mins = minutesRecordedForClockRewind(slot);
+    if (mins != null && mins > 0) {
+      return before.add(Duration(minutes: mins));
+    }
+    return before;
+  }
+  if (neighbourStamp != null) return neighbourStamp;
+  if (isTip) return liveClock;
+  return null;
+}
+
+/// After / non-frozen snap / dayCount>1 / before. Frozen Day-1 snaps
+/// are not stored clock data.
+bool slotHasStoredClockData(
+  Map<String, dynamic>? slot, {
+  DateTime? greetingClock,
+}) {
+  return resolveSlotAfter(
+        slot,
+        isTip: false,
+        liveClock: DateTime.utc(1970),
+        greetingClock: greetingClock,
+      ) !=
+      null;
 }
 
 /// Fill missing before/after pairs. The only snap / dayCount reader.
 ///
-/// Tip (last bot, active slot) takes [liveClock] unless it already has
-/// after. History never takes the live clock: own stored after / snap /
-/// dayCount / before, else a neighbour's real stamp. Frozen greeting
-/// snaps are not a clock. dayCount-only is a clock only when THAT
-/// message stored dayCount > 1 and no storyClock. Never invents Day 1.
-/// [floorUnstampedToDay1] is accepted and does not floor. Never
-/// overwrites an existing before or after. Guess runs once per chat
-/// ([_kClockBackfillDone]).
+/// One resolver for every slot, tip included. Frozen greeting snaps
+/// are not a clock. dayCount-only is a clock only when THAT message
+/// stored dayCount > 1. Never invents Day 1. [floorUnstampedToDay1]
+/// is accepted and does not floor. Never overwrites an existing
+/// before or after. Guess runs once per chat ([_kClockBackfillDone]);
+/// derived `clock_from_day_count` pairs still refresh when start moves.
 bool backfillSlotClocks(
   List<ChatMessage> messages, {
   required DateTime liveClock,
   DateTime? startDate,
   bool floorUnstampedToDay1 = false,
 }) {
-  if (_firstBotBackfillDone(messages)) return false;
+  final alreadyGuessed = _firstBotBackfillDone(messages);
   final start = startDate ?? StoryClock.dateOnly(liveClock);
   DateTime? greetingClock;
   if (messages.isNotEmpty &&
@@ -239,12 +285,21 @@ bool backfillSlotClocks(
   for (var i = 0; i < messages.length; i++) {
     final msg = messages[i];
     if (msg.isUser || msg.sender == 'System') continue;
+    DateTime? stored;
     for (final slot in _messageSlots(msg)) {
-      final real = _realTimeOnSlot(slot, greetingClock: greetingClock);
-      if (real != null) {
-        realByIndex[i] = real;
-        break;
-      }
+      stored = resolveSlotAfter(
+        slot,
+        isTip: false,
+        liveClock: liveClock,
+        startDate: start,
+        greetingClock: greetingClock,
+      );
+      if (stored != null) break;
+    }
+    if (stored != null) {
+      realByIndex[i] = stored;
+    } else if (i == tipIndex) {
+      realByIndex[i] = liveClock;
     }
   }
 
@@ -269,13 +324,13 @@ bool backfillSlotClocks(
   }
 
   DateTime? ownDay(Map<String, dynamic>? slot) {
-    if (_snapStoryClock(slot) != null) return null;
     final dc = _slotDayCount(slot);
     if (dc == null || dc <= 1) return null;
     return _dayCountClock(
       dayCount: dc,
       startDate: start,
       timeOfDay: _slotTimeOfDay(slot),
+      liveClock: liveClock,
     );
   }
 
@@ -284,22 +339,14 @@ bool backfillSlotClocks(
     Map<String, dynamic>? slot, {
     required bool tipSlot,
   }) {
-    final keptAfter = slotClockAfter(slot);
-    if (keptAfter != null) return keptAfter;
-    final real = _realTimeOnSlot(slot, greetingClock: greetingClock);
-    if (real != null) return real;
-    if (tipSlot) return liveClock;
-    final day = ownDay(slot);
-    if (day != null) return day;
-    final keptBefore = slotClockBefore(slot);
-    if (keptBefore != null) {
-      final mins = minutesRecordedForClockRewind(slot);
-      if (mins != null && mins > 0) {
-        return keptBefore.add(Duration(minutes: mins));
-      }
-      return keptBefore;
-    }
-    return nearestReal(index);
+    return resolveSlotAfter(
+      slot,
+      isTip: tipSlot,
+      liveClock: liveClock,
+      startDate: start,
+      greetingClock: greetingClock,
+      neighbourStamp: nearestReal(index),
+    );
   }
 
   var changed = false;
@@ -337,6 +384,7 @@ bool backfillSlotClocks(
         }
         continue;
       }
+      if (alreadyGuessed) continue;
       final tipSlot = isTip && s == msg.swipeIndex;
       final after = resolveAfter(i, slot, tipSlot: tipSlot);
       if (after == null) continue;
@@ -383,6 +431,7 @@ bool backfillSlotClocks(
       if (slotHasCompletePair(meta)) {
         continue;
       }
+      if (alreadyGuessed) continue;
       final after = resolveAfter(i, meta, tipSlot: isTip);
       if (after == null) continue;
       final keptAfter = slotClockAfter(meta);
@@ -397,56 +446,6 @@ bool backfillSlotClocks(
       changed = true;
     }
   }
-  _markClockBackfillDone(messages);
-  return changed;
-}
-
-/// Slide every clock stamp by [delta] (calendar re-anchor).
-/// Each map (top-level and inner `realism_state`) moves once.
-void shiftMessageClockStamps(List<ChatMessage> messages, Duration delta) {
-  if (delta == Duration.zero) return;
-  final seen = Set<Map>.identity();
-  for (final msg in messages) {
-    shiftClockFields(msg.metadata, delta, seen);
-    for (final slot in msg.swipeMetadata) {
-      shiftClockFields(slot, delta, seen);
-    }
-  }
-}
-
-/// Shift clock keys on [map]. Returns whether anything changed.
-bool shiftClockFields(
-  Map<String, dynamic>? map,
-  Duration delta,
-  Set<Map> seen,
-) {
-  if (map == null || !seen.add(map)) return false;
-  var changed = false;
-  String? shift(Object? raw) {
-    final t = StoryClock.parse(raw is String ? raw : null);
-    if (t == null) return raw is String ? raw : null;
-    changed = true;
-    return StoryClock.serializeClock(t.add(delta));
-  }
-
-  if (map['story_clock_before'] is String) {
-    map['story_clock_before'] = shift(map['story_clock_before']);
-  }
-  if (map['story_clock_after'] is String) {
-    map['story_clock_after'] = shift(map['story_clock_after']);
-  }
-  final rs = map['realism_state'];
-  if (rs is! Map) return changed;
-  if (!seen.add(rs)) return changed;
-  if (rs['storyClock'] is String) {
-    rs['storyClock'] = shift(rs['storyClock']);
-  }
-  if (rs['storyStartDate'] is String) {
-    final d = StoryClock.parse(rs['storyStartDate'] as String?);
-    if (d != null) {
-      rs['storyStartDate'] = StoryClock.serializeDate(d.add(delta));
-      changed = true;
-    }
-  }
+  if (!alreadyGuessed) _markClockBackfillDone(messages);
   return changed;
 }

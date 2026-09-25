@@ -9,7 +9,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
   /// Move live maps + definition blobs. Persist the group row when
   /// definition keys moved. Returns true when a session-scoped map moved
   /// (caller persists the session once).
-  bool _rekeyGroupStores() {
+  Future<bool> _rekeyGroupStores() async {
     if (_activeGroup == null) return false;
     final members = _groupCharacters;
     if (members.isEmpty) return false;
@@ -42,8 +42,29 @@ extension ChatServiceGroupStoreMigrate on ChatService {
         }());
       }
     }
-    unawaited(_rekeyGroupObjectiveRows(members));
+    await _rekeyGroupObjectiveRows(members);
+    await _hydrateGroupObjectivesFromDb(members);
     return sessionChanged;
+  }
+
+  /// Fill the existing [_groupObjectives] map from DB after rekey.
+  /// Session-scoped rows and card-level (`chat_id IS NULL`) rows.
+  Future<void> _hydrateGroupObjectivesFromDb(
+    Iterable<CharacterCard> members,
+  ) async {
+    final sid = _currentSessionId;
+    try {
+      for (final member in members) {
+        final id = groupMemberStoreId(member);
+        final sessionRows = sid != null
+            ? await _db.getObjectivesForCharacter(id, chatId: sid)
+            : const <Objective>[];
+        final cardRows = await _db.getObjectivesForCharacter(id);
+        _groupObjectives[id] = [...sessionRows, ...cardRows];
+      }
+    } catch (e) {
+      debugPrint('[GroupStore] Failed to hydrate objectives: $e');
+    }
   }
 
   /// Session-scoped rows always move. Card-level rows move only when

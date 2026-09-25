@@ -211,7 +211,7 @@ extension ChatServiceGroupEntry on ChatService {
       // v30: For newly created group sessions (no prior state), seed from the group's default realism data.
       // (The actual load of any prior session state happens in _loadLastSession below.)
       if (_messages.isEmpty && _activeGroup != null) {
-        _loadGroupRealismStateFromSession(null);
+        await _loadGroupRealismStateFromSession(null);
 
         // Promote the group definition's realism/needs intent on first entry.
         // The creator (and Group Card import) express "realism on" by writing non-empty

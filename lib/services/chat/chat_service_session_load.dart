@@ -154,7 +154,7 @@ extension ChatServiceSessionLoad on ChatService {
       // from the session column (or fall back to group defaults). Must happen for group entry paths
       // so that _groupRealism is populated before any eval, prompt injection, or UI read.
       if (_activeGroup != null) {
-        _loadGroupRealismStateFromSession(lastSession);
+        await _loadGroupRealismStateFromSession(lastSession);
       } else {
         // 1:1 session: the group realism column ('{}' for plain sessions) may
         // carry persisted Scene Guest (Lite NPC) dbIds. Tolerant of legacy/empty.
@@ -363,7 +363,7 @@ extension ChatServiceSessionLoad on ChatService {
         // session column — mirrors the _loadLastSession group branch so resuming
         // an OLDER group session via the in-chat history drawer no longer drops
         // each member's bond/trust/emotion/fixation/arousal/needs.
-        _loadGroupRealismStateFromSession(session);
+        await _loadGroupRealismStateFromSession(session);
       }
       await _hydrateSessionScalars(session);
       if (sameSession && liveRecap.isNotEmpty && _summary != liveRecap) {

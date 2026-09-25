@@ -103,14 +103,15 @@ extension ChatServiceMessageClock on ChatService {
     }
     if (!_clockRunning) {
       _applyTipClock();
-      return;
+    } else {
+      _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
     }
-    _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
+    _setGuestStatus('Reply kept. Scene time and needs weren\'t updated.');
   }
 
   /// Tail-delete of a nudged tip restores the pre-nudge clock onto
   /// the new visible tip so hold-spec (clock == tip.after) and the
-  /// pre-nudge pin agree.
+  /// pre-nudge pin agree. Otherwise live follows the new tip's after.
   void _applyClockAfterDelete(ChatMessage deleted, {required bool wasTail}) {
     if (wasTail && deleted.activeMetadata?['time_nudged'] == true) {
       final restored =
@@ -118,7 +119,7 @@ extension ChatServiceMessageClock on ChatService {
           slotClockBefore(deleted.activeMetadata);
       if (restored != null) {
         final tip = _visibleTipMessage();
-        if (tip != null) {
+        if (tip != null && _clockRunning) {
           writeSlotClockPair(
             _clockWriteSlot(tip),
             before: restored,
@@ -127,6 +128,24 @@ extension ChatServiceMessageClock on ChatService {
         }
         _timeService.applySlotClock(resolved: restored);
         return;
+      }
+    }
+    final tip = _visibleTipMessage();
+    if (tip != null &&
+        _clockRunning &&
+        !slotHasCompletePair(tip.activeMetadata)) {
+      final greetingClock = _openingGreetingSnap();
+      final after = resolveSlotAfter(
+        tip.activeMetadata,
+        isTip: true,
+        liveClock: _timeService.clock,
+        startDate: _timeService.startDate,
+        greetingClock: greetingClock,
+        neighbourStamp: _nearestStoredStamp(tip, greetingClock: greetingClock),
+      );
+      if (after != null) {
+        writeSlotClockPair(_clockWriteSlot(tip), before: after, after: after);
+        persistStoryClockBefore(tip, StoryClock.serializeClock(after));
       }
     }
     _applyTipClock();
@@ -170,9 +189,9 @@ extension ChatServiceMessageClock on ChatService {
     return false;
   }
 
-  /// Day 1 of this story's start. Keeps [startDate]; TOD from the
-  /// group time seed or the 1:1 card, else morning.
-  void _seedLiveClockToStoryStart() {
+  /// Day 1 of this story's start. Does not mutate the live clock —
+  /// the writer / [_applyTipClock] do that from the resolved after.
+  DateTime _day1OfStoryStart() {
     var tod = 'morning';
     String? startTime;
     if (_activeGroup != null) {
@@ -191,39 +210,67 @@ extension ChatServiceMessageClock on ChatService {
         startTime = ext.storyStartTime;
       }
     }
-    _timeService.seedFromV2OrExt(
-      dayCount: 1,
-      timeOfDay: tod,
-      storyStartDate: _timeService.storyStartDateIso,
-      storyStartTime: startTime,
-    );
-    _applySeededPassageOfTime();
+    final start = _timeService.startDate;
+    final hhmm = StoryClock.parseHHMM(startTime);
+    if (hhmm != null) {
+      return DateTime.utc(start.year, start.month, start.day, hhmm.$1, hhmm.$2);
+    }
+    return StoryClock.representativeTime(start, tod);
   }
 
-  /// Fork lands on the fork-point slot's clock. An unstamped
-  /// greeting / pre-first-user slot is Day 1 of the start — load
-  /// backfill may have painted the parent's live Day N. A lived-in
-  /// snap or a pair already on Day 1 is left for [_applyTipClock].
+  DateTime? _openingGreetingSnap() {
+    if (_messages.isEmpty) return null;
+    final first = _messages.first;
+    if (first.isUser || first.sender == 'System') return null;
+    final raw = first.activeMetadata?['realism_state'];
+    if (raw is! Map) return null;
+    return StoryClock.parse(raw['storyClock'] as String?);
+  }
+
+  DateTime? _nearestStoredStamp(ChatMessage tip, {DateTime? greetingClock}) {
+    DateTime? found;
+    for (final msg in _messages) {
+      if (identical(msg, tip) || msg.isUser || msg.sender == 'System') {
+        continue;
+      }
+      final stamp = resolveSlotAfter(
+        msg.activeMetadata,
+        isTip: false,
+        liveClock: _timeService.clock,
+        startDate: _timeService.startDate,
+        greetingClock: greetingClock,
+      );
+      if (stamp != null) found = stamp;
+    }
+    return found;
+  }
+
+  /// Fork lands on the fork-point slot via [resolveSlotAfter]. Day 1
+  /// of the start is the empty-tip live clock only when the fork is
+  /// at or before the first user turn and the slot has nothing stored.
+  /// Porch Life off still reads tip.after into the live clock.
   void _applyForkPointClock() {
-    if (!_clockRunning) return;
     final tip = _visibleTipMessage();
     if (tip == null) return;
-    if (_prefixLeftTheOpening()) {
-      _applyTipClock();
-      return;
+    final slot = tip.activeMetadata;
+    final greetingClock = _openingGreetingSnap();
+    final emptyPreUser =
+        !_prefixLeftTheOpening() &&
+        !slotHasStoredClockData(slot, greetingClock: greetingClock);
+    final live = emptyPreUser ? _day1OfStoryStart() : _timeService.clock;
+    final after = resolveSlotAfter(
+      slot,
+      isTip: true,
+      liveClock: live,
+      startDate: _timeService.startDate,
+      greetingClock: greetingClock,
+      neighbourStamp: _nearestStoredStamp(tip, greetingClock: greetingClock),
+    );
+    if (after != null && _clockRunning && !slotHasCompletePair(slot)) {
+      writeSlotClockPair(_clockWriteSlot(tip), before: after, after: after);
+      persistStoryClockBefore(tip, StoryClock.serializeClock(after));
     }
-    if (slotHasAuthoredClock(tip.activeMetadata)) {
-      _applyTipClock();
-      return;
-    }
-    final after = slotClockAfter(tip.activeMetadata);
-    if (after != null &&
-        StoryClock.dayCountFor(after, _timeService.startDate) <= 1) {
-      _applyTipClock();
-      return;
-    }
-    _seedLiveClockToStoryStart();
-    _writeSlotClock(tip, kind: _SlotClockWrite.seed);
+    _applyTipClock();
   }
 
   /// THE writer. Tick / nudge / abort / seed all land here, then
