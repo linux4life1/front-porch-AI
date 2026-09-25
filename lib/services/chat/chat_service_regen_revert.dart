@@ -23,16 +23,6 @@ part of '../chat_service.dart';
 /// 1:1 and group share this helper. Group impersonates the rejected speaker,
 /// reverts, then saves back into `_groupRealism`. Continue is not this file.
 extension ChatServiceRegenRevert on ChatService {
-  /// Pre-reply clock for regen/swipe. Never a realism_state snap.
-  void _rewindClockToPreReply(ChatMessage lastMsg, {required bool wasNudged}) {
-    if (!_clockRunning || wasNudged) return;
-    _timeService.rewindClockToPreReply(
-      storyClockBefore:
-          lastMsg.activeMetadata?['story_clock_before'] as String?,
-      minutesPassed: minutesRecordedForClockRewind(lastMsg.activeMetadata),
-    );
-  }
-
   void _revertRegenRealismBaseline({
     required ChatMessage lastMsg,
     required CharacterCard? regenGuest,
@@ -326,6 +316,7 @@ extension ChatServiceRegenRevert on ChatService {
       );
       if (ghostIdx >= 0) _messages.removeAt(ghostIdx);
       _messages.insert(preGenLen, lastMsg);
+      _putBackCapturedClock();
       if (regenGuest == null) {
         _restoreRealismStateForSpeaker(lastMsg);
         // The pre-generation rewind above rolled pockets to the PRE-turn
@@ -375,12 +366,14 @@ extension ChatServiceRegenRevert on ChatService {
       if (newMetadata != null) {
         lastMsg.swipeMetadata[newSwipeIndex] = newMetadata;
       }
+      _discoverAndPersistMessageBefore(lastMsg);
       _messages.add(lastMsg);
       // Host messages restore the active character's Realism/Needs from the
       // accepted swipe (in groups: the speaker's own _groupRealism entry).
       // Guest swipes wear present bodies (1:1 host); the replay just wore
       // them once — do not pull a host realism_state the guest never had.
       if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg);
+      _timeService.clearCapturedClock();
       await _saveChat();
       notifyListeners();
 

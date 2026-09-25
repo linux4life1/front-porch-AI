@@ -94,14 +94,20 @@ extension ChatServiceImportWalk on ChatService {
     int? storyDayOnly;
     for (var i = start; i >= 0 && i < _messages.length; i--) {
       final m = _messages[i];
-      final rs = m.activeMetadata?['realism_state'];
+      final meta = m.activeMetadata;
+      if (knownStoryClockBefore(m) != null ||
+          meta?['story_clock_after'] is String) {
+        clockStamp = m;
+        break;
+      }
+      final rs = meta?['realism_state'];
       if (rs is Map && hasClock(rs)) {
         clockStamp = m;
         break;
       }
       // Engine-off PoT stamps top-level story_day only.
       if (storyDayOnly == null) {
-        final top = m.activeMetadata?['story_day'] ?? m.metadata?['story_day'];
+        final top = meta?['story_day'] ?? m.metadata?['story_day'];
         if (top is num) storyDayOnly = top.toInt();
       }
     }
@@ -145,8 +151,17 @@ extension ChatServiceImportWalk on ChatService {
     _restorePocketsStampsChronologically(start);
 
     if (clockStamp != null) {
-      final rs = clockStamp.activeMetadata!['realism_state'] as Map;
-      _timeService.restoreTimeFromRealismState(Map<String, dynamic>.from(rs));
+      final meta = clockStamp.activeMetadata;
+      final rs = meta?['realism_state'];
+      _timeService.restoreImportedClock(
+        after: meta?['story_clock_after'] as String?,
+        before:
+            knownStoryClockBefore(clockStamp) ??
+            meta?['story_clock_before'] as String?,
+        minutes: minutesRecordedForClockRewind(meta),
+        snap: rs is Map ? Map<String, dynamic>.from(rs) : null,
+        restoreClock: true,
+      );
     } else if (storyDayOnly != null) {
       // Keep this story's anchor; only the day number rewinds.
       _timeService.restoreTimeFromRealismState({'dayCount': storyDayOnly});
@@ -207,11 +222,14 @@ extension ChatServiceImportWalk on ChatService {
       return;
     }
 
-    // 1:1 — nearest realism_state, else card rewind (+ standalone story_day).
+    // 1:1 — nearest stamp or realism_state, else card rewind (+ story_day).
     for (var i = start; i >= 0; i--) {
       final m = _messages[i];
-      if (m.activeMetadata?['realism_state'] is Map) {
-        _restoreRealismStateForSpeaker(m);
+      final meta = m.activeMetadata;
+      if (meta?['realism_state'] is Map ||
+          knownStoryClockBefore(m) != null ||
+          meta?['story_clock_after'] is String) {
+        _restoreRealismStateForSpeaker(m, restoreClock: true);
         if (m.metadata?['pockets_before'] is Map) {
           _restorePocketsFromStamp(m, after: true);
         }

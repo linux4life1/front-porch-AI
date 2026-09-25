@@ -68,6 +68,7 @@ extension ChatServiceMessageOps on ChatService {
     final isGuestTip = isGuestMsg && messageIndex == _messages.length - 1;
 
     msg.swipeIndex = newIndex;
+    if (isTip || isGuestTip) _applySwipeSlotClock(msg);
     if (isTip) _syncRealismStateForSwipe(msg);
     if (isGuestTip) {
       _restoreWornBodiesExceptSpeaker(msg, msg.characterId ?? '');

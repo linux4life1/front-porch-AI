@@ -98,11 +98,11 @@ part 'time_service_load.dart';
 /// `standaloneClockEnabled` pref is still readable for old PWAs but no
 /// longer gates the decide.
 ///
-/// Regen/swipe rewind the clock from the rejected reply's
-/// `story_clock_before` stamp, else by recorded `time_passed` minutes,
-/// else they keep the live session clock. They never take time from a
-/// `realism_state` snap. Then the post-reply eval decides again —
-/// engine-on, time-only, and Scene Guest share that receipt.
+/// Regen/swipe rewind the clock from the message-level
+/// `story_clock_before` (shared by every swipe). Each slot stores
+/// `story_clock_after`. They never take time from a `realism_state` snap.
+/// Then the post-reply eval decides again — engine-on, time-only, and
+/// Scene Guest share that receipt.
 ///
 /// The OOC time-skip path ([detectOocTimeSkip]) is pure regex and stands on
 /// its own — but it is a narrow fast path over enumerated phrasings and does
@@ -173,6 +173,7 @@ class TimeService {
   // One clock authority per turn: set when detectOocTimeSkip moves the clock,
   // consumed by the per-turn eval so it can't re-count the same exchange.
   bool _oocSkipMovedClockThisTurn = false;
+  DateTime? _capturedClock;
 
   /// Awake minutes the body should wear for the beat just committed.
   /// Zero when this beat is a night, a skip, or time away.
@@ -293,6 +294,41 @@ class TimeService {
   /// Class door for the calendar set. Continue still does not tick.
   Future<void> setClockDirect(DateTime newClock) => _setClockDirect(newClock);
 
+  DateTime get storyStartFloor =>
+      DateTime.utc(_startDate.year, _startDate.month, _startDate.day);
+
+  bool get hasCapturedClock => _capturedClock != null;
+
+  void setClockClamped(DateTime next) => _setClockClamped(next);
+
+  void captureLiveClock() => _captureLiveClock();
+
+  void restoreCapturedClock() => _restoreCapturedClock();
+
+  void clearCapturedClock() => _clearCapturedClock();
+
+  void rewindToBeforeIso(String? beforeIso) => _rewindToBeforeIso(beforeIso);
+
+  void applySelectedSlotClock({String? after, String? before, int? minutes}) =>
+      _applySelectedSlotClock(after: after, before: before, minutes: minutes);
+
+  void restoreImportedClock({
+    String? after,
+    String? before,
+    int? minutes,
+    Map<String, dynamic>? snap,
+    bool restoreClock = true,
+  }) => _restoreImportedClock(
+    after: after,
+    before: before,
+    minutes: minutes,
+    snap: snap,
+    restoreClock: restoreClock,
+  );
+
+  void restoreAbortedTick(String? clockBeforeIso) =>
+      _restoreAbortedTick(clockBeforeIso);
+
   /// Class door for V2 / ext-seed. Callers that only have the [TimeService]
   /// type (tests via `chat.timeService`, goldens) cannot see the load
   /// extension — same class-door rule as [setClockDirect].
@@ -398,6 +434,7 @@ class TimeService {
     _canonicalClockWasSynthesised = false;
     todayLine = null;
     _todayLineDayCount = null;
+    _capturedClock = null;
   }
 
   /// The posture question alone — shared VERBATIM between the standalone

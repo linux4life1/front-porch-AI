@@ -239,21 +239,21 @@ void main() {
     await db?.close();
   });
 
-  test('minutesFromTimePassed reads chips and numeric fields', () {
+  test('minutesFromTimePassed reads chip text only', () {
     expect(minutesFromTimePassed('5 min'), 5);
     expect(minutesFromTimePassed('30 min'), 30);
     expect(minutesFromTimePassed('1 hr'), 60);
     expect(minutesFromTimePassed('2 hr 5 min'), 125);
     expect(minutesFromTimePassed('same moment'), 0);
     expect(minutesFromTimePassed('Next morning'), isNull);
-    expect(minutesFromTimePassed(5), 5);
+    expect(minutesFromTimePassed(5), isNull);
     expect(minutesFromTimePassed(null), isNull);
     expect(minutesRecordedForClockRewind({'time_passed': '5 min'}), 5);
-    expect(minutesRecordedForClockRewind({'minutes': 12}), 12);
-    expect(minutesRecordedForClockRewind({'minutes_elapsed': 8}), 8);
+    expect(minutesRecordedForClockRewind({'minutes': 12}), isNull);
+    expect(minutesRecordedForClockRewind({'minutes_elapsed': 8}), isNull);
   });
 
-  test('rewindClockToPreReply prefers before, else minutes, else live', () {
+  test('rewindToBeforeIso sets the shared before and keeps live otherwise', () {
     var porch = true;
     final t = TimeService(
       onNotify: () {},
@@ -270,15 +270,11 @@ void main() {
     );
     expect(t.clock, _lived);
 
-    t.rewindClockToPreReply(storyClockBefore: _day1NineIso, minutesPassed: 5);
+    t.rewindToBeforeIso(_day1NineIso);
     expect(t.clock, DateTime.utc(2026, 6, 28, 9, 0));
 
     t.restoreTimeFromRealismState({'storyClock': _livedIso});
-    t.rewindClockToPreReply(minutesPassed: 5);
-    expect(t.clock, DateTime.utc(2026, 6, 29, 16, 32));
-
-    t.restoreTimeFromRealismState({'storyClock': _livedIso});
-    t.rewindClockToPreReply();
+    t.rewindToBeforeIso(null);
     expect(t.clock, _lived);
 
     t.markClockGateLeftover(false);

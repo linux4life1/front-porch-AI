@@ -111,7 +111,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         debugPrint(
           '[Clock] running=$_clockRunning '
           'source=${_timeService.clockGateSource} '
-          'perChat=${_timeService.passageOfTimeEnabled} porchLife='
+          'porchLife='
           '${_storageService.realismSettings.passageOfTimeDefault} '
           'reason=abort',
         );
@@ -119,9 +119,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         await _maybeAdvanceStoryClockAfterReply(t);
         if (_postGenAbortRequested &&
             _timeService.storyClockIso != clockBeforeIso) {
-          _timeService.restoreTimeFromRealismState({
-            'storyClock': clockBeforeIso,
-          });
+          _timeService.restoreAbortedTick(clockBeforeIso);
         } else {
           _wearBodiesAfterClock(t);
           _stampTimePassedChip(t.streamTarget);

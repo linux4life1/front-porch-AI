@@ -297,22 +297,6 @@ void main() {
       expect(t.timeOfDay, 'evening');
       expect(t.dayCount, 2);
     });
-
-    test('swipe restore respects the nudge flag and passage gate', () {
-      final t = makeService();
-      seedFixed(t);
-      final before = t.clock;
-      t.restoreTimeForSwipeOrRegen({
-        'storyClock': '2026-07-01T09:00:00.000Z',
-        'storyStartDate': '2026-06-30',
-      }, wasNudged: true);
-      expect(t.clock, before); // nudged time survives the swipe
-      t.restoreTimeForSwipeOrRegen({
-        'storyClock': '2026-07-01T09:00:00.000Z',
-        'storyStartDate': '2026-06-30',
-      });
-      expect(t.clock, DateTime.utc(2026, 7, 1, 9, 0));
-    });
   });
 
   group('TimeService per-turn advancement', () {

@@ -105,10 +105,9 @@ String? timePassedLabel({
 
 /// Inverse of [timePassedLabel] for regen/swipe clock rewind.
 ///
-/// Numeric fields pass through. Chip text (`5 min`, `1 hr`, `2 hr 5 min`,
-/// `same moment`) becomes minutes. `Next morning` is not an exact span.
+/// Chip text only (`5 min`, `1 hr`, `2 hr 5 min`, `same moment`).
+/// `Next morning` and raw numbers are unknown minutes.
 int? minutesFromTimePassed(Object? raw) {
-  if (raw is num) return raw.toInt();
   if (raw is! String) return null;
   final text = raw.trim();
   if (text.isEmpty) return null;
@@ -125,17 +124,10 @@ int? minutesFromTimePassed(Object? raw) {
   return null;
 }
 
-/// Minutes a rejected turn recorded: `time_passed` chip first, then a
-/// numeric `minutes` / `minutes_elapsed` field.
+/// Minutes a rejected turn recorded — the `time_passed` chip only.
 int? minutesRecordedForClockRewind(Map<String, dynamic>? meta) {
   if (meta == null) return null;
-  final fromChip = minutesFromTimePassed(meta['time_passed']);
-  if (fromChip != null) return fromChip;
-  final minutes = meta['minutes'];
-  if (minutes is num) return minutes.toInt();
-  final elapsed = meta['minutes_elapsed'];
-  if (elapsed is num) return elapsed.toInt();
-  return null;
+  return minutesFromTimePassed(meta['time_passed']);
 }
 
 /// Short no-action turn: Needs ran, bars did not move. Shown as its own chip.

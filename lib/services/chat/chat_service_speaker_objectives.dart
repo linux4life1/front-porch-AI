@@ -256,9 +256,12 @@ extension ChatServiceSpeakerObjectives on ChatService {
   /// groups" bug). 1:1 restores the scalars directly, unchanged. No-ops when
   /// the group speaker can't be resolved (renamed/removed member): restoring
   /// into the wrong member's entry would corrupt that member's state.
-  void _restoreRealismStateForSpeaker(ChatMessage msg) {
+  void _restoreRealismStateForSpeaker(
+    ChatMessage msg, {
+    bool restoreClock = false,
+  }) {
     if (_activeGroup == null) {
-      _restoreRealismStateFromMessage(msg, restoreClock: false);
+      _restoreRealismStateFromMessage(msg, restoreClock: restoreClock);
       return;
     }
     final speaker = _resolveGroupSpeakerForMessage(msg);
@@ -272,7 +275,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     _restoreRealismStateFromMessage(
       msg,
       groupSpeakerId: sid,
-      restoreClock: false,
+      restoreClock: restoreClock,
     );
     if (!hadStoredNeeds && !stampHasNeeds) {
       // The load's initializeFresh() filled the scalar vector for a member
@@ -303,14 +306,31 @@ extension ChatServiceSpeakerObjectives on ChatService {
 
     // Check if the current visible node has an active swipe metadata array or just the base metadata
     final meta = msg.activeMetadata;
-    if (meta == null || !meta.containsKey('realism_state')) {
+    final rawState = meta?['realism_state'];
+    final state = rawState is Map ? Map<String, dynamic>.from(rawState) : null;
+
+    // Regen/swipe/delete pass restoreClock: false — TimeService owns
+    // those clocks. Fork/import pass true: stamped after, else before
+    // plus minutes, else the snap only if the message is unstamped.
+    if (restoreClock) {
+      _timeService.restoreImportedClock(
+        after: meta?['story_clock_after'] as String?,
+        before:
+            knownStoryClockBefore(msg) ??
+            meta?['story_clock_before'] as String?,
+        minutes: minutesRecordedForClockRewind(meta),
+        snap: state,
+        restoreClock: true,
+      );
+    }
+
+    if (state == null) {
       debugPrint(
         '[Realism] No time-travel snapshot found in message. Legacy state kept.',
       );
       return;
     }
 
-    final state = meta['realism_state'] as Map<String, dynamic>;
     _relationshipService.restoreFromMessageState(
       state,
       groupSpeakerId: groupSpeakerId,
@@ -319,13 +339,6 @@ extension ChatServiceSpeakerObjectives on ChatService {
         state['characterEmotion'] as String? ?? _characterEmotion;
     _emotionIntensity =
         state['emotionIntensity'] as String? ?? _emotionIntensity;
-
-    // Regen/swipe/merge never take the clock from a realism_state snap.
-    // Those snaps are frozen or pre-calendar on old chats. Import still
-    // restores clock via [restoreClock].
-    if (restoreClock) {
-      _timeService.restoreTimeFromRealismState(state);
-    }
 
     _nsfwService.restoreNsfwFromRealismState(state);
 

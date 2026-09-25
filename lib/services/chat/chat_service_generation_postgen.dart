@@ -211,7 +211,7 @@ extension ChatServiceGenerationPostGen on ChatService {
           debugPrint(
             '[Clock] running=$_clockRunning '
             'source=${_timeService.clockGateSource} '
-            'perChat=${_timeService.passageOfTimeEnabled} porchLife='
+            'porchLife='
             '${_storageService.realismSettings.passageOfTimeDefault} '
             'reason=abort',
           );
@@ -219,9 +219,7 @@ extension ChatServiceGenerationPostGen on ChatService {
           await _maybeAdvanceStoryClockAfterReply(t);
           if (_postGenAbortRequested &&
               _timeService.storyClockIso != clockBeforeIso) {
-            _timeService.restoreTimeFromRealismState({
-              'storyClock': clockBeforeIso,
-            });
+            _timeService.restoreAbortedTick(clockBeforeIso);
           } else if (!_postGenAbortRequested) {
             _wearBodiesAfterClock(t);
             _stampTimePassedChip(t.streamTarget);
@@ -289,7 +287,7 @@ extension ChatServiceGenerationPostGen on ChatService {
     debugPrint(
       '[Clock] running=$_clockRunning '
       'source=${_timeService.clockGateSource} '
-      'perChat=${_timeService.passageOfTimeEnabled} porchLife=$porch '
+      'porchLife=$porch '
       'mode=${t.mode.name} abort=$_postGenAbortRequested',
     );
     if (t.mode == GenerationMode.continue_) {
@@ -311,15 +309,10 @@ extension ChatServiceGenerationPostGen on ChatService {
       // Stamp the LIVE swipe map. Writing `metadata` is a no-op for
       // regen when swipeMetadata[i] is already set — activeMetadata
       // returns that slot, not the legacy field.
-      final existing = msg.activeMetadata;
-      if (existing != null) {
-        existing.putIfAbsent(
-          'story_clock_before',
-          () => _timeService.storyClockIso,
-        );
-      } else {
-        msg.activeMetadata = {'story_clock_before': _timeService.storyClockIso};
-      }
+      persistStoryClockBefore(
+        msg,
+        knownStoryClockBefore(msg) ?? _timeService.storyClockIso,
+      );
     }
     await _realismEvals.evaluatePhysicalStateCall(
       timeOnly: true,
@@ -329,11 +322,12 @@ extension ChatServiceGenerationPostGen on ChatService {
       final named = clockNamedInReply(msg.text, _timeService.clock);
       if (named != null) await _timeService.applyReconciledClock(named);
     }
+    _stampStoryClockAfter(msg);
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     debugPrint(
       '[Clock] running=$_clockRunning '
       'source=${_timeService.clockGateSource} '
-      'perChat=${_timeService.passageOfTimeEnabled} porchLife=$porch '
+      'porchLife=$porch '
       'minutes=${_timeService.clock.difference(before).inMinutes} '
       'stamped=${_timeService.bodyTimeLabel} '
       'slot=${t.streamTarget.swipeIndex}',

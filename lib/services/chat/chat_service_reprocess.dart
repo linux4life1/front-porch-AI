@@ -239,14 +239,11 @@ extension ChatServiceReprocess on ChatService {
         _restorePocketsFromStamp(lastMsg, after: false);
       }
 
-      // Clock rewind for every driver (engine, standalone, Scene Guest).
-      // The post-reply tick stamps story_clock_before; without this a
-      // swipe would double-advance. Manual chevron/calendar nudges on
-      // this bubble survive (same time_nudged flag as the engine path).
-      final clockWasNudged =
-          lastMsg.activeMetadata?['realism_state'] is Map &&
-          (lastMsg.activeMetadata!['realism_state'] as Map)['time_nudged'] ==
-              true;
+      // Capture the live clock first. Fail/cancel/abort put it back so
+      // a rejected regen never leaves the sidebar on the rewound before.
+      // Then rewind to the shared message-level before (every swipe).
+      final clockWasNudged = _clockWasNudged(lastMsg);
+      _timeService.captureLiveClock();
       _rewindClockToPreReply(lastMsg, wasNudged: clockWasNudged);
 
       _revertRegenRealismBaseline(
@@ -323,6 +320,7 @@ extension ChatServiceReprocess on ChatService {
           // session row no longer agreed with, and `_saveChat()` persisted the
           // wrong scalars. 1:1-only branch, host-only (guests never get here).
           _messages.add(lastMsg);
+          _putBackCapturedClock();
           _restoreRealismStateForSpeaker(lastMsg);
           _restorePocketsFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
@@ -370,6 +368,7 @@ extension ChatServiceReprocess on ChatService {
           _messages.add(lastMsg);
           // Same put-back contract as the cancel point above: the message
           // returns WITH the state it was accepted under.
+          _putBackCapturedClock();
           _restoreRealismStateForSpeaker(lastMsg);
           _restorePocketsFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
@@ -377,16 +376,6 @@ extension ChatServiceReprocess on ChatService {
           notifyListeners();
           await _saveChat();
           return;
-        }
-      }
-
-      // story_clock_before again so a guest (no realism_state) between
-      // two host lines cannot be overwritten by a later snap restore.
-      // Minutes rewind is not repeated — that would double-subtract.
-      if (_clockRunning && !clockWasNudged) {
-        final before = lastMsg.activeMetadata?['story_clock_before'] as String?;
-        if (StoryClock.parse(before) != null) {
-          _timeService.rewindClockToPreReply(storyClockBefore: before);
         }
       }
 

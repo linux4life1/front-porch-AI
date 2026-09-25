@@ -120,27 +120,69 @@ extension TimeServiceLoad on TimeService {
     }
   }
 
-  // For swipe/regen paths that restore prior realism_state (respect nudge flag).
-  void restoreTimeForSwipeOrRegen(
-    Map<String, dynamic> previousState, {
-    bool wasNudged = false,
-  }) {
-    if (passageOfTimeEnabled && !wasNudged) {
-      restoreTimeFromRealismState(previousState);
+  DateTime get _storyStartFloor =>
+      DateTime.utc(_startDate.year, _startDate.month, _startDate.day);
+
+  void _setClockClamped(DateTime next) {
+    final floor = _storyStartFloor;
+    _clock = next.isBefore(floor) ? floor : next;
+  }
+
+  void _captureLiveClock() => _capturedClock = _clock;
+
+  void _restoreCapturedClock() {
+    final captured = _capturedClock;
+    if (captured != null) _setClockClamped(captured);
+  }
+
+  void _clearCapturedClock() => _capturedClock = null;
+
+  void _rewindToBeforeIso(String? beforeIso) {
+    final before = StoryClock.parse(beforeIso);
+    if (before != null) _setClockClamped(before);
+  }
+
+  void _applySelectedSlotClock({String? after, String? before, int? minutes}) {
+    final afterClock = StoryClock.parse(after);
+    if (afterClock != null) {
+      _setClockClamped(afterClock);
+      return;
+    }
+    final beforeClock = StoryClock.parse(before);
+    if (beforeClock != null) {
+      final add = (minutes != null && minutes > 0) ? minutes : 0;
+      _setClockClamped(beforeClock.add(Duration(minutes: add)));
     }
   }
 
-  /// Regen/swipe pre-reply clock. Never reads a realism_state snap.
-  /// [storyClockBefore] wins; else rewind live by [minutesPassed]; else keep.
-  void rewindClockToPreReply({String? storyClockBefore, int? minutesPassed}) {
-    final before = StoryClock.parse(storyClockBefore);
-    if (before != null) {
-      _clock = before;
+  void _restoreImportedClock({
+    String? after,
+    String? before,
+    int? minutes,
+    Map<String, dynamic>? snap,
+    bool restoreClock = true,
+  }) {
+    if (!restoreClock) return;
+    final afterClock = StoryClock.parse(after);
+    if (afterClock != null) {
+      _setClockClamped(afterClock);
       return;
     }
-    if (minutesPassed != null && minutesPassed > 0) {
-      _clock = _clock.subtract(Duration(minutes: minutesPassed));
+    final beforeClock = StoryClock.parse(before);
+    if (beforeClock != null) {
+      final add = (minutes != null && minutes > 0) ? minutes : 0;
+      _setClockClamped(beforeClock.add(Duration(minutes: add)));
+      return;
     }
+    if (snap != null) restoreTimeFromRealismState(snap);
+  }
+
+  void _restoreAbortedTick(String? clockBeforeIso) {
+    if (_capturedClock != null) {
+      _restoreCapturedClock();
+      return;
+    }
+    _rewindToBeforeIso(clockBeforeIso);
   }
 
   /// Restore from a realism_state snapshot (message metadata, 1:1<->group

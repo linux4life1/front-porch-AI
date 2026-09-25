@@ -354,6 +354,7 @@ extension ChatServiceGeneration on ChatService {
           // abort before any prompt is built. Entry-state flags are reset
           // by hand — the normal clears live in completion/catch.
           if (_realismEvalCancelled) {
+            _putBackCapturedClock();
             _pendingRealismMetadata = null;
             _needsSimulation.consumePendingCatastrophe();
             _realismEvalCancelled = false;
