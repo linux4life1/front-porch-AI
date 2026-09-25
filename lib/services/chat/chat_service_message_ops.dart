@@ -119,6 +119,7 @@ extension ChatServiceMessageOps on ChatService {
     _postGenAbortRequested = false;
     _isCancellingRealismEval = false;
     _realismEvalCancelled = false;
+    _clockPriorTurnHadChip = false;
   }
 
   Future<bool> _yieldSettlingTurn() async {
