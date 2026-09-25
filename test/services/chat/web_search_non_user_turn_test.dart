@@ -167,7 +167,13 @@ void main() {
       reason: 'the direct user send stays eligible',
     );
     expect(llm.streams, isNotEmpty);
-    expect(llm.streams.first.systemPrompt, contains(kWebSearchCharacterLine));
+    expect(
+      llm.streams
+          .where((s) => s.systemPrompt != null)
+          .single
+          .systemPrompt,
+      contains(kWebSearchCharacterLine),
+    );
     expect(
       llm.streams.where(
         (s) => (s.systemPrompt ?? '').contains(kWebSearchCharacterLine),
@@ -204,7 +210,10 @@ void main() {
     expect(httpCalls, 0);
     expect(llm.streams, isNotEmpty);
     expect(
-      llm.streams.first.systemPrompt,
+      llm.streams
+          .where((s) => s.systemPrompt != null)
+          .single
+          .systemPrompt,
       isNot(contains(kWebSearchCharacterLine)),
     );
     for (final extra in llm.streams.skip(1)) {
