@@ -242,7 +242,8 @@ bool backfillSlotClocks(
       liveClock: liveClock,
       startDate: start,
       greetingClock: greetingClock,
-      neighbourStamp: nearestReal(index),
+      neighbourStamp:
+          nearestReal(index) ?? (tipSlot ? null : realByIndex[index]),
     );
   }
 

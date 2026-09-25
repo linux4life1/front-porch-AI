@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // One resolver for every slot, tip included. Own after → chip →
-// non-frozen snap → dayCount>1 → before → neighbour. Live only after
-// own data and nearestReal are empty, and only for the tip. History
-// never takes live. Day-without-TOD: own day, neighbour TOD, else
-// tip = live TOD / history = 09:00.
+// non-frozen snap → dayCount>1 → before. An empty tip is live —
+// a neighbour stamp does not paint it. History with nothing stored
+// takes the neighbour, else null. History never takes live.
+// Day-without-TOD: own day, neighbour TOD, else tip = live TOD /
+// history = 09:00.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -133,12 +134,13 @@ bool slotSnapIsFrozen(
   return false;
 }
 
-/// Own stored after → chip → non-frozen snap → dayCount>1 → before →
-/// [neighbourStamp]. Live only when [isTip] and own data plus
-/// [neighbourStamp] are empty. A derived day after whose calendar day
-/// does not match [startDate] is stale (start moved) and is recomputed.
-/// Day-without-TOD takes [neighbourStamp]'s TOD; if none, the tip uses
-/// [liveClock] and history uses 09:00. History never takes [liveClock].
+/// Own stored after → chip → non-frozen snap → dayCount>1 → before.
+/// An empty tip is [liveClock] even when [neighbourStamp] exists.
+/// History with nothing stored takes [neighbourStamp], else null.
+/// A derived day after whose calendar day does not match [startDate]
+/// is stale (start moved) and is recomputed. Day-without-TOD takes
+/// [neighbourStamp]'s TOD; if none, the tip uses [liveClock] and
+/// history uses 09:00. History never takes [liveClock].
 DateTime? resolveSlotAfter(
   Map<String, dynamic>? slot, {
   required bool isTip,
@@ -182,8 +184,8 @@ DateTime? resolveSlotAfter(
     return fromDay;
   }
   if (before != null) return before;
-  if (neighbourStamp != null) return neighbourStamp;
   if (isTip) return liveClock;
+  if (neighbourStamp != null) return neighbourStamp;
   return null;
 }
 
