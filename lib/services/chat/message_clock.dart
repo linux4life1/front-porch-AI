@@ -178,26 +178,20 @@ bool backfillSlotClocks(
   DateTime? startDate,
   bool floorUnstampedToDay1 = false,
 }) {
-  /// Nested so writeSlotClockPair stays on the backfillSlotClocks stack (C1).
-  bool refreshDerivedDayPair(
+  final alreadyGuessed = _firstBotBackfillDone(messages);
+  final start = startDate ?? StoryClock.dateOnly(liveClock);
+  DateTime? staleDerivedDay(
     Map<String, dynamic>? slot,
-    Map<String, dynamic> dest,
-    ChatMessage msg,
-    DateTime start,
     DateTime? Function(Map<String, dynamic>?) ownDay,
   ) {
     final stored = slotClockAfter(slot);
-    if (stored == null) return false;
-    if (!slotDerivedAfterIsStale(slot, stored, startDate: start)) return false;
-    final day = ownDay(slot);
-    if (day == null) return false;
-    writeSlotClockPair(dest, before: day, after: day, fromDayCount: true);
-    persistStoryClockBefore(msg, StoryClock.serializeClock(day));
-    return true;
+    if (stored == null) return null;
+    if (!slotDerivedAfterIsStale(slot, stored, startDate: start)) {
+      return null;
+    }
+    return ownDay(slot);
   }
 
-  final alreadyGuessed = _firstBotBackfillDone(messages);
-  final start = startDate ?? StoryClock.dateOnly(liveClock);
   final openingSnap = openingGreetingSnap(messages);
   final greetingClock = frozenDetectionGreetingClock(messages);
   var tipIndex = -1;
@@ -353,7 +347,10 @@ bool backfillSlotClocks(
         continue;
       }
       if (slotHasCompletePair(slot)) {
-        if (refreshDerivedDayPair(slot, dest, msg, start, dayOf)) {
+        final day = staleDerivedDay(slot, dayOf);
+        if (day != null) {
+          writeSlotClockPair(dest, before: day, after: day, fromDayCount: true);
+          persistStoryClockBefore(msg, StoryClock.serializeClock(day));
           changed = true;
         }
         continue;
@@ -407,7 +404,15 @@ bool backfillSlotClocks(
         changed = true;
         continue;
       }
-      if (refreshDerivedDayPair(meta, meta, msg, start, dayOf)) {
+      final refreshDay = staleDerivedDay(meta, dayOf);
+      if (refreshDay != null) {
+        writeSlotClockPair(
+          meta,
+          before: refreshDay,
+          after: refreshDay,
+          fromDayCount: true,
+        );
+        persistStoryClockBefore(msg, StoryClock.serializeClock(refreshDay));
         changed = true;
         continue;
       }
