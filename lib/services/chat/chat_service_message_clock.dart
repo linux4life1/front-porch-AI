@@ -43,8 +43,13 @@ extension ChatServiceMessageClock on ChatService {
         final after = StoryClock.parse(
           msg.activeMetadata?['story_clock_after'] as String?,
         );
-        final snap = StoryClock.parse(_slotSnap(msg)?['storyClock'] as String?);
-        final from = after ?? snap ?? _timeService.clock;
+        final snap = _slotSnap(msg);
+        final snapClock = StoryClock.parse(snap?['storyClock'] as String?);
+        final snapUsable =
+            snapClock != null &&
+            !snapIsFrozenGreeting(snap, _timeService.clock);
+        final from =
+            after ?? (snapUsable ? snapClock : null) ?? _timeService.clock;
         before = StoryClock.serializeClock(
           from.subtract(Duration(minutes: mins)),
         );
