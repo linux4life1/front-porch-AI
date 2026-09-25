@@ -318,83 +318,85 @@ void main() {
       expect(t.clock, _lived);
     });
 
-    test('swipe applies after, else before plus minutes, else keeps live', () {
+    test('backfill fills after from pair, chip, snap, or live', () {
       final t = _time();
       ChatMessage slot(Map<String, dynamic> meta) => ChatMessage(
         text: 'Hi.',
         sender: 'Nia',
         isUser: false,
-        metadata: meta,
+        metadata: Map<String, dynamic>.from(meta),
       );
 
-      t.applySlotClock(
-        resolved: resolveSlotClock({
-          'story_clock_after': _day1NineThirtyIso,
-          'story_clock_before': _day1NineIso,
-          'time_passed': '5 min',
-        }, slot({})),
-      );
+      final stamped = slot({
+        'story_clock_after': _day1NineThirtyIso,
+        'story_clock_before': _day1NineIso,
+        'time_passed': '5 min',
+      });
+      backfillSlotClocks([stamped], liveClock: t.clock);
+      t.applySlotClock(resolved: slotClockAfter(stamped.metadata));
       expect(t.clock, _day1NineThirty);
 
-      t.applySlotClock(
-        resolved: resolveSlotClock({
-          'story_clock_before': _day1NineIso,
-          'time_passed': '5 min',
-        }, slot({})),
-      );
+      final fromChip = slot({
+        'story_clock_before': _day1NineIso,
+        'time_passed': '5 min',
+      });
+      backfillSlotClocks([fromChip], liveClock: t.clock);
+      t.applySlotClock(resolved: slotClockAfter(fromChip.metadata));
       expect(t.clock, DateTime.utc(2026, 6, 28, 9, 5));
 
-      t.applySlotClock(resolved: resolveSlotClock({}, slot({})));
+      final empty = slot({});
+      backfillSlotClocks([empty], liveClock: DateTime.utc(2026, 6, 28, 9, 5));
+      t.applySlotClock(resolved: slotClockAfter(empty.metadata));
       expect(t.clock, DateTime.utc(2026, 6, 28, 9, 5));
     });
 
-    test('import prefers after, else before plus minutes, else snap', () {
+    test('backfill prefers after, else before plus minutes, else snap', () {
       final t = _time();
       ChatMessage slot(Map<String, dynamic> meta) => ChatMessage(
         text: 'Hi.',
         sender: 'Nia',
         isUser: false,
-        metadata: meta,
+        metadata: Map<String, dynamic>.from(meta),
       );
 
-      t.applySlotClock(
-        resolved: resolveSlotClock({
-          'story_clock_after': _day1NineThirtyIso,
-          'story_clock_before': _day1NineIso,
-          'time_passed': '5 min',
-          'realism_state': {'storyClock': _day3Iso},
-        }, slot({})),
-      );
+      final stamped = slot({
+        'story_clock_after': _day1NineThirtyIso,
+        'story_clock_before': _day1NineIso,
+        'time_passed': '5 min',
+        'realism_state': {'storyClock': _day3Iso},
+      });
+      backfillSlotClocks([stamped], liveClock: t.clock);
+      t.applySlotClock(resolved: slotClockAfter(stamped.metadata));
       expect(t.clock, _day1NineThirty);
 
-      t.applySlotClock(
-        resolved: resolveSlotClock({
-          'story_clock_before': _day1NineIso,
-          'time_passed': '30 min',
-          'realism_state': {'storyClock': _day3Iso},
-        }, slot({})),
-      );
+      final fromChip = slot({
+        'story_clock_before': _day1NineIso,
+        'time_passed': '30 min',
+        'realism_state': {'storyClock': _day3Iso},
+      });
+      backfillSlotClocks([fromChip], liveClock: t.clock);
+      t.applySlotClock(resolved: slotClockAfter(fromChip.metadata));
       expect(t.clock, _day1NineThirty);
 
-      t.applySlotClock(
-        resolved: resolveSlotClock({
-          'realism_state': {
-            'storyClock': _day3Iso,
-            'storyStartDate': _startIso,
-          },
-        }, slot({})),
-      );
+      final greeting = slot({
+        'realism_state': {
+          'storyClock': _day1NineIso,
+          'storyStartDate': _startIso,
+        },
+      });
+      final fromSnap = slot({
+        'realism_state': {'storyClock': _day3Iso, 'storyStartDate': _startIso},
+      });
+      backfillSlotClocks([greeting, fromSnap], liveClock: t.clock);
+      t.applySlotClock(resolved: slotClockAfter(fromSnap.metadata));
       expect(t.clock, _day3);
 
-      t.applySlotClock(
-        resolved: resolveSlotClock({
-          'story_clock_before': _day1NineIso,
-          'realism_state': {
-            'storyClock': _day3Iso,
-            'storyStartDate': _startIso,
-          },
-        }, slot({})),
-      );
+      final beforeAndSnap = slot({
+        'story_clock_before': _day1NineIso,
+        'realism_state': {'storyClock': _day3Iso, 'storyStartDate': _startIso},
+      });
+      backfillSlotClocks([greeting, beforeAndSnap], liveClock: t.clock);
+      t.applySlotClock(resolved: slotClockAfter(beforeAndSnap.metadata));
       expect(
         t.clock,
         _day3,
@@ -404,10 +406,14 @@ void main() {
 
     test('rewind before Day 1 pulls the start date, same as reconcile', () {
       final t = _time();
-      t.restoreTimeFromRealismState({
-        'storyClock': '2026-06-28T00:10:00.000Z',
-        'storyStartDate': _startIso,
-      });
+      t.applySlotClock(resolved: DateTime.utc(2026, 6, 28, 0, 10));
+      t.loadTimeScalars(
+        timeOfDay: 'night',
+        dayCount: 1,
+        startDayOfWeek: DateTime.utc(2026, 6, 28).weekday,
+        storyClock: '2026-06-28T00:10:00.000Z',
+        storyStartDate: _startIso,
+      );
       t.rewindToBeforeIso('2026-06-27T23:40:00.000Z');
       expect(t.clock, DateTime.utc(2026, 6, 27, 23, 40));
       expect(t.dayCount, 1);

@@ -133,7 +133,8 @@ void main() {
         },
       },
     );
-    t.applySlotClock(resolved: resolveSlotClock(msg.metadata, msg));
+    backfillSlotClocks([msg], liveClock: t.clock, startDate: t.startDate);
+    t.applySlotClock(resolved: slotClockAfter(msg.metadata));
     expect(
       t.clock,
       DateTime.utc(2026, 9, 25, 10, 30),

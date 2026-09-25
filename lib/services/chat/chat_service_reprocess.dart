@@ -116,8 +116,7 @@ extension ChatServiceReprocess on ChatService {
     } finally {
       _isPostGenerating = false;
       _clearPostGenAbortFlags();
-      _timeService.restoreCapturedClock(sessionId: _currentSessionId);
-      _timeService.clearCapturedClock();
+      _applyTipClock();
     }
   }
 
@@ -244,9 +243,7 @@ extension ChatServiceReprocess on ChatService {
       // Capture the live clock first. Fail/cancel/abort put it back so
       // a rejected regen never leaves the sidebar on the rewound before.
       // Then rewind to the shared message-level before (every swipe).
-      final clockWasNudged = _clockWasNudged(lastMsg);
-      _timeService.captureLiveClock(sessionId: _currentSessionId);
-      _rewindClockToPreReply(lastMsg, wasNudged: clockWasNudged);
+      _rewindClockToPreReply(lastMsg);
 
       _revertRegenRealismBaseline(
         lastMsg: lastMsg,
@@ -322,7 +319,7 @@ extension ChatServiceReprocess on ChatService {
           // session row no longer agreed with, and `_saveChat()` persisted the
           // wrong scalars. 1:1-only branch, host-only (guests never get here).
           _messages.add(lastMsg);
-          _putBackCapturedClock();
+          _applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
           _restorePocketsFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
@@ -370,7 +367,7 @@ extension ChatServiceReprocess on ChatService {
           _messages.add(lastMsg);
           // Same put-back contract as the cancel point above: the message
           // returns WITH the state it was accepted under.
-          _putBackCapturedClock();
+          _applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
           _restorePocketsFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
@@ -435,6 +432,5 @@ extension ChatServiceReprocess on ChatService {
       // that dance from running a second time (Continue still LOADs).
       await _generateResponse(GenerationMode.normal, skipSpeakerEval: true);
     }
-    _timeService.clearCapturedClock();
   }
 }

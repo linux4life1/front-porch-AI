@@ -67,15 +67,9 @@ extension ChatServiceMessageOps on ChatService {
         _messages.skip(messageIndex + 1).every(_isGuestAuthoredMessage);
     final isGuestTip = isGuestMsg && messageIndex == _messages.length - 1;
 
-    final previousResolved = _resolveMessageSlot(msg);
-    final guestsBelow = isTip && messageIndex < _messages.length - 1;
     msg.swipeIndex = newIndex;
     if (isTip || isGuestTip) {
-      _applySwipeSlotClock(
-        msg,
-        previousResolved: previousResolved,
-        guestsBelow: guestsBelow,
-      );
+      _applyTipClock();
     }
     if (isTip) _syncRealismStateForSwipe(msg);
     if (isGuestTip) {
@@ -293,9 +287,7 @@ extension ChatServiceMessageOps on ChatService {
       // of whether this was the last message. This ensures needs state
       // (and all realism fields) reset to their previous saved values — in
       // groups, inside the NEW LAST speaker's own _groupRealism entry.
-      // Clock stays off: a non-tail delete must not apply the new last
-      // message's frozen snap (old chats sit at Day 1 09:00). Tail
-      // rewind is [_rewindClockToPreReply] below.
+      // Clock is the new visible tip's after — tail and non-tail.
       if (_messages.isNotEmpty) {
         final newLast = _messages.last;
         _restoreRealismStateForSpeaker(newLast, restoreClock: false);
@@ -344,9 +336,7 @@ extension ChatServiceMessageOps on ChatService {
 
       if (!deleted.isUser && deleted.sender != 'System') {
         _rewindPocketsForDeletedMessage(deleted, wasTail: wasTail);
-        if (wasTail) {
-          _rewindClockToPreReply(deleted, wasNudged: _clockWasNudged(deleted));
-        }
+        _applyTipClock();
       }
 
       if (wasTail && _history.hasMore) {

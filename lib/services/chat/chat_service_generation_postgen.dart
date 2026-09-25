@@ -206,7 +206,6 @@ extension ChatServiceGenerationPostGen on ChatService {
         // must not keep the tick, wear, chip, or save. Regen waits up
         // to 5s in `_yieldSettlingTurn` — without this gate the aborted
         // wear lands, then replay wears again.
-        final clockBeforeIso = _timeService.storyClockIso;
         if (_postGenAbortRequested) {
           debugPrint(
             '[Clock] running=$_clockRunning '
@@ -218,7 +217,7 @@ extension ChatServiceGenerationPostGen on ChatService {
         } else {
           await _maybeAdvanceStoryClockAfterReply(t);
           if (_postGenAbortRequested) {
-            _abortVisibleSlotClock(t.streamTarget, clockBeforeIso);
+            _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
           } else {
             _wearBodiesAfterClock(t);
             _maybeKickDreamPrefetch();
@@ -319,7 +318,7 @@ extension ChatServiceGenerationPostGen on ChatService {
     if (_isLiteTurn(t) && _clockRunning) {
       final named = clockNamedInReply(msg.text, _timeService.clock);
       if (named != null) await _timeService.applyReconciledClock(named);
-      _stampFinalClockOnMessage(msg);
+      _writeSlotClock(msg, kind: _SlotClockWrite.tick);
     }
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     debugPrint(

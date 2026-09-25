@@ -8,7 +8,9 @@ extension ChatServiceImportWalk on ChatService {
   /// 1:1 stamp-less fork: rewind bond/trust/time/emotion/arousal/needs vector
   /// from the card; keep Realism/Needs/Objectives/Chaos toggles (Opus eae4e8f2).
   /// Pockets reset to card seed so stamp-less matches stamped restore.
-  Future<void> _rewindScalarsFromCardKeepingToggles() async {
+  Future<void> _rewindScalarsFromCardKeepingToggles({
+    bool seedClock = false,
+  }) async {
     if (_activeCharacter == null || _activeGroup != null) return;
 
     final ext =
@@ -29,16 +31,15 @@ extension ChatServiceImportWalk on ChatService {
       trustLevel: ext.trustLevel,
     );
     _expressionService.resetForFreshChat();
-    _timeService.seedFromV2OrExt(
-      dayCount: ext.dayCount.clamp(1, 9999),
-      timeOfDay: ext.timeOfDay,
-      // Fork is a restore path: keep THIS chat's Day 1 (user may have
-      // re-anchored via the calendar). Card date already applied at chat
-      // create; never today-anchor (group twin).
-      storyStartDate: _timeService.storyStartDateIso,
-      storyStartTime: ext.storyStartTime,
-    );
-    _applySeededPassageOfTime();
+    if (seedClock) {
+      _timeService.seedFromV2OrExt(
+        dayCount: ext.dayCount.clamp(1, 9999),
+        timeOfDay: ext.timeOfDay,
+        storyStartDate: _timeService.storyStartDateIso,
+        storyStartTime: ext.storyStartTime,
+      );
+      _applySeededPassageOfTime();
+    }
     _characterEmotion = ext.characterEmotion;
     _emotionIntensity = ext.emotionIntensity;
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: keepNsfwCooldown);
@@ -85,35 +86,6 @@ extension ChatServiceImportWalk on ChatService {
       _activeGroup!.defaultMemberRealismState,
     );
 
-    // Chat clock AFTER member loop so speaker restore cannot thrash the day.
-    DateTime? resolvedClock;
-    int? storyDayOnly;
-    var anyStoryClock = false;
-    for (final m in _messages) {
-      final rs = m.activeMetadata?['realism_state'];
-      if (rs is Map && StoryClock.parse(rs['storyClock'] as String?) != null) {
-        anyStoryClock = true;
-        break;
-      }
-    }
-    for (var i = start; i >= 0 && i < _messages.length; i--) {
-      final m = _messages[i];
-      final resolved = _resolveMessageSlot(m);
-      if (resolved != null) {
-        resolvedClock = resolved;
-        break;
-      }
-      final meta = m.activeMetadata;
-      final rs = meta?['realism_state'];
-      if (!anyStoryClock && rs is Map && rs['dayCount'] is num) {
-        storyDayOnly ??= (rs['dayCount'] as num).toInt();
-      }
-      if (storyDayOnly == null) {
-        final top = meta?['story_day'] ?? m.metadata?['story_day'];
-        if (top is num) storyDayOnly = top.toInt();
-      }
-    }
-
     for (final c in _groupCharacters) {
       final sid = _getCharacterIdFromCard(c);
       if (sid.isEmpty) continue;
@@ -152,14 +124,7 @@ extension ChatServiceImportWalk on ChatService {
     // `others`, so it must not wipe Sam's keys from an earlier give.
     _restorePocketsStampsChronologically(start);
 
-    if (resolvedClock != null) {
-      _timeService.applySlotClock(resolved: resolvedClock);
-    } else if (storyDayOnly != null && !anyStoryClock) {
-      // .fpchat dayCount-only stamps: that day at the live time of day,
-      // and only when the chat has no storyClock anywhere.
-      _timeService.restoreTimeFromRealismState({'dayCount': storyDayOnly});
-    }
-    // else keep the live session clock. Never seed Day 1 on a lived-in chat.
+    _syncLoadedSlotClocks();
 
     seedPocketsFromCards();
 
@@ -192,7 +157,7 @@ extension ChatServiceImportWalk on ChatService {
       if (_activeGroup != null) {
         await _restoreGroupRealismWalkingBack(0);
       } else {
-        await _rewindScalarsFromCardKeepingToggles();
+        await _rewindScalarsFromCardKeepingToggles(seedClock: true);
       }
       return;
     }
@@ -203,7 +168,8 @@ extension ChatServiceImportWalk on ChatService {
       return;
     }
 
-    // 1:1 — nearest stamp or realism_state, else card rewind (+ story_day).
+    // 1:1 — nearest stamp for bond/needs/pockets. Clock is backfill + tip.
+    var restored = false;
     for (var i = start; i >= 0; i--) {
       final m = _messages[i];
       final meta = m.activeMetadata;
@@ -211,36 +177,20 @@ extension ChatServiceImportWalk on ChatService {
           knownStoryClockBefore(m) != null ||
           meta?['story_clock_after'] is String) {
         _restoreRealismStateForSpeaker(m, restoreClock: false);
-        _applyResolvedImportClock(m);
         if (m.metadata?['pockets_before'] is Map) {
           _restorePocketsFromStamp(m, after: true);
         }
-        return;
-      }
-    }
-    int? storyDay;
-    for (var i = start; i >= 0; i--) {
-      final top =
-          _messages[i].activeMetadata?['story_day'] ??
-          _messages[i].metadata?['story_day'];
-      if (top is num) {
-        storyDay = top.toInt();
+        restored = true;
         break;
       }
     }
-    // Period before card rewind (seed resets period to card; story_day has none).
-    final livePeriod = _timeService.timeOfDay;
-    debugPrint(
-      '[Realism] No stamp in prefix (index ≤ $fromIndex) — rewind scalars '
-      'from card, keep feature toggles',
-    );
-    await _rewindScalarsFromCardKeepingToggles();
-    if (storyDay != null) {
-      // Anchor already kept by rewind; re-apply day + tip period.
-      _timeService.restoreTimeFromRealismState({
-        'dayCount': storyDay,
-        'timeOfDay': livePeriod,
-      });
+    if (!restored) {
+      debugPrint(
+        '[Realism] No stamp in prefix (index ≤ $fromIndex) — rewind scalars '
+        'from card, keep feature toggles',
+      );
+      await _rewindScalarsFromCardKeepingToggles();
     }
+    _syncLoadedSlotClocks();
   }
 }

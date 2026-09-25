@@ -161,6 +161,7 @@ extension ChatServiceSessionLoad on ChatService {
         _loadSceneGuestsFromSession(lastSession);
       }
       await _reapplyOpeningOverlayIfNeeded();
+      _reloadSessionClockThenSync(lastSession);
     } finally {
       _preserveSessionPersonaOf[this] = false;
     }
@@ -370,6 +371,7 @@ extension ChatServiceSessionLoad on ChatService {
         await _journalStore.persistRecap(sessionId, liveRecap);
       }
       await _reapplyOpeningOverlayIfNeeded();
+      _reloadSessionClockThenSync(session);
 
       // Quests are keyed (character, CHAT) — so switching chats has to reload
       // them, exactly like the scalars above. Nothing did: `_activeObjectives`

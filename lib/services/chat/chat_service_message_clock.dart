@@ -3,48 +3,65 @@
 
 part of '../chat_service.dart';
 
-/// One clock contract: message-level before, per-slot after, captured
-/// live clock+start on regen fail/cancel/abort. Swipe/fork use
-/// [resolveSlotClock]. Snap is last-resort and never a dayCount-only.
+/// One clock path: backfill pairs at load/import, live = tip.after,
+/// every mutation goes through [_writeSlotClock] then [_applyTipClock].
 extension ChatServiceMessageClock on ChatService {
-  bool _clockWasNudged(ChatMessage msg) {
-    final meta = msg.activeMetadata;
-    if (meta?['time_nudged'] == true) return true;
-    final state = meta?['realism_state'];
-    return state is Map && state['time_nudged'] == true;
-  }
-
-  DateTime? _sessionGreetingClock() {
-    for (final m in _messages) {
-      if (m.isUser || m.sender == 'System') continue;
-      final raw =
-          m.metadata?['realism_state'] ?? m.activeMetadata?['realism_state'];
-      if (raw is Map) {
-        final clock = StoryClock.parse(raw['storyClock'] as String?);
-        if (clock != null) return clock;
-      }
-      break;
+  /// Last non-user, non-system bot — guests below a host are the tip.
+  ChatMessage? _visibleTipMessage() {
+    for (final msg in _messages.reversed) {
+      if (msg.isUser || msg.sender == 'System') continue;
+      return msg;
     }
     return null;
   }
 
-  DateTime? _resolveMessageSlot(ChatMessage msg, {Map<String, dynamic>? slot}) {
-    return resolveSlotClock(
-      slot ?? msg.activeMetadata,
-      msg,
-      greetingClock: _sessionGreetingClock(),
+  /// THE reader. Live clock = the visible tip slot's after.
+  void _applyTipClock() {
+    final after = slotClockAfter(_visibleTipMessage()?.activeMetadata);
+    if (after != null) _timeService.applySlotClock(resolved: after);
+  }
+
+  /// Fill missing pairs from the live clock / nearest real time, persist.
+  bool _backfillLoadedSlotClocks() {
+    return backfillSlotClocks(
+      _messages,
+      liveClock: _timeService.clock,
+      startDate: _timeService.startDate,
     );
   }
 
-  /// First known before for this message position. Persist on the message
-  /// and every existing slot so later regen/delete never subtract another
-  /// swipe. Chip inference uses the ACTIVE slot only.
+  /// Load / reload / fork / import: backfill then tip.after.
+  void _syncLoadedSlotClocks() {
+    _backfillLoadedSlotClocks();
+    _applyTipClock();
+  }
+
+  /// Greeting overlay may re-seed the card clock. Session row is live.
+  void _reloadSessionClockThenSync(Session s) {
+    _timeService.loadTimeScalars(
+      timeOfDay: s.timeOfDay,
+      dayCount: s.dayCount,
+      startDayOfWeek: s.startDayOfWeek,
+      storyClock: s.storyClock,
+      storyStartDate: s.storyStartDate,
+    );
+    _syncLoadedSlotClocks();
+  }
+
+  /// Pre-reply clock for regen evals. After backfill the pair exists.
+  void _rewindClockToPreReply(ChatMessage lastMsg) {
+    if (!_clockRunning) return;
+    _discoverAndPersistMessageBefore(lastMsg);
+    _timeService.rewindToBeforeIso(knownStoryClockBefore(lastMsg));
+  }
+
+  /// First known before for this message position.
   void _discoverAndPersistMessageBefore(ChatMessage msg) {
     var before = knownStoryClockBefore(msg);
     if (before == null) {
       final mins = minutesRecordedForClockRewind(msg.activeMetadata);
       if (mins != null && mins > 0) {
-        final from = _resolveMessageSlot(msg) ?? _timeService.clock;
+        final from = slotClockAfter(msg.activeMetadata) ?? _timeService.clock;
         before = StoryClock.serializeClock(
           from.subtract(Duration(minutes: mins)),
         );
@@ -55,119 +72,68 @@ extension ChatServiceMessageClock on ChatService {
     persistStoryClockBefore(msg, before);
   }
 
-  /// Pre-reply clock for regen/delete. Never a realism_state snap.
-  void _rewindClockToPreReply(ChatMessage lastMsg, {required bool wasNudged}) {
-    if (!_clockRunning || wasNudged) return;
-    _discoverAndPersistMessageBefore(lastMsg);
-    _timeService.rewindToBeforeIso(knownStoryClockBefore(lastMsg));
-  }
-
-  void _applySwipeSlotClock(
-    ChatMessage msg, {
-    DateTime? previousResolved,
-    bool guestsBelow = false,
-  }) {
-    if (!_clockRunning) return;
-    final next = _resolveMessageSlot(msg);
-    if (guestsBelow) {
-      if (previousResolved != null && next != null) {
-        _timeService.applySlotClock(
-          resolved: _timeService.clock.add(next.difference(previousResolved)),
-        );
-      }
-      return;
-    }
-    _timeService.applySlotClock(resolved: next);
-  }
-
-  void _stampStoryClockAfter(ChatMessage? target) {
+  /// THE writer. Tick / nudge / abort all land here, then [_applyTipClock].
+  void _writeSlotClock(ChatMessage? target, {required _SlotClockWrite kind}) {
     if (target == null || target.isUser) return;
-    final existing = Map<String, dynamic>.from(target.activeMetadata ?? {});
-    existing['story_clock_after'] = _timeService.storyClockIso;
-    target.activeMetadata = existing;
-  }
+    if (kind != _SlotClockWrite.abort && !_clockRunning) return;
 
-  void _stampFinalClockOnMessage(ChatMessage? target) {
-    if (target == null || target.isUser || !_clockRunning) return;
-    _stampStoryClockAfter(target);
-    final existing = Map<String, dynamic>.from(target.activeMetadata ?? {});
-    if ((existing['time_skip_to'] as String? ?? '').isNotEmpty) {
-      return;
+    final known = StoryClock.parse(knownStoryClockBefore(target));
+    final before = switch (kind) {
+      _SlotClockWrite.nudge => _timeService.clock,
+      _ => known ?? _timeService.clock,
+    };
+    final after = switch (kind) {
+      _SlotClockWrite.abort => before,
+      _ => _timeService.clock,
+    };
+
+    String? chip;
+    var clearChip = false;
+    if (kind == _SlotClockWrite.abort) {
+      clearChip = true;
+    } else if (kind == _SlotClockWrite.tick) {
+      final existing = target.activeMetadata;
+      if ((existing?['time_skip_to'] as String? ?? '').isNotEmpty) {
+        chip = null;
+      } else {
+        chip = _timeService.bodyTimeLabel;
+        if (chip == null || chip.isEmpty) {
+          final mins = after.difference(before).inMinutes;
+          if (mins != 0) {
+            chip = timePassedLabel(
+              minutes: mins < 0 ? 0 : mins,
+              nextMorning: false,
+              isSkip: false,
+            );
+          }
+        }
+      }
     }
-    final beat = _timeService.bodyTimeLabel;
-    if (beat != null && beat.isNotEmpty) {
-      existing['time_passed'] = beat;
-      target.activeMetadata = existing;
-      return;
+
+    if (kind == _SlotClockWrite.tick || kind == _SlotClockWrite.nudge) {
+      persistStoryClockBefore(target, StoryClock.serializeClock(before));
     }
-    final before = StoryClock.parse(knownStoryClockBefore(target));
-    if (before == null) {
-      _stampTimePassedChip(target);
-      return;
-    }
-    final mins = _timeService.clock.difference(before).inMinutes;
-    if (mins == 0) return;
-    final label = timePassedLabel(
-      minutes: mins < 0 ? 0 : mins,
-      nextMorning: false,
-      isSkip: false,
+    final slot = Map<String, dynamic>.from(target.activeMetadata ?? {});
+    writeSlotClockPair(
+      slot,
+      before: before,
+      after: after,
+      timePassed: chip,
+      clearChip: clearChip,
+      timeNudged: kind == _SlotClockWrite.nudge,
     );
-    if (label != null && label.isNotEmpty) {
-      existing['time_passed'] = label;
-      target.activeMetadata = existing;
+    target.activeMetadata = slot;
+    if (kind == _SlotClockWrite.nudge) {
+      target.metadata ??= {};
+      writeSlotClockPair(
+        target.metadata!,
+        before: before,
+        after: after,
+        timeNudged: true,
+      );
     }
-  }
-
-  /// Abort after B is visible: clock = before, after = before, no chip.
-  void _abortVisibleSlotClock(ChatMessage? target, String? clockBeforeIso) {
-    final beforeIso = target == null
-        ? clockBeforeIso
-        : (knownStoryClockBefore(target) ?? clockBeforeIso);
-    _timeService.rewindToBeforeIso(beforeIso);
-    if (target == null || target.isUser) return;
-    final existing = Map<String, dynamic>.from(target.activeMetadata ?? {});
-    existing['story_clock_after'] = _timeService.storyClockIso;
-    existing.remove('time_passed');
-    target.activeMetadata = existing;
-  }
-
-  /// Nudge / calendar-set: one writer. Clock stamps + time_nudged.
-  /// Never inserts a full realism snapshot. Never touches user messages.
-  void _syncActiveSlotClockAfterManualSet() {
-    for (final msg in _messages.reversed) {
-      if (msg.isUser) continue;
-      if (msg.activeMetadata?['is_dream'] == true ||
-          msg.activeMetadata?['is_chance_time_narration'] == true) {
-        continue;
-      }
-      final iso = _timeService.storyClockIso;
-      msg.metadata ??= {};
-      msg.metadata!['story_clock_before'] = iso;
-      msg.metadata!['story_clock_after'] = iso;
-      msg.metadata!['time_nudged'] = true;
-      final existing = Map<String, dynamic>.from(msg.activeMetadata ?? {});
-      existing['story_clock_before'] = iso;
-      existing['story_clock_after'] = iso;
-      existing['time_nudged'] = true;
-      final rs = existing['realism_state'];
-      if (rs is Map) {
-        rs['storyClock'] = iso;
-        rs['timeOfDay'] = _timeService.timeOfDay;
-        rs['dayCount'] = _timeService.dayCount;
-        rs['storyStartDate'] = _timeService.storyStartDateIso;
-        rs['time_nudged'] = true;
-      }
-      msg.activeMetadata = existing;
-      break;
-    }
-  }
-
-  void _applyResolvedImportClock(ChatMessage m) {
-    _timeService.applySlotClock(resolved: _resolveMessageSlot(m));
-  }
-
-  void _putBackCapturedClock() {
-    _timeService.restoreCapturedClock(sessionId: _currentSessionId);
-    _timeService.clearCapturedClock();
+    _applyTipClock();
   }
 }
+
+enum _SlotClockWrite { tick, nudge, abort }

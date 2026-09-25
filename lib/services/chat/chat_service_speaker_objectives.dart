@@ -309,12 +309,10 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final rawState = meta?['realism_state'];
     final state = rawState is Map ? Map<String, dynamic>.from(rawState) : null;
 
-    // Default false. Regen/swipe/delete never pass true — TimeService
-    // owns those clocks. Fork/import pass true: after, else
-    // before+chip, else snap, else before. Unstamped Carmen tip
-    // keeps the live clock.
+    // Default false. Regen/swipe/delete never pass true — the tip
+    // after is the clock. Fork/import pass true only as applyTipClock.
     if (restoreClock) {
-      _applyResolvedImportClock(msg);
+      _applyTipClock();
     }
 
     if (state == null) {

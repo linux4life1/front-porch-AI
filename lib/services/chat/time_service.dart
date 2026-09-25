@@ -91,10 +91,8 @@ part 'time_service_load.dart';
 ///    was simply wrong. The clock's store of record is the session row
 ///    (`sessions.story_clock` / `story_start_date` / `passage_of_time_enabled`),
 ///    written and read unconditionally, engine or no engine.
-///    `realism_state.storyClock` is a last-resort swipe/fork fallback
-///    when a slot has no `story_clock_after` and no chip minutes, and
-///    the snap is not the greeting freeze. Regen and delete never
-///    read that snap. dayCount-only snaps are not a clock.
+///    `realism_state.storyClock` is not a runtime clock. Legacy snaps
+///    are read once by [backfillSlotClocks] at load/import.
 ///
 /// Passage of Time is the single clock driver. The leftover
 /// `standaloneClockEnabled` pref is still readable for old PWAs but no
@@ -102,8 +100,7 @@ part 'time_service_load.dart';
 ///
 /// Regen rewinds from the message-level `story_clock_before`
 /// (shared by every swipe). Each slot stores `story_clock_after`.
-/// Swipe/fork use [resolveSlotClock]: after, else before+chip, else a
-/// non-frozen snap storyClock, else keep live. Never before+0.
+/// Live clock is the visible tip slot's after.
 ///
 /// The OOC time-skip path ([detectOocTimeSkip]) is pure regex and stands on
 /// its own — but it is a narrow fast path over enumerated phrasings and does

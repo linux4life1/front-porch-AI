@@ -171,7 +171,7 @@ extension ChatServiceControls on ChatService {
     if (!_clockRunning) return;
     final before = _timeService.clock;
     await _timeService.nudgeTimePeriod(delta);
-    _syncActiveSlotClockAfterManualSet();
+    _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.nudge);
     // Day-ate journal rides TimeService.onStoryDayChanged.
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     unawaited(_ensureBirthdayState());
@@ -185,7 +185,7 @@ extension ChatServiceControls on ChatService {
     if (!_clockRunning) return;
     final before = _timeService.clock;
     await _timeService.setClockDirect(clock);
-    _syncActiveSlotClockAfterManualSet();
+    _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.nudge);
     // Day-ate journal rides TimeService.onStoryDayChanged.
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     unawaited(_ensureBirthdayState());
@@ -202,6 +202,7 @@ extension ChatServiceControls on ChatService {
     final delta = _timeService.startDate.difference(oldStart);
     shiftMessageClockStamps(_messages, delta);
     await _shiftPersistedSessionClockStamps(delta);
+    _applyTipClock();
     unawaited(_ensureBirthdayState());
     await _saveChat();
     notifyListeners();

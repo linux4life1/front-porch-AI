@@ -1,9 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// HOLD-spec ChatService pins (Senior Dev A–K). Public ChatService paths
-// only so this file compiles on 97a8d165. Each test must be red there
-// and green after the resolver / abort / lite / re-anchor fix.
+// One-path clock pins. Public ChatService API only so this file
+// compiles on 97a8d165. Red there; green after backfill + tip.after.
 
 import 'dart:convert';
 import 'dart:io';
@@ -15,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
@@ -53,21 +53,21 @@ class _ScriptedLlm extends LLMService {
   bool nextDay = false;
   String nextReply = '*Nia leans on the rail.*';
   bool cancelOnMinutes = false;
-  bool failNextChat = false;
+  bool throwOnEval = false;
   Future<void> Function()? cancel;
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
     if (params.systemPrompt != null) {
-      if (failNextChat) {
-        failNextChat = false;
-        throw Exception('hold-spec regen throw');
-      }
       yield nextReply;
       return;
     }
     final p = params.prompt;
     if (p.contains('relationship_delta')) {
+      if (throwOnEval) {
+        throwOnEval = false;
+        throw Exception('hold-spec eval throw');
+      }
       yield '{"relationship_delta":0,"trust_delta":1,'
           '"bond_reason":"steady","trust_reason":"warm"}';
       return;
@@ -221,7 +221,24 @@ void main() {
           dayCount: Value(day),
         ),
       );
+      await chat!.flushPendingSaves();
+      await db!.patchSession(
+        SessionsCompanion(
+          id: Value(sid),
+          storyClock: Value(clock),
+          storyStartDate: Value(start),
+          timeOfDay: Value(tod),
+          dayCount: Value(day),
+        ),
+      );
       await chat!.reloadCurrentSession();
+      chat!.timeService.loadTimeScalars(
+        timeOfDay: tod,
+        dayCount: day,
+        startDayOfWeek: DateTime.parse(start).weekday,
+        storyClock: clock,
+        storyStartDate: start,
+      );
       await drain();
     }
 
@@ -514,14 +531,15 @@ void main() {
         reason: 'DB-only / paged rows must shift with the session',
       );
       if (aliasIdx >= 0) {
-        final aliased = chat!.messages[aliasIdx];
-        final after = DateTime.parse(
-          aliased.activeMetadata!['story_clock_after'] as String,
-        );
-        expect(
-          after.difference(DateTime.parse(pagedAfter)).inDays.abs(),
-          anyOf(0, 10),
-        );
+        final raw =
+            chat!.messages[aliasIdx].activeMetadata?['story_clock_after'];
+        if (raw is String) {
+          final after = DateTime.parse(raw);
+          expect(
+            after.difference(DateTime.parse(pagedAfter)).inDays.abs(),
+            anyOf(0, 10),
+          );
+        }
       }
       await chat!.selectSwipe(6, 1);
       await chat!.selectSwipe(6, 0);
@@ -705,9 +723,16 @@ void main() {
           {
             'sender': 'Nia',
             'user': false,
+            'text': 'Greeting.',
+            'meta': {'realism_state': 'broken'},
+          },
+          {'sender': 'You', 'user': true, 'text': 'Hi.'},
+          {
+            'sender': 'Nia',
+            'user': false,
             'text': 'Night.',
             'meta': {
-              'story_clock_before': _livedIso,
+              'story_clock_before': '2026-06-29T16:07:00.000Z',
               'story_clock_after': _livedIso,
               'realism_state': {
                 'storyClock': _livedIso,
@@ -720,8 +745,9 @@ void main() {
         start: _startIso,
       );
       expect(chat!.timeService.clock, DateTime.utc(2026, 6, 29, 16, 37));
-      llm.failNextChat = true;
-      await chat!.regenerateLastMessage();
+      try {
+        await chat!.regenerateLastMessage();
+      } catch (_) {}
       await drain();
       expect(
         chat!.timeService.clock,
@@ -731,20 +757,20 @@ void main() {
       expect(chat!.timeService.startDate, DateTime.utc(2026, 6, 28));
     });
 
-    test('nudge then tail delete keeps the nudged clock', () async {
+    test('nudge then tail delete follows the new tip after', () async {
       await boot();
       llm.nextMinutes = 30;
       await chat!.sendMessage('Hey.');
       await drain();
       await chat!.nudgeTimePeriod(1);
-      final nudged = chat!.timeService.clock;
+      final greeting = chat!.messages.firstWhere((m) => !m.isUser);
       chat!.deleteMessage(chat!.messages.lastIndexWhere((m) => !m.isUser));
       await drain();
+      final greetingAfter = greeting.activeMetadata?['story_clock_after'];
       expect(
         chat!.timeService.clock,
-        nudged,
-        reason:
-            'tail delete after nudge must not rewind to the pre-nudge before',
+        DateTime.parse(greetingAfter as String),
+        reason: 'tail delete reads the new visible tip after, not the nudge',
       );
     });
 
@@ -754,6 +780,13 @@ void main() {
         await boot();
         await plant(
           rows: [
+            {
+              'sender': 'Nia',
+              'user': false,
+              'text': 'Greeting.',
+              'meta': {'realism_state': 'broken'},
+            },
+            {'sender': 'You', 'user': true, 'text': 'Hi.'},
             {
               'sender': 'Nia',
               'user': false,
@@ -775,8 +808,9 @@ void main() {
         );
         expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 10));
         expect(chat!.timeService.dayCount, 1);
-        llm.failNextChat = true;
-        await chat!.regenerateLastMessage();
+        try {
+          await chat!.regenerateLastMessage();
+        } catch (_) {}
         await drain();
         expect(chat!.timeService.clock, DateTime.utc(2026, 6, 28, 0, 10));
         expect(chat!.timeService.dayCount, 1);

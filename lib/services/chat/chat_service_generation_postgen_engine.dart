@@ -103,7 +103,6 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       // Clock first, then the time chip, then the needs eval. The reply
       // was written from the body as it was. A rejected reply does not
       // keep the tick. The clock is not a flat tax on every Need.
-      final clockBeforeIso = _timeService.storyClockIso;
       if (t.mode == GenerationMode.continue_ || !_clockRunning) {
         _timeService.clearBodyBeat();
       }
@@ -118,7 +117,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       } else {
         await _maybeAdvanceStoryClockAfterReply(t);
         if (_postGenAbortRequested) {
-          _abortVisibleSlotClock(t.streamTarget, clockBeforeIso);
+          _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
         } else {
           _wearBodiesAfterClock(t);
         }
@@ -233,7 +232,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // prevents (hygiene snap-back; climax erased by the regen merge).
         await _restampRealismSnapshotPostGen(t.streamTarget);
         if (_clockRunning && t.mode != GenerationMode.continue_) {
-          _stampFinalClockOnMessage(t.streamTarget);
+          _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.tick);
         }
 
         if (prePostActiveChar != null) {
@@ -303,7 +302,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           notifyListeners();
         }
       } else {
-        _abortVisibleSlotClock(t.streamTarget, clockBeforeIso);
+        _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
       }
     } finally {
       await _closeWorkerLane();

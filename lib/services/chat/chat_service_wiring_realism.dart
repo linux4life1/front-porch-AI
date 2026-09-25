@@ -62,9 +62,8 @@ extension ChatServiceWiringRealism on ChatService {
         }();
       },
       onPatchLastMessageRealismState: (_, _, _) {
-        // Clock stamps are written only by
-        // _syncActiveSlotClockAfterManualSet. This hook must not
-        // insert a snapshot or mark user messages.
+        // Clock stamps are written only by _writeSlotClock.
+        // This hook must not insert a snapshot or mark user messages.
       },
     );
   }

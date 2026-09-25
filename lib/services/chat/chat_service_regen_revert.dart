@@ -316,7 +316,7 @@ extension ChatServiceRegenRevert on ChatService {
       );
       if (ghostIdx >= 0) _messages.removeAt(ghostIdx);
       _messages.insert(preGenLen, lastMsg);
-      _putBackCapturedClock();
+      _applyTipClock();
       if (regenGuest == null) {
         _restoreRealismStateForSpeaker(lastMsg);
         // The pre-generation rewind above rolled pockets to the PRE-turn
@@ -373,7 +373,7 @@ extension ChatServiceRegenRevert on ChatService {
       // Guest swipes wear present bodies (1:1 host); the replay just wore
       // them once — do not pull a host realism_state the guest never had.
       if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg);
-      _timeService.clearCapturedClock();
+      _applyTipClock();
       await _saveChat();
       notifyListeners();
 
