@@ -1,11 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// One resolver for every slot, tip included. Own after → chip →
-// non-frozen snap → dayCount>1 → before → neighbour. Live only after
-// own data and nearestReal are empty, and only for the tip. History
-// never takes live. Day-without-TOD: own day, neighbour TOD, else
-// tip = live TOD / history = 09:00.
+// One resolver for every slot. The ladder is the contract; callers
+// assemble S (inherit user story_day on fork) then call this. Live
+// is never a real stamp. History never reads live except tip TOD
+// at step 4.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -116,29 +115,44 @@ bool slotDerivedAfterIsStale(
   return true;
 }
 
-/// Greeting-era snap, or a snap that predates this message's before.
-/// A snap later than this slot's own before is this reply's clock
-/// (v1.4 before + snap, no after) even when that wall-clock equals
-/// the greeting snap on a Day-1 open.
+/// Frozen copy: equal to the greeting clock AND not later than this
+/// slot's own before. A snap later than own before is real, even when
+/// it equals the greeting wall-clock (v1.4 before + later snap).
 bool slotSnapIsFrozen(
   DateTime clock, {
   DateTime? greetingClock,
   DateTime? knownBefore,
 }) {
-  if (knownBefore != null && clock.isBefore(knownBefore)) return true;
-  if (greetingClock != null && clock == greetingClock) {
-    if (knownBefore != null && clock.isAfter(knownBefore)) return false;
-    return true;
-  }
-  return false;
+  if (greetingClock == null || clock != greetingClock) return false;
+  if (knownBefore != null && clock.isAfter(knownBefore)) return false;
+  return true;
 }
 
-/// Own stored after → chip → non-frozen snap → dayCount>1 → before →
-/// [neighbourStamp]. Live only when [isTip] and own data plus
-/// [neighbourStamp] are empty. A derived day after whose calendar day
-/// does not match [startDate] is stale (start moved) and is recomputed.
-/// Day-without-TOD takes [neighbourStamp]'s TOD; if none, the tip uses
-/// [liveClock] and history uses 09:00. History never takes [liveClock].
+/// Resolve the story-clock after for slot S (tip flag [isTip]).
+///
+/// Walks this ordered ladder and returns the first hit:
+///  1. S's own stored after.
+///  2. S's own before + S's own chip minutes. A recorded elapsed
+///     counts as own after.
+///  3. S's own snap. Skip only if frozen: equal to the greeting
+///     clock AND not later than S's own before. A snap later than
+///     own before is real.
+///  4. S's own stored dayCount>1 for the DAY. Own TOD if stored,
+///     else the nearest REAL neighbour stamp. If none: tip uses
+///     the live time of day; history uses 09:00.
+///  5. S's own before.
+///  6. Tip only: the loaded session/live clock. An empty tip ranks
+///     this ABOVE a neighbour stamp.
+///  7. The nearest REAL neighbour stamp.
+///  8. History with nothing: leave empty, never live.
+///
+/// Then CLAMP: after is never earlier than S's own before. A turn
+/// cannot go backward.
+///
+/// [liveClock] is never a neighbour stamp — do not put it in
+/// [neighbourStamp] or any real-stamp set. Stale derived pairs are
+/// a writer refresh, not a resolver skip. History never reads
+/// [liveClock] except as tip TOD at step 4.
 DateTime? resolveSlotAfter(
   Map<String, dynamic>? slot, {
   required bool isTip,
@@ -147,44 +161,69 @@ DateTime? resolveSlotAfter(
   DateTime? greetingClock,
   DateTime? neighbourStamp,
 }) {
-  final keptAfter = slotClockAfter(slot);
-  if (keptAfter != null &&
-      !slotDerivedAfterIsStale(slot, keptAfter, startDate: startDate)) {
-    return keptAfter;
-  }
   final before = slotClockBefore(slot);
-  final mins = minutesRecordedForClockRewind(slot);
-  if (before != null && mins != null && mins > 0) {
-    return before.add(Duration(minutes: mins));
+  DateTime? hit;
+  final keptAfter = slotClockAfter(slot);
+  if (keptAfter != null) {
+    hit = keptAfter;
+  } else {
+    final mins = minutesRecordedForClockRewind(slot);
+    if (before != null && mins != null && mins > 0) {
+      hit = before.add(Duration(minutes: mins));
+    } else {
+      final snap = slotSnapClock(slot);
+      if (snap != null &&
+          !slotSnapIsFrozen(
+            snap,
+            greetingClock: greetingClock,
+            knownBefore: before,
+          )) {
+        hit = snap;
+      } else {
+        final dc = slotDayCount(slot);
+        if (dc != null && dc > 1) {
+          hit = dayCountClock(
+            dayCount: dc,
+            startDate: startDate ?? StoryClock.dateOnly(liveClock),
+            timeOfDay: slotTimeOfDay(slot),
+            liveClock: dayCountTodClock(
+              isTip: isTip,
+              liveClock: liveClock,
+              neighbourStamp: neighbourStamp,
+            ),
+          );
+        } else if (before != null) {
+          hit = before;
+        } else if (isTip) {
+          hit = liveClock;
+        } else {
+          hit = neighbourStamp;
+        }
+      }
+    }
   }
-  final snap = slotSnapClock(slot);
-  if (snap != null &&
-      !slotSnapIsFrozen(
-        snap,
-        greetingClock: greetingClock,
-        knownBefore: before,
-      )) {
-    return snap;
+  if (hit != null && before != null && hit.isBefore(before)) return before;
+  return hit;
+}
+
+/// Copy the nearest authored story_day onto [slot] when the slot
+/// itself has none. Fork assembles S this way so step 4 sees the
+/// user-turn day. [neighbours] are in transcript order; the last
+/// day found is the nearest earlier stamp.
+Map<String, dynamic>? inheritNearestStoryDay(
+  Map<String, dynamic>? slot, {
+  required Iterable<Map<String, dynamic>?> neighbours,
+}) {
+  if (slotDayCount(slot) != null) return slot;
+  int? day;
+  for (final n in neighbours) {
+    final d = slotDayCount(n);
+    if (d != null) day = d;
   }
-  final dc = slotDayCount(slot);
-  if (dc != null && dc > 1) {
-    final fromDay = dayCountClock(
-      dayCount: dc,
-      startDate: startDate ?? StoryClock.dateOnly(liveClock),
-      timeOfDay: slotTimeOfDay(slot),
-      liveClock: dayCountTodClock(
-        isTip: isTip,
-        liveClock: liveClock,
-        neighbourStamp: neighbourStamp,
-      ),
-    );
-    if (before != null && fromDay.isBefore(before)) return before;
-    return fromDay;
-  }
-  if (before != null) return before;
-  if (neighbourStamp != null) return neighbourStamp;
-  if (isTip) return liveClock;
-  return null;
+  if (day == null) return slot;
+  final copy = Map<String, dynamic>.from(slot ?? {});
+  copy['story_day'] = day;
+  return copy;
 }
 
 /// After / non-frozen snap / dayCount>1 / before. Frozen Day-1 snaps

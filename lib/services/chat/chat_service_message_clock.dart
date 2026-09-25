@@ -39,14 +39,53 @@ extension ChatServiceMessageClock on ChatService {
     persistStoryClockBefore(msg, StoryClock.serializeClock(clock));
   }
 
-  /// THE reader. Live clock = the visible tip slot's after. Never
-  /// another swipe's after — a cancelled regen swipe must not inherit
-  /// the rejected pair.
+  /// THE reader. Live clock = the visible tip slot's resolved after.
+  /// Never another swipe's after — a cancelled regen swipe must not
+  /// inherit the rejected pair. Every path goes through [resolveSlotAfter].
   void _applyTipClock() {
-    final tip = _visibleTipMessage();
-    if (tip == null) return;
-    final after = slotClockAfter(tip.activeMetadata);
+    final after = _resolveVisibleAfter();
     if (after != null) _timeService.applySlotClock(resolved: after);
+  }
+
+  /// One ladder for the visible tip. [inheritStoryDay] is fork-only
+  /// so an empty bot sitting on a user-turn story_day hits step 4.
+  /// [liveClock] is the session clock, or a delete rewind, or Day 1
+  /// of start for an empty pre-user fork.
+  DateTime? _resolveVisibleAfter({
+    ChatMessage? tip,
+    DateTime? liveClock,
+    bool inheritStoryDay = false,
+  }) {
+    final target = tip ?? _visibleTipMessage();
+    if (target == null) return null;
+    final greetingClock = _openingGreetingSnap();
+    var slot = clockSlotForResolve(target);
+    if (inheritStoryDay) {
+      slot = inheritNearestStoryDay(
+        slot,
+        neighbours: [
+          for (final m in _messages)
+            if (!identical(m, target) && m.sender != 'System')
+              clockSlotForResolve(m),
+        ],
+      );
+    }
+    return resolveSlotAfter(
+      slot,
+      isTip: true,
+      liveClock: liveClock ?? _timeService.clock,
+      startDate: _timeService.startDate,
+      greetingClock: greetingClock,
+      neighbourStamp: _nearestStoredStamp(target, greetingClock: greetingClock),
+    );
+  }
+
+  void _writeResolvedTipAfter(ChatMessage tip, DateTime after) {
+    if (!_clockRunning) return;
+    if (slotClockAfter(tip.activeMetadata) == after) return;
+    final before = slotClockBefore(tip.activeMetadata) ?? after;
+    writeSlotClockPair(_clockWriteSlot(tip), before: before, after: after);
+    persistStoryClockBefore(tip, StoryClock.serializeClock(before));
   }
 
   /// Fill missing pairs from the live clock / nearest real time.
@@ -109,56 +148,39 @@ extension ChatServiceMessageClock on ChatService {
     _setGuestStatus('Reply kept. Scene time and needs weren\'t updated.');
   }
 
-  /// Tail-delete of a nudged tip restores the pre-nudge clock onto
-  /// the new visible tip so hold-spec (clock == tip.after) and the
-  /// pre-nudge pin agree. Non-nudge tail delete writes the deleted
-  /// before only when the new tip has no pair — a greeting that
-  /// already stores after (load neighbour, opening pair) is the
-  /// remaining tip clock. Nudge always overwrites.
+  /// Tail-delete goes through the one resolver. Nudge overwrites with
+  /// the pre-nudge clock. Otherwise the remaining tip resolves against
+  /// the deleted before (not the still-advanced live clock) so a
+  /// greeting that already stores after (Day-1 00:10) keeps it at
+  /// step 1, and an empty remaining tip takes the rewind at step 6.
   void _applyClockAfterDelete(ChatMessage deleted, {required bool wasTail}) {
     if (wasTail) {
       final nudged = deleted.activeMetadata?['time_nudged'] == true;
-      final restored = nudged
-          ? StoryClock.parse(
-                  deleted.activeMetadata?['nudge_from'] as String?,
-                ) ??
-                slotClockBefore(deleted.activeMetadata)
-          : slotClockBefore(deleted.activeMetadata) ??
-                StoryClock.parse(knownStoryClockBefore(deleted));
-      if (restored != null) {
-        final tip = _visibleTipMessage();
-        if (!nudged && tip != null && slotHasCompletePair(tip.activeMetadata)) {
-          _applyTipClock();
+      if (nudged) {
+        final restored =
+            StoryClock.parse(
+              deleted.activeMetadata?['nudge_from'] as String?,
+            ) ??
+            slotClockBefore(deleted.activeMetadata);
+        if (restored != null) {
+          final tip = _visibleTipMessage();
+          if (tip != null) _writeResolvedTipAfter(tip, restored);
+          _timeService.applySlotClock(resolved: restored);
           return;
         }
-        if (tip != null && _clockRunning) {
-          writeSlotClockPair(
-            _clockWriteSlot(tip),
-            before: restored,
-            after: restored,
-          );
-          persistStoryClockBefore(tip, StoryClock.serializeClock(restored));
-        }
-        _timeService.applySlotClock(resolved: restored);
-        return;
       }
-    }
-    final tip = _visibleTipMessage();
-    if (tip != null &&
-        _clockRunning &&
-        !slotHasCompletePair(tip.activeMetadata)) {
-      final greetingClock = _openingGreetingSnap();
-      final after = resolveSlotAfter(
-        clockSlotForResolve(tip),
-        isTip: true,
-        liveClock: _timeService.clock,
-        startDate: _timeService.startDate,
-        greetingClock: greetingClock,
-        neighbourStamp: _nearestStoredStamp(tip, greetingClock: greetingClock),
-      );
-      if (after != null) {
-        writeSlotClockPair(_clockWriteSlot(tip), before: after, after: after);
-        persistStoryClockBefore(tip, StoryClock.serializeClock(after));
+      final rewind =
+          slotClockBefore(deleted.activeMetadata) ??
+          StoryClock.parse(knownStoryClockBefore(deleted)) ??
+          _timeService.clock;
+      final tip = _visibleTipMessage();
+      if (tip != null) {
+        final after = _resolveVisibleAfter(tip: tip, liveClock: rewind);
+        if (after != null) {
+          _writeResolvedTipAfter(tip, after);
+          _timeService.applySlotClock(resolved: after);
+          return;
+        }
       }
     }
     _applyTipClock();
@@ -241,51 +263,66 @@ extension ChatServiceMessageClock on ChatService {
   }
 
   DateTime? _nearestStoredStamp(ChatMessage tip, {DateTime? greetingClock}) {
-    DateTime? found;
-    for (final msg in _messages) {
-      if (identical(msg, tip) || msg.sender == 'System') continue;
+    final idx = _messages.indexWhere((m) => identical(m, tip));
+    DateTime? earlier;
+    var earlierDist = 1 << 30;
+    DateTime? later;
+    var laterDist = 1 << 30;
+    for (var i = 0; i < _messages.length; i++) {
+      if (i == idx || _messages[i].sender == 'System') continue;
       final stamp = resolveSlotAfter(
-        clockSlotForResolve(msg),
+        clockSlotForResolve(_messages[i]),
         isTip: false,
         liveClock: _timeService.clock,
         startDate: _timeService.startDate,
         greetingClock: greetingClock,
       );
-      if (stamp != null) found = stamp;
+      if (stamp == null) continue;
+      final dist = (i - idx).abs();
+      if (i <= idx) {
+        if (dist < earlierDist) {
+          earlierDist = dist;
+          earlier = stamp;
+        }
+      } else if (dist < laterDist) {
+        laterDist = dist;
+        later = stamp;
+      }
     }
-    return found;
+    return earlier ?? later;
   }
 
-  /// Fork lands on the fork-point slot via [resolveSlotAfter]. Day 1
+  /// Fork lands on the fork-point slot via the one resolver. Day 1
   /// of the start is the empty-tip live clock only when the fork is
   /// at or before the first user turn and the slot has nothing stored.
   /// Porch Life off still reads tip.after into the live clock.
   void _applyForkPointClock() {
     final tip = _visibleTipMessage();
     if (tip == null) return;
-    // Refresh derived day pairs against the current start. The load
-    // marker must not leave a pair measured against an old start.
     _backfillLoadedSlotClocks();
-    final slot = clockSlotForResolve(tip);
     final greetingClock = _openingGreetingSnap();
+    final slot = inheritNearestStoryDay(
+      clockSlotForResolve(tip),
+      neighbours: [
+        for (final m in _messages)
+          if (!identical(m, tip) && m.sender != 'System')
+            clockSlotForResolve(m),
+      ],
+    );
     final emptyPreUser =
         !_prefixLeftTheOpening() &&
         !slotHasAuthoredClock(slot) &&
         !slotHasStoredClockData(slot, greetingClock: greetingClock);
     final live = emptyPreUser ? _day1OfStoryStart() : _timeService.clock;
-    final after = resolveSlotAfter(
-      slot,
-      isTip: true,
+    final after = _resolveVisibleAfter(
+      tip: tip,
       liveClock: live,
-      startDate: _timeService.startDate,
-      greetingClock: greetingClock,
-      neighbourStamp: _nearestStoredStamp(tip, greetingClock: greetingClock),
+      inheritStoryDay: true,
     );
-    if (after != null &&
-        _clockRunning &&
-        slotClockAfter(tip.activeMetadata) != after) {
-      writeSlotClockPair(_clockWriteSlot(tip), before: after, after: after);
-      persistStoryClockBefore(tip, StoryClock.serializeClock(after));
+    if (after != null) {
+      _writeResolvedTipAfter(tip, after);
+      _timeService.applySlotClock(resolved: after);
+      return;
     }
     _applyTipClock();
   }

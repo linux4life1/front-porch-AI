@@ -109,10 +109,9 @@ void _markClockBackfillDone(List<ChatMessage> messages) {
 }
 
 /// Rewrite a derived day pair only when start moved (calendar day
-/// changed). Live TOD changing — a fork re-seeding the card clock —
-/// must not clobber the stored after. [alreadyGuessed] does not
-/// block this: the marker means don't re-guess, not don't rewrite
-/// a pair measured against an old start.
+/// changed). History [ownDay] never reads live TOD — a fork that
+/// re-seeds the card clock must not rewrite a history slot with a
+/// new live time of day. [alreadyGuessed] does not block this.
 bool _refreshDerivedDayPair(
   Map<String, dynamic>? slot,
   Map<String, dynamic> dest,
@@ -164,6 +163,8 @@ bool backfillSlotClocks(
     tipIndex = i;
   }
 
+  // Stored-data stamps only. isTip:false so live never enters this
+  // set — neighbour TOD at step 4 and history step 7 read these.
   final realByIndex = <int, DateTime>{};
   for (var i = 0; i < messages.length; i++) {
     final msg = messages[i];
