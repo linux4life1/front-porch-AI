@@ -330,13 +330,18 @@ extension ChatServiceGenerationPostGen on ChatService {
             _timeService.clock,
       );
     }
-    await _realismEvals.evaluatePhysicalStateCall(
-      timeOnly: true,
-      skipTodayEval: _isLiteTurn(t),
-    );
+    // Fiction wins (K-A). A named wall-clock is the beat — do not
+    // add the conversational floor on top (07:30 + 2 min = 07:32).
+    final named = clockNamedInReply(msg.text, _timeService.clock);
+    if (named == null) {
+      await _realismEvals.evaluatePhysicalStateCall(
+        timeOnly: true,
+        skipTodayEval: _isLiteTurn(t),
+      );
+    } else {
+      await _timeService.applyReconciledClock(named);
+    }
     if (_isLiteTurn(t) && _clockRunning) {
-      final named = clockNamedInReply(msg.text, _timeService.clock);
-      if (named != null) await _timeService.applyReconciledClock(named);
       _writeSlotClock(msg, kind: _SlotClockWrite.tick);
     }
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
