@@ -162,15 +162,14 @@ extension ChatServiceGroupEntry on ChatService {
           // Include the member even if the avatar file is missing (defensive for groups created
           // from sources that had no avatar, or partial copy failures). The UI already degrades
           // gracefully to a colored letter/initial when the image can't be loaded.
-          if (await File(p).exists()) {
-            resolved.add(m.toCharacterCard(resolvedImagePath: p));
-          } else {
-            // Still include them so the count and sidebar are correct; they just won't have a face.
+          // Keep [p] even when the file is missing — basename is the
+          // member identity. Widgets must not FileImage a missing file.
+          if (!await File(p).exists()) {
             debugPrint(
               '[ChatService] Group member ${m.name} has no avatar file at $p — including without image',
             );
-            resolved.add(m.toCharacterCard(resolvedImagePath: ''));
           }
+          resolved.add(m.toCharacterCard(resolvedImagePath: p));
         } else {
           // No avatar filename at all — still include so the user sees the member.
           resolved.add(m.toCharacterCard(resolvedImagePath: ''));
