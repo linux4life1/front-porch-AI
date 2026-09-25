@@ -414,7 +414,8 @@ extension ChatServiceReprocess on ChatService {
         _pendingRealismMetadata!['time_skip_to'] = skipTo;
         final passed =
             lastMsg.activeMetadata?['time_passed'] as String? ??
-            preservedRejectedMeta?['time_passed'] as String?;
+            preservedRejectedMeta?['time_passed'] as String? ??
+            _timeService.bodyTimeLabel;
         if (passed != null && passed.isNotEmpty) {
           _pendingRealismMetadata!['time_passed'] = passed;
         }

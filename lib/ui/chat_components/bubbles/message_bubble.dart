@@ -92,6 +92,8 @@ class MessageBubble extends StatefulWidget {
 class _MessageBubbleState extends State<MessageBubble> {
   bool _thoughtExpanded = false;
   bool _thoughtPinned = false;
+  File? _avatarChecked;
+  bool _avatarExists = false;
 
   ChatMessage get message => widget.message;
   File? get characterImage => widget.characterImage;
@@ -121,6 +123,16 @@ class _MessageBubbleState extends State<MessageBubble> {
       _thoughtPinned = true;
       _thoughtExpanded = next;
     });
+  }
+
+  bool get _hasAvatarFile {
+    final file = characterImage;
+    if (!identical(file, _avatarChecked)) {
+      _avatarChecked = file;
+      _avatarExists =
+          file != null && file.existsSync(); // io-ok: memoized per path
+    }
+    return _avatarExists;
   }
 
   Widget _avatarLetter() {
@@ -202,7 +214,7 @@ class _MessageBubbleState extends State<MessageBubble> {
           if (!message.isUser && !isDirectorNote)
             CircleAvatar(
               radius: 16,
-              child: characterImage == null
+              child: !_hasAvatarFile
                   ? _avatarLetter()
                   : ClipOval(
                       child: Image.file(

@@ -77,8 +77,7 @@ extension ChatServiceIdleAutonomous on ChatService {
       _resetIdleTimer();
       return;
     }
-    final llm = _llmProvider?.activeService ?? _koboldService;
-    if (!llm.isReady) {
+    if (!_mouthLlm.isReady) {
       _resetIdleTimer();
       return;
     }

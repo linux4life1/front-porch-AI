@@ -201,6 +201,10 @@ extension ChatServiceGeneration on ChatService {
     bool skipSpeakerEval = false,
     String regenCritique = '',
   }) async {
+    // Raise before the first await so an unawaited caller (AFK idle)
+    // is visible to drain / _isTurnBusy immediately. Abort must clear it.
+    _isGenerating = true;
+    notifyListeners();
     if (await _abortIfBackendDown()) {
       // No turn will run — terminate BOTH live streams. The sentence stream
       // has no error sentinel: `call_overlay` closes its controller on
@@ -209,6 +213,8 @@ extension ChatServiceGeneration on ChatService {
       // on "Thinking…" with the mic never re-armed.
       _tokenBroadcast.add('__ERROR__');
       _sentenceBroadcast.add('__DONE__');
+      _isGenerating = false;
+      notifyListeners();
       return;
     }
     // Continue is regen's sibling for WHO is speaking. Infer guest / group
