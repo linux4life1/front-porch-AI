@@ -45,6 +45,7 @@ class _HangSecondClockLlm extends LLMService {
   Completer<void>? _hang;
   int clockCalls = 0;
   bool hangNextMouth = false;
+  bool hangSecondClock = true;
 
   bool get isHanging => _hang != null && !_hang!.isCompleted;
 
@@ -66,7 +67,7 @@ class _HangSecondClockLlm extends LLMService {
     }
     if (params.prompt.contains('minutes_elapsed')) {
       clockCalls++;
-      if (clockCalls == 2) {
+      if (hangSecondClock && clockCalls == 2) {
         _hang = Completer<void>();
         await _hang!.future;
       }
@@ -209,7 +210,7 @@ void main() {
     db = AppDatabase.forTesting();
     final storage = StorageService();
     final repo = CharacterRepository(db!, storage);
-    final hang = _HangSecondClockLlm();
+    final hang = _HangSecondClockLlm()..hangSecondClock = false;
     chat =
         ChatService(
             KoboldService(storage),

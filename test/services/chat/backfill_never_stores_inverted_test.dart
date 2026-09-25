@@ -484,7 +484,7 @@ void main() {
   });
 
   test(
-    'wrong-greeting swipe :330 and metadata :393 do not store inverted',
+    'wrong-greeting swipe :330 does not store inverted',
     () async {
       await boot(storyStartTime: '20:00');
       await plant(
@@ -550,8 +550,54 @@ void main() {
         site: 'wrong-greeting swipe :330 (evening card, morning snap)',
         which: 'swipe[0]',
       );
+    },
+  );
+
+  test(
+    'wrong-greeting metadata :393 does not store inverted',
+    () async {
+      await boot(storyStartTime: '20:00');
+      await plant(
+        rows: [
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Evening.',
+            'meta': <String, dynamic>{},
+          },
+          {'sender': 'You', 'user': true, 'text': 'Hey.'},
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Meta repair.',
+            'meta': {
+              'story_clock_before': _d1_2000,
+              'story_clock_after': _d1_1600,
+              'realism_state': {
+                'storyClock': _d1_0900,
+                'storyStartDate': _startIso,
+                'timeOfDay': 'morning',
+                'dayCount': 1,
+              },
+            },
+            'swipes': [Map<String, dynamic>.from(_validPair)],
+          },
+          {'sender': 'You', 'user': true, 'text': 'Tip user.'},
+          {
+            'sender': 'Nia',
+            'user': false,
+            'text': 'Tip.',
+            'meta': {
+              'story_clock_before': _d1_2000,
+              'story_clock_after': _d1_2000,
+            },
+          },
+        ],
+        clock: _d1_2000,
+        tod: 'evening',
+      );
       expectPairNotInverted(
-        botAt(4).metadata,
+        botAt(2).metadata,
         site: 'wrong-greeting metadata :393 (evening card, morning snap)',
         which: 'metadata',
       );
