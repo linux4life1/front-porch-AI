@@ -223,9 +223,24 @@ final _rows = <_Row>[
     expected: _liveDay1,
     live: _liveDay1,
   ),
+  // Greeting that IS the tip, nothing stored: rung 6 — max(live,
+  // own before). A nudge on a fresh chat must stick.
   _Row(
-    name: 'rung 8 greeting nothing -> Day 1 start',
+    name: 'rung 6 greeting-as-tip nothing -> live',
     build: () => [_bot('empty greet.', {})],
+    read: 0,
+    expected: _live,
+  ),
+  // CoS pin 4: greeting that is NOT the tip, nothing stored, no
+  // stamped neighbour. Later turns exist but carry no clock data.
+  // Day 1 of the chat's stored start, 09:00 — never live, never today.
+  _Row(
+    name: 'rung 8 non-tip greeting nothing, no neighbour -> Day 1 start',
+    build: () => [
+      _bot('empty greet.', {}),
+      _user('later, no clock.'),
+      _bot('empty later.', {}),
+    ],
     read: 0,
     expected: DateTime.utc(2026, 6, 28, 9, 0),
   ),
@@ -253,8 +268,8 @@ final _rows = <_Row>[
     read: 0,
     expected: DateTime.utc(2026, 6, 28, 9, 0),
   ),
-  // Pos 0 empty is a greeting (Day 1), not history. History-null
-  // needs a non-greeting empty slot with no directional neighbour.
+  // Pos 0 empty greeting-as-tip takes live. History-null needs a
+  // non-greeting empty slot with no directional neighbour.
   _Row(
     name: 'rung 9 history nothing -> null',
     build: () => [
