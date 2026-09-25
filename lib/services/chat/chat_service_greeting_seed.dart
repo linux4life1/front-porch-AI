@@ -305,7 +305,11 @@ extension ChatServiceGreetingSeed on ChatService {
       _runPostGreetingEval();
     } else if (_realismActiveThisMode) {
       unawaited(_seedOpeningPosture().catchError((Object _) {}));
-      await _evaluateRelationshipCall();
+      try {
+        await _evaluateRelationshipCall();
+      } catch (e, st) {
+        debugPrint('[Realism] Opening relationship baseline failed: $e\n$st');
+      }
     }
   }
 

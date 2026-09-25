@@ -133,6 +133,7 @@ extension RealismEvalCalls on RealismEvals {
       );
     } catch (e) {
       debugPrint('[Realism:Relationship] Failed: $e');
+      rethrow;
     }
   }
 

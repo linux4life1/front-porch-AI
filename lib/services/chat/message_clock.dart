@@ -323,9 +323,18 @@ bool backfillSlotClocks(
       }
       if (slotHasCompletePair(slot)) {
         final derived = slot?['clock_from_day_count'] == true;
-        if (!derived || dayClock == null || slotClockAfter(slot) == dayClock) {
-          continue;
+        if (derived && dayClock != null && slotClockAfter(slot) != dayClock) {
+          final dest = existing ?? msg.metadata!;
+          writeSlotClockPair(
+            dest,
+            before: dayClock,
+            after: dayClock,
+            fromDayCount: true,
+          );
+          persistStoryClockBefore(msg, StoryClock.serializeClock(dayClock));
+          changed = true;
         }
+        continue;
       }
       final tipSlot = isTip && s == msg.swipeIndex;
       final keptAfter = slotClockAfter(slot);
@@ -345,7 +354,8 @@ bool backfillSlotClocks(
           dest,
           before: before,
           after: after,
-          fromDayCount: dayClock != null && keptAfter == null,
+          fromDayCount:
+              dayClock != null && keptAfter == null && after == dayClock,
         );
       }
 
@@ -374,6 +384,18 @@ bool backfillSlotClocks(
       final derived = meta['clock_from_day_count'] == true;
       final staleDerived =
           derived && dayClock != null && slotClockAfter(meta) != dayClock;
+      final refreshTo = dayClock;
+      if (staleDerived && refreshTo != null) {
+        writeSlotClockPair(
+          meta,
+          before: refreshTo,
+          after: refreshTo,
+          fromDayCount: true,
+        );
+        persistStoryClockBefore(msg, StoryClock.serializeClock(refreshTo));
+        changed = true;
+        continue;
+      }
       if (slotHasCompletePair(meta) && !staleDerived) {
         continue;
       }
@@ -388,7 +410,8 @@ bool backfillSlotClocks(
         meta,
         before: before,
         after: after,
-        fromDayCount: dayClock != null && keptAfter == null,
+        fromDayCount:
+            dayClock != null && keptAfter == null && after == dayClock,
       );
       persistStoryClockBefore(msg, StoryClock.serializeClock(before));
       changed = true;
@@ -396,7 +419,6 @@ bool backfillSlotClocks(
   }
   if (!_firstBotBackfillDone(messages)) {
     _markClockBackfillDone(messages);
-    changed = true;
   }
   return changed;
 }

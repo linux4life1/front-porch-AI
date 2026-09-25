@@ -447,8 +447,8 @@ class LlmEvalEngine {
           }
           break;
         }
-        if (attempt >= 1) {
-          return null;
+        if (attempt >= 1 || !looksLikeBackendUnreachable(e)) {
+          rethrow;
         }
         debugPrint(
           '[Realism:Eval] Retrying after connection drop (attempt ${attempt + 2})...',

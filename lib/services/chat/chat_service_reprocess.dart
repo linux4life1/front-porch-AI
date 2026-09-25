@@ -113,6 +113,9 @@ extension ChatServiceReprocess on ChatService {
     _isPostGenerating = true;
     try {
       await _regenerateLastMessageHeld(critique: critique);
+    } catch (e) {
+      _timeService.restoreCapturedClock();
+      rethrow;
     } finally {
       _isPostGenerating = false;
       _clearPostGenAbortFlags();
