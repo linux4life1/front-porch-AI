@@ -4,6 +4,12 @@
 // Table-driven pin of the per-slot clock resolver ladder. Each row
 // hits exactly one rung through backfill + slotClockAfter — the same
 // door open, swipe and fork use.
+//
+// Tip rule: a tip with no after, no chip and no snap resolves to
+// max(live, own before). Own before includes the answering user
+// turn's clock. A later neighbour donates its BEFORE; an earlier
+// neighbour donates its AFTER. Clamp is global. Rung 3 snap-frozen
+// semantics stay.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
@@ -160,16 +166,26 @@ final _rows = <_Row>[
     start: _sept1,
   ),
   _Row(
-    name: 'rung 5 own before',
+    name: 'tip max(live, own before) live later -> live',
+    build: () => [
+      _bot('before only.', {'story_clock_before': _d1_1600}),
+    ],
+    read: 0,
+    expected: _live,
+  ),
+  _Row(
+    name: 'tip max(live, own before) live earlier -> own before',
     build: () => [
       _bot('before only.', {'story_clock_before': _d1_1600}),
     ],
     read: 0,
     expected: _at1600,
+    live: _liveDay1,
   ),
   // Day-only answering user: TOD from the real Day-3 neighbour (18:30),
   // not live-for-tip and not 09:00. Neighbour after is Day 3 18:30 so a
-  // lib that picks the far stamp fails against Day 5 18:30.
+  // lib that picks the far stamp fails against Day 5 18:30. Live Day 1
+  // is earlier, so max(live, own before) is still Day 5 18:30.
   _Row(
     name: 'rung 5 answering user turn is the bot tip own before -> Day 5',
     build: () => [
@@ -180,6 +196,12 @@ final _rows = <_Row>[
     read: 2,
     expected: _day5Evening,
     live: _liveDay1,
+  ),
+  _Row(
+    name: 'tip max(live, answering user before) live later -> live',
+    build: () => [_user('stamped.', _pair(_d3_1830)), _bot('empty tip.', {})],
+    read: 1,
+    expected: _live,
   ),
   _Row(
     name:
@@ -210,6 +232,18 @@ final _rows = <_Row>[
     build: () => [_bot('empty history.', {}), _bot('stamp.', _pair(_d1_1600))],
     read: 0,
     expected: _at1600,
+  ),
+  _Row(
+    name: 'rung 7 later neighbour donates before not after',
+    build: () => [
+      _bot('empty history.', {}),
+      _bot('later.', {
+        'story_clock_before': _d1_0900,
+        'story_clock_after': '2026-06-28T09:30:00.000Z',
+      }),
+    ],
+    read: 0,
+    expected: DateTime.utc(2026, 6, 28, 9, 0),
   ),
   _Row(
     name: 'rung 8 history nothing -> null',
