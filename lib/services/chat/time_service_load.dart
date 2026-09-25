@@ -157,34 +157,4 @@ extension TimeServiceLoad on TimeService {
       before.minute,
     );
   }
-
-  /// Restore from a realism_state snapshot (message metadata, 1:1<->group
-  /// conversion carry). Restores REGARDLESS of passage-of-time — a fixed
-  /// scene time is meaningful even with auto-advance off. Prefers the
-  /// canonical keys; legacy snapshots synthesize.
-  void restoreTimeFromRealismState(Map<String, dynamic> state) {
-    final clock = StoryClock.parse(state['storyClock'] as String?);
-    final anchor = StoryClock.parse(state['storyStartDate'] as String?);
-    if (clock != null) {
-      _clock = clock;
-      if (anchor != null) _startDate = StoryClock.dateOnly(anchor);
-      return;
-    }
-    final tod = state['timeOfDay'] as String?;
-    // .fpchat / JSON may carry 9.0 — accept num (fork walk-back hasClock uses num).
-    final dc = (state['dayCount'] as num?)?.toInt();
-    if (tod == null && dc == null) return;
-    if (anchor != null) _startDate = StoryClock.dateOnly(anchor);
-    // A pre-calendar snapshot says only "Day N, period P". Read it against
-    // THIS story's Day 1 — the anchor we are already holding — not against the
-    // real-world calendar. Today-anchoring it meant swiping one old message
-    // dragged the entire timeline onto whatever date the user happened to be
-    // swiping on, which is the same wandering date as the load path, except it
-    // struck mid-conversation and contradicted every message above it.
-    final day = (dc ?? dayCount) < 1 ? 1 : (dc ?? dayCount);
-    _clock = StoryClock.representativeTime(
-      _startDate.add(Duration(days: day - 1)),
-      tod ?? timeOfDay,
-    );
-  }
 }
