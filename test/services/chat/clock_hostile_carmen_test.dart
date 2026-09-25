@@ -438,22 +438,52 @@ void main() {
     expect(chat!.timeService.clock, isNot(DateTime.utc(2026, 6, 28, 9, 30)));
   });
 
-  test(
-    'greeting with nothing and no neighbour is Day 1 of the start',
-    () async {
-      await boot();
-      await plant(
-        rows: [
-          {'sender': 'Carmen', 'user': false, 'text': 'Evening.'},
-        ],
-        clock: _day3Iso,
-        day: 3,
-      );
-      await chat!.forkFromMessage(0);
-      await drain();
-      expect(chat!.timeService.clock, _day1Start);
-    },
-  );
+  // Fork-at-greeting (not greeting-as-tip). The planted chat is
+  // greeting-only so the greeting is the tip at open; forkFromMessage(0)
+  // is the Day-1-of-start writer (message_clock :287/:345), which must
+  // use the chat's stored startDate, never today.
+  test('fork at greeting is Day 1 of the stored start, never today', () async {
+    await boot();
+    await plant(
+      rows: [
+        {'sender': 'Carmen', 'user': false, 'text': 'Evening.'},
+      ],
+      clock: _day3Iso,
+      day: 3,
+    );
+    expect(
+      chat!.timeService.clock,
+      _day3,
+      reason:
+          'open live is the session stored clock (Day 3 16:00), '
+          'not today and not Day 1',
+    );
+    expect(
+      chat!.timeService.startDate,
+      DateTime.utc(2026, 6, 28),
+      reason: 'open startDate is the session stored start, not today',
+    );
+    expect(
+      StoryClock.dateOnly(chat!.timeService.clock),
+      isNot(StoryClock.todayAnchor()),
+      reason: 'session scalars must load; live must not default to today',
+    );
+
+    await chat!.forkFromMessage(0);
+    await drain();
+    expect(
+      chat!.timeService.clock,
+      _day1Start,
+      reason:
+          'fork-at-greeting Day 1 is 2026-06-28 09:00 from the '
+          'stored start, never today',
+    );
+    expect(
+      chat!.timeService.clock,
+      isNot(StoryClock.representativeTime(StoryClock.todayAnchor(), 'morning')),
+      reason: '_day1OfStoryStart must not use todayAnchor',
+    );
+  });
 
   test('PoT OFF open/swipe/fork/delete do not move the live clock', () async {
     await boot(passage: false);
