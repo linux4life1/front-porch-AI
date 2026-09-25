@@ -124,7 +124,25 @@ void main() {
     expect(slotClockBefore(d1.metadata), DateTime.utc(2026, 6, 28, 9, 0));
     expect(slotClockBefore(d2.metadata), DateTime.utc(2026, 6, 29, 8, 0));
     expect(slotClockBefore(d3.metadata), DateTime.utc(2026, 6, 30, 23, 40));
-    expect(slotClockAfter(d3.metadata), live);
+    // d3 is the tip but it stores a before and story_day 3 — not
+    // "nothing stored". After is that slot's own clock (dayCount>1),
+    // never the session live clock. TOD on a dayCount clock is
+    // unresolved; pin the calendar day and the no-rewind bound.
+    final d3After = slotClockAfter(d3.metadata);
+    expect(d3After, isNotNull);
+    expect(
+      d3After,
+      isNot(live),
+      reason: 'history/tip with stored day 3 must not take the live clock',
+    );
+    expect(d3After!.year, 2026);
+    expect(d3After.month, 6);
+    expect(d3After.day, 30, reason: 'Day 3 of a 2026-06-28 start is 06-30');
+    expect(
+      d3After.isBefore(slotClockBefore(d3.metadata)!),
+      isFalse,
+      reason: 'after must not rewind behind this slot\'s own before',
+    );
     expect(
       slotClockAfter(d1.metadata),
       isNot(live),
