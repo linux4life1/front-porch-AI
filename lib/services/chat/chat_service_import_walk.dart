@@ -168,24 +168,18 @@ extension ChatServiceImportWalk on ChatService {
       // Keep this story's anchor; only the day number rewinds.
       _timeService.restoreTimeFromRealismState({'dayCount': storyDayOnly});
     } else {
-      final greeting = StoryClock.representativeTime(
-        _timeService.startDate,
-        'morning',
+      final timeSeed = parseGroupTimeSeed(
+        _activeGroup!.defaultMemberRealismState,
+        _activeGroup!.baselineRealismState,
       );
-      if (!_timeService.clock.isAfter(greeting)) {
-        final timeSeed = parseGroupTimeSeed(
-          _activeGroup!.defaultMemberRealismState,
-          _activeGroup!.baselineRealismState,
-        );
-        _timeService.seedFromV2OrExt(
-          dayCount: timeSeed?.dayCount ?? 1,
-          timeOfDay: timeSeed?.timeOfDay ?? 'morning',
-          // Live chat Day 1 (never card/today) — user may have re-anchored.
-          storyStartDate: _timeService.storyStartDateIso,
-          storyStartTime: timeSeed?.storyStartTime,
-        );
-        _applySeededPassageOfTime();
-      }
+      _timeService.seedFromV2OrExt(
+        dayCount: timeSeed?.dayCount ?? 1,
+        timeOfDay: timeSeed?.timeOfDay ?? 'morning',
+        // Live chat Day 1 (never card/today) — user may have re-anchored.
+        storyStartDate: _timeService.storyStartDateIso,
+        storyStartTime: timeSeed?.storyStartTime,
+      );
+      _applySeededPassageOfTime();
     }
 
     seedPocketsFromCards();

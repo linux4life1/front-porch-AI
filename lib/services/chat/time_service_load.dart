@@ -170,12 +170,12 @@ extension TimeServiceLoad on TimeService {
       _setClockPullingStartDate(beforeClock.add(Duration(minutes: add)));
       return;
     }
-    if (snap != null) {
-      final snapClock = StoryClock.parse(snap['storyClock'] as String?);
-      if (snapClock != null) {
-        restoreTimeFromRealismState(snap);
-        return;
-      }
+    if (snap != null &&
+        (StoryClock.parse(snap['storyClock'] as String?) != null ||
+            snap['dayCount'] is num ||
+            snap['timeOfDay'] is String)) {
+      restoreTimeFromRealismState(snap);
+      return;
     }
     if (beforeClock != null) _setClockPullingStartDate(beforeClock);
   }

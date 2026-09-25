@@ -35,9 +35,9 @@ void persistStoryClockBefore(ChatMessage msg, String iso) {
 
 /// Greeting-era snap (Day 1 09:00) on a chat whose live clock has moved on.
 bool snapIsFrozenGreeting(Map<String, dynamic>? snap, DateTime liveClock) {
-  if (snap == null) return true;
+  if (snap == null) return false;
   final clock = StoryClock.parse(snap['storyClock'] as String?);
-  if (clock == null) return true;
+  if (clock == null) return false;
   final start = StoryClock.parse(snap['storyStartDate'] as String?);
   final anchor = start != null
       ? StoryClock.dateOnly(start)
