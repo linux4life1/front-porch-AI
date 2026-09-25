@@ -311,7 +311,7 @@ bool backfillSlotClocks(
   final realByIndex = <int, DateTime>{};
   for (var i = 0; i < messages.length; i++) {
     final msg = messages[i];
-    if (msg.isUser || msg.sender == 'System') continue;
+    if (msg.sender == 'System') continue;
     DateTime? stored;
     for (final slot in _messageSlots(msg)) {
       stored = resolveSlotAfter(
@@ -322,6 +322,15 @@ bool backfillSlotClocks(
         greetingClock: greetingClock,
       );
       if (stored != null) break;
+    }
+    if (stored == null && msg.metadata != null) {
+      stored = resolveSlotAfter(
+        msg.metadata,
+        isTip: false,
+        liveClock: liveClock,
+        startDate: start,
+        greetingClock: greetingClock,
+      );
     }
     if (stored != null) {
       realByIndex[i] = stored;

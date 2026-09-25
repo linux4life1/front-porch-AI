@@ -230,11 +230,9 @@ extension ChatServiceMessageClock on ChatService {
   DateTime? _nearestStoredStamp(ChatMessage tip, {DateTime? greetingClock}) {
     DateTime? found;
     for (final msg in _messages) {
-      if (identical(msg, tip) || msg.isUser || msg.sender == 'System') {
-        continue;
-      }
+      if (identical(msg, tip) || msg.sender == 'System') continue;
       final stamp = resolveSlotAfter(
-        msg.activeMetadata,
+        clockSlotForResolve(msg),
         isTip: false,
         liveClock: _timeService.clock,
         startDate: _timeService.startDate,
