@@ -271,6 +271,10 @@ void main() {
           needsBaselineFun: 80,
           needsBaselineHygiene: 80,
           needsBaselineComfort: 80,
+          // Authored `{}` skips Read-the-Room so startFreshChatWith
+          // hits _applyGreetingOpeningSeed's else at ~197
+          // (_runOpeningRelationshipBaseline / _evaluateRelationshipCall).
+          greetingSeeds: const [GreetingRealismSeed()],
         ),
       );
       await repo!.addCharacter(card);
