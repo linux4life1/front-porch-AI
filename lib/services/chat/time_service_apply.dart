@@ -79,8 +79,8 @@ extension TimeServiceApply on TimeService {
     await _ifDayChanged(dayBefore);
   }
 
-  /// Post-reply: they named a time, so the live clock follows. Not a user
-  /// nudge — swipe/regen still rewind from the previous snapshot.
+  /// Post-reply: they named a time, so the live clock follows. After
+  /// and the chip are stamped from this final clock. Not a user nudge.
   Future<void> applyReconciledClock(DateTime newClock) async {
     final dayBefore = dayCount;
     _setClockPullingStartDate(newClock);

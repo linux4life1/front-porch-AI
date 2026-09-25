@@ -85,6 +85,7 @@ extension TimeServiceLoad on TimeService {
     String? storyStartDate,
   }) {
     clearTodayLine();
+    _clearCapturedClock();
 
     final clock = StoryClock.parse(storyClock);
     final anchor = StoryClock.parse(storyStartDate);
@@ -120,53 +121,63 @@ extension TimeServiceLoad on TimeService {
     }
   }
 
-  void _captureLiveClock() => _capturedClock = _clock;
-
-  void _restoreCapturedClock() {
-    final captured = _capturedClock;
-    if (captured != null) _setClockPullingStartDate(captured);
+  void _captureLiveClock({String? sessionId}) {
+    _capturedClock = _clock;
+    _capturedStartDate = _startDate;
+    _capturedSessionId = sessionId;
   }
 
-  void _clearCapturedClock() => _capturedClock = null;
+  void _restoreCapturedClock({String? sessionId}) {
+    final captured = _capturedClock;
+    if (captured == null) return;
+    if (sessionId != null &&
+        _capturedSessionId != null &&
+        _capturedSessionId != sessionId) {
+      return;
+    }
+    _clock = captured;
+    final start = _capturedStartDate;
+    if (start != null) _startDate = start;
+  }
+
+  void _clearCapturedClock() {
+    _capturedClock = null;
+    _capturedStartDate = null;
+    _capturedSessionId = null;
+  }
 
   void _rewindToBeforeIso(String? beforeIso) {
     final before = StoryClock.parse(beforeIso);
     if (before != null) _setClockPullingStartDate(before);
   }
 
-  void _applySelectedSlotClock({String? after, String? before, int? minutes}) {
-    final afterClock = StoryClock.parse(after);
-    if (afterClock != null) {
-      _setClockPullingStartDate(afterClock);
-      return;
-    }
-    final beforeClock = StoryClock.parse(before);
-    if (beforeClock != null) {
-      final add = (minutes != null && minutes > 0) ? minutes : 0;
-      _setClockPullingStartDate(beforeClock.add(Duration(minutes: add)));
-    }
-  }
-
-  void _restoreImportedClock({
+  /// after → before+chip minutes → snap storyClock → before.
+  /// Unknown chip minutes do not count as before+0.
+  void _applySlotClock({
     String? after,
     String? before,
     int? minutes,
     Map<String, dynamic>? snap,
-    bool restoreClock = true,
   }) {
-    if (!restoreClock) return;
     final afterClock = StoryClock.parse(after);
     if (afterClock != null) {
       _setClockPullingStartDate(afterClock);
       return;
     }
     final beforeClock = StoryClock.parse(before);
-    if (beforeClock != null) {
-      final add = (minutes != null && minutes > 0) ? minutes : 0;
+    final add = (minutes != null && minutes > 0) ? minutes : null;
+    if (beforeClock != null && add != null) {
       _setClockPullingStartDate(beforeClock.add(Duration(minutes: add)));
       return;
     }
-    if (snap != null) restoreTimeFromRealismState(snap);
+    if (snap != null) {
+      final snapClock = StoryClock.parse(snap['storyClock'] as String?);
+      if (snapClock != null) {
+        restoreTimeFromRealismState(snap);
+        return;
+      }
+    }
+    if (beforeClock != null) _setClockPullingStartDate(beforeClock);
   }
 
   void _restoreAbortedTick(String? clockBeforeIso) {

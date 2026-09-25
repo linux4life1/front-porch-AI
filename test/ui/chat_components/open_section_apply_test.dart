@@ -4,12 +4,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
 import 'package:front_porch_ai/ui/pages/home/open_section_env.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import '../../golden/support/fakes.dart';
+import '../../golden/support/fakes_storage.dart';
 
 void main() {
   testWidgets('journal collapses Character State and expands Journal header', (
@@ -238,6 +241,8 @@ Future<_Keys> _pumpAccordions(
 }) async {
   final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
   addTearDown(chat.dispose);
+  final storage = FakeStorageService();
+  addTearDown(storage.dispose);
 
   final keys = _Keys(
     cs: GlobalKey<PorchAccordionState>(),
@@ -251,60 +256,63 @@ Future<_Keys> _pumpAccordions(
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   await tester.pumpWidget(
-    MaterialApp(
-      theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
-      home: Scaffold(
-        body: SizedBox(
-          width: 230,
-          child: ListView(
-            padding: const EdgeInsets.all(12),
-            scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
-            children: [
-              Builder(
-                builder: (context) => PorchAccordion(
-                  key: keys.cs,
-                  id: 'character_state',
-                  emoji: '🎭',
-                  title: 'Character State',
-                  accent: AppColors.porchTerracottaOf(context),
-                  initiallyExpanded: startCsExpanded,
-                  child: TimeStrip(key: keys.timeStrip, chat: chat),
+    ChangeNotifierProvider<StorageService>.value(
+      value: storage,
+      child: MaterialApp(
+        theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
+        home: Scaffold(
+          body: SizedBox(
+            width: 230,
+            child: ListView(
+              padding: const EdgeInsets.all(12),
+              scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
+              children: [
+                Builder(
+                  builder: (context) => PorchAccordion(
+                    key: keys.cs,
+                    id: 'character_state',
+                    emoji: '🎭',
+                    title: 'Character State',
+                    accent: AppColors.porchTerracottaOf(context),
+                    initiallyExpanded: startCsExpanded,
+                    child: TimeStrip(key: keys.timeStrip, chat: chat),
+                  ),
                 ),
-              ),
-              Builder(
-                builder: (context) => PorchAccordion(
-                  key: keys.journal,
-                  id: 'journal_memory',
-                  emoji: '📖',
-                  title: 'Journal & Memory',
-                  accent: AppColors.porchHoneyOf(context),
-                  initiallyExpanded: startJournalExpanded,
-                  child: SizedBox(height: journalChildHeight),
+                Builder(
+                  builder: (context) => PorchAccordion(
+                    key: keys.journal,
+                    id: 'journal_memory',
+                    emoji: '📖',
+                    title: 'Journal & Memory',
+                    accent: AppColors.porchHoneyOf(context),
+                    initiallyExpanded: startJournalExpanded,
+                    child: SizedBox(height: journalChildHeight),
+                  ),
                 ),
-              ),
-              Builder(
-                builder: (context) => PorchAccordion(
-                  key: keys.objectives,
-                  headerKey: keys.objectivesHeader,
-                  id: 'objectives',
-                  emoji: '🎯',
-                  title: 'Objectives',
-                  accent: AppColors.porchHoneyOf(context),
-                  initiallyExpanded: false,
-                  child: const SizedBox(height: 500),
+                Builder(
+                  builder: (context) => PorchAccordion(
+                    key: keys.objectives,
+                    headerKey: keys.objectivesHeader,
+                    id: 'objectives',
+                    emoji: '🎯',
+                    title: 'Objectives',
+                    accent: AppColors.porchHoneyOf(context),
+                    initiallyExpanded: false,
+                    child: const SizedBox(height: 500),
+                  ),
                 ),
-              ),
-              Builder(
-                builder: (context) => PorchAccordion(
-                  id: 'places',
-                  emoji: '📍',
-                  title: 'Places',
-                  accent: AppColors.porchHoneyOf(context),
-                  initiallyExpanded: true,
-                  child: const SizedBox(height: 500),
+                Builder(
+                  builder: (context) => PorchAccordion(
+                    id: 'places',
+                    emoji: '📍',
+                    title: 'Places',
+                    accent: AppColors.porchHoneyOf(context),
+                    initiallyExpanded: true,
+                    child: const SizedBox(height: 500),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

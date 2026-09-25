@@ -128,6 +128,7 @@ void main() {
     final ctx = tester.element(find.byType(MainLayout));
     final db = Provider.of<AppDatabase>(ctx, listen: false);
     final chatService = Provider.of<ChatService>(ctx, listen: false);
+    final storage = Provider.of<StorageService>(ctx, listen: false);
     final groupRepo = Provider.of<GroupChatRepository>(ctx, listen: false);
 
     // ── Build a two-member cast the way the wizard does ─────────────────
@@ -155,6 +156,18 @@ void main() {
       timeOfDay: 'morning',
       dayCount: 1,
     );
+    // Runtime member id is the avatar filename basename (stableGroupId).
+    // Without a real file the id falls back to the display name and the
+    // id-keyed seeds are never read — Ada's needs vector stays {}.
+    final avatarsDir = Directory('${storage.groupsDir.path}/$groupId/avatars')
+      ..createSync(recursive: true);
+    final onePixelPng = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQ'
+      'DwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    );
+    for (var i = 0; i < cast.length; i++) {
+      File('${avatarsDir.path}/member_$i.png').writeAsBytesSync(onePixelPng);
+    }
 
     await groupRepo.save(
       GroupChat(
@@ -174,6 +187,7 @@ void main() {
           name: Value(c.name),
           description: Value(c.description),
           firstMessage: Value(c.firstMessage),
+          avatarFilename: Value('member_$i.png'),
           frontPorchExtensions: Value(
             jsonEncode(c.frontPorchExtensions!.toJson()),
           ),

@@ -166,7 +166,7 @@ void main() {
       1,
       reason: 'the direct user send stays eligible',
     );
-    expect(llm.streams.single.systemPrompt, contains(kWebSearchCharacterLine));
+    expect(llm.streams.first.systemPrompt, contains(kWebSearchCharacterLine));
 
     await chat.triggerNextCharacter();
 
@@ -189,7 +189,7 @@ void main() {
     expect(llm.webSearchRounds, 0);
     expect(httpCalls, 0);
     expect(
-      llm.streams.single.systemPrompt,
+      llm.streams.first.systemPrompt,
       isNot(contains(kWebSearchCharacterLine)),
     );
   });

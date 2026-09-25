@@ -101,7 +101,12 @@ extension ChatServiceImportWalk on ChatService {
         break;
       }
       final rs = meta?['realism_state'];
-      if (rs is Map && hasClock(rs)) {
+      if (rs is Map &&
+          hasClock(rs) &&
+          !snapIsFrozenGreeting(
+            Map<String, dynamic>.from(rs),
+            _timeService.clock,
+          )) {
         clockStamp = m;
         break;
       }
@@ -153,31 +158,34 @@ extension ChatServiceImportWalk on ChatService {
     if (clockStamp != null) {
       final meta = clockStamp.activeMetadata;
       final rs = meta?['realism_state'];
-      _timeService.restoreImportedClock(
+      _timeService.applySlotClock(
         after: meta?['story_clock_after'] as String?,
-        before:
-            knownStoryClockBefore(clockStamp) ??
-            meta?['story_clock_before'] as String?,
+        before: knownStoryClockBefore(clockStamp),
         minutes: minutesRecordedForClockRewind(meta),
         snap: rs is Map ? Map<String, dynamic>.from(rs) : null,
-        restoreClock: true,
       );
     } else if (storyDayOnly != null) {
       // Keep this story's anchor; only the day number rewinds.
       _timeService.restoreTimeFromRealismState({'dayCount': storyDayOnly});
     } else {
-      final timeSeed = parseGroupTimeSeed(
-        _activeGroup!.defaultMemberRealismState,
-        _activeGroup!.baselineRealismState,
+      final greeting = StoryClock.representativeTime(
+        _timeService.startDate,
+        'morning',
       );
-      _timeService.seedFromV2OrExt(
-        dayCount: timeSeed?.dayCount ?? 1,
-        timeOfDay: timeSeed?.timeOfDay ?? 'morning',
-        // Live chat Day 1 (never card/today) — user may have re-anchored.
-        storyStartDate: _timeService.storyStartDateIso,
-        storyStartTime: timeSeed?.storyStartTime,
-      );
-      _applySeededPassageOfTime();
+      if (!_timeService.clock.isAfter(greeting)) {
+        final timeSeed = parseGroupTimeSeed(
+          _activeGroup!.defaultMemberRealismState,
+          _activeGroup!.baselineRealismState,
+        );
+        _timeService.seedFromV2OrExt(
+          dayCount: timeSeed?.dayCount ?? 1,
+          timeOfDay: timeSeed?.timeOfDay ?? 'morning',
+          // Live chat Day 1 (never card/today) — user may have re-anchored.
+          storyStartDate: _timeService.storyStartDateIso,
+          storyStartTime: timeSeed?.storyStartTime,
+        );
+        _applySeededPassageOfTime();
+      }
     }
 
     seedPocketsFromCards();
@@ -229,7 +237,10 @@ extension ChatServiceImportWalk on ChatService {
       if (meta?['realism_state'] is Map ||
           knownStoryClockBefore(m) != null ||
           meta?['story_clock_after'] is String) {
-        _restoreRealismStateForSpeaker(m, restoreClock: true);
+        _restoreRealismStateForSpeaker(
+          m,
+          restoreClock: _importedClockShouldApply(m),
+        );
         if (m.metadata?['pockets_before'] is Map) {
           _restorePocketsFromStamp(m, after: true);
         }

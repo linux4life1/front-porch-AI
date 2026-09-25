@@ -116,6 +116,7 @@ extension ChatServiceReprocess on ChatService {
     } finally {
       _isPostGenerating = false;
       _clearPostGenAbortFlags();
+      _timeService.clearCapturedClock();
     }
   }
 
@@ -243,7 +244,7 @@ extension ChatServiceReprocess on ChatService {
       // a rejected regen never leaves the sidebar on the rewound before.
       // Then rewind to the shared message-level before (every swipe).
       final clockWasNudged = _clockWasNudged(lastMsg);
-      _timeService.captureLiveClock();
+      _timeService.captureLiveClock(sessionId: _currentSessionId);
       _rewindClockToPreReply(lastMsg, wasNudged: clockWasNudged);
 
       _revertRegenRealismBaseline(

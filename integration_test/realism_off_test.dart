@@ -90,6 +90,10 @@ void main() {
       // entering it resets realism. setRealismEnabled(false) below is what
       // actually guarantees the state under test.
       'realism_default': false,
+      // Clock evals are gated on Porch Life PoT, not Realism. This
+      // journey asserts no evals and a frozen clock, so PoT must be
+      // off too — otherwise the time-only call is intended.
+      'passage_of_time_default': false,
     });
 
     app.main(const []);
@@ -195,14 +199,14 @@ void main() {
           'made — ${backend.evalRequests} were',
     );
 
-    // ── 3. The story clock is gated on realism, so it must be frozen ────
+    // ── 3. The story clock is gated on Porch Life PoT (off above) ────
     expect(
       time.clock,
       before.clock,
       reason:
-          'the story clock advanced with realism OFF. It is gated on the '
-          'master switch, so either the gate broke or the clock found '
-          'another way to move.',
+          'the story clock advanced with Passage of Time OFF. Porch Life '
+          'PoT is the only clock control, so either that gate broke or '
+          'the clock found another way to move.',
     );
     expect(time.dayCount, before.day);
 

@@ -9,7 +9,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/calendar_today_hold.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/today_line.dart';
@@ -18,6 +21,11 @@ import 'package:front_porch_ai/ui/widgets/plan_lines_editor.dart';
 import '../support/creator_test_support.dart';
 import '../support/fakes.dart';
 import '../support/golden_app.dart';
+
+StorageService _storage() {
+  SharedPreferences.setMockInitialValues({});
+  return StorageService();
+}
 
 void _noop() {}
 
@@ -44,16 +52,21 @@ void main() {
   testWidgets('Chat — no line, strip only', (tester) async {
     final chat = FakeChatService(timeOfDay: 'evening', dayCount: 3);
     addTearDown(chat.dispose);
+    final storage = _storage();
+    addTearDown(storage.dispose);
     await expectThemedGoldens(
       tester,
-      child: SizedBox(
-        width: 300,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TimeStrip(chat: chat),
-            const TodayLine(enabled: true, text: null),
-          ],
+      child: ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: SizedBox(
+          width: 300,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TimeStrip(chat: chat),
+              const TodayLine(enabled: true, text: null),
+            ],
+          ),
         ),
       ),
       group: 'planner',

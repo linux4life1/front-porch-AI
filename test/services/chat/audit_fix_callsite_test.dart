@@ -73,13 +73,17 @@ void main() {
     ).readAsStringSync();
     expect(speak, isNot(contains('skipClockAdvance: true')));
     final gen = File(
-      'lib/services/chat/chat_service_generation.dart',
+      'lib/services/chat/chat_service_generation_postgen.dart',
     ).readAsStringSync();
     expect(gen, contains('_maybeAdvanceStoryClockAfterReply'));
+    final clock = File(
+      'lib/services/chat/message_clock.dart',
+    ).readAsStringSync();
+    expect(clock, contains('story_clock_before'));
     final regen = File(
       'lib/services/chat/chat_service_reprocess.dart',
     ).readAsStringSync();
-    expect(regen, contains('story_clock_before'));
+    expect(regen, contains('captureLiveClock'));
     expect(regen, isNot(contains('beginUserTurnClock()')));
     final send = File(
       'lib/services/chat/chat_service_send.dart',

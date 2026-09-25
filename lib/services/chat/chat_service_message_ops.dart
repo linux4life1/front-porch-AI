@@ -67,8 +67,16 @@ extension ChatServiceMessageOps on ChatService {
         _messages.skip(messageIndex + 1).every(_isGuestAuthoredMessage);
     final isGuestTip = isGuestMsg && messageIndex == _messages.length - 1;
 
+    final previousResolved = _resolvedSlotClock(msg);
+    final guestsBelow = isTip && messageIndex < _messages.length - 1;
     msg.swipeIndex = newIndex;
-    if (isTip || isGuestTip) _applySwipeSlotClock(msg);
+    if (isTip || isGuestTip) {
+      _applySwipeSlotClock(
+        msg,
+        previousResolved: previousResolved,
+        guestsBelow: guestsBelow,
+      );
+    }
     if (isTip) _syncRealismStateForSwipe(msg);
     if (isGuestTip) {
       _restoreWornBodiesExceptSpeaker(msg, msg.characterId ?? '');
@@ -442,22 +450,17 @@ extension ChatServiceMessageOps on ChatService {
     }
   }
 
-  /// Cancel an in-progress Realism evaluation stream (if any).
-  ///
-  /// Behavior:
-  /// - If there is no active realism evaluation and no post-greeting processing,
-  ///   this is a no-op.
-  /// - Mark cancelling flag, attempt to abort the underlying generation, then
-  ///   reset all related UI/state and emit a final notification.
-  /// - Do not restart any ongoing flow automatically after cancellation.
+  /// Cancel an in-flight Realism eval or post-gen tick. No-op when idle.
   Future<void> cancelRealismEval() async {
     // Always tear down both lanes first — a fused/clerk call on the
     // worker can still be in flight when the mouth flags look idle.
     _abortAllLanes();
     _needsSimulation.consumePendingCatastrophe();
 
-    // No-op if there is nothing to cancel
-    if (!_isEvaluatingRealism && !_isProcessingGreeting) {
+    // No-op if there is nothing to cancel. Post-gen clock/wear is
+    // cancellable too — a regen abort mid-tick must put the captured
+    // clock back and drop the aborted slot's after.
+    if (!_isEvaluatingRealism && !_isProcessingGreeting && !_isPostGenerating) {
       debugPrint('[Realism] Cancel request ignored — no active realism eval.');
       return;
     }
@@ -465,6 +468,7 @@ extension ChatServiceMessageOps on ChatService {
     _isCancellingRealismEval = true;
     // Signal to any ongoing realism evaluation that a cancel has been requested.
     _realismEvalCancelled = true;
+    _postGenAbortRequested = true;
     notifyListeners();
 
     // Transient banner only — NEVER a chat message. The old code appended an
@@ -481,9 +485,7 @@ extension ChatServiceMessageOps on ChatService {
     _isEvaluatingRealism = false;
     _isProcessingGreeting = false;
     _isCancellingRealismEval = false;
-    // NOTE: Do NOT reset _realismEvalCancelled here. It must remain true so that
-    // sendMessage() can detect the cancellation and return early. The flag is only
-    // reset in sendMessage() after the cancellation is properly handled.
+    // Keep _realismEvalCancelled so sendMessage returns early.
     notifyListeners();
   }
 }

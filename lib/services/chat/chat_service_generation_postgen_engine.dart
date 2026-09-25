@@ -120,9 +120,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         if (_postGenAbortRequested &&
             _timeService.storyClockIso != clockBeforeIso) {
           _timeService.restoreAbortedTick(clockBeforeIso);
-        } else {
+          _discardStampedAfter(t.streamTarget);
+        } else if (!_postGenAbortRequested) {
           _wearBodiesAfterClock(t);
-          _stampTimePassedChip(t.streamTarget);
         }
       }
       if (scoredReply.isNotEmpty && !_postGenAbortRequested) {
@@ -234,6 +234,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // climax just changed. See the helper for the two bugs this
         // prevents (hygiene snap-back; climax erased by the regen merge).
         await _restampRealismSnapshotPostGen(t.streamTarget);
+        if (_clockRunning) _stampFinalClockOnMessage(t.streamTarget);
 
         if (prePostActiveChar != null) {
           _activeCharacter = prePostActiveChar;

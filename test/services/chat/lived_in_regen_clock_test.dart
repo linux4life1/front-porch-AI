@@ -253,37 +253,40 @@ void main() {
     expect(minutesRecordedForClockRewind({'minutes_elapsed': 8}), isNull);
   });
 
-  test('rewindToBeforeIso sets the shared before and keeps live otherwise', () {
-    var porch = true;
-    final t = TimeService(
-      onNotify: () {},
-      onSaveChat: () async {},
-      onSetPendingRealismMetadata: (_, _) {},
-      onPatchLastMessageRealismState: (_, _, _) {},
-      getPorchLifePassageOfTime: () => porch,
-    );
-    t.seedFromV2OrExt(
-      dayCount: 2,
-      timeOfDay: 'afternoon',
-      storyStartDate: _startIso,
-      storyStartTime: '16:37',
-    );
-    expect(t.clock, _lived);
+  test(
+    'rewindToBeforeIso sets the clock, or keeps live when before is null',
+    () {
+      var porch = true;
+      final t = TimeService(
+        onNotify: () {},
+        onSaveChat: () async {},
+        onSetPendingRealismMetadata: (_, _) {},
+        onPatchLastMessageRealismState: (_, _, _) {},
+        getPorchLifePassageOfTime: () => porch,
+      );
+      t.seedFromV2OrExt(
+        dayCount: 2,
+        timeOfDay: 'afternoon',
+        storyStartDate: _startIso,
+        storyStartTime: '16:37',
+      );
+      expect(t.clock, _lived);
 
-    t.rewindToBeforeIso(_day1NineIso);
-    expect(t.clock, DateTime.utc(2026, 6, 28, 9, 0));
+      t.rewindToBeforeIso(_day1NineIso);
+      expect(t.clock, DateTime.utc(2026, 6, 28, 9, 0));
 
-    t.restoreTimeFromRealismState({'storyClock': _livedIso});
-    t.rewindToBeforeIso(null);
-    expect(t.clock, _lived);
+      t.restoreTimeFromRealismState({'storyClock': _livedIso});
+      t.rewindToBeforeIso(null);
+      expect(t.clock, _lived);
 
-    t.markClockGateLeftover(false);
-    expect(t.clockGateSource, contains('leftover=false'));
-    expect(t.clockGateSource, contains('porchLife=true'));
-    porch = false;
-    expect(t.clockGateSource, contains('porchLife=false'));
-    expect(t.clockGateSource, isNot(contains('porchLife=true')));
-  });
+      t.markClockGateLeftover(false);
+      expect(t.clockGateSource, contains('leftover=false'));
+      expect(t.clockGateSource, contains('porchLife=true'));
+      porch = false;
+      expect(t.clockGateSource, contains('porchLife=false'));
+      expect(t.clockGateSource, isNot(contains('porchLife=true')));
+    },
+  );
 
   test(
     'regen of an old last bot keeps Day 2 16:37, never Day 1 09:00',

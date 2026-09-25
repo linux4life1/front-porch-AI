@@ -171,6 +171,7 @@ extension ChatServiceControls on ChatService {
     if (!_clockRunning) return;
     final before = _timeService.clock;
     await _timeService.nudgeTimePeriod(delta);
+    _syncActiveSlotClockAfterManualSet();
     // Day-ate journal rides TimeService.onStoryDayChanged.
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     unawaited(_ensureBirthdayState());
@@ -184,6 +185,7 @@ extension ChatServiceControls on ChatService {
     if (!_clockRunning) return;
     final before = _timeService.clock;
     await _timeService.setClockDirect(clock);
+    _syncActiveSlotClockAfterManualSet();
     // Day-ate journal rides TimeService.onStoryDayChanged.
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     unawaited(_ensureBirthdayState());
@@ -195,7 +197,12 @@ extension ChatServiceControls on ChatService {
   /// slides together (Day N is preserved, every date re-derives).
   Future<void> setStoryStartDate(DateTime date) async {
     if (!_clockRunning) return;
+    final oldStart = _timeService.startDate;
     _timeService.setStartDate(date);
+    shiftMessageClockStamps(
+      _messages,
+      _timeService.startDate.difference(oldStart),
+    );
     unawaited(_ensureBirthdayState());
     await _saveChat();
     notifyListeners();

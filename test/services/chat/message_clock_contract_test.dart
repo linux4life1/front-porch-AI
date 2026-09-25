@@ -3,7 +3,8 @@
 //
 // One clock contract: message-level before is shared by every swipe;
 // each slot stores after; fail/cancel/abort put back the captured live
-// clock; fork/import prefer stamps over the realism snap; Day 1 is a floor.
+// clock; fork/import prefer after, then before+chip, then snap, then
+// before. Rewind before Day 1 pulls the start date (same as reconcile).
 
 import 'dart:convert';
 import 'dart:io';
@@ -307,7 +308,7 @@ void main() {
   });
 
   group('TimeService contract', () {
-    test('capture / restore leaves a failed regen clock where it was', () {
+    test('capture / restore puts the clock back after a rewind', () {
       final t = _time();
       t.captureLiveClock();
       t.rewindToBeforeIso(_day1NineIso);
@@ -339,7 +340,6 @@ void main() {
         before: _day1NineIso,
         minutes: 5,
         snap: {'storyClock': _day3Iso},
-        restoreClock: true,
       );
       expect(t.clock, _day1NineThirty);
 
@@ -347,21 +347,23 @@ void main() {
         before: _day1NineIso,
         minutes: 30,
         snap: {'storyClock': _day3Iso},
-        restoreClock: true,
       );
       expect(t.clock, _day1NineThirty);
 
       t.restoreImportedClock(
         snap: {'storyClock': _day3Iso, 'storyStartDate': _startIso},
-        restoreClock: true,
       );
       expect(t.clock, _day3);
 
       t.restoreImportedClock(
-        snap: {'storyClock': _day1NineIso},
-        restoreClock: false,
+        before: _day1NineIso,
+        snap: {'storyClock': _day3Iso, 'storyStartDate': _startIso},
       );
-      expect(t.clock, _day3);
+      expect(
+        t.clock,
+        _day3,
+        reason: 'before without chip minutes uses the snap, not before+0',
+      );
     });
 
     test('rewind before Day 1 pulls the start date, same as reconcile', () {
@@ -381,12 +383,16 @@ void main() {
         text: 'A',
         sender: 'Nia',
         isUser: false,
-        swipes: ['A', 'B'],
+        swipes: ['A', 'B', 'C'],
         swipeIndex: 1,
-        metadata: {'story_clock_before': _livedIso},
+        metadata: {
+          'story_clock_before': _livedIso,
+          'realism_state': {'shortTermBond': 12},
+        },
         swipeMetadata: [
           {'time_passed': '2 hr'},
           {'time_passed': '30 min'},
+          null,
         ],
       );
       expect(knownStoryClockBefore(msg), _livedIso);
@@ -394,9 +400,13 @@ void main() {
       expect(msg.metadata?['story_clock_before'], _livedIso);
       expect(msg.swipeMetadata[0]?['story_clock_before'], _livedIso);
       expect(msg.swipeMetadata[1]?['story_clock_before'], _livedIso);
+      expect(msg.swipeMetadata[2], isNull);
+      msg.swipeIndex = 2;
+      expect(msg.activeMetadata?['realism_state'], isNotNull);
       persistStoryClockBefore(msg, _day1NineIso);
       expect(msg.metadata?['story_clock_before'], _livedIso);
       expect(msg.swipeMetadata[0]?['story_clock_before'], _livedIso);
+      expect(msg.swipeMetadata[2], isNull);
     });
   });
 
@@ -484,11 +494,12 @@ void main() {
     final beforeIso =
         lastBot().activeMetadata?['story_clock_before'] as String?;
     expect(beforeIso, isNotNull);
-    final before = chat!.timeService.clock.subtract(
-      const Duration(minutes: 30),
+    final before = DateTime.parse(beforeIso!);
+    expect(
+      lastBot().activeMetadata?['story_clock_after'],
+      chat!.timeService.storyClockIso,
     );
     expect(chat!.timeService.clock, before.add(const Duration(minutes: 30)));
-    expect(lastBot().activeMetadata?['story_clock_after'], isNotNull);
 
     llm.nextMinutes = 5;
     await chat!.regenerateLastMessage();
@@ -545,9 +556,10 @@ void main() {
     await boot();
     await plantOldTranscript();
     expect(chat!.timeService.clock, _lived);
-    // Greeting (index 0) carries a Day 1 09:00 snap. Deleting the user
-    // line in the middle must not restore that snap — or the last bot's.
-    chat!.deleteMessage(1);
+    // Greeting (index 0) carries a Day 1 09:00 snap. Deleting the
+    // middle bot (the lived-in tail's older sibling) must not restore
+    // that snap onto the live clock.
+    chat!.deleteMessage(0);
     await drainTurn();
     expect(
       chat!.timeService.clock,

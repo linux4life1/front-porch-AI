@@ -310,18 +310,15 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final state = rawState is Map ? Map<String, dynamic>.from(rawState) : null;
 
     // Default false. Regen/swipe/delete never pass true — TimeService
-    // owns those clocks and swipe never reads a snap. Fork/import pass
-    // true: stamped after, else before plus minutes, else the snap
-    // only if the message is unstamped.
+    // owns those clocks. Fork/import pass true: after, else
+    // before+chip, else snap, else before. Unstamped Carmen tip
+    // keeps the live clock.
     if (restoreClock) {
-      _timeService.restoreImportedClock(
+      _timeService.applySlotClock(
         after: meta?['story_clock_after'] as String?,
-        before:
-            knownStoryClockBefore(msg) ??
-            meta?['story_clock_before'] as String?,
+        before: knownStoryClockBefore(msg),
         minutes: minutesRecordedForClockRewind(meta),
         snap: state,
-        restoreClock: true,
       );
     }
 

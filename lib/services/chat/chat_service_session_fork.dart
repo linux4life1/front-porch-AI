@@ -174,10 +174,10 @@ extension ChatServiceSessionFork on ChatService {
     _isGrowthPassRunning =
         false; // growth-pass flag zero on fork (new branch hygiene; keep reset blocks in sync)
 
-    // Time-travel: restore the stamped per-message clock (after, else
-    // before plus minutes), then nearest realism_state. Stamp-less
-    // (legacy/ST): rewind bond/time/emotion/arousal from the card but
-    // keep per-chat feature toggles and fork lineage.
+    // Time-travel: stamped after, else before+chip, else snap, else
+    // before. Unstamped Carmen tip keeps the live clock. Stamp-less
+    // (legacy/ST): rewind bond/emotion/arousal from the card but keep
+    // per-chat feature toggles and fork lineage.
     if (_messages.isNotEmpty) {
       await _restoreRealismStateWalkingBack(fromIndex: _messages.length - 1);
     }

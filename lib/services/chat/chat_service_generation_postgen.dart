@@ -220,9 +220,10 @@ extension ChatServiceGenerationPostGen on ChatService {
           if (_postGenAbortRequested &&
               _timeService.storyClockIso != clockBeforeIso) {
             _timeService.restoreAbortedTick(clockBeforeIso);
+            _discardStampedAfter(t.streamTarget);
           } else if (!_postGenAbortRequested) {
             _wearBodiesAfterClock(t);
-            _stampTimePassedChip(t.streamTarget);
+            _stampFinalClockOnMessage(t.streamTarget);
             _maybeKickDreamPrefetch();
             await _saveChat();
           }
@@ -321,8 +322,8 @@ extension ChatServiceGenerationPostGen on ChatService {
     if (_isLiteTurn(t)) {
       final named = clockNamedInReply(msg.text, _timeService.clock);
       if (named != null) await _timeService.applyReconciledClock(named);
+      _stampFinalClockOnMessage(msg);
     }
-    _stampStoryClockAfter(msg);
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     debugPrint(
       '[Clock] running=$_clockRunning '
