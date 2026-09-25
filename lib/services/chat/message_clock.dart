@@ -100,9 +100,15 @@ DateTime? earliestReplySnap(List<ChatMessage> messages) {
 }
 
 /// Frozen-detection greeting clock: message 0's snap, else the
-/// earliest reply snap (Carmen / v1.4 lived-in, no greeting stamp).
-DateTime? frozenDetectionGreetingClock(List<ChatMessage> messages) =>
-    openingGreetingSnap(messages) ?? earliestReplySnap(messages);
+/// earliest reply snap when message 0 is a stamp-less bot greeting.
+/// A leading user turn is not a greeting — do not freeze the first
+/// reply's own snap (lived-in .fpchat head clock).
+DateTime? frozenDetectionGreetingClock(List<ChatMessage> messages) {
+  if (messages.isEmpty) return null;
+  final first = messages.first;
+  if (first.isUser || first.sender == 'System') return null;
+  return openingGreetingSnap(messages) ?? earliestReplySnap(messages);
+}
 
 const _kClockBackfillDone = 'clock_backfill_done';
 
