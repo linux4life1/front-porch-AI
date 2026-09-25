@@ -141,9 +141,6 @@ bool slotSnapIsFrozen(
   return true;
 }
 
-DateTime day1StartClock(DateTime startDate) =>
-    StoryClock.representativeTime(StoryClock.dateOnly(startDate), 'morning');
-
 /// Closest earlier AFTER, else closest later BEFORE. Live is never
 /// in either map.
 DateTime? directionalNeighbourStamp({
@@ -194,10 +191,10 @@ DateTime? directionalNeighbourStamp({
 ///  6. S's own before, including the answering user turn.
 ///  7. The nearest REAL neighbour stamp. A later neighbour
 ///     contributes its BEFORE; an earlier neighbour its AFTER.
-///  8. History greeting with nothing stored: Day 1 of [startDate].
-///     A greeting that is the chat tip (or a sibling swipe on that
-///     tip) takes live, same as any other empty tip.
-///  9. History with nothing: leave empty, never live.
+///  8. History with nothing: leave empty, never live. A greeting
+///     that is the chat tip takes live (same as any empty tip).
+///     Day 1 of the start is the fork empty-pre-user seed, not a
+///     history write.
 ///
 /// Then CLAMP: after is never earlier than S's own before, including
 /// a stored rung-1 after. A turn cannot go backward.
@@ -250,16 +247,12 @@ DateTime? resolveSlotAfter(
               neighbourStamp: neighbourStamp,
             ),
           );
-        } else if (isTip && !isGreeting) {
+        } else if (isTip || greetingIsTip) {
           hit = liveClock;
         } else if (before != null) {
           hit = before;
         } else if (neighbourStamp != null) {
           hit = neighbourStamp;
-        } else if (isGreeting && !greetingIsTip) {
-          hit = day1StartClock(start);
-        } else if (isTip || greetingIsTip) {
-          hit = liveClock;
         }
       }
     }
