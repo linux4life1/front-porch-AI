@@ -76,6 +76,7 @@ part 'chat/chat_service_group_lite.dart';
 part 'chat/chat_service_reprocess.dart';
 part 'chat/chat_service_regen_revert.dart';
 part 'chat/chat_service_message_clock.dart';
+part 'chat/chat_service_message_clock_write.dart';
 part 'chat/chat_service_needs_reprocess.dart';
 part 'chat/chat_service_chat_entry.dart';
 part 'chat/chat_service_group_entry.dart';

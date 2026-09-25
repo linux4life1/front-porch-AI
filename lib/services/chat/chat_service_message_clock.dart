@@ -27,22 +27,21 @@ extension ChatServiceMessageClock on ChatService {
     return slot;
   }
 
-  /// Opening greeting: pair after == before == live. Not a nudge.
-  /// Porch Life off never writes the clock.
-  void _stampOpeningClockPair() {
-    if (!_clockRunning) return;
-    final msg = _messages.isEmpty ? null : _messages.first;
-    if (msg == null || msg.isUser) return;
-    if (slotHasCompletePair(msg.activeMetadata)) return;
-    final clock = _timeService.clock;
-    writeSlotClockPair(_clockWriteSlot(msg), before: clock, after: clock);
-    persistStoryClockBefore(msg, StoryClock.serializeClock(clock));
+  bool get _historyClockIncomplete =>
+      _history.hasMore || _history.isBackfilling;
+
+  /// Message 0 only, and only on a complete history. A 24-row tail
+  /// must not treat its first bot as the greeting (HIGH-1 / B1).
+  DateTime? _greetingClockForResolve() {
+    if (_historyClockIncomplete) return null;
+    return frozenDetectionGreetingClock(_messages);
   }
 
   /// THE reader. Live clock = the visible tip slot's resolved after.
   /// Never another swipe's after — a cancelled regen swipe must not
   /// inherit the rejected pair. Every path goes through [resolveSlotAfter].
-  /// Porch Life off never moves the live clock.
+  /// Porch Life off never moves the live clock — including snap and
+  /// dayCount rungs.
   void _applyTipClock() {
     if (!_clockRunning) return;
     final after = _resolveVisibleAfter();
@@ -56,7 +55,7 @@ extension ChatServiceMessageClock on ChatService {
   DateTime? _resolveVisibleAfter({ChatMessage? tip, DateTime? liveClock}) {
     final target = tip ?? _visibleTipMessage();
     if (target == null) return null;
-    final greetingClock = _openingGreetingSnap();
+    final greetingClock = _greetingClockForResolve();
     final clock = liveClock ?? _timeService.clock;
     final idx = _messages.indexWhere((m) => identical(m, target));
     final greetingSlot =
@@ -99,21 +98,13 @@ extension ChatServiceMessageClock on ChatService {
     );
   }
 
-  void _writeResolvedTipAfter(ChatMessage tip, DateTime after) {
-    if (!_clockRunning) return;
-    if (slotClockAfter(tip.activeMetadata) == after) return;
-    final before = slotClockBefore(tip.activeMetadata) ?? after;
-    writeSlotClockPair(_clockWriteSlot(tip), before: before, after: after);
-    persistStoryClockBefore(tip, StoryClock.serializeClock(before));
-  }
-
   /// Fill missing pairs from the live clock / nearest real time.
   /// Mutates in-memory slots; the load path persists when this returns true.
   bool _backfillLoadedSlotClocks() {
     // The 24-row open window is not a clock. Guessing here treats the
     // first tail bot as the greeting (B1). Wait for the full history.
     if (!_clockRunning) return false;
-    if (_history.hasMore || _history.isBackfilling) return false;
+    if (_historyClockIncomplete) return false;
     return backfillSlotClocks(
       _messages,
       liveClock: _timeService.clock,
@@ -132,8 +123,10 @@ extension ChatServiceMessageClock on ChatService {
   }
 
   /// Greeting overlay may re-seed the card clock. Session row is live.
-  /// Waits for the full history so the 24-row window cannot guess.
+  /// Does not wait for older pages — tip reads its stored pair, or
+  /// live if it has none. History backfill chains after the window.
   Future<void> _reloadSessionClockThenSync(Session s) async {
+    _timeService.clearCapturedClock();
     _timeService.loadTimeScalars(
       timeOfDay: s.timeOfDay,
       dayCount: s.dayCount,
@@ -141,11 +134,28 @@ extension ChatServiceMessageClock on ChatService {
       storyClock: s.storyClock,
       storyStartDate: s.storyStartDate,
     );
-    await _awaitHistoryHydrated();
+    _applyTipClock();
+    final sid = _currentSessionId;
+    final epoch = _history.epoch;
+    final pending = _history.backfill;
+    if (pending != null) {
+      unawaited(
+        pending.then((_) {
+          if (sid != _currentSessionId || epoch != _history.epoch) return;
+          _finishLoadedSlotClockBackfill();
+        }),
+      );
+      return;
+    }
+    _finishLoadedSlotClockBackfill();
+  }
+
+  void _finishLoadedSlotClockBackfill() {
     try {
       final changed = _backfillLoadedSlotClocks();
       _applyTipClock();
       if (changed) unawaited(_saveChat());
+      notifyListeners();
     } catch (e, st) {
       debugPrint('[Clock] load backfill failed: $e\n$st');
     }
@@ -167,10 +177,9 @@ extension ChatServiceMessageClock on ChatService {
   }
 
   /// Tail-delete goes through the one resolver. Nudge overwrites with
-  /// the pre-nudge clock. Otherwise the remaining tip resolves against
-  /// the deleted before (not the still-advanced live clock) so a
-  /// greeting that already stores after (Day-1 00:10) keeps it at
-  /// step 1, and an empty remaining tip takes the rewind at step 6.
+  /// the pre-nudge clock via resolved(after). Otherwise the remaining
+  /// tip resolves against the deleted before so a greeting that already
+  /// stores after keeps it at step 1.
   void _applyClockAfterDelete(ChatMessage deleted, {required bool wasTail}) {
     if (wasTail) {
       final nudged = deleted.activeMetadata?['time_nudged'] == true;
@@ -181,11 +190,11 @@ extension ChatServiceMessageClock on ChatService {
             ) ??
             slotClockBefore(deleted.activeMetadata);
         if (restored != null) {
-          final tip = _visibleTipMessage();
-          if (tip != null) _writeResolvedTipAfter(tip, restored);
-          if (_clockRunning) {
-            _timeService.applySlotClock(resolved: restored);
-          }
+          _writeSlotClock(
+            _visibleTipMessage(),
+            kind: _SlotClockWrite.resolved,
+            after: restored,
+          );
           return;
         }
       }
@@ -197,10 +206,7 @@ extension ChatServiceMessageClock on ChatService {
       if (tip != null) {
         final after = _resolveVisibleAfter(tip: tip, liveClock: rewind);
         if (after != null) {
-          _writeResolvedTipAfter(tip, after);
-          if (_clockRunning) {
-            _timeService.applySlotClock(resolved: after);
-          }
+          _writeSlotClock(tip, kind: _SlotClockWrite.resolved, after: after);
           return;
         }
       }
@@ -212,8 +218,7 @@ extension ChatServiceMessageClock on ChatService {
   void _rewindClockToPreReply(ChatMessage lastMsg) {
     if (!_clockRunning) return;
     _timeService.captureLiveClock();
-    _discoverAndPersistMessageBefore(lastMsg);
-    _timeService.rewindToBeforeIso(knownStoryClockBefore(lastMsg));
+    _rewindLiveToSlotBefore(lastMsg);
   }
 
   /// First known before for this message position. A frozen Day-1
@@ -225,7 +230,7 @@ extension ChatServiceMessageClock on ChatService {
     final snap = slotSnapClock(slot);
     // Regen pops the tip before rewind. The popped snap is still the
     // earliest-reply greeting clock when message 0 has no stamp.
-    final greeting = _openingGreetingSnap() ?? snap;
+    final greeting = _greetingClockForResolve() ?? snap;
     final known = StoryClock.parse(before);
     if (known != null &&
         snap != null &&
@@ -247,7 +252,10 @@ extension ChatServiceMessageClock on ChatService {
         before = _timeService.storyClockIso;
       }
     }
-    persistStoryClockBefore(msg, before);
+    final parsed = StoryClock.parse(before);
+    if (parsed != null) {
+      _writeSlotClock(msg, kind: _SlotClockWrite.beforeOnly, before: parsed);
+    }
   }
 
   /// Visible prefix has a user turn and a later bot reply.
@@ -292,9 +300,8 @@ extension ChatServiceMessageClock on ChatService {
     return StoryClock.representativeTime(start, tod);
   }
 
-  DateTime? _openingGreetingSnap() => frozenDetectionGreetingClock(_messages);
-
   DateTime? _nearestStoredStamp(ChatMessage tip, {DateTime? greetingClock}) {
+    if (_historyClockIncomplete) return null;
     final idx = _messages.indexWhere((m) => identical(m, tip));
     final earlierAfter = <int, DateTime>{};
     final laterBefore = <int, DateTime>{};
@@ -330,15 +337,11 @@ extension ChatServiceMessageClock on ChatService {
     final leftOpening = _prefixLeftTheOpening();
     final tip = _visibleTipMessage();
     if (tip == null) {
-      if (!leftOpening && _clockRunning) {
-        _timeService.applySlotClock(
-          resolved: _day1OfStoryStart(startDate: parentStartDate),
-        );
-      }
+      if (!leftOpening) _applyDay1Clock(startDate: parentStartDate);
       return;
     }
     _backfillLoadedSlotClocks();
-    final greetingClock = _openingGreetingSnap();
+    final greetingClock = _greetingClockForResolve();
     final slot = tip.activeMetadata;
     final guessedLive =
         slotHasCompletePair(slot) &&
@@ -351,98 +354,15 @@ extension ChatServiceMessageClock on ChatService {
             guessedLive);
     if (emptyPreUser) {
       final day1 = _day1OfStoryStart(startDate: parentStartDate);
-      _writeResolvedTipAfter(tip, day1);
-      if (_clockRunning) {
-        _timeService.applySlotClock(resolved: day1);
-      }
+      _writeSlotClock(tip, kind: _SlotClockWrite.resolved, after: day1);
+      _applyDay1Clock(startDate: parentStartDate);
       return;
     }
     final after = _resolveVisibleAfter(tip: tip, liveClock: _timeService.clock);
     if (after != null) {
-      _writeResolvedTipAfter(tip, after);
-      if (_clockRunning) {
-        _timeService.applySlotClock(resolved: after);
-      }
+      _writeSlotClock(tip, kind: _SlotClockWrite.resolved, after: after);
       return;
-    }
-    _applyTipClock();
-  }
-
-  /// THE writer. Tick / nudge / abort / seed all land here, then
-  /// [_applyTipClock].
-  void _writeSlotClock(ChatMessage? target, {required _SlotClockWrite kind}) {
-    if (target == null || target.isUser) return;
-    if (!_clockRunning) return;
-    if (kind == _SlotClockWrite.seed) {
-      final clock = _timeService.clock;
-      writeSlotClockPair(_clockWriteSlot(target), before: clock, after: clock);
-      _applyTipClock();
-      return;
-    }
-
-    final known = StoryClock.parse(knownStoryClockBefore(target));
-    final before = switch (kind) {
-      _SlotClockWrite.nudge => _timeService.clock,
-      _ => known ?? _timeService.clock,
-    };
-    final after = switch (kind) {
-      _SlotClockWrite.abort => before,
-      _ => _timeService.clock,
-    };
-
-    String? chip;
-    var clearChip = false;
-    if (kind == _SlotClockWrite.abort) {
-      clearChip = true;
-    } else if (kind == _SlotClockWrite.tick) {
-      final existing = target.activeMetadata;
-      if ((existing?['time_passed'] as String?) == 'Next morning') {
-        chip = 'Next morning';
-      } else if ((existing?['time_skip_to'] as String? ?? '').isNotEmpty) {
-        chip = null;
-      } else if (_timeService.bodyTimeLabel == 'Next morning') {
-        chip = 'Next morning';
-      } else {
-        chip = timePassedLabel(
-          minutes: after.difference(before).inMinutes,
-          nextMorning: false,
-          isSkip: false,
-        );
-      }
-    }
-
-    if (kind == _SlotClockWrite.tick || kind == _SlotClockWrite.nudge) {
-      persistStoryClockBefore(target, StoryClock.serializeClock(before));
-    }
-    final slot = _clockWriteSlot(target);
-    writeSlotClockPair(
-      slot,
-      before: before,
-      after: after,
-      timePassed: chip,
-      clearChip: clearChip,
-      timeNudged: kind == _SlotClockWrite.nudge,
-    );
-    if (kind == _SlotClockWrite.nudge && _pendingNudgeBefore != null) {
-      final from = StoryClock.serializeClock(_pendingNudgeBefore!);
-      slot['nudge_from'] = from;
-      if (target.metadata != null && !identical(target.metadata, slot)) {
-        target.metadata!['nudge_from'] = from;
-      }
-    }
-    _pendingNudgeBefore = null;
-    if (kind == _SlotClockWrite.nudge &&
-        target.metadata != null &&
-        !identical(target.metadata, target.activeMetadata)) {
-      writeSlotClockPair(
-        target.metadata!,
-        before: before,
-        after: after,
-        timeNudged: true,
-      );
     }
     _applyTipClock();
   }
 }
-
-enum _SlotClockWrite { tick, nudge, abort, seed }

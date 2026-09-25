@@ -341,7 +341,10 @@ extension ChatServiceGroupEntry on ChatService {
           );
           // Thin delegation to scanner (group greeting scan).
           _lorebookScanner.scanLatest();
-          _stampOpeningClockPair();
+          _writeSlotClock(
+            _messages.isEmpty ? null : _messages.first,
+            kind: _SlotClockWrite.seed,
+          );
           if (greetingFirstMesEmpty(group.firstMessage) &&
               greetingFirstMesEmpty(_groupCharacters.first.firstMessage)) {
             await _applyGreetingOpeningSeed(

@@ -388,8 +388,7 @@ extension ChatServiceGeneration on ChatService {
       }
       await _finalizeGenerationTurn(t);
     } catch (e) {
-      _timeService.restoreCapturedClock();
-      _applyTipClock();
+      _restoreCapturedThroughReader();
       final wasCancelled = _cancelRequested;
       _drainTimer?.cancel();
       _drainTimer = null;

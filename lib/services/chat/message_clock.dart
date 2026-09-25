@@ -150,27 +150,6 @@ void _markClockBackfillDone(List<ChatMessage> messages) {
   }
 }
 
-/// Rewrite a derived day pair only when start moved (calendar day
-/// changed). History [ownDay] never reads live TOD — a fork that
-/// re-seeds the card clock must not rewrite a history slot with a
-/// new live time of day. [alreadyGuessed] does not block this.
-bool _refreshDerivedDayPair(
-  Map<String, dynamic>? slot,
-  Map<String, dynamic> dest,
-  ChatMessage msg,
-  DateTime start,
-  DateTime? Function(Map<String, dynamic>?) ownDay,
-) {
-  final stored = slotClockAfter(slot);
-  if (stored == null) return false;
-  if (!slotDerivedAfterIsStale(slot, stored, startDate: start)) return false;
-  final day = ownDay(slot);
-  if (day == null) return false;
-  writeSlotClockPair(dest, before: day, after: day, fromDayCount: true);
-  persistStoryClockBefore(msg, StoryClock.serializeClock(day));
-  return true;
-}
-
 /// Fill missing before/after pairs. The only snap / dayCount reader.
 ///
 /// One resolver for every slot, tip included. Frozen greeting snaps
@@ -189,6 +168,24 @@ bool backfillSlotClocks(
   DateTime? startDate,
   bool floorUnstampedToDay1 = false,
 }) {
+  /// Nested so writeSlotClockPair stays on the backfillSlotClocks stack (C1).
+  bool refreshDerivedDayPair(
+    Map<String, dynamic>? slot,
+    Map<String, dynamic> dest,
+    ChatMessage msg,
+    DateTime start,
+    DateTime? Function(Map<String, dynamic>?) ownDay,
+  ) {
+    final stored = slotClockAfter(slot);
+    if (stored == null) return false;
+    if (!slotDerivedAfterIsStale(slot, stored, startDate: start)) return false;
+    final day = ownDay(slot);
+    if (day == null) return false;
+    writeSlotClockPair(dest, before: day, after: day, fromDayCount: true);
+    persistStoryClockBefore(msg, StoryClock.serializeClock(day));
+    return true;
+  }
+
   final alreadyGuessed = _firstBotBackfillDone(messages);
   final start = startDate ?? StoryClock.dateOnly(liveClock);
   final openingSnap = openingGreetingSnap(messages);
@@ -343,7 +340,7 @@ bool backfillSlotClocks(
         continue;
       }
       if (slotHasCompletePair(slot)) {
-        if (_refreshDerivedDayPair(slot, dest, msg, start, dayOf)) {
+        if (refreshDerivedDayPair(slot, dest, msg, start, dayOf)) {
           changed = true;
         }
         continue;
@@ -387,7 +384,7 @@ bool backfillSlotClocks(
         changed = true;
         continue;
       }
-      if (_refreshDerivedDayPair(meta, meta, msg, start, dayOf)) {
+      if (refreshDerivedDayPair(meta, meta, msg, start, dayOf)) {
         changed = true;
         continue;
       }

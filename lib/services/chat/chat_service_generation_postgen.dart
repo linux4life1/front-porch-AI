@@ -307,9 +307,14 @@ extension ChatServiceGenerationPostGen on ChatService {
       // Stamp the LIVE swipe map. Writing `metadata` is a no-op for
       // regen when swipeMetadata[i] is already set — activeMetadata
       // returns that slot, not the legacy field.
-      persistStoryClockBefore(
+      _writeSlotClock(
         msg,
-        knownStoryClockBefore(msg) ?? _timeService.storyClockIso,
+        kind: _SlotClockWrite.beforeOnly,
+        before:
+            StoryClock.parse(
+              knownStoryClockBefore(msg) ?? _timeService.storyClockIso,
+            ) ??
+            _timeService.clock,
       );
     }
     await _realismEvals.evaluatePhysicalStateCall(

@@ -391,7 +391,10 @@ extension ChatServiceSessionManage on ChatService {
           ),
         );
         _lorebookScanner.scanLatest();
-        _stampOpeningClockPair();
+        _writeSlotClock(
+          _messages.isEmpty ? null : _messages.first,
+          kind: _SlotClockWrite.seed,
+        );
         // Overlay 0 / inherit baseline into live emotion and slots.
         // Previously only the empty-empty path applied seed, so leftover
         // swipe fury survived New Chat on a custom opener or member-greet.
@@ -420,7 +423,10 @@ extension ChatServiceSessionManage on ChatService {
           ),
         );
         _lorebookScanner.scanLatest();
-        _stampOpeningClockPair();
+        _writeSlotClock(
+          _messages.isEmpty ? null : _messages.first,
+          kind: _SlotClockWrite.seed,
+        );
         if (_activeCharacter!.firstMessage.trim().isEmpty) {
           await _applyGreetingOpeningSeed(card: _activeCharacter!, index: 0);
         }

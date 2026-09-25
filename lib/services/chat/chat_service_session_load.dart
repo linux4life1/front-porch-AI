@@ -280,6 +280,7 @@ extension ChatServiceSessionLoad on ChatService {
     // the save chain. _loadLastSession now activates the row persona
     // before any hydrate save; the restore below still runs.
     if (_currentSessionId != sessionId) {
+      _timeService.clearCapturedClock();
       await flushPendingSaves();
       _clearTodayPointer();
     }

@@ -387,6 +387,7 @@ extension ChatServiceRegenRevert on ChatService {
       // them once — do not pull a host realism_state the guest never had.
       if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg);
       _applyTipClock();
+      _timeService.clearCapturedClock();
       await _saveChat();
       notifyListeners();
 

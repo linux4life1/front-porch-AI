@@ -114,7 +114,7 @@ extension ChatServiceReprocess on ChatService {
     try {
       await _regenerateLastMessageHeld(critique: critique);
     } catch (e) {
-      _timeService.restoreCapturedClock();
+      _restoreCapturedThroughReader();
       rethrow;
     } finally {
       _isPostGenerating = false;
@@ -249,8 +249,7 @@ extension ChatServiceReprocess on ChatService {
         regenSpeakerSid: regenSpeakerSid,
       )) {
         _messages.add(lastMsg);
-        _timeService.restoreCapturedClock();
-        _applyTipClock();
+        _restoreCapturedThroughReader();
         _restoreRealismStateForSpeaker(lastMsg);
         _restorePocketsFromStamp(lastMsg, after: true);
         return;

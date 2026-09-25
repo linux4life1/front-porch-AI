@@ -165,7 +165,10 @@ extension ChatServiceGreetingSeed on ChatService {
         _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
       }
       _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
-      _stampOpeningClockPair();
+      _writeSlotClock(
+        _messages.isEmpty ? null : _messages.first,
+        kind: _SlotClockWrite.seed,
+      );
     }
 
     if (!scheduleEval) return;
@@ -277,7 +280,10 @@ extension ChatServiceGreetingSeed on ChatService {
         _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
       }
       _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
-      _stampOpeningClockPair();
+      _writeSlotClock(
+        _messages.isEmpty ? null : _messages.first,
+        kind: _SlotClockWrite.seed,
+      );
     }
 
     if (!scheduleEval) return;
