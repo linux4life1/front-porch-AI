@@ -424,7 +424,7 @@ void main() {
       final blob =
           jsonDecode((await row()).groupRealismState) as Map<String, dynamic>;
       final perChar = blob['perChar'] as Map<String, dynamic>;
-      final mine = perChar[card.stableGroupId] as Map<String, dynamic>?;
+      final mine = perChar[groupMemberStoreId(card)] as Map<String, dynamic>?;
       return mine?['spatialStance'] as String?;
     }
 

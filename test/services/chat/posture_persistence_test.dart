@@ -352,10 +352,11 @@ void main() {
       final blob =
           jsonDecode((await row()).groupRealismState) as Map<String, dynamic>;
       final perChar = blob['perChar'] as Map<String, dynamic>;
-      // `stableGroupId` is the key ChatService writes _groupRealism under.
+      // UUID-first store key (011fe109 / 826f3a24). stableGroupId is the
+      // display name for these no-avatar members and misses the blob.
       String? stanceOf(String name) {
         final card = chat.groupCharacters.firstWhere((c) => c.name == name);
-        final mine = perChar[card.stableGroupId] as Map<String, dynamic>?;
+        final mine = perChar[groupMemberStoreId(card)] as Map<String, dynamic>?;
         return mine?['spatialStance'] as String?;
       }
 
