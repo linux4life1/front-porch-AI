@@ -3,13 +3,13 @@
 //
 // One resolver for every slot. The ladder is the contract. Live is
 // never a real stamp. History never reads live except tip TOD at
-// step 4. A non-greeting tip with nothing stored takes live above
-// its own before (clamp is the floor). A greeting with nothing
-// stored takes the next neighbour's before; a greeting that is
-// the tip then takes Day 1. History greeting stays empty so a
-// lived-in open cannot persist 09:00. A later neighbour
-// contributes its before; an earlier neighbour its after.
-// Inverted stored pairs clamp to own before.
+// step 4. A tip (including greeting-as-tip) with nothing stored
+// takes live above its own before (clamp is the floor). A history
+// greeting with nothing takes the next neighbour's before and
+// otherwise stays empty — Day 1 is the fork empty-pre-user seed,
+// not a history write. A later neighbour contributes its before;
+// an earlier neighbour its after. Inverted stored pairs clamp to
+// own before.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -143,9 +143,6 @@ bool slotSnapIsFrozen(
   return true;
 }
 
-DateTime day1StartClock(DateTime startDate) =>
-    StoryClock.representativeTime(StoryClock.dateOnly(startDate), 'morning');
-
 /// Closest earlier AFTER, else closest later BEFORE. Live is never
 /// in either map.
 DateTime? directionalNeighbourStamp({
@@ -189,17 +186,16 @@ DateTime? directionalNeighbourStamp({
 ///  4. S's own stored dayCount>1 for the DAY. Own TOD if stored,
 ///     else the nearest REAL neighbour stamp. If none: tip uses
 ///     the live time of day; history uses 09:00.
-///  5. Tip that is not the greeting, and 1–4 missed: the loaded
+///  5. Tip (including greeting-as-tip) and 1–4 missed: the loaded
 ///     session/live clock. Ranks ABOVE S's own before. Own before
 ///     (including the answering user turn) is the clamp floor, so
 ///     after = max(live, own before). History never takes live.
+///     Day 1 of the start is the fork empty-pre-user seed, not a
+///     resolver hit — a lived-in greeting-as-tip must keep live.
 ///  6. S's own before, including the answering user turn.
 ///  7. The nearest REAL neighbour stamp. A later neighbour
 ///     contributes its BEFORE; an earlier neighbour its AFTER.
-///  8. Greeting that is the chat tip, with nothing stored: Day 1
-///     of [startDate]. History greeting with nothing stays empty
-///     so a lived-in open cannot persist 09:00 onto later frozen
-///     replies.
+///  8. History with nothing: leave empty, never live.
 ///
 /// Then CLAMP: after is never earlier than S's own before, including
 /// a stored rung-1 after. A turn cannot go backward.
@@ -220,6 +216,9 @@ DateTime? resolveSlotAfter(
   bool isGreeting = false,
   bool greetingIsTip = false,
 }) {
+  // [isGreeting] is caller documentation: Day 1 is the fork seed, not
+  // a resolver hit. Greeting-as-tip is [greetingIsTip] / [isTip].
+  assert(isGreeting || !greetingIsTip);
   final before = slotClockBefore(slot) ?? answeredUserBefore;
   final start = startDate ?? StoryClock.dateOnly(liveClock);
   DateTime? hit;
@@ -252,14 +251,12 @@ DateTime? resolveSlotAfter(
               neighbourStamp: neighbourStamp,
             ),
           );
-        } else if (isTip && !isGreeting) {
+        } else if (isTip || greetingIsTip) {
           hit = liveClock;
         } else if (before != null) {
           hit = before;
         } else if (neighbourStamp != null) {
           hit = neighbourStamp;
-        } else if (isGreeting && (isTip || greetingIsTip)) {
-          hit = day1StartClock(start);
         }
       }
     }

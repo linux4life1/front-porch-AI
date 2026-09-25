@@ -175,9 +175,10 @@ bool _refreshDerivedDayPair(
 /// are not a clock. dayCount-only is a clock only when THAT message
 /// stored dayCount > 1. Day-without-TOD takes the neighbour stamp's
 /// TOD; if none, the tip uses [liveClock] and history uses 09:00.
-/// A greeting with nothing stored takes the next neighbour's before,
-/// else Day 1. [floorUnstampedToDay1] is accepted and does not floor
-/// history. Never overwrites an existing before or after. Guess
+/// A greeting with nothing stored takes the next neighbour's before.
+/// Day 1 is the fork empty-pre-user seed, not a history write.
+/// [floorUnstampedToDay1] is accepted and does not floor history.
+/// Never overwrites an existing before or after. Guess
 /// runs once per chat ([_kClockBackfillDone]) — the marker must not
 /// block a writer from refreshing a derived pair when start moved.
 bool backfillSlotClocks(
@@ -320,7 +321,9 @@ bool backfillSlotClocks(
         changed = true;
         continue;
       }
-      final tipSlot = isTip && s == msg.swipeIndex;
+      // Every swipe of the visible tip ranks as tip so a dayCount-only
+      // sibling is max(live, own before), not a history 09:00.
+      final tipSlot = isTip;
       DateTime? dayOf(Map<String, dynamic>? s) =>
           ownDay(i, s, tipSlot: tipSlot);
       final dest = existing ?? (msg.metadata ??= {});

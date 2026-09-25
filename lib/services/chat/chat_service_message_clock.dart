@@ -51,8 +51,8 @@ extension ChatServiceMessageClock on ChatService {
 
   /// One ladder for the visible tip. Uses the stored slot so load
   /// recover and abort keep step 1. Tip-live ranks above own before
-  /// (clamp floor). A greeting with nothing takes the neighbour
-  /// before, else Day 1. A far neighbour stamp stays below tip-live.
+  /// (clamp floor), greeting-as-tip included. A far neighbour stamp
+  /// stays below tip-live. Day 1 is the fork empty-pre-user seed.
   DateTime? _resolveVisibleAfter({ChatMessage? tip, DateTime? liveClock}) {
     final target = tip ?? _visibleTipMessage();
     if (target == null) return null;
