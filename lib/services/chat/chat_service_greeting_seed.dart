@@ -29,7 +29,7 @@ extension ChatServiceGreetingSeed on ChatService {
 
   /// First-greet RtR is skipped so authored emotion stays. A relationship
   /// call still has to run here so the first user send is not the
-  /// card-default trust eval (call 1 = 0 in the TestChampion pin).
+  /// card-default trust eval.
   Future<void> _runOpeningRelationshipBaseline() async {
     if (!_realismActiveThisMode) return;
     try {
