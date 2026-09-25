@@ -164,7 +164,6 @@ extension ChatServiceMessageClock on ChatService {
     } else {
       _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
     }
-    _setGuestStatus('Reply kept. Scene time and needs weren\'t updated.');
   }
 
   /// Tail-delete goes through the one resolver. Nudge overwrites with
@@ -397,7 +396,9 @@ extension ChatServiceMessageClock on ChatService {
       clearChip = true;
     } else if (kind == _SlotClockWrite.tick) {
       final existing = target.activeMetadata;
-      if ((existing?['time_skip_to'] as String? ?? '').isNotEmpty) {
+      if ((existing?['time_passed'] as String?) == 'Next morning') {
+        chip = 'Next morning';
+      } else if ((existing?['time_skip_to'] as String? ?? '').isNotEmpty) {
         chip = null;
       } else if (_timeService.bodyTimeLabel == 'Next morning') {
         chip = 'Next morning';

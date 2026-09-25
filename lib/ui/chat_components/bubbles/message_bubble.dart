@@ -123,6 +123,14 @@ class _MessageBubbleState extends State<MessageBubble> {
     });
   }
 
+  Widget _avatarLetter() {
+    final name = (character?.name ?? message.sender).trim();
+    return Text(
+      name.isNotEmpty ? name[0] : '?',
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+    );
+  }
+
   bool get hasStorage {
     try {
       Provider.of<StorageService>(context, listen: false);
@@ -195,14 +203,14 @@ class _MessageBubbleState extends State<MessageBubble> {
             CircleAvatar(
               radius: 16,
               child: characterImage == null
-                  ? const Icon(Icons.person)
+                  ? _avatarLetter()
                   : ClipOval(
                       child: Image.file(
                         characterImage!,
                         width: 32,
                         height: 32,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(Icons.person),
+                        errorBuilder: (_, _, _) => _avatarLetter(),
                       ),
                     ),
             ),

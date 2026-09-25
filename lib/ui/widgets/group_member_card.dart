@@ -293,9 +293,6 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                         child: CircleAvatar(
                           radius: widget.isExpanded ? 18 : 16,
                           backgroundColor: widget.avatarColor,
-                          backgroundImage: widget.avatarFile != null
-                              ? FileImage(widget.avatarFile!)
-                              : null,
                           child: widget.avatarFile == null
                               ? Text(
                                   widget.character.name.isNotEmpty
@@ -306,7 +303,23 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                                     fontSize: 13,
                                   ),
                                 )
-                              : null,
+                              : ClipOval(
+                                  child: Image.file(
+                                    widget.avatarFile!,
+                                    width: widget.isExpanded ? 36 : 32,
+                                    height: widget.isExpanded ? 36 : 32,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => Text(
+                                      widget.character.name.isNotEmpty
+                                          ? widget.character.name[0]
+                                          : '?',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(width: 8),

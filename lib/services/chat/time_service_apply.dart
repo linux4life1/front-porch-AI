@@ -152,6 +152,18 @@ extension TimeServiceApply on TimeService {
         isSkip: false,
         wearAwake: false,
       );
+      // Same skip ownership as detectOocTimeSkip: the post-reply eval
+      // must not add minutes, and the tick takes the time_skip_to
+      // branch so the chip names this snap instead of a 0-span
+      // "same moment" (before is stamped after the clock already moved).
+      onSetPendingRealismMetadata(
+        'time_skip_to',
+        '$displayShortDate · $displayClock',
+      );
+      final label = bodyTimeLabel;
+      if (label != null && label.isNotEmpty) {
+        onSetPendingRealismMetadata('time_passed', label);
+      }
     }
   }
 

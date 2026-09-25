@@ -412,6 +412,12 @@ extension ChatServiceReprocess on ChatService {
       if (skipTo != null && skipTo.isNotEmpty) {
         _pendingRealismMetadata ??= {};
         _pendingRealismMetadata!['time_skip_to'] = skipTo;
+        final passed =
+            lastMsg.activeMetadata?['time_passed'] as String? ??
+            preservedRejectedMeta?['time_passed'] as String?;
+        if (passed != null && passed.isNotEmpty) {
+          _pendingRealismMetadata!['time_passed'] = passed;
+        }
         _timeService.reclaimSkipOwnership();
       }
 

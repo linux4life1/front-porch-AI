@@ -287,7 +287,7 @@ class _SidebarBodyState extends State<SidebarBody> {
       isNextSpeaker: chat.nextCharacter?.name == character.name,
       isExpanded: true,
       onTap: chat.isGenerating ? () {} : () => chat.setNextCharacter(character),
-      avatarFile: character.imagePath != null
+      avatarFile: character.imagePath != null && character.imagePath!.isNotEmpty
           ? widget.resolveCharImage(character.imagePath!)
           : null,
       ringCount: chat.growthRingCountFor(character),
