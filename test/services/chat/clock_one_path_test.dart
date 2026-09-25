@@ -74,7 +74,64 @@ void main() {
     final live = DateTime.utc(2026, 7, 9, 16, 0);
     final start = DateTime.utc(2026, 6, 28);
     backfillSlotClocks([msg], liveClock: live, startDate: start);
-    expect(slotClockAfter(msg.metadata), DateTime.utc(2026, 7, 6, 16, 0));
+    expect(slotClockAfter(msg.metadata), DateTime.utc(2026, 7, 6, 14, 30));
+  });
+
+  test('dayCount-only nearest stamp is tip-backward, not first roster', () {
+    final bea = ChatMessage(
+      text: 'early bea',
+      sender: 'Bea',
+      isUser: false,
+      metadata: {
+        'realism_state': {'dayCount': 40, 'timeOfDay': 'evening'},
+      },
+    );
+    final ana = ChatMessage(
+      text: 'late ana',
+      sender: 'Ana',
+      isUser: false,
+      metadata: {
+        'realism_state': {'dayCount': 9, 'timeOfDay': 'afternoon'},
+      },
+    );
+    final live = DateTime.utc(2026, 9, 25, 22, 30);
+    final start = DateTime.utc(2026, 6, 28);
+    backfillSlotClocks([bea, ana], liveClock: live, startDate: start);
+    expect(slotClockAfter(ana.metadata), DateTime.utc(2026, 7, 6, 14, 30));
+    expect(slotClockAfter(bea.metadata), DateTime.utc(2026, 7, 6, 14, 30));
+  });
+
+  test('no stamp floors to Day 1 only when asked', () {
+    final msg = _bot('yo', {});
+    final live = DateTime.utc(2026, 9, 25, 22, 30);
+    final start = DateTime.utc(2026, 6, 18);
+    backfillSlotClocks(
+      [msg],
+      liveClock: live,
+      startDate: start,
+      floorUnstampedToDay1: true,
+    );
+    expect(slotClockAfter(msg.metadata), DateTime.utc(2026, 6, 18, 22, 30));
+    final lived = _bot('still here', {});
+    backfillSlotClocks([lived], liveClock: live, startDate: start);
+    expect(slotClockAfter(lived.metadata), live);
+  });
+
+  test('dayCount-derived pair refreshes when start moves', () {
+    final msg = _bot('Day five.', {'story_day': 5});
+    final live = DateTime.utc(2026, 9, 25, 22, 30);
+    backfillSlotClocks(
+      [msg],
+      liveClock: live,
+      startDate: DateTime.utc(2026, 9, 1),
+    );
+    expect(slotClockAfter(msg.metadata), DateTime.utc(2026, 9, 5, 22, 30));
+    backfillSlotClocks(
+      [msg],
+      liveClock: live,
+      startDate: DateTime.utc(2026, 6, 1),
+    );
+    expect(slotClockAfter(msg.metadata), DateTime.utc(2026, 6, 5, 22, 30));
   });
 
   test('v1.4 before + later snap fills after from the snap', () {

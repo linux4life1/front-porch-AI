@@ -51,6 +51,7 @@ void writeSlotClockPair(
   String? timePassed,
   bool clearChip = false,
   bool timeNudged = false,
+  bool fromDayCount = false,
 }) {
   slot['story_clock_before'] = StoryClock.serializeClock(before);
   slot['story_clock_after'] = StoryClock.serializeClock(after);
@@ -60,6 +61,11 @@ void writeSlotClockPair(
     slot['time_passed'] = timePassed;
   }
   if (timeNudged) slot['time_nudged'] = true;
+  if (fromDayCount) {
+    slot['clock_from_day_count'] = true;
+  } else {
+    slot.remove('clock_from_day_count');
+  }
 }
 
 /// Greeting-era snap, or a snap that predates this message's before.
@@ -87,6 +93,18 @@ int? _slotDayCount(Map<String, dynamic>? slot) {
   }
   final top = slot['story_day'];
   if (top is num) return top.toInt();
+  return null;
+}
+
+String? _slotTimeOfDay(Map<String, dynamic>? slot) {
+  if (slot == null) return null;
+  final rs = slot['realism_state'];
+  if (rs is Map && rs['timeOfDay'] is String) {
+    final tod = rs['timeOfDay'] as String;
+    if (tod.isNotEmpty) return tod;
+  }
+  final top = slot['timeOfDay'] ?? slot['time_of_day'];
+  if (top is String && top.isNotEmpty) return top;
   return null;
 }
 
@@ -124,9 +142,13 @@ DateTime _dayCountClock({
   required int dayCount,
   required DateTime liveClock,
   required DateTime startDate,
+  String? timeOfDay,
 }) {
   final day = dayCount.clamp(1, 9999);
   final date = StoryClock.dateOnly(startDate).add(Duration(days: day - 1));
+  if (timeOfDay != null && timeOfDay.isNotEmpty) {
+    return StoryClock.representativeTime(date, timeOfDay);
+  }
   return DateTime.utc(
     date.year,
     date.month,
@@ -141,17 +163,23 @@ DateTime _dayCountClock({
 /// Tip (last bot, active slot) takes [liveClock] unless it already has
 /// after. History takes the nearest real, non-frozen time. Frozen
 /// greeting snaps (any hour) are not a clock. dayCount-only is a clock
-/// only when no storyClock exists on any message. Never Day 1 unless
-/// [liveClock] (or that dayCount) really is Day 1. Idempotent.
+/// only when no storyClock exists on any message — nearest from the
+/// tip backward, at that stamp's timeOfDay. No stamp anywhere floors
+/// to Day 1 of [startDate] only when [floorUnstampedToDay1] (a
+/// synthesised session row, not a lived-in clock). Idempotent against
+/// the same start; a later start change refreshes dayCount-derived
+/// pairs so fork sees Day N of the current anchor.
 bool backfillSlotClocks(
   List<ChatMessage> messages, {
   required DateTime liveClock,
   DateTime? startDate,
+  bool floorUnstampedToDay1 = false,
 }) {
   final start = startDate ?? StoryClock.dateOnly(liveClock);
   DateTime? greetingClock;
   var anyStoryClock = false;
   int? dayCountOnly;
+  String? dayCountTod;
   var tipIndex = -1;
   for (var i = 0; i < messages.length; i++) {
     final msg = messages[i];
@@ -159,13 +187,26 @@ bool backfillSlotClocks(
     tipIndex = i;
     for (final slot in _messageSlots(msg)) {
       if (_snapStoryClock(slot) != null ||
-          slotClockAfter(slot) != null ||
-          slotClockBefore(slot) != null) {
+          (slotHasCompletePair(slot) &&
+              slot?['clock_from_day_count'] != true)) {
         anyStoryClock = true;
       }
       greetingClock ??= _snapStoryClock(slot);
-      dayCountOnly ??= _slotDayCount(slot);
     }
+  }
+  for (var i = messages.length - 1; i >= 0; i--) {
+    final msg = messages[i];
+    if (msg.isUser || msg.sender == 'System') continue;
+    var found = false;
+    for (final slot in _messageSlots(msg)) {
+      final dc = _slotDayCount(slot);
+      if (dc == null) continue;
+      dayCountOnly = dc;
+      dayCountTod = _slotTimeOfDay(slot);
+      found = true;
+      break;
+    }
+    if (found) break;
   }
 
   final realByIndex = <int, DateTime>{};
@@ -194,11 +235,13 @@ bool backfillSlotClocks(
     return found;
   }
 
-  final dayClock = !anyStoryClock && dayCountOnly != null
+  final dayClock =
+      !anyStoryClock && (dayCountOnly != null || floorUnstampedToDay1)
       ? _dayCountClock(
-          dayCount: dayCountOnly,
+          dayCount: dayCountOnly ?? 1,
           liveClock: liveClock,
           startDate: start,
+          timeOfDay: dayCountTod,
         )
       : null;
 
@@ -219,43 +262,78 @@ bool backfillSlotClocks(
           ? msg.swipeMetadata[s]
           : null;
       final slot = existing ?? (s == 0 ? msg.metadata : null);
-      if (slotHasCompletePair(slot)) continue;
+      if (slotHasCompletePair(slot)) {
+        final derived = slot?['clock_from_day_count'] == true;
+        if (!derived || dayClock == null || slotClockAfter(slot) == dayClock) {
+          continue;
+        }
+      }
       final tipSlot = isTip && s == msg.swipeIndex;
       final after =
+          dayClock ??
           slotClockAfter(slot) ??
           _realTimeOnSlot(slot, greetingClock: greetingClock) ??
           fallback(i, tipSlot: tipSlot);
       final mins = minutesRecordedForClockRewind(slot);
-      final before =
-          slotClockBefore(slot) ??
-          (mins != null && mins > 0
-              ? after.subtract(Duration(minutes: mins))
-              : after);
+      final before = dayClock != null
+          ? (mins != null && mins > 0
+                ? after.subtract(Duration(minutes: mins))
+                : after)
+          : (slotClockBefore(slot) ??
+                (mins != null && mins > 0
+                    ? after.subtract(Duration(minutes: mins))
+                    : after));
+      void write(Map<String, dynamic> dest) {
+        writeSlotClockPair(
+          dest,
+          before: before,
+          after: after,
+          fromDayCount: dayClock != null,
+        );
+      }
+
       if (existing != null) {
-        writeSlotClockPair(existing, before: before, after: after);
+        write(existing);
       } else if (s == 0) {
         msg.metadata ??= {};
-        writeSlotClockPair(msg.metadata!, before: before, after: after);
+        write(msg.metadata!);
       } else {
         while (msg.swipeMetadata.length <= s) {
           msg.swipeMetadata.add(null);
         }
         final created = <String, dynamic>{};
-        writeSlotClockPair(created, before: before, after: after);
+        write(created);
         msg.swipeMetadata[s] = created;
       }
       persistStoryClockBefore(msg, StoryClock.serializeClock(before));
       changed = true;
     }
-    if (!slotHasCompletePair(msg.metadata) && msg.metadata != null) {
-      final after =
-          slotClockAfter(msg.metadata) ??
-          _realTimeOnSlot(msg.metadata, greetingClock: greetingClock) ??
-          fallback(i, tipSlot: isTip);
-      final before = slotClockBefore(msg.metadata) ?? after;
-      writeSlotClockPair(msg.metadata!, before: before, after: after);
-      persistStoryClockBefore(msg, StoryClock.serializeClock(before));
-      changed = true;
+    if (msg.metadata != null) {
+      final meta = msg.metadata!;
+      final derived = meta['clock_from_day_count'] == true;
+      final staleDerived =
+          derived && dayClock != null && slotClockAfter(meta) != dayClock;
+      if (slotHasCompletePair(meta) && !staleDerived) {
+        continue;
+      }
+      if (!slotHasCompletePair(meta) || staleDerived) {
+        final after =
+            dayClock ??
+            slotClockAfter(meta) ??
+            _realTimeOnSlot(meta, greetingClock: greetingClock) ??
+            fallback(i, tipSlot: isTip);
+        final before = dayClock != null
+            ? after
+            : (slotClockBefore(meta) ?? after);
+        writeSlotClockPair(
+          meta,
+          before: before,
+          after: after,
+          fromDayCount: dayClock != null,
+        );
+        persistStoryClockBefore(msg, StoryClock.serializeClock(before));
+        changed = true;
+      }
     }
   }
   return changed;

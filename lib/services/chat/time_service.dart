@@ -306,7 +306,14 @@ class TimeService {
 
   void applySlotClock({DateTime? resolved, String? after}) {
     final clock = resolved ?? StoryClock.parse(after);
-    if (clock != null) _setClockPullingStartDate(clock);
+    if (clock == null) return;
+    _clock = DateTime.utc(
+      clock.year,
+      clock.month,
+      clock.day,
+      clock.hour,
+      clock.minute,
+    );
   }
 
   /// Class door for V2 / ext-seed. Callers that only have the [TimeService]

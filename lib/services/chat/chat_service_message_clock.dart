@@ -39,6 +39,7 @@ extension ChatServiceMessageClock on ChatService {
       _messages,
       liveClock: _timeService.clock,
       startDate: _timeService.startDate,
+      floorUnstampedToDay1: _timeService.canonicalClockWasSynthesised,
     );
   }
 

@@ -83,7 +83,8 @@ void main() {
     final regen = File(
       'lib/services/chat/chat_service_reprocess.dart',
     ).readAsStringSync();
-    expect(regen, contains('captureLiveClock'));
+    expect(regen, contains('_applyTipClock'));
+    expect(regen, isNot(contains('captureLiveClock')));
     expect(regen, isNot(contains('beginUserTurnClock()')));
     final send = File(
       'lib/services/chat/chat_service_send.dart',

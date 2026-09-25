@@ -102,6 +102,7 @@ void main() {
         id: 'mem-ana',
         groupId: 'grp-fork',
         name: 'Ana',
+        avatarFilename: const Value('Ana.png'),
         frontPorchExtensions: Value(
           _memberExt(worn: const ['red scarf'], carrying: const ['house key']),
         ),
@@ -112,6 +113,7 @@ void main() {
         id: 'mem-bea',
         groupId: 'grp-fork',
         name: 'Bea',
+        avatarFilename: const Value('Bea.png'),
         frontPorchExtensions: Value(
           _memberExt(worn: const ['blue coat'], carrying: const ['notebook']),
         ),
@@ -258,7 +260,11 @@ void main() {
 
       expect(chat.getAffectionForGroupCharacter(ana), 200);
       expect(chat.getAffectionForGroupCharacter(bea), 180);
-      expect(chat.timeService.dayCount, 99);
+      expect(
+        chat.timeService.dayCount,
+        9,
+        reason: 'one-path load applies tip.after (Ana day 9), not session 99',
+      );
 
       await chat.forkFromMessage(4);
 
@@ -365,7 +371,11 @@ void main() {
 
       final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
       final bea = chat.groupCharacters.firstWhere((c) => c.name == 'Bea');
-      expect(chat.timeService.dayCount, 99, reason: 'pre-fork tip poison');
+      expect(
+        chat.timeService.dayCount,
+        1,
+        reason: 'one-path load floors stamp-less synthesised clock to Day 1',
+      );
       expect(chat.getAffectionForGroupCharacter(ana), 200);
 
       await chat.forkFromMessage(2);
@@ -527,6 +537,7 @@ void main() {
           id: 'mem-ana',
           groupId: 'grp-fork',
           name: 'Ana',
+          avatarFilename: const Value('Ana.png'),
         ),
       );
       await db.insertGroupMember(
@@ -534,6 +545,7 @@ void main() {
           id: 'mem-bea',
           groupId: 'grp-fork',
           name: 'Bea',
+          avatarFilename: const Value('Bea.png'),
         ),
       );
       await db.insertSession(
@@ -578,7 +590,11 @@ void main() {
         groupRepo: GroupChatRepository(storage, db),
       );
 
-      expect(chat.timeService.dayCount, 99);
+      expect(
+        chat.timeService.dayCount,
+        1,
+        reason: 'one-path load floors empty-blob synthesised clock to Day 1',
+      );
       final anchorBefore = chat.timeService.storyStartDateIso;
       await chat.forkFromMessage(1);
       expect(
