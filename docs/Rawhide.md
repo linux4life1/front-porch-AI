@@ -9,6 +9,10 @@ Last shipped nightly: `rawhide.20260921.f50f22e`. Everything below is unreleased
 
 - ⏱️ **A normal send always moves the story clock** — at least a minute or two, and a ⏱ chip names it. Same moment only when the scene is one continuous instant. Passage of Time is the only driver (Realism off still ticks). Continue does not tick. Needs bars stay put unless the scene itself moves them; a short no-action turn says “No needs affected.” Same on the phone.
 - ⏱️ **Forking from the opening greeting goes back to Day 1 of that chat’s start** — not the day you had reached later in the parent chat. Forking the latest reply still keeps that day. Same on the phone.
+- ⏱️ **Older replies keep their own day** — swipe or fork a Day 2 line and you land on Day 2, not whatever day the chat has reached now. Same on the phone.
+- ⏱️ **Porch Life off means the clock does not move** — including when you fork. Same on the phone.
+- ⏱️ **The ⏱ chip matches the time that reply covers** — if someone was away and the clock kept moving, the chip names the whole span, not just the last beat. Same on the phone.
+- 👥 **A group member without a saved face no longer breaks the chat** — they show as a letter, and the conversation still opens. Same on the phone.
 
 - 🛠️ **Waifu Coder can use the same recipe cards as chat** — drop JSON in the library `tools` folder, opt in from the Waifu harness, and they show up as tools. Skills are a separate Waifu-only drawer (`skills/<name>/SKILL.md`). Not Docker, not extra MCP servers. Same on Porch Life.
 

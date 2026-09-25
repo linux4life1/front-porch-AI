@@ -169,7 +169,7 @@ extension ChatServiceGroupEntry on ChatService {
             debugPrint(
               '[ChatService] Group member ${m.name} has no avatar file at $p — including without image',
             );
-            resolved.add(m.toCharacterCard(resolvedImagePath: p));
+            resolved.add(m.toCharacterCard(resolvedImagePath: ''));
           }
         } else {
           // No avatar filename at all — still include so the user sees the member.

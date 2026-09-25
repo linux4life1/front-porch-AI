@@ -173,8 +173,9 @@ extension _ChatPageSidebar on _ChatPageState {
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final p = cast[i];
-          final img = p.card.imagePath != null
-              ? _resolveCharImage(p.card.imagePath!)
+          final path = p.card.imagePath;
+          final img = (path != null && path.isNotEmpty)
+              ? _resolveCharImage(path)
               : null;
           return CastRosterChip(
             name: p.name,

@@ -76,36 +76,12 @@ class GroupCardExporter {
       memberCards.add(m.toCharacterCard(resolvedImagePath: resolvedPath ?? ''));
     }
 
-    // Snapshot per-character objectives so they travel with the card.
-    final memberObjectives = <String, List<Map<String, dynamic>>>{};
-    try {
-      for (final card in memberCards) {
-        final charId = groupMemberStoreId(card);
-        final objs = await _db.getObjectivesForCharacter(charId);
-        if (objs.isNotEmpty) {
-          memberObjectives[charId] = objs
-              .map(
-                (o) => {
-                  'objective': o.objective,
-                  'tasks': o.tasks,
-                  'isPrimary': o.isPrimary,
-                  'active': o.active,
-                  'checkFrequency': o.checkFrequency,
-                  'injectionDepth': o.injectionDepth,
-                },
-              )
-              .toList();
-        }
-      }
-    } catch (_) {
-      // Best-effort objectives snapshot.
-    }
-
     // Embed current avatar images (or synthesize full placeholder PNGs with
     // complete V2 metadata) as base64 for perfect roundtrip fidelity. Every
     // member gets an avatar_base64 + an _original_stable_id (file basename when a
     // real avatar existed, else the group_members UUID) so realism relationships,
     // objectives, prompts etc. remap correctly even for avatar-less members.
+    final memberObjectives = <String, List<Map<String, dynamic>>>{};
     final rawMembersWithAvatars = <Map<String, dynamic>>[];
     for (var i = 0; i < memberCards.length; i++) {
       final card = memberCards[i];
@@ -142,6 +118,31 @@ class GroupCardExporter {
 
       if (stableIdForRemap != null && stableIdForRemap.isNotEmpty) {
         raw['_original_stable_id'] = stableIdForRemap;
+      }
+
+      try {
+        final storeId = groupMemberStoreId(card);
+        var objs = await _db.getObjectivesForCharacter(storeId);
+        if (objs.isEmpty && card.stableGroupId != storeId) {
+          objs = await _db.getObjectivesForCharacter(card.stableGroupId);
+        }
+        if (objs.isNotEmpty) {
+          final key = stableIdForRemap ?? storeId;
+          memberObjectives[key] = objs
+              .map(
+                (o) => {
+                  'objective': o.objective,
+                  'tasks': o.tasks,
+                  'isPrimary': o.isPrimary,
+                  'active': o.active,
+                  'checkFrequency': o.checkFrequency,
+                  'injectionDepth': o.injectionDepth,
+                },
+              )
+              .toList();
+        }
+      } catch (_) {
+        // Best-effort objectives snapshot.
       }
 
       // Portable library origin (distinct from _original_stable_id, which is the

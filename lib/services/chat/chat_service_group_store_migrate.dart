@@ -42,7 +42,34 @@ extension ChatServiceGroupStoreMigrate on ChatService {
         }());
       }
     }
+    unawaited(_rekeyGroupObjectiveRows(members));
     return sessionChanged;
+  }
+
+  /// Session-scoped rows always move. Card-level rows move only when
+  /// no library character already owns that legacy key.
+  Future<void> _rekeyGroupObjectiveRows(Iterable<CharacterCard> members) async {
+    final sid = _currentSessionId;
+    try {
+      for (final member in members) {
+        final dest = groupMemberStoreId(member);
+        final legacy = member.stableGroupId;
+        if (dest == legacy) continue;
+        if (sid != null) {
+          await _db.rekeyObjectiveCharacterId(legacy, dest, chatId: sid);
+        }
+        final clash =
+            _characterRepository?.characters.any(
+              (c) => c.stableGroupId == legacy && c.dbId != member.dbId,
+            ) ??
+            false;
+        if (!clash) {
+          await _db.rekeyObjectiveCharacterId(legacy, dest);
+        }
+      }
+    } catch (e) {
+      debugPrint('[GroupStore] Failed to rekey objective rows: $e');
+    }
   }
 
   bool _rekeyGroupMemberRelationships(Iterable<CharacterCard> members) {

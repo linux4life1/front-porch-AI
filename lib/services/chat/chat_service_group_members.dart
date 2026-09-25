@@ -156,7 +156,9 @@ extension ChatServiceGroupMembers on ChatService {
           'avatars',
           m.avatarFilename!,
         );
-        resolved.add(m.toCharacterCard(resolvedImagePath: p));
+        resolved.add(
+          m.toCharacterCard(resolvedImagePath: await File(p).exists() ? p : ''),
+        );
       } else {
         resolved.add(m.toCharacterCard(resolvedImagePath: ''));
       }
@@ -195,7 +197,9 @@ extension ChatServiceGroupMembers on ChatService {
           'avatars',
           m.avatarFilename!,
         );
-        resolved.add(m.toCharacterCard(resolvedImagePath: p));
+        resolved.add(
+          m.toCharacterCard(resolvedImagePath: await File(p).exists() ? p : ''),
+        );
       } else {
         resolved.add(m.toCharacterCard(resolvedImagePath: ''));
       }

@@ -202,6 +202,7 @@ extension ChatServiceMessageClock on ChatService {
   /// backfill may have painted the parent's live Day N. A lived-in
   /// snap or a pair already on Day 1 is left for [_applyTipClock].
   void _applyForkPointClock() {
+    if (!_clockRunning) return;
     final tip = _visibleTipMessage();
     if (tip == null) return;
     if (_prefixLeftTheOpening()) {
@@ -226,13 +227,13 @@ extension ChatServiceMessageClock on ChatService {
   /// [_applyTipClock].
   void _writeSlotClock(ChatMessage? target, {required _SlotClockWrite kind}) {
     if (target == null || target.isUser) return;
+    if (!_clockRunning) return;
     if (kind == _SlotClockWrite.seed) {
       final clock = _timeService.clock;
       writeSlotClockPair(_clockWriteSlot(target), before: clock, after: clock);
       _applyTipClock();
       return;
     }
-    if (!_clockRunning) return;
 
     final known = StoryClock.parse(knownStoryClockBefore(target));
     final before = switch (kind) {
@@ -253,7 +254,11 @@ extension ChatServiceMessageClock on ChatService {
       if ((existing?['time_skip_to'] as String? ?? '').isNotEmpty) {
         chip = null;
       } else {
-        chip = _timeService.bodyTimeLabel;
+        chip = timePassedLabel(
+          minutes: after.difference(before).inMinutes,
+          nextMorning: false,
+          isSkip: false,
+        );
       }
     }
 
