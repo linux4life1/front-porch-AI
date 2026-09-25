@@ -180,6 +180,7 @@ extension ChatServiceMessageClock on ChatService {
       _applyTipClock();
     } else {
       _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.abort);
+      _applyTipClock();
     }
   }
 
@@ -374,9 +375,7 @@ extension ChatServiceMessageClock on ChatService {
         (!slotHasStoredClockData(slot, greetingClock: greetingClock) ||
             guessedLive);
     if (emptyPreUser) {
-      final day1 = _day1OfStoryStart(startDate: parentStartDate);
-      _writeSlotClock(tip, kind: _SlotClockWrite.resolved, after: day1);
-      _applyDay1Clock(startDate: parentStartDate);
+      _applyDay1Clock(startDate: parentStartDate, tip: tip);
       return;
     }
     final after = _resolveVisibleAfter(tip: tip, liveClock: _timeService.clock);

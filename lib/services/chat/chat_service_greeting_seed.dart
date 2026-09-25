@@ -27,6 +27,14 @@ extension ChatServiceGreetingSeed on ChatService {
   bool get _isOpeningGreetingChat =>
       _messages.length == 1 && !_messages.first.isUser;
 
+  /// Existing chat start. Null when start is still today so a new
+  /// chat can seed today once. Never re-anchors an older start.
+  String? _keptPersistedStartIso() {
+    final loaded = StoryClock.dateOnly(_timeService.startDate);
+    if (loaded == StoryClock.todayAnchor()) return null;
+    return _timeService.storyStartDateIso;
+  }
+
   GreetingOpeningBase _openingBaseFor(
     CharacterCard card, {
     required String? memberId,
@@ -118,7 +126,7 @@ extension ChatServiceGreetingSeed on ChatService {
       _timeService.seedFromV2OrExt(
         dayCount: resolved.dayCount,
         timeOfDay: resolved.timeOfDay,
-        storyStartDate: resolved.storyStartDate,
+        storyStartDate: resolved.storyStartDate ?? _keptPersistedStartIso(),
         storyStartTime: resolved.storyStartTime,
       );
       _applySeededPassageOfTime();
@@ -251,7 +259,7 @@ extension ChatServiceGreetingSeed on ChatService {
       _timeService.seedFromV2OrExt(
         dayCount: timeResolved.dayCount,
         timeOfDay: timeResolved.timeOfDay,
-        storyStartDate: timeResolved.storyStartDate,
+        storyStartDate: timeResolved.storyStartDate ?? _keptPersistedStartIso(),
         storyStartTime: timeResolved.storyStartTime,
       );
       _applySeededPassageOfTime();

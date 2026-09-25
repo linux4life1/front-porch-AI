@@ -42,8 +42,16 @@ extension TimeServiceLoad on TimeService {
       _startDate = StoryClock.dateOnly(anchor);
       current = _startDate.add(Duration(days: safeDay - 1));
     } else {
-      current = StoryClock.todayAnchor();
-      _startDate = current.subtract(Duration(days: safeDay - 1));
+      final loaded = StoryClock.dateOnly(_startDate);
+      final today = StoryClock.todayAnchor();
+      if (loaded != today) {
+        // Existing chat already has a persisted start. Do not
+        // re-anchor to today on open, fork, or greeting re-seed.
+        current = loaded.add(Duration(days: safeDay - 1));
+      } else {
+        current = today;
+        _startDate = current.subtract(Duration(days: safeDay - 1));
+      }
     }
     final hhmm = StoryClock.parseHHMM(storyStartTime);
     _clock = hhmm != null

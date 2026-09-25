@@ -129,13 +129,18 @@ extension ChatServiceMessageClockWrite on ChatService {
     _applyTipClock();
   }
 
-  /// No-tip Day-1 fork / empty-pre-user share this live write.
-  /// The only [applySlotClock] outside the tip reader and regen rewind.
-  void _applyDay1Clock({DateTime? startDate}) {
+  /// Day 1 of the persisted start. Empty-pre-user and the no-tip
+  /// fork share this. Tip present: write the pair (applyTip inside
+  /// the writer). No tip: live only — the only [applySlotClock]
+  /// outside the tip reader and regen rewind.
+  void _applyDay1Clock({DateTime? startDate, ChatMessage? tip}) {
     if (!_clockRunning) return;
-    _timeService.applySlotClock(
-      resolved: _day1OfStoryStart(startDate: startDate),
-    );
+    final day1 = _day1OfStoryStart(startDate: startDate);
+    if (tip != null) {
+      _writeSlotClock(tip, kind: _SlotClockWrite.resolved, after: day1);
+      return;
+    }
+    _timeService.applySlotClock(resolved: day1);
   }
 
   /// Regen rewind: persist the slot before, then move live to it.

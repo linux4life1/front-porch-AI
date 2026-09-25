@@ -340,8 +340,12 @@ extension ChatServiceGenerationPostGen on ChatService {
       );
     } else {
       await _timeService.applyReconciledClock(named);
+      // K-A: overwrite the slot's own before so the stored pair is
+      // named/named (07:30/07:30). Clamp still holds. Continue
+      // already stamps through _writeSlotClock above.
+      _writeSlotClock(msg, kind: _SlotClockWrite.tick);
     }
-    if (_isLiteTurn(t) && _clockRunning) {
+    if (named == null && _isLiteTurn(t) && _clockRunning) {
       _writeSlotClock(msg, kind: _SlotClockWrite.tick);
     }
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);

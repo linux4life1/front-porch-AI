@@ -131,6 +131,9 @@ bool _shouldRepairWrongGreetingPair(
   if (snap == null) return false;
   final after = slotClockAfter(slot)!;
   final before = slotClockBefore(slot)!;
+  // A real later after must never be pulled back to an older snap
+  // (14:00 snap, 16:00 after). Chip-less skip is the named case.
+  if (after.isAfter(snap)) return false;
   if (after == snap || after == before) return false;
   if ((slot?['time_passed'] as String?)?.isNotEmpty == true) return false;
   if (slot?['time_nudged'] == true) return false;
@@ -460,10 +463,16 @@ bool _skipLivedInGreetingDay1(
     if (messages[j].sender == 'System') continue;
     for (final slot in _messageSlots(messages[j])) {
       final snap = slotSnapClock(slot);
-      if (snap != null &&
-          slotSnapIsFrozen(snap, greetingClock: greetingClock)) {
+      if (snap == null) continue;
+      if (slotSnapIsFrozen(snap, greetingClock: greetingClock)) {
         return true;
       }
+      // Lived-in leftover: later snap, no later before. Not a
+      // neighbour pair — do not persist Day 1 09:00 on the greeting.
+      final laterBefore =
+          slotClockBefore(slot) ??
+          StoryClock.parse(knownStoryClockBefore(messages[j]));
+      if (laterBefore == null) return true;
     }
   }
   return false;
