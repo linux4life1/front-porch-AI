@@ -275,7 +275,7 @@ void main() {
       t.rewindToBeforeIso(_day1NineIso);
       expect(t.clock, DateTime.utc(2026, 6, 28, 9, 0));
 
-      t.restoreTimeFromRealismState({'storyClock': _livedIso});
+      t.applySlotClock(after: _livedIso);
       t.rewindToBeforeIso(null);
       expect(t.clock, _lived);
 

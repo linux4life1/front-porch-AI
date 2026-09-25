@@ -8,12 +8,28 @@
 // Design: docs/design/story-calendar.md.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart'
     show LlmToolCall, LlmToolResponse;
+
+/// One-path reader: backfill the slot pair, then [TimeService.applySlotClock]
+/// from `story_clock_after` — the same door `_applyTipClock` uses.
+void applyOnePathClock(TimeService t, Map<String, dynamic> realism) {
+  final user = ChatMessage(text: 'Hi.', sender: 'You', isUser: true);
+  final bot = ChatMessage(
+    text: 'Ok.',
+    sender: 'Nia',
+    isUser: false,
+    metadata: {'realism_state': realism},
+  );
+  backfillSlotClocks([user, bot], liveClock: t.clock, startDate: t.startDate);
+  t.applySlotClock(resolved: slotClockAfter(bot.metadata));
+}
 
 TimeService makeService({
   void Function(String, dynamic)? onPending,
@@ -283,7 +299,7 @@ void main() {
     test('restore prefers canonical storyClock; legacy keys synthesize', () {
       final t = makeService();
       seedFixed(t);
-      t.restoreTimeFromRealismState({
+      applyOnePathClock(t, {
         'timeOfDay': 'morning',
         'dayCount': 9,
         'storyClock': '2026-07-04T06:10:00.000Z',
@@ -293,7 +309,7 @@ void main() {
       expect(t.dayCount, 5);
 
       // Legacy-only snapshot (old message): synthesized, day preserved.
-      t.restoreTimeFromRealismState({'timeOfDay': 'evening', 'dayCount': 2});
+      applyOnePathClock(t, {'timeOfDay': 'evening', 'dayCount': 2});
       expect(t.timeOfDay, 'evening');
       expect(t.dayCount, 2);
     });

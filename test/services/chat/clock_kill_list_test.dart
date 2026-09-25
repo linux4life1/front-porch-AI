@@ -144,10 +144,21 @@ void main() {
 
   test('K5: captured restore puts start date back with the clock', () {
     final t = time();
-    t.restoreTimeFromRealismState({
-      'storyClock': '2026-09-25T00:10:00.000Z',
-      'storyStartDate': '2026-09-25',
-    });
+    final tip = ChatMessage(
+      text: 'Late.',
+      sender: 'Nia',
+      isUser: false,
+      metadata: {
+        'story_clock_before': '2026-09-25T00:10:00.000Z',
+        'story_clock_after': '2026-09-25T00:10:00.000Z',
+        'realism_state': {
+          'storyClock': '2026-09-25T00:10:00.000Z',
+          'storyStartDate': '2026-09-25',
+        },
+      },
+    );
+    backfillSlotClocks([tip], liveClock: t.clock, startDate: t.startDate);
+    t.applySlotClock(resolved: slotClockAfter(tip.metadata));
     expect(t.startDate, DateTime.utc(2026, 9, 25));
     t.captureLiveClock();
     t.rewindToBeforeIso('2026-09-24T23:40:00.000Z');

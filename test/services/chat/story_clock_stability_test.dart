@@ -42,8 +42,24 @@
 // Everything here is deterministic: fixed UTC dates, no wall clock, no LLM.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
+
+/// One-path reader: backfill then [TimeService.applySlotClock] from
+/// `story_clock_after` — the same door `_applyTipClock` uses on swipe.
+void applyOnePathClock(TimeService t, Map<String, dynamic> realism) {
+  final user = ChatMessage(text: 'Hi.', sender: 'You', isUser: true);
+  final bot = ChatMessage(
+    text: 'Ok.',
+    sender: 'Nia',
+    isUser: false,
+    metadata: {'realism_state': realism},
+  );
+  backfillSlotClocks([user, bot], liveClock: t.clock, startDate: t.startDate);
+  t.applySlotClock(resolved: slotClockAfter(bot.metadata));
+}
 
 TimeService makeService({void Function(String, dynamic)? onPending}) =>
     TimeService(
@@ -157,7 +173,7 @@ void main() {
       seedFixed(t); // Day 1 = 2026-06-30.
 
       // An old message carries only "Day 2, evening" — no storyClock at all.
-      t.restoreTimeFromRealismState({'timeOfDay': 'evening', 'dayCount': 2});
+      applyOnePathClock(t, {'timeOfDay': 'evening', 'dayCount': 2});
 
       expect(
         t.clock,
@@ -175,7 +191,13 @@ void main() {
     test('the snapshot may still re-anchor Day 1 when it carries one', () {
       final t = makeService();
       seedFixed(t);
-      t.restoreTimeFromRealismState({
+      t.loadTimeScalars(
+        timeOfDay: 'evening',
+        dayCount: 2,
+        startDayOfWeek: 1,
+        storyStartDate: '1887-06-01',
+      );
+      applyOnePathClock(t, {
         'timeOfDay': 'morning',
         'dayCount': 2,
         'storyStartDate': '1887-06-01',
