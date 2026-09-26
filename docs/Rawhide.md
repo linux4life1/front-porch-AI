@@ -7,6 +7,7 @@ Last shipped nightly: `rawhide.20260921.f50f22e`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🔄 **Reprocess Needs only lists the needs that are on** for that speaker — disabled ones stay hidden, on desktop and the phone. Same on the phone.
 - ⏱️ **A normal send always moves the story clock** — at least a minute or two, and a ⏱ chip names it. Same moment only when the scene is one continuous instant. Passage of Time is the only driver (Realism off still ticks). Continue does not tick. Needs bars stay put unless the scene itself moves them; a short no-action turn says “No needs affected.” Same on the phone.
 - ⏱️ **Forking from the opening greeting goes back to Day 1 of that chat’s start** — not the day you had reached later in the parent chat. Forking the latest reply still keeps that day. Same on the phone.
 - ⏱️ **Older replies keep their own day** — swipe or fork a Day 2 line and you land on Day 2, not whatever day the chat has reached now. Same on the phone.

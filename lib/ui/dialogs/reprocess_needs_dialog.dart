@@ -24,173 +24,244 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+const kReprocessNeedsIntro =
+    'Enter your critique to correct the Needs Simulation deltas. The Realism Director will re-evaluate the scene based on this input.';
+const kReprocessNeedsHint =
+    'e.g., They rested on the sofa — energy should have improved.';
+const kReprocessNeedsEmptyHelper =
+    'Nothing selected — every need shown here is re-evaluated.';
+const kReprocessNeedsSomeHelper =
+    'Only the selected needs change. The others keep their current deltas.';
+
+String reprocessNeedsOneEnabledLine(String need, String name) {
+  final label = needTitle(need);
+  return 'Only $label is on for $name, so only $label is re-evaluated.';
+}
+
+String reprocessNeedsZeroLine(String name) =>
+    '$name has every need turned off, so there\'s nothing to reprocess.';
+
 /// "Reprocess Needs Deltas" — critique a message's Needs outcome and have the
 /// Realism Director re-evaluate it.
 ///
-/// Lifted out of message_bubble.dart when the per-need scope chips pushed that
-/// file back over its god-file ratchet entry. It was never bubble logic; it
-/// only lived there because that is where the button is.
-///
-/// The need chips are the point: leaving them all unticked reprocesses every
-/// need, which makes the model re-emit all seven against the same scene text —
-/// so a critique about energy would quietly re-roll hunger, hygiene and comfort
-/// too. Ticking narrows the pass to exactly those needs and the rest keep the
+/// The chips list only the speaker's enabled needs. Nothing selected means
+/// every need shown here; ticking narrows the pass so the rest keep the
 /// deltas they already had.
-
 void showReprocessNeedsDialog(BuildContext context, int index) {
   final chatService = Provider.of<ChatService>(context, listen: false);
-  // The bubble's State is gone by the time the pass returns, so the snack
-  // guards on the CALLER's context instead of a widget `mounted` flag.
   final host = context;
-  final controller = TextEditingController();
-  // Empty = every need, which is what this dialog always did. Ticking any
-  // need narrows the pass to exactly those; the rest keep the deltas they
-  // already have instead of being re-rolled against the same scene text.
-  final selected = <String>{};
-  // Capture for snack after dialog pop (A: user feedback on success/fail)
+  final target = chatService.reprocessNeedsTargetFor(index);
+  final speaker =
+      target?.speaker ?? chatService.activeCharacter?.name ?? 'this character';
   final messenger = ScaffoldMessenger.of(context);
   showDialog(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setSheetState) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        title: const Text('Reprocess Needs Deltas'),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Enter your critique to correct the Needs Simulation deltas. The Realism Director will re-evaluate the scene based on this input.',
+    builder: (context) => ReprocessNeedsDialog(
+      target: target,
+      speaker: speaker,
+      onSubmit: (text, scope) async {
+        var success = false;
+        try {
+          success = await chatService.manualReprocessNeeds(
+            index,
+            text,
+            onlyNeeds: scope,
+          );
+        } catch (e) {
+          debugPrint('[Realism:Needs] reprocess error: $e');
+        }
+        if (host.mounted) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                success
+                    ? (scope.isEmpty
+                          ? 'Needs deltas reprocessed with your critique.'
+                          : 'Reprocessed ${scope.join(', ')} with your critique.')
+                    : 'Reprocess received no response from the model. Original deltas preserved.',
+              ),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      },
+    ),
+  );
+}
+
+/// The Reprocess Needs sheet. [showReprocessNeedsDialog] hosts this; tests
+/// pump it directly with a resolver result so they do not need a live service.
+class ReprocessNeedsDialog extends StatefulWidget {
+  const ReprocessNeedsDialog({
+    super.key,
+    required this.target,
+    required this.speaker,
+    required this.onSubmit,
+  });
+
+  final ({String speaker, List<String> enabled})? target;
+  final String speaker;
+  final Future<void> Function(String critique, Set<String> onlyNeeds) onSubmit;
+
+  @override
+  State<ReprocessNeedsDialog> createState() => _ReprocessNeedsDialogState();
+}
+
+class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
+  final _controller = TextEditingController();
+  final _selected = <String>{};
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    final enabled = widget.target?.enabled ?? const <String>[];
+    final scope = enabled.length == 1
+        ? <String>{}
+        : Set<String>.from(_selected);
+    Navigator.of(context).pop();
+    await widget.onSubmit(text, scope);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final target = widget.target;
+    final empty = target == null || target.enabled.isEmpty;
+    return AlertDialog(
+      backgroundColor: AppColors.surfaceOf(context),
+      title: const Text('Reprocess Needs Deltas'),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: empty
+              ? Text(
+                  reprocessNeedsZeroLine(widget.speaker),
                   style: TextStyle(
                     color: AppColors.textSecondary(context),
                     fontSize: 13,
                   ),
-                ),
-                const SizedBox(height: 12),
-                AppTextField(
-                  controller: controller,
-                  maxLines: 5,
-                  minLines: 2,
-                  style: TextStyle(color: AppColors.textPrimary(context)),
-                  decoration: InputDecoration(
-                    hintText:
-                        'e.g., They rested on the sofa — energy should have improved.',
-                    hintStyle: TextStyle(
-                      color: AppColors.textTertiary(context),
-                    ),
-                    filled: true,
-                    fillColor: AppColors.surfaceContainerOf(context),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Limit to these needs',
-                  style: TextStyle(
-                    color: AppColors.textPrimary(context),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  selected.isEmpty
-                      ? 'Nothing ticked — every need is re-evaluated.'
-                      : 'Only the ticked needs change. The rest keep their current deltas.',
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final need in NeedsSimulation.needKeys)
-                      FilterChip(
-                        label: Text(
-                          '${need[0].toUpperCase()}${need.substring(1)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: selected.contains(need)
-                                ? AppColors.onChaosAccent
-                                : AppColors.textSecondary(context),
-                          ),
-                        ),
-                        selected: selected.contains(need),
-                        showCheckmark: false,
-                        backgroundColor: AppColors.surfaceContainerOf(context),
-                        selectedColor: AppColors.porchAmberOf(context),
-                        side: BorderSide(color: AppColors.borderOf(context)),
-                        onSelected: (on) => setSheetState(() {
-                          if (on) {
-                            selected.add(need);
-                          } else {
-                            selected.remove(need);
-                          }
-                        }),
-                      ),
-                  ],
-                ),
-              ],
-            ),
+                )
+              : _enabledBody(context, target.enabled),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            empty ? 'Close' : 'Cancel',
+            style: TextStyle(color: AppColors.textTertiary(context)),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textTertiary(context)),
-            ),
-          ),
+        if (!empty)
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.porchAmberOf(context),
               foregroundColor: AppColors.onChaosAccent,
             ),
-            onPressed: () async {
-              final text = controller.text.trim();
-              final scope = Set<String>.from(selected);
-              Navigator.of(context).pop();
-              if (text.isNotEmpty) {
-                bool success = false;
-                try {
-                  success = await chatService.manualReprocessNeeds(
-                    index,
-                    text,
-                    onlyNeeds: scope,
-                  );
-                } catch (e) {
-                  debugPrint('[Realism:Needs] reprocess error: $e');
-                }
-                if (host.mounted) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        success
-                            ? (scope.isEmpty
-                                  ? 'Needs deltas reprocessed with your critique.'
-                                  : 'Reprocessed ${scope.join(', ')} with your critique.')
-                            : 'Reprocess received no response from the model. Original deltas preserved.',
-                      ),
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                }
-              }
-            },
+            onPressed: () => _submit(),
             child: const Text('Reprocess'),
           ),
+      ],
+    );
+  }
+
+  Widget _enabledBody(BuildContext context, List<String> enabled) {
+    final one = enabled.length == 1;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          kReprocessNeedsIntro,
+          style: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(height: 12),
+        AppTextField(
+          controller: _controller,
+          maxLines: 5,
+          minLines: 2,
+          style: TextStyle(color: AppColors.textPrimary(context)),
+          decoration: InputDecoration(
+            hintText: kReprocessNeedsHint,
+            hintStyle: TextStyle(color: AppColors.textTertiary(context)),
+            filled: true,
+            fillColor: AppColors.surfaceContainerOf(context),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        if (one) ...[
+          const SizedBox(height: 16),
+          Text(
+            reprocessNeedsOneEnabledLine(enabled.first, widget.speaker),
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 13,
+            ),
+          ),
+        ] else ...[
+          const SizedBox(height: 16),
+          Text(
+            'Limit to these needs',
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _selected.isEmpty
+                ? kReprocessNeedsEmptyHelper
+                : kReprocessNeedsSomeHelper,
+            style: TextStyle(
+              color: AppColors.textTertiary(context),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final need in enabled)
+                FilterChip(
+                  label: Text(
+                    needTitle(need),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _selected.contains(need)
+                          ? AppColors.onChaosAccent
+                          : AppColors.textSecondary(context),
+                    ),
+                  ),
+                  selected: _selected.contains(need),
+                  showCheckmark: false,
+                  backgroundColor: AppColors.surfaceContainerOf(context),
+                  selectedColor: AppColors.porchAmberOf(context),
+                  side: BorderSide(color: AppColors.borderOf(context)),
+                  onSelected: (on) => setState(() {
+                    if (on) {
+                      _selected.add(need);
+                    } else {
+                      _selected.remove(need);
+                    }
+                  }),
+                ),
+            ],
+          ),
         ],
-      ),
-    ),
-  );
+      ],
+    );
+  }
 }

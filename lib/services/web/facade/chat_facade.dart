@@ -144,7 +144,7 @@ class ChatFacade {
 
   /// Extract the per-message Realism chip deltas from a message's active-swipe
   /// metadata (the same keys the desktop bubble reads), omitting zeros/empties.
-  Map<String, dynamic>? _messageChips(Map<String, dynamic>? md) {
+  Map<String, dynamic>? _messageChips(Map<String, dynamic>? md, int index) {
     if (md == null) return null;
     final out = <String, dynamic>{};
     for (final entry in const {
@@ -186,12 +186,16 @@ class ChatFacade {
       });
       if (nz.isNotEmpty) out['needsDeltas'] = nz;
     }
-    // Director-redo affordances (mirrors message_bubble.dart): the message can be
-    // reprocessed when it carries a needs snapshot, and reverted when a
-    // pre-reprocess stash exists. The client additionally gates "reprocess" on
-    // this being the last, non-generating message (it already knows both).
-    final rs = md['realism_state'];
-    if (rs is Map && rs['needs'] != null) out['needsReprocessable'] = true;
+    // Director-redo affordances (mirrors message_bubble.dart): the message can
+    // be reprocessed when the service resolver is non-null (Needs on, at
+    // least one need enabled, group speaker resolved). The client still
+    // gates the button on last + not generating.
+    final target = _chat.reprocessNeedsTargetFor(index);
+    if (target != null) {
+      out['needsReprocessable'] = true;
+      out['needsEnabled'] = target.enabled;
+      out['needsSpeaker'] = target.speaker;
+    }
     if (md['needs_deltas_pre_reprocess'] is Map) out['needsRevertable'] = true;
     if (md[kNeedsUnaffectedMeta] == true) out['needsUnaffected'] = true;
     final search = md['search_receipt'];

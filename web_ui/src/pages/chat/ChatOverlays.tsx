@@ -25,6 +25,8 @@ export function ChatOverlays(props: {
   onClosePersona: () => void;
   onPersonaChanged: () => void | Promise<void>;
   reprocessIndex: number | null;
+  enabledNeeds: string[];
+  speakerName: string;
   onSubmitReprocess: (critique: string, onlyNeeds: string[]) => Promise<void>;
   onCloseReprocess: () => void;
   chance: { event: string; revealed: boolean } | null;
@@ -45,6 +47,8 @@ export function ChatOverlays(props: {
     onClosePersona,
     onPersonaChanged,
     reprocessIndex,
+    enabledNeeds,
+    speakerName,
     onSubmitReprocess,
     onCloseReprocess,
     chance,
@@ -81,6 +85,8 @@ export function ChatOverlays(props: {
 
       {reprocessIndex !== null && (
         <ReprocessNeedsModal
+          enabledNeeds={enabledNeeds}
+          speakerName={speakerName}
           onSubmit={onSubmitReprocess}
           onClose={onCloseReprocess}
         />

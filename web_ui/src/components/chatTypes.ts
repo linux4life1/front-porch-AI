@@ -26,6 +26,10 @@ export interface Chips {
   needsUnaffected?: boolean;
   needsReprocessable?: boolean;
   needsRevertable?: boolean;
+  /** Enabled need keys for this speaker, from the desktop resolver. */
+  needsEnabled?: string[];
+  /** Display name of the speaker the enabled set belongs to. */
+  needsSpeaker?: string;
 }
 
 export interface Message {

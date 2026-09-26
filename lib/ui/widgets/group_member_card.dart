@@ -140,9 +140,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
         ? chat.getFixationLifespanForGroupCharacter(widget.character)
         : null;
     final needs = isRealism
-        ? visibleNeeds(
+        ? visibleNeedsFor(
             chat.getNeedsForGroupCharacter(widget.character),
-            widget.character.frontPorchExtensions?.needsOff ?? const [],
+            widget.character,
           )
         : const <String, int>{};
     final topNeeds = isRealism
@@ -283,9 +283,8 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                   )
                 : (widget.isExpanded
                       ? Border.all(
-                          color: AppColors.borderOf(
-                            context,
-                          ).withValues(alpha: 0.3),
+                          color: AppColors.borderOf(context)
+                              .withValues(alpha: 0.3),
                         )
                       : null),
           ),
@@ -380,9 +379,8 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                                         vertical: 1,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.porchHoneyOf(
-                                          context,
-                                        ).withValues(alpha: 0.15),
+                                        color: AppColors.porchHoneyOf(context)
+                                            .withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
@@ -403,9 +401,8 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                                       vertical: 1,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.porchAmberOf(
-                                        context,
-                                      ).withValues(alpha: 0.18),
+                                      color: AppColors.porchAmberOf(context)
+                                          .withValues(alpha: 0.18),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(

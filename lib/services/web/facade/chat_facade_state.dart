@@ -26,7 +26,7 @@ extension ChatFacadeState on ChatFacade {
     final messages = _chat.messages.asMap().entries.map((e) {
       final m = e.value;
       final md = m.activeMetadata;
-      final chips = _messageChips(md);
+      final chips = _messageChips(md, e.key);
       // Generated-image messages (from /image or the Studio's "Send to chat")
       // and user-attached photos: expose the basename so the client renders
       // it via the existing GET /api/image/saved/<name> endpoint (both live

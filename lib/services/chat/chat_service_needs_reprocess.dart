@@ -83,29 +83,38 @@ extension ChatServiceNeedsReprocess on ChatService {
   /// Re-evaluate a message's needs deltas under a user critique.
   ///
   /// [onlyNeeds] scopes the pass: needs NOT listed keep the deltas they already
-  /// had, untouched and un-re-rolled. Empty = every need the model returns.
-  /// Scoping matters beyond the obvious — a full-set pass makes the model
-  /// re-emit all seven needs against the same scene text, so correcting energy
-  /// silently re-rolls hunger, hygiene and comfort to new numbers nobody asked
-  /// for.
+  /// had, untouched and un-re-rolled. Empty = every ENABLED need. A key that
+  /// is off for this speaker is dropped; a non-empty selection that intersects
+  /// to nothing is a no-op (no dance, no LLM call).
   Future<bool> manualReprocessNeeds(
     int index,
     String critique, {
     Set<String> onlyNeeds = const <String>{},
   }) async {
-    if (index < 0 || index >= _messages.length) return false;
+    final target = reprocessNeedsTargetFor(index);
+    if (target == null) return false;
     if (_isTurnBusy) return false;
 
-    final msg = _messages[index];
-    if (msg.isUser || msg.sender == 'System') return false;
+    final enabled = target.enabled.toSet();
+    final Set<String> scope;
+    if (onlyNeeds.isEmpty) {
+      scope = enabled;
+    } else {
+      scope = onlyNeeds.intersection(enabled);
+      if (scope.isEmpty) return false;
+    }
+    final allOn =
+        enabled.length == NeedsSimulation.needKeys.length &&
+        enabled.containsAll(NeedsSimulation.needKeys);
+    final promptNeeds = (onlyNeeds.isEmpty && allOn) ? const <String>{} : scope;
+    final mergeNeeds = onlyNeeds.isEmpty ? const <String>{} : scope;
 
+    final msg = _messages[index];
     final meta = msg.activeMetadata;
     if (meta == null || !meta.containsKey('realism_state')) return false;
 
     final preState = meta['realism_state'];
     if (preState is! Map || preState['needs'] == null) return false;
-
-    // A: entry guard (usable needs data) already passed; button in UI also checks now.
 
     final oldNeedsDeltas = <String, int>{};
     Map<String, dynamic>? originalNeedsDeltasForStash;
@@ -192,7 +201,8 @@ extension ChatServiceNeedsReprocess on ChatService {
           msg.displayText,
           oldNeedsDeltas,
           critique,
-          onlyNeeds: onlyNeeds,
+          onlyNeeds: mergeNeeds,
+          promptNeeds: promptNeeds,
         );
 
     if (!reprocessOk) {

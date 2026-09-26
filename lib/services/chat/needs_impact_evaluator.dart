@@ -169,8 +169,7 @@ class NeedsImpactEvaluator {
             activeChar: getActiveCharacter(),
             activeGroup: getActiveGroup(),
             recentMessages: getMessages(),
-            promptText:
-                'needs impact (straight deltas at Normal; Director authority on corrections; do not scale)',
+            promptText: 'needs impact (straight deltas at Normal; Director authority on corrections; do not scale)',
             injections: const {},
           );
           if (vres.correctedRaw != null && vres.correctedRaw!.isNotEmpty) {
@@ -201,9 +200,8 @@ class NeedsImpactEvaluator {
       final deltas = _parseNeedDeltas(effectiveText);
       _boundDeltas(deltas);
 
-      final reasonMatch = RegExp(
-        r'"reason"\s*:\s*"([^"]*)"',
-      ).firstMatch(effectiveText);
+      final reasonMatch = RegExp(r'"reason"\s*:\s*"([^"]*)"')
+          .firstMatch(effectiveText);
       final reason = reasonMatch?.group(1)?.trim();
 
       final impact = NeedsImpact(
@@ -271,20 +269,27 @@ class NeedsImpactEvaluator {
   /// nobody asked about keep the values the turn gave them instead of
   /// collapsing to "no change". Empty (the full-set pass) applies exactly what
   /// the model returned, unchanged from how this always behaved.
+  ///
+  /// [promptNeeds] is the list named in the prompt / eval call. Empty leaves
+  /// the unscoped wording byte-identical to today (all seven). When some
+  /// needs are off, the service passes the enabled set here even if
+  /// [onlyNeeds] stays empty so merge semantics do not change.
   Future<bool> reprocessWithUserCritique(
     String responseText,
     Map<String, int> oldDeltas,
     String critique, {
     Set<String> onlyNeeds = const <String>{},
+    Set<String> promptNeeds = const <String>{},
   }) async {
     // Use the injected evaluateNeedsImpactCall (now supports critique/oldDeltas for unified rich prompt + personality/stance/recent/full guidance + MUST + examples).
     // Name the scope in the prompt as well as filtering the reply: a model
     // told to reconsider ONE need reasons about that need instead of re-rolling
     // seven and having six of them thrown away.
-    if (onlyNeeds.isNotEmpty) {
+    final ask = promptNeeds.isNotEmpty ? promptNeeds : onlyNeeds;
+    if (ask.isNotEmpty) {
       critique =
           '$critique\n\nScope: reconsider ONLY these needs — '
-          '${onlyNeeds.join(', ')}. Leave every other need out of your answer; '
+          '${ask.join(', ')}. Leave every other need out of your answer; '
           'their existing values are correct and will be kept.';
     }
 
@@ -296,7 +301,7 @@ class NeedsImpactEvaluator {
         responseText,
         userCritique: critique,
         previousDeltas: oldDeltas,
-        onlyNeeds: onlyNeeds,
+        onlyNeeds: ask,
       );
 
       // C: bounded retry on empty/fragile (one extra attempt with emphasis)
@@ -304,15 +309,15 @@ class NeedsImpactEvaluator {
         debugPrint(
           '[Realism:Needs] reprocess empty response, retrying once...',
         );
-        final retryAsk = onlyNeeds.isEmpty
+        final retryAsk = ask.isEmpty
             ? 'Output ONLY the flat JSON now with all seven _delta keys.'
             : 'Output ONLY the flat JSON now with '
-                  '${onlyNeeds.map((k) => '${k}_delta').join(', ')}.';
+                  '${ask.map((k) => '${k}_delta').join(', ')}.';
         text = await evaluateNeedsImpactCall(
           responseText,
           userCritique: '$critique $retryAsk',
           previousDeltas: oldDeltas,
-          onlyNeeds: onlyNeeds,
+          onlyNeeds: ask,
         );
       }
 
@@ -329,7 +334,11 @@ class NeedsImpactEvaluator {
         deltas.removeWhere((k, _) => !onlyNeeds.contains(k));
       }
 
-      // C: if after strip/parse we got literally no delta keys at all, treat as failure (do not apply empty "correction")
+      _boundDeltas(deltas);
+
+      // After the off-need drop: an off-only reply is an empty change, not
+      // a success. Used to run before [_boundDeltas], which reported success
+      // when the model only moved disabled needs.
       if (deltas.isEmpty) {
         debugPrint(
           '[Realism:Needs] reprocess parsed no deltas in scope '
@@ -339,17 +348,14 @@ class NeedsImpactEvaluator {
         return false;
       }
 
-      _boundDeltas(deltas);
-
       // Scoped: everything the user did NOT tick keeps the delta it already
       // had. Unscoped stays byte-for-byte what it always was.
       final effective = onlyNeeds.isEmpty
           ? deltas
           : (Map<String, int>.from(oldDeltas)..addAll(deltas));
 
-      final reasonMatch = RegExp(
-        r'"reason"\s*:\s*"([^"]*)"',
-      ).firstMatch(effectiveText);
+      final reasonMatch = RegExp(r'"reason"\s*:\s*"([^"]*)"')
+          .firstMatch(effectiveText);
       final reason = reasonMatch?.group(1)?.trim();
 
       final impact = NeedsImpact(

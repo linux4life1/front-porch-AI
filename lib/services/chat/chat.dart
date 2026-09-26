@@ -8,6 +8,7 @@
 export 'absence_tracker.dart';
 export 'birthday.dart';
 export 'body_clock.dart';
+export 'enabled_needs.dart';
 export 'clock_shift.dart';
 export 'message_clock.dart';
 export 'afk_cue_speaker.dart';
