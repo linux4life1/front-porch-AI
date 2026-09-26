@@ -73,6 +73,8 @@ extension _ImageGenComfy on ImageGenService {
         cfg: settings.editCfgScale,
         denoise: editStrength ?? kEditRecommendedStrength,
         shift: settings.editShift,
+        width: width,
+        height: height,
         liveTemplate: editTemplate,
       );
       if (req == null) {
@@ -137,6 +139,13 @@ extension _ImageGenComfy on ImageGenService {
         vaeOutputIndex: req.vaeOutputIndex,
       );
     } else {
+      if (detectComfyTokens(template).contains(ComfyEditTokens.image)) {
+        throw Exception(
+          'ComfyUI Create workflow needs a reference image. Choose a '
+          'text-to-image Create family for a new portrait, or upload a '
+          'portrait and select this workflow in Edit for expressions.',
+        );
+      }
       values[ComfyEditTokens.denoise] = 1.0;
     }
     final loraChain = [

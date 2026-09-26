@@ -94,7 +94,11 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
         return;
       }
     }
-    final editMode = packEditModeNow;
+    final editMode = await ImageReferenceResolver.packEditModeForGeneration(
+      storage.imageGenSettings,
+    );
+    if (_disposed || _cancelRequested) return;
+    _activePackEditMode = editMode;
     if (editMode) {
       // Explicit stage: the swap itself is graceful (the model rides each
       // request; DT/Comfy load-unload themselves) — the cost is load TIME.
