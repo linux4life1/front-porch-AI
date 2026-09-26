@@ -23,8 +23,23 @@ int comfySubgraphWidgetIndex(
   return widgetPorts.indexOf(port);
 }
 
+Object? subgraphWidgetValue(Map raw, String? portName, int index) {
+  final named = raw['widgets_values_named'];
+  if (named is Map && named.containsKey(portName)) return named[portName];
+  final widgets = raw['widgets_values'];
+  return widgets is List && index >= 0 && index < widgets.length
+      ? widgets[index]
+      : null;
+}
+
 bool isComfyPromptInput(String type, String name) =>
     (name == 'text' || name == 'prompt') &&
     (type.startsWith('CLIPTextEncode') ||
         type.startsWith('TextEncodeQwen') ||
         type == 'TextGenerate');
+
+bool isExposedPromptFeed(String? port, String type, String name) =>
+    (port == 'prompt' || port == 'text') &&
+    (isComfyPromptInput(type, name) ||
+        (type == 'ComfySwitchNode' &&
+            (name == 'on_false' || name == 'on_true')));

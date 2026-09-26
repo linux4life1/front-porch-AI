@@ -291,7 +291,6 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
         final sg = subgraphs[type]!;
         walk(_asList(sg['nodes']), _asList(sg['links']), '${id}_');
         final ports = _asList(sg['inputs']);
-        final widgets = _asList(raw['widgets_values']);
         final widgetPorts = [
           for (final port in ports)
             if (port is Map && !_kLinkTypes.contains(port['type'])) port,
@@ -325,17 +324,18 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
             target.$1,
             inputName,
           );
-          final named = raw['widgets_values_named'];
-          final widgetValue = named is Map && named.containsKey(portName)
-              ? named[portName]
-              : widgetIndex >= 0 && widgetIndex < widgets.length
-              ? widgets[widgetIndex]
-              : null;
+          final widgetValue = subgraphWidgetValue(raw, portName, widgetIndex);
           final parentInput = _asList(
             raw['inputs'],
           ).whereType<Map>().where((i) => i['name'] == portName).firstOrNull;
           final parentLinkId = parentInput?['link'];
+          final exposedPrompt = isExposedPromptFeed(
+            portName,
+            child.type,
+            inputName,
+          );
           if (parentLinkId is num &&
+              !exposedPrompt &&
               !isComfyPromptInput(child.type, inputName)) {
             final parentLink = _asList(
               rawLinks,
@@ -356,8 +356,10 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
             }
           }
           child.inputs[target.$2] = _UiIn(inputName, null);
-          if (widgetValue != null) {
-            values.putIfAbsent(childId, () => {})[inputName] = widgetValue;
+          if (exposedPrompt || widgetValue != null) {
+            values.putIfAbsent(childId, () => {})[inputName] = exposedPrompt
+                ? '%PROMPT%'
+                : widgetValue;
           } else if (isComfyPromptInput(child.type, inputName)) {
             values.putIfAbsent(childId, () => {})[inputName] = '';
           }
