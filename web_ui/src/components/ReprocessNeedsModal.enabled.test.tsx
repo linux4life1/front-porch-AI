@@ -1,142 +1,146 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Web Reprocess Needs modal shows only the speaker's ENABLED needs
+// (/workspace/sow/rn-spec.md items 7-8): same copy and one/zero states as the
+// desktop dialog, desktop's exact intro + placeholder, never submits a key
+// outside enabledNeeds. Renders the real component.
+//
+// Props per AMENDMENT 2 item 3: enabledNeeds, speaker, speakerName (the
+// per-message facade field is chips.enabledNeeds).
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
-import { createElement } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createElement, type ComponentType } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReprocessNeedsModal } from './ReprocessNeedsModal';
+import { NEED_LABELS } from './chatTypes';
+
+const ALL = ['hunger', 'bladder', 'energy', 'social', 'fun', 'hygiene', 'comfort'];
+const FIVE = ['hunger', 'bladder', 'energy', 'social', 'comfort'];
+
+const DESKTOP_INTRO =
+  'Enter your critique to correct the Needs Simulation deltas. The Realism Director will re-evaluate the scene based on this input.';
+const DESKTOP_HINT = 'e.g., They rested on the sofa — energy should have improved.';
+const NONE_SELECTED = 'Nothing selected — every need shown here is re-evaluated.';
+const NULL_STATE = "There's nothing to reprocess for this message.";
+const SOME_SELECTED = 'Only the selected needs change. The others keep their current deltas.';
 
 let container: HTMLDivElement;
 let root: Root;
 
-const INTRO =
-  'Enter your critique to correct the Needs Simulation deltas. The Realism Director will re-evaluate the scene based on this input.';
-const PLACEHOLDER =
-  'e.g., They rested on the sofa — energy should have improved.';
-const EMPTY_HELPER =
-  'Nothing selected — every need shown here is re-evaluated.';
+const Modal = ReprocessNeedsModal as unknown as ComponentType<Record<string, unknown>>;
 
-type Submit = [string, string[]];
-
-function render(props: {
-  enabledNeeds: string[];
-  speaker?: string;
-  speakerName?: string;
-  onSubmit?: (critique: string, onlyNeeds: string[]) => Promise<void>;
-}) {
+function render(enabledNeeds: string[], onSubmit = vi.fn(async () => {})) {
   act(() => {
     root.render(
-      createElement(ReprocessNeedsModal, {
-        enabledNeeds: props.enabledNeeds,
-        speaker: props.speaker ?? 'Aria',
-        speakerName: props.speakerName ?? 'Aria',
-        onSubmit: props.onSubmit ?? (async () => {}),
-        onClose: () => {},
+      createElement(Modal, {
+        onSubmit,
+        onClose: vi.fn(),
+        enabledNeeds,
+        speaker: 'Mara',
+        speakerName: 'Mara',
       }),
     );
   });
+  return onSubmit;
 }
 
-function typeCritique(text: string) {
-  const el = container.querySelector('textarea');
-  if (!el) return;
+// AMENDMENT 2 items 4-5: ONE string, no {name}; exactly one button, Close.
+function expectNullState() {
+  expect(text()).toContain(NULL_STATE);
+  expect(text()).not.toContain('Mara');
+  expect(container.querySelector('textarea')).toBeNull();
+  expect(needChipLabels()).toEqual([]);
+  expect(button('Cancel')).toBeUndefined();
+  expect(button('Reprocess')).toBeUndefined();
+  expect(buttons().map((b) => b.textContent?.trim())).toEqual(['Close']);
+}
+
+const text = () => container.textContent ?? '';
+const buttons = () => Array.from(container.querySelectorAll('button'));
+const button = (label: string) => buttons().find((b) => b.textContent?.trim() === label);
+const needChipLabels = () => {
+  const labels = new Set(Object.values(NEED_LABELS));
+  return buttons()
+    .map((b) => b.textContent?.trim() ?? '')
+    .filter((t) => labels.has(t));
+};
+
+function typeCritique(value: string) {
+  const ta = container.querySelector('textarea') as HTMLTextAreaElement;
   act(() => {
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLTextAreaElement.prototype,
-      'value',
-    )!.set!;
-    setter.call(el, text);
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    setter?.call(ta, value);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
 
-function click(label: string) {
-  const btn = [...container.querySelectorAll('button')].find(
-    (b) => b.textContent === label,
-  );
-  expect(btn, `button "${label}"`).toBeTruthy();
-  act(() => {
-    btn!.click();
+async function clickAsync(el: Element | undefined) {
+  expect(el).toBeDefined();
+  await act(async () => {
+    el!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
 }
 
-beforeEach(() => {
-  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  container = document.createElement('div');
-  document.body.appendChild(container);
-  root = createRoot(container);
-});
-
-afterEach(() => {
-  act(() => root.unmount());
-  container.remove();
-});
-
-describe('ReprocessNeedsModal enabled needs', () => {
-  it('renders only enabledNeeds chips', () => {
-    render({
-      enabledNeeds: ['hunger', 'bladder', 'energy', 'social', 'comfort'],
-    });
-    const labels = [...container.querySelectorAll('.need-chip')].map(
-      (el) => el.textContent,
-    );
-    expect(labels).toEqual(['Hunger', 'Bladder', 'Energy', 'Social', 'Comfort']);
-    expect(container.textContent).not.toContain('Hygiene');
-    expect(container.textContent).not.toContain('Fun');
-    expect(container.textContent).toContain(EMPTY_HELPER);
-    expect(container.textContent).toContain(INTRO);
-    expect(container.querySelector('textarea')?.placeholder).toBe(PLACEHOLDER);
+describe('ReprocessNeedsModal enabled needs only', () => {
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
   });
 
-  it('one enabled hides chips and submits an empty scope', async () => {
-    const calls: Submit[] = [];
-    render({
-      enabledNeeds: ['hunger'],
-      onSubmit: async (critique, onlyNeeds) => {
-        calls.push([critique, onlyNeeds]);
-      },
-    });
-    expect(container.querySelectorAll('.need-chip')).toHaveLength(0);
-    expect(container.textContent).toContain(
-      'Only Hunger is on for Aria, so only Hunger is re-evaluated.',
-    );
-    typeCritique('they ate');
-    click('Reprocess');
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(calls).toEqual([['they ate', []]]);
+  it('F1 offers only the enabled needs (Hygiene+Fun off -> 5 chips)', () => {
+    render(FIVE);
+    expect(needChipLabels()).toEqual(FIVE.map((k) => NEED_LABELS[k]));
+    expect(button('Hygiene')).toBeUndefined();
+    expect(button('Fun')).toBeUndefined();
   });
 
-  it('zero enabled shows the message and Close only', () => {
-    render({ enabledNeeds: [] });
-    expect(container.textContent).toContain(
-      "There's nothing to reprocess for this message.",
-    );
-    expect(container.querySelector('textarea')).toBeNull();
-    const buttons = [...container.querySelectorAll('button')];
-    expect(buttons).toHaveLength(1);
-    expect(buttons[0].textContent).toBe('Close');
-    expect(buttons.some((b) => b.textContent === 'Reprocess')).toBe(false);
-    expect(buttons.some((b) => b.textContent === 'Cancel')).toBe(false);
+  it('F2 exact helper copy: nothing selected, then one selected', async () => {
+    render(FIVE);
+    expect(text()).toContain(NONE_SELECTED);
+    await clickAsync(button('Energy'));
+    expect(text()).toContain(SOME_SELECTED);
   });
 
-  it('submit never includes a disabled key', async () => {
-    const calls: Submit[] = [];
-    render({
-      enabledNeeds: ['hunger', 'energy'],
-      onSubmit: async (critique, onlyNeeds) => {
-        calls.push([critique, onlyNeeds]);
-      },
-    });
-    click('Hunger');
-    typeCritique('fix hunger');
-    click('Reprocess');
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(calls[0][1]).toEqual(['hunger']);
-    expect(calls[0][1]).not.toContain('hygiene');
+  it("F3 intro and placeholder match desktop's exact text", () => {
+    render(ALL);
+    expect(text()).toContain(DESKTOP_INTRO);
+    expect(container.querySelector('textarea')?.placeholder).toBe(DESKTOP_HINT);
+  });
+
+  it('F4 exactly one enabled: no scope block, the one-line message, submits []', async () => {
+    const onSubmit = render(['hunger']);
+    expect(text()).toContain('Only Hunger is on for Mara, so only Hunger is re-evaluated.');
+    expect(text()).not.toContain('Limit to these needs');
+    expect(needChipLabels()).toEqual([]);
+    typeCritique('She ate; hunger up.');
+    await clickAsync(button('Reprocess'));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0]).toEqual(['She ate; hunger up.', []]);
+  });
+
+  it('F5 zero enabled (card now all off): the one null string, Close only', () => {
+    render([]);
+    expectNullState();
+  });
+
+  it('F6 never submits a key outside enabledNeeds', async () => {
+    const onSubmit = render(FIVE);
+    for (const label of ['Hygiene', 'Fun', 'Energy']) {
+      const b = button(label);
+      if (b) await clickAsync(b);
+    }
+    typeCritique('Rested; energy up.');
+    await clickAsync(button('Reprocess'));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const sent = onSubmit.mock.calls[0][1] as string[];
+    expect(sent.filter((k) => !FIVE.includes(k))).toEqual([]);
+    expect(sent).toEqual(['energy']);
   });
 });

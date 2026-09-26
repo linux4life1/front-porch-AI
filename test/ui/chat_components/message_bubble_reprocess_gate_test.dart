@@ -1,139 +1,132 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// This file is part of Front Porch AI.
-//
-// Front Porch AI is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+// Desktop "Manual Reprocess" pill shows only when the resolver is non-null
+// (/workspace/sow/rn-spec.md item 5). Real MessageBubble over a REAL
+// ChatService (FakeChatService implements ChatService and would never run the
+// real resolver). TTS/persona/storage providers are the stock support fakes;
+// nothing asserted comes from them.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:front_porch_ai/models/character_card.dart';
-import 'package:front_porch_ai/models/chat_message.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/services/chat_service.dart';
-import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/services/tts_service.dart';
-import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/ui/chat_components/bubbles/message_bubble.dart';
 
-import '../../golden/support/creator_test_support.dart';
 import '../../golden/support/fakes.dart';
+import '../../helpers/reprocess_needs_harness.dart';
 
-StorageService _storage() {
-  SharedPreferences.setMockInitialValues({});
-  return StorageService();
+const _pill = 'Manual Reprocess';
+
+Future<void> _withHarness(
+  WidgetTester tester,
+  Future<void> Function(ReprocessHarness h) body,
+) async {
+  final h = ReprocessHarness();
+  await tester.runAsync(() => h.boot());
+  try {
+    await body(h);
+  } finally {
+    await tester.runAsync(() => h.dispose());
+  }
 }
 
-ChatMessage _stamped() => ChatMessage(
-  text: '"Evening," she said.',
-  sender: 'Aria Vale',
-  isUser: false,
-  metadata: const {
-    'needs_deltas': {
-      'hunger': {'delta': -2, 'reason': 'scene'},
-    },
-    'realism_state': {
-      'needs': {'hunger': 62},
-    },
-  },
-);
-
-void main() {
-  setupPathProviderMock();
-
-  Future<void> pumpBubble(
-    WidgetTester tester, {
-    required CharacterCard character,
-    bool needsSimEnabled = true,
-  }) async {
-    final message = _stamped();
-    final chat = FakeChatService(
-      activeCharacter: character,
-      messages: [message],
-      needsSimEnabled: needsSimEnabled,
-    );
-    addTearDown(chat.dispose);
-    final tts = FakeTtsService();
-    addTearDown(tts.dispose);
-    final storage = _storage();
-    addTearDown(storage.dispose);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: storage),
-              ChangeNotifierProvider<TtsService>.value(value: tts),
-              ChangeNotifierProvider<ChatService>.value(value: chat),
-              ChangeNotifierProvider<UserPersonaService>.value(
-                value: FakeUserPersonaService(),
-              ),
-            ],
-            child: SizedBox(
-              width: 680,
+Future<void> _pumpLastBubble(WidgetTester tester, ReprocessHarness h) async {
+  final tts = FakeTtsService();
+  addTearDown(tts.dispose);
+  final index = h.chat.messages.length - 1;
+  final message = h.chat.messages[index];
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: h.storage),
+            ChangeNotifierProvider<TtsService>.value(value: tts),
+            ChangeNotifierProvider<ChatService>.value(value: h.chat),
+            ChangeNotifierProvider<UserPersonaService>.value(
+              value: FakeUserPersonaService(),
+            ),
+          ],
+          child: SizedBox(
+            width: 680,
+            child: SingleChildScrollView(
               child: MessageBubble(
                 message: message,
-                index: 0,
-                character: character,
-                chatService: chat,
+                index: index,
+                character: h.chat.activeCharacter!,
+                chatService: h.chat,
               ),
             ),
           ),
         ),
       ),
-    );
-    await tester.pump();
-  }
+    ),
+  );
+  await tester.pump();
+}
 
-  testWidgets('Manual Reprocess is hidden when every need is off', (
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setupReprocessPathProviderMock();
+
+  testWidgets(
+    'D1 control (guard, green on Rawhide by design): 5 of 7 enabled -> pill shown',
+    (tester) async {
+      await _withHarness(tester, (h) async {
+        await tester.runAsync(
+          () => h.oneToOneWithStampedReply(
+            needsCard('Mara', needsOff: ['hygiene', 'fun']),
+          ),
+        );
+        await _pumpLastBubble(tester, h);
+        expect(find.text(_pill), findsOneWidget);
+      });
+    },
+  );
+
+  testWidgets(
+    'D2 control (guard, green on Rawhide by design): exactly 1 enabled -> pill shown',
+    (tester) async {
+      await _withHarness(tester, (h) async {
+        await tester.runAsync(
+          () => h.oneToOneWithStampedReply(
+            needsCard(
+              'Mara',
+              needsOff: kAllNeeds.where((n) => n != 'hunger').toList(),
+            ),
+          ),
+        );
+        await _pumpLastBubble(tester, h);
+        expect(find.text(_pill), findsOneWidget);
+      });
+    },
+  );
+
+  testWidgets('D3 zero needs enabled on the card -> pill hidden', (
     tester,
   ) async {
-    await pumpBubble(
-      tester,
-      character: CharacterCard(
-        name: 'Aria Vale',
-        frontPorchExtensions: FrontPorchExtensions(
-          needsOff: List<String>.from(NeedsSimulation.needKeys),
-        ),
-      ),
-    );
-    expect(find.text('Manual Reprocess'), findsNothing);
+    await _withHarness(tester, (h) async {
+      await tester.runAsync(
+        () => h.oneToOneWithStampedReply(needsCard('Mara')),
+      );
+      h.chat.activeCharacter!.frontPorchExtensions!.needsOff = List<String>.of(
+        kAllNeeds,
+      );
+      await _pumpLastBubble(tester, h);
+      expect(find.text(_pill), findsNothing);
+    });
   });
 
-  testWidgets('Manual Reprocess is hidden when Needs is off', (tester) async {
-    await pumpBubble(
-      tester,
-      character: CharacterCard(name: 'Aria Vale'),
-      needsSimEnabled: false,
-    );
-    expect(find.text('Manual Reprocess'), findsNothing);
-  });
-
-  testWidgets('Manual Reprocess is shown when Needs is on and keys remain', (
-    tester,
-  ) async {
-    await pumpBubble(
-      tester,
-      character: CharacterCard(
-        name: 'Aria Vale',
-        frontPorchExtensions: FrontPorchExtensions(needsOff: const ['hygiene']),
-      ),
-    );
-    expect(find.text('Manual Reprocess'), findsOneWidget);
+  testWidgets('D4 Needs switched off after the reply was stamped -> pill '
+      'hidden', (tester) async {
+    await _withHarness(tester, (h) async {
+      await tester.runAsync(
+        () => h.oneToOneWithStampedReply(needsCard('Mara')),
+      );
+      await tester.runAsync(() => h.chat.setNeedsSimEnabled(false));
+      await _pumpLastBubble(tester, h);
+      expect(find.text(_pill), findsNothing);
+    });
   });
 }

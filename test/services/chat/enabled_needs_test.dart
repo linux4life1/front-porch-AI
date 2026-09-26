@@ -1,54 +1,119 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// This file is part of Front Porch AI.
-//
-// Front Porch AI is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+// Pins the shared helper the fix adds (/workspace/sow/rn-spec.md item 1):
+//   lib/services/chat/enabled_needs.dart
+//     needsOffOf(CharacterCard?) -> List<String>
+//     enabledNeedKeys(CharacterCard?) -> List<String>  (canonical order)
+//     visibleNeedsFor(vector, card)  == today's visibleNeeds semantics
+// Real card model + the real NeedsSimulation.needKeys / visibleNeeds as the
+// oracle. On Rawhide this file does not compile (the library is missing).
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/body_clock.dart' show visibleNeeds;
+import 'package:front_porch_ai/services/chat/enabled_needs.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 
-CharacterCard _card(List<String> off) => CharacterCard(
-  name: 'Aria',
-  frontPorchExtensions: FrontPorchExtensions(needsOff: off),
+CharacterCard _card({List<String>? off, bool withExt = true}) => CharacterCard(
+  name: 'Mara',
+  firstMessage: 'Evening.',
+  personality: 'calm',
+  imagePath: '/tmp/rn-mara.png',
+  frontPorchExtensions: withExt
+      ? FrontPorchExtensions(needsSimEnabled: true, needsOff: off ?? [])
+      : null,
 );
 
 void main() {
-  test('null card gives all seven keys in canonical order', () {
-    expect(enabledNeedKeys(null), NeedsSimulation.needKeys);
-    expect(needsOffOf(null), isEmpty);
+  const canonical = [
+    'hunger',
+    'bladder',
+    'energy',
+    'social',
+    'fun',
+    'hygiene',
+    'comfort',
+  ];
+
+  test('canonical order is NeedsSimulation.needKeys', () {
+    expect(NeedsSimulation.needKeys, canonical);
   });
 
-  test('needsOff hygiene+fun yields the five remaining keys in order', () {
-    expect(enabledNeedKeys(_card(['hygiene', 'fun'])), [
-      'hunger',
-      'bladder',
-      'energy',
-      'social',
-      'comfort',
-    ]);
+  group('enabledNeedKeys', () {
+    test('null card -> all 7 in canonical order', () {
+      expect(enabledNeedKeys(null), canonical);
+    });
+
+    test('card without Front Porch extensions -> all 7', () {
+      expect(enabledNeedKeys(_card(withExt: false)), canonical);
+    });
+
+    test('Hygiene+Fun off -> the other 5, canonical order', () {
+      expect(enabledNeedKeys(_card(off: ['hygiene', 'fun'])), [
+        'hunger',
+        'bladder',
+        'energy',
+        'social',
+        'comfort',
+      ]);
+    });
+
+    test('off list order does not change output order', () {
+      expect(
+        enabledNeedKeys(_card(off: ['fun', 'hygiene'])),
+        enabledNeedKeys(_card(off: ['hygiene', 'fun'])),
+      );
+    });
+
+    test('all 7 off -> empty', () {
+      expect(enabledNeedKeys(_card(off: List.of(canonical))), isEmpty);
+    });
   });
 
-  test('all seven off yields an empty list', () {
-    expect(enabledNeedKeys(_card(NeedsSimulation.needKeys)), isEmpty);
+  group('needsOffOf', () {
+    test('null card -> empty', () {
+      expect(needsOffOf(null), isEmpty);
+    });
+
+    test('card without extensions -> empty', () {
+      expect(needsOffOf(_card(withExt: false)), isEmpty);
+    });
+
+    test('returns the card\'s needsOff', () {
+      expect(needsOffOf(_card(off: ['hygiene', 'fun'])), ['hygiene', 'fun']);
+    });
   });
 
-  test('visibleNeedsFor with empty off leaves the vector as-is', () {
-    const vector = {'hunger': 80, 'bladder': 70};
-    expect(visibleNeedsFor(vector, _card(const [])), same(vector));
-    expect(visibleNeedsFor(vector, null), same(vector));
+  group('visibleNeedsFor matches today\'s visibleNeeds exactly', () {
+    final vector = {
+      'hunger': 58,
+      'bladder': 70,
+      'energy': 40,
+      'social': 65,
+      'fun': 50,
+      'hygiene': 30,
+      'comfort': 90,
+    };
+
+    test('empty off -> the vector as-is', () {
+      // Same instance, like visibleNeeds (folded from the PR's own pin).
+      expect(visibleNeedsFor(vector, _card()), same(vector));
+      expect(visibleNeedsFor(vector, null), same(vector));
+    });
+
+    test('Hygiene+Fun off -> those two hidden, same as visibleNeeds', () {
+      final got = visibleNeedsFor(vector, _card(off: ['hygiene', 'fun']));
+      expect(got, visibleNeeds(vector, ['hygiene', 'fun']));
+      expect(got.keys, ['hunger', 'bladder', 'energy', 'social', 'comfort']);
+    });
+
+    test('all off -> empty map, same as visibleNeeds', () {
+      expect(
+        visibleNeedsFor(vector, _card(off: List.of(canonical))),
+        visibleNeeds(vector, canonical),
+      );
+    });
   });
 }
