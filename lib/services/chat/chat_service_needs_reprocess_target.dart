@@ -42,7 +42,11 @@ extension ChatServiceNeedsReprocessTarget on ChatService {
     final isGroupNonObs = activeGroup != null && !observerMode;
     CharacterCard? card;
     if (isGroupNonObs) {
-      card = resolveGroupSpeakerForMessage(groupCharacters, msg);
+      card = resolveGroupSpeakerForMessage(
+        groupCharacters,
+        msg,
+        logOnMiss: false,
+      );
       if (card == null) return null;
     } else {
       card = activeCharacter;

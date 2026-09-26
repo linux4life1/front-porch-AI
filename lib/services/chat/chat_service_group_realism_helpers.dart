@@ -406,7 +406,8 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     if (preVec.isEmpty) return;
     final needsDeltas = _needsSimulation.computeNeedsDeltasWithReasons(preVec);
     final senderCard = (_activeGroup != null && !_observerMode)
-        ? resolveGroupSpeakerForMessage(_groupCharacters, _messages.last)
+        ? resolveGroupSpeakerForMessage(_groupCharacters, _messages.last) ??
+              _activeCharacter
         : _activeCharacter;
     needsDeltas.removeWhere(
       (key, _) => !visibleNeedsFor({key: 1}, senderCard).containsKey(key),

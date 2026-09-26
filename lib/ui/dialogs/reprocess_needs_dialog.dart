@@ -120,7 +120,7 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
         chat.reprocessNeedsTargetFor(widget.index)?.enabled ?? const <String>[];
     final scope = enabled.length == 1
         ? <String>{}
-        : Set<String>.from(_selected);
+        : Set.of(_selected.where(enabled.contains));
     Navigator.of(context).pop();
     await widget.onSubmit(text, scope);
   }
@@ -129,7 +129,9 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
   Widget build(BuildContext context) {
     final chat = Provider.of<ChatService>(context);
     final target = chat.reprocessNeedsTargetFor(widget.index);
-    final empty = target == null || target.enabled.isEmpty;
+    final enabled = target?.enabled ?? const <String>[];
+    _selected.removeWhere((need) => !enabled.contains(need));
+    final empty = target == null || enabled.isEmpty;
     return AlertDialog(
       backgroundColor: AppColors.surfaceOf(context),
       title: const Text('Reprocess Needs Deltas'),

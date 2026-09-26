@@ -44,10 +44,9 @@ export function ReprocessNeedsModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const name = (speakerName || speaker || '').trim() || 'this character';
-  const visible = enabledNeeds.filter((need) => need in NEED_LABELS || need.length > 0);
-  const oneEnabled = visible.length === 1;
-  const zeroEnabled = visible.length === 0;
+  const name = (speakerName || speaker || '').trim();
+  const oneEnabled = enabledNeeds.length === 1;
+  const zeroEnabled = enabledNeeds.length === 0;
 
   const toggleNeed = (need: string) =>
     setOnlyNeeds((prev) =>
@@ -62,7 +61,7 @@ export function ReprocessNeedsModal({
     try {
       const scope = oneEnabled
         ? []
-        : onlyNeeds.filter((need) => visible.includes(need));
+        : onlyNeeds.filter((need) => enabledNeeds.includes(need));
       await onSubmit(c, scope);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Reprocess failed');
@@ -93,7 +92,7 @@ export function ReprocessNeedsModal({
             />
             {oneEnabled ? (
               <p className="muted small">
-                Only {needTitle(visible[0])} is on for {name}, so only {needTitle(visible[0])} is re-evaluated.
+                Only {needTitle(enabledNeeds[0])} is on for {name}, so only {needTitle(enabledNeeds[0])} is re-evaluated.
               </p>
             ) : (
               <>
@@ -102,7 +101,7 @@ export function ReprocessNeedsModal({
                   {onlyNeeds.length === 0 ? EMPTY_HELPER : SOME_HELPER}
                 </p>
                 <div className="reprocess-needs">
-                  {visible.map((need) => (
+                  {enabledNeeds.map((need) => (
                     <button
                       key={need}
                       type="button"

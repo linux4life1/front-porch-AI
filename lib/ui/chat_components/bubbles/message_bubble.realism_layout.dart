@@ -28,7 +28,10 @@ part of 'message_bubble.dart';
 /// (live repro 2026-08-15). Wrap's own spacing also retired the `_spaced`
 /// helper (the old RangeError fix for an empty chip list).
 extension _BubbleRealismLayout on _MessageBubbleState {
-  Widget _realismChipLayout(List<Widget> chips, List<Widget> needsChipList) {
+  Widget _realismChipLayout(
+    List<Widget> chips,
+    List<Widget> needsChipList,
+  ) {
     // Wrap, not Row — same rule as the needs row below. Pocket receipt
     // chips ("took off: white long-sleeved haori (Royal Guard white)") are
     // sentence-length, and a turn can carry several beside bond/trust/mood.
@@ -69,7 +72,10 @@ extension _BubbleRealismLayout on _MessageBubbleState {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          children: [if (chips.isNotEmpty) classicBox, ...pills],
+          children: [
+            if (chips.isNotEmpty) classicBox,
+            ...pills,
+          ],
         ),
       );
     }
@@ -200,7 +206,8 @@ extension _BubbleRealismLayout on _MessageBubbleState {
       if (canRevert) ...[
         const SizedBox(height: 4),
         Tooltip(
-          message: 'Restore previous Needs deltas and live state before the last reprocess',
+          message:
+              'Restore previous Needs deltas and live state before the last reprocess',
           preferBelow: false,
           textStyle: const TextStyle(fontSize: 12, color: Colors.white),
           decoration: BoxDecoration(
@@ -220,7 +227,10 @@ extension _BubbleRealismLayout on _MessageBubbleState {
               },
               borderRadius: BorderRadius.circular(16),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.resolve(
                     context,
@@ -239,7 +249,11 @@ extension _BubbleRealismLayout on _MessageBubbleState {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.undo, size: 11, color: AppColors.optionalAccent),
+                    Icon(
+                      Icons.undo,
+                      size: 11,
+                      color: AppColors.optionalAccent,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Revert reprocess',

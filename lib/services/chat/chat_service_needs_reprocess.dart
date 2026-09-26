@@ -96,6 +96,8 @@ extension ChatServiceNeedsReprocess on ChatService {
     if (_isTurnBusy) return false;
 
     final msg = _messages[index];
+    if (msg.isUser || msg.sender == 'System') return false;
+
     final meta = msg.activeMetadata;
     if (meta == null || !meta.containsKey('realism_state')) return false;
 

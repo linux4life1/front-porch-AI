@@ -466,7 +466,8 @@ export function ChatPage() {
 
       <ChatOverlays
         showPicker={showPicker}
-        state={state}
+        pickerFull={state?.pendingPicker?.full ?? false}
+        pickerFilter={state?.pendingPicker?.filter ?? ''}
         onPick={(name, full) => {
           void sendMessage(`/join ${full ? '--full ' : ''}${name}`);
         }}
@@ -481,11 +482,13 @@ export function ChatPage() {
         onClosePersona={() => setShowPersona(false)}
         onPersonaChanged={refresh}
         reprocessIndex={reprocessIndex}
+        messages={state.messages}
         onSubmitReprocess={submitReprocess}
         onCloseReprocess={() => setReprocessIndex(null)}
         chance={chance}
         onReveal={revealFate}
         onAccept={acceptFate}
+        imagePromptReview={state.imagePromptReview}
       />
     </div>
   );

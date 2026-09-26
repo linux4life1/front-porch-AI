@@ -11,12 +11,13 @@ import { ChanceTimeModal } from '../../components/ChanceTimeModal';
 import { ImagePromptReviewModal } from '../../components/ImagePromptReviewModal';
 import { MessageEditModal } from '../../components/MessageEditModal';
 import { api } from '../../api/client';
-import { type ChatState } from './chatState';
+import { type Message } from '../../components/chatTypes';
 import { useReprocessNeeds } from './useReprocessNeeds';
 
 export function ChatOverlays(props: {
   showPicker: boolean;
-  state: ChatState;
+  pickerFull?: boolean;
+  pickerFilter?: string;
   onPick: (name: string, full: boolean) => void;
   onClosePicker: () => void;
   editTarget: { index: number; text: string } | null;
@@ -26,15 +27,18 @@ export function ChatOverlays(props: {
   onClosePersona: () => void;
   onPersonaChanged: () => void | Promise<void>;
   reprocessIndex: number | null;
+  messages: Message[];
   onSubmitReprocess: (critique: string, onlyNeeds: string[]) => Promise<void>;
   onCloseReprocess: () => void;
   chance: { event: string; revealed: boolean } | null;
   onReveal: () => void;
   onAccept: () => void | Promise<void>;
+  imagePromptReview?: string;
 }) {
   const {
     showPicker,
-    state,
+    pickerFull,
+    pickerFilter,
     onPick,
     onClosePicker,
     editTarget,
@@ -44,19 +48,17 @@ export function ChatOverlays(props: {
     onClosePersona,
     onPersonaChanged,
     reprocessIndex,
+    messages,
     onSubmitReprocess,
     onCloseReprocess,
     chance,
     onReveal,
     onAccept,
+    imagePromptReview,
   } = props;
-  const pickerFull = state.pendingPicker?.full ?? false;
-  const pickerFilter = state.pendingPicker?.filter ?? '';
-  const imagePromptReview = state.imagePromptReview;
   const { enabledNeeds, speaker, speakerName } = useReprocessNeeds(
     reprocessIndex,
-    state.messages,
-    state.character?.name,
+    messages,
   );
 
   return (
