@@ -22,6 +22,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
+import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
@@ -103,7 +104,11 @@ class ImageFacade {
   Future<Map<String, dynamic>> comfyCatalog() async {
     final url = _storage.imageGenSettings.comfyUiUrl;
     final cat = await _image.fetchComfyCatalog(url);
-    final templates = await _image.fetchComfyCreateTemplates(url);
+    final comfy = ComfyUiService(baseUrl: url);
+    final templates = [
+      ...await comfy.fetchCreateTemplates(),
+      ...await comfy.fetchUserWorkflows(),
+    ];
     return {
       'checkpoints': cat.checkpoints,
       'diffusionModels': cat.diffusionModels,
@@ -114,6 +119,42 @@ class ImageFacade {
       'templates': [
         for (final t in templates)
           {'id': t.pickerId, 'name': t.name, 'title': t.title},
+      ],
+    };
+  }
+
+  /// Resolve slots from the selected live or uploaded workflow.
+  Future<Map<String, dynamic>> comfyWorkflowSlots(String workflowId) async {
+    final img = _storage.imageGenSettings;
+    final preset = comfyCreatePresetById(workflowId);
+    final comfy = ComfyUiService(baseUrl: img.comfyUiUrl);
+    final name = comfyTemplateNameFor(workflowId);
+    final live = name == null ? null : await comfy.fetchTemplateJson(name);
+    final source = loadComfyCreateSource(
+      workflowId: workflowId,
+      uploadedWorkflowJson: img.comfyCreateUploadedWorkflow,
+      liveTemplate: live,
+    );
+    final graph = source == null ? null : ensureComfyApiGraph(source);
+    final slots = preset != null && preset.modelSlots.isNotEmpty
+        ? preset.modelSlots
+        : graph == null
+        ? const <ComfyModelSlot>[]
+        : adaptComfyApiWorkflow(graph).slots;
+    return {
+      'slots': [
+        for (final slot in slots)
+          {
+            'token': slot.token,
+            'label': slot.label,
+            'loaderClass': slot.loaderClass,
+            'inputName': slot.inputName,
+            'folderHint': slot.folderHint,
+            'files': await comfy.fetchModelFilesFor(
+              slot.loaderClass,
+              slot.inputName,
+            ),
+          },
       ],
     };
   }
@@ -212,6 +253,11 @@ class ImageFacade {
         keyFor: b.remoteApiKeyFor,
       ).url;
       await b.setRemoteApiKeyFor(url, apiKey);
+    }
+    if (f['comfyCreateUploadedWorkflow'] is String) {
+      await img.setComfyCreateUploadedWorkflow(
+        f['comfyCreateUploadedWorkflow'] as String,
+      );
     }
     if (f['comfyCreateWorkflowId'] is String) {
       await img.setComfyCreateWorkflowId(f['comfyCreateWorkflowId'] as String);

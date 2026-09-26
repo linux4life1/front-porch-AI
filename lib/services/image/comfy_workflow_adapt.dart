@@ -71,6 +71,18 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
   var clipNodeId = '';
   var clipFromCheckpoint = false;
   var hasFluxGuidance = false;
+  final promptSwitchIds = <String>{};
+  for (final node in graph.values.whereType<Map>()) {
+    if (!_kPromptTextNodes.contains(node['class_type'])) continue;
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    for (final key in _kPromptKeys) {
+      final value = inputs[key];
+      if (value is List && value.isNotEmpty) {
+        promptSwitchIds.add(value.first.toString());
+      }
+    }
+  }
   for (final v in graph.values) {
     if (v is Map && v['class_type'] == 'FluxGuidance') hasFluxGuidance = true;
   }
@@ -139,24 +151,31 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
           'text_encoders',
         );
       case 'DualCLIPLoader':
+      case 'DualCLIPLoaderGGUF':
+      case 'TripleCLIPLoaderGGUF':
+      case 'QuadrupleCLIPLoaderGGUF':
         if (clipNodeId.isEmpty) {
           clipNodeId = e.key;
           clipFromCheckpoint = false;
         }
-        slot(
-          '%MODEL_CLIP1%',
-          'DualCLIPLoader',
-          'clip_name1',
-          'Text encoder 1 (CLIP-L)',
-          'text_encoders',
-        );
-        slot(
-          '%MODEL_CLIP2%',
-          'DualCLIPLoader',
-          'clip_name2',
-          'Text encoder 2 (T5-XXL)',
-          'text_encoders',
-        );
+        final count = classType.startsWith('Quadruple')
+            ? 4
+            : classType.startsWith('Triple')
+            ? 3
+            : 2;
+        for (var i = 1; i <= count; i++) {
+          slot(
+            '%MODEL_CLIP$i%',
+            classType,
+            'clip_name$i',
+            classType == 'DualCLIPLoader'
+                ? (i == 1
+                      ? 'Text encoder 1 (CLIP-L)'
+                      : 'Text encoder 2 (T5-XXL)')
+                : 'Text encoder $i',
+            'text_encoders',
+          );
+        }
       case 'VAELoader':
         vaeN++;
         vaeNodeId = vaeNodeId.isEmpty ? e.key : vaeNodeId;
@@ -202,7 +221,9 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
       case 'LoadImage':
         _tokenIfLiteral(ins, 'image', ComfyEditTokens.image);
       case 'ComfySwitchNode':
-        _tokenIfLiteral(ins, 'on_false', ComfyEditTokens.prompt);
+        if (promptSwitchIds.contains(e.key) && ins['on_false'] is String) {
+          _tokenIfLiteral(ins, 'on_false', ComfyEditTokens.prompt);
+        }
       default:
         if (classType == 'TextEncodeQwenImage21') {
           _tokenIfLiteral(ins, 'negative_prompt', ComfyEditTokens.negative);
@@ -210,8 +231,8 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         if (_kPromptTextNodes.contains(classType)) {
           for (final key in _kPromptKeys) {
             if (!ins.containsKey(key)) continue;
-            if (ins[key] is List) break;
             promptCount++;
+            if (ins[key] is List) break;
             _tokenIfLiteral(
               ins,
               key,
