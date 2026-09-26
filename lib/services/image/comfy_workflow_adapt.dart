@@ -50,6 +50,8 @@ const _kPromptTextNodes = {
   'CLIPTextEncode',
   'CLIPTextEncodeFlux',
   'TextEncodeQwenImageEditPlus',
+  'TextEncodeQwenImage21',
+  'TextGenerate',
 };
 
 const _kPromptKeys = {'text', 'prompt'};
@@ -69,6 +71,18 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
   var clipNodeId = '';
   var clipFromCheckpoint = false;
   var hasFluxGuidance = false;
+  final promptSwitchIds = <String>{};
+  for (final node in graph.values.whereType<Map>()) {
+    if (!_kPromptTextNodes.contains(node['class_type'])) continue;
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    for (final key in _kPromptKeys) {
+      final value = inputs[key];
+      if (value is List && value.isNotEmpty) {
+        promptSwitchIds.add(value.first.toString());
+      }
+    }
+  }
   for (final v in graph.values) {
     if (v is Map && v['class_type'] == 'FluxGuidance') hasFluxGuidance = true;
   }
@@ -109,18 +123,21 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
 
     switch (classType) {
       case 'UNETLoader':
+      case 'UnetLoaderGGUF':
+      case 'UnetLoaderGGUFAdvanced':
         diffusionN++;
         modelNodeId = modelNodeId.isEmpty ? e.key : modelNodeId;
         slot(
           diffusionN == 1
               ? '%MODEL_DIFFUSION%'
               : '%MODEL_DIFFUSION_$diffusionN%',
-          'UNETLoader',
+          classType,
           'unet_name',
           diffusionN == 1 ? 'Diffusion model' : 'Diffusion model $diffusionN',
           'diffusion_models',
         );
       case 'CLIPLoader':
+      case 'CLIPLoaderGGUF':
         clipN++;
         if (clipNodeId.isEmpty) {
           clipNodeId = e.key;
@@ -128,30 +145,37 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         }
         slot(
           clipN == 1 ? '%MODEL_CLIP%' : '%MODEL_CLIP_$clipN%',
-          'CLIPLoader',
+          classType,
           'clip_name',
           clipN == 1 ? 'Text encoder' : 'Text encoder $clipN',
           'text_encoders',
         );
       case 'DualCLIPLoader':
+      case 'DualCLIPLoaderGGUF':
+      case 'TripleCLIPLoaderGGUF':
+      case 'QuadrupleCLIPLoaderGGUF':
         if (clipNodeId.isEmpty) {
           clipNodeId = e.key;
           clipFromCheckpoint = false;
         }
-        slot(
-          '%MODEL_CLIP1%',
-          'DualCLIPLoader',
-          'clip_name1',
-          'Text encoder 1 (CLIP-L)',
-          'text_encoders',
-        );
-        slot(
-          '%MODEL_CLIP2%',
-          'DualCLIPLoader',
-          'clip_name2',
-          'Text encoder 2 (T5-XXL)',
-          'text_encoders',
-        );
+        final count = classType.startsWith('Quadruple')
+            ? 4
+            : classType.startsWith('Triple')
+            ? 3
+            : 2;
+        for (var i = 1; i <= count; i++) {
+          slot(
+            '%MODEL_CLIP$i%',
+            classType,
+            'clip_name$i',
+            classType == 'DualCLIPLoader'
+                ? (i == 1
+                      ? 'Text encoder 1 (CLIP-L)'
+                      : 'Text encoder 2 (T5-XXL)')
+                : 'Text encoder $i',
+            'text_encoders',
+          );
+        }
       case 'VAELoader':
         vaeN++;
         vaeNodeId = vaeNodeId.isEmpty ? e.key : vaeNodeId;
@@ -196,11 +220,19 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         _tokenIfLiteral(ins, 'height', ComfyEditTokens.height);
       case 'LoadImage':
         _tokenIfLiteral(ins, 'image', ComfyEditTokens.image);
+      case 'ComfySwitchNode':
+        if (promptSwitchIds.contains(e.key) && ins['on_false'] is String) {
+          _tokenIfLiteral(ins, 'on_false', ComfyEditTokens.prompt);
+        }
       default:
+        if (classType == 'TextEncodeQwenImage21') {
+          _tokenIfLiteral(ins, 'negative_prompt', ComfyEditTokens.negative);
+        }
         if (_kPromptTextNodes.contains(classType)) {
           for (final key in _kPromptKeys) {
             if (!ins.containsKey(key)) continue;
             promptCount++;
+            if (ins[key] is List) break;
             _tokenIfLiteral(
               ins,
               key,

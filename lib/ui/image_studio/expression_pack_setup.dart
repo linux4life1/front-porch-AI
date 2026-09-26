@@ -122,8 +122,8 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
           const ComfyCreatePanel(),
           const SizedBox(height: 10),
           Text(
-            'Pack generation uses this Create family (img2img off the base). '
-            'No extra ControlNet graph.',
+            'The pack uses a ready Edit workflow when selected; otherwise '
+            'it uses this Create family for img2img from the base portrait.',
             style: TextStyle(
               color: AppColors.textTertiary(context),
               fontSize: 11,

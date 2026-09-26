@@ -214,6 +214,7 @@ class ExpressionPackDialog extends StatefulWidget {
 
 class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
   ExpressionPackSession? _session;
+  bool _checkingWorkflow = false;
   bool _replaceExisting = true;
   bool _cancelRequested = false;
   bool _importing = false;
@@ -264,12 +265,14 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
     unawaited(qc.run());
   }
 
-  void _start({
+  Future<void> _start({
     required bool fullSet,
     required double denoise,
     required bool replaceExisting,
     required bool skipExisting,
-  }) {
+  }) async {
+    if (_checkingWorkflow) return;
+    setState(() => _checkingWorkflow = true);
     _replaceExisting = replaceExisting;
     final chosen = fullSet ? kFullExpressionSet : kCuratedExpressionSet;
     final emotions = skipExisting
@@ -284,9 +287,10 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
     // ONE shared [ImageReferenceResolver.packEditMode] (also used by the
     // creator's Portrait & Avatars panel) — resolver supportsEdit over the
     // edit slot + the Edit tab's ComfyUI workflow-readiness gate.
-    final editMode = ImageReferenceResolver.packEditMode(
+    final editMode = await ImageReferenceResolver.packEditModeForGeneration(
       widget.storage.imageGenSettings,
     );
+    if (!mounted) return;
     final session = ExpressionPackSession(
       emotions: emotions,
       basePrompt: '${widget.basePrompt}, $kExpressionFraming',
@@ -319,7 +323,10 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
             return bytes;
           },
     );
-    setState(() => _session = session);
+    setState(() {
+      _checkingWorkflow = false;
+      _session = session;
+    });
     unawaited(session.run());
   }
 
@@ -394,7 +401,9 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
             children: [
               _header(context),
               Flexible(
-                child: session == null
+                child: _checkingWorkflow
+                    ? const Center(child: CircularProgressIndicator())
+                    : session == null
                     ? SingleChildScrollView(
                         padding: const EdgeInsets.all(20),
                         child: ExpressionPackSetup(

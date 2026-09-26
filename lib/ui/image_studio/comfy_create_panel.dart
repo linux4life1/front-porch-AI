@@ -43,6 +43,10 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
   final Map<String, List<String>> _modelOptions = {};
   List<ComfyTemplateEntry> _liveTemplates = const [];
   List<ComfyModelSlot> _adaptedSlots = const [];
+  Map<String, dynamic>? _selectedLiveTemplate;
+  String? _slotsWorkflowId;
+  bool _discoveryComplete = false;
+  int _refreshRevision = 0;
   bool _loading = false;
   String _uploadError = '';
 
@@ -58,9 +62,9 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
 
   Future<void> _refresh() async {
     final st = context.read<StorageService>();
-    final preset = comfyCreatePresetById(
-      st.imageGenSettings.comfyCreateWorkflowId,
-    );
+    final workflowId = st.imageGenSettings.comfyCreateWorkflowId;
+    final revision = ++_refreshRevision;
+    final preset = comfyCreatePresetById(workflowId);
     setState(() => _loading = true);
     final comfy = _service();
     try {
@@ -68,11 +72,15 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
         ...await comfy.fetchCreateTemplates(),
         ...await comfy.fetchUserWorkflows(),
       ];
-      final name = comfyTemplateNameFor(
-        st.imageGenSettings.comfyCreateWorkflowId,
-      );
+      final name = comfyTemplateNameFor(workflowId);
       Map<String, dynamic>? liveJson;
-      if (name != null) liveJson = await comfy.fetchTemplateJson(name);
+      if (name != null) {
+        liveJson = await comfy.fetchTemplateJson(
+          name,
+          preferUserdata: comfyTemplatePrefersUserdata(workflowId),
+        );
+      }
+      if (st.imageGenSettings.comfyCreateWorkflowId != workflowId) return;
       final slots = _slotsFor(st, preset, liveJson);
       List<String>? missing;
       if (slots.isNotEmpty || (preset?.requiredNodes.isNotEmpty ?? false)) {
@@ -89,17 +97,28 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
             opts[key] ??
             await comfy.fetchModelFilesFor(slot.loaderClass, slot.inputName);
       }
-      if (!mounted) return;
+      if (!mounted ||
+          revision != _refreshRevision ||
+          st.imageGenSettings.comfyCreateWorkflowId != workflowId) {
+        return;
+      }
       setState(() {
         _liveTemplates = live;
         _adaptedSlots = slots;
+        _selectedLiveTemplate = liveJson;
+        _slotsWorkflowId = workflowId;
         _missingNodes = missing;
         _modelOptions
           ..clear()
           ..addAll(opts);
       });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && revision == _refreshRevision) {
+        setState(() {
+          _loading = false;
+          _discoveryComplete = true;
+        });
+      }
     }
   }
 
@@ -155,7 +174,10 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
         return;
       }
       await st.imageGenSettings.setComfyCreateUploadedWorkflow(text);
-      if (mounted) setState(() => _uploadError = '');
+      if (mounted) {
+        setState(() => _uploadError = '');
+        await _refresh();
+      }
     } catch (_) {
       setState(() => _uploadError = 'That file isn’t valid JSON.');
     }
@@ -171,10 +193,10 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
         final preset = comfyCreatePresetById(
           st.imageGenSettings.comfyCreateWorkflowId,
         );
-        final slots = _adaptedSlots.isNotEmpty
+        final owner = st.imageGenSettings.comfyCreateWorkflowId;
+        final slots = _slotsWorkflowId == owner
             ? _adaptedSlots
             : (preset?.modelSlots ?? const []);
-        final owner = st.imageGenSettings.comfyCreateWorkflowId;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -188,7 +210,7 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
             ),
             const SizedBox(height: 6),
             _familyDropdown(context, st),
-            if (!isUpload && slots.isNotEmpty) ...[
+            if (slots.isNotEmpty) ...[
               const SizedBox(height: 10),
               for (final slot in slots) ...[
                 _slotRow(context, st, owner, slot),
@@ -231,10 +253,13 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
       for (final p in kComfyCreatePresets)
         DropdownMenuItem(value: p.id, child: Text(p.label)),
       for (final t in _liveTemplates)
-        if (!bundledNames.contains(t.name))
+        if (t.source == 'userdata' || !bundledNames.contains(t.name))
           DropdownMenuItem(
             value: t.pickerId,
-            child: Text(t.title, overflow: TextOverflow.ellipsis),
+            child: Text(
+              '${t.source == 'userdata' ? 'Saved' : 'ComfyUI'} · ${t.title}',
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
       const DropdownMenuItem(
         value: kComfyUploadedWorkflowId,
@@ -244,7 +269,14 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
     if (items.every((i) => i.value != current)) {
       items.insert(
         items.length - 1,
-        DropdownMenuItem(value: current, child: Text(current)),
+        DropdownMenuItem(
+          value: current,
+          child: Text(
+            comfyTemplateNameFor(current) == null
+                ? current
+                : 'Saved · ${comfyTemplateNameFor(current)}',
+          ),
+        ),
       );
     }
     return DropdownButtonFormField<String>(
@@ -254,7 +286,7 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
       decoration: _deco(context),
       style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
       items: items,
-      onChanged: widget.busy
+      onChanged: widget.busy || !_discoveryComplete
           ? null
           : (v) async {
               if (v == null) return;
@@ -296,6 +328,7 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
         ),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
+          key: ValueKey('$presetId/${slot.token}'),
           initialValue: value,
           isExpanded: true,
           dropdownColor: AppColors.surfaceContainerOf(context),
@@ -362,12 +395,29 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
     ComfyCreatePreset? preset,
     bool isUpload,
   ) {
-    final ready = comfyCreateReady(
-      workflowId: st.imageGenSettings.comfyCreateWorkflowId,
-      uploadedWorkflowJson: st.imageGenSettings.comfyCreateUploadedWorkflow,
-      modelChoices: st.imageGenSettings.comfyCreateModelChoices,
-      checkpointFallback: st.imageGenSettings.imageGenModel,
-    );
+    final workflowId = st.imageGenSettings.comfyCreateWorkflowId;
+    final choicesValid =
+        _slotsWorkflowId == workflowId &&
+        _adaptedSlots.every((slot) {
+          final choice =
+              st.imageGenSettings.comfyCreateModelChoice(
+                workflowId,
+                slot.token,
+              ) ??
+              (workflowId == 'sd' ? st.imageGenSettings.imageGenModel : '');
+          return (_modelOptions['${slot.loaderClass}/${slot.inputName}'] ??
+                  const <String>[])
+              .contains(choice);
+        });
+    final ready =
+        choicesValid &&
+        comfyCreateReady(
+          workflowId: workflowId,
+          uploadedWorkflowJson: st.imageGenSettings.comfyCreateUploadedWorkflow,
+          modelChoices: st.imageGenSettings.comfyCreateModelChoices,
+          checkpointFallback: st.imageGenSettings.imageGenModel,
+          liveTemplate: _selectedLiveTemplate,
+        );
     String text;
     Color color;
     IconData icon;

@@ -27,6 +27,10 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
+import 'comfy_edit_catalog.dart';
+
+part 'comfy_edit_panel.readiness.dart';
+
 /// The **ComfyUI** edit-setup panel on the Edit tab (the approved mockup made
 /// real): pick a bundled workflow (Qwen-Image-Edit / Flux Kontext) or upload your
 /// own, point the preset at your model files (dropdowns filled live from the
@@ -57,6 +61,12 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
 
   /// Model-file options per "loaderClass/inputName", filled from /object_info.
   final Map<String, List<String>> _modelOptions = {};
+  List<ComfyTemplateEntry> _liveWorkflows = const [];
+  List<ComfyModelSlot> _activeSlots = const [];
+  String? _slotsWorkflowId;
+  bool _hasEditInputs = false;
+  bool _discoveryComplete = false;
+  int _refreshRevision = 0;
 
   bool _loading = false;
   bool? _lastReported;
@@ -75,32 +85,34 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
   /// Probe the selected preset's required nodes + fetch its model-slot options.
   Future<void> _refresh() async {
     final st = context.read<StorageService>();
-    final preset = comfyEditPresetById(st.imageGenSettings.comfyEditWorkflowId);
+    final workflowId = st.imageGenSettings.comfyEditWorkflowId;
+    final revision = ++_refreshRevision;
     setState(() => _loading = true);
     final comfy = _service();
     try {
-      if (preset != null) {
-        final missing = await comfy.missingEditNodes(preset.requiredNodes);
-        final opts = <String, List<String>>{};
-        for (final slot in preset.modelSlots) {
-          final key = '${slot.loaderClass}/${slot.inputName}';
-          opts[key] =
-              opts[key] ??
-              await comfy.fetchModelFilesFor(slot.loaderClass, slot.inputName);
-        }
-        if (!mounted) return;
-        setState(() {
-          _missingNodes = missing;
-          _modelOptions
-            ..clear()
-            ..addAll(opts);
-        });
-      } else {
-        if (!mounted) return;
-        setState(() => _missingNodes = null);
+      final catalog = await loadComfyEditCatalog(comfy, workflowId);
+      if (!mounted ||
+          revision != _refreshRevision ||
+          st.imageGenSettings.comfyEditWorkflowId != workflowId) {
+        return;
       }
+      setState(() {
+        _liveWorkflows = catalog.workflows;
+        _activeSlots = catalog.slots;
+        _slotsWorkflowId = workflowId;
+        _hasEditInputs = catalog.hasEditInputs;
+        _missingNodes = catalog.missingNodes;
+        _modelOptions
+          ..clear()
+          ..addAll(catalog.modelOptions);
+      });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && revision == _refreshRevision) {
+        setState(() {
+          _loading = false;
+          _discoveryComplete = true;
+        });
+      }
     }
   }
 
@@ -117,13 +129,16 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
         return false;
       }
     }
-    final preset = comfyEditPresetById(st.imageGenSettings.comfyEditWorkflowId);
-    if (preset == null) return false;
+    final workflowId = st.imageGenSettings.comfyEditWorkflowId;
+    if (_slotsWorkflowId != workflowId || !_hasEditInputs) return false;
     if (_missingNodes == null || _missingNodes!.isNotEmpty) return false;
-    for (final slot in preset.modelSlots) {
-      if ((st.imageGenSettings.comfyEditModelChoice(preset.id, slot.token) ??
-              '')
-          .isEmpty) {
+    for (final slot in _activeSlots) {
+      final chosen =
+          st.imageGenSettings.comfyEditModelChoice(workflowId, slot.token) ??
+          '';
+      if (!(_modelOptions['${slot.loaderClass}/${slot.inputName}'] ??
+              const <String>[])
+          .contains(chosen)) {
         return false;
       }
     }
@@ -183,6 +198,10 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
         final preset = comfyEditPresetById(
           st.imageGenSettings.comfyEditWorkflowId,
         );
+        final workflowId = st.imageGenSettings.comfyEditWorkflowId;
+        final slots = _slotsWorkflowId == workflowId
+            ? _activeSlots
+            : (preset?.modelSlots ?? const <ComfyModelSlot>[]);
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -197,10 +216,10 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
               _label(context, 'Workflow'),
               const SizedBox(height: 6),
               _workflowDropdown(context, st),
-              if (!isUpload && preset != null) ...[
+              if (!isUpload && slots.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                for (final slot in preset.modelSlots) ...[
-                  _modelSlotRow(context, st, preset.id, slot),
+                for (final slot in slots) ...[
+                  _modelSlotRow(context, st, workflowId, slot),
                   if (!_loading &&
                       (_modelOptions['${slot.loaderClass}/${slot.inputName}'] ??
                               const [])
@@ -223,21 +242,44 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
   }
 
   Widget _workflowDropdown(BuildContext context, StorageService st) {
+    final current = st.imageGenSettings.comfyEditWorkflowId;
+    final items = <DropdownMenuItem<String>>[
+      for (final p in kComfyEditPresets)
+        DropdownMenuItem(value: p.id, child: Text('🧩  ${p.label}')),
+      for (final workflow in _liveWorkflows)
+        DropdownMenuItem(
+          value: workflow.pickerId,
+          child: Text(
+            '${workflow.source == 'userdata' ? 'Saved' : 'ComfyUI'} · ${workflow.title}',
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      const DropdownMenuItem(
+        value: kComfyUploadedWorkflowId,
+        child: Text('⬆️  Upload your own…'),
+      ),
+    ];
+    if (items.every((item) => item.value != current)) {
+      items.insert(
+        items.length - 1,
+        DropdownMenuItem(
+          value: current,
+          child: Text(
+            comfyTemplateNameFor(current) == null
+                ? current
+                : 'Saved · ${comfyTemplateNameFor(current)}',
+          ),
+        ),
+      );
+    }
     return DropdownButtonFormField<String>(
-      initialValue: st.imageGenSettings.comfyEditWorkflowId,
+      initialValue: current,
       isExpanded: true,
       dropdownColor: AppColors.surfaceContainerOf(context),
       decoration: _deco(context),
       style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
-      items: [
-        for (final p in kComfyEditPresets)
-          DropdownMenuItem(value: p.id, child: Text('🧩  ${p.label}')),
-        const DropdownMenuItem(
-          value: kComfyUploadedWorkflowId,
-          child: Text('⬆️  Upload your own…'),
-        ),
-      ],
-      onChanged: widget.busy
+      items: items,
+      onChanged: widget.busy || !_discoveryComplete
           ? null
           : (v) async {
               if (v == null) return;
@@ -277,6 +319,7 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
         ),
         Expanded(
           child: DropdownButtonFormField<String>(
+            key: ValueKey('$presetId/${slot.token}'),
             initialValue: value,
             isExpanded: true,
             dropdownColor: AppColors.surfaceContainerOf(context),
@@ -368,7 +411,7 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
     ComfyEditPreset? preset,
     bool isUpload,
   ) {
-    final (icon, color, text) = _readinessState(st, preset, isUpload);
+    final (icon, color, text) = this._readinessState(st, preset, isUpload);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -382,62 +425,6 @@ class _ComfyEditPanelState extends State<ComfyEditPanel> {
         ),
       ],
     );
-  }
-
-  (IconData, Color, String) _readinessState(
-    StorageService st,
-    ComfyEditPreset? preset,
-    bool isUpload,
-  ) {
-    if (isUpload) {
-      return _computeReady(st)
-          ? (
-              Icons.check_circle,
-              AppColors.logReady,
-              'Ready — your workflow is loaded.',
-            )
-          : (
-              Icons.warning_amber_rounded,
-              AppColors.logWarn,
-              'Upload a workflow with %IMAGE% and %PROMPT% to continue.',
-            );
-    }
-    if (_loading && _missingNodes == null) {
-      return (
-        Icons.hourglass_empty,
-        AppColors.textTertiary(context),
-        'Checking your ComfyUI…',
-      );
-    }
-    if (_missingNodes == null) {
-      return (
-        Icons.error_outline,
-        AppColors.logWarn,
-        'Can’t reach ComfyUI. Make sure it’s running at the configured URL.',
-      );
-    }
-    if (_missingNodes!.isNotEmpty) {
-      return (
-        Icons.warning_amber_rounded,
-        AppColors.logWarn,
-        'Your ComfyUI is missing: ${_missingNodes!.join(', ')}. Update ComfyUI '
-            '(or its custom nodes), then reopen this.',
-      );
-    }
-    if (preset != null) {
-      for (final slot in preset.modelSlots) {
-        if ((st.imageGenSettings.comfyEditModelChoice(preset.id, slot.token) ??
-                '')
-            .isEmpty) {
-          return (
-            Icons.warning_amber_rounded,
-            AppColors.logWarn,
-            'Pick a model for each slot above.',
-          );
-        }
-      }
-    }
-    return (Icons.check_circle, AppColors.logReady, 'Ready.');
   }
 
   Widget _label(BuildContext context, String text) => Text(

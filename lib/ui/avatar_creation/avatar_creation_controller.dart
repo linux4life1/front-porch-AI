@@ -153,6 +153,7 @@ class AvatarCreationController extends ChangeNotifier {
   int flaggedExcluded = 0;
   bool _cancelRequested = false;
   bool _disposed = false;
+  bool? _activePackEditMode;
   Set<String> _existingEmotions = const {};
 
   /// The one in-flight first-persist (see _ensureCard's single-flight guard).
@@ -171,6 +172,7 @@ class AvatarCreationController extends ChangeNotifier {
   /// The exact decision the Studio's pack dialog uses (edit slot + ComfyUI
   /// readiness). img2img is the automatic fallback where edit truly isn't.
   bool get packEditModeNow =>
+      (running ? _activePackEditMode : null) ??
       ImageReferenceResolver.packEditMode(storage.imageGenSettings);
 
   /// The Edit-tab view for the edit-model row (readiness copy per backend).
@@ -395,6 +397,7 @@ class AvatarCreationController extends ChangeNotifier {
   // ── The run (portrait → veto gate → pack) ─────────────────────────────────
   Future<void> run() async {
     if (running || ctaLabel == null) return;
+    _activePackEditMode = null;
     _cancelRequested = false;
     importedCount = 0;
     flaggedExcluded = 0;

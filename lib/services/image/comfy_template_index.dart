@@ -34,7 +34,7 @@ class ComfyTemplateEntry {
     this.source = 'default',
   });
 
-  String get pickerId => 'comfy:$name';
+  String get pickerId => 'comfy:$source:$name';
 
   bool get isCreate => _has(_kCreateTags) && !_has(_kBlockedTags) && openSource;
 

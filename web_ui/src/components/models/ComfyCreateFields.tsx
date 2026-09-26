@@ -14,6 +14,10 @@ export interface ComfySlot {
   folderHint: string;
 }
 
+interface LiveComfySlot extends ComfySlot {
+  files: string[];
+}
+
 export interface ComfyPreset {
   id: string;
   label: string;
@@ -27,20 +31,7 @@ export interface ComfyCatalog {
   diffusionModels: string[];
   textEncoders: string[];
   vaes: string[];
-  templates?: { id: string; name: string; title: string }[];
-}
-
-function filesFor(slot: ComfySlot, cat: ComfyCatalog | null): string[] {
-  if (!cat) return [];
-  if (slot.folderHint === 'checkpoints' || slot.loaderClass === 'CheckpointLoaderSimple') {
-    return cat.checkpoints;
-  }
-  if (slot.folderHint === 'diffusion_models' || slot.loaderClass === 'UNETLoader') {
-    return cat.diffusionModels;
-  }
-  if (slot.folderHint === 'text_encoders') return cat.textEncoders;
-  if (slot.folderHint === 'vae') return cat.vaes;
-  return [];
+  templates?: { id: string; name: string; title: string; source: string }[];
 }
 
 export function ComfyCreateFields({
@@ -52,9 +43,12 @@ export function ComfyCreateFields({
   workflowId: string;
   modelChoices: Record<string, string>;
   presets: ComfyPreset[];
-  onChange: (patch: Record<string, unknown>) => void;
+  onChange: (patch: Record<string, unknown>) => Promise<boolean>;
 }) {
   const [cat, setCat] = useState<ComfyCatalog | null>(null);
+  const [liveSlots, setLiveSlots] = useState<LiveComfySlot[] | null>(null);
+  const [uploadRevision, setUploadRevision] = useState(0);
+  const [uploadError, setUploadError] = useState('');
   useEffect(() => {
     api
       .get<ComfyCatalog>('/api/image/comfy-catalog')
@@ -62,10 +56,43 @@ export function ComfyCreateFields({
       .catch(() => setCat({ checkpoints: [], diffusionModels: [], textEncoders: [], vaes: [] }));
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    setLiveSlots(null);
+    api.get<{ slots: LiveComfySlot[] }>(
+      `/api/image/comfy-workflow-slots?workflowId=${encodeURIComponent(workflowId)}`,
+    ).then((result) => { if (active) setLiveSlots(result.slots); })
+      .catch(() => { if (active) setLiveSlots([]); });
+    return () => { active = false; };
+  }, [workflowId, uploadRevision]);
+
   const bundledNames = new Set(presets.map((p) => p.comfyTemplateName).filter(Boolean));
-  const live = (cat?.templates ?? []).filter((t) => !bundledNames.has(t.name));
-  const preset = presets.find((p) => p.id === workflowId);
-  const slots = preset?.slots ?? [];
+  const live = (cat?.templates ?? []).filter(
+    (template) => template.source === 'userdata' || !bundledNames.has(template.name),
+  );
+  const slots = liveSlots ?? [];
+  const knownIds = new Set([
+    ...presets.map((preset) => preset.id),
+    ...live.map((template) => template.id),
+    '__uploaded__',
+  ]);
+
+  const uploadWorkflow = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const json = await file.text();
+      const value: unknown = JSON.parse(json);
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error('Choose a ComfyUI workflow JSON object.');
+      }
+      const saved = await onChange({ comfyCreateUploadedWorkflow: json, comfyCreateWorkflowId: '__uploaded__' });
+      if (!saved) throw new Error('Could not save workflow.');
+      setUploadError('');
+      setUploadRevision((n) => n + 1);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Could not load workflow');
+    }
+  };
 
   return (
     <>
@@ -73,6 +100,7 @@ export function ComfyCreateFields({
         Create family
         <select
           value={workflowId}
+          disabled={cat === null}
           onChange={(e) => onChange({ comfyCreateWorkflowId: e.target.value })}
         >
           {presets.map((p) => (
@@ -82,15 +110,25 @@ export function ComfyCreateFields({
           ))}
           {live.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.title}
+              {t.source === 'userdata' ? 'Saved' : 'ComfyUI'} · {t.title}
             </option>
           ))}
-          <option value="__uploaded__">Upload your own… (desktop)</option>
+          {!knownIds.has(workflowId) && (
+            <option value={workflowId}>{workflowId.replace(/^comfy:/, 'Saved · ')}</option>
+          )}
+          <option value="__uploaded__">Upload your own…</option>
         </select>
       </label>
+      {workflowId === '__uploaded__' && (
+        <label>ComfyUI workflow JSON
+          <input type="file" accept=".json,application/json" onChange={(e) => void uploadWorkflow(e.target.files?.[0])} />
+          {uploadError && <span role="alert">{uploadError}</span>}
+        </label>
+      )}
+      {liveSlots === null && <p className="muted small">Loading model choices…</p>}
       {slots.map((slot) => {
         const key = `${workflowId}/${slot.token}`;
-        const files = filesFor(slot, cat);
+        const files = slot.files;
         const current = modelChoices[key] ?? '';
         return (
           <label key={key}>
