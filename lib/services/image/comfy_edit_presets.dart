@@ -35,6 +35,8 @@
 import 'dart:convert';
 
 import 'comfy_edit_workflow.dart';
+import 'comfy_workflow_adapt.dart';
+import 'comfy_workflow_convert.dart';
 
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 
@@ -365,6 +367,7 @@ resolveComfyEditRequest({
   required double shift,
   String sampler = 'euler',
   String scheduler = 'simple',
+  Map<String, dynamic>? liveTemplate,
 }) {
   final values = <String, Object?>{
     ComfyEditTokens.prompt: prompt,
@@ -377,6 +380,20 @@ resolveComfyEditRequest({
     ComfyEditTokens.sampler: sampler,
     ComfyEditTokens.scheduler: scheduler,
   };
+
+  if (workflowId.startsWith('comfy:')) {
+    if (liveTemplate == null) return null;
+    final api = ensureComfyApiGraph(liveTemplate);
+    if (api == null) return null;
+    final adapted = adaptComfyApiWorkflow(api);
+    final tokens = detectComfyTokens(adapted.template);
+    if (!ComfyEditTokens.required.every(tokens.contains)) return null;
+    for (final slot in adapted.slots) {
+      final file = modelChoices['$workflowId/${slot.token}'] ?? '';
+      if (file.isNotEmpty) values[slot.token] = file;
+    }
+    return (template: adapted.template, values: values);
+  }
 
   if (workflowId == kComfyUploadedWorkflowId) {
     if (uploadedWorkflowJson.trim().isEmpty) return null;
@@ -413,11 +430,13 @@ bool comfyEditReady({
   required String workflowId,
   required String uploadedWorkflowJson,
   required Map<String, String> modelChoices,
+  Map<String, dynamic>? liveTemplate,
 }) {
   final req = resolveComfyEditRequest(
     workflowId: workflowId,
     uploadedWorkflowJson: uploadedWorkflowJson,
     modelChoices: modelChoices,
+    liveTemplate: liveTemplate,
     prompt: 'x',
     negative: '',
     seed: 0,

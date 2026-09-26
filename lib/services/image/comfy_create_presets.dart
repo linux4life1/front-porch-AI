@@ -157,15 +157,27 @@ ComfyCreatePreset? comfyCreatePresetById(String id) {
   return null;
 }
 
-/// Comfy template stem for a family id or a `comfy:{name}` live pick.
+/// Comfy template stem for a family id or a live workflow pick.
 String? comfyTemplateNameFor(String workflowId) {
   final preset = comfyCreatePresetById(workflowId);
   if (preset != null) {
     return preset.comfyTemplateName.isEmpty ? null : preset.comfyTemplateName;
   }
+  if (workflowId.startsWith('comfy:userdata:')) {
+    return workflowId.substring('comfy:userdata:'.length);
+  }
+  if (workflowId.startsWith('comfy:default:')) {
+    return workflowId.substring('comfy:default:'.length);
+  }
   if (workflowId.startsWith('comfy:')) return workflowId.substring(6);
   return null;
 }
+
+/// Legacy `comfy:name` picks were ambiguous; prefer the saved copy.
+bool comfyTemplatePrefersUserdata(String workflowId) =>
+    workflowId.startsWith('comfy:userdata:') ||
+    (workflowId.startsWith('comfy:') &&
+        !workflowId.startsWith('comfy:default:'));
 
 /// Load the JSON we will adapt: BYO, a live Comfy template, or a starter.
 Map<String, dynamic>? loadComfyCreateSource({

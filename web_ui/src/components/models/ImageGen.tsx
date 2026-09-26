@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StepUpFields } from '../StepUpFields';
 import { ComfyCreateFields, type ComfyPreset } from './ComfyCreateFields';
+import { ComfyEditFields } from './ComfyEditFields';
 import { ImageRemoteFields } from './ImageRemoteFields';
 import type { ImageRemoteHost } from './imageRemote';
 
@@ -49,6 +50,9 @@ interface ImageConfig {
   comfyCreateWorkflowId?: string;
   comfyCreateModelChoices?: Record<string, string>;
   comfyCreatePresets?: ComfyPreset[];
+  comfyEditWorkflowId?: string;
+  comfyEditModelChoices?: Record<string, string>;
+  comfyEditPresets?: ComfyPreset[];
 }
 
 // Mirrors ImageGenService.styleLabels (desktop) + the Image Studio size list.
@@ -222,15 +226,26 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
             />
           </label>
           {surface?.workflowSlots && (
-            <ComfyCreateFields
-              workflowId={cfg.comfyCreateWorkflowId ?? 'sd'}
-              modelChoices={cfg.comfyCreateModelChoices ?? {}}
-              presets={cfg.comfyCreatePresets ?? []}
-              onChange={(patch) => {
-                set(patch as Partial<ImageConfig>);
-                return saveConfig(patch);
-              }}
-            />
+            <>
+              <ComfyCreateFields
+                workflowId={cfg.comfyCreateWorkflowId ?? 'sd'}
+                modelChoices={cfg.comfyCreateModelChoices ?? {}}
+                presets={cfg.comfyCreatePresets ?? []}
+                onChange={(patch) => {
+                  set(patch as Partial<ImageConfig>);
+                  return saveConfig(patch);
+                }}
+              />
+              <ComfyEditFields
+                workflowId={cfg.comfyEditWorkflowId ?? 'qwen_image_edit'}
+                modelChoices={cfg.comfyEditModelChoices ?? {}}
+                presets={cfg.comfyEditPresets ?? []}
+                onChange={(patch) => {
+                  set(patch as Partial<ImageConfig>);
+                  return saveConfig(patch);
+                }}
+              />
+            </>
           )}
         </>
       ) : (
