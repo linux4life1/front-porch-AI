@@ -17,10 +17,8 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
-import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
-import 'package:front_porch_ai/services/image/image_studio_remote.dart';
-import 'package:front_porch_ai/services/image_gen_service.dart'
-    show ImageGenBackend;
+import 'package:front_porch_ai/services/comfy_ui_service.dart';
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 
 /// Adapter that maps the active [ImageGenBackend] to the pure backend bits
@@ -99,7 +97,10 @@ class ImageReferenceResolver {
   /// and the img2img fallback would be unreachable. Gate on the SAME
   /// readiness the Edit tab enforces; when it isn't ready, img2img (which the
   /// plain checkpoint can always do) takes over.
-  static bool packEditMode(ImageGenSettings settings) {
+  static bool packEditMode(
+    ImageGenSettings settings, {
+    Map<String, dynamic>? liveTemplate,
+  }) {
     final backend = ImageGenBackend.fromKey(settings.imageGenBackend);
     var modelName = settings.imageGenEditModel;
     if (backend == ImageGenBackend.remote) {
@@ -124,8 +125,29 @@ class ImageReferenceResolver {
         workflowId: settings.comfyEditWorkflowId,
         uploadedWorkflowJson: settings.comfyEditUploadedWorkflow,
         modelChoices: settings.comfyEditModelChoices,
+        liveTemplate: liveTemplate,
       );
     }
     return editMode;
+  }
+
+  /// Saved ComfyUI workflows need their live graph before their model slots
+  /// can be checked. Both expression-pack hosts use this at run time.
+  static Future<bool> packEditModeForGeneration(
+    ImageGenSettings settings,
+  ) async {
+    if (ImageGenBackend.fromKey(settings.imageGenBackend) !=
+        ImageGenBackend.comfyUi) {
+      return packEditMode(settings);
+    }
+    final workflowId = settings.comfyEditWorkflowId;
+    final name = comfyTemplateNameFor(workflowId);
+    if (name == null) return packEditMode(settings);
+    final template = await ComfyUiService(baseUrl: settings.comfyUiUrl)
+        .fetchTemplateJson(
+          name,
+          preferUserdata: comfyTemplatePrefersUserdata(workflowId),
+        );
+    return packEditMode(settings, liveTemplate: template);
   }
 }

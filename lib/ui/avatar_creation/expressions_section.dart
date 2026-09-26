@@ -160,6 +160,8 @@ class ExpressionsSection extends StatelessWidget {
     );
     if (controls.showWorkflowSlots) {
       final editReady = c.packEditModeNow;
+      final savedEdit = c.storage.imageGenSettings.comfyEditWorkflowId
+          .startsWith('comfy:');
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -167,10 +169,13 @@ class ExpressionsSection extends StatelessWidget {
           const SizedBox(height: 8),
           _readiness(
             context,
-            ok: editReady,
+            ok: editReady || savedEdit,
             text: editReady
                 ? 'Edit workflow ready — pack uses Edit when it can; '
                       'otherwise the Create family above (img2img).'
+                : savedEdit
+                ? 'Saved Edit workflow selected — its model choices are '
+                      'checked when the pack starts.'
                 : 'Pack uses the Create family above (img2img). Optional: '
                       'set up Qwen-Image-Edit or Flux Kontext in Image '
                       'Studio → Edit.',

@@ -365,6 +365,8 @@ resolveComfyEditRequest({
   required double cfg,
   required double denoise,
   required double shift,
+  int width = 1024,
+  int height = 1024,
   String sampler = 'euler',
   String scheduler = 'simple',
   Map<String, dynamic>? liveTemplate,
@@ -377,6 +379,8 @@ resolveComfyEditRequest({
     ComfyEditTokens.cfg: cfg,
     ComfyEditTokens.denoise: denoise,
     ComfyEditTokens.shift: shift,
+    ComfyEditTokens.width: width,
+    ComfyEditTokens.height: height,
     ComfyEditTokens.sampler: sampler,
     ComfyEditTokens.scheduler: scheduler,
   };
