@@ -34,7 +34,9 @@ extension ChatServiceVariants on ChatService {
       final cid = messages.first.characterId;
       if (cid == null || cid.isEmpty) return const [];
       for (final c in groupCharacters) {
-        if (c.stableGroupId == cid) return c.allGreetings;
+        if (_getCharacterIdFromCard(c) == cid || c.stableGroupId == cid) {
+          return c.allGreetings;
+        }
       }
       return const [];
     }

@@ -40,6 +40,7 @@ import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -73,10 +74,7 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 50));
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   /// Two personas: the one a previous chat used, and the one the user picks
   /// in the dialog. Returns (previous, chosen) ids.
@@ -89,31 +87,33 @@ void main() {
     return (previous, chosen);
   }
 
-  test('the chosen persona survives entry (which restores the old one)',
-      () async {
-    final (previous, chosen) = await seedTwoPersonas();
+  test(
+    'the chosen persona survives entry (which restores the old one)',
+    () async {
+      final (previous, chosen) = await seedTwoPersonas();
 
-    // A prior chat with this character, recorded under the OTHER persona.
-    await db.insertSession(
-      SessionsCompanion.insert(
-        id: 'sess-old',
-        characterId: const Value('char-a'),
-        userPersonaId: Value(previous),
-      ),
-    );
+      // A prior chat with this character, recorded under the OTHER persona.
+      await db.insertSession(
+        SessionsCompanion.insert(
+          id: 'sess-old',
+          characterId: const Value('char-a'),
+          userPersonaId: Value(previous),
+        ),
+      );
 
-    await chat.startFreshChatWith(
-      character: CharacterCard(name: 'Misty')..dbId = 'char-a',
-      personaId: chosen,
-    );
+      await chat.startFreshChatWith(
+        character: CharacterCard(name: 'Misty')..dbId = 'char-a',
+        personaId: chosen,
+      );
 
-    // If the persona were applied before setActiveCharacter, loading
-    // 'sess-old' would have reset it to `previous`.
-    expect(personas.persona.id, chosen);
-    // And it really is a fresh session, not the one we seeded.
-    expect(chat.currentSessionId, isNot('sess-old'));
-    expect(chat.currentSessionId, isNotNull);
-  });
+      // If the persona were applied before setActiveCharacter, loading
+      // 'sess-old' would have reset it to `previous`.
+      expect(personas.persona.id, chosen);
+      // And it really is a fresh session, not the one we seeded.
+      expect(chat.currentSessionId, isNot('sess-old'));
+      expect(chat.currentSessionId, isNotNull);
+    },
+  );
 
   test('the fresh session stores the chosen persona', () async {
     final (previous, chosen) = await seedTwoPersonas();

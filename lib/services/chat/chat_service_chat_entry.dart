@@ -325,10 +325,8 @@ extension ChatServiceChatEntry on ChatService {
               timeOfDay: ext.timeOfDay,
               storyStartDate: ext.storyStartDate,
               storyStartTime: ext.storyStartTime,
-              passageOfTimeEnabled:
-                  ext.passageOfTimeEnabled &&
-                  _storageService.realismSettings.passageOfTimeDefault,
             );
+            _applySeededPassageOfTime();
             _characterEmotion = ext.characterEmotion;
             _emotionIntensity = ext.emotionIntensity;
             _nsfwService.seedFromV2OrExt(
@@ -429,6 +427,10 @@ extension ChatServiceChatEntry on ChatService {
             );
             // Scan first message for lore (thin delegation to extracted scanner).
             _lorebookScanner.scanLatest();
+            _writeSlotClock(
+              _messages.isEmpty ? null : _messages.first,
+              kind: _SlotClockWrite.seed,
+            );
             if (_activeCharacter!.firstMessage.trim().isEmpty) {
               await _applyGreetingOpeningSeed(
                 card: _activeCharacter!,

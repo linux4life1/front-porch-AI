@@ -261,6 +261,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getEnjoysLowHygiene: () => enjoysLowHygiene,
       getGroupNeeds: _getGroupNeeds,
       getCharacterIdFromCard: _getCharacterIdFromCard,
+      getNeedsOff: () =>
+          _activeCharacter?.frontPorchExtensions?.needsOff ?? const [],
     );
   }
 

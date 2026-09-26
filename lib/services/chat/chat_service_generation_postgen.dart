@@ -32,6 +32,9 @@ extension ChatServiceGenerationPostGen on ChatService {
     // [openWorkerLane] or finalize deadlocks waiting on itself.
     _llmProvider?.endMouthSpeech();
     _isGenerating = false;
+    // Leftover abort from a prior yield/regen hold must not skip THIS
+    // turn's clock. A user abort during this finalize re-sets the flags.
+    _clearPostGenAbortFlags();
     // Settling starts the instant the last token lands — the finalization
     // below (sanitizer, lorebook, _saveChat, post-gen checks, chip attach)
     // is still the turn; the old late raise let a new turn interleave
@@ -171,32 +174,57 @@ extension ChatServiceGenerationPostGen on ChatService {
       _lorebookScanner.decrementLoreDepthForEntries(preAiTriggered);
 
       // ── Scene Guest (Lite NPC) parity guard ──────────────────────────
-      // A guest turn must NOT touch the active character's Realism Engine,
-      // Needs simulation, inter-character feelings, chips, or the
-      // periodic (facts/evolution/summary/RAG) evaluators. The guest carries
-      // no such state. The chat clock is the exception — it is chat-scoped
-      // and ticks after this guard so the next speaker is told an honest
-      // time. Everything from here through the periodic evals is
-      // gated so guest presence/turns leave the primary's state untouched.
-      // (Lorebook scan + _saveChat above still ran for the guest.)
+      // A guest turn must NOT run the guest's own Realism Engine,
+      // Needs scene eval, inter-character feelings, or the periodic
+      // (facts/evolution/summary/RAG) evaluators. The guest carries
+      // no such state. The chat clock is the exception — it is chat-
+      // scoped and ticks after this guard so the next speaker is told
+      // an honest time. Present full members wear that beat; the guest
+      // themselves never invent a Needs map. Everything from here
+      // through the periodic evals is gated so the guest's own state
+      // stays empty. (Lorebook scan + _saveChat above still ran.)
       if (!_isLiteTurn(t)) {
         await _runPostGenEngineAndPeriodic(t, newPart, finalResponse);
       }
 
-      // Lite / Scene Guest: no Realism/Needs. Group soft roster
-      // members still get the glance-only withUser pass so Away /
-      // With you can move. 1:1 guestSpeaker stays out of Away
-      // rotation. The chat clock still hands off. The early
-      // `_saveChat` above ran BEFORE this tick — persist the new
-      // clock, glance bit, and rewind stamp or a reload loses them.
+      // Lite / Scene Guest: no Realism/Needs on the speaker. Group
+      // soft roster members still get the glance-only withUser pass
+      // so Away / With you can move. 1:1 guestSpeaker stays out of
+      // Away rotation. The chat clock still hands off and stamps
+      // time (soft slots stay empty — they have no Needs). The early
+      // `_saveChat` above ran BEFORE this tick — persist the new clock,
+      // glance bit, and rewind stamp or a reload loses them.
       if (_isLiteTurn(t)) {
         final scored = t.mode == GenerationMode.continue_
             ? (_isGuestAuthoredMessage(t.streamTarget) ? '' : newPart.trim())
             : finalResponse;
         await _runLiteGroupGlancePass(t, scored);
-        await _maybeAdvanceStoryClockAfterReply(t);
-        _maybeKickDreamPrefetch();
-        await _saveChat();
+        if (t.mode == GenerationMode.continue_ || !_clockRunning) {
+          _timeService.clearBodyBeat();
+        }
+        // Same abort contract as the engine path: a rejected finalize
+        // must not keep the tick, wear, chip, or save. Regen waits up
+        // to 5s in `_yieldSettlingTurn` — without this gate the aborted
+        // wear lands, then replay wears again.
+        if (_postGenAbortRequested) {
+          debugPrint(
+            '[Clock] running=$_clockRunning '
+            'source=${_timeService.clockGateSource} '
+            'porchLife='
+            '${_storageService.realismSettings.passageOfTimeDefault} '
+            'reason=abort',
+          );
+          _abortSlotClockIfThisTurnTicked(t);
+        } else {
+          await _maybeAdvanceStoryClockAfterReply(t);
+          if (_postGenAbortRequested) {
+            _abortSlotClockIfThisTurnTicked(t);
+          } else {
+            _wearBodiesAfterClock(t);
+            _maybeKickDreamPrefetch();
+            await _saveChat();
+          }
+        }
       }
 
       // (Task completion check now runs pre-generation in sendMessage)
@@ -246,5 +274,88 @@ extension ChatServiceGenerationPostGen on ChatService {
     if (t.originalModelName != null && _llmProvider != null) {
       _llmProvider!.openRouterService.configure(modelName: t.originalModelName);
     }
+  }
+
+  /// Post-reply clock decide. Announced time was already in the prompt;
+  /// this sets what the NEXT speaker is told. Continue is the same beat.
+  /// Scene Guests carry no Realism/Needs but the clock is chat-scoped, so
+  /// they tick time-only (no Today rewrite).
+  Future<void> _maybeAdvanceStoryClockAfterReply(_GenTurn t) async {
+    final porch = _storageService.realismSettings.passageOfTimeDefault;
+    debugPrint(
+      '[Clock] running=$_clockRunning '
+      'source=${_timeService.clockGateSource} '
+      'porchLife=$porch '
+      'mode=${t.mode.name} abort=$_postGenAbortRequested',
+    );
+    if (t.mode == GenerationMode.continue_) {
+      // Continue does not add minutes. A named time in the new
+      // text still stamps the slot — live-only leave swipe/load
+      // on the old pair (C1 / K-A).
+      if (_clockRunning) {
+        final named = clockNamedInReply(
+          t.streamTarget.text,
+          _timeService.clock,
+        );
+        if (named != null) {
+          await _timeService.applyReconciledClock(named);
+          _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.tick);
+        }
+      }
+      debugPrint(
+        '[Clock] return reason=continue source=${_timeService.clockGateSource}',
+      );
+      return;
+    }
+    if (!_clockRunning) {
+      debugPrint(
+        '[Clock] return reason=porch_life_off '
+        'source=porch_life porchLife=$porch',
+      );
+      return;
+    }
+    final before = _timeService.clock;
+    final msg = t.streamTarget;
+    if (!msg.isUser) {
+      // Stamp the LIVE swipe map. Writing `metadata` is a no-op for
+      // regen when swipeMetadata[i] is already set — activeMetadata
+      // returns that slot, not the legacy field.
+      _writeSlotClock(
+        msg,
+        kind: _SlotClockWrite.beforeOnly,
+        before:
+            StoryClock.parse(
+              knownStoryClockBefore(msg) ?? _timeService.storyClockIso,
+            ) ??
+            _timeService.clock,
+      );
+    }
+    // Fiction wins (K-A). A named wall-clock is the beat — do not
+    // add the conversational floor on top (07:30 + 2 min = 07:32).
+    final named = clockNamedInReply(msg.text, _timeService.clock);
+    if (named == null) {
+      await _realismEvals.evaluatePhysicalStateCall(
+        timeOnly: true,
+        skipTodayEval: _isLiteTurn(t),
+      );
+    } else {
+      await _timeService.applyReconciledClock(named);
+      // K-A: overwrite the slot's own before so the stored pair is
+      // named/named (07:30/07:30). Clamp still holds. Continue
+      // already stamps through _writeSlotClock above.
+      _writeSlotClock(msg, kind: _SlotClockWrite.tick);
+    }
+    if (named == null && _isLiteTurn(t) && _clockRunning) {
+      _writeSlotClock(msg, kind: _SlotClockWrite.tick);
+    }
+    await _maybeMintEpisodeCrumbs(before, _timeService.clock);
+    debugPrint(
+      '[Clock] running=$_clockRunning '
+      'source=${_timeService.clockGateSource} '
+      'porchLife=$porch '
+      'minutes=${_timeService.clock.difference(before).inMinutes} '
+      'stamped=${_timeService.bodyTimeLabel} '
+      'slot=${t.streamTarget.swipeIndex}',
+    );
   }
 }

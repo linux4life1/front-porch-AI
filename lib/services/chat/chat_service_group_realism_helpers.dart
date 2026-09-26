@@ -122,6 +122,13 @@ extension ChatServiceGroupRealismHelpers on ChatService {
   @visibleForTesting
   Map<String, int> debugGroupNeeds(String charId) => _getGroupNeeds(charId);
 
+  /// Test-only: mark the in-flight post-gen as rejected so lite/engine
+  /// finalize can prove they skip wear (same flag `_yieldSettlingTurn` sets).
+  @visibleForTesting
+  void debugRequestPostGenAbort() {
+    _postGenAbortRequested = true;
+  }
+
   /// Test-only: seed a member slot so a later soft turn can prove it does
   /// not leak this member's Needs / bond into the guest prompt.
   @visibleForTesting
@@ -183,49 +190,6 @@ extension ChatServiceGroupRealismHelpers on ChatService {
 
   void _setGroupNeeds(String charId, Map<String, int> needs) {
     _memberForWrite(charId).needs = needs;
-  }
-
-  /// Needs decay rates for the character being decayed on the CURRENT turn.
-  ///
-  /// Single source of truth for BOTH the 1:1 `tickDecay` closure and the group
-  /// realism-dance decay loop — it replaces the old split where 1:1 read the
-  /// host card's ext while a group read one shared `_groupDecayRates` map for
-  /// everybody. In 1:1 this is the active host; in a group it is the speaker the
-  /// dance has impersonated into `_activeCharacter` before decay, so each member
-  /// decays at its OWN authored rate exactly like a solo card.
-  ///
-  /// Falls back to the legacy shared map only for pre-per-member groups whose
-  /// member cards genuinely lack ext data; empty there → downstream uses
-  /// `NeedsSimulation.needDecay` defaults (identical to the ext defaults).
-  Map<String, int> _activeDecayRates() {
-    CharacterCard? card = _activeCharacter;
-    if (_activeGroup != null && card == null) {
-      // Off the main dance path (e.g. the sim's own tickDecay closure in tests
-      // where no character is impersonated): resolve the speaker by id.
-      final sid = _getCurrentSpeakerIdForRealism();
-      for (final c in _groupCharacters) {
-        if (_getCharacterIdFromCard(c) == sid) {
-          card = c;
-          break;
-        }
-      }
-    }
-    final ext = card?.frontPorchExtensions;
-    if (ext != null) {
-      return {
-        'hunger': ext.needsDecayHunger,
-        'bladder': ext.needsDecayBladder,
-        'energy': ext.needsDecayEnergy,
-        'social': ext.needsDecaySocial,
-        'fun': ext.needsDecayFun,
-        'hygiene': ext.needsDecayHygiene,
-        'comfort': ext.needsDecayComfort,
-      };
-    }
-    if (_activeGroup != null && _groupDecayRates.isNotEmpty) {
-      return _groupDecayRates;
-    }
-    return const <String, int>{};
   }
 
   /// Re-stamp the just-generated message's `realism_state` snapshot with the
@@ -341,11 +305,9 @@ extension ChatServiceGroupRealismHelpers on ChatService {
         rs['pockets'] = p.toJson();
       }
     }
-    if (rs.containsKey('storyClock')) {
-      rs['storyClock'] = _timeService.storyClockIso;
-      rs['timeOfDay'] = _timeService.timeOfDay;
-      rs['dayCount'] = _timeService.dayCount;
-    }
+    rs['storyClock'] = _timeService.storyClockIso;
+    rs['timeOfDay'] = _timeService.timeOfDay;
+    rs['dayCount'] = _timeService.dayCount;
   }
 
   /// Give back what a deleted message spent.
@@ -370,7 +332,9 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     ChatMessage deleted,
     Map<String, int> liveBefore, {
     String? groupSid,
+    Map<String, Map<String, int>> presentBeforeDelete = const {},
   }) {
+    _refundPresentWearExcept(deleted, groupSid, presentBeforeDelete);
     if (!_needsSimEnabled || liveBefore.isEmpty) return;
     final raw = deleted.activeMetadata?['needs_deltas'];
     if (raw is! Map || raw.isEmpty) return;
@@ -441,9 +405,44 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     }
     if (preVec.isEmpty) return;
     final needsDeltas = _needsSimulation.computeNeedsDeltasWithReasons(preVec);
-    if (needsDeltas.isEmpty) return;
-    _messages.last.activeMetadata ??= {};
-    _messages.last.activeMetadata!['needs_deltas'] = needsDeltas;
+    final off =
+        _activeCharacter?.frontPorchExtensions?.needsOff ?? const <String>[];
+    if (off.isNotEmpty) {
+      needsDeltas.removeWhere((key, _) => off.contains(key));
+    }
+    final wear = _pendingRealismMetadata?['needs_time_wear'];
+    final passed = _timeService.bodyTimeLabel;
+    if (wear is Map && passed != null && passed.isNotEmpty) {
+      for (final entry in needsDeltas.entries) {
+        final row = entry.value;
+        if (row is! Map) continue;
+        final worn = wear[entry.key];
+        final delta = row['delta'];
+        if (worn is! int || worn >= 0 || delta is! int || delta >= 0) continue;
+        final scene = row['reason'];
+        row['reason'] =
+            (scene is String && scene.isNotEmpty && scene != 'Natural decay')
+            ? '$passed · $scene'
+            : passed;
+      }
+    }
+    final meta = Map<String, dynamic>.from(
+      _messages.last.activeMetadata ?? const {},
+    );
+    if (needsDeltas.isEmpty) {
+      // Write the swipe slot. A short no-action turn must still prove
+      // Needs ran — bars stay put, this chip is the receipt.
+      meta[kNeedsUnaffectedMeta] = true;
+      meta.remove('needs_deltas');
+      _messages.last.activeMetadata = meta;
+      debugPrint(
+        '[Realism:Needs] Chip: no needs affected for ${_messages.last.sender}',
+      );
+      return;
+    }
+    meta.remove(kNeedsUnaffectedMeta);
+    meta['needs_deltas'] = needsDeltas;
+    _messages.last.activeMetadata = meta;
     debugPrint(
       '[Realism:Needs] Chip: ${needsDeltas.length} need delta(s) attached for '
       '${_messages.last.sender}',

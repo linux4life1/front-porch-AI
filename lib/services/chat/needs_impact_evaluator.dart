@@ -21,27 +21,25 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/realism_verification.dart';
-import 'package:front_porch_ai/services/chat/skip_language.dart';
 
 part 'needs_impact_bound.dart';
-part 'needs_impact_table.dart';
 
 /// Plain leaf for needs impact.
 ///
 /// Model provides net signed deltas for the scene (open prompt, like bond/emotion evals).
 /// Optional Director/Verifier corrects when authority is enabled on the card.
-/// Simple clamps only. Decay is handled separately in NeedsSimulation.
+/// Pace and time-wear are applied in code, after the model answers.
 class NeedsImpactEvaluator {
   final Future<String?> Function(
     String responseText, {
     void Function(String)? onChunk,
-    int strength,
     String? userCritique,
     Map<String, int>? previousDeltas,
     Map<String, int>? currentNeeds,
-    int? decayTurns,
+    bool awayScene,
     Set<String> onlyNeeds,
   })
   evaluateNeedsImpactCall;
@@ -85,7 +83,6 @@ class NeedsImpactEvaluator {
   final bool Function() getNeedsSimEnabled;
   final bool Function() getRealismEnabled;
   final bool Function() getNeedsModelAuthorityEnabled;
-  final int Function() getNeedsSimStrength;
 
   NeedsImpactEvaluator({
     required this.evaluateNeedsImpactCall,
@@ -107,13 +104,10 @@ class NeedsImpactEvaluator {
     required this.getNeedsSimEnabled,
     required this.getRealismEnabled,
     required this.getNeedsModelAuthorityEnabled,
-    this.getNeedsSimStrength = _defaultStrength,
   });
 
-  static int _defaultStrength() => 1;
-
-  static Map<String, int> afkKeywordFallback(String sceneText) =>
-      needsImpactAfkKeywordFallback(sceneText);
+  /// Minutes line for this beat. Set by the turn before [evaluateAndApply].
+  String beatNote = '';
 
   Future<void> evaluateAndApply(
     String responseText, {
@@ -127,27 +121,29 @@ class NeedsImpactEvaluator {
     final char = getActiveCharacter();
     if (char == null && getActiveGroup() == null) return;
 
-    final strength = getNeedsSimStrength();
     try {
       // Check metadata for AFK needs context (set by _runPostGenNeedsChecks)
       final meta = getPendingRealismMetadata?.call();
       final afkNeeds = meta?['_afk_needs_vector'] as Map<String, int>?;
-      final afkDecayTurns = meta?['_afk_decay_turns'] as int?;
-      // Clean up immediately so it doesn't leak into message metadata
+      // Clean up immediately so it doesn't leak into message metadata.
       if (meta != null) {
         meta.remove('_afk_needs_vector');
         meta.remove('_afk_decay_turns');
       }
 
+      final off = char?.frontPorchExtensions?.needsOff ?? const <String>[];
+      final on = needsThatAreOn(NeedsSimulation.needKeys, off);
+      if (on.isEmpty) return;
+      final noted = beatNote.isEmpty
+          ? responseText
+          : '$beatNote\n\n$responseText';
       final text = await evaluateNeedsImpactCall(
-        responseText,
-        strength: strength,
+        noted,
         currentNeeds: afkNeeds,
-        decayTurns: afkDecayTurns,
+        awayScene: isAfk,
+        onlyNeeds: on.toSet(),
       );
       if (text == null) return;
-
-      var directorCorrected = false;
 
       String effectiveText = text;
       final authority = getNeedsModelAuthorityEnabled();
@@ -174,14 +170,11 @@ class NeedsImpactEvaluator {
             activeGroup: getActiveGroup(),
             recentMessages: getMessages(),
             promptText:
-                'needs impact (straight deltas; Director authority on corrections; user-requested strength ' +
-                strength.toString() +
-                'x — emit/correct deltas at this magnitude)',
+                'needs impact (straight deltas at Normal; Director authority on corrections; do not scale)',
             injections: const {},
           );
           if (vres.correctedRaw != null && vres.correctedRaw!.isNotEmpty) {
             effectiveText = vres.correctedRaw!;
-            directorCorrected = true;
           }
           if (vres.status.isNotEmpty) {
             final current =
@@ -206,56 +199,7 @@ class NeedsImpactEvaluator {
         '${effectiveText.substring(0, effectiveText.length > 300 ? 300 : effectiveText.length)}',
       );
       final deltas = _parseNeedDeltas(effectiveText);
-
-      // The Director is EXEMPT — see _boundDeltas. Its authority is opt-in and
-      // off by default; turning it on is asking for a second, scene-checked
-      // pass to overrule the evaluator, so bounding it would make the switch
-      // mean less than it says.
-      if (!directorCorrected) _boundDeltas(deltas);
-      if (meta?['night_skip_restored'] == true) {
-        suppressSleepDoubleApply(deltas);
-      }
-
-      // AFK zero-floor: model sometimes ignores "Only report positive gains"
-      // and emits small negative deltas. Zero them to match the instruction.
-      if (isAfk) {
-        for (final k in deltas.keys.toList()) {
-          if (deltas[k]! < 0) deltas[k] = 0;
-        }
-      }
-
-      // ── AFK keyword merge: fills any need that the model left at zero
-      // or didn't include, without overwriting the model's non-zero deltas.
-      // This handles both the all-zero case and the partial-miss case where
-      // the model got some needs right but ignored obvious activities.
-      if (isAfk) {
-        final fallback = afkKeywordFallback(responseText);
-        if (fallback.isNotEmpty) {
-          bool filled = false;
-          for (final k in NeedsSimulation.needKeys) {
-            if ((deltas[k] == null || deltas[k] == 0) &&
-                (fallback[k] != null && fallback[k]! > 0)) {
-              deltas[k] = fallback[k]!;
-              filled = true;
-            }
-          }
-          if (filled) {
-            debugPrint(
-              '[Realism:Needs] AFK keyword merge filled gaps: $fallback',
-            );
-          }
-        }
-      }
-
-      // Strength (1-5x) is communicated to the model on the first needs-impact call and (when
-      // Director authority is enabled) to the verifier critique so both emit/correct at the
-      // user-requested magnitude in a single pass. We do NOT post-multiply here — that would
-      // cause the Director to take an already-scaled delta (e.g. -15 at 5x) and multiply it
-      // again (→ -75). The numbers that come back from the (Director-corrected) effective text
-      // are the final deltas to apply. (See user clarification 2026-06: multiplier is applied
-      // at first run / in the prompt to model+Director; Director must not re-scale the scaled value.)
-      // If the model ignores the scale instruction the deltas will simply be smaller than desired
-      // (model compliance issue, not a post-hoc multiplication).
+      _boundDeltas(deltas);
 
       final reasonMatch = RegExp(
         r'"reason"\s*:\s*"([^"]*)"',
@@ -272,7 +216,7 @@ class NeedsImpactEvaluator {
       needsSimulation.applySceneImpact(impact);
       debugPrint(
         '[Realism:Needs] Applied deltas: $deltas (reason: $reason) '
-        'strength=$strength textLen=${responseText.length}',
+        'textLen=${responseText.length}',
       );
     } catch (e) {
       debugPrint('[Realism:Needs] evaluateAndApply error: $e');
@@ -334,7 +278,6 @@ class NeedsImpactEvaluator {
     Set<String> onlyNeeds = const <String>{},
   }) async {
     // Use the injected evaluateNeedsImpactCall (now supports critique/oldDeltas for unified rich prompt + personality/stance/recent/full guidance + MUST + examples).
-    final strength = getNeedsSimStrength();
     // Name the scope in the prompt as well as filtering the reply: a model
     // told to reconsider ONE need reasons about that need instead of re-rolling
     // seven and having six of them thrown away.
@@ -351,7 +294,6 @@ class NeedsImpactEvaluator {
       // eval read as a double-fire in the console.
       String? text = await evaluateNeedsImpactCall(
         responseText,
-        strength: strength,
         userCritique: critique,
         previousDeltas: oldDeltas,
         onlyNeeds: onlyNeeds,
@@ -368,7 +310,6 @@ class NeedsImpactEvaluator {
                   '${onlyNeeds.map((k) => '${k}_delta').join(', ')}.';
         text = await evaluateNeedsImpactCall(
           responseText,
-          strength: strength,
           userCritique: '$critique $retryAsk',
           previousDeltas: oldDeltas,
           onlyNeeds: onlyNeeds,

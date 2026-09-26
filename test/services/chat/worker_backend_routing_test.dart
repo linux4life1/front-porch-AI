@@ -12,6 +12,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -120,10 +121,7 @@ void main() {
     await storage.webSearchSettings.setWebSearchDefault(true);
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   CharacterCard card() => CharacterCard(
     name: 'Mara',

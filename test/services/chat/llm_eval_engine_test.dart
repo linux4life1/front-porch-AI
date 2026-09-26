@@ -442,11 +442,10 @@ void main() {
           setEmotionIntensity: (_) {},
         );
         // normal
-        await e.evaluateNeedsImpactCall('scene', strength: 1);
+        await e.evaluateNeedsImpactCall('scene');
         // critique branch
         await e.evaluateNeedsImpactCall(
           'scene',
-          strength: 1,
           userCritique: 'fix hunger',
           previousDeltas: {'hunger': 0},
         );
@@ -537,7 +536,6 @@ void main() {
       );
       await e.evaluateNeedsImpactCall(
         'she napped on the sofa',
-        strength: 1,
         userCritique: 'energy should have gone up',
         previousDeltas: {'energy': -4, 'hunger': -2},
         onlyNeeds: const {'energy'},
@@ -608,7 +606,7 @@ void main() {
         final e = createTestLlmEvalEngine(
           getLlmJson: () => '<think>reasoning only</think>',
         );
-        final res = await e.evaluateNeedsImpactCall('scene', strength: 1);
+        final res = await e.evaluateNeedsImpactCall('scene');
         expect(res, isNull);
       },
     );

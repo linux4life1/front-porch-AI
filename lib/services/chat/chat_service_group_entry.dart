@@ -57,7 +57,6 @@ extension ChatServiceGroupEntry on ChatService {
       _isSummaryGenerating =
           false; // explicit secondary zero on setActiveGroup (incomplete zeroing ... now complete; keep-sync lists + journal_maintenance + " ; authority for needs deltas thin path)") + "needsSimulation. (reason support kept for Director chips) ; cleared via sim initializeFresh/clearVector/resetBuffers on all paths; now complete)"
       _groupRealism = {};
-      _groupDecayRates = {};
       _groupAuthorNotes = {};
       _groupAuthorNoteStrengths = {};
       _groupCharacterSystemPrompts = {};
@@ -163,15 +162,14 @@ extension ChatServiceGroupEntry on ChatService {
           // Include the member even if the avatar file is missing (defensive for groups created
           // from sources that had no avatar, or partial copy failures). The UI already degrades
           // gracefully to a colored letter/initial when the image can't be loaded.
-          if (await File(p).exists()) {
-            resolved.add(m.toCharacterCard(resolvedImagePath: p));
-          } else {
-            // Still include them so the count and sidebar are correct; they just won't have a face.
+          // Keep [p] even when the file is missing — basename is the
+          // member identity. Widgets must not FileImage a missing file.
+          if (!await File(p).exists()) {
             debugPrint(
               '[ChatService] Group member ${m.name} has no avatar file at $p — including without image',
             );
-            resolved.add(m.toCharacterCard(resolvedImagePath: p));
           }
+          resolved.add(m.toCharacterCard(resolvedImagePath: p));
         } else {
           // No avatar filename at all — still include so the user sees the member.
           resolved.add(m.toCharacterCard(resolvedImagePath: ''));
@@ -213,7 +211,7 @@ extension ChatServiceGroupEntry on ChatService {
       // v30: For newly created group sessions (no prior state), seed from the group's default realism data.
       // (The actual load of any prior session state happens in _loadLastSession below.)
       if (_messages.isEmpty && _activeGroup != null) {
-        _loadGroupRealismStateFromSession(null);
+        await _loadGroupRealismStateFromSession(null);
 
         // Promote the group definition's realism/needs intent on first entry.
         // The creator (and Group Card import) express "realism on" by writing non-empty
@@ -343,6 +341,10 @@ extension ChatServiceGroupEntry on ChatService {
           );
           // Thin delegation to scanner (group greeting scan).
           _lorebookScanner.scanLatest();
+          _writeSlotClock(
+            _messages.isEmpty ? null : _messages.first,
+            kind: _SlotClockWrite.seed,
+          );
           if (greetingFirstMesEmpty(group.firstMessage) &&
               greetingFirstMesEmpty(_groupCharacters.first.firstMessage)) {
             await _applyGreetingOpeningSeed(

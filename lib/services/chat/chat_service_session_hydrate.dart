@@ -163,16 +163,27 @@ extension ChatServiceSessionHydrate on ChatService {
       startDayOfWeek: s.startDayOfWeek,
       storyClock: s.storyClock,
       storyStartDate: s.storyStartDate,
-      // The saved per-chat value, NOT AND-ed with the global default. That
-      // global is a seed-time ceiling: the four seedFromV2OrExt callers apply
-      // it when a chat is first created ("Global ceiling applied before
-      // passing"). Applying it again on every load would let switching the
-      // global off retroactively disable time in chats the user had already
-      // turned it on for. Until now the AND was computed and then thrown away
-      // by loadTimeScalars, so it was inert; assigning the parameter without
-      // removing it here would have quietly switched that behaviour on.
-      passageOfTimeEnabled: s.passageOfTimeEnabled,
     );
+    // Leftover per-chat is not a gate. Porch Life is live. One-shot flag
+    // so we log the leftover once and stop rewriting it as if it mattered.
+    if (!s.passageOfTimeGateMigrated) {
+      final leftover = s.passageOfTimeEnabled;
+      _timeService.markClockGateLeftover(leftover);
+      debugPrint(
+        '[Clock] migrate leftover=$leftover ignored '
+        'source=${_timeService.clockGateSource}',
+      );
+      unawaited(
+        _db.patchSession(
+          SessionsCompanion(
+            id: drift.Value(s.id),
+            passageOfTimeGateMigrated: const drift.Value(true),
+          ),
+        ),
+      );
+    } else {
+      _timeService.markClockGateSource('porch_life');
+    }
     // Freeze a synthesised story date into the row the FIRST time we invent it.
     // The v38 ladder note promised legacy rows would "synthesize on first
     // load", but nothing wrote the result back, and the synthesis is anchored
@@ -206,17 +217,40 @@ extension ChatServiceSessionHydrate on ChatService {
       cooldownTurnsRemaining: s.cooldownTurnsRemaining,
       cooldownTurnsTotal: s.cooldownTurnsTotal,
     );
-    _needsSimEnabled = s.needsSimEnabled;
+    final nv = s.needsVector;
+    final hasSavedNeeds = nv is String && nv.isNotEmpty;
+    final cardWantsNeeds =
+        _activeGroup == null &&
+        (_activeCharacter?.frontPorchExtensions?.needsSimEnabled ?? false);
+    // Session flag is seed-time AND, column default FALSE. A lived-in 1:1
+    // that never flipped the column (no saved vector) still promotes ON
+    // when card + Porch Life ask for Needs. Explicit OFF keeps its vector
+    // so false+kit is not that stale row. Explicit ON stays ON.
+    _needsSimEnabled = needsSimAfterHydrate(
+      sessionEnabled: s.needsSimEnabled,
+      cardEnabled: cardWantsNeeds,
+      globalDefault: _storageService.realismSettings.needsSimDefault,
+      hasSavedVector: hasSavedNeeds,
+      isGroup: _activeGroup != null,
+    );
     _objectivesEnabled = s.objectivesEnabled;
     if (_needsSimEnabled) {
       // Seed defaults first, then overlay the saved vector ONLY when it has
       // values. A blank saved vector (e.g. needs was toggled on mid-chat before
       // it seeded) must NOT clobber the defaults, or the sidebar shows no scores.
-      _needsSimulation.initializeFresh();
-      final nv = s.needsVector;
-      if (nv is String && nv.isNotEmpty) {
+      final ext = _activeCharacter?.frontPorchExtensions;
+      if (ext != null && _activeGroup == null) {
+        _needsSimulation.initializeFreshWithDefaults(
+          NeedsSimulation.baselinesFromExtensions(ext),
+        );
+      } else {
+        _needsSimulation.initializeFresh();
+      }
+      if (hasSavedNeeds) {
         applyNeedsPersist(_needsSimulation, jsonDecode(nv));
       }
+    } else if (hasSavedNeeds) {
+      applyNeedsPersist(_needsSimulation, jsonDecode(nv));
     } else {
       _needsSimulation.clearVector();
     }

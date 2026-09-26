@@ -9,7 +9,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 ///
 /// They live outside the widget because the widget itself has no unit seam —
 /// every ChatService door the tab uses (`getBaselineSeedForGroupCharacter`,
-/// `setGroupNeedsDecayRate`, `resetRealismForGroupCharacter`) is an *extension*
+/// `persistGroupMemberExtensions`, `resetRealismForGroupCharacter`) is an *extension*
 /// member, so it resolves on the static type and runs its real body (reaching
 /// private ChatService fields) even against a test double. These functions are
 /// where the two bugs actually lived, and here they are testable.

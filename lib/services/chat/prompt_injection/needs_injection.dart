@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 
 /// Needs fragment builder for the words-only state block
@@ -44,6 +45,7 @@ class NeedsInjection {
   final bool Function() getEnjoysLowHygiene;
   final Map<String, int> Function(String charId) getGroupNeeds;
   final String Function(CharacterCard) getCharacterIdFromCard;
+  final List<String> Function() getNeedsOff;
 
   NeedsInjection({
     required this.needsSimulation,
@@ -55,7 +57,10 @@ class NeedsInjection {
     required this.getEnjoysLowHygiene,
     required this.getGroupNeeds,
     required this.getCharacterIdFromCard,
+    this.getNeedsOff = _noneOff,
   });
+
+  static List<String> _noneOff() => const [];
 
   String buildNeedsInjection() {
     if (!getNeedsSimEnabled() || !getRealismEnabled()) return '';
@@ -66,6 +71,7 @@ class NeedsInjection {
     // invert every member's hygiene when any one member enjoys being filthy.
     final Map<String, int> vector;
     final bool enjoysLowHygiene;
+    final List<String> off;
     if (getIsGroupNonObserverMode()) {
       final id = getCurrentSpeakerIdForRealism();
       vector = getGroupNeeds(id);
@@ -79,14 +85,17 @@ class NeedsInjection {
       // speaker's selection and wording (review finding).
       enjoysLowHygiene =
           speakerCard?.frontPorchExtensions?.enjoysLowHygiene ?? false;
+      off = speakerCard?.frontPorchExtensions?.needsOff ?? const [];
     } else {
       vector = needsSimulation.vector;
       enjoysLowHygiene = getEnjoysLowHygiene();
+      off = getNeedsOff();
     }
-    if (vector.isEmpty) return '';
+    final scored = visibleNeeds(vector, off);
+    if (scored.isEmpty) return '';
 
     final low = needsSimulation.getLowNeedsForInjection(
-      vector,
+      scored,
       enjoysLowHygieneOverride: enjoysLowHygiene,
     );
     if (low.isEmpty) return '';
@@ -98,8 +107,7 @@ class NeedsInjection {
           ? NeedsSimulation.hygieneSteppedTextWhenEnjoysLow
           : NeedsSimulation.needSteppedText[need.key] ?? const <String>[];
       if (steppedList.isEmpty) continue;
-      final label =
-          need.key[0].toUpperCase() + need.key.substring(1);
+      final label = need.key[0].toUpperCase() + need.key.substring(1);
       lines.add('$label: ${steppedList[need.effectiveStep.clamp(0, 4)]}');
     }
     return lines.join('\n');

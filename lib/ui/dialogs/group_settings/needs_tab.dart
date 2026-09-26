@@ -21,17 +21,15 @@ const _kFun = 'fun';
 const _kHygiene = 'hygiene';
 const _kComfort = 'comfort';
 
-// Engine default decay per need (== NeedsSimulation.needDecay / the
-// FrontPorchExtensions decay defaults) — used to seed a reset.
-const Map<String, int> _defaultDecayRates = {
-  _kHunger: 2,
-  _kBladder: 3,
-  _kEnergy: 3,
-  _kSocial: 2,
-  _kFun: 2,
-  _kHygiene: 1,
-  _kComfort: 2,
-};
+const _needFields = [
+  _kHunger,
+  _kBladder,
+  _kEnergy,
+  _kSocial,
+  _kFun,
+  _kHygiene,
+  _kComfort,
+];
 
 class GroupNeedsTab extends StatefulWidget {
   final ChatService chatService;
@@ -48,10 +46,10 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
   // Per-character needs baselines: char-id → field-name → value
   final Map<String, Map<String, int>> _needsBaselines = {};
 
-  // Per-character needs decay rates ("tick rate"): char-id → field-name → value.
-  // Each member decays at its own rate (parity with solo cards); persisted to
-  // that member's card ext via ChatService.setGroupNeedsDecayRate(memberId: …).
-  final Map<String, Map<String, int>> _decayRates = {};
+  // Pace (sloth/normal/fast) and which needs are off — same card-ext contract
+  // as 1:1 editors. Wear follows the clock; there is no per-turn tick here.
+  final Map<String, String> _needsPace = {};
+  final Map<String, List<String>> _needsOff = {};
 
   // Per-character static preference overrides (e.g. enjoys low hygiene) for this group.
   final Map<String, bool> _enjoysLowHygiene = {};
@@ -99,28 +97,14 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
         _kComfort: ext?.needsBaselineComfort ?? 80,
       };
 
-      // Seed per-member decay from ext (fallbacks = the engine's needDecay
-      // defaults, which equal the FrontPorchExtensions decay defaults).
-      _decayRates[id] = {
-        _kHunger: ext?.needsDecayHunger ?? 2,
-        _kBladder: ext?.needsDecayBladder ?? 3,
-        _kEnergy: ext?.needsDecayEnergy ?? 3,
-        _kSocial: ext?.needsDecaySocial ?? 2,
-        _kFun: ext?.needsDecayFun ?? 2,
-        _kHygiene: ext?.needsDecayHygiene ?? 1,
-        _kComfort: ext?.needsDecayComfort ?? 2,
-      };
-
       _enjoysLowHygiene[id] = ext?.enjoysLowHygiene ?? false;
+      _needsPace[id] = ext?.needsPace ?? 'normal';
+      _needsOff[id] = List<String>.from(ext?.needsOff ?? const []);
     }
   }
 
-  // The engine keys every per-member store by CharacterCard.stableGroupId
-  // (ChatService._getCharacterIdFromCard). Deriving it by hand here split on
-  // '/' only and cut at the FIRST dot, so a Windows path or a filename with a
-  // dot in it produced an id no service call could match — the decay persist
-  // (setGroupNeedsDecayRate(memberId:)) matches members by that exact id.
-  String _getCharId(CharacterCard c) => c.stableGroupId;
+  // Must match ChatService._getCharacterIdFromCard / groupMemberStoreId.
+  String _getCharId(CharacterCard c) => groupMemberStoreId(c);
 
   CharacterCard? _findCharById(String id) {
     for (final c in _chars) {
@@ -153,15 +137,6 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
     // key that nothing in lib/ or web_ui/ ever read back.
   }
 
-  // Local display update while a decay slider is dragged. The persist (member
-  // card ext + PNG + DB row) is deferred to the slider's onChangeEnd →
-  // ChatService.setGroupNeedsDecayRate(memberId: …) to avoid PNG-encode jank.
-  void _updateMemberDecay(String id, String field, int value) {
-    setState(() {
-      _decayRates[id] = {...?_decayRates[id], field: value};
-    });
-  }
-
   void _updateMemberEnjoysLowHygiene(CharacterCard char, bool value) {
     final id = _getCharId(char);
     setState(() {
@@ -178,6 +153,36 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
     _extPersister.schedule(char);
   }
 
+  void _writeMemberExt(
+    String id,
+    FrontPorchExtensions Function(FrontPorchExtensions) patch,
+  ) {
+    final char = _findCharById(id);
+    if (char == null) return;
+    char.frontPorchExtensions = patch(
+      char.frontPorchExtensions ?? FrontPorchExtensions(),
+    );
+    char.frontPorchExtensions?.ensureStableId();
+    _extPersister.schedule(char);
+  }
+
+  void _updateNeedsPace(String id, String value) {
+    setState(() {
+      _needsPace[id] = value;
+      _writeMemberExt(id, (ext) => ext.copyWith(needsPace: value));
+    });
+  }
+
+  void _updateNeedsOff(String id, List<String> value) {
+    setState(() {
+      _needsOff[id] = List<String>.from(value);
+      _writeMemberExt(
+        id,
+        (ext) => ext.copyWith(needsOff: List<String>.from(value)),
+      );
+    });
+  }
+
   Future<void> _resetAllNeedsStates() async {
     for (final c in _chars) {
       await _resetCharacterNeeds(c);
@@ -187,41 +192,21 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
   /// Put one member back on the engine defaults.
   ///
   /// Every value goes out through the SAME setters the sliders use. Resetting
-  /// only the three local maps repainted the dialog while the member kept its
-  /// old decay rates and baselines — the card ext is what the runtime reads
-  /// (`_activeDecayRates()`), and `resetRealismForGroupCharacter` only drops
-  /// the live `_groupRealism` slot, it never touches the card.
+  /// only the local maps repainted the dialog while the member kept its old
+  /// pace / on-off / baselines — the card ext is what the runtime reads, and
+  /// `resetRealismForGroupCharacter` only drops the live `_groupRealism` slot,
+  /// it never touches the card.
   Future<void> _resetCharacterNeeds(CharacterCard character) async {
     final id = _getCharId(character);
-    final previousDecay = Map<String, int>.from(
-      _decayRates[id] ?? _defaultDecayRates,
-    );
-
-    // _defaultDecayRates is keyed by the same seven need names as the baselines.
-    for (final field in _defaultDecayRates.keys) {
+    _updateNeedsPace(id, 'normal');
+    _updateNeedsOff(id, const []);
+    for (final field in _needFields) {
       _updateNeedsBaseline(id, field, 80);
-      _updateMemberDecay(id, field, _defaultDecayRates[field]!);
     }
     _updateMemberEnjoysLowHygiene(character, false);
     widget.chatService.resetRealismForGroupCharacter(character);
-
-    // The lines above queued this member's ext; write it HERE, before the
-    // decay writes below, so no debounced save is ever in flight at the same
-    // time as one of them — two concurrent saves would race on the same PNG.
     await _extPersister.flushMember(id);
-
-    // The decay persist (member card ext + PNG + GroupMembers row) is the
-    // expensive one: only the needs that actually changed are written, and
-    // strictly one at a time — two concurrent saves would race on the same PNG.
-    for (final entry in _defaultDecayRates.entries) {
-      if (previousDecay[entry.key] != entry.value) {
-        await widget.chatService.setGroupNeedsDecayRate(
-          entry.key,
-          entry.value,
-          memberId: id,
-        );
-      }
-    }
+    await widget.chatService.persistGroupMemberExtensions(memberId: id);
   }
 
   @override
@@ -277,7 +262,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Configure needs baselines and per-character settings for Needs Simulation in this group.',
+              'Starting values, Pace, and which needs are on for Needs Simulation in this group. Wear follows the clock.',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary(context),
@@ -368,7 +353,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
 
             const SizedBox(height: 16),
 
-            // Per-character needs baselines + decay section
+            // Per-character starting values, Pace, and per-need on/off
             Row(
               children: [
                 const Icon(
@@ -379,7 +364,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
-                    'Per-Character Needs Baselines & Decay',
+                    'Per-Character Needs',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                 ),
@@ -402,7 +387,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Adjust each character\'s starting needs baselines and their per-turn decay ("tick rate"). Every member decays at its own rate, just like a solo character.',
+              'Starting values, Pace (Sloth / Normal / Fast), and which needs are on. Wear follows the clock, not a per-send tick. Each member has their own Pace.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textSecondary(context),

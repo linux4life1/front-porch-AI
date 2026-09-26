@@ -52,9 +52,10 @@ extension ChatServiceMessageOps on ChatService {
     }
   }
 
-  /// Apply an already-stored swipe index. Guest replies never rewind
-  /// Realism/Needs; only the tip of the chat restores that snapshot
-  /// (re-reading an old variant is navigation, not time travel).
+  /// Apply an already-stored swipe index. Host tip restores the speaker
+  /// snapshot. A last-in-chat guest swipe restores the host wear that
+  /// beat left (guest replies have no speaker Realism of their own).
+  /// Buried swipes are navigation, not time travel.
   Future<void> _commitSwipeIndex(int messageIndex, int newIndex) async {
     final msg = _messages[messageIndex];
     if (newIndex == msg.swipeIndex) return;
@@ -64,9 +65,16 @@ extension ChatServiceMessageOps on ChatService {
     final isTip =
         !isGuestMsg &&
         _messages.skip(messageIndex + 1).every(_isGuestAuthoredMessage);
+    final isGuestTip = isGuestMsg && messageIndex == _messages.length - 1;
 
     msg.swipeIndex = newIndex;
+    if (isTip || isGuestTip) {
+      _applyTipClock();
+    }
     if (isTip) _syncRealismStateForSwipe(msg);
+    if (isGuestTip) {
+      _restoreWornBodiesExceptSpeaker(msg, msg.characterId ?? '');
+    }
     // Pockets follow the selected variant too — this swipe's own
     // post-turn record, or the shared pre-turn base when this variant's
     // pass changed nothing (hostile review 2026-08-11).
@@ -97,15 +105,30 @@ extension ChatServiceMessageOps on ChatService {
 
     // Natively restore the frozen runtime variables for the selected alternate
     // timeline — in groups, into the swiped speaker's own _groupRealism entry.
-    _restoreRealismStateForSpeaker(msg);
+    _restoreRealismStateForSpeaker(msg, restoreClock: false);
+    final speaker = _resolveGroupSpeakerForMessage(msg);
+    if (_activeGroup != null && speaker != null) {
+      _restoreWornBodiesExceptSpeaker(msg, _getCharacterIdFromCard(speaker));
+    }
   }
 
   /// Abort in-flight post-gen evals so a mutation (regen/continue) can
   /// start. Streaming (`_isGenerating`) and import still refuse — those
   /// are not "I already have the reply and I don't want it scored."
+  void _clearPostGenAbortFlags() {
+    _postGenAbortRequested = false;
+    _isCancellingRealismEval = false;
+    _realismEvalCancelled = false;
+  }
+
   Future<bool> _yieldSettlingTurn() async {
     if (_isGenerating || _isImporting) return false;
-    if (!_isPostGenerating) return true;
+    if (!_isPostGenerating) {
+      // Fast path used to return without touching the flags, so a leftover
+      // latch from a prior yield survived into the next regen.
+      _clearPostGenAbortFlags();
+      return true;
+    }
     _postGenAbortRequested = true;
     _isCancellingRealismEval = true;
     _realismEvalCancelled = true;
@@ -114,10 +137,11 @@ extension ChatServiceMessageOps on ChatService {
     while (_isPostGenerating && DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(const Duration(milliseconds: 16));
     }
-    // Do not clear abort flags here. If we timed out, post-gen is still
-    // running and must keep skipping applies. The finishing generate
-    // finally clears the flags when settling actually drops.
-    return !_isPostGenerating;
+    // Timeout: post-gen is still running and must keep skipping applies.
+    // Success: the next turn starts clean so regen can tick the clock.
+    final done = !_isPostGenerating;
+    if (done) _clearPostGenAbortFlags();
+    return done;
   }
 
   Future<void> continueGeneration() async {
@@ -249,6 +273,9 @@ extension ChatServiceMessageOps on ChatService {
           : (deletedSid != null
                 ? Map<String, int>.from(_getGroupNeeds(deletedSid))
                 : Map<String, int>.from(_needsSimulation.vector));
+      // Co-present bars, before the snapshot restore below. Ana's wear is
+      // undone from these, not from the restored snapshot.
+      final presentBeforeDelete = _capturePresentNeedsBeforeDelete(deleted);
 
       _messages.removeAt(index);
 
@@ -260,9 +287,10 @@ extension ChatServiceMessageOps on ChatService {
       // of whether this was the last message. This ensures needs state
       // (and all realism fields) reset to their previous saved values — in
       // groups, inside the NEW LAST speaker's own _groupRealism entry.
+      // Clock is the new visible tip's after — tail and non-tail.
       if (_messages.isNotEmpty) {
         final newLast = _messages.last;
-        _restoreRealismStateForSpeaker(newLast);
+        _restoreRealismStateForSpeaker(newLast, restoreClock: false);
       }
 
       // Group: also roll back the DELETED speaker's OWN _groupRealism entry to
@@ -291,7 +319,7 @@ extension ChatServiceMessageOps on ChatService {
           if (speaker != null &&
               _getCharacterIdFromCard(speaker) == deletedSid &&
               m.activeMetadata?['realism_state'] is Map) {
-            _restoreRealismStateForSpeaker(m);
+            _restoreRealismStateForSpeaker(m, restoreClock: false);
             break;
           }
         }
@@ -303,17 +331,12 @@ extension ChatServiceMessageOps on ChatService {
         deleted,
         needsBeforeDelete,
         groupSid: deletedSid,
+        presentBeforeDelete: presentBeforeDelete,
       );
 
       if (!deleted.isUser && deleted.sender != 'System') {
         _rewindPocketsForDeletedMessage(deleted, wasTail: wasTail);
-        if (wasTail) {
-          final before =
-              deleted.activeMetadata?['story_clock_before'] as String?;
-          if (_clockRunning && StoryClock.parse(before) != null) {
-            _timeService.restoreTimeFromRealismState({'storyClock': before});
-          }
-        }
+        _applyClockAfterDelete(deleted, wasTail: wasTail);
       }
 
       if (wasTail && _history.hasMore) {
@@ -412,22 +435,17 @@ extension ChatServiceMessageOps on ChatService {
     }
   }
 
-  /// Cancel an in-progress Realism evaluation stream (if any).
-  ///
-  /// Behavior:
-  /// - If there is no active realism evaluation and no post-greeting processing,
-  ///   this is a no-op.
-  /// - Mark cancelling flag, attempt to abort the underlying generation, then
-  ///   reset all related UI/state and emit a final notification.
-  /// - Do not restart any ongoing flow automatically after cancellation.
+  /// Cancel an in-flight Realism eval or post-gen tick. No-op when idle.
   Future<void> cancelRealismEval() async {
     // Always tear down both lanes first — a fused/clerk call on the
     // worker can still be in flight when the mouth flags look idle.
     _abortAllLanes();
     _needsSimulation.consumePendingCatastrophe();
 
-    // No-op if there is nothing to cancel
-    if (!_isEvaluatingRealism && !_isProcessingGreeting) {
+    // No-op if there is nothing to cancel. Post-gen clock/wear is
+    // cancellable too — a regen abort mid-tick must put the captured
+    // clock back and drop the aborted slot's after.
+    if (!_isEvaluatingRealism && !_isProcessingGreeting && !_isPostGenerating) {
       debugPrint('[Realism] Cancel request ignored — no active realism eval.');
       return;
     }
@@ -435,14 +453,21 @@ extension ChatServiceMessageOps on ChatService {
     _isCancellingRealismEval = true;
     // Signal to any ongoing realism evaluation that a cancel has been requested.
     _realismEvalCancelled = true;
+    _postGenAbortRequested = true;
     notifyListeners();
 
     // Transient banner only — NEVER a chat message. The old code appended an
     // "evaluation interrupted" line attributed to the character, which then
     // permanently rode chat history, prompts, RAG, and journal windows.
+    // Regen holds _isPostGenerating from the first revert through
+    // post-gen. Cancel during the pre-reply judges is still a regen:
+    // the popped reply is put back. Do not require !_isEvaluatingRealism.
+    final replyKept = _isPostGenerating;
     _setGuestStatus(
-      'Realism evaluation cancelled — no reply was generated. '
-      'Regenerate (or send again) to retry.',
+      replyKept
+          ? 'Reply kept. Scene time and needs weren\'t updated.'
+          : 'Realism evaluation cancelled — no reply was generated. '
+                'Regenerate (or send again) to retry.',
     );
 
     debugPrint('[Realism] Realism eval cancel requested');
@@ -451,9 +476,7 @@ extension ChatServiceMessageOps on ChatService {
     _isEvaluatingRealism = false;
     _isProcessingGreeting = false;
     _isCancellingRealismEval = false;
-    // NOTE: Do NOT reset _realismEvalCancelled here. It must remain true so that
-    // sendMessage() can detect the cancellation and return early. The flag is only
-    // reset in sendMessage() after the cancellation is properly handled.
+    // Keep _realismEvalCancelled so sendMessage returns early.
     notifyListeners();
   }
 }

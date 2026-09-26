@@ -86,6 +86,26 @@ class GroupMemberCard extends StatefulWidget {
 }
 
 class _GroupMemberCardState extends State<GroupMemberCard> {
+  File? _avatarChecked;
+  bool _avatarExists = false;
+
+  bool get _hasAvatarFile {
+    final file = widget.avatarFile;
+    if (!identical(file, _avatarChecked)) {
+      _avatarChecked = file;
+      _avatarExists =
+          file != null && file.existsSync(); // io-ok: memoized per path
+    }
+    return _avatarExists;
+  }
+
+  Widget _avatarLetter() {
+    return Text(
+      widget.character.name.isNotEmpty ? widget.character.name[0] : '?',
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chat = widget.chatService;
@@ -120,7 +140,10 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
         ? chat.getFixationLifespanForGroupCharacter(widget.character)
         : null;
     final needs = isRealism
-        ? chat.getNeedsForGroupCharacter(widget.character)
+        ? visibleNeeds(
+            chat.getNeedsForGroupCharacter(widget.character),
+            widget.character.frontPorchExtensions?.needsOff ?? const [],
+          )
         : const <String, int>{};
     final topNeeds = isRealism
         ? chat.getTopUrgentNeedsForGroupCharacter(widget.character, count: 2)
@@ -290,20 +313,17 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                         child: CircleAvatar(
                           radius: widget.isExpanded ? 18 : 16,
                           backgroundColor: widget.avatarColor,
-                          backgroundImage: widget.avatarFile != null
-                              ? FileImage(widget.avatarFile!)
-                              : null,
-                          child: widget.avatarFile == null
-                              ? Text(
-                                  widget.character.name.isNotEmpty
-                                      ? widget.character.name[0]
-                                      : '?',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                          child: !_hasAvatarFile
+                              ? _avatarLetter()
+                              : ClipOval(
+                                  child: Image.file(
+                                    widget.avatarFile!,
+                                    width: widget.isExpanded ? 36 : 32,
+                                    height: widget.isExpanded ? 36 : 32,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => _avatarLetter(),
                                   ),
-                                )
-                              : null,
+                                ),
                         ),
                       ),
                       const SizedBox(width: 8),

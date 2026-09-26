@@ -11,24 +11,21 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 /// Writes a group member's edited [CharacterCard.frontPorchExtensions] to disk.
 ///
-/// The Group Settings member cards (needs baselines, "enjoys low hygiene", the
-/// per-member Director/Verifier settings) mutate the live card ext in memory
-/// and stash a copy in the group's `defaultMemberRealismState` blob — which
-/// nothing reads back for an existing group. The dialog's Save writes only the
-/// `groups` row, so those edits used to be gone on the next launch while the
-/// runtime kept reading `frontPorchExtensions`: settings that silently un-set
-/// themselves.
+/// The Group Settings member cards (needs baselines, Pace, per-need on/off,
+/// "enjoys low hygiene", the per-member Director/Verifier settings) mutate the
+/// live card ext in memory and stash a copy in the group's
+/// `defaultMemberRealismState` blob — which nothing reads back for an existing
+/// group. The dialog's Save writes only the `groups` row, so those edits used
+/// to be gone on the next launch while the runtime kept reading
+/// `frontPorchExtensions`: settings that silently un-set themselves.
 ///
-/// [ChatService.setGroupNeedsDecayRate] is the ONE call that serializes a
-/// member's whole ext to its avatar PNG and its `group_members` row, so it is
-/// reused here, re-stating that member's CURRENT hunger decay: the decay value
-/// does not change and the rest of the ext rides along. Hand-rolling the
-/// PNG/DB write here would be a second copy of it, free to drift.
+/// [ChatService.persistGroupMemberExtensions] is the ONE call that serializes a
+/// member's whole ext to its avatar PNG and its `group_members` row. Hand-rolling
+/// the PNG/DB write here would be a second copy of it, free to drift.
 ///
 /// Writes are debounced per member because they re-encode the avatar PNG and
-/// the callers include sliders — the same reason the decay slider persists on
-/// release rather than on every tick. Only one write per member is ever in
-/// flight (two concurrent saves would race on the same PNG).
+/// the callers include sliders. Only one write per member is ever in flight
+/// (two concurrent saves would race on the same PNG).
 class GroupMemberExtPersister {
   GroupMemberExtPersister(
     this.chatService, {
@@ -43,7 +40,7 @@ class GroupMemberExtPersister {
 
   /// Queue [char]'s ext for persistence, restarting its debounce window.
   void schedule(CharacterCard char) {
-    final id = char.stableGroupId;
+    final id = groupMemberStoreId(char);
     _queued[id] = char;
     _timers[id]?.cancel();
     _timers[id] = Timer(delay, () => flushMember(id));
@@ -54,13 +51,8 @@ class GroupMemberExtPersister {
     _timers.remove(id)?.cancel();
     final char = _queued.remove(id);
     if (char == null) return;
-    final ext = char.frontPorchExtensions;
     try {
-      await chatService.setGroupNeedsDecayRate(
-        'hunger',
-        ext?.needsDecayHunger ?? 4,
-        memberId: id,
-      );
+      await chatService.persistGroupMemberExtensions(memberId: id);
     } catch (e) {
       debugPrint('[GroupSettings] Failed to persist member ext for $id: $e');
     }

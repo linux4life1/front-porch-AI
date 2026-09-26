@@ -48,7 +48,9 @@ CharacterCard? resolveGroupSpeakerForMessage(
   final stampedId = msg.characterId;
   if (stampedId != null && stampedId.isNotEmpty) {
     for (final c in cast) {
-      if (c.stableGroupId == stampedId) return c;
+      if (groupMemberStoreId(c) == stampedId || c.stableGroupId == stampedId) {
+        return c;
+      }
     }
   }
 

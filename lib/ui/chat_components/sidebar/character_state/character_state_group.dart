@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show AmbitionService, PocketSection, Pockets, StoryClock;
+    show AmbitionService, PocketSection, Pockets, StoryClock, visibleNeeds;
 import 'package:front_porch_ai/services/chat/presence_derive.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart'
@@ -107,17 +107,11 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     final ambitions = chat.activeCharacter == null
         ? const <({String text, int progress})>[]
         : chat.ambitionsFor(chat.activeCharacter!);
-    // Mirrors ChatService._clockRunning: the clock has TWO drivers, the engine
-    // or the opt-in standalone clock. Porch Life only OFFERS that switch with
-    // the engine off, so gating the strip on realism alone hid the clock in
-    // the one configuration where a user can turn the standalone one on — it
-    // was spending a model call per turn with nothing to show for it.
+    // Mirrors ChatService._clockRunning: Porch Life Passage of Time, live.
     final clockRunning = StoryClock.isRunning(
-      passageOfTimeEnabled: chat.timeService.passageOfTimeEnabled,
-      realismEnabled: chat.realismEnabled,
-      standaloneClockEnabled: Provider.of<StorageService>(
+      passageOfTimeEnabled: Provider.of<StorageService>(
         context,
-      ).realismSettings.standaloneClockEnabled,
+      ).realismSettings.passageOfTimeDefault,
     );
 
     return PorchAccordion(
@@ -172,7 +166,7 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
           if (!realismOn && !widget.isGroup)
             Text(
               'Realism Mode is off — flip the switch to track bond, trust, '
-              'mood, needs, and scene time for this character.',
+              'mood, and scene time for this character.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textTertiary(context),
@@ -251,24 +245,33 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                 compact: false,
               ),
             ],
-            // ── Needs ──
-            if (chat.needsSimEnabled &&
-                chat.needsSimulation.vector.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Needs',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary(context),
-                ),
+          ],
+          // Needs answers to its own switch, not the Realism header. Sitting
+          // inside that branch hid the bars on a brand-new 1:1 whose Porch
+          // Life Realism default is still off while Needs (card + chat gear)
+          // was already on — the same dead-switch class Ambitions/Pockets
+          // were lifted out of.
+          if (!widget.isGroup &&
+              chat.needsSimEnabled &&
+              chat.needsSimulation.vector.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Needs',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary(context),
               ),
-              const SizedBox(height: 4),
-              NeedsGrid(
-                needs: chat.needsSimulation.vector,
-                mini: false,
-                crossAxisCount: 2,
+            ),
+            const SizedBox(height: 4),
+            NeedsGrid(
+              needs: visibleNeeds(
+                chat.needsSimulation.vector,
+                chat.activeCharacter?.frontPorchExtensions?.needsOff ??
+                    const [],
               ),
-            ],
+              mini: false,
+              crossAxisCount: 2,
+            ),
           ],
           // ── Ambitions (Living Time §6) ──
           // Deliberately OUTSIDE the realism branch above. Ambitions are

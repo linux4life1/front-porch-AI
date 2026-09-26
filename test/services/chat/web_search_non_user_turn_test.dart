@@ -166,7 +166,27 @@ void main() {
       1,
       reason: 'the direct user send stays eligible',
     );
-    expect(llm.streams.single.systemPrompt, contains(kWebSearchCharacterLine));
+    expect(llm.streams, isNotEmpty);
+    expect(
+      llm.streams
+          .where((s) => s.systemPrompt != null)
+          .single
+          .systemPrompt,
+      contains(kWebSearchCharacterLine),
+    );
+    expect(
+      llm.streams.where(
+        (s) => (s.systemPrompt ?? '').contains(kWebSearchCharacterLine),
+      ),
+      hasLength(1),
+    );
+    for (final extra in llm.streams.skip(1)) {
+      expect(
+        extra.prompt,
+        contains('minutes_elapsed'),
+        reason: 'extra streams after the user send are the time-only clock',
+      );
+    }
 
     await chat.triggerNextCharacter();
 
@@ -188,10 +208,21 @@ void main() {
     expect(chat.messages.last.sender, 'Guest', reason: 'the guest path ran');
     expect(llm.webSearchRounds, 0);
     expect(httpCalls, 0);
+    expect(llm.streams, isNotEmpty);
     expect(
-      llm.streams.single.systemPrompt,
+      llm.streams
+          .where((s) => s.systemPrompt != null)
+          .single
+          .systemPrompt,
       isNot(contains(kWebSearchCharacterLine)),
     );
+    for (final extra in llm.streams.skip(1)) {
+      expect(
+        extra.prompt,
+        contains('minutes_elapsed'),
+        reason: 'extra Scene Guest streams are the time-only clock',
+      );
+    }
   });
 
   test('Regenerate may advertise tools (it is a new try)', () async {

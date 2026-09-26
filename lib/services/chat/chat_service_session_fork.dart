@@ -110,6 +110,7 @@ extension ChatServiceSessionFork on ChatService {
     }
     final tip = await _resolveHydratedIndex(messageIndex);
     if (tip == null) return;
+    final parentStart = _timeService.startDate;
 
     // Near-miss: fork copies the live greeting so eval would land on the
     // same alt, but this is a new session opening. Bump gen before the
@@ -174,12 +175,16 @@ extension ChatServiceSessionFork on ChatService {
     _isGrowthPassRunning =
         false; // growth-pass flag zero on fork (new branch hygiene; keep reset blocks in sync)
 
-    // Time-travel: restore from nearest realism_state in the kept prefix.
-    // Stamp-less (legacy/ST): rewind bond/time/emotion/arousal from the card
-    // but keep per-chat feature toggles (Realism/Needs/Objectives/Chaos) and
-    // fork lineage — never tip-of-chat scalar bleed, never toggle wipe.
+    // Time-travel: stamped after, else before+chip, else snap, else
+    // before. Unstamped Carmen tip keeps the live clock. Stamp-less
+    // (legacy/ST): rewind bond/emotion/arousal from the card but keep
+    // per-chat feature toggles and fork lineage.
     if (_messages.isNotEmpty) {
-      await _restoreRealismStateWalkingBack(fromIndex: _messages.length - 1);
+      await _restoreRealismStateWalkingBack(
+        fromIndex: _messages.length - 1,
+        seedClockIfUnstamped: true,
+      );
+      _applyForkPointClock(parentStartDate: parentStart);
     }
 
     await _saveChat();

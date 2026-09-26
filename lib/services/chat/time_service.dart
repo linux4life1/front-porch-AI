@@ -20,6 +20,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/skip_language.dart';
@@ -45,10 +46,11 @@ part 'time_service_load.dart';
 /// beat that was just written, and that instant is what the NEXT speaker is
 /// told — group bucket brigade, Scene Guests included. Continue does not
 /// tick (same beat). Hard-clamped by [StoryClock.maxMinutesPerTurn], with
-/// [StoryClock.failureDriftMinutes] as the deterministic floor on eval
-/// failure and a [StoryClock.stallBackstopTurns]-turn backstop so time can
-/// never freeze forever. The old 6-turn gate, its `hold_time` veto, and the
-/// eligible/not-eligible prompt branching are gone.
+/// [StoryClock.conversationalFloorMinutes] as the fail-closed floor on a
+/// spoken reply, [StoryClock.failureDriftMinutes] as the AFK / no-reply
+/// skip-banner step, and a [StoryClock.stallBackstopTurns]-turn backstop
+/// so time can never freeze forever. The old 6-turn gate, its `hold_time`
+/// veto, and the eligible/not-eligible prompt branching are gone.
 ///
 /// ── PASSAGE OF TIME AND THE REALISM ENGINE: THE SEAM, AND WHERE IT IS ────
 ///
@@ -64,12 +66,14 @@ part 'time_service_load.dart';
 ///
 ///   THE QUALITY OF TIME *IS* AN LLM EVAL. How far the clock moves comes from
 ///   [_fireSceneTimeEval] asking a model how long the latest exchange took.
-///   Remove that and the only thing left is [StoryClock.failureDriftMinutes],
-///   which is a FAILURE fallback, not a time model: a two-line greeting and a
-///   two-hour dinner would advance the clock by the same fixed constant. Time
-///   would keep ticking and stop meaning anything. The deterministic drift
-///   below is therefore NEVER a mode, never surfaced, never a reason to claim
-///   the clock works without a model — it is the cushion for one failed call.
+///   Remove that and the only thing left is
+///   [StoryClock.conversationalFloorMinutes] on a spoken reply (or
+///   [StoryClock.failureDriftMinutes] on AFK / skip-banner). Those are
+///   cushions, not a time model: a two-line greeting and a two-hour dinner
+///   would advance the clock by the same fixed constant. Time would keep
+///   ticking and stop meaning anything. The deterministic drift is therefore
+///   NEVER a mode, never surfaced, never a reason to claim the clock works
+///   without a model.
 ///
 /// What the other three turned out to be:
 ///
@@ -87,17 +91,16 @@ part 'time_service_load.dart';
 ///    was simply wrong. The clock's store of record is the session row
 ///    (`sessions.story_clock` / `story_start_date` / `passage_of_time_enabled`),
 ///    written and read unconditionally, engine or no engine.
-///    `realism_state` is the per-message swipe/regen REWIND snapshot, not
-///    persistence. No migration exists to perform.
+///    `realism_state.storyClock` is not a runtime clock. Legacy snaps
+///    are read once by [backfillSlotClocks] at load/import.
 ///
-/// The standalone clock is opt-in (`standaloneClockEnabled`, default off)
-/// because it costs one model call per turn — see that flag for why the
-/// existing Passage-of-Time default could not be treated as consent.
+/// Passage of Time is the single clock driver. The leftover
+/// `standaloneClockEnabled` pref is still readable for old PWAs but no
+/// longer gates the decide.
 ///
-/// Regen/swipe rewind the clock from the rejected reply's
-/// `story_clock_before` stamp, then the post-reply eval decides again —
-/// engine, standalone, and Scene Guest share that receipt. Without it a
-/// swipe would double-advance.
+/// Regen rewinds from the message-level `story_clock_before`
+/// (shared by every swipe). Each slot stores `story_clock_after`.
+/// Live clock is the visible tip slot's after.
 ///
 /// The OOC time-skip path ([detectOocTimeSkip]) is pure regex and stands on
 /// its own — but it is a narrow fast path over enumerated phrasings and does
@@ -142,6 +145,10 @@ class TimeService {
   /// the held today sentence here — not in a getter.
   final FutureOr<void> Function()? onStoryDayChanged;
 
+  /// Live Porch Life Passage of Time. When set, [passageOfTimeEnabled]
+  /// follows this — not a seeded per-chat copy.
+  final bool Function()? getPorchLifePassageOfTime;
+
   /// When true, the scene-time eval (and one-shot text) asks for
   /// `today_sentence`. Default off so existing constructors stay valid.
   final bool Function()? getPlannerEnabled;
@@ -157,11 +164,49 @@ class TimeService {
   );
   DateTime _startDate = StoryClock.todayAnchor();
   bool _passageOfTimeEnabled = true;
+  String _clockGateSource = 'porch_life';
+  bool? _clockGateLeftover;
   int _turnsSinceClockMoved = 0; // stall backstop counter (not a pacing gate)
   bool _canonicalClockWasSynthesised = false;
   // One clock authority per turn: set when detectOocTimeSkip moves the clock,
   // consumed by the per-turn eval so it can't re-count the same exchange.
   bool _oocSkipMovedClockThisTurn = false;
+  // Named wall-clock is exact. A later 0 / missing minutes_elapsed
+  // must not land the 2-minute floor on that pair (follow-up,
+  // backfill, reopen).
+  bool _namedReconcileExact = false;
+  DateTime? _capturedClock;
+  DateTime? _capturedStartDate;
+  String? _capturedSessionId;
+
+  /// Awake minutes the body should wear for the beat just committed.
+  /// Zero when this beat is a night, a skip, or time away.
+  int _awakeWearMinutes = 0;
+  int get awakeWearMinutes => _awakeWearMinutes;
+
+  /// Chip text for that beat. Null when the skip chip already says it.
+  String? _timePassedLabel;
+  String? get bodyTimeLabel => _timePassedLabel;
+
+  void clearBodyBeat() {
+    _awakeWearMinutes = 0;
+    _timePassedLabel = null;
+  }
+
+  void _noteBodyBeat({
+    required int minutes,
+    required bool nextMorning,
+    required bool isSkip,
+    required bool wearAwake,
+  }) {
+    _awakeWearMinutes = wearAwake ? minutes : 0;
+    _timePassedLabel = timePassedLabel(
+      minutes: minutes,
+      nextMorning: nextMorning,
+      isSkip: isSkip,
+    );
+  }
+
   String? todayLine;
   int? _todayLineDayCount;
 
@@ -202,6 +247,7 @@ class TimeService {
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,
+    this.getPorchLifePassageOfTime,
     this.getPlannerEnabled,
     this.onTodayEval,
   });
@@ -252,21 +298,46 @@ class TimeService {
   /// Class door for the calendar set. Continue still does not tick.
   Future<void> setClockDirect(DateTime newClock) => _setClockDirect(newClock);
 
+  void captureLiveClock({String? sessionId}) =>
+      _captureLiveClock(sessionId: sessionId);
+
+  void restoreCapturedClock({String? sessionId}) =>
+      _restoreCapturedClock(sessionId: sessionId);
+
+  void clearCapturedClock() => _clearCapturedClock();
+
+  void rewindToBeforeIso(String? beforeIso) => _rewindToBeforeIso(beforeIso);
+
+  /// Re-arm after load / backfill when a stored named pair is still live.
+  void holdNamedReconcileExact() => _namedReconcileExact = true;
+
+  void applySlotClock({DateTime? resolved, String? after}) {
+    final clock = resolved ?? StoryClock.parse(after);
+    if (clock == null) return;
+    _clock = DateTime.utc(
+      clock.year,
+      clock.month,
+      clock.day,
+      clock.hour,
+      clock.minute,
+    );
+  }
+
   /// Class door for V2 / ext-seed. Callers that only have the [TimeService]
   /// type (tests via `chat.timeService`, goldens) cannot see the load
   /// extension — same class-door rule as [setClockDirect].
   void seedFromV2OrExt({
     required int dayCount,
     required String timeOfDay,
-    required bool passageOfTimeEnabled,
     String? storyStartDate,
     String? storyStartTime,
+    bool? passageOfTimeEnabled,
   }) => _seedFromV2OrExt(
     dayCount: dayCount,
     timeOfDay: timeOfDay,
-    passageOfTimeEnabled: passageOfTimeEnabled,
     storyStartDate: storyStartDate,
     storyStartTime: storyStartTime,
+    passageOfTimeEnabled: passageOfTimeEnabled,
   );
 
   // ── Public surface ────────────────────────────────────────────────────────
@@ -285,7 +356,20 @@ class TimeService {
   /// See [StoryClock.morningDayCountFor].
   int get morningAnchoredDayCount =>
       StoryClock.morningDayCountFor(_clock, _startDate);
-  bool get passageOfTimeEnabled => _passageOfTimeEnabled;
+  bool get passageOfTimeEnabled =>
+      getPorchLifePassageOfTime?.call() ?? _passageOfTimeEnabled;
+  String get clockGateSource {
+    final porch = getPorchLifePassageOfTime?.call() ?? _passageOfTimeEnabled;
+    if (_clockGateLeftover != null) {
+      return 'porch_life leftover=$_clockGateLeftover ignored '
+          'porchLife=$porch';
+    }
+    return '$_clockGateSource porchLife=$porch';
+  }
+
+  void markClockGateSource(String source) => _clockGateSource = source;
+
+  void markClockGateLeftover(bool leftover) => _clockGateLeftover = leftover;
   String get narrativeWeekday => StoryClock.weekdayName(_clock);
 
   /// Derived legacy anchor — still written to the session row / snapshots so
@@ -327,6 +411,9 @@ class TimeService {
 
   void setPassageOfTimeEnabled(bool enabled) {
     _passageOfTimeEnabled = enabled;
+    if (getPorchLifePassageOfTime == null) {
+      _clockGateSource = 'porch_life';
+    }
   }
 
   void resetForFreshChat() {
@@ -334,6 +421,7 @@ class TimeService {
     _clock = StoryClock.representativeTime(_startDate, 'morning');
     _turnsSinceClockMoved = 0;
     _oocSkipMovedClockThisTurn = false;
+    _namedReconcileExact = false;
     _passageOfTimeEnabled = true;
     // A brand-new chat has nothing to write back — its clock reaches the row
     // through the ordinary save. Leaving a previous chat's `true` standing here
@@ -341,6 +429,7 @@ class TimeService {
     _canonicalClockWasSynthesised = false;
     todayLine = null;
     _todayLineDayCount = null;
+    _clearCapturedClock();
   }
 
   /// The posture question alone — shared VERBATIM between the standalone

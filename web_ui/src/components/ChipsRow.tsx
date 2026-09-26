@@ -40,6 +40,7 @@ export function ChipsRow({
   if (chips.trustDelta) realism.push({ key: 'trust', label: `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up' : 'down', reason: chips.trustReason });
   if (chips.arousalDelta) realism.push({ key: 'arousal', label: `Arousal ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up' : 'down' });
   if (chips.emotionLabel) realism.push({ key: 'mood', label: chips.emotionLabel, cls: 'mood' });
+  if (chips.timePassed) realism.push({ key: 'passed', label: `⏱ ${chips.timePassed}`, cls: 'time' });
   if (chips.timeSkipTo) realism.push({ key: 'time', label: `⏱ ${chips.timeSkipTo}`, cls: 'time' });
   if (chips.chanceTimeEvent) realism.push({ key: 'chance', label: '🎲 Chance Time', cls: 'time', reason: chips.chanceTimeEvent });
   if (chips.searchQuery) realism.push({ key: 'search', label: chips.searchOk === false ? '🔎 Looked up — nothing' : '🔎 Looked up', cls: 'time', reason: chips.searchQuery });
@@ -53,6 +54,9 @@ export function ChipsRow({
     const reason = typeof v === 'number' ? undefined : v?.reason;
     if (!delta) continue;
     needs.push({ key: `need-${k}`, label: `${NEED_LABELS[k] ?? k} ${signed(delta)}`, cls: delta > 0 ? 'up' : 'down', reason });
+  }
+  if (chips.needsUnaffected && needs.length === 0) {
+    needs.push({ key: 'unaffected', label: 'No needs affected', cls: 'time' });
   }
 
   const showReprocess = isLast && !busy && !!chips.needsReprocessable;

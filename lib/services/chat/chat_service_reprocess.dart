@@ -113,8 +113,13 @@ extension ChatServiceReprocess on ChatService {
     _isPostGenerating = true;
     try {
       await _regenerateLastMessageHeld(critique: critique);
+    } catch (e) {
+      _restoreCapturedThroughReader();
+      rethrow;
     } finally {
       _isPostGenerating = false;
+      _clearPostGenAbortFlags();
+      _applyTipClock();
     }
   }
 
@@ -174,12 +179,6 @@ extension ChatServiceReprocess on ChatService {
         );
         return;
       }
-      _invalidateJournalFrom(
-        persistMessagePosition(
-          base: _history.basePosition,
-          index: _messages.length,
-        ),
-      );
       // Snapshot the rejected swipe's metadata (e.g. manual needs reprocess) before
       // we add a new swipe — regen must not clobber prior swipe timelines.
       final rejectedSwipeIndex = lastMsg.swipeIndex;
@@ -238,26 +237,31 @@ extension ChatServiceReprocess on ChatService {
         _restorePocketsFromStamp(lastMsg, after: false);
       }
 
-      // Clock rewind for every driver (engine, standalone, Scene Guest).
-      // The post-reply tick stamps story_clock_before; without this a
-      // swipe would double-advance. Manual chevron/calendar nudges on
-      // this bubble survive (same time_nudged flag as the engine path).
-      final clockWasNudged =
-          lastMsg.activeMetadata?['realism_state'] is Map &&
-          (lastMsg.activeMetadata!['realism_state'] as Map)['time_nudged'] ==
-              true;
-      if (_clockRunning && !clockWasNudged) {
-        final before = lastMsg.activeMetadata?['story_clock_before'] as String?;
-        if (StoryClock.parse(before) != null) {
-          _timeService.restoreTimeFromRealismState({'storyClock': before});
-        }
-      }
+      // Capture the live clock first. Fail/cancel/abort put it back so
+      // a rejected regen never leaves the sidebar on the rewound before.
+      // Then rewind to the shared message-level before (every swipe).
+      _rewindClockToPreReply(lastMsg);
 
-      _revertRegenRealismBaseline(
+      if (!_revertRegenRealismBaseline(
         lastMsg: lastMsg,
         regenGuest: regenGuest,
         regenSpeakerCard: regenSpeakerCard,
         regenSpeakerSid: regenSpeakerSid,
+      )) {
+        _messages.add(lastMsg);
+        _restoreCapturedThroughReader();
+        _restoreRealismStateForSpeaker(lastMsg);
+        _restorePocketsFromStamp(lastMsg, after: true);
+        return;
+      }
+
+      // After the unreadable-baseline bail: the bubble stays, so its
+      // journal/growth cites must stay too (same rule as a departed guest).
+      _invalidateJournalFrom(
+        persistMessagePosition(
+          base: _history.basePosition,
+          index: _messages.length,
+        ),
       );
 
       // 1:1 only: replay decay + the realism eval inline here (groups replay
@@ -294,10 +298,8 @@ extension ChatServiceReprocess on ChatService {
               Map<String, int>.from(_needsSimulation.vector);
         }
 
-        // Apply decay and cooldown — mirrors the normal path, which decays
-        // AFTER capturing the baseline so the chips record decay + impact.
+        // Wear waits until the clock commits on the replayed reply.
         _applyMoodDecay();
-        _needsSimulation.tickDecay();
         _nsfwService.decrementCooldownIfActive();
 
         await _runPreGenRealismJudges(
@@ -329,6 +331,7 @@ extension ChatServiceReprocess on ChatService {
           // session row no longer agreed with, and `_saveChat()` persisted the
           // wrong scalars. 1:1-only branch, host-only (guests never get here).
           _messages.add(lastMsg);
+          _applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
           _restorePocketsFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
@@ -376,6 +379,7 @@ extension ChatServiceReprocess on ChatService {
           _messages.add(lastMsg);
           // Same put-back contract as the cancel point above: the message
           // returns WITH the state it was accepted under.
+          _applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
           _restorePocketsFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
@@ -386,29 +390,37 @@ extension ChatServiceReprocess on ChatService {
         }
       }
 
-      // story_clock_before wins over previousSessionState. A guest (no
-      // realism_state) can sit between two host lines; restoring the last
-      // stamped host snapshot would rewind PAST that guest's decide.
-      if (_clockRunning && !clockWasNudged) {
-        final before = lastMsg.activeMetadata?['story_clock_before'] as String?;
-        if (StoryClock.parse(before) != null) {
-          _timeService.restoreTimeFromRealismState({'storyClock': before});
-        }
-      }
-
       // Invalidate ONNX cache for the new response (delegated)
       _expressionService.invalidateOnnxCacheForNewResponse();
 
       // Generate into a new message — it will be appended by _generateResponse.
       // For a guest message we pass guestSpeaker so the new swipe is spoken as
-      // the guest and the entire Realism/Needs post-gen block is skipped (the
-      // `guestSpeaker == null` guard). For a host message regenGuest is null and
-      // this is the unchanged host path: _generateResponse runs the post-gen
-      // needs checks AND the chip attach — a regen runs in normal mode, so
-      // needs_deltas land on the streamed message exactly like a fresh turn
-      // (1:1 and group alike) and ride newMetadata into the swipe-merge below.
+      // the guest. The guest has no speaker Realism/Needs, but lite post-gen
+      // still ticks the clock and wears present bodies (the 1:1 host). The
+      // revert above restored that pre-wear snapshot so replay wears once.
+      // For a host message regenGuest is null and this is the unchanged host
+      // path: _generateResponse runs the post-gen needs checks AND the chip
+      // attach — a regen runs in normal mode, so needs_deltas land on the
+      // streamed message exactly like a fresh turn (1:1 and group alike) and
+      // ride newMetadata into the swipe-merge below.
       // The duplicate post-generation recompute that used to live here was a
       // second source of truth for the same numbers; deleted 2026-08-04.
+      final skipTo =
+          lastMsg.activeMetadata?['time_skip_to'] as String? ??
+          preservedRejectedMeta?['time_skip_to'] as String?;
+      if (skipTo != null && skipTo.isNotEmpty) {
+        _pendingRealismMetadata ??= {};
+        _pendingRealismMetadata!['time_skip_to'] = skipTo;
+        final passed =
+            lastMsg.activeMetadata?['time_passed'] as String? ??
+            preservedRejectedMeta?['time_passed'] as String? ??
+            _timeService.bodyTimeLabel;
+        if (passed != null && passed.isNotEmpty) {
+          _pendingRealismMetadata!['time_passed'] = passed;
+        }
+        _timeService.reclaimSkipOwnership();
+      }
+
       final preGenLen = _messages.length;
       await _generateResponse(
         GenerationMode.normal,

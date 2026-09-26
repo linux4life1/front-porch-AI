@@ -27,6 +27,23 @@ extension ChatServiceGreetingSeed on ChatService {
   bool get _isOpeningGreetingChat =>
       _messages.length == 1 && !_messages.first.isUser;
 
+  /// Existing chat start. Null only for a new chat whose live is
+  /// still today so creation can seed today once. A lived-in clock
+  /// that already left today is never treated as unseeded.
+  String? _keptPersistedStartIso() {
+    final loaded = StoryClock.dateOnly(_timeService.startDate);
+    final today = StoryClock.todayAnchor();
+    if (loaded != today) return _timeService.storyStartDateIso;
+    if (StoryClock.dateOnly(_timeService.clock) != today) {
+      return StoryClock.serializeDate(
+        StoryClock.dateOnly(
+          _timeService.clock,
+        ).subtract(Duration(days: _timeService.dayCount - 1)),
+      );
+    }
+    return null;
+  }
+
   GreetingOpeningBase _openingBaseFor(
     CharacterCard card, {
     required String? memberId,
@@ -112,13 +129,17 @@ extension ChatServiceGreetingSeed on ChatService {
     );
     _characterEmotion = resolved.characterEmotion;
     _emotionIntensity = resolved.emotionIntensity;
-    _timeService.seedFromV2OrExt(
-      dayCount: resolved.dayCount,
-      timeOfDay: resolved.timeOfDay,
-      storyStartDate: resolved.storyStartDate,
-      storyStartTime: resolved.storyStartTime,
-      passageOfTimeEnabled: _timeService.passageOfTimeEnabled,
-    );
+    // Reload re-applies authored mood/needs. It must not invent a
+    // Day-1 / today clock over a lived-in session row (HIGH-1).
+    if (scheduleEval) {
+      _timeService.seedFromV2OrExt(
+        dayCount: resolved.dayCount,
+        timeOfDay: resolved.timeOfDay,
+        storyStartDate: resolved.storyStartDate ?? _keptPersistedStartIso(),
+        storyStartTime: resolved.storyStartTime,
+      );
+      _applySeededPassageOfTime();
+    }
     _nsfwService.resetRuntimeArousalAndCooldown();
 
     if (_needsSimEnabled) {
@@ -164,7 +185,17 @@ extension ChatServiceGreetingSeed on ChatService {
       if (_characterEmotion.isNotEmpty) {
         _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
       }
-      _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
+      // Reload must not invent a greeting snap / dayCount. That leftover
+      // is frozen (equals itself) and the dayCount rung then synthesises
+      // afternoon instead of the session live clock (HIGH-1).
+      if (scheduleEval) {
+        _messages.first.activeMetadata!['realism_state'] =
+            _captureRealismState();
+        _writeSlotClock(
+          _messages.isEmpty ? null : _messages.first,
+          kind: _SlotClockWrite.seed,
+        );
+      }
     }
 
     if (!scheduleEval) return;
@@ -233,13 +264,15 @@ extension ChatServiceGreetingSeed on ChatService {
       ),
       overlay,
     );
-    _timeService.seedFromV2OrExt(
-      dayCount: timeResolved.dayCount,
-      timeOfDay: timeResolved.timeOfDay,
-      storyStartDate: timeResolved.storyStartDate,
-      storyStartTime: timeResolved.storyStartTime,
-      passageOfTimeEnabled: _timeService.passageOfTimeEnabled,
-    );
+    if (scheduleEval) {
+      _timeService.seedFromV2OrExt(
+        dayCount: timeResolved.dayCount,
+        timeOfDay: timeResolved.timeOfDay,
+        storyStartDate: timeResolved.storyStartDate ?? _keptPersistedStartIso(),
+        storyStartTime: timeResolved.storyStartTime,
+      );
+      _applySeededPassageOfTime();
+    }
 
     for (final c in _groupCharacters) {
       final memberId = _getCharacterIdFromCard(c);
@@ -275,7 +308,14 @@ extension ChatServiceGreetingSeed on ChatService {
       if (_characterEmotion.isNotEmpty) {
         _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
       }
-      _messages.first.activeMetadata!['realism_state'] = _captureRealismState();
+      if (scheduleEval) {
+        _messages.first.activeMetadata!['realism_state'] =
+            _captureRealismState();
+        _writeSlotClock(
+          _messages.isEmpty ? null : _messages.first,
+          kind: _SlotClockWrite.seed,
+        );
+      }
     }
 
     if (!scheduleEval) return;

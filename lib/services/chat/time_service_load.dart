@@ -28,9 +28,9 @@ extension TimeServiceLoad on TimeService {
   void _seedFromV2OrExt({
     required int dayCount,
     required String timeOfDay,
-    required bool passageOfTimeEnabled,
     String? storyStartDate,
     String? storyStartTime,
+    bool? passageOfTimeEnabled,
   }) {
     final anchor = StoryClock.parse(storyStartDate);
     final safeDay = dayCount.clamp(1, 9999);
@@ -42,8 +42,21 @@ extension TimeServiceLoad on TimeService {
       _startDate = StoryClock.dateOnly(anchor);
       current = _startDate.add(Duration(days: safeDay - 1));
     } else {
-      current = StoryClock.todayAnchor();
-      _startDate = current.subtract(Duration(days: safeDay - 1));
+      final loaded = StoryClock.dateOnly(_startDate);
+      final today = StoryClock.todayAnchor();
+      final liveDay = StoryClock.dateOnly(_clock);
+      if (loaded != today) {
+        // Existing chat already has a persisted start. Do not
+        // re-anchor to today on open, fork, or greeting re-seed.
+        current = loaded.add(Duration(days: safeDay - 1));
+      } else if (liveDay != today) {
+        // Start still reads as today but live already left it —
+        // this is an existing chat, not a new-chat seed.
+        current = _clock;
+      } else {
+        current = today;
+        _startDate = current.subtract(Duration(days: safeDay - 1));
+      }
     }
     final hhmm = StoryClock.parseHHMM(storyStartTime);
     _clock = hhmm != null
@@ -55,10 +68,13 @@ extension TimeServiceLoad on TimeService {
             hhmm.$2,
           )
         : StoryClock.representativeTime(current, timeOfDay);
-    _passageOfTimeEnabled = passageOfTimeEnabled;
     _turnsSinceClockMoved = 0;
     todayLine = null;
     _todayLineDayCount = null;
+    if (passageOfTimeEnabled != null) {
+      _passageOfTimeEnabled = passageOfTimeEnabled;
+      _clockGateSource = 'porch_life';
+    }
   }
 
   /// Load from a session row. Canonical columns win; legacy rows synthesize
@@ -78,19 +94,12 @@ extension TimeServiceLoad on TimeService {
     required String timeOfDay,
     required int dayCount,
     required int startDayOfWeek,
-    required bool passageOfTimeEnabled,
     String? storyClock,
     String? storyStartDate,
   }) {
-    // Load-bearing: this was declared `required` and then never assigned, so a
-    // chat's saved setting was read out of the database, handed to us, and
-    // dropped. Because TimeService outlives a single chat, the value left over
-    // from whatever came before stayed in place — and since entering a chat
-    // runs resetForFreshChat() first (which forces true), a saved `false` could
-    // never survive a reopen, and the next save wrote `true` back over it. The
-    // setting was not merely ignored; it was destroyed.
-    _passageOfTimeEnabled = passageOfTimeEnabled;
     clearTodayLine();
+    _clearCapturedClock();
+    _namedReconcileExact = false;
 
     final clock = StoryClock.parse(storyClock);
     final anchor = StoryClock.parse(storyStartDate);
@@ -126,43 +135,40 @@ extension TimeServiceLoad on TimeService {
     }
   }
 
-  // For swipe/regen paths that restore prior realism_state (respect nudge flag).
-  void restoreTimeForSwipeOrRegen(
-    Map<String, dynamic> previousState, {
-    bool wasNudged = false,
-  }) {
-    if (_passageOfTimeEnabled && !wasNudged) {
-      restoreTimeFromRealismState(previousState);
-    }
+  void _captureLiveClock({String? sessionId}) {
+    _capturedClock = _clock;
+    _capturedStartDate = _startDate;
+    _capturedSessionId = sessionId;
   }
 
-  /// Restore from a realism_state snapshot (message metadata, 1:1<->group
-  /// conversion carry). Restores REGARDLESS of passage-of-time — a fixed
-  /// scene time is meaningful even with auto-advance off. Prefers the
-  /// canonical keys; legacy snapshots synthesize.
-  void restoreTimeFromRealismState(Map<String, dynamic> state) {
-    final clock = StoryClock.parse(state['storyClock'] as String?);
-    final anchor = StoryClock.parse(state['storyStartDate'] as String?);
-    if (clock != null) {
-      _clock = clock;
-      if (anchor != null) _startDate = StoryClock.dateOnly(anchor);
+  void _restoreCapturedClock({String? sessionId}) {
+    final captured = _capturedClock;
+    if (captured == null) return;
+    if (sessionId != null &&
+        _capturedSessionId != null &&
+        _capturedSessionId != sessionId) {
       return;
     }
-    final tod = state['timeOfDay'] as String?;
-    // .fpchat / JSON may carry 9.0 — accept num (fork walk-back hasClock uses num).
-    final dc = (state['dayCount'] as num?)?.toInt();
-    if (tod == null && dc == null) return;
-    if (anchor != null) _startDate = StoryClock.dateOnly(anchor);
-    // A pre-calendar snapshot says only "Day N, period P". Read it against
-    // THIS story's Day 1 — the anchor we are already holding — not against the
-    // real-world calendar. Today-anchoring it meant swiping one old message
-    // dragged the entire timeline onto whatever date the user happened to be
-    // swiping on, which is the same wandering date as the load path, except it
-    // struck mid-conversation and contradicted every message above it.
-    final day = (dc ?? dayCount) < 1 ? 1 : (dc ?? dayCount);
-    _clock = StoryClock.representativeTime(
-      _startDate.add(Duration(days: day - 1)),
-      tod ?? timeOfDay,
+    _clock = captured;
+    final start = _capturedStartDate;
+    if (start != null) _startDate = start;
+  }
+
+  void _clearCapturedClock() {
+    _capturedClock = null;
+    _capturedStartDate = null;
+    _capturedSessionId = null;
+  }
+
+  void _rewindToBeforeIso(String? beforeIso) {
+    final before = StoryClock.parse(beforeIso);
+    if (before == null) return;
+    _clock = DateTime.utc(
+      before.year,
+      before.month,
+      before.day,
+      before.hour,
+      before.minute,
     );
   }
 }

@@ -13,6 +13,7 @@ export interface Chips {
   bondReason?: string;
   trustReason?: string;
   timeSkipTo?: string;
+  timePassed?: string;
   chanceTimeEvent?: string;
   searchQuery?: string;
   searchOk?: boolean;
@@ -21,6 +22,8 @@ export interface Chips {
   // Tolerate the legacy int shape and the new {delta, reason} shape so a
   // frontend rebuild doesn't blank the Needs chips before the backend restarts.
   needsDeltas?: Record<string, number | { delta: number; reason?: string }>;
+  /** Short no-action turn: Needs ran, bars did not move. */
+  needsUnaffected?: boolean;
   needsReprocessable?: boolean;
   needsRevertable?: boolean;
 }

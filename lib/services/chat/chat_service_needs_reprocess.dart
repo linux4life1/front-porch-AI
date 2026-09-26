@@ -239,8 +239,9 @@ extension ChatServiceNeedsReprocess on ChatService {
     // Keep realism_state['needs'] aligned with manual corrections so swipe
     // navigation and regen do not resurrect a stale pre-reprocess vector.
     if (_needsSimEnabled && updatedMeta['realism_state'] is Map) {
-      final postReprocessVector =
-          Map<String, int>.from(_needsSimulation.vector);
+      final postReprocessVector = Map<String, int>.from(
+        _needsSimulation.vector,
+      );
       final rs = Map<String, dynamic>.from(updatedMeta['realism_state'] as Map);
       final needsSnap = <String, dynamic>{'vector': postReprocessVector};
       if (computed.isNotEmpty) {
@@ -276,7 +277,7 @@ extension ChatServiceNeedsReprocess on ChatService {
       // Drop the impersonation. The group per-character state is already saved
       // to _groupRealism above; leaving _activeCharacter pointed at the
       // impersonated speaker leaked their card into everything that reads
-      // _activeCharacter (verifier flags, needs strength, decay rates) until
+      // _activeCharacter (verifier flags, pace, which needs are on) until
       // the next dance overwrote it. Unconditional (not `!= null`-guarded): in
       // a pure group preActiveChar IS null and must be restored to null; for
       // 1:1 the capture above grabbed the current character, so this is the
@@ -384,8 +385,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     // re-derive a baseline from the (already post-impact) realism_state.
     updated['needs_pre_impact'] = baseline;
     if (_needsSimEnabled && updated['realism_state'] is Map) {
-      final postRevertVector =
-          Map<String, int>.from(_needsSimulation.vector);
+      final postRevertVector = Map<String, int>.from(_needsSimulation.vector);
       final rs = Map<String, dynamic>.from(updated['realism_state'] as Map);
       final needsSnap = <String, dynamic>{'vector': postRevertVector};
       if (stashedDeltasMap.isNotEmpty) {

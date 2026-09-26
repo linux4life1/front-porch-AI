@@ -61,9 +61,7 @@ class ChatToolsFacade {
     final rs = _storage.realismSettings;
     final mem = _storage.memorySettings;
     final clockRunning = StoryClock.isRunning(
-      passageOfTimeEnabled: time.passageOfTimeEnabled,
-      realismEnabled: _chat.realismEnabled,
-      standaloneClockEnabled: rs.standaloneClockEnabled,
+      passageOfTimeEnabled: rs.passageOfTimeDefault,
     );
     final weather = _chat.currentWeather;
     final focused = _focusedParticipant(participantId);
@@ -183,7 +181,7 @@ class ChatToolsFacade {
         'timeOfDay': time.timeOfDay,
         'dayCount': time.dayCount,
         'weekday': time.narrativeWeekday,
-        'passageEnabled': time.passageOfTimeEnabled,
+        'passageEnabled': rs.passageOfTimeDefault,
         'clockRunning': clockRunning,
         'weather': weather == null
             ? null
@@ -303,7 +301,7 @@ class ChatToolsFacade {
 
   /// Group-only settings for the sidebar's group section (null in 1:1). The web
   /// gates this block on `group != null`. Per-member prompt overrides are keyed
-  /// by stableGroupId (== ChatParticipant.id).
+  /// by [groupMemberStoreId] (== ChatParticipant.id).
   Map<String, dynamic>? _groupBlock() {
     final g = _chat.activeGroup;
     if (g == null) return null;

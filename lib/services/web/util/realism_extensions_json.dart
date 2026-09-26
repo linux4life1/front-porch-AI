@@ -60,7 +60,7 @@ FrontPorchExtensions frontPorchFromFields(
   /// soft.
   List<String> asStrList(String key, List<String> fallback) {
     final v = fields[key];
-    if (v is! List) return fallback;
+    if (v is! List) return List<String>.from(fallback);
     return [
       for (final e in v)
         if (e is String && e.trim().isNotEmpty) e.trim(),
@@ -218,7 +218,8 @@ FrontPorchExtensions frontPorchFromFields(
     needsSimEnabled: asBool('needsSimEnabled', b.needsSimEnabled),
     pocketsEnabled: asBool('pocketsEnabled', b.pocketsEnabled),
     enjoysLowHygiene: asBool('enjoysLowHygiene', b.enjoysLowHygiene),
-    needsSimStrength: asInt('needsSimStrength', b.needsSimStrength),
+    needsPace: (fields['needsPace'] as String?) ?? b.needsPace,
+    needsOff: asStrList('needsOff', b.needsOff),
     needsBaselineHunger: asInt('needsBaselineHunger', b.needsBaselineHunger),
     needsBaselineBladder: asInt('needsBaselineBladder', b.needsBaselineBladder),
     needsBaselineEnergy: asInt('needsBaselineEnergy', b.needsBaselineEnergy),
@@ -226,13 +227,6 @@ FrontPorchExtensions frontPorchFromFields(
     needsBaselineFun: asInt('needsBaselineFun', b.needsBaselineFun),
     needsBaselineHygiene: asInt('needsBaselineHygiene', b.needsBaselineHygiene),
     needsBaselineComfort: asInt('needsBaselineComfort', b.needsBaselineComfort),
-    needsDecayHunger: asInt('needsDecayHunger', b.needsDecayHunger),
-    needsDecayBladder: asInt('needsDecayBladder', b.needsDecayBladder),
-    needsDecayEnergy: asInt('needsDecayEnergy', b.needsDecayEnergy),
-    needsDecaySocial: asInt('needsDecaySocial', b.needsDecaySocial),
-    needsDecayFun: asInt('needsDecayFun', b.needsDecayFun),
-    needsDecayHygiene: asInt('needsDecayHygiene', b.needsDecayHygiene),
-    needsDecayComfort: asInt('needsDecayComfort', b.needsDecayComfort),
   )..ensureStableId();
 }
 
@@ -270,7 +264,8 @@ Map<String, dynamic> frontPorchToJson(FrontPorchExtensions e) => {
   'needsSimEnabled': e.needsSimEnabled,
   'pocketsEnabled': e.pocketsEnabled,
   'enjoysLowHygiene': e.enjoysLowHygiene,
-  'needsSimStrength': e.needsSimStrength,
+  'needsPace': e.needsPace,
+  'needsOff': e.needsOff,
   'needsBaselineHunger': e.needsBaselineHunger,
   'needsBaselineBladder': e.needsBaselineBladder,
   'needsBaselineEnergy': e.needsBaselineEnergy,
@@ -278,12 +273,5 @@ Map<String, dynamic> frontPorchToJson(FrontPorchExtensions e) => {
   'needsBaselineFun': e.needsBaselineFun,
   'needsBaselineHygiene': e.needsBaselineHygiene,
   'needsBaselineComfort': e.needsBaselineComfort,
-  'needsDecayHunger': e.needsDecayHunger,
-  'needsDecayBladder': e.needsDecayBladder,
-  'needsDecayEnergy': e.needsDecayEnergy,
-  'needsDecaySocial': e.needsDecaySocial,
-  'needsDecayFun': e.needsDecayFun,
-  'needsDecayHygiene': e.needsDecayHygiene,
-  'needsDecayComfort': e.needsDecayComfort,
   'greetingSeeds': [for (final s in e.greetingSeeds) s?.toFields()],
 };

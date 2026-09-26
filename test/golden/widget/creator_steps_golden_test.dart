@@ -74,10 +74,12 @@ CreatorState _seedState() {
     personality: 'Patient, observant, dry-humored.',
     scenario: '{{user}} climbs the tower stairs at dusk.',
     firstMessage: 'The lamp turns. "You came, {{user}}."',
-    lorebook: Lorebook(entries: [
-      LorebookEntry(key: 'lighthouse', content: 'The lamp never goes dark.'),
-      LorebookEntry(key: 'storm', content: 'A wreck washed in last winter.'),
-    ]),
+    lorebook: Lorebook(
+      entries: [
+        LorebookEntry(key: 'lighthouse', content: 'The lamp never goes dark.'),
+        LorebookEntry(key: 'storm', content: 'A wreck washed in last winter.'),
+      ],
+    ),
   );
   state.generatedCard = card;
   state.descController.text = card.description;
@@ -96,8 +98,11 @@ void main() {
     addTearDown(state.dispose);
     await expectThemedGoldens(
       tester,
-      child:
-          SizedBox(width: 900, height: 760, child: ModeSelectStep(state: state)),
+      child: SizedBox(
+        width: 900,
+        height: 760,
+        child: ModeSelectStep(state: state),
+      ),
       group: 'creator_steps',
       name: 'mode_select',
       surface: const Size(940, 800),
@@ -120,14 +125,18 @@ void main() {
     );
   });
 
-  testWidgets('RealismStep — realism/needs form (not a no-op stub)',
-      (tester) async {
+  testWidgets('RealismStep — realism/needs form (not a no-op stub)', (
+    tester,
+  ) async {
     final state = _seedState();
     addTearDown(state.dispose);
     await expectThemedGoldens(
       tester,
-      child:
-          SizedBox(width: 820, height: 1100, child: RealismStep(state: state)),
+      child: SizedBox(
+        width: 820,
+        height: 1100,
+        child: SingleChildScrollView(child: RealismStep(state: state)),
+      ),
       group: 'creator_steps',
       name: 'realism',
       surface: const Size(860, 1140),
@@ -162,8 +171,11 @@ void main() {
           ChangeNotifierProvider<StorageService>.value(value: storage),
           ChangeNotifierProvider<CharacterRepository>.value(value: repo),
         ],
-        child:
-            SizedBox(width: 900, height: 1100, child: ReviewStep(state: state)),
+        child: SizedBox(
+          width: 900,
+          height: 1100,
+          child: ReviewStep(state: state),
+        ),
       ),
       group: 'creator_steps',
       name: 'review',

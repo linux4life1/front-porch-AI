@@ -197,7 +197,6 @@ TimeInjection createTestTime({
       )..seedFromV2OrExt(
         dayCount: dayCount,
         timeOfDay: timeOfDay,
-        passageOfTimeEnabled: true,
         storyStartDate: storyStartDate,
       );
   return TimeInjection(timeService: time);

@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_package_facade.dart';
 import 'package:front_porch_ai/services/web/routes/chat_package_routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -100,25 +101,23 @@ void main() {
     });
     db = AppDatabase.forTesting();
     final storage = StorageService();
-    chat = ChatService(
-      KoboldService(storage),
-      UserPersonaService(db),
-      storage,
-      WorldRepository(storage, db),
-    )
-      ..setDatabase(db)
-      ..setCharacterRepository(CharacterRepository(db, storage))
-      ..testLlmServiceOverride = _SilentLlm();
+    chat =
+        ChatService(
+            KoboldService(storage),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..setCharacterRepository(CharacterRepository(db, storage))
+          ..testLlmServiceOverride = _SilentLlm();
     await storage.initialized;
     facade = ChatPackageFacade(chat);
     router = Router();
     WebChatPackageRoutes(facade, router);
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<void> seedTurn() async {
     await chat.setActiveCharacter(alice());
@@ -198,11 +197,7 @@ void main() {
     );
 
     final res = await router.call(
-      shelf.Request(
-        'POST',
-        Uri.parse('http://x/api/chat/import'),
-        body: bytes,
-      ),
+      shelf.Request('POST', Uri.parse('http://x/api/chat/import'), body: bytes),
     );
     expect(res.statusCode, 409);
     final body = jsonDecode(await res.readAsString()) as Map;
@@ -260,9 +255,7 @@ void main() {
       shelf.Request(
         'POST',
         Uri.parse('http://x/api/chat/import'),
-        headers: {
-          'content-length': '${RequestBody.packageMaxBytes + 1}',
-        },
+        headers: {'content-length': '${RequestBody.packageMaxBytes + 1}'},
         body: Stream<List<int>>.empty(),
       ),
     );

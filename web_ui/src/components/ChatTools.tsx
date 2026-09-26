@@ -106,7 +106,7 @@ export function ChatTools({
 
   if (!t) return null;
 
-  const clockRunning = t.time.clockRunning ?? t.realismEnabled;
+  const clockRunning = t.time.clockRunning ?? false;
 
   return (
     <div className="chat-tools">
@@ -271,9 +271,8 @@ export function ChatTools({
               </div>
             ))}
           </div>
-          {/* Disabled when the clock is not actually moving (engine off AND
-              standalone off, or passage off). Desktop TimeStrip uses the
-              same StoryClock.isRunning gate. */}
+          {/* Disabled when Passage of Time is off. Desktop TimeStrip uses
+              the same StoryClock.isRunning gate. */}
           <div className="tool-row">
             <button
               disabled={!clockRunning}
@@ -286,7 +285,6 @@ export function ChatTools({
               onClick={() => apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: 1 }))}
             >Later ▶</button>
           </div>
-          <Toggle label="Auto passage of time" value={t.time.passageEnabled} onChange={(v) => toggle('passageOfTime', v)} />
         </div>
       </details>
 

@@ -1,8 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Clock mutators (nudge / set clock / set start date) must gate on the clock
-// actually running — engine OR standalone — not the engine alone.
+// Clock mutators (nudge / set clock / set start date) must gate on Passage
+// of Time — the only story-clock driver — not Realism, Needs, or the
+// leftover standalone pref.
 
 import 'dart:io';
 
@@ -20,6 +21,7 @@ import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 
 import '../../golden/support/fakes.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -36,31 +38,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
 
-  test('StoryClock.isRunning matches the two-driver rule', () {
-    expect(
-      StoryClock.isRunning(
-        passageOfTimeEnabled: true,
-        realismEnabled: false,
-        standaloneClockEnabled: true,
-      ),
-      isTrue,
-    );
-    expect(
-      StoryClock.isRunning(
-        passageOfTimeEnabled: true,
-        realismEnabled: false,
-        standaloneClockEnabled: false,
-      ),
-      isFalse,
-    );
-    expect(
-      StoryClock.isRunning(
-        passageOfTimeEnabled: false,
-        realismEnabled: true,
-        standaloneClockEnabled: true,
-      ),
-      isFalse,
-    );
+  test('StoryClock.isRunning keys off Passage of Time only', () {
+    expect(StoryClock.isRunning(passageOfTimeEnabled: true), isTrue);
+    expect(StoryClock.isRunning(passageOfTimeEnabled: false), isFalse);
   });
 
   group('ChatService nudge', () {
@@ -72,6 +52,7 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'update_auto_check': false,
         'realism_default': false,
+        'passage_of_time_default': true,
       });
       db = AppDatabase.forTesting();
       storage = StorageService();
@@ -88,49 +69,42 @@ void main() {
       final card = CharacterCard(
         name: 'Nia',
         firstMessage: 'Hey.',
-        frontPorchExtensions: FrontPorchExtensions(
-          realismEnabled: false,
-          passageOfTimeEnabled: true,
-        ),
+        frontPorchExtensions: FrontPorchExtensions(realismEnabled: false),
       )..dbId = 'char-clock-1';
       await chat.setActiveCharacter(card);
       await chat.setRealismEnabled(false);
+      await chat.setNeedsSimEnabled(false);
     });
 
-    tearDown(() async {
-      chat.dispose();
-      await db.close();
-    });
+    tearDown(() => disposeChatThenCloseDb(chat, db));
 
-    test('engine off + standalone on + passage on → nudge succeeds', () async {
-      await storage.realismSettings.setStandaloneClockEnabled(true);
+    test('Realism off + Needs off + PoT on → nudge succeeds', () async {
+      expect(chat.timeService.passageOfTimeEnabled, isTrue);
       final before = chat.timeService.clock;
       await chat.nudgeTimePeriod(1);
       expect(
         chat.timeService.clock.isAfter(before),
         isTrue,
-        reason: 'standalone driver must be enough for the chevrons to work',
+        reason: 'PoT alone must be enough for the chevrons to work',
       );
     });
 
-    test('engine off + standalone off → nudge is a no-op', () async {
-      await storage.realismSettings.setStandaloneClockEnabled(false);
+    test('PoT off → nudge is a no-op', () async {
+      await chat.setPassageOfTimeEnabled(false);
       final before = chat.timeService.clock;
       await chat.nudgeTimePeriod(1);
       expect(chat.timeService.clock, before);
     });
   });
 
-  testWidgets('engine off + standalone on → TimeStrip chevrons are present', (
-    tester,
-  ) async {
+  testWidgets('PoT on → TimeStrip chevrons are present', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final storage = StorageService();
     addTearDown(storage.dispose);
-    await storage.realismSettings.setStandaloneClockEnabled(true);
 
-    final chat = FakeChatService(realismEnabled: false);
+    final chat = FakeChatService(realismEnabled: false, needsSimEnabled: false);
     addTearDown(chat.dispose);
+    expect(chat.timeService.passageOfTimeEnabled, isTrue);
 
     await tester.pumpWidget(
       MultiProvider(
@@ -148,16 +122,15 @@ void main() {
     expect(find.byIcon(Icons.chevron_left), findsOneWidget);
   });
 
-  testWidgets('engine off + standalone off → TimeStrip chevrons are hidden', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
+  testWidgets('Porch Life off → TimeStrip chevrons are hidden', (tester) async {
+    SharedPreferences.setMockInitialValues({'passage_of_time_default': false});
     final storage = StorageService();
     addTearDown(storage.dispose);
-    await storage.realismSettings.setStandaloneClockEnabled(false);
+    await storage.realismSettings.setPassageOfTimeDefault(false);
 
-    final chat = FakeChatService(realismEnabled: false);
+    final chat = FakeChatService(realismEnabled: false, needsSimEnabled: false);
     addTearDown(chat.dispose);
+    // Chevrons follow Porch Life live — leftover per-chat is not a gate.
 
     await tester.pumpWidget(
       MultiProvider(
@@ -174,20 +147,33 @@ void main() {
     expect(find.byIcon(Icons.chevron_right), findsNothing);
   });
 
-  test('web tools snapshot exposes clockRunning', () async {
+  test('web tools snapshot: PoT alone is a moving clock', () async {
     SharedPreferences.setMockInitialValues({});
     final storage = StorageService();
     addTearDown(storage.dispose);
     await storage.initialized;
-    await storage.realismSettings.setStandaloneClockEnabled(true);
-    final fake = FakeChatService(realismEnabled: false);
+    await storage.realismSettings.setStandaloneClockEnabled(false);
+    final fake = FakeChatService(realismEnabled: false, needsSimEnabled: false);
     addTearDown(fake.dispose);
     final facade = ChatToolsFacade(fake, storage, null);
     final time = facade.state()['time'] as Map;
     expect(
       time['clockRunning'],
       isTrue,
-      reason: 'engine off + standalone on is a moving clock',
+      reason: 'PoT on is a moving clock with Realism and Needs off',
     );
+  });
+
+  test('web tools snapshot: Porch Life off is a paused clock', () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = StorageService();
+    addTearDown(storage.dispose);
+    await storage.initialized;
+    await storage.realismSettings.setPassageOfTimeDefault(false);
+    final fake = FakeChatService(realismEnabled: true, needsSimEnabled: true);
+    addTearDown(fake.dispose);
+    final facade = ChatToolsFacade(fake, storage, null);
+    final time = facade.state()['time'] as Map;
+    expect(time['clockRunning'], isFalse);
   });
 }

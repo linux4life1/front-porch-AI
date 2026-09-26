@@ -8,12 +8,28 @@
 // Design: docs/design/story-calendar.md.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart'
     show LlmToolCall, LlmToolResponse;
+
+/// One-path reader: backfill the slot pair, then [TimeService.applySlotClock]
+/// from `story_clock_after` — the same door `_applyTipClock` uses.
+void applyOnePathClock(TimeService t, Map<String, dynamic> realism) {
+  final user = ChatMessage(text: 'Hi.', sender: 'You', isUser: true);
+  final bot = ChatMessage(
+    text: 'Ok.',
+    sender: 'Nia',
+    isUser: false,
+    metadata: {'realism_state': realism},
+  );
+  backfillSlotClocks([user, bot], liveClock: t.clock, startDate: t.startDate);
+  t.applySlotClock(resolved: slotClockAfter(bot.metadata));
+}
 
 TimeService makeService({
   void Function(String, dynamic)? onPending,
@@ -42,7 +58,6 @@ void seedFixed(TimeService t, {String timeOfDay = 'evening'}) =>
     t.seedFromV2OrExt(
       dayCount: 3,
       timeOfDay: timeOfDay,
-      passageOfTimeEnabled: true,
       storyStartDate: '2026-06-30', // a Tuesday
     );
 
@@ -88,7 +103,6 @@ void main() {
       t.seedFromV2OrExt(
         dayCount: 1,
         timeOfDay: 'night',
-        passageOfTimeEnabled: true,
         storyStartDate: '1887-06-01',
         storyStartTime: '23:47',
       );
@@ -100,11 +114,7 @@ void main() {
 
     test('legacy-only seed anchors on today (Day N = today)', () {
       final t = makeService();
-      t.seedFromV2OrExt(
-        dayCount: 5,
-        timeOfDay: 'morning',
-        passageOfTimeEnabled: true,
-      );
+      t.seedFromV2OrExt(dayCount: 5, timeOfDay: 'morning');
       expect(t.dayCount, 5);
       expect(StoryClock.dateOnly(t.clock), StoryClock.todayAnchor());
     });
@@ -115,7 +125,6 @@ void main() {
         timeOfDay: 'morning', // stale derived value — must lose
         dayCount: 1,
         startDayOfWeek: 1,
-        passageOfTimeEnabled: true,
         storyClock: '2026-07-02T21:40:00.000Z',
         storyStartDate: '2026-06-30',
       );
@@ -127,12 +136,7 @@ void main() {
     test('legacy row synthesis preserves the displayed weekday', () {
       final t = makeService();
       // startDayOfWeek=1 (Mon), Day 5 → the old modulo-7 math showed Friday.
-      t.loadTimeScalars(
-        timeOfDay: 'morning',
-        dayCount: 5,
-        startDayOfWeek: 1,
-        passageOfTimeEnabled: true,
-      );
+      t.loadTimeScalars(timeOfDay: 'morning', dayCount: 5, startDayOfWeek: 1);
       expect(t.narrativeWeekday, 'Friday');
       expect(t.dayCount, 5);
       expect(t.timeOfDay, 'morning');
@@ -295,7 +299,7 @@ void main() {
     test('restore prefers canonical storyClock; legacy keys synthesize', () {
       final t = makeService();
       seedFixed(t);
-      t.restoreTimeFromRealismState({
+      applyOnePathClock(t, {
         'timeOfDay': 'morning',
         'dayCount': 9,
         'storyClock': '2026-07-04T06:10:00.000Z',
@@ -305,25 +309,9 @@ void main() {
       expect(t.dayCount, 5);
 
       // Legacy-only snapshot (old message): synthesized, day preserved.
-      t.restoreTimeFromRealismState({'timeOfDay': 'evening', 'dayCount': 2});
+      applyOnePathClock(t, {'timeOfDay': 'evening', 'dayCount': 2});
       expect(t.timeOfDay, 'evening');
       expect(t.dayCount, 2);
-    });
-
-    test('swipe restore respects the nudge flag and passage gate', () {
-      final t = makeService();
-      seedFixed(t);
-      final before = t.clock;
-      t.restoreTimeForSwipeOrRegen({
-        'storyClock': '2026-07-01T09:00:00.000Z',
-        'storyStartDate': '2026-06-30',
-      }, wasNudged: true);
-      expect(t.clock, before); // nudged time survives the swipe
-      t.restoreTimeForSwipeOrRegen({
-        'storyClock': '2026-07-01T09:00:00.000Z',
-        'storyStartDate': '2026-06-30',
-      });
-      expect(t.clock, DateTime.utc(2026, 7, 1, 9, 0));
     });
   });
 
@@ -405,7 +393,8 @@ void main() {
         await runEval(t, fire: (_) async => throw Exception('backend down'));
         expect(
           t.clock,
-          DateTime.utc(2026, 7, 2, 9, StoryClock.failureDriftMinutes),
+          DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+          reason: 'send-path failure uses the same floor as a missing key',
         );
       },
     );
@@ -421,15 +410,80 @@ void main() {
       expect(t.clock, DateTime.utc(2026, 7, 2, 9, 45));
     });
 
+    test('bare minutes_elapsed 0 floors to the conversational beat', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      await runEval(t, oneShotText: '{"minutes_elapsed": 0, "new_day": false}');
+      expect(
+        t.clock,
+        DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+      );
+    });
+
     test(
-      'stall backstop snaps to the next period after enough 0-minute turns',
+      'quoted continuous_instant string fails closed to the floor',
+      () async {
+        final t = makeService();
+        seedFixed(t, timeOfDay: 'morning');
+        await runEval(
+          t,
+          oneShotText:
+              '{"minutes_elapsed": 0, "new_day": false, '
+              '"continuous_instant": "true"}',
+        );
+        expect(
+          t.clock,
+          DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+        );
+      },
+    );
+
+    test('negative minutes_elapsed fails closed to the floor', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      await runEval(
+        t,
+        oneShotText: '{"minutes_elapsed": -8, "new_day": false}',
+      );
+      expect(
+        t.clock,
+        DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+      );
+    });
+
+    test('null raw uses the same floor as a missing key', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      await runEval(t, fire: (_) async => null);
+      expect(
+        t.clock,
+        DateTime.utc(2026, 7, 2, 9, StoryClock.conversationalFloorMinutes),
+      );
+    });
+
+    test('explicit continuous_instant keeps the same moment', () async {
+      final t = makeService();
+      seedFixed(t, timeOfDay: 'morning');
+      await runEval(
+        t,
+        oneShotText:
+            '{"minutes_elapsed": 0, "new_day": false, '
+            '"continuous_instant": true}',
+      );
+      expect(t.clock, DateTime.utc(2026, 7, 2, 9, 0));
+    });
+
+    test(
+      'stall backstop snaps after enough explicit same-moment turns',
       () async {
         final t = makeService();
         seedFixed(t, timeOfDay: 'morning'); // 09:00
         for (var i = 0; i < StoryClock.stallBackstopTurns; i++) {
           await runEval(
             t,
-            oneShotText: '{"minutes_elapsed": 0, "new_day": false}',
+            oneShotText:
+                '{"minutes_elapsed": 0, "new_day": false, '
+                '"continuous_instant": true}',
           );
         }
         // The final stalled turn triggered the snap (morning → late_morning).

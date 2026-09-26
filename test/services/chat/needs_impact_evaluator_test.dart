@@ -51,7 +51,6 @@ NeedsImpactEvaluator createTestEvaluator({
   Future<String?> Function(
     String, {
     void Function(String)? onChunk,
-    int strength,
     String? userCritique,
     Map<String, int>? previousDeltas,
   })?
@@ -71,7 +70,6 @@ NeedsImpactEvaluator createTestEvaluator({
   })?
   verifyFn,
   bool Function()? authorityFn,
-  int Function()? strengthFn,
 }) {
   final n = notifies ?? <String>[];
   final s = saves ?? <String>[];
@@ -98,18 +96,16 @@ NeedsImpactEvaluator createTestEvaluator({
         (
           String resp, {
           void Function(String)? onChunk,
-          int strength = 1,
           String? userCritique,
           Map<String, int>? previousDeltas,
           Map<String, int>? currentNeeds,
-          int? decayTurns,
+          bool awayScene = false,
           Set<String> onlyNeeds = const {},
         }) async {
           if (impactCallFn != null) {
             return impactCallFn(
               resp,
               onChunk: onChunk,
-              strength: strength,
               userCritique: userCritique,
               previousDeltas: previousDeltas,
             );
@@ -134,7 +130,6 @@ NeedsImpactEvaluator createTestEvaluator({
     getNeedsSimEnabled: needsEnabledFn ?? () => true,
     getRealismEnabled: realismFn ?? () => true,
     getNeedsModelAuthorityEnabled: authorityFn ?? () => false,
-    getNeedsSimStrength: strengthFn ?? () => 1,
   );
 }
 

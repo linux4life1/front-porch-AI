@@ -38,6 +38,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -94,10 +95,7 @@ void main() {
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<CharacterCard> seedCard(String name) async {
     final card = CharacterCard(
@@ -119,10 +117,7 @@ void main() {
     String marker,
   ) async {
     await db.insertSession(
-      SessionsCompanion.insert(
-        id: sessionId,
-        characterId: Value(card.dbId),
-      ),
+      SessionsCompanion.insert(id: sessionId, characterId: Value(card.dbId)),
     );
     for (final (i, line) in ['Hello there.', marker].indexed) {
       await db.insertMessage(
@@ -154,16 +149,19 @@ void main() {
     );
     expect(enhanced, isNotNull);
 
-    final copied = await chat.copyChatsForEnhance(
-      from: base,
-      to: enhanced!,
+    final copied = await chat.copyChatsForEnhance(from: base, to: enhanced!);
+    expect(
+      copied,
+      2,
+      reason:
+          'both chats must arrive as FULL restores — '
+          'transcript-only would strip stamps, journal and growth',
     );
-    expect(copied, 2, reason: 'both chats must arrive as FULL restores — '
-        'transcript-only would strip stamps, journal and growth');
 
     // The enhanced card owns copies…
-    final enhancedSessions =
-        await chat.getSessionsForId(enhanced.stableGroupId);
+    final enhancedSessions = await chat.getSessionsForId(
+      enhanced.stableGroupId,
+    );
     expect(enhancedSessions.length, greaterThanOrEqualTo(2));
 
     // …the base character's chats are exactly as they were…
@@ -179,18 +177,17 @@ void main() {
     );
   });
 
-  test('a character with no chats copies nothing and touches nothing',
-      () async {
-    final base = await seedCard('Rui');
-    final enhanced = await repo.duplicateCharacter(
-      base,
-      newNameOverride: 'Rui (Enhanced)',
-    );
-    expect(
-      await chat.copyChatsForEnhance(from: base, to: enhanced!),
-      0,
-    );
-  });
+  test(
+    'a character with no chats copies nothing and touches nothing',
+    () async {
+      final base = await seedCard('Rui');
+      final enhanced = await repo.duplicateCharacter(
+        base,
+        newNameOverride: 'Rui (Enhanced)',
+      );
+      expect(await chat.copyChatsForEnhance(from: base, to: enhanced!), 0);
+    },
+  );
 
   test('the same character on both sides is refused — it would re-import '
       'every chat onto its own owner', () async {

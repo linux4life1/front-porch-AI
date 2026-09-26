@@ -216,10 +216,11 @@ GreetingRealismSeed? greetingOverlayAt(
   return seeds[i];
 }
 
-/// Authored seed? First greet with a present first_mes: any Front Porch
-/// extensions object counts. When first_mes is empty, displayed 0 is an alt
-/// and uses the seed slot. Alts: a non-null slot (including `{}`) counts;
-/// missing means read-the-room.
+/// Authored seed? Card-level extensions seed a new chat once at
+/// creation — they are not a re-seed overlay on greeting 0. When
+/// first_mes is empty, displayed 0 is an alt and uses the seed
+/// slot. Alts: a non-null slot (including `{}`) counts; missing
+/// means read-the-room.
 bool greetingHasAuthoredSeed({
   required bool hasCardExtensions,
   required List<GreetingRealismSeed?> seeds,
@@ -229,7 +230,9 @@ bool greetingHasAuthoredSeed({
   if (firstMesEmpty) {
     return greetingOverlayAt(seeds, greetingIndex, firstMesEmpty: true) != null;
   }
-  if (greetingIndex <= 0) return hasCardExtensions;
+  if (greetingIndex <= 0) {
+    return hasCardExtensions && greetingOverlayAt(seeds, greetingIndex) != null;
+  }
   return greetingOverlayAt(seeds, greetingIndex) != null;
 }
 

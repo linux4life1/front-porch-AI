@@ -289,13 +289,9 @@ extension ChatServiceSend on ChatService {
       unawaited(_porchMemoryImport.clearAfterAcceptedUserTurn());
 
       // ── OOC Time-Skip Detection ───────────────────────────────────────────
-      // The standalone clock is added as a second driver rather than folding
-      // both into _clockRunning: that getter is broader than the old condition
-      // (it stays true in Director mode and during AFK), so using it here would
-      // silently start honouring "(OOC: skip to morning)" in engine-ON states
-      // that ignore it today. Additive only — every case that worked still
-      // works, plus the one the user asked for.
-      if (_realismActiveThisMode || _standaloneClockActive) {
+      // PoT is the only clock driver. Honour an OOC skip whenever the
+      // story clock is live, engine on or off.
+      if (_clockRunning) {
         final before = _timeService.clock;
         await _timeService.detectOocTimeSkip(text);
         final after = _timeService.clock;
@@ -345,7 +341,7 @@ extension ChatServiceSend on ChatService {
 
       // Voice call safe speed lane: swap to the fast call model BEFORE the
       // pre-generation work below, so the objective check, the realism judges
-      // and the standalone clock all answer on it — not just the reply. The
+      // and the time eval all answer on it — not just the reply. The
       // helper self-gates (call mode + remote + a call model picked); guests
       // are excluded because a routed guest turn skips the host prep entirely.
       // The request phase adopts the swap into the turn's restore machinery;

@@ -17,6 +17,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -96,10 +97,7 @@ void main() {
     await storage.realismSettings.setPassageOfTimeDefault(false);
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<void> drainTurn() async {
     for (

@@ -47,6 +47,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -87,21 +88,19 @@ void main() {
     });
     db = AppDatabase.forTesting(sameIsolate: true);
     storage = StorageService();
-    chat = ChatService(
-      KoboldService(storage),
-      UserPersonaService(db),
-      storage,
-      WorldRepository(storage, db),
-    )
-      ..setDatabase(db)
-      ..setCharacterRepository(CharacterRepository(db, storage));
+    chat =
+        ChatService(
+            KoboldService(storage),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..setCharacterRepository(CharacterRepository(db, storage));
     await storage.initialized;
   }
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   /// [needsEnabled] false = a group authored with Needs off in the wizard, so
   /// the per-member seeds carry no 'needs' sub-map at all.
@@ -141,28 +140,36 @@ void main() {
     return group;
   }
 
-  test('a transcript imported into a group keeps its Needs simulation',
-      () async {
-    await boot();
-    await enterGroup('grp-imp-1');
-    expect(chat.needsSimEnabled, isTrue, reason: 'sanity: entry seeded it on');
+  test(
+    'a transcript imported into a group keeps its Needs simulation',
+    () async {
+      await boot();
+      await enterGroup('grp-imp-1');
+      expect(
+        chat.needsSimEnabled,
+        isTrue,
+        reason: 'sanity: entry seeded it on',
+      );
 
-    await chat.importChatPackage(transcriptBytes());
+      await chat.importChatPackage(transcriptBytes());
 
-    expect(
-      chat.needsSimEnabled,
-      isTrue,
-      reason: 'the members are authored with needs — importing a transcript '
-          'must not switch the simulation off for the rest of the chat',
-    );
-    final row = await db.getSessionById(chat.currentSessionId!);
-    expect(
-      row?.needsSimEnabled,
-      isTrue,
-      reason: 'and the import save must not bake false onto the new session '
-          'row, which is what made it permanent',
-    );
-  });
+      expect(
+        chat.needsSimEnabled,
+        isTrue,
+        reason:
+            'the members are authored with needs — importing a transcript '
+            'must not switch the simulation off for the rest of the chat',
+      );
+      final row = await db.getSessionById(chat.currentSessionId!);
+      expect(
+        row?.needsSimEnabled,
+        isTrue,
+        reason:
+            'and the import save must not bake false onto the new session '
+            'row, which is what made it permanent',
+      );
+    },
+  );
 
   test('a group authored without needs still imports with them off', () async {
     await boot();
@@ -173,7 +180,8 @@ void main() {
     expect(
       chat.needsSimEnabled,
       isFalse,
-      reason: 'presence-inference must not invent needs the wizard never '
+      reason:
+          'presence-inference must not invent needs the wizard never '
           'wrote — the re-derive is not a blanket "on"',
     );
   });
@@ -187,7 +195,8 @@ void main() {
     expect(
       chat.needsSimEnabled,
       isFalse,
-      reason: 'every other seed site AND-gates on the global; the import '
+      reason:
+          'every other seed site AND-gates on the global; the import '
           'path must not be the one door that ignores it',
     );
   });

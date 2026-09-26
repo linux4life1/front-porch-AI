@@ -87,10 +87,27 @@ extension ChatServiceGenerationStream on ChatService {
       // message must never inherit `_pendingRealismMetadata` — leftover
       // host/full-member `needs_pre_turn_vector` and chips. 1:1 guests
       // already skipped via `guestSpeaker`; group lite must too.
-      final initialMetadata =
-          (_isLiteTurn(t) || _pendingRealismMetadata == null)
-          ? null
-          : Map<String, dynamic>.from(_pendingRealismMetadata!);
+      // time_skip_to is chat-scoped skip ownership, not speaker Realism:
+      // keep only that key so an OOC / AFK snap still chips the guest
+      // reply. Pending is consumed by the host attach, so also read the
+      // last bot slot when the key is no longer pending.
+      final Map<String, dynamic>? initialMetadata;
+      if (_isLiteTurn(t)) {
+        var skip = _pendingRealismMetadata?['time_skip_to'] as String? ?? '';
+        if (skip.isEmpty) {
+          for (var i = _messages.length - 1; i >= 0; i--) {
+            final m = _messages[i];
+            if (m.isUser || m.sender == 'System') continue;
+            skip = m.activeMetadata?['time_skip_to'] as String? ?? '';
+            break;
+          }
+        }
+        initialMetadata = skip.isNotEmpty ? {'time_skip_to': skip} : null;
+      } else if (_pendingRealismMetadata == null) {
+        initialMetadata = null;
+      } else {
+        initialMetadata = Map<String, dynamic>.from(_pendingRealismMetadata!);
+      }
       debugPrint(
         '[Realism:Metadata] PRE-GEN attach (needs_deltas + any post-gen '
         'deltas are added AFTER this): '

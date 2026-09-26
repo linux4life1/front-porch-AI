@@ -23,15 +23,31 @@ part of '../chat_service.dart';
 /// 1:1 and group share this helper. Group impersonates the rejected speaker,
 /// reverts, then saves back into `_groupRealism`. Continue is not this file.
 extension ChatServiceRegenRevert on ChatService {
-  void _revertRegenRealismBaseline({
+  /// Returns false when the greeting baseline is unreadable. The
+  /// caller must put [lastMsg] back and return without generating —
+  /// a void return here used to fall through and duplicate the tip.
+  bool _revertRegenRealismBaseline({
     required ChatMessage lastMsg,
     required CharacterCard? regenGuest,
     required CharacterCard? regenSpeakerCard,
     required String regenSpeakerSid,
   }) {
     // Revert realism state from the rejected swipe and re-evaluate.
-    // Guest messages carry no Realism/Needs state (regenGuest != null skips).
-    //
+    // Guest messages carry no speaker Realism/Needs of their own, but a
+    // lite tick still wears present bodies (the 1:1 host). Restore that
+    // pre-wear snapshot before replay; do not run the host speaker revert.
+    if (regenGuest != null) {
+      _restorePresentBodiesForReplay(lastMsg);
+      return true;
+    }
+
+    // Needs answers to its own switch. Sitting this rewind inside
+    // `_realismEnabled` left a Realism-off 1:1 wearing twice on regen.
+    // Groups still impersonate + restore inside the engine gate.
+    if (_needsSimEnabled && _activeGroup == null) {
+      _restoreNeedsBaselineForReplay(lastMsg);
+    }
+
     // GROUP parity: the revert must operate on the rejected SPEAKER's
     // _groupRealism entry, not on whichever member's state happens to be in
     // the scalar fields. Impersonate + load their map state (the same
@@ -65,31 +81,33 @@ extension ChatServiceRegenRevert on ChatService {
       // message of ANY speaker (time is shared).
       Map<String, dynamic>? previousMessageState;
       Map<String, dynamic>? previousSessionState;
-      if (_messages.length >= 2) {
+      var unreadableBaseline = false;
+      if (_messages.isNotEmpty) {
         // Look back through messages to find the last bot message before the one we're regenerating
         for (int i = _messages.length - 1; i >= 0; i--) {
           if (!_messages[i].isUser && _messages[i].sender != 'System') {
             final meta = _messages[i].activeMetadata;
-            if (meta != null && meta.containsKey('realism_state')) {
-              final state = meta['realism_state'] as Map<String, dynamic>;
-              previousSessionState ??= state;
-              if (!isGroupHostRegen || _messages[i].sender == lastMsg.sender) {
-                previousMessageState = state;
-                debugPrint(
-                  '[Realism:Regen] Found previous accepted message baseline state at message index $i',
-                );
-                break;
-              }
+            if (meta == null || !meta.containsKey('realism_state')) continue;
+            if (meta['realism_state'] is! Map) {
+              unreadableBaseline = true;
+              continue;
+            }
+            final state = Map<String, dynamic>.from(
+              meta['realism_state'] as Map,
+            );
+            previousSessionState ??= state;
+            if (!isGroupHostRegen || _messages[i].sender == lastMsg.sender) {
+              previousMessageState = state;
+              debugPrint(
+                '[Realism:Regen] Found previous accepted message baseline state at message index $i',
+              );
+              break;
             }
           }
         }
       }
-
-      bool wasNudged = false;
-      if (lastMsg.activeMetadata != null &&
-          lastMsg.activeMetadata!['realism_state'] is Map) {
-        wasNudged =
-            lastMsg.activeMetadata!['realism_state']['time_nudged'] == true;
+      if (previousMessageState == null && unreadableBaseline) {
+        return false;
       }
 
       // Did we restore needs from the rejected message's OWN needs_pre_turn_vector
@@ -227,18 +245,11 @@ extension ChatServiceRegenRevert on ChatService {
         );
       }
 
-      // Session-level baseline (the shared story clock) comes from the most
-      // recent stamped bot message of ANY speaker — identical to
-      // previousMessageState in 1:1. The decay cadence is NOT session-level:
-      // it is per-character, so it rides previousMessageState above instead.
-      if (previousSessionState != null) {
-        _timeService.restoreTimeForSwipeOrRegen(
-          previousSessionState,
-          wasNudged: wasNudged,
-        );
-      }
+      // Clock rewind lives in [_rewindClockToPreReply] (reprocess). A
+      // realism_state.storyClock / timeOfDay / dayCount snap is not the
+      // pre-reply time — old chats freeze those at Day 1 09:00.
       // Clock suppression is an argument on Next Character only. Regen
-      // rewinds above and then re-runs the scene-time eval with the
+      // rewinds in reprocess and then re-runs the scene-time eval with the
       // default (advance), so time does not walk backward.
 
       // ── Where they were BEFORE the reply being discarded ──────────────
@@ -282,15 +293,19 @@ extension ChatServiceRegenRevert on ChatService {
       }
 
       if (isGroupHostRegen) {
+        // Everyone who was present wore this beat. The speaker's scalars
+        // above are their pre-wear bars. The others live only in the
+        // snapshot — restoring just the speaker and then wearing again
+        // drops the rest a second time (80 → 78 → 76).
+        _restorePresentBodiesForReplay(lastMsg);
         // Persist the reverted baseline into the speaker's _groupRealism
-        // entry and drop the impersonation. Decay + re-eval for the regen
-        // turn happen inside _generateResponse via
-        // _evaluateRealismForUpcomingSpeaker (forced to this speaker above),
-        // exactly like the turn being replaced did.
+        // entry and drop the impersonation. The replayed reply wears
+        // everyone present once, inside _generateResponse.
         _saveScalarsIntoGroupRealism(regenSpeakerSid);
         _activeCharacter = preRegenActiveCharacter;
       }
     }
+    return true;
   }
 
   Future<void> _mergeOrRestoreRegenSwipe({
@@ -314,6 +329,7 @@ extension ChatServiceRegenRevert on ChatService {
       );
       if (ghostIdx >= 0) _messages.removeAt(ghostIdx);
       _messages.insert(preGenLen, lastMsg);
+      _applyTipClock();
       if (regenGuest == null) {
         _restoreRealismStateForSpeaker(lastMsg);
         // The pre-generation rewind above rolled pockets to the PRE-turn
@@ -363,11 +379,15 @@ extension ChatServiceRegenRevert on ChatService {
       if (newMetadata != null) {
         lastMsg.swipeMetadata[newSwipeIndex] = newMetadata;
       }
+      if (_clockRunning) _discoverAndPersistMessageBefore(lastMsg);
       _messages.add(lastMsg);
       // Host messages restore the active character's Realism/Needs from the
-      // accepted swipe (in groups: the speaker's own _groupRealism entry);
-      // guest messages carry none, so leave host state intact.
+      // accepted swipe (in groups: the speaker's own _groupRealism entry).
+      // Guest swipes wear present bodies (1:1 host); the replay just wore
+      // them once — do not pull a host realism_state the guest never had.
       if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg);
+      _applyTipClock();
+      _timeService.clearCapturedClock();
       await _saveChat();
       notifyListeners();
 

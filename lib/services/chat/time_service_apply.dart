@@ -52,16 +52,19 @@ extension TimeServiceApply on TimeService {
     await _ifDayChanged(dayBefore);
   }
 
-  /// All-away skip banner: no reply to score, so no LLM. Same 5-minute
-  /// floor the eval uses on failure. An OOC skip that already owned this
-  /// turn is left alone (and consumes the flag, matching the eval).
-  Future<void> applyFailureDrift() async {
-    if (!_passageOfTimeEnabled) return;
+  /// All-away skip banner: no reply to score, so no LLM. AFK uses the
+  /// 5-minute step; a user send that lands here uses the 2-minute floor.
+  /// An OOC skip that already owned this turn is left alone.
+  Future<void> applyFailureDrift({int? minutes}) async {
+    if (!passageOfTimeEnabled) return;
     if (_oocSkipMovedClockThisTurn) {
       _oocSkipMovedClockThisTurn = false;
       return;
     }
-    await _applyElapsed(minutes: null, newDay: false);
+    await _applyElapsed(
+      minutes: minutes ?? StoryClock.failureDriftMinutes,
+      newDay: false,
+    );
     onNotify();
   }
 
@@ -70,23 +73,44 @@ extension TimeServiceApply on TimeService {
   /// earlier). Same swipe-survival patch as a nudge.
   Future<void> _setClockDirect(DateTime newClock) async {
     final dayBefore = dayCount;
-    _clock = DateTime.utc(
-      newClock.year,
-      newClock.month,
-      newClock.day,
-      newClock.hour,
-      newClock.minute,
-    );
-    if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
+    _setClockPullingStartDate(newClock);
     _turnsSinceClockMoved = 0;
     onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
     await _ifDayChanged(dayBefore);
   }
 
-  /// Post-reply: they named a time, so the live clock follows. Not a user
-  /// nudge — swipe/regen still rewind from the previous snapshot.
+  /// Regen of a skip/AFK reply: the rejected slot already moved
+  /// the clock. Replay must not tick again.
+  void reclaimSkipOwnership() {
+    _oocSkipMovedClockThisTurn = true;
+  }
+
+  /// Post-reply: they named a time, so the live clock follows.
+  /// A counted chip (`5 min`, `1 hr`) is re-noted by the reconcile
+  /// delta. Next morning and skip labels stay as they are.
   Future<void> applyReconciledClock(DateTime newClock) async {
     final dayBefore = dayCount;
+    final oldClock = _clock;
+    final labelMins = minutesFromTimePassed(_timePassedLabel);
+    _setClockPullingStartDate(newClock);
+    _turnsSinceClockMoved = 0;
+    _namedReconcileExact = true;
+    if (labelMins != null) {
+      final adjusted = labelMins + _clock.difference(oldClock).inMinutes;
+      _noteBodyBeat(
+        minutes: adjusted < 0 ? 0 : adjusted,
+        nextMorning: false,
+        isSkip: false,
+        wearAwake: false,
+      );
+    }
+    await _ifDayChanged(dayBefore);
+  }
+
+  /// Live clock, plus the Day-1 pull-back already used by the calendar
+  /// set and a named-clock reconcile. Rewind/swipe/import reuse this
+  /// instead of inventing a floor helper.
+  void _setClockPullingStartDate(DateTime newClock) {
     _clock = DateTime.utc(
       newClock.year,
       newClock.month,
@@ -95,8 +119,6 @@ extension TimeServiceApply on TimeService {
       newClock.minute,
     );
     if (_clock.isBefore(_startDate)) _startDate = StoryClock.dateOnly(_clock);
-    _turnsSinceClockMoved = 0;
-    await _ifDayChanged(dayBefore);
   }
 
   /// Calendar dialog: re-anchor "story begins on…". Shifts the clock by the
@@ -107,7 +129,6 @@ extension TimeServiceApply on TimeService {
     _clock = _clock.add(anchored.difference(_startDate));
     _startDate = anchored;
     _turnsSinceClockMoved = 0;
-    onPatchLastMessageRealismState(timeOfDay, dayCount, storyClockIso);
   }
 
   /// Advance the clock by [count] period-steps (skip LLM eval).
@@ -117,13 +138,33 @@ extension TimeServiceApply on TimeService {
   /// Owns the turn the same way an OOC skip does: the post-reply time
   /// eval must not add minutes on top of the AFK snap.
   void advanceTimePeriods(int count) {
-    if (!_passageOfTimeEnabled) return;
+    if (!passageOfTimeEnabled) return;
+    final before = _clock;
     for (var i = 0; i < count; i++) {
       _clock = StoryClock.snapToNextPeriod(_clock);
     }
     if (count > 0) {
       _turnsSinceClockMoved = 0;
       _oocSkipMovedClockThisTurn = true;
+      final jumped = _clock.difference(before).inMinutes;
+      _noteBodyBeat(
+        minutes: jumped < 0 ? 0 : jumped,
+        nextMorning: false,
+        isSkip: false,
+        wearAwake: false,
+      );
+      // Same skip ownership as detectOocTimeSkip: the post-reply eval
+      // must not add minutes, and the tick takes the time_skip_to
+      // branch so the chip names this snap instead of a 0-span
+      // "same moment" (before is stamped after the clock already moved).
+      onSetPendingRealismMetadata(
+        'time_skip_to',
+        '$displayShortDate · $displayClock',
+      );
+      final label = bodyTimeLabel;
+      if (label != null && label.isNotEmpty) {
+        onSetPendingRealismMetadata('time_passed', label);
+      }
     }
   }
 
@@ -163,7 +204,7 @@ extension TimeServiceApply on TimeService {
   /// evidence that a night was really crossed and quietly stop day rolls
   /// altogether. Opposite question, opposite answer.
   Future<void> detectOocTimeSkip(String text) async {
-    if (!_passageOfTimeEnabled) {
+    if (!passageOfTimeEnabled) {
       debugPrint(
         '[Realism:OOC] Time-skip requested but passageOfTimeEnabled=false, ignoring',
       );
@@ -179,6 +220,12 @@ extension TimeServiceApply on TimeService {
     _clock = next;
     _turnsSinceClockMoved = 0;
     _oocSkipMovedClockThisTurn = true;
+    _noteBodyBeat(
+      minutes: 0,
+      nextMorning: isNightSkip(lower),
+      isSkip: true,
+      wearAwake: false,
+    );
     onSetPendingRealismMetadata(
       'time_skip_to',
       '$displayShortDate · $displayClock',
@@ -192,18 +239,28 @@ extension TimeServiceApply on TimeService {
 
   // ── Per-turn time advance (delegated from the physical / one-shot evals) ──
 
-  /// Apply one turn's elapsed time. [minutes] null means the eval failed —
-  /// deterministic drift applies. Returns whether the clock moved.
+  /// Apply one turn's elapsed time. Null, garbage, 0, or negative on a
+  /// normal send fail-closed to [StoryClock.conversationalFloorMinutes]
+  /// unless [continuousInstant] or [newDay]. Clock apply never wears
+  /// Needs. Returns whether the clock moved.
   Future<bool> _applyElapsed({
     required int? minutes,
     required bool newDay,
+    bool continuousInstant = false,
   }) async {
     final dayBefore = dayCount;
     var moved = false;
-    final m = (minutes ?? StoryClock.failureDriftMinutes).clamp(
-      0,
-      StoryClock.maxMinutesPerTurn,
+    final namedHolds =
+        _namedReconcileExact &&
+        !newDay &&
+        !continuousInstant &&
+        (minutes == null || minutes <= 0);
+    final m = StoryClock.resolvedElapsedMinutes(
+      minutes: minutes,
+      newDay: newDay,
+      continuousInstant: continuousInstant || namedHolds,
     );
+    if (m > 0 || newDay) _namedReconcileExact = false;
     if (m > 0) {
       _clock = _clock.add(Duration(minutes: m));
       moved = true;
@@ -216,14 +273,34 @@ extension TimeServiceApply on TimeService {
       _clock = StoryClock.nextMorning(_clock);
       moved = true;
     }
+    var stalled = false;
+    DateTime? stallFrom;
     if (moved) {
       _turnsSinceClockMoved = 0;
     } else if (++_turnsSinceClockMoved >= StoryClock.stallBackstopTurns) {
+      stallFrom = _clock;
       _clock = StoryClock.snapToNextPeriod(_clock);
       _turnsSinceClockMoved = 0;
       moved = true;
+      stalled = true;
       debugPrint('[Realism:Time] Stall backstop — snapped to $timeOfDay');
     }
+    if (!stalled) {
+      _noteBodyBeat(
+        minutes: m,
+        nextMorning: newDay,
+        isSkip: false,
+        wearAwake: false,
+      );
+    } else {
+      _noteBodyBeat(
+        minutes: _clock.difference(stallFrom!).inMinutes,
+        nextMorning: false,
+        isSkip: false,
+        wearAwake: false,
+      );
+    }
+    debugPrint('[Realism:Time] committed $m min');
     await _ifDayChanged(dayBefore);
     return moved;
   }

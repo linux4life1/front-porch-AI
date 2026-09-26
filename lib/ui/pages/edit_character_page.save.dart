@@ -152,7 +152,8 @@ extension _EditCharacterSave on _EditCharacterPageState {
         realismVerificationMaxReprocesses: _realismVerificationMaxReprocesses,
         realismVerificationStrictness: _realismVerificationStrictness,
         realismNeedsDirectorAuthority: _realismNeedsDirectorAuthority,
-        needsSimStrength: _needsSimStrength,
+        needsPace: _needsPace,
+        needsOff: _needsOff,
         needsBaselineHunger: _needsBaselineHunger,
         needsBaselineBladder: _needsBaselineBladder,
         needsBaselineEnergy: _needsBaselineEnergy,
@@ -160,13 +161,6 @@ extension _EditCharacterSave on _EditCharacterPageState {
         needsBaselineFun: _needsBaselineFun,
         needsBaselineHygiene: _needsBaselineHygiene,
         needsBaselineComfort: _needsBaselineComfort,
-        needsDecayHunger: _needsDecayHunger,
-        needsDecayBladder: _needsDecayBladder,
-        needsDecayEnergy: _needsDecayEnergy,
-        needsDecaySocial: _needsDecaySocial,
-        needsDecayFun: _needsDecayFun,
-        needsDecayHygiene: _needsDecayHygiene,
-        needsDecayComfort: _needsDecayComfort,
       );
       // Direct assignment (not copyWith): its `?? this.x` pattern cannot
       // CLEAR a nullable field, and "clear the fixed start date back to 'the

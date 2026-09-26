@@ -75,10 +75,13 @@ part 'chat/chat_service_group_members.dart';
 part 'chat/chat_service_group_lite.dart';
 part 'chat/chat_service_reprocess.dart';
 part 'chat/chat_service_regen_revert.dart';
+part 'chat/chat_service_message_clock.dart';
+part 'chat/chat_service_message_clock_write.dart';
 part 'chat/chat_service_needs_reprocess.dart';
 part 'chat/chat_service_chat_entry.dart';
 part 'chat/chat_service_group_entry.dart';
 part 'chat/chat_service_session_state.dart';
+part 'chat/chat_service_group_store_migrate.dart';
 part 'chat/chat_service_session_state_save.dart';
 part 'chat/chat_service_session_load.dart';
 part 'chat/chat_service_session_hydrate.dart';
@@ -134,6 +137,7 @@ part 'chat/chat_service_wiring_memory.dart';
 part 'chat/chat_service_wiring_injection.dart';
 part 'chat/chat_service_wiring_injection_leaves.dart';
 part 'chat/chat_service_send.dart';
+part 'chat/chat_service_body_wear.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
 part 'chat/chat_service_away_pulse.dart';
@@ -459,6 +463,11 @@ class ChatService extends ChangeNotifier
 
   /// Per-session Needs (Sims-style) simulation active. Seeded from the card.
   bool get needsSimEnabled => _needsSimEnabled;
+
+  /// Writes Porch Life Passage of Time — the live clock gate. Class-pinned
+  /// so goldens/fakes can override.
+  Future<void> setPassageOfTimeEnabled(bool enabled) =>
+      _setPassageOfTimeEnabledImpl(enabled);
 
   bool get chaosNsfwEnabled => _chaosModeService.chaosNsfwEnabled;
 

@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 /// Delayed eval payload that would stomp first_mes if a stale future applied.
 class _DelayedStompLlm extends LLMService {
@@ -77,14 +78,6 @@ void _setupPathProviderMock() {
       });
 }
 
-
-/// Settle fire-and-forget Drift requests inside this test's zone.
-Future<void> _drainPendingDrift() async {
-  for (var i = 0; i < 50; i++) {
-    await Future<void>.delayed(Duration.zero);
-  }
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
@@ -110,12 +103,7 @@ void main() {
     await storage.realismSettings.setPocketsEnabled(true);
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await _drainPendingDrift();
-    await db.close();
-    await _drainPendingDrift();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<CharacterCard> openFresh() async {
     await db.insertCharacter(
@@ -1289,8 +1277,7 @@ void main() {
       expect(
         chat.characterEmotion,
         'warm',
-        reason:
-            'delayed eval-1 must not paint fury onto New Chat first_mes',
+        reason: 'delayed eval-1 must not paint fury onto New Chat first_mes',
       );
       expect(chat.messages.first.text, 'Hello, friend.');
       expect(chat.relationshipService.affectionScore, 20);
@@ -1377,8 +1364,7 @@ void main() {
       expect(
         chat.characterEmotion,
         'warm',
-        reason:
-            'delayed Nemu eval must not paint fury onto Mira first_mes',
+        reason: 'delayed Nemu eval must not paint fury onto Mira first_mes',
       );
       expect(chat.messages.first.text, 'Hello, friend.');
       expect(chat.activeCharacter?.name, 'Mira');
@@ -1456,8 +1442,7 @@ void main() {
       expect(
         chat.characterEmotion,
         'warm',
-        reason:
-            'delayed eval-1 must not paint fury onto loadSession first_mes',
+        reason: 'delayed eval-1 must not paint fury onto loadSession first_mes',
       );
       expect(chat.messages.first.text, 'Hello, friend.');
       expect(chat.relationshipService.affectionScore, 20);
@@ -1528,13 +1513,18 @@ void main() {
         groupRepo: GroupChatRepository(storage, db),
       );
 
-      expect(chat.messages, isNotEmpty, reason: 'member allGreetings must open');
+      expect(
+        chat.messages,
+        isNotEmpty,
+        reason: 'member allGreetings must open',
+      );
       expect(chat.messages.first.text, 'Stay.');
       expect(chat.openingAllGreetings, ['Stay.', 'Get out.']);
       expect(
         chat.characterEmotion,
         'warm',
-        reason: 'empty first_mes: displayed 0 is alt[0] and overlay is seeds[0]',
+        reason:
+            'empty first_mes: displayed 0 is alt[0] and overlay is seeds[0]',
       );
       expect(chat.relationshipService.affectionScore, 20);
 
@@ -1722,7 +1712,8 @@ void main() {
       expect(
         ['', 'neutral'].contains(chat.characterEmotion),
         isTrue,
-        reason: 'inherit/baseline (card inherit or member-seed), not leftover fury',
+        reason:
+            'inherit/baseline (card inherit or member-seed), not leftover fury',
       );
       for (final c in chat.groupCharacters) {
         final id = chat.characterIdFor(c);
@@ -1816,7 +1807,8 @@ void main() {
       expect(
         ['', 'neutral'].contains(chat.characterEmotion),
         isTrue,
-        reason: 'inherit/baseline (card inherit or member-seed), not leftover fury',
+        reason:
+            'inherit/baseline (card inherit or member-seed), not leftover fury',
       );
     },
   );

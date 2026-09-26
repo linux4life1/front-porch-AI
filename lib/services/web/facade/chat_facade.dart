@@ -23,6 +23,8 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show kNeedsUnaffectedMeta;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/facade/chat_session_facade.dart';
@@ -104,7 +106,7 @@ class ChatFacade {
 
   /// The unified cast as JSON. Each entry carries enough to render a roster
   /// (avatar, role, emotion, next-up) and to scope the sidebar via [id]
-  /// (stableGroupId). Avatars resolve to the character endpoint for host/guests
+  /// ([groupMemberStoreId] in groups). Avatars resolve to the character endpoint for host/guests
   /// and the group-member endpoint for members.
   List<Map<String, dynamic>> _castJson() {
     final groupId = _chat.activeGroup?.id;
@@ -158,6 +160,7 @@ class ChatFacade {
       'bond_reason': 'bondReason',
       'trust_reason': 'trustReason',
       'time_skip_to': 'timeSkipTo',
+      'time_passed': 'timePassed',
       'chance_time_event': 'chanceTimeEvent',
     }.entries) {
       final v = md[entry.key];
@@ -190,6 +193,7 @@ class ChatFacade {
     final rs = md['realism_state'];
     if (rs is Map && rs['needs'] != null) out['needsReprocessable'] = true;
     if (md['needs_deltas_pre_reprocess'] is Map) out['needsRevertable'] = true;
+    if (md[kNeedsUnaffectedMeta] == true) out['needsUnaffected'] = true;
     final search = md['search_receipt'];
     if (search is Map) {
       final q = (search['query'] as String?)?.trim() ?? '';

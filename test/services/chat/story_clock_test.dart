@@ -265,4 +265,63 @@ void main() {
       expect(StoryClock.periodLabel('late_morning'), 'Late Morning');
     });
   });
+
+  group('StoryClock passage-of-time contract', () {
+    test('isRunning keys off Passage of Time only', () {
+      expect(StoryClock.isRunning(passageOfTimeEnabled: true), isTrue);
+      expect(StoryClock.isRunning(passageOfTimeEnabled: false), isFalse);
+    });
+
+    test('resolvedElapsedMinutes fail-closes bare 0 and missing', () {
+      expect(
+        StoryClock.resolvedElapsedMinutes(
+          minutes: 0,
+          newDay: false,
+          continuousInstant: false,
+        ),
+        StoryClock.conversationalFloorMinutes,
+      );
+      expect(
+        StoryClock.resolvedElapsedMinutes(
+          minutes: null,
+          newDay: false,
+          continuousInstant: false,
+        ),
+        StoryClock.conversationalFloorMinutes,
+      );
+      expect(
+        StoryClock.resolvedElapsedMinutes(
+          minutes: 0,
+          newDay: false,
+          continuousInstant: true,
+        ),
+        0,
+      );
+      expect(
+        StoryClock.resolvedElapsedMinutes(
+          minutes: 30,
+          newDay: false,
+          continuousInstant: false,
+        ),
+        30,
+      );
+      expect(
+        StoryClock.resolvedElapsedMinutes(
+          minutes: 0,
+          newDay: true,
+          continuousInstant: false,
+        ),
+        0,
+      );
+      expect(
+        StoryClock.resolvedElapsedMinutes(
+          minutes: -8,
+          newDay: false,
+          continuousInstant: false,
+        ),
+        StoryClock.conversationalFloorMinutes,
+        reason: 'a negative is a failed verdict, not a rewind',
+      );
+    });
+  });
 }

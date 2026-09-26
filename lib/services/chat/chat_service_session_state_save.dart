@@ -111,7 +111,6 @@ extension ChatServiceSessionStateSave on ChatService {
       });
 
       groupRealismJson = jsonEncode({
-        'globalDecayRates': _groupDecayRates,
         'perChar': _groupRealism,
         'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
         'authorNotes': _groupAuthorNotes,
@@ -224,11 +223,14 @@ extension ChatServiceSessionStateSave on ChatService {
         storyClock: drift.Value(_timeService.storyClockIso),
         storyStartDate: drift.Value(_timeService.storyStartDateIso),
         passageOfTimeEnabled: drift.Value(_timeService.passageOfTimeEnabled),
+        passageOfTimeGateMigrated: const drift.Value(true),
         nsfwCooldownEnabled: drift.Value(_nsfwService.nsfwCooldownEnabled),
         needsSimEnabled: drift.Value(_needsSimEnabled),
         objectivesEnabled: drift.Value(_objectivesEnabled),
+        // Persist the kit even when the chat-gear switch is off (hide ≠
+        // erase). false+null is a never-seeded row; false+vector is OFF.
         needsVector: drift.Value(
-          _needsSimEnabled
+          _needsSimulation.vector.isNotEmpty
               ? jsonEncode(encodeNeedsPersist(_needsSimulation))
               : null,
         ),

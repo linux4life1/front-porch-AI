@@ -44,6 +44,8 @@ extension ChatServiceWiringRealism on ChatService {
           await _deactivateTodayObjective();
         }();
       },
+      getPorchLifePassageOfTime: () =>
+          _storageService.realismSettings.passageOfTimeDefault,
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       onTodayEval: (line) {
         if (line.isEmpty) {
@@ -59,29 +61,9 @@ extension ChatServiceWiringRealism on ChatService {
           await _upsertTodayObjective(line);
         }();
       },
-      onPatchLastMessageRealismState: (tod, dc, clockIso) {
-        // Patch the newest REAL message — never a narration banner. Dream /
-        // chance-time messages carry only their banner flag; stamping a full
-        // realism snapshot onto one corrupts it (2026-07-28) and makes a
-        // banner the time authority for swipe/regen restores.
-        for (final lastMsg in _messages.reversed) {
-          if (lastMsg.activeMetadata?['is_dream'] == true ||
-              lastMsg.activeMetadata?['is_chance_time_narration'] == true) {
-            continue;
-          }
-          lastMsg.activeMetadata ??= {};
-          final existingState = lastMsg.activeMetadata!['realism_state'];
-          if (existingState is Map<String, dynamic>) {
-            existingState['timeOfDay'] = tod;
-            existingState['dayCount'] = dc;
-            existingState['storyClock'] = clockIso;
-            existingState['time_nudged'] = true;
-          } else {
-            lastMsg.activeMetadata!['realism_state'] = _captureRealismState();
-            lastMsg.activeMetadata!['realism_state']['time_nudged'] = true;
-          }
-          break;
-        }
+      onPatchLastMessageRealismState: (_, _, _) {
+        // Clock stamps are written only by _writeSlotClock.
+        // This hook must not insert a snapshot or mark user messages.
       },
     );
   }
@@ -130,27 +112,6 @@ extension ChatServiceWiringRealism on ChatService {
       setGroupNeeds: _setGroupNeeds,
       getEnjoysLowHygiene: () => enjoysLowHygiene,
       getNeedsSimEnabled: () => _needsSimEnabled,
-      getCustomDecayRates: () => _activeDecayRates(),
-      // Same source the needs-impact eval reads for its prompt scaling, so the
-      // bound and the instruction can never disagree about what "5x" means.
-      getNeedsSimStrength: () =>
-          (_activeCharacter?.frontPorchExtensions?.needsSimStrength ?? 1),
-      // Needs modifiers sample the CURRENT DAY-PART (v3): an afternoon storm
-      // speeds comfort decay even on a day whose headline is "cloudy", and a
-      // clear evening earns the fun bonus after a rainy morning. Same
-      // DailyWeather view the modifiers always took — condition swapped for
-      // the segment's, band/season stay the day's — so NeedsSimulation is
-      // untouched and 1:1/group parity is inherited (weather is per-chat
-      // shared; both paths tick through these same modifiers).
-      getWeather: () {
-        final seg = currentSegmentWeather;
-        if (seg == null) return null;
-        return DailyWeather(
-          condition: seg.condition,
-          temp: seg.day.temp,
-          season: seg.day.season,
-        );
-      },
     );
   }
 

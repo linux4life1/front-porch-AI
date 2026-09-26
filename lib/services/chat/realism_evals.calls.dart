@@ -252,8 +252,7 @@ extension RealismEvalCalls on RealismEvals {
   /// Scene time, and — in [postureOnly] mode — the post-generation posture
   /// pass.
   ///
-  /// [timeOnly] is the standalone clock: the engine is off and the user opted
-  /// the clock in, so the realism preconditions below do not apply — there is
+  /// [timeOnly] drops speaker scoring when the engine is off — there is
   /// no speaker to score. [postureOnly] is the other end: no clock at all,
   /// just "where did this reply leave them", fired AFTER generation from
   /// chat_service_generation_postgen.dart. Both stay THIS method rather than
@@ -285,8 +284,8 @@ extension RealismEvalCalls on RealismEvals {
     // two clock paths stay in lockstep.
     final recent = recentExchange(getMessages(), take: 6);
     // Under the engine this path needs a character (the group per-speaker dance
-    // impersonates one first). The standalone clock does not: its prompt names
-    // nobody, which is also why it works unchanged in a group, where time is
+    // impersonates one first). timeOnly does not: its prompt names nobody,
+    // which is also why it works unchanged in a group, where time is
     // chat-scoped rather than per-speaker.
     if (!timeOnly && getActiveCharacter() == null) {
       // Group chat or other mode — relationship evals not supported in this path yet.

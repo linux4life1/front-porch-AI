@@ -30,7 +30,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 ///
 /// It is a thin, read-only view over the existing [CharacterCard] — it adds no
 /// new persistence. Identity and tier are derived from the card itself
-/// (`stableGroupId` / `isLite`), so a participant carries no state of its own;
+/// (`groupMemberStoreId` / `isLite`), so a participant carries no state of its own;
 /// per-participant realism/needs continue to live in the chat service stores.
 class ChatParticipant {
   /// The card backing this participant (host card, group member card, or a
@@ -43,9 +43,10 @@ class ChatParticipant {
 
   const ChatParticipant({required this.card, required this.isHost});
 
-  /// Stable identifier used as the per-participant state key. Matches the key
-  /// the chat service already uses (`_getCharacterIdFromCard`).
-  String get id => card.stableGroupId;
+  /// Per-participant state key. Matches `_getCharacterIdFromCard`:
+  /// group members / guests use [groupMemberStoreId] (UUID-first);
+  /// a 1:1 host stays on [CharacterCard.stableGroupId].
+  String get id => isHost ? card.stableGroupId : groupMemberStoreId(card);
 
   String get name => card.name;
 

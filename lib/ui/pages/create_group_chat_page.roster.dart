@@ -47,13 +47,6 @@ extension _GroupWizardRoster on _CreateGroupChatPageState {
           'fun': s['needsBaselineFun'] as int? ?? 80,
           'hygiene': s['needsBaselineHygiene'] as int? ?? 80,
           'comfort': s['needsBaselineComfort'] as int? ?? 80,
-          'decayHunger': s['needsDecayHunger'] as int? ?? 5,
-          'decayBladder': s['needsDecayBladder'] as int? ?? 5,
-          'decayEnergy': s['needsDecayEnergy'] as int? ?? 5,
-          'decaySocial': s['needsDecaySocial'] as int? ?? 5,
-          'decayFun': s['needsDecayFun'] as int? ?? 5,
-          'decayHygiene': s['needsDecayHygiene'] as int? ?? 5,
-          'decayComfort': s['needsDecayComfort'] as int? ?? 5,
         };
       }
 

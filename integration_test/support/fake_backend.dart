@@ -47,6 +47,7 @@ class FakeBackendServer {
 
   /// Realism/eval completions served (classified by requested JSON keys).
   int evalRequests = 0;
+  final List<String> evalBodies = [];
 
   /// Journal maintenance passes served (XML transport exchanges).
   int journalPassRequests = 0;
@@ -510,6 +511,7 @@ class FakeBackendServer {
 
     if (eval.isNotEmpty) {
       evalRequests++;
+      evalBodies.add(lastContent);
       // The whole eval JSON rides one content delta — the parser regex/JSON
       // extraction works on the assembled text either way.
       await _streamSse(req, [jsonEncode(eval)]);

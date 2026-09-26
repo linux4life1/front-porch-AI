@@ -113,19 +113,8 @@ class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
     final amber = AppColors.porchAmberOf(context);
     final time = _chat.timeService;
     final owners = _chat.cast.where((p) => !p.isLite).toList();
-    StorageService? storage;
-    try {
-      storage = Provider.of<StorageService>(context);
-    } on ProviderNotFoundException {
-      storage = null;
-    }
     final canEdit =
-        StoryClock.isRunning(
-          passageOfTimeEnabled: time.passageOfTimeEnabled,
-          realismEnabled: _chat.realismEnabled,
-          standaloneClockEnabled:
-              storage?.realismSettings.standaloneClockEnabled ?? false,
-        ) &&
+        StoryClock.isRunning(passageOfTimeEnabled: time.passageOfTimeEnabled) &&
         !_chat.isGenerating;
 
     return Dialog(

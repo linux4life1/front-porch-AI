@@ -43,6 +43,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -105,10 +106,7 @@ void main() {
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   /// The survivor's library character. A distinct portrait basename is what
   /// makes her library id differ from her member instance id.
@@ -156,9 +154,7 @@ void main() {
   }
 
   Future<void> enterGroupWithSession() async {
-    await db.insertGroup(
-      GroupsCompanion.insert(id: groupId, name: 'The Cast'),
-    );
+    await db.insertGroup(GroupsCompanion.insert(id: groupId, name: 'The Cast'));
     await db.insertSession(
       SessionsCompanion.insert(id: sid, groupId: const Value(groupId)),
     );
@@ -174,98 +170,89 @@ void main() {
     );
   }
 
-  test(
-    'collapsing a group back to a 1:1 carries the survivor\'s journal cards '
-    'onto her library id, so her diary is still readable',
-    () async {
-      final nia = await seedLibraryCard('Nia');
-      await enterGroupWithSession();
-      await seedMember('mem-nia', 'Nia', originStableId: nia.stableGroupId);
-      await seedMember('mem-rue', 'Rue');
+  test('collapsing a group back to a 1:1 carries the survivor\'s journal cards '
+      'onto her library id, so her diary is still readable', () async {
+    final nia = await seedLibraryCard('Nia');
+    await enterGroupWithSession();
+    await seedMember('mem-nia', 'Nia', originStableId: nia.stableGroupId);
+    await seedMember('mem-rue', 'Rue');
 
-      await chat.setActiveGroup(
-        GroupChat(id: groupId, name: 'The Cast'),
-        groupRepo: groupRepo,
-      );
-      expect(chat.currentSessionId, sid);
-      final member = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
-      expect(
-        member.stableGroupId,
-        'mem-nia',
-        reason: 'a member card is keyed by its instance id, not the library id',
-      );
-      expect(member.stableGroupId, isNot(nia.stableGroupId));
+    await chat.setActiveGroup(
+      GroupChat(id: groupId, name: 'The Cast'),
+      groupRepo: groupRepo,
+    );
+    expect(chat.currentSessionId, sid);
+    final member = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
+    expect(
+      member.stableGroupId,
+      'mem-nia',
+      reason: 'a member card is keyed by its instance id, not the library id',
+    );
+    expect(member.stableGroupId, isNot(nia.stableGroupId));
 
-      // Her group-era diary, written under the member instance id.
-      await chat.journalStore.addCard(
-        sessionId: sid,
-        characterId: 'mem-nia',
-        content: 'She set her car keys down on the hallway table.',
-        category: 'moment',
-        maxCards: 40,
-      );
+    // Her group-era diary, written under the member instance id.
+    await chat.journalStore.addCard(
+      sessionId: sid,
+      characterId: 'mem-nia',
+      content: 'She set her car keys down on the hallway table.',
+      category: 'moment',
+      maxCards: 40,
+    );
 
-      final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
-      expect(await chat.removeCharacterFromGroup(rue, groupRepo), isTrue);
+    final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
+    expect(await chat.removeCharacterFromGroup(rue, groupRepo), isTrue);
 
-      // The chat is now a 1:1 with the library character…
-      expect(chat.activeGroup, isNull);
-      expect(chat.activeCharacter?.name, 'Nia');
-      expect(chat.currentSessionId, sid);
+    // The chat is now a 1:1 with the library character…
+    expect(chat.activeGroup, isNull);
+    expect(chat.activeCharacter?.name, 'Nia');
+    expect(chat.currentSessionId, sid);
 
-      // …and her diary came with her.
-      final carried = await chat.journalStore.cardsFor(
-        sid,
-        nia.stableGroupId,
-      );
-      expect(carried, hasLength(1));
-      expect(carried.first.content, contains('hallway table'));
-      expect(
-        await chat.journalStore.cardsFor(sid, 'mem-nia'),
-        isEmpty,
-        reason: 'a card left under the member id is unreachable forever',
-      );
-    },
-  );
+    // …and her diary came with her.
+    final carried = await chat.journalStore.cardsFor(sid, nia.stableGroupId);
+    expect(carried, hasLength(1));
+    expect(carried.first.content, contains('hallway table'));
+    expect(
+      await chat.journalStore.cardsFor(sid, 'mem-nia'),
+      isEmpty,
+      reason: 'a card left under the member id is unreachable forever',
+    );
+  });
 
-  test(
-    'hard-removing a member from a still-multi-member group deletes that '
-    'member\'s journal cards (no unreadable leftovers)',
-    () async {
-      await enterGroupWithSession();
-      await seedMember('mem-nia', 'Nia');
-      await seedMember('mem-rue', 'Rue');
-      await seedMember('mem-sol', 'Sol');
+  test('hard-removing a member from a still-multi-member group deletes that '
+      'member\'s journal cards (no unreadable leftovers)', () async {
+    await enterGroupWithSession();
+    await seedMember('mem-nia', 'Nia');
+    await seedMember('mem-rue', 'Rue');
+    await seedMember('mem-sol', 'Sol');
 
-      await chat.setActiveGroup(
-        GroupChat(id: groupId, name: 'The Cast'),
-        groupRepo: groupRepo,
-      );
-      await chat.journalStore.addCard(
-        sessionId: sid,
-        characterId: 'mem-rue',
-        content: 'Rue hid the spare key under the mat.',
-        category: 'moment',
-        maxCards: 40,
-      );
-      await chat.journalStore.addCard(
-        sessionId: sid,
-        characterId: 'mem-nia',
-        content: 'Nia keeps the porch light on.',
-        category: 'moment',
-        maxCards: 40,
-      );
+    await chat.setActiveGroup(
+      GroupChat(id: groupId, name: 'The Cast'),
+      groupRepo: groupRepo,
+    );
+    await chat.journalStore.addCard(
+      sessionId: sid,
+      characterId: 'mem-rue',
+      content: 'Rue hid the spare key under the mat.',
+      category: 'moment',
+      maxCards: 40,
+    );
+    await chat.journalStore.addCard(
+      sessionId: sid,
+      characterId: 'mem-nia',
+      content: 'Nia keeps the porch light on.',
+      category: 'moment',
+      maxCards: 40,
+    );
 
-      final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
-      expect(await chat.removeCharacterFromGroup(rue, groupRepo), isTrue);
-      expect(chat.activeGroup, isNotNull, reason: 'two members remain');
+    final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
+    expect(await chat.removeCharacterFromGroup(rue, groupRepo), isTrue);
+    expect(chat.activeGroup, isNotNull, reason: 'two members remain');
 
-      expect(await chat.journalStore.cardsFor(sid, 'mem-rue'), isEmpty);
-      expect(
-        await chat.journalStore.cardsFor(sid, 'mem-nia'),
-        hasLength(1),
-        reason: 'only the removed member loses her diary',
-      );
-    },
-  );
+    expect(await chat.journalStore.cardsFor(sid, 'mem-rue'), isEmpty);
+    expect(
+      await chat.journalStore.cardsFor(sid, 'mem-nia'),
+      hasLength(1),
+      reason: 'only the removed member loses her diary',
+    );
+  });
 }

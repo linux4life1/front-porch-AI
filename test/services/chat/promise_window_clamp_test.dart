@@ -44,6 +44,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
     show kEvalClampMarker, kEvalMessageCharCap;
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -128,10 +129,7 @@ void main() {
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test('the promise prompt carries the clamped window, and the tail promise '
       'survives the clamp', () async {

@@ -20,7 +20,7 @@ import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 ///
 /// Reads every value from [seed] (a member's realism seed map: `affection`,
 /// `trust`, `emotion`, `emotionIntensity`, `verification*`,
-/// `needsSimStrength`, `enjoysLowHygiene`, `needsBaseline*`, `needsDecay*`, …) and
+/// `needsPace`, `needsOff`, `enjoysLowHygiene`, `needsBaseline*`, …) and
 /// reports each edit through [onUpdate] as a `{key: value}` delta that the caller
 /// merges back into the seed (and rebuilds). Needs enabled/disabled is group-wide,
 /// so it is threaded through [needsEnabled] / [onNeedsEnabledChanged].
@@ -39,8 +39,7 @@ class GroupMemberRealismEditor extends StatelessWidget {
   });
 
   int _i(String key, int fallback) => (seed[key] as num?)?.toInt() ?? fallback;
-  String _s(String key, String fallback) =>
-      (seed[key] as String?) ?? fallback;
+  String _s(String key, String fallback) => (seed[key] as String?) ?? fallback;
 
   @override
   Widget build(BuildContext context) {
@@ -73,8 +72,7 @@ class GroupMemberRealismEditor extends StatelessWidget {
       showMasterEnabledToggle: false,
       realismVerificationEnabled:
           (seed['verificationEnabled'] as bool?) ?? false,
-      onRealismVerificationChanged: (v) =>
-          onUpdate({'verificationEnabled': v}),
+      onRealismVerificationChanged: (v) => onUpdate({'verificationEnabled': v}),
       realismVerificationMaxReprocesses:
           (seed['verificationMaxReprocesses'] as int?) ?? 1,
       onRealismVerificationMaxReprocessesChanged: (v) =>
@@ -89,8 +87,13 @@ class GroupMemberRealismEditor extends StatelessWidget {
         onEnabledChanged: onNeedsEnabledChanged,
         enjoysLowHygiene: (seed['enjoysLowHygiene'] as bool?) ?? false,
         onEnjoysLowHygieneChanged: (v) => onUpdate({'enjoysLowHygiene': v}),
-        needsSimStrength: _i('needsSimStrength', 1),
-        onNeedsSimStrengthChanged: (v) => onUpdate({'needsSimStrength': v}),
+        needsPace: (seed['needsPace'] as String?) ?? 'normal',
+        onNeedsPaceChanged: (v) => onUpdate({'needsPace': v}),
+        needsOff: [
+          for (final item in (seed['needsOff'] as List?) ?? const [])
+            if (item is String) item,
+        ],
+        onNeedsOffChanged: (v) => onUpdate({'needsOff': v}),
         baselineHunger: _i('needsBaselineHunger', 80),
         onBaselineHungerChanged: (v) => onUpdate({'needsBaselineHunger': v}),
         baselineBladder: _i('needsBaselineBladder', 80),
@@ -105,20 +108,6 @@ class GroupMemberRealismEditor extends StatelessWidget {
         onBaselineHygieneChanged: (v) => onUpdate({'needsBaselineHygiene': v}),
         baselineComfort: _i('needsBaselineComfort', 80),
         onBaselineComfortChanged: (v) => onUpdate({'needsBaselineComfort': v}),
-        decayHunger: _i('needsDecayHunger', 5),
-        onDecayHungerChanged: (v) => onUpdate({'needsDecayHunger': v}),
-        decayBladder: _i('needsDecayBladder', 5),
-        onDecayBladderChanged: (v) => onUpdate({'needsDecayBladder': v}),
-        decayEnergy: _i('needsDecayEnergy', 5),
-        onDecayEnergyChanged: (v) => onUpdate({'needsDecayEnergy': v}),
-        decaySocial: _i('needsDecaySocial', 5),
-        onDecaySocialChanged: (v) => onUpdate({'needsDecaySocial': v}),
-        decayFun: _i('needsDecayFun', 5),
-        onDecayFunChanged: (v) => onUpdate({'needsDecayFun': v}),
-        decayHygiene: _i('needsDecayHygiene', 5),
-        onDecayHygieneChanged: (v) => onUpdate({'needsDecayHygiene': v}),
-        decayComfort: _i('needsDecayComfort', 5),
-        onDecayComfortChanged: (v) => onUpdate({'needsDecayComfort': v}),
       ),
     );
   }
