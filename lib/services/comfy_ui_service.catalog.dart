@@ -124,10 +124,11 @@ extension ComfyUiCatalogApi on ComfyUiService {
   /// UI or API JSON for a default template, then a userdata workflow.
   Future<Map<String, dynamic>?> fetchTemplateJson(String name) async {
     final stem = name.replaceAll('.json', '');
+    final savedPath = Uri.encodeComponent('workflows/$stem.json');
     for (final path in [
-      '/templates/$stem.json',
-      '/userdata/workflows/$stem.json',
-      '/api/userdata/workflows/$stem.json',
+      '/templates/${Uri.encodeComponent(stem)}.json',
+      '/userdata/$savedPath',
+      '/api/userdata/$savedPath',
     ]) {
       final raw = await _getJson(path);
       if (raw is Map) return raw.cast<String, dynamic>();
