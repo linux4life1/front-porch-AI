@@ -16,9 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// UI (litegraph) → /prompt API format. Official Comfy templates are UI
-// JSON, often wrapped in a subgraph. Porch does not own those graphs —
-// it flattens and converts them, then the token adapter fills Studio knobs.
+import 'comfy_subgraph_widgets.dart';
 
 const _kSkipTypes = {'MarkdownNote', 'Note'};
 const _kControlAfter = {'randomize', 'fixed', 'increment', 'decrement'};
@@ -49,6 +47,14 @@ const kComfyFallbackWidgets = <String, List<String>>{
   ],
   'CLIPLoader': ['clip_name', 'type', 'device'],
   'CLIPLoaderGGUF': ['clip_name', 'type'],
+  'DualCLIPLoaderGGUF': ['clip_name1', 'clip_name2', 'type'],
+  'TripleCLIPLoaderGGUF': ['clip_name1', 'clip_name2', 'clip_name3'],
+  'QuadrupleCLIPLoaderGGUF': [
+    'clip_name1',
+    'clip_name2',
+    'clip_name3',
+    'clip_name4',
+  ],
   'DualCLIPLoader': ['clip_name1', 'clip_name2', 'type', 'device'],
   'VAELoader': ['vae_name'],
   'CheckpointLoaderSimple': ['ckpt_name'],
@@ -201,7 +207,7 @@ bool _isWidgetSpec(Object? spec) {
   String originId,
   int originSlot,
   Map<String, _UiNode> nodes,
-  Map<int, _UiLink> links,
+  Map<String, _UiLink> links,
 ) {
   var id = originId;
   var slot = originSlot;
@@ -233,12 +239,12 @@ class _UiNode {
 
 class _UiIn {
   final String name;
-  final int? link;
+  final String? link;
   const _UiIn(this.name, this.link);
 }
 
 class _UiLink {
-  final int id;
+  final String id;
   final String originId;
   final int originSlot;
   final String targetId;
@@ -286,6 +292,10 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
         walk(_asList(sg['nodes']), _asList(sg['links']), '${id}_');
         final ports = _asList(sg['inputs']);
         final widgets = _asList(raw['widgets_values']);
+        final widgetPorts = [
+          for (final port in ports)
+            if (port is Map && !_kLinkTypes.contains(port['type'])) port,
+        ];
         for (final internal in _asList(sg['links'])) {
           final origin = _linkOrigin(internal);
           final target = _linkTarget(internal);
@@ -294,17 +304,39 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
             continue;
           }
           final portIndex = origin!.$2;
-          if (portIndex >= ports.length || ports[portIndex] is! Map) continue;
+          if (portIndex < 0 ||
+              portIndex >= ports.length ||
+              ports[portIndex] is! Map) {
+            continue;
+          }
           final portName = (ports[portIndex] as Map)['name']?.toString();
           final childId = '${id}_${target.$1}';
           final child = nodes.where((n) => n.id == childId).firstOrNull;
-          if (child == null || target.$2 >= child.inputs.length) continue;
+          if (child == null ||
+              target.$2 < 0 ||
+              target.$2 >= child.inputs.length) {
+            continue;
+          }
           final inputName = child.inputs[target.$2].name;
+          final widgetIndex = comfySubgraphWidgetIndex(
+            raw,
+            widgetPorts,
+            ports[portIndex],
+            target.$1,
+            inputName,
+          );
+          final named = raw['widgets_values_named'];
+          final widgetValue = named is Map && named.containsKey(portName)
+              ? named[portName]
+              : widgetIndex >= 0 && widgetIndex < widgets.length
+              ? widgets[widgetIndex]
+              : null;
           final parentInput = _asList(
             raw['inputs'],
           ).whereType<Map>().where((i) => i['name'] == portName).firstOrNull;
           final parentLinkId = parentInput?['link'];
-          if (parentLinkId is num) {
+          if (parentLinkId is num &&
+              !isComfyPromptInput(child.type, inputName)) {
             final parentLink = _asList(
               rawLinks,
             ).where((l) => _linkId(l) == parentLinkId.toInt()).firstOrNull;
@@ -312,19 +344,22 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
             if (parentOrigin != null) {
               links.add(
                 _UiLink(
-                  id: linkId,
+                  id: '$id:$linkId',
                   originId: '$prefix${parentOrigin.$1}',
                   originSlot: parentOrigin.$2,
                   targetId: childId,
                   targetSlot: target.$2,
                 ),
               );
+              child.inputs[target.$2] = _UiIn(inputName, '$id:$linkId');
               continue;
             }
           }
-          if (portIndex < widgets.length) {
-            values.putIfAbsent(childId, () => {})[inputName] =
-                widgets[portIndex];
+          child.inputs[target.$2] = _UiIn(inputName, null);
+          if (widgetValue != null) {
+            values.putIfAbsent(childId, () => {})[inputName] = widgetValue;
+          } else if (isComfyPromptInput(child.type, inputName)) {
+            values.putIfAbsent(childId, () => {})[inputName] = '';
           }
         }
         _recordSubgraphOutputs(
@@ -335,7 +370,7 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
         );
         continue;
       }
-      final node = _readNode(raw, id);
+      final node = _readNode(raw, id, prefix);
       local.add(node);
       nodes.add(node);
     }
@@ -384,7 +419,7 @@ void _recordSubgraphOutputs(
   }
 }
 
-_UiNode _readNode(Map raw, String id) {
+_UiNode _readNode(Map raw, String id, String prefix) {
   final widgets = <Object?>[];
   final wv = raw['widgets_values'];
   if (wv is List) widgets.addAll(wv);
@@ -396,7 +431,7 @@ _UiNode _readNode(Map raw, String id) {
       final name = inp['name']?.toString() ?? '';
       if (name.isEmpty) continue;
       final link = inp['link'];
-      inputs.add(_UiIn(name, link is num ? link.toInt() : null));
+      inputs.add(_UiIn(name, link is num ? '$prefix${link.toInt()}' : null));
     }
   }
   return _UiNode(
@@ -414,7 +449,7 @@ _UiLink? _readLink(Object? raw, String prefix) {
   if (origin == null || target == null || id == null) return null;
   if (_isIoId(origin.$1) || _isIoId(target.$1)) return null;
   return _UiLink(
-    id: id,
+    id: '$prefix$id',
     originId: '$prefix${origin.$1}',
     originSlot: origin.$2,
     targetId: '$prefix${target.$1}',

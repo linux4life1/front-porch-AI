@@ -125,12 +125,14 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           setPassword('');
           setTotpCode('');
         }
+        return true;
       })
       .catch((e) => {
         if (e instanceof ApiError && e.payload.totpRequired === true) {
           setTotpEnabled(true);
         }
         onError(e instanceof ApiError ? e.message : 'Save failed');
+        return false;
       });
   };
 
@@ -226,7 +228,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
               presets={cfg.comfyCreatePresets ?? []}
               onChange={(patch) => {
                 set(patch as Partial<ImageConfig>);
-                void saveConfig(patch);
+                return saveConfig(patch);
               }}
             />
           )}
