@@ -21,6 +21,7 @@ type Submit = [string, string[]];
 
 function render(props: {
   enabledNeeds: string[];
+  speaker?: string;
   speakerName?: string;
   onSubmit?: (critique: string, onlyNeeds: string[]) => Promise<void>;
 }) {
@@ -28,6 +29,7 @@ function render(props: {
     root.render(
       createElement(ReprocessNeedsModal, {
         enabledNeeds: props.enabledNeeds,
+        speaker: props.speaker ?? 'Aria',
         speakerName: props.speakerName ?? 'Aria',
         onSubmit: props.onSubmit ?? (async () => {}),
         onClose: () => {},
@@ -110,15 +112,14 @@ describe('ReprocessNeedsModal enabled needs', () => {
   it('zero enabled shows the message and Close only', () => {
     render({ enabledNeeds: [] });
     expect(container.textContent).toContain(
-      'Aria has every need turned off, so there\'s nothing to reprocess.',
+      "There's nothing to reprocess for this message.",
     );
     expect(container.querySelector('textarea')).toBeNull();
-    expect(
-      [...container.querySelectorAll('button')].some((b) => b.textContent === 'Close'),
-    ).toBe(true);
-    expect(
-      [...container.querySelectorAll('button')].some((b) => b.textContent === 'Reprocess'),
-    ).toBe(false);
+    const buttons = [...container.querySelectorAll('button')];
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].textContent).toBe('Close');
+    expect(buttons.some((b) => b.textContent === 'Reprocess')).toBe(false);
+    expect(buttons.some((b) => b.textContent === 'Cancel')).toBe(false);
   });
 
   it('submit never includes a disabled key', async () => {

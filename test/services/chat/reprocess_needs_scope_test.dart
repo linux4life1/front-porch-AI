@@ -27,9 +27,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/utils/utils.dart';
 
 class _ScriptedLlm extends LLMService {
   final prompts = <String>[];

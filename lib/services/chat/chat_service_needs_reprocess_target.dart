@@ -27,7 +27,8 @@ extension ChatServiceNeedsReprocessTarget on ChatService {
   /// Speaker + enabled keys for a reprocess of [index], or null when the
   /// entry must stay hidden: not reprocessable, Needs off, every need off,
   /// or a group speaker that cannot be resolved to a roster card.
-  ({String speaker, List<String> enabled})? reprocessNeedsTargetFor(int index) {
+  ({String speaker, List<String> enabled, CharacterCard? card})?
+  reprocessNeedsTargetFor(int index) {
     if (index < 0 || index >= messages.length) return null;
     if (isGenerating) return null;
     final msg = messages[index];
@@ -48,6 +49,10 @@ extension ChatServiceNeedsReprocessTarget on ChatService {
     }
     final enabled = enabledNeedKeys(card);
     if (enabled.isEmpty) return null;
-    return (speaker: card?.name ?? 'the character', enabled: enabled);
+    return (
+      speaker: card?.name ?? 'the character',
+      enabled: enabled,
+      card: card,
+    );
   }
 }

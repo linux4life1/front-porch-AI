@@ -22,15 +22,19 @@ function needTitle(need: string): string {
   return NEED_LABELS[need] ?? `${need.charAt(0).toUpperCase()}${need.slice(1)}`;
 }
 
+const NOTHING = "There's nothing to reprocess for this message.";
+
 export function ReprocessNeedsModal({
   enabledNeeds,
+  speaker,
   speakerName,
   onSubmit,
   onClose,
 }: {
   /** Enabled keys from the facade resolver — never re-derived here. */
   enabledNeeds: string[];
-  speakerName: string;
+  speaker?: string;
+  speakerName?: string;
   /** Resolves on success (the parent then unmounts this modal); throws on failure. */
   onSubmit: (critique: string, onlyNeeds: string[]) => Promise<void>;
   onClose: () => void;
@@ -40,7 +44,7 @@ export function ReprocessNeedsModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const name = speakerName.trim() || 'this character';
+  const name = (speakerName || speaker || '').trim() || 'this character';
   const visible = enabledNeeds.filter((need) => need in NEED_LABELS || need.length > 0);
   const oneEnabled = visible.length === 1;
   const zeroEnabled = visible.length === 0;
@@ -71,12 +75,12 @@ export function ReprocessNeedsModal({
       <div className="modal reprocess-modal" onClick={(e) => e.stopPropagation()}>
         <div className="drawer-head">
           <span>Reprocess Needs</span>
-          <button className="link-btn" onClick={onClose} disabled={busy}>Close</button>
+          {!zeroEnabled && (
+            <button className="link-btn" onClick={onClose} disabled={busy}>Close</button>
+          )}
         </div>
         {zeroEnabled ? (
-          <p className="muted small">
-            {name} has every need turned off, so there's nothing to reprocess.
-          </p>
+          <p className="muted small">{NOTHING}</p>
         ) : (
           <>
             <p className="muted small">{INTRO}</p>

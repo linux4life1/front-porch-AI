@@ -484,8 +484,13 @@ export function ChatPage() {
         reprocessIndex={reprocessIndex}
         enabledNeeds={
           reprocessIndex !== null
-            ? state.messages[reprocessIndex]?.chips?.needsEnabled ?? []
+            ? state.messages[reprocessIndex]?.chips?.enabledNeeds ?? []
             : []
+        }
+        speaker={
+          reprocessIndex !== null
+            ? state.messages[reprocessIndex]?.chips?.needsSpeaker ?? ''
+            : ''
         }
         speakerName={
           reprocessIndex !== null

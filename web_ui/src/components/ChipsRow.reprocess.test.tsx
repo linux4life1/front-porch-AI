@@ -10,13 +10,17 @@ import { ChipsRow } from './ChipsRow';
 let container: HTMLDivElement;
 let root: Root;
 
-function render(needsReprocessable?: boolean) {
+function render(
+  needsReprocessable?: boolean,
+  extra?: { enabledNeeds?: string[] },
+) {
   act(() => {
     root.render(
       createElement(ChipsRow, {
         chips: {
           emotionLabel: 'calm',
           needsReprocessable,
+          enabledNeeds: extra?.enabledNeeds,
         },
         isLast: true,
         busy: false,
@@ -42,6 +46,11 @@ afterEach(() => {
 describe('ChipsRow reprocess gate', () => {
   it('has no Reprocess button without needsReprocessable', () => {
     render(undefined);
+    expect(container.querySelector('.btn-reprocess')).toBeNull();
+  });
+
+  it('does not re-derive the gate from enabledNeeds', () => {
+    render(undefined, { enabledNeeds: ['hunger', 'energy'] });
     expect(container.querySelector('.btn-reprocess')).toBeNull();
   });
 

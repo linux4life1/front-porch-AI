@@ -257,10 +257,9 @@ extension ChatServiceNeedsReprocess on ChatService {
     final computed = _needsSimulation.computeNeedsDeltasWithReasons(
       restoredPreVector,
     );
-    final off = needsOffOf(_activeCharacter);
-    if (off.isNotEmpty) {
-      computed.removeWhere((key, _) => off.contains(key));
-    }
+    computed.removeWhere(
+      (key, _) => !visibleNeedsFor({key: 1}, target.card).containsKey(key),
+    );
     updatedMeta['needs_deltas'] = computed;
 
     // Keep realism_state['needs'] aligned with manual corrections so swipe

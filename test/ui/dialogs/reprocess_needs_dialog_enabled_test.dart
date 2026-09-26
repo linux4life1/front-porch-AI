@@ -18,22 +18,51 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/chat_message.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/ui/dialogs/reprocess_needs_dialog.dart';
+
+import '../../golden/support/fakes.dart';
+
+ChatMessage _stamped() => ChatMessage(
+  text: '"Evening," she said.',
+  sender: 'Aria',
+  isUser: false,
+  metadata: const {
+    'needs_deltas': {
+      'hunger': {'delta': -2, 'reason': 'scene'},
+    },
+    'realism_state': {
+      'needs': {'hunger': 62},
+    },
+  },
+);
 
 Future<void> _pump(
   WidgetTester tester, {
-  required ({String speaker, List<String> enabled})? target,
-  String speaker = 'Aria',
+  required CharacterCard character,
+  bool needsSimEnabled = true,
   Future<void> Function(String, Set<String>)? onSubmit,
 }) async {
+  final chat = FakeChatService(
+    activeCharacter: character,
+    messages: [_stamped()],
+    needsSimEnabled: needsSimEnabled,
+  );
+  addTearDown(chat.dispose);
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: ReprocessNeedsDialog(
-          target: target,
-          speaker: speaker,
-          onSubmit: onSubmit ?? (_, _) async {},
+    ChangeNotifierProvider<ChatService>.value(
+      value: chat,
+      child: MaterialApp(
+        home: Scaffold(
+          body: ReprocessNeedsDialog(
+            index: 0,
+            onSubmit: onSubmit ?? (_, _) async {},
+          ),
         ),
       ),
     ),
@@ -47,9 +76,11 @@ void main() {
   ) async {
     await _pump(
       tester,
-      target: (
-        speaker: 'Aria',
-        enabled: const ['hunger', 'bladder', 'energy', 'social', 'comfort'],
+      character: CharacterCard(
+        name: 'Aria',
+        frontPorchExtensions: FrontPorchExtensions(
+          needsOff: const ['hygiene', 'fun'],
+        ),
       ),
     );
 
@@ -67,7 +98,14 @@ void main() {
     Set<String>? scope;
     await _pump(
       tester,
-      target: (speaker: 'Aria', enabled: const ['hunger']),
+      character: CharacterCard(
+        name: 'Aria',
+        frontPorchExtensions: FrontPorchExtensions(
+          needsOff: NeedsSimulation.needKeys
+              .where((k) => k != 'hunger')
+              .toList(),
+        ),
+      ),
       onSubmit: (critique, onlyNeeds) async {
         expect(critique, 'they ate');
         scope = onlyNeeds;
@@ -87,11 +125,22 @@ void main() {
     expect(scope, isEmpty);
   });
 
-  testWidgets('zero enabled shows the message and Close only', (tester) async {
-    await _pump(tester, target: null, speaker: 'Aria');
+  testWidgets('resolver null shows the nothing line and Close only', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      character: CharacterCard(
+        name: 'Aria',
+        frontPorchExtensions: FrontPorchExtensions(
+          needsOff: List<String>.from(NeedsSimulation.needKeys),
+        ),
+      ),
+    );
 
-    expect(find.text(reprocessNeedsZeroLine('Aria')), findsOneWidget);
+    expect(find.text(kReprocessNeedsNothing), findsOneWidget);
     expect(find.text('Close'), findsOneWidget);
+    expect(find.text('Cancel'), findsNothing);
     expect(find.text('Reprocess'), findsNothing);
     expect(find.byType(TextField), findsNothing);
     expect(find.byType(FilterChip), findsNothing);
@@ -100,7 +149,10 @@ void main() {
   testWidgets('empty helper string is exact', (tester) async {
     await _pump(
       tester,
-      target: (speaker: 'Aria', enabled: const ['hunger', 'energy']),
+      character: CharacterCard(
+        name: 'Aria',
+        frontPorchExtensions: FrontPorchExtensions(needsOff: const ['hygiene']),
+      ),
     );
     expect(
       find.text('Nothing selected — every need shown here is re-evaluated.'),

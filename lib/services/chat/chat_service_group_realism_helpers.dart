@@ -405,11 +405,12 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     }
     if (preVec.isEmpty) return;
     final needsDeltas = _needsSimulation.computeNeedsDeltasWithReasons(preVec);
-    final off =
-        _activeCharacter?.frontPorchExtensions?.needsOff ?? const <String>[];
-    if (off.isNotEmpty) {
-      needsDeltas.removeWhere((key, _) => off.contains(key));
-    }
+    final senderCard = (_activeGroup != null && !_observerMode)
+        ? resolveGroupSpeakerForMessage(_groupCharacters, _messages.last)
+        : _activeCharacter;
+    needsDeltas.removeWhere(
+      (key, _) => !visibleNeedsFor({key: 1}, senderCard).containsKey(key),
+    );
     final wear = _pendingRealismMetadata?['needs_time_wear'];
     final passed = _timeService.bodyTimeLabel;
     if (wear is Map && passed != null && passed.isNotEmpty) {

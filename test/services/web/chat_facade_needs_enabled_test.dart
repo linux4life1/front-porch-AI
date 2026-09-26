@@ -134,7 +134,7 @@ void main() {
     await _drain();
   });
 
-  test('1:1 chips carry needsEnabled for the five on keys', () async {
+  test('1:1 chips carry enabledNeeds for the five on keys', () async {
     final facade = await boot();
     await db!.insertSession(
       SessionsCompanion.insert(
@@ -175,7 +175,7 @@ void main() {
     final state = facade.state();
     final chips = (state['messages'] as List).first['chips'] as Map;
     expect(chips['needsReprocessable'], isTrue);
-    expect(chips['needsEnabled'], [
+    expect(chips['enabledNeeds'], [
       'hunger',
       'bladder',
       'energy',
@@ -225,7 +225,7 @@ void main() {
 
     var chips = (facade.state()['messages'] as List).first['chips'] as Map?;
     expect(chips?['needsReprocessable'], isNot(isTrue));
-    expect(chips?['needsEnabled'], isNull);
+    expect(chips?['enabledNeeds'], isNull);
 
     await chat!.setActiveCharacter(
       CharacterCard(
@@ -349,8 +349,8 @@ void main() {
     final messages = facade.state()['messages'] as List;
     final ava = messages.firstWhere((m) => m['sender'] == 'Ava') as Map;
     final bea = messages.firstWhere((m) => m['sender'] == 'Bea') as Map;
-    expect((ava['chips'] as Map)['needsEnabled'], isNot(contains('social')));
-    expect((bea['chips'] as Map)['needsEnabled'], contains('social'));
+    expect((ava['chips'] as Map)['enabledNeeds'], isNot(contains('social')));
+    expect((bea['chips'] as Map)['enabledNeeds'], contains('social'));
     expect((ava['chips'] as Map)['needsSpeaker'], 'Ava');
     expect((bea['chips'] as Map)['needsSpeaker'], 'Bea');
   });

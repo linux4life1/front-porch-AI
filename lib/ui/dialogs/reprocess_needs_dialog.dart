@@ -38,27 +38,24 @@ String reprocessNeedsOneEnabledLine(String need, String name) {
   return 'Only $label is on for $name, so only $label is re-evaluated.';
 }
 
-String reprocessNeedsZeroLine(String name) =>
-    '$name has every need turned off, so there\'s nothing to reprocess.';
+const kReprocessNeedsNothing =
+    'There\'s nothing to reprocess for this message.';
 
 /// "Reprocess Needs Deltas" — critique a message's Needs outcome and have the
 /// Realism Director re-evaluate it.
 ///
 /// The chips list only the speaker's enabled needs. Nothing selected means
 /// every need shown here; ticking narrows the pass so the rest keep the
-/// deltas they already had.
+/// deltas they already had. Reads [ChatService.reprocessNeedsTargetFor] when
+/// it opens so a stale sheet sees a flip off.
 void showReprocessNeedsDialog(BuildContext context, int index) {
   final chatService = Provider.of<ChatService>(context, listen: false);
   final host = context;
-  final target = chatService.reprocessNeedsTargetFor(index);
-  final speaker =
-      target?.speaker ?? chatService.activeCharacter?.name ?? 'this character';
   final messenger = ScaffoldMessenger.of(context);
   showDialog(
     context: context,
     builder: (context) => ReprocessNeedsDialog(
-      target: target,
-      speaker: speaker,
+      index: index,
       onSubmit: (text, scope) async {
         var success = false;
         try {
@@ -90,17 +87,15 @@ void showReprocessNeedsDialog(BuildContext context, int index) {
 }
 
 /// The Reprocess Needs sheet. [showReprocessNeedsDialog] hosts this; tests
-/// pump it directly with a resolver result so they do not need a live service.
+/// pump it with a [ChatService] so the resolver is a fresh read.
 class ReprocessNeedsDialog extends StatefulWidget {
   const ReprocessNeedsDialog({
     super.key,
-    required this.target,
-    required this.speaker,
+    required this.index,
     required this.onSubmit,
   });
 
-  final ({String speaker, List<String> enabled})? target;
-  final String speaker;
+  final int index;
   final Future<void> Function(String critique, Set<String> onlyNeeds) onSubmit;
 
   @override
@@ -120,7 +115,9 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
   Future<void> _submit() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    final enabled = widget.target?.enabled ?? const <String>[];
+    final chat = Provider.of<ChatService>(context, listen: false);
+    final enabled =
+        chat.reprocessNeedsTargetFor(widget.index)?.enabled ?? const <String>[];
     final scope = enabled.length == 1
         ? <String>{}
         : Set<String>.from(_selected);
@@ -130,7 +127,8 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final target = widget.target;
+    final chat = Provider.of<ChatService>(context);
+    final target = chat.reprocessNeedsTargetFor(widget.index);
     final empty = target == null || target.enabled.isEmpty;
     return AlertDialog(
       backgroundColor: AppColors.surfaceOf(context),
@@ -140,13 +138,13 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
         child: SingleChildScrollView(
           child: empty
               ? Text(
-                  reprocessNeedsZeroLine(widget.speaker),
+                  kReprocessNeedsNothing,
                   style: TextStyle(
                     color: AppColors.textSecondary(context),
                     fontSize: 13,
                   ),
                 )
-              : _enabledBody(context, target.enabled),
+              : _enabledBody(context, target.enabled, target.speaker),
         ),
       ),
       actions: [
@@ -170,7 +168,11 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
     );
   }
 
-  Widget _enabledBody(BuildContext context, List<String> enabled) {
+  Widget _enabledBody(
+    BuildContext context,
+    List<String> enabled,
+    String speaker,
+  ) {
     final one = enabled.length == 1;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -203,7 +205,7 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
         if (one) ...[
           const SizedBox(height: 16),
           Text(
-            reprocessNeedsOneEnabledLine(enabled.first, widget.speaker),
+            reprocessNeedsOneEnabledLine(enabled.first, speaker),
             style: TextStyle(
               color: AppColors.textSecondary(context),
               fontSize: 13,

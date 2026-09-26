@@ -193,7 +193,7 @@ class ChatFacade {
     final target = _chat.reprocessNeedsTargetFor(index);
     if (target != null) {
       out['needsReprocessable'] = true;
-      out['needsEnabled'] = target.enabled;
+      out['enabledNeeds'] = target.enabled;
       out['needsSpeaker'] = target.speaker;
     }
     if (md['needs_deltas_pre_reprocess'] is Map) out['needsRevertable'] = true;
