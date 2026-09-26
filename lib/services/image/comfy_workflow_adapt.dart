@@ -50,6 +50,8 @@ const _kPromptTextNodes = {
   'CLIPTextEncode',
   'CLIPTextEncodeFlux',
   'TextEncodeQwenImageEditPlus',
+  'TextEncodeQwenImage21',
+  'TextGenerate',
 };
 
 const _kPromptKeys = {'text', 'prompt'};
@@ -109,18 +111,21 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
 
     switch (classType) {
       case 'UNETLoader':
+      case 'UnetLoaderGGUF':
+      case 'UnetLoaderGGUFAdvanced':
         diffusionN++;
         modelNodeId = modelNodeId.isEmpty ? e.key : modelNodeId;
         slot(
           diffusionN == 1
               ? '%MODEL_DIFFUSION%'
               : '%MODEL_DIFFUSION_$diffusionN%',
-          'UNETLoader',
+          classType,
           'unet_name',
           diffusionN == 1 ? 'Diffusion model' : 'Diffusion model $diffusionN',
           'diffusion_models',
         );
       case 'CLIPLoader':
+      case 'CLIPLoaderGGUF':
         clipN++;
         if (clipNodeId.isEmpty) {
           clipNodeId = e.key;
@@ -128,7 +133,7 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         }
         slot(
           clipN == 1 ? '%MODEL_CLIP%' : '%MODEL_CLIP_$clipN%',
-          'CLIPLoader',
+          classType,
           'clip_name',
           clipN == 1 ? 'Text encoder' : 'Text encoder $clipN',
           'text_encoders',
@@ -196,10 +201,16 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         _tokenIfLiteral(ins, 'height', ComfyEditTokens.height);
       case 'LoadImage':
         _tokenIfLiteral(ins, 'image', ComfyEditTokens.image);
+      case 'ComfySwitchNode':
+        _tokenIfLiteral(ins, 'on_false', ComfyEditTokens.prompt);
       default:
+        if (classType == 'TextEncodeQwenImage21') {
+          _tokenIfLiteral(ins, 'negative_prompt', ComfyEditTokens.negative);
+        }
         if (_kPromptTextNodes.contains(classType)) {
           for (final key in _kPromptKeys) {
             if (!ins.containsKey(key)) continue;
+            if (ins[key] is List) break;
             promptCount++;
             _tokenIfLiteral(
               ins,

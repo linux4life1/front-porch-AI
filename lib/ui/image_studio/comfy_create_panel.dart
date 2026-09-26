@@ -155,7 +155,10 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
         return;
       }
       await st.imageGenSettings.setComfyCreateUploadedWorkflow(text);
-      if (mounted) setState(() => _uploadError = '');
+      if (mounted) {
+        setState(() => _uploadError = '');
+        await _refresh();
+      }
     } catch (_) {
       setState(() => _uploadError = 'That file isn’t valid JSON.');
     }
@@ -188,7 +191,7 @@ class _ComfyCreatePanelState extends State<ComfyCreatePanel> {
             ),
             const SizedBox(height: 6),
             _familyDropdown(context, st),
-            if (!isUpload && slots.isNotEmpty) ...[
+            if (slots.isNotEmpty) ...[
               const SizedBox(height: 10),
               for (final slot in slots) ...[
                 _slotRow(context, st, owner, slot),
