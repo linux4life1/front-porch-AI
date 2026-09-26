@@ -40,7 +40,15 @@ const _kLinkTypes = {
 /// Fallback widget order when /object_info is missing (bundled starters, CI).
 const kComfyFallbackWidgets = <String, List<String>>{
   'UNETLoader': ['unet_name', 'weight_dtype'],
+  'UnetLoaderGGUF': ['unet_name'],
+  'UnetLoaderGGUFAdvanced': [
+    'unet_name',
+    'dequant_dtype',
+    'patch_dtype',
+    'patch_on_device',
+  ],
   'CLIPLoader': ['clip_name', 'type', 'device'],
+  'CLIPLoaderGGUF': ['clip_name', 'type'],
   'DualCLIPLoader': ['clip_name1', 'clip_name2', 'type', 'device'],
   'VAELoader': ['vae_name'],
   'CheckpointLoaderSimple': ['ckpt_name'],
@@ -55,6 +63,32 @@ const kComfyFallbackWidgets = <String, List<String>>{
   'SaveImage': ['filename_prefix'],
   'LoadImage': ['image'],
   'TextEncodeQwenImageEditPlus': ['prompt'],
+  'TextEncodeQwenImage21': ['prompt', 'negative_prompt', 'resolution'],
+  'TextGenerate': [
+    'prompt',
+    'max_length',
+    'sampling_mode',
+    'sampling_mode.temperature',
+    'sampling_mode.top_k',
+    'sampling_mode.top_p',
+    'sampling_mode.min_p',
+    'sampling_mode.repetition_penalty',
+    'sampling_mode.presence_penalty',
+    'sampling_mode.seed',
+    'thinking',
+    'use_default_template',
+    'mtp',
+  ],
+  'ComfySwitchNode': ['switch'],
+  'PrimitiveStringMultiline': ['value'],
+  'QwenImage21Cache': ['device', 'dtype'],
+  'ResolutionSelector': ['aspect_ratio', 'megapixels', 'multiple'],
+  'SaveImageAdvanced': [
+    'filename_prefix',
+    'format',
+    'format.bit_depth',
+    'format.input_color_space',
+  ],
 };
 
 bool isComfyApiWorkflow(Map<String, dynamic> raw) {
@@ -120,6 +154,7 @@ Map<String, dynamic> convertComfyUiToApi(
       final name = names[nameI++];
       inputs.putIfAbsent(name, () => value);
     }
+    inputs.addAll(flat.values[n.id] ?? const {});
     out[n.id] = {'class_type': n.type, 'inputs': inputs};
   }
   return out;
@@ -220,7 +255,8 @@ class _UiLink {
 class _FlatUi {
   final List<_UiNode> nodes;
   final List<_UiLink> links;
-  const _FlatUi(this.nodes, this.links);
+  final Map<String, Map<String, Object?>> values;
+  const _FlatUi(this.nodes, this.links, this.values);
 }
 
 _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
@@ -236,6 +272,7 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
   final nodes = <_UiNode>[];
   final links = <_UiLink>[];
   final outputRewire = <String, (String, int)>{};
+  final values = <String, Map<String, Object?>>{};
 
   void walk(List rawNodes, List rawLinks, String prefix) {
     final local = <_UiNode>[];
@@ -247,6 +284,49 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
       if (subgraphs.containsKey(type)) {
         final sg = subgraphs[type]!;
         walk(_asList(sg['nodes']), _asList(sg['links']), '${id}_');
+        final ports = _asList(sg['inputs']);
+        final widgets = _asList(raw['widgets_values']);
+        for (final internal in _asList(sg['links'])) {
+          final origin = _linkOrigin(internal);
+          final target = _linkTarget(internal);
+          final linkId = _linkId(internal);
+          if (origin?.$1 != '-10' || target == null || linkId == null) {
+            continue;
+          }
+          final portIndex = origin!.$2;
+          if (portIndex >= ports.length || ports[portIndex] is! Map) continue;
+          final portName = (ports[portIndex] as Map)['name']?.toString();
+          final childId = '${id}_${target.$1}';
+          final child = nodes.where((n) => n.id == childId).firstOrNull;
+          if (child == null || target.$2 >= child.inputs.length) continue;
+          final inputName = child.inputs[target.$2].name;
+          final parentInput = _asList(
+            raw['inputs'],
+          ).whereType<Map>().where((i) => i['name'] == portName).firstOrNull;
+          final parentLinkId = parentInput?['link'];
+          if (parentLinkId is num) {
+            final parentLink = _asList(
+              rawLinks,
+            ).where((l) => _linkId(l) == parentLinkId.toInt()).firstOrNull;
+            final parentOrigin = _linkOrigin(parentLink);
+            if (parentOrigin != null) {
+              links.add(
+                _UiLink(
+                  id: linkId,
+                  originId: '$prefix${parentOrigin.$1}',
+                  originSlot: parentOrigin.$2,
+                  targetId: childId,
+                  targetSlot: target.$2,
+                ),
+              );
+              continue;
+            }
+          }
+          if (portIndex < widgets.length) {
+            values.putIfAbsent(childId, () => {})[inputName] =
+                widgets[portIndex];
+          }
+        }
         _recordSubgraphOutputs(
           sg,
           prefix: '${id}_',
@@ -285,7 +365,7 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
       remapped.add(l);
     }
   }
-  return _FlatUi(nodes, remapped);
+  return _FlatUi(nodes, remapped, values);
 }
 
 void _recordSubgraphOutputs(
