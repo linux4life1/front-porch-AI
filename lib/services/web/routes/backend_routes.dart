@@ -311,7 +311,12 @@ class WebBackendRoutes {
   Future<shelf.Response> _imageComfyWorkflowSlots(shelf.Request r) async {
     final id = r.url.queryParameters['workflowId'] ?? '';
     if (id.isEmpty) return JsonResponse.badRequest('workflowId is required');
-    return JsonResponse.ok(await _image!.comfyWorkflowSlots(id));
+    return JsonResponse.ok(
+      await _image!.comfyWorkflowSlots(
+        id,
+        edit: r.url.queryParameters['kind'] == 'edit',
+      ),
+    );
   }
 
   Future<shelf.Response> _imageRemoteModels(shelf.Request r) async =>

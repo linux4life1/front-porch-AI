@@ -31,20 +31,7 @@ export interface ComfyCatalog {
   diffusionModels: string[];
   textEncoders: string[];
   vaes: string[];
-  templates?: { id: string; name: string; title: string }[];
-}
-
-function filesFor(slot: ComfySlot, cat: ComfyCatalog | null): string[] {
-  if (!cat) return [];
-  if (slot.folderHint === 'checkpoints' || slot.loaderClass === 'CheckpointLoaderSimple') {
-    return cat.checkpoints;
-  }
-  if (slot.folderHint === 'diffusion_models' || slot.loaderClass === 'UNETLoader' || slot.loaderClass.startsWith('UnetLoaderGGUF')) {
-    return cat.diffusionModels;
-  }
-  if (slot.folderHint === 'text_encoders') return cat.textEncoders;
-  if (slot.folderHint === 'vae') return cat.vaes;
-  return [];
+  templates?: { id: string; name: string; title: string; source: string }[];
 }
 
 export function ComfyCreateFields({
@@ -80,9 +67,15 @@ export function ComfyCreateFields({
   }, [workflowId, uploadRevision]);
 
   const bundledNames = new Set(presets.map((p) => p.comfyTemplateName).filter(Boolean));
-  const live = (cat?.templates ?? []).filter((t) => !bundledNames.has(t.name));
-  const preset = presets.find((p) => p.id === workflowId);
-  const slots = liveSlots ?? preset?.slots ?? [];
+  const live = (cat?.templates ?? []).filter(
+    (template) => template.source === 'userdata' || !bundledNames.has(template.name),
+  );
+  const slots = liveSlots ?? [];
+  const knownIds = new Set([
+    ...presets.map((preset) => preset.id),
+    ...live.map((template) => template.id),
+    '__uploaded__',
+  ]);
 
   const uploadWorkflow = async (file: File | undefined) => {
     if (!file) return;
@@ -107,6 +100,7 @@ export function ComfyCreateFields({
         Create family
         <select
           value={workflowId}
+          disabled={cat === null}
           onChange={(e) => onChange({ comfyCreateWorkflowId: e.target.value })}
         >
           {presets.map((p) => (
@@ -116,9 +110,12 @@ export function ComfyCreateFields({
           ))}
           {live.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.title}
+              {t.source === 'userdata' ? 'Saved' : 'ComfyUI'} · {t.title}
             </option>
           ))}
+          {!knownIds.has(workflowId) && (
+            <option value={workflowId}>{workflowId.replace(/^comfy:/, 'Saved · ')}</option>
+          )}
           <option value="__uploaded__">Upload your own…</option>
         </select>
       </label>
@@ -128,9 +125,10 @@ export function ComfyCreateFields({
           {uploadError && <span role="alert">{uploadError}</span>}
         </label>
       )}
+      {liveSlots === null && <p className="muted small">Loading model choices…</p>}
       {slots.map((slot) => {
         const key = `${workflowId}/${slot.token}`;
-        const files: string[] = 'files' in slot ? (slot as LiveComfySlot).files : filesFor(slot, cat);
+        const files = slot.files;
         const current = modelChoices[key] ?? '';
         return (
           <label key={key}>

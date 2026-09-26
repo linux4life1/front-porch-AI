@@ -86,6 +86,11 @@ extension ComfyUiCatalogApi on ComfyUiService {
     return comfyCreateTemplates(parseComfyTemplateIndex(raw));
   }
 
+  Future<List<ComfyTemplateEntry>> fetchEditTemplates() async {
+    final raw = await _getJson('/templates/index.json');
+    return comfyEditTemplates(parseComfyTemplateIndex(raw));
+  }
+
   /// Saved Desktop workflows (`user/default/workflows`). Empty on 404.
   Future<List<ComfyTemplateEntry>> fetchUserWorkflows() async {
     final raw =
@@ -121,15 +126,17 @@ extension ComfyUiCatalogApi on ComfyUiService {
     ];
   }
 
-  /// UI or API JSON for a default template, then a userdata workflow.
-  Future<Map<String, dynamic>?> fetchTemplateJson(String name) async {
+  /// UI or API JSON from the selected template source.
+  Future<Map<String, dynamic>?> fetchTemplateJson(
+    String name, {
+    bool preferUserdata = false,
+  }) async {
     final stem = name.replaceAll('.json', '');
     final savedPath = Uri.encodeComponent('workflows/$stem.json');
-    for (final path in [
-      '/templates/${Uri.encodeComponent(stem)}.json',
-      '/userdata/$savedPath',
-      '/api/userdata/$savedPath',
-    ]) {
+    final defaults = '/templates/${Uri.encodeComponent(stem)}.json';
+    final saved = ['/userdata/$savedPath', '/api/userdata/$savedPath'];
+    for (final path
+        in preferUserdata ? [...saved, defaults] : [defaults, ...saved]) {
       final raw = await _getJson(path);
       if (raw is Map) return raw.cast<String, dynamic>();
     }
