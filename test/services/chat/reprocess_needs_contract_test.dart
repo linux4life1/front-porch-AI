@@ -270,9 +270,11 @@ void main() {
 
       await chat!.setNeedsSimEnabled(false);
       expect(chat!.reprocessNeedsTargetFor(0), isNull);
+      final before = Map<String, int>.from(chat!.needsSimulation.vector);
       final ok = await chat!.manualReprocessNeeds(0, 'still try');
       expect(ok, isFalse);
       expect(llm.needsCalls, 0);
+      expect(chat!.needsSimulation.vector, before);
     },
   );
 

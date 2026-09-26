@@ -83,31 +83,17 @@ extension ChatServiceNeedsReprocess on ChatService {
   /// Re-evaluate a message's needs deltas under a user critique.
   ///
   /// [onlyNeeds] scopes the pass: needs NOT listed keep the deltas they already
-  /// had, untouched and un-re-rolled. Empty = every ENABLED need. A key that
-  /// is off for this speaker is dropped; a non-empty selection that intersects
-  /// to nothing is a no-op (no dance, no LLM call).
+  /// had, untouched and un-re-rolled. Empty + all seven on = today's unscoped
+  /// path. Empty + a subset on = the enabled set (scoped merge keeps off-need
+  /// deltas). A non-empty selection that intersects the enabled set to nothing
+  /// is a no-op (no LLM call).
   Future<bool> manualReprocessNeeds(
     int index,
     String critique, {
     Set<String> onlyNeeds = const <String>{},
   }) async {
-    final target = reprocessNeedsTargetFor(index);
-    if (target == null) return false;
+    if (index < 0 || index >= _messages.length) return false;
     if (_isTurnBusy) return false;
-
-    final enabled = target.enabled.toSet();
-    final Set<String> scope;
-    if (onlyNeeds.isEmpty) {
-      scope = enabled;
-    } else {
-      scope = onlyNeeds.intersection(enabled);
-      if (scope.isEmpty) return false;
-    }
-    final allOn =
-        enabled.length == NeedsSimulation.needKeys.length &&
-        enabled.containsAll(NeedsSimulation.needKeys);
-    final promptNeeds = (onlyNeeds.isEmpty && allOn) ? const <String>{} : scope;
-    final mergeNeeds = onlyNeeds.isEmpty ? const <String>{} : scope;
 
     final msg = _messages[index];
     final meta = msg.activeMetadata;
@@ -174,6 +160,34 @@ extension ChatServiceNeedsReprocess on ChatService {
       }
       _loadGroupRealismIntoScalars(sid);
     }
+
+    // After the swap so the speaker card's needsOff is the one used.
+    final target = reprocessNeedsTargetFor(index);
+    final enabled = target?.enabled.toSet() ?? const <String>{};
+    final Set<String> scope;
+    if (target == null) {
+      scope = const <String>{};
+    } else if (onlyNeeds.isEmpty) {
+      scope = enabled;
+    } else {
+      scope = onlyNeeds.intersection(enabled);
+    }
+    if (target == null || (onlyNeeds.isNotEmpty && scope.isEmpty)) {
+      if (isGroupNonObs &&
+          preOpActiveSid != null &&
+          preOpActiveSid.isNotEmpty) {
+        _loadGroupRealismIntoScalars(preOpActiveSid);
+      } else if (isGroupNonObs && sid != null && sid.isNotEmpty) {
+        _setGroupNeeds(sid, livePreClick);
+      }
+      _activeCharacter = preActiveChar;
+      return false;
+    }
+    final allOn =
+        enabled.length == NeedsSimulation.needKeys.length &&
+        enabled.containsAll(NeedsSimulation.needKeys);
+    final evalOnly = (onlyNeeds.isEmpty && allOn) ? const <String>{} : scope;
+
     // Rebuild from the immutable pre-impact baseline, never from realism_state
     // (see _needsPreImpactBaseline for why that field drifts after pass one).
     final Map<String, int> baseline = _needsPreImpactBaseline(meta, preState);
@@ -201,8 +215,7 @@ extension ChatServiceNeedsReprocess on ChatService {
           msg.displayText,
           oldNeedsDeltas,
           critique,
-          onlyNeeds: mergeNeeds,
-          promptNeeds: promptNeeds,
+          onlyNeeds: evalOnly,
         );
 
     if (!reprocessOk) {
@@ -244,6 +257,10 @@ extension ChatServiceNeedsReprocess on ChatService {
     final computed = _needsSimulation.computeNeedsDeltasWithReasons(
       restoredPreVector,
     );
+    final off = needsOffOf(_activeCharacter);
+    if (off.isNotEmpty) {
+      computed.removeWhere((key, _) => off.contains(key));
+    }
     updatedMeta['needs_deltas'] = computed;
 
     // Keep realism_state['needs'] aligned with manual corrections so swipe
