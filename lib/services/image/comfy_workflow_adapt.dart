@@ -61,7 +61,6 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
   final graph = ensureComfyApiGraph(api) ?? Map<String, dynamic>.from(api);
   final slots = <ComfyModelSlot>[];
   final classes = <String>{};
-  var promptCount = 0;
   var diffusionN = 0;
   var clipN = 0;
   var vaeN = 0;
@@ -228,26 +227,12 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         if (classType == 'TextEncodeQwenImage21') {
           _tokenIfLiteral(ins, 'negative_prompt', ComfyEditTokens.negative);
         }
-        if (_kPromptTextNodes.contains(classType)) {
-          for (final key in _kPromptKeys) {
-            if (!ins.containsKey(key)) continue;
-            promptCount++;
-            if (ins[key] is List) break;
-            _tokenIfLiteral(
-              ins,
-              key,
-              promptCount == 1
-                  ? ComfyEditTokens.prompt
-                  : ComfyEditTokens.negative,
-            );
-            break;
-          }
-        }
     }
 
     node['inputs'] = ins;
     graph[e.key] = node;
   }
+  _assignPromptTokens(graph);
 
   if (vaeNodeId.isEmpty) {
     for (final e in graph.entries) {
@@ -269,6 +254,59 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
     clipNodeId: clipNodeId.isEmpty ? 'clip' : clipNodeId,
     clipOutputIndex: clipFromCheckpoint ? 1 : 0,
   );
+}
+
+/// A linked socket or a converter-stamped `%PROMPT%` already owns the user
+/// prompt. Literals then become the negative, so document order cannot put
+/// the user text on the negative encoder.
+void _assignPromptTokens(Map<String, dynamic> graph) {
+  final sites = <({String id, String key})>[];
+  var userTaken = false;
+  for (final entry in graph.entries) {
+    final node = entry.value;
+    if (node is! Map) continue;
+    final type = node['class_type']?.toString() ?? '';
+    if (!_kPromptTextNodes.contains(type)) continue;
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    for (final key in _kPromptKeys) {
+      if (!inputs.containsKey(key)) continue;
+      final value = inputs[key];
+      if (value == ComfyEditTokens.prompt ||
+          _linkOwnsUserPrompt(graph, value)) {
+        userTaken = true;
+      }
+      sites.add((id: entry.key, key: key));
+      break;
+    }
+  }
+  var literals = 0;
+  for (final site in sites) {
+    final node = graph[site.id];
+    if (node is! Map) continue;
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    final value = inputs[site.key];
+    if (value is List) continue;
+    if (value is String && value.startsWith('%') && value.endsWith('%')) {
+      continue;
+    }
+    final token = !userTaken && literals == 0
+        ? ComfyEditTokens.prompt
+        : ComfyEditTokens.negative;
+    literals++;
+    final typed = Map<String, dynamic>.from(inputs);
+    _tokenIfLiteral(typed, site.key, token);
+    node['inputs'] = typed;
+  }
+}
+
+bool _linkOwnsUserPrompt(Map<String, dynamic> graph, Object? value) {
+  if (value is! List || value.isEmpty) return false;
+  final source = graph['${value.first}'];
+  if (source is! Map) return true;
+  final type = source['class_type']?.toString() ?? '';
+  return !_kPromptTextNodes.contains(type);
 }
 
 void _tokenIfLiteral(Map<String, dynamic> inputs, String key, String token) {
