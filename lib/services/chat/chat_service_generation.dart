@@ -47,6 +47,8 @@ class _GenTurn {
     required this.epoch,
     required this.autonomous,
     required this.directUserSend,
+    this.forcedWebQuery,
+    this.forcedWikiQuery,
   });
 
   final GenerationMode mode;
@@ -58,6 +60,13 @@ class _GenTurn {
   /// non-send generation path stays offline unless its caller proves it is
   /// the direct response to a newly appended user message.
   final bool directUserSend;
+
+  /// Words the user named with `/search --` or the regenerate field.
+  /// Null means the voluntary doorbell may still decide.
+  final String? forcedWebQuery;
+
+  /// Words the user named with `/wiki --` or the regenerate field.
+  final String? forcedWikiQuery;
 
   /// One-shot regen director slip (clip + reason). Empty on every other path.
   String regenCritique = '';
@@ -125,6 +134,10 @@ class _GenTurn {
 
   /// Stamped as `search_receipt` when this turn ran a web_search lookup.
   Map<String, dynamic>? searchReceipt;
+
+  /// Stamped as `wiki_receipt` when this turn opened her wiki.
+  /// When only the wiki ran, [searchReceipt] is the same map so the chip shows.
+  Map<String, dynamic>? wikiReceipt;
 
   /// Stamped as `tool_receipt` when this turn ran a user recipe card.
   Map<String, dynamic>? toolReceipt;
@@ -201,6 +214,9 @@ extension ChatServiceGeneration on ChatService {
     bool skipSpeakerEval = false,
     String regenCritique = '',
   }) async {
+    final forcedWeb = _pendingForcedWebQuery;
+    final forcedWiki = _pendingForcedWikiQuery;
+    _clearForcedLookup();
     // Raise before the first await so an unawaited caller (AFK idle)
     // is visible to drain / _isTurnBusy immediately. Abort must clear it.
     _isGenerating = true;
@@ -262,6 +278,8 @@ extension ChatServiceGeneration on ChatService {
       epoch: epoch,
       autonomous: autonomous,
       directUserSend: directUserSend,
+      forcedWebQuery: forcedWeb,
+      forcedWikiQuery: forcedWiki,
     );
     t.regenCritique = regenCritique;
 

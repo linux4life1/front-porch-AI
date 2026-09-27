@@ -67,4 +67,6 @@ export interface ChatState {
   themeOverrides?: ChatThemeOverrides;
   // Host LLM connection (additive — older desktops omit it).
   llmReady?: boolean;
+  // Named lookups the regenerate dialog may offer.
+  lookupSources?: { web?: boolean; wiki?: boolean };
 }

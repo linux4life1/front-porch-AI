@@ -44,6 +44,7 @@ export function ChipsRow({
   if (chips.timeSkipTo) realism.push({ key: 'time', label: `⏱ ${chips.timeSkipTo}`, cls: 'time' });
   if (chips.chanceTimeEvent) realism.push({ key: 'chance', label: '🎲 Chance Time', cls: 'time', reason: chips.chanceTimeEvent });
   if (chips.searchQuery) realism.push({ key: 'search', label: chips.searchOk === false ? '🔎 Looked up — nothing' : '🔎 Looked up', cls: 'time', reason: chips.searchQuery });
+  if (chips.wikiQuery) realism.push({ key: 'wiki', label: chips.wikiOk === false ? '📖 Wiki — nothing' : '📖 Looked up in her wiki', cls: 'time', reason: chips.wikiQuery });
   const toolName = chips.toolName;
   const toolOk = chips.toolOk;
   if (toolName) realism.push({ key: 'tool', label: toolOk === false ? `${toolName} — nothing` : toolName, cls: 'time', reason: toolName });

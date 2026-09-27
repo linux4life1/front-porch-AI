@@ -173,9 +173,10 @@ class _ChatPageState extends State<ChatPage> {
                 !last.isUser &&
                 last != chatService.messages.first) {
               unawaited(
-                promptRegenCritiqueThen(
+                promptLookupRegen(
                   context,
-                  (c) => chatService.regenerateLastMessage(critique: c),
+                  chatService,
+                  chatService.regenerateLastMessage,
                 ),
               );
             } else {

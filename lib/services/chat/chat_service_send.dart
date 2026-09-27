@@ -67,6 +67,22 @@ extension ChatServiceSend on ChatService {
     // keep the wider _isTurnBusy guard, because that is where the race
     // actually corrupts something.
     if (_isGenerating) return;
+    final lookup = parseLookupForce(text);
+    if (lookup.attempted) {
+      final block =
+          lookup.error ??
+          lookupForceUnavailable(
+            webQuery: lookup.webQuery,
+            wikiQuery: lookup.wikiQuery,
+            webEnabled: _storageService.webSearchSettings.webSearchDefault,
+            hasWiki: parseWikiBaseUrl(_wikiBaseUrlImpl) != null,
+          );
+      if (block != null) {
+        announceLookupForce(block);
+        return;
+      }
+    }
+    final outbound = lookup.accepted ? lookup.userText : text;
     final previousSend = _sendChain;
     final sendGate = Completer<void>();
     _sendChain = sendGate.future;
@@ -146,8 +162,9 @@ extension ChatServiceSend on ChatService {
     // Skipped when a photo is attached: an attach makes the intent "send a
     // message" unambiguous, and consuming the text as a command would drop
     // the attachment silently.
-    final trimmed = text.trim();
-    if (imageBytes == null &&
+    final trimmed = outbound.trim();
+    if (!lookup.accepted &&
+        imageBytes == null &&
         trimmed.startsWith('/') &&
         _characterRepository != null) {
       final handled = await _ensureCommandHandler().handle(trimmed);
@@ -157,7 +174,14 @@ extension ChatServiceSend on ChatService {
 
     // In observer mode, route to sendDirectorNote instead
     if (_observerMode && _activeGroup != null) {
-      await sendDirectorNote(text);
+      if (lookup.accepted) {
+        _armForcedLookup(
+          webQuery: lookup.webQuery,
+          wikiQuery: lookup.wikiQuery,
+        );
+      }
+      await sendDirectorNote(outbound);
+      _clearForcedLookup();
       return;
     }
 
@@ -178,7 +202,7 @@ extension ChatServiceSend on ChatService {
 
       final senderName = _userPersonaService.persona.name;
       final userMsg = ChatMessage(
-        text: text,
+        text: outbound,
         sender: senderName,
         isUser: true,
         metadata: imagePath != null
@@ -293,10 +317,10 @@ extension ChatServiceSend on ChatService {
       // story clock is live, engine on or off.
       if (_clockRunning) {
         final before = _timeService.clock;
-        await _timeService.detectOocTimeSkip(text);
+        await _timeService.detectOocTimeSkip(outbound);
         final after = _timeService.clock;
         if (after != before &&
-            isNightSkip(stripQuotedSpeech(text).toLowerCase())) {
+            isNightSkip(stripQuotedSpeech(outbound).toLowerCase())) {
           _applyNightSkipRestore();
         }
         await _maybeMintEpisodeCrumbs(before, after);
@@ -357,6 +381,8 @@ extension ChatServiceSend on ChatService {
         userMsg: userMsg,
         imagePath: imagePath,
         sessionToken: sessionToken,
+        forcedWebQuery: lookup.accepted ? lookup.webQuery : null,
+        forcedWikiQuery: lookup.accepted ? lookup.wikiQuery : null,
       );
     } finally {
       _toolProbe.endUserSend(_evalBackendIdentity);

@@ -17,6 +17,8 @@ export interface Chips {
   chanceTimeEvent?: string;
   searchQuery?: string;
   searchOk?: boolean;
+  wikiQuery?: string;
+  wikiOk?: boolean;
   toolName?: string;
   toolOk?: boolean;
   // Tolerate the legacy int shape and the new {delta, reason} shape so a

@@ -167,6 +167,11 @@ extension _ChatPageInput on _ChatPageState {
             chatService.activeGroup == null)) {
       return;
     }
+    final lookupBlock = chatService.lookupCommandBlock(text);
+    if (lookupBlock != null) {
+      chatService.announceLookupForce(lookupBlock);
+      return;
+    }
     chatService.sendMessage(text, imageBytes: pending);
     if (pending != null) {
       rebuildState(() {

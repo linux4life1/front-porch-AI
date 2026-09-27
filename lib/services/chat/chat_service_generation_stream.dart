@@ -142,6 +142,10 @@ extension ChatServiceGenerationStream on ChatService {
         t.streamTarget.activeMetadata!['wiki_receipt'] = t.searchReceipt;
       }
     }
+    if (t.wikiReceipt != null) {
+      t.streamTarget.activeMetadata ??= {};
+      t.streamTarget.activeMetadata!['wiki_receipt'] = t.wikiReceipt;
+    }
     if (t.toolReceipt != null) {
       t.streamTarget.activeMetadata ??= {};
       t.streamTarget.activeMetadata!['tool_receipt'] = t.toolReceipt;

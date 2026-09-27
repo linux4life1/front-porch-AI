@@ -25,6 +25,8 @@ const SLASH_COMMANDS: { cmd: string; args: string; desc: string }[] = [
   { cmd: '/turnorder', args: '[random | <name>, …]', desc: 'Set how a group takes turns: round-robin, random, or an explicit order' },
   { cmd: '/scan', args: '', desc: 'Scan the scene for a new recurring character to add' },
   { cmd: '/expression', args: '[emotion]', desc: "Set the character's expression; omit the emotion to clear it" },
+  { cmd: '/search', args: '-- <what to look up>', desc: 'Look up these exact words on the web before she answers. Put your line first, then the command' },
+  { cmd: '/wiki', args: '-- <what to look up>', desc: "Look up these exact words in this chat's wiki. Put your line first, then the command" },
 ];
 
 /** The in-progress "@" token ending at `caret`, or null. Mirrors the engine's

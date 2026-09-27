@@ -204,13 +204,15 @@ extension ChatServiceGenerationRequest on ChatService {
     // doorbell speech and mouth-stream the same way.
     final globalDefault = _storageService.webSearchSettings.webSearchDefault;
     final xmlOnly = _toolProbe.isXmlOnly(_evalBackendIdentity);
-    final includeSearch = shouldAdvertiseWebSearch(
-      globalDefault: globalDefault,
-      directUserSend: t.directUserSend,
-      continueMode: t.mode == GenerationMode.continue_,
-      toolsUnsupported: xmlOnly,
-      autonomousMode: t.autonomous,
-    );
+    final includeSearch =
+        t.forcedWebQuery == null &&
+        shouldAdvertiseWebSearch(
+          globalDefault: globalDefault,
+          directUserSend: t.directUserSend,
+          continueMode: t.mode == GenerationMode.continue_,
+          toolsUnsupported: xmlOnly,
+          autonomousMode: t.autonomous,
+        );
     final userCards = t.userToolCards;
     final includeUser = shouldAdvertiseUserTools(
       hasCards: userCards.isNotEmpty,
@@ -219,13 +221,15 @@ extension ChatServiceGenerationRequest on ChatService {
       toolsUnsupported: xmlOnly,
       autonomousMode: t.autonomous,
     );
-    final includeWiki = shouldAdvertiseWikiSearch(
-      wikiUrl: _wikiBaseUrlImpl,
-      directUserSend: t.directUserSend,
-      continueMode: t.mode == GenerationMode.continue_,
-      toolsUnsupported: xmlOnly,
-      autonomousMode: t.autonomous,
-    );
+    final includeWiki =
+        t.forcedWikiQuery == null &&
+        shouldAdvertiseWikiSearch(
+          wikiUrl: _wikiBaseUrlImpl,
+          directUserSend: t.directUserSend,
+          continueMode: t.mode == GenerationMode.continue_,
+          toolsUnsupported: xmlOnly,
+          autonomousMode: t.autonomous,
+        );
     debugPrint(
       '[WebSearch] gate advertise=$includeSearch global=$globalDefault '
       'directUserSend=${t.directUserSend} '
@@ -249,6 +253,7 @@ extension ChatServiceGenerationRequest on ChatService {
           for (final c in userCards) c.toCatalogTool(),
       ],
     );
+    final scraps = <String>[];
     if (catalog.tools.isNotEmpty) {
       final jobs = catalogDoorbellJobs(
         mouth: genParams,
@@ -256,7 +261,6 @@ extension ChatServiceGenerationRequest on ChatService {
         lastUserMessage: _latestUserLineForDoorbell(),
         wikiWindow: wikiWindowFromMessages(_messages),
       );
-      final scraps = <String>[];
       if (jobs.isNotEmpty) {
         await _withWorkerLane(() async {
           for (final job in jobs) {
@@ -281,16 +285,15 @@ extension ChatServiceGenerationRequest on ChatService {
           }
         });
       }
-      final joined = collateCatalogInjections(scraps);
-      if (joined != null && joined.isNotEmpty) {
-        t.plan.section('web_search').text = joined;
-        genParams = paramsOf(t.plan.userText);
-        debugPrint('[Tools] dispatch inject+stream (in-character reply)');
-      } else {
-        debugPrint(
-          '[Tools] dispatch no tool result — stream in-character reply',
-        );
-      }
+    }
+    await _applyForcedLookup(t, scraps);
+    final joined = collateCatalogInjections(scraps);
+    if (joined != null && joined.isNotEmpty) {
+      t.plan.section('web_search').text = joined;
+      genParams = paramsOf(t.plan.userText);
+      debugPrint('[Tools] dispatch inject+stream (in-character reply)');
+    } else if (catalog.tools.isNotEmpty) {
+      debugPrint('[Tools] dispatch no tool result — stream in-character reply');
     }
     // Occupancy wait is load-bearing: catalog `_withWorkerLane` can nest
     // under a journal hold, and releasing the catalog depth must not let

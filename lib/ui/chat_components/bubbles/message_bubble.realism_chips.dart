@@ -29,6 +29,8 @@ extension _BubbleRealismChips on _MessageBubbleState {
     required String timePassed,
     required String searchQuery,
     required bool searchOk,
+    String wikiQuery = '',
+    bool wikiOk = false,
     required String toolName,
     required bool toolOk,
     required String chanceTimeEvent,
@@ -141,6 +143,32 @@ extension _BubbleRealismChips on _MessageBubbleState {
           searchOk
               ? 'Looked up: $searchQuery'
               : 'Looked up "$searchQuery" — nothing reliable',
+        ),
+      );
+    }
+
+    if (wikiQuery.isNotEmpty) {
+      final amber = AppColors.porchAmberOf(context);
+      chips.add(
+        maybeTooltip(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.menu_book, size: 11, color: amber),
+              const SizedBox(width: 4),
+              Text(
+                wikiOk ? 'Looked up in her wiki' : 'Wiki — nothing',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: amber,
+                ),
+              ),
+            ],
+          ),
+          wikiOk
+              ? 'Looked up in her wiki: $wikiQuery'
+              : 'Looked up "$wikiQuery" in her wiki — nothing reliable',
         ),
       );
     }

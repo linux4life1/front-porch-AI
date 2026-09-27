@@ -53,11 +53,19 @@ export function useChatSend(refresh: () => Promise<void>) {
   // The transcript handlers are useCallback-stable so token/processing WS
   // frames (which re-render this page many times a second during a turn)
   // never invalidate the memoized transcript rows — see TranscriptRows.
-  const regenerate = useCallback(async (critique?: string) => {
+  const regenerate = useCallback(async (
+    critique?: string,
+    lookup?: { source: 'web' | 'wiki'; query: string },
+  ) => {
     const trimmed = (critique ?? '').trim();
+    const query = lookup?.query.trim() ?? '';
+    const body: Record<string, string> = {};
+    if (trimmed) body.critique = trimmed;
+    if (query && lookup?.source === 'web') body.webQuery = query;
+    if (query && lookup?.source === 'wiki') body.wikiQuery = query;
     await api.post(
       '/api/chat/regenerate',
-      trimmed ? { critique: trimmed } : undefined,
+      Object.keys(body).length ? body : undefined,
     );
     await refresh();
   }, [refresh]);

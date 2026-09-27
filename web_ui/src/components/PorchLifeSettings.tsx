@@ -636,7 +636,7 @@ export function PorchLifeSettings() {
           icon="🔎"
           label="Web Search"
           need="alone"
-          blurb="When they hit a word or event they don't know, they can look it up and react as themselves — not reciting a wiki. Only the first reply to a message you send can search; Continue, Regenerate, guests, group follow-ups, and Dynamic Responses stay offline. Works with no key: search falls back to Wikipedia (encyclopedia lookups). Add a Tavily API key below for full web coverage. Off by default. Turning this on or off applies to every chat, including ones already open."
+          blurb="When they hit a word or event they don't know, they can look it up and react as themselves — not reciting a wiki. Only the first reply to a message you send can search on its own. To force one lookup, end the line with /search -- the name, or type the words when you regenerate. Continue, guests, group follow-ups, and Dynamic Responses stay offline. Works with no key: search falls back to Wikipedia (encyclopedia lookups). Add a Tavily API key below for full web coverage. Off by default. Turning this on or off applies to every chat, including ones already open."
           value={st.webSearchDefault}
           onChange={(v) => set('webSearchDefault', v)}
         />

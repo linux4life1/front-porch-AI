@@ -109,7 +109,12 @@ type TranscriptProps = {
   canSpeak: boolean;
   onBeginEdit: (m: Message) => void;
   onSwipe: (index: number, direction: number, critique?: string) => void;
-  onRegenerate: (critique?: string) => void;
+  onRegenerate: (
+    critique?: string,
+    lookup?: { source: 'web' | 'wiki'; query: string },
+  ) => void;
+  lookupWeb?: boolean;
+  lookupWiki?: boolean;
   onContinue: () => void;
   onFork: (index: number) => void;
   onDelete: (index: number) => void;
@@ -135,6 +140,8 @@ const TranscriptRows = memo(function TranscriptRows({
   onBeginEdit,
   onSwipe,
   onRegenerate,
+  lookupWeb,
+  lookupWiki,
   onContinue,
   onFork,
   onDelete,
@@ -211,6 +218,8 @@ const TranscriptRows = memo(function TranscriptRows({
               userHasReplied={userHasReplied}
               onSwipe={onSwipe}
               onRegenerate={onRegenerate}
+              lookupWeb={lookupWeb}
+              lookupWiki={lookupWiki}
               onContinue={onContinue}
               onFork={() => onFork(m.index)}
               onEdit={() => onBeginEdit(m)}

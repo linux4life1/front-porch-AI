@@ -22,6 +22,10 @@ part of '../chat_service.dart';
 /// Extensions in this library can still read them; a Dart extension cannot
 /// *declare* instance state, so this mixin is the legal home.
 mixin ChatServiceFieldBag {
+  /// Named lookup for the next reply only. Cleared when that reply starts.
+  String? _pendingForcedWebQuery;
+  String? _pendingForcedWikiQuery;
+
   // Action suggestions
   List<String> _suggestedActions = [];
   bool _isGeneratingActions = false;

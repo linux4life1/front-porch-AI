@@ -36,6 +36,32 @@
   box-sizing: border-box;
 }
 .regen-critique:focus { border-color: var(--accent); outline: none; }
+.regen-lookup { display: flex; flex-direction: column; gap: 6px; }
+.regen-lookup-toggle { display: flex; gap: 6px; }
+.regen-lookup-toggle button {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+}
+.regen-lookup-toggle button[aria-pressed="true"] {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.regen-lookup-toggle button:disabled { opacity: 0.4; }
+.regen-lookup-query {
+  width: 100%;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  box-sizing: border-box;
+}
 .regen-critique-actions {
   display: flex;
   justify-content: flex-end;

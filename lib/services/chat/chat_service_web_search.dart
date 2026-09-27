@@ -39,6 +39,62 @@ extension ChatServiceWebSearch on ChatService {
   String get _wikiBaseUrlImpl =>
       _storageService.webSearchSettings.wikiUrlForChat(_currentSessionId);
 
+  bool get webSearchEnabled =>
+      _storageService.webSearchSettings.webSearchDefault;
+
+  bool get wikiLookupAvailable => parseWikiBaseUrl(_wikiBaseUrlImpl) != null;
+
+  void _armForcedLookup({String? webQuery, String? wikiQuery}) {
+    final web = webQuery?.trim() ?? '';
+    final wiki = wikiQuery?.trim() ?? '';
+    _pendingForcedWebQuery = web.isEmpty ? null : web;
+    _pendingForcedWikiQuery = wiki.isEmpty ? null : wiki;
+  }
+
+  void _clearForcedLookup() {
+    _pendingForcedWebQuery = null;
+    _pendingForcedWikiQuery = null;
+  }
+
+  /// Banner text when [raw] is a lookup command that must not send.
+  /// Null when the line is ordinary chat or a lookup that can run.
+  String? lookupCommandBlock(String raw) {
+    final parsed = parseLookupForce(raw);
+    if (!parsed.attempted) return null;
+    if (parsed.error != null) return parsed.error;
+    return lookupForceUnavailable(
+      webQuery: parsed.webQuery,
+      wikiQuery: parsed.wikiQuery,
+      webEnabled: _storageService.webSearchSettings.webSearchDefault,
+      hasWiki: parseWikiBaseUrl(_wikiBaseUrlImpl) != null,
+    );
+  }
+
+  void announceLookupForce(String message) {
+    _setGuestStatus(message, isError: true);
+  }
+
+  Future<void> _applyForcedLookup(_GenTurn t, List<String> scraps) async {
+    final webQuery = t.forcedWebQuery;
+    final wikiQuery = t.forcedWikiQuery;
+    if ((webQuery == null || webQuery.isEmpty) &&
+        (wikiQuery == null || wikiQuery.isEmpty)) {
+      return;
+    }
+    _webSearchService.beginUserSend();
+    _wikiSearchService.beginUserSend();
+    final forced = await runForcedLookups(
+      web: _webSearchService,
+      wiki: _wikiSearchService,
+      webQuery: webQuery,
+      wikiQuery: wikiQuery,
+    );
+    final injection = forced.injection;
+    if (injection != null && injection.isNotEmpty) scraps.add(injection);
+    if (forced.searchReceipt != null) t.searchReceipt = forced.searchReceipt;
+    if (forced.wikiReceipt != null) t.wikiReceipt = forced.wikiReceipt;
+  }
+
   Future<void> _setWikiBaseUrlImpl(String url) async {
     await _storageService.webSearchSettings.applyWikiUrlForSession(
       _currentSessionId,

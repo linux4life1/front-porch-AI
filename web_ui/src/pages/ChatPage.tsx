@@ -346,6 +346,8 @@ export function ChatPage() {
           onBeginEdit={beginEdit}
           onSwipe={swipe}
           onRegenerate={regenerate}
+          lookupWeb={!!state.lookupSources?.web}
+          lookupWiki={!!state.lookupSources?.wiki}
           onContinue={continueGen}
           onFork={fork}
           onDelete={del}

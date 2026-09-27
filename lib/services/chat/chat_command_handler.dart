@@ -207,6 +207,16 @@ class ChatCommandHandler {
       '/image [me | char | raw <prompt> | <description>]',
       'Generate an image in chat — bare /image pictures the current scene',
     ),
+    SlashCommandInfo(
+      'search',
+      '/search -- <what to look up>',
+      'Look up these exact words on the web before she answers. Put your line first, then the command',
+    ),
+    SlashCommandInfo(
+      'wiki',
+      '/wiki -- <what to look up>',
+      'Look up these exact words in this chat\'s wiki. Put your line first, then the command',
+    ),
   ];
 
   /// Attempt to handle [rawInput] as a slash command.

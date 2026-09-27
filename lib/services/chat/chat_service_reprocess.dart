@@ -43,7 +43,11 @@ extension ChatServiceReprocess on ChatService {
   ///
   /// When the host message is already last (no trailing guests) this simply
   /// delegates to [regenerateLastMessage].
-  Future<void> regenerateMainCharacter({String? critique}) async {
+  Future<void> regenerateMainCharacter({
+    String? critique,
+    String? webQuery,
+    String? wikiQuery,
+  }) async {
     if (_messages.isEmpty || _sceneGuest.busy) return;
     if (!await _yieldSettlingTurn()) return;
     _memoryPassEpoch++;
@@ -74,7 +78,11 @@ extension ChatServiceReprocess on ChatService {
 
     // Host already last → plain regen (no guests to pop).
     if (hostIndex == _messages.length - 1) {
-      await regenerateLastMessage(critique: critique);
+      await regenerateLastMessage(
+        critique: critique,
+        webQuery: webQuery,
+        wikiQuery: wikiQuery,
+      );
       return;
     }
 
@@ -92,11 +100,19 @@ extension ChatServiceReprocess on ChatService {
     _messages.removeRange(hostIndex + 1, _messages.length);
     await _saveChat(replaceAll: true);
     notifyListeners();
-    await regenerateLastMessage(critique: critique);
+    await regenerateLastMessage(
+      critique: critique,
+      webQuery: webQuery,
+      wikiQuery: wikiQuery,
+    );
     await _maybeRunSceneGuestChimeIns(userText: userText);
   }
 
-  Future<void> regenerateLastMessage({String? critique}) async {
+  Future<void> regenerateLastMessage({
+    String? critique,
+    String? webQuery,
+    String? wikiQuery,
+  }) async {
     if (_messages.isEmpty || _sceneGuest.busy) return;
     if (!await _yieldSettlingTurn()) return;
     _memoryPassEpoch++;
@@ -112,7 +128,11 @@ extension ChatServiceReprocess on ChatService {
     // this hold compose without re-indenting the whole flow.
     _isPostGenerating = true;
     try {
-      await _regenerateLastMessageHeld(critique: critique);
+      await _regenerateLastMessageHeld(
+        critique: critique,
+        webQuery: webQuery,
+        wikiQuery: wikiQuery,
+      );
     } catch (e) {
       _restoreCapturedThroughReader();
       rethrow;
@@ -123,7 +143,11 @@ extension ChatServiceReprocess on ChatService {
     }
   }
 
-  Future<void> _regenerateLastMessageHeld({String? critique}) async {
+  Future<void> _regenerateLastMessageHeld({
+    String? critique,
+    String? webQuery,
+    String? wikiQuery,
+  }) async {
     // Backend gate BEFORE the pop below — aborting after removeLast would
     // drop the popped reply (the deep guard in _generateResponse cannot
     // restore it; see _abortIfBackendDown).
@@ -422,6 +446,7 @@ extension ChatServiceReprocess on ChatService {
       }
 
       final preGenLen = _messages.length;
+      _armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
       await _generateResponse(
         GenerationMode.normal,
         directUserSend: true,
@@ -458,6 +483,7 @@ extension ChatServiceReprocess on ChatService {
       // 1:1 evals live in sendMessage, so this path does not re-tick needs.
       // Group evals live inside _generateResponse; skipSpeakerEval keeps
       // that dance from running a second time (Continue still LOADs).
+      _armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
       await _generateResponse(GenerationMode.normal, skipSpeakerEval: true);
     }
   }

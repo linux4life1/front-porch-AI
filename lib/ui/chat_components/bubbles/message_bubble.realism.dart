@@ -41,6 +41,10 @@ extension _BubbleRealism on _MessageBubbleState {
     final searchReceipt = metadata['search_receipt'] as Map<String, dynamic>?;
     final searchQuery = (searchReceipt?['query'] as String?)?.trim() ?? '';
     final searchOk = searchReceipt?['ok'] == true;
+    final wikiReceipt = metadata['wiki_receipt'] as Map<String, dynamic>?;
+    final wikiQueryRaw = (wikiReceipt?['query'] as String?)?.trim() ?? '';
+    final wikiQuery = wikiQueryRaw == searchQuery ? '' : wikiQueryRaw;
+    final wikiOk = wikiReceipt?['ok'] == true;
     final toolReceipt = metadata['tool_receipt'] as Map<String, dynamic>?;
     final toolName = (toolReceipt?['tool'] as String?)?.trim() ?? '';
     final toolOk = toolReceipt?['ok'] == true;
@@ -81,6 +85,7 @@ extension _BubbleRealism on _MessageBubbleState {
         verifStatus.isEmpty &&
         pocketReceipts.isEmpty &&
         searchQuery.isEmpty &&
+        wikiQuery.isEmpty &&
         toolName.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -363,6 +368,8 @@ extension _BubbleRealism on _MessageBubbleState {
       timePassed: timePassed,
       searchQuery: searchQuery,
       searchOk: searchOk,
+      wikiQuery: wikiQuery,
+      wikiOk: wikiOk,
       toolName: toolName,
       toolOk: toolOk,
       chanceTimeEvent: chanceTimeEvent,

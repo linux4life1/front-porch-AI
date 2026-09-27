@@ -217,6 +217,12 @@ extension ChatFacadeState on ChatFacade {
       // PWAs ignore it and keep the normal composer placeholder. Local
       // GGUF-ready is ignored so mouth/worker swaps do not flash the box.
       'llmReady': _llm?.composerConnectionReady ?? true,
+      // Which named lookups the regenerate dialog may offer. Web is omitted
+      // on the client when false. Wiki stays visible but disabled.
+      'lookupSources': {
+        'web': _chat.webSearchEnabled,
+        'wiki': _chat.wikiLookupAvailable,
+      },
     };
   }
 }

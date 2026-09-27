@@ -17,6 +17,8 @@ extension ChatServiceSendHandoff on ChatService {
     required ChatMessage userMsg,
     required String? imagePath,
     required String? sessionToken,
+    String? forcedWebQuery,
+    String? forcedWikiQuery,
   }) async {
     // Evaluate realism systems before generating response
     // Capture pre-turn needs vector (before decay + fulfillment) so that
@@ -98,7 +100,8 @@ extension ChatServiceSendHandoff on ChatService {
     // If cancellation was requested during realism evaluation, abort generation
     if (_realismEvalCancelled) {
       // The turn dies before the request phase can adopt the call-model
-      // swap — put the main model back ourselves.
+      // swap — put the main model back ourselves. Lookup flags are not
+      // armed yet; the generate call below is what consumes them.
       _exitCallEvalModelSwap();
       _needsSimulation.consumePendingCatastrophe();
       await _saveChat();
@@ -108,6 +111,7 @@ extension ChatServiceSendHandoff on ChatService {
     }
 
     if (addressedGuest != null) {
+      _armForcedLookup(webQuery: forcedWebQuery, wikiQuery: forcedWikiQuery);
       await generateGuestTurn(addressedGuest);
     } else {
       if (_activeGroup != null) {
@@ -117,6 +121,8 @@ extension ChatServiceSendHandoff on ChatService {
       // message receiving its first host/group response. Every follow-up,
       // guest, cast, regen, idle, and command generation keeps the default
       // false and therefore cannot advertise or reach search HTTP.
+      // A named /search or /wiki is armed for this first reply only.
+      _armForcedLookup(webQuery: forcedWebQuery, wikiQuery: forcedWikiQuery);
       await _generateResponse(GenerationMode.normal, directUserSend: true);
     }
     // Backend-down abort: no response was generated, so none of the

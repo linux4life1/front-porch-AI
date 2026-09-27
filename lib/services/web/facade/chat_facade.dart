@@ -206,6 +206,15 @@ class ChatFacade {
         out['searchOk'] = search['ok'] == true;
       }
     }
+    final wiki = md['wiki_receipt'];
+    if (wiki is Map) {
+      final q = (wiki['query'] as String?)?.trim() ?? '';
+      final webQuery = (out['searchQuery'] as String?) ?? '';
+      if (q.isNotEmpty && q != webQuery) {
+        out['wikiQuery'] = q;
+        out['wikiOk'] = wiki['ok'] == true;
+      }
+    }
     final toolReceipt = md['tool_receipt'];
     if (toolReceipt is Map) {
       final tool = (toolReceipt['tool'] as String?)?.trim() ?? '';
@@ -320,10 +329,16 @@ class ChatFacade {
     _notify();
   }
 
-  void regenerate({String? critique}) {
-    _chat.regenerateLastMessage(critique: critique);
+  void regenerate({String? critique, String? webQuery, String? wikiQuery}) {
+    _chat.regenerateLastMessage(
+      critique: critique,
+      webQuery: webQuery,
+      wikiQuery: wikiQuery,
+    );
     _notify();
   }
+
+  String? lookupCommandBlock(String text) => _chat.lookupCommandBlock(text);
 
   void continueGeneration() {
     _chat.continueGeneration();

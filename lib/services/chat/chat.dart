@@ -30,6 +30,7 @@ export 'fpchat_format.dart';
 export 'fpchat_image_names.dart';
 export 'generation_error_messages.dart';
 export 'growth_ops.dart';
+export 'lookup_force.dart';
 export 'growth_physics.dart';
 export 'growth_prompt.dart';
 export 'growth_review.dart';

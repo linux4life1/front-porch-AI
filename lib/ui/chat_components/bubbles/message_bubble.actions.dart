@@ -149,9 +149,10 @@ extension _BubbleActions on _MessageBubbleState {
                   message:
                       'Regenerate main character (removes the NPC’s reply)',
                   child: InkWell(
-                    onTap: () => promptRegenCritiqueThen(
+                    onTap: () => promptLookupRegen(
                       context,
-                      (c) => chatService.regenerateMainCharacter(critique: c),
+                      chatService,
+                      chatService.regenerateMainCharacter,
                     ),
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
@@ -177,9 +178,10 @@ extension _BubbleActions on _MessageBubbleState {
                 Tooltip(
                   message: 'Regenerate',
                   child: InkWell(
-                    onTap: () => promptRegenCritiqueThen(
+                    onTap: () => promptLookupRegen(
                       context,
-                      (c) => chatService.regenerateLastMessage(critique: c),
+                      chatService,
+                      chatService.regenerateLastMessage,
                     ),
                     borderRadius: BorderRadius.circular(12),
                     child: const Padding(

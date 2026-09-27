@@ -57,10 +57,14 @@ extension ChatServiceGenerationBlocks on ChatService {
           '\n\n[Voice Call Mode] ${_storageService.sttSettings.callSystemPrompt}';
     }
 
-    if ((_webSearchService.isActive || _wikiSearchService.isActive) &&
-        t.directUserSend &&
-        !t.autonomous &&
-        t.mode != GenerationMode.continue_) {
+    final forcedLookup =
+        (t.forcedWebQuery != null && t.forcedWebQuery!.isNotEmpty) ||
+        (t.forcedWikiQuery != null && t.forcedWikiQuery!.isNotEmpty);
+    if (forcedLookup ||
+        ((_webSearchService.isActive || _wikiSearchService.isActive) &&
+            t.directUserSend &&
+            !t.autonomous &&
+            t.mode != GenerationMode.continue_)) {
       t.systemPrompt += '\n\n$kSearchCharacterLine';
     }
     t.userToolCards = loadUserToolCards(_storageService.toolsDir);
