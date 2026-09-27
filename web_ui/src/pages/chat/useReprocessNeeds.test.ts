@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // useReprocessNeeds derives the Reprocess Needs modal props from the facade
-// chips (AMENDMENT 2 item 3: enabledNeeds / speaker / speakerName). The first
-// three cases are the PR's own; the last one (folded from our F7) drives the
-// real hook into the real modal for the stale-open case.
+// chips. speakerName is needsSpeaker and nothing else: the open character
+// can be the previous speaker in a group. The last case drives the real
+// hook into the real modal for the stale-open case.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -24,7 +24,7 @@ const msg = (chips?: Message['chips']): Message => ({
 
 describe('useReprocessNeeds', () => {
   it('is empty when the sheet is closed', () => {
-    expect(useReprocessNeeds(null, [msg()], 'Aria')).toEqual({
+    expect(useReprocessNeeds(null, [msg()])).toEqual({
       enabledNeeds: [],
       speaker: '',
       speakerName: '',
@@ -41,7 +41,6 @@ describe('useReprocessNeeds', () => {
             needsSpeaker: 'Bram',
           }),
         ],
-        'Aria',
       ),
     ).toEqual({
       enabledNeeds: ['hunger', 'energy'],
@@ -50,11 +49,11 @@ describe('useReprocessNeeds', () => {
     });
   });
 
-  it('falls back to the character name when the chip has no speaker', () => {
-    expect(useReprocessNeeds(0, [msg({ enabledNeeds: ['fun'] })], 'Aria')).toEqual({
+  it('leaves the name empty when the chip has no speaker', () => {
+    expect(useReprocessNeeds(0, [msg({ enabledNeeds: ['fun'] })])).toEqual({
       enabledNeeds: ['fun'],
       speaker: '',
-      speakerName: 'Aria',
+      speakerName: '',
     });
   });
 });
@@ -76,7 +75,7 @@ describe('stale open after Needs is switched off (F7)', () => {
     // After Needs is switched off the facade drops needsReprocessable,
     // enabledNeeds and needsSpeaker; the modal is still open on that index.
     const stale = [msg({ needsDeltas: { hunger: { delta: -5, reason: '' } } })];
-    const props = useReprocessNeeds(0, stale, 'Aria');
+    const props = useReprocessNeeds(0, stale);
     act(() => {
       root.render(
         createElement(ReprocessNeedsModal, {
