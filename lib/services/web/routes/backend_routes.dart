@@ -19,6 +19,7 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/image/expression_pack_route.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/image/civitai_fetch.dart';
@@ -75,6 +76,7 @@ class WebBackendRoutes {
       router.get('/api/image/studio/ready', _imageStudioReady);
       router.get('/api/image/comfy-workflow-slots', _imageComfyWorkflowSlots);
       router.get('/api/image/models', _imageRemoteModels);
+      registerExpressionPackRoutes(router);
       CivitaiRoutes(
         router,
         rootForAsync: savedStudioModelRoot,

@@ -4,7 +4,7 @@ Front Porch **does not draw pictures**. You run a picture program (or a cloud im
 
 Your **chat** model is not the painter.
 
-Phone: there is **no** full Studio. Phone **Models** can still generate one picture and insert it. `/image` works in web chat.
+Phone **Models** has the same desk: Create, Edit, model search, graph search, graph upload, LoRA search, sizes, CivitAI sign-in, Get a model, Get a LoRA, and the adult switch. An expression pack still starts on the desktop. The phone shows each file name and the quality verdict, and it can cancel the pack. It does not download the image bytes. `/image` works in web chat.
 
 ---
 
@@ -90,6 +90,8 @@ Keep faces you like; only generate missing ones.
 **QC** (the app looking at each face) needs a **vision-capable chat model**: local GGUF + **mmproj** in Model Settings → Vision, or a vision API. “Couldn't check vision” usually means the server is still loading.
 
 No base portrait → it stops. No edit-capable *image* model → pack-from-portrait cannot run.
+
+The phone does not start the pack. It can read the file names and the quality verdicts, and cancel a pack that is still running. The pictures stay on the desktop.
 
 ---
 

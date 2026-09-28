@@ -206,7 +206,7 @@ Yes. **Import Cards** for PNG/JSON. **Import Backyard AI** for `.byaf`. Lorebook
 
 1. Settings → **Voice & Media** → **Image Generation** → **on**. Until this is on, the ✨ button is **hidden**.
 2. Open a **chat**. ✨ is in the bar at the bottom.
-3. Full Image Studio is **desktop**. Phone: **Models** can still generate one picture, or type `/image` in chat.
+3. Phone **Models** has the same Studio desk (Create, Edit, search, graphs, LoRAs, sizes, CivitAI). An expression pack starts on the desktop; the phone can read file names and quality verdicts and cancel it. `/image` still works in chat.
 
 ### How do pictures actually work?
 
@@ -555,7 +555,7 @@ Away from home: Tailscale (phone has a **Remote** page: HTTPS, optional ngrok, Q
 
 ### What's missing on the phone?
 
-**Desktop only:** full Image Studio (Create/Edit/packs), Voice Call, Suggest Actions, attach a photo, Stoop **upload**, Backups, Scan & Clean, Turn Into a Story.
+**Desktop only:** starting an expression pack (the phone can watch file names and quality verdicts, and cancel), Voice Call, Suggest Actions, attach a photo, Stoop **upload**, Backups, Scan & Clean, Turn Into a Story.
 
 Phone **can** still make a picture from **Models** or `/image`. Mic needs **HTTPS** (`http://192.168…` will refuse the microphone).
 

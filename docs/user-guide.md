@@ -433,9 +433,9 @@ Bigger Whisper models are more accurate (especially with names and accents) but 
 
 ## Image Generation
 
-Front Porch does **not** run Stable Diffusion inside the chat app. You run an image server (or a cloud API); Front Porch talks to it. The pictures are made in the **Image Studio** (desktop) or with `/image` in chat.
+Front Porch does **not** run Stable Diffusion inside the chat app. You run an image server (or a cloud API); Front Porch talks to it. The pictures are made in the **Image Studio** or with `/image` in chat.
 
-The phone / web UI does **not** have the full Image Studio. It **can** generate from **Models** and from `/image` in chat.
+The phone **Models** page has the same desk: Create, Edit, model search, graph search, graph upload, LoRA search, sizes, and CivitAI. An expression pack starts on the desktop. The phone can read each file name and quality verdict and cancel the pack. It does not download the image bytes. `/image` works in web chat.
 
 ### Turn it on
 
@@ -573,7 +573,7 @@ The web app is **not** a clone of every desktop button. It covers chats (includi
 
 **Not on phone / web (do these on the desktop app):**
 
-- Image Studio (full Create/Edit/LoRA/expression-pack QC). Phone **Models** can still generate a picture and insert it into chat; `/image` works in web chat too
+- Starting an expression pack. Phone **Models** has the Studio desk and can watch a pack's file names and quality verdicts, or cancel it. `/image` works in web chat too
 - Voice Call Mode (push-to-talk mic still works over HTTPS)
 - Suggest Actions
 - Photo Understanding (the phone **can** attach a photo; the offline describer is desktop)

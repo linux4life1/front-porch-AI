@@ -15,15 +15,61 @@ extension ImageGenStudio on ImageGenService {
       _notify();
       return null;
     }
+    _packFlight = true;
     _isGenerating = true;
     _statusMessage = 'Expression pack';
     _notify();
     try {
       return await driver(List<String>.from(emotions));
     } finally {
+      _packFlight = false;
       _isGenerating = false;
       _statusMessage = '';
       _notify();
     }
+  }
+
+  void _endGenerationLock() {
+    if (_packFlight) {
+      return;
+    }
+    _isGenerating = false;
+  }
+
+  /// One pack frame. While a pack flight holds the lock this does not call
+  /// [generateImage]. Outside a flight it is a normal single generation.
+  Future<Uint8List?> expressionFrame({
+    required String prompt,
+    String? negativePrompt,
+    String? size,
+    Uint8List? referenceImage,
+    int? seed,
+    double? denoise,
+    StudioIntent intent = StudioIntent.create,
+    double? editStrength,
+  }) {
+    if (_packFlight) {
+      return _generateImageImpl(
+        prompt: prompt,
+        negativePrompt: negativePrompt,
+        size: size,
+        referenceImage: referenceImage,
+        seed: seed,
+        denoise: denoise,
+        intent: intent,
+        editStrength: editStrength,
+        fromPack: true,
+      );
+    }
+    return generateImage(
+      prompt: prompt,
+      negativePrompt: negativePrompt,
+      size: size,
+      referenceImage: referenceImage,
+      seed: seed,
+      denoise: denoise,
+      intent: intent,
+      editStrength: editStrength,
+    );
   }
 }

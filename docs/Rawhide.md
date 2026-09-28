@@ -7,6 +7,7 @@ Last shipped nightly: `rawhide.20260921.f50f22e`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🖼️ **Image Studio is one desk on the computer and the phone** — search for a model, a graph, or a LoRA, upload a graph, pick a size, and sign in to CivitAI to get a model or a LoRA. Generate stays off until the file and the graph match. An expression pack starts on the desktop; the phone can read the file names and quality verdicts and cancel it. Same desk on the phone.
 - 🔎 **You can name exactly what gets looked up** — end a line with `/search -- the name` or `/wiki -- the name`, or type those words in the regenerate box. The words after `--` are the search. A bare `/search` does not guess. Web shows up in regenerate only when Web Search is on. Wiki is greyed out until this chat has one. Same on the phone.
 - 🔄 **Reprocess Needs only lists the needs that are on** for that speaker — disabled ones stay hidden. Same on the phone.
 - ⏱️ **A normal send always moves the story clock** — at least a minute or two, and a ⏱ chip names it. Same moment only when the scene is one continuous instant. Passage of Time is the only driver (Realism off still ticks). Continue does not tick. Needs bars stay put unless the scene itself moves them; a short no-action turn says “No needs affected.” Same on the phone.

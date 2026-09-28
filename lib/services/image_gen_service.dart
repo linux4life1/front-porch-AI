@@ -60,6 +60,10 @@ class ImageGenService extends ChangeNotifier {
   final StorageService _storage;
 
   bool _isGenerating = false;
+
+  /// True while [startExpressionPack] holds the lock. A pack frame may run
+  /// without calling [generateImage], which would refuse itself.
+  bool _packFlight = false;
   String _statusMessage = '';
   Uint8List? _lastGeneratedImage;
   String? _lastSavedPath;

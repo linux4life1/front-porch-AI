@@ -4,6 +4,12 @@ Image Studio Create does **not** own a Porch fork of each Comfy family
 graph (SD / Flux / Qwen / Z-Image Turbo). It loads Comfy’s own workflow
 JSON and fills Studio knobs with the same token/slot engine Edit BYO uses.
 
+The desk does not offer a four-family dropdown. Graph search calls
+`deskGraphChoices` in `lib/services/image/studio_desk_logic.dart`. A
+`.gguf` file is retargeted by `retargetForFile` in
+`lib/services/image/comfy_gguf_loaders.dart` after the graph is filled.
+An uploaded graph is not retargeted.
+
 Edit (expression pack) stays Edit-first: `comfyEdit*` presets / instruction
 edit. Pack falls back to Create img2img for non-edit models. No ControlNet.
 
@@ -18,7 +24,7 @@ edit. Pack falls back to Create img2img for non-edit models. No ControlNet.
 
 Point Porch at the **same URL** the Comfy Desktop UI uses
 (`http://127.0.0.1:8188` by default). If that install serves the frontend,
-the Z-Image Turbo / Qwen / Flux templates appear in the Create family list.
+the Z-Image Turbo / Qwen / Flux templates appear in Graph search. There is no family dropdown.
 
 ## What we fill
 

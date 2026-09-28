@@ -33,8 +33,10 @@ import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+import 'package:front_porch_ai/services/image/expression_pack_flight.dart';
+
 import 'expression_pack_grid.dart';
-import 'expression_pack_setup.dart';
+import 'expression_pack_setup_v2.dart';
 import 'vision_gate.dart';
 
 part 'expression_pack_dialog.base.dart';
@@ -281,53 +283,59 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
               if (!widget.existingEmotions.contains(e)) e,
           ]
         : chosen;
-    // Edit-first: when the active backend + the EDIT-slot model can
-    // instruction-edit, drive each emotion through the EDIT path (identity
-    // pinned by the base portrait) instead of img2img. The decision is the
-    // ONE shared [ImageReferenceResolver.packEditMode] (also used by the
-    // creator's Portrait & Avatars panel) — resolver supportsEdit over the
-    // edit slot + the Edit tab's ComfyUI workflow-readiness gate.
-    final editMode = await ImageReferenceResolver.packEditModeForGeneration(
-      widget.storage.imageGenSettings,
-    );
-    if (!mounted) return;
-    final session = ExpressionPackSession(
+    final flight = await beginExpressionPack(
+      imageGen: widget.imageGen,
+      settings: widget.storage.imageGenSettings,
       emotions: emotions,
       basePrompt: '${widget.basePrompt}, $kExpressionFraming',
       negativePrompt: widget.negativePrompt,
       denoise: denoise,
-      editMode: editMode,
-      generate:
-          ({
-            required String prompt,
-            required String negativePrompt,
-            required int seed,
-            required double denoise,
-          }) async {
-            final bytes = await widget.imageGen.generateImage(
-              prompt: prompt,
-              negativePrompt: negativePrompt,
-              size: '${widget.baseWidth}x${widget.baseHeight}',
-              referenceImage: widget.baseImage,
-              seed: seed,
-              denoise: denoise,
-              // Edit path when available: the reference is read as conditioning
-              // and the strength slider becomes the edit strength; else img2img.
-              intent: editMode ? StudioIntent.edit : StudioIntent.create,
-              editStrength: editMode ? denoise : null,
-            );
-            if (bytes == null) {
-              final why = widget.imageGen.statusMessage.trim();
-              if (why.isNotEmpty) throw Exception(why);
-            }
-            return bytes;
-          },
+      size: '${widget.baseWidth}x${widget.baseHeight}',
+      baseImage: widget.baseImage,
+      accountId: kStudioWebAccountId,
+      onExternalCancel: () {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _cancelRequested = true);
+      },
     );
+    if (!mounted) return;
     setState(() {
       _checkingWorkflow = false;
-      _session = session;
+      if (flight.session != null) {
+        _session = flight.session;
+      }
     });
-    unawaited(session.run());
+    if (flight.session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            flight.busy
+                ? kAlreadyGeneratingMessage
+                : 'The expression pack could not start.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _resume(ExpressionPackSession session) async {
+    setState(() => _cancelRequested = false);
+    final names = await widget.imageGen.startExpressionPack(
+      [
+        for (final slot in session.slots)
+          if (slot.state == ExpressionSlotState.pending) slot.emotion,
+      ],
+      (_) async {
+        await session.run();
+        return const <String>[];
+      },
+    );
+    if (!mounted) return;
+    if (names == null) {
+      setState(() => _cancelRequested = true);
+    }
   }
 
   Future<void> _import() async {
@@ -427,10 +435,7 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
                           setState(() => _cancelRequested = true);
                           session.cancel();
                         },
-                        onResume: () {
-                          setState(() => _cancelRequested = false);
-                          unawaited(session.run());
-                        },
+                        onResume: () => unawaited(_resume(session)),
                         onImport: _import,
                       ),
               ),

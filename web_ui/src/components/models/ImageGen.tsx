@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StepUpFields } from '../StepUpFields';
 import type { ComfyPreset } from './ComfyCreateFields';
+import { PackGrid } from './PackGrid';
 import { StudioDesk } from './StudioDesk';
 import { ImageRemoteFields } from './ImageRemoteFields';
 import type { ImageRemoteHost } from './imageRemote';
@@ -163,6 +164,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   return (
     <section className="card">
       <h3>Image generation</h3>
+      <PackGrid />
       <StudioDesk
         backend={cfg.backend}
         model={cfg.model}

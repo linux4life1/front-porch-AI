@@ -128,7 +128,7 @@ The rest of the app stays local. Details: [Privacy Policy](PRIVACY.md).
 
 The desktop app can serve an installable PWA on your LAN (or Tailscale). Chat, library, settings, Stoop browse, Porch Stories, attach a photo. The desktop machine has to stay on — it is the brain.
 
-Not on the phone: full Image Studio, Voice Call, Stoop upload, backups UI, and a handful of power-user backend knobs. Guide: [Web & Phone](docs/web-phone.md).
+The phone has the Image Studio desk. An expression pack starts on the desktop; the phone can watch file names and quality verdicts and cancel it. Not on the phone: Voice Call, Stoop upload, backups UI, and a handful of power-user backend knobs. Guide: [Web & Phone](docs/web-phone.md).
 
 ### Waifu Coder
 
