@@ -10,6 +10,7 @@ import 'package:front_porch_ai/services/image/draw_things_samplers.dart';
 import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
+import 'package:front_porch_ai/services/image/studio_graph_menu.dart';
 import 'package:front_porch_ai/services/image/studio_readiness.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
@@ -19,6 +20,8 @@ import 'civitai_sheet.dart';
 import 'studio_civitai_get.dart';
 import 'studio_commit_field.dart';
 import 'studio_desk_knobs.dart';
+import 'studio_graph_sheet.dart';
+import 'studio_graph_upload.dart';
 import 'studio_lora_sheet.dart';
 import 'studio_search_sheet.dart';
 import 'studio_size_fields.dart';
@@ -62,6 +65,7 @@ class _StudioDeskState extends State<StudioDesk> {
   List<String> _unet = const [];
   List<String> _gguf = const [];
   List<String> _loras = const [];
+  Map<String, DeskLoraCheck> _loraFacts = {};
   String? _catalogUrl;
   bool? _reportedReady;
 
@@ -135,6 +139,16 @@ class _StudioDeskState extends State<StudioDesk> {
       _gguf = catalog?.ggufUnets ?? const [];
       _loras = catalog?.loras ?? const [];
     });
+    await _readLoraFacts(settings, service);
+  }
+
+  Future<void> _readLoraFacts(
+    ImageGenSettings settings,
+    ComfyUiService service,
+  ) async {
+    final checks = await deskLoraChecks(settings: settings, comfy: service);
+    if (!mounted) return;
+    setState(() => _loraFacts = {for (final row in checks) row.file: row});
   }
 
   void _report(bool ready) {
@@ -179,6 +193,21 @@ class _StudioDeskState extends State<StudioDesk> {
     final uploaded = _editing
         ? settings.comfyEditUploadedWorkflow
         : settings.comfyCreateUploadedWorkflow;
+    final family = ImageModelFamily.detectFromName(primary);
+    final override =
+        settings.prefs?.getString(
+          settings.k('image_studio_lora_override_family'),
+        ) ??
+        '';
+    final loraChecks = [
+      for (final slot in settings.imageGenLoraSlots)
+        if (slot.file.trim().isNotEmpty)
+          _loraFacts[slot.file] ??
+              DeskLoraCheck(
+                slot.file,
+                ImageModelFamily.detectFromName(slot.file),
+              ),
+    ];
     final ready = deskReadiness(
       backend: backend,
       primaryFile: primary,
@@ -187,15 +216,10 @@ class _StudioDeskState extends State<StudioDesk> {
       workflowId: workflowId,
       uploadedWorkflowJson: uploaded,
       modelChoices: choices,
-      loras: [
-        for (final slot in settings.imageGenLoraSlots)
-          if (slot.file.trim().isNotEmpty)
-            DeskLoraCheck(
-              slot.file,
-              ImageModelFamily.detectFromName(slot.file),
-            ),
-      ],
+      loras: loraChecks,
+      allowLoraMismatch: override.isNotEmpty && override == family.name,
     );
+    final blockedLora = deskLoraBlocker(primary, loraChecks);
     final enabled = generateEnabled(ready);
     _report(enabled);
     final parts = settings.imageGenSize.split('x');
@@ -253,8 +277,18 @@ class _StudioDeskState extends State<StudioDesk> {
           ),
         if (ready.kind == StudioReady.missingNodeClass)
           Text('Missing ${ready.missingClass}.'),
-        if (ready.kind == StudioReady.loraMismatch)
-          const Text('This LoRA does not match the model.'),
+        if (ready.kind == StudioReady.loraMismatch && blockedLora != null)
+          StudioLoraMismatch(
+            lora: blockedLora,
+            primary: primary,
+            onAnyway: () async {
+              await settings.prefs?.setString(
+                settings.k('image_studio_lora_override_family'),
+                family.name,
+              );
+              settings.notify();
+            },
+          ),
         if (ready.kind == StudioReady.needsUnetGraph)
           const Text('A GGUF file needs a diffusion graph.'),
         Wrap(
@@ -277,7 +311,7 @@ class _StudioDeskState extends State<StudioDesk> {
               child: const Text('Graph upload'),
             ),
             TextButton(
-              onPressed: () => openLoras(settings),
+              onPressed: () => openLoras(settings, primary),
               child: const Text('LoRA search'),
             ),
           ],
@@ -439,24 +473,10 @@ class _StudioDeskState extends State<StudioDesk> {
   }
 
   Future<void> _upload(ImageGenSettings settings) async {
-    final controller = TextEditingController();
     final text = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Graph upload'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Workflow JSON'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Use graph'),
-          ),
-        ],
-      ),
+      builder: (context) => const StudioGraphUpload(),
     );
-    controller.dispose();
     if (text == null) return;
     await _saveGraph(settings, text);
   }

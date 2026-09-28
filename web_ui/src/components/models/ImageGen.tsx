@@ -174,6 +174,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         editWorkflowId={cfg.comfyEditWorkflowId ?? 'qwen_image_edit'}
         modelChoices={cfg.comfyCreateModelChoices ?? {}}
         editModelChoices={cfg.comfyEditModelChoices ?? {}}
+        loras={cfg.loras ?? []}
         comfyUrl={cfg.comfyUrl}
         localUrl={cfg.localUrl}
         drawThingsHost={cfg.drawThingsHost}

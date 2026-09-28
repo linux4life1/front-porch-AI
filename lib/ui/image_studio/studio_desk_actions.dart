@@ -51,40 +51,70 @@ extension on _StudioDeskState {
   }
 
   Future<void> openGraphs(ImageGenSettings settings) async {
-    final live = <DeskGraphRow>[];
+    var menu = deskGraphMenu(
+      edit: _editing,
+      templates: const [],
+      saved: const [],
+    );
+    var read = false;
     if (settings.imageGenBackend == 'comfyui') {
       try {
         final comfy = ComfyUiService(baseUrl: settings.comfyUiUrl);
         final rows = _editing
             ? await comfy.fetchEditTemplates()
             : await comfy.fetchCreateTemplates();
-        final saved = await comfy.fetchUserWorkflows();
-        for (final row in [...rows, ...saved]) {
-          live.add(DeskGraphRow(row.pickerId, row.title));
-        }
+        final files = await comfy.fetchUserWorkflows();
+        menu = await loadDeskGraphMenu(
+          comfy: comfy,
+          edit: _editing,
+          templates: rows,
+          saved: files,
+        );
+        read = true;
       } catch (e) {
         debugPrint('studio graph list failed: ${e.runtimeType}');
       }
     }
     if (!mounted) return;
-    final ids = deskGraphChoices(edit: _editing, live: live);
-    await _openSearch('Graph search', ids, (id) {
-      if (_editing) {
-        settings.setComfyEditWorkflowId(id);
-      } else {
-        settings.setComfyCreateWorkflowId(id);
-      }
-    });
+    final note = settings.imageGenBackend == 'comfyui'
+        ? (read
+              ? 'The first group is built into Front Porch. The rest are '
+                    'this Comfy’s templates for this mode, then saved '
+                    'workflows that match it. A file that could not be '
+                    'read is listed separately and is not used.'
+              : 'Comfy’s template list could not be read. The names below '
+                    'are built into Front Porch.')
+        : 'These graphs are built into Front Porch. Connect ComfyUI to '
+              'also list that install’s templates and saved workflows.';
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StudioGraphSheet(
+        edit: _editing,
+        rows: menu,
+        note: note,
+        onPick: (id) {
+          if (_editing) {
+            settings.setComfyEditWorkflowId(id);
+          } else {
+            settings.setComfyCreateWorkflowId(id);
+          }
+        },
+      ),
+    );
   }
 
-  Future<void> openLoras(ImageGenSettings settings) {
+  Future<void> openLoras(ImageGenSettings settings, String primary) {
     return showDialog<void>(
       context: context,
       builder: (context) => StudioLoraSheet(
         slots: settings.imageGenLoraSlots,
         files: _loras,
+        primaryFile: primary,
+        facts: _loraFacts,
         onPick: (index, file) =>
             settings.setImageGenLoraSlot(index, file: file),
+        onWeight: (index, weight) =>
+            settings.setImageGenLoraSlot(index, weight: weight),
       ),
     );
   }

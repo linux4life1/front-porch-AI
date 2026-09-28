@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 
 import 'comfy_create_presets.dart';
@@ -209,7 +210,7 @@ String deskComfyToken({required String workflowId, required String file}) {
   return '%MODEL_DIFFUSION%';
 }
 
-bool deskLoraBlocks(String primaryFile, List<DeskLoraCheck> loras) {
+String? deskLoraBlocker(String primaryFile, List<DeskLoraCheck> loras) {
   final checkpoint = ImageModelFamily.detectFromName(primaryFile);
   for (final lora in loras) {
     if (lora.file.trim().isEmpty) continue;
@@ -218,9 +219,41 @@ bool deskLoraBlocks(String primaryFile, List<DeskLoraCheck> loras) {
       checkpoint,
       metadataBacked: lora.metadataBacked,
     );
-    if (compat == LoraCompat.certain) return true;
+    if (compat == LoraCompat.certain) return lora.file;
   }
-  return false;
+  return null;
+}
+
+bool deskLoraBlocks(String primaryFile, List<DeskLoraCheck> loras) =>
+    deskLoraBlocker(primaryFile, loras) != null;
+
+/// Metadata when Comfy can read it. A name-only guess never blocks.
+Future<List<DeskLoraCheck>> deskLoraChecks({
+  required ImageGenSettings settings,
+  ComfyUiService? comfy,
+}) async {
+  final out = <DeskLoraCheck>[];
+  for (final slot in settings.imageGenLoraSlots) {
+    final file = slot.file.trim();
+    if (file.isEmpty) continue;
+    if (comfy == null) {
+      out.add(DeskLoraCheck(file, ImageModelFamily.detectFromName(file)));
+      continue;
+    }
+    final meta = await comfy.fetchLoraMetadata(file);
+    final option = ImageModelFamily.classifyLora(
+      file,
+      metadata: meta.isEmpty ? null : meta,
+    );
+    out.add(
+      DeskLoraCheck(
+        file,
+        option.family,
+        metadataBacked: option.familyFromMetadata,
+      ),
+    );
+  }
+  return out;
 }
 
 Map<String, dynamic>? _deskGraph({
@@ -289,12 +322,13 @@ StudioReadiness deskReadiness({
   Map<String, String> modelChoices = const {},
   Map<String, dynamic>? liveTemplate,
   List<DeskLoraCheck> loras = const [],
+  bool allowLoraMismatch = false,
 }) {
   if (backend != 'comfyui') {
     if (primaryFile.trim().isEmpty) {
       return const StudioReadiness(StudioReady.missingFile);
     }
-    if (deskLoraBlocks(primaryFile, loras)) {
+    if (!allowLoraMismatch && deskLoraBlocks(primaryFile, loras)) {
       return const StudioReadiness(StudioReady.loraMismatch);
     }
     return const StudioReadiness(StudioReady.ready);
@@ -360,7 +394,7 @@ StudioReadiness deskReadiness({
           liveTemplate: liveTemplate,
         );
   if (!filled) return const StudioReadiness(StudioReady.missingFile);
-  if (deskLoraBlocks(primaryFile, loras)) {
+  if (!allowLoraMismatch && deskLoraBlocks(primaryFile, loras)) {
     return const StudioReadiness(StudioReady.loraMismatch);
   }
   return const StudioReadiness(StudioReady.ready);

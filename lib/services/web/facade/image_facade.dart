@@ -26,6 +26,7 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/image.dart';
+import 'package:front_porch_ai/services/image/studio_graph_menu.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
 
@@ -132,14 +133,21 @@ class ImageFacade {
     final url = _storage.imageGenSettings.comfyUiUrl;
     final cat = await _image.fetchComfyCatalog(url);
     final comfy = ComfyUiService(baseUrl: url);
-    final templates = [
-      ...await comfy.fetchCreateTemplates(),
-      ...await comfy.fetchUserWorkflows(),
-    ];
-    final editTemplates = [
-      ...await comfy.fetchEditTemplates(),
-      ...await comfy.fetchUserWorkflows(),
-    ];
+    final createTemplates = await comfy.fetchCreateTemplates();
+    final editTemplates = await comfy.fetchEditTemplates();
+    final saved = await comfy.fetchUserWorkflows();
+    final createMenu = await loadDeskGraphMenu(
+      comfy: comfy,
+      edit: false,
+      templates: createTemplates,
+      saved: saved,
+    );
+    final editMenu = await loadDeskGraphMenu(
+      comfy: comfy,
+      edit: true,
+      templates: editTemplates,
+      saved: saved,
+    );
     return {
       'checkpoints': cat.checkpoints,
       'diffusionModels': cat.diffusionModels,
@@ -150,7 +158,7 @@ class ImageFacade {
       'createDiscovery': cat.createDiscovery,
       'deskDiscovery': cat.deskDiscovery,
       'templates': [
-        for (final t in templates)
+        for (final t in createTemplates)
           {
             'id': t.pickerId,
             'name': t.name,
@@ -165,6 +173,24 @@ class ImageFacade {
             'name': t.name,
             'title': t.title,
             'source': t.source,
+          },
+      ],
+      'graphs': [
+        for (final row in createMenu)
+          {
+            'id': row.id,
+            'title': row.title,
+            'detail': row.detail,
+            'group': row.group,
+          },
+      ],
+      'editGraphs': [
+        for (final row in editMenu)
+          {
+            'id': row.id,
+            'title': row.title,
+            'detail': row.detail,
+            'group': row.group,
           },
       ],
     };
@@ -299,6 +325,13 @@ class ImageFacade {
         chatRemoteApiUrl: b.remoteApiUrl,
         editScoped: false,
       );
+    }
+    if (f['loraOverrideFamily'] is String) {
+      await img.prefs?.setString(
+        img.k('image_studio_lora_override_family'),
+        f['loraOverrideFamily'] as String,
+      );
+      img.notify();
     }
     if (f['editModel'] is String) {
       await img.setImageGenEditModel(f['editModel'] as String);

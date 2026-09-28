@@ -32,15 +32,20 @@ extension ImageStudioReady on ImageFacade {
       choices: choices,
       legacyModel: legacy,
     );
-    Map<String, dynamic>? info;
-    if (backend == 'comfyui') {
-      info = await ComfyUiService(
-        baseUrl: settings.comfyUiUrl,
-      ).fetchObjectInfo();
-    }
+    final comfy = backend == 'comfyui'
+        ? ComfyUiService(baseUrl: settings.comfyUiUrl)
+        : null;
+    final info = comfy == null ? null : await comfy.fetchObjectInfo();
     final uploaded = edit
         ? settings.comfyEditUploadedWorkflow
         : settings.comfyCreateUploadedWorkflow;
+    final loras = await deskLoraChecks(settings: settings, comfy: comfy);
+    final family = ImageModelFamily.detectFromName(primary);
+    final override =
+        settings.prefs?.getString(
+          settings.k('image_studio_lora_override_family'),
+        ) ??
+        '';
     final ready = deskReadiness(
       backend: backend,
       primaryFile: primary,
@@ -49,16 +54,15 @@ extension ImageStudioReady on ImageFacade {
       workflowId: workflowId,
       uploadedWorkflowJson: uploaded,
       modelChoices: choices,
-      loras: [
-        for (final row in settings.imageGenLoraSlots)
-          if (row.file.trim().isNotEmpty)
-            DeskLoraCheck(row.file, ImageModelFamily.detectFromName(row.file)),
-      ],
+      loras: loras,
+      allowLoraMismatch: override.isNotEmpty && override == family.name,
     );
     return {
       'ready': generateEnabled(ready),
       'kind': ready.kind.name,
       'primary': primary,
+      'blockedLora': deskLoraBlocker(primary, loras),
+      'loraFamily': family.name,
     };
   }
 
