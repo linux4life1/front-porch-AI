@@ -19,7 +19,9 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
+import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
@@ -71,6 +73,11 @@ class WebBackendRoutes {
       router.get('/api/image/comfy-catalog', _imageComfyCatalog);
       router.get('/api/image/comfy-workflow-slots', _imageComfyWorkflowSlots);
       router.get('/api/image/models', _imageRemoteModels);
+      CivitaiRoutes(
+        router,
+        rootForAsync: savedStudioModelRoot,
+        startDownload: downloadCivitaiPlan,
+      );
     }
   }
 
