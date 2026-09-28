@@ -5,17 +5,25 @@ import 'dart:io';
 
 import 'civitai_client.dart';
 
+final Set<String> _civitaiDownloads = {};
+
 /// Downloads one planned file straight to disk.
 ///
 /// Bytes go to `path.part` and replace [CivitaiDownloadPlan.path] only after
 /// the body finishes. A short body or an HTTP error deletes the part and
 /// leaves an existing file alone. A redirect to another host drops the bearer.
-Future<void> downloadCivitaiPlan(CivitaiDownloadPlan plan) async {
+Future<void> downloadCivitaiPlan(
+  CivitaiDownloadPlan plan, {
+  Duration idle = const Duration(minutes: 2),
+}) async {
   final start = plan.uri;
   final path = plan.path;
   final authorization = plan.authorization;
   if (start == null || path == null || authorization == null) {
     throw StateError('refused');
+  }
+  if (!_civitaiDownloads.add(path)) {
+    throw StateError('busy');
   }
   final client = HttpClient();
   final part = File('$path.part');
@@ -58,7 +66,7 @@ Future<void> downloadCivitaiPlan(CivitaiDownloadPlan plan) async {
       await part.parent.create(recursive: true);
       sink = part.openWrite();
       var got = 0;
-      await for (final chunk in response) {
+      await for (final chunk in response.timeout(idle)) {
         got += chunk.length;
         sink.add(chunk);
       }
@@ -83,6 +91,7 @@ Future<void> downloadCivitaiPlan(CivitaiDownloadPlan plan) async {
     }
     rethrow;
   } finally {
+    _civitaiDownloads.remove(path);
     client.close(force: true);
   }
 }

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
@@ -163,12 +162,6 @@ void main() {
       authorization: token,
     );
     expect(away, isEmpty);
-    final dir = Directory.systemTemp.createTempSync('civitai-write');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    final path = p.join(dir.path, 'loras', 'style.safetensors');
-    expect(writeCivitaiBytes(plannedPath: path, bytes: [1, 2, 3]), isTrue);
-    expect(File(path).readAsBytesSync(), [1, 2, 3]);
-    expect(writeCivitaiBytes(plannedPath: null, bytes: [1]), isFalse);
   });
 
   test('a locked file is reported and a missing key is not a success', () {
@@ -182,7 +175,7 @@ void main() {
       'POST',
       Uri.parse('http://localhost$path'),
       body: jsonEncode(body),
-      context: {if (account != null) kAuthUserIdContextKey: account},
+      context: {kAuthUserIdContextKey: ?account},
     );
   }
 

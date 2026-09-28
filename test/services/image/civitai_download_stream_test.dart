@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -97,6 +98,64 @@ void main() {
         throwsA(anything),
       );
       expect(dest.readAsBytesSync(), [9, 9, 9, 9]);
+      expect(File('${dest.path}.part').existsSync(), isFalse);
+    },
+  );
+
+  test(
+    'a second download of the same file waits, and a stall cleans up',
+    () async {
+      final saved = HttpOverrides.current;
+      HttpOverrides.global = null;
+      addTearDown(() => HttpOverrides.global = saved);
+      final dir = Directory.systemTemp.createTempSync('civitai-busy');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final dest = File('${dir.path}/model.safetensors');
+      dest.writeAsBytesSync(const [7, 7]);
+      final release = Completer<void>();
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((request) async {
+        try {
+          if (request.uri.path == '/stall') {
+            request.response.statusCode = 200;
+            request.response.contentLength = 8;
+            request.response.add(const [1, 2]);
+            await request.response.flush();
+            await Future<void>.delayed(const Duration(seconds: 2));
+            await request.response.close();
+            return;
+          }
+          await release.future;
+          request.response.statusCode = 200;
+          request.response.add(const [3, 3, 3, 3]);
+          await request.response.close();
+        } catch (_) {}
+      });
+      final base = 'http://${server.address.host}:${server.port}';
+      CivitaiDownloadPlan plan(String path) => CivitaiDownloadPlan(
+        uri: Uri.parse('$base$path'),
+        path: dest.path,
+        authorization: 'Bearer test-token',
+        log: 'civitai download account=local adult=false',
+        refused: false,
+      );
+      final first = downloadCivitaiPlan(plan('/hold'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await expectLater(downloadCivitaiPlan(plan('/hold')), throwsStateError);
+      release.complete();
+      await first;
+      expect(dest.readAsBytesSync(), [3, 3, 3, 3]);
+
+      dest.writeAsBytesSync(const [7, 7]);
+      await expectLater(
+        downloadCivitaiPlan(
+          plan('/stall'),
+          idle: const Duration(milliseconds: 40),
+        ),
+        throwsA(anything),
+      );
+      expect(dest.readAsBytesSync(), [7, 7]);
       expect(File('${dest.path}.part').existsSync(), isFalse);
     },
   );

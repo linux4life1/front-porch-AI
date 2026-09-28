@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -61,20 +60,6 @@ Map<String, String> civitaiFollowHeaders({
   if (authorization == null || authorization.isEmpty) return const {};
   if (from.host != to.host) return const {};
   return {'Authorization': authorization};
-}
-
-/// Writes [bytes] only at a path the planner already accepted.
-bool writeCivitaiBytes({
-  required String? plannedPath,
-  required List<int> bytes,
-}) {
-  if (plannedPath == null || plannedPath.trim().isEmpty || bytes.isEmpty) {
-    return false;
-  }
-  final file = File(plannedPath);
-  file.parent.createSync(recursive: true);
-  file.writeAsBytesSync(bytes, flush: true);
-  return file.existsSync() && file.lengthSync() == bytes.length;
 }
 
 /// Log text for one relay action. The key is not included.
