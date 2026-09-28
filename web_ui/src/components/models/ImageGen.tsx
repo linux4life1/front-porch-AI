@@ -18,6 +18,7 @@ interface ImageConfig {
   size: string;
   style: string;
   model: string;
+  editModel?: string;
   negativePrompt: string;
   steps: number;
   cfgScale: number;
@@ -165,6 +166,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
       <StudioDesk
         backend={cfg.backend}
         model={cfg.model}
+        editModel={cfg.editModel ?? ''}
         size={cfg.size}
         steps={cfg.steps}
         sampler={cfg.sampler}

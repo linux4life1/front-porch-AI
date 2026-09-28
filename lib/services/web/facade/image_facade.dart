@@ -57,6 +57,7 @@ class ImageFacade {
       'size': img.imageGenSize,
       'style': img.imageGenStyle,
       'model': img.imageGenModel,
+      'editModel': img.imageGenEditModel,
       'negativePrompt': img.imageGenNegativePrompt,
       'steps': img.imageGenSteps,
       'cfgScale': img.imageGenCfgScale,

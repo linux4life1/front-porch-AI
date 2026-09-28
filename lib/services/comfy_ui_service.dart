@@ -27,6 +27,7 @@ import 'package:http/http.dart' as http;
 import 'comfy_workflow.dart';
 import 'image/comfy_catalog.dart';
 import 'image/comfy_edit_workflow.dart';
+import 'image/comfy_gguf_loaders.dart';
 import 'image/comfy_template_index.dart';
 
 part 'comfy_ui_service.catalog.dart';
@@ -193,8 +194,9 @@ class ComfyUiService {
   /// fall back to file-name detection, so this is strictly best-effort.
   Future<Map<String, dynamic>> fetchLoraMetadata(String filename) async {
     try {
-      final uri = Uri.parse('$_root/view_metadata/loras')
-          .replace(queryParameters: {'filename': filename});
+      final uri = Uri.parse(
+        '$_root/view_metadata/loras',
+      ).replace(queryParameters: {'filename': filename});
       final r = await http.get(uri).timeout(const Duration(seconds: 8));
       if (r.statusCode != 200 || r.body.isEmpty) return const {};
       final decoded = jsonDecode(r.body);
@@ -302,7 +304,18 @@ class ComfyUiService {
   Future<Uint8List> runPromptGraph(
     Map<String, dynamic> workflow, {
     void Function(double? progress, Uint8List? preview)? onProgress,
-  }) => _runWorkflow(workflow, onProgress);
+    String primaryFile = '',
+    bool uploaded = false,
+  }) async {
+    final info = uploaded ? null : await _objectInfo();
+    final posted = graphToPost(
+      graph: workflow,
+      primaryFile: primaryFile,
+      uploaded: uploaded,
+      objectInfo: info,
+    );
+    return _runWorkflow(posted, onProgress);
+  }
 
   /// Run an EDIT: upload the reference image, splice it (as `%IMAGE%`) plus the
   /// caller's [tokenValues] into the token-placeholdered [workflowTemplate] (a
@@ -314,6 +327,8 @@ class ComfyUiService {
     required Map<String, dynamic> workflowTemplate,
     required Map<String, Object?> tokenValues,
     void Function(double? progress, Uint8List? preview)? onProgress,
+    String primaryFile = '',
+    bool uploaded = false,
   }) async {
     final imageName = await uploadImage(referenceImageBytes);
     final graph = substituteComfyWorkflow(workflowTemplate, {
@@ -328,7 +343,12 @@ class ComfyUiService {
         'uploaded workflow.',
       );
     }
-    return _runWorkflow(graph, onProgress);
+    return runPromptGraph(
+      graph,
+      onProgress: onProgress,
+      primaryFile: primaryFile,
+      uploaded: uploaded,
+    );
   }
 
   /// Submit [workflow], stream best-effort progress over ComfyUI's WebSocket,
@@ -355,9 +375,9 @@ class ComfyUiService {
       } catch (_) {}
       throw Exception('ComfyUI rejected the workflow: $detail');
     }
-    final promptId = (jsonDecode(
-      submit.body,
-    ) as Map<String, dynamic>)['prompt_id']?.toString();
+    final promptId =
+        (jsonDecode(submit.body) as Map<String, dynamic>)['prompt_id']
+            ?.toString();
     if (promptId == null || promptId.isEmpty) {
       throw Exception('ComfyUI did not return a prompt_id');
     }
@@ -372,8 +392,9 @@ class ComfyUiService {
         final wsRoot = _root
             .replaceFirst('https://', 'wss://')
             .replaceFirst('http://', 'ws://');
-        ws = await WebSocket.connect('$wsRoot/ws?clientId=$clientId')
-            .timeout(const Duration(seconds: 3));
+        ws = await WebSocket.connect(
+          '$wsRoot/ws?clientId=$clientId',
+        ).timeout(const Duration(seconds: 3));
         ws.listen(
           (frame) {
             try {
@@ -388,8 +409,9 @@ class ComfyUiService {
                   }
                 }
               } else if (frame is List<int> && frame.length > 8) {
-                final header = Uint8List.fromList(frame.sublist(0, 4)).buffer
-                    .asByteData();
+                final header = Uint8List.fromList(
+                  frame.sublist(0, 4),
+                ).buffer.asByteData();
                 if (header.getInt32(0) == 1) {
                   onProgress(null, Uint8List.fromList(frame.sublist(8)));
                 }

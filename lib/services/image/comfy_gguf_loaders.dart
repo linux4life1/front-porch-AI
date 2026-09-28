@@ -330,6 +330,59 @@ FileRetarget retargetForFile({
   return FileRetarget(graph: copy);
 }
 
+/// A filled diffusion or checkpoint name already written into [graph].
+String primaryFileInGraph(Map<String, dynamic> graph) {
+  String? checkpoint;
+  for (final node in graph.values.whereType<Map>()) {
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    final unet = inputs['unet_name'];
+    if (unet is String) {
+      final name = unet.trim();
+      if (name.isNotEmpty && !_isModelToken(name)) return name;
+    }
+    final ckpt = inputs['ckpt_name'];
+    if (ckpt is String) {
+      final name = ckpt.trim();
+      if (name.isNotEmpty && !_isModelToken(name)) checkpoint ??= name;
+    }
+  }
+  return checkpoint ?? '';
+}
+
+/// The graph [ComfyUiService] posts. Loaders match the file after tokens
+/// are filled. An uploaded graph is not rewritten.
+Map<String, dynamic> graphToPost({
+  required Map<String, dynamic> graph,
+  required String primaryFile,
+  required bool uploaded,
+  required Map<String, dynamic>? objectInfo,
+}) {
+  final named = primaryFile.trim().isNotEmpty
+      ? primaryFile.trim()
+      : primaryFileInGraph(graph);
+  final ready = retargetForFile(
+    graph: graph,
+    primaryFile: named,
+    uploaded: uploaded,
+    objectInfo: objectInfo,
+  );
+  if (uploaded || named.isEmpty) return ready.graph;
+  if (ready.unreachable) {
+    throw Exception('ComfyUI node list could not be read.');
+  }
+  if (ready.useUnetStarter) {
+    throw Exception(
+      'This GGUF file needs an unet workflow. Pick one in Image Studio.',
+    );
+  }
+  final missing = ready.missingClass;
+  if (missing != null && missing.isNotEmpty) {
+    throw Exception('ComfyUI is missing the $missing node.');
+  }
+  return ready.graph;
+}
+
 bool graphUsesLoader(Map<String, dynamic> graph, String classType) {
   for (final node in graph.values.whereType<Map>()) {
     if (node['class_type'] == classType) return true;
