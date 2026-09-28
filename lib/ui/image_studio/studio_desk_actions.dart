@@ -14,13 +14,13 @@ extension on _StudioDeskState {
       return;
     }
     if (settings.imageGenBackend == 'comfyui') {
-      final id = _editing
-          ? settings.comfyEditWorkflowId
-          : settings.comfyCreateWorkflowId;
+      final id = workflowForModel(edit: _editing, file: file);
       final token = deskComfyToken(workflowId: id, file: file);
       if (_editing) {
+        await settings.setComfyEditWorkflowId(id);
         await settings.setComfyEditModelChoice(id, token, file);
       } else {
+        await settings.setComfyCreateWorkflowId(id);
         await settings.setComfyCreateModelChoice(id, token, file);
       }
       return;
@@ -112,11 +112,38 @@ extension on _StudioDeskState {
         rows: menu,
         otherRows: other,
         note: note,
-        onPick: (id) {
+        onPick: (id) async {
+          final currentId = _editing
+              ? settings.comfyEditWorkflowId
+              : settings.comfyCreateWorkflowId;
+          final choices = _editing
+              ? settings.comfyEditModelChoices
+              : settings.comfyCreateModelChoices;
+          final slot = _editing
+              ? settings.imageGenEditModel
+              : settings.imageGenModel;
+          final file = deskPrimaryFile(
+            backend: settings.imageGenBackend,
+            edit: _editing,
+            workflowId: currentId,
+            choices: choices,
+            legacyModel: slot,
+          );
+          final chosen = file.toLowerCase().endsWith('.gguf') && id == 'sd'
+              ? workflowForModel(edit: _editing, file: file)
+              : id;
           if (_editing) {
-            settings.setComfyEditWorkflowId(id);
+            await settings.setComfyEditWorkflowId(chosen);
           } else {
-            settings.setComfyCreateWorkflowId(id);
+            await settings.setComfyCreateWorkflowId(chosen);
+          }
+          if (file.isNotEmpty && settings.imageGenBackend == 'comfyui') {
+            final token = deskComfyToken(workflowId: chosen, file: file);
+            if (_editing) {
+              await settings.setComfyEditModelChoice(chosen, token, file);
+            } else {
+              await settings.setComfyCreateModelChoice(chosen, token, file);
+            }
           }
         },
         onUpload: (json, {required bool forEdit}) {

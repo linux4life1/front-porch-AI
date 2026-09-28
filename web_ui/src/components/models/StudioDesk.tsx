@@ -34,6 +34,18 @@ export interface StudioDeskProps {
   loraFacts?: Record<string, { family: string; meta?: boolean }>;
 }
 
+function workflowForFile(edit: boolean, name: string): string {
+  const family = familyOf(name);
+  const gguf = name.toLowerCase().endsWith('.gguf');
+  if (edit) {
+    return family === 'flux' || family === 'kontext' ? 'flux_kontext' : 'qwen_image_edit';
+  }
+  if (family === 'zImage') return 'z_image_turbo';
+  if (family === 'flux' || family === 'kontext') return 'flux';
+  if (family === 'qwen') return 'qwen_image';
+  return gguf ? 'z_image_turbo' : 'sd';
+}
+
 function familyOf(name: string): string {
   const s = name.toLowerCase();
   if (s.includes('kontext')) return 'kontext';
@@ -270,7 +282,7 @@ export function StudioDesk(props: StudioDeskProps) {
       }>('/api/image/studio/installed', {
         filename,
         lora,
-        workflowId: activeWorkflow,
+        workflowId: lora ? activeWorkflow : workflowForFile(mode === 'edit', filename),
       });
       if (!choice.accept) {
         setNote(
@@ -286,8 +298,12 @@ export function StudioDesk(props: StudioDeskProps) {
         const key = `${choice.workflowId}/${choice.token}`;
         const prior = mode === 'edit' ? props.editModelChoices : props.modelChoices;
         const choices = { ...(prior ?? {}), [key]: filename };
-        if (mode === 'edit') commit({ comfyEditModelChoices: choices });
-        else commit({ comfyCreateModelChoices: choices });
+        const id = choice.workflowId || workflowForFile(mode === 'edit', filename);
+        if (mode === 'edit') {
+          commit({ comfyEditWorkflowId: id, comfyEditModelChoices: choices });
+        } else {
+          commit({ comfyCreateWorkflowId: id, comfyCreateModelChoices: choices });
+        }
       } else if (choice.kind === 'slot') {
         if (mode === 'edit') commit({ editModel: filename });
         else commit({ model: filename });
@@ -304,8 +320,11 @@ export function StudioDesk(props: StudioDeskProps) {
 
   const saveInstalled = (name: string) => {
     if (sheet === 'Graph search') {
-      if (mode === 'edit') commit({ comfyEditWorkflowId: name });
-      else commit({ comfyCreateWorkflowId: name });
+      const chosen = file.toLowerCase().endsWith('.gguf') && name === 'sd'
+        ? workflowForFile(mode === 'edit', file)
+        : name;
+      if (mode === 'edit') commit({ comfyEditWorkflowId: chosen });
+      else commit({ comfyCreateWorkflowId: chosen });
       setSheet(null);
       return;
     }
@@ -514,7 +533,6 @@ export function StudioDesk(props: StudioDeskProps) {
           <strong>{familyLabel}</strong>
           <div>{file || 'No model chosen'}</div>
           <p>{why}</p>
-          <button type="button" onClick={() => openGraphs()}>Change graph</button>
           <button type="button" onClick={() => search('Model search')}>Change model</button>
           <button type="button" onClick={() => search('Get a model')}>Get a model from CivitAI</button>
           {checkpointOnly ? <p>This checkpoint graph has no text encoder or VAE slot.</p> : (
@@ -589,6 +607,7 @@ export function StudioDesk(props: StudioDeskProps) {
           <button type="button" onClick={() => setAdvanced((open) => !open)}>
             {advanced ? `Advanced ▾ ${summary}` : `Advanced ▸ ${summary}`}
           </button>
+          {advanced ? <button type="button" onClick={() => openGraphs()}>Change graph</button> : null}
           {advanced && props.backend !== 'drawthings' ? (
             <>
               <label>Steps<input aria-label="Steps" defaultValue={String(props.steps)} onBlur={(e) => commit({ steps: Number(e.target.value) })} /></label>

@@ -178,10 +178,6 @@ class _StudioStoveState extends State<StudioStove> {
               spacing: 4,
               children: [
                 TextButton(
-                  onPressed: widget.onGraphs,
-                  child: const Text('Change graph'),
-                ),
-                TextButton(
                   onPressed: widget.onModels,
                   child: const Text('Change model'),
                 ),
@@ -308,7 +304,14 @@ class _StudioStoveState extends State<StudioStove> {
                 ),
               ),
             ),
-            if (_open)
+            if (_open) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: widget.onGraphs,
+                  child: const Text('Change graph'),
+                ),
+              ),
               StudioStoveKnobs(
                 drawThings: widget.drawThings,
                 drawThingsSampler: widget.drawThingsSampler,
@@ -322,6 +325,7 @@ class _StudioStoveState extends State<StudioStove> {
                 onSampler: widget.onSampler,
                 onScheduler: widget.onScheduler,
               ),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [

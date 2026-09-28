@@ -203,6 +203,34 @@ Future<void> applyInstalledDeskChoice({
   }
 }
 
+/// The bundled graph for this file. A GGUF name never stays on the
+/// checkpoint graph, which cannot load it.
+String workflowForModel({required bool edit, required String file}) {
+  final family = ImageModelFamily.detectFromName(file);
+  final gguf = isGgufFile(file);
+  if (edit) {
+    if (family == ModelFamily.flux || family == ModelFamily.kontext) {
+      return 'flux_kontext';
+    }
+    return 'qwen_image_edit';
+  }
+  switch (family) {
+    case ModelFamily.zImage:
+      return 'z_image_turbo';
+    case ModelFamily.flux:
+    case ModelFamily.kontext:
+      return 'flux';
+    case ModelFamily.qwen:
+      return 'qwen_image';
+    case ModelFamily.sd15:
+    case ModelFamily.sdxl:
+    case ModelFamily.pony:
+    case ModelFamily.sd3:
+    case ModelFamily.unknown:
+      return gguf ? 'z_image_turbo' : 'sd';
+  }
+}
+
 /// Which choice token a picked Comfy file belongs in.
 String deskComfyToken({required String workflowId, required String file}) {
   final gguf = file.toLowerCase().endsWith('.gguf');

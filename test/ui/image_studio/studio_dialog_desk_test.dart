@@ -72,6 +72,10 @@ void main() {
     await tester.pump();
   }
 
+  String fieldText(WidgetTester tester, Key key) {
+    return tester.widget<TextField>(find.byKey(key)).controller!.text;
+  }
+
   testWidgets('wide dialog is the two-column desk', (tester) async {
     await pumpDesk(
       tester,
@@ -103,13 +107,17 @@ void main() {
     expect(find.text('change this portrait'), findsOneWidget);
     expect(find.text('Connection'), findsOneWidget);
     expect(find.text('Change…'), findsOneWidget);
-    expect(find.text('Change graph'), findsOneWidget);
+    expect(find.text('Change graph'), findsNothing);
     expect(find.text('Change model'), findsOneWidget);
     expect(find.text('Get a model from CivitAI'), findsOneWidget);
     expect(find.text('Get a LoRA from CivitAI'), findsOneWidget);
     expect(find.text('Add'), findsOneWidget);
     expect(find.text('This graph also loads'), findsOneWidget);
     expect(find.text(kStudioLoraFamilyNote), findsOneWidget);
+    expect(
+      find.text('Workflow · Text to image · z_image_turbo'),
+      findsOneWidget,
+    );
     expect(find.text('Model search'), findsNothing);
     expect(find.text('Graph search'), findsNothing);
     expect(find.text('Graph upload'), findsNothing);
@@ -121,6 +129,9 @@ void main() {
     expect(find.text('Seed'), findsNothing);
     await tester.tap(find.textContaining('Advanced ▸'));
     await tester.pump();
+    expect(find.textContaining('Advanced ▾'), findsOneWidget);
+    expect(find.text('Change graph'), findsOneWidget);
+    expect(find.textContaining('Advanced ▸'), findsNothing);
     expect(find.text('Steps'), findsOneWidget);
     expect(find.text('CFG'), findsOneWidget);
     expect(find.text('Sampler'), findsOneWidget);
@@ -129,14 +140,32 @@ void main() {
     expect(find.text('Negative prompt'), findsNothing);
 
     await show(tester, find.text('512×512'));
+    expect(find.text('768×768'), findsOneWidget);
+    expect(find.text('1024×1024'), findsOneWidget);
+    expect(find.text('1536×1024'), findsOneWidget);
+    expect(find.text('1024×1536'), findsOneWidget);
     await tester.tap(find.text('512×512'));
     await tester.pump();
-    expect(find.textContaining('Sends 512×512'), findsOneWidget);
+    expect(
+      find.text(
+        'Sends 512×512. Each side snaps to a multiple of 64, from 256 to 2048.',
+      ),
+      findsOneWidget,
+    );
+    expect(fieldText(tester, const Key('studio-width')), '512');
+    expect(fieldText(tester, const Key('studio-height')), '512');
 
     await tester.enterText(find.byKey(const Key('studio-width')), '300');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
-    expect(find.textContaining('Sends 320×512'), findsOneWidget);
+    expect(
+      find.text(
+        'Sends 320×512. Each side snaps to a multiple of 64, from 256 to 2048.',
+      ),
+      findsOneWidget,
+    );
+    expect(fieldText(tester, const Key('studio-width')), '320');
+    expect(fieldText(tester, const Key('studio-height')), '512');
 
     await show(tester, find.text('Change graph'));
     await tester.tap(find.text('Change graph'));
@@ -147,9 +176,27 @@ void main() {
     expect(find.text('JSON, or a PNG from Comfy’s Save.'), findsOneWidget);
     expect(find.text('Z-Image Turbo'), findsOneWidget);
     expect(find.text('Text to image graphs'), findsOneWidget);
+    expect(find.text('Choose file'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Generate'), findsOneWidget);
 
-    await tester.tap(find.text('Close'));
+    await tester.tap(find.text('Close').last);
+    await tester.pump();
+    await show(tester, find.text('Change model'));
+    await tester.tap(find.text('Change model'));
+    await tester.pump();
+    expect(find.text('Change model — Create'), findsOneWidget);
+    expect(find.text('Search families or files'), findsOneWidget);
+    await tester.tap(find.text('Close').last);
+    await tester.pump();
+    await show(tester, find.text('Get a model from CivitAI'));
+    await tester.tap(find.text('Get a model from CivitAI'));
+    await tester.pump();
+    expect(find.text('On this computer'), findsOneWidget);
+    expect(find.text('CivitAI'), findsWidgets);
+    expect(find.text('Include adult models from civitai.red'), findsOneWidget);
+    expect(find.text('API key'), findsOneWidget);
+    expect(find.text('CivitAI sign-in'), findsNothing);
+    await tester.tap(find.text('Close').last);
     await tester.pump();
     await show(tester, find.text('change this portrait'));
     await tester.tap(find.text('change this portrait'));
@@ -161,6 +208,36 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Pack uses this edit model.'), findsOneWidget);
+  });
+
+  testWidgets('a GGUF model leaves the checkpoint graph', (tester) async {
+    await pumpDesk(
+      tester,
+      const Size(1040, 1600),
+      prepare: (storage) async {
+        await storage.imageGenSettings.setImageGenBackend('comfyui');
+        await storage.imageGenSettings.setComfyCreateWorkflowId('sd');
+      },
+    );
+    expect(find.text('Change graph'), findsNothing);
+    await show(tester, find.text('Change model'));
+    await tester.tap(find.text('Change model'));
+    await tester.pump();
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.hintText == 'Search families or files',
+      ),
+      'z_image_turbo_q8.gguf',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Use this name'));
+    await tester.pump();
+    expect(
+      find.text('Workflow · GGUF · chosen for this file · z_image_turbo'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('narrow dialog stacks the same desk', (tester) async {

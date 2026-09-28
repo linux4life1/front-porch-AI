@@ -77,7 +77,7 @@ describe('StudioDesk artifact', () => {
     expect(text).toContain('Pack uses this Create model to vary the portrait.');
     expect(text).toContain('make a new portrait');
     expect(text).toContain('change this portrait');
-    expect(text).toContain('Change graph');
+    expect(text).not.toContain('Change graph');
     expect(text).toContain('Get a model from CivitAI');
     expect(text).toContain('Get a LoRA from CivitAI');
     expect(text).toContain('This graph also loads');
@@ -89,6 +89,9 @@ describe('StudioDesk artifact', () => {
     expect(text).not.toContain('CivitAI sign-in');
 
     act(() => button('Advanced ▸ 8 steps · cfg 1 · euler · simple')?.click());
+    expect(container.textContent).toContain('Advanced ▾');
+    expect(container.textContent).toContain('Change graph');
+    expect(container.textContent).not.toContain('Advanced ▸');
     expect(container.querySelector('[aria-label="Steps"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="CFG"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="Sampler"]')).not.toBeNull();
@@ -104,13 +107,33 @@ describe('StudioDesk artifact', () => {
       setter?.call(width, '300');
       width.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     });
-    expect(container.textContent).toContain('Sends 320×512');
+    expect(container.textContent).toContain(
+      'Sends 320×512. Each side snaps to a multiple of 64, from 256 to 2048.',
+    );
+    expect((container.querySelector('[aria-label="Width"]') as HTMLInputElement).value).toBe('320');
+    expect((container.querySelector('[aria-label="Height"]') as HTMLInputElement).value).toBe('512');
 
     act(() => button('Change graph')?.click());
     expect(container.textContent).toContain('Change graph — Create');
     expect(container.textContent).toContain('Drop a ComfyUI graph, or an image that has one saved inside it.');
     expect(container.textContent).toContain('Z-Image Turbo');
     expect(container.textContent).toContain('Text to image graphs');
+    expect(container.textContent).toContain('JSON, or a PNG from Comfy’s Save.');
+    expect(container.textContent).toContain('Choose file');
+    expect(container.textContent).toContain('Workflow · Text to image · z_image_turbo');
+
+    act(() => button('Change model')?.click());
+    expect(container.textContent).toContain('Change model — Create');
+    expect(container.querySelector('input[placeholder="Search families or files"]')).not.toBeNull();
+
+    act(() => button('Add')?.click());
+    expect(container.textContent).toContain('Matches this model');
+    expect(container.textContent).toContain('Other bases');
+
+    act(() => button('Get a model from CivitAI')?.click());
+    expect(container.textContent).toContain('On this computer');
+    expect(container.textContent).toContain('Include adult models from civitai.red');
+    expect(container.textContent).not.toContain('CivitAI sign-in');
   });
 
   it('keeps Generate off for a metadata clash until Use anyway', async () => {
