@@ -182,7 +182,7 @@ class ComfyUiService {
   }
 
   Future<List<String>> fetchLoras() async {
-    final info = await _objectInfo();
+    final info = await _objectInfo(fresh: true);
     if (info == null) return const [];
     return optionsFromObjectInfo(info, 'LoraLoader', 'lora_name');
   }
@@ -295,7 +295,7 @@ class ComfyUiService {
   /// which the UI shows as "can't check" rather than a false "missing". Used to
   /// gate a bundled edit preset before the user can run it.
   Future<List<String>?> missingEditNodes(List<String> requiredNodes) async {
-    final info = await _objectInfo();
+    final info = await _objectInfo(fresh: true);
     if (info == null) return null;
     return requiredNodes.where((n) => !info.containsKey(n)).toList();
   }

@@ -369,7 +369,12 @@ Map<String, dynamic> graphToPost({
   );
   if (uploaded || named.isEmpty) return ready.graph;
   if (ready.unreachable) {
-    throw Exception('ComfyUI node list could not be read.');
+    // A plain checkpoint still runs when the node list times out. A GGUF
+    // file cannot, because the posted loader would be the wrong class.
+    if (_postNeedsNodeList(graph, named)) {
+      throw Exception('ComfyUI node list could not be read.');
+    }
+    return ready.graph;
   }
   if (ready.useUnetStarter) {
     throw Exception(
@@ -381,6 +386,26 @@ Map<String, dynamic> graphToPost({
     throw Exception('ComfyUI is missing the $missing node.');
   }
   return ready.graph;
+}
+
+/// True when posting [graph] has to know which GGUF loader this Comfy has.
+bool _postNeedsNodeList(Map<String, dynamic> graph, String primaryFile) {
+  if (isGgufFile(primaryFile)) return true;
+  for (final node in graph.values.whereType<Map>()) {
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    for (final entry in inputs.entries) {
+      final key = entry.key.toString();
+      if (key != 'unet_name' &&
+          key != 'ckpt_name' &&
+          !key.startsWith('clip_name')) {
+        continue;
+      }
+      final value = entry.value;
+      if (value is String && isGgufFile(value)) return true;
+    }
+  }
+  return false;
 }
 
 bool graphUsesLoader(Map<String, dynamic> graph, String classType) {

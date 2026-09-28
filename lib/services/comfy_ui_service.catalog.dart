@@ -18,15 +18,38 @@
 
 part of 'comfy_ui_service.dart';
 
+/// Long enough for one expression pack, short enough that a newly installed
+/// node shows up on the next sitting.
+const Duration _objectInfoFreshFor = Duration(minutes: 2);
+
+final Expando<Map<String, dynamic>> _objectInfoCache = Expando();
+final Expando<DateTime> _objectInfoCachedAt = Expando();
+
 extension _ComfyCatalog on ComfyUiService {
-  /// One /object_info fetch shared by the model/LoRA/sampler listings.
-  Future<Map<String, dynamic>?> _objectInfo() async {
+  /// One /object_info fetch shared by a generate and its sampler lookup.
+  /// A successful read is reused for [_objectInfoFreshFor]. Pass
+  /// [fresh] for a model or LoRA list: a file can appear the moment a
+  /// download finishes, and that list must not stay on the generate cache.
+  /// A failed read is not kept.
+  Future<Map<String, dynamic>?> _objectInfo({bool fresh = false}) async {
+    if (!fresh) {
+      final cached = _objectInfoCache[this];
+      final at = _objectInfoCachedAt[this];
+      if (cached != null &&
+          at != null &&
+          DateTime.now().difference(at) < _objectInfoFreshFor) {
+        return cached;
+      }
+    }
     try {
       final r = await http
           .get(Uri.parse('$_root/object_info'))
           .timeout(const Duration(seconds: 15));
       if (r.statusCode != 200) return null;
-      return jsonDecode(r.body) as Map<String, dynamic>;
+      final decoded = jsonDecode(r.body) as Map<String, dynamic>;
+      _objectInfoCache[this] = decoded;
+      _objectInfoCachedAt[this] = DateTime.now();
+      return decoded;
     } catch (e) {
       debugPrint('ComfyUI: object_info failed: $e');
       return null;
@@ -42,10 +65,11 @@ extension ComfyUiCatalogApi on ComfyUiService {
   }
 
   /// Raw `/object_info`, or null when this ComfyUI cannot be read.
-  Future<Map<String, dynamic>?> fetchObjectInfo() => _objectInfo();
+  /// Always a new read. The desk's Ready line must not reuse a generate.
+  Future<Map<String, dynamic>?> fetchObjectInfo() => _objectInfo(fresh: true);
 
   Future<ComfyFileCatalog> fetchCatalog() async {
-    final info = await _objectInfo();
+    final info = await _objectInfo(fresh: true);
     if (info == null) return const ComfyFileCatalog();
     return assembleComfyCatalog(
       checkpoints: ComfyUiService.optionsFromObjectInfo(
@@ -87,7 +111,7 @@ extension ComfyUiCatalogApi on ComfyUiService {
     String loaderClass,
     String inputName,
   ) async {
-    final info = await _objectInfo();
+    final info = await _objectInfo(fresh: true);
     if (info == null) return const [];
     return ComfyUiService.optionsFromObjectInfo(info, loaderClass, inputName);
   }
