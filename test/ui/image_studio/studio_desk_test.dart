@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
+import 'package:front_porch_ai/ui/image_studio/studio_edit_pane.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -35,13 +36,15 @@ void main() {
     final page = File(
       'lib/ui/image_studio/studio_view.dart',
     ).readAsStringSync();
-    expect(page.contains('StudioSettingsPanel'), isTrue);
-    expect(page.contains('StudioDesk'), isFalse);
+    expect(page.contains('StudioDesk'), isTrue);
+    expect(page.contains('StudioSettingsPanel'), isFalse);
     await tester.pumpWidget(
       MaterialApp(
         home: ChangeNotifierProvider<StorageService>.value(
           value: storage,
-          child: Scaffold(body: StudioDesk(onGenerate: () {})),
+          child: Scaffold(
+            body: SingleChildScrollView(child: StudioDesk(onGenerate: () {})),
+          ),
         ),
       ),
     );
@@ -68,5 +71,52 @@ void main() {
 
     expect(storage.imageGenSettings.imageGenModel, 'portrait.safetensors');
     expect(generate().onPressed, isNotNull);
+  });
+
+  test(
+    'the edit pane is fixed to edit and local backends list their models',
+    () {
+      final desk = File(
+        'lib/ui/image_studio/studio_desk.dart',
+      ).readAsStringSync();
+      final view = File(
+        'lib/ui/image_studio/studio_view.dart',
+      ).readAsStringSync();
+      final pane = File(
+        'lib/ui/image_studio/studio_edit_pane.dart',
+      ).readAsStringSync();
+      expect(desk.contains('fetchA1111Models'), isTrue);
+      expect(desk.contains('fetchDrawThingsModels'), isTrue);
+      expect(view.contains('editMode: false'), isTrue);
+      expect(pane.contains('editMode: true'), isTrue);
+    },
+  );
+
+  testWidgets('the edit pane reports the edit model, not the create slot', (
+    tester,
+  ) async {
+    final dir = Directory.systemTemp.createTempSync('studio-edit-pane');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final storage = StorageService.sandbox(dir.path);
+    await storage.imageGenSettings.setImageGenBackend('remote');
+    await storage.imageGenSettings.setImageGenEditModel('vendor/flux');
+    bool? ready;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StorageService>.value(
+          value: storage,
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: StudioEditPane(onReadyChanged: (value) => ready = value),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Create'), findsNothing);
+    expect(find.text('vendor/flux'), findsOneWidget);
+    expect(ready, isTrue);
+    expect(storage.imageGenSettings.imageGenModel, isNot('vendor/flux'));
   });
 }

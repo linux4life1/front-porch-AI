@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/image/comfy_catalog.dart';
+import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/services/image/studio_readiness.dart';
@@ -247,6 +248,18 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  test('a remote model stored on the create slot is ready', () {
+    final id = pickRemoteImageModelId(slotModel: 'vendor/flux', hostModel: '');
+    expect(id, 'vendor/flux');
+    final ready = deskReadiness(
+      backend: 'remote',
+      primaryFile: id!,
+      objectInfo: null,
+    );
+    expect(ready.kind, StudioReady.ready);
+    expect(generateEnabled(ready), isTrue);
   });
 
   test('a metadata-certain LoRA mismatch keeps Generate off', () {

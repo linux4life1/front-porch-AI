@@ -16,7 +16,11 @@ class StudioEditPane extends StatelessWidget {
   Widget build(BuildContext context) {
     return IgnorePointer(
       ignoring: busy,
-      child: StudioDesk(onReadyChanged: onReadyChanged),
+      child: StudioDesk(
+        editMode: true,
+        showGenerate: false,
+        onReadyChanged: onReadyChanged,
+      ),
     );
   }
 }

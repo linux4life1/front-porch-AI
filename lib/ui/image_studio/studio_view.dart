@@ -33,7 +33,7 @@ import 'mode_info_card.dart';
 import 'style_preview.dart';
 import 'studio_helpers.dart';
 import 'subject_picker.dart';
-import 'settings_panel.dart';
+import 'studio_desk.dart';
 
 /// Presentational shell for the Image Studio: the dialog frame, header, subject
 /// picker, style/reference/prompt canvas, generate/result/history, and the
@@ -90,8 +90,7 @@ class StudioView extends StatelessWidget {
 
   final ImageGenMode activeMode;
   final String? characterName;
-  final List<({String name, String description, String? dbId})>
-  groupCharacters;
+  final List<({String name, String description, String? dbId})> groupCharacters;
   final bool groupShotActive;
   final ValueChanged<int>? onPickGroupMember;
   final VoidCallback? onPickGroupShot;
@@ -132,7 +131,8 @@ class StudioView extends StatelessWidget {
   final VoidCallback onEditRegen;
   final VoidCallback? onSendToChat;
   final VoidCallback? onSaveToGallery;
-  final ValueChanged<({String prompt, Uint8List bytes, String style})> onRestore;
+  final ValueChanged<({String prompt, Uint8List bytes, String style})>
+  onRestore;
 
   /// The Create | Edit tab bar, rendered under the header (null = no tabs).
   final Widget? modeTabs;
@@ -170,121 +170,133 @@ class StudioView extends StatelessWidget {
                 index: showEdit ? 1 : 0,
                 children: [
                   SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SubjectPicker(
-                      selected: activeMode,
-                      characterName: characterName,
-                      groupCharacters: groupCharacters,
-                      onChanged: isBusy ? null : onSelectSubject,
-                      onPickGroupMember: isBusy ? null : onPickGroupMember,
-                      onPickGroupShot: isBusy ? null : onPickGroupShot,
-                    ),
-                    if (groupShotActive) ...[
-                      const SizedBox(height: 8),
-                      _groupShotCaveat(context),
-                    ],
-                    const SizedBox(height: 12),
-                    ModeInfoCard(mode: activeMode),
-                    if (onExpressionPack != null &&
-                        activeMode == ImageGenMode.characterPortrait) ...[
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: isBusy ? null : onExpressionPack,
-                        icon: Icon(
-                          Icons.theater_comedy,
-                          size: 16,
-                          color: AppColors.iconSecondary(context),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SubjectPicker(
+                          selected: activeMode,
+                          characterName: characterName,
+                          groupCharacters: groupCharacters,
+                          onChanged: isBusy ? null : onSelectSubject,
+                          onPickGroupMember: isBusy ? null : onPickGroupMember,
+                          onPickGroupShot: isBusy ? null : onPickGroupShot,
                         ),
-                        label: Text(
-                          'Expression pack…',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary(context),
+                        if (groupShotActive) ...[
+                          const SizedBox(height: 8),
+                          _groupShotCaveat(context),
+                        ],
+                        const SizedBox(height: 12),
+                        ModeInfoCard(mode: activeMode),
+                        if (onExpressionPack != null &&
+                            activeMode == ImageGenMode.characterPortrait) ...[
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: isBusy ? null : onExpressionPack,
+                            icon: Icon(
+                              Icons.theater_comedy,
+                              size: 16,
+                              color: AppColors.iconSecondary(context),
+                            ),
+                            label: Text(
+                              'Expression pack…',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary(context),
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              side: BorderSide(
+                                color: AppColors.borderOf(context),
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        _DeskGate(
+                          isBusy: isBusy,
+                          onGenerate: onGenerate,
+                          below: (generate) => Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              StylePreview(
+                                selectedStyle: selectedStyle,
+                                paradigm: paradigm,
+                                builder: builder,
+                                onStyleChanged: isBusy ? null : onStyleChanged,
+                                onParadigmChanged: isBusy
+                                    ? null
+                                    : onParadigmChanged,
+                              ),
+                              const SizedBox(height: 12),
+                              ReferenceImagePicker(
+                                referenceBytes: referenceBytes,
+                                isBusy: isBusy,
+                                onPick: onPickReference,
+                                onClear: onClearReference,
+                              ),
+                              const SizedBox(height: 12),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 220),
+                                child: view == 'workspace'
+                                    ? PromptWorkspace(
+                                        key: const ValueKey('workspace'),
+                                        prompt: prompt,
+                                        negative: negative,
+                                        ctx: ctx,
+                                        builder: builder,
+                                        paradigm: paradigm,
+                                        llmAvailable: llmAvailable,
+                                        isBusy: isBusy,
+                                        onPromptChanged: onPromptChanged,
+                                        onNegativeChanged: onNegativeChanged,
+                                        onCraftLlm: onCraftLlm,
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+                              GenerationPanel(
+                                onGenerate: generate,
+                                isGenerating: isGenerating,
+                                isCrafting: isCrafting,
+                                error: error,
+                                promptIsSane: prompt.trim().isNotEmpty,
+                              ),
+                            ],
                           ),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          side: BorderSide(color: AppColors.borderOf(context)),
+                        const SizedBox(height: 12),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          child: view == 'result'
+                              ? ResultView(
+                                  key: const ValueKey('result'),
+                                  imageBytes: currentImageBytes!,
+                                  hasAccept: hasAcceptAction(activeMode),
+                                  acceptLabel: getAcceptLabel(activeMode),
+                                  isSaving: saving,
+                                  onSave: onSave,
+                                  onAccept: onAccept,
+                                  onVariations: onVariations,
+                                  onEditRegen: onEditRegen,
+                                  onSendToChat: onSendToChat,
+                                  onSaveToGallery: onSaveToGallery,
+                                )
+                              : const SizedBox.shrink(),
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    // Generation Settings live above the style box so they're
-                    // visible without scrolling; the fold-out stays collapsible.
-                    StudioSettingsPanel(initiallyExpanded: !configured),
-                    const SizedBox(height: 12),
-                    StylePreview(
-                      selectedStyle: selectedStyle,
-                      paradigm: paradigm,
-                      builder: builder,
-                      onStyleChanged: isBusy ? null : onStyleChanged,
-                      onParadigmChanged: isBusy ? null : onParadigmChanged,
+                        if (history.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          GenerationHistory(
+                            entries: history,
+                            onRestore: onRestore,
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    ReferenceImagePicker(
-                      referenceBytes: referenceBytes,
-                      isBusy: isBusy,
-                      onPick: onPickReference,
-                      onClear: onClearReference,
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: view == 'workspace'
-                          ? PromptWorkspace(
-                              key: const ValueKey('workspace'),
-                              prompt: prompt,
-                              negative: negative,
-                              ctx: ctx,
-                              builder: builder,
-                              paradigm: paradigm,
-                              llmAvailable: llmAvailable,
-                              isBusy: isBusy,
-                              onPromptChanged: onPromptChanged,
-                              onNegativeChanged: onNegativeChanged,
-                              onCraftLlm: onCraftLlm,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    GenerationPanel(
-                      onGenerate: isBusy ? null : onGenerate,
-                      isGenerating: isGenerating,
-                      isCrafting: isCrafting,
-                      error: error,
-                      promptIsSane: prompt.trim().isNotEmpty,
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: view == 'result'
-                          ? ResultView(
-                              key: const ValueKey('result'),
-                              imageBytes: currentImageBytes!,
-                              hasAccept: hasAcceptAction(activeMode),
-                              acceptLabel: getAcceptLabel(activeMode),
-                              isSaving: saving,
-                              onSave: onSave,
-                              onAccept: onAccept,
-                              onVariations: onVariations,
-                              onEditRegen: onEditRegen,
-                              onSendToChat: onSendToChat,
-                              onSaveToGallery: onSaveToGallery,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    if (history.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      GenerationHistory(entries: history, onRestore: onRestore),
-                    ],
-                  ],
-                ),
-              ),
+                  ),
                   editBody ?? const SizedBox.shrink(),
                 ],
               ),
@@ -355,6 +367,46 @@ class StudioView extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Desk plus the prompt column. Generate stays off until the desk is ready.
+class _DeskGate extends StatefulWidget {
+  const _DeskGate({
+    required this.isBusy,
+    required this.onGenerate,
+    required this.below,
+  });
+
+  final bool isBusy;
+  final VoidCallback? onGenerate;
+  final Widget Function(VoidCallback? generate) below;
+
+  @override
+  State<_DeskGate> createState() => _DeskGateState();
+}
+
+class _DeskGateState extends State<_DeskGate> {
+  bool _ready = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final generate = _ready && !widget.isBusy ? widget.onGenerate : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        StudioDesk(
+          editMode: false,
+          showGenerate: false,
+          onReadyChanged: (ready) {
+            if (!mounted || _ready == ready) return;
+            setState(() => _ready = ready);
+          },
+        ),
+        const SizedBox(height: 12),
+        widget.below(generate),
+      ],
     );
   }
 }

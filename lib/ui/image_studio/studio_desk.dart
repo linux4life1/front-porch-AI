@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
 import 'package:front_porch_ai/services/image/draw_things_samplers.dart';
+import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/services/image/studio_readiness.dart';
@@ -17,6 +18,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'civitai_sheet.dart';
 import 'studio_civitai_get.dart';
 import 'studio_commit_field.dart';
+import 'studio_desk_knobs.dart';
 import 'studio_lora_sheet.dart';
 import 'studio_search_sheet.dart';
 import 'studio_size_fields.dart';
@@ -25,10 +27,22 @@ part 'studio_desk_actions.dart';
 
 /// The studio desk. Reads and writes [StorageService] image settings.
 class StudioDesk extends StatefulWidget {
-  const StudioDesk({super.key, this.onGenerate, this.onReadyChanged});
+  const StudioDesk({
+    super.key,
+    this.onGenerate,
+    this.onReadyChanged,
+    this.showGenerate = true,
+    this.editMode,
+  });
+
+  /// When set, Create/Edit is fixed by the page. Null shows the desk toggle.
+  final bool? editMode;
 
   /// The studio's real generate action. Disabled until [deskReadiness] allows it.
   final VoidCallback? onGenerate;
+
+  /// The Studio page has its own Generate button. The desk hides this one there.
+  final bool showGenerate;
 
   /// Fired when readiness flips. The Edit tab uses this to block Apply.
   final ValueChanged<bool>? onReadyChanged;
@@ -39,6 +53,8 @@ class StudioDesk extends StatefulWidget {
 
 class _StudioDeskState extends State<StudioDesk> {
   bool _edit = false;
+
+  bool get _editing => widget.editMode ?? _edit;
   bool _adult = false;
   Map<String, dynamic>? _objectInfo;
   List<String> _models = const [];
@@ -62,8 +78,36 @@ class _StudioDeskState extends State<StudioDesk> {
     ImageGenSettings settings, {
     bool force = false,
   }) async {
+    if (settings.imageGenBackend == 'a1111' ||
+        settings.imageGenBackend == 'drawthings') {
+      final url = settings.imageGenBackend == 'a1111'
+          ? settings.localImageGenUrl
+          : '${settings.drawThingsGrpcHost}:${settings.drawThingsGrpcPort}';
+      if (!force && _catalogUrl == url) return;
+      _catalogUrl = url;
+      ImageGenService? gen;
+      try {
+        gen = context.read<ImageGenService>();
+      } on ProviderNotFoundException {
+        gen = null;
+      }
+      if (gen == null) return;
+      final models = settings.imageGenBackend == 'a1111'
+          ? await gen.fetchA1111Models(url)
+          : await gen.fetchDrawThingsModels(url);
+      if (!mounted) return;
+      setState(() {
+        _objectInfo = null;
+        _models = models;
+        _checkpoints = const [];
+        _unet = const [];
+        _gguf = const [];
+        _loras = const [];
+      });
+      return;
+    }
     if (settings.imageGenBackend != 'comfyui') {
-      if (_catalogUrl != null) {
+      if (_catalogUrl != null || _models.isNotEmpty) {
         setState(() {
           _objectInfo = null;
           _models = const [];
@@ -101,80 +145,45 @@ class _StudioDeskState extends State<StudioDesk> {
     });
   }
 
-  Future<void> _pickModel(ImageGenSettings settings, String file) async {
-    if (settings.imageGenBackend == 'remote') {
-      await settings.setRemoteImageModelFor(
-        settings.imageRemoteApiUrl,
-        file,
-        edit: _edit,
-      );
-      return;
-    }
-    if (settings.imageGenBackend == 'comfyui') {
-      final id = _edit
-          ? settings.comfyEditWorkflowId
-          : settings.comfyCreateWorkflowId;
-      final token = deskComfyToken(workflowId: id, file: file);
-      if (_edit) {
-        await settings.setComfyEditModelChoice(id, token, file);
-      } else {
-        await settings.setComfyCreateModelChoice(id, token, file);
-      }
-      return;
-    }
-    if (_edit) {
-      await settings.setImageGenEditModel(file);
-    } else {
-      await settings.setImageGenModel(file);
-    }
-  }
-
-  Future<void> _saveGraph(ImageGenSettings settings, String raw) async {
-    final kept = pngWorkflowText({'prompt': raw});
-    if (kept == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('That file has no workflow.')),
-      );
-      return;
-    }
-    if (_edit) {
-      await settings.setComfyEditUploadedWorkflow(kept);
-      await settings.setComfyEditWorkflowId('__uploaded__');
-    } else {
-      await settings.setComfyCreateUploadedWorkflow(kept);
-      await settings.setComfyCreateWorkflowId('__uploaded__');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<StorageService>().imageGenSettings;
     final backend = settings.imageGenBackend;
-    final workflowId = _edit
+    final editing = _editing;
+    final workflowId = editing
         ? settings.comfyEditWorkflowId
         : settings.comfyCreateWorkflowId;
-    final choices = _edit
+    final choices = editing
         ? settings.comfyEditModelChoices
         : settings.comfyCreateModelChoices;
+    final slotModel = editing
+        ? settings.imageGenEditModel
+        : settings.imageGenModel;
     final legacy = backend == 'remote'
-        ? settings.remoteImageModelFor(settings.imageRemoteApiUrl, edit: _edit)
-        : (_edit ? settings.imageGenEditModel : settings.imageGenModel);
+        ? (pickRemoteImageModelId(
+                slotModel: slotModel,
+                hostModel: settings.remoteImageModelFor(
+                  settings.imageRemoteApiUrl,
+                  edit: editing,
+                ),
+              ) ??
+              '')
+        : slotModel;
     final primary = deskPrimaryFile(
       backend: backend,
-      edit: _edit,
+      edit: _editing,
       workflowId: workflowId,
       choices: choices,
       legacyModel: legacy,
     );
-    final uploaded = _edit
+    final uploaded = _editing
         ? settings.comfyEditUploadedWorkflow
         : settings.comfyCreateUploadedWorkflow;
     final ready = deskReadiness(
       backend: backend,
       primaryFile: primary,
       objectInfo: backend == 'comfyui' ? _objectInfo : const {},
-      edit: _edit,
+      edit: _editing,
       workflowId: workflowId,
       uploadedWorkflowJson: uploaded,
       modelChoices: choices,
@@ -194,6 +203,7 @@ class _StudioDeskState extends State<StudioDesk> {
     final height = parts.length > 1 ? int.tryParse(parts[1]) ?? 1024 : 1024;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
         DropdownButton<String>(
           value: backend,
@@ -216,14 +226,15 @@ class _StudioDeskState extends State<StudioDesk> {
           onSubmit: (value) => _saveUrl(settings, value),
         ),
         const SizedBox(height: 8),
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: false, label: Text('Create')),
-            ButtonSegment(value: true, label: Text('Edit')),
-          ],
-          selected: {_edit},
-          onSelectionChanged: (value) => setState(() => _edit = value.first),
-        ),
+        if (widget.editMode == null)
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Create')),
+              ButtonSegment(value: true, label: Text('Edit')),
+            ],
+            selected: {_edit},
+            onSelectionChanged: (value) => setState(() => _edit = value.first),
+          ),
         Text(
           primary.isEmpty ? 'No model chosen' : primary,
           style: TextStyle(color: AppColors.textPrimary(context)),
@@ -278,24 +289,36 @@ class _StudioDeskState extends State<StudioDesk> {
           onChanged: (w, h) => settings.setImageGenSize('${w}x$h'),
         ),
         StudioCommitField(
-          key: ValueKey('steps-${settings.imageGenSteps}'),
-          value: '${settings.imageGenSteps}',
+          key: ValueKey(
+            'steps-${editing ? settings.editSteps : settings.imageGenSteps}',
+          ),
+          value: '${editing ? settings.editSteps : settings.imageGenSteps}',
           label: 'Steps',
           onSubmit: (value) {
             final steps = int.tryParse(value);
-            if (steps != null) settings.setImageGenSteps(steps);
+            if (steps == null) return;
+            if (editing) {
+              settings.setEditSteps(steps);
+            } else {
+              settings.setImageGenSteps(steps);
+            }
           },
         ),
         if (backend == 'drawthings')
           DropdownButton<int>(
-            value: settings.drawThingsSampler,
+            value: editing ? settings.editSampler : settings.drawThingsSampler,
             isExpanded: true,
             items: [
               for (final row in kDrawThingsSamplers)
                 DropdownMenuItem(value: row.value, child: Text(row.label)),
             ],
             onChanged: (value) {
-              if (value != null) settings.setDrawThingsSampler(value);
+              if (value == null) return;
+              if (editing) {
+                settings.setEditSampler(value);
+              } else {
+                settings.setDrawThingsSampler(value);
+              }
             },
           )
         else
@@ -305,6 +328,7 @@ class _StudioDeskState extends State<StudioDesk> {
             label: 'Sampler',
             onSubmit: settings.setImageGenSampler,
           ),
+        StudioDeskKnobs(settings: settings, edit: editing),
         Wrap(
           spacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -349,10 +373,11 @@ class _StudioDeskState extends State<StudioDesk> {
             ),
           ],
         ),
-        FilledButton(
-          onPressed: enabled ? widget.onGenerate : null,
-          child: const Text('Generate'),
-        ),
+        if (widget.showGenerate)
+          FilledButton(
+            onPressed: enabled ? widget.onGenerate : null,
+            child: const Text('Generate'),
+          ),
       ],
     );
   }

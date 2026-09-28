@@ -27,11 +27,10 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-import 'comfy_edit_panel.dart';
 import 'edit_recipe_strip.dart';
 import 'edit_source_well.dart';
 import 'result_view.dart';
-import 'settings_panel.dart';
+import 'studio_edit_pane.dart';
 
 /// The **Edit** tab: keep this exact character, describe the change. Feeds the
 /// same [ImageGenService.generateImage] with `intent: StudioIntent.edit`, so the
@@ -264,21 +263,15 @@ class _EditViewState extends State<EditView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const StudioSettingsPanel(editScoped: true),
-          // Backend-specific edit setup: Draw Things gets its recipe strip;
-          // ComfyUI gets the workflow picker + model dropdowns + readiness.
+          StudioEditPane(
+            busy: _busy || genBusy,
+            onReadyChanged: (ready) => setState(() => _comfyReady = ready),
+          ),
           if (backend == ImageGenBackend.drawThings) ...[
             const SizedBox(height: 10),
             EditRecipeStrip(
               busy: _busy || genBusy,
               onUseRecommended: _useRecommendedEdit,
-            ),
-          ],
-          if (backend == ImageGenBackend.comfyUi) ...[
-            const SizedBox(height: 10),
-            ComfyEditPanel(
-              busy: _busy || genBusy,
-              onReadyChanged: (r) => setState(() => _comfyReady = r),
             ),
           ],
           const SizedBox(height: 16),

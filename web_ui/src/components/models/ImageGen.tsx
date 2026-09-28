@@ -7,8 +7,8 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StepUpFields } from '../StepUpFields';
-import { ComfyCreateFields, type ComfyPreset } from './ComfyCreateFields';
-import { ComfyEditFields } from './ComfyEditFields';
+import type { ComfyPreset } from './ComfyCreateFields';
+import { StudioDesk } from './StudioDesk';
 import { ImageRemoteFields } from './ImageRemoteFields';
 import type { ImageRemoteHost } from './imageRemote';
 
@@ -64,8 +64,6 @@ const STYLES: Record<string, string> = {
   digital_art: 'Digital Art',
   watercolor: 'Watercolor',
 };
-const SIZES = ['512x512', '768x768', '1024x1024', '1536x1024', '1024x1536'];
-
 export function ImageGen({ onError }: { onError: (s: string) => void }) {
   const [cfg, setCfg] = useState<ImageConfig | null>(null);
   const [prompt, setPrompt] = useState('');
@@ -73,6 +71,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   const [filename, setFilename] = useState<string | null>(null);
   const [inserted, setInserted] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deskReady, setDeskReady] = useState(false);
   const [savedRemoteApiUrl, setSavedRemoteApiUrl] = useState('');
   const [savedLocalUrl, setSavedLocalUrl] = useState('');
   const [savedComfyUrl, setSavedComfyUrl] = useState('');
@@ -164,16 +163,25 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   return (
     <section className="card">
       <h3>Image generation</h3>
-      <label>
-        Backend
-        <select value={cfg.backend} onChange={(e) => { set({ backend: e.target.value }); void saveConfig({ backend: e.target.value }); }}>
-          <option value="remote">Remote API</option>
-          <option value="a1111">Local (A1111)</option>
-          <option value="drawthings">Local (Draw Things)</option>
-          <option value="comfyui">Local (ComfyUI)</option>
-        </select>
-      </label>
-      {cfg.backend === 'remote' ? (
+      <StudioDesk
+        backend={cfg.backend}
+        model={cfg.model}
+        size={cfg.size}
+        steps={cfg.steps}
+        sampler={cfg.sampler}
+        workflowId={cfg.comfyCreateWorkflowId ?? 'sd'}
+        editWorkflowId={cfg.comfyEditWorkflowId ?? 'qwen_image_edit'}
+        modelChoices={cfg.comfyCreateModelChoices ?? {}}
+        editModelChoices={cfg.comfyEditModelChoices ?? {}}
+        comfyUrl={cfg.comfyUrl}
+        localUrl={cfg.localUrl}
+        drawThingsHost={cfg.drawThingsHost}
+        remoteUrl={cfg.remoteApiUrl}
+        onSave={(patch) => { set(patch as Partial<ImageConfig>); return saveConfig(patch); }}
+        onReady={setDeskReady}
+        watch={`${cfg.model}|${cfg.lora ?? ''}|${JSON.stringify(cfg.loras ?? [])}|${JSON.stringify(cfg.comfyCreateModelChoices ?? {})}|${cfg.imageRemoteHost ?? ''}`}
+      />
+      {cfg.backend === 'remote' && (
         <ImageRemoteFields
           selectedHostId={cfg.imageRemoteHost ?? ''}
           hosts={cfg.imageRemoteHosts ?? []}
@@ -190,91 +198,6 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           }}
           onError={onError}
         />
-      ) : cfg.backend === 'a1111' ? (
-        <>
-          <label>
-            A1111 URL
-            <input
-              value={cfg.localUrl}
-              onChange={(e) => set({ localUrl: e.target.value })}
-              onBlur={() => {
-                if (cfg.localUrl === savedLocalUrl) return;
-                if (password) void saveConfig({ localUrl: cfg.localUrl });
-              }}
-              placeholder="http://127.0.0.1:7860"
-            />
-          </label>
-          {surface?.checkpointSlot && (
-            <label>
-              Model <span className="muted small">(checkpoint, optional)</span>
-              <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} onBlur={() => saveConfig({ model: cfg.model })} />
-            </label>
-          )}
-        </>
-      ) : cfg.backend === 'comfyui' ? (
-        <>
-          <label>
-            ComfyUI URL
-            <input
-              value={cfg.comfyUrl}
-              onChange={(e) => set({ comfyUrl: e.target.value })}
-              onBlur={() => {
-                if (cfg.comfyUrl === savedComfyUrl) return;
-                if (password) void saveConfig({ comfyUrl: cfg.comfyUrl });
-              }}
-              placeholder="http://127.0.0.1:8188"
-            />
-          </label>
-          {surface?.workflowSlots && (
-            <>
-              <ComfyCreateFields
-                workflowId={cfg.comfyCreateWorkflowId ?? 'sd'}
-                modelChoices={cfg.comfyCreateModelChoices ?? {}}
-                presets={cfg.comfyCreatePresets ?? []}
-                onChange={(patch) => {
-                  set(patch as Partial<ImageConfig>);
-                  return saveConfig(patch);
-                }}
-              />
-              <ComfyEditFields
-                workflowId={cfg.comfyEditWorkflowId ?? 'qwen_image_edit'}
-                modelChoices={cfg.comfyEditModelChoices ?? {}}
-                presets={cfg.comfyEditPresets ?? []}
-                onChange={(patch) => {
-                  set(patch as Partial<ImageConfig>);
-                  return saveConfig(patch);
-                }}
-              />
-            </>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="img-row2">
-            <label>
-              Draw Things host
-              <input
-                value={cfg.drawThingsHost}
-                onChange={(e) => set({ drawThingsHost: e.target.value })}
-                onBlur={() => {
-                  if (cfg.drawThingsHost === savedDrawThingsHost) return;
-                  if (password) void saveConfig({ drawThingsHost: cfg.drawThingsHost });
-                }}
-                placeholder="127.0.0.1"
-              />
-            </label>
-            <label>
-              gRPC port
-              <input type="number" value={cfg.drawThingsPort} onChange={(e) => set({ drawThingsPort: Number(e.target.value) })} onBlur={() => cfg.drawThingsPort > 0 && saveConfig({ drawThingsPort: cfg.drawThingsPort })} />
-            </label>
-          </div>
-          {surface?.checkpointSlot && (
-            <label>
-              Model <span className="muted small">(optional)</span>
-              <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} onBlur={() => saveConfig({ model: cfg.model })} />
-            </label>
-          )}
-        </>
       )}
       {((cfg.backend === 'a1111' && cfg.localUrl !== savedLocalUrl) ||
         (cfg.backend === 'comfyui' && cfg.comfyUrl !== savedComfyUrl) ||
@@ -320,34 +243,17 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           {Object.entries(STYLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </label>
-      <div className="img-row2">
-        <label>
-          Size
-          <select value={cfg.size} onChange={(e) => { set({ size: e.target.value }); void saveConfig({ size: e.target.value }); }}>
-            {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </label>
-        <label>
-          Sampler
-          <input value={cfg.sampler} onChange={(e) => set({ sampler: e.target.value })} onBlur={() => saveConfig({ sampler: cfg.sampler })} placeholder="Euler a" />
-        </label>
-      </div>
+
       {surface?.scheduler && (
         <label>
           Scheduler <span className="muted small">(noise schedule — karras, exponential, sgm_uniform…)</span>
           <input value={cfg.scheduler} onChange={(e) => set({ scheduler: e.target.value })} onBlur={() => saveConfig({ scheduler: cfg.scheduler })} placeholder="Automatic" />
         </label>
       )}
-      <div className="img-row2">
-        <label>
-          Steps
-          <input type="number" min={1} max={150} value={cfg.steps} onChange={(e) => set({ steps: Number(e.target.value) })} onBlur={() => cfg.steps > 0 && saveConfig({ steps: cfg.steps })} />
-        </label>
-        <label>
-          CFG scale
-          <input type="number" min={1} max={30} step={0.5} value={cfg.cfgScale} onChange={(e) => set({ cfgScale: Number(e.target.value) })} onBlur={() => cfg.cfgScale > 0 && saveConfig({ cfgScale: cfg.cfgScale })} />
-        </label>
-      </div>
+      <label>
+        CFG scale
+        <input type="number" min={1} max={30} step={0.5} value={cfg.cfgScale} onChange={(e) => set({ cfgScale: Number(e.target.value) })} onBlur={() => cfg.cfgScale > 0 && saveConfig({ cfgScale: cfg.cfgScale })} />
+      </label>
       {surface?.negative && (
         <label>
           Negative prompt
@@ -372,7 +278,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         Prompt
         <textarea rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe the image…" />
       </label>
-      <button className="primary" disabled={busy || !prompt.trim()} onClick={generate}>
+      <button className="primary" disabled={busy || !prompt.trim() || !deskReady} onClick={generate}>
         {busy ? 'Generating…' : 'Generate'}
       </button>
       {image && (

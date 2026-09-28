@@ -17,7 +17,12 @@ export interface StudioDeskProps {
   localUrl: string;
   drawThingsHost: string;
   remoteUrl: string;
-  onSave: (patch: Record<string, unknown>) => void;
+  editWorkflowId?: string;
+  editModelChoices?: Record<string, string>;
+  onSave: (patch: Record<string, unknown>) => void | Promise<unknown>;
+  onReady?: (ready: boolean) => void;
+  /** Extra page state that should refetch Create readiness. */
+  watch?: string;
 }
 
 function snap(n: number): number {
@@ -37,57 +42,106 @@ export function StudioDesk(props: StudioDeskProps) {
   const [token, setToken] = useState('');
   const [graph, setGraph] = useState('');
   const [note, setNote] = useState('');
-  const [catalogReachable, setCatalogReachable] = useState<boolean | null>(null);
-  const diffusion = props.modelChoices?.[`${props.workflowId}/%MODEL_DIFFUSION%`] ?? '';
-  const checkpoint = props.modelChoices?.[`${props.workflowId}/%MODEL_CHECKPOINT%`] ?? '';
+  const activeWorkflow = mode === 'edit'
+    ? (props.editWorkflowId || 'qwen_image_edit')
+    : props.workflowId;
+  const choices = mode === 'edit' ? (props.editModelChoices ?? {}) : (props.modelChoices ?? {});
+  const diffusion = choices[`${activeWorkflow}/%MODEL_DIFFUSION%`] ?? '';
+  const checkpoint = choices[`${activeWorkflow}/%MODEL_CHECKPOINT%`] ?? '';
   const file = props.backend === 'comfyui'
-    ? (diffusion || checkpoint || (props.workflowId === 'sd' ? props.model : ''))
+    ? (diffusion || checkpoint || (mode === 'create' && activeWorkflow === 'sd' ? props.model : ''))
     : ((mode === 'edit' ? props.editModel : props.model) ?? '');
   const [width, height] = props.size.split('x');
-  const generateOn = props.backend === 'comfyui'
-    ? catalogReachable === true && file.trim().length > 0
-    : file.trim().length > 0;
-
+  const [serverReady, setServerReady] = useState(false);
+  const [savedTick, setSavedTick] = useState(0);
+  const commit = (patch: Record<string, unknown>) => {
+    void Promise.resolve(props.onSave(patch)).finally(() => {
+      setSavedTick((n) => n + 1);
+    });
+  };
   useEffect(() => {
-    if (props.backend !== 'comfyui') {
-      setCatalogReachable(null);
-      return;
-    }
     let live = true;
-    void api.get('/api/image/comfy-catalog').then(() => {
-      if (live) setCatalogReachable(true);
+    void api.get<{ ready?: boolean }>('/api/image/studio/ready?mode=create').then((body) => {
+      if (live) setServerReady(body.ready === true);
     }).catch(() => {
-      if (live) setCatalogReachable(false);
+      if (live) setServerReady(false);
     });
     return () => { live = false; };
-  }, [props.backend, props.comfyUrl]);
+  }, [props.backend, props.model, props.workflowId, props.comfyUrl, props.watch, file, savedTick]);
+  useEffect(() => {
+    props.onReady?.(serverReady);
+  }, [serverReady, props.onReady]);
 
   const search = (kind: string) => {
     setSheet(kind);
     setQuery('');
+    setNote('');
+    if (kind === 'Graph search') {
+      setHits(mode === 'edit'
+        ? ['qwen_image_edit', 'flux_kontext']
+        : ['sd', 'z_image_turbo', 'flux', 'qwen_image']);
+      return;
+    }
+    if (kind === 'Model search' || kind === 'LoRA search') {
+      if (props.backend !== 'comfyui') {
+        setHits([]);
+        return;
+      }
+      void api.get<{ deskDiscovery?: string[]; loras?: string[] }>('/api/image/comfy-catalog')
+        .then((cat) => {
+          setHits(kind === 'LoRA search' ? (cat.loras ?? []) : (cat.deskDiscovery ?? []));
+        })
+        .catch(() => setHits([]));
+      return;
+    }
     setHits([]);
     const q = query.trim();
     if (!q) return;
+    const sheetKind = kind === 'Get a LoRA' ? 'lora' : 'model';
     void api
-      .get<{ items?: { name?: string; filename?: string }[] }>(
-        `/api/image/civitai/search?q=${encodeURIComponent(q)}&adult=${adult ? 'true' : 'false'}&sheet=${kind === 'Get a LoRA' || kind === 'LoRA search' ? 'lora' : 'model'}`,
+      .get<{ items?: { name?: string; filename?: string }[]; needsCredential?: boolean }>(
+        `/api/image/civitai/search?q=${encodeURIComponent(q)}&adult=${adult ? 'true' : 'false'}&sheet=${sheetKind}`,
       )
       .then((body) => {
-        setHits((body.items ?? []).map((row) => row.filename || row.name || '').filter(Boolean));
+        if (body.needsCredential) {
+          setNote('Sign in to CivitAI to search adult models.');
+          setHits([]);
+          return;
+        }
+        setHits((body.items ?? []).map((row) => row.filename || '').filter(Boolean));
       })
       .catch(() => setHits([]));
   };
 
-  const saveModel = (name: string) => {
+  const saveInstalled = (name: string) => {
+    if (sheet === 'Graph search') {
+      if (mode === 'edit') commit({ comfyEditWorkflowId: name });
+      else commit({ comfyCreateWorkflowId: name });
+      setSheet(null);
+      return;
+    }
+    if (sheet === 'LoRA search') {
+      commit({ lora: name });
+      setSheet(null);
+      return;
+    }
+    if (sheet === 'Get a model' || sheet === 'Get a LoRA') {
+      setNote('That row is a CivitAI file. It is not selected until it is on this computer.');
+      return;
+    }
     if (props.backend === 'comfyui') {
-      props.onSave({
-        comfyCreateWorkflowId: props.workflowId,
-        comfyCreateModelChoices: { [`${props.workflowId}/%MODEL_DIFFUSION%`]: name },
-      });
+      const token = name.toLowerCase().endsWith('.gguf') || activeWorkflow !== 'sd'
+        ? '%MODEL_DIFFUSION%'
+        : '%MODEL_CHECKPOINT%';
+      const key = `${activeWorkflow}/${token}`;
+      const prior = mode === 'edit' ? props.editModelChoices : props.modelChoices;
+      const choices = { ...(prior ?? {}), [key]: name };
+      if (mode === 'edit') commit({ comfyEditModelChoices: choices });
+      else commit({ comfyCreateModelChoices: choices });
     } else if (mode === 'edit') {
-      props.onSave({ editModel: name });
+      commit({ editModel: name });
     } else {
-      props.onSave({ model: name });
+      commit({ model: name });
     }
     setSheet(null);
   };
@@ -95,7 +149,7 @@ export function StudioDesk(props: StudioDeskProps) {
   const saveSize = (nextWidth: string, nextHeight: string) => {
     const w = snap(Number(nextWidth) || 1024);
     const h = snap(Number(nextHeight) || 1024);
-    props.onSave({ size: `${w}x${h}` });
+    commit({ size: `${w}x${h}` });
   };
 
   const saveKey = () => {
@@ -112,10 +166,17 @@ export function StudioDesk(props: StudioDeskProps) {
       setNote('That file has no workflow.');
       return;
     }
-    props.onSave({
-      comfyCreateWorkflowId: '__uploaded__',
-      comfyCreateUploadedWorkflow: raw,
-    });
+    if (mode === 'edit') {
+      commit({
+        comfyEditWorkflowId: '__uploaded__',
+        comfyEditUploadedWorkflow: raw,
+      });
+    } else {
+      commit({
+        comfyCreateWorkflowId: '__uploaded__',
+        comfyCreateUploadedWorkflow: raw,
+      });
+    }
     setNote('');
   };
 
@@ -123,7 +184,7 @@ export function StudioDesk(props: StudioDeskProps) {
     <section className="studio-desk">
       <label>
         Backend
-        <select value={props.backend} onChange={(e) => props.onSave({ backend: e.target.value })}>
+        <select value={props.backend} onChange={(e) => commit({ backend: e.target.value })}>
           <option value="remote">Remote</option>
           <option value="comfyui">ComfyUI</option>
           <option value="a1111">Automatic1111</option>
@@ -137,10 +198,10 @@ export function StudioDesk(props: StudioDeskProps) {
           defaultValue={props.backend === 'comfyui' ? props.comfyUrl : props.backend === 'a1111' ? props.localUrl : props.backend === 'drawthings' ? props.drawThingsHost : props.remoteUrl}
           onBlur={(e) => {
             const value = e.target.value;
-            if (props.backend === 'comfyui') props.onSave({ comfyUrl: value });
-            else if (props.backend === 'a1111') props.onSave({ localUrl: value });
-            else if (props.backend === 'drawthings') props.onSave({ drawThingsHost: value });
-            else props.onSave({ remoteApiUrl: value });
+            if (props.backend === 'comfyui') commit({ comfyUrl: value });
+            else if (props.backend === 'a1111') commit({ localUrl: value });
+            else if (props.backend === 'drawthings') commit({ drawThingsHost: value });
+            else commit({ remoteApiUrl: value });
           }}
         />
       </label>
@@ -163,11 +224,11 @@ export function StudioDesk(props: StudioDeskProps) {
       </label>
       <label>
         Steps
-        <input aria-label="Steps" defaultValue={String(props.steps)} onBlur={(e) => props.onSave({ steps: Number(e.target.value) })} />
+        <input aria-label="Steps" defaultValue={String(props.steps)} onBlur={(e) => commit({ steps: Number(e.target.value) })} />
       </label>
       <label>
         Sampler
-        <input aria-label="Sampler" defaultValue={props.sampler} onBlur={(e) => props.onSave({ sampler: e.target.value })} />
+        <input aria-label="Sampler" defaultValue={props.sampler} onBlur={(e) => commit({ sampler: e.target.value })} />
       </label>
       <button type="button" onClick={() => setSheet('CivitAI sign-in')}>CivitAI sign-in</button>
       <button type="button" onClick={() => search('Get a model')}>Get a model</button>
@@ -176,7 +237,7 @@ export function StudioDesk(props: StudioDeskProps) {
         Adult
         <input type="checkbox" role="switch" checked={adult} onChange={(e) => setAdult(e.target.checked)} />
       </label>
-      <button type="button" disabled={!generateOn}>Generate</button>
+      <button type="button" disabled={!serverReady}>Generate</button>
       {note ? <p>{note}</p> : null}
       {sheet === 'CivitAI sign-in' && (
         <label>
@@ -196,10 +257,12 @@ export function StudioDesk(props: StudioDeskProps) {
           <button type="button" onClick={() => search(sheet)}>Search</button>
           <ul>
             {hits.map((item) => (
-              <li key={item}><button type="button" onClick={() => saveModel(item)}>{item}</button></li>
+              <li key={item}><button type="button" onClick={() => saveInstalled(item)}>{item}</button></li>
             ))}
           </ul>
-          {query.trim() ? <button type="button" onClick={() => saveModel(query.trim())}>Use {query.trim()}</button> : null}
+          {query.trim() && sheet !== 'Get a model' && sheet !== 'Get a LoRA' ? (
+            <button type="button" onClick={() => saveInstalled(query.trim())}>Use {query.trim()}</button>
+          ) : null}
         </div>
       )}
     </section>

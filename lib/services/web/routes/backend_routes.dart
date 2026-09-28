@@ -72,6 +72,7 @@ class WebBackendRoutes {
       router.post('/api/image/generate', _imageGenerate);
       router.get('/api/image/saved/<name>', _imageSaved);
       router.get('/api/image/comfy-catalog', _imageComfyCatalog);
+      router.get('/api/image/studio/ready', _imageStudioReady);
       router.get('/api/image/comfy-workflow-slots', _imageComfyWorkflowSlots);
       router.get('/api/image/models', _imageRemoteModels);
       CivitaiRoutes(
@@ -315,6 +316,11 @@ class WebBackendRoutes {
 
   Future<shelf.Response> _imageComfyCatalog(shelf.Request r) async =>
       JsonResponse.ok(await _image!.comfyCatalog());
+
+  Future<shelf.Response> _imageStudioReady(shelf.Request r) async {
+    final edit = r.url.queryParameters['mode'] == 'edit';
+    return JsonResponse.ok(await _image!.studioReady(edit: edit));
+  }
 
   Future<shelf.Response> _imageComfyWorkflowSlots(shelf.Request r) async {
     final id = r.url.queryParameters['workflowId'] ?? '';

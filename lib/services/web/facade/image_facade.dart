@@ -27,6 +27,8 @@ import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
 
+part 'image_facade_ready.dart';
+
 /// Web adapter for image generation: read/flip the backend config (Local A1111 /
 /// Draw Things ↔ remote API) and generate an image. Reuses [ImageGenService]
 /// (which routes to whichever backend is configured) and the existing settings.
@@ -294,6 +296,9 @@ class ImageFacade {
         chatRemoteApiUrl: b.remoteApiUrl,
         editScoped: false,
       );
+    }
+    if (f['editModel'] is String) {
+      await img.setImageGenEditModel(f['editModel'] as String);
     }
     if (f['model'] is String) {
       final id = f['model'] as String;

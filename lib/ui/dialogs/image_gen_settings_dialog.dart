@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/image_studio/generation_options_tab.dart';
+import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
 
 /// Dialog for configuring image generation settings.
 /// Now a thin shell delegating to the shared GenerationOptionsTab (AppColors clean, extracted for studio tab use).
@@ -71,7 +71,7 @@ class ImageGenSettingsDialog extends StatelessWidget {
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: const GenerationOptionsTab(),
+                child: const StudioDesk(showGenerate: false),
               ),
             ),
           ],
