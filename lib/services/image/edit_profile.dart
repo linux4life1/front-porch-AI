@@ -33,7 +33,7 @@
 // footgun these seeds avoid on the first edit.
 
 /// Draw Things sampler int for **UniPC Trailing** — the sampler the edit model
-/// needs to produce an image at all (see `_drawThingsSamplers`: 17).
+/// needs to produce an image at all (see `draw_things_samplers.dart`: 17).
 const int kEditRecommendedSamplerInt = 17;
 
 /// Moderate guidance. High CFG makes the edit model produce no image.

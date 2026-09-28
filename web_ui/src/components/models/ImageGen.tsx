@@ -7,7 +7,6 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StepUpFields } from '../StepUpFields';
-import type { ComfyPreset } from './ComfyCreateFields';
 import { PackGrid } from './PackGrid';
 import { StudioDesk } from './StudioDesk';
 import { ImageRemoteFields } from './ImageRemoteFields';
@@ -50,10 +49,8 @@ interface ImageConfig {
   imageRemoteHosts?: ImageRemoteHost[];
   comfyCreateWorkflowId?: string;
   comfyCreateModelChoices?: Record<string, string>;
-  comfyCreatePresets?: ComfyPreset[];
   comfyEditWorkflowId?: string;
   comfyEditModelChoices?: Record<string, string>;
-  comfyEditPresets?: ComfyPreset[];
 }
 
 // Mirrors ImageGenService.styleLabels (desktop) + the Image Studio size list.

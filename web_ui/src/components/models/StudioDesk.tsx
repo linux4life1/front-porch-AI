@@ -25,6 +25,13 @@ export interface StudioDeskProps {
   watch?: string;
 }
 
+interface CivitaiRow {
+  filename: string;
+  versionId: number;
+  type: string;
+  adult: boolean;
+}
+
 function snap(n: number): number {
   const x = Math.round(n / 64) * 64;
   if (x < 256) return 256;
@@ -38,6 +45,7 @@ export function StudioDesk(props: StudioDeskProps) {
   const [query, setQuery] = useState('');
   const [sheet, setSheet] = useState<string | null>(null);
   const [hits, setHits] = useState<string[]>([]);
+  const [rows, setRows] = useState<CivitaiRow[]>([]);
   const [adult, setAdult] = useState(false);
   const [token, setToken] = useState('');
   const [graph, setGraph] = useState('');
@@ -76,6 +84,7 @@ export function StudioDesk(props: StudioDeskProps) {
     setSheet(kind);
     setQuery('');
     setNote('');
+    setRows([]);
     if (kind === 'Graph search') {
       setHits(mode === 'edit'
         ? ['qwen_image_edit', 'flux_kontext']
@@ -99,18 +108,33 @@ export function StudioDesk(props: StudioDeskProps) {
     if (!q) return;
     const sheetKind = kind === 'Get a LoRA' ? 'lora' : 'model';
     void api
-      .get<{ items?: { name?: string; filename?: string }[]; needsCredential?: boolean }>(
+      .get<{ items?: { filename?: string; versionId?: number; type?: string; adult?: boolean }[]; needsCredential?: boolean }>(
         `/api/image/civitai/search?q=${encodeURIComponent(q)}&adult=${adult ? 'true' : 'false'}&sheet=${sheetKind}`,
       )
       .then((body) => {
         if (body.needsCredential) {
           setNote('Sign in to CivitAI to search adult models.');
           setHits([]);
+          setRows([]);
           return;
         }
-        setHits((body.items ?? []).map((row) => row.filename || '').filter(Boolean));
+        const parsed = (body.items ?? []).flatMap((row) => {
+          const filename = row.filename ?? '';
+          if (!filename || typeof row.versionId !== 'number') return [];
+          return [{
+            filename,
+            versionId: row.versionId,
+            type: row.type ?? '',
+            adult: row.adult === true,
+          }];
+        });
+        setRows(parsed);
+        setHits(parsed.map((row) => row.filename));
       })
-      .catch(() => setHits([]));
+      .catch(() => {
+        setHits([]);
+        setRows([]);
+      });
   };
 
   const saveInstalled = (name: string) => {
@@ -126,7 +150,22 @@ export function StudioDesk(props: StudioDeskProps) {
       return;
     }
     if (sheet === 'Get a model' || sheet === 'Get a LoRA') {
-      setNote('That row is a CivitAI file. It is not selected until it is on this computer.');
+      const row = rows.find((item) => item.filename === name);
+      if (!row) {
+        setNote('That row has no file to download.');
+        return;
+      }
+      void api
+        .post('/api/image/civitai/download', {
+          versionId: row.versionId,
+          backend: props.backend,
+          adult,
+          filename: row.filename,
+          type: row.type,
+          lora: sheet === 'Get a LoRA',
+        })
+        .then(() => setNote('Download started.'))
+        .catch(() => setNote('CivitAI download failed.'));
       return;
     }
     if (props.backend === 'comfyui') {

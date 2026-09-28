@@ -14,7 +14,7 @@ import 'package:front_porch_ai/services/storage/settings/backend_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/ui/image_studio/remote_image_host_chips.dart';
-import 'package:front_porch_ai/ui/image_studio/settings_panel.dart';
+import 'package:front_porch_ai/ui/image_studio/studio_desk_knobs.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -114,47 +114,38 @@ void main() {
     },
   );
 
-  testWidgets(
-    'StudioSettingsPanel Material card does not hide ExpansionTile ink',
-    (tester) async {
-      final inkErrors = <String>[];
-      final previous = FlutterError.onError;
-      FlutterError.onError = (details) {
-        final text = details.exceptionAsString();
-        if (text.contains('ListTile background color or ink splashes')) {
-          inkErrors.add(text);
-        }
-        previous?.call(details);
-      };
-      addTearDown(() => FlutterError.onError = previous);
+  testWidgets('the desk knobs host the remote chips', (tester) async {
+    final inkErrors = <String>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = (details) {
+      final text = details.exceptionAsString();
+      if (text.contains('ListTile background color or ink splashes')) {
+        inkErrors.add(text);
+      }
+      previous?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = previous);
 
-      tester.view.physicalSize = const Size(1200, 2000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(
-                value: _PanelStore(),
-              ),
-              ChangeNotifierProvider<ImageGenService>.value(
-                value: _PanelImageGen(),
-              ),
-            ],
-            child: const Scaffold(
-              body: SingleChildScrollView(
-                child: StudioSettingsPanel(initiallyExpanded: true),
-              ),
+    final store = _PanelStore();
+    tester.view.physicalSize = const Size(1200, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StorageService>.value(
+          value: store,
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: StudioDeskKnobs(settings: store.imageGenSettings),
             ),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Generation Settings'), findsOneWidget);
-      expect(inkErrors, isEmpty);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Nano-GPT'), findsOneWidget);
+    expect(inkErrors, isEmpty);
+  });
 }
 
 class _PanelStore extends ChangeNotifier implements StorageService {
@@ -162,13 +153,6 @@ class _PanelStore extends ChangeNotifier implements StorageService {
   final ImageGenSettings imageGenSettings = ImageGenSettings();
   @override
   final BackendSettings backendSettings = BackendSettings();
-  @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
-}
-
-class _PanelImageGen extends ChangeNotifier implements ImageGenService {
-  @override
-  Future<List<ImageModelInfo>> fetchImageModels() async => const [];
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }

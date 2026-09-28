@@ -1,471 +1,56 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Minimal widget tests for GenerationOptionsTab (extracted image gen config surface).
-// Covers render, backend switch, Test Connection + side effects, model/size/advanced, seed, storage writes.
-// Uses fakes mirroring critical_image_studio_test style + explicit overrides for tab paths.
+// The old GenerationOptionsTab is gone. This file now pins the desk that
+// replaced it: Create, Edit, model search, and Generate off until a file
+// is chosen.
 
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/image_gen_service.dart';
-import 'package:front_porch_ai/services/capability/image_reference_role.dart';
-import 'package:front_porch_ai/services/image/model_family.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:front_porch_ai/services/storage/settings/backend_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
-import 'package:front_porch_ai/ui/image_studio/generation_options_tab.dart';
+import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
 
 void main() {
-  group('GenerationOptionsTab', () {
-    void _setupViewport(WidgetTester tester) {
-      tester.view.physicalSize = const Size(1200, 2000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
-    }
-
-    testWidgets('renders enable switch and Image Source selector', (
-      tester,
-    ) async {
-      final fakeStorage = _TabFakeStorage();
-      final fakeSvc = _TabFakeImageGenService();
-
-      _setupViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: fakeStorage),
-              ChangeNotifierProvider<ImageGenService>.value(value: fakeSvc),
-            ],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 2000),
-              child: const Scaffold(body: GenerationOptionsTab()),
-            ),
+  testWidgets('the desk replaces the old options tab', (tester) async {
+    final dir = Directory.systemTemp.createTempSync('desk-options');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final storage = StorageService.sandbox(dir.path);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<StorageService>.value(
+          value: storage,
+          child: const Scaffold(
+            body: SingleChildScrollView(child: StudioDesk(showGenerate: true)),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    expect(find.text('Create'), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Model search'), findsOneWidget);
+    expect(find.text('GenerationOptionsTab'), findsNothing);
+    final generate = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Generate'),
+    );
+    expect(generate.onPressed, isNull);
+    expect(find.textContaining('No Remote API key configured'), findsOneWidget);
 
-      expect(find.text('Enable Image Generation'), findsOneWidget);
-      expect(find.text('Image Source'), findsOneWidget);
-      // Backend chips present
-      expect(find.text('Remote API'), findsOneWidget);
-    });
-
-    testWidgets('local backend auto-tests and shows the status card', (
-      tester,
-    ) async {
-      final fakeStorage = _TabFakeStorage(backend: 'a1111');
-      final fakeSvc = _TabFakeImageGenService();
-      fakeSvc.localLoras = [
-        'lora1.safetensors',
-      ]; // for LoRA population in init fetch
-
-      _setupViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: fakeStorage),
-              ChangeNotifierProvider<ImageGenService>.value(value: fakeSvc),
-            ],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 2000),
-              child: const Scaffold(body: GenerationOptionsTab()),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Local backend (A1111) shows 'Server URL' and the auto-tested status
-      // card (the fake's testLocalConnection returns true, so it reads
-      // connected — the old manual Test button is gone by design).
-      expect(find.text('Server URL'), findsOneWidget);
-      expect(find.text('AUTOMATIC1111 connected'), findsOneWidget);
-      expect(find.text('Refresh'), findsOneWidget);
-
-      // Explicit interaction for restored LoRA fidelity (post-populate tap dropdown + assert storage write)
-      expect(
-        find.text('LoRA'),
-        findsOneWidget,
-      ); // the label is always visible for the block
-      final loraFields = find.byType(DropdownButtonFormField<String>);
-      if (loraFields.evaluate().isNotEmpty) {
-        await tester.tap(loraFields.last, warnIfMissed: false); // LoRA dropdown
-        await tester.pumpAndSettle();
-        final loraItem = find.text('lora1.safetensors');
-        if (loraItem.evaluate().isNotEmpty) {
-          await tester.tap(loraItem.first, warnIfMissed: false);
-          await tester.pumpAndSettle();
-          expect(fakeStorage.lastSetLora, 'lora1.safetensors');
-        }
-      }
-    });
-
-    testWidgets('ComfyUI backend shows URL field, status card, and models', (
-      tester,
-    ) async {
-      final fakeStorage = _TabFakeStorage(backend: 'comfyui');
-      final fakeSvc = _TabFakeImageGenService();
-      fakeSvc.localModels = ['sdxl.safetensors'];
-
-      _setupViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: fakeStorage),
-              ChangeNotifierProvider<ImageGenService>.value(value: fakeSvc),
-            ],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 2000),
-              child: const Scaffold(body: GenerationOptionsTab()),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('ComfyUI URL'), findsOneWidget);
-      expect(find.text('ComfyUI connected'), findsOneWidget);
-      // Discovered checkpoint appears in the model dropdown.
-      expect(find.text('Checkpoint Model'), findsOneWidget);
-    });
-
-    testWidgets('size chips and advanced sliders update storage', (
-      tester,
-    ) async {
-      final fakeStorage = _TabFakeStorage();
-      final fakeSvc = _TabFakeImageGenService();
-
-      _setupViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: fakeStorage),
-              ChangeNotifierProvider<ImageGenService>.value(value: fakeSvc),
-            ],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 2000),
-              child: const Scaffold(body: GenerationOptionsTab()),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Size labels present (chips render)
-      expect(find.text('1024²'), findsOneWidget);
-
-      // Advanced label present (expansion in UI)
-      expect(find.text('Advanced'), findsOneWidget);
-      // Sliders may be in advanced (tolerant for rig)
-      // expect(find.byType(Slider), findsWidgets);
-    });
-
-    testWidgets('seed randomize and paradigm change call storage', (
-      tester,
-    ) async {
-      final fakeStorage = _TabFakeStorage();
-      final fakeSvc = _TabFakeImageGenService();
-
-      _setupViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: fakeStorage),
-              ChangeNotifierProvider<ImageGenService>.value(value: fakeSvc),
-            ],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 2000),
-              child: const Scaffold(body: GenerationOptionsTab()),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Paradigm dropdown label exists (reliable render)
-      expect(find.text('Prompt Format'), findsOneWidget);
-    });
-
-    testWidgets('DT advanced checkbox/slider update storage (fidelity interaction)', (
-      tester,
-    ) async {
-      final fakeStorage = _TabFakeStorage(backend: 'drawthings');
-      final fakeSvc = _TabFakeImageGenService();
-
-      _setupViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: fakeStorage),
-              ChangeNotifierProvider<ImageGenService>.value(value: fakeSvc),
-            ],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 2000),
-              child: const Scaffold(body: GenerationOptionsTab()),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Expand Advanced to show DT advanced (shift/tea etc)
-      final advanced = find.text('Advanced');
-      if (advanced.evaluate().isNotEmpty) {
-        await tester.tap(advanced.first, warnIfMissed: false);
-        await tester.pumpAndSettle();
-      }
-
-      // Drive TeaCache checkbox and assert storage (via recorded lastSetTeaCache)
-      // (tap wrapped for rig sensitivity; explicit interaction case for fidelity onChanged path)
-      final tea = find.text('Tea');
-      if (tea.evaluate().isNotEmpty) {
-        final checks = find.byType(Checkbox);
-        if (checks.evaluate().isNotEmpty) {
-          try {
-            await tester.tap(checks.first, warnIfMissed: false);
-            await tester.pumpAndSettle();
-            expect(fakeStorage.lastSetTeaCache, isNotNull);
-          } catch (_) {
-            // tap may miss (see critical test warnings); case added for restored DT advanced
-          }
-        }
-      }
-
-      // Drive first Slider (shift) and assert storage write
-      final sliders = find.byType(Slider);
-      if (sliders.evaluate().isNotEmpty) {
-        try {
-          await tester.drag(
-            sliders.first,
-            const Offset(50.0, 0.0),
-            warnIfMissed: false,
-          );
-          await tester.pumpAndSettle();
-          expect(fakeStorage.lastSetShift, isNotNull);
-        } catch (_) {
-          // rig may not register drag; explicit drive case present
-        }
-      }
-    });
-
-    // The "looked free" report (maintainer, 2026-08-13): the Remote API
-    // panel has no key field of its own — it bills the CHAT backend's
-    // account — and with no key it used to show a working-looking model
-    // menu and nothing else. The panel must now say where the key lives
-    // (no key) or who bills (key present); the two states are mutually
-    // exclusive. Proven red with the apiKey.isEmpty gate inverted.
-    testWidgets('remote panel warns when no API key is configured', (
-      tester,
-    ) async {
-      final fakeStorage = _TabFakeStorage();
-      final fakeSvc = _TabFakeImageGenService();
-      _setupViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: fakeStorage),
-              ChangeNotifierProvider<ImageGenService>.value(value: fakeSvc),
-            ],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 2000),
-              child: const Scaffold(body: GenerationOptionsTab()),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.textContaining('No Remote API key configured'),
-        findsOneWidget,
-        reason: 'without this the option reads as free and local',
-      );
-      expect(
-        find.textContaining('Bills your Remote API account'),
-        findsNothing,
-      );
-    });
-
-    testWidgets('remote panel names the billing account when a key is set', (
-      tester,
-    ) async {
-      final fakeStorage = _TabFakeStorage();
-      // Per-host vault: URL first, then the key for that host.
-      await fakeStorage.backendSettings.setRemoteApiUrl(
-        'https://nano-gpt.com/api/v1',
-      );
-      await fakeStorage.backendSettings.setRemoteApiKey('nk-test');
-      final fakeSvc = _TabFakeImageGenService();
-      _setupViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: fakeStorage),
-              ChangeNotifierProvider<ImageGenService>.value(value: fakeSvc),
-            ],
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 2000),
-              child: const Scaffold(body: GenerationOptionsTab()),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.textContaining('Bills your Remote API account (nano-gpt.com)'),
-        findsOneWidget,
-        reason: 'a configured account is a paid account — say whose',
-      );
-      expect(find.textContaining('No Remote API key configured'), findsNothing);
-    });
+    await storage.imageGenSettings.setImageRemoteApiUrl(
+      'https://nano-gpt.com/api/v1',
+    );
+    await storage.backendSettings.setRemoteApiKeyFor(
+      'https://nano-gpt.com/api/v1',
+      'sk-test',
+    );
+    await tester.pump();
+    expect(
+      find.textContaining('Bills your Remote API account'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('nano-gpt.com'), findsWidgets);
   });
-}
-
-// Fakes for tab. Callers read imageGenSettings / backendSettings.
-class _TabFakeStorage extends ChangeNotifier implements StorageService {
-  _TabFakeStorage({String backend = 'remote'}) {
-    imageGenSettings.initializeBase(null, notifyListeners);
-    imageGenSettings.setImageGenEnabled(false);
-    imageGenSettings.setImageGenBackend(backend);
-    imageGenSettings.setImageGenNegativePrompt('blurry');
-    imageGenSettings.setImageGenSteps(20);
-    imageGenSettings.setImageGenCfgScale(7.0);
-  }
-
-  @override
-  final BackendSettings backendSettings = BackendSettings();
-  final _TabImageGenSettings _image = _TabImageGenSettings();
-  @override
-  ImageGenSettings get imageGenSettings => _image;
-
-  String? get lastSetLora => _image.lastSetLora;
-  bool? get lastSetTeaCache => _image.lastSetTeaCache;
-  double? get lastSetShift => _image.lastSetShift;
-
-  @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
-}
-
-class _TabImageGenSettings extends ImageGenSettings {
-  String? lastSetLora;
-  bool? lastSetTeaCache;
-  double? lastSetShift;
-
-  @override
-  Future<void> setImageGenLora(String v) async {
-    lastSetLora = v;
-    await super.setImageGenLora(v);
-  }
-
-  @override
-  Future<void> setDrawThingsTeaCache(bool v) async {
-    lastSetTeaCache = v;
-    await super.setDrawThingsTeaCache(v);
-  }
-
-  @override
-  Future<void> setDrawThingsShift(double v) async {
-    lastSetShift = v;
-    await super.setDrawThingsShift(v);
-  }
-}
-
-class _TabFakeImageGenService extends ChangeNotifier
-    implements ImageGenService {
-  bool testResult = true;
-  List<String> localModels = [];
-  List<String> localLoras = [];
-  List<String> localSamplers = [];
-  List<String> localSchedulers = [];
-
-  @override
-  Future<bool> testLocalConnection(String url) async => testResult;
-
-  @override
-  Future<List<String>> fetchA1111Models(String url) async => localModels;
-  @override
-  Future<List<String>> fetchDrawThingsModels(String url) async => localModels;
-  @override
-  Future<List<LoraOption>> fetchA1111Loras(String url) async =>
-      localLoras.map((n) => ImageModelFamily.classifyLora(n)).toList();
-  @override
-  Future<List<LoraOption>> fetchDrawThingsLoras(String url) async =>
-      localLoras.map((n) => ImageModelFamily.classifyLora(n)).toList();
-  @override
-  Future<List<String>> fetchComfyModels(String url) async => localModels;
-  @override
-  Future<List<LoraOption>> fetchComfyLoras(String url) async =>
-      localLoras.map((n) => ImageModelFamily.classifyLora(n)).toList();
-  @override
-  Future<List<String>> fetchComfySamplers(String url) async => localSamplers;
-  @override
-  Future<List<String>> fetchA1111Samplers(String url) async => localSamplers;
-  @override
-  Future<List<String>> fetchComfySchedulers(String url) async =>
-      localSchedulers;
-  @override
-  Future<List<String>> fetchA1111Schedulers(String url) async =>
-      localSchedulers;
-
-  @override
-  Future<bool> unloadLocalModel(String url) async => true;
-  @override
-  Future<bool> switchLocalModel(String url, String model) async => true;
-
-  @override
-  Future<List<ImageModelInfo>> fetchImageModels() async => [];
-  @override
-  Future<Uint8List?> generateImage({
-    required String prompt,
-    String? negativePrompt,
-    String? size,
-    Uint8List? referenceImage,
-    String? model,
-    bool isPortrait = false,
-    int? seed,
-    double? denoise,
-    StudioIntent intent = StudioIntent.create,
-    double? editStrength,
-  }) async => null;
-  @override
-  Future<String> generateSmartPrompt({
-    required ImageGenMode mode,
-    required String style,
-    LLMService? llmService,
-    String? customPrompt,
-    String? lastMessage,
-    String? characterName,
-    String? characterDescription,
-    String? characterPersonality,
-    String? scenario,
-    String? worldInfo,
-    String? personaName,
-    String? personaText,
-    List<String>? recentMessages,
-    String? currentExpression,
-    String? timeOfDay,
-    String? lightingHint,
-    bool isGroupNonObserver = false,
-    String? currentSpeakerId,
-    String? userInstruction,
-  }) async => '';
-  @override
-  String get statusMessage => '';
-  @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }

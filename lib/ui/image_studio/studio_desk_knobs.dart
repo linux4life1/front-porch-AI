@@ -27,7 +27,7 @@ class StudioDeskKnobs extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (backend == 'remote')
+        if (backend == 'remote') ...[
           RemoteImageHostChips(
             selectedUrl: settings.imageRemoteApiUrl,
             keyFor: storage.backendSettings.remoteApiKeyFor,
@@ -38,6 +38,9 @@ class StudioDeskKnobs extends StatelessWidget {
               editScoped: edit,
             ),
           ),
+          const SizedBox(height: 8),
+          _RemoteKeyNote(settings: settings, storage: storage),
+        ],
         StudioCommitField(
           key: ValueKey(
             'cfg-${edit ? settings.editCfgScale : settings.imageGenCfgScale}',
@@ -133,6 +136,41 @@ class StudioDeskKnobs extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _RemoteKeyNote extends StatelessWidget {
+  const _RemoteKeyNote({required this.settings, required this.storage});
+
+  final ImageGenSettings settings;
+  final StorageService storage;
+
+  @override
+  Widget build(BuildContext context) {
+    final account = resolveImageStudioRemoteAccount(
+      imageRemoteApiUrl: settings.imageRemoteApiUrl,
+      chatRemoteApiUrl: storage.backendSettings.remoteApiUrl,
+      keyFor: storage.backendSettings.remoteApiKeyFor,
+    );
+    if (account.key.isEmpty) {
+      return Text(
+        'No Remote API key configured for this host. Remote images '
+        'use the same API account as chat — nothing runs locally and '
+        'nothing is free. Add your provider key under Settings → '
+        'Backend → Remote API first; models will list once it\'s set.',
+        style: TextStyle(color: AppColors.textPrimary(context), fontSize: 11.5),
+      );
+    }
+    final host = Uri.tryParse(account.url)?.host ?? '';
+    return Text(
+      'Bills your Remote API account'
+      '${host.isEmpty ? '' : ' ($host)'} per image.',
+      style: TextStyle(
+        color: AppColors.textSecondary(context),
+        fontSize: 11,
+        fontStyle: FontStyle.italic,
+      ),
     );
   }
 }

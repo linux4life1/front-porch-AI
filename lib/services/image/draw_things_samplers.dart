@@ -1,9 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// Draw Things sampler wire values. One copy. The old private list in
-/// `generation_options_tab.advanced.dart` stays until a later slice switches
-/// the UI over and deletes that file.
+/// Draw Things sampler wire values. One copy, used by the studio desk.
 const List<({String label, int value})> kDrawThingsSamplers = [
   (label: 'DDIM Trailing', value: 16),
   (label: 'UniPC Trailing', value: 17),

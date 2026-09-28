@@ -96,11 +96,13 @@ void main() {
     final page = File(
       'web_ui/src/components/models/ImageGen.tsx',
     ).readAsStringSync();
-    final fields = File(
-      'web_ui/src/components/models/ComfyCreateFields.tsx',
+    final desk = File(
+      'web_ui/src/components/models/StudioDesk.tsx',
     ).readAsStringSync();
+    expect(page.contains('<StudioDesk'), isTrue);
     expect(page.contains("'sd'"), isTrue);
-    expect(fields.contains('value={p.id}'), isTrue);
+    expect(desk.contains("'sd'"), isTrue);
+    expect(page.contains('<ComfyCreateFields'), isFalse);
     expect(kComfyCreatePresets.map((p) => p.id), contains('sd'));
   });
 

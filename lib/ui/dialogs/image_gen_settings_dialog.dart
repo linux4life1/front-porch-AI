@@ -21,8 +21,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
 
 /// Dialog for configuring image generation settings.
-/// Now a thin shell delegating to the shared GenerationOptionsTab (AppColors clean, extracted for studio tab use).
-/// Old form logic + fetch state moved to generation_options_tab.dart (no duplication).
+/// The body is the studio desk.
 class ImageGenSettingsDialog extends StatelessWidget {
   const ImageGenSettingsDialog({super.key});
 
