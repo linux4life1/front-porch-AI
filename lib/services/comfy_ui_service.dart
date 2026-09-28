@@ -307,12 +307,10 @@ class ComfyUiService {
     String primaryFile = '',
     bool uploaded = false,
   }) async {
-    final info = uploaded ? null : await _objectInfo();
-    final posted = graphToPost(
-      graph: workflow,
+    final posted = await _graphReadyToPost(
+      workflow: workflow,
       primaryFile: primaryFile,
       uploaded: uploaded,
-      objectInfo: info,
     );
     return _runWorkflow(posted, onProgress);
   }

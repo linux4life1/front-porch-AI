@@ -24,6 +24,7 @@ const Duration _objectInfoFreshFor = Duration(minutes: 2);
 
 final Expando<Map<String, dynamic>> _objectInfoCache = Expando();
 final Expando<DateTime> _objectInfoCachedAt = Expando();
+final Expando<bool> _objectInfoWasCached = Expando();
 
 extension _ComfyCatalog on ComfyUiService {
   /// One /object_info fetch shared by a generate and its sampler lookup.
@@ -38,9 +39,11 @@ extension _ComfyCatalog on ComfyUiService {
       if (cached != null &&
           at != null &&
           DateTime.now().difference(at) < _objectInfoFreshFor) {
+        _objectInfoWasCached[this] = true;
         return cached;
       }
     }
+    _objectInfoWasCached[this] = false;
     try {
       final r = await http
           .get(Uri.parse('$_root/object_info'))
@@ -55,6 +58,41 @@ extension _ComfyCatalog on ComfyUiService {
       return null;
     }
   }
+
+  /// The graph to post. A cached node list can predate a loader the user
+  /// just installed. One fresh read is enough; a second failure stands.
+  Future<Map<String, dynamic>> _graphReadyToPost({
+    required Map<String, dynamic> workflow,
+    required String primaryFile,
+    required bool uploaded,
+  }) async {
+    Future<Map<String, dynamic>> once(bool fresh) async {
+      final info = uploaded ? null : await _objectInfo(fresh: fresh);
+      return graphToPost(
+        graph: workflow,
+        primaryFile: primaryFile,
+        uploaded: uploaded,
+        objectInfo: info,
+      );
+    }
+
+    try {
+      return await once(false);
+    } on Exception catch (e) {
+      if (uploaded ||
+          _objectInfoWasCached[this] != true ||
+          !_staleNodeList(e)) {
+        rethrow;
+      }
+      return once(true);
+    }
+  }
+}
+
+bool _staleNodeList(Object error) {
+  final msg = error.toString();
+  return msg.contains('is missing the ') ||
+      msg.contains('needs an unet workflow');
 }
 
 /// Discovery: checkpoints AND diffusion_models so ZIT/Flux/Qwen appear.
