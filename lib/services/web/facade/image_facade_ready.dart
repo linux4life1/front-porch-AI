@@ -61,4 +61,56 @@ extension ImageStudioReady on ImageFacade {
       'primary': primary,
     };
   }
+
+  /// Whether a file that just downloaded can be the desk's selection.
+  /// Comfy asks the live loader list. Other backends use the same rule
+  /// as the desktop install button, which does not keep a LoRA list.
+  Future<Map<String, Object?>> installedChoice({
+    required String workflowId,
+    required String file,
+    required bool lora,
+  }) async {
+    final settings = _storage.imageGenSettings;
+    final backend = settings.imageGenBackend;
+    var checkpoints = const <String>[];
+    var diffusion = const <String>[];
+    var gguf = const <String>[];
+    var loras = const <String>[];
+    if (backend == 'comfyui') {
+      try {
+        final cat = await _image.fetchComfyCatalog(settings.comfyUiUrl);
+        checkpoints = cat.checkpoints;
+        diffusion = cat.diffusionModels;
+        gguf = cat.ggufUnets;
+        loras = cat.loras;
+      } catch (e) {
+        debugPrint('studio installed catalog failed: ${e.runtimeType}');
+      }
+    }
+    final slotFiles = [
+      for (final slot in settings.imageGenLoraSlots) slot.file,
+    ];
+    final choice = installedDeskChoice(
+      backend: backend,
+      workflowId: workflowId,
+      file: file,
+      lora: lora,
+      checkpoints: checkpoints,
+      diffusionModels: diffusion,
+      ggufUnets: gguf,
+      loras: loras,
+      loraSlotFiles: slotFiles,
+    );
+    final json = choice.toJson(workflowId);
+    if (choice.accept && choice.kind == 'lora') {
+      json['loras'] = [
+        for (var i = 0; i < settings.imageGenLoraSlots.length; i++)
+          {
+            'file': i == choice.slot ? file : slotFiles[i],
+            'weight': settings.imageGenLoraSlots[i].weight,
+          },
+      ];
+    }
+    return json;
+  }
 }

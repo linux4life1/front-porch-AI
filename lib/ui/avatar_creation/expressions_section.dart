@@ -195,7 +195,7 @@ class ExpressionsSection extends StatelessWidget {
             text: ready
                 ? 'Ready'
                 : controls.editAllowlist
-                ? 'Pick an edit model'
+                ? 'Pick an edit model in Image Studio (⚙)'
                 : 'img2img fallback',
           ),
         ],

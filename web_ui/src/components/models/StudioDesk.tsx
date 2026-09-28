@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { useEffect, useState } from 'react';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
 
 export interface StudioDeskProps {
   backend: string;
@@ -37,6 +37,14 @@ function snap(n: number): number {
   if (x < 256) return 256;
   if (x > 2048) return 2048;
   return x;
+}
+
+function civitaiFailureNote(error: unknown): string {
+  const message = error instanceof ApiError ? error.message.trim() : '';
+  if (message.length === 0 || message.startsWith('<')) {
+    return 'CivitAI download failed.';
+  }
+  return message;
 }
 
 /** Phone desk. Saves through the same image-config and CivitAI routes. */
@@ -137,6 +145,54 @@ export function StudioDesk(props: StudioDeskProps) {
       });
   };
 
+  const selectInstalled = async (filename: string, lora: boolean) => {
+    const pick = lora
+      ? props.backend === 'a1111'
+        ? 'Saved to your models folder on this computer. It is in the Lora folder.'
+        : 'Saved to your models folder on this computer. Pick it in LoRA search.'
+      : 'Saved to your models folder on this computer. Pick it in Model search.';
+    try {
+      const choice = await api.post<{
+        accept?: boolean;
+        kind?: string;
+        token?: string;
+        workflowId?: string;
+        loras?: { file: string; weight: number }[];
+      }>('/api/image/studio/installed', {
+        filename,
+        lora,
+        workflowId: activeWorkflow,
+      });
+      if (!choice.accept) {
+        setNote(
+          choice.kind === 'lora-full'
+            ? 'Saved to your models folder on this computer. All LoRA slots are full.'
+            : pick,
+        );
+        return;
+      }
+      if (choice.kind === 'lora' && choice.loras) {
+        commit({ loras: choice.loras });
+      } else if (choice.kind === 'comfy' && choice.token && choice.workflowId) {
+        const key = `${choice.workflowId}/${choice.token}`;
+        const prior = mode === 'edit' ? props.editModelChoices : props.modelChoices;
+        const choices = { ...(prior ?? {}), [key]: filename };
+        if (mode === 'edit') commit({ comfyEditModelChoices: choices });
+        else commit({ comfyCreateModelChoices: choices });
+      } else if (choice.kind === 'slot') {
+        if (mode === 'edit') commit({ editModel: filename });
+        else commit({ model: filename });
+      } else {
+        setNote(pick);
+        return;
+      }
+      setNote('Saved to your models folder on this computer.');
+      setSheet(null);
+    } catch {
+      setNote(pick);
+    }
+  };
+
   const saveInstalled = (name: string) => {
     if (sheet === 'Graph search') {
       if (mode === 'edit') commit({ comfyEditWorkflowId: name });
@@ -155,6 +211,8 @@ export function StudioDesk(props: StudioDeskProps) {
         setNote('That row has no file to download.');
         return;
       }
+      const lora = sheet === 'Get a LoRA';
+      setNote('Downloading on your computer…');
       void api
         .post('/api/image/civitai/download', {
           versionId: row.versionId,
@@ -162,10 +220,10 @@ export function StudioDesk(props: StudioDeskProps) {
           adult,
           filename: row.filename,
           type: row.type,
-          lora: sheet === 'Get a LoRA',
+          lora,
         })
-        .then(() => setNote('Download started.'))
-        .catch(() => setNote('CivitAI download failed.'));
+        .then(() => selectInstalled(row.filename, lora))
+        .catch((error: unknown) => setNote(civitaiFailureNote(error)));
       return;
     }
     if (props.backend === 'comfyui') {

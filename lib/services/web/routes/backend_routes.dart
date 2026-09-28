@@ -74,6 +74,7 @@ class WebBackendRoutes {
       router.get('/api/image/saved/<name>', _imageSaved);
       router.get('/api/image/comfy-catalog', _imageComfyCatalog);
       router.get('/api/image/studio/ready', _imageStudioReady);
+      router.post('/api/image/studio/installed', _imageInstalled);
       router.get('/api/image/comfy-workflow-slots', _imageComfyWorkflowSlots);
       router.get('/api/image/models', _imageRemoteModels);
       registerExpressionPackRoutes(router);
@@ -322,6 +323,17 @@ class WebBackendRoutes {
   Future<shelf.Response> _imageStudioReady(shelf.Request r) async {
     final edit = r.url.queryParameters['mode'] == 'edit';
     return JsonResponse.ok(await _image!.studioReady(edit: edit));
+  }
+
+  Future<shelf.Response> _imageInstalled(shelf.Request r) async {
+    final body = await _json(r);
+    return JsonResponse.ok(
+      await _image!.installedChoice(
+        workflowId: body['workflowId']?.toString() ?? '',
+        file: body['filename']?.toString() ?? '',
+        lora: body['lora'] == true,
+      ),
+    );
   }
 
   Future<shelf.Response> _imageComfyWorkflowSlots(shelf.Request r) async {

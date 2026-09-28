@@ -90,8 +90,9 @@ extension on _StudioDeskState {
   }
 
   Future<void> openCivitai(ImageGenSettings settings, {required bool lora}) {
+    final deskContext = context;
     return showDialog<void>(
-      context: context,
+      context: deskContext,
       builder: (context) => StudioCivitaiGet(
         lora: lora,
         adult: _adult,
@@ -102,7 +103,7 @@ extension on _StudioDeskState {
           final id = _editing
               ? settings.comfyEditWorkflowId
               : settings.comfyCreateWorkflowId;
-          if (!deskAcceptsInstalledFile(
+          final choice = installedDeskChoice(
             backend: settings.imageGenBackend,
             workflowId: id,
             file: file,
@@ -111,10 +112,34 @@ extension on _StudioDeskState {
             diffusionModels: _unet,
             ggufUnets: _gguf,
             loras: _loras,
-          )) {
+            loraSlotFiles: [
+              for (final slot in settings.imageGenLoraSlots) slot.file,
+            ],
+          );
+          if (!choice.accept) {
+            final message = choice.kind == 'lora-full'
+                ? 'Saved to your models folder on this computer. '
+                      'All LoRA slots are full.'
+                : lora && settings.imageGenBackend == 'a1111'
+                ? 'Saved to your models folder on this computer. '
+                      'It is in the Lora folder.'
+                : lora
+                ? 'Saved to your models folder on this computer. '
+                      'Pick it in LoRA search.'
+                : 'Saved to your models folder on this computer. '
+                      'Pick it in Model search.';
+            ScaffoldMessenger.maybeOf(
+              deskContext,
+            )?.showSnackBar(SnackBar(content: Text(message)));
             return;
           }
-          await _pickModel(settings, file);
+          await applyInstalledDeskChoice(
+            settings: settings,
+            choice: choice,
+            workflowId: id,
+            file: file,
+            edit: _editing,
+          );
         },
       ),
     );
