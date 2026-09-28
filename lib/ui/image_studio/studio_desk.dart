@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
-import 'package:front_porch_ai/services/image/draw_things_samplers.dart';
 import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
@@ -14,17 +13,14 @@ import 'package:front_porch_ai/services/image/studio_graph_menu.dart';
 import 'package:front_porch_ai/services/image/studio_readiness.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-
-import 'civitai_sheet.dart';
 import 'studio_civitai_get.dart';
-import 'studio_commit_field.dart';
 import 'studio_desk_knobs.dart';
+import 'studio_commit_field.dart';
+import 'studio_desk_copy.dart';
 import 'studio_graph_sheet.dart';
-import 'studio_graph_upload.dart';
 import 'studio_lora_sheet.dart';
-import 'studio_search_sheet.dart';
-import 'studio_size_fields.dart';
+import 'studio_model_sheet.dart';
+import 'studio_stove.dart';
 
 part 'studio_desk_actions.dart';
 
@@ -35,6 +31,8 @@ class StudioDesk extends StatefulWidget {
     this.onGenerate,
     this.onReadyChanged,
     this.showGenerate = true,
+    this.errorText = '',
+    this.generating = false,
     this.editMode,
   });
 
@@ -46,6 +44,12 @@ class StudioDesk extends StatefulWidget {
 
   /// The Studio page has its own Generate button. The desk hides this one there.
   final bool showGenerate;
+
+  /// A backend refusal from the last generate, shown on the stove.
+  final String errorText;
+
+  /// True while a generate is running. Shown beside Generate, not as an error.
+  final bool generating;
 
   /// Fired when readiness flips. The Edit tab uses this to block Apply.
   final ValueChanged<bool>? onReadyChanged;
@@ -148,6 +152,8 @@ class _StudioDeskState extends State<StudioDesk> {
   ) async {
     final checks = await deskLoraChecks(settings: settings, comfy: service);
     if (!mounted) return;
+    await saveLoraFacts(settings, checks);
+    if (!mounted) return;
     setState(() => _loraFacts = {for (final row in checks) row.file: row});
   }
 
@@ -199,15 +205,25 @@ class _StudioDeskState extends State<StudioDesk> {
           settings.k('image_studio_lora_override_family'),
         ) ??
         '';
+    final storedFacts = storedLoraFacts(settings);
     final loraChecks = [
       for (final slot in settings.imageGenLoraSlots)
         if (slot.file.trim().isNotEmpty)
-          _loraFacts[slot.file] ??
+          storedFacts[slot.file] ??
+              _loraFacts[slot.file] ??
               DeskLoraCheck(
                 slot.file,
                 ImageModelFamily.detectFromName(slot.file),
               ),
     ];
+    if (override.isNotEmpty && override != family.name) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final live = context.read<StorageService>().imageGenSettings;
+        await live.prefs?.remove(live.k('image_studio_lora_override_family'));
+        live.notify();
+      });
+    }
     final ready = deskReadiness(
       backend: backend,
       primaryFile: primary,
@@ -219,200 +235,141 @@ class _StudioDeskState extends State<StudioDesk> {
       loras: loraChecks,
       allowLoraMismatch: override.isNotEmpty && override == family.name,
     );
-    final blockedLora = deskLoraBlocker(primary, loraChecks);
     final enabled = generateEnabled(ready);
     _report(enabled);
     final parts = settings.imageGenSize.split('x');
     final width = int.tryParse(parts.first) ?? 1024;
     final height = parts.length > 1 ? int.tryParse(parts[1]) ?? 1024 : 1024;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        DropdownButton<String>(
-          value: backend,
-          isExpanded: true,
-          items: const [
-            DropdownMenuItem(value: 'remote', child: Text('Remote')),
-            DropdownMenuItem(value: 'comfyui', child: Text('ComfyUI')),
-            DropdownMenuItem(value: 'a1111', child: Text('Automatic1111')),
-            DropdownMenuItem(value: 'drawthings', child: Text('Draw Things')),
-          ],
-          onChanged: (value) {
-            if (value == null) return;
-            settings.setImageGenBackend(value);
-          },
-        ),
-        StudioCommitField(
-          key: ValueKey('url-$backend-${_url(settings)}'),
-          value: _url(settings),
-          label: _urlLabel(backend),
-          onSubmit: (value) => _saveUrl(settings, value),
-        ),
-        const SizedBox(height: 8),
-        if (widget.editMode == null)
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('Create')),
-              ButtonSegment(value: true, label: Text('Edit')),
-            ],
-            selected: {_edit},
-            onSelectionChanged: (value) => setState(() => _edit = value.first),
-          ),
-        Text(
-          primary.isEmpty ? 'No model chosen' : primary,
-          style: TextStyle(color: AppColors.textPrimary(context)),
-        ),
-        if (ready.kind == StudioReady.unreachable)
-          Wrap(
-            spacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              const Text('ComfyUI can’t be reached.'),
-              TextButton(
-                onPressed: _retryCatalog,
-                child: const Text('Try again'),
+    final uploadedGraph = workflowId == '__uploaded__';
+    var uploadedNodes = 0;
+    if (uploadedGraph && uploaded.trim().isNotEmpty) {
+      uploadedNodes = workflowNodeCount(uploaded);
+    }
+    final why = studioWorkflowWhy(
+      workflowId: workflowId,
+      primaryFile: primary,
+      uploaded: uploadedGraph,
+      uploadedTitle: 'workflow',
+      uploadedNodes: uploadedNodes,
+    );
+    final support = studioSupport(
+      edit: editing,
+      workflowId: workflowId,
+      choices: choices,
+    );
+    final stepCount = editing ? settings.editSteps : settings.imageGenSteps;
+    final cfg = editing ? settings.editCfgScale : settings.imageGenCfgScale;
+    final dtSampler = editing
+        ? settings.editSampler
+        : settings.drawThingsSampler;
+    var status = '';
+    if (ready.kind == StudioReady.unreachable) {
+      status = 'ComfyUI can’t be reached.';
+    } else if (ready.kind == StudioReady.missingNodeClass) {
+      status = 'Missing ${ready.missingClass}.';
+    } else if (ready.kind == StudioReady.needsUnetGraph) {
+      status = 'A GGUF file needs a diffusion graph.';
+    }
+    return StudioStove(
+      backendName: studioBackendName(backend),
+      backend: backend,
+      url: _url(settings),
+      onBackend: settings.setImageGenBackend,
+      onEditUrl: () => _editUrl(settings),
+      remoteNote: backend == 'remote'
+          ? StudioRemoteKeyNote(
+              settings: settings,
+              storage: context.read<StorageService>(),
+            )
+          : null,
+      reachable: backend == 'comfyui' && _objectInfo != null,
+      diffusionCount: _unet.length + _gguf.length,
+      loraCount: _loras.length,
+      familyLabel: primary.isEmpty
+          ? 'No model chosen'
+          : (family == ModelFamily.unknown ? 'Model' : family.label),
+      primaryFile: primary,
+      why: why,
+      onGraphs: () => openGraphs(settings),
+      onModels: () => _openModels(settings),
+      onGetModel: () => openCivitai(settings, lora: false),
+      checkpointOnly: support.checkpointOnly,
+      support: support.rows,
+      onChangeSupport: (token) => _openModels(settings, token: token),
+      loras: [
+        for (final row in loraChecks)
+          StudioStoveLora(
+            row.file,
+            studioLoraBadge(
+              ImageModelFamily.compatibility(
+                row.family,
+                family,
+                metadataBacked: row.metadataBacked,
               ),
-            ],
-          ),
-        if (ready.kind == StudioReady.missingNodeClass)
-          Text('Missing ${ready.missingClass}.'),
-        if (ready.kind == StudioReady.loraMismatch && blockedLora != null)
-          StudioLoraMismatch(
-            lora: blockedLora,
-            primary: primary,
-            onAnyway: () async {
-              await settings.prefs?.setString(
-                settings.k('image_studio_lora_override_family'),
-                family.name,
-              );
-              settings.notify();
-            },
-          ),
-        if (ready.kind == StudioReady.needsUnetGraph)
-          const Text('A GGUF file needs a diffusion graph.'),
-        Wrap(
-          spacing: 8,
-          children: [
-            TextButton(
-              onPressed: () => _openSearch(
-                'Model search',
-                _models,
-                (file) => _pickModel(settings, file),
-              ),
-              child: const Text('Model search'),
             ),
-            TextButton(
-              onPressed: () => openGraphs(settings),
-              child: const Text('Graph search'),
-            ),
-            TextButton(
-              onPressed: () => _upload(settings),
-              child: const Text('Graph upload'),
-            ),
-            TextButton(
-              onPressed: () => openLoras(settings, primary),
-              child: const Text('LoRA search'),
-            ),
-          ],
-        ),
-        StudioSizeFields(
-          key: ValueKey(settings.imageGenSize),
-          width: width,
-          height: height,
-          onChanged: (w, h) => settings.setImageGenSize('${w}x$h'),
-        ),
-        StudioCommitField(
-          key: ValueKey(
-            'steps-${editing ? settings.editSteps : settings.imageGenSteps}',
-          ),
-          value: '${editing ? settings.editSteps : settings.imageGenSteps}',
-          label: 'Steps',
-          onSubmit: (value) {
-            final steps = int.tryParse(value);
-            if (steps == null) return;
-            if (editing) {
-              settings.setEditSteps(steps);
-            } else {
-              settings.setImageGenSteps(steps);
-            }
-          },
-        ),
-        if (backend == 'drawthings')
-          DropdownButton<int>(
-            value: editing ? settings.editSampler : settings.drawThingsSampler,
-            isExpanded: true,
-            items: [
-              for (final row in kDrawThingsSamplers)
-                DropdownMenuItem(value: row.value, child: Text(row.label)),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              if (editing) {
-                settings.setEditSampler(value);
-              } else {
-                settings.setDrawThingsSampler(value);
-              }
-            },
-          )
-        else
-          StudioCommitField(
-            key: ValueKey('sampler-${settings.imageGenSampler}'),
-            value: settings.imageGenSampler,
-            label: 'Sampler',
-            onSubmit: settings.setImageGenSampler,
-          ),
-        StudioDeskKnobs(settings: settings, edit: editing),
-        Wrap(
-          spacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            TextButton(
-              onPressed: () => showDialog<void>(
-                context: context,
-                builder: (dialogContext) => CivitaiSheet(
-                  onSave: (token) async {
-                    try {
-                      final store = await CivitaiCredentialStore.open();
-                      await store.save('local', token);
-                      return null;
-                    } catch (e) {
-                      debugPrint('civitai key save failed: ${e.runtimeType}');
-                      return 'Could not save the CivitAI key.';
-                    }
-                  },
-                ),
-              ),
-              child: const Text('CivitAI sign-in'),
-            ),
-            TextButton(
-              onPressed: () => openCivitai(settings, lora: false),
-              child: const Text('Get a model'),
-            ),
-            TextButton(
-              onPressed: () => openCivitai(settings, lora: true),
-              child: const Text('Get a LoRA'),
-            ),
-            const Text('Adult'),
-            Switch(
-              value: _adult,
-              onChanged: (value) async {
-                setState(() => _adult = value);
-                await settings.prefs?.setBool(
-                  settings.k('image_studio_adult'),
-                  value,
-                );
-                settings.notify();
-              },
-            ),
-          ],
-        ),
-        if (widget.showGenerate)
-          FilledButton(
-            onPressed: enabled ? widget.onGenerate : null,
-            child: const Text('Generate'),
           ),
       ],
+      loraBlocked: ready.kind == StudioReady.loraMismatch,
+      onAddLora: () => openLoras(settings, primary),
+      onGetLora: () => openCivitai(settings, lora: true),
+      onAnyway: () async {
+        await settings.prefs?.setString(
+          settings.k('image_studio_lora_override_family'),
+          family.name,
+        );
+        settings.notify();
+      },
+      width: width,
+      height: height,
+      onSize: (nextWidth, nextHeight) =>
+          settings.setImageGenSize('${nextWidth}x$nextHeight'),
+      steps: stepCount,
+      cfg: cfg,
+      sampler: settings.imageGenSampler,
+      scheduler: settings.imageGenScheduler,
+      onSteps: (value) {
+        final parsed = int.tryParse(value);
+        if (parsed == null) return;
+        if (editing) {
+          settings.setEditSteps(parsed);
+        } else {
+          settings.setImageGenSteps(parsed);
+        }
+      },
+      onCfg: (value) {
+        final parsed = double.tryParse(value);
+        if (parsed == null) return;
+        if (editing) {
+          settings.setEditCfgScale(parsed);
+        } else {
+          settings.setImageGenCfgScale(parsed);
+        }
+      },
+      onSampler: settings.setImageGenSampler,
+      onScheduler: settings.setImageGenScheduler,
+      drawThings: backend == 'drawthings',
+      drawThingsSampler: dtSampler,
+      onDrawThingsSampler: (value) {
+        if (editing) {
+          settings.setEditSampler(value);
+        } else {
+          settings.setDrawThingsSampler(value);
+        }
+      },
+      readyLine: studioReadyLine(
+        ready: enabled,
+        blockedLora: ready.kind == StudioReady.loraMismatch ? primary : null,
+      ),
+      generateEnabled: enabled,
+      onGenerate: widget.onGenerate,
+      showGenerate: widget.showGenerate,
+      errorText: widget.errorText,
+      generating: widget.generating,
+      onRetry: ready.kind == StudioReady.unreachable ? _retryCatalog : null,
+      showModes: widget.editMode == null,
+      editing: editing,
+      onMode: (value) => setState(() => _edit = value),
+      status: status,
     );
   }
 
@@ -434,19 +391,6 @@ class _StudioDeskState extends State<StudioDesk> {
     }
   }
 
-  String _urlLabel(String backend) {
-    switch (backend) {
-      case 'comfyui':
-        return 'ComfyUI URL';
-      case 'a1111':
-        return 'Automatic1111 URL';
-      case 'drawthings':
-        return 'Draw Things host';
-      default:
-        return 'Remote URL';
-    }
-  }
-
   Future<void> _saveUrl(ImageGenSettings settings, String value) {
     switch (settings.imageGenBackend) {
       case 'comfyui':
@@ -460,24 +404,43 @@ class _StudioDeskState extends State<StudioDesk> {
     }
   }
 
-  Future<void> _openSearch(
-    String title,
-    List<String> items,
-    ValueChanged<String> onPick,
-  ) {
+  Future<void> _editUrl(ImageGenSettings settings) {
     return showDialog<void>(
       context: context,
-      builder: (context) =>
-          StudioSearchSheet(title: title, items: items, onPick: onPick),
+      builder: (dialogContext) => AlertDialog(
+        content: StudioCommitField(
+          value: _url(settings),
+          label: 'Address',
+          onSubmit: (value) {
+            _saveUrl(settings, value);
+            Navigator.of(dialogContext).pop();
+          },
+        ),
+      ),
     );
   }
 
-  Future<void> _upload(ImageGenSettings settings) async {
-    final text = await showDialog<String>(
+  Future<void> _openModels(ImageGenSettings settings, {String? token}) {
+    return showDialog<void>(
       context: context,
-      builder: (context) => const StudioGraphUpload(),
+      builder: (context) => StudioModelSheet(
+        edit: _editing,
+        items: _models,
+        onPick: (file) {
+          if (token != null && settings.imageGenBackend == 'comfyui') {
+            final id = _editing
+                ? settings.comfyEditWorkflowId
+                : settings.comfyCreateWorkflowId;
+            if (_editing) {
+              settings.setComfyEditModelChoice(id, token, file);
+            } else {
+              settings.setComfyCreateModelChoice(id, token, file);
+            }
+            return;
+          }
+          _pickModel(settings, file);
+        },
+      ),
     );
-    if (text == null) return;
-    await _saveGraph(settings, text);
   }
 }

@@ -151,7 +151,6 @@ class _ImageStudioState extends State<ImageStudio> {
   final List<({String prompt, Uint8List bytes, String style})> _history = [];
 
   late final ImagePromptBuilder _builder;
-  late ImageGenContext _ctx;
 
   @override
   void initState() {
@@ -162,11 +161,9 @@ class _ImageStudioState extends State<ImageStudio> {
     _negativeForGen = storage.imageGenSettings.imageGenNegativePrompt;
     _activeMode = widget.mode;
     _builder = ImagePromptBuilder(llmService: widget.llmService);
-    // No boilerplate prefill for ANY subject: an empty box (with a guiding
-    // hint) until the user types or taps "Write it for me". Dumping the raw
-    // character description made both a poor prompt and poor UX.
+    // No boilerplate prefill for ANY subject: an empty box until the user
+    // types. Dumping the raw character description made a poor prompt.
     _editablePrompt = '';
-    _ctx = _makeContextForMode(_activeMode);
   }
 
   /// Re-apply the live style suffix to a non-empty prompt so Generate sends the
@@ -181,30 +178,17 @@ class _ImageStudioState extends State<ImageStudio> {
     );
   }
 
-  void _updateStyle(String newStyle) {
-    final storage = Provider.of<StorageService>(context, listen: false);
-    storage.imageGenSettings.setImageGenStyle(
-      newStyle,
-    ); // persist global default
-    setState(() {
-      _selectedStyle = newStyle;
-      _reapplyStyle();
-    });
-  }
-
-  void _updateParadigm(String p) => setState(() {
-    _paradigm = p;
-    _reapplyStyle();
-  });
-
   void _updatePrompt(String text) => setState(() => _editablePrompt = text);
-  void _updateNegative(String text) => setState(() => _negativeForGen = text);
 
   bool get _isBusy => _isCrafting || _isGenerating || _saving;
 
   Future<void> _generate() async {
+    _reapplyStyle();
     final prompt = _editablePrompt.trim();
-    if (prompt.isEmpty) return;
+    if (prompt.isEmpty) {
+      setState(() => _error = 'Write a prompt first.');
+      return;
+    }
 
     setState(() {
       _isGenerating = true;
@@ -394,10 +378,6 @@ class _ImageStudioState extends State<ImageStudio> {
 
   @override
   Widget build(BuildContext context) {
-    final configured = Provider.of<ImageGenService>(
-      context,
-      listen: false,
-    ).isConfigured;
     // Any generation (Create OR Edit) flips the shared service busy; fold it in
     // so the tabs lock and Create can't double-submit while Edit is running.
     final genBusy = context.select<ImageGenService, bool>(
@@ -411,31 +391,19 @@ class _ImageStudioState extends State<ImageStudio> {
       groupShotActive: _groupShot,
       onPickGroupMember: _pickGroupSubject,
       onPickGroupShot: () => _pickGroupSubject(null),
-      selectedStyle: _selectedStyle,
-      paradigm: _paradigm,
       prompt: _editablePrompt,
-      negative: _negativeForGen,
       referenceBytes: _referenceImageBytes,
       currentImageBytes: _currentImageBytes,
       error: _error,
-      isCrafting: _isCrafting,
-      isGenerating: _isGenerating,
+      generating: _isGenerating,
       saving: _saving,
       isBusy: _isBusy || genBusy,
-      llmAvailable: widget.llmService != null && widget.llmService!.isReady,
-      configured: configured,
-      builder: _builder,
-      ctx: _ctx,
       history: _history,
       onClose: () => Navigator.pop(context),
       onSelectSubject: _selectSubject,
-      onStyleChanged: _updateStyle,
-      onParadigmChanged: _updateParadigm,
       onPickReference: _pickReferenceImage,
       onClearReference: () => setState(() => _referenceImageBytes = null),
       onPromptChanged: _updatePrompt,
-      onNegativeChanged: _updateNegative,
-      onCraftLlm: _craftWithLlmIfAvailable,
       onExpressionPack: _packTargetDbId == null ? null : _openExpressionPack,
       onGenerate: _generate,
       onSave: _save,

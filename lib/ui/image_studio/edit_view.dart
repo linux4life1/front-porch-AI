@@ -27,9 +27,10 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-import 'edit_recipe_strip.dart';
 import 'edit_source_well.dart';
 import 'result_view.dart';
+import 'studio_desk_copy.dart';
+import 'studio_desk_frame.dart';
 import 'studio_edit_pane.dart';
 
 /// The **Edit** tab: keep this exact character, describe the change. Feeds the
@@ -83,10 +84,6 @@ class _EditViewState extends State<EditView> {
   /// under-driven below full strength — and the user dials DOWN for subtle,
   /// identity-preserving edits. See [kEditRecommendedStrength].
   double _strength = kEditRecommendedStrength;
-
-  /// Whether the ComfyUI edit setup is runnable (workflow + nodes + models), as
-  /// reported by [ComfyEditPanel]. Ignored for non-ComfyUI backends.
-  bool _comfyReady = false;
 
   @override
   void initState() {
@@ -259,202 +256,35 @@ class _EditViewState extends State<EditView> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          StudioEditPane(
-            busy: _busy || genBusy,
-            onReadyChanged: (ready) => setState(() => _comfyReady = ready),
-          ),
-          if (backend == ImageGenBackend.drawThings) ...[
-            const SizedBox(height: 10),
-            EditRecipeStrip(
-              busy: _busy || genBusy,
-              onUseRecommended: _useRecommendedEdit,
-            ),
-          ],
-          const SizedBox(height: 16),
-          if (!cap.supportsEdit)
-            _degradeBanner(
-              context,
-              cap.degradeReason ??
-                  'Editing isn’t available for the current image model.',
-            )
-          else ...[
-            _label(context, 'Reference photo'),
-            const SizedBox(height: 8),
+      padding: const EdgeInsets.all(16),
+      child: StudioDeskFrame(
+        promptController: _instructionCtrl,
+        well: kStudioEditWell,
+        packNote: kStudioEditPack,
+        picture: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!cap.supportsEdit)
+              _degradeBanner(
+                context,
+                cap.degradeReason ??
+                    'Editing isn’t available for the current image model.',
+              ),
             EditSourceWell(
               bytes: _sourceBytes,
               busy: _busy,
               onPick: _pickSource,
               onClear: () => setState(() => _sourceBytes = null),
             ),
-            const SizedBox(height: 20),
-            _label(context, 'What should change?'),
-            const SizedBox(height: 8),
-            _instructionField(context),
-            const SizedBox(height: 16),
-            // Remote instruction-edit ignores a strength value (the provider
-            // edit APIs take prompt + image only), so don't show a knob that
-            // does nothing. DrawThings / ComfyUI edits DO consume it.
-            if (backend != ImageGenBackend.remote) ...[
-              _strengthSlider(context),
-              const SizedBox(height: 16),
-            ],
-            _applyButton(context, genBusy, backend),
           ],
-          if (_busy) ...[
-            const SizedBox(height: 24),
-            Center(
-              child: Column(
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Editing…',
-                    style: TextStyle(color: AppColors.textSecondary(context)),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          if (_error.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text(
-              _error,
-              style: const TextStyle(color: AppColors.logError, fontSize: 13),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _label(BuildContext context, String text) => Text(
-    text,
-    style: TextStyle(
-      fontSize: 12,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.4,
-      color: AppColors.textSecondary(context),
-    ),
-  );
-
-  Widget _instructionField(BuildContext context) {
-    return TextField(
-      controller: _instructionCtrl,
-      enabled: !_busy,
-      maxLines: 3,
-      minLines: 2,
-      onChanged: (_) => setState(() {}),
-      style: TextStyle(color: AppColors.textPrimary(context), fontSize: 14),
-      decoration: InputDecoration(
-        hintText: 'e.g. they’re laughing, standing in a sunlit garden',
-        hintStyle: TextStyle(color: AppColors.textTertiary(context)),
-        filled: true,
-        fillColor: AppColors.surfaceContainerOf(context),
-        contentPadding: const EdgeInsets.all(12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(11),
-          borderSide: BorderSide(color: AppColors.borderOf(context)),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(11),
-          borderSide: BorderSide(color: AppColors.borderOf(context)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(11),
-          borderSide: const BorderSide(color: AppColors.formMasterAccent),
+        stove: StudioEditPane(
+          busy: _busy || genBusy,
+          errorText: _error,
+          onGenerate: (_busy || genBusy) ? null : _generate,
         ),
       ),
     );
-  }
-
-  Widget _strengthSlider(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _label(context, 'How much should change?'),
-            const Spacer(),
-            Text(
-              _strength <= 0.55
-                  ? 'Subtle'
-                  : _strength >= 0.85
-                  ? 'Strong'
-                  : 'Balanced',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.formMasterAccent,
-              ),
-            ),
-          ],
-        ),
-        Slider(
-          value: _strength,
-          min: 0.3,
-          max: 1.0,
-          divisions: 14,
-          label: _strength.toStringAsFixed(2),
-          onChanged: _busy ? null : (v) => setState(() => _strength = v),
-        ),
-        Text(
-          'Left keeps the reference close; right lets your instruction take over. '
-          'Turn it up if a change comes out too subtle.',
-          style: TextStyle(
-            fontSize: 11.5,
-            color: AppColors.textTertiary(context),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _applyButton(
-    BuildContext context,
-    bool genBusy,
-    ImageGenBackend backend,
-  ) {
-    // On ComfyUI, Apply waits until the workflow + nodes + models are ready.
-    final comfyBlocked = backend == ImageGenBackend.comfyUi && !_comfyReady;
-    final canApply =
-        _sourceBytes != null &&
-        _instructionCtrl.text.trim().isNotEmpty &&
-        !_busy &&
-        !genBusy &&
-        !comfyBlocked;
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: canApply ? _generate : null,
-        icon: const Icon(Icons.auto_fix_high, size: 18),
-        label: Text(
-          comfyBlocked
-              ? 'Apply change · finish the setup above'
-              : 'Apply change',
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.formMasterAccent,
-          foregroundColor: AppColors.onChaosAccent,
-          disabledBackgroundColor: AppColors.surfaceContainerOf(context),
-          disabledForegroundColor: AppColors.textTertiary(context),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      ),
-    );
-  }
-
-  /// Reset the Draw Things edit recipe AND the local strength slider — passed to
-  /// [EditRecipeStrip] because the strip can't see this view's [_strength] state.
-  void _useRecommendedEdit() {
-    Provider.of<StorageService>(
-      context,
-      listen: false,
-    ).imageGenSettings.resetEditKnobsToRecommended();
-    setState(() => _strength = kEditRecommendedStrength);
   }
 
   Widget _degradeBanner(BuildContext context, String reason) {

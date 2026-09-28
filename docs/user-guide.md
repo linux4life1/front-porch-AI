@@ -461,13 +461,13 @@ Open a chat → ✨ in the input bar.
 
 **Subject** (what the picture is *of*):
 
-- **Freeform** — you write the prompt. Leave it blank and tap **Write it for me** / Craft to picture the current scene.
+- **Freeform** — you write the prompt. **Write it for me** is on the desk and does not draft a prompt.
 - **Character** — close-up from the card's appearance + current expression. Personality text is *not* stuffed into the prompt. In a group, pick one member (or attempt a group shot — diffusion is bad at several specific faces at once, and the UI says so).
 - **Your persona** — portrait from your persona appearance.
 
 **Prompt style:** Natural language (FLUX / SD3) or Danbooru tags (SD 1.5 / anime). Match what your checkpoint was trained on.
 
-**Write it for me** asks your *text* LLM to draft the prompt; you can edit it before Generate.
+**Write it for me** is shown on the desk. It does not draft a prompt. Style is chosen in Image Generation Settings on the desktop, and under the image desk on the phone. The saved style is still added to the prompt.
 
 **LoRAs** — style add-ons from the image server. Compatible ones show in the picker; confirmed mismatches hide behind **Show N incompatible** and warn if you force one anyway. Weight slider is right there.
 

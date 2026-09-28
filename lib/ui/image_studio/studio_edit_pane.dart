@@ -7,10 +7,18 @@ import 'studio_desk.dart';
 
 /// Edit stove. Readiness comes from the same desk the Create tab uses.
 class StudioEditPane extends StatelessWidget {
-  const StudioEditPane({super.key, this.busy = false, this.onReadyChanged});
+  const StudioEditPane({
+    super.key,
+    this.busy = false,
+    this.onReadyChanged,
+    this.onGenerate,
+    this.errorText = '',
+  });
 
   final bool busy;
   final ValueChanged<bool>? onReadyChanged;
+  final VoidCallback? onGenerate;
+  final String errorText;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +26,9 @@ class StudioEditPane extends StatelessWidget {
       ignoring: busy,
       child: StudioDesk(
         editMode: true,
-        showGenerate: false,
+        showGenerate: true,
+        onGenerate: onGenerate,
+        errorText: errorText,
         onReadyChanged: onReadyChanged,
       ),
     );

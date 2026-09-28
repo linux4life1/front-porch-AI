@@ -32,16 +32,21 @@ extension on _StudioDeskState {
     }
   }
 
-  Future<void> _saveGraph(ImageGenSettings settings, String raw) async {
+  Future<void> _saveGraph(
+    ImageGenSettings settings,
+    String raw, {
+    bool? forEdit,
+  }) async {
     final kept = pngWorkflowText({'prompt': raw});
     if (kept == null) {
       if (!mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('That file has no workflow.')),
+        const SnackBar(content: Text('That file isn’t a ComfyUI graph.')),
       );
       return;
     }
-    if (_editing) {
+    final edit = forEdit ?? _editing;
+    if (edit) {
       await settings.setComfyEditUploadedWorkflow(kept);
       await settings.setComfyEditWorkflowId('__uploaded__');
     } else {
@@ -56,6 +61,11 @@ extension on _StudioDeskState {
       templates: const [],
       saved: const [],
     );
+    var other = deskGraphMenu(
+      edit: !_editing,
+      templates: const [],
+      saved: const [],
+    );
     var read = false;
     if (settings.imageGenBackend == 'comfyui') {
       try {
@@ -63,11 +73,20 @@ extension on _StudioDeskState {
         final rows = _editing
             ? await comfy.fetchEditTemplates()
             : await comfy.fetchCreateTemplates();
+        final otherRows = _editing
+            ? await comfy.fetchCreateTemplates()
+            : await comfy.fetchEditTemplates();
         final files = await comfy.fetchUserWorkflows();
         menu = await loadDeskGraphMenu(
           comfy: comfy,
           edit: _editing,
           templates: rows,
+          saved: files,
+        );
+        other = await loadDeskGraphMenu(
+          comfy: comfy,
+          edit: !_editing,
+          templates: otherRows,
           saved: files,
         );
         read = true;
@@ -91,9 +110,20 @@ extension on _StudioDeskState {
       builder: (context) => StudioGraphSheet(
         edit: _editing,
         rows: menu,
+        otherRows: other,
         note: note,
         onPick: (id) {
           if (_editing) {
+            settings.setComfyEditWorkflowId(id);
+          } else {
+            settings.setComfyCreateWorkflowId(id);
+          }
+        },
+        onUpload: (json, {required bool forEdit}) {
+          _saveGraph(settings, json, forEdit: forEdit);
+        },
+        onUseOther: (id, {required bool forEdit}) {
+          if (forEdit) {
             settings.setComfyEditWorkflowId(id);
           } else {
             settings.setComfyCreateWorkflowId(id);
@@ -127,6 +157,34 @@ extension on _StudioDeskState {
         lora: lora,
         adult: _adult,
         backend: settings.imageGenBackend,
+        localFiles: lora ? _loras : _models,
+        onPickLocal: (file) {
+          if (lora) {
+            final index = settings.imageGenLoraSlots.indexWhere(
+              (slot) => slot.file.trim().isEmpty,
+            );
+            if (index >= 0) settings.setImageGenLoraSlot(index, file: file);
+            return;
+          }
+          _pickModel(settings, file);
+        },
+        onAdultChanged: (value) async {
+          await settings.prefs?.setBool(
+            settings.k('image_studio_adult'),
+            value,
+          );
+          settings.notify();
+        },
+        onSaveKey: (token) async {
+          try {
+            final store = await CivitaiCredentialStore.open();
+            await store.save('local', token);
+            return null;
+          } catch (e) {
+            debugPrint('civitai key save failed: ${e.runtimeType}');
+            return 'Could not save the CivitAI key.';
+          }
+        },
         onInstalled: (file) async {
           await _refreshCatalog(settings, force: true);
           if (!mounted) return;

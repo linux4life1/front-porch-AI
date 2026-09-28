@@ -54,7 +54,6 @@ interface ImageConfig {
   comfyEditModelChoices?: Record<string, string>;
 }
 
-// Mirrors ImageGenService.styleLabels (desktop) + the Image Studio size list.
 const STYLES: Record<string, string> = {
   photorealistic: 'Photorealistic',
   anime: 'Anime / Manga',
@@ -63,6 +62,7 @@ const STYLES: Record<string, string> = {
   digital_art: 'Digital Art',
   watercolor: 'Watercolor',
 };
+
 export function ImageGen({ onError }: { onError: (s: string) => void }) {
   const [cfg, setCfg] = useState<ImageConfig | null>(null);
   const [prompt, setPrompt] = useState('');
@@ -70,7 +70,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   const [filename, setFilename] = useState<string | null>(null);
   const [inserted, setInserted] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [deskReady, setDeskReady] = useState(false);
+  const [genError, setGenError] = useState('');
   const [savedRemoteApiUrl, setSavedRemoteApiUrl] = useState('');
   const [savedLocalUrl, setSavedLocalUrl] = useState('');
   const [savedComfyUrl, setSavedComfyUrl] = useState('');
@@ -97,7 +97,6 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   }, []);
 
   if (!cfg) return null;
-  const surface = cfg.surface;
   const set = (patch: Partial<ImageConfig>) => setCfg({ ...cfg, ...patch });
   const saveConfig = (patch: Record<string, unknown>) => {
     // Studio host chips (`imageRemoteHost`) are not credentials — they pick
@@ -139,14 +138,22 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   };
 
   const generate = () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim()) {
+      setGenError('Write a prompt first.');
+      return;
+    }
     setBusy(true);
+    setGenError('');
     setImage(null);
     setFilename(null);
     setInserted(false);
     api.post<{ image: string; filename: string | null }>('/api/image/generate', { prompt })
       .then((r) => { setImage(r.image); setFilename(r.filename); })
-      .catch((e) => onError(e instanceof ApiError ? e.message : 'Generation failed'))
+      .catch((e) => {
+        const message = e instanceof ApiError ? e.message : 'Generation failed';
+        setGenError(message);
+        onError(message);
+      })
       .finally(() => setBusy(false));
   };
 
@@ -180,9 +187,27 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         drawThingsHost={cfg.drawThingsHost}
         remoteUrl={cfg.remoteApiUrl}
         onSave={(patch) => { set(patch as Partial<ImageConfig>); return saveConfig(patch); }}
-        onReady={setDeskReady}
+        cfg={cfg.cfgScale}
+        scheduler={cfg.scheduler}
+        prompt={prompt}
+        onPrompt={setPrompt}
+        onGenerate={generate}
+        generateError={genError}
+        busy={busy}
         watch={`${cfg.model}|${cfg.lora ?? ''}|${JSON.stringify(cfg.loras ?? [])}|${JSON.stringify(cfg.comfyCreateModelChoices ?? {})}|${cfg.imageRemoteHost ?? ''}`}
       />
+      <label>
+        Art style
+        <select
+          value={STYLES[cfg.style] ? cfg.style : 'photorealistic'}
+          onChange={(e) => {
+            set({ style: e.target.value });
+            void saveConfig({ style: e.target.value });
+          }}
+        >
+          {Object.entries(STYLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </label>
       {cfg.backend === 'remote' && (
         <ImageRemoteFields
           selectedHostId={cfg.imageRemoteHost ?? ''}
@@ -239,50 +264,6 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           onChange={(e) => { set({ promptReview: e.target.checked }); void saveConfig({ promptReview: e.target.checked }); }}
         />
       </label>
-      <label>
-        Art style
-        <select value={STYLES[cfg.style] ? cfg.style : 'photorealistic'} onChange={(e) => { set({ style: e.target.value }); void saveConfig({ style: e.target.value }); }}>
-          {Object.entries(STYLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-      </label>
-
-      {surface?.scheduler && (
-        <label>
-          Scheduler <span className="muted small">(noise schedule — karras, exponential, sgm_uniform…)</span>
-          <input value={cfg.scheduler} onChange={(e) => set({ scheduler: e.target.value })} onBlur={() => saveConfig({ scheduler: cfg.scheduler })} placeholder="Automatic" />
-        </label>
-      )}
-      <label>
-        CFG scale
-        <input type="number" min={1} max={30} step={0.5} value={cfg.cfgScale} onChange={(e) => set({ cfgScale: Number(e.target.value) })} onBlur={() => cfg.cfgScale > 0 && saveConfig({ cfgScale: cfg.cfgScale })} />
-      </label>
-      {surface?.negative && (
-        <label>
-          Negative prompt
-          <textarea rows={2} value={cfg.negativePrompt} onChange={(e) => set({ negativePrompt: e.target.value })} onBlur={() => saveConfig({ negativePrompt: cfg.negativePrompt })} />
-        </label>
-      )}
-      {surface?.lora && (
-        <LoraSlots
-          slots={loraSlots(cfg)}
-          onChange={(next) => {
-            set({
-              loras: next,
-              lora: next[0]?.file ?? '',
-              loraWeight: next[0]?.weight ?? 0.8,
-            });
-            void saveConfig({ loras: next });
-          }}
-        />
-      )}
-
-      <label>
-        Prompt
-        <textarea rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe the image…" />
-      </label>
-      <button className="primary" disabled={busy || !prompt.trim() || !deskReady} onClick={generate}>
-        {busy ? 'Generating…' : 'Generate'}
-      </button>
       {image && (
         <div className="image-result">
           <img src={image} alt="Generated" />
@@ -297,63 +278,5 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         </div>
       )}
     </section>
-  );
-}
-
-const LORA_VISIBLE = 4;
-const LORA_SLOTS = 8;
-
-function loraSlots(cfg: ImageConfig): { file: string; weight: number }[] {
-  const fromList = cfg.loras ?? [];
-  const out = Array.from({ length: LORA_SLOTS }, (_, i) => fromList[i] ?? { file: '', weight: 0.8 });
-  if (fromList.length === 0 && cfg.lora) {
-    out[0] = { file: cfg.lora, weight: cfg.loraWeight ?? 0.8 };
-  }
-  return out;
-}
-
-function LoraSlots({
-  slots,
-  onChange,
-}: {
-  slots: { file: string; weight: number }[];
-  onChange: (next: { file: string; weight: number }[]) => void;
-}) {
-  const setSlot = (index: number, patch: Partial<{ file: string; weight: number }>) => {
-    const next = slots.map((s, i) => (i === index ? { ...s, ...patch } : s));
-    onChange(next);
-  };
-  const row = (index: number) => (
-    <div className="img-row2" key={index}>
-      <label>
-        LoRA {index + 1}
-        <input
-          value={slots[index]?.file ?? ''}
-          onChange={(e) => setSlot(index, { file: e.target.value })}
-          onBlur={() => onChange(slots)}
-        />
-      </label>
-      <label>
-        Weight
-        <input
-          type="number"
-          min={0}
-          max={1}
-          step={0.05}
-          value={slots[index]?.weight ?? 0.8}
-          onChange={(e) => setSlot(index, { weight: Number(e.target.value) })}
-          onBlur={() => onChange(slots)}
-        />
-      </label>
-    </div>
-  );
-  return (
-    <div>
-      {Array.from({ length: LORA_VISIBLE }, (_, i) => row(i))}
-      <details>
-        <summary>More LoRAs</summary>
-        {Array.from({ length: LORA_SLOTS - LORA_VISIBLE }, (_, i) => row(i + LORA_VISIBLE))}
-      </details>
-    </div>
   );
 }

@@ -24,6 +24,40 @@ export interface StudioDeskProps {
   onReady?: (ready: boolean) => void;
   /** Extra page state that should refetch Create readiness. */
   watch?: string;
+  cfg?: number;
+  scheduler?: string;
+  prompt?: string;
+  onPrompt?: (value: string) => void;
+  onGenerate?: () => void;
+  generateError?: string;
+  busy?: boolean;
+  loraFacts?: Record<string, { family: string; meta?: boolean }>;
+}
+
+function familyOf(name: string): string {
+  const s = name.toLowerCase();
+  if (s.includes('kontext')) return 'kontext';
+  if (/z[ _-]?image/.test(s)) return 'zImage';
+  if (s.includes('qwen')) return 'qwen';
+  if (s.includes('flux')) return 'flux';
+  if (s.includes('pony')) return 'pony';
+  if (/sd[ _-]?xl|xl(?![a-z])|illustrious/.test(s)) return 'sdxl';
+  return 'unknown';
+}
+
+function slotBadge(
+  file: string,
+  modelName: string,
+  facts?: Record<string, { family: string; meta?: boolean }>,
+): string {
+  const fact = facts?.[file];
+  const lora = fact?.family || familyOf(file);
+  const model = familyOf(modelName);
+  if (lora !== 'unknown' && lora === model) return 'match';
+  const pony =
+    (lora === 'pony' && model === 'sdxl') || (lora === 'sdxl' && model === 'pony');
+  if (lora === 'unknown' || model === 'unknown' || pony || !fact?.meta) return 'likely';
+  return 'other base';
 }
 
 interface CivitaiRow {
@@ -48,10 +82,10 @@ interface GraphRow {
 }
 
 const builtInCreate: GraphRow[] = [
-  { id: 'sd', title: 'SD / SDXL / Pony', detail: 'Built into Front Porch', group: 'Text to image' },
-  { id: 'flux', title: 'Flux', detail: 'Built into Front Porch', group: 'Text to image' },
-  { id: 'qwen_image', title: 'Qwen-Image', detail: 'Built into Front Porch', group: 'Text to image' },
-  { id: 'z_image_turbo', title: 'Z-Image Turbo', detail: 'Built into Front Porch', group: 'Text to image' },
+  { id: 'sd', title: 'SD / SDXL / Pony', detail: 'Built into Front Porch', group: 'Text to image graphs' },
+  { id: 'flux', title: 'Flux', detail: 'Built into Front Porch', group: 'Text to image graphs' },
+  { id: 'qwen_image', title: 'Qwen-Image', detail: 'Built into Front Porch', group: 'Text to image graphs' },
+  { id: 'z_image_turbo', title: 'Z-Image Turbo', detail: 'Built into Front Porch', group: 'Text to image graphs' },
 ];
 
 const builtInEdit: GraphRow[] = [
@@ -123,6 +157,9 @@ export function StudioDesk(props: StudioDeskProps) {
   const [graphs, setGraphs] = useState<GraphRow[]>([]);
   const [graphNote, setGraphNote] = useState('');
   const [note, setNote] = useState('');
+  const [advanced, setAdvanced] = useState(false);
+  const [overrideFamily, setOverrideFamily] = useState('');
+  const [subject, setSubject] = useState('character');
   const activeWorkflow = mode === 'edit'
     ? (props.editWorkflowId || 'qwen_image_edit')
     : props.workflowId;
@@ -193,7 +230,7 @@ export function StudioDesk(props: StudioDeskProps) {
       )
       .then((body) => {
         if (body.needsCredential) {
-          setNote('Sign in to CivitAI to search adult models.');
+          setNote('Paste an API key to search adult models.');
           setHits([]);
           setRows([]);
           return;
@@ -221,8 +258,8 @@ export function StudioDesk(props: StudioDeskProps) {
     const pick = lora
       ? props.backend === 'a1111'
         ? 'Saved to your models folder on this computer. It is in the Lora folder.'
-        : 'Saved to your models folder on this computer. Pick it in LoRA search.'
-      : 'Saved to your models folder on this computer. Pick it in Model search.';
+        : 'Saved to your models folder on this computer. Pick it with Add.'
+      : 'Saved to your models folder on this computer. Pick it with Change model.';
     try {
       const choice = await api.post<{
         accept?: boolean;
@@ -367,7 +404,12 @@ export function StudioDesk(props: StudioDeskProps) {
     void file.arrayBuffer().then((buffer) => {
       const json = workflowJsonFromBytes(new Uint8Array(buffer));
       if (!json) {
-        setNote('That file has no workflow.');
+        const png = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+        setNote(
+          png
+            ? 'That image has no ComfyUI workflow saved inside it.'
+            : 'That file isn’t a ComfyUI graph.',
+        );
         return;
       }
       if (mode === 'edit') {
@@ -380,103 +422,211 @@ export function StudioDesk(props: StudioDeskProps) {
     });
   };
 
+  const filled = (props.loras ?? []).filter((slot) => slot.file.trim());
+  const modelFamily = familyOf(file);
+  const certain = overrideFamily === modelFamily
+    ? undefined
+    : filled.find((slot) => slotBadge(slot.file, file, props.loraFacts) === 'other base');
+  const serverBlocked = !certain && loraBlock != null && overrideFamily !== (loraBlock.family || modelFamily);
+  const ready = certain || serverBlocked ? false : serverReady;
+  const cfg = props.cfg ?? 1;
+  const scheduler = props.scheduler ?? 'Automatic';
+  const summary = `${props.steps} steps · cfg ${cfg} · ${props.sampler} · ${scheduler}`;
+  const sentW = Number(width) || 1024;
+  const sentH = Number(height) || 1024;
+  const url = props.backend === 'comfyui'
+    ? props.comfyUrl
+    : props.backend === 'a1111'
+      ? props.localUrl
+      : props.backend === 'drawthings'
+        ? props.drawThingsHost
+        : props.remoteUrl;
+  const backendName = props.backend === 'comfyui'
+    ? 'ComfyUI'
+    : props.backend === 'a1111'
+      ? 'Automatic1111'
+      : props.backend === 'drawthings'
+        ? 'Draw Things'
+        : 'Remote';
+  const why = file.toLowerCase().endsWith('.gguf')
+    ? `Workflow · GGUF · chosen for this file · ${activeWorkflow}`
+    : activeWorkflow === '__uploaded__'
+      ? 'Workflow · your file · workflow · 0 nodes'
+      : `Workflow · ${mode === 'edit' ? 'Edit' : 'Text to image'} · ${activeWorkflow}`;
+  const familyLabel = file ? (modelFamily === 'zImage' ? 'Z-Image' : modelFamily === 'qwen' ? 'Qwen' : modelFamily === 'unknown' ? 'Model' : modelFamily) : 'No model chosen';
+  const checkpointOnly = activeWorkflow === 'sd';
+  const otherGraphs = (mode === 'edit' ? builtInCreate : builtInEdit).filter((row) => {
+    const q = query.trim().toLowerCase();
+    return q.length > 0 && (row.title.toLowerCase().includes(q) || row.id.toLowerCase().includes(q));
+  });
+
   return (
     <section className="studio-desk">
-      <label>
-        Backend
-        <select value={props.backend} onChange={(e) => commit({ backend: e.target.value })}>
-          <option value="remote">Remote</option>
-          <option value="comfyui">ComfyUI</option>
-          <option value="a1111">Automatic1111</option>
-          <option value="drawthings">Draw Things</option>
-        </select>
-      </label>
-      <label>
-        {props.backend === 'comfyui' ? 'ComfyUI URL' : props.backend === 'a1111' ? 'Automatic1111 URL' : props.backend === 'drawthings' ? 'Draw Things host' : 'Remote URL'}
-        <input
-          key={props.backend}
-          defaultValue={props.backend === 'comfyui' ? props.comfyUrl : props.backend === 'a1111' ? props.localUrl : props.backend === 'drawthings' ? props.drawThingsHost : props.remoteUrl}
-          onBlur={(e) => {
-            const value = e.target.value;
-            if (props.backend === 'comfyui') commit({ comfyUrl: value });
-            else if (props.backend === 'a1111') commit({ localUrl: value });
-            else if (props.backend === 'drawthings') commit({ drawThingsHost: value });
-            else commit({ remoteApiUrl: value });
-          }}
-        />
-      </label>
-      <div role="tablist">
-        <button type="button" role="tab" onClick={() => setMode('create')}>Create</button>
-        <button type="button" role="tab" onClick={() => setMode('edit')}>Edit</button>
-      </div>
-      <p>{file || 'No model chosen'}</p>
-      <button type="button" onClick={() => search('Model search')}>Model search</button>
-      <button type="button" onClick={() => search('Graph search')}>Graph search</button>
-      <button type="button" onClick={() => setSheet('Graph upload')}>Graph upload</button>
-      <button type="button" onClick={() => search('LoRA search')}>LoRA search</button>
-      <label>
-        Width
-        <input aria-label="Width" defaultValue={width || '1024'} onBlur={(e) => saveSize(e.target.value, height || '1024')} />
-      </label>
-      <label>
-        Height
-        <input aria-label="Height" defaultValue={height || '1024'} onBlur={(e) => saveSize(width || '1024', e.target.value)} />
-      </label>
-      <label>
-        Steps
-        <input aria-label="Steps" defaultValue={String(props.steps)} onBlur={(e) => commit({ steps: Number(e.target.value) })} />
-      </label>
-      <label>
-        Sampler
-        <input aria-label="Sampler" defaultValue={props.sampler} onBlur={(e) => commit({ sampler: e.target.value })} />
-      </label>
-      <button type="button" onClick={() => setSheet('CivitAI sign-in')}>CivitAI sign-in</button>
-      <button type="button" onClick={() => search('Get a model')}>Get a model</button>
-      <button type="button" onClick={() => search('Get a LoRA')}>Get a LoRA</button>
-      <label>
-        Adult
-        <input type="checkbox" role="switch" checked={adult} onChange={(e) => setAdult(e.target.checked)} />
-      </label>
-      {loraBlock ? (
-        <p>
-          {loraBlock.lora} does not match {loraBlock.primary}.{' '}
-          <button
-            type="button"
-            onClick={() => commit({ loraOverrideFamily: loraBlock.family })}
-          >
-            Use anyway
-          </button>
-        </p>
-      ) : null}
-      <button type="button" disabled={!serverReady}>Generate</button>
-      {note ? <p>{note}</p> : null}
-      {sheet === 'CivitAI sign-in' && (
-        <label>
-          API key
-          <input value={token} onChange={(e) => setToken(e.target.value)} onBlur={saveKey} />
-        </label>
-      )}
-      {sheet === 'Graph upload' && (
-        <div>
+      <style>{`
+        .fp-desk-body { display: flex; gap: 16px; align-items: flex-start; }
+        .fp-desk-rail, .fp-desk-stove { flex: 1; min-width: 0; }
+        @media (max-width: 720px) {
+          .fp-desk-body { flex-direction: column; }
+        }
+      `}</style>
+      <div className="fp-desk-body">
+        <div className="fp-desk-rail" data-region="rail">
+          <div>Subject</div>
+          <button type="button" onClick={() => setSubject('free')}>Freeform</button>
+          <button type="button" onClick={() => setSubject('char')}>Character</button>
+          <button type="button" onClick={() => setSubject('persona')}>Your persona</button>
+          <div>
+            <span>Prompt</span>
+            <button type="button">Write it for me</button>
+          </div>
+          <textarea
+            aria-label="Prompt"
+            value={props.prompt ?? ''}
+            onChange={(e) => props.onPrompt?.(e.target.value)}
+          />
           <p>
-            Choose a Comfy workflow. That can be the JSON Comfy saves, or a PNG
-            that still has the workflow stored inside it. A JPEG does not carry
-            a workflow.
+            {mode === 'edit'
+              ? 'Portrait in this chat. Edit sends an instruction with this picture.'
+              : 'Start from a picture — optional. A reference here varies the Create model. It does not switch you to Edit.'}
           </p>
+          <button type="button">Expression pack</button>
+          <p>{mode === 'edit' ? 'Pack uses this edit model.' : 'Pack uses this Create model to vary the portrait.'}</p>
+          <span hidden>{subject}</span>
+        </div>
+        <div className="fp-desk-stove" data-region="stove">
+          <div>Connection</div>
+          <div>{backendName}</div>
+          <div>{url}</div>
+          <details>
+            <summary>Change…</summary>
+            <button type="button" onClick={() => commit({ backend: 'remote' })}>Remote</button>
+            <button type="button" onClick={() => commit({ backend: 'comfyui' })}>ComfyUI</button>
+            <button type="button" onClick={() => commit({ backend: 'a1111' })}>Automatic1111</button>
+            <button type="button" onClick={() => commit({ backend: 'drawthings' })}>Draw Things</button>
+          </details>
+          <div>
+            <button type="button" onClick={() => setMode('create')}>Create</button>
+            <span>make a new portrait</span>
+            <button type="button" onClick={() => setMode('edit')}>Edit</button>
+            <span>change this portrait</span>
+          </div>
+          <div>Model</div>
+          <strong>{familyLabel}</strong>
+          <div>{file || 'No model chosen'}</div>
+          <p>{why}</p>
+          <button type="button" onClick={() => openGraphs()}>Change graph</button>
+          <button type="button" onClick={() => search('Model search')}>Change model</button>
+          <button type="button" onClick={() => search('Get a model')}>Get a model from CivitAI</button>
+          {checkpointOnly ? <p>This checkpoint graph has no text encoder or VAE slot.</p> : (
+            <>
+              <p>This graph also loads</p>
+              <p>These files do not set the LoRA family. The text encoder can be Qwen while the model is Z-Image.</p>
+            </>
+          )}
+          <div>LoRA</div>
+          {filled.map((slot) => (
+            <div key={slot.file}>
+              <span>{slot.file}</span>
+              <span>{slotBadge(slot.file, file, props.loraFacts)}</span>
+              <label>
+                Weight
+                <input
+                  aria-label={`Weight ${slot.file}`}
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  defaultValue={String(slot.weight)}
+                  onBlur={(e) => {
+                    const weight = Number(e.target.value);
+                    const next = (props.loras ?? []).map((row) =>
+                      row.file === slot.file ? { ...row, weight } : row,
+                    );
+                    commit({ loras: next });
+                  }}
+                />
+              </label>
+            </div>
+          ))}
+          {certain ? (
+            <p>
+              Generate stays off until you pick a matching LoRA or press Use anyway.
+              <button
+                type="button"
+                onClick={() => {
+                  setOverrideFamily(modelFamily);
+                  commit({ loraOverrideFamily: modelFamily });
+                }}
+              >
+                Use anyway
+              </button>
+            </p>
+          ) : null}
+          <button type="button" onClick={() => search('LoRA search')}>Add</button>
+          <button type="button" onClick={() => search('Get a LoRA')}>Get a LoRA from CivitAI</button>
+          <div>Size</div>
+          {['512×512', '768×768', '1024×1024', '1536×1024', '1024×1536'].map((label) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                const [cw, ch] = label.split('×');
+                saveSize(cw, ch);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+          <label>
+            Width
+            <input key={`w-${props.size}`} aria-label="Width" defaultValue={width || '1024'} onBlur={(e) => saveSize(e.target.value, height || '1024')} />
+          </label>
+          <label>
+            Height
+            <input key={`h-${props.size}`} aria-label="Height" defaultValue={height || '1024'} onBlur={(e) => saveSize(width || '1024', e.target.value)} />
+          </label>
+          <p>{`Sends ${sentW}×${sentH}. Each side snaps to a multiple of 64, from 256 to 2048.`}</p>
+          <button type="button" onClick={() => setAdvanced((open) => !open)}>
+            {advanced ? `Advanced ▾ ${summary}` : `Advanced ▸ ${summary}`}
+          </button>
+          {advanced && props.backend !== 'drawthings' ? (
+            <>
+              <label>Steps<input aria-label="Steps" defaultValue={String(props.steps)} onBlur={(e) => commit({ steps: Number(e.target.value) })} /></label>
+              <label>CFG<input aria-label="CFG" defaultValue={String(cfg)} onBlur={(e) => commit({ cfgScale: Number(e.target.value) })} /></label>
+              <label>Sampler<input aria-label="Sampler" defaultValue={props.sampler} onBlur={(e) => commit({ sampler: e.target.value })} /></label>
+              <label>Scheduler<input aria-label="Scheduler" defaultValue={scheduler} onBlur={(e) => commit({ scheduler: e.target.value })} /></label>
+            </>
+          ) : null}
+          {advanced && props.backend === 'drawthings' ? (
+            <label>
+              Sampler
+              <select aria-label="Draw Things sampler" defaultValue={props.sampler} onChange={(e) => commit({ sampler: e.target.value })}>
+                <option>Euler a Trailing</option>
+              </select>
+            </label>
+          ) : null}
+          <p>{props.busy ? 'Generating…' : ready ? 'Ready to generate.' : certain || serverBlocked ? `Not ready — LoRA architecture does not match ${file}.` : 'Not ready.'}</p>
+          <button type="button" disabled={!ready || props.busy === true} onClick={() => props.onGenerate?.()}>Generate</button>
+          {props.generateError ? <p>{props.generateError}</p> : null}
+          {note ? <p>{note}</p> : null}
+        </div>
+      </div>
+      {sheet === 'Graph search' && (
+        <div>
+          <h2>{mode === 'edit' ? 'Change graph — Edit' : 'Change graph — Create'}</h2>
+          <p>{graphNote}</p>
+          <p>Drop a ComfyUI graph, or an image that has one saved inside it.</p>
+          <p>JSON, or a PNG from Comfy’s Save.</p>
           <input
             aria-label="Workflow file"
             type="file"
             accept=".json,.png,application/json,image/png"
             onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) readWorkflowFile(file);
+              const picked = event.target.files?.[0];
+              if (picked) readWorkflowFile(picked);
             }}
           />
-        </div>
-      )}
-      {sheet === 'Graph search' && (
-        <div>
-          <p>{graphNote}</p>
+          <button type="button">Choose file</button>
           <input aria-label="Search graphs" value={query} onChange={(e) => setQuery(e.target.value)} />
           <ul>
             {graphs.filter((row) => {
@@ -485,27 +635,40 @@ export function StudioDesk(props: StudioDeskProps) {
             }).map((row) => (
               <li key={row.id}>
                 <button type="button" onClick={() => saveInstalled(row.id)}>{row.title}</button>
+                <span>{row.group}</span>
                 <span>{row.detail}</span>
               </li>
             ))}
           </ul>
+          {otherGraphs.length > 0 ? (
+            <div>
+              <p>Other mode — search found these</p>
+              {otherGraphs.map((row) => (
+                <div key={row.id}>
+                  <span>{row.title}</span>
+                  <button type="button" onClick={() => {
+                    if (mode === 'edit') commit({ comfyCreateWorkflowId: row.id });
+                    else commit({ comfyEditWorkflowId: row.id });
+                  }}>{mode === 'edit' ? 'Use it for Create' : 'Use it for Edit'}</button>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       )}
-      {sheet === 'LoRA search' && (
+      {(sheet === 'Get a model' || sheet === 'Get a LoRA') && (
         <div>
-          <p>
-            These are the LoRA files the connected app listed. A tap fills the
-            first empty slot.
-          </p>
-          <ul>
-            {(props.loras ?? []).filter((slot) => slot.file.trim()).map((slot) => (
-              <li key={slot.file}>{slot.file}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {sheet && sheet !== 'CivitAI sign-in' && sheet !== 'Graph upload' && sheet !== 'Graph search' && (
-        <div>
+          <h2>{sheet === 'Get a LoRA' ? 'Get a LoRA from CivitAI' : 'Get a model from CivitAI'}</h2>
+          <button type="button">On this computer</button>
+          <button type="button">CivitAI</button>
+          <label>
+            <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} />
+            Include adult models from civitai.red
+          </label>
+          <label>
+            API key
+            <input value={token} onChange={(e) => setToken(e.target.value)} onBlur={saveKey} />
+          </label>
           <input aria-label="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
           <button type="button" onClick={() => search(sheet)}>Search</button>
           <ul>
@@ -513,9 +676,41 @@ export function StudioDesk(props: StudioDeskProps) {
               <li key={item}><button type="button" onClick={() => saveInstalled(item)}>{item}</button></li>
             ))}
           </ul>
-          {query.trim() && sheet !== 'Get a model' && sheet !== 'Get a LoRA' ? (
+          {note ? <p>{note}</p> : null}
+        </div>
+      )}
+      {sheet === 'Model search' && (
+        <div>
+          <h2>{mode === 'edit' ? 'Change model — Edit' : 'Change model — Create'}</h2>
+          <input aria-label="Search" placeholder="Search families or files" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <button type="button" onClick={() => search(sheet)}>Search</button>
+          <ul>
+            {hits.map((item) => (
+              <li key={item}><button type="button" onClick={() => saveInstalled(item)}>{item}</button></li>
+            ))}
+          </ul>
+          {query.trim() ? (
             <button type="button" onClick={() => saveInstalled(query.trim())}>Use {query.trim()}</button>
           ) : null}
+        </div>
+      )}
+      {sheet === 'LoRA search' && (
+        <div>
+          <h2>LoRA</h2>
+          <p>Matches this model</p>
+          <p>Other bases</p>
+          <ul>
+            {filled.map((slot) => (
+              <li key={slot.file}>{slot.file}</li>
+            ))}
+          </ul>
+          <input aria-label="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <button type="button" onClick={() => search(sheet)}>Search</button>
+          <ul>
+            {hits.map((item) => (
+              <li key={item}><button type="button" onClick={() => saveInstalled(item)}>{item}</button></li>
+            ))}
+          </ul>
         </div>
       )}
     </section>

@@ -44,7 +44,7 @@ Two tabs at the top.
 
 **Subject**
 
-- **Freeform** — you write it. Empty + **Write it for me** pictures the current scene (your *chat* LLM drafts the prompt; you can edit it).
+- **Freeform** — you write it. **Write it for me** is on the desk and does not draft a prompt.
 - **Character** — close-up from appearance + current expression. Personality text is **not** stuffed in. In a group, pick one member. A group shot is allowed; diffusion is bad at several specific faces, and the UI says so.
 - **Your persona** — from persona appearance.
 

@@ -53,9 +53,13 @@ class _StudioSizeFieldsState extends State<StudioSizeFields> {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _field(context, 'Width', _width)),
+        Expanded(
+          child: _field(context, 'Width', _width, const Key('studio-width')),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: _field(context, 'Height', _height)),
+        Expanded(
+          child: _field(context, 'Height', _height, const Key('studio-height')),
+        ),
       ],
     );
   }
@@ -64,8 +68,10 @@ class _StudioSizeFieldsState extends State<StudioSizeFields> {
     BuildContext context,
     String label,
     TextEditingController controller,
+    Key fieldKey,
   ) {
     return TextField(
+      key: fieldKey,
       controller: controller,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],

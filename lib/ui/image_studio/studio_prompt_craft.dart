@@ -47,49 +47,13 @@ LLMService? _liveStudioLlm(
   return null;
 }
 
-/// Build a fresh [ImageGenContext] snapshot for a Studio subject. The
-/// character name/description are explicit because the coordinator substitutes
-/// the *active* subject (a picked group member, the whole cast, or the 1:1
-/// character); everything else mirrors the launch context verbatim.
-ImageGenContext _buildStudioContext(
-  ImageStudio widget, {
-  required ImageGenMode mode,
-  required String style,
-  required String paradigm,
-  String? characterName,
-  String? characterDescription,
-}) {
-  return ImageGenContext(
-    mode: mode,
-    style: style,
-    paradigm: paradigm,
-    characterName: characterName,
-    characterDescription: characterDescription,
-    lastMessage: mode == ImageGenMode.customPrompt
-        ? widget.customPrompt
-        : widget.lastMessage,
-    scenario: widget.scenario,
-    worldInfo: widget.worldInfo,
-    personaName: widget.personaName,
-    personaText: widget.personaText,
-    recentMessages: widget.recentMessages,
-    currentExpression: widget.currentExpression,
-    timeOfDay: widget.timeOfDay,
-    lightingHint: widget.lightingHint,
-    isGroupNonObserver: widget.isGroupNonObserver,
-    currentSpeakerId: widget.currentSpeakerId,
-  );
-}
-
-/// One shared smart-prompt call for the Studio's "Write it for me" button and
-/// the Expression-pack base prompt (the pack needs the same crafting when the
-/// prompt box is empty). Thin delegation to
+/// One shared smart-prompt call for the Expression-pack base prompt when the
+/// prompt box is empty. Thin delegation to
 /// [ImageGenService.generateSmartPrompt], which owns the LLM-vs-static
 /// fallback and never throws past its own ultimate fallback.
 ///
-/// [characterName]/[characterDescription] are explicit for the same reason as
-/// [_buildStudioContext]: the Craft button passes the launch character, while
-/// the pack flow passes the active subject (e.g. a picked group member).
+/// [characterName]/[characterDescription] are the active subject (a picked
+/// group member, or the 1:1 character).
 /// [currentExpression] overrides the launch snapshot's live emotion — the
 /// pack passes 'neutral' so the base prompt carries no emotion tint for the
 /// per-slot modifier phrases to fight against.

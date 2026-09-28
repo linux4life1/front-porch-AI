@@ -39,7 +39,7 @@ class StudioDeskKnobs extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          _RemoteKeyNote(settings: settings, storage: storage),
+          StudioRemoteKeyNote(settings: settings, storage: storage),
         ],
         StudioCommitField(
           key: ValueKey(
@@ -140,8 +140,12 @@ class StudioDeskKnobs extends StatelessWidget {
   }
 }
 
-class _RemoteKeyNote extends StatelessWidget {
-  const _RemoteKeyNote({required this.settings, required this.storage});
+class StudioRemoteKeyNote extends StatelessWidget {
+  const StudioRemoteKeyNote({
+    super.key,
+    required this.settings,
+    required this.storage,
+  });
 
   final ImageGenSettings settings;
   final StorageService storage;

@@ -8,18 +8,8 @@
 part of 'image_studio.dart';
 
 extension _ImageStudioSubject on _ImageStudioState {
-  /// Build a fresh snapshot ctx for the given subject.
-  ImageGenContext _makeContextForMode(ImageGenMode mode) => _buildStudioContext(
-    widget,
-    mode: mode,
-    style: _selectedStyle,
-    paradigm: _paradigm,
-    characterName: _activeCharName,
-    characterDescription: _activeCharDesc,
-  );
-
-  /// Switch subject: rebuild the ctx snapshot and clear the prompt box — no
-  /// bleed between subjects, and no raw-description prefill.
+  /// Switch subject and clear the prompt box — no bleed between subjects,
+  /// and no raw-description prefill.
   void _selectSubject(ImageGenMode mode) {
     rebuildState(() {
       _activeMode = mode;
@@ -30,7 +20,6 @@ extension _ImageStudioSubject on _ImageStudioState {
         _pickedGroupDbId = null;
         _groupShot = false;
       }
-      _ctx = _makeContextForMode(mode);
       _editablePrompt = '';
     });
   }
@@ -67,7 +56,6 @@ extension _ImageStudioSubject on _ImageStudioState {
       _pickedGroupDbId = m?.dbId;
       _groupShot = m == null;
       _activeMode = ImageGenMode.characterPortrait;
-      _ctx = _makeContextForMode(_activeMode);
       _editablePrompt = '';
     });
   }
@@ -138,43 +126,4 @@ extension _ImageStudioSubject on _ImageStudioState {
   }
 
   bool get _canSaveToGallery => _lookTarget != null;
-
-  Future<void> _craftWithLlmIfAvailable() async {
-    // Re-query the live LLM at craft time (the launch snapshot may be stale).
-    final liveLlm = _liveStudioLlm(context, widget.llmService, toast: true);
-    if (liveLlm == null) return;
-    rebuildState(() {
-      _isCrafting = true;
-      _error = '';
-    });
-    try {
-      final crafted = await _craftStudioPrompt(
-        widget,
-        service: Provider.of<ImageGenService>(context, listen: false),
-        llm: liveLlm,
-        mode: _activeMode,
-        style: _selectedStyle,
-        characterName: widget.characterName,
-        characterDescription: widget.characterDescription,
-        // Box content → guidance the LLM parses in (blank Freeform → scene).
-        userInstruction: _editablePrompt.trim().isNotEmpty
-            ? _editablePrompt.trim()
-            : null,
-      );
-      if (mounted) {
-        rebuildState(() {
-          _editablePrompt = crafted;
-          _isCrafting = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        rebuildState(() {
-          _isCrafting = false;
-          _error =
-              'Craft failed: ${e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '')}';
-        });
-      }
-    }
-  }
 }

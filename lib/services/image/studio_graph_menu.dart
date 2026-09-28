@@ -79,7 +79,7 @@ List<DeskGraphChoice> deskGraphMenu({
   required List<DeskGraphRow> saved,
   List<DeskGraphRow> unread = const [],
 }) {
-  final built = edit ? 'Edit graphs' : 'Text to image';
+  final built = edit ? 'Edit graphs' : 'Text to image graphs';
   final bundled = <DeskGraphChoice>[
     if (edit)
       for (final preset in kComfyEditPresets)
@@ -182,6 +182,49 @@ String? workflowJsonFromBytes(List<int> bytes) {
   }
   final text = utf8.decode(bytes, allowMalformed: true).trim();
   return pngWorkflowText({'prompt': text});
+}
+
+/// `edit` when the shipped rule files it as an edit, `create` when it
+/// is a picture-making graph, `unstated` when it names neither.
+String deskGraphStance(String json) {
+  Map<String, dynamic>? graph;
+  try {
+    final decoded = jsonDecode(json);
+    if (decoded is Map) {
+      graph = decoded.map((key, value) => MapEntry('$key', value));
+    }
+  } catch (_) {
+    return 'unstated';
+  }
+  if (graph == null) return 'unstated';
+  if (savedGraphIsEdit(graph)) return 'edit';
+  final types = <String>{};
+  void take(Object? node) {
+    if (node is! Map) return;
+    final type = node['class_type'] ?? node['type'];
+    if (type is String && type.isNotEmpty) types.add(type);
+  }
+
+  for (final node in graph.values) {
+    take(node);
+  }
+  final nodes = graph['nodes'];
+  if (nodes is List) {
+    for (final node in nodes) {
+      take(node);
+    }
+  }
+  const marks = {
+    'KSampler',
+    'EmptyLatentImage',
+    'EmptySD3LatentImage',
+    'UNETLoader',
+    'UnetLoaderGGUF',
+    'CheckpointLoaderSimple',
+    'VAEDecode',
+  };
+  if (types.any(marks.contains)) return 'create';
+  return 'unstated';
 }
 
 /// How many nodes the stored workflow JSON describes. Zero when it is

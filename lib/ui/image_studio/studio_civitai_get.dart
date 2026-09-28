@@ -19,12 +19,20 @@ class StudioCivitaiGet extends StatefulWidget {
     required this.adult,
     required this.backend,
     required this.onInstalled,
+    this.localFiles = const [],
+    this.onPickLocal,
+    this.onAdultChanged,
+    this.onSaveKey,
   });
 
   final bool lora;
   final bool adult;
   final String backend;
   final ValueChanged<String> onInstalled;
+  final List<String> localFiles;
+  final ValueChanged<String>? onPickLocal;
+  final ValueChanged<bool>? onAdultChanged;
+  final Future<String?> Function(String token)? onSaveKey;
 
   @override
   State<StudioCivitaiGet> createState() => _StudioCivitaiGetState();
@@ -32,15 +40,27 @@ class StudioCivitaiGet extends StatefulWidget {
 
 class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   final TextEditingController _query = TextEditingController();
+  final TextEditingController _token = TextEditingController();
   List<CivitaiModelRow> _rows = const [];
   String? _error;
   bool _busy = false;
   bool _needFolder = false;
+  bool _onComputer = false;
+  late bool _adult = widget.adult;
 
   @override
   void dispose() {
     _query.dispose();
+    _token.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveKey() async {
+    final save = widget.onSaveKey;
+    if (save == null) return;
+    final error = await save(_token.text);
+    if (!mounted) return;
+    if (error != null) setState(() => _error = error);
   }
 
   Future<void> _search() async {
@@ -54,13 +74,13 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       final plan = await relay.planSearch(
         accountId: 'local',
         query: _query.text.trim(),
-        adult: widget.adult,
+        adult: _adult,
         lora: widget.lora,
       );
       if (plan.needsCredential || plan.uri == null) {
         setState(() {
           _rows = const [];
-          _error = 'Sign in to CivitAI to search adult models.';
+          _error = 'Paste an API key to search adult models.';
         });
         return;
       }
@@ -139,7 +159,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       final plan = await relay.planDownload(
         accountId: 'local',
         versionId: versionId,
-        adult: widget.adult,
+        adult: _adult,
         savedRoot: root,
         filename: filename,
         civitaiType: row.type,
@@ -167,20 +187,77 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
     return AlertDialog(
       backgroundColor: AppColors.surfaceOf(context),
       title: Text(
-        widget.lora ? 'Get a LoRA' : 'Get a model',
+        widget.lora ? 'Get a LoRA from CivitAI' : 'Get a model from CivitAI',
         style: TextStyle(color: AppColors.textPrimary(context)),
       ),
       content: SizedBox(
-        width: 420,
+        width: 480,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              controller: _query,
-              decoration: const InputDecoration(labelText: 'Search CivitAI'),
-              onSubmitted: (_) => _search(),
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton(
+                  onPressed: () => setState(() => _onComputer = true),
+                  child: const Text('On this computer'),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _onComputer = false),
+                  child: const Text('CivitAI'),
+                ),
+              ],
             ),
-            if (_error != null)
+            if (_onComputer)
+              SizedBox(
+                height: 240,
+                child: ListView(
+                  children: [
+                    for (final file in widget.localFiles)
+                      ListTile(
+                        title: Text(file),
+                        onTap: () {
+                          widget.onPickLocal?.call(file);
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                  ],
+                ),
+              )
+            else ...[
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _adult,
+                title: const Text('Include adult models from civitai.red'),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _adult = value);
+                  widget.onAdultChanged?.call(value);
+                },
+              ),
+              TextField(
+                controller: _token,
+                decoration: const InputDecoration(
+                  labelText: 'API key',
+                  isDense: true,
+                ),
+                onSubmitted: (_) => _saveKey(),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: _saveKey,
+                  child: const Text('Save key'),
+                ),
+              ),
+              TextField(
+                controller: _query,
+                decoration: const InputDecoration(labelText: 'Search CivitAI'),
+                onSubmitted: (_) => _search(),
+              ),
+            ],
+            if (!_onComputer && _error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
@@ -188,24 +265,25 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
                   style: TextStyle(color: AppColors.textPrimary(context)),
                 ),
               ),
-            if (_needFolder)
+            if (!_onComputer && _needFolder)
               TextButton(
                 onPressed: _busy ? null : _pickFolder,
                 child: const Text('Pick models folder'),
               ),
-            SizedBox(
-              height: 240,
-              child: ListView(
-                children: [
-                  for (final row in _rows)
-                    ListTile(
-                      title: Text(row.name),
-                      subtitle: Text(row.filename ?? row.type),
-                      onTap: _busy ? null : () => _install(row),
-                    ),
-                ],
+            if (!_onComputer)
+              SizedBox(
+                height: 240,
+                child: ListView(
+                  children: [
+                    for (final row in _rows)
+                      ListTile(
+                        title: Text(row.name),
+                        subtitle: Text(row.filename ?? row.type),
+                        onTap: _busy ? null : () => _install(row),
+                      ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),

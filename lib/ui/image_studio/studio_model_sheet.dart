@@ -1,0 +1,138 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import 'package:flutter/material.dart';
+
+import 'package:front_porch_ai/services/image/model_family.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import 'studio_desk_copy.dart';
+
+/// Change model. Rows are grouped by family. A typed name is kept when
+/// the connected app has not listed that file yet.
+class StudioModelSheet extends StatefulWidget {
+  const StudioModelSheet({
+    super.key,
+    required this.edit,
+    required this.items,
+    required this.onPick,
+  });
+
+  final bool edit;
+  final List<String> items;
+  final ValueChanged<String> onPick;
+
+  @override
+  State<StudioModelSheet> createState() => _StudioModelSheetState();
+}
+
+class _StudioModelSheetState extends State<StudioModelSheet> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _query.trim().toLowerCase();
+    final groups = <ModelFamily, List<String>>{};
+    for (final item in widget.items) {
+      if (query.isNotEmpty &&
+          !item.toLowerCase().contains(query) &&
+          !ImageModelFamily.detectFromName(
+            item,
+          ).label.toLowerCase().contains(query)) {
+        continue;
+      }
+      final family = ImageModelFamily.detectFromName(item);
+      groups.putIfAbsent(family, () => []).add(item);
+    }
+    final typed = _query.trim();
+    final offerTyped =
+        typed.isNotEmpty &&
+        !widget.items.any((item) => item.toLowerCase() == typed.toLowerCase());
+    final order = [
+      for (final family in ModelFamily.values)
+        if (groups.containsKey(family)) family,
+    ];
+    return AlertDialog(
+      backgroundColor: AppColors.surfaceOf(context),
+      title: Text(
+        widget.edit ? 'Change model — Edit' : 'Change model — Create',
+        style: TextStyle(color: AppColors.textPrimary(context)),
+      ),
+      content: SizedBox(
+        width: 520,
+        height: 460,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Search families or files',
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() => _query = value),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView(
+                children: [
+                  if (offerTyped)
+                    ListTile(
+                      title: Text(typed),
+                      subtitle: const Text('Use this name'),
+                      onTap: () {
+                        widget.onPick(typed);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  for (final family in order) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+                      child: Text(
+                        family == ModelFamily.unknown ? 'Other' : family.label,
+                        style: TextStyle(
+                          color: AppColors.formMasterAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    for (final file in groups[family]!)
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                        ),
+                        leading: Text(
+                          studioQuantBadge(file),
+                          style: TextStyle(
+                            color: AppColors.textSecondary(context),
+                            fontSize: 12,
+                          ),
+                        ),
+                        title: Text(
+                          file,
+                          style: TextStyle(
+                            color: AppColors.textPrimary(context),
+                          ),
+                        ),
+                        onTap: () {
+                          widget.onPick(file);
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}

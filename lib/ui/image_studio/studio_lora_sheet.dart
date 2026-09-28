@@ -234,7 +234,7 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
                       child: Text(
-                        'For this model',
+                        'Matches this model',
                         style: TextStyle(
                           color: AppColors.formMasterAccent,
                           fontSize: 12,
