@@ -27,17 +27,32 @@ String? civitaiRelayAccount(String? cookieAccount) {
 
 /// PG search is anonymous on civitai.com. Adult search needs a credential
 /// and uses civitai.red. The key is never placed in the query.
+/// Picker label, then the `baseModels` value CivitAI expects.
+const List<(String label, String api)> kCivitaiBaseChoices = [
+  ('Any base', ''),
+  ('Qwen', 'Qwen'),
+  ('Z-Image', 'ZImageTurbo'),
+  ('SD3', 'SD 3.5'),
+  ('Flux', 'Flux.1 D'),
+  ('SDXL', 'SDXL 1.0'),
+  ('Pony', 'Pony'),
+  ('Illustrious', 'Illustrious'),
+  ('SD 1.5', 'SD 1.5'),
+];
+
 Uri? civitaiModelsUri({
   required String query,
   required bool adult,
   required bool hasCredential,
   required bool lora,
+  String baseModel = '',
 }) {
   if (adult && !hasCredential) return null;
   return Uri.https(adult ? 'civitai.red' : 'civitai.com', '/api/v1/models', {
     'query': query,
     'limit': '20',
     'types': lora ? 'LORA' : 'Checkpoint',
+    if (baseModel.trim().isNotEmpty) 'baseModels': baseModel.trim(),
     if (adult) 'nsfw': 'true',
     if (adult) 'browsingLevel': '31',
   });
@@ -300,10 +315,34 @@ class CivitaiCredentialStore {
     return writeKey(civitaiCredentialKey(accountId), trimmed);
   }
 
+  Future<void> saveRed(String accountId, String token) {
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) throw ArgumentError('token');
+    return writeKey(civitaiRedCredentialKey(accountId), trimmed);
+  }
+
   Future<String?> read(String accountId) async {
     final value = await readKey(civitaiCredentialKey(accountId));
     if (value == null || value.trim().isEmpty) return null;
     return value;
+  }
+
+  Future<String?> readRed(String accountId) async {
+    final value = await readKey(civitaiRedCredentialKey(accountId));
+    if (value == null || value.trim().isEmpty) return null;
+    return value;
+  }
+
+  /// Adult calls prefer the civitai.red key and otherwise use the green key.
+  Future<String?> readFor({
+    required String accountId,
+    required bool adult,
+  }) async {
+    if (adult) {
+      final red = await readRed(accountId);
+      if (red != null) return red;
+    }
+    return read(accountId);
   }
 
   /// Removes this account's key and leaves every other account in place.
@@ -322,8 +361,9 @@ class CivitaiRelay {
     required String query,
     required bool adult,
     required bool lora,
+    String baseModel = '',
   }) async {
-    final token = await store.read(accountId);
+    final token = await store.readFor(accountId: accountId, adult: adult);
     final has = token != null;
     return CivitaiSearchPlan(
       uri: civitaiModelsUri(
@@ -331,8 +371,9 @@ class CivitaiRelay {
         adult: adult,
         hasCredential: has,
         lora: lora,
+        baseModel: baseModel,
       ),
-      authorization: has && adult ? civitaiBearer(token) : null,
+      authorization: token != null && adult ? civitaiBearer(token) : null,
       log: civitaiLog(action: 'search', accountId: accountId, adult: adult),
       needsCredential: adult && !has,
     );
@@ -348,7 +389,7 @@ class CivitaiRelay {
     required bool fromLoraSheet,
     required String backend,
   }) async {
-    final token = await store.read(accountId);
+    final token = await store.readFor(accountId: accountId, adult: adult);
     final folder = civitaiSlotFolder(
       fromLoraSheet: fromLoraSheet,
       civitaiType: civitaiType,

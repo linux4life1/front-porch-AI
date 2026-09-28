@@ -15,6 +15,7 @@ import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/image/draw_things_samplers.dart';
 import 'package:front_porch_ai/ui/image_studio/image_studio.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk_copy.dart';
 
@@ -259,7 +260,10 @@ void main() {
     await tester.pump();
     expect(find.text('Steps'), findsNothing);
     expect(find.text('CFG'), findsNothing);
-    expect(find.byType(DropdownButton<int>), findsOneWidget);
+    final menu = tester.widget<DropdownButton<int>>(
+      find.byType(DropdownButton<int>),
+    );
+    expect(menu.items, hasLength(kDrawThingsSamplers.length));
     await tester.pump(const Duration(seconds: 21));
   });
 

@@ -39,7 +39,10 @@ class _StudioCivitaiDetailState extends State<StudioCivitaiDetail> {
   Future<void> _load() async {
     try {
       final store = await CivitaiCredentialStore.open();
-      final token = await store.read('local');
+      final token = await store.readFor(
+        accountId: 'local',
+        adult: widget.adult,
+      );
       final response = await http
           .get(
             civitaiModelUri(widget.row.id, adult: widget.adult),

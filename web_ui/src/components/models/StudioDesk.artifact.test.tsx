@@ -156,6 +156,12 @@ describe('StudioDesk artifact', () => {
     render({ backend: 'drawthings', workflowId: 'z_image_turbo' });
     expect(container.textContent).not.toContain('This graph also loads');
     expect(container.textContent).not.toContain('Text encoder');
+    act(() => button('Advanced ▸ 8 steps · cfg 1 · euler · simple')?.click());
+    const menu = container.querySelector('[aria-label="Draw Things sampler"]') as HTMLSelectElement;
+    const labels = [...menu.options].map((option) => option.textContent);
+    expect(labels).toContain('Euler a Trailing');
+    expect(labels).toContain('DPM++ 2M Karras');
+    expect(labels).toHaveLength(19);
   });
 
   it('leaves a name-only mismatch as likely', async () => {

@@ -26,6 +26,7 @@ class StudioCivitaiGet extends StatefulWidget {
     this.onPickLocal,
     this.onAdultChanged,
     this.onSaveKey,
+    this.onSaveRedKey,
   });
 
   final bool lora;
@@ -36,6 +37,7 @@ class StudioCivitaiGet extends StatefulWidget {
   final ValueChanged<String>? onPickLocal;
   final ValueChanged<bool>? onAdultChanged;
   final Future<String?> Function(String token)? onSaveKey;
+  final Future<String?> Function(String token)? onSaveRedKey;
 
   @override
   State<StudioCivitaiGet> createState() => _StudioCivitaiGetState();
@@ -44,6 +46,8 @@ class StudioCivitaiGet extends StatefulWidget {
 class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   final TextEditingController _query = TextEditingController();
   final TextEditingController _token = TextEditingController();
+  final TextEditingController _red = TextEditingController();
+  String _base = '';
   List<CivitaiModelRow> _rows = const [];
   String? _error;
   bool _busy = false;
@@ -55,13 +59,18 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   void dispose() {
     _query.dispose();
     _token.dispose();
+    _red.dispose();
     super.dispose();
   }
 
   Future<void> _saveKey() async {
-    final save = widget.onSaveKey;
-    if (save == null) return;
-    final error = await save(_token.text);
+    String? error;
+    final green = _token.text.trim();
+    final red = _red.text.trim();
+    if (green.isNotEmpty) error = await widget.onSaveKey?.call(green);
+    if (red.isNotEmpty) {
+      error ??= await widget.onSaveRedKey?.call(red);
+    }
     if (!mounted) return;
     if (error != null) setState(() => _error = error);
   }
@@ -79,6 +88,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
         query: _query.text.trim(),
         adult: _adult,
         lora: widget.lora,
+        baseModel: _base,
       );
       if (plan.needsCredential || plan.uri == null) {
         setState(() {
@@ -268,10 +278,32 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
                   child: const Text('Save key'),
                 ),
               ),
+              const Text('Base model'),
+              DropdownButton<String>(
+                isExpanded: true,
+                value: _base,
+                items: [
+                  for (final choice in kCivitaiBaseChoices)
+                    DropdownMenuItem(value: choice.$2, child: Text(choice.$1)),
+                ],
+                onChanged: (value) => setState(() => _base = value ?? ''),
+              ),
               TextField(
                 controller: _query,
-                decoration: const InputDecoration(labelText: 'Search CivitAI'),
+                decoration: InputDecoration(
+                  labelText: widget.lora ? 'Search LoRAs' : 'Search CivitAI',
+                  hintText: widget.lora ? 'Clothes' : null,
+                  isDense: true,
+                ),
                 onSubmitted: (_) => _search(),
+              ),
+              TextField(
+                controller: _red,
+                decoration: const InputDecoration(
+                  labelText: 'civitai.red API key',
+                  isDense: true,
+                ),
+                onSubmitted: (_) => _saveKey(),
               ),
             ],
             if (!_onComputer && _error != null)

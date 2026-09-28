@@ -26,6 +26,7 @@ export interface StudioDeskProps {
   watch?: string;
   cfg?: number;
   scheduler?: string;
+  drawThingsSampler?: number;
   prompt?: string;
   onPrompt?: (value: string) => void;
   onGenerate?: () => void;
@@ -82,6 +83,28 @@ interface CivitaiRow {
   preview?: string;
   description?: string;
 }
+
+const drawThingsSamplers: [string, number][] = [
+  ['DDIM Trailing', 16],
+  ['UniPC Trailing', 17],
+  ['Euler a Trailing', 10],
+  ['DPM++ 2M Trailing', 15],
+  ['DPM++ SDE Trailing', 11],
+  ['UniPC AYS', 18],
+  ['Euler a AYS', 13],
+  ['DPM++ 2M AYS', 12],
+  ['DPM++ SDE AYS', 14],
+  ['DPM++ 2M Karras', 0],
+  ['DPM++ SDE Karras', 4],
+  ['Euler a', 1],
+  ['UniPC', 5],
+  ['DDIM', 2],
+  ['PLMS', 3],
+  ['LCM', 6],
+  ['TCD', 9],
+  ['Euler a Substep', 7],
+  ['DPM++ SDE Substep', 8],
+];
 
 function snap(n: number): number {
   const x = Math.round(n / 64) * 64;
@@ -170,6 +193,8 @@ export function StudioDesk(props: StudioDeskProps) {
   const [rows, setRows] = useState<CivitaiRow[]>([]);
   const [civitaiDetail, setCivitaiDetail] = useState<CivitaiRow | null>(null);
   const [adult, setAdult] = useState(false);
+  const [base, setBase] = useState('');
+  const [redKey, setRedKey] = useState('');
   const [token, setToken] = useState('');
   const [graphs, setGraphs] = useState<GraphRow[]>([]);
   const [graphNote, setGraphNote] = useState('');
@@ -243,7 +268,7 @@ export function StudioDesk(props: StudioDeskProps) {
     const sheetKind = kind === 'Get a LoRA' ? 'lora' : 'model';
     void api
       .get<{ items?: { filename?: string; versionId?: number; type?: string; adult?: boolean; name?: string; downloads?: number; previewUrl?: string; description?: string }[]; needsCredential?: boolean }>(
-        `/api/image/civitai/search?q=${encodeURIComponent(q)}&adult=${adult ? 'true' : 'false'}&sheet=${sheetKind}`,
+        `/api/image/civitai/search?q=${encodeURIComponent(q)}&adult=${adult ? 'true' : 'false'}&sheet=${sheetKind}&base=${encodeURIComponent(base)}`,
       )
       .then((body) => {
         if (body.needsCredential) {
@@ -399,6 +424,13 @@ export function StudioDesk(props: StudioDeskProps) {
     if (!trimmed) return;
     void api.post('/api/image/civitai/credential', { token: trimmed }).catch(() => {
       setNote('Could not save the API key.');
+    });
+  };
+  const saveRedKey = () => {
+    const trimmed = redKey.trim();
+    if (!trimmed) return;
+    void api.post('/api/image/civitai/credential', { token: trimmed, red: true }).catch(() => {
+      setNote('Could not save the civitai.red key.');
     });
   };
 
@@ -630,13 +662,13 @@ export function StudioDesk(props: StudioDeskProps) {
               <label>
                 Sampler
                 <select aria-label="Sampler" value={props.sampler} onChange={(e) => commit({ sampler: e.target.value })}>
-                  {[props.sampler, 'Euler a', 'Euler', 'DPM++ 2M', 'DPM++ 2M Karras', 'DDIM', 'UniPC'].filter((name, index, all) => name && all.indexOf(name) === index).map((name) => <option key={name}>{name}</option>)}
+                  {[props.sampler, 'Euler a', 'Euler', 'DPM++ 2M', 'DPM++ 2M Karras', 'DPM++ SDE Karras', 'DPM++ 2M SDE Karras', 'DDIM', 'UniPC', 'LCM'].filter((name, index, all) => name && all.indexOf(name) === index).map((name) => <option key={name}>{name}</option>)}
                 </select>
               </label>
               <label>
                 Scheduler
                 <select aria-label="Scheduler" value={scheduler} onChange={(e) => commit({ scheduler: e.target.value })}>
-                  {[scheduler, 'Automatic', 'normal', 'karras', 'exponential', 'sgm_uniform', 'simple'].filter((name, index, all) => name && all.indexOf(name) === index).map((name) => <option key={name}>{name}</option>)}
+                  {[scheduler, 'Automatic', 'normal', 'karras', 'exponential', 'sgm_uniform', 'simple', 'beta'].filter((name, index, all) => name && all.indexOf(name) === index).map((name) => <option key={name}>{name}</option>)}
                 </select>
               </label>
             </>
@@ -644,8 +676,14 @@ export function StudioDesk(props: StudioDeskProps) {
           {advanced && props.backend === 'drawthings' ? (
             <label>
               Sampler
-              <select aria-label="Draw Things sampler" defaultValue={props.sampler} onChange={(e) => commit({ sampler: e.target.value })}>
-                <option>Euler a Trailing</option>
+              <select
+                aria-label="Draw Things sampler"
+                value={String(props.drawThingsSampler ?? 16)}
+                onChange={(e) => commit({ drawThingsSampler: Number(e.target.value) })}
+              >
+                {drawThingsSamplers.map(([label, value]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             </label>
           ) : null}
@@ -713,7 +751,25 @@ export function StudioDesk(props: StudioDeskProps) {
             API key
             <input value={token} onChange={(e) => setToken(e.target.value)} onBlur={saveKey} />
           </label>
-          <input aria-label="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <label>
+            civitai.red API key
+            <input value={redKey} onChange={(e) => setRedKey(e.target.value)} onBlur={saveRedKey} />
+          </label>
+          <label>
+            Base model
+            <select aria-label="Base model" value={base} onChange={(e) => setBase(e.target.value)}>
+              <option value="">Any base</option>
+              <option value="Qwen">Qwen</option>
+              <option value="ZImageTurbo">Z-Image</option>
+              <option value="SD 3.5">SD3</option>
+              <option value="Flux.1 D">Flux</option>
+              <option value="SDXL 1.0">SDXL</option>
+              <option value="Pony">Pony</option>
+              <option value="Illustrious">Illustrious</option>
+              <option value="SD 1.5">SD 1.5</option>
+            </select>
+          </label>
+          <input aria-label="Search" placeholder={sheet === 'Get a LoRA' ? 'Clothes' : 'Search CivitAI'} value={query} onChange={(e) => setQuery(e.target.value)} />
           <button type="button" onClick={() => search(sheet)}>Search</button>
           {civitaiDetail ? (
             <div>

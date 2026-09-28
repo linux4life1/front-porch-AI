@@ -76,6 +76,7 @@ class ImageFacade {
       'promptReview': img.imageGenPromptReview,
       'drawThingsHost': img.drawThingsGrpcHost,
       'drawThingsPort': img.drawThingsGrpcPort,
+      'drawThingsSampler': img.drawThingsSampler,
       // Studio-scoped remote host (chips). `remoteApiUrl` is the resolved
       // Studio URL — flipping it here must not rewrite chat's mouth.
       ..._remoteHostConfig(img, b),
@@ -307,6 +308,9 @@ class ImageFacade {
     }
     if (f['drawThingsPort'] is int) {
       await img.setDrawThingsGrpcPort(f['drawThingsPort'] as int);
+    }
+    if (f['drawThingsSampler'] is int) {
+      await img.setDrawThingsSampler(f['drawThingsSampler'] as int);
     }
     // Studio-scoped host only. `imageRemoteHost` is the chip id; a raw
     // `remoteApiUrl` from older PWAs still parks on Image Studio, never chat.

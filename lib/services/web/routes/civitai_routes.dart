@@ -65,6 +65,7 @@ class CivitaiRoutes {
       query: query['q'] ?? '',
       adult: adult,
       lora: lora,
+      baseModel: query['base'] ?? '',
     );
     debugPrint(plan.log);
     if (plan.uri == null) {
@@ -125,7 +126,11 @@ class CivitaiRoutes {
     final token = pastedCivitaiToken(body);
     if (token == null) return JsonResponse.badRequest('token is required');
     final relay = _relay ?? await _ready;
-    await relay.store.save(account, token);
+    if (body['red'] == true) {
+      await relay.store.saveRed(account, token);
+    } else {
+      await relay.store.save(account, token);
+    }
     debugPrint(civitaiLog(action: 'save', accountId: account));
     return JsonResponse.ok({'saved': true});
   }

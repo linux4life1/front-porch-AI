@@ -24,6 +24,7 @@ interface ImageConfig {
   cfgScale: number;
   sampler: string;
   scheduler: string;
+  drawThingsSampler?: number;
   lora?: string;
   loraWeight?: number;
   loras?: { file: string; weight: number }[];
@@ -177,6 +178,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         size={cfg.size}
         steps={cfg.steps}
         sampler={cfg.sampler}
+        drawThingsSampler={cfg.drawThingsSampler ?? 16}
         workflowId={cfg.comfyCreateWorkflowId ?? 'sd'}
         editWorkflowId={cfg.comfyEditWorkflowId ?? 'qwen_image_edit'}
         modelChoices={cfg.comfyCreateModelChoices ?? {}}

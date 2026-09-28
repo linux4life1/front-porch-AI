@@ -212,6 +212,16 @@ extension on _StudioDeskState {
             return 'Could not save the CivitAI key.';
           }
         },
+        onSaveRedKey: (token) async {
+          try {
+            final store = await CivitaiCredentialStore.open();
+            await store.saveRed('local', token);
+            return null;
+          } catch (e) {
+            debugPrint('civitai red key save failed: ${e.runtimeType}');
+            return 'Could not save the civitai.red key.';
+          }
+        },
         onInstalled: (file) async {
           await _refreshCatalog(settings, force: true);
           if (!mounted) return;

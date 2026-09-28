@@ -22,6 +22,11 @@ String civitaiCredentialKey(String accountId) {
   return 'civitai_credential_$id';
 }
 
+/// civitai.red does not accept the civitai.com key.
+String civitaiRedCredentialKey(String accountId) {
+  return '${civitaiCredentialKey(accountId)}_red';
+}
+
 const _kUnreserved =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
 
