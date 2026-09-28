@@ -9,6 +9,7 @@ import 'package:front_porch_ai/services/image/civitai_client.dart';
 import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
+import 'package:front_porch_ai/services/image/studio_support_fit.dart';
 import 'package:front_porch_ai/services/image/studio_graph_menu.dart';
 import 'package:front_porch_ai/services/image/studio_readiness.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -69,6 +70,8 @@ class _StudioDeskState extends State<StudioDesk> {
   List<String> _unet = const [];
   List<String> _gguf = const [];
   List<String> _loras = const [];
+  List<String> _clips = const [];
+  List<String> _vaes = const [];
   Map<String, DeskLoraCheck> _loraFacts = {};
   String? _catalogUrl;
   bool? _reportedReady;
@@ -111,6 +114,8 @@ class _StudioDeskState extends State<StudioDesk> {
         _unet = const [];
         _gguf = const [];
         _loras = const [];
+        _clips = const [];
+        _vaes = const [];
       });
       return;
     }
@@ -123,6 +128,8 @@ class _StudioDeskState extends State<StudioDesk> {
           _unet = const [];
           _gguf = const [];
           _loras = const [];
+          _clips = const [];
+          _vaes = const [];
           _catalogUrl = null;
         });
       }
@@ -142,6 +149,8 @@ class _StudioDeskState extends State<StudioDesk> {
       _unet = catalog?.diffusionModels ?? const [];
       _gguf = catalog?.ggufUnets ?? const [];
       _loras = catalog?.loras ?? const [];
+      _clips = catalog?.textEncoders ?? const [];
+      _vaes = catalog?.vaes ?? const [];
     });
     await _readLoraFacts(settings, service);
   }
@@ -252,11 +261,14 @@ class _StudioDeskState extends State<StudioDesk> {
       uploadedTitle: 'workflow',
       uploadedNodes: uploadedNodes,
     );
-    final support = studioSupport(
-      edit: editing,
-      workflowId: workflowId,
-      choices: choices,
-    );
+    final support = backend == 'drawthings'
+        ? (checkpointOnly: false, rows: const <StudioSupportRow>[])
+        : studioSupport(
+            edit: editing,
+            workflowId: workflowId,
+            choices: choices,
+            primaryFile: primary,
+          );
     final stepCount = editing ? settings.editSteps : settings.imageGenSteps;
     final cfg = editing ? settings.editCfgScale : settings.imageGenCfgScale;
     final dtSampler = editing
@@ -421,12 +433,49 @@ class _StudioDeskState extends State<StudioDesk> {
   }
 
   Future<void> _openModels(ImageGenSettings settings, {String? token}) {
+    final currentId = _editing
+        ? settings.comfyEditWorkflowId
+        : settings.comfyCreateWorkflowId;
+    final choices = _editing
+        ? settings.comfyEditModelChoices
+        : settings.comfyCreateModelChoices;
+    final primary = deskPrimaryFile(
+      backend: settings.imageGenBackend,
+      edit: _editing,
+      workflowId: currentId,
+      choices: choices,
+      legacyModel: _editing
+          ? settings.imageGenEditModel
+          : settings.imageGenModel,
+    );
+    final role = token == null
+        ? ''
+        : token.contains('VAE')
+        ? 'VAE'
+        : token.contains('CLIP')
+        ? 'Text encoder'
+        : '';
+    var items = role == 'VAE' && _vaes.isNotEmpty
+        ? _vaes
+        : role == 'Text encoder' && _clips.isNotEmpty
+        ? _clips
+        : _models;
+    if (role.isNotEmpty) {
+      items = [
+        for (final file in items)
+          if (supportFileFits(primary: primary, file: file, role: role)) file,
+      ];
+    }
     return showDialog<void>(
       context: context,
       builder: (context) => StudioModelSheet(
         edit: _editing,
-        items: _models,
+        items: items,
         onPick: (file) {
+          if (role.isNotEmpty &&
+              !supportFileFits(primary: primary, file: file, role: role)) {
+            return;
+          }
           if (token != null && settings.imageGenBackend == 'comfyui') {
             final id = _editing
                 ? settings.comfyEditWorkflowId

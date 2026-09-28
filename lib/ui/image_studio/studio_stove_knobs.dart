@@ -5,7 +5,27 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/image/draw_things_samplers.dart';
 
-import 'studio_commit_field.dart';
+const List<String> kStudioSamplerChoices = [
+  'Euler a',
+  'Euler',
+  'DPM++ 2M',
+  'DPM++ 2M Karras',
+  'DPM++ SDE Karras',
+  'DPM++ 2M SDE Karras',
+  'DDIM',
+  'UniPC',
+  'LCM',
+];
+
+const List<String> kStudioSchedulerChoices = [
+  'Automatic',
+  'normal',
+  'karras',
+  'exponential',
+  'sgm_uniform',
+  'simple',
+  'beta',
+];
 
 /// Sampler label Draw Things already uses. The name includes the scheduler.
 String studioDrawThingsLabel(int value) {
@@ -60,33 +80,56 @@ class StudioStoveKnobs extends StatelessWidget {
         },
       );
     }
+    final stepValue = steps.clamp(1, 50).toDouble();
+    final cfgValue = cfg.clamp(1.0, 20.0);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        StudioCommitField(
-          key: ValueKey('steps-$steps'),
-          value: '$steps',
-          label: 'Steps',
-          onSubmit: onSteps,
+        const Text('Steps'),
+        Slider(
+          value: stepValue,
+          min: 1,
+          max: 50,
+          divisions: 49,
+          label: '${stepValue.round()}',
+          onChanged: (value) => onSteps('${value.round()}'),
         ),
-        StudioCommitField(
-          key: ValueKey('cfg-$cfg'),
-          value: '$cfg',
-          label: 'CFG',
-          onSubmit: onCfg,
+        const Text('CFG'),
+        Slider(
+          value: cfgValue,
+          min: 1,
+          max: 20,
+          divisions: 38,
+          label: cfgValue.toStringAsFixed(1),
+          onChanged: (value) => onCfg(value.toStringAsFixed(1)),
         ),
-        StudioCommitField(
-          key: ValueKey('sampler-$sampler'),
-          value: sampler,
-          label: 'Sampler',
-          onSubmit: onSampler,
-        ),
-        StudioCommitField(
-          key: ValueKey('scheduler-$scheduler'),
-          value: scheduler,
-          label: 'Scheduler',
-          onSubmit: onScheduler,
-        ),
+        const Text('Sampler'),
+        _choice(sampler, kStudioSamplerChoices, onSampler),
+        const Text('Scheduler'),
+        _choice(scheduler, kStudioSchedulerChoices, onScheduler),
       ],
+    );
+  }
+
+  Widget _choice(
+    String value,
+    List<String> choices,
+    ValueChanged<String> onChanged,
+  ) {
+    final items = [
+      if (value.isNotEmpty && !choices.contains(value)) value,
+      ...choices,
+    ];
+    return DropdownButton<String>(
+      isExpanded: true,
+      value: items.contains(value) ? value : items.first,
+      items: [
+        for (final name in items)
+          DropdownMenuItem(value: name, child: Text(name)),
+      ],
+      onChanged: (next) {
+        if (next != null) onChanged(next);
+      },
     );
   }
 }

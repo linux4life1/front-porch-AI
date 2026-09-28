@@ -35,6 +35,7 @@
 import 'dart:convert';
 
 import 'comfy_edit_workflow.dart';
+import 'studio_support_fit.dart';
 import 'comfy_workflow_adapt.dart';
 import 'comfy_workflow_convert.dart';
 
@@ -392,8 +393,13 @@ resolveComfyEditRequest({
     final adapted = adaptComfyApiWorkflow(api);
     final tokens = detectComfyTokens(adapted.template);
     if (!ComfyEditTokens.required.every(tokens.contains)) return null;
+    final primary = supportPrimary(workflowId, modelChoices, '');
     for (final slot in adapted.slots) {
-      final file = modelChoices['$workflowId/${slot.token}'] ?? '';
+      final file = supportChoiceOrBlank(
+        token: slot.token,
+        file: modelChoices['$workflowId/${slot.token}'] ?? '',
+        primary: primary,
+      );
       if (file.isNotEmpty) values[slot.token] = file;
     }
     return (template: adapted.template, values: values);
@@ -412,8 +418,13 @@ resolveComfyEditRequest({
 
   final preset = comfyEditPresetById(workflowId);
   if (preset == null) return null;
+  final primary = supportPrimary(workflowId, modelChoices, '');
   for (final slot in preset.modelSlots) {
-    final file = modelChoices['$workflowId/${slot.token}'] ?? '';
+    final file = supportChoiceOrBlank(
+      token: slot.token,
+      file: modelChoices['$workflowId/${slot.token}'] ?? '',
+      primary: primary,
+    );
     if (file.isNotEmpty) values[slot.token] = file;
   }
   return (template: preset.template, values: values);

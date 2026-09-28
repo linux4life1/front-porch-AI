@@ -544,7 +544,7 @@ export function StudioDesk(props: StudioDeskProps) {
           <p>{why}</p>
           <button type="button" onClick={() => search('Model search')}>Change model</button>
           <button type="button" onClick={() => search('Get a model')}>Get a model from CivitAI</button>
-          {checkpointOnly ? <p>This checkpoint graph has no text encoder or VAE slot.</p> : (
+          {props.backend === 'drawthings' ? null : checkpointOnly ? <p>This checkpoint graph has no text encoder or VAE slot.</p> : (
             <>
               <p>This graph also loads</p>
               <p>These files do not set the LoRA family. The text encoder can be Qwen while the model is Z-Image.</p>
@@ -619,10 +619,26 @@ export function StudioDesk(props: StudioDeskProps) {
           {advanced ? <button type="button" onClick={() => openGraphs()}>Change graph</button> : null}
           {advanced && props.backend !== 'drawthings' ? (
             <>
-              <label>Steps<input aria-label="Steps" defaultValue={String(props.steps)} onBlur={(e) => commit({ steps: Number(e.target.value) })} /></label>
-              <label>CFG<input aria-label="CFG" defaultValue={String(cfg)} onBlur={(e) => commit({ cfgScale: Number(e.target.value) })} /></label>
-              <label>Sampler<input aria-label="Sampler" defaultValue={props.sampler} onBlur={(e) => commit({ sampler: e.target.value })} /></label>
-              <label>Scheduler<input aria-label="Scheduler" defaultValue={scheduler} onBlur={(e) => commit({ scheduler: e.target.value })} /></label>
+              <label>
+                Steps
+                <input aria-label="Steps" type="range" min={1} max={50} value={props.steps} onChange={(e) => commit({ steps: Number(e.target.value) })} />
+              </label>
+              <label>
+                CFG
+                <input aria-label="CFG" type="range" min={1} max={20} step={0.5} value={cfg} onChange={(e) => commit({ cfgScale: Number(e.target.value) })} />
+              </label>
+              <label>
+                Sampler
+                <select aria-label="Sampler" value={props.sampler} onChange={(e) => commit({ sampler: e.target.value })}>
+                  {[props.sampler, 'Euler a', 'Euler', 'DPM++ 2M', 'DPM++ 2M Karras', 'DDIM', 'UniPC'].filter((name, index, all) => name && all.indexOf(name) === index).map((name) => <option key={name}>{name}</option>)}
+                </select>
+              </label>
+              <label>
+                Scheduler
+                <select aria-label="Scheduler" value={scheduler} onChange={(e) => commit({ scheduler: e.target.value })}>
+                  {[scheduler, 'Automatic', 'normal', 'karras', 'exponential', 'sgm_uniform', 'simple'].filter((name, index, all) => name && all.indexOf(name) === index).map((name) => <option key={name}>{name}</option>)}
+                </select>
+              </label>
             </>
           ) : null}
           {advanced && props.backend === 'drawthings' ? (

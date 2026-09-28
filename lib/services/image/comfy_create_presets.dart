@@ -28,6 +28,7 @@ import 'comfy_edit_workflow.dart';
 import 'comfy_starters.dart';
 import 'comfy_workflow_adapt.dart';
 import 'comfy_workflow_convert.dart';
+import 'studio_support_fit.dart';
 
 const ComfyModelSlot kComfyDiffusionSlot = ComfyModelSlot(
   token: '%MODEL_DIFFUSION%',
@@ -268,11 +269,17 @@ ComfyCreateRequest? resolveComfyCreateRequest({
   final api = ensureComfyApiGraph(source, objectInfo: objectInfo);
   if (api == null) return null;
   final adapted = adaptComfyApiWorkflow(api);
+  final primary = supportPrimary(workflowId, modelChoices, checkpointFallback);
   for (final slot in adapted.slots) {
     var file =
         modelChoices['$workflowId/${slot.token}'] ??
         modelChoices['${comfyTemplateNameFor(workflowId) ?? ''}/${slot.token}'] ??
         '';
+    file = supportChoiceOrBlank(
+      token: slot.token,
+      file: file,
+      primary: primary,
+    );
     if (file.isEmpty &&
         slot.token == kComfyCheckpointToken &&
         checkpointFallback.isNotEmpty) {

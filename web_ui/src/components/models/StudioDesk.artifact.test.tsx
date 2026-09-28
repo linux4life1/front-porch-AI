@@ -152,6 +152,12 @@ describe('StudioDesk artifact', () => {
     expect(button('Generate')?.hasAttribute('disabled')).toBe(false);
   });
 
+  it('hides the text encoder and VAE on Draw Things', () => {
+    render({ backend: 'drawthings', workflowId: 'z_image_turbo' });
+    expect(container.textContent).not.toContain('This graph also loads');
+    expect(container.textContent).not.toContain('Text encoder');
+  });
+
   it('leaves a name-only mismatch as likely', async () => {
     render({
       loras: [{ file: 'qwen_image_lora.safetensors', weight: 0.8 }],

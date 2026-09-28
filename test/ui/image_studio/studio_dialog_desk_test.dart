@@ -240,6 +240,62 @@ void main() {
     );
   });
 
+  testWidgets('Draw Things hides the text encoder and VAE', (tester) async {
+    await pumpDesk(
+      tester,
+      const Size(1040, 1600),
+      prepare: (storage) async {
+        await storage.imageGenSettings.setImageGenBackend('drawthings');
+        await storage.imageGenSettings.setComfyCreateWorkflowId(
+          'z_image_turbo',
+        );
+      },
+    );
+    expect(find.text('This graph also loads'), findsNothing);
+    expect(find.text('Text encoder'), findsNothing);
+    expect(find.text('VAE'), findsNothing);
+    await show(tester, find.textContaining('Advanced ▸'));
+    await tester.tap(find.textContaining('Advanced ▸'));
+    await tester.pump();
+    expect(find.text('Steps'), findsNothing);
+    expect(find.text('CFG'), findsNothing);
+    expect(find.byType(DropdownButton<int>), findsOneWidget);
+    await tester.pump(const Duration(seconds: 21));
+  });
+
+  testWidgets('a CLIP-L encoder is not kept on a Z-Image model', (
+    tester,
+  ) async {
+    await pumpDesk(
+      tester,
+      const Size(1040, 1600),
+      prepare: (storage) async {
+        await storage.imageGenSettings.setImageGenBackend('comfyui');
+        await storage.imageGenSettings.setComfyCreateWorkflowId(
+          'z_image_turbo',
+        );
+        await storage.imageGenSettings.setComfyCreateModelChoice(
+          'z_image_turbo',
+          '%MODEL_DIFFUSION%',
+          'z_image_turbo.safetensors',
+        );
+        await storage.imageGenSettings.setComfyCreateModelChoice(
+          'z_image_turbo',
+          '%MODEL_CLIP%',
+          'clip_l.safetensors',
+        );
+        await storage.imageGenSettings.setComfyCreateModelChoice(
+          'z_image_turbo',
+          '%MODEL_VAE%',
+          'qwen_image_vae.safetensors',
+        );
+      },
+    );
+    expect(find.text('clip_l.safetensors'), findsNothing);
+    expect(find.text('qwen_image_vae.safetensors'), findsOneWidget);
+    expect(find.text('Not chosen'), findsWidgets);
+  });
+
   testWidgets('narrow dialog stacks the same desk', (tester) async {
     await pumpDesk(tester, const Size(390, 1400));
     expect(find.byKey(const Key('studio-desk-narrow')), findsOneWidget);

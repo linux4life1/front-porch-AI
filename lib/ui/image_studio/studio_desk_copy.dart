@@ -8,6 +8,7 @@ import 'package:front_porch_ai/services/image/comfy_create_workflow.dart';
 import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
+import 'package:front_porch_ai/services/image/studio_support_fit.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 
 const String kStudioCreateWell =
@@ -165,6 +166,7 @@ class StudioSupportRow {
   required bool edit,
   required String workflowId,
   required Map<String, String> choices,
+  String primaryFile = '',
 }) {
   final slots = edit
       ? comfyEditPresetById(workflowId)?.modelSlots
@@ -179,7 +181,11 @@ class StudioSupportRow {
         StudioSupportRow(
           slot.label,
           slot.token,
-          (choices['$workflowId/${slot.token}'] ?? '').trim(),
+          supportChoiceOrBlank(
+            token: slot.token,
+            file: (choices['$workflowId/${slot.token}'] ?? '').trim(),
+            primary: primaryFile,
+          ),
         ),
   ];
   return (checkpointOnly: rows.isEmpty, rows: rows);
