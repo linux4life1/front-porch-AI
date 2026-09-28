@@ -687,7 +687,7 @@ export function StudioDesk(props: StudioDeskProps) {
       {(sheet === 'Get a model' || sheet === 'Get a LoRA') && (
         <div>
           <h2>{civitaiDetail?.name || (sheet === 'Get a LoRA' ? 'Get a LoRA from CivitAI' : 'Get a model from CivitAI')}</h2>
-          {sheet === 'Get a LoRA' ? null : <button type="button">On this computer</button>}
+          <button type="button">On this computer</button>
           <button type="button">CivitAI</button>
           <label>
             <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} />

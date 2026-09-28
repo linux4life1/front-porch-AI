@@ -213,20 +213,19 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!widget.lora)
-              Wrap(
-                spacing: 8,
-                children: [
-                  TextButton(
-                    onPressed: () => setState(() => _onComputer = true),
-                    child: const Text('On this computer'),
-                  ),
-                  TextButton(
-                    onPressed: () => setState(() => _onComputer = false),
-                    child: const Text('CivitAI'),
-                  ),
-                ],
-              ),
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton(
+                  onPressed: () => setState(() => _onComputer = true),
+                  child: const Text('On this computer'),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _onComputer = false),
+                  child: const Text('CivitAI'),
+                ),
+              ],
+            ),
             if (_onComputer)
               SizedBox(
                 height: 240,
