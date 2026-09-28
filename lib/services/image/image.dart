@@ -7,6 +7,7 @@
 // (mode/backend enums + the remote model info record).
 
 export 'civitai_client.dart';
+export 'expression_pack_flight.dart';
 export 'expression_pack_route.dart';
 export 'civitai_fetch.dart';
 export 'civitai_download.dart';

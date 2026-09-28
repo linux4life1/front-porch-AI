@@ -33,8 +33,6 @@ import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-import 'package:front_porch_ai/services/image/expression_pack_flight.dart';
-
 import 'expression_pack_grid.dart';
 import 'expression_pack_setup_v2.dart';
 import 'vision_gate.dart';

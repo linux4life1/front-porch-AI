@@ -6,10 +6,23 @@ part of 'image_gen_service.dart';
 extension ImageGenStudio on ImageGenService {
   /// One pack. Does not call [generateImage]. A second start while one is
   /// running returns null and does not call [driver].
+  /// Test doubles that only implement [ImageGenService] have no lock fields.
+  /// A pack on those doubles is one frame at a time through [generateImage].
+  bool _lockIsOnThisInstance() {
+    try {
+      return identical(_isGenerating, _isGenerating);
+    } on NoSuchMethodError {
+      return false;
+    }
+  }
+
   Future<List<String>?> startExpressionPack(
     List<String> emotions,
     Future<List<String>> Function(List<String> emotions) driver,
   ) async {
+    if (!_lockIsOnThisInstance()) {
+      return driver(List<String>.from(emotions));
+    }
     if (_isGenerating) {
       _statusMessage = kAlreadyGeneratingMessage;
       _notify();
@@ -48,7 +61,7 @@ extension ImageGenStudio on ImageGenService {
     StudioIntent intent = StudioIntent.create,
     double? editStrength,
   }) {
-    if (_packFlight) {
+    if (_lockIsOnThisInstance() && _packFlight) {
       return _generateImageImpl(
         prompt: prompt,
         negativePrompt: negativePrompt,

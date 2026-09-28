@@ -109,39 +109,33 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
     final emotions = missingEmotions;
     if (emotions.isEmpty) return;
 
-    final s = ExpressionPackSession(
+    final flight = await beginExpressionPack(
+      imageGen: imageGen,
+      settings: storage.imageGenSettings,
       emotions: emotions,
       basePrompt: '${promptController.text.trim()}, $kExpressionFraming',
       negativePrompt: storage.imageGenSettings.imageGenNegativePrompt,
       denoise: kCreatorPackDenoise,
-      editMode: editMode,
-      generate:
-          ({
-            required String prompt,
-            required String negativePrompt,
-            required int seed,
-            required double denoise,
-          }) async {
-            final bytes = await imageGen.generateImage(
-              prompt: prompt,
-              negativePrompt: negativePrompt,
-              size: '${normalized.width}x${normalized.height}',
-              referenceImage: normalized.bytes,
-              seed: seed,
-              denoise: denoise,
-              intent: editMode ? StudioIntent.edit : StudioIntent.create,
-              editStrength: editMode ? denoise : null,
-            );
-            if (bytes == null) {
-              final why = imageGen.statusMessage.trim();
-              if (why.isNotEmpty) throw Exception(why);
-            }
-            return bytes;
-          },
+      size: '${normalized.width}x${normalized.height}',
+      baseImage: normalized.bytes,
+      accountId: kStudioWebAccountId,
+      onExternalCancel: () {
+        _cancelRequested = true;
+      },
     );
+    if (_disposed) return;
+    final s = flight.session;
+    if (s == null) {
+      _fail(
+        flight.busy
+            ? kAlreadyGeneratingMessage
+            : 'The expression pack could not start.',
+      );
+      return;
+    }
     _replaceSession(s);
     _setStage(AvatarRunStage.pack);
-    await s.run();
+    await flight.done;
     if (_disposed) return;
 
     if (qcEnabled && s.doneCount > 0 && !_cancelRequested) {
