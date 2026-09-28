@@ -38,6 +38,7 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 export 'image/image_gen_types.dart';
 
 part 'image_gen_service.generate.dart';
+part 'image_gen_service.studio.dart';
 part 'image_gen_service.prompt.dart';
 part 'image_gen_service.local_admin.dart';
 part 'image_gen_service.backends.dart';
