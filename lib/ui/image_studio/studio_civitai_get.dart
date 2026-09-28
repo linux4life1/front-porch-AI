@@ -10,6 +10,9 @@ import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
+import 'studio_civitai_card.dart';
+import 'studio_civitai_detail.dart';
+
 /// CivitAI search. A hit is downloaded into the saved models folder.
 /// The search title is not stored as the installed file name.
 class StudioCivitaiGet extends StatefulWidget {
@@ -132,6 +135,20 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
     }
   }
 
+  void _openDetail(CivitaiModelRow row) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StudioCivitaiDetail(
+        row: row,
+        adult: _adult,
+        onDownload: () {
+          Navigator.of(dialogContext).pop();
+          _install(row);
+        },
+      ),
+    );
+  }
+
   Future<void> _install(CivitaiModelRow row) async {
     final filename = row.filename;
     final versionId = row.versionId;
@@ -196,19 +213,20 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(
-              spacing: 8,
-              children: [
-                TextButton(
-                  onPressed: () => setState(() => _onComputer = true),
-                  child: const Text('On this computer'),
-                ),
-                TextButton(
-                  onPressed: () => setState(() => _onComputer = false),
-                  child: const Text('CivitAI'),
-                ),
-              ],
-            ),
+            if (!widget.lora)
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: () => setState(() => _onComputer = true),
+                    child: const Text('On this computer'),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() => _onComputer = false),
+                    child: const Text('CivitAI'),
+                  ),
+                ],
+              ),
             if (_onComputer)
               SizedBox(
                 height: 240,
@@ -272,14 +290,15 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
               ),
             if (!_onComputer)
               SizedBox(
-                height: 240,
+                height: 420,
                 child: ListView(
                   children: [
                     for (final row in _rows)
-                      ListTile(
-                        title: Text(row.name),
-                        subtitle: Text(row.filename ?? row.type),
-                        onTap: _busy ? null : () => _install(row),
+                      StudioCivitaiCard(
+                        row: row,
+                        busy: _busy,
+                        onOpen: () => _openDetail(row),
+                        onDownload: () => _install(row),
                       ),
                   ],
                 ),

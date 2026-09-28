@@ -77,6 +77,10 @@ interface CivitaiRow {
   versionId: number;
   type: string;
   adult: boolean;
+  name?: string;
+  downloads?: number;
+  preview?: string;
+  description?: string;
 }
 
 function snap(n: number): number {
@@ -164,6 +168,7 @@ export function StudioDesk(props: StudioDeskProps) {
   const [sheet, setSheet] = useState<string | null>(null);
   const [hits, setHits] = useState<string[]>([]);
   const [rows, setRows] = useState<CivitaiRow[]>([]);
+  const [civitaiDetail, setCivitaiDetail] = useState<CivitaiRow | null>(null);
   const [adult, setAdult] = useState(false);
   const [token, setToken] = useState('');
   const [graphs, setGraphs] = useState<GraphRow[]>([]);
@@ -237,7 +242,7 @@ export function StudioDesk(props: StudioDeskProps) {
     if (!q) return;
     const sheetKind = kind === 'Get a LoRA' ? 'lora' : 'model';
     void api
-      .get<{ items?: { filename?: string; versionId?: number; type?: string; adult?: boolean }[]; needsCredential?: boolean }>(
+      .get<{ items?: { filename?: string; versionId?: number; type?: string; adult?: boolean; name?: string; downloads?: number; previewUrl?: string; description?: string }[]; needsCredential?: boolean }>(
         `/api/image/civitai/search?q=${encodeURIComponent(q)}&adult=${adult ? 'true' : 'false'}&sheet=${sheetKind}`,
       )
       .then((body) => {
@@ -255,6 +260,10 @@ export function StudioDesk(props: StudioDeskProps) {
             versionId: row.versionId,
             type: row.type ?? '',
             adult: row.adult === true,
+            name: row.name,
+            downloads: row.downloads ?? 0,
+            preview: row.previewUrl,
+            description: row.description,
           }];
         });
         setRows(parsed);
@@ -677,8 +686,8 @@ export function StudioDesk(props: StudioDeskProps) {
       )}
       {(sheet === 'Get a model' || sheet === 'Get a LoRA') && (
         <div>
-          <h2>{sheet === 'Get a LoRA' ? 'Get a LoRA from CivitAI' : 'Get a model from CivitAI'}</h2>
-          <button type="button">On this computer</button>
+          <h2>{civitaiDetail?.name || (sheet === 'Get a LoRA' ? 'Get a LoRA from CivitAI' : 'Get a model from CivitAI')}</h2>
+          {sheet === 'Get a LoRA' ? null : <button type="button">On this computer</button>}
           <button type="button">CivitAI</button>
           <label>
             <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} />
@@ -690,11 +699,38 @@ export function StudioDesk(props: StudioDeskProps) {
           </label>
           <input aria-label="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
           <button type="button" onClick={() => search(sheet)}>Search</button>
-          <ul>
-            {hits.map((item) => (
-              <li key={item}><button type="button" onClick={() => saveInstalled(item)}>{item}</button></li>
-            ))}
-          </ul>
+          {civitaiDetail ? (
+            <div>
+              {civitaiDetail.preview ? (
+                <img alt="" src={civitaiDetail.preview} style={{ width: '100%', objectFit: 'contain', maxHeight: 420 }} />
+              ) : null}
+              <p>{(civitaiDetail.downloads ?? 0).toLocaleString()} downloads</p>
+              <p>{civitaiDetail.description || 'CivitAI did not send a description.'}</p>
+              <button type="button" onClick={() => setCivitaiDetail(null)}>Back</button>
+              <button type="button" onClick={() => saveInstalled(civitaiDetail.filename)}>Download</button>
+            </div>
+          ) : sheet === 'Get a LoRA' ? (
+            rows.map((row) => (
+              <button
+                key={row.filename}
+                type="button"
+                onClick={() => setCivitaiDetail(row)}
+                style={{ display: 'flex', gap: 8, textAlign: 'left', margin: '8px 0' }}
+              >
+                {row.preview ? <img alt="" src={row.preview} width={88} height={88} style={{ objectFit: 'cover' }} /> : null}
+                <span>
+                  <strong>{row.name || row.filename}</strong>
+                  <span>{(row.downloads ?? 0).toLocaleString()} downloads</span>
+                </span>
+              </button>
+            ))
+          ) : (
+            <ul>
+              {hits.map((item) => (
+                <li key={item}><button type="button" onClick={() => saveInstalled(item)}>{item}</button></li>
+              ))}
+            </ul>
+          )}
           {note ? <p>{note}</p> : null}
         </div>
       )}

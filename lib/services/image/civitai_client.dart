@@ -88,6 +88,10 @@ class CivitaiModelRow {
   final bool adult;
   final int? versionId;
   final String? filename;
+  final String? previewUrl;
+  final List<String> imageUrls;
+  final String description;
+  final int downloads;
 
   const CivitaiModelRow({
     required this.id,
@@ -96,7 +100,76 @@ class CivitaiModelRow {
     required this.adult,
     this.versionId,
     this.filename,
+    this.previewUrl,
+    this.imageUrls = const [],
+    this.description = '',
+    this.downloads = 0,
   });
+}
+
+/// One model object from search or from `/api/v1/models/{id}`.
+CivitaiModelRow? parseCivitaiModel(String body, {required bool includeAdult}) {
+  Object? decoded;
+  try {
+    decoded = jsonDecode(body);
+  } on FormatException {
+    return null;
+  }
+  if (decoded is! Map) return null;
+  return _civitaiRow(decoded, includeAdult: includeAdult);
+}
+
+/// Turns CivitAI's HTML write-up into plain text.
+String civitaiPlainText(String raw) {
+  return raw
+      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'<[^>]+>'), '')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll(RegExp(r'[ \t]+\n'), '\n')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+      .trim();
+}
+
+Uri civitaiModelUri(int id, {required bool adult}) {
+  return Uri.https(adult ? 'civitai.red' : 'civitai.com', '/api/v1/models/$id');
+}
+
+List<String> _civitaiImages(Map? version) {
+  final images = version?['images'];
+  if (images is! List) return const [];
+  final out = <String>[];
+  for (final image in images) {
+    if (image is! Map) continue;
+    final url = image['url'];
+    if (url is! String || !url.startsWith('https://')) continue;
+    if (out.contains(url)) continue;
+    out.add(url);
+  }
+  return out;
+}
+
+String _civitaiDescription(Map item, Map? version) {
+  final model = item['description']?.toString() ?? '';
+  final plain = civitaiPlainText(model);
+  if (plain.isNotEmpty) return plain;
+  return civitaiPlainText(version?['description']?.toString() ?? '');
+}
+
+int _civitaiDownloads(Map item, Map? version) {
+  int read(Object? stats) {
+    if (stats is! Map) return 0;
+    final count = stats['downloadCount'];
+    return count is num ? count.toInt() : 0;
+  }
+
+  final fromVersion = read(version?['stats']);
+  if (fromVersion > 0) return fromVersion;
+  return read(item['stats']);
 }
 
 /// Rows from a models JSON body. Adult rows are omitted unless asked for.
@@ -116,34 +189,42 @@ List<CivitaiModelRow> parseCivitaiModels(
   final out = <CivitaiModelRow>[];
   for (final item in items) {
     if (item is! Map) continue;
-    final adult = item['nsfw'] == true;
-    if (adult && !includeAdult) continue;
-    final versions = item['modelVersions'];
-    Map? version;
-    if (versions is List && versions.isNotEmpty && versions.first is Map) {
-      version = versions.first as Map;
-    }
-    String? filename;
-    final files = version?['files'];
-    if (files is List && files.isNotEmpty && files.first is Map) {
-      final name = (files.first as Map)['name'];
-      if (name is String && name.trim().isNotEmpty) filename = name.trim();
-    }
-    final id = item['id'];
-    if (id is! num) continue;
-    final versionId = version?['id'];
-    out.add(
-      CivitaiModelRow(
-        id: id.toInt(),
-        name: item['name']?.toString() ?? '',
-        type: item['type']?.toString() ?? '',
-        adult: adult,
-        versionId: versionId is num ? versionId.toInt() : null,
-        filename: filename,
-      ),
-    );
+    final row = _civitaiRow(item, includeAdult: includeAdult);
+    if (row != null) out.add(row);
   }
   return out;
+}
+
+CivitaiModelRow? _civitaiRow(Map item, {required bool includeAdult}) {
+  final adult = item['nsfw'] == true;
+  if (adult && !includeAdult) return null;
+  final versions = item['modelVersions'];
+  Map? version;
+  if (versions is List && versions.isNotEmpty && versions.first is Map) {
+    version = versions.first as Map;
+  }
+  String? filename;
+  final files = version?['files'];
+  if (files is List && files.isNotEmpty && files.first is Map) {
+    final name = (files.first as Map)['name'];
+    if (name is String && name.trim().isNotEmpty) filename = name.trim();
+  }
+  final id = item['id'];
+  if (id is! num) return null;
+  final versionId = version?['id'];
+  final images = _civitaiImages(version);
+  return CivitaiModelRow(
+    id: id.toInt(),
+    name: item['name']?.toString() ?? '',
+    type: item['type']?.toString() ?? '',
+    adult: adult,
+    versionId: versionId is num ? versionId.toInt() : null,
+    filename: filename,
+    previewUrl: images.isEmpty ? null : images.first,
+    imageUrls: images,
+    description: _civitaiDescription(item, version),
+    downloads: _civitaiDownloads(item, version),
+  );
 }
 
 class CivitaiSearchPlan {
