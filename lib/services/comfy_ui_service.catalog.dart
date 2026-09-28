@@ -41,18 +41,31 @@ extension ComfyUiCatalogApi on ComfyUiService {
     return cat.createDiscovery;
   }
 
+  /// Raw `/object_info`, or null when this ComfyUI cannot be read.
+  Future<Map<String, dynamic>?> fetchObjectInfo() => _objectInfo();
+
   Future<ComfyFileCatalog> fetchCatalog() async {
     final info = await _objectInfo();
     if (info == null) return const ComfyFileCatalog();
-    return ComfyFileCatalog(
+    return assembleComfyCatalog(
       checkpoints: ComfyUiService.optionsFromObjectInfo(
         info,
         'CheckpointLoaderSimple',
         'ckpt_name',
       ),
-      diffusionModels: ComfyUiService.optionsFromObjectInfo(
+      unetNames: ComfyUiService.optionsFromObjectInfo(
         info,
         'UNETLoader',
+        'unet_name',
+      ),
+      ggufNames: ComfyUiService.optionsFromObjectInfo(
+        info,
+        'UnetLoaderGGUF',
+        'unet_name',
+      ),
+      ggufAdvancedNames: ComfyUiService.optionsFromObjectInfo(
+        info,
+        'UnetLoaderGGUFAdvanced',
         'unet_name',
       ),
       textEncoders: ComfyUiService.optionsFromObjectInfo(

@@ -25,7 +25,11 @@ import 'comfy_edit_workflow.dart';
 /// and are listed by `UNETLoader.unet_name`, not `CheckpointLoaderSimple`.
 class ComfyFileCatalog {
   final List<String> checkpoints;
+
+  /// `UNETLoader` names only. GGUF loaders stay in [ggufUnets] so the older
+  /// forms do not list the same file twice.
   final List<String> diffusionModels;
+  final List<String> ggufUnets;
   final List<String> textEncoders;
   final List<String> vaes;
   final List<String> loras;
@@ -33,14 +37,42 @@ class ComfyFileCatalog {
   const ComfyFileCatalog({
     this.checkpoints = const [],
     this.diffusionModels = const [],
+    this.ggufUnets = const [],
     this.textEncoders = const [],
     this.vaes = const [],
     this.loras = const [],
   });
 
-  /// Create / pack picker union — ZIT and friends appear here.
+  /// Create / pack picker union the older forms already used.
   List<String> get createDiscovery =>
       mergeComfyCreateModels(checkpoints, diffusionModels);
+
+  /// Checkpoints, UNETLoader names, and GGUF unet names, each once.
+  List<String> get deskDiscovery =>
+      mergeComfyCreateModels(createDiscovery, ggufUnets);
+}
+
+/// Builds the catalog the desk and the older forms share.
+///
+/// [unetNames] is `UNETLoader` only. The two GGUF loaders often list the
+/// same folder; they are merged into [ComfyFileCatalog.ggufUnets].
+ComfyFileCatalog assembleComfyCatalog({
+  required List<String> checkpoints,
+  required List<String> unetNames,
+  required List<String> ggufNames,
+  required List<String> ggufAdvancedNames,
+  required List<String> textEncoders,
+  required List<String> vaes,
+  required List<String> loras,
+}) {
+  return ComfyFileCatalog(
+    checkpoints: checkpoints,
+    diffusionModels: unetNames,
+    ggufUnets: mergeComfyCreateModels(ggufNames, ggufAdvancedNames),
+    textEncoders: textEncoders,
+    vaes: vaes,
+    loras: loras,
+  );
 }
 
 /// Deduped checkpoints-then-diffusion_models list. Pure.

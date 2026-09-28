@@ -7,6 +7,7 @@
 // (mode/backend enums + the remote model info record).
 
 export 'civitai_client.dart';
+export 'civitai_fetch.dart';
 export 'civitai_download.dart';
 export 'civitai_oauth.dart';
 export 'comfy_catalog.dart';
@@ -18,6 +19,7 @@ export 'studio_model_roots.dart';
 export 'studio_readiness.dart';
 export 'studio_recipe.dart';
 export 'studio_recipe_migrate.dart';
+export 'studio_desk_logic.dart';
 export 'studio_support_copy.dart';
 export 'comfy_create_presets.dart';
 export 'comfy_create_workflow.dart';

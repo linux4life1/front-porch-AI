@@ -6,7 +6,14 @@ import 'dart:convert';
 import 'comfy_template_index.dart';
 import 'model_family.dart';
 
-enum StudioReady { ready, missingFile, missingNodeClass, unreachable }
+enum StudioReady {
+  ready,
+  missingFile,
+  missingNodeClass,
+  unreachable,
+  loraMismatch,
+  needsUnetGraph,
+}
 
 /// [objectInfo] null means the server could not be read.
 class StudioReadiness {
@@ -62,6 +69,13 @@ bool isCreateTemplateTitle(String title) {
   final create = _hasTag(title, kComfyCreateTags);
   final edit = _hasTag(title, kComfyEditTags);
   return create && !edit;
+}
+
+/// An edit row is edit-only. A title that is both tasks is neither list.
+bool isEditTemplateTitle(String title) {
+  final create = _hasTag(title, kComfyCreateTags);
+  final edit = _hasTag(title, kComfyEditTags);
+  return edit && !create;
 }
 
 /// PNG text chunks. Null when neither chunk is JSON.

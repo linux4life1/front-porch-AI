@@ -1,0 +1,88 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import 'dart:io';
+
+import 'civitai_client.dart';
+
+/// Downloads one planned file straight to disk.
+///
+/// Bytes go to `path.part` and replace [CivitaiDownloadPlan.path] only after
+/// the body finishes. A short body or an HTTP error deletes the part and
+/// leaves an existing file alone. A redirect to another host drops the bearer.
+Future<void> downloadCivitaiPlan(CivitaiDownloadPlan plan) async {
+  final start = plan.uri;
+  final path = plan.path;
+  final authorization = plan.authorization;
+  if (start == null || path == null || authorization == null) {
+    throw StateError('refused');
+  }
+  final client = HttpClient();
+  final part = File('$path.part');
+  IOSink? sink;
+  try {
+    var uri = start;
+    var headers = civitaiFollowHeaders(
+      from: start,
+      to: start,
+      authorization: authorization,
+    );
+    for (var hop = 0; hop < 5; hop++) {
+      final request = await client.getUrl(uri);
+      request.followRedirects = false;
+      headers.forEach(request.headers.set);
+      final response = await request.close().timeout(
+        const Duration(minutes: 10),
+      );
+      final status = response.statusCode;
+      if (status >= 300 && status < 400) {
+        final location = response.headers.value(HttpHeaders.locationHeader);
+        await response.drain<void>();
+        if (location == null || location.isEmpty) {
+          throw StateError('redirect');
+        }
+        final next = uri.resolve(location);
+        headers = civitaiFollowHeaders(
+          from: uri,
+          to: next,
+          authorization: authorization,
+        );
+        uri = next;
+        continue;
+      }
+      if (status != 200) {
+        await response.drain<void>();
+        throw StateError('HTTP $status');
+      }
+      final expected = response.contentLength;
+      await part.parent.create(recursive: true);
+      sink = part.openWrite();
+      var got = 0;
+      await for (final chunk in response) {
+        got += chunk.length;
+        sink.add(chunk);
+      }
+      await sink.flush();
+      await sink.close();
+      sink = null;
+      if (got == 0 || (expected >= 0 && got != expected)) {
+        throw StateError('short');
+      }
+      await part.rename(path);
+      return;
+    }
+    throw StateError('redirect');
+  } catch (e) {
+    if (sink != null) {
+      try {
+        await sink.close();
+      } catch (_) {}
+    }
+    if (await part.exists()) {
+      await part.delete();
+    }
+    rethrow;
+  } finally {
+    client.close(force: true);
+  }
+}

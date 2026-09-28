@@ -138,10 +138,12 @@ class ImageFacade {
     return {
       'checkpoints': cat.checkpoints,
       'diffusionModels': cat.diffusionModels,
+      'ggufUnets': cat.ggufUnets,
       'textEncoders': cat.textEncoders,
       'vaes': cat.vaes,
       'loras': cat.loras,
       'createDiscovery': cat.createDiscovery,
+      'deskDiscovery': cat.deskDiscovery,
       'templates': [
         for (final t in templates)
           {
