@@ -24,75 +24,79 @@ const Duration _objectInfoFreshFor = Duration(minutes: 2);
 
 final Expando<Map<String, dynamic>> _objectInfoCache = Expando();
 final Expando<DateTime> _objectInfoCachedAt = Expando();
-final Expando<bool> _objectInfoWasCached = Expando();
 
 extension _ComfyCatalog on ComfyUiService {
   /// One /object_info fetch shared by a generate and its sampler lookup.
   /// A successful read is reused for [_objectInfoFreshFor]. Pass
   /// [fresh] for a model or LoRA list: a file can appear the moment a
   /// download finishes, and that list must not stay on the generate cache.
-  /// A failed read is not kept.
-  Future<Map<String, dynamic>?> _objectInfo({bool fresh = false}) async {
+  /// A failed read is not kept. [fromCache] belongs to this read only.
+  Future<({Map<String, dynamic>? info, bool fromCache})> _readObjectInfo({
+    bool fresh = false,
+  }) async {
     if (!fresh) {
       final cached = _objectInfoCache[this];
       final at = _objectInfoCachedAt[this];
       if (cached != null &&
           at != null &&
           DateTime.now().difference(at) < _objectInfoFreshFor) {
-        _objectInfoWasCached[this] = true;
-        return cached;
+        return (info: cached, fromCache: true);
       }
     }
-    _objectInfoWasCached[this] = false;
     try {
       final r = await http
           .get(Uri.parse('$_root/object_info'))
           .timeout(const Duration(seconds: 15));
-      if (r.statusCode != 200) return null;
+      if (r.statusCode != 200) return (info: null, fromCache: false);
       final decoded = jsonDecode(r.body) as Map<String, dynamic>;
       _objectInfoCache[this] = decoded;
       _objectInfoCachedAt[this] = DateTime.now();
-      return decoded;
+      return (info: decoded, fromCache: false);
     } catch (e) {
       debugPrint('ComfyUI: object_info failed: $e');
-      return null;
+      return (info: null, fromCache: false);
     }
+  }
+
+  Future<Map<String, dynamic>?> _objectInfo({bool fresh = false}) async {
+    final read = await _readObjectInfo(fresh: fresh);
+    return read.info;
   }
 
   /// The graph to post. A cached node list can predate a loader the user
   /// just installed. One fresh read is enough; a second failure stands.
+  /// A checkpoint graph with a GGUF file is not retried: another node list
+  /// cannot turn that graph into an unet workflow.
   Future<Map<String, dynamic>> _graphReadyToPost({
     required Map<String, dynamic> workflow,
     required String primaryFile,
     required bool uploaded,
   }) async {
-    Future<Map<String, dynamic>> once(bool fresh) async {
-      final info = uploaded ? null : await _objectInfo(fresh: fresh);
+    final read = uploaded
+        ? (info: null, fromCache: false)
+        : await _readObjectInfo();
+    try {
       return graphToPost(
         graph: workflow,
         primaryFile: primaryFile,
         uploaded: uploaded,
-        objectInfo: info,
+        objectInfo: read.info,
       );
-    }
-
-    try {
-      return await once(false);
-    } on Exception catch (e) {
+    } on ComfyGraphNotReady catch (e) {
       if (uploaded ||
-          _objectInfoWasCached[this] != true ||
-          !_staleNodeList(e)) {
+          !read.fromCache ||
+          e.block != ComfyGraphBlock.missingLoader) {
         rethrow;
       }
-      return once(true);
+      final fresh = await _readObjectInfo(fresh: true);
+      return graphToPost(
+        graph: workflow,
+        primaryFile: primaryFile,
+        uploaded: false,
+        objectInfo: fresh.info,
+      );
     }
   }
-}
-
-bool _staleNodeList(Object error) {
-  final msg = error.toString();
-  return msg.contains('is missing the ') ||
-      msg.contains('needs an unet workflow');
 }
 
 /// Discovery: checkpoints AND diffusion_models so ZIT/Flux/Qwen appear.

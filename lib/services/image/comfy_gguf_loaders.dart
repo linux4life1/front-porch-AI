@@ -350,6 +350,20 @@ String primaryFileInGraph(Map<String, dynamic> graph) {
   return checkpoint ?? '';
 }
 
+/// Why [graphToPost] refused to post. The post path retries a cached
+/// node list only for [missingLoader].
+enum ComfyGraphBlock { missingLoader, needsUnetGraph, unread }
+
+class ComfyGraphNotReady implements Exception {
+  final ComfyGraphBlock block;
+  final String message;
+
+  const ComfyGraphNotReady(this.block, this.message);
+
+  @override
+  String toString() => message;
+}
+
 /// The graph [ComfyUiService] posts. Loaders match the file after tokens
 /// are filled. An uploaded graph is not rewritten.
 Map<String, dynamic> graphToPost({
@@ -372,18 +386,25 @@ Map<String, dynamic> graphToPost({
     // A plain checkpoint still runs when the node list times out. A GGUF
     // file cannot, because the posted loader would be the wrong class.
     if (_postNeedsNodeList(graph, named)) {
-      throw Exception('ComfyUI node list could not be read.');
+      throw const ComfyGraphNotReady(
+        ComfyGraphBlock.unread,
+        'ComfyUI node list could not be read.',
+      );
     }
     return ready.graph;
   }
   if (ready.useUnetStarter) {
-    throw Exception(
+    throw const ComfyGraphNotReady(
+      ComfyGraphBlock.needsUnetGraph,
       'This GGUF file needs an unet workflow. Pick one in Image Studio.',
     );
   }
   final missing = ready.missingClass;
   if (missing != null && missing.isNotEmpty) {
-    throw Exception('ComfyUI is missing the $missing node.');
+    throw ComfyGraphNotReady(
+      ComfyGraphBlock.missingLoader,
+      'ComfyUI is missing the $missing node.',
+    );
   }
   return ready.graph;
 }

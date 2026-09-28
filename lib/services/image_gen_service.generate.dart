@@ -322,9 +322,16 @@ extension _ImageGenGenerate on ImageGenService {
             refRole: refRole,
           );
         } catch (e) {
-          // Sanitize for user display (mirrors the Draw Things branch).
-          final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
-          _statusMessage = msg.startsWith('ComfyUI') || msg.contains('model')
+          // A graph refusal already has the sentence the user should see.
+          // Other errors stay behind the running-and-URL line unless they
+          // name ComfyUI or a model.
+          final msg = e is ComfyGraphNotReady
+              ? e.message
+              : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+          _statusMessage =
+              e is ComfyGraphNotReady ||
+                  msg.startsWith('ComfyUI') ||
+                  msg.contains('model')
               ? msg
               : 'ComfyUI generation failed. Check that ComfyUI is running and '
                     'the URL is correct.';

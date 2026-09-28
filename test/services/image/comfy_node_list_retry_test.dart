@@ -74,29 +74,32 @@ Set<String> _classes(Map<String, dynamic> graph) {
   };
 }
 
-Future<ImageGenService> _studio(HttpServer server) async {
+Future<ImageGenService> _studio(
+  HttpServer server, {
+  String workflowId = 'z_image_turbo',
+  Map<String, String>? choices,
+}) async {
   final dir = Directory.systemTemp.createTempSync('comfy-node-retry');
   addTearDown(() => dir.deleteSync(recursive: true));
   final storage = StorageService.sandbox(dir.path);
   final settings = storage.imageGenSettings;
   await settings.setImageGenBackend('comfyui');
   await settings.setComfyUiUrl('http://127.0.0.1:${server.port}');
-  await settings.setComfyCreateWorkflowId('z_image_turbo');
-  await settings.setComfyCreateModelChoice(
-    'z_image_turbo',
-    '%MODEL_DIFFUSION%',
-    'z-image-turbo-Q5_K_M.gguf',
-  );
-  await settings.setComfyCreateModelChoice(
-    'z_image_turbo',
-    '%MODEL_CLIP%',
-    'qwen_3_4b.safetensors',
-  );
-  await settings.setComfyCreateModelChoice(
-    'z_image_turbo',
-    '%MODEL_VAE%',
-    'ae.safetensors',
-  );
+  await settings.setComfyCreateWorkflowId(workflowId);
+  final picked =
+      choices ??
+      const {
+        '%MODEL_DIFFUSION%': 'z-image-turbo-Q5_K_M.gguf',
+        '%MODEL_CLIP%': 'qwen_3_4b.safetensors',
+        '%MODEL_VAE%': 'ae.safetensors',
+      };
+  for (final entry in picked.entries) {
+    await settings.setComfyCreateModelChoice(
+      workflowId,
+      entry.key,
+      entry.value,
+    );
+  }
   return ImageGenService(storage);
 }
 
@@ -150,4 +153,28 @@ void main() {
       expect(image.statusMessage, contains('missing the UnetLoaderGGUF'));
     },
   );
+
+  test('a gguf checkpoint graph does not reread the node list', () async {
+    var hits = 0;
+    Map<String, dynamic>? posted;
+    final server = await _comfy(
+      serveGgufLoader: () => false,
+      onObjectInfo: () => hits++,
+      onPrompt: (graph) => posted = graph,
+    );
+    addTearDown(server.close);
+    final image = await _studio(
+      server,
+      workflowId: 'sd',
+      choices: const {'%MODEL_CHECKPOINT%': 'pony.gguf'},
+    );
+
+    await image.fetchComfySamplers('');
+    expect(hits, 1);
+    await image.generateImage(prompt: 'a porch at dusk');
+
+    expect(hits, 1, reason: image.statusMessage);
+    expect(posted, isNull);
+    expect(image.statusMessage, contains('needs an unet workflow'));
+  });
 }
