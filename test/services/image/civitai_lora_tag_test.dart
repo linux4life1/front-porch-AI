@@ -14,7 +14,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/grpc/dt_native/dt_local_loras.dart';
-import 'package:front_porch_ai/services/image/draw_things_lora_filter.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 
 import 'civitai_route_support.dart';
