@@ -339,7 +339,9 @@ class CivitaiRelay {
     required bool lora,
     String baseModel = '',
   }) async {
-    final token = await store.read(accountId);
+    // Only adult search sends the key, so a key store that cannot be read
+    // must not stop an ordinary search.
+    final token = adult ? await store.read(accountId) : null;
     final has = token != null;
     return CivitaiSearchPlan(
       uri: civitaiModelsUri(

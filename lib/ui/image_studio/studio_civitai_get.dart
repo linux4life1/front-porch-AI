@@ -107,10 +107,9 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
     unawaited(_noteFolder());
   }
 
-  Future<void> _loadKeys() async {
-    final error = await _keys.load();
-    if (error != null && mounted) setState(() => _error = error);
-  }
+  /// A key that cannot be read is shown in the key box, where it stays; it
+  /// does not stop an ordinary search.
+  Future<void> _loadKeys() => _keys.load();
 
   Future<void> _noteFolder() async {
     if (widget.backend == 'comfyui' && await comfyStudioIsRemote()) {

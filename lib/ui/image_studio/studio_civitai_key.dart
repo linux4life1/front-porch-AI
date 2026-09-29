@@ -23,6 +23,9 @@ class CivitaiKeyController extends ChangeNotifier {
   /// The person pressed Replace or typed into the box.
   bool replacing = false;
 
+  /// Why the saved key could not be read, while that is the case.
+  String? unreadable;
+
   bool _disposed = false;
 
   /// Reads whether a key is stored. Returns the error text when it cannot.
@@ -30,9 +33,11 @@ class CivitaiKeyController extends ChangeNotifier {
     try {
       final store = await CivitaiCredentialStore.open();
       saved = await store.read('local') != null;
+      unreadable = null;
       _tell();
       return null;
     } on CivitaiKeyStoreException catch (e) {
+      unreadable = e.message;
       _tell();
       return e.message;
     }
@@ -149,6 +154,14 @@ class CivitaiKeyPanel extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (controller.unreadable != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  controller.unreadable!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             if (showSaved) ...[
               const ListTile(
                 contentPadding: EdgeInsets.zero,

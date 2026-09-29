@@ -11,6 +11,12 @@ typedef CivitaiKeyRead = Future<String?> Function(String key);
 typedef CivitaiKeyWrite = Future<void> Function(String key, String value);
 typedef CivitaiKeyDelete = Future<void> Function(String key);
 
+/// Shown when the OS key store will not give the saved key back, as happens
+/// with ad-hoc signed macOS builds. Search without a key still works.
+const String kCivitaiKeyUnreadable =
+    "Couldn't read your saved CivitAI key. Searching without a key still "
+    'works; downloads and adult results need it.';
+
 /// The OS key store could not be read or written. The caller shows
 /// [message]; a silent fallback to plain storage would defeat the store.
 class CivitaiKeyStoreException implements Exception {
@@ -47,8 +53,12 @@ class CivitaiCredentialStore {
     );
   }
 
+  /// A test can hand in its own store, for example one that cannot be read.
+  @visibleForTesting
+  static CivitaiCredentialStore? debugStore;
+
   static Future<CivitaiCredentialStore> open() async {
-    return CivitaiCredentialStore.secure();
+    return debugStore ?? CivitaiCredentialStore.secure();
   }
 
   Future<T> _guard<T>(String action, Future<T> Function() run) async {
@@ -60,7 +70,7 @@ class CivitaiCredentialStore {
       debugPrint('civitai key store $action failed: ${e.runtimeType}');
       throw CivitaiKeyStoreException(
         action == 'read'
-            ? 'Could not read the saved CivitAI key.'
+            ? kCivitaiKeyUnreadable
             : 'Could not save the CivitAI key.',
       );
     }

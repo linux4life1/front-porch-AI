@@ -21,7 +21,7 @@ void main() {
         isA<CivitaiKeyStoreException>().having(
           (e) => e.message,
           'message',
-          'Could not read the saved CivitAI key.',
+          kCivitaiKeyUnreadable,
         ),
       ),
     );
