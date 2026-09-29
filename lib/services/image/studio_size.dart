@@ -1,0 +1,14 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+/// Nearest multiple of 64, each side clamped to 256–2048.
+({int width, int height}) snapStudioSize(int width, int height) {
+  int snap(int n) {
+    final x = (n / 64).round() * 64;
+    if (x < 256) return 256;
+    if (x > 2048) return 2048;
+    return x;
+  }
+
+  return (width: snap(width), height: snap(height));
+}

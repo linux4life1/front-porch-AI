@@ -3,6 +3,7 @@
 
 import 'dart:convert';
 
+import 'comfy_edit_workflow.dart';
 import 'comfy_template_index.dart';
 import 'model_family.dart';
 
@@ -32,11 +33,18 @@ class StudioReadiness {
   /// the graph resolved.
   final Map<String, dynamic>? graph;
 
+  /// The model files this graph loads, in the order it lists them. Set on
+  /// Comfy once the graph resolved, even when the verdict is not Ready, so a
+  /// slot that is still empty can be filled. Empty for an uploaded graph,
+  /// whose files are named inside it.
+  final List<ComfyModelSlot> slots;
+
   const StudioReadiness(
     this.kind, [
     this.missingClass,
     this.message,
     this.graph,
+    this.slots = const [],
   ]);
 }
 

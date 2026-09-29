@@ -410,6 +410,11 @@ StudioReadiness deskReadiness({
     return const StudioReadiness(StudioReady.missingFile);
   }
   final uploaded = workflowId == kComfyUploadedWorkflowId;
+  final slots = uploaded
+      ? const <ComfyModelSlot>[]
+      : adaptComfyApiWorkflow(api).slots;
+  StudioReadiness verdict(StudioReady kind, {String? missingClass}) =>
+      StudioReadiness(kind, missingClass, null, null, slots);
   final graph = uploaded
       ? api
       : _graphWithChoices(
@@ -425,19 +430,17 @@ StudioReadiness deskReadiness({
     uploaded: uploaded,
     objectInfo: objectInfo,
   );
-  if (retarget.unreachable) {
-    return const StudioReadiness(StudioReady.unreachable);
-  }
+  if (retarget.unreachable) return verdict(StudioReady.unreachable);
   if (!uploaded && retarget.useUnetStarter) {
-    return const StudioReadiness(StudioReady.needsUnetGraph);
+    return verdict(StudioReady.needsUnetGraph);
   }
   final missingLoader = retarget.missingClass;
   if (missingLoader != null && missingLoader.isNotEmpty) {
-    return StudioReadiness(StudioReady.missingNodeClass, missingLoader);
+    return verdict(StudioReady.missingNodeClass, missingClass: missingLoader);
   }
   final missing = _firstMissingClass(retarget.graph, objectInfo);
   if (missing != null) {
-    return StudioReadiness(StudioReady.missingNodeClass, missing);
+    return verdict(StudioReady.missingNodeClass, missingClass: missing);
   }
   final filled = edit
       ? comfyEditReady(
@@ -455,9 +458,9 @@ StudioReadiness deskReadiness({
           liveTemplate: liveTemplate,
           objectInfo: objectInfo,
         );
-  if (!filled) return const StudioReadiness(StudioReady.missingFile);
+  if (!filled) return verdict(StudioReady.missingFile);
   if (!allowLoraMismatch && deskLoraBlocks(primaryFile, loras)) {
-    return const StudioReadiness(StudioReady.loraMismatch);
+    return verdict(StudioReady.loraMismatch);
   }
-  return StudioReadiness(StudioReady.ready, null, null, retarget.graph);
+  return StudioReadiness(StudioReady.ready, null, null, retarget.graph, slots);
 }

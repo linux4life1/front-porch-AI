@@ -114,6 +114,7 @@ Future<StudioReadyReport> checkStudioReady({
         null,
         loader.message ?? kCity96NeedsUpdate,
         graph,
+        verdict.slots,
       );
     }
   }
