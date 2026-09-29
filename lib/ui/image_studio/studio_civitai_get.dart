@@ -131,12 +131,16 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       savedGone: gone,
     );
     final haveRoot = root != null && root.trim().isNotEmpty;
-    if (haveRoot) await _sweepParts(root);
+    final kinds = haveRoot
+        ? await studioModelTypeFolders(widget.backend, root)
+        : const <String, String>{};
+    if (haveRoot) await _sweepParts(root, kinds);
     final models = haveRoot
         ? await civitaiSlotNames(
             root: root,
             backend: widget.backend,
             lora: false,
+            typeFolders: kinds,
           )
         : const <String>[];
     final local = haveRoot
@@ -144,6 +148,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
             root: root,
             backend: widget.backend,
             lora: widget.lora,
+            typeFolders: kinds,
           )
         : const <String>[];
     if (!mounted) return;
@@ -159,9 +164,9 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   }
 
   /// Partial downloads from an earlier run that the app quit in the middle of.
-  Future<void> _sweepParts(String root) async {
+  Future<void> _sweepParts(String root, Map<String, String> kinds) async {
     try {
-      await sweepCivitaiParts(root);
+      await sweepCivitaiParts(root, typeFolders: kinds);
     } catch (e) {
       debugPrint('civitai part sweep failed: ${e.runtimeType}');
     }

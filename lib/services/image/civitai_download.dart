@@ -139,10 +139,15 @@ String _comfyCheckpointFolder(String filename, {required bool gguf}) {
 }
 
 /// Join [root]/[folder]/basename, or null when the name or root is unsafe.
+///
+/// [typeFolders] holds the folders the backend's own config sends a kind of
+/// weight to (`checkpoints` on another drive, say). A kind listed there is
+/// saved in that folder, not under [root].
 String? civitaiDownloadPath({
   required String root,
   required String folder,
   required String name,
+  Map<String, String> typeFolders = const {},
 }) {
   if (!p.isAbsolute(root)) return null;
   if (folder.isNotEmpty && !kCivitaiFolders.contains(folder)) return null;
@@ -151,11 +156,29 @@ String? civitaiDownloadPath({
   if (!kCivitaiSafeExtensions.contains(p.extension(base).toLowerCase())) {
     return null;
   }
+  final own = folder.isEmpty ? null : typeFolders[folder]?.trim();
+  if (own != null && own.isNotEmpty) {
+    if (!p.isAbsolute(own)) return null;
+    final candidate = p.join(own, base);
+    return pathStaysUnderRoot(own, candidate) ? candidate : null;
+  }
   final candidate = folder.isEmpty
       ? p.join(root, base)
       : p.join(root, folder, base);
   if (!pathStaysUnderRoot(root, candidate)) return null;
   return candidate;
+}
+
+/// The folder a kind of weight is read from: its own folder from the
+/// backend's config, else `root/folder`.
+String civitaiKindFolder(
+  String root,
+  String folder, [
+  Map<String, String> typeFolders = const {},
+]) {
+  final own = typeFolders[folder]?.trim();
+  if (own != null && own.isNotEmpty) return own;
+  return folder.isEmpty ? root : p.join(root, folder);
 }
 
 /// Suffix of the file a download streams into before it is moved into place.
@@ -173,11 +196,17 @@ String? civitaiAllInOnePath({
   required String folder,
   required String modelType,
   required String name,
+  Map<String, String> typeFolders = const {},
 }) {
   if (backend != 'comfyui' || folder != 'diffusion_models') return null;
   if (modelType.trim().toLowerCase() != 'checkpoint') return null;
   if (p.extension(name).toLowerCase() != '.safetensors') return null;
-  return civitaiDownloadPath(root: root, folder: 'checkpoints', name: name);
+  return civitaiDownloadPath(
+    root: root,
+    folder: 'checkpoints',
+    name: name,
+    typeFolders: typeFolders,
+  );
 }
 
 /// Folders no download may be written into, once links are resolved: a

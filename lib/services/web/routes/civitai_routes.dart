@@ -36,6 +36,8 @@ class CivitaiRoutes {
     CivitaiVersionFetch? versionFetch,
     Future<int> Function(String root)? sweep,
     Future<bool> Function(String backend)? rootGone,
+    Future<Map<String, String>> Function(String backend, String root)?
+    typeFoldersFor,
   }) : _auth = auth,
        _adultAllowed = adultAllowed,
        _relay = relay,
@@ -44,7 +46,8 @@ class CivitaiRoutes {
        _downloads = downloads ?? CivitaiDownloads(),
        _versionFetch = versionFetch ?? fetchCivitaiVersion,
        _sweep = sweep ?? sweepCivitaiParts,
-       _rootGone = rootGone ?? studioSavedRootMissing {
+       _rootGone = rootGone ?? studioSavedRootMissing,
+       _typeFoldersFor = typeFoldersFor ?? _noTypeFolders {
     _ready = relay == null
         ? CivitaiCredentialStore.open().then(CivitaiRelay.new)
         : Future<CivitaiRelay>.value(relay);
@@ -68,6 +71,11 @@ class CivitaiRoutes {
   final CivitaiVersionFetch _versionFetch;
   final Future<int> Function(String root) _sweep;
   final Future<bool> Function(String backend) _rootGone;
+  final Future<Map<String, String>> Function(String backend, String root)
+  _typeFoldersFor;
+
+  static Future<Map<String, String>> _noTypeFolders(String _, String _) async =>
+      const {};
   late final Future<CivitaiRelay> _ready;
 
   Future<String?> _savedRoot(String backend) {
@@ -191,18 +199,25 @@ class CivitaiRoutes {
         'loras': <String>[],
       });
     }
+    final kinds = await _typeFoldersFor(backend, root);
     final models = await civitaiSlotNames(
       root: root,
       backend: backend,
       lora: false,
+      typeFolders: kinds,
     );
     final loras = await civitaiSlotNames(
       root: root,
       backend: backend,
       lora: true,
+      typeFolders: kinds,
     );
     return JsonResponse.ok({
-      'bases': await civitaiInstalledBases(root: root, backend: backend),
+      'bases': await civitaiInstalledBases(
+        root: root,
+        backend: backend,
+        typeFolders: kinds,
+      ),
       'models': models,
       'loras': loras,
     });
@@ -330,12 +345,16 @@ class CivitaiRoutes {
         savedRoot: savedRoot,
         fromLoraSheet: body['lora'] == true,
         backend: backend,
+        typeFolders: await _typeFoldersFor(backend, savedRoot!),
       );
       debugPrint(plan.log);
       if (plan.refused || plan.path == null) {
         return _refusal(plan.failure ?? CivitaiFailure.unsafe, plan.reason);
       }
-      await _sweepQuietly(plan.root ?? savedRoot!);
+      final kinds = await _typeFoldersFor(backend, savedRoot);
+      for (final folder in {plan.root ?? savedRoot, ...kinds.values}) {
+        await _sweepQuietly(folder);
+      }
       final job = await _downloads.start(account, plan);
       return shelf.Response(
         202,

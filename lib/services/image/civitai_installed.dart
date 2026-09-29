@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'civitai_bases.dart';
+import 'civitai_download.dart';
 import 'studio_model_roots.dart';
 
 const _kWeightExts = {'.safetensors', '.gguf', '.ckpt', '.pt', '.pth', '.bin'};
@@ -28,15 +29,17 @@ List<String> civitaiScanFolders({required String backend, required bool lora}) {
 }
 
 /// Weight basenames in the slot folders. Partial downloads are skipped.
+/// A kind in [typeFolders] is read from its own folder, not `root/kind`.
 Future<List<String>> civitaiSlotNames({
   required String root,
   required String backend,
   required bool lora,
+  Map<String, String> typeFolders = const {},
 }) async {
   if (root.trim().isEmpty || !p.isAbsolute(root)) return const [];
   final found = <String>{};
   for (final folder in civitaiScanFolders(backend: backend, lora: lora)) {
-    final dir = Directory(folder.isEmpty ? root : p.join(root, folder));
+    final dir = Directory(civitaiKindFolder(root, folder, typeFolders));
     if (!await dir.exists()) continue;
     await for (final entity in dir.list(followLinks: true)) {
       if (entity is! File) continue;
@@ -89,6 +92,7 @@ Future<CivitaiDiskLists> mergeCivitaiDisk({
   required List<String> diffusion,
   required List<String> gguf,
   required List<String> loras,
+  Map<String, String>? typeFolders,
 }) async {
   final same = CivitaiDiskLists(
     checkpoints: checkpoints,
@@ -104,6 +108,11 @@ Future<CivitaiDiskLists> mergeCivitaiDisk({
     root: folder,
     backend: backend,
     lora: lora,
+    typeFolders:
+        typeFolders ??
+        (root == null
+            ? await studioModelTypeFolders(backend, folder)
+            : const {}),
   );
   if (!civitaiFileInstalled(wanted, names)) return same;
   List<String> plus(List<String> list) {
@@ -149,11 +158,13 @@ Future<CivitaiDiskLists> mergeCivitaiDisk({
 Future<List<String>> civitaiInstalledBases({
   required String root,
   required String backend,
+  Map<String, String> typeFolders = const {},
 }) async {
   final models = await civitaiSlotNames(
     root: root,
     backend: backend,
     lora: false,
+    typeFolders: typeFolders,
   );
   final bases = civitaiBasesForFiles(models).toList()..sort();
   return bases;

@@ -313,14 +313,20 @@ const Duration kCivitaiPartStaleAfter = Duration(hours: 1);
 /// ones untouched for [olderThan], and never one another running copy of the
 /// app holds a lock on. A file that cannot be inspected or removed is left
 /// alone and logged. Returns how many were removed.
+/// Kinds in [typeFolders] are swept in their own folders.
 Future<int> sweepCivitaiParts(
   String root, {
   Duration olderThan = kCivitaiPartStaleAfter,
+  Map<String, String> typeFolders = const {},
 }) async {
   var removed = 0;
   final cutoff = DateTime.now().subtract(olderThan);
-  for (final folder in ['', ...kCivitaiFolders]) {
-    final dir = Directory(folder.isEmpty ? root : p.join(root, folder));
+  final dirs = {
+    for (final folder in ['', ...kCivitaiFolders])
+      civitaiKindFolder(root, folder, typeFolders),
+  };
+  for (final path in dirs) {
+    final dir = Directory(path);
     try {
       if (!await dir.exists()) continue;
       await for (final entity in dir.list(followLinks: false)) {

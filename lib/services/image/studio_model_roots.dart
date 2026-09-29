@@ -136,6 +136,25 @@ Future<String?> _discoverModelRoot(String backend) async {
   return null;
 }
 
+/// Where each kind of weight goes for [backend] when [root] is its models
+/// folder, for the kinds its ComfyUI config sends elsewhere. Empty for the
+/// other backends and when every kind lives under [root].
+/// [discover] defaults to reading this computer's ComfyUI configs.
+Future<Map<String, String>> studioModelTypeFolders(
+  String backend,
+  String? root, {
+  Future<Map<String, String>> Function(String root, int port)? discover,
+}) async {
+  if (backend != 'comfyui' || root == null || root.trim().isEmpty) {
+    return const {};
+  }
+  final url = await studioComfyUrl();
+  if (!await comfyHostIsLocal(url)) return const {};
+  final port = comfyUrlPort(url);
+  if (discover != null) return discover(root, port);
+  return discoverComfyTypeFolders(root, preferPort: port);
+}
+
 Future<void> rememberStudioModelRoot(String backend, String root) async {
   if (backend != 'comfyui' && backend != 'a1111' && backend != 'drawthings') {
     return;

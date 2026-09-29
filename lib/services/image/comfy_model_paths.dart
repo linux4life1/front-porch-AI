@@ -385,6 +385,15 @@ String _expandHome(String value, String home) {
   return value;
 }
 
+/// A YAML path made absolute: `~` is [home], a relative path is under [base]
+/// (itself under [yamlDir] when relative).
+String resolveComfyYamlPath(
+  String value,
+  String base,
+  String yamlDir,
+  String home,
+) => _resolve(value, base, yamlDir, home);
+
 String _resolve(String value, String base, String yamlDir, String home) {
   final expanded = _expandHome(value.trim(), home);
   if (expanded.isEmpty) return '';

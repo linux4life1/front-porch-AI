@@ -378,6 +378,7 @@ class CivitaiRelay {
     required String? savedRoot,
     required bool fromLoraSheet,
     required String backend,
+    Map<String, String> typeFolders = const {},
   }) async {
     final log = civitaiLog(
       action: 'download',
@@ -435,7 +436,12 @@ class CivitaiRelay {
     final root = savedRoot?.trim() ?? '';
     final path = root.isEmpty
         ? null
-        : civitaiDownloadPath(root: root, folder: folder, name: file.name);
+        : civitaiDownloadPath(
+            root: root,
+            folder: folder,
+            name: file.name,
+            typeFolders: typeFolders,
+          );
     if (path == null) return refuse(CivitaiFailure.unsafe);
     return CivitaiDownloadPlan(
       uri: uri,
@@ -452,6 +458,7 @@ class CivitaiRelay {
         folder: folder,
         modelType: version.modelType,
         name: file.name,
+        typeFolders: typeFolders,
       ),
     );
   }

@@ -78,6 +78,7 @@ class WebBackendRoutes {
         auth: _deps.auth,
         adultAllowed: () => _deps.storage.realismSettings.adultThemesEnabled,
         rootForAsync: savedStudioModelRoot,
+        typeFoldersFor: studioModelTypeFolders,
       );
     }
   }

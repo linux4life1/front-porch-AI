@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'comfy_model_paths.dart';
+import 'comfy_type_folders.dart';
 
 const _kWeightExts = {'.safetensors', '.gguf', '.ckpt', '.pt', '.pth', '.bin'};
 
@@ -190,26 +191,96 @@ Future<List<String>> _rootsFromYamlFiles(
   return [...preferred, ...other];
 }
 
-Future<List<String>> _yamlCandidates(ComfyMachineLayout machine) async {
-  final files = <File>[];
+Future<List<String>> _machineYamlFiles(ComfyMachineLayout machine) async {
+  final files = <String>[];
   for (final dirPath in machine.desktopConfigDirs) {
     final dir = Directory(dirPath);
     if (!await dir.exists()) continue;
     await for (final entity in dir.list()) {
       if (entity is! File) continue;
       final lower = entity.path.toLowerCase();
-      if (lower.endsWith('.yaml') || lower.endsWith('.yml')) files.add(entity);
+      if (lower.endsWith('.yaml') || lower.endsWith('.yml')) {
+        files.add(entity.path);
+      }
     }
   }
-  for (final path in machine.extraModelConfigFiles) {
-    files.add(File(path));
-  }
+  files.addAll(machine.extraModelConfigFiles);
   for (final install in await _installDirs(machine.installSearchRoots)) {
-    files.add(File(p.join(install, 'extra_model_paths.yaml')));
+    files.add(p.join(install, 'extra_model_paths.yaml'));
   }
-  return _rootsFromYamlFiles([
-    for (final file in files) file.path,
-  ], machine.home);
+  return files;
+}
+
+Future<List<String>> _yamlCandidates(ComfyMachineLayout machine) async {
+  return _rootsFromYamlFiles(await _machineYamlFiles(machine), machine.home);
+}
+
+/// The per-kind folders the YAML gives [modelsRoot]'s ComfyUI, keyed by slot
+/// folder (`checkpoints`, `loras`...). Only blocks whose models folder is
+/// [modelsRoot] count, and the first block to name a kind wins. Empty when
+/// every kind lives under [modelsRoot] itself.
+Future<Map<String, String>> discoverComfyTypeFolders(
+  String modelsRoot, {
+  int? preferPort,
+  ComfyMachineLayout? layout,
+  List<ComfyProcessSnapshot>? processes,
+  bool scanMachine = true,
+}) async {
+  final machine = layout ?? currentComfyMachineLayout();
+  final procs =
+      processes ??
+      (scanMachine
+          ? await scanComfyProcesses()
+          : const <ComfyProcessSnapshot>[]);
+  final yamls = <String>[];
+  for (final proc in procs) {
+    final hints = comfyLaunchHints(
+      proc.command,
+      cwd: proc.cwd,
+      executable: proc.executable,
+    );
+    if (preferPort != null && hints.port != preferPort) continue;
+    yamls.addAll(hints.extraYamls);
+    if (hints.mainPyDir != null) {
+      yamls.add(p.join(hints.mainPyDir!, 'extra_model_paths.yaml'));
+    }
+    if (proc.cwd != null) {
+      yamls.add(p.join(proc.cwd!, 'extra_model_paths.yaml'));
+    }
+  }
+  yamls.addAll(await _machineYamlFiles(machine));
+  final want = p.normalize(modelsRoot);
+  final out = <String, String>{};
+  final seen = <String>{};
+  for (final path in yamls) {
+    if (!seen.add(path)) continue;
+    final file = File(path);
+    if (!await file.exists()) continue;
+    List<ComfyModelConfig> blocks;
+    try {
+      blocks = parseComfyModelYaml(await file.readAsString());
+    } on FileSystemException {
+      continue;
+    }
+    final yamlDir = p.dirname(file.path);
+    for (final block in blocks) {
+      final root = comfyModelsRoot(
+        config: block,
+        yamlDir: yamlDir,
+        home: machine.home,
+      );
+      if (root == null || p.normalize(root) != want) continue;
+      final folders = comfyTypeFolders(
+        config: block,
+        yamlDir: yamlDir,
+        home: machine.home,
+      );
+      for (final entry in folders.entries) {
+        out.putIfAbsent(entry.key, () => entry.value);
+      }
+    }
+  }
+  return out;
 }
 
 Future<List<String>> _installCandidates(ComfyMachineLayout machine) async {

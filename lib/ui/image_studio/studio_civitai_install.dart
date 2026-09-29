@@ -120,6 +120,7 @@ Future<CivitaiInstallResult> installCivitaiRow({
       savedRoot: root,
       fromLoraSheet: lora,
       backend: backend,
+      typeFolders: await studioModelTypeFolders(backend, root),
     );
     final landed = await saveCall(plan, cancel: cancel, onProgress: onProgress);
     return CivitaiInstalled(p.basename(landed));
