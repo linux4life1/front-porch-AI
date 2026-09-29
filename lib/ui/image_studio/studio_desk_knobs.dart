@@ -72,6 +72,8 @@ class StudioDeskKnobs extends StatelessWidget {
             maxLines: 2,
             onSubmit: settings.setImageGenNegativePrompt,
           ),
+        if (backend == 'comfyui')
+          _shiftRow(primary, settings.editShift, settings.setEditShift),
         if (drawThings) ..._drawThings(context, primary),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -105,24 +107,12 @@ class StudioDeskKnobs extends StatelessWidget {
           if (port != null && port > 0) settings.setDrawThingsGrpcPort(port);
         },
       ),
-      Row(
-        children: [
-          Text('Shift', style: TextStyle(color: primary)),
-          Expanded(
-            child: Slider(
-              value: shift.clamp(0.0, 10.0),
-              min: 0,
-              max: 10,
-              divisions: 100,
-              label: shift.toStringAsFixed(1),
-              activeColor: AppColors.formMasterAccent,
-              onChanged: (value) => edit
-                  ? settings.setEditShift(value)
-                  : settings.setDrawThingsShift(value),
-            ),
-          ),
-          Text(shift.toStringAsFixed(1), style: TextStyle(color: primary)),
-        ],
+      _shiftRow(
+        primary,
+        shift,
+        (value) => edit
+            ? settings.setEditShift(value)
+            : settings.setDrawThingsShift(value),
       ),
       Row(
         children: [
@@ -164,6 +154,32 @@ class StudioDeskKnobs extends StatelessWidget {
         onChanged: settings.setDrawThingsCfgZeroStar,
       ),
     ];
+  }
+
+  /// Comfy graphs read this as their sampling shift (from the edit setting,
+  /// for Create and Edit alike); Draw Things keeps one per mode.
+  Widget _shiftRow(
+    Color primary,
+    double shift,
+    ValueChanged<double> onChanged,
+  ) {
+    return Row(
+      children: [
+        Text('Shift', style: TextStyle(color: primary)),
+        Expanded(
+          child: Slider(
+            value: shift.clamp(0.0, 10.0),
+            min: 0,
+            max: 10,
+            divisions: 100,
+            label: shift.toStringAsFixed(1),
+            activeColor: AppColors.formMasterAccent,
+            onChanged: onChanged,
+          ),
+        ),
+        Text(shift.toStringAsFixed(1), style: TextStyle(color: primary)),
+      ],
+    );
   }
 
   /// The defaults the prompt writer and chat's /image start from.

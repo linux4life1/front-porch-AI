@@ -370,6 +370,8 @@ void main() {
       expect(find.text('Seed'), findsOneWidget);
       expect(find.text('Negative prompt'), findsOneWidget);
       expect(find.text('CFG Zero'), findsNothing);
+      // Comfy graphs read the sampling shift, so it has a slider here too.
+      expect(find.text('Shift'), findsOneWidget);
 
       await tester.enterText(find.widgetWithText(TextField, '-1'), '42');
       await tester.testTextInput.receiveAction(TextInputAction.done);
