@@ -152,6 +152,17 @@ List<DrawThingsLoraEntry> drawThingsMergeLoraVersions({
   return out;
 }
 
+/// The LoRA list to offer: what Draw Things listed, with the catalog's
+/// version on each. Nothing listed means the folder's own list. Without this
+/// overlay every listed LoRA would carry no version at all.
+List<DrawThingsLoraEntry> drawThingsCombineLoras({
+  required List<DrawThingsLoraEntry> echoed,
+  required List<DrawThingsLoraEntry> local,
+}) {
+  if (echoed.isEmpty) return local;
+  return drawThingsMergeLoraVersions(listed: echoed, catalog: local);
+}
+
 /// Checkpoint `version` ids from Draw Things `custom.json`.
 Future<Map<String, String>> drawThingsModelVersionsIn(
   Directory modelsDir,

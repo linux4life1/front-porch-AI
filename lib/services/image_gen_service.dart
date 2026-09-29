@@ -294,6 +294,19 @@ class ImageGenService extends ChangeNotifier {
     }
   }
 
+  /// `custom.json` version of each local checkpoint. The passed URL is
+  /// ignored; the host comes from settings, same as [fetchDrawThingsLoras].
+  Future<Map<String, String>> fetchDrawThingsModelVersions(
+    String baseUrl,
+  ) async {
+    try {
+      return await _ensureDrawThingsGrpc.fetchModelVersions();
+    } catch (e) {
+      debugPrint('ImageGen: fetchDrawThingsModelVersions failed: $e');
+      return const {};
+    }
+  }
+
   /// Fetch LoRA files from a Draw Things server (gRPC CLI op 'loras' — the
   /// same Echo('models') listing as [fetchDrawThingsModels], filtered to
   /// LoRAs). The selected name is applied natively via the generation config.
