@@ -179,23 +179,76 @@ String? civitaiAllInOnePath({
   return civitaiDownloadPath(root: root, folder: 'checkpoints', name: name);
 }
 
-/// True when [folder], once every link on the way is resolved, is [root] or
-/// inside it. A `loras` shortcut that leads outside the models folder is not.
-/// A folder that does not exist yet is judged by its nearest existing parent.
-Future<bool> civitaiFolderInsideRoot(String root, String folder) async {
+/// Folders no download may be written into, once links are resolved: a
+/// system location, the drive root, or the home folder itself.
+List<String> civitaiSystemFolders() {
+  final env = Platform.environment;
+  if (Platform.isWindows) {
+    return [
+      for (final key in ['SystemRoot', 'ProgramFiles', 'ProgramFiles(x86)'])
+        if ((env[key] ?? '').isNotEmpty) env[key]!,
+    ];
+  }
+  return const [
+    '/etc',
+    '/usr',
+    '/bin',
+    '/sbin',
+    '/lib',
+    '/lib32',
+    '/lib64',
+    '/boot',
+    '/dev',
+    '/proc',
+    '/sys',
+    '/System',
+    '/Library',
+    '/private/etc',
+  ];
+}
+
+Future<String?> _resolved(String path) async {
   try {
-    final realRoot = await Directory(root).resolveSymbolicLinks();
-    var probe = p.normalize(folder);
-    while (!await Directory(probe).exists()) {
-      final parent = p.dirname(probe);
-      if (parent == probe) return false;
-      probe = parent;
-    }
-    final real = await Directory(probe).resolveSymbolicLinks();
-    return real == realRoot || p.isWithin(realRoot, real);
+    return await Directory(path).resolveSymbolicLinks();
   } on FileSystemException {
+    return null;
+  }
+}
+
+/// True when a download may be written into [folder].
+///
+/// The models folder is whatever the backend uses, so a folder that is a link
+/// to another drive is fine. What is refused is a folder that, once every link
+/// is followed, is the drive root, the home folder itself, or a system
+/// folder. A folder that does not exist yet is judged by its nearest existing
+/// parent. [home] and [systemFolders] default to this machine's.
+Future<bool> civitaiFolderIsSafe(
+  String folder, {
+  String? home,
+  List<String>? systemFolders,
+}) async {
+  var probe = p.normalize(folder);
+  while (!await Directory(probe).exists()) {
+    final parent = p.dirname(probe);
+    if (parent == probe) return false;
+    probe = parent;
+  }
+  final real = await _resolved(probe);
+  if (real == null) return false;
+  if (real == p.rootPrefix(real) || p.dirname(real) == real) return false;
+  final homePath =
+      home ??
+      Platform.environment['HOME'] ??
+      Platform.environment['USERPROFILE'] ??
+      '';
+  if (homePath.isNotEmpty && real == (await _resolved(homePath) ?? homePath)) {
     return false;
   }
+  for (final system in systemFolders ?? civitaiSystemFolders()) {
+    final realSystem = await _resolved(system) ?? system;
+    if (real == realSystem || p.isWithin(realSystem, real)) return false;
+  }
+  return true;
 }
 
 /// `custom_lora.json` version id for a file name, when the name says.

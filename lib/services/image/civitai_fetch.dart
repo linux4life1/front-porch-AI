@@ -25,6 +25,10 @@ const int kCivitaiMaxActive = 2;
 
 typedef CivitaiFreeBytes = Future<int?> Function(String directory);
 
+const String _kUnsafeFolder =
+    'That models folder leads to a system folder, your home folder or the '
+    'drive root, so nothing was saved there.';
+
 final Set<String> _activePaths = {};
 
 String _lockKey(String path) => p.normalize(path).toLowerCase();
@@ -233,12 +237,9 @@ Future<void> _checkTarget(
   CivitaiFreeBytes freeBytes,
 ) async {
   final root = plan.root;
-  if (root != null && !await civitaiFolderInsideRoot(root, p.dirname(path))) {
-    throw const CivitaiDownloadException(
-      CivitaiFailure.unsafe,
-      'That models subfolder leads outside your models folder, so nothing was '
-      'saved there.',
-    );
+  if (!await civitaiFolderIsSafe(p.dirname(path)) ||
+      (root != null && !await civitaiFolderIsSafe(root))) {
+    throw const CivitaiDownloadException(CivitaiFailure.unsafe, _kUnsafeFolder);
   }
   _throwIfTaken(path, expected);
   if (expected != null) {
@@ -272,10 +273,11 @@ Future<String> _moveIntoPlace(
   final allInOne = plan.allInOnePath;
   if (allInOne != null && await safetensorsIsAllInOne(part)) {
     target = allInOne;
-    final root = plan.root;
-    if (root != null &&
-        !await civitaiFolderInsideRoot(root, p.dirname(target))) {
-      throw const CivitaiDownloadException(CivitaiFailure.unsafe);
+    if (!await civitaiFolderIsSafe(p.dirname(target))) {
+      throw const CivitaiDownloadException(
+        CivitaiFailure.unsafe,
+        _kUnsafeFolder,
+      );
     }
     await File(target).parent.create(recursive: true);
   }

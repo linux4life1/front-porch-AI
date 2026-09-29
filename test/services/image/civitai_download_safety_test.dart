@@ -245,35 +245,112 @@ void main() {
     });
   });
 
-  group('the models folder is a boundary', () {
+  group('where a download may be written', () {
+    Directory otherPlace() {
+      final d = Directory.systemTemp.createTempSync('civitai-elsewhere');
+      addTearDown(() => d.deleteSync(recursive: true));
+      return d;
+    }
+
+    Future<CivitaiFailure> refusedInto(String link, String target) async {
+      Link(link).createSync(target);
+      host.serve('/ok', bytes);
+      final kind = await civitaiFailureOf(
+        downloadCivitaiPlan(plan(at('loras', 'x.safetensors'), '/ok')),
+      );
+      expect(host.requests, isEmpty);
+      return kind;
+    }
+
+    test('a subfolder that is a link to another drive is followed', () async {
+      final elsewhere = otherPlace();
+      Link(p.join(dir.path, 'loras')).createSync(elsewhere.path);
+      host.serve('/ok', bytes);
+      await downloadCivitaiPlan(plan(at('loras', 'x.safetensors'), '/ok'));
+      expect(
+        File(p.join(elsewhere.path, 'x.safetensors')).readAsBytesSync(),
+        bytes,
+      );
+    }, skip: Platform.isWindows);
+
+    test('a models folder that is itself a link is followed', () async {
+      final elsewhere = otherPlace();
+      final shortcut = p.join(dir.path, 'models_link');
+      Link(shortcut).createSync(elsewhere.path);
+      host.serve('/ok', bytes);
+      await downloadCivitaiPlan(
+        civitaiTestPlan(
+          host.uri('/ok'),
+          p.join(shortcut, 'loras', 'x.safetensors'),
+          root: shortcut,
+        ),
+      );
+      expect(
+        File(p.join(elsewhere.path, 'loras', 'x.safetensors')).existsSync(),
+        isTrue,
+      );
+    }, skip: Platform.isWindows);
+
+    test('a link to the drive root is refused', () async {
+      expect(
+        await refusedInto(p.join(dir.path, 'loras'), '/'),
+        CivitaiFailure.unsafe,
+      );
+    }, skip: Platform.isWindows);
+
+    test('a link to the home folder is refused', () async {
+      final home = Platform.environment['HOME'] ?? '';
+      if (home.isEmpty || !Directory(home).existsSync()) return;
+      expect(
+        await refusedInto(p.join(dir.path, 'loras'), home),
+        CivitaiFailure.unsafe,
+      );
+    }, skip: Platform.isWindows);
+
+    test('a link to a system folder is refused', () async {
+      expect(
+        await refusedInto(p.join(dir.path, 'loras'), '/etc'),
+        CivitaiFailure.unsafe,
+      );
+    }, skip: Platform.isWindows || !Directory('/etc').existsSync());
+
     test(
-      'a subfolder that is a link leaving the folder is not written to',
+      'a models folder that is a link to the drive root is refused',
       () async {
-        final outside = Directory.systemTemp.createTempSync('civitai-outside');
-        addTearDown(() => outside.deleteSync(recursive: true));
-        Link(p.join(dir.path, 'loras')).createSync(outside.path);
-        host.serve('/ok', bytes);
+        final shortcut = p.join(dir.path, 'everything');
+        Link(shortcut).createSync('/');
         final kind = await civitaiFailureOf(
-          downloadCivitaiPlan(plan(at('loras', 'x.safetensors'), '/ok')),
+          downloadCivitaiPlan(
+            civitaiTestPlan(
+              host.uri('/ok'),
+              p.join(shortcut, 'x.safetensors'),
+              root: shortcut,
+            ),
+          ),
         );
         expect(kind, CivitaiFailure.unsafe);
-        expect(outside.listSync(), isEmpty);
         expect(host.requests, isEmpty);
       },
       skip: Platform.isWindows,
     );
 
-    test(
-      'a subfolder that is a link staying inside the folder is fine',
-      () async {
-        final inside = Directory(p.join(dir.path, 'real_loras'))..createSync();
-        Link(p.join(dir.path, 'loras')).createSync(inside.path);
-        host.serve('/ok', bytes);
-        await downloadCivitaiPlan(plan(at('loras', 'x.safetensors'), '/ok'));
-        expect(File(p.join(inside.path, 'x.safetensors')).existsSync(), isTrue);
-      },
-      skip: Platform.isWindows,
-    );
+    test('the rule itself, with folders it is told about', () async {
+      final sys = otherPlace();
+      final home = otherPlace();
+      final inHome = Directory(p.join(home.path, 'models'))..createSync();
+      Future<bool> safe(String folder) => civitaiFolderIsSafe(
+        folder,
+        home: home.path,
+        systemFolders: [sys.path],
+      );
+      expect(await safe(sys.path), isFalse);
+      expect(await safe(p.join(sys.path, 'deep', 'not', 'yet')), isFalse);
+      expect(await safe(home.path), isFalse);
+      expect(await safe(inHome.path), isTrue);
+      expect(await safe(p.join(inHome.path, 'loras')), isTrue);
+      expect(await safe(dir.path), isTrue);
+      expect(await safe(p.rootPrefix(dir.path)), isFalse);
+    });
 
     test('pathStaysUnderRoot rejects escapes, siblings and relative roots', () {
       expect(pathStaysUnderRoot('/models', '/models'), isTrue);
@@ -286,24 +363,6 @@ void main() {
       expect(pathStaysUnderRoot('models', 'models/a'), isFalse);
       expect(pathStaysUnderRoot('', '/a'), isFalse);
     });
-
-    test(
-      'a folder that is not made yet is judged by where it would land',
-      () async {
-        expect(
-          await civitaiFolderInsideRoot(dir.path, p.join(dir.path, 'a', 'b')),
-          isTrue,
-        );
-        expect(
-          await civitaiFolderInsideRoot(dir.path, p.join(dir.path, '..', 'zz')),
-          isFalse,
-        );
-        expect(
-          await civitaiFolderInsideRoot(p.join(dir.path, 'missing'), dir.path),
-          isFalse,
-        );
-      },
-    );
   });
 
   group('a checkpoint that carries its own encoders and VAE', () {
