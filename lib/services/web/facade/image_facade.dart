@@ -372,13 +372,12 @@ class ImageFacade {
     // value — including '' — is respected as-is.
     // The phone or web caller cannot answer the desktop's loader dialog, so
     // the gate answers "confirm on the desktop" at once instead of waiting.
-    final bytes = await runZoned(
+    final bytes = await withoutCity96Ask(
       () => _image.generateImage(
         prompt: prompt,
         negativePrompt: f['negativePrompt']?.toString(),
         size: f['size']?.toString(),
       ),
-      zoneValues: {kCity96NoAsk: true},
     );
     if (bytes == null) return null;
     final savedPath = await _image.saveImageToDisk(bytes);

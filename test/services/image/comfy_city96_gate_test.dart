@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/services/image/comfy_gguf_city96.dart';
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart';
 import 'package:front_porch_ai/services/image/comfy_model_paths.dart';
 
@@ -48,6 +49,8 @@ void main() {
 
   City96Gate gate({bool withAsker = true, File? at}) {
     return City96Gate(
+      // The OS is never asked: the ids here belong to no real process.
+      probe: const FakeProbe(),
       pidFor: (_) async => comfyPid,
       locate: (_) async {
         located++;
@@ -154,11 +157,13 @@ void main() {
             command: 'python ${p.join(other.path, 'main.py')} --port 8188',
             cwd: other.path,
             pid: 11,
+            uid: 1000,
           ),
           ComfyProcessSnapshot(
             command: 'python ${p.join(mine.path, 'main.py')} --port 8190',
             cwd: mine.path,
             pid: 12,
+            uid: 1000,
           ),
         ];
         final found = await city96LoaderForUrl(
@@ -268,6 +273,99 @@ void main() {
           );
           expect(again.state, City96State.ready);
           expect(asked, isEmpty);
+        },
+      );
+
+      group(
+        'whether ComfyUI has loaded the update follows the process, not memory',
+        () {
+          const url = 'http://127.0.0.1:8188';
+          final patched = patchCity96Loader(kStockCity96Loader).source;
+
+          City96Gate started(int? pid, DateTime? at) => City96Gate(
+            locate: (_) async => loader,
+            pidFor: (_) async => pid,
+            probe: FakeProbe(starts: {?pid: ?at}),
+          );
+
+          test(
+            'the same gate stops saying restart once ComfyUI restarted, even when the id was unknown at write',
+            () async {
+              int? pid;
+              final restartedAt = DateTime.now().add(
+                const Duration(minutes: 5),
+              );
+              final g = City96Gate(
+                locate: (_) async => loader,
+                ask: (_) async => true,
+                pidFor: (_) async => pid,
+                probe: FakeProbe(starts: {300: restartedAt}),
+              );
+              await g.ensure(comfyUrl: url, graph: _graph());
+              expect(
+                (await g.check(comfyUrl: url, graph: _graph())).state,
+                City96State.restartNeeded,
+                reason: 'nothing tells it ComfyUI restarted yet',
+              );
+
+              pid = 300;
+              expect(
+                (await g.check(comfyUrl: url, graph: _graph())).state,
+                City96State.ready,
+              );
+              expect(
+                (await g.check(comfyUrl: url, graph: _graph())).state,
+                City96State.ready,
+                reason: 'and it stays cleared',
+              );
+            },
+          );
+
+          test(
+            'an app restart does not make an unloaded update look Ready',
+            () async {
+              loader.writeAsStringSync(patched);
+              // ComfyUI started an hour before the loader was written.
+              final g = started(
+                100,
+                DateTime.now().subtract(const Duration(hours: 1)),
+              );
+              final result = await g.check(comfyUrl: url, graph: _graph());
+              expect(result.state, City96State.restartNeeded);
+              expect(result.message, contains('Restart ComfyUI'));
+            },
+          );
+
+          test('an update written before ComfyUI started is Ready', () async {
+            loader.writeAsStringSync(patched);
+            loader.setLastModifiedSync(
+              DateTime.now().subtract(const Duration(hours: 2)),
+            );
+            final g = started(
+              100,
+              DateTime.now().subtract(const Duration(hours: 1)),
+            );
+            expect(
+              (await g.check(comfyUrl: url, graph: _graph())).state,
+              City96State.ready,
+            );
+          });
+
+          test(
+            'with no start time to read, an update this run made still waits',
+            () async {
+              final g = City96Gate(
+                locate: (_) async => loader,
+                ask: (_) async => true,
+                pidFor: (_) async => 100,
+              );
+              await g.ensure(comfyUrl: url, graph: _graph());
+              expect(
+                (await g.check(comfyUrl: url, graph: _graph())).state,
+                City96State.restartNeeded,
+              );
+            },
+          );
         },
       );
 

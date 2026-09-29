@@ -52,6 +52,37 @@ class ComfyProcessProbe {
     return int.tryParse(out?.trim() ?? '');
   }
 
+  /// The permission bits of [path] (`0755` is 493).
+  Future<int?> filePermissions(String path) async {
+    if (Platform.isWindows) return null;
+    final args = Platform.isMacOS ? ['-f', '%Lp', path] : ['-c', '%a', path];
+    final out = await _run('stat', args);
+    return int.tryParse(out?.trim() ?? '', radix: 8);
+  }
+
+  /// When process [pid] started.
+  Future<DateTime?> processStart(int pid) async {
+    if (Platform.isWindows) {
+      final out = await _run('powershell', [
+        '-NoProfile',
+        '-Command',
+        '(Get-Process -Id $pid).StartTime.ToUniversalTime().ToString("o")',
+      ]);
+      return DateTime.tryParse(out?.trim() ?? '');
+    }
+    final out = await _run('ps', ['-o', 'etime=', '-p', '$pid']);
+    final elapsed = _elapsed(out?.trim() ?? '');
+    return elapsed == null ? null : DateTime.now().subtract(elapsed);
+  }
+
+  /// `ps` elapsed time: `[[dd-]hh:]mm:ss`.
+  static Duration? _elapsed(String text) {
+    final m = RegExp(r'^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$').firstMatch(text);
+    if (m == null) return null;
+    int n(int i) => int.parse(m.group(i) ?? '0');
+    return Duration(days: n(1), hours: n(2), minutes: n(3), seconds: n(4));
+  }
+
   static Set<int> _numbers(String text) => {
     for (final line in text.split(RegExp(r'\s+')))
       if (int.tryParse(line) != null) int.parse(line),

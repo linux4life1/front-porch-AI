@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import 'city96_exclusive_write.dart';
 import 'comfy_process_probe.dart';
 
 /// The update was not written, and why. The message is shown as it is.
@@ -19,15 +21,38 @@ class City96WriteRefused implements Exception {
   String toString() => message;
 }
 
-/// Why [loader] must not be written, or null when it may be. Refuses a link
-/// or a file owned by someone else at `loader.py` and `loader.py.bak`: a
-/// link would send the write somewhere else, and a foreign-owned file is not
-/// this person's to change.
+/// Why [loader] must not be written, or null when it may be.
+///
+/// Every check that cannot be answered refuses: a missing `id`, `stat` or
+/// Windows (which has no user ids here) is "not checked", and unchecked is
+/// not allowed. The ComfyUI-GGUF folder has to be this user's and closed to
+/// group and world writes, because a name in it is what a write goes through.
+/// `loader.py` and `loader.py.bak` may not be links or another user's.
 Future<String?> city96TargetProblem(
   File loader, {
   ComfyProcessProbe probe = const ComfyProcessProbe(),
 }) async {
   final me = await probe.currentUid();
+  if (me == null) {
+    return 'Front Porch cannot tell which user it runs as here, so it cannot '
+        'check whose ComfyUI-GGUF loader this is and left it alone. Update '
+        'ComfyUI-GGUF by hand.';
+  }
+  final folder = loader.parent.path;
+  final folderOwner = await probe.fileOwner(folder);
+  final folderMode = await probe.filePermissions(folder);
+  if (folderOwner == null || folderMode == null) {
+    return 'Front Porch could not check who owns the ComfyUI-GGUF folder, so '
+        'it left the loader alone.';
+  }
+  if (folderOwner != me) {
+    return 'The ComfyUI-GGUF folder belongs to another user, so its loader '
+        'was left alone.';
+  }
+  if (folderMode & 0x12 != 0) {
+    return 'The ComfyUI-GGUF folder can be written by other users, so its '
+        'loader was left alone.';
+  }
   for (final path in [loader.path, '${loader.path}.bak']) {
     if (await FileSystemEntity.type(path, followLinks: false) ==
         FileSystemEntityType.notFound) {
@@ -38,7 +63,11 @@ Future<String?> city96TargetProblem(
           'left alone.';
     }
     final owner = await probe.fileOwner(path);
-    if (me != null && owner != null && owner != me) {
+    if (owner == null) {
+      return 'Front Porch could not check who owns its ComfyUI-GGUF loader, '
+          'so it was left alone.';
+    }
+    if (owner != me) {
       return 'Its ComfyUI-GGUF loader (or its backup) belongs to another '
           'user, so it was left alone.';
     }
@@ -57,12 +86,18 @@ String _token() {
 /// Keeps the original as `loader.py.bak` (never replacing one that is
 /// already there), then replaces `loader.py` through a new, unpredictably
 /// named file beside it, so a crash never leaves half a loader and a planted
-/// name is never written through. The file keeps its mode. When anything
-/// fails the temp file, and a backup made by this call, are removed.
+/// name is never written through. Both new files are created exclusively and
+/// written through the descriptor that creation returned, never by name
+/// again, and end with `loader.py`'s mode. When anything fails the temp file,
+/// and a backup made by this call, are removed.
+///
+/// [afterCreate] (after a new file is created, before it is written) and
+/// [beforeRename] are for tests.
 Future<void> writeCity96Loader(
   File loader,
   String patched, {
   ComfyProcessProbe probe = const ComfyProcessProbe(),
+  @visibleForTesting void Function(String path)? afterCreate,
   @visibleForTesting FutureOr<void> Function(File temp)? beforeRename,
 }) async {
   final problem = await city96TargetProblem(loader, probe: probe);
@@ -71,36 +106,43 @@ Future<void> writeCity96Loader(
   var madeBackup = false;
   final temp = File('${loader.path}.fpai-tmp-${_token()}');
   try {
+    final mode = (await loader.stat()).mode & 0xFFF;
     try {
-      await bak.create(exclusive: true);
+      writeNewFileExclusive(
+        bak.path,
+        await loader.readAsBytes(),
+        mode: mode,
+        afterCreate: afterCreate,
+      );
       madeBackup = true;
-      await bak.writeAsBytes(await loader.readAsBytes());
     } on PathExistsException {
       // An earlier backup stays as it is.
     }
-    await temp.create(exclusive: true);
-    final out = await temp.open(mode: FileMode.write);
-    try {
-      await out.writeString(patched);
-      await out.flush();
-    } finally {
-      await out.close();
+    writeNewFileExclusive(
+      temp.path,
+      utf8.encode(patched),
+      mode: mode,
+      afterCreate: afterCreate,
+    );
+    // A name that became a link since it was created is not ours any more.
+    for (final made in [temp, if (madeBackup) bak]) {
+      if (await FileSystemEntity.isLink(made.path)) {
+        throw const City96WriteRefused(
+          'A file beside its ComfyUI-GGUF loader was replaced by a link while '
+          'it was being written, so nothing was changed.',
+        );
+      }
     }
-    await _keepMode(loader, temp);
     await beforeRename?.call(temp);
     await temp.rename(loader.path);
+  } on UnsupportedError {
+    throw const City96WriteRefused(
+      'Front Porch cannot write this file safely on this system, so its '
+      'ComfyUI-GGUF loader was left alone. Update ComfyUI-GGUF by hand.',
+    );
   } catch (_) {
     if (await temp.exists()) await temp.delete();
     if (madeBackup && await bak.exists()) await bak.delete();
     rethrow;
-  }
-}
-
-Future<void> _keepMode(File from, File to) async {
-  if (Platform.isWindows) return;
-  final mode = (await from.stat()).mode & 0xFFF;
-  final result = await Process.run('chmod', [mode.toRadixString(8), to.path]);
-  if (result.exitCode != 0) {
-    throw FileSystemException('chmod failed', to.path);
   }
 }

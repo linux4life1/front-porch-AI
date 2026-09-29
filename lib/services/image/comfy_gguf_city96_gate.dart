@@ -94,6 +94,13 @@ class City96Check {
 /// right away instead of leaving the request waiting.
 const Symbol kCity96NoAsk = #fpaiCity96NoAsk;
 
+/// Runs [body] (and everything it starts) as a phone or web caller: a
+/// ComfyUI-GGUF loader update is answered with "confirm on the desktop" at
+/// once, and no dialog is raised on this computer for a job nobody there is
+/// waiting on.
+T withoutCity96Ask<T>(T Function() body) =>
+    runZoned(body, zoneValues: {kCity96NoAsk: true});
+
 const String kCity96ConfirmOnDesktop =
     'Confirm the update in Front Porch on the computer that runs ComfyUI, '
     'then generate again.';
@@ -125,22 +132,47 @@ const String _kRestartAfterWrite =
     "ComfyUI-GGUF's loader was updated for Qwen-Image 2.1 (the original is "
     'saved as loader.py.bak). Restart ComfyUI, then generate again.';
 
+const String _kNoUser =
+    'Front Porch cannot tell which user it runs as here, so it cannot check '
+    'that the ComfyUI it found is yours and left its loader alone. Update '
+    'ComfyUI-GGUF by hand.';
+
+const String _kNoProcessOwner =
+    'Front Porch could not tell who owns the ComfyUI it found, so it left '
+    'its loader alone. Update ComfyUI-GGUF by hand.';
+
+const String _kNoListeners =
+    'Front Porch cannot tell which program is listening on that port (it needs '
+    '`lsof` or `ss`), so it cannot be sure which ComfyUI this is and left its '
+    'loader alone. Update ComfyUI-GGUF by hand.';
+
 String _needs(String why) => '$kCity96NeedsUpdate $why';
+
+/// Who serves a ComfyUI URL on this computer: its loader and process id, or
+/// why it cannot be told ([refused], shown as it is). All three are null when
+/// nothing there looks like a local ComfyUI.
+typedef City96Target = ({File? loader, int? pid, String? refused});
 
 /// The running ComfyUI on [comfyUrl]'s port and its loader, and only that one:
 /// its command line names that port, this user owns it, and it is really the
 /// process listening there. Another user's process, or a look-alike that is
 /// not listening, is never a candidate.
-Future<({File loader, int? pid})?> city96TargetForUrl(
+///
+/// A fact that cannot be checked refuses instead of passing: no `lsof` or
+/// `ss`, an OS that reports no user ids (Windows), or a process whose owner is
+/// unknown.
+Future<City96Target> city96TargetForUrl(
   String comfyUrl, {
   List<ComfyProcessSnapshot>? processes,
   ComfyProcessProbe probe = const ComfyProcessProbe(),
 }) async {
   final port = comfyUrlPort(comfyUrl);
   final procs = processes ?? await scanComfyProcesses();
-  final me = await probe.currentUid();
+  int? me;
+  var meAsked = false;
   Set<int>? listeners;
-  var asked = false;
+  var listenersAsked = false;
+  String? unverified;
   for (final proc in procs) {
     final hints = comfyLaunchHints(
       proc.command,
@@ -148,24 +180,37 @@ Future<({File loader, int? pid})?> city96TargetForUrl(
       executable: proc.executable,
     );
     if (hints.port != port) continue;
-    if (me != null && proc.uid != null && proc.uid != me) continue;
-    if (!asked) {
-      listeners = await probe.listeningPids(port);
-      asked = true;
+    if (!meAsked) {
+      me = await probe.currentUid();
+      meAsked = true;
     }
-    if (listeners != null &&
-        (proc.pid == null || !listeners.contains(proc.pid))) {
+    if (me == null) {
+      return (loader: null, pid: null, refused: _kNoUser);
+    }
+    if (proc.uid == null) {
+      unverified = _kNoProcessOwner;
       continue;
     }
+    if (proc.uid != me) continue;
+    if (!listenersAsked) {
+      listeners = await probe.listeningPids(port);
+      listenersAsked = true;
+    }
+    if (listeners == null) {
+      return (loader: null, pid: null, refused: _kNoListeners);
+    }
+    if (proc.pid == null || !listeners.contains(proc.pid)) continue;
     for (final dir in [hints.mainPyDir, proc.cwd]) {
       if (dir == null || dir.isEmpty) continue;
       final loader = File(
         p.join(dir, 'custom_nodes', 'ComfyUI-GGUF', 'loader.py'),
       );
-      if (await loader.exists()) return (loader: loader, pid: proc.pid);
+      if (await loader.exists()) {
+        return (loader: loader, pid: proc.pid, refused: null);
+      }
     }
   }
-  return null;
+  return (loader: null, pid: null, refused: unverified);
 }
 
 Future<File?> city96LoaderForUrl(
@@ -176,11 +221,11 @@ Future<File?> city96LoaderForUrl(
   comfyUrl,
   processes: processes,
   probe: probe,
-))?.loader;
+)).loader;
 
 /// The id of the process serving [comfyUrl], for noticing a restart.
 Future<int?> city96PidForUrl(String comfyUrl) async =>
-    (await city96TargetForUrl(comfyUrl))?.pid;
+    (await city96TargetForUrl(comfyUrl)).pid;
 
 /// Updates City96's `loader.py` for Qwen-Image 2.1 GGUF, carefully.
 ///
@@ -195,11 +240,16 @@ class City96Gate {
     this.probe = const ComfyProcessProbe(),
     Future<int?> Function(String comfyUrl)? pidFor,
     Future<void> Function(File loader, String patched)? write,
-  }) : _locate = locate ?? city96LoaderForUrl,
-       _pidFor = pidFor ?? city96PidForUrl,
+  }) : _locate = locate == null
+           ? ((url) => city96TargetForUrl(url, probe: probe))
+           : ((url) async =>
+                 (loader: await locate(url), pid: null, refused: null)),
+       _pidFor =
+           pidFor ??
+           ((url) async => (await city96TargetForUrl(url, probe: probe)).pid),
        _write = write;
 
-  final City96Locator _locate;
+  final Future<City96Target> Function(String comfyUrl) _locate;
   final Future<void> Function(File loader, String patched)? _write;
   final Future<int?> Function(String comfyUrl) _pidFor;
   final ComfyProcessProbe probe;
@@ -216,6 +266,28 @@ class City96Gate {
 
   /// The one the app uses. Tests put their own in place.
   static City96Gate instance = City96Gate();
+
+  /// True while the ComfyUI serving [comfyUrl] started before its (already
+  /// patched) loader was last written, so it has not read the patch. This
+  /// holds across app restarts, because it compares the loader's time with the
+  /// process's. When the process start cannot be read, what this run saw at
+  /// write time decides.
+  Future<bool> _notLoadedYet(String comfyUrl, File loader) async {
+    final pid = await _pidFor(comfyUrl);
+    final started = pid == null ? null : await probe.processStart(pid);
+    if (started != null) {
+      final stale = (await loader.lastModified()).isAfter(
+        started.add(const Duration(seconds: 1)),
+      );
+      if (!stale) _updated.remove(loader.path);
+      return stale;
+    }
+    if (!_updated.containsKey(loader.path)) return false;
+    final then = _updated[loader.path];
+    if (then == null || pid == null || pid == then) return true;
+    _updated.remove(loader.path);
+    return false;
+  }
 
   /// Where the loader stands, without asking or writing anything.
   Future<(City96Check, File?, City96LoaderPatch?)> _inspect(
@@ -238,15 +310,17 @@ class City96Gate {
         null,
       );
     }
-    final loader = await _locate(comfyUrl);
+    final target = await _locate(comfyUrl);
+    final loader = target.loader;
     if (loader == null) {
       return (
         City96Check(
           City96State.needsUpdate,
           _needs(
-            'The ComfyUI running at $comfyUrl could not be found on this '
-            'computer (for example it runs in Docker), or it has no '
-            'ComfyUI-GGUF loader. Update ComfyUI-GGUF there.',
+            target.refused ??
+                'The ComfyUI running at $comfyUrl could not be found on this '
+                    'computer (for example it runs in Docker), or it has no '
+                    'ComfyUI-GGUF loader. Update ComfyUI-GGUF there.',
           ),
         ),
         null,
@@ -282,17 +356,12 @@ class City96Gate {
       );
     }
     if (!patch.changed) {
-      if (_updated.containsKey(loader.path)) {
-        final then = _updated[loader.path];
-        final now = await _pidFor(comfyUrl);
-        if (then == null || now == null || now == then) {
-          return (
-            const City96Check(City96State.restartNeeded, _kRestart),
-            loader,
-            patch,
-          );
-        }
-        _updated.remove(loader.path);
+      if (await _notLoadedYet(comfyUrl, loader)) {
+        return (
+          const City96Check(City96State.restartNeeded, _kRestart),
+          loader,
+          patch,
+        );
       }
       return (const City96Check(City96State.ready), loader, patch);
     }

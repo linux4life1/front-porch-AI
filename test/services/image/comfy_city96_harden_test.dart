@@ -118,6 +118,104 @@ void main() {
       expect(loader.readAsStringSync(), _patched);
     });
 
+    test(
+      'a name swapped for a link after it is created is not written through',
+      () async {
+        if (Platform.isWindows) return;
+        final victim = File(p.join(dir.path, 'victim.txt'))
+          ..writeAsStringSync('keep me');
+        // Between creating a new file and writing it, put a link in its place.
+        void swap(String path) {
+          File(path).deleteSync();
+          Link(path).createSync(victim.path);
+        }
+
+        await expectLater(
+          writeCity96Loader(
+            loader,
+            _patched,
+            probe: const FakeProbe(),
+            afterCreate: swap,
+          ),
+          throwsA(isA<City96WriteRefused>()),
+        );
+
+        expect(victim.readAsStringSync(), 'keep me');
+        expect(loader.readAsStringSync(), kStockCity96Loader);
+        expect(FileSystemEntity.isLinkSync(loader.path), isFalse);
+        expect(leftovers(), isEmpty);
+      },
+    );
+
+    group('a check that cannot be answered refuses, and writes nothing', () {
+      Future<void> refused(FakeProbe probe, String because) async {
+        await expectLater(
+          writeCity96Loader(loader, _patched, probe: probe),
+          throwsA(
+            isA<City96WriteRefused>().having(
+              (e) => e.message,
+              'message',
+              contains(because),
+            ),
+          ),
+        );
+        expect(loader.readAsStringSync(), kStockCity96Loader);
+        expect(bak().existsSync(), isFalse);
+        expect(leftovers(), isEmpty);
+      }
+
+      test(
+        'the user this app runs as is not known (id failed, or Windows)',
+        () => refused(const FakeProbe(me: null), 'which user'),
+      );
+
+      test('the owner of the folder is not known (stat failed)', () {
+        return refused(
+          FakeProbe(unknownOwners: {p.basename(dir.path)}),
+          'who owns',
+        );
+      });
+
+      test('the permissions of the folder are not known', () {
+        return refused(const FakeProbe(permissionsUnknown: true), 'who owns');
+      });
+
+      test('the owner of loader.py is not known', () {
+        return refused(
+          const FakeProbe(unknownOwners: {'loader.py'}),
+          'who owns',
+        );
+      });
+
+      test('the folder belongs to another user', () {
+        return refused(
+          FakeProbe(owners: {p.basename(dir.path): 0}),
+          'another user',
+        );
+      });
+
+      for (final mode in [0x1FF, 0x1FD, 0x1F5, 0x1ED | 0x10, 0x1ED | 0x2]) {
+        test(
+          'the folder is writable by others (mode ${mode.toRadixString(8)})',
+          () {
+            return refused(
+              FakeProbe(permissions: {p.basename(dir.path): mode}),
+              'other users',
+            );
+          },
+        );
+      }
+
+      test('a folder only its owner can write is fine', () async {
+        await writeCity96Loader(
+          loader,
+          _patched,
+          probe: FakeProbe(permissions: {p.basename(dir.path): 0x1C0}),
+        );
+        expect(loader.readAsStringSync(), _patched);
+      });
+    });
+
     test('refuses a loader or backup that another user owns', () async {
       final probe = FakeProbe(me: 1000, owners: {'loader.py': 0});
       await expectLater(
@@ -191,37 +289,76 @@ void main() {
         processes: [proc()],
         probe: const FakeProbe(byPort: {8188: 7}, me: 1000),
       );
-      expect(found?.pid, 7);
+      expect(found.pid, 7);
+      expect(found.loader, isNotNull);
     });
 
     test('not a look-alike that is not listening', () async {
-      expect(
-        await city96TargetForUrl(
+      for (final probe in [
+        const FakeProbe(byPort: {8188: 99}),
+        const FakeProbe(),
+      ]) {
+        final found = await city96TargetForUrl(
           _url,
           processes: [proc()],
-          probe: const FakeProbe(byPort: {8188: 99}, me: 1000),
-        ),
-        isNull,
-      );
-      expect(
-        await city96TargetForUrl(
-          _url,
-          processes: [proc()],
-          probe: const FakeProbe(me: 1000),
-        ),
-        isNull,
-      );
+          probe: probe,
+        );
+        expect(found.loader, isNull);
+        expect(found.refused, isNull);
+      }
     });
 
     test('not another user\'s process', () async {
-      expect(
-        await city96TargetForUrl(
-          _url,
-          processes: [proc(uid: 0)],
-          probe: const FakeProbe(byPort: {8188: 7}, me: 1000),
-        ),
-        isNull,
+      final found = await city96TargetForUrl(
+        _url,
+        processes: [proc(uid: 0)],
+        probe: const FakeProbe(byPort: {8188: 7}),
       );
+      expect(found.loader, isNull);
+    });
+
+    group('a check that cannot be answered refuses', () {
+      test('no lsof or ss: who listens is not known', () async {
+        final found = await city96TargetForUrl(
+          _url,
+          processes: [proc()],
+          probe: const FakeProbe(byPort: {8188: 7}, portsUnknown: true),
+        );
+        expect(found.loader, isNull);
+        expect(found.refused, contains('lsof'));
+      });
+
+      test(
+        'no user ids (Windows): the process cannot be tied to this user',
+        () async {
+          final found = await city96TargetForUrl(
+            _url,
+            processes: [proc()],
+            probe: const FakeProbe(byPort: {8188: 7}, me: null),
+          );
+          expect(found.loader, isNull);
+          expect(found.refused, contains('which user'));
+        },
+      );
+
+      test('a process whose owner is unknown is not a candidate', () async {
+        final found = await city96TargetForUrl(
+          _url,
+          processes: [proc(uid: null)],
+          probe: const FakeProbe(byPort: {8188: 7}),
+        );
+        expect(found.loader, isNull);
+        expect(found.refused, contains('who owns'));
+      });
+
+      test('a process on another port is none of its business', () async {
+        final found = await city96TargetForUrl(
+          'http://127.0.0.1:9999',
+          processes: [proc()],
+          probe: const FakeProbe(portsUnknown: true, me: null),
+        );
+        expect(found.refused, isNull);
+      });
     });
   });
 
@@ -253,6 +390,25 @@ void main() {
         await const ComfyProcessProbe().listeningPids(1),
         isNot(contains(pid)),
       );
+    }, skip: Platform.isWindows);
+
+    test('reads the permission bits of a folder', () async {
+      await Process.run('chmod', ['750', dir.path]);
+      expect(
+        await const ComfyProcessProbe().filePermissions(dir.path),
+        488, // 0750
+      );
+    }, skip: Platform.isWindows);
+
+    test('says when a process started', () async {
+      final proc = await Process.start('sleep', ['30']);
+      addTearDown(proc.kill);
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      final started = await const ComfyProcessProbe().processStart(proc.pid);
+      expect(started, isNotNull);
+      final age = DateTime.now().difference(started!);
+      expect(age.inSeconds, inInclusiveRange(0, 10));
+      expect(await const ComfyProcessProbe().processStart(2147483000), isNull);
     }, skip: Platform.isWindows);
 
     test('knows who owns a file it just made', () async {

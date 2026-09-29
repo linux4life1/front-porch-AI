@@ -3,10 +3,20 @@
 
 import 'package:front_porch_ai/services/image/comfy_process_probe.dart';
 
-/// What the OS would say about ports, users and file owners, without asking
-/// it, so a test can describe another user's process or file.
+/// What the OS would say about ports, users, file owners and process starts,
+/// without asking it, so a test can describe another user's process or file,
+/// or an OS that cannot answer (every answer can be null).
 class FakeProbe implements ComfyProcessProbe {
-  const FakeProbe({this.byPort = const {}, this.me, this.owners = const {}});
+  const FakeProbe({
+    this.byPort = const {},
+    this.me = 1000,
+    this.owners = const {},
+    this.permissions = const {},
+    this.unknownOwners = const {},
+    this.portsUnknown = false,
+    this.permissionsUnknown = false,
+    this.starts = const {},
+  });
 
   /// Which process id listens on which port.
   final Map<int, int> byPort;
@@ -17,19 +27,49 @@ class FakeProbe implements ComfyProcessProbe {
   /// The owner of a path, by its end. Anything else is owned by [me].
   final Map<String, int> owners;
 
+  /// The permission bits of a path, by its end. Anything else is 0755.
+  final Map<String, int> permissions;
+
+  /// Paths, by their end, whose owner the OS cannot say.
+  final Set<String> unknownOwners;
+
+  /// True when there is no `lsof` or `ss`, so who listens cannot be said.
+  final bool portsUnknown;
+
+  /// True when permissions cannot be read.
+  final bool permissionsUnknown;
+
+  /// When each process started. A process not listed has no known start.
+  final Map<int, DateTime> starts;
+
   @override
-  Future<Set<int>?> listeningPids(int port) async => {
-    if (byPort[port] != null) byPort[port]!,
-  };
+  Future<Set<int>?> listeningPids(int port) async => portsUnknown
+      ? null
+      : {if (byPort[port] != null) byPort[port]!};
 
   @override
   Future<int?> currentUid() async => me;
 
   @override
   Future<int?> fileOwner(String path) async {
+    for (final unknown in unknownOwners) {
+      if (path.endsWith(unknown)) return null;
+    }
     for (final e in owners.entries) {
       if (path.endsWith(e.key)) return e.value;
     }
     return me;
   }
+
+  @override
+  Future<int?> filePermissions(String path) async {
+    if (permissionsUnknown) return null;
+    for (final e in permissions.entries) {
+      if (path.endsWith(e.key)) return e.value;
+    }
+    return 493; // 0755
+  }
+
+  @override
+  Future<DateTime?> processStart(int pid) async => starts[pid];
 }

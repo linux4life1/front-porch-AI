@@ -25,6 +25,8 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
     show kNeedsUnaffectedMeta;
+import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
+    show withoutCity96Ask;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/facade/chat_session_facade.dart';
@@ -313,8 +315,11 @@ class ChatFacade {
     return true;
   }
 
+  /// A turn started from the phone or the web can end in an image (`/image`,
+  /// scene images) that needs the ComfyUI-GGUF loader update. Nobody at the
+  /// desktop is waiting on that turn, so it never raises the consent dialog.
   void send(String text, {Uint8List? imageBytes}) {
-    _chat.sendMessage(text, imageBytes: imageBytes);
+    withoutCity96Ask(() => _chat.sendMessage(text, imageBytes: imageBytes));
     _notify();
   }
 
@@ -348,10 +353,12 @@ class ChatFacade {
   }
 
   void regenerate({String? critique, String? webQuery, String? wikiQuery}) {
-    _chat.regenerateLastMessage(
-      critique: critique,
-      webQuery: webQuery,
-      wikiQuery: wikiQuery,
+    withoutCity96Ask(
+      () => _chat.regenerateLastMessage(
+        critique: critique,
+        webQuery: webQuery,
+        wikiQuery: wikiQuery,
+      ),
     );
     _notify();
   }
@@ -359,7 +366,7 @@ class ChatFacade {
   String? lookupCommandBlock(String text) => _chat.lookupCommandBlock(text);
 
   void continueGeneration() {
-    _chat.continueGeneration();
+    withoutCity96Ask(_chat.continueGeneration);
     _notify();
   }
 

@@ -76,7 +76,9 @@ extension ChatFacadeHistory on ChatFacade {
   }
 
   void swipe(int messageIndex, int direction, {String? critique}) {
-    _chat.swipeMessage(messageIndex, direction, critique: critique);
+    withoutCity96Ask(
+      () => _chat.swipeMessage(messageIndex, direction, critique: critique),
+    );
     _notify();
   }
 
