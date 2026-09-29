@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/image/comfy_gguf_city96.dart';
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart';
@@ -216,268 +217,412 @@ void main() {
     });
   });
 
-  group(
-    '(c) ask once, keep a .bak, write through a temp file, ask for a restart',
-    () {
-      test(
-        'yes: the loader is updated, the original is kept, and a restart is asked for',
-        () async {
-          final result = await gate().ensure(
-            comfyUrl: 'http://127.0.0.1:8188',
-            graph: _graph(),
-          );
-          expect(asked, hasLength(1));
-          expect(asked.single.loaderPath, loader.path);
-          expect(result.state, City96State.restartNeeded);
-          expect(result.message, contains('Restart ComfyUI'));
-          expect(
-            loader.readAsStringSync(),
-            contains('arch_str = "qwen_image"'),
-          );
-          expect(loader.readAsStringSync(), contains('arch == "qwen3vl"'));
-          expect(
-            File('${loader.path}.bak').readAsStringSync(),
-            kStockCity96Loader,
-          );
-          expect(File('${loader.path}.fpai-tmp').existsSync(), isFalse);
-        },
-      );
+  group('(c) ask once, keep a .bak, write through a temp file, ask for a restart', () {
+    test(
+      'yes: the loader is updated, the original is kept, and a restart is asked for',
+      () async {
+        final result = await gate().ensure(
+          comfyUrl: 'http://127.0.0.1:8188',
+          graph: _graph(),
+        );
+        expect(asked, hasLength(1));
+        expect(asked.single.loaderPath, loader.path);
+        expect(result.state, City96State.restartNeeded);
+        expect(result.message, contains('Restart ComfyUI'));
+        expect(loader.readAsStringSync(), contains('arch_str = "qwen_image"'));
+        expect(loader.readAsStringSync(), contains('arch == "qwen3vl"'));
+        expect(
+          File('${loader.path}.bak').readAsStringSync(),
+          kStockCity96Loader,
+        );
+        expect(File('${loader.path}.fpai-tmp').existsSync(), isFalse);
+      },
+    );
 
-      test(
-        'the update counts once ComfyUI has restarted, not when the file changes',
-        () async {
-          final g = gate();
-          await g.ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
-          asked.clear();
+    test(
+      'the update counts once ComfyUI has restarted, not when the file changes',
+      () async {
+        final now = DateTime.now();
+        final g = City96Gate(
+          locate: (_) async => loader,
+          ask: (_) async => true,
+          pidFor: (_) async => comfyPid,
+          // The first process started long ago; the second, after the write.
+          probe: FakeProbe(
+            starts: {
+              100: now.subtract(const Duration(hours: 1)),
+              200: now.add(const Duration(minutes: 1)),
+            },
+          ),
+        );
+        await g.ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
 
-          // The file is updated, but the ComfyUI that is running is the same
-          // process and has not loaded it.
-          final waiting = await g.ensure(
-            comfyUrl: 'http://127.0.0.1:8188',
-            graph: _graph(),
+        // The file is updated, but the ComfyUI that is running is the same
+        // process and has not loaded it.
+        final waiting = await g.check(
+          comfyUrl: 'http://127.0.0.1:8188',
+          graph: _graph(),
+        );
+        expect(waiting.state, City96State.restartNeeded);
+        expect(waiting.message, contains('Restart ComfyUI'));
+
+        comfyPid = 200;
+        final again = await g.check(
+          comfyUrl: 'http://127.0.0.1:8188',
+          graph: _graph(),
+        );
+        expect(again.state, City96State.ready);
+      },
+    );
+
+    group(
+      'whether ComfyUI has loaded the update follows the process, not memory',
+      () {
+        const url = 'http://127.0.0.1:8188';
+        final patched = patchCity96Loader(kStockCity96Loader).source;
+
+        City96Gate started(int? pid, DateTime? at) => City96Gate(
+          locate: (_) async => loader,
+          pidFor: (_) async => pid,
+          probe: FakeProbe(starts: {?pid: ?at}),
+        );
+
+        // A loader that already holds the patch, written at a known moment.
+        final wrote = DateTime.utc(2026, 5, 1, 12);
+        Future<City96Gate> gateAfter({
+          DateTime? startedAt,
+          bool record = true,
+          String? recordedText,
+          DateTime? mtime,
+        }) async {
+          loader.writeAsStringSync(patched);
+          loader.setLastModifiedSync(mtime ?? wrote);
+          final g = City96Gate(
+            locate: (_) async => loader,
+            pidFor: (_) async => 100,
+            probe: FakeProbe(starts: {if (startedAt != null) 100: startedAt}),
           );
-          expect(waiting.state, City96State.restartNeeded);
-          expect(waiting.message, contains('Restart ComfyUI'));
+          if (record) {
+            await g.records.put(
+              loader.path,
+              City96Record(
+                hash: city96Hash(recordedText ?? patched),
+                at: wrote,
+              ),
+            );
+          }
+          return g;
+        }
+
+        Future<City96State> stateOf(City96Gate g) async =>
+            (await g.check(comfyUrl: url, graph: _graph())).state;
+
+        test(
+          'ComfyUI must have started more than a margin after the write',
+          () async {
+            // Less than a second before, and just after: it has not read it.
+            for (final offset in [
+              const Duration(milliseconds: -500),
+              Duration.zero,
+              const Duration(seconds: 1),
+              const Duration(seconds: 2),
+            ]) {
+              final g = await gateAfter(startedAt: wrote.add(offset));
+              expect(
+                await stateOf(g),
+                City96State.restartNeeded,
+                reason: '$offset',
+              );
+            }
+            final g = await gateAfter(
+              startedAt: wrote.add(const Duration(seconds: 3)),
+            );
+            expect(await stateOf(g), City96State.ready);
+          },
+        );
+
+        test('a start time that cannot be read is never Ready', () async {
+          expect(await stateOf(await gateAfter()), City96State.restartNeeded);
           expect(
-            (await g.check(
-              comfyUrl: 'http://127.0.0.1:8188',
-              graph: _graph(),
-            )).state,
+            await stateOf(await gateAfter(record: false)),
             City96State.restartNeeded,
           );
+        });
 
-          comfyPid = 200;
-          final again = await g.ensure(
-            comfyUrl: 'http://127.0.0.1:8188',
-            graph: _graph(),
+        test(
+          'a file time in the future does not keep Restart stuck, when this app wrote it',
+          () async {
+            final g = await gateAfter(
+              startedAt: wrote.add(const Duration(hours: 1)),
+              mtime: DateTime.now().add(const Duration(days: 2)),
+            );
+            expect(await stateOf(g), City96State.ready);
+          },
+        );
+
+        test(
+          'a file time in the future is not believed when nothing was recorded',
+          () async {
+            final g = await gateAfter(
+              startedAt: wrote.add(const Duration(hours: 1)),
+              mtime: DateTime.now().add(const Duration(days: 2)),
+              record: false,
+            );
+            expect(await stateOf(g), City96State.restartNeeded);
+          },
+        );
+
+        test(
+          'touching the file without changing it is not an update',
+          () async {
+            final g = await gateAfter(
+              startedAt: wrote.add(const Duration(minutes: 10)),
+              mtime: wrote.add(const Duration(minutes: 30)),
+            );
+            expect(await stateOf(g), City96State.ready);
+          },
+        );
+
+        test(
+          'a file that is not what was recorded is judged by its own time',
+          () async {
+            final g = await gateAfter(
+              startedAt: wrote.add(const Duration(minutes: 10)),
+              recordedText: 'something else',
+              mtime: wrote.subtract(const Duration(hours: 1)),
+            );
+            expect(await stateOf(g), City96State.ready);
+            final later = await gateAfter(
+              startedAt: wrote.add(const Duration(minutes: 10)),
+              recordedText: 'something else',
+              mtime: wrote.add(const Duration(minutes: 30)),
+            );
+            expect(await stateOf(later), City96State.restartNeeded);
+          },
+        );
+
+        test('once loaded, the record is dropped', () async {
+          final g = await gateAfter(
+            startedAt: wrote.add(const Duration(hours: 1)),
           );
-          expect(again.state, City96State.ready);
-          expect(asked, isEmpty);
-        },
-      );
+          expect(await stateOf(g), City96State.ready);
+          expect(await g.records.get(loader.path), isNull);
+        });
 
-      group(
-        'whether ComfyUI has loaded the update follows the process, not memory',
-        () {
-          const url = 'http://127.0.0.1:8188';
-          final patched = patchCity96Loader(kStockCity96Loader).source;
-
-          City96Gate started(int? pid, DateTime? at) => City96Gate(
+        test('what was written is kept across an app restart', () async {
+          SharedPreferences.setMockInitialValues({});
+          final first = City96Gate(
             locate: (_) async => loader,
-            pidFor: (_) async => pid,
-            probe: FakeProbe(starts: {?pid: ?at}),
+            ask: (_) async => true,
+            pidFor: (_) async => 100,
+            probe: const FakeProbe(),
+          )..records = PrefsCity96Records();
+          await first.ensure(comfyUrl: url, graph: _graph());
+          // The file's own time is not to be trusted (a share, a clock).
+          loader.setLastModifiedSync(
+            DateTime.now().add(const Duration(days: 2)),
           );
 
-          test(
-            'the same gate stops saying restart once ComfyUI restarted, even when the id was unknown at write',
-            () async {
-              int? pid;
-              final restartedAt = DateTime.now().add(
-                const Duration(minutes: 5),
-              );
-              final g = City96Gate(
-                locate: (_) async => loader,
-                ask: (_) async => true,
-                pidFor: (_) async => pid,
-                probe: FakeProbe(starts: {300: restartedAt}),
-              );
-              await g.ensure(comfyUrl: url, graph: _graph());
-              expect(
-                (await g.check(comfyUrl: url, graph: _graph())).state,
-                City96State.restartNeeded,
-                reason: 'nothing tells it ComfyUI restarted yet',
-              );
+          // A new run of the app: a new gate, the same saved record.
+          final second = City96Gate(
+            locate: (_) async => loader,
+            pidFor: (_) async => 100,
+            probe: FakeProbe(
+              starts: {100: DateTime.now().subtract(const Duration(hours: 1))},
+            ),
+          )..records = PrefsCity96Records();
+          expect(await stateOf(second), City96State.restartNeeded);
+          final restarted = City96Gate(
+            locate: (_) async => loader,
+            pidFor: (_) async => 100,
+            probe: FakeProbe(
+              starts: {100: DateTime.now().add(const Duration(minutes: 5))},
+            ),
+          )..records = PrefsCity96Records();
+          expect(await stateOf(restarted), City96State.ready);
+        });
 
-              pid = 300;
-              expect(
-                (await g.check(comfyUrl: url, graph: _graph())).state,
-                City96State.ready,
-              );
-              expect(
-                (await g.check(comfyUrl: url, graph: _graph())).state,
-                City96State.ready,
-                reason: 'and it stays cleared',
-              );
-            },
-          );
-
-          test(
-            'an app restart does not make an unloaded update look Ready',
-            () async {
-              loader.writeAsStringSync(patched);
-              // ComfyUI started an hour before the loader was written.
-              final g = started(
-                100,
-                DateTime.now().subtract(const Duration(hours: 1)),
-              );
-              final result = await g.check(comfyUrl: url, graph: _graph());
-              expect(result.state, City96State.restartNeeded);
-              expect(result.message, contains('Restart ComfyUI'));
-            },
-          );
-
-          test('an update written before ComfyUI started is Ready', () async {
-            loader.writeAsStringSync(patched);
-            loader.setLastModifiedSync(
-              DateTime.now().subtract(const Duration(hours: 2)),
+        test(
+          'the same gate stops saying restart once ComfyUI restarted, even when the id was unknown at write',
+          () async {
+            int? pid;
+            final restartedAt = DateTime.now().add(const Duration(minutes: 5));
+            final g = City96Gate(
+              locate: (_) async => loader,
+              ask: (_) async => true,
+              pidFor: (_) async => pid,
+              probe: FakeProbe(starts: {300: restartedAt}),
             );
-            final g = started(
-              100,
-              DateTime.now().subtract(const Duration(hours: 1)),
+            await g.ensure(comfyUrl: url, graph: _graph());
+            expect(
+              (await g.check(comfyUrl: url, graph: _graph())).state,
+              City96State.restartNeeded,
+              reason: 'nothing tells it ComfyUI restarted yet',
             );
+
+            pid = 300;
             expect(
               (await g.check(comfyUrl: url, graph: _graph())).state,
               City96State.ready,
             );
-          });
-
-          test(
-            'with no start time to read, an update this run made still waits',
-            () async {
-              final g = City96Gate(
-                locate: (_) async => loader,
-                ask: (_) async => true,
-                pidFor: (_) async => 100,
-              );
-              await g.ensure(comfyUrl: url, graph: _graph());
-              expect(
-                (await g.check(comfyUrl: url, graph: _graph())).state,
-                City96State.restartNeeded,
-              );
-            },
-          );
-        },
-      );
-
-      group('the question says when other users can change the folder', () {
-        City96Gate withProbe(FakeProbe probe) => City96Gate(
-          probe: probe,
-          pidFor: (_) async => comfyPid,
-          locate: (_) async => loader,
-          ask: (q) async {
-            asked.add(q);
-            return false;
+            expect(
+              (await g.check(comfyUrl: url, graph: _graph())).state,
+              City96State.ready,
+              reason: 'and it stays cleared',
+            );
           },
         );
 
-        test('and says so when they can', () async {
-          final probe = FakeProbe(permissions: {p.basename(dir.path): 0x1FF});
-          final check = await withProbe(
-            probe,
-          ).check(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
-          expect(check.canUpdate, isTrue);
-          expect(check.othersCanWrite, isTrue);
+        test(
+          'an app restart does not make an unloaded update look Ready',
+          () async {
+            loader.writeAsStringSync(patched);
+            // ComfyUI started an hour before the loader was written.
+            final g = started(
+              100,
+              DateTime.now().subtract(const Duration(hours: 1)),
+            );
+            final result = await g.check(comfyUrl: url, graph: _graph());
+            expect(result.state, City96State.restartNeeded);
+            expect(result.message, contains('Restart ComfyUI'));
+          },
+        );
 
-          await withProbe(
-            probe,
-          ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
-          expect(asked.single.othersCanWrite, isTrue);
-        });
-
-        test('and says nothing when they cannot', () async {
-          final probe = FakeProbe(permissions: {p.basename(dir.path): 0x1C0});
-          await withProbe(
-            probe,
-          ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
-          expect(asked.single.othersCanWrite, isFalse);
+        test('an update written before ComfyUI started is Ready', () async {
+          loader.writeAsStringSync(patched);
+          loader.setLastModifiedSync(
+            DateTime.now().subtract(const Duration(hours: 2)),
+          );
+          final g = started(
+            100,
+            DateTime.now().subtract(const Duration(hours: 1)),
+          );
+          expect(
+            (await g.check(comfyUrl: url, graph: _graph())).state,
+            City96State.ready,
+          );
         });
 
         test(
-          'an administrator-owned folder is not offered for update',
+          'with no start time to read, an update this run made still waits',
           () async {
-            final probe = FakeProbe(owners: {p.basename(dir.path): 0});
-            final result = await withProbe(
-              probe,
-            ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
-            expect(result.canUpdate, isFalse);
-            expect(result.message, contains('by hand'));
-            expect(asked, isEmpty);
+            final g = City96Gate(
+              locate: (_) async => loader,
+              ask: (_) async => true,
+              pidFor: (_) async => 100,
+            );
+            await g.ensure(comfyUrl: url, graph: _graph());
+            expect(
+              (await g.check(comfyUrl: url, graph: _graph())).state,
+              City96State.restartNeeded,
+            );
           },
         );
+      },
+    );
+
+    group('the question says when other users can change the folder', () {
+      City96Gate withProbe(FakeProbe probe) => City96Gate(
+        probe: probe,
+        pidFor: (_) async => comfyPid,
+        locate: (_) async => loader,
+        ask: (q) async {
+          asked.add(q);
+          return false;
+        },
+      );
+
+      test('and says so when they can', () async {
+        final probe = FakeProbe(permissions: {p.basename(dir.path): 0x1FF});
+        final check = await withProbe(
+          probe,
+        ).check(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+        expect(check.canUpdate, isTrue);
+        expect(check.othersCanWrite, isTrue);
+
+        await withProbe(
+          probe,
+        ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+        expect(asked.single.othersCanWrite, isTrue);
       });
 
-      test(
-        'no: nothing is written, and the question is not asked again',
-        () async {
-          answer = false;
-          final g = gate();
-          final first = await g.ensure(
-            comfyUrl: 'http://127.0.0.1:8188',
-            graph: _graph(),
-          );
-          final second = await g.ensure(
-            comfyUrl: 'http://127.0.0.1:8188',
-            graph: _graph(),
-          );
-          expect(asked, hasLength(1));
-          for (final r in [first, second]) {
-            expect(r.state, City96State.needsUpdate);
-            expect(r.message, startsWith(kCity96NeedsUpdate));
-            expect(r.message, contains('chose not to'));
-          }
-          expect(loader.readAsStringSync(), kStockCity96Loader);
-          expect(File('${loader.path}.bak').existsSync(), isFalse);
-        },
-      );
+      test('and says nothing when they cannot', () async {
+        final probe = FakeProbe(permissions: {p.basename(dir.path): 0x1C0});
+        await withProbe(
+          probe,
+        ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+        expect(asked.single.othersCanWrite, isFalse);
+      });
 
-      test(
-        'with no desktop to ask (phone, tests) nothing is written',
-        () async {
-          final result = await gate(
-            withAsker: false,
-          ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
-          expect(result.state, City96State.needsUpdate);
-          expect(result.message, contains('allow the update'));
-          expect(loader.readAsStringSync(), kStockCity96Loader);
-        },
-      );
+      test('an administrator-owned folder is not offered for update', () async {
+        final probe = FakeProbe(owners: {p.basename(dir.path): 0});
+        final result = await withProbe(
+          probe,
+        ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+        expect(result.canUpdate, isFalse);
+        expect(result.message, contains('by hand'));
+        expect(asked, isEmpty);
+      });
+    });
 
-      test('check() reports without asking or writing', () async {
-        final result = await gate().check(
+    test(
+      'no: nothing is written, and the question is not asked again',
+      () async {
+        answer = false;
+        final g = gate();
+        final first = await g.ensure(
           comfyUrl: 'http://127.0.0.1:8188',
           graph: _graph(),
         );
-        expect(result.state, City96State.needsUpdate);
-        expect(asked, isEmpty);
+        final second = await g.ensure(
+          comfyUrl: 'http://127.0.0.1:8188',
+          graph: _graph(),
+        );
+        expect(asked, hasLength(1));
+        for (final r in [first, second]) {
+          expect(r.state, City96State.needsUpdate);
+          expect(r.message, startsWith(kCity96NeedsUpdate));
+          expect(r.message, contains('chose not to'));
+        }
         expect(loader.readAsStringSync(), kStockCity96Loader);
-      });
+        expect(File('${loader.path}.bak').existsSync(), isFalse);
+      },
+    );
 
-      test(
-        'a write that fails is reported and leaves the loader as it was',
-        () async {
-          final result = await City96Gate(
-            locate: (_) async => loader,
-            ask: (_) async => true,
-            pidFor: (_) async => 100,
-            write: (_, _) async => throw const FileSystemException('disk full'),
-          ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
-          expect(result.state, City96State.needsUpdate);
-          expect(result.message, contains('could not be written'));
-          expect(loader.readAsStringSync(), kStockCity96Loader);
-        },
+    test('with no desktop to ask (phone, tests) nothing is written', () async {
+      final result = await gate(
+        withAsker: false,
+      ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+      expect(result.state, City96State.needsUpdate);
+      expect(result.message, contains('allow the update'));
+      expect(loader.readAsStringSync(), kStockCity96Loader);
+    });
+
+    test('check() reports without asking or writing', () async {
+      final result = await gate().check(
+        comfyUrl: 'http://127.0.0.1:8188',
+        graph: _graph(),
       );
-    },
-  );
+      expect(result.state, City96State.needsUpdate);
+      expect(asked, isEmpty);
+      expect(loader.readAsStringSync(), kStockCity96Loader);
+    });
+
+    test(
+      'a write that fails is reported and leaves the loader as it was',
+      () async {
+        final result = await City96Gate(
+          locate: (_) async => loader,
+          ask: (_) async => true,
+          pidFor: (_) async => 100,
+          write: (_, _) async => throw const FileSystemException('disk full'),
+        ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+        expect(result.state, City96State.needsUpdate);
+        expect(result.message, contains('could not be written'));
+        expect(loader.readAsStringSync(), kStockCity96Loader);
+      },
+    );
+  });
 
   group(
     '(d) when it cannot patch, that model says why and nothing else stops',

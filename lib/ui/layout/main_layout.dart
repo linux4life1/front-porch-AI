@@ -56,6 +56,7 @@ class _MainLayoutState extends State<MainLayout> {
     // The desktop is where ComfyUI-GGUF's loader may be changed, and only
     // after asking.
     City96Gate.instance.ask = _askCity96;
+    City96Gate.instance.records = PrefsCity96Records();
   }
 
   /// Null when the window is gone: nobody was asked, so it is not a "no".

@@ -7,11 +7,16 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import 'city96_records.dart';
 import 'comfy_gguf_city96.dart';
+import 'comfy_gguf_city96_target.dart';
 import 'comfy_gguf_city96_write.dart';
-import 'comfy_model_paths.dart';
 import 'comfy_process_probe.dart';
-import 'local_model_roots.dart';
+import 'local_model_roots.dart' show comfyHostIsLocal;
+
+export 'city96_records.dart';
+export 'comfy_gguf_city96_target.dart'
+    show City96Target, city96LoaderForUrl, city96PidForUrl, city96TargetForUrl;
 
 /// The published Qwen-Image 2.1 GGUF, e.g. `qwen-image-2.1-Q2_K.gguf`.
 bool isQwenImage21GgufUnet(String name) {
@@ -148,107 +153,7 @@ const String _kRestartAfterWrite =
     "ComfyUI-GGUF's loader was updated for Qwen-Image 2.1 (the original is "
     'saved as loader.py.bak). Restart ComfyUI, then generate again.';
 
-const String _kNoUser =
-    'Front Porch cannot tell which user it runs as here, so it cannot check '
-    'that the ComfyUI it found is yours and left its loader alone. Update '
-    'ComfyUI-GGUF by hand.';
-
-const String _kNoProcessOwner =
-    'Front Porch could not tell who owns the ComfyUI it found, so it left '
-    'its loader alone. Update ComfyUI-GGUF by hand.';
-
-const String _kNoListeners =
-    'Front Porch cannot tell which program is listening on that port, so it '
-    'cannot be sure which ComfyUI this is and left its loader alone. Update '
-    'ComfyUI-GGUF by hand.';
-
 String _needs(String why) => '$kCity96NeedsUpdate $why';
-
-/// Who serves a ComfyUI URL on this computer: its loader and process id, or
-/// why it cannot be told ([refused], shown as it is). All three are null when
-/// nothing there looks like a local ComfyUI.
-typedef City96Target = ({File? loader, int? pid, String? refused});
-
-/// The running ComfyUI on [comfyUrl]'s port and its loader, and only that one:
-/// its command line names that port, this user owns it, and it is really the
-/// process listening there. Another user's process, or a look-alike that is
-/// not listening, is never a candidate.
-///
-/// A fact that cannot be checked refuses instead of passing: no `lsof` or
-/// `ss`, an OS that reports no user ids (Windows), or a process whose owner is
-/// unknown.
-Future<City96Target> city96TargetForUrl(
-  String comfyUrl, {
-  List<ComfyProcessSnapshot>? processes,
-  ComfyProcessProbe probe = const ComfyProcessProbe(),
-}) async {
-  final port = comfyUrlPort(comfyUrl);
-  final procs = processes ?? await scanComfyProcesses();
-  String? me;
-  var meAsked = false;
-  Set<int>? listeners;
-  var listenersAsked = false;
-  String? unverified;
-  for (final proc in procs) {
-    final hints = comfyLaunchHints(
-      proc.command,
-      cwd: proc.cwd,
-      executable: proc.executable,
-    );
-    if (hints.port != port) continue;
-    if (!meAsked) {
-      me = await probe.currentPrincipal();
-      meAsked = true;
-    }
-    if (me == null) {
-      return (loader: null, pid: null, refused: _kNoUser);
-    }
-    // The owner comes from the process list where it says, else from the OS.
-    final pid = proc.pid;
-    final mine = proc.uid != null
-        ? '${proc.uid}' == me
-        : pid == null
-        ? null
-        : await probe.processIsMine(pid);
-    if (mine == null) {
-      unverified = _kNoProcessOwner;
-      continue;
-    }
-    if (!mine) continue;
-    if (!listenersAsked) {
-      listeners = await probe.listeningPids(port);
-      listenersAsked = true;
-    }
-    if (listeners == null) {
-      return (loader: null, pid: null, refused: _kNoListeners);
-    }
-    if (pid == null || !listeners.contains(pid)) continue;
-    for (final dir in [hints.mainPyDir, proc.cwd]) {
-      if (dir == null || dir.isEmpty) continue;
-      final loader = File(
-        p.join(dir, 'custom_nodes', 'ComfyUI-GGUF', 'loader.py'),
-      );
-      if (await loader.exists()) {
-        return (loader: loader, pid: pid, refused: null);
-      }
-    }
-  }
-  return (loader: null, pid: null, refused: unverified);
-}
-
-Future<File?> city96LoaderForUrl(
-  String comfyUrl, {
-  List<ComfyProcessSnapshot>? processes,
-  ComfyProcessProbe probe = const ComfyProcessProbe(),
-}) async => (await city96TargetForUrl(
-  comfyUrl,
-  processes: processes,
-  probe: probe,
-)).loader;
-
-/// The id of the process serving [comfyUrl], for noticing a restart.
-Future<int?> city96PidForUrl(String comfyUrl) async =>
-    (await city96TargetForUrl(comfyUrl)).pid;
 
 /// Updates City96's `loader.py` for Qwen-Image 2.1 GGUF, carefully.
 ///
@@ -282,34 +187,43 @@ class City96Gate {
 
   final Map<String, bool> _answers = {};
 
-  /// Loaders written during this run, with the id of the ComfyUI process that
-  /// was running then. ComfyUI reads the loader when it starts, so the update
-  /// counts only once a different process serves that URL.
-  final Map<String, int?> _updated = {};
+  /// What was written to each loader, and when. ComfyUI reads the loader when
+  /// it starts, so an update counts once a ComfyUI that started after the write
+  /// is serving the URL. The desktop shell swaps in the saved kind.
+  City96Records records = MemoryCity96Records();
 
   /// The one the app uses. Tests put their own in place.
   static City96Gate instance = City96Gate();
 
-  /// True while the ComfyUI serving [comfyUrl] started before its (already
-  /// patched) loader was last written, so it has not read the patch. This
-  /// holds across app restarts, because it compares the loader's time with the
-  /// process's. When the process start cannot be read, what this run saw at
-  /// write time decides.
-  Future<bool> _notLoadedYet(String comfyUrl, File loader) async {
+  /// How much later than the write ComfyUI must have started to have read it.
+  /// Process start times are whole seconds, and clocks are not exact.
+  static const Duration kStartMargin = Duration(seconds: 2);
+
+  /// True until the ComfyUI serving [comfyUrl] is known to have started after
+  /// its (already patched) loader was written, with a margin. That is judged
+  /// from what Front Porch recorded when it wrote the file, when the file still
+  /// has what it wrote (so a clock that is off, a network share or a `touch`
+  /// cannot move it); otherwise from the file's own time, which a ComfyUI can
+  /// never start after when it is in the future. A start time that cannot be
+  /// read is never taken as "loaded".
+  Future<bool> _notLoadedYet(
+    String comfyUrl,
+    File loader,
+    String source,
+  ) async {
+    final record = await records.get(loader.path);
+    final DateTime wrote;
+    if (record != null && record.hash == city96Hash(source)) {
+      wrote = record.at;
+    } else {
+      wrote = await loader.lastModified();
+    }
     final pid = await _pidFor(comfyUrl);
     final started = pid == null ? null : await probe.processStart(pid);
-    if (started != null) {
-      final stale = (await loader.lastModified()).isAfter(
-        started.add(const Duration(seconds: 1)),
-      );
-      if (!stale) _updated.remove(loader.path);
-      return stale;
-    }
-    if (!_updated.containsKey(loader.path)) return false;
-    final then = _updated[loader.path];
-    if (then == null || pid == null || pid == then) return true;
-    _updated.remove(loader.path);
-    return false;
+    if (started == null) return true;
+    final loaded = started.isAfter(wrote.add(kStartMargin));
+    if (loaded && record != null) await records.remove(loader.path);
+    return !loaded;
   }
 
   /// Where the loader stands, without asking or writing anything.
@@ -379,7 +293,7 @@ class City96Gate {
       );
     }
     if (!patch.changed) {
-      if (await _notLoadedYet(comfyUrl, loader)) {
+      if (await _notLoadedYet(comfyUrl, loader, source)) {
         return (
           const City96Check(City96State.restartNeeded, _kRestart),
           loader,
@@ -474,7 +388,6 @@ class City96Gate {
         true,
       );
     }
-    final pid = await _pidFor(comfyUrl);
     try {
       await (_write ?? (l, text) => writeCity96Loader(l, text, probe: probe))(
         loader,
@@ -490,7 +403,10 @@ class City96Gate {
         true,
       );
     }
-    _updated[loader.path] = pid;
+    await records.put(
+      loader.path,
+      City96Record(hash: city96Hash(patch.source), at: DateTime.now()),
+    );
     return const City96Check(City96State.restartNeeded, _kRestartAfterWrite);
   }
 
