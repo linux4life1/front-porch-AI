@@ -84,6 +84,13 @@ extension _ImageGenComfy on ImageGenService {
         workflowTemplate: req.template,
         tokenValues: req.values,
         onProgress: _updateGenProgress,
+        primaryFile: deskPrimaryFile(
+          backend: 'comfyui',
+          edit: true,
+          workflowId: settings.comfyEditWorkflowId,
+          choices: settings.comfyEditModelChoices,
+          legacyModel: '',
+        ),
         uploaded: settings.comfyEditWorkflowId == kComfyUploadedWorkflowId,
       );
     }
@@ -164,6 +171,13 @@ extension _ImageGenComfy on ImageGenService {
     return comfy.runPromptGraph(
       graph,
       onProgress: _updateGenProgress,
+      primaryFile: deskPrimaryFile(
+        backend: 'comfyui',
+        edit: false,
+        workflowId: settings.comfyCreateWorkflowId,
+        choices: settings.comfyCreateModelChoices,
+        legacyModel: refModelName,
+      ),
       uploaded: settings.comfyCreateWorkflowId == kComfyUploadedWorkflowId,
     );
   }

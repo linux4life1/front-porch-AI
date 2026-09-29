@@ -31,6 +31,7 @@ import 'image/comfy_edit_workflow.dart';
 import 'image/comfy_gguf_city96_gate.dart';
 import 'image/comfy_gguf_loaders.dart';
 import 'image/comfy_template_index.dart';
+import 'image/image_submit_error.dart';
 
 part 'comfy_ui_service.catalog.dart';
 
@@ -371,12 +372,12 @@ class ComfyUiService {
         )
         .timeout(const Duration(seconds: 30));
     if (submit.statusCode != 200) {
-      String detail = 'HTTP ${submit.statusCode}';
-      try {
-        final err = jsonDecode(submit.body);
-        detail = err['error']?['message']?.toString() ?? detail;
-      } catch (_) {}
-      throw Exception('ComfyUI rejected the workflow: $detail');
+      final refused = parseComfySubmitFailure(_root, submit.body);
+      throw Exception(
+        refused?.banner ??
+            'ComfyUI at $_root rejected the workflow '
+                '(HTTP ${submit.statusCode}).',
+      );
     }
     final promptId =
         (jsonDecode(submit.body) as Map<String, dynamic>)['prompt_id']
@@ -450,10 +451,7 @@ class ComfyUiService {
           if (entry is! Map) continue;
           final status = entry['status'];
           if (status is Map && status['status_str'] == 'error') {
-            throw Exception(
-              'ComfyUI reported an error — check the model name and its '
-              'server console.',
-            );
+            throw Exception(comfyHistoryFailureMessage(_root, status));
           }
           final out = entry['outputs'];
           if (out is Map && out.isNotEmpty) {
