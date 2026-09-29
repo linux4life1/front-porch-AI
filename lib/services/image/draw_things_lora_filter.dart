@@ -1,6 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
+import 'dart:isolate';
+
 import 'package:front_porch_ai/services/grpc/dt_native/dt_local_loras.dart';
 
 import 'model_family.dart';
@@ -66,6 +69,31 @@ String _catalogVersion(String file, Map<String, String> versions) {
   return '';
 }
 
+/// The catalog's versions by file base name, built once. The first
+/// non-empty version wins, the same as scanning the catalog in order.
+Map<String, String> _versionsByBase(Map<String, String> versions) {
+  final byBase = <String, String>{};
+  for (final entry in versions.entries) {
+    final value = entry.value.trim();
+    if (value.isEmpty) continue;
+    byBase.putIfAbsent(drawThingsLoraBasename(entry.key), () => value);
+  }
+  return byBase;
+}
+
+/// Same answer as [_catalogVersion], for many lookups against one catalog:
+/// each is a map read instead of a scan of the whole catalog.
+String _indexedVersion(
+  String file,
+  Map<String, String> versions,
+  Map<String, String> byBase,
+) {
+  final base = drawThingsLoraBasename(file);
+  final direct = versions[file] ?? versions[base];
+  if (direct != null && direct.trim().isNotEmpty) return direct.trim();
+  return byBase[base] ?? '';
+}
+
 /// Version of the loaded checkpoint. `custom.json` wins. The file name
 /// is the fallback. Empty when neither says.
 String drawThingsVersionForModel(
@@ -91,10 +119,86 @@ List<String> drawThingsVisibleLoras({
   if (wanted.isEmpty) return List<String>.from(files);
   final tagged = loraVersions.values.any((value) => value.trim().isNotEmpty);
   if (!tagged) return List<String>.from(files);
+  final byBase = _versionsByBase(loraVersions);
   return [
     for (final file in files)
-      if (_catalogVersion(file, loraVersions) == wanted) file,
+      if (_indexedVersion(file, loraVersions, byBase) == wanted) file,
   ];
+}
+
+/// Lists longer than this are filtered on a background isolate. A folder of
+/// thousands of LoRAs is enough work to stall a frame.
+const int kDrawThingsFilterInlineMax = 2000;
+
+/// Runs [work] somewhere other than the calling isolate.
+typedef DrawThingsFilterRunner = Future<R> Function<R>(R Function() work);
+
+Future<R> _onAnotherIsolate<R>(R Function() work) => Isolate.run(work);
+
+Future<R> _offThread<R>(
+  int size,
+  int inlineMax,
+  DrawThingsFilterRunner run,
+  R Function() work,
+) {
+  if (size <= inlineMax) return Future<R>.value(work());
+  return run<R>(work);
+}
+
+/// [drawThingsVisibleLoras] that keeps a big catalog off the UI isolate.
+/// [run] and [inlineMax] are for tests.
+Future<List<String>> drawThingsVisibleLorasOffThread({
+  required List<String> files,
+  required Map<String, String> loraVersions,
+  required String modelVersion,
+  int inlineMax = kDrawThingsFilterInlineMax,
+  DrawThingsFilterRunner run = _onAnotherIsolate,
+}) {
+  return _offThread(
+    files.length + loraVersions.length,
+    inlineMax,
+    run,
+    () => drawThingsVisibleLoras(
+      files: files,
+      loraVersions: loraVersions,
+      modelVersion: modelVersion,
+    ),
+  );
+}
+
+/// [deskLoraFiles] that keeps a big catalog off the UI isolate.
+Future<List<String>> deskLoraFilesOffThread({
+  required String backend,
+  required List<String> files,
+  required Map<String, String> loraVersions,
+  required Map<String, String> modelVersions,
+  required String modelFile,
+  int inlineMax = kDrawThingsFilterInlineMax,
+  DrawThingsFilterRunner run = _onAnotherIsolate,
+}) {
+  if (backend != 'drawthings') return Future.value(files);
+  return drawThingsVisibleLorasOffThread(
+    files: files,
+    loraVersions: loraVersions,
+    modelVersion: drawThingsVersionForModel(modelFile, modelVersions),
+    inlineMax: inlineMax,
+    run: run,
+  );
+}
+
+/// [drawThingsLorasForModel] that keeps a big list off the UI isolate.
+Future<List<LoraOption>> drawThingsLorasForModelOffThread(
+  List<LoraOption> loras, {
+  required String modelVersion,
+  int inlineMax = kDrawThingsFilterInlineMax,
+  DrawThingsFilterRunner run = _onAnotherIsolate,
+}) {
+  return _offThread(
+    loras.length,
+    inlineMax,
+    run,
+    () => drawThingsLorasForModel(loras, modelVersion: modelVersion),
+  );
 }
 
 /// Same list for Comfy and the other backends. Draw Things is filtered
