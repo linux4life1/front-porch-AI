@@ -165,7 +165,9 @@ void main() {
       final facade = ChatFacade(h.chat, h.repo, null, null, null);
 
       facade.send('/image a quiet porch');
-      for (var i = 0; i < 200 && image.statusMessage.isEmpty; i++) {
+      // The turn ends with the refusal, however busy the machine is.
+      for (var i = 0; i < 1200; i++) {
+        if (image.statusMessage.contains(kCity96ConfirmOnDesktop)) break;
         await Future<void>.delayed(const Duration(milliseconds: 25));
       }
       await h.settleTurn();
