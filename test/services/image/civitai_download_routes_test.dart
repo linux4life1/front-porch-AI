@@ -576,6 +576,9 @@ void main() {
       final stale = File(
         civitaiPartPath(p.join(root.path, 'loras', 'old.safetensors')),
       )..createSync(recursive: true);
+      stale.setLastModifiedSync(
+        DateTime.now().subtract(const Duration(hours: 3)),
+      );
       final id = await started(body());
       await settle(id);
       expect(stale.existsSync(), isFalse);
@@ -601,5 +604,43 @@ void main() {
     expect(now['percent'], 50);
     release.complete();
     expect((await settle(id))['percent'], 100);
+  });
+
+  test('a sweep that fails does not fail the download', () async {
+    final harness = await CivitaiAuthHarness.create();
+    var swept = 0;
+    routes = CivitaiRoutes(
+      Router(),
+      auth: harness.auth,
+      adultAllowed: () => adult,
+      relay: CivitaiRelay(memoryCivitaiStore(box)),
+      rootFor: (_) => root.path,
+      versionFetch: fetchVersion,
+      sweep: (_) async {
+        swept++;
+        throw const FileSystemException('cannot read the folder');
+      },
+      downloads: CivitaiDownloads(
+        run: (plan, {onProgress, cancel, onStarted}) => downloadCivitaiPlan(
+          CivitaiDownloadPlan(
+            uri: host.uri('/file'),
+            path: plan.path,
+            authorization: plan.authorization,
+            log: plan.log,
+            refused: false,
+            root: plan.root,
+            expectedBytes: plan.expectedBytes,
+            sha256: plan.sha256,
+          ),
+          onProgress: onProgress,
+          cancel: cancel,
+          onStarted: onStarted,
+        ),
+      ),
+    );
+    final id = await started(body());
+    expect(swept, 1);
+    expect((await settle(id))['state'], 'done');
+    expect(File(dest()).readAsBytesSync(), payload);
   });
 }

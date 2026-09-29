@@ -86,7 +86,8 @@ Future<String> downloadCivitaiPlan(
   _activePaths.add(key);
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
   final part = File(civitaiPartPath(path));
-  IOSink? sink;
+  RandomAccessFile? out;
+  var ownsPart = false;
   try {
     cancel?.onCancel(() => client.close(force: true));
     await _checkTarget(plan, path, expected, freeBytes);
@@ -137,7 +138,16 @@ Future<String> downloadCivitaiPlan(
       final total = expected ?? (length >= 0 ? length : null);
       onProgress?.call(0, total);
       await part.parent.create(recursive: true);
-      sink = part.openWrite();
+      // Append, then lock, then empty it: opening for write would truncate a
+      // part that another copy of the app is still filling.
+      out = await part.open(mode: FileMode.append);
+      try {
+        await out.lock(FileLock.exclusive);
+      } on FileSystemException {
+        throw const CivitaiDownloadException(CivitaiFailure.busy);
+      }
+      ownsPart = true;
+      await out.truncate(0);
       final digest = _OneDigest();
       final hasher = plan.sha256 == null
           ? null
@@ -157,7 +167,7 @@ Future<String> downloadCivitaiPlan(
                   : CivitaiFailure.sizeMismatch,
             );
           }
-          sink.add(chunk);
+          await out.writeFrom(chunk);
           hasher?.add(chunk);
           onProgress?.call(got, total);
         }
@@ -168,9 +178,9 @@ Future<String> downloadCivitaiPlan(
       } on SocketException {
         throw _cutShort(cancel);
       }
-      await sink.flush();
-      await sink.close();
-      sink = null;
+      await out.flush();
+      await out.close();
+      out = null;
       if (got == 0 ||
           (expected != null && got != expected) ||
           (length >= 0 && got != length)) {
@@ -187,12 +197,12 @@ Future<String> downloadCivitaiPlan(
     }
     throw const CivitaiDownloadException(CivitaiFailure.redirect);
   } catch (e) {
-    if (sink != null) {
+    if (out != null) {
       try {
-        await sink.close();
+        await out.close();
       } catch (_) {}
     }
-    if (await part.exists()) await part.delete();
+    if (ownsPart && await part.exists()) await part.delete();
     if (e is CivitaiDownloadException) rethrow;
     if (cancel?.isCancelled ?? false) {
       throw const CivitaiDownloadException(CivitaiFailure.cancelled);
@@ -291,27 +301,65 @@ Future<String> _moveIntoPlace(
   return target;
 }
 
+/// A part this old that nothing holds open is dead. A running download
+/// writes constantly, and stalls end after two minutes.
+const Duration kCivitaiPartStaleAfter = Duration(hours: 1);
+
 /// Deletes partial downloads that nothing is writing any more, for example
-/// after the app quit mid-download. Returns how many were removed.
-Future<int> sweepCivitaiParts(String root) async {
+/// after the app quit mid-download. Only our own `.fpai-part` files, only
+/// ones untouched for [olderThan], and never one another running copy of the
+/// app holds a lock on. A file that cannot be inspected or removed is left
+/// alone and logged. Returns how many were removed.
+Future<int> sweepCivitaiParts(
+  String root, {
+  Duration olderThan = kCivitaiPartStaleAfter,
+}) async {
   var removed = 0;
+  final cutoff = DateTime.now().subtract(olderThan);
   for (final folder in ['', ...kCivitaiFolders]) {
     final dir = Directory(folder.isEmpty ? root : p.join(root, folder));
-    if (!await dir.exists()) continue;
-    await for (final entity in dir.list(followLinks: false)) {
-      if (entity is! File || !entity.path.endsWith(kCivitaiPartSuffix)) {
-        continue;
+    try {
+      if (!await dir.exists()) continue;
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is! File || !entity.path.endsWith(kCivitaiPartSuffix)) {
+          continue;
+        }
+        if (await _sweepOne(entity, cutoff)) removed++;
       }
-      final target = entity.path.substring(
-        0,
-        entity.path.length - kCivitaiPartSuffix.length,
+    } on FileSystemException catch (e) {
+      debugPrint(
+        'civitai part sweep skipped a folder: ${e.osError?.errorCode}',
       );
-      if (_activePaths.contains(_lockKey(target))) continue;
-      await entity.delete();
-      removed++;
     }
   }
   return removed;
+}
+
+Future<bool> _sweepOne(File part, DateTime cutoff) async {
+  final target = part.path.substring(
+    0,
+    part.path.length - kCivitaiPartSuffix.length,
+  );
+  if (_activePaths.contains(_lockKey(target))) return false;
+  RandomAccessFile? handle;
+  try {
+    if ((await part.lastModified()).isAfter(cutoff)) return false;
+    handle = await part.open(mode: FileMode.append);
+    await handle.lock(FileLock.exclusive);
+    await handle.close();
+    handle = null;
+    await part.delete();
+    return true;
+  } on FileSystemException catch (e) {
+    debugPrint('civitai part left alone: ${e.osError?.errorCode}');
+    return false;
+  } finally {
+    try {
+      await handle?.close();
+    } on FileSystemException {
+      // Already closed or gone.
+    }
+  }
 }
 
 Future<void> _noteDrawThingsLora(String path) async {

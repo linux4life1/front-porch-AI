@@ -458,12 +458,16 @@ void main() {
 
   group('partial downloads left behind', () {
     test('a sweep removes only our stale parts and never a live one', () async {
+      final longAgo = DateTime.now().subtract(const Duration(hours: 3));
       final stale1 = File(civitaiPartPath(at('loras', 'a.safetensors')))
-        ..createSync(recursive: true);
+        ..createSync(recursive: true)
+        ..setLastModifiedSync(longAgo);
       final stale2 = File(civitaiPartPath(at('checkpoints', 'b.safetensors')))
-        ..createSync(recursive: true);
+        ..createSync(recursive: true)
+        ..setLastModifiedSync(longAgo);
       final otherTool = File(at('loras', 'browser.safetensors.part'))
-        ..createSync(recursive: true);
+        ..createSync(recursive: true)
+        ..setLastModifiedSync(longAgo);
       final model = File(at('loras', 'keep.safetensors'))
         ..writeAsBytesSync(const [1]);
       final release = Completer<void>();

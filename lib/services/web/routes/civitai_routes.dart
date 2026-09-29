@@ -34,13 +34,15 @@ class CivitaiRoutes {
     Future<String?> Function(String backend)? rootForAsync,
     CivitaiDownloads? downloads,
     CivitaiVersionFetch? versionFetch,
+    Future<int> Function(String root)? sweep,
   }) : _auth = auth,
        _adultAllowed = adultAllowed,
        _relay = relay,
        _rootFor = rootFor ?? ((_) => null),
        _rootForAsync = rootForAsync,
        _downloads = downloads ?? CivitaiDownloads(),
-       _versionFetch = versionFetch ?? fetchCivitaiVersion {
+       _versionFetch = versionFetch ?? fetchCivitaiVersion,
+       _sweep = sweep ?? sweepCivitaiParts {
     _ready = relay == null
         ? CivitaiCredentialStore.open().then(CivitaiRelay.new)
         : Future<CivitaiRelay>.value(relay);
@@ -62,6 +64,7 @@ class CivitaiRoutes {
   final Future<String?> Function(String backend)? _rootForAsync;
   final CivitaiDownloads _downloads;
   final CivitaiVersionFetch _versionFetch;
+  final Future<int> Function(String root) _sweep;
   late final Future<CivitaiRelay> _ready;
 
   Future<String?> _savedRoot(String backend) {
@@ -323,7 +326,7 @@ class CivitaiRoutes {
       if (plan.refused || plan.path == null) {
         return _refusal(plan.failure ?? CivitaiFailure.unsafe, plan.reason);
       }
-      await sweepCivitaiParts(plan.root ?? savedRoot!);
+      await _sweepQuietly(plan.root ?? savedRoot!);
       final job = await _downloads.start(account, plan);
       return shelf.Response(
         202,
@@ -393,6 +396,16 @@ class CivitaiRoutes {
           ? const {'Retry-After': '30'}
           : null,
     );
+  }
+
+  /// Clearing old partial files is housekeeping; if it fails, the download
+  /// still goes ahead.
+  Future<void> _sweepQuietly(String root) async {
+    try {
+      await _sweep(root);
+    } catch (e) {
+      debugPrint('civitai part sweep failed: ${e.runtimeType}');
+    }
   }
 
   shelf.Response _lookupFailure(CivitaiLookupKind kind) {
