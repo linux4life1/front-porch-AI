@@ -3,6 +3,25 @@
 
 part of 'image_facade.dart';
 
+/// Phone JSON for a LoRA family fact. [meta] is true only when the
+/// family came from the file's own metadata, which is what makes a
+/// mismatch certain.
+List<Map<String, Object>> phoneLoraFacts({
+  List<LoraOption> options = const [],
+  List<DeskLoraCheck> checks = const [],
+}) {
+  return [
+    for (final row in options)
+      {
+        'file': row.name,
+        'family': row.family.name,
+        'meta': row.familyFromMetadata,
+      },
+    for (final row in checks)
+      {'file': row.file, 'family': row.family.name, 'meta': row.metadataBacked},
+  ];
+}
+
 extension ImageStudioReady on ImageFacade {
   /// The same readiness the desktop desk uses, for the phone Generate button.
   Future<Map<String, dynamic>> studioReady({required bool edit}) async {
@@ -36,6 +55,15 @@ extension ImageStudioReady on ImageFacade {
         ? ComfyUiService(baseUrl: settings.comfyUiUrl)
         : null;
     final info = comfy == null ? null : await comfy.fetchObjectInfo();
+    final up = backend == 'comfyui'
+        ? info != null
+        : backend == 'a1111' || backend == 'drawthings'
+        ? await _image.testLocalConnection(
+            backend == 'a1111'
+                ? settings.localImageGenUrl
+                : settings.drawThingsGrpcHost,
+          )
+        : false;
     final uploaded = edit
         ? settings.comfyEditUploadedWorkflow
         : settings.comfyCreateUploadedWorkflow;
@@ -46,6 +74,17 @@ extension ImageStudioReady on ImageFacade {
           settings.k('image_studio_lora_override_family'),
         ) ??
         '';
+    var diffusionCount = 0;
+    var loraCount = 0;
+    if (comfy != null && info != null) {
+      try {
+        final cat = await comfy.fetchCatalog();
+        diffusionCount = cat.diffusionModels.length + cat.ggufUnets.length;
+        loraCount = cat.loras.length;
+      } catch (e) {
+        debugPrint('studio catalog counts failed: ${e.runtimeType}');
+      }
+    }
     final ready = deskReadiness(
       backend: backend,
       primaryFile: primary,
@@ -63,6 +102,16 @@ extension ImageStudioReady on ImageFacade {
       'primary': primary,
       'blockedLora': deskLoraBlocker(primary, loras),
       'loraFamily': family.name,
+      'loraFacts': phoneLoraFacts(checks: loras),
+      'reachable': up,
+      'diffusionCount': diffusionCount,
+      'loraCount': loraCount,
+      'neighborUrl': '',
+      'savedUrl': settings.comfyUiUrl,
+      'uploadedTitle': edit
+          ? settings.comfyEditUploadedTitle
+          : settings.comfyCreateUploadedTitle,
+      'uploadedNodes': workflowNodeCount(uploaded),
     };
   }
 
@@ -94,15 +143,25 @@ extension ImageStudioReady on ImageFacade {
     final slotFiles = [
       for (final slot in settings.imageGenLoraSlots) slot.file,
     ];
+    final onDisk = await mergeCivitaiDisk(
+      backend: backend,
+      file: file,
+      lora: lora,
+      workflowId: workflowId,
+      checkpoints: checkpoints,
+      diffusion: diffusion,
+      gguf: gguf,
+      loras: loras,
+    );
     final choice = installedDeskChoice(
       backend: backend,
       workflowId: workflowId,
       file: file,
       lora: lora,
-      checkpoints: checkpoints,
-      diffusionModels: diffusion,
-      ggufUnets: gguf,
-      loras: loras,
+      checkpoints: onDisk.checkpoints,
+      diffusionModels: onDisk.diffusion,
+      ggufUnets: onDisk.gguf,
+      loras: onDisk.loras,
       loraSlotFiles: slotFiles,
     );
     final json = choice.toJson(workflowId);

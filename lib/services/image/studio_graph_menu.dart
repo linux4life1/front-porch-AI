@@ -6,7 +6,9 @@ import 'dart:convert';
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/comfy_create_presets.dart';
 import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
+import 'package:front_porch_ai/services/image/comfy_gguf_loaders.dart';
 import 'package:front_porch_ai/services/image/comfy_template_index.dart';
+import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/services/image/studio_readiness.dart';
 import 'package:front_porch_ai/utils/png_metadata_utils.dart';
@@ -70,34 +72,82 @@ bool savedGraphIsEdit(Map<String, dynamic> graph) {
   return false;
 }
 
+/// Secondary line under a graph title: the task, then the stored id.
+String graphRowDetail({required bool edit, required String id}) {
+  final task = edit ? 'Edit' : 'Text to image';
+  return '$task · $id';
+}
+
+/// True when [id] is one of the graphs shipped with Front Porch.
+bool _bundledGraphId(String id) {
+  for (final preset in kComfyCreatePresets) {
+    if (preset.id == id) return true;
+  }
+  for (final preset in kComfyEditPresets) {
+    if (preset.id == id) return true;
+  }
+  return false;
+}
+
+/// A stock template whose name is another architecture cannot load
+/// [modelFile]. A name with no architecture stays. Saved workflows and
+/// files that could not be read stay either way.
+bool _graphFitsModel({
+  required bool edit,
+  required String modelFile,
+  required String id,
+  required String title,
+  required String group,
+}) {
+  if (group == 'Saved on this Comfy' || group == 'Could not read') {
+    return true;
+  }
+  if (id == kComfyUploadedWorkflowId) return true;
+  final allowed = workflowForModel(edit: edit, file: modelFile);
+  if (id == allowed) return true;
+  if (_bundledGraphId(id)) return false;
+  final stem = '${title.trim()} ${id.split(':').last}'.trim();
+  final named =
+      isGgufFile(stem) ||
+      ImageModelFamily.detectFromName(stem) != ModelFamily.unknown;
+  if (!named) return true;
+  return workflowForModel(edit: edit, file: stem) == allowed;
+}
+
 /// Built-in graphs, then this mode's Comfy templates, then saved
 /// workflows already classified for this mode. [unread] files could
 /// not be opened, so they are not offered as either mode.
+/// When [modelFile] is set, premade graphs that cannot load it are
+/// left off. An empty name still lists every premade for the mode.
 List<DeskGraphChoice> deskGraphMenu({
   required bool edit,
   required List<DeskGraphRow> templates,
   required List<DeskGraphRow> saved,
   List<DeskGraphRow> unread = const [],
+  String modelFile = '',
 }) {
   final built = edit ? 'Edit graphs' : 'Text to image graphs';
-  final bundled = <DeskGraphChoice>[
-    if (edit)
-      for (final preset in kComfyEditPresets)
-        DeskGraphChoice(
-          id: preset.id,
-          title: preset.label,
-          detail: 'Built into Front Porch',
-          group: built,
-        )
-    else
-      for (final preset in kComfyCreatePresets)
-        DeskGraphChoice(
-          id: preset.id,
-          title: preset.label,
-          detail: 'Built into Front Porch',
-          group: built,
-        ),
-  ];
+  final bundled = <DeskGraphChoice>[];
+  void addBuiltIn(String id, String label) {
+    bundled.add(
+      DeskGraphChoice(
+        id: id,
+        title: label,
+        detail: graphRowDetail(edit: edit, id: id),
+        group: built,
+      ),
+    );
+  }
+
+  if (edit) {
+    for (final preset in kComfyEditPresets) {
+      addBuiltIn(preset.id, preset.label);
+    }
+  } else {
+    for (final preset in kComfyCreatePresets) {
+      addBuiltIn(preset.id, preset.label);
+    }
+  }
   final seen = {for (final row in bundled) row.id};
   final fromComfy = <DeskGraphChoice>[];
   for (final row in templates) {
@@ -106,7 +156,7 @@ List<DeskGraphChoice> deskGraphMenu({
       DeskGraphChoice(
         id: row.id,
         title: readableGraphTitle(row.id, row.title),
-        detail: 'Comfy template',
+        detail: graphRowDetail(edit: edit, id: row.id),
         group: 'From this Comfy',
       ),
     );
@@ -118,7 +168,7 @@ List<DeskGraphChoice> deskGraphMenu({
       DeskGraphChoice(
         id: row.id,
         title: readableGraphTitle(row.id, row.title),
-        detail: 'Saved on this Comfy',
+        detail: graphRowDetail(edit: edit, id: row.id),
         group: 'Saved on this Comfy',
       ),
     );
@@ -130,13 +180,25 @@ List<DeskGraphChoice> deskGraphMenu({
       DeskGraphChoice(
         id: row.id,
         title: readableGraphTitle(row.id, row.title),
-        detail:
-            'Could not read this file, so it is not a Create or Edit graph.',
+        detail: graphRowDetail(edit: edit, id: row.id),
         group: 'Could not read',
       ),
     );
   }
-  return [...bundled, ...fromComfy, ...onDisk, ...closed];
+  final rows = [...bundled, ...fromComfy, ...onDisk, ...closed];
+  final file = modelFile.trim();
+  if (file.isEmpty) return rows;
+  return [
+    for (final row in rows)
+      if (_graphFitsModel(
+        edit: edit,
+        modelFile: file,
+        id: row.id,
+        title: row.title,
+        group: row.group,
+      ))
+        row,
+  ];
 }
 
 /// Templates plus saved workflows for one mode. A saved edit graph is
@@ -146,6 +208,7 @@ Future<List<DeskGraphChoice>> loadDeskGraphMenu({
   required bool edit,
   required List<ComfyTemplateEntry> templates,
   required List<ComfyTemplateEntry> saved,
+  String modelFile = '',
 }) async {
   final savedRows = <DeskGraphRow>[];
   final unread = <DeskGraphRow>[];
@@ -165,6 +228,7 @@ Future<List<DeskGraphChoice>> loadDeskGraphMenu({
     ],
     saved: savedRows,
     unread: unread,
+    modelFile: modelFile,
   );
 }
 
@@ -230,6 +294,7 @@ String deskGraphStance(String json) {
 /// How many nodes the stored workflow JSON describes. Zero when it is
 /// not a graph.
 int workflowNodeCount(String json) {
+  if (json.trim().isEmpty) return 0;
   final decoded = jsonDecode(json);
   if (decoded is! Map) return 0;
   final nodes = decoded['nodes'];

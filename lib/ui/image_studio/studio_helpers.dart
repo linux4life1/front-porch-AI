@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 
 /// Pure helpers extracted from the ImageStudio coordinator to keep the main file
 /// under the project 500 LOC cap while preserving behavior and readability.
@@ -36,36 +35,4 @@ String getAcceptLabel(ImageGenMode mode) {
 bool hasAcceptAction(ImageGenMode mode) {
   return mode == ImageGenMode.characterPortrait ||
       mode == ImageGenMode.userAvatar;
-}
-
-/// Re-applies the live style suffix to a prompt text (strips stale, appends current).
-/// Used by the coordinator on selector changes so the sent prompt reflects the live preview.
-/// (computeInitialPrompt was deleted as part of no-boilerplate user spec + anti-accum; no remaining call sites).
-String reapplyCurrentStyleSuffix(
-  String currentPrompt,
-  String selectedStyle,
-  String paradigm,
-  ImagePromptBuilder builder,
-) {
-  final suffix = builder.getStyleSuffix(selectedStyle, paradigm);
-  if (suffix.isEmpty) return currentPrompt;
-
-  String base = currentPrompt;
-
-  final allKnown = <String>[
-    ...ImagePromptBuilder.styleModifiers.values,
-    ...ImagePromptBuilder.legacyStyleModifiers.values,
-  ];
-  for (final s in allKnown) {
-    if (s.isNotEmpty) base = base.replaceAll(s, '');
-  }
-  base = base.replaceAll(RegExp(r'[,.\s]+$'), '').trim();
-
-  final glue = paradigm == 'tags' ? ', ' : '. ';
-  // Guard against empty base after strip (prevents leading ". Photoreal..." boilerplate on style change).
-  if (base.isEmpty) {
-    return ImageGenContext.truncate(suffix, 1000);
-  }
-  String updated = '$base$glue$suffix'.trim();
-  return ImageGenContext.truncate(updated, 1000);
 }

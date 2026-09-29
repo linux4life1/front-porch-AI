@@ -7,6 +7,7 @@
 // (mode/backend enums + the remote model info record).
 
 export 'civitai_client.dart';
+export 'civitai_installed.dart';
 export 'expression_pack_flight.dart';
 export 'expression_pack_route.dart';
 export 'civitai_fetch.dart';
@@ -14,6 +15,7 @@ export 'civitai_download.dart';
 export 'civitai_oauth.dart';
 export 'comfy_catalog.dart';
 export 'comfy_gguf_loaders.dart';
+export 'comfy_gguf_city96.dart';
 export 'draw_things_samplers.dart';
 export 'image_submit_error.dart';
 export 'studio_dispatch.dart';

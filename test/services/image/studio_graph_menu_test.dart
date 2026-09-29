@@ -31,7 +31,7 @@ void main() {
       (row) => row.id == 'comfy:userdata:evening_shift',
     );
     expect(saved.title, 'evening shift');
-    expect(saved.detail, 'Saved on this Comfy');
+    expect(saved.detail, 'Text to image · comfy:userdata:evening_shift');
     expect(
       rows.firstWhere((row) => row.id == 'z_image_turbo').title,
       'Z-Image Turbo',

@@ -110,6 +110,23 @@ const ComfyCreatePreset kFluxCreatePreset = ComfyCreatePreset(
   ],
 );
 
+const ComfyCreatePreset kQwen21CreatePreset = ComfyCreatePreset(
+  id: 'qwen_image_21',
+  label: 'Qwen-Image 2.1',
+  comfyTemplateName: '',
+  modelSlots: [kComfyDiffusionSlot, kComfyClipSlot, kComfyVaeSlot],
+  requiredNodes: [
+    'UNETLoader',
+    'CLIPLoader',
+    'VAELoader',
+    'TextEncodeQwenImage21',
+    'EmptySD3LatentImage',
+    'KSampler',
+    'VAEDecode',
+    'SaveImage',
+  ],
+);
+
 const ComfyCreatePreset kQwenCreatePreset = ComfyCreatePreset(
   id: 'qwen_image',
   label: 'Qwen-Image',
@@ -148,6 +165,7 @@ const List<ComfyCreatePreset> kComfyCreatePresets = [
   kSdCreatePreset,
   kFluxCreatePreset,
   kQwenCreatePreset,
+  kQwen21CreatePreset,
   kZitCreatePreset,
 ];
 

@@ -174,6 +174,73 @@ const Map<String, dynamic> kComfyStarterFlux = {
   },
 };
 
+/// Qwen-Image 2.1. The 1.0 graph (CLIPTextEncode + AuraFlow) fails
+/// Comfy's prompt check for this model. CFG stays at 1.
+const Map<String, dynamic> kComfyStarterQwen21 = {
+  'unet': {
+    'class_type': 'UNETLoader',
+    'inputs': {
+      'unet_name': 'qwen_image_2.1_bf16.safetensors',
+      'weight_dtype': 'default',
+    },
+  },
+  'clip': {
+    'class_type': 'CLIPLoader',
+    'inputs': {
+      'clip_name': 'qwen3vl_8b_fp8.safetensors',
+      'type': 'qwen_image',
+      'device': 'default',
+    },
+  },
+  'vae': {
+    'class_type': 'VAELoader',
+    'inputs': {'vae_name': 'qwen_image_2.1_vae_bf16.safetensors'},
+  },
+  'encode': {
+    'class_type': 'TextEncodeQwenImage21',
+    'inputs': {
+      'clip': ['clip', 0],
+      'vae': ['vae', 0],
+      'prompt': 'placeholder',
+      'negative_prompt': '',
+      'resolution': 1024,
+    },
+  },
+  'latent': {
+    'class_type': 'EmptySD3LatentImage',
+    'inputs': {'width': 1024, 'height': 1024, 'batch_size': 1},
+  },
+  'sampler': {
+    'class_type': 'KSampler',
+    'inputs': {
+      'seed': 0,
+      'steps': 25,
+      'cfg': 1,
+      'sampler_name': 'euler',
+      'scheduler': 'simple',
+      'denoise': 1,
+      'model': ['unet', 0],
+      'positive': ['encode', 0],
+      'negative': ['encode', 1],
+      'latent_image': ['latent', 0],
+    },
+  },
+  'decode': {
+    'class_type': 'VAEDecode',
+    'inputs': {
+      'samples': ['sampler', 0],
+      'vae': ['vae', 0],
+    },
+  },
+  'save': {
+    'class_type': 'SaveImage',
+    'inputs': {
+      'filename_prefix': 'FrontPorchAI',
+      'images': ['decode', 0],
+    },
+  },
+};
+
 /// Official-shaped Qwen-Image create (image_qwen_image).
 const Map<String, dynamic> kComfyStarterQwen = {
   'unet': {
@@ -328,6 +395,8 @@ Map<String, dynamic>? comfyStarterGraph(String workflowId) {
     case 'qwen_image':
     case 'comfy:image_qwen_image':
       return Map<String, dynamic>.from(kComfyStarterQwen);
+    case 'qwen_image_21':
+      return Map<String, dynamic>.from(kComfyStarterQwen21);
     default:
       return null;
   }

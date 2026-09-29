@@ -22,7 +22,8 @@ String civitaiCredentialKey(String accountId) {
   return 'civitai_credential_$id';
 }
 
-/// civitai.red does not accept the civitai.com key.
+/// Older installs may still have a second key stored. Adult search no
+/// longer reads it.
 String civitaiRedCredentialKey(String accountId) {
   return '${civitaiCredentialKey(accountId)}_red';
 }

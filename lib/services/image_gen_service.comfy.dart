@@ -35,6 +35,15 @@ extension _ImageGenComfy on ImageGenService {
   }) async {
     final comfy = _ensureComfyUi;
     final settings = _storage.imageGenSettings;
+    final loader = await ensureCity96QwenImage(
+      comfyUrl: settings.comfyUiUrl,
+      filenames: [
+        refModelName,
+        ...settings.comfyCreateModelChoices.values,
+        ...settings.comfyEditModelChoices.values,
+      ],
+    );
+    if (loader.message != null) throw Exception(loader.message);
     final (width, height) = _parseSize(size ?? settings.imageGenSize);
     final available = await comfy.fetchSamplers();
     final storedSampler = settings.imageGenSampler;

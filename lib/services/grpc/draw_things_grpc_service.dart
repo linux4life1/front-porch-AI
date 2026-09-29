@@ -111,10 +111,23 @@ class DrawThingsGrpcService {
     final native = DrawThingsNativeClient(host: host, port: port);
     try {
       final models = _filterCheckpoints(await native.listFiles());
+      if (drawThingsHostIsLocal(host)) {
+        final dir = drawThingsDefaultModelsDirectory();
+        if (dir != null) {
+          final seen = models.map((name) => name.toLowerCase()).toSet();
+          for (final file in await drawThingsCheckpointFilesIn(dir)) {
+            if (seen.add(file.toLowerCase())) models.add(file);
+          }
+        }
+      }
       debugPrint('[DT-Native] Fetched ${models.length} models (filtered)');
       return models;
     } catch (e) {
       debugPrint('[DT-Native] fetchModels failed: $e');
+      if (drawThingsHostIsLocal(host)) {
+        final dir = drawThingsDefaultModelsDirectory();
+        if (dir != null) return drawThingsCheckpointFilesIn(dir);
+      }
       return [];
     } finally {
       unawaited(native.shutdown());

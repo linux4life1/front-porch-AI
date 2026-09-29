@@ -1,7 +1,12 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
+
+import 'model_family.dart';
 
 const _kFolders = {
   'checkpoints',
@@ -12,6 +17,7 @@ const _kFolders = {
   'models/Stable-diffusion',
   'models/Lora',
   'models/VAE',
+  'lora',
 };
 
 const _kReserved = {
@@ -68,10 +74,16 @@ String? civitaiSlotFolder({
 }) {
   final type = civitaiType.trim().toLowerCase();
   final gguf = filename.toLowerCase().endsWith('.gguf');
+  final lora = type == 'lora' || type == 'locon' || type == 'dora';
+  if (backend == 'drawthings') {
+    if (gguf) return null;
+    if (lora) return fromLoraSheet ? 'lora' : null;
+    if (type == 'checkpoint') return fromLoraSheet ? null : '';
+    return null;
+  }
   if (backend != 'comfyui' && backend != 'a1111') return null;
   final a1111 = backend == 'a1111';
   if (a1111 && gguf) return null;
-  final lora = type == 'lora' || type == 'locon' || type == 'dora';
   if (lora) {
     if (!fromLoraSheet) return null;
     return a1111 ? 'models/Lora' : 'loras';
@@ -79,7 +91,7 @@ String? civitaiSlotFolder({
   if (type == 'checkpoint') {
     if (fromLoraSheet) return null;
     if (a1111) return 'models/Stable-diffusion';
-    return gguf ? 'diffusion_models' : 'checkpoints';
+    return _comfyCheckpointFolder(filename, gguf: gguf);
   }
   if (type == 'vae') {
     if (fromLoraSheet) return null;
@@ -100,16 +112,93 @@ bool pathStaysUnderRoot(String root, String candidate) {
   return c == r || p.isWithin(r, c);
 }
 
+/// Comfy's UNET loader reads `diffusion_models`. Checkpoint files for SD 1.5,
+/// SDXL, and Pony stay in `checkpoints`.
+String _comfyCheckpointFolder(String filename, {required bool gguf}) {
+  if (gguf) return 'diffusion_models';
+  switch (ImageModelFamily.detectFromName(filename)) {
+    case ModelFamily.flux:
+    case ModelFamily.kontext:
+    case ModelFamily.qwen:
+    case ModelFamily.zImage:
+    case ModelFamily.sd3:
+      return 'diffusion_models';
+    case ModelFamily.sd15:
+    case ModelFamily.sdxl:
+    case ModelFamily.pony:
+    case ModelFamily.unknown:
+      return 'checkpoints';
+  }
+}
+
 /// Join [root]/[folder]/basename, or null when the name or root is unsafe.
 String? civitaiDownloadPath({
   required String root,
   required String folder,
   required String name,
 }) {
-  if (!p.isAbsolute(root) || !_kFolders.contains(folder)) return null;
+  if (!p.isAbsolute(root)) return null;
+  if (folder.isNotEmpty && !_kFolders.contains(folder)) return null;
   final base = safeDownloadBasename(name);
   if (base == null) return null;
-  final candidate = p.join(root, folder, base);
+  final candidate = folder.isEmpty
+      ? p.join(root, base)
+      : p.join(root, folder, base);
   if (!pathStaysUnderRoot(root, candidate)) return null;
   return candidate;
+}
+
+/// `custom_lora.json` version id for a file name, when the name says.
+String drawThingsCatalogVersion(String filename) {
+  switch (ImageModelFamily.detectFromName(filename)) {
+    case ModelFamily.zImage:
+      return 'z_image';
+    case ModelFamily.qwen:
+      return 'qwen_image';
+    case ModelFamily.flux:
+    case ModelFamily.kontext:
+      return 'flux1';
+    case ModelFamily.pony:
+    case ModelFamily.sdxl:
+      return 'sdxl_base_v0.9';
+    case ModelFamily.sd3:
+      return 'sd3';
+    case ModelFamily.sd15:
+      return 'v1';
+    case ModelFamily.unknown:
+      return '';
+  }
+}
+
+/// Adds [filename] to Draw Things' LoRA catalog when it is not already there.
+/// A catalog that is not a list is left alone.
+Future<void> rememberDrawThingsLora(
+  Directory modelsDir,
+  String filename,
+) async {
+  final base = p.basename(filename);
+  if (base.isEmpty) return;
+  final catalog = File(p.join(modelsDir.path, 'custom_lora.json'));
+  final rows = <dynamic>[];
+  if (await catalog.exists()) {
+    try {
+      final decoded = jsonDecode(await catalog.readAsString());
+      if (decoded is! List) return;
+      rows.addAll(decoded);
+    } catch (_) {
+      return;
+    }
+  }
+  for (final row in rows) {
+    if (row is Map && p.basename(row['file']?.toString() ?? '') == base) {
+      return;
+    }
+  }
+  final version = drawThingsCatalogVersion(base);
+  rows.add({
+    'file': base,
+    'name': p.basenameWithoutExtension(base),
+    if (version.isNotEmpty) 'version': version,
+  });
+  await catalog.writeAsString(jsonEncode(rows));
 }

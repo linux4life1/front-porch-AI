@@ -138,13 +138,16 @@ class SubjectPicker extends StatelessWidget {
               ),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
+                  horizontal: 14,
                   vertical: 8,
                 ),
+                shape: const StadiumBorder(),
                 side: BorderSide(
                   color: isSel ? accent : AppColors.borderOf(context),
                 ),
-                backgroundColor: isSel ? AppColors.cardOf(context) : null,
+                backgroundColor: isSel
+                    ? accent.withValues(alpha: 0.16)
+                    : null,
               ),
             );
           }).toList(),

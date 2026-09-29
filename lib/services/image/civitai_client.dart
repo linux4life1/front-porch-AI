@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/image/civitai_download.dart';
+import 'package:front_porch_ai/services/image/civitai_files.dart';
 import 'package:front_porch_ai/services/image/civitai_oauth.dart';
 
 /// A pasted personal API key. A password field is refused.
@@ -25,20 +26,9 @@ String? civitaiRelayAccount(String? cookieAccount) {
   return cookie;
 }
 
-/// PG search is anonymous on civitai.com. Adult search needs a credential
-/// and uses civitai.red. The key is never placed in the query.
-/// Picker label, then the `baseModels` value CivitAI expects.
-const List<(String label, String api)> kCivitaiBaseChoices = [
-  ('Any base', ''),
-  ('Qwen', 'Qwen'),
-  ('Z-Image', 'ZImageTurbo'),
-  ('SD3', 'SD 3.5'),
-  ('Flux', 'Flux.1 D'),
-  ('SDXL', 'SDXL 1.0'),
-  ('Pony', 'Pony'),
-  ('Illustrious', 'Illustrious'),
-  ('SD 1.5', 'SD 1.5'),
-];
+/// PG search is anonymous on civitai.com. Adult search uses the same key
+/// against civitai.red with `nsfw=true`. `browsingLevel` is omitted because
+/// CivitAI rejects that query value. The key is never placed in the query.
 
 Uri? civitaiModelsUri({
   required String query,
@@ -54,7 +44,6 @@ Uri? civitaiModelsUri({
     'types': lora ? 'LORA' : 'Checkpoint',
     if (baseModel.trim().isNotEmpty) 'baseModels': baseModel.trim(),
     if (adult) 'nsfw': 'true',
-    if (adult) 'browsingLevel': '31',
   });
 }
 
@@ -94,6 +83,26 @@ CivitaiHttpKind civitaiHttpKind(int status) {
   if (status == 401) return CivitaiHttpKind.needsCredential;
   if (status == 403) return CivitaiHttpKind.locked;
   return CivitaiHttpKind.failed;
+}
+
+/// What to show after a CivitAI search. Empty means the rows are the result.
+String civitaiSearchNote({
+  required CivitaiHttpKind kind,
+  required bool hadKey,
+  required int rows,
+}) {
+  switch (kind) {
+    case CivitaiHttpKind.needsCredential:
+      return hadKey
+          ? 'That API key was refused. Paste a valid key and search again.'
+          : 'Paste an API key to search adult models.';
+    case CivitaiHttpKind.locked:
+      return 'CivitAI refused this search.';
+    case CivitaiHttpKind.failed:
+      return 'CivitAI search failed.';
+    case CivitaiHttpKind.ok:
+      return rows == 0 ? 'CivitAI returned no models for that search.' : '';
+  }
 }
 
 class CivitaiModelRow {
@@ -218,12 +227,7 @@ CivitaiModelRow? _civitaiRow(Map item, {required bool includeAdult}) {
   if (versions is List && versions.isNotEmpty && versions.first is Map) {
     version = versions.first as Map;
   }
-  String? filename;
-  final files = version?['files'];
-  if (files is List && files.isNotEmpty && files.first is Map) {
-    final name = (files.first as Map)['name'];
-    if (name is String && name.trim().isNotEmpty) filename = name.trim();
-  }
+  final filename = civitaiPickFilename(version?['files']);
   final id = item['id'];
   if (id is! num) return null;
   final versionId = version?['id'];
@@ -262,6 +266,7 @@ class CivitaiDownloadPlan {
   final String? authorization;
   final String log;
   final bool refused;
+  final String reason;
 
   const CivitaiDownloadPlan({
     required this.uri,
@@ -269,6 +274,7 @@ class CivitaiDownloadPlan {
     required this.authorization,
     required this.log,
     required this.refused,
+    this.reason = '',
   });
 }
 
@@ -333,21 +339,25 @@ class CivitaiCredentialStore {
     return value;
   }
 
-  /// Adult calls prefer the civitai.red key and otherwise use the green key.
+  /// One key covers civitai.com and civitai.red. [adult] does not pick a
+  /// second secret.
   Future<String?> readFor({
     required String accountId,
     required bool adult,
   }) async {
-    if (adult) {
-      final red = await readRed(accountId);
-      if (red != null) return red;
-    }
-    return read(accountId);
+    final token = await read(accountId);
+    if (token == null && adult) return null;
+    return token;
   }
 
   /// Removes this account's key and leaves every other account in place.
   Future<void> signOut(String accountId) {
     return deleteKey(civitaiCredentialKey(accountId));
+  }
+
+  /// Removes this account's civitai.red key only.
+  Future<void> clearRed(String accountId) {
+    return deleteKey(civitaiRedCredentialKey(accountId));
   }
 }
 
@@ -406,12 +416,20 @@ class CivitaiRelay {
       adult: adult,
     );
     if (token == null || path == null) {
+      final reason = token == null
+          ? 'Paste an API key. CivitAI will not send the file without one.'
+          : folder == null
+          ? (fromLoraSheet
+                ? 'That file is not a LoRA this app can save.'
+                : 'That file is not a model this app can save.')
+          : "That file name can't be saved.";
       return CivitaiDownloadPlan(
         uri: null,
         path: null,
         authorization: null,
         log: log,
         refused: true,
+        reason: reason,
       );
     }
     return CivitaiDownloadPlan(

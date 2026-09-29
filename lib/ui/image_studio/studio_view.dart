@@ -133,91 +133,100 @@ class StudioView extends StatelessWidget {
             _header(context),
             ?modeTabs,
             Flexible(
-              child: IndexedStack(
-                index: showEdit ? 1 : 0,
-                children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        StudioDeskFrame(
-                          subject: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SubjectPicker(
-                                selected: activeMode,
-                                characterName: characterName,
-                                groupCharacters: groupCharacters,
-                                onChanged: isBusy ? null : onSelectSubject,
-                                onPickGroupMember: isBusy
-                                    ? null
-                                    : onPickGroupMember,
-                                onPickGroupShot: isBusy
-                                    ? null
-                                    : onPickGroupShot,
-                              ),
-                              if (groupShotActive) ...[
-                                const SizedBox(height: 8),
-                                _groupShotCaveat(context),
-                              ],
-                            ],
-                          ),
-                          prompt: prompt,
-                          onPromptChanged: isBusy ? null : onPromptChanged,
-                          well: kStudioCreateWell,
-                          packNote: kStudioCreatePack,
-                          onExpressionPack: isBusy ? null : onExpressionPack,
-                          picture: ReferenceImagePicker(
-                            referenceBytes: referenceBytes,
-                            isBusy: isBusy,
-                            onPick: onPickReference,
-                            onClear: onClearReference,
-                          ),
-                          stove: StudioDesk(
-                            editMode: false,
-                            showGenerate: true,
-                            onGenerate: isBusy ? null : onGenerate,
-                            errorText: error,
-                            generating: generating,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          child: currentImageBytes != null && error.isEmpty
-                              ? ResultView(
-                                  key: const ValueKey('result'),
-                                  imageBytes: currentImageBytes!,
-                                  hasAccept: hasAcceptAction(activeMode),
-                                  acceptLabel: getAcceptLabel(activeMode),
-                                  isSaving: saving,
-                                  onSave: onSave,
-                                  onAccept: onAccept,
-                                  onVariations: onVariations,
-                                  onEditRegen: onEditRegen,
-                                  onSendToChat: onSendToChat,
-                                  onSaveToGallery: onSaveToGallery,
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                        if (history.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          GenerationHistory(
-                            entries: history,
-                            onRestore: onRestore,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  editBody ?? const SizedBox.shrink(),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final desk = _desk(context);
+                  final wide = constraints.maxWidth >= 700;
+                  final create = wide
+                      ? Padding(padding: const EdgeInsets.all(20), child: desk)
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          child: desk,
+                        );
+                  return IndexedStack(
+                    sizing: StackFit.expand,
+                    index: showEdit ? 1 : 0,
+                    children: [create, editBody ?? const SizedBox.shrink()],
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _desk(BuildContext context) {
+    return StudioDeskFrame(
+      subject: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SubjectPicker(
+            selected: activeMode,
+            characterName: characterName,
+            groupCharacters: groupCharacters,
+            onChanged: isBusy ? null : onSelectSubject,
+            onPickGroupMember: isBusy ? null : onPickGroupMember,
+            onPickGroupShot: isBusy ? null : onPickGroupShot,
+          ),
+          if (groupShotActive) ...[
+            const SizedBox(height: 8),
+            _groupShotCaveat(context),
+          ],
+        ],
+      ),
+      prompt: prompt,
+      onPromptChanged: isBusy ? null : onPromptChanged,
+      well: kStudioCreateWell,
+      packNote: kStudioCreatePack,
+      onExpressionPack: isBusy ? null : onExpressionPack,
+      picture: ReferenceImagePicker(
+        referenceBytes: referenceBytes,
+        isBusy: isBusy,
+        onPick: onPickReference,
+        onClear: onClearReference,
+      ),
+      output: _result(context),
+      stove: StudioDesk(
+        editMode: false,
+        showGenerate: true,
+        onGenerate: generating ? null : onGenerate,
+        errorText: error,
+        generating: generating,
+      ),
+    );
+  }
+
+  Widget? _result(BuildContext context) {
+    final showImage = currentImageBytes != null && error.isEmpty;
+    if (!showImage && history.isEmpty) return null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: showImage
+              ? ResultView(
+                  key: const ValueKey('result'),
+                  imageBytes: currentImageBytes!,
+                  hasAccept: hasAcceptAction(activeMode),
+                  acceptLabel: getAcceptLabel(activeMode),
+                  isSaving: saving,
+                  onSave: onSave,
+                  onAccept: onAccept,
+                  onVariations: onVariations,
+                  onEditRegen: onEditRegen,
+                  onSendToChat: onSendToChat,
+                  onSaveToGallery: onSaveToGallery,
+                )
+              : const SizedBox.shrink(),
+        ),
+        if (history.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          GenerationHistory(entries: history, onRestore: onRestore),
+        ],
+      ],
     );
   }
 

@@ -16,10 +16,12 @@ class StudioCivitaiDetail extends StatefulWidget {
     required this.row,
     required this.adult,
     required this.onDownload,
+    this.installed = false,
   });
 
   final CivitaiModelRow row;
   final bool adult;
+  final bool installed;
   final VoidCallback onDownload;
 
   @override
@@ -66,91 +68,74 @@ class _StudioCivitaiDetailState extends State<StudioCivitaiDetail> {
         ? [if (_row.previewUrl != null) _row.previewUrl!]
         : _row.imageUrls;
     final hero = images.isEmpty ? null : images.first;
-    return AlertDialog(
+    return Scaffold(
       backgroundColor: AppColors.surfaceOf(context),
-      title: Text(
-        _row.name,
-        style: TextStyle(color: AppColors.textPrimary(context)),
-      ),
-      content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (hero != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    hero,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stack) =>
-                        const SizedBox(height: 160),
-                  ),
-                ),
-              const SizedBox(height: 8),
-              Text(
-                studioDownloadCount(_row.downloads),
-                style: TextStyle(color: AppColors.textSecondary(context)),
-              ),
-              if (_row.filename != null)
-                Text(
-                  _row.filename!,
-                  style: TextStyle(
-                    color: AppColors.textSecondary(context),
-                    fontSize: 12,
-                  ),
-                ),
-              const SizedBox(height: 12),
-              Text(
-                _row.description.isEmpty
-                    ? (_loading
-                          ? 'Loading the CivitAI description…'
-                          : 'CivitAI did not send a description.')
-                    : _row.description,
-                style: TextStyle(
-                  color: AppColors.textPrimary(context),
-                  height: 1.4,
-                ),
-              ),
-              if (images.length > 1) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 96,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      for (final url in images.skip(1))
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              url,
-                              width: 96,
-                              height: 96,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
+      appBar: AppBar(
+        backgroundColor: AppColors.surfaceOf(context),
+        foregroundColor: AppColors.textPrimary(context),
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back),
+        ),
+        title: Text(_row.name),
+        actions: [
+          TextButton(
+            onPressed: widget.onDownload,
+            child: Text(widget.installed ? 'Installed' : 'Download'),
           ),
-        ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Back'),
-        ),
-        FilledButton(
-          onPressed: widget.onDownload,
-          child: const Text('Download'),
-        ),
-      ],
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        children: [
+          if (hero != null)
+            Image.network(
+              hero,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              errorBuilder: (context, error, stack) =>
+                  const SizedBox(height: 160),
+            ),
+          const SizedBox(height: 12),
+          Text(
+            studioDownloadCount(_row.downloads),
+            style: TextStyle(color: AppColors.textSecondary(context)),
+          ),
+          if (_row.filename != null)
+            Text(
+              _row.filename!,
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 12,
+              ),
+            ),
+          const SizedBox(height: 12),
+          Text(
+            _row.description.isEmpty
+                ? (_loading
+                      ? 'Loading the CivitAI description…'
+                      : 'CivitAI did not send a description.')
+                : _row.description,
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              height: 1.4,
+            ),
+          ),
+          if (images.length > 1) ...[
+            const SizedBox(height: 16),
+            for (final url in images.skip(1))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                ),
+              ),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -8,6 +8,20 @@ import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+Widget _groupTitle(BuildContext context, String label) {
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: AppColors.formMasterAccent,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+}
+
 /// Names the LoRA and the model, and lets the user keep the mismatch.
 class StudioLoraMismatch extends StatelessWidget {
   const StudioLoraMismatch({
@@ -62,7 +76,6 @@ class StudioLoraSheet extends StatefulWidget {
 
 class _StudioLoraSheetState extends State<StudioLoraSheet> {
   late List<ImageGenLoraSlot> _slots = widget.slots;
-  String _query = '';
 
   void _put(int index, String file) {
     widget.onPick(index, file);
@@ -79,33 +92,80 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
     _put(empty, file);
   }
 
+  ModelFamily _familyOf(String file) {
+    return widget.facts[file]?.family ?? ImageModelFamily.detectFromName(file);
+  }
+
+  LoraCompat _compat(String file, ModelFamily primary) {
+    final fact = widget.facts[file];
+    return ImageModelFamily.compatibility(
+      _familyOf(file),
+      primary,
+      metadataBacked: fact?.metadataBacked ?? false,
+    );
+  }
+
+  String _strength(int index) {
+    return _slots[index].weight.clamp(0.0, 1.0).toStringAsFixed(2);
+  }
+
+  Widget _slotStrength(BuildContext context, int index) {
+    final strength = _strength(index);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Slot ${index + 1}',
+          style: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 12,
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: Slider(
+                value: _slots[index].weight.clamp(0.0, 1.0),
+                label: strength,
+                showValueIndicator: ShowValueIndicator.alwaysVisible,
+                onChanged: (value) {
+                  widget.onWeight?.call(index, value);
+                  setState(() {
+                    final next = [..._slots];
+                    next[index] = ImageGenLoraSlot(
+                      file: _slots[index].file,
+                      weight: value,
+                    );
+                    _slots = next;
+                  });
+                },
+              ),
+            ),
+            Text(
+              strength,
+              style: TextStyle(
+                color: AppColors.textPrimary(context),
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final primary = ImageModelFamily.detectFromName(widget.primaryFile);
-    final query = _query.trim().toLowerCase();
-    final files = [
-      for (final file in widget.files)
-        if (query.isEmpty || file.toLowerCase().contains(query)) file,
-    ];
-    final other = <String>[];
     final matching = <String>[];
-    for (final file in files) {
-      final fact = widget.facts[file];
-      final compat = ImageModelFamily.compatibility(
-        fact?.family ?? ImageModelFamily.detectFromName(file),
-        primary,
-        metadataBacked: fact?.metadataBacked ?? false,
-      );
-      if (compat == LoraCompat.certain) {
+    final other = <String>[];
+    for (final file in widget.files) {
+      if (_compat(file, primary) == LoraCompat.certain) {
         other.add(file);
       } else {
         matching.add(file);
       }
     }
-    final typed = _query.trim();
-    final offerTyped =
-        typed.isNotEmpty &&
-        !widget.files.any((file) => file.toLowerCase() == typed.toLowerCase());
     final full = _slots.every((slot) => slot.file.trim().isNotEmpty);
     return AlertDialog(
       backgroundColor: AppColors.surfaceOf(context),
@@ -121,12 +181,9 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
           children: [
             Text(
               widget.files.isEmpty
-                  ? 'No LoRA files were listed. Comfy reads them from the '
-                        'LoraLoader node. A name you type is still saved into '
-                        'the first empty slot.'
+                  ? 'No LoRA files were listed by the connected app.'
                   : 'These are the LoRA files the connected app listed. '
-                        'A tap fills the first empty slot. The family is '
-                        'guessed from the file name.',
+                        'A tap fills the first empty slot.',
               style: TextStyle(
                 color: AppColors.textSecondary(context),
                 fontSize: 12,
@@ -158,32 +215,7 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
                       color: AppColors.iconSecondary(context),
                     ),
                   ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Slot ${i + 1}',
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                          fontSize: 12,
-                        ),
-                      ),
-                      Slider(
-                        value: _slots[i].weight.clamp(0.0, 1.0),
-                        onChanged: (value) {
-                          widget.onWeight?.call(i, value);
-                          setState(() {
-                            final next = [..._slots];
-                            next[i] = ImageGenLoraSlot(
-                              file: _slots[i].file,
-                              weight: value,
-                            );
-                            _slots = next;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
+                  subtitle: _slotStrength(context, i),
                 ),
             if (_slots.every((slot) => slot.file.trim().isEmpty))
               Padding(
@@ -193,14 +225,6 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
                   style: TextStyle(color: AppColors.textSecondary(context)),
                 ),
               ),
-            const SizedBox(height: 8),
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Search LoRAs',
-                isDense: true,
-              ),
-              onChanged: (value) => setState(() => _query = value),
-            ),
             if (full)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -213,87 +237,16 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
             Expanded(
               child: ListView(
                 children: [
-                  if (offerTyped)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        typed,
-                        style: TextStyle(color: AppColors.textPrimary(context)),
-                      ),
-                      subtitle: Text(
-                        'Use this name',
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                          fontSize: 12,
-                        ),
-                      ),
-                      enabled: !full,
-                      onTap: full ? null : () => _add(typed),
-                    ),
-                  if (matching.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
-                      child: Text(
-                        'Matches this model',
-                        style: TextStyle(
-                          color: AppColors.formMasterAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  for (final file in matching)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        file,
-                        style: TextStyle(
-                          color: AppColors.textPrimary(context),
-                          fontSize: 14,
-                        ),
-                      ),
-                      subtitle: Text(
-                        _fitLabel(file, primary),
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                          fontSize: 12,
-                        ),
-                      ),
-                      enabled: !full,
-                      onTap: full ? null : () => _add(file),
-                    ),
-                  if (other.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 12, 0, 4),
-                      child: Text(
-                        'Other bases',
-                        style: TextStyle(
-                          color: AppColors.formMasterAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  for (final file in other)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        file,
-                        style: TextStyle(
-                          color: AppColors.textPrimary(context),
-                          fontSize: 14,
-                        ),
-                      ),
-                      subtitle: Text(
-                        _fitLabel(file, primary),
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                          fontSize: 12,
-                        ),
-                      ),
-                      enabled: !full,
-                      onTap: full ? null : () => _add(file),
-                    ),
+                  if (matching.isNotEmpty) ...[
+                    _groupTitle(context, 'Matches this model'),
+                    for (final file in matching)
+                      _loraTile(context, file, primary, full),
+                  ],
+                  if (other.isNotEmpty) ...[
+                    _groupTitle(context, 'Other bases'),
+                    for (final file in other)
+                      _loraTile(context, file, primary, full),
+                  ],
                 ],
               ),
             ),
@@ -306,6 +259,28 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
           child: const Text('Close'),
         ),
       ],
+    );
+  }
+
+  Widget _loraTile(
+    BuildContext context,
+    String file,
+    ModelFamily primary,
+    bool full,
+  ) {
+    final blocked = full;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        file,
+        style: TextStyle(color: AppColors.textPrimary(context), fontSize: 14),
+      ),
+      subtitle: Text(
+        _fitLabel(file, primary),
+        style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12),
+      ),
+      enabled: !blocked,
+      onTap: blocked ? null : () => _add(file),
     );
   }
 

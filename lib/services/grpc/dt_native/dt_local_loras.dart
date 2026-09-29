@@ -121,6 +121,22 @@ Future<List<DrawThingsLoraEntry>> drawThingsLoraFilesIn(
   ];
 }
 
+/// Checkpoint weights sitting in the Models folder itself, not in `lora/`.
+Future<List<String>> drawThingsCheckpointFilesIn(Directory modelsDir) async {
+  if (!await modelsDir.exists()) return const [];
+  final names = <String>[];
+  await for (final entity in modelsDir.list(followLinks: false)) {
+    if (entity is! File) continue;
+    final base = p.basename(entity.path);
+    if (!_isWeight(base)) continue;
+    final lower = base.toLowerCase();
+    if (lower.contains('lora') || lower.contains('vae')) continue;
+    names.add(base);
+  }
+  names.sort();
+  return names;
+}
+
 bool _isWeight(String base) {
   final lower = base.toLowerCase();
   return lower.endsWith('.ckpt') ||

@@ -19,6 +19,7 @@ class StudioDeskFrame extends StatelessWidget {
     this.onExpressionPack,
     this.picture,
     required this.stove,
+    this.output,
     this.below,
   });
 
@@ -31,6 +32,10 @@ class StudioDeskFrame extends StatelessWidget {
   final VoidCallback? onExpressionPack;
   final Widget? picture;
   final Widget stove;
+
+  /// Finished picture. A wide desk puts it under Expression pack. A narrow
+  /// desk keeps it under the stove.
+  final Widget? output;
   final Widget? below;
 
   @override
@@ -38,6 +43,7 @@ class StudioDeskFrame extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 700;
+        final fill = wide && constraints.maxHeight.isFinite;
         final rail = _StudioRail(
           subject: subject,
           prompt: prompt,
@@ -47,7 +53,41 @@ class StudioDeskFrame extends StatelessWidget {
           packNote: packNote,
           onExpressionPack: onExpressionPack,
           picture: picture,
+          output: fill ? null : (wide ? output : null),
         );
+        if (fill) {
+          return Row(
+            key: const Key('studio-desk-wide'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 115,
+                child: SingleChildScrollView(
+                  primary: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      rail,
+                      if (output != null)
+                        KeyedSubtree(
+                          key: const Key('studio-desk-output'),
+                          child: output!,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 85,
+                child: SingleChildScrollView(primary: false, child: stove),
+              ),
+            ],
+          );
+        }
+        final narrowOutput = !wide && output != null
+            ? <Widget>[const SizedBox(height: 16), output!]
+            : const <Widget>[];
         final body = wide
             ? Row(
                 key: const Key('studio-desk-wide'),
@@ -61,7 +101,12 @@ class StudioDeskFrame extends StatelessWidget {
             : Column(
                 key: const Key('studio-desk-narrow'),
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [rail, const SizedBox(height: 16), stove],
+                children: [
+                  rail,
+                  const SizedBox(height: 16),
+                  stove,
+                  ...narrowOutput,
+                ],
               );
         if (below == null) return body;
         return Column(
@@ -83,6 +128,7 @@ class _StudioRail extends StatelessWidget {
     required this.packNote,
     required this.onExpressionPack,
     required this.picture,
+    required this.output,
   });
 
   final Widget? subject;
@@ -93,6 +139,7 @@ class _StudioRail extends StatelessWidget {
   final String packNote;
   final VoidCallback? onExpressionPack;
   final Widget? picture;
+  final Widget? output;
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +183,10 @@ class _StudioRail extends StatelessWidget {
             Text(packNote, style: TextStyle(color: secondary, fontSize: 12)),
           ],
         ),
+        if (output != null) ...[
+          const SizedBox(height: 12),
+          KeyedSubtree(key: const Key('studio-desk-output'), child: output!),
+        ],
       ],
     );
   }

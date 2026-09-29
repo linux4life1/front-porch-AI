@@ -90,6 +90,8 @@ extension ImageGenSettingsLoad on ImageGenSettings {
     );
     _comfyEditUploadedWorkflow =
         prefs?.getString(k('comfy_edit_uploaded_workflow')) ?? '';
+    _comfyEditUploadedTitle =
+        prefs?.getString(k('comfy_edit_uploaded_title')) ?? '';
     _comfyCreateWorkflowId =
         prefs?.getString(k('comfy_create_workflow_id')) ?? 'sd';
     _comfyCreateModelChoices = _decodeStringMap(
@@ -97,6 +99,8 @@ extension ImageGenSettingsLoad on ImageGenSettings {
     );
     _comfyCreateUploadedWorkflow =
         prefs?.getString(k('comfy_create_uploaded_workflow')) ?? '';
+    _comfyCreateUploadedTitle =
+        prefs?.getString(k('comfy_create_uploaded_title')) ?? '';
     loadImageRemotePrefs();
   }
 

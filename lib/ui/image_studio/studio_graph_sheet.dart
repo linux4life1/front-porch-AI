@@ -28,7 +28,12 @@ class StudioGraphSheet extends StatefulWidget {
   final List<DeskGraphChoice> otherRows;
   final String note;
   final ValueChanged<String> onPick;
-  final void Function(String json, {required bool forEdit})? onUpload;
+  final void Function(
+    String json, {
+    required bool forEdit,
+    required String name,
+  })?
+  onUpload;
   final void Function(String id, {required bool forEdit})? onUseOther;
 
   @override
@@ -39,6 +44,7 @@ class _StudioGraphSheetState extends State<StudioGraphSheet> {
   String _query = '';
   String _error = '';
   String? _pendingJson;
+  String _pendingName = '';
   String _pendingStance = '';
 
   Future<void> _chooseFile() async {
@@ -51,11 +57,12 @@ class _StudioGraphSheetState extends State<StudioGraphSheet> {
     if (!mounted) return;
     final bytes = await picked?.firstBytes();
     if (!mounted || bytes == null) return;
-    final name = picked!.files.first.name.toLowerCase();
+    final name = picked!.files.first.name;
     final json = workflowJsonFromBytes(bytes);
     if (json == null) {
+      final lower = name.toLowerCase();
       final png =
-          name.endsWith('.png') ||
+          lower.endsWith('.png') ||
           (bytes.length >= 4 && bytes[0] == 137 && bytes[1] == 80);
       setState(() {
         _error = png ? kStudioPngReject : kStudioFileReject;
@@ -66,13 +73,14 @@ class _StudioGraphSheetState extends State<StudioGraphSheet> {
     final stance = deskGraphStance(json);
     final current = widget.edit ? 'edit' : 'create';
     if (stance == current) {
-      widget.onUpload?.call(json, forEdit: widget.edit);
+      widget.onUpload?.call(json, forEdit: widget.edit, name: name);
       if (mounted) Navigator.of(context).pop();
       return;
     }
     setState(() {
       _error = '';
       _pendingJson = json;
+      _pendingName = name;
       _pendingStance = stance;
     });
   }
@@ -80,7 +88,7 @@ class _StudioGraphSheetState extends State<StudioGraphSheet> {
   void _useFile(bool forEdit) {
     final json = _pendingJson;
     if (json == null) return;
-    widget.onUpload?.call(json, forEdit: forEdit);
+    widget.onUpload?.call(json, forEdit: forEdit, name: _pendingName);
     Navigator.of(context).pop();
   }
 

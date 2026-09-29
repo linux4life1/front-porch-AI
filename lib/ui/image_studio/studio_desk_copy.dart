@@ -93,13 +93,21 @@ String studioWorkflowWhy({
   return 'Workflow · $task · $workflowId';
 }
 
-String studioReadyLine({required bool ready, String? blockedLora}) {
+String studioReadyLine({
+  required bool ready,
+  String? blockedLora,
+  String missing = '',
+}) {
   if (blockedLora != null && blockedLora.isNotEmpty && !ready) {
     return 'Not ready — LoRA architecture does not match $blockedLora.';
   }
   if (ready) return 'Ready to generate.';
+  if (missing.trim().isNotEmpty) return missing.trim();
   return 'Not ready.';
 }
+
+const String kStudioQwen21Encoder =
+    'Not ready — this model needs the Qwen3-VL 8B text encoder.';
 
 String studioLoraBadge(LoraCompat compat) {
   switch (compat) {
@@ -189,6 +197,20 @@ class StudioSupportRow {
         ),
   ];
   return (checkpointOnly: rows.isEmpty, rows: rows);
+}
+
+/// Names the encoder when Qwen-Image 2.1 has no Qwen3-VL 8B file chosen.
+String studioMissingEncoderLine({
+  required String primary,
+  required Iterable<StudioSupportRow> rows,
+}) {
+  if (!isQwenImage21(primary)) return '';
+  for (final row in rows) {
+    if (row.token.contains('CLIP') && row.file.trim().isEmpty) {
+      return kStudioQwen21Encoder;
+    }
+  }
+  return '';
 }
 
 /// Short quant mark for a model row. Empty when the name has none.

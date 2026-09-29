@@ -55,15 +55,6 @@ interface ImageConfig {
   comfyEditModelChoices?: Record<string, string>;
 }
 
-const STYLES: Record<string, string> = {
-  photorealistic: 'Photorealistic',
-  anime: 'Anime / Manga',
-  fantasy_art: 'Fantasy Art',
-  oil_painting: 'Oil Painting',
-  digital_art: 'Digital Art',
-  watercolor: 'Watercolor',
-};
-
 export function ImageGen({ onError }: { onError: (s: string) => void }) {
   const [cfg, setCfg] = useState<ImageConfig | null>(null);
   const [prompt, setPrompt] = useState('');
@@ -96,6 +87,10 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
       .then((st) => setTotpEnabled(!!st.totpEnabled))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setGenError('');
+  }, [cfg?.comfyCreateWorkflowId, cfg?.comfyEditWorkflowId, cfg?.model, cfg?.editModel]);
 
   if (!cfg) return null;
   const set = (patch: Partial<ImageConfig>) => setCfg({ ...cfg, ...patch });
@@ -197,19 +192,20 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         generateError={genError}
         busy={busy}
         watch={`${cfg.model}|${cfg.lora ?? ''}|${JSON.stringify(cfg.loras ?? [])}|${JSON.stringify(cfg.comfyCreateModelChoices ?? {})}|${cfg.imageRemoteHost ?? ''}`}
+        result={image ? (
+          <div className="image-result">
+            <img src={image} alt="Generated" />
+            <div className="image-result-actions">
+              <a className="help-link" href={image} download="generated.png">Download</a>
+              {filename && (
+                <button className="secondary" disabled={inserted} onClick={insertIntoChat}>
+                  {inserted ? 'Inserted ✓' : 'Insert into chat'}
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
       />
-      <label>
-        Art style
-        <select
-          value={STYLES[cfg.style] ? cfg.style : 'photorealistic'}
-          onChange={(e) => {
-            set({ style: e.target.value });
-            void saveConfig({ style: e.target.value });
-          }}
-        >
-          {Object.entries(STYLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-      </label>
       {cfg.backend === 'remote' && (
         <ImageRemoteFields
           selectedHostId={cfg.imageRemoteHost ?? ''}
@@ -266,19 +262,6 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           onChange={(e) => { set({ promptReview: e.target.checked }); void saveConfig({ promptReview: e.target.checked }); }}
         />
       </label>
-      {image && (
-        <div className="image-result">
-          <img src={image} alt="Generated" />
-          <div className="image-result-actions">
-            <a className="help-link" href={image} download="generated.png">Download</a>
-            {filename && (
-              <button className="secondary" disabled={inserted} onClick={insertIntoChat}>
-                {inserted ? 'Inserted ✓' : 'Insert into chat'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </section>
   );
 }

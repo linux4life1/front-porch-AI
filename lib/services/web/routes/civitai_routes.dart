@@ -7,6 +7,7 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/image/civitai_client.dart';
+import 'package:front_porch_ai/services/image/civitai_installed.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/web/middleware/auth_middleware.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
@@ -28,6 +29,8 @@ class CivitaiRoutes {
         ? CivitaiCredentialStore.open().then(CivitaiRelay.new)
         : Future<CivitaiRelay>.value(relay);
     router.get('/api/image/civitai/search', search);
+    router.get('/api/image/civitai/installed', installedFiles);
+    router.get('/api/image/civitai/credential', credentialStatus);
     router.post('/api/image/civitai/credential', saveCredential);
     router.delete('/api/image/civitai/credential', signOut);
     router.post('/api/image/civitai/download', download);
@@ -88,7 +91,13 @@ class CivitaiRoutes {
     }
     final kind = civitaiHttpKind(response.statusCode);
     if (kind == CivitaiHttpKind.needsCredential) {
-      return JsonResponse.unauthorized('CivitAI needs your API key');
+      return JsonResponse.unauthorized(
+        civitaiSearchNote(
+          kind: kind,
+          hadKey: plan.authorization != null,
+          rows: 0,
+        ),
+      );
     }
     if (kind == CivitaiHttpKind.locked) {
       return JsonResponse.forbidden('CivitAI refused this search');
@@ -115,6 +124,48 @@ class CivitaiRoutes {
       ],
       'needsCredential': false,
     });
+  }
+
+  Future<shelf.Response> installedFiles(shelf.Request request) async {
+    final account = _account(request);
+    if (account == null) {
+      return JsonResponse.unauthorized('Authentication required');
+    }
+    final backend = request.url.queryParameters['backend'] ?? '';
+    final root = await _savedRoot(backend);
+    if (root == null || root.trim().isEmpty) {
+      return JsonResponse.ok({
+        'bases': <String>[],
+        'models': <String>[],
+        'loras': <String>[],
+      });
+    }
+    final models = await civitaiSlotNames(
+      root: root,
+      backend: backend,
+      lora: false,
+    );
+    final loras = await civitaiSlotNames(
+      root: root,
+      backend: backend,
+      lora: true,
+    );
+    return JsonResponse.ok({
+      'bases': await civitaiInstalledBases(root: root, backend: backend),
+      'models': models,
+      'loras': loras,
+    });
+  }
+
+  Future<shelf.Response> credentialStatus(shelf.Request request) async {
+    final account = _account(request);
+    if (account == null) {
+      return JsonResponse.unauthorized('Authentication required');
+    }
+    final relay = _relay ?? await _ready;
+    final green = await relay.store.read(account);
+    final red = await relay.store.readRed(account);
+    return JsonResponse.ok({'saved': green != null, 'red': red != null});
   }
 
   Future<shelf.Response> saveCredential(shelf.Request request) async {
@@ -158,6 +209,13 @@ class CivitaiRoutes {
     }
     final backend = body['backend']?.toString() ?? '';
     final savedRoot = await _savedRoot(backend);
+    if (backend == 'comfyui' &&
+        (savedRoot == null || savedRoot.trim().isEmpty) &&
+        await comfyStudioIsRemote()) {
+      return JsonResponse.badRequest(
+        'This ComfyUI is on another computer. Save the download on that computer.',
+      );
+    }
     final blocked = civitaiBlockedDownload(
       backend: backend,
       savedRoot: savedRoot,
@@ -176,7 +234,9 @@ class CivitaiRoutes {
     );
     debugPrint(plan.log);
     if (plan.refused || plan.path == null) {
-      return JsonResponse.badRequest('CivitAI download was refused');
+      return JsonResponse.badRequest(
+        plan.reason.isEmpty ? 'CivitAI download was refused' : plan.reason,
+      );
     }
     final start = _startDownload;
     if (start == null) {

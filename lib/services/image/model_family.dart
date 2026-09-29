@@ -103,6 +103,13 @@ class LoraOption {
   const LoraOption(this.name, this.family, {this.familyFromMetadata = false});
 }
 
+/// Qwen-Image 2.1. The December 2512 update and Qwen2.5 encoders stay 1.0.
+bool isQwenImage21(String name) {
+  final s = name.toLowerCase();
+  if (!s.contains('qwen')) return false;
+  return s.contains('2.1') || s.contains('2_1');
+}
+
 /// Pure detection + compatibility statics. No state, no I/O.
 class ImageModelFamily {
   ImageModelFamily._();

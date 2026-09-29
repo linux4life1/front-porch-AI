@@ -85,11 +85,13 @@ class ImageFacade {
       'comfyCreateUploadedWorkflow': img.comfyCreateUploadedWorkflow
           .trim()
           .isNotEmpty,
+      'comfyCreateUploadedTitle': img.comfyCreateUploadedTitle,
       'comfyEditWorkflowId': img.comfyEditWorkflowId,
       'comfyEditModelChoices': img.comfyEditModelChoices,
       'comfyEditUploadedWorkflow': img.comfyEditUploadedWorkflow
           .trim()
           .isNotEmpty,
+      'comfyEditUploadedTitle': img.comfyEditUploadedTitle,
       'comfyEditPresets': [
         for (final preset in kComfyEditPresets)
           {
@@ -156,6 +158,7 @@ class ImageFacade {
       'textEncoders': cat.textEncoders,
       'vaes': cat.vaes,
       'loras': cat.loras,
+      'loraFacts': phoneLoraFacts(options: await _image.fetchComfyLoras(url)),
       'createDiscovery': cat.createDiscovery,
       'deskDiscovery': cat.deskDiscovery,
       'templates': [
@@ -364,11 +367,13 @@ class ImageFacade {
     if (f['comfyCreateUploadedWorkflow'] is String) {
       await img.setComfyCreateUploadedWorkflow(
         f['comfyCreateUploadedWorkflow'] as String,
+        title: f['comfyCreateUploadedTitle']?.toString() ?? '',
       );
     }
     if (f['comfyEditUploadedWorkflow'] is String) {
       await img.setComfyEditUploadedWorkflow(
         f['comfyEditUploadedWorkflow'] as String,
+        title: f['comfyEditUploadedTitle']?.toString() ?? '',
       );
     }
     if (f['comfyEditWorkflowId'] is String) {

@@ -61,7 +61,7 @@ void main() {
     )!;
     expect(adult.host, 'civitai.red');
     expect(adult.queryParameters['nsfw'], 'true');
-    expect(adult.queryParameters['browsingLevel'], '31');
+    expect(adult.queryParameters.containsKey('browsingLevel'), isFalse);
     expect(adult.queryParameters['types'], 'LORA');
     expect(adult.toString().contains('token'), isFalse);
     final pg = civitaiModelsUri(
@@ -258,7 +258,7 @@ void main() {
     final missingBody = jsonDecode(await missing.readAsString()) as Map;
     expect(
       missingBody['error'],
-      'CivitAI downloads are for ComfyUI and Automatic1111',
+      'Draw Things models folder was not found on this Mac',
     );
   });
 }

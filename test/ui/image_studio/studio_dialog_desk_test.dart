@@ -131,7 +131,7 @@ void main() {
     await tester.tap(find.textContaining('Advanced ▸'));
     await tester.pump();
     expect(find.textContaining('Advanced ▾'), findsOneWidget);
-    expect(find.text('Change graph'), findsOneWidget);
+    expect(find.text('Change graph'), findsNothing);
     expect(find.textContaining('Advanced ▸'), findsNothing);
     expect(find.text('Steps'), findsOneWidget);
     expect(find.text('CFG'), findsOneWidget);
@@ -168,20 +168,8 @@ void main() {
     expect(fieldText(tester, const Key('studio-width')), '320');
     expect(fieldText(tester, const Key('studio-height')), '512');
 
-    await show(tester, find.text('Change graph'));
-    await tester.tap(find.text('Change graph'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Change graph — Create'), findsOneWidget);
-    expect(find.text(kStudioDropCopy), findsOneWidget);
-    expect(find.text('JSON, or a PNG from Comfy’s Save.'), findsOneWidget);
-    expect(find.text('Z-Image Turbo'), findsOneWidget);
-    expect(find.text('Text to image graphs'), findsOneWidget);
-    expect(find.text('Choose file'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Generate'), findsOneWidget);
 
-    await tester.tap(find.text('Close').last);
-    await tester.pump();
     await show(tester, find.text('Change model'));
     await tester.tap(find.text('Change model'));
     await tester.pump();
@@ -192,13 +180,25 @@ void main() {
     await show(tester, find.text('Get a model from CivitAI'));
     await tester.tap(find.text('Get a model from CivitAI'));
     await tester.pump();
-    expect(find.text('On this computer'), findsOneWidget);
-    expect(find.text('CivitAI'), findsWidgets);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Get a model from CivitAI'), findsWidgets);
+    expect(find.text('On this computer'), findsNothing);
     expect(find.text('Include adult models from civitai.red'), findsOneWidget);
     expect(find.text('API key'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('studio-civitai-base')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Flux.1 Kontext'), findsOneWidget);
+    expect(find.text('Flux.2 Klein 9B'), findsOneWidget);
+    expect(find.text('Qwen 2.1'), findsOneWidget);
+    expect(find.text('Qwen-Image, 2512, and Image Edit'), findsOneWidget);
+    expect(find.text('Wan Video'), findsNothing);
+    await tester.tap(find.text('Flux.1 Dev').last);
+    await tester.pump();
     expect(find.text('CivitAI sign-in'), findsNothing);
     await tester.tap(find.text('Close').last);
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await show(tester, find.text('change this portrait'));
     await tester.tap(find.text('change this portrait'));
     await tester.pump();
@@ -220,7 +220,32 @@ void main() {
         await storage.imageGenSettings.setComfyCreateWorkflowId('sd');
       },
     );
-    expect(find.text('Change graph'), findsNothing);
+    expect(find.text('Change graph'), findsOneWidget);
+    await show(tester, find.text('Change graph'));
+    await tester.tap(find.text('Change graph'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Change graph — Create'), findsOneWidget);
+    expect(find.text(kStudioDropCopy), findsOneWidget);
+    expect(find.text('JSON, or a PNG from Comfy’s Save.'), findsOneWidget);
+    expect(find.text('Text to image graphs'), findsOneWidget);
+    expect(find.text('Flux / Schnell / Krea'), findsOneWidget);
+    expect(find.text('Qwen-Image'), findsOneWidget);
+    expect(find.text('SD / SDXL / Pony / Illustrious'), findsOneWidget);
+    expect(find.text('Text to image · flux'), findsOneWidget);
+    expect(find.text('Text to image · qwen_image'), findsOneWidget);
+    expect(find.text('Text to image · sd'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Z-Image Turbo'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Z-Image Turbo'), findsOneWidget);
+    expect(find.text('Text to image · z_image_turbo'), findsOneWidget);
+    expect(find.text('Choose file'), findsOneWidget);
+    await tester.tap(find.text('Close').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await show(tester, find.text('Change model'));
     await tester.tap(find.text('Change model'));
     await tester.pump();
@@ -241,6 +266,29 @@ void main() {
     );
   });
 
+  testWidgets('a saved GGUF file leaves the checkpoint graph on its own', (
+    tester,
+  ) async {
+    await pumpDesk(
+      tester,
+      const Size(1040, 1600),
+      prepare: (storage) async {
+        await storage.imageGenSettings.setImageGenBackend('comfyui');
+        await storage.imageGenSettings.setComfyCreateWorkflowId('sd');
+        await storage.imageGenSettings.setImageGenModel(
+          'z_image_turbo_q8.gguf',
+        );
+      },
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(
+      find.text('Workflow · GGUF · chosen for this file · z_image_turbo'),
+      findsOneWidget,
+    );
+    expect(find.text('A GGUF file needs a diffusion graph.'), findsNothing);
+  });
+
   testWidgets('Draw Things hides the text encoder and VAE', (tester) async {
     await pumpDesk(
       tester,
@@ -255,6 +303,7 @@ void main() {
     expect(find.text('This graph also loads'), findsNothing);
     expect(find.text('Text encoder'), findsNothing);
     expect(find.text('VAE'), findsNothing);
+    expect(find.text('Change graph'), findsNothing);
     await show(tester, find.textContaining('Advanced ▸'));
     await tester.tap(find.textContaining('Advanced ▸'));
     await tester.pump();

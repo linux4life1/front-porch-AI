@@ -128,3 +128,15 @@ ImageSubmitError? parseComfyHistoryError(String url, Object? statusMessages) {
   }
   return null;
 }
+
+/// Sentence for a history entry whose `status_str` is `error`.
+/// Empty when [status] is not that failure.
+String comfyHistoryFailureMessage(String url, Object? status) {
+  if (status is! Map || status['status_str'] != 'error') return '';
+  final parsed = parseComfyHistoryError(url, status['messages']);
+  if (parsed == null || parsed.message.trim().isEmpty) {
+    return 'ComfyUI reported an error — check the model name and its '
+        'server console.';
+  }
+  return parsed.banner;
+}

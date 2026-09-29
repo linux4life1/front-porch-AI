@@ -25,10 +25,12 @@ class StudioCivitaiCard extends StatelessWidget {
     required this.busy,
     required this.onOpen,
     required this.onDownload,
+    this.installed = false,
   });
 
   final CivitaiModelRow row;
   final bool busy;
+  final bool installed;
   final VoidCallback onOpen;
   final VoidCallback onDownload;
 
@@ -43,80 +45,89 @@ class StudioCivitaiCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.borderOf(context)),
         ),
-        child: InkWell(
-          onTap: onOpen,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 88,
-                    height: 88,
-                    child: preview == null
-                        ? ColoredBox(
-                            color: AppColors.surfaceOf(context),
-                            child: Icon(
-                              Icons.image_outlined,
-                              color: AppColors.iconSecondary(context),
-                            ),
-                          )
-                        : Image.network(
-                            preview,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stack) => ColoredBox(
-                              color: AppColors.surfaceOf(context),
-                              child: Icon(
-                                Icons.image_outlined,
-                                color: AppColors.iconSecondary(context),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: onOpen,
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          width: 88,
+                          height: 88,
+                          child: preview == null
+                              ? ColoredBox(
+                                  color: AppColors.surfaceOf(context),
+                                  child: Icon(
+                                    Icons.image_outlined,
+                                    color: AppColors.iconSecondary(context),
+                                  ),
+                                )
+                              : Image.network(
+                                  preview,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stack) =>
+                                      ColoredBox(
+                                        color: AppColors.surfaceOf(context),
+                                        child: Icon(
+                                          Icons.image_outlined,
+                                          color: AppColors.iconSecondary(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              row.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.textPrimary(context),
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        row.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.textPrimary(context),
-                          fontWeight: FontWeight.w700,
+                            const SizedBox(height: 4),
+                            Text(
+                              studioDownloadCount(row.downloads),
+                              style: TextStyle(
+                                color: AppColors.textSecondary(context),
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (row.filename != null)
+                              Text(
+                                row.filename!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                  fontSize: 11,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        studioDownloadCount(row.downloads),
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                          fontSize: 12,
-                        ),
-                      ),
-                      if (row.filename != null)
-                        Text(
-                          row.filename!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppColors.textSecondary(context),
-                            fontSize: 11,
-                          ),
-                        ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: busy ? null : onDownload,
-                  child: const Text('Download'),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: busy ? null : onDownload,
+                child: Text(installed ? 'Installed' : 'Download'),
+              ),
+            ],
           ),
         ),
       ),

@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
+import 'package:front_porch_ai/services/image/civitai_installed.dart';
+import 'package:front_porch_ai/services/image/comfy_create_presets.dart';
+import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
 import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
@@ -49,7 +52,6 @@ class StudioDesk extends StatefulWidget {
   /// A backend refusal from the last generate, shown on the stove.
   final String errorText;
 
-  /// True while a generate is running. Shown beside Generate, not as an error.
   final bool generating;
 
   /// Fired when readiness flips. The Edit tab uses this to block Apply.
@@ -85,93 +87,57 @@ class _StudioDeskState extends State<StudioDesk> {
     _refreshCatalog(settings);
   }
 
-  Future<void> _refreshCatalog(
-    ImageGenSettings settings, {
-    bool force = false,
-  }) async {
-    if (settings.imageGenBackend == 'a1111' ||
-        settings.imageGenBackend == 'drawthings') {
-      final url = settings.imageGenBackend == 'a1111'
-          ? settings.localImageGenUrl
-          : '${settings.drawThingsGrpcHost}:${settings.drawThingsGrpcPort}';
-      if (!force && _catalogUrl == url) return;
-      _catalogUrl = url;
-      ImageGenService? gen;
-      try {
-        gen = context.read<ImageGenService>();
-      } on ProviderNotFoundException {
-        gen = null;
-      }
-      if (gen == null) return;
-      final models = settings.imageGenBackend == 'a1111'
-          ? await gen.fetchA1111Models(url)
-          : await gen.fetchDrawThingsModels(url);
-      if (!mounted) return;
-      setState(() {
-        _objectInfo = null;
-        _models = models;
-        _checkpoints = const [];
-        _unet = const [];
-        _gguf = const [];
-        _loras = const [];
-        _clips = const [];
-        _vaes = const [];
-      });
-      return;
-    }
-    if (settings.imageGenBackend != 'comfyui') {
-      if (_catalogUrl != null || _models.isNotEmpty) {
-        setState(() {
-          _objectInfo = null;
-          _models = const [];
-          _checkpoints = const [];
-          _unet = const [];
-          _gguf = const [];
-          _loras = const [];
-          _clips = const [];
-          _vaes = const [];
-          _catalogUrl = null;
-        });
-      }
-      return;
-    }
-    final url = settings.comfyUiUrl;
-    if (!force && _catalogUrl == url) return;
-    _catalogUrl = url;
-    final service = ComfyUiService(baseUrl: url);
-    final info = await service.fetchObjectInfo();
-    final catalog = info == null ? null : await service.fetchCatalog();
-    if (!mounted) return;
+  void _applyCatalog({
+    Map<String, dynamic>? info,
+    List<String> models = const [],
+    List<String> checkpoints = const [],
+    List<String> unet = const [],
+    List<String> gguf = const [],
+    List<String> loras = const [],
+    List<String> clips = const [],
+    List<String> vaes = const [],
+    String? url,
+  }) {
     setState(() {
       _objectInfo = info;
-      _models = catalog?.deskDiscovery ?? const [];
-      _checkpoints = catalog?.checkpoints ?? const [];
-      _unet = catalog?.diffusionModels ?? const [];
-      _gguf = catalog?.ggufUnets ?? const [];
-      _loras = catalog?.loras ?? const [];
-      _clips = catalog?.textEncoders ?? const [];
-      _vaes = catalog?.vaes ?? const [];
+      _models = models;
+      _checkpoints = checkpoints;
+      _unet = unet;
+      _gguf = gguf;
+      _loras = loras;
+      _clips = clips;
+      _vaes = vaes;
+      _catalogUrl = url;
     });
-    await _readLoraFacts(settings, service);
   }
 
-  Future<void> _readLoraFacts(
-    ImageGenSettings settings,
-    ComfyUiService service,
-  ) async {
-    final checks = await deskLoraChecks(settings: settings, comfy: service);
-    if (!mounted) return;
-    await saveLoraFacts(settings, checks);
-    if (!mounted) return;
-    setState(() => _loraFacts = {for (final row in checks) row.file: row});
+  void _rememberLoraFacts(Map<String, DeskLoraCheck> facts) {
+    setState(() => _loraFacts = facts);
   }
 
-  void _report(bool ready) {
-    if (_reportedReady == ready) return;
-    _reportedReady = ready;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.onReadyChanged?.call(ready);
+  void _showInstalledFiles({
+    required List<String> checkpoints,
+    required List<String> unet,
+    required List<String> gguf,
+    required List<String> loras,
+  }) {
+    setState(() {
+      _checkpoints = checkpoints;
+      _unet = unet;
+      _gguf = gguf;
+      _loras = loras;
     });
+  }
+
+  Future<List<String>> _listedA1111Models(ImageGenService gen, String url) {
+    return gen.fetchA1111Models(url);
+  }
+
+  Future<List<String>> _listedDrawThingsModels(
+    ImageGenService gen,
+    String url,
+  ) {
+    return gen.fetchDrawThingsModels(url);
   }
 
   @override
@@ -258,7 +224,9 @@ class _StudioDeskState extends State<StudioDesk> {
       workflowId: workflowId,
       primaryFile: primary,
       uploaded: uploadedGraph,
-      uploadedTitle: 'workflow',
+      uploadedTitle: editing
+          ? settings.comfyEditUploadedTitle
+          : settings.comfyCreateUploadedTitle,
       uploadedNodes: uploadedNodes,
     );
     final support = backend == 'drawthings'
@@ -294,7 +262,10 @@ class _StudioDeskState extends State<StudioDesk> {
               storage: context.read<StorageService>(),
             )
           : null,
-      reachable: backend == 'comfyui' && _objectInfo != null,
+      reachable: backend == 'comfyui'
+          ? _objectInfo != null
+          : (_catalogUrl ?? '').startsWith('up:'),
+      checkedDown: (_catalogUrl ?? '').startsWith('down:'),
       diffusionCount: _unet.length + _gguf.length,
       loraCount: _loras.length,
       familyLabel: primary.isEmpty
@@ -371,13 +342,16 @@ class _StudioDeskState extends State<StudioDesk> {
       readyLine: studioReadyLine(
         ready: enabled,
         blockedLora: ready.kind == StudioReady.loraMismatch ? primary : null,
+        missing: ready.kind == StudioReady.missingFile
+            ? studioMissingEncoderLine(primary: primary, rows: support.rows)
+            : '',
       ),
       generateEnabled: enabled,
       onGenerate: widget.onGenerate,
       showGenerate: widget.showGenerate,
       errorText: widget.errorText,
       generating: widget.generating,
-      onRetry: ready.kind == StudioReady.unreachable ? _retryCatalog : null,
+      onRetry: _retryCatalog,
       showModes: widget.editMode == null,
       editing: editing,
       onMode: (value) => setState(() => _edit = value),
@@ -387,7 +361,10 @@ class _StudioDeskState extends State<StudioDesk> {
 
   void _retryCatalog() {
     setState(() => _catalogUrl = null);
-    _refreshCatalog(context.read<StorageService>().imageGenSettings);
+    _refreshCatalog(
+      context.read<StorageService>().imageGenSettings,
+      force: true,
+    );
   }
 
   String _url(ImageGenSettings settings) {

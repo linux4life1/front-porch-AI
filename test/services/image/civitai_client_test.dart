@@ -67,7 +67,7 @@ void main() {
         filename: 'style.safetensors',
         backend: 'drawthings',
       ),
-      isNull,
+      'lora',
     );
   });
 

@@ -221,7 +221,7 @@ String workflowForModel({required bool edit, required String file}) {
     case ModelFamily.kontext:
       return 'flux';
     case ModelFamily.qwen:
-      return 'qwen_image';
+      return isQwenImage21(file) ? 'qwen_image_21' : 'qwen_image';
     case ModelFamily.sd15:
     case ModelFamily.sdxl:
     case ModelFamily.pony:

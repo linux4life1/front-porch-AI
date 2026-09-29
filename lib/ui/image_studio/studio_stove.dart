@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'studio_desk_copy.dart';
+import 'studio_gen_progress.dart';
 import 'studio_size_fields.dart';
+import 'studio_size_pill.dart';
 import 'studio_stove_knobs.dart';
 
 /// One LoRA sitting on the stove, with the badge the family check earned.
@@ -29,11 +31,9 @@ class StudioStove extends StatefulWidget {
     required this.onEditUrl,
     this.remoteNote,
     this.reachable = false,
+    this.checkedDown = false,
     this.diffusionCount = 0,
     this.loraCount = 0,
-    this.neighborUrl = '',
-    this.savedUrl = '',
-    this.onUseNeighbor,
     required this.familyLabel,
     required this.primaryFile,
     required this.why,
@@ -82,11 +82,9 @@ class StudioStove extends StatefulWidget {
   final VoidCallback onEditUrl;
   final Widget? remoteNote;
   final bool reachable;
+  final bool checkedDown;
   final int diffusionCount;
   final int loraCount;
-  final String neighborUrl;
-  final String savedUrl;
-  final VoidCallback? onUseNeighbor;
   final String familyLabel;
   final String primaryFile;
   final String why;
@@ -157,7 +155,6 @@ class _StudioStoveState extends State<StudioStove> {
           children: [
             if (widget.showModes) _modes(context),
             _connection(context, primary, secondary),
-            if (widget.neighborUrl.isNotEmpty) _neighbor(context),
             const SizedBox(height: 12),
             Text(
               'Model',
@@ -177,6 +174,11 @@ class _StudioStoveState extends State<StudioStove> {
             Wrap(
               spacing: 4,
               children: [
+                if (widget.backend == 'comfyui')
+                  TextButton(
+                    onPressed: widget.onGraphs,
+                    child: const Text('Change graph'),
+                  ),
                 TextButton(
                   onPressed: widget.onModels,
                   child: const Text('Change model'),
@@ -193,11 +195,6 @@ class _StudioStoveState extends State<StudioStove> {
                 spacing: 8,
                 children: [
                   Text(widget.status, style: TextStyle(color: primary)),
-                  if (widget.onRetry != null)
-                    TextButton(
-                      onPressed: widget.onRetry,
-                      child: const Text('Try again'),
-                    ),
                 ],
               ),
             if (widget.checkpointOnly)
@@ -276,12 +273,15 @@ class _StudioStoveState extends State<StudioStove> {
               ),
             ),
             Wrap(
-              spacing: 4,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 for (final chip in kStudioSizeChips)
-                  TextButton(
+                  StudioSizePill(
+                    label: chip.$3,
+                    selected:
+                        chip.$1 == widget.width && chip.$2 == widget.height,
                     onPressed: () => widget.onSize(chip.$1, chip.$2),
-                    child: Text(chip.$3),
                   ),
               ],
             ),
@@ -305,13 +305,6 @@ class _StudioStoveState extends State<StudioStove> {
               ),
             ),
             if (_open) ...[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: widget.onGraphs,
-                  child: const Text('Change graph'),
-                ),
-              ),
               StudioStoveKnobs(
                 drawThings: widget.drawThings,
                 drawThingsSampler: widget.drawThingsSampler,
@@ -344,11 +337,7 @@ class _StudioStoveState extends State<StudioStove> {
                   ),
               ],
             ),
-            if (widget.generating)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('Generating…', style: TextStyle(color: secondary)),
-              ),
+            if (widget.generating) const StudioGenProgress(),
             if (widget.errorText.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -411,6 +400,16 @@ class _StudioStoveState extends State<StudioStove> {
                 Text(
                   'Reachable · ${widget.diffusionCount} diffusion files · ${widget.loraCount} LoRAs',
                   style: TextStyle(color: secondary, fontSize: 12),
+                )
+              else if (widget.backend == 'comfyui' || (widget.checkedDown))
+                Text(
+                  'Not running',
+                  style: TextStyle(color: secondary, fontSize: 12),
+                ),
+              if (widget.onRetry != null)
+                TextButton(
+                  onPressed: widget.onRetry,
+                  child: const Text('Check'),
                 ),
             ],
           ),
@@ -429,26 +428,6 @@ class _StudioStoveState extends State<StudioStove> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _neighbor(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 4,
-        children: [
-          Text(
-            'Another ComfyUI answered on ${widget.neighborUrl}. Generate will use ${widget.savedUrl}.',
-            style: TextStyle(color: AppColors.textSecondary(context)),
-          ),
-          TextButton(
-            onPressed: widget.onUseNeighbor,
-            child: Text('Use ${Uri.tryParse(widget.neighborUrl)?.port ?? ''}'),
-          ),
-        ],
-      ),
     );
   }
 

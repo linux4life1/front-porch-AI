@@ -14,22 +14,23 @@ void main() {
     );
   }
 
-  test('civitai.red uses its own key when one is saved', () async {
+  test('adult search uses the same key on civitai.red', () async {
     final box = <String, String>{};
     final store = memory(box);
     await store.save('local', 'green-key');
     await store.saveRed('local', 'red-key');
-    expect(box['civitai_credential_local_red'], 'red-key');
     final relay = CivitaiRelay(store);
     final search = await relay.planSearch(
       accountId: 'local',
       query: 'Clothes',
       adult: true,
       lora: true,
-      baseModel: 'SD 3.5',
+      baseModel: 'Flux.1 Kontext',
     );
-    expect(search.authorization, 'Bearer red-key');
-    expect(search.uri!.queryParameters['baseModels'], 'SD 3.5');
+    expect(search.authorization, 'Bearer green-key');
+    expect(search.uri!.queryParameters['nsfw'], 'true');
+    expect(search.uri!.queryParameters.containsKey('browsingLevel'), isFalse);
+    expect(search.uri!.queryParameters['baseModels'], 'Flux.1 Kontext');
     expect(search.uri!.queryParameters['query'], 'Clothes');
     expect(search.uri!.queryParameters['types'], 'LORA');
     expect(search.uri!.host, 'civitai.red');

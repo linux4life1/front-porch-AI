@@ -4,12 +4,15 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:front_porch_ai/services/image/civitai_bases.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
 import 'package:front_porch_ai/services/image/civitai_fetch.dart';
+import 'package:front_porch_ai/services/image/civitai_installed.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
+import 'studio_civitai_base.dart';
 import 'studio_civitai_card.dart';
 import 'studio_civitai_detail.dart';
 
@@ -22,22 +25,16 @@ class StudioCivitaiGet extends StatefulWidget {
     required this.adult,
     required this.backend,
     required this.onInstalled,
-    this.localFiles = const [],
-    this.onPickLocal,
     this.onAdultChanged,
     this.onSaveKey,
-    this.onSaveRedKey,
   });
 
   final bool lora;
   final bool adult;
   final String backend;
   final ValueChanged<String> onInstalled;
-  final List<String> localFiles;
-  final ValueChanged<String>? onPickLocal;
   final ValueChanged<bool>? onAdultChanged;
   final Future<String?> Function(String token)? onSaveKey;
-  final Future<String?> Function(String token)? onSaveRedKey;
 
   @override
   State<StudioCivitaiGet> createState() => _StudioCivitaiGetState();
@@ -46,33 +43,133 @@ class StudioCivitaiGet extends StatefulWidget {
 class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   final TextEditingController _query = TextEditingController();
   final TextEditingController _token = TextEditingController();
-  final TextEditingController _red = TextEditingController();
   String _base = '';
+  String _baseQuery = '';
+  bool _installedOnly = false;
+  List<String> _modelFiles = const [];
+  List<String> _localNames = const [];
+  bool _scanning = true;
   List<CivitaiModelRow> _rows = const [];
   String? _error;
   bool _busy = false;
   bool _needFolder = false;
-  bool _onComputer = false;
+  bool _greenEdited = false;
+  bool _greenSaved = false;
+  String? _progressName;
+  int _got = 0;
+  int? _total;
   late bool _adult = widget.adult;
 
   @override
+  void initState() {
+    super.initState();
+    _loadKeys();
+    _noteFolder();
+  }
+
+  Future<void> _noteFolder() async {
+    if (widget.backend == 'comfyui' && await comfyStudioIsRemote()) {
+      if (!mounted) return;
+      setState(() {
+        _error =
+            'This ComfyUI is on another computer. Save the download on that computer.';
+        _needFolder = false;
+        _scanning = false;
+      });
+      return;
+    }
+    final root = await savedStudioModelRoot(widget.backend);
+    if (!mounted) return;
+    final blocked = civitaiBlockedDownload(
+      backend: widget.backend,
+      savedRoot: root,
+    );
+    final models = root == null || root.trim().isEmpty
+        ? const <String>[]
+        : await civitaiSlotNames(
+            root: root,
+            backend: widget.backend,
+            lora: false,
+          );
+    final local = root == null || root.trim().isEmpty
+        ? const <String>[]
+        : await civitaiSlotNames(
+            root: root,
+            backend: widget.backend,
+            lora: widget.lora,
+          );
+    if (!mounted) return;
+    setState(() {
+      _modelFiles = models;
+      _localNames = local;
+      _scanning = false;
+      if (blocked != null) {
+        _error = blocked;
+        _needFolder = widget.backend == 'comfyui' || widget.backend == 'a1111';
+      }
+    });
+  }
+
+  String _selectedBase() {
+    final groups = filterCivitaiBaseGroups(
+      kCivitaiBaseGroups,
+      query: _baseQuery,
+      onlyApis: _installedOnly ? civitaiBasesForFiles(_modelFiles) : null,
+    );
+    for (final group in groups) {
+      for (final choice in group.choices) {
+        if (choice.api == _base) return _base;
+      }
+    }
+    return '';
+  }
+
+  Future<void> _loadKeys() async {
+    final store = await CivitaiCredentialStore.open();
+    final green = await store.read('local');
+    if (!mounted) return;
+    setState(() {
+      if (!_greenEdited) _greenSaved = green != null;
+    });
+  }
+
+  @override
   void dispose() {
+    final green = _token.text.trim();
+    if (green.isNotEmpty) {
+      CivitaiCredentialStore.open().then((store) async {
+        await store.save('local', green);
+      });
+    }
     _query.dispose();
     _token.dispose();
-    _red.dispose();
     super.dispose();
   }
 
-  Future<void> _saveKey() async {
+  Future<String?> _saveKey() async {
     String? error;
     final green = _token.text.trim();
-    final red = _red.text.trim();
-    if (green.isNotEmpty) error = await widget.onSaveKey?.call(green);
-    if (red.isNotEmpty) {
-      error ??= await widget.onSaveRedKey?.call(red);
+    try {
+      final store = await CivitaiCredentialStore.open();
+      if (green.isNotEmpty) {
+        await store.save('local', green);
+        _greenSaved = true;
+        _greenEdited = false;
+        _token.clear();
+      } else if (_greenEdited) {
+        await store.signOut('local');
+        _greenSaved = false;
+      }
+    } catch (e) {
+      debugPrint('civitai key save failed: ${e.runtimeType}');
+      error = 'Could not save the CivitAI key.';
     }
-    if (!mounted) return;
-    if (error != null) setState(() => _error = error);
+    if (green.isNotEmpty) error ??= await widget.onSaveKey?.call(green);
+    if (!mounted) return error;
+    setState(() {
+      if (error != null) _error = error;
+    });
+    return error;
   }
 
   Future<void> _search() async {
@@ -82,18 +179,25 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       _needFolder = false;
     });
     try {
+      final saveError = await _saveKey();
+      if (saveError != null) return;
+      final hadKey = _greenSaved;
       final relay = CivitaiRelay(await CivitaiCredentialStore.open());
       final plan = await relay.planSearch(
         accountId: 'local',
         query: _query.text.trim(),
         adult: _adult,
         lora: widget.lora,
-        baseModel: _base,
+        baseModel: _selectedBase(),
       );
       if (plan.needsCredential || plan.uri == null) {
         setState(() {
           _rows = const [];
-          _error = 'Paste an API key to search adult models.';
+          _error = civitaiSearchNote(
+            kind: CivitaiHttpKind.needsCredential,
+            hadKey: hadKey,
+            rows: 0,
+          );
         });
         return;
       }
@@ -106,21 +210,17 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
             },
           )
           .timeout(const Duration(seconds: 20));
-      final kind = civitaiHttpKind(response.statusCode);
-      if (kind == CivitaiHttpKind.needsCredential) {
-        setState(() => _error = 'CivitAI needs your API key.');
-        return;
-      }
-      if (kind == CivitaiHttpKind.locked) {
-        setState(() => _error = 'CivitAI refused this search.');
-        return;
-      }
-      if (kind != CivitaiHttpKind.ok) {
-        setState(() => _error = 'CivitAI search failed.');
-        return;
-      }
+      final rows = civitaiHttpKind(response.statusCode) == CivitaiHttpKind.ok
+          ? parseCivitaiModels(response.body, includeAdult: _adult)
+          : const <CivitaiModelRow>[];
+      final note = civitaiSearchNote(
+        kind: civitaiHttpKind(response.statusCode),
+        hadKey: hadKey || plan.authorization != null,
+        rows: rows.length,
+      );
       setState(() {
-        _rows = parseCivitaiModels(response.body, includeAdult: widget.adult);
+        _rows = rows;
+        _error = note.isEmpty ? null : note;
       });
     } catch (e) {
       debugPrint('civitai search failed: ${e.runtimeType}');
@@ -146,15 +246,18 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   }
 
   void _openDetail(CivitaiModelRow row) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StudioCivitaiDetail(
-        row: row,
-        adult: _adult,
-        onDownload: () {
-          Navigator.of(dialogContext).pop();
-          _install(row);
-        },
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (pageContext) => StudioCivitaiDetail(
+          row: row,
+          adult: _adult,
+          installed: civitaiFileInstalled(row.filename, _localNames),
+          onDownload: () {
+            Navigator.of(pageContext).pop();
+            _install(row);
+          },
+        ),
       ),
     );
   }
@@ -166,22 +269,41 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       setState(() => _error = 'That row has no file to download.');
       return;
     }
-    final root = await savedStudioModelRoot(widget.backend);
-    final blocked = civitaiBlockedDownload(
-      backend: widget.backend,
-      savedRoot: root,
-    );
-    if (blocked != null) {
-      setState(() {
-        _error = blocked;
-        _needFolder =
-            root == null &&
-            (widget.backend == 'comfyui' || widget.backend == 'a1111');
-      });
+    if (civitaiFileInstalled(filename, _localNames)) {
+      widget.onInstalled(filename);
+      if (mounted) Navigator.of(context).pop();
       return;
     }
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = null;
+      _progressName = filename;
+      _got = 0;
+      _total = null;
+    });
     try {
+      if (widget.backend == 'comfyui' && await comfyStudioIsRemote()) {
+        setState(() {
+          _error =
+              'This ComfyUI is on another computer. Save the download on that computer.';
+          _needFolder = false;
+        });
+        return;
+      }
+      final root = await savedStudioModelRoot(widget.backend);
+      final blocked = civitaiBlockedDownload(
+        backend: widget.backend,
+        savedRoot: root,
+      );
+      if (blocked != null) {
+        setState(() {
+          _error = blocked;
+          _needFolder =
+              root == null &&
+              (widget.backend == 'comfyui' || widget.backend == 'a1111');
+        });
+        return;
+      }
       final relay = CivitaiRelay(await CivitaiCredentialStore.open());
       final plan = await relay.planDownload(
         accountId: 'local',
@@ -194,10 +316,31 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
         backend: widget.backend,
       );
       if (plan.refused || plan.path == null) {
-        setState(() => _error = 'CivitAI download was refused.');
+        setState(() {
+          _error = plan.reason.isEmpty
+              ? 'CivitAI download was refused.'
+              : plan.reason;
+        });
         return;
       }
-      await downloadCivitaiPlan(plan);
+      var last = DateTime.fromMillisecondsSinceEpoch(0);
+      await downloadCivitaiPlan(
+        plan,
+        onProgress: (got, total) {
+          final now = DateTime.now();
+          final done = total != null && got >= total;
+          if (!done &&
+              now.difference(last) < const Duration(milliseconds: 200)) {
+            return;
+          }
+          last = now;
+          if (!mounted) return;
+          setState(() {
+            _got = got;
+            _total = total;
+          });
+        },
+      );
       if (!mounted) return;
       widget.onInstalled(filename);
       Navigator.of(context).pop();
@@ -205,148 +348,127 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       debugPrint('civitai download failed: ${e.runtimeType}');
       if (mounted) setState(() => _error = 'CivitAI download failed.');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _progressName = null;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    final title = widget.lora
+        ? 'Get a LoRA from CivitAI'
+        : 'Get a model from CivitAI';
+    return Scaffold(
       backgroundColor: AppColors.surfaceOf(context),
-      title: Text(
-        widget.lora ? 'Get a LoRA from CivitAI' : 'Get a model from CivitAI',
-        style: TextStyle(color: AppColors.textPrimary(context)),
-      ),
-      content: SizedBox(
-        width: 480,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Wrap(
-              spacing: 8,
-              children: [
-                TextButton(
-                  onPressed: () => setState(() => _onComputer = true),
-                  child: const Text('On this computer'),
-                ),
-                TextButton(
-                  onPressed: () => setState(() => _onComputer = false),
-                  child: const Text('CivitAI'),
-                ),
-              ],
-            ),
-            if (_onComputer)
-              SizedBox(
-                height: 240,
-                child: ListView(
-                  children: [
-                    for (final file in widget.localFiles)
-                      ListTile(
-                        title: Text(file),
-                        onTap: () {
-                          widget.onPickLocal?.call(file);
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                  ],
-                ),
-              )
-            else ...[
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _adult,
-                title: const Text('Include adult models from civitai.red'),
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() => _adult = value);
-                  widget.onAdultChanged?.call(value);
-                },
-              ),
-              TextField(
-                controller: _token,
-                decoration: const InputDecoration(
-                  labelText: 'API key',
-                  isDense: true,
-                ),
-                onSubmitted: (_) => _saveKey(),
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: _saveKey,
-                  child: const Text('Save key'),
-                ),
-              ),
-              const Text('Base model'),
-              DropdownButton<String>(
-                isExpanded: true,
-                value: _base,
-                items: [
-                  for (final choice in kCivitaiBaseChoices)
-                    DropdownMenuItem(value: choice.$2, child: Text(choice.$1)),
-                ],
-                onChanged: (value) => setState(() => _base = value ?? ''),
-              ),
-              TextField(
-                controller: _query,
-                decoration: InputDecoration(
-                  labelText: widget.lora ? 'Search LoRAs' : 'Search CivitAI',
-                  hintText: widget.lora ? 'Clothes' : null,
-                  isDense: true,
-                ),
-                onSubmitted: (_) => _search(),
-              ),
-              TextField(
-                controller: _red,
-                decoration: const InputDecoration(
-                  labelText: 'civitai.red API key',
-                  isDense: true,
-                ),
-                onSubmitted: (_) => _saveKey(),
-              ),
-            ],
-            if (!_onComputer && _error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: AppColors.textPrimary(context)),
-                ),
-              ),
-            if (!_onComputer && _needFolder)
-              TextButton(
-                onPressed: _busy ? null : _pickFolder,
-                child: const Text('Pick models folder'),
-              ),
-            if (!_onComputer)
-              SizedBox(
-                height: 420,
-                child: ListView(
-                  children: [
-                    for (final row in _rows)
-                      StudioCivitaiCard(
-                        row: row,
-                        busy: _busy,
-                        onOpen: () => _openDetail(row),
-                        onDownload: () => _install(row),
-                      ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
+      appBar: AppBar(
+        backgroundColor: AppColors.surfaceOf(context),
+        foregroundColor: AppColors.textPrimary(context),
+        leading: IconButton(
+          tooltip: 'Close',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          icon: const Icon(Icons.close),
         ),
-        FilledButton(
-          onPressed: _busy ? null : _search,
-          child: const Text('Search'),
+        title: Text(title),
+        bottom: studioCivitaiStatus(
+          progressName: _progressName,
+          error: _error,
+          got: _got,
+          total: _total,
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: _busy ? null : _search,
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        children: [
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _adult,
+            title: const Text('Include adult models from civitai.red'),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _adult = value);
+              widget.onAdultChanged?.call(value);
+            },
+          ),
+          if (_greenSaved && !_greenEdited && _token.text.isEmpty)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('API key saved'),
+              subtitle: const Text(
+                'This key is used for search and for adult results on civitai.red.',
+              ),
+              trailing: TextButton(
+                onPressed: () => setState(() => _greenEdited = true),
+                child: const Text('Replace'),
+              ),
+            )
+          else
+            TextField(
+              controller: _token,
+              obscureText: true,
+              enableSuggestions: false,
+              autocorrect: false,
+              decoration: const InputDecoration(labelText: 'API key'),
+              onChanged: (_) => setState(() => _greenEdited = true),
+              onSubmitted: (_) => _saveKey(),
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: _saveKey,
+              child: const Text('Save key'),
+            ),
+          ),
+          StudioCivitaiBasePicker(
+            base: _base,
+            query: _baseQuery,
+            installedOnly: _installedOnly,
+            modelFiles: _modelFiles,
+            scanning: _scanning,
+            onBase: (value) => setState(() => _base = value),
+            onQuery: (value) => setState(() => _baseQuery = value),
+            onInstalledOnly: (value) => setState(() => _installedOnly = value),
+          ),
+          TextField(
+            controller: _query,
+            decoration: InputDecoration(
+              labelText: widget.lora ? 'Search LoRAs' : 'Search CivitAI',
+              hintText: widget.lora ? 'Clothes' : null,
+            ),
+            onSubmitted: (_) => _search(),
+          ),
+          if (_needFolder)
+            TextButton(
+              onPressed: _busy ? null : _pickFolder,
+              child: Text(
+                widget.backend == 'a1111'
+                    ? 'Pick the Automatic1111 folder'
+                    : 'Pick the ComfyUI models folder',
+              ),
+            ),
+          for (final row in _rows)
+            StudioCivitaiCard(
+              row: row,
+              busy: _busy,
+              installed: civitaiFileInstalled(row.filename, _localNames),
+              onOpen: () => _openDetail(row),
+              onDownload: () => _install(row),
+            ),
+        ],
+      ),
     );
   }
 }

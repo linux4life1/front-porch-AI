@@ -96,11 +96,13 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   String _comfyEditWorkflowId = 'qwen_image_edit'; // == kQwenImageEditPreset.id
   Map<String, String> _comfyEditModelChoices = {};
   String _comfyEditUploadedWorkflow = '';
+  String _comfyEditUploadedTitle = '';
 
   // Comfy Create: family id + slot map + BYO JSON (same shape as edit).
   String _comfyCreateWorkflowId = 'sd';
   Map<String, String> _comfyCreateModelChoices = {};
   String _comfyCreateUploadedWorkflow = '';
+  String _comfyCreateUploadedTitle = '';
 
   bool get imageGenEnabled => _imageGenEnabled;
   String get imageGenBackend => _imageGenBackend;
@@ -153,6 +155,7 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   Map<String, String> get comfyEditModelChoices =>
       Map.unmodifiable(_comfyEditModelChoices);
   String get comfyEditUploadedWorkflow => _comfyEditUploadedWorkflow;
+  String get comfyEditUploadedTitle => _comfyEditUploadedTitle;
 
   /// The user's chosen file for a preset's model slot, or null if unpicked.
   String? comfyEditModelChoice(String presetId, String token) =>
@@ -162,6 +165,7 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   Map<String, String> get comfyCreateModelChoices =>
       Map.unmodifiable(_comfyCreateModelChoices);
   String get comfyCreateUploadedWorkflow => _comfyCreateUploadedWorkflow;
+  String get comfyCreateUploadedTitle => _comfyCreateUploadedTitle;
 
   String? comfyCreateModelChoice(String presetId, String token) =>
       _comfyCreateModelChoices['$presetId/$token'];
@@ -410,9 +414,16 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
     notify();
   }
 
-  Future<void> setComfyEditUploadedWorkflow(String json) async {
+  Future<void> setComfyEditUploadedWorkflow(
+    String json, {
+    String title = '',
+  }) async {
     _comfyEditUploadedWorkflow = json;
     await prefs?.setString(k('comfy_edit_uploaded_workflow'), json);
+    if (title.isNotEmpty) {
+      _comfyEditUploadedTitle = title;
+      await prefs?.setString(k('comfy_edit_uploaded_title'), title);
+    }
     notify();
   }
 
@@ -439,9 +450,16 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
     notify();
   }
 
-  Future<void> setComfyCreateUploadedWorkflow(String json) async {
+  Future<void> setComfyCreateUploadedWorkflow(
+    String json, {
+    String title = '',
+  }) async {
     _comfyCreateUploadedWorkflow = json;
     await prefs?.setString(k('comfy_create_uploaded_workflow'), json);
+    if (title.isNotEmpty) {
+      _comfyCreateUploadedTitle = title;
+      await prefs?.setString(k('comfy_create_uploaded_title'), title);
+    }
     notify();
   }
 }

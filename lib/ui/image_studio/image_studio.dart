@@ -120,7 +120,6 @@ class _ImageStudioState extends State<ImageStudio> {
 
   // Session state (owned here; no god proliferation).
   late String _selectedStyle;
-  late String _paradigm;
 
   /// 0 = Create, 1 = Edit (the intent tabs).
   int _studioTab = 0;
@@ -135,6 +134,8 @@ class _ImageStudioState extends State<ImageStudio> {
   late String _negativeForGen;
   Uint8List? _currentImageBytes;
   String _error = '';
+  String _seenGraph = '';
+  String _seenModel = '';
   bool _isCrafting = false;
   bool _isGenerating = false;
   bool _saving = false;
@@ -150,32 +151,16 @@ class _ImageStudioState extends State<ImageStudio> {
   // History: session-local thumbnails + restoreable prompt/bytes.
   final List<({String prompt, Uint8List bytes, String style})> _history = [];
 
-  late final ImagePromptBuilder _builder;
-
   @override
   void initState() {
     super.initState();
     final storage = Provider.of<StorageService>(context, listen: false);
     _selectedStyle = storage.imageGenSettings.imageGenStyle;
-    _paradigm = storage.imageGenSettings.imageGenPromptParadigm;
     _negativeForGen = storage.imageGenSettings.imageGenNegativePrompt;
     _activeMode = widget.mode;
-    _builder = ImagePromptBuilder(llmService: widget.llmService);
     // No boilerplate prefill for ANY subject: an empty box until the user
     // types. Dumping the raw character description made a poor prompt.
     _editablePrompt = '';
-  }
-
-  /// Re-apply the live style suffix to a non-empty prompt so Generate sends the
-  /// currently chosen style. No-op on an empty box (avoids glue+style synthesis).
-  void _reapplyStyle() {
-    if (_editablePrompt.trim().isEmpty) return;
-    _editablePrompt = reapplyCurrentStyleSuffix(
-      _editablePrompt,
-      _selectedStyle,
-      _paradigm,
-      _builder,
-    );
   }
 
   void _updatePrompt(String text) => setState(() => _editablePrompt = text);
@@ -183,7 +168,6 @@ class _ImageStudioState extends State<ImageStudio> {
   bool get _isBusy => _isCrafting || _isGenerating || _saving;
 
   Future<void> _generate() async {
-    _reapplyStyle();
     final prompt = _editablePrompt.trim();
     if (prompt.isEmpty) {
       setState(() => _error = 'Write a prompt first.');
@@ -376,8 +360,25 @@ class _ImageStudioState extends State<ImageStudio> {
     };
   }
 
+  void _dropStaleError() {
+    final settings = context.read<StorageService>().imageGenSettings;
+    final graph =
+        '${settings.comfyCreateWorkflowId}|${settings.comfyEditWorkflowId}';
+    final model =
+        '${settings.imageGenModel}|${settings.imageGenEditModel}|${settings.comfyCreateModelChoices}|${settings.comfyEditModelChoices}';
+    final first = _seenGraph.isEmpty && _seenModel.isEmpty;
+    if (graph == _seenGraph && model == _seenModel) return;
+    _seenGraph = graph;
+    _seenModel = model;
+    if (first || _error.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _error.isNotEmpty) setState(() => _error = '');
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    _dropStaleError();
     // Any generation (Create OR Edit) flips the shared service busy; fold it in
     // so the tabs lock and Create can't double-submit while Edit is running.
     final genBusy = context.select<ImageGenService, bool>(

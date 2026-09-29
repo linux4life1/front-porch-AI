@@ -18,6 +18,46 @@
 
 part of 'comfy_ui_service.dart';
 
+/// The first node Comfy refused, so the stove can say which slot failed.
+String comfyPromptRejectDetail(String body) {
+  try {
+    final err = jsonDecode(body);
+    if (err is! Map) return 'Prompt outputs failed validation';
+    final nodes = err['node_errors'];
+    if (nodes is Map) {
+      for (final entry in nodes.entries) {
+        final node = entry.value;
+        if (node is! Map) continue;
+        final type = node['class_type']?.toString() ?? entry.key.toString();
+        final errors = node['errors'];
+        if (errors is! List || errors.isEmpty || errors.first is! Map) {
+          continue;
+        }
+        final first = errors.first as Map;
+        final extra = first['extra_info'];
+        final input = extra is Map ? extra['input_name']?.toString() : null;
+        final received = extra is Map
+            ? extra['received_value']?.toString()
+            : null;
+        final where = [
+          type,
+          if (input != null && input.isNotEmpty) input,
+        ].join(' ');
+        if (received != null && received.isNotEmpty) {
+          return '$where cannot use $received';
+        }
+        final message = first['message']?.toString() ?? '';
+        if (message.isNotEmpty) return '$where: $message';
+      }
+    }
+    final message = err['error'];
+    if (message is Map && message['message'] is String) {
+      return message['message'] as String;
+    }
+  } catch (_) {}
+  return 'Prompt outputs failed validation';
+}
+
 /// Long enough for one expression pack, short enough that a newly installed
 /// node shows up on the next sitting.
 const Duration _objectInfoFreshFor = Duration(minutes: 2);
@@ -134,10 +174,13 @@ extension ComfyUiCatalogApi on ComfyUiService {
         'UnetLoaderGGUFAdvanced',
         'unet_name',
       ),
-      textEncoders: ComfyUiService.optionsFromObjectInfo(
-        info,
-        'CLIPLoader',
-        'clip_name',
+      textEncoders: mergeComfyCreateModels(
+        ComfyUiService.optionsFromObjectInfo(info, 'CLIPLoader', 'clip_name'),
+        ComfyUiService.optionsFromObjectInfo(
+          info,
+          'CLIPLoaderGGUF',
+          'clip_name',
+        ),
       ),
       vaes: ComfyUiService.optionsFromObjectInfo(info, 'VAELoader', 'vae_name'),
       loras: ComfyUiService.optionsFromObjectInfo(
