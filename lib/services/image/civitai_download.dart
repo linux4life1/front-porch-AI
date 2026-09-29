@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import 'civitai_version.dart';
@@ -277,22 +278,82 @@ String drawThingsCatalogVersion(String filename) {
   }
 }
 
+/// Writes [contents] to [target] so a crash cannot leave half a file: a temp
+/// file beside it is written and flushed, then renamed over [target]. A reader
+/// sees the old file or the whole new one. [writeTemp] is for tests.
+Future<void> writeFileAtomically(
+  File target,
+  String contents, {
+  Future<void> Function(File temp, String contents)? writeTemp,
+}) async {
+  final temp = File(
+    '${target.path}.${DateTime.now().microsecondsSinceEpoch}.tmp',
+  );
+  try {
+    if (writeTemp != null) {
+      await writeTemp(temp, contents);
+    } else {
+      final out = await temp.open(mode: FileMode.write);
+      try {
+        await out.writeString(contents);
+        await out.flush();
+      } finally {
+        await out.close();
+      }
+    }
+    await temp.rename(target.path);
+  } catch (_) {
+    try {
+      if (await temp.exists()) await temp.delete();
+    } on FileSystemException {
+      // Nothing more to do; the original file is untouched.
+    }
+    rethrow;
+  }
+}
+
+final Map<String, Future<void>> _loraCatalogWrites = {};
+
 /// Adds [filename] to Draw Things' LoRA catalog when it is not already there.
-/// A catalog that is not a list is left alone.
+/// A catalog that is not a list is left alone. The write is atomic, and two
+/// callers for the same catalog take turns, so neither loses the other's row.
 Future<void> rememberDrawThingsLora(
   Directory modelsDir,
+  String filename, {
+  Future<void> Function(File temp, String contents)? writeTemp,
+}) async {
+  final key = p.join(modelsDir.path, 'custom_lora.json');
+  final turn = (_loraCatalogWrites[key] ?? Future<void>.value())
+      .catchError((Object _) {})
+      .then((_) => _addLoraRow(key, filename, writeTemp));
+  _loraCatalogWrites[key] = turn;
+  try {
+    await turn;
+  } finally {
+    if (identical(_loraCatalogWrites[key], turn)) {
+      _loraCatalogWrites.remove(key);
+    }
+  }
+}
+
+Future<void> _addLoraRow(
+  String path,
   String filename,
+  Future<void> Function(File temp, String contents)? writeTemp,
 ) async {
   final base = p.basename(filename);
   if (base.isEmpty) return;
-  final catalog = File(p.join(modelsDir.path, 'custom_lora.json'));
+  final catalog = File(path);
   final rows = <dynamic>[];
   if (await catalog.exists()) {
     try {
       final decoded = jsonDecode(await catalog.readAsString());
       if (decoded is! List) return;
       rows.addAll(decoded);
-    } catch (_) {
+    } catch (e) {
+      debugPrint(
+        'custom_lora.json left alone, it did not read: ${e.runtimeType}',
+      );
       return;
     }
   }
@@ -307,5 +368,5 @@ Future<void> rememberDrawThingsLora(
     'name': p.basenameWithoutExtension(base),
     if (version.isNotEmpty) 'version': version,
   });
-  await catalog.writeAsString(jsonEncode(rows));
+  await writeFileAtomically(catalog, jsonEncode(rows), writeTemp: writeTemp);
 }
