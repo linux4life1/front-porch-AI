@@ -149,6 +149,9 @@ void main() {
     final saved = HttpOverrides.current;
     HttpOverrides.global = null;
     addTearDown(() => HttpOverrides.global = saved);
+    // Plain http to this computer is allowed only for tests.
+    civitaiAllowLoopbackForTests = true;
+    addTearDown(() => civitaiAllowLoopbackForTests = false);
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
     server.listen((request) async {
