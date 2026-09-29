@@ -1,6 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shelf/shelf.dart' as shelf;
@@ -8,7 +10,11 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/image/civitai_client.dart';
 import 'package:front_porch_ai/services/image/civitai_credentials.dart';
+import 'package:front_porch_ai/services/image/civitai_errors.dart';
+import 'package:front_porch_ai/services/image/civitai_fetch.dart';
 import 'package:front_porch_ai/services/image/civitai_installed.dart';
+import 'package:front_porch_ai/services/image/civitai_jobs.dart';
+import 'package:front_porch_ai/services/image/civitai_version.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/web/auth/auth_service.dart';
 import 'package:front_porch_ai/services/web/middleware/auth_middleware.dart';
@@ -26,13 +32,15 @@ class CivitaiRoutes {
     CivitaiRelay? relay,
     String? Function(String backend)? rootFor,
     Future<String?> Function(String backend)? rootForAsync,
-    Future<void> Function(CivitaiDownloadPlan plan)? startDownload,
+    CivitaiDownloads? downloads,
+    CivitaiVersionFetch? versionFetch,
   }) : _auth = auth,
        _adultAllowed = adultAllowed,
        _relay = relay,
        _rootFor = rootFor ?? ((_) => null),
        _rootForAsync = rootForAsync,
-       _startDownload = startDownload {
+       _downloads = downloads ?? CivitaiDownloads(),
+       _versionFetch = versionFetch ?? fetchCivitaiVersion {
     _ready = relay == null
         ? CivitaiCredentialStore.open().then(CivitaiRelay.new)
         : Future<CivitaiRelay>.value(relay);
@@ -42,6 +50,9 @@ class CivitaiRoutes {
     router.post('/api/image/civitai/credential', saveCredential);
     router.delete('/api/image/civitai/credential', signOut);
     router.post('/api/image/civitai/download', download);
+    router.get('/api/image/civitai/download/status', downloadStatus);
+    router.delete('/api/image/civitai/download', cancelDownload);
+    router.post('/api/image/civitai/download/cancel', cancelDownload);
   }
 
   final AuthService _auth;
@@ -49,7 +60,8 @@ class CivitaiRoutes {
   final CivitaiRelay? _relay;
   final String? Function(String backend) _rootFor;
   final Future<String?> Function(String backend)? _rootForAsync;
-  final Future<void> Function(CivitaiDownloadPlan plan)? _startDownload;
+  final CivitaiDownloads _downloads;
+  final CivitaiVersionFetch _versionFetch;
   late final Future<CivitaiRelay> _ready;
 
   Future<String?> _savedRoot(String backend) {
@@ -121,23 +133,22 @@ class CivitaiRoutes {
           .timeout(const Duration(seconds: 20));
     } catch (e) {
       debugPrint('civitai search failed: ${e.runtimeType}');
-      return JsonResponse.error(502, 'CivitAI search failed');
+      return _fail(502, 'network', 'CivitAI search failed');
     }
     final kind = civitaiHttpKind(response.statusCode);
     if (kind == CivitaiHttpKind.needsCredential) {
-      return JsonResponse.unauthorized(
-        civitaiSearchNote(
-          kind: kind,
-          hadKey: plan.authorization != null,
-          rows: 0,
-        ),
+      final hadKey = plan.authorization != null;
+      return _fail(
+        401,
+        hadKey ? 'key_refused' : 'key_missing',
+        civitaiSearchNote(kind: kind, hadKey: hadKey, rows: 0),
       );
     }
     if (kind == CivitaiHttpKind.locked) {
-      return JsonResponse.forbidden('CivitAI refused this search');
+      return _fail(403, 'locked', 'CivitAI refused this search');
     }
     if (kind != CivitaiHttpKind.ok) {
-      return JsonResponse.error(502, 'CivitAI search failed');
+      return _fail(502, 'http', 'CivitAI search failed');
     }
     final rows = parseCivitaiModels(response.body, includeAdult: adult);
     return JsonResponse.ok({
@@ -261,17 +272,20 @@ class CivitaiRoutes {
       return JsonResponse.unauthorized('Authentication required');
     }
     final version = body['versionId'];
-    if (version is! num) {
-      return JsonResponse.badRequest('versionId is required');
+    if (version is! num || version.toInt() <= 0) {
+      return _fail(400, 'bad_request', 'versionId is required');
     }
-    final refused = _adultRefused(body['adult'] == true);
+    final adult = body['adult'] == true;
+    final refused = _adultRefused(adult);
     if (refused != null) return refused;
     final backend = body['backend']?.toString() ?? '';
     final savedRoot = await _savedRoot(backend);
     if (backend == 'comfyui' &&
         (savedRoot == null || savedRoot.trim().isEmpty) &&
         await comfyStudioIsRemote()) {
-      return JsonResponse.badRequest(
+      return _fail(
+        400,
+        'remote_comfy',
         'This ComfyUI is on another computer. Save the download on that computer.',
       );
     }
@@ -279,39 +293,112 @@ class CivitaiRoutes {
       backend: backend,
       savedRoot: savedRoot,
     );
-    if (blocked != null) return JsonResponse.badRequest(blocked);
+    if (blocked != null) return _fail(400, 'no_folder', blocked);
     final relay = _relay ?? await _ready;
-    final plan = await relay.planDownload(
-      accountId: account,
-      versionId: version.toInt(),
-      adult: body['adult'] == true,
-      savedRoot: savedRoot,
-      filename: body['filename']?.toString() ?? '',
-      civitaiType: body['type']?.toString() ?? '',
-      fromLoraSheet: body['lora'] == true,
-      backend: backend,
-    );
-    debugPrint(plan.log);
-    if (plan.refused || plan.path == null) {
-      return JsonResponse.badRequest(
-        plan.reason.isEmpty ? 'CivitAI download was refused' : plan.reason,
-      );
-    }
-    final start = _startDownload;
-    if (start == null) {
-      return JsonResponse.error(
-        501,
-        'CivitAI file download starts on this computer',
-        extra: {'downloaded': false, 'path': plan.path},
-      );
-    }
     try {
-      await start(plan);
-    } catch (e) {
-      debugPrint('civitai download failed: ${e.runtimeType}');
-      return JsonResponse.error(502, 'CivitAI download failed');
+      final key = await relay.store.read(account);
+      if (key == null) return _refusal(CivitaiFailure.keyMissing);
+      final lookup = await _versionFetch(
+        versionId: version.toInt(),
+        adult: adult,
+        authorization: civitaiBearer(key),
+      );
+      final found = lookup.version;
+      if (lookup.kind != CivitaiLookupKind.ok || found == null) {
+        return _lookupFailure(lookup.kind);
+      }
+      final wanted = body['filename']?.toString().trim() ?? '';
+      final file = wanted.isEmpty ? civitaiPickVersionFile(found) : null;
+      final plan = await relay.planDownload(
+        accountId: account,
+        version: found,
+        filename: wanted.isEmpty ? (file?.name ?? '') : wanted,
+        adult: adult,
+        savedRoot: savedRoot,
+        fromLoraSheet: body['lora'] == true,
+        backend: backend,
+      );
+      debugPrint(plan.log);
+      if (plan.refused || plan.path == null) {
+        return _refusal(plan.failure ?? CivitaiFailure.unsafe, plan.reason);
+      }
+      await sweepCivitaiParts(plan.root ?? savedRoot!);
+      final job = await _downloads.start(account, plan);
+      return shelf.Response(
+        202,
+        body: jsonEncode(job.toJson()),
+        headers: const {'Content-Type': 'application/json; charset=utf-8'},
+      );
+    } on CivitaiKeyStoreException catch (e) {
+      return _keyStoreDown(e);
+    } on CivitaiDownloadException catch (e) {
+      debugPrint('civitai download refused: ${e.code}');
+      return _refusal(e.kind, e.message);
     }
-    return JsonResponse.ok({'downloaded': true, 'path': plan.path});
+  }
+
+  Future<shelf.Response> downloadStatus(shelf.Request request) async {
+    final account = _account(request);
+    if (account == null) {
+      return JsonResponse.unauthorized('Authentication required');
+    }
+    final job = _downloads.job(
+      request.url.queryParameters['job'] ?? '',
+      account,
+    );
+    if (job == null) return _fail(404, 'not_found', 'No such download');
+    return JsonResponse.ok(job.toJson());
+  }
+
+  Future<shelf.Response> cancelDownload(shelf.Request request) async {
+    final account = _account(request);
+    if (account == null) {
+      return JsonResponse.unauthorized('Authentication required');
+    }
+    final body = await _body(request);
+    final id =
+        request.url.queryParameters['job'] ?? body['job']?.toString() ?? '';
+    if (!_downloads.cancel(id, account)) {
+      return _fail(404, 'not_found', 'No such download');
+    }
+    return JsonResponse.ok({'cancelled': true});
+  }
+
+  /// One place that turns a failure into an HTTP answer, so a status never
+  /// depends on which code path found the problem.
+  shelf.Response _refusal(CivitaiFailure kind, [String? message]) {
+    final error = CivitaiDownloadException(kind, message ?? '');
+    final text = message == null || message.isEmpty ? error.message : message;
+    final status = switch (kind) {
+      CivitaiFailure.busy ||
+      CivitaiFailure.exists ||
+      CivitaiFailure.nameTaken ||
+      CivitaiFailure.cancelled => 409,
+      CivitaiFailure.tooMany => 429,
+      CivitaiFailure.diskFull => 507,
+      CivitaiFailure.tooLarge => 413,
+      CivitaiFailure.unsafe || CivitaiFailure.keyMissing => 400,
+      CivitaiFailure.keyRefused || CivitaiFailure.locked => 403,
+      CivitaiFailure.notFound => 404,
+      _ => 502,
+    };
+    return JsonResponse.error(
+      status,
+      text,
+      extra: {'code': error.code, 'installed': kind == CivitaiFailure.exists},
+      extraHeaders: kind == CivitaiFailure.tooMany
+          ? const {'Retry-After': '30'}
+          : null,
+    );
+  }
+
+  shelf.Response _lookupFailure(CivitaiLookupKind kind) {
+    return switch (kind) {
+      CivitaiLookupKind.needsCredential => _refusal(CivitaiFailure.keyRefused),
+      CivitaiLookupKind.locked => _refusal(CivitaiFailure.locked),
+      CivitaiLookupKind.notFound => _refusal(CivitaiFailure.notFound),
+      _ => _refusal(CivitaiFailure.network),
+    };
   }
 
   Future<Map<String, Object?>> _body(shelf.Request request) async {

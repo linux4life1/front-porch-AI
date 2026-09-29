@@ -1,0 +1,119 @@
+{
+ "baseModel": "SD 1.5",
+ "downloadUrl": "https://civitai.com/api/download/models/130072",
+ "files": [
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/130072?fileId=94300",
+   "hashes": {
+    "AutoV1": "F95D2E44",
+    "AutoV2": "139AC005D4",
+    "BLAKE3": "205A6ADCDEA77D98089653AA3372FB30EC38E93C46B79B0A9B00B2A07A704B7C",
+    "CRC32": "38FEBCD3",
+    "SHA256": "139AC005D4D1E33C6335F5651ABB3D2E4654DC0520AEDFEA07909BDD20435518",
+    "SHA256_12": "139AC005D4D1"
+   },
+   "id": 94300,
+   "metadata": {
+    "format": "PickleTensor",
+    "fp": "fp16",
+    "size": "full"
+   },
+   "name": "realisticVisionV60B1_v51VAE_94300.ckpt",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": false,
+   "scannedAt": "2023-07-31T08:27:30.586",
+   "sizeKB": 4165379.6484375,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  },
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/130072?fileId=94298",
+   "hashes": {
+    "AutoV1": "A0F13C83",
+    "AutoV2": "15012C538F",
+    "BLAKE3": "013543ADE69517662AC86E97A113B994679F33CD69B573D68C4D51F5457C9528",
+    "CRC32": "FFE8B9E1",
+    "SHA256": "15012C538F503CE2EBFC2C8547B268C75CCDAFF7A281DB55399940FF1D70E21D",
+    "SHA256_12": "15012C538F50"
+   },
+   "id": 94298,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "fp16",
+    "size": "pruned"
+   },
+   "name": "realisticVisionV60B1_v51VAE_94298.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": true,
+   "scannedAt": "2023-07-31T08:16:29.099",
+   "sizeKB": 2082642.474609375,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  },
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/130072?fileId=94297",
+   "hashes": {
+    "AutoV1": "8D37CF83",
+    "AutoV2": "392DEF60E4",
+    "BLAKE3": "E23DFFA7C790F2FD1131414DE595C22A43E53061D88024FBA093024E3B0C22BA",
+    "CRC32": "FB65ACCE",
+    "SHA256": "392DEF60E49AE3E5C3A5EE64407DBAF7609C8A4E88ECB771340077BB14538097",
+    "SHA256_12": "392DEF60E49A"
+   },
+   "id": 94297,
+   "metadata": {
+    "format": "PickleTensor",
+    "fp": "fp16",
+    "size": "pruned"
+   },
+   "name": "realisticVisionV60B1_v51VAE_94297.ckpt",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": false,
+   "scannedAt": "2023-07-31T08:16:32.785",
+   "sizeKB": 2082928.98046875,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  },
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/130072?fileId=94301",
+   "hashes": {
+    "AutoV1": "F4744654",
+    "AutoV2": "EF76AA2332",
+    "BLAKE3": "E6B27DA73992D0594560BB7F7FCF5781405211A4ABDACEBE127A8BE4D1C11B3A",
+    "CRC32": "7CD88778",
+    "SHA256": "EF76AA2332635F4352463343BEEC9C5AAE3BD107A73C0FD7221ABBBCF8BD5470",
+    "SHA256_12": "EF76AA233263"
+   },
+   "id": 94301,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "fp32",
+    "size": "full"
+   },
+   "name": "realisticVisionV60B1_v51VAE_94301.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": false,
+   "scannedAt": "2023-07-31T08:29:01.776",
+   "sizeKB": 4165133.78515625,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  }
+ ],
+ "id": 130072,
+ "model": {
+  "name": "Realistic Vision V6.0 B1",
+  "nsfw": false,
+  "poi": false,
+  "type": "Checkpoint"
+ },
+ "modelId": 4201,
+ "name": "V5.1 (VAE)"
+}

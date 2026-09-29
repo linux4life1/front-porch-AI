@@ -1,0 +1,42 @@
+{
+ "baseModel": "Flux.1 D",
+ "downloadUrl": "https://civitai.com/api/download/models/1236037",
+ "files": [
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/1236037?fileId=1143871",
+   "hashes": {
+    "AutoV1": "F007903F",
+    "AutoV2": "CC562FF265",
+    "AutoV3": "34E286985CBE",
+    "BLAKE3": "F1F0070296C51955E888235CEF5947CBEC41516B91BEBAB83C7B2F3B12C9F8D5",
+    "CRC32": "7519B24C",
+    "SHA256": "CC562FF2656E6BCE74364185609C3411182CAAA4A5968F9AEBC7FF0238E7B1F9",
+    "SHA256_12": "CC562FF2656E"
+   },
+   "id": 1143871,
+   "metadata": {
+    "format": "GGUF",
+    "fp": "fp16",
+    "size": "pruned"
+   },
+   "name": "ggufFluxmaniaIII_iiiQ80.gguf",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": true,
+   "scannedAt": "2025-01-05T08:20:56.749",
+   "sizeKB": 12541657.90625,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  }
+ ],
+ "id": 1236037,
+ "model": {
+  "name": "GGUF: Fluxmania III",
+  "nsfw": false,
+  "poi": false,
+  "type": "Checkpoint"
+ },
+ "modelId": 1090700,
+ "name": "III Q8_0"
+}

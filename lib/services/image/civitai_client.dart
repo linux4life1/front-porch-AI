@@ -5,7 +5,9 @@ import 'dart:convert';
 
 import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/image/civitai_download.dart';
+import 'package:front_porch_ai/services/image/civitai_errors.dart';
 import 'package:front_porch_ai/services/image/civitai_files.dart';
+import 'package:front_porch_ai/services/image/civitai_version.dart';
 
 /// A pasted personal API key. A password field is refused.
 String? pastedCivitaiToken(Map<String, Object?> body) {
@@ -53,14 +55,29 @@ Uri civitaiDownloadUri(int versionId, {bool adult = false}) {
 
 String civitaiBearer(String token) => 'Bearer $token';
 
-/// Keep the bearer on the same host. Drop it when the file moves elsewhere.
+bool _isLoopback(String host) {
+  return host == 'localhost' || host == '127.0.0.1' || host == '::1';
+}
+
+/// A redirect may only lead to https. Loopback is the one exception; it never
+/// leaves this computer.
+bool civitaiHopAllowed(Uri to) => to.scheme == 'https' || _isLoopback(to.host);
+
+/// The bearer goes only to the origin the download started at. [from] is
+/// that original URL, never the previous hop, so a chain that passes through
+/// a CDN cannot pick the key back up on a later hop.
 Map<String, String> civitaiFollowHeaders({
   required Uri from,
   required Uri to,
   required String? authorization,
 }) {
   if (authorization == null || authorization.isEmpty) return const {};
-  if (from.host != to.host) return const {};
+  if (!civitaiHopAllowed(to)) return const {};
+  if (from.scheme != to.scheme ||
+      from.host != to.host ||
+      from.port != to.port) {
+    return const {};
+  }
   return {'Authorization': authorization};
 }
 
@@ -265,6 +282,19 @@ class CivitaiDownloadPlan {
   final String log;
   final bool refused;
   final String reason;
+  final CivitaiFailure? failure;
+
+  /// The models folder [path] must stay inside once links are resolved.
+  final String? root;
+
+  /// What CivitAI lists for the file. Both are checked before the file is
+  /// moved into place.
+  final int? expectedBytes;
+  final String? sha256;
+
+  /// Where a checkpoint that carries its own encoders and VAE belongs. The
+  /// name alone cannot tell, so the downloaded header decides.
+  final String? allInOnePath;
 
   const CivitaiDownloadPlan({
     required this.uri,
@@ -273,7 +303,28 @@ class CivitaiDownloadPlan {
     required this.log,
     required this.refused,
     this.reason = '',
+    this.failure,
+    this.root,
+    this.expectedBytes,
+    this.sha256,
+    this.allInOnePath,
   });
+
+  factory CivitaiDownloadPlan.refusal(
+    CivitaiFailure failure, {
+    required String log,
+    String detail = '',
+  }) {
+    return CivitaiDownloadPlan(
+      uri: null,
+      path: null,
+      authorization: null,
+      log: log,
+      refused: true,
+      reason: CivitaiDownloadException(failure, detail).message,
+      failure: failure,
+    );
+  }
 }
 
 class CivitaiRelay {
@@ -304,55 +355,89 @@ class CivitaiRelay {
     );
   }
 
+  /// [version] comes from CivitAI, not from the caller. The file name has
+  /// to be one of its files; its type, size, checksum and address all come
+  /// from that listing.
   Future<CivitaiDownloadPlan> planDownload({
     required String accountId,
-    required int versionId,
+    required CivitaiVersion version,
+    required String filename,
     required bool adult,
     required String? savedRoot,
-    required String filename,
-    required String civitaiType,
     required bool fromLoraSheet,
     required String backend,
   }) async {
     final token = await store.read(accountId);
-    final folder = civitaiSlotFolder(
-      fromLoraSheet: fromLoraSheet,
-      civitaiType: civitaiType,
-      filename: filename,
-      backend: backend,
-    );
-    final root = savedRoot?.trim() ?? '';
-    final path = folder == null || root.isEmpty
-        ? null
-        : civitaiDownloadPath(root: root, folder: folder, name: filename);
     final log = civitaiLog(
       action: 'download',
       accountId: accountId,
       adult: adult,
     );
-    if (token == null || path == null) {
-      final reason = token == null
-          ? 'Paste an API key. CivitAI will not send the file without one.'
-          : folder == null
-          ? (fromLoraSheet
-                ? 'That file is not a LoRA this app can save.'
-                : 'That file is not a model this app can save.')
-          : "That file name can't be saved.";
-      return CivitaiDownloadPlan(
-        uri: null,
-        path: null,
-        authorization: null,
-        log: log,
-        refused: true,
-        reason: reason,
+    CivitaiDownloadPlan refuse(CivitaiFailure kind, [String detail = '']) {
+      return CivitaiDownloadPlan.refusal(kind, log: log, detail: detail);
+    }
+
+    if (token == null) return refuse(CivitaiFailure.keyMissing);
+    final file = civitaiVersionFile(version, filename);
+    if (file == null) {
+      return refuse(
+        CivitaiFailure.unsafe,
+        'CivitAI does not list that file for this model.',
       );
     }
+    if (!file.isSafeWeight) {
+      return refuse(
+        CivitaiFailure.unsafe,
+        'Only .safetensors and .gguf files are saved. That file is not one '
+        'of those, or CivitAI flagged it.',
+      );
+    }
+    final uri = civitaiFileDownloadUri(
+      file,
+      versionId: version.id,
+      adult: adult,
+    );
+    if (uri == null) {
+      return refuse(
+        CivitaiFailure.unsafe,
+        'CivitAI gave no download address for that file.',
+      );
+    }
+    final folder = civitaiSlotFolder(
+      fromLoraSheet: fromLoraSheet,
+      civitaiType: version.modelType,
+      filename: file.name,
+      backend: backend,
+    );
+    if (folder == null) {
+      return refuse(
+        CivitaiFailure.unsafe,
+        fromLoraSheet
+            ? 'That file is not a LoRA this app can save.'
+            : 'That file is not a model this app can save.',
+      );
+    }
+    final root = savedRoot?.trim() ?? '';
+    final path = root.isEmpty
+        ? null
+        : civitaiDownloadPath(root: root, folder: folder, name: file.name);
+    if (path == null) return refuse(CivitaiFailure.unsafe);
     return CivitaiDownloadPlan(
-      uri: civitaiDownloadUri(versionId, adult: adult),
+      uri: uri,
       path: path,
       authorization: civitaiBearer(token),
       log: log,
       refused: false,
+      root: root,
+      expectedBytes: file.sizeBytes,
+      sha256: file.sha256,
+      allInOnePath: civitaiAllInOnePath(
+        root: root,
+        backend: backend,
+        folder: folder,
+        modelType: version.modelType,
+        name: file.name,
+      ),
     );
   }
 }

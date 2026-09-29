@@ -6,11 +6,13 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'civitai_version.dart';
 import 'draw_things_lora_filter.dart';
 import 'model_family.dart';
 
-const _kFolders = {
+const kCivitaiFolders = {
   'checkpoints',
+  'embeddings',
   'diffusion_models',
   'loras',
   'text_encoders',
@@ -102,6 +104,9 @@ String? civitaiSlotFolder({
     if (fromLoraSheet || a1111) return null;
     return 'text_encoders';
   }
+  if (type == 'textualinversion' || type == 'embedding') {
+    return fromLoraSheet ? 'embeddings' : null;
+  }
   return null;
 }
 
@@ -139,14 +144,58 @@ String? civitaiDownloadPath({
   required String name,
 }) {
   if (!p.isAbsolute(root)) return null;
-  if (folder.isNotEmpty && !_kFolders.contains(folder)) return null;
+  if (folder.isNotEmpty && !kCivitaiFolders.contains(folder)) return null;
   final base = safeDownloadBasename(name);
   if (base == null) return null;
+  if (!kCivitaiSafeExtensions.contains(p.extension(base).toLowerCase())) {
+    return null;
+  }
   final candidate = folder.isEmpty
       ? p.join(root, base)
       : p.join(root, folder, base);
   if (!pathStaysUnderRoot(root, candidate)) return null;
   return candidate;
+}
+
+/// Suffix of the file a download streams into before it is moved into place.
+/// It is ours alone, so a sweep never deletes another program's partial.
+const String kCivitaiPartSuffix = '.fpai-part';
+
+String civitaiPartPath(String path) => '$path$kCivitaiPartSuffix';
+
+/// Where a Comfy checkpoint with its own encoders and VAE belongs, or null
+/// when the download cannot be one. Only a diffusion-folder `.safetensors`
+/// Checkpoint chosen by name can turn out to be all-in-one.
+String? civitaiAllInOnePath({
+  required String root,
+  required String backend,
+  required String folder,
+  required String modelType,
+  required String name,
+}) {
+  if (backend != 'comfyui' || folder != 'diffusion_models') return null;
+  if (modelType.trim().toLowerCase() != 'checkpoint') return null;
+  if (p.extension(name).toLowerCase() != '.safetensors') return null;
+  return civitaiDownloadPath(root: root, folder: 'checkpoints', name: name);
+}
+
+/// True when [folder], once every link on the way is resolved, is [root] or
+/// inside it. A `loras` shortcut that leads outside the models folder is not.
+/// A folder that does not exist yet is judged by its nearest existing parent.
+Future<bool> civitaiFolderInsideRoot(String root, String folder) async {
+  try {
+    final realRoot = await Directory(root).resolveSymbolicLinks();
+    var probe = p.normalize(folder);
+    while (!await Directory(probe).exists()) {
+      final parent = p.dirname(probe);
+      if (parent == probe) return false;
+      probe = parent;
+    }
+    final real = await Directory(probe).resolveSymbolicLinks();
+    return real == realRoot || p.isWithin(realRoot, real);
+  } on FileSystemException {
+    return false;
+  }
 }
 
 /// `custom_lora.json` version id for a file name, when the name says.

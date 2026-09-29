@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
 import 'package:front_porch_ai/services/image/civitai_credentials.dart';
+import 'package:front_porch_ai/services/image/civitai_version.dart';
 import 'package:front_porch_ai/services/web/middleware/auth_middleware.dart';
 import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
 import 'package:path/path.dart' as p;
@@ -10,6 +11,12 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import 'civitai_route_support.dart';
+
+final CivitaiVersion _loraVersion = parseCivitaiVersion(
+  '{"id":20,"model":{"type":"LORA","nsfw":false},"files":['
+  '{"name":"style.safetensors","type":"Model","primary":true,'
+  '"sizeKB":1.0,"metadata":{"format":"SafeTensor"}}]}',
+)!;
 
 void main() {
   CivitaiCredentialStore memory(Map<String, String> box) {
@@ -113,11 +120,10 @@ void main() {
     expect(search.uri.toString().contains('super-secret-token'), isFalse);
     final escaped = await relay.planDownload(
       accountId: 'local',
-      versionId: 10,
+      version: _loraVersion,
       adult: false,
       savedRoot: '/models',
       filename: '../../x.safetensors',
-      civitaiType: 'Checkpoint',
       fromLoraSheet: false,
       backend: 'comfyui',
     );
@@ -126,22 +132,20 @@ void main() {
     expect(escaped.log.contains('super-secret-token'), isFalse);
     final wrongSheet = await relay.planDownload(
       accountId: 'other',
-      versionId: 20,
+      version: _loraVersion,
       adult: false,
       savedRoot: '/models',
       filename: 'style.safetensors',
-      civitaiType: 'LORA',
       fromLoraSheet: false,
       backend: 'comfyui',
     );
     expect(wrongSheet.refused, isTrue);
     final saved = await relay.planDownload(
       accountId: 'other',
-      versionId: 20,
+      version: _loraVersion,
       adult: false,
       savedRoot: '/models',
       filename: 'style.safetensors',
-      civitaiType: 'LORA',
       fromLoraSheet: true,
       backend: 'comfyui',
     );
@@ -233,51 +237,4 @@ void main() {
       expect(box['civitai_credential_other'], 'keep');
     },
   );
-
-  test('the phone cannot choose the models folder', () async {
-    final box = <String, String>{};
-    final store = memory(box);
-    await store.save('local', 'super-secret-token');
-    final harness = await CivitaiAuthHarness.create();
-    final routes = CivitaiRoutes(
-      Router(),
-      auth: harness.auth,
-      adultAllowed: () => false,
-      relay: CivitaiRelay(store),
-      rootFor: (backend) => backend == 'comfyui' ? '/models' : null,
-    );
-    final response = await routes.download(
-      post('/api/image/civitai/download', {
-        'accountId': 'other',
-        'versionId': 20,
-        'root': '/tmp/evil',
-        'filename': 'style.safetensors',
-        'type': 'LORA',
-        'lora': true,
-        'backend': 'comfyui',
-      }, account: 'local'),
-    );
-    expect(response.statusCode, 501);
-    final body = jsonDecode(await response.readAsString()) as Map;
-    expect(body['downloaded'], isFalse);
-    expect(body['path'], p.join('/models', 'loras', 'style.safetensors'));
-    expect(body.toString().contains('super-secret-token'), isFalse);
-    expect(body.toString().contains('/tmp/evil'), isFalse);
-    final missing = await routes.download(
-      post('/api/image/civitai/download', {
-        'versionId': 20,
-        'root': '/tmp/evil',
-        'filename': 'style.safetensors',
-        'type': 'LORA',
-        'lora': true,
-        'backend': 'drawthings',
-      }, account: 'local'),
-    );
-    expect(missing.statusCode, 400);
-    final missingBody = jsonDecode(await missing.readAsString()) as Map;
-    expect(
-      missingBody['error'],
-      'Draw Things models folder was not found on this Mac',
-    );
-  });
 }

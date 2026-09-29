@@ -26,6 +26,7 @@ void main() {
         home: StudioCivitaiGet(
           lora: true,
           adult: true,
+          adultAllowed: true,
           backend: 'comfyui',
           onInstalled: (_) {},
         ),

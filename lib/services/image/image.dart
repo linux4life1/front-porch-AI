@@ -8,10 +8,16 @@
 
 export 'civitai_client.dart';
 export 'civitai_credentials.dart';
+export 'civitai_disk.dart';
 export 'civitai_download.dart';
+export 'civitai_errors.dart';
 export 'civitai_fetch.dart';
+export 'civitai_files.dart';
+export 'civitai_jobs.dart';
 export 'civitai_installed.dart';
 export 'civitai_oauth.dart';
+export 'civitai_safetensors.dart';
+export 'civitai_version.dart';
 export 'comfy_catalog.dart';
 export 'comfy_create_presets.dart';
 export 'comfy_create_workflow.dart';

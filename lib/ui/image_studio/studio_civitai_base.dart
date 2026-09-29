@@ -12,6 +12,7 @@ PreferredSizeWidget? studioCivitaiStatus({
   required String? error,
   required int got,
   required int? total,
+  VoidCallback? onCancel,
 }) {
   final progress = progressName;
   if (progress == null && (error == null || error.isEmpty)) return null;
@@ -24,7 +25,9 @@ PreferredSizeWidget? studioCivitaiStatus({
       ? 'Downloading $progress'
       : 'Downloading $progress · $percent%';
   return PreferredSize(
-    preferredSize: const Size.fromHeight(56),
+    preferredSize: Size.fromHeight(
+      progress != null && onCancel != null ? 68 : 56,
+    ),
     child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Column(
@@ -34,7 +37,18 @@ PreferredSizeWidget? studioCivitaiStatus({
             LinearProgressIndicator(
               value: percent == null ? null : percent / 100,
             ),
-          Text(line, maxLines: 2, overflow: TextOverflow.ellipsis),
+          Row(
+            children: [
+              Expanded(
+                child: Text(line, maxLines: 2, overflow: TextOverflow.ellipsis),
+              ),
+              if (progress != null && onCancel != null)
+                TextButton(
+                  onPressed: onCancel,
+                  child: const Text('Cancel download'),
+                ),
+            ],
+          ),
         ],
       ),
     ),

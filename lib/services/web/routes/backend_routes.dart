@@ -19,7 +19,6 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
-import 'package:front_porch_ai/services/image/civitai_fetch.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
@@ -79,7 +78,6 @@ class WebBackendRoutes {
         auth: _deps.auth,
         adultAllowed: () => _deps.storage.realismSettings.adultThemesEnabled,
         rootForAsync: savedStudioModelRoot,
-        startDownload: downloadCivitaiPlan,
       );
     }
   }
