@@ -34,6 +34,7 @@
 
 import 'dart:convert';
 
+import 'edit_profile.dart';
 import 'comfy_edit_workflow.dart';
 import 'comfy_workflow_adapt.dart';
 import 'comfy_workflow_convert.dart';
@@ -364,7 +365,10 @@ resolveComfyEditRequest({
   required int steps,
   required double cfg,
   required double denoise,
-  required double shift,
+
+  /// The shift the person set for this graph, or null: the graph then posts
+  /// its own.
+  required double? shift,
   int width = 1024,
   int height = 1024,
   String sampler = 'euler',
@@ -379,7 +383,7 @@ resolveComfyEditRequest({
     ComfyEditTokens.steps: steps,
     ComfyEditTokens.cfg: cfg,
     ComfyEditTokens.denoise: denoise,
-    ComfyEditTokens.shift: shift,
+    ComfyEditTokens.shift: shift ?? kEditRecommendedShift,
     ComfyEditTokens.width: width,
     ComfyEditTokens.height: height,
     ComfyEditTokens.sampler: sampler,
@@ -397,7 +401,10 @@ resolveComfyEditRequest({
       final file = modelChoices['$workflowId/${slot.token}'] ?? '';
       if (file.isNotEmpty) values[slot.token] = file;
     }
-    return (template: adapted.template, values: values);
+    return (
+      template: shift == null ? adapted.templateWithOwnShift : adapted.template,
+      values: values,
+    );
   }
 
   if (workflowId == kComfyUploadedWorkflowId) {

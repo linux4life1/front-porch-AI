@@ -1,9 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The desk's Shift reaches whichever sampling-shift node the graph has, in the
-// graph posted to a real loopback ComfyUI: SD3, Flux (its max_shift) and
-// AuraFlow, not only AuraFlow.
+// What a real loopback ComfyUI is sent: a graph posts its own sampling shift
+// until Shift is moved for it, then the moved value reaches its ModelSampling
+// `shift` (SD3, AuraFlow), and Flux's max_shift is never the Shift control's.
 
 import 'dart:convert';
 import 'dart:io';
@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
+import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 Map<String, dynamic> _graph(
@@ -83,11 +84,12 @@ Map<String, dynamic> _graph(
 void main() {
   setUp(() => HttpOverrides.global = null);
 
-  /// Generates [graph] as an uploaded workflow with the shift at 6.5 and
-  /// returns the posted shift node's inputs.
+  /// Generates [graph] as an uploaded workflow, with Shift moved to
+  /// [moved] when it is given, and returns the posted shift node's inputs.
   Future<Map<String, dynamic>> postedShiftNode(
-    Map<String, dynamic> graph,
-  ) async {
+    Map<String, dynamic> graph, {
+    double? moved,
+  }) async {
     Map<String, dynamic>? posted;
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
@@ -121,37 +123,42 @@ void main() {
     await settings.setComfyCreateWorkflowId(kComfyUploadedWorkflowId);
     await settings.setComfyCreateUploadedWorkflow(jsonEncode(graph));
     await settings.setImageGenModel('model.safetensors');
-    await settings.setEditShift(6.5);
+    if (moved != null) {
+      await settings.setComfyShift(
+        kComfyUploadedWorkflowId,
+        moved,
+        edit: false,
+      );
+    }
     final image = ImageGenService(storage);
     await image.generateImage(prompt: 'a porch at dusk');
     expect(posted, isNotNull, reason: image.statusMessage);
     return (posted!['shift'] as Map)['inputs'] as Map<String, dynamic>;
   }
 
-  test('ModelSamplingSD3 takes the shift', () async {
-    final node = await postedShiftNode(
-      _graph('ModelSamplingSD3', {'shift': 3.0}),
-    );
-    expect(node['shift'], 6.5);
-  });
+  for (final type in ['ModelSamplingSD3', 'ModelSamplingAuraFlow']) {
+    test('$type posts its own shift until Shift is moved', () async {
+      final graph = _graph(type, {'shift': 4.5});
+      expect((await postedShiftNode(graph))['shift'], 4.5);
+    });
 
-  test('ModelSamplingAuraFlow takes the shift', () async {
-    final node = await postedShiftNode(
-      _graph('ModelSamplingAuraFlow', {'shift': 3.0}),
-    );
-    expect(node['shift'], 6.5);
-  });
+    test('$type takes the shift once it is moved for the graph', () async {
+      final graph = _graph(type, {'shift': 4.5});
+      expect((await postedShiftNode(graph, moved: 6.5))['shift'], 6.5);
+    });
+  }
 
-  test('ModelSamplingFlux takes the shift as its max shift', () async {
-    final node = await postedShiftNode(
-      _graph('ModelSamplingFlux', {
-        'max_shift': 1.15,
-        'base_shift': 0.5,
-        'width': 1024,
-        'height': 1024,
-      }),
-    );
-    expect(node['max_shift'], 6.5);
-    expect(node['base_shift'], 0.5, reason: 'only the max is the shift');
+  test('ModelSamplingFlux keeps its max shift, moved or not', () async {
+    final graph = _graph('ModelSamplingFlux', {
+      'max_shift': 1.15,
+      'base_shift': 0.5,
+      'width': 1024,
+      'height': 1024,
+    });
+    for (final moved in [null, 6.5]) {
+      final node = await postedShiftNode(graph, moved: moved);
+      expect(node['max_shift'], 1.15, reason: 'moved: $moved');
+      expect(node['base_shift'], 0.5);
+    }
   });
 }

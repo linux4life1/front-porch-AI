@@ -120,6 +120,7 @@ Future<StudioReadyReport> checkStudioReady({
         verdict.slots,
         loader.canUpdate,
         verdict.tokens,
+        verdict.ownShift,
       );
     }
   }

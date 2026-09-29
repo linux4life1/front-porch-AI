@@ -274,7 +274,11 @@ class _StudioDeskState extends State<StudioDesk> {
       knobs: StudioDeskKnobs(
         settings: settings,
         edit: editing,
-        comfyShift: ready?.tokens.contains(ComfyEditTokens.shift) ?? false,
+        comfyShiftGraph:
+            (ready?.tokens.contains(ComfyEditTokens.shift) ?? false)
+            ? _workflowId(settings)
+            : null,
+        comfyOwnShift: ready?.ownShift ?? kEditRecommendedShift,
       ),
       readyLine: studioReadyLine(
         ready: enabled,

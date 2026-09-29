@@ -26,15 +26,19 @@ class StudioDeskKnobs extends StatelessWidget {
     super.key,
     required this.settings,
     this.edit = false,
-    this.comfyShift = false,
+    this.comfyShiftGraph,
+    this.comfyOwnShift = kEditRecommendedShift,
   });
 
   final ImageGenSettings settings;
   final bool edit;
 
-  /// The Comfy graph on the desk has a sampling-shift node. Without one the
-  /// slider would change nothing, so it is not shown.
-  final bool comfyShift;
+  /// The id of the Comfy graph on the desk when it has a sampling-shift node.
+  /// Without one the slider would change nothing, so it is not shown.
+  final String? comfyShiftGraph;
+
+  /// That graph's own shift, where the slider starts.
+  final double comfyOwnShift;
 
   @override
   Widget build(BuildContext context) {
@@ -81,8 +85,8 @@ class StudioDeskKnobs extends StatelessWidget {
             maxLines: 2,
             onSubmit: settings.setImageGenNegativePrompt,
           ),
-        if (backend == 'comfyui' && comfyShift)
-          _shiftRow(primary, settings.editShift, settings.setEditShift),
+        if (backend == 'comfyui' && comfyShiftGraph != null)
+          ..._comfyShift(primary, comfyShiftGraph!),
         if (drawThings) ..._drawThings(context, primary),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -101,6 +105,27 @@ class StudioDeskKnobs extends StatelessWidget {
         if (!edit) ..._promptStyle(context),
       ],
     );
+  }
+
+  /// Moving the slider sets Shift for this graph only. Until it is moved the
+  /// graph posts its own value, which is where the slider starts.
+  List<Widget> _comfyShift(Color primary, String graph) {
+    final moved = settings.comfyShiftFor(graph, edit: edit);
+    return [
+      _shiftRow(
+        primary,
+        moved ?? comfyOwnShift,
+        (value) => settings.setComfyShift(graph, value, edit: edit),
+      ),
+      if (moved != null)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: () => settings.clearComfyShift(graph, edit: edit),
+            child: const Text('Use the graph\'s own shift'),
+          ),
+        ),
+    ];
   }
 
   List<Widget> _drawThings(BuildContext context, Color primary) {
@@ -165,8 +190,7 @@ class StudioDeskKnobs extends StatelessWidget {
     ];
   }
 
-  /// Comfy graphs read this as their sampling shift (from the edit setting,
-  /// for Create and Edit alike); Draw Things keeps one per mode.
+  /// A shift slider. Comfy keeps one per graph; Draw Things keeps one per mode.
   Widget _shiftRow(
     Color primary,
     double shift,

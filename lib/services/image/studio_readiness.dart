@@ -53,6 +53,10 @@ class StudioReadiness {
   /// is missing here would change nothing.
   final Set<String> tokens;
 
+  /// The graph's own sampling shift, where the Shift slider starts. Null when
+  /// the graph gives none (the desk then starts at the recommended shift).
+  final double? ownShift;
+
   const StudioReadiness(
     this.kind, [
     this.missingClass,
@@ -61,6 +65,7 @@ class StudioReadiness {
     this.slots = const [],
     this.canUpdateLoader = false,
     this.tokens = const {},
+    this.ownShift,
   ]);
 }
 

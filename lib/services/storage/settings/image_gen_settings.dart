@@ -25,6 +25,7 @@ import '../../image/image_gen_lora_slots.dart';
 import 'image_gen_remote.dart';
 import 'settings_base.dart';
 
+part 'image_gen_settings.comfy_shift.dart';
 part 'image_gen_settings.load.dart';
 
 /// Image generation (A1111/Draw Things/remote) + Draw Things gRPC settings.
@@ -103,6 +104,10 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   Map<String, String> _comfyCreateModelChoices = {};
   String _comfyCreateUploadedWorkflow = '';
   String _comfyCreateUploadedTitle = '';
+
+  /// Shifts the person moved on the desk, by `create|<graph id>` or
+  /// `edit|<graph id>`. A graph with no entry posts its own shift.
+  Map<String, double> _comfyShifts = {};
 
   bool get imageGenEnabled => _imageGenEnabled;
   String get imageGenBackend => _imageGenBackend;

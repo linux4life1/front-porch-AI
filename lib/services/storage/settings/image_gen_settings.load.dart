@@ -101,6 +101,7 @@ extension ImageGenSettingsLoad on ImageGenSettings {
         prefs?.getString(k('comfy_create_uploaded_workflow')) ?? '';
     _comfyCreateUploadedTitle =
         prefs?.getString(k('comfy_create_uploaded_title')) ?? '';
+    _comfyShifts = _decodeShifts(prefs?.getString(k('comfy_shifts')));
     loadImageRemotePrefs();
   }
 

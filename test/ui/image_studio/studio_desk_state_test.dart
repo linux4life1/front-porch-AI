@@ -61,7 +61,7 @@ const _shiftyGraph = {
     'class_type': 'ModelSamplingSD3',
     'inputs': {
       'model': ['ckpt', 0],
-      'shift': 3.0,
+      'shift': 4.5,
     },
   },
   'pos': {
@@ -568,6 +568,45 @@ void main() {
 
       expect(find.text('Shift'), findsOneWidget);
     });
+
+    testWidgets('Shift starts at the graph\'s own value, not the global one', (
+      tester,
+    ) async {
+      final comfy = await useShifty(tester);
+      await pumpDesk(tester, comfy: comfy);
+      await openAdvanced(tester);
+
+      expect(find.text('4.5'), findsOneWidget);
+      expect(
+        storage.imageGenSettings.comfyShiftFor(_shiftyId, edit: false),
+        isNull,
+        reason: 'looking at it changes nothing',
+      );
+    });
+
+    testWidgets(
+      'moving Shift sets it for this graph only, and it can be undone',
+      (tester) async {
+        final comfy = await useShifty(tester);
+        await pumpDesk(tester, comfy: comfy);
+        await openAdvanced(tester);
+        final s = storage.imageGenSettings;
+
+        await tester.drag(find.byType(Slider).last, const Offset(60, 0));
+        await tester.pump();
+
+        expect(s.comfyShiftFor(_shiftyId, edit: false), isNot(4.5));
+        expect(s.comfyShiftFor(_shiftyId, edit: false), isNotNull);
+        expect(s.comfyShiftFor('comfy:default:other', edit: false), isNull);
+        expect(s.comfyShiftFor(_shiftyId, edit: true), isNull);
+
+        await tester.tap(find.text('Use the graph\'s own shift'));
+        await tester.pump();
+
+        expect(s.comfyShiftFor(_shiftyId, edit: false), isNull);
+        expect(find.text('4.5'), findsOneWidget);
+      },
+    );
 
     testWidgets('Shift is shown for an uploaded graph that has one', (
       tester,

@@ -412,8 +412,18 @@ StudioReadiness deskReadiness({
   final adapted = adaptComfyApiWorkflow(api);
   final slots = uploaded ? const <ComfyModelSlot>[] : adapted.slots;
   final tokens = detectComfyTokens(adapted.template);
+  final ownShift = adapted.ownShifts.values.firstOrNull?.toDouble();
   StudioReadiness verdict(StudioReady kind, {String? missingClass}) =>
-      StudioReadiness(kind, missingClass, null, null, slots, false, tokens);
+      StudioReadiness(
+        kind,
+        missingClass,
+        null,
+        null,
+        slots,
+        false,
+        tokens,
+        ownShift,
+      );
   final graph = uploaded
       ? api
       : _graphWithChoices(
@@ -469,5 +479,6 @@ StudioReadiness deskReadiness({
     slots,
     false,
     tokens,
+    ownShift,
   );
 }

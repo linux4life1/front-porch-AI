@@ -24,6 +24,7 @@ import 'dart:convert';
 
 import 'comfy_create_workflow.dart';
 import 'comfy_edit_presets.dart';
+import 'edit_profile.dart';
 import 'comfy_edit_workflow.dart';
 import 'comfy_starters.dart';
 import 'comfy_workflow_adapt.dart';
@@ -254,7 +255,10 @@ ComfyCreateRequest? resolveComfyCreateRequest({
   required int steps,
   required double cfg,
   required double denoise,
-  required double shift,
+
+  /// The shift the person set for this graph, or null: the graph then posts
+  /// its own.
+  required double? shift,
   required int width,
   required int height,
   String sampler = 'euler',
@@ -270,7 +274,7 @@ ComfyCreateRequest? resolveComfyCreateRequest({
     steps: steps,
     cfg: cfg,
     denoise: denoise,
-    shift: shift,
+    shift: shift ?? kEditRecommendedShift,
     width: width,
     height: height,
     sampler: sampler,
@@ -299,7 +303,7 @@ ComfyCreateRequest? resolveComfyCreateRequest({
     if (file.isNotEmpty) values[slot.token] = file;
   }
   return ComfyCreateRequest(
-    template: adapted.template,
+    template: shift == null ? adapted.templateWithOwnShift : adapted.template,
     values: values,
     slots: adapted.slots,
     vaeNodeId: adapted.vaeNodeId,
