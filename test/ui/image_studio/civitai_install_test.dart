@@ -37,6 +37,7 @@ void main() {
   late CivitaiFileHost host;
   var lookup = CivitaiLookupKind.ok;
   var lookups = 0;
+  var fixtureId = 133005;
   bool? adultSeen;
   Uri? uriSeen;
 
@@ -44,7 +45,7 @@ void main() {
     final raw =
         jsonDecode(
               File(
-                'test/fixtures/civitai/version_133005.json',
+                'test/fixtures/civitai/version_$fixtureId.json',
               ).readAsStringSync(),
             )
             as Map<String, dynamic>;
@@ -93,6 +94,7 @@ void main() {
   Future<CivitaiInstallResult> press({
     CivitaiModelRow? of,
     bool adult = false,
+    bool adultAllowed = true,
     CivitaiCancel? cancel,
   }) {
     return installCivitaiRow(
@@ -100,6 +102,7 @@ void main() {
       backend: 'comfyui',
       lora: true,
       adult: adult,
+      adultAllowed: adultAllowed,
       versionFetch: fetch,
       saveCall: save,
       cancel: cancel ?? CivitaiCancel(),
@@ -127,6 +130,7 @@ void main() {
     host.serve('/file', payload);
     lookup = CivitaiLookupKind.ok;
     lookups = 0;
+    fixtureId = 133005;
     adultSeen = null;
     uriSeen = null;
   });
@@ -271,6 +275,7 @@ void main() {
           backend: 'comfyui',
           lora: true,
           adult: false,
+          adultAllowed: true,
           versionFetch: fetch,
           saveCall: save,
           cancel: cancel,
@@ -295,6 +300,40 @@ void main() {
         expect(host.requests, isEmpty);
       },
     );
+  });
+
+  group('a model rated adult follows the app setting', () {
+    final adultRow = CivitaiModelRow(
+      id: 28907,
+      name: 'Anime Lineart',
+      type: 'LORA',
+      adult: false,
+      versionId: 28907,
+      filename: 'animeoutlineV4_16.safetensors',
+    );
+
+    test(
+      'with adult off, a nsfw=false nsfwLevel=23 model is refused and never fetched',
+      () async {
+        fixtureId = 28907;
+        final message = failure(await press(of: adultRow, adultAllowed: false));
+        expect(message, contains('rated adult'));
+        expect(host.requests, isEmpty);
+        expect(root.listSync(), isEmpty);
+      },
+    );
+
+    test('with adult on it installs', () async {
+      fixtureId = 28907;
+      final result = await press(of: adultRow);
+      expect(result, isA<CivitaiInstalled>());
+      expect(
+        File(
+          p.join(root.path, 'loras', 'animeoutlineV4_16.safetensors'),
+        ).existsSync(),
+        isTrue,
+      );
+    });
   });
 
   group('adult', () {

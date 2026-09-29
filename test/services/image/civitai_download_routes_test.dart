@@ -32,6 +32,7 @@ void main() {
   late CivitaiRoutes routes;
   late Map<String, String> box;
   var adult = false;
+  var fixtureId = 133005;
   var lookupKind = CivitaiLookupKind.ok;
   var lookups = 0;
   var planned = <CivitaiDownloadPlan>[];
@@ -40,7 +41,7 @@ void main() {
     final raw =
         jsonDecode(
               File(
-                'test/fixtures/civitai/version_133005.json',
+                'test/fixtures/civitai/version_$fixtureId.json',
               ).readAsStringSync(),
             )
             as Map<String, dynamic>;
@@ -160,6 +161,7 @@ void main() {
     host.serve('/file', payload);
     box = {'civitai_credential_local': 'the-key'};
     adult = false;
+    fixtureId = 133005;
     lookupKind = CivitaiLookupKind.ok;
     lookups = 0;
     planned = [];
@@ -245,6 +247,39 @@ void main() {
         expect(planned.single.expectedBytes, payload.length);
       },
     );
+  });
+
+  group('a model rated adult follows the app setting', () {
+    const adultFile = 'animeoutlineV4_16.safetensors';
+
+    test(
+      'with adult off, a plain POST for a live nsfwLevel 23 model is refused',
+      () async {
+        fixtureId = 28907;
+        final res = await post(body(extra: {'filename': adultFile}));
+        expect(res.statusCode, 403);
+        final json = await civitaiJson(res);
+        expect(json['code'], 'adult_disabled');
+        expect(planned, isEmpty);
+        expect(root.listSync(), isEmpty);
+        expect(host.requests, isEmpty);
+      },
+    );
+
+    test('without a file name it is refused the same way', () async {
+      fixtureId = 28907;
+      final res = await post(body(extra: {'filename': ''}));
+      expect(res.statusCode, 403);
+      expect((await civitaiJson(res))['code'], 'adult_disabled');
+    });
+
+    test('with adult on it downloads', () async {
+      fixtureId = 28907;
+      adult = true;
+      final id = await started(body(extra: {'filename': adultFile}));
+      expect((await settle(id))['state'], 'done');
+      expect(File(p.join(root.path, 'loras', adultFile)).existsSync(), isTrue);
+    });
   });
 
   group('refusals say why, with their own status and code', () {

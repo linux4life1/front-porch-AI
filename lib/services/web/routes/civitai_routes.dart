@@ -314,6 +314,7 @@ class CivitaiRoutes {
         version: found,
         filename: wanted.isEmpty ? (file?.name ?? '') : wanted,
         adult: adult,
+        adultAllowed: _adultAllowed(),
         savedRoot: savedRoot,
         fromLoraSheet: body['lora'] == true,
         backend: backend,
@@ -378,7 +379,9 @@ class CivitaiRoutes {
       CivitaiFailure.diskFull => 507,
       CivitaiFailure.tooLarge => 413,
       CivitaiFailure.unsafe || CivitaiFailure.keyMissing => 400,
-      CivitaiFailure.keyRefused || CivitaiFailure.locked => 403,
+      CivitaiFailure.keyRefused ||
+      CivitaiFailure.locked ||
+      CivitaiFailure.adultBlocked => 403,
       CivitaiFailure.notFound => 404,
       _ => 502,
     };

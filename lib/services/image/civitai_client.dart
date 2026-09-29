@@ -357,17 +357,18 @@ class CivitaiRelay {
 
   /// [version] comes from CivitAI, not from the caller. The file name has
   /// to be one of its files; its type, size, checksum and address all come
-  /// from that listing.
+  /// from that listing. A version rated adult is refused unless
+  /// [adultAllowed], whichever host [adult] points at.
   Future<CivitaiDownloadPlan> planDownload({
     required String accountId,
     required CivitaiVersion version,
     required String filename,
     required bool adult,
+    required bool adultAllowed,
     required String? savedRoot,
     required bool fromLoraSheet,
     required String backend,
   }) async {
-    final token = await store.read(accountId);
     final log = civitaiLog(
       action: 'download',
       accountId: accountId,
@@ -377,6 +378,10 @@ class CivitaiRelay {
       return CivitaiDownloadPlan.refusal(kind, log: log, detail: detail);
     }
 
+    if (version.isAdultRated && !adultAllowed) {
+      return refuse(CivitaiFailure.adultBlocked);
+    }
+    final token = await store.read(accountId);
     if (token == null) return refuse(CivitaiFailure.keyMissing);
     final file = civitaiVersionFile(version, filename);
     if (file == null) {

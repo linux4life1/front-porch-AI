@@ -43,6 +43,7 @@ void main() {
     bool lora = false,
     String backend = 'comfyui',
     bool adult = false,
+    bool adultAllowed = true,
     CivitaiRelay? via,
   }) {
     return (via ?? relay).planDownload(
@@ -50,6 +51,7 @@ void main() {
       version: version,
       filename: filename,
       adult: adult,
+      adultAllowed: adultAllowed,
       savedRoot: root,
       fromLoraSheet: lora,
       backend: backend,
@@ -95,6 +97,100 @@ void main() {
         'https://civitai.red/api/v1/model-versions/7',
       );
     });
+  });
+
+  group('a model rated adult needs adult models turned on', () {
+    Future<CivitaiDownloadPlan> ask(
+      CivitaiVersion v,
+      String name,
+      bool allowed,
+    ) => plan(v, name, lora: true, adultAllowed: allowed);
+
+    test(
+      'a live version with nsfw false but nsfwLevel 23 is refused',
+      () async {
+        final v = _version(28907);
+        expect(v.adult, isFalse);
+        expect(v.nsfwLevel, 23);
+        final made = await ask(v, 'animeoutlineV4_16.safetensors', false);
+        expect(made.refused, isTrue);
+        expect(made.failure, CivitaiFailure.adultBlocked);
+        expect(made.path, isNull);
+        expect(made.uri, isNull);
+        expect(made.authorization, isNull);
+      },
+    );
+
+    test('the same version is planned once adult models are on', () async {
+      final made = await ask(
+        _version(28907),
+        'animeoutlineV4_16.safetensors',
+        true,
+      );
+      expect(made.refused, isFalse);
+      expect(made.path, p.join(root, 'loras', 'animeoutlineV4_16.safetensors'));
+    });
+
+    test('the model flag alone is enough', () async {
+      final v = _version(
+        133005,
+        edit: (raw) {
+          (raw['model'] as Map)['nsfw'] = true;
+          raw['nsfwLevel'] = 1;
+        },
+      );
+      expect(v.isAdultRated, isTrue);
+      final made = await ask(v, 'MaouBigV1.2.safetensors', false);
+      expect(made.failure, CivitaiFailure.adultBlocked);
+    });
+
+    test('level 3 passes and level 4 does not', () async {
+      CivitaiVersion at(int level) =>
+          _version(133005, edit: (raw) => raw['nsfwLevel'] = level);
+      expect(
+        (await ask(at(3), 'MaouBigV1.2.safetensors', false)).refused,
+        isFalse,
+      );
+      expect(
+        (await ask(at(4), 'MaouBigV1.2.safetensors', false)).failure,
+        CivitaiFailure.adultBlocked,
+      );
+      expect(
+        (await ask(at(32), 'MaouBigV1.2.safetensors', false)).failure,
+        CivitaiFailure.adultBlocked,
+      );
+    });
+
+    test('a version with no rating at all is treated as not adult', () async {
+      final v = _version(133005, edit: (raw) => raw.remove('nsfwLevel'));
+      expect(v.nsfwLevel, 0);
+      expect((await ask(v, 'MaouBigV1.2.safetensors', false)).refused, isFalse);
+    });
+
+    test('it is refused before the key is even read', () async {
+      final made = await plan(
+        _version(28907),
+        'animeoutlineV4_16.safetensors',
+        lora: true,
+        adultAllowed: false,
+        via: CivitaiRelay(memoryCivitaiStore({})),
+      );
+      expect(made.failure, CivitaiFailure.adultBlocked);
+    });
+
+    test(
+      'unticking the adult box does not lift it: the host does not matter',
+      () async {
+        final made = await plan(
+          _version(28907),
+          'animeoutlineV4_16.safetensors',
+          lora: true,
+          adult: false,
+          adultAllowed: false,
+        );
+        expect(made.failure, CivitaiFailure.adultBlocked);
+      },
+    );
   });
 
   group('the caller cannot name a file CivitAI did not list', () {
@@ -415,6 +511,7 @@ void main() {
       version: _version(133005),
       filename: 'MaouBigV1.2.safetensors',
       adult: false,
+      adultAllowed: true,
       savedRoot: 'models',
       fromLoraSheet: true,
       backend: 'comfyui',

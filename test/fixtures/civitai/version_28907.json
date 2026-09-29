@@ -1,0 +1,43 @@
+{
+ "baseModel": "SD 1.5",
+ "downloadUrl": "https://civitai.com/api/download/models/28907",
+ "files": [
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/28907?fileId=23894",
+   "hashes": {
+    "AutoV1": "37B1EC55",
+    "AutoV2": "2FCD88E6AA",
+    "AutoV3": "9B0C9BEB764D",
+    "BLAKE3": "A5F526048C00C17373CDA01DEED76C7C50632DA4A62FFCE1EA8ED1478FE86018",
+    "CRC32": "EFC67C04",
+    "SHA256": "2FCD88E6AA07B2DB73BEFCA54B3956131E1DECC8E6E719508CE32C28768F9B91",
+    "SHA256_12": "2FCD88E6AA07"
+   },
+   "id": 23894,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "fp16",
+    "size": "full"
+   },
+   "name": "animeoutlineV4_16.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": true,
+   "scannedAt": "2023-03-25T13:41:36.762",
+   "sizeKB": 18541.3203125,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  }
+ ],
+ "id": 28907,
+ "model": {
+  "name": "Anime Lineart / Manga-like (\u7ebf\u7a3f/\u7dda\u753b/\u30de\u30f3\u30ac\u98a8/\u6f2b\u753b\u98ce) Style",
+  "nsfw": false,
+  "poi": false,
+  "type": "LORA"
+ },
+ "modelId": 16014,
+ "name": "v3.0 manga-like",
+ "nsfwLevel": 23
+}

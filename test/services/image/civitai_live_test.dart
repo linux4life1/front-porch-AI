@@ -27,7 +27,7 @@ void main() {
     addTearDown(() => HttpOverrides.global = saved);
   });
 
-  for (final id in [133005, 128713, 130072, 1957126, 1236037]) {
+  for (final id in [133005, 128713, 130072, 1957126, 1236037, 28907]) {
     test('version $id still reads the way the saved fixture does', () async {
       final lookup = await fetchCivitaiVersion(versionId: id, adult: false);
       expect(lookup.kind, CivitaiLookupKind.ok);
@@ -37,6 +37,7 @@ void main() {
       )!;
       expect(now.id, saved.id);
       expect(now.modelType, saved.modelType);
+      expect(now.isAdultRated, saved.isAdultRated);
       expect(now.files.map((f) => f.name), saved.files.map((f) => f.name));
       for (var i = 0; i < saved.files.length; i++) {
         expect(now.files[i].sizeBytes, saved.files[i].sizeBytes);
@@ -57,7 +58,7 @@ void main() {
   }, skip: skip);
 
   test('the saved fixtures are valid JSON', () {
-    for (final id in [133005, 128713, 130072, 1957126, 1236037]) {
+    for (final id in [133005, 128713, 130072, 1957126, 1236037, 28907]) {
       final body = File(
         'test/fixtures/civitai/version_$id.json',
       ).readAsStringSync();

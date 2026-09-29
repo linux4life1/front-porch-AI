@@ -115,5 +115,6 @@
   "type": "Checkpoint"
  },
  "modelId": 4201,
- "name": "V5.1 (VAE)"
+ "name": "V5.1 (VAE)",
+ "nsfwLevel": 7
 }

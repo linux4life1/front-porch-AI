@@ -38,5 +38,6 @@
   "type": "LORA"
  },
  "modelId": 102565,
- "name": "MaouBigv1.0"
+ "name": "MaouBigv1.0",
+ "nsfwLevel": 3
 }

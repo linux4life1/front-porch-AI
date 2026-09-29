@@ -48,6 +48,11 @@ class CivitaiVersionFile {
   }
 }
 
+/// CivitAI's `nsfwLevel` is a bit set: 1 PG, 2 PG-13, 4 R, 8 X, 16 XXX. Any
+/// value from 4 up means the version has content rated R or stronger, which
+/// the model's own `nsfw` flag does not always say.
+const int kCivitaiAdultLevel = 4;
+
 /// One model version from `/api/v1/model-versions/{id}`.
 class CivitaiVersion {
   const CivitaiVersion({
@@ -55,6 +60,7 @@ class CivitaiVersion {
     required this.modelType,
     required this.files,
     this.adult = false,
+    this.nsfwLevel = 0,
   });
 
   final int id;
@@ -62,7 +68,11 @@ class CivitaiVersion {
   /// `Checkpoint`, `LORA`, `TextualInversion`... The phone never supplies it.
   final String modelType;
   final bool adult;
+  final int nsfwLevel;
   final List<CivitaiVersionFile> files;
+
+  /// Rated adult by the model's flag or by the version's level.
+  bool get isAdultRated => adult || nsfwLevel >= kCivitaiAdultLevel;
 }
 
 Uri civitaiVersionUri(int versionId, {required bool adult}) {
@@ -95,6 +105,9 @@ CivitaiVersion? parseCivitaiVersion(String body) {
     id: id.toInt(),
     modelType: model['type']?.toString() ?? '',
     adult: model['nsfw'] == true,
+    nsfwLevel: decoded['nsfwLevel'] is num
+        ? (decoded['nsfwLevel'] as num).toInt()
+        : 0,
     files: out,
   );
 }

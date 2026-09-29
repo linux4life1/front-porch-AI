@@ -66,5 +66,6 @@
   "type": "Checkpoint"
  },
  "modelId": 1338204,
- "name": "2025-06-29-CFG-distill-Q8"
+ "name": "2025-06-29-CFG-distill-Q8",
+ "nsfwLevel": 21
 }

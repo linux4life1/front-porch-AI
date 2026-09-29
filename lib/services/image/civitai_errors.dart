@@ -21,6 +21,7 @@ enum CivitaiFailure {
   cancelled,
   redirect,
   unsafe,
+  adultBlocked,
   network,
   http,
 }
@@ -51,6 +52,7 @@ class CivitaiDownloadException implements Exception {
     CivitaiFailure.cancelled => 'cancelled',
     CivitaiFailure.redirect => 'redirect',
     CivitaiFailure.unsafe => 'unsafe',
+    CivitaiFailure.adultBlocked => 'adult_disabled',
     CivitaiFailure.network => 'network',
     CivitaiFailure.http => 'http',
   };
@@ -87,6 +89,9 @@ class CivitaiDownloadException implements Exception {
       'CivitAI sent the download somewhere it is not allowed to go.',
     CivitaiFailure.unsafe =>
       detail.isEmpty ? "That file can't be saved." : detail,
+    CivitaiFailure.adultBlocked =>
+      'This model is rated adult. Turn on adult models in Settings to '
+          'download it.',
     CivitaiFailure.network => 'Could not reach CivitAI.',
     CivitaiFailure.http =>
       detail.isEmpty ? 'CivitAI could not send the file.' : detail,

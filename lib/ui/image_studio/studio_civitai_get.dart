@@ -310,6 +310,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       backend: widget.backend,
       lora: widget.lora,
       adult: _adultNow,
+      adultAllowed: widget.adultAllowed,
       versionFetch: widget.versionFetch,
       saveCall: widget.saveCall,
       cancel: cancel,
