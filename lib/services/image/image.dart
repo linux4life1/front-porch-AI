@@ -16,6 +16,7 @@ export 'civitai_oauth.dart';
 export 'comfy_catalog.dart';
 export 'comfy_gguf_loaders.dart';
 export 'comfy_gguf_city96.dart';
+export 'draw_things_lora_filter.dart';
 export 'draw_things_samplers.dart';
 export 'image_submit_error.dart';
 export 'studio_dispatch.dart';

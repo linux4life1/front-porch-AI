@@ -27,11 +27,26 @@ extension on _StudioDeskState {
           : settings.imageGenBackend == 'a1111'
           ? await _listedA1111Models(gen, url)
           : await _listedDrawThingsModels(gen, url);
+      final drawThings = settings.imageGenBackend == 'drawthings';
+      var listing = const DrawThingsLoraListing();
+      var modelVersions = const <String, String>{};
+      if (up && drawThings) {
+        listing = drawThingsLoraListing(await gen.fetchDrawThingsLoras(url));
+        modelVersions = await gen.fetchDrawThingsModelVersions(url);
+      }
       if (!mounted) return;
       _applyCatalog(
         models: models,
+        loras: drawThings ? listing.names : const [],
         url: force ? (up ? 'up:$url' : 'down:$url') : url,
       );
+      if (drawThings) {
+        _rememberLoraFacts(
+          listing.facts,
+          dtLoraVersions: listing.versions,
+          dtModelVersions: modelVersions,
+        );
+      }
       return;
     }
     if (settings.imageGenBackend != 'comfyui') {
@@ -359,7 +374,13 @@ extension on _StudioDeskState {
       context: context,
       builder: (context) => StudioLoraSheet(
         slots: settings.imageGenLoraSlots,
-        files: _loras,
+        files: deskLoraFiles(
+          backend: settings.imageGenBackend,
+          files: _loras,
+          loraVersions: _dtLoraVersions,
+          modelVersions: _dtModelVersions,
+          modelFile: primary,
+        ),
         primaryFile: primary,
         facts: _loraFacts,
         onPick: (index, file) =>

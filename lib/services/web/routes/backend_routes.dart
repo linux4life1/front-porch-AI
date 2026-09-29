@@ -74,6 +74,7 @@ class WebBackendRoutes {
       router.get('/api/image/saved/<name>', _imageSaved);
       router.get('/api/image/comfy-catalog', _imageComfyCatalog);
       router.get('/api/image/studio/ready', _imageStudioReady);
+      router.get('/api/image/local-catalog', _imageLocalCatalog);
       router.post('/api/image/studio/installed', _imageInstalled);
       router.get('/api/image/comfy-workflow-slots', _imageComfyWorkflowSlots);
       router.get('/api/image/models', _imageRemoteModels);
@@ -319,6 +320,11 @@ class WebBackendRoutes {
 
   Future<shelf.Response> _imageComfyCatalog(shelf.Request r) async =>
       JsonResponse.ok(await _image!.comfyCatalog());
+
+  Future<shelf.Response> _imageLocalCatalog(shelf.Request r) async =>
+      JsonResponse.ok(
+        await _image!.localCatalog(model: r.url.queryParameters['model'] ?? ''),
+      );
 
   Future<shelf.Response> _imageStudioReady(shelf.Request r) async {
     final edit = r.url.queryParameters['mode'] == 'edit';

@@ -10,6 +10,7 @@ import 'package:front_porch_ai/services/image/civitai_installed.dart';
 import 'package:front_porch_ai/services/image/comfy_create_presets.dart';
 import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
 import 'package:front_porch_ai/services/image/image_studio_remote.dart';
+import 'package:front_porch_ai/services/image/draw_things_lora_filter.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/services/image/studio_support_fit.dart';
@@ -75,6 +76,8 @@ class _StudioDeskState extends State<StudioDesk> {
   List<String> _clips = const [];
   List<String> _vaes = const [];
   Map<String, DeskLoraCheck> _loraFacts = {};
+  Map<String, String> _dtLoraVersions = const {};
+  Map<String, String> _dtModelVersions = const {};
   String? _catalogUrl;
   bool? _reportedReady;
 
@@ -111,8 +114,16 @@ class _StudioDeskState extends State<StudioDesk> {
     });
   }
 
-  void _rememberLoraFacts(Map<String, DeskLoraCheck> facts) {
-    setState(() => _loraFacts = facts);
+  void _rememberLoraFacts(
+    Map<String, DeskLoraCheck> facts, {
+    Map<String, String> dtLoraVersions = const {},
+    Map<String, String> dtModelVersions = const {},
+  }) {
+    setState(() {
+      _loraFacts = facts;
+      _dtLoraVersions = dtLoraVersions;
+      _dtModelVersions = dtModelVersions;
+    });
   }
 
   void _showInstalledFiles({
@@ -264,9 +275,13 @@ class _StudioDeskState extends State<StudioDesk> {
           : null,
       reachable: backend == 'comfyui'
           ? _objectInfo != null
+          : backend == 'drawthings'
+          ? _drawThingsListed
           : (_catalogUrl ?? '').startsWith('up:'),
       checkedDown: (_catalogUrl ?? '').startsWith('down:'),
-      diffusionCount: _unet.length + _gguf.length,
+      diffusionCount: backend == 'drawthings'
+          ? _models.length
+          : _unet.length + _gguf.length,
       loraCount: _loras.length,
       familyLabel: primary.isEmpty
           ? 'No model chosen'
@@ -357,6 +372,16 @@ class _StudioDeskState extends State<StudioDesk> {
       onMode: (value) => setState(() => _edit = value),
       status: status,
     );
+  }
+
+  /// Draw Things shows its file counts after a listing, or after Check
+  /// says the server is up. A failed Check stays down. Comfy still uses
+  /// object info.
+  bool get _drawThingsListed {
+    final mark = _catalogUrl ?? '';
+    if (mark.isEmpty || mark.startsWith('down:')) return false;
+    if (mark.startsWith('up:')) return true;
+    return _models.isNotEmpty || _loras.isNotEmpty;
   }
 
   void _retryCatalog() {

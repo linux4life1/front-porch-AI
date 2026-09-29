@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'draw_things_lora_filter.dart';
 import 'model_family.dart';
 
 const _kFolders = {
@@ -149,7 +150,11 @@ String? civitaiDownloadPath({
 }
 
 /// `custom_lora.json` version id for a file name, when the name says.
+/// A specific Draw Things id (Klein 9B, LTX) wins. Names that only say
+/// SDXL via "XL" still use the coarser family.
 String drawThingsCatalogVersion(String filename) {
+  final specific = drawThingsVersionFromName(filename);
+  if (specific.isNotEmpty) return specific;
   switch (ImageModelFamily.detectFromName(filename)) {
     case ModelFamily.zImage:
       return 'z_image';

@@ -141,30 +141,44 @@ class DrawThingsGrpcService {
   /// instead, so the picker can name a file the gRPC generate config accepts.
   Future<List<DrawThingsLoraEntry>> fetchLoras() async {
     final native = DrawThingsNativeClient(host: host, port: port);
+    var echoed = <DrawThingsLoraEntry>[];
     try {
-      final loras = (await native.listFiles())
+      echoed = (await native.listFiles())
           .where((f) => f.toLowerCase().contains('lora'))
           .map(drawThingsLoraBasename)
           .where((f) => f.isNotEmpty)
           .map(DrawThingsLoraEntry.new)
           .toList();
-      if (loras.isNotEmpty) {
-        debugPrint('[DT-Native] Fetched ${loras.length} LoRAs');
-        return loras;
-      }
     } catch (e) {
       debugPrint('[DT-Native] fetchLoras echo failed: $e');
     } finally {
       unawaited(native.shutdown());
     }
-    if (!drawThingsHostIsLocal(host)) return const [];
+    if (!drawThingsHostIsLocal(host)) {
+      debugPrint('[DT-Native] Fetched ${echoed.length} LoRAs');
+      return echoed;
+    }
     final dir = drawThingsDefaultModelsDirectory();
-    if (dir == null) return const [];
+    if (dir == null) return echoed;
     final local = await drawThingsLoraFilesIn(dir);
-    debugPrint(
-      '[DT-Native] Fetched ${local.length} LoRAs from the local Models folder',
-    );
-    return local;
+    if (echoed.isEmpty) {
+      debugPrint(
+        '[DT-Native] Fetched ${local.length} LoRAs from the local Models folder',
+      );
+      return local;
+    }
+    final merged = drawThingsMergeLoraVersions(listed: echoed, catalog: local);
+    debugPrint('[DT-Native] Fetched ${merged.length} LoRAs');
+    return merged;
+  }
+
+  /// `custom.json` version ids for the local Models folder. A remote
+  /// host has no catalog here, so the picker cannot filter by version.
+  Future<Map<String, String>> fetchModelVersions() async {
+    if (!drawThingsHostIsLocal(host)) return const {};
+    final dir = drawThingsDefaultModelsDirectory();
+    if (dir == null) return const {};
+    return drawThingsModelVersionsIn(dir);
   }
 
   /// Resolves the app-wide "-1 = random" seed sentinel the same way the

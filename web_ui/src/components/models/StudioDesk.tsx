@@ -526,6 +526,18 @@ export function StudioDesk(props: StudioDeskProps) {
       return;
     }
     if (kind === 'Model search' || kind === 'LoRA search') {
+      if (props.backend === 'drawthings') {
+        const catalogUrl = kind === 'LoRA search' && file
+          ? `/api/image/local-catalog?model=${encodeURIComponent(file)}`
+          : '/api/image/local-catalog';
+        void api.get<{ models?: string[]; loras?: string[]; loraFacts?: { file?: string; family?: string; meta?: boolean }[] }>(catalogUrl)
+          .then((cat) => {
+            rememberFacts(cat.loraFacts);
+            setHits(kind === 'LoRA search' ? (cat.loras ?? []) : (cat.models ?? []));
+          })
+          .catch(() => setHits([]));
+        return;
+      }
       if (props.backend !== 'comfyui') {
         setHits([]);
         return;
@@ -933,7 +945,7 @@ export function StudioDesk(props: StudioDeskProps) {
           <div>{backendName}</div>
           <div>{url}</div>
           {props.backend === 'remote' ? null : reachable ? (
-            props.backend === 'comfyui' ? (
+            props.backend === 'comfyui' || props.backend === 'drawthings' ? (
               <p>{`Reachable · ${diffusionCount} diffusion files · ${loraCount} LoRAs`}</p>
             ) : (
               <p>Reachable</p>

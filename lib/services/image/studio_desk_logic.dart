@@ -41,6 +41,38 @@ class DeskLoraCheck {
   const DeskLoraCheck(this.file, this.family, {this.metadataBacked = false});
 }
 
+/// Draw Things LoRA names, family facts, and catalog versions.
+class DrawThingsLoraListing {
+  final List<String> names;
+  final Map<String, DeskLoraCheck> facts;
+  final Map<String, String> versions;
+
+  const DrawThingsLoraListing({
+    this.names = const [],
+    this.facts = const {},
+    this.versions = const {},
+  });
+}
+
+/// Names for the connection count, plus the version each file was tagged with.
+DrawThingsLoraListing drawThingsLoraListing(List<LoraOption> options) {
+  final names = <String>[];
+  final facts = <String, DeskLoraCheck>{};
+  final versions = <String, String>{};
+  for (final row in options) {
+    final name = row.name.trim();
+    if (name.isEmpty) continue;
+    names.add(name);
+    if (row.dtVersion.isNotEmpty) versions[name] = row.dtVersion;
+    facts[name] = DeskLoraCheck(
+      name,
+      row.family,
+      metadataBacked: row.familyFromMetadata,
+    );
+  }
+  return DrawThingsLoraListing(names: names, facts: facts, versions: versions);
+}
+
 /// A graph row the desk may offer. A title that is both tasks is omitted.
 class DeskGraphRow {
   final String id;

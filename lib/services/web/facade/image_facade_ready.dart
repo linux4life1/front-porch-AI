@@ -23,6 +23,41 @@ List<Map<String, Object>> phoneLoraFacts({
 }
 
 extension ImageStudioReady on ImageFacade {
+  /// Checkpoints and LoRAs Draw Things listed. Other backends get an
+  /// empty catalog so the phone sheet does not borrow Comfy's folders.
+  Future<Map<String, dynamic>> localCatalog({String model = ''}) async {
+    final settings = _storage.imageGenSettings;
+    if (settings.imageGenBackend != 'drawthings') {
+      return {
+        'models': const <String>[],
+        'loras': const <String>[],
+        'loraFacts': const <Map<String, Object>>[],
+        'diffusionCount': 0,
+        'loraCount': 0,
+      };
+    }
+    final url = '${settings.drawThingsGrpcHost}:${settings.drawThingsGrpcPort}';
+    final models = await _image.fetchDrawThingsModels(url);
+    final loras = await _image.fetchDrawThingsLoras(url);
+    final wanted = model.trim();
+    final shown = wanted.isEmpty
+        ? loras
+        : drawThingsLorasForModel(
+            loras,
+            modelVersion: drawThingsVersionForModel(
+              wanted,
+              await _image.fetchDrawThingsModelVersions(url),
+            ),
+          );
+    return {
+      'models': models,
+      'loras': [for (final row in shown) row.name],
+      'loraFacts': phoneLoraFacts(options: shown),
+      'diffusionCount': models.length,
+      'loraCount': loras.length,
+    };
+  }
+
   /// The same readiness the desktop desk uses, for the phone Generate button.
   Future<Map<String, dynamic>> studioReady({required bool edit}) async {
     final settings = _storage.imageGenSettings;
@@ -83,6 +118,14 @@ extension ImageStudioReady on ImageFacade {
         loraCount = cat.loras.length;
       } catch (e) {
         debugPrint('studio catalog counts failed: ${e.runtimeType}');
+      }
+    } else if (backend == 'drawthings') {
+      try {
+        final listed = await localCatalog();
+        diffusionCount = listed['diffusionCount'] as int? ?? 0;
+        loraCount = listed['loraCount'] as int? ?? 0;
+      } catch (e) {
+        debugPrint('draw things catalog counts failed: ${e.runtimeType}');
       }
     }
     final ready = deskReadiness(

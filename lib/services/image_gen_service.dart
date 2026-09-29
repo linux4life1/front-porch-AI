@@ -307,6 +307,19 @@ class ImageGenService extends ChangeNotifier {
   /// (`version`). That id is passed as metadata so the picker can keep the
   /// checkpoint's family and tuck the other bases away. A bare file name is
   /// still only a guess.
+  /// `custom.json` version of each local checkpoint. The passed URL is
+  /// ignored; the host comes from settings, same as [fetchDrawThingsLoras].
+  Future<Map<String, String>> fetchDrawThingsModelVersions(
+    String baseUrl,
+  ) async {
+    try {
+      return await _ensureDrawThingsGrpc.fetchModelVersions();
+    } catch (e) {
+      debugPrint('ImageGen: fetchDrawThingsModelVersions failed: $e');
+      return const {};
+    }
+  }
+
   Future<List<LoraOption>> fetchDrawThingsLoras(String baseUrl) async {
     try {
       final grpcService = _ensureDrawThingsGrpc;
