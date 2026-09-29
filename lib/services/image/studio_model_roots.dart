@@ -71,28 +71,41 @@ Future<bool> comfyStudioIsRemote() async {
   return !await comfyHostIsLocal(await studioComfyUrl());
 }
 
-Future<String?> savedStudioModelRoot(String backend) async {
-  String? discovered;
-  if (backend == 'comfyui') {
-    final url = await studioComfyUrl();
-    if (!await comfyHostIsLocal(url)) return null;
-    discovered = await discoverComfyModelsRoot(preferPort: comfyUrlPort(url));
-  } else if (backend == 'a1111') {
-    discovered = await discoverAutomatic1111Root();
-  } else if (backend == 'drawthings') {
-    final dir = drawThingsDefaultModelsDirectory();
-    if (dir != null && await dir.exists()) discovered = dir.path;
-  } else {
+/// Where [backend]'s models live on this computer. The folder the user
+/// saved wins while it exists; [discover] (default: scan the machine) only
+/// fills in when nothing usable was saved.
+Future<String?> savedStudioModelRoot(
+  String backend, {
+  Future<String?> Function(String backend)? discover,
+}) async {
+  if (backend != 'comfyui' && backend != 'a1111' && backend != 'drawthings') {
     return null;
   }
-  if (discovered != null) return discovered;
+  if (backend == 'comfyui' && !await comfyHostIsLocal(await studioComfyUrl())) {
+    return null;
+  }
   final prefs = await SharedPreferences.getInstance();
   final saved = modelRootFor(
     decodeModelRoots(prefs.getString(kStudioModelRootsKey)),
     backend,
   );
-  if (saved == null || !await Directory(saved).exists()) return null;
-  return saved;
+  if (saved != null && await Directory(saved).exists()) return saved;
+  return (discover ?? _discoverModelRoot)(backend);
+}
+
+Future<String?> _discoverModelRoot(String backend) async {
+  switch (backend) {
+    case 'comfyui':
+      return discoverComfyModelsRoot(
+        preferPort: comfyUrlPort(await studioComfyUrl()),
+      );
+    case 'a1111':
+      return discoverAutomatic1111Root();
+    case 'drawthings':
+      final dir = drawThingsDefaultModelsDirectory();
+      if (dir != null && await dir.exists()) return dir.path;
+  }
+  return null;
 }
 
 Future<void> rememberStudioModelRoot(String backend, String root) async {
