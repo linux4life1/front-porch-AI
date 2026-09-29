@@ -1,0 +1,42 @@
+{
+ "baseModel": "SD 1.5",
+ "downloadUrl": "https://civitai.com/api/download/models/176425",
+ "files": [
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/176425?fileId=134792",
+   "hashes": {
+    "AutoV1": "C45EB528",
+    "AutoV2": "7C819B6D13",
+    "BLAKE3": "6516D85337C819C33AF609918ECA45D1DB43CAFC705163BCA927892EB8A8330C",
+    "CRC32": "D3C1CE6B",
+    "SHA256": "7C819B6D13663ED720C2254F4FE18373107DFEF2448D337913C8FC545640881E",
+    "SHA256_12": "7C819B6D1366"
+   },
+   "id": 134792,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "fp16",
+    "size": "pruned"
+   },
+   "name": "majicmixRealistic_v7.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": true,
+   "scannedAt": "2023-10-05T12:16:37.487",
+   "sizeKB": 2082642.474609375,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  }
+ ],
+ "id": 176425,
+ "model": {
+  "name": "majicMIX realistic \u9ea6\u6a58\u5199\u5b9e",
+  "nsfw": false,
+  "poi": false,
+  "type": "Checkpoint"
+ },
+ "modelId": 43331,
+ "name": "v7",
+ "nsfwLevel": 15
+}

@@ -48,10 +48,23 @@ class CivitaiVersionFile {
   }
 }
 
-/// CivitAI's `nsfwLevel` is a bit set: 1 PG, 2 PG-13, 4 R, 8 X, 16 XXX. Any
-/// value from 4 up means the version has content rated R or stronger, which
-/// the model's own `nsfw` flag does not always say.
-const int kCivitaiAdultLevel = 4;
+/// CivitAI's `nsfwLevel` is a bit set of the ratings found in a version's
+/// images. One X-rated image sets the X bit on an otherwise ordinary model,
+/// so X is allowed; only the two strongest ratings, and anything CivitAI adds
+/// above them, count as adult.
+const int kCivitaiRatingPg = 1;
+const int kCivitaiRatingPg13 = 2;
+const int kCivitaiRatingR = 4;
+const int kCivitaiRatingX = 8;
+const int kCivitaiRatingXxx = 16;
+const int kCivitaiRatingBlocked = 32;
+
+/// Every bit above X: XXX, Blocked, and any rating added later.
+const int kCivitaiAdultRatingMask =
+    ~(kCivitaiRatingPg |
+        kCivitaiRatingPg13 |
+        kCivitaiRatingR |
+        kCivitaiRatingX);
 
 /// One model version from `/api/v1/model-versions/{id}`.
 class CivitaiVersion {
@@ -71,8 +84,9 @@ class CivitaiVersion {
   final int nsfwLevel;
   final List<CivitaiVersionFile> files;
 
-  /// Rated adult by the model's flag or by the version's level.
-  bool get isAdultRated => adult || nsfwLevel >= kCivitaiAdultLevel;
+  /// Rated adult by the model's flag, or by an XXX, Blocked or higher bit in
+  /// the version's level.
+  bool get isAdultRated => adult || (nsfwLevel & kCivitaiAdultRatingMask) != 0;
 }
 
 Uri civitaiVersionUri(int versionId, {required bool adult}) {

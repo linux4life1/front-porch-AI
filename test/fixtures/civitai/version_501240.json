@@ -1,0 +1,70 @@
+{
+ "baseModel": "SD 1.5 Hyper",
+ "downloadUrl": "https://civitai.com/api/download/models/501240",
+ "files": [
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/501240?fileId=418901",
+   "hashes": {
+    "AutoV1": "A0F13C83",
+    "AutoV2": "F47E942AD4",
+    "AutoV3": "5E2986E4C989",
+    "BLAKE3": "97BB91D4C347EFFFDCE381837617DF287C04B1E8586BB35FD45693B097AC4168",
+    "CRC32": "9119C539",
+    "SHA256": "F47E942AD4C30D863AD7F53CB60145FFCD2118845DFA705CE8BD6B42E90C4A13",
+    "SHA256_12": "F47E942AD4C3"
+   },
+   "id": 418901,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "fp16",
+    "size": "pruned"
+   },
+   "name": "realisticVisionV60B1_v51HyperVAE_418901.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": true,
+   "scannedAt": "2024-05-12T06:16:19.321",
+   "sizeKB": 2082642.474609375,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  },
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/501240?fileId=418904",
+   "hashes": {
+    "AutoV1": "CC0BF18A",
+    "AutoV2": "0928B30687",
+    "AutoV3": "37F6D9E4FD62",
+    "BLAKE3": "481FF4D5ECB6E727658E56B8FC55389B6728A95DFCA082BED1E8B7073488E275",
+    "CRC32": "96FDA26D",
+    "SHA256": "0928B30687250B4CA459ADF9735BDEABBC0933B1E4E6FD352DF0A7D15596053F",
+    "SHA256_12": "0928B3068725"
+   },
+   "id": 418904,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "fp16",
+    "size": "full"
+   },
+   "name": "realisticVisionV60B1_v51HyperVAE_418904.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": false,
+   "scannedAt": "2024-05-12T06:22:29.988",
+   "sizeKB": 4165133.80078125,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  }
+ ],
+ "id": 501240,
+ "model": {
+  "name": "Realistic Vision V6.0 B1",
+  "nsfw": false,
+  "poi": false,
+  "type": "Checkpoint"
+ },
+ "modelId": 4201,
+ "name": "V5.1 Hyper (VAE)",
+ "nsfwLevel": 15
+}

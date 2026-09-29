@@ -278,6 +278,23 @@ void main() {
       expect((await civitaiJson(res))['code'], 'adult_disabled');
     });
 
+    test(
+      'a popular checkpoint that only has the X bit downloads with adult off',
+      () async {
+        fixtureId = 128713;
+        final id = await started(
+          body(extra: {'filename': 'dreamshaper_8.safetensors', 'lora': false}),
+        );
+        expect((await settle(id))['state'], 'done');
+        expect(
+          File(
+            p.join(root.path, 'checkpoints', 'dreamshaper_8.safetensors'),
+          ).existsSync(),
+          isTrue,
+        );
+      },
+    );
+
     test('with adult on it downloads', () async {
       fixtureId = 28907;
       adult = true;

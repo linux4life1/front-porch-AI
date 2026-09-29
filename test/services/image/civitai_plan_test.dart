@@ -144,22 +144,102 @@ void main() {
       expect(made.failure, CivitaiFailure.adultBlocked);
     });
 
-    test('level 3 passes and level 4 does not', () async {
-      CivitaiVersion at(int level) =>
-          _version(133005, edit: (raw) => raw['nsfwLevel'] = level);
+    test(
+      'X and everything below it is allowed; XXX, Blocked and higher are not',
+      () async {
+        CivitaiVersion at(int level) =>
+            _version(133005, edit: (raw) => raw['nsfwLevel'] = level);
+        Future<bool> refused(int level) async =>
+            (await ask(at(level), 'MaouBigV1.2.safetensors', false)).failure ==
+            CivitaiFailure.adultBlocked;
+        for (final level in [0, 1, 2, 3, 4, 5, 7, 8, 9, 11, 13, 15]) {
+          expect(await refused(level), isFalse, reason: 'level $level');
+        }
+        for (final level in [
+          16,
+          17,
+          23,
+          24,
+          29,
+          31,
+          32,
+          33,
+          48,
+          64,
+          128,
+          16 + 8,
+        ]) {
+          expect(await refused(level), isTrue, reason: 'level $level');
+        }
+      },
+    );
+
+    test('the mask is exactly the bits above X', () {
+      expect(kCivitaiAdultRatingMask & kCivitaiRatingPg, 0);
+      expect(kCivitaiAdultRatingMask & kCivitaiRatingPg13, 0);
+      expect(kCivitaiAdultRatingMask & kCivitaiRatingR, 0);
+      expect(kCivitaiAdultRatingMask & kCivitaiRatingX, 0);
+      expect(kCivitaiAdultRatingMask & kCivitaiRatingXxx, kCivitaiRatingXxx);
       expect(
-        (await ask(at(3), 'MaouBigV1.2.safetensors', false)).refused,
-        isFalse,
+        kCivitaiAdultRatingMask & kCivitaiRatingBlocked,
+        kCivitaiRatingBlocked,
       );
-      expect(
-        (await ask(at(4), 'MaouBigV1.2.safetensors', false)).failure,
-        CivitaiFailure.adultBlocked,
-      );
-      expect(
-        (await ask(at(32), 'MaouBigV1.2.safetensors', false)).failure,
-        CivitaiFailure.adultBlocked,
-      );
+      expect(kCivitaiAdultRatingMask & (1 << 20), 1 << 20);
     });
+
+    test(
+      'the X bit alone never makes a model adult, but the model flag still does',
+      () async {
+        final xOnly = _version(133005, edit: (raw) => raw['nsfwLevel'] = 15);
+        expect(xOnly.isAdultRated, isFalse);
+        final flagged = _version(
+          133005,
+          edit: (raw) {
+            raw['nsfwLevel'] = 1;
+            (raw['model'] as Map)['nsfw'] = true;
+          },
+        );
+        expect(flagged.isAdultRated, isTrue);
+      },
+    );
+
+    test(
+      'live versions: the two adult ones are refused, the four ordinary ones are allowed',
+      () async {
+        final expected = {
+          28907: (true, 'animeoutlineV4_16.safetensors'),
+          3232953: (true, 'SKP-NSFW_Master_Krea2_turbo.safetensors'),
+          128713: (false, 'dreamshaper_8.safetensors'),
+          501240: (
+            false,
+            'realisticVisionV60B1_v51HyperVAE_418901.safetensors',
+          ),
+          176425: (false, 'majicmixRealistic_v7.safetensors'),
+          2884631: (
+            false,
+            'cyberrealisticPony_v180Coreshift_2764472.safetensors',
+          ),
+        };
+        for (final entry in expected.entries) {
+          final v = _version(entry.key);
+          final (blocked, file) = entry.value;
+          final made = await plan(
+            v,
+            file,
+            lora: v.modelType == 'LORA',
+            adultAllowed: false,
+          );
+          expect(
+            made.failure == CivitaiFailure.adultBlocked,
+            blocked,
+            reason: 'version ${entry.key} level ${v.nsfwLevel}',
+          );
+          if (!blocked) {
+            expect(made.refused, isFalse, reason: 'version ${entry.key}');
+          }
+        }
+      },
+    );
 
     test('a version with no rating at all is treated as not adult', () async {
       final v = _version(133005, edit: (raw) => raw.remove('nsfwLevel'));

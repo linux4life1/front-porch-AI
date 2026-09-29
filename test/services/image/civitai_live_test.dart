@@ -27,7 +27,18 @@ void main() {
     addTearDown(() => HttpOverrides.global = saved);
   });
 
-  for (final id in [133005, 128713, 130072, 1957126, 1236037, 28907]) {
+  for (final id in [
+    133005,
+    128713,
+    130072,
+    1957126,
+    1236037,
+    28907,
+    3232953,
+    501240,
+    176425,
+    2884631,
+  ]) {
     test('version $id still reads the way the saved fixture does', () async {
       final lookup = await fetchCivitaiVersion(versionId: id, adult: false);
       expect(lookup.kind, CivitaiLookupKind.ok);
@@ -58,7 +69,18 @@ void main() {
   }, skip: skip);
 
   test('the saved fixtures are valid JSON', () {
-    for (final id in [133005, 128713, 130072, 1957126, 1236037, 28907]) {
+    for (final id in [
+      133005,
+      128713,
+      130072,
+      1957126,
+      1236037,
+      28907,
+      3232953,
+      501240,
+      176425,
+      2884631,
+    ]) {
       final body = File(
         'test/fixtures/civitai/version_$id.json',
       ).readAsStringSync();
