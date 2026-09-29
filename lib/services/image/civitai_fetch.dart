@@ -195,7 +195,7 @@ Future<String> downloadCivitaiPlan(
         throw const CivitaiDownloadException(CivitaiFailure.hashMismatch);
       }
       final landed = await _moveIntoPlace(plan, part, path);
-      await _noteDrawThingsLora(landed);
+      await _noteDrawThingsLora(landed, plan.baseModel);
       return landed;
     }
     throw const CivitaiDownloadException(CivitaiFailure.redirect);
@@ -371,10 +371,11 @@ Future<bool> _sweepOne(File part, DateTime cutoff) async {
   }
 }
 
-Future<void> _noteDrawThingsLora(String path) async {
+Future<void> _noteDrawThingsLora(String path, String baseModel) async {
   if (p.basename(p.dirname(path)) != 'lora') return;
   await rememberDrawThingsLora(
     Directory(p.dirname(p.dirname(path))),
     p.basename(path),
+    baseModel: baseModel,
   );
 }

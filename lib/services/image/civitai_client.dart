@@ -304,6 +304,9 @@ class CivitaiDownloadPlan {
   /// name alone cannot tell, so the downloaded header decides.
   final String? allInOnePath;
 
+  /// CivitAI's base model for the version, for tagging a saved LoRA.
+  final String baseModel;
+
   const CivitaiDownloadPlan({
     required this.uri,
     required this.path,
@@ -316,6 +319,7 @@ class CivitaiDownloadPlan {
     this.expectedBytes,
     this.sha256,
     this.allInOnePath,
+    this.baseModel = '',
   });
 
   factory CivitaiDownloadPlan.refusal(
@@ -452,6 +456,7 @@ class CivitaiRelay {
       root: root,
       expectedBytes: file.sizeBytes,
       sha256: file.sha256,
+      baseModel: version.baseModel,
       allInOnePath: civitaiAllInOnePath(
         root: root,
         backend: backend,

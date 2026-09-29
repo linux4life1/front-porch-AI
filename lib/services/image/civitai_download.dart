@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import 'civitai_version.dart';
-import 'draw_things_lora_filter.dart';
 import 'model_family.dart';
 
 const kCivitaiFolders = {
@@ -281,30 +280,28 @@ Future<bool> civitaiFolderIsSafe(
   return true;
 }
 
-/// `custom_lora.json` version id for a file name, when the name says.
-/// A specific Draw Things id (Klein 9B, LTX) wins. Names that only say
-/// SDXL via "XL" still use the coarser family.
-String drawThingsCatalogVersion(String filename) {
-  final specific = drawThingsVersionFromName(filename);
-  if (specific.isNotEmpty) return specific;
-  switch (ImageModelFamily.detectFromName(filename)) {
-    case ModelFamily.zImage:
-      return 'z_image';
-    case ModelFamily.qwen:
-      return 'qwen_image';
-    case ModelFamily.flux:
-    case ModelFamily.kontext:
-      return 'flux1';
-    case ModelFamily.pony:
-    case ModelFamily.sdxl:
-      return 'sdxl_base_v0.9';
-    case ModelFamily.sd3:
-      return 'sd3';
-    case ModelFamily.sd15:
-      return 'v1';
-    case ModelFamily.unknown:
-      return '';
+/// Draw Things' `custom_lora.json` version id for CivitAI's [baseModel].
+/// Empty when CivitAI names none, or names one this cannot place: a LoRA with
+/// no version shows for every checkpoint, so a guess that is wrong (a file
+/// name says Klein, the base is Klein 4B) is worse than none.
+String drawThingsVersionForBase(String baseModel) {
+  final base = baseModel.trim().toLowerCase();
+  if (base.startsWith('flux.2 klein 4b')) return 'flux2_4b';
+  if (base.startsWith('flux.2 klein 9b')) return 'flux2_9b';
+  if (base == 'flux.2 d') return 'flux2';
+  if (base == 'flux.1 d' || base == 'flux.1 s') return 'flux1';
+  if (base == 'zimageturbo' || base == 'zimagebase') return 'z_image';
+  if (base == 'qwen') return 'qwen_image';
+  if (base == 'qwen 2.1') return 'qwen_image_2.1';
+  if (base.startsWith('sd 3')) return 'sd3';
+  if (base.startsWith('sdxl') ||
+      base == 'pony' ||
+      base == 'illustrious' ||
+      base == 'noobai') {
+    return 'sdxl_base_v0.9';
   }
+  if (base.startsWith('sd 1.4') || base.startsWith('sd 1.5')) return 'v1';
+  return '';
 }
 
 /// Writes [contents] to [target] so a crash cannot leave half a file: a temp
@@ -343,18 +340,20 @@ Future<void> writeFileAtomically(
 
 final Map<String, Future<void>> _loraCatalogWrites = {};
 
-/// Adds [filename] to Draw Things' LoRA catalog when it is not already there.
+/// Adds [filename] to Draw Things' LoRA catalog when it is not already there,
+/// tagged with the version for CivitAI's [baseModel] (none when it says none).
 /// A catalog that is not a list is left alone. The write is atomic, and two
 /// callers for the same catalog take turns, so neither loses the other's row.
 Future<void> rememberDrawThingsLora(
   Directory modelsDir,
   String filename, {
+  String baseModel = '',
   Future<void> Function(File temp, String contents)? writeTemp,
 }) async {
   final key = p.join(modelsDir.path, 'custom_lora.json');
   final turn = (_loraCatalogWrites[key] ?? Future<void>.value())
       .catchError((Object _) {})
-      .then((_) => _addLoraRow(key, filename, writeTemp));
+      .then((_) => _addLoraRow(key, filename, baseModel, writeTemp));
   _loraCatalogWrites[key] = turn;
   try {
     await turn;
@@ -368,6 +367,7 @@ Future<void> rememberDrawThingsLora(
 Future<void> _addLoraRow(
   String path,
   String filename,
+  String baseModel,
   Future<void> Function(File temp, String contents)? writeTemp,
 ) async {
   final base = p.basename(filename);
@@ -391,7 +391,7 @@ Future<void> _addLoraRow(
       return;
     }
   }
-  final version = drawThingsCatalogVersion(base);
+  final version = drawThingsVersionForBase(baseModel);
   rows.add({
     'file': base,
     'name': p.basenameWithoutExtension(base),

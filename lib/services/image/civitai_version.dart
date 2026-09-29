@@ -74,6 +74,7 @@ class CivitaiVersion {
     required this.files,
     this.adult = false,
     this.nsfwLevel = 0,
+    this.baseModel = '',
   });
 
   final int id;
@@ -82,6 +83,10 @@ class CivitaiVersion {
   final String modelType;
   final bool adult;
   final int nsfwLevel;
+
+  /// CivitAI's base model for the version (`Flux.2 Klein 4B`, `SDXL 1.0`...).
+  /// Empty when it lists none.
+  final String baseModel;
   final List<CivitaiVersionFile> files;
 
   /// Rated adult by the model's flag, or by an XXX, Blocked or higher bit in
@@ -122,6 +127,7 @@ CivitaiVersion? parseCivitaiVersion(String body) {
     nsfwLevel: decoded['nsfwLevel'] is num
         ? (decoded['nsfwLevel'] as num).toInt()
         : 0,
+    baseModel: decoded['baseModel']?.toString().trim() ?? '',
     files: out,
   );
 }

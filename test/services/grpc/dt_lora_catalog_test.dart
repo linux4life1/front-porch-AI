@@ -100,14 +100,8 @@ void main() {
     expect(drawThingsVersionFromName('ltx_fingering_lora_f16.ckpt'), 'ltx2.3');
     expect(drawThingsVersionFromName('klein_4b_lora_f16.ckpt'), 'flux2_4b');
     expect(drawThingsVersionFromName('mystery.ckpt'), '');
-    expect(
-      drawThingsCatalogVersion('klein_unchained_v2_lora_f16.ckpt'),
-      'flux2_9b',
-    );
-    expect(
-      drawThingsCatalogVersion('juggernautXL_v9.safetensors'),
-      'sdxl_base_v0.9',
-    );
+    expect(drawThingsVersionForBase('Flux.2 Klein 9B'), 'flux2_9b');
+    expect(drawThingsVersionForBase('SDXL 1.0'), 'sdxl_base_v0.9');
   });
 
   test(

@@ -71,8 +71,8 @@ void main() {
     final dir = await Directory.systemTemp.createTemp('dt_catalog_');
     try {
       const name = 'z-image-turbo-realism.safetensors';
-      await rememberDrawThingsLora(dir, name);
-      await rememberDrawThingsLora(dir, name);
+      await rememberDrawThingsLora(dir, name, baseModel: 'ZImageTurbo');
+      await rememberDrawThingsLora(dir, name, baseModel: 'ZImageTurbo');
       final rows =
           jsonDecode(
                 await File(p.join(dir.path, 'custom_lora.json')).readAsString(),

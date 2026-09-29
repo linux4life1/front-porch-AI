@@ -111,7 +111,11 @@ void main() {
   );
 
   test('a normal write lands whole, valid JSON, with the version', () async {
-    await rememberDrawThingsLora(models, 'klein_unchained_v2_lora_f16.ckpt');
+    await rememberDrawThingsLora(
+      models,
+      'klein_unchained_v2_lora_f16.ckpt',
+      baseModel: 'Flux.2 Klein 9B',
+    );
     final row = rows().single as Map;
     expect(row['file'], 'klein_unchained_v2_lora_f16.ckpt');
     expect(row['version'], 'flux2_9b');
