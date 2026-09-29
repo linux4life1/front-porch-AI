@@ -53,15 +53,10 @@ extension _ImageGenComfy on ImageGenService {
       final storedSeed = effectiveSeed == -1
           ? Random().nextInt(1 << 31)
           : effectiveSeed;
-      final editName = comfyTemplateNameFor(settings.comfyEditWorkflowId);
-      final editTemplate = editName == null
-          ? null
-          : await comfy.fetchTemplateJson(
-              editName,
-              preferUserdata: comfyTemplatePrefersUserdata(
-                settings.comfyEditWorkflowId,
-              ),
-            );
+      final editTemplate = await comfy.fetchWorkflowTemplate(
+        settings.comfyEditWorkflowId,
+      );
+      final objectInfo = await comfy.objectInfoForRun();
       final req = resolveComfyEditRequest(
         workflowId: settings.comfyEditWorkflowId,
         uploadedWorkflowJson: settings.comfyEditUploadedWorkflow,
@@ -76,6 +71,7 @@ extension _ImageGenComfy on ImageGenService {
         width: width,
         height: height,
         liveTemplate: editTemplate,
+        objectInfo: objectInfo,
       );
       if (req == null) {
         throw Exception(
@@ -92,16 +88,10 @@ extension _ImageGenComfy on ImageGenService {
       );
     }
 
-    final liveName = comfyTemplateNameFor(settings.comfyCreateWorkflowId);
-    Map<String, dynamic>? liveTemplate;
-    if (liveName != null) {
-      liveTemplate = await comfy.fetchTemplateJson(
-        liveName,
-        preferUserdata: comfyTemplatePrefersUserdata(
-          settings.comfyCreateWorkflowId,
-        ),
-      );
-    }
+    final liveTemplate = await comfy.fetchWorkflowTemplate(
+      settings.comfyCreateWorkflowId,
+    );
+    final objectInfo = await comfy.objectInfoForRun();
     final req = resolveComfyCreateRequest(
       workflowId: settings.comfyCreateWorkflowId,
       uploadedWorkflowJson: settings.comfyCreateUploadedWorkflow,
@@ -119,6 +109,7 @@ extension _ImageGenComfy on ImageGenService {
       scheduler: scheduler,
       checkpointFallback: refModelName,
       liveTemplate: liveTemplate,
+      objectInfo: objectInfo,
     );
     if (req == null) {
       throw Exception(

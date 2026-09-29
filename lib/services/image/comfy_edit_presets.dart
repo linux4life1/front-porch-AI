@@ -370,6 +370,7 @@ resolveComfyEditRequest({
   String sampler = 'euler',
   String scheduler = 'simple',
   Map<String, dynamic>? liveTemplate,
+  Map<String, dynamic>? objectInfo,
 }) {
   final values = <String, Object?>{
     ComfyEditTokens.prompt: prompt,
@@ -387,7 +388,7 @@ resolveComfyEditRequest({
 
   if (workflowId.startsWith('comfy:')) {
     if (liveTemplate == null) return null;
-    final api = ensureComfyApiGraph(liveTemplate);
+    final api = ensureComfyApiGraph(liveTemplate, objectInfo: objectInfo);
     if (api == null) return null;
     final adapted = adaptComfyApiWorkflow(api);
     final tokens = detectComfyTokens(adapted.template);
@@ -435,12 +436,14 @@ bool comfyEditReady({
   required String uploadedWorkflowJson,
   required Map<String, String> modelChoices,
   Map<String, dynamic>? liveTemplate,
+  Map<String, dynamic>? objectInfo,
 }) {
   final req = resolveComfyEditRequest(
     workflowId: workflowId,
     uploadedWorkflowJson: uploadedWorkflowJson,
     modelChoices: modelChoices,
     liveTemplate: liveTemplate,
+    objectInfo: objectInfo,
     prompt: 'x',
     negative: '',
     seed: 0,

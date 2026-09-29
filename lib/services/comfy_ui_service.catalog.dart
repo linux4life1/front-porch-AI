@@ -106,24 +106,45 @@ extension ComfyUiCatalogApi on ComfyUiService {
     return cat.createDiscovery;
   }
 
+  /// Raw `/object_info`, or null when this ComfyUI cannot be read. Always a
+  /// new read, so a Ready line never rests on a list from before a download.
+  Future<Map<String, dynamic>?> fetchObjectInfo() => _objectInfo(fresh: true);
+
+  /// The node list a generate converts and posts with. A read from the last
+  /// two minutes is reused; a fresh [fetchObjectInfo] refreshes it.
+  Future<Map<String, dynamic>?> objectInfoForRun() => _objectInfo();
+
   Future<ComfyFileCatalog> fetchCatalog() async {
     final info = await _objectInfo(fresh: true);
     if (info == null) return const ComfyFileCatalog();
-    return ComfyFileCatalog(
+    return assembleComfyCatalog(
       checkpoints: ComfyUiService.optionsFromObjectInfo(
         info,
         'CheckpointLoaderSimple',
         'ckpt_name',
       ),
-      diffusionModels: ComfyUiService.optionsFromObjectInfo(
+      unetNames: ComfyUiService.optionsFromObjectInfo(
         info,
         'UNETLoader',
         'unet_name',
       ),
-      textEncoders: ComfyUiService.optionsFromObjectInfo(
+      ggufNames: ComfyUiService.optionsFromObjectInfo(
         info,
-        'CLIPLoader',
-        'clip_name',
+        'UnetLoaderGGUF',
+        'unet_name',
+      ),
+      ggufAdvancedNames: ComfyUiService.optionsFromObjectInfo(
+        info,
+        'UnetLoaderGGUFAdvanced',
+        'unet_name',
+      ),
+      textEncoders: mergeComfyCreateModels(
+        ComfyUiService.optionsFromObjectInfo(info, 'CLIPLoader', 'clip_name'),
+        ComfyUiService.optionsFromObjectInfo(
+          info,
+          'CLIPLoaderGGUF',
+          'clip_name',
+        ),
       ),
       vaes: ComfyUiService.optionsFromObjectInfo(info, 'VAELoader', 'vae_name'),
       loras: ComfyUiService.optionsFromObjectInfo(
@@ -206,6 +227,20 @@ extension ComfyUiCatalogApi on ComfyUiService {
       if (raw is Map) return raw.cast<String, dynamic>();
     }
     return null;
+  }
+
+  /// The live graph behind a Create or Edit workflow pick: a saved Desktop
+  /// workflow, one of Comfy's own templates, or a bundled family's template.
+  /// Null when the pick has none (a bundled preset without a template, an
+  /// uploaded graph) or this ComfyUI cannot serve it. Generate and the Ready
+  /// line both read it here, so they judge the same graph.
+  Future<Map<String, dynamic>?> fetchWorkflowTemplate(String workflowId) {
+    final name = comfyTemplateNameFor(workflowId);
+    if (name == null) return Future.value();
+    return fetchTemplateJson(
+      name,
+      preferUserdata: comfyTemplatePrefersUserdata(workflowId),
+    );
   }
 
   Future<Object?> _getJson(String path) async {

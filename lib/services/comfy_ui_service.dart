@@ -26,6 +26,7 @@ import 'package:http/http.dart' as http;
 
 import 'comfy_workflow.dart';
 import 'image/comfy_catalog.dart';
+import 'image/comfy_create_presets.dart';
 import 'image/comfy_edit_workflow.dart';
 import 'image/comfy_gguf_city96_gate.dart';
 import 'image/comfy_gguf_loaders.dart';

@@ -19,6 +19,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
@@ -26,6 +27,8 @@ import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
+
+part 'image_facade_ready.dart';
 
 /// Web adapter for image generation: read/flip the backend config (Local A1111 /
 /// Draw Things ↔ remote API) and generate an image. Reuses [ImageGenService]
