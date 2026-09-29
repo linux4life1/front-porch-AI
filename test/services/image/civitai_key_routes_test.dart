@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shelf/shelf.dart' show Response;
 import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
@@ -129,6 +130,123 @@ void main() {
       expect(box, isEmpty);
     });
   });
+
+  group(
+    'with two-factor on, the key needs the code as well as the password',
+    () {
+      late CivitaiRoutes twoFactor;
+      late CivitaiAuthHarness auth;
+
+      Future<void> arrange() async {
+        auth = await CivitaiAuthHarness.create();
+        await auth.enableTwoFactor();
+        twoFactor = CivitaiRoutes(
+          Router(),
+          auth: auth.auth,
+          adultAllowed: () => adult,
+          relay: CivitaiRelay(memoryCivitaiStore(box)),
+        );
+      }
+
+      Future<Response> save(Map<String, Object?> extra) =>
+          twoFactor.saveCredential(
+            civitaiRequest(
+              'POST',
+              '/api/image/civitai/credential',
+              body: {'token': 'new-key', ...extra},
+            ),
+          );
+
+      Future<Response> remove(Map<String, Object?> extra) => twoFactor.signOut(
+        civitaiRequest('DELETE', '/api/image/civitai/credential', body: extra),
+      );
+
+      test(
+        'saving with only the password is refused and asks for the code',
+        () async {
+          await arrange();
+          final res = await save({'currentPassword': kCivitaiTestPassword});
+          expect(res.statusCode, 401);
+          final json = await civitaiJson(res);
+          expect(json['totpRequired'], isTrue);
+          expect(box, isEmpty);
+        },
+      );
+
+      test('saving with a wrong code is refused', () async {
+        await arrange();
+        final res = await save({
+          'currentPassword': kCivitaiTestPassword,
+          'totpCode': auth.code(monthsAway: 12),
+        });
+        expect(res.statusCode, 401);
+        expect(box, isEmpty);
+      });
+
+      test(
+        'saving with the password and the right code stores the key',
+        () async {
+          await arrange();
+          final res = await save({
+            'currentPassword': kCivitaiTestPassword,
+            'totpCode': auth.code(),
+          });
+          expect(res.statusCode, 200);
+          expect(box, {'civitai_credential_local': 'new-key'});
+        },
+      );
+
+      test('the code alone, with a wrong password, is not enough', () async {
+        await arrange();
+        final res = await save({
+          'currentPassword': 'not-the-password',
+          'totpCode': auth.code(),
+        });
+        expect(res.statusCode, 401);
+        expect(box, isEmpty);
+      });
+
+      test(
+        'deleting with only the password is refused, and the key stays',
+        () async {
+          await arrange();
+          box['civitai_credential_local'] = 'keep-me';
+          final res = await remove({'currentPassword': kCivitaiTestPassword});
+          expect(res.statusCode, 401);
+          expect((await civitaiJson(res))['totpRequired'], isTrue);
+          expect(box['civitai_credential_local'], 'keep-me');
+        },
+      );
+
+      test(
+        'deleting with a wrong code is refused, and the key stays',
+        () async {
+          await arrange();
+          box['civitai_credential_local'] = 'keep-me';
+          final res = await remove({
+            'currentPassword': kCivitaiTestPassword,
+            'totpCode': auth.code(monthsAway: 12),
+          });
+          expect(res.statusCode, 401);
+          expect(box['civitai_credential_local'], 'keep-me');
+        },
+      );
+
+      test(
+        'deleting with the password and the right code removes it',
+        () async {
+          await arrange();
+          box['civitai_credential_local'] = 'gone';
+          final res = await remove({
+            'currentPassword': kCivitaiTestPassword,
+            'totpCode': auth.code(),
+          });
+          expect(res.statusCode, 200);
+          expect(box, isEmpty);
+        },
+      );
+    },
+  );
 
   group('adult results follow the app setting on the server', () {
     test('adult search is refused while adult themes are off', () async {
