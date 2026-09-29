@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 import 'city96_test_loader.dart';
+import 'city96_test_probe.dart';
 
 const _kleinId = 'comfy:default:image_flux2_klein_text_to_image';
 const _kleinFile =
@@ -413,6 +414,7 @@ void main() {
         locate: (_) async => loader,
         ask: (_) async => true,
         pidFor: (_) async => 100,
+        probe: const FakeProbe(),
       );
       final graph = {
         '1': {
@@ -421,10 +423,17 @@ void main() {
         },
       };
       await updated.ensure(comfyUrl: 'http://127.0.0.1:8188', graph: graph);
+      // Another run of the app, and a ComfyUI that started after the update.
       final report = await checkStudioReady(
         settings: storage.imageGenSettings,
         edit: false,
-        gate: gate(),
+        gate: City96Gate(
+          locate: (_) async => loader,
+          pidFor: (_) async => 100,
+          probe: FakeProbe(
+            starts: {100: DateTime.now().add(const Duration(minutes: 1))},
+          ),
+        ),
       );
       expect(report.readiness.kind, StudioReady.ready);
     });
@@ -434,10 +443,18 @@ void main() {
       () async {
         await serveQwen21();
         var pid = 100;
+        final now = DateTime.now();
         final one = City96Gate(
           locate: (_) async => loader,
           ask: (_) async => true,
           pidFor: (_) async => pid,
+          // The first ComfyUI started long ago; the second, after the update.
+          probe: FakeProbe(
+            starts: {
+              100: now.subtract(const Duration(hours: 1)),
+              200: now.add(const Duration(minutes: 1)),
+            },
+          ),
         );
         await one.ensure(
           comfyUrl: 'http://127.0.0.1:8188',
