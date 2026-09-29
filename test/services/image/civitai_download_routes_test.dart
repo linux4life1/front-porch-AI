@@ -18,6 +18,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
+import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
 
 import 'civitai_route_support.dart';
@@ -70,7 +71,10 @@ void main() {
     );
   }
 
-  Future<CivitaiRoutes> build({String? Function(String)? rootFor}) async {
+  Future<CivitaiRoutes> build({
+    String? Function(String)? rootFor,
+    Future<bool> Function(String)? rootGone,
+  }) async {
     final harness = await CivitaiAuthHarness.create();
     return CivitaiRoutes(
       Router(),
@@ -78,6 +82,7 @@ void main() {
       adultAllowed: () => adult,
       relay: CivitaiRelay(memoryCivitaiStore(box)),
       rootFor: rootFor ?? (_) => root.path,
+      rootGone: rootGone ?? (_) async => false,
       versionFetch: fetchVersion,
       downloads: CivitaiDownloads(
         run: (plan, {onProgress, cancel, onStarted}) {
@@ -347,6 +352,21 @@ void main() {
         'no_folder',
       );
     });
+
+    test(
+      'a saved models folder that is gone says so, without its path',
+      () async {
+        routes = await build(rootFor: (_) => null, rootGone: (_) async => true);
+        final res = await post(body());
+        expect(res.statusCode, 400);
+        final text = await res.readAsString();
+        final json = jsonDecode(text) as Map<String, dynamic>;
+        expect(json['code'], 'folder_missing');
+        expect(json['error'], kStudioSavedFolderGone);
+        expect(text.contains(root.path), isFalse);
+        expect(lookups, 0);
+      },
+    );
 
     test('a ComfyUI on another computer', () async {
       SharedPreferences.setMockInitialValues({

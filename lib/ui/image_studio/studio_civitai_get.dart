@@ -124,9 +124,11 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
     }
     final root = await savedStudioModelRoot(widget.backend);
     if (!mounted) return;
+    final gone = root == null && await studioSavedRootMissing(widget.backend);
     final blocked = civitaiBlockedDownload(
       backend: widget.backend,
       savedRoot: root,
+      savedGone: gone,
     );
     final haveRoot = root != null && root.trim().isNotEmpty;
     if (haveRoot) await _sweepParts(root);

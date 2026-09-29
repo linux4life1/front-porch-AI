@@ -209,6 +209,32 @@ void main() {
     });
   });
 
+  group('the models folder', () {
+    testWidgets(
+      'a saved folder that is gone is said on opening, with a way to pick it again',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          kStudioModelRootsKey: encodeModelRoots({
+            'comfyui': '${models.path}/vanished',
+          }),
+        });
+        await open(tester);
+        for (
+          var i = 0;
+          i < 20 && find.text(kStudioSavedFolderGone).evaluate().isEmpty;
+          i++
+        ) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)),
+          );
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(find.text(kStudioSavedFolderGone), findsOneWidget);
+        expect(find.text('Pick the ComfyUI models folder'), findsOneWidget);
+      },
+    );
+  });
+
   group('the adult box follows the app setting', () {
     testWidgets(
       'with adult themes off there is no box, and civitai.com is searched',

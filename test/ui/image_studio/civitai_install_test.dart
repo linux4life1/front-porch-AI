@@ -350,6 +350,21 @@ void main() {
     });
   });
 
+  test(
+    'a saved models folder that is gone is reported, and the desk offers to pick it',
+    () async {
+      root.deleteSync(recursive: true);
+      addTearDown(() => root.createSync());
+      final result = await press();
+      expect(result, isA<CivitaiInstallFailed>());
+      final failed = result as CivitaiInstallFailed;
+      expect(failed.message, kStudioSavedFolderGone);
+      expect(failed.needFolder, isTrue);
+      expect(lookups, 0);
+      expect(host.requests, isEmpty);
+    },
+  );
+
   test('a ComfyUI on another computer is not written to', () async {
     SharedPreferences.setMockInitialValues({
       'comfy_ui_url': 'http://192.0.2.44:8188',

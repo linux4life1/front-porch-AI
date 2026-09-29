@@ -35,6 +35,7 @@ class CivitaiRoutes {
     CivitaiDownloads? downloads,
     CivitaiVersionFetch? versionFetch,
     Future<int> Function(String root)? sweep,
+    Future<bool> Function(String backend)? rootGone,
   }) : _auth = auth,
        _adultAllowed = adultAllowed,
        _relay = relay,
@@ -42,7 +43,8 @@ class CivitaiRoutes {
        _rootForAsync = rootForAsync,
        _downloads = downloads ?? CivitaiDownloads(),
        _versionFetch = versionFetch ?? fetchCivitaiVersion,
-       _sweep = sweep ?? sweepCivitaiParts {
+       _sweep = sweep ?? sweepCivitaiParts,
+       _rootGone = rootGone ?? studioSavedRootMissing {
     _ready = relay == null
         ? CivitaiCredentialStore.open().then(CivitaiRelay.new)
         : Future<CivitaiRelay>.value(relay);
@@ -65,6 +67,7 @@ class CivitaiRoutes {
   final CivitaiDownloads _downloads;
   final CivitaiVersionFetch _versionFetch;
   final Future<int> Function(String root) _sweep;
+  final Future<bool> Function(String backend) _rootGone;
   late final Future<CivitaiRelay> _ready;
 
   Future<String?> _savedRoot(String backend) {
@@ -292,11 +295,17 @@ class CivitaiRoutes {
         'This ComfyUI is on another computer. Save the download on that computer.',
       );
     }
+    final gone =
+        (savedRoot == null || savedRoot.trim().isEmpty) &&
+        await _rootGone(backend);
     final blocked = civitaiBlockedDownload(
       backend: backend,
       savedRoot: savedRoot,
+      savedGone: gone,
     );
-    if (blocked != null) return _fail(400, 'no_folder', blocked);
+    if (blocked != null) {
+      return _fail(400, gone ? 'folder_missing' : 'no_folder', blocked);
+    }
     final relay = _relay ?? await _ready;
     try {
       final key = await relay.store.read(account);

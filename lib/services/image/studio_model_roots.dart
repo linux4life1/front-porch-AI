@@ -40,15 +40,23 @@ String? modelRootFor(Map<String, String> roots, String backend) {
   return value;
 }
 
+/// Said when the folder the person saved no longer exists. It carries no
+/// path, so the phone can be told too.
+const String kStudioSavedFolderGone =
+    'The models folder you saved is gone. Pick it again on this computer.';
+
 /// Why a phone download cannot start, or null when the folder is usable.
+/// [savedGone] says the folder the person saved no longer exists.
 String? civitaiBlockedDownload({
   required String backend,
   required String? savedRoot,
+  bool savedGone = false,
 }) {
   if (backend != 'comfyui' && backend != 'a1111' && backend != 'drawthings') {
     return 'CivitAI downloads are for ComfyUI, Automatic1111, and Draw Things';
   }
   if (savedRoot == null || savedRoot.trim().isEmpty) {
+    if (savedGone) return kStudioSavedFolderGone;
     if (backend == 'drawthings') {
       return 'Draw Things models folder was not found on this Mac';
     }
@@ -71,9 +79,33 @@ Future<bool> comfyStudioIsRemote() async {
   return !await comfyHostIsLocal(await studioComfyUrl());
 }
 
-/// Where [backend]'s models live on this computer. The folder the user
-/// saved wins while it exists; [discover] (default: scan the machine) only
-/// fills in when nothing usable was saved.
+/// The folder the person saved for [backend], or null when none is saved.
+Future<String?> _savedFolder(String backend) async {
+  final prefs = await SharedPreferences.getInstance();
+  return modelRootFor(
+    decodeModelRoots(prefs.getString(kStudioModelRootsKey)),
+    backend,
+  );
+}
+
+/// True when the person saved a models folder for [backend] and it no longer
+/// exists. Then [savedStudioModelRoot] gives none, rather than a guess.
+Future<bool> studioSavedRootMissing(String backend) async {
+  if (backend != 'comfyui' && backend != 'a1111' && backend != 'drawthings') {
+    return false;
+  }
+  if (backend == 'comfyui' && !await comfyHostIsLocal(await studioComfyUrl())) {
+    return false;
+  }
+  final saved = await _savedFolder(backend);
+  return saved != null && !await Directory(saved).exists();
+}
+
+/// Where [backend]'s models live on this computer. The folder the person
+/// saved wins. If it is gone the answer is none, not a discovered folder:
+/// downloads should not land somewhere they did not choose, and they are told
+/// ([studioSavedRootMissing]). [discover] (default: scan the machine) only
+/// runs when nothing was saved.
 Future<String?> savedStudioModelRoot(
   String backend, {
   Future<String?> Function(String backend)? discover,
@@ -84,12 +116,8 @@ Future<String?> savedStudioModelRoot(
   if (backend == 'comfyui' && !await comfyHostIsLocal(await studioComfyUrl())) {
     return null;
   }
-  final prefs = await SharedPreferences.getInstance();
-  final saved = modelRootFor(
-    decodeModelRoots(prefs.getString(kStudioModelRootsKey)),
-    backend,
-  );
-  if (saved != null && await Directory(saved).exists()) return saved;
+  final saved = await _savedFolder(backend);
+  if (saved != null) return await Directory(saved).exists() ? saved : null;
   return (discover ?? _discoverModelRoot)(backend);
 }
 

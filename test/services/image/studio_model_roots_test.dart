@@ -42,17 +42,33 @@ void main() {
     );
 
     test(
-      '$backend: a saved folder that is gone falls back to discovery',
+      '$backend: a saved folder that is gone is reported, not swapped for a discovered one',
       () async {
         await remember({}, backend);
         saved.deleteSync(recursive: true);
+        var searched = false;
         final root = await savedStudioModelRoot(
           backend,
-          discover: (_) async => found.path,
+          discover: (_) async {
+            searched = true;
+            return found.path;
+          },
         );
-        expect(root, found.path);
+        expect(root, isNull);
+        expect(searched, isFalse);
+        expect(await studioSavedRootMissing(backend), isTrue);
       },
     );
+
+    test('$backend: a saved folder that exists is not "missing"', () async {
+      await remember({}, backend);
+      expect(await studioSavedRootMissing(backend), isFalse);
+    });
+
+    test('$backend: nothing saved is not "missing"', () async {
+      SharedPreferences.setMockInitialValues({});
+      expect(await studioSavedRootMissing(backend), isFalse);
+    });
 
     test('$backend: with nothing saved, discovery decides', () async {
       SharedPreferences.setMockInitialValues({});
@@ -76,5 +92,43 @@ void main() {
   test('a backend with no models folder gets none', () async {
     await remember({}, 'a1111');
     expect(await savedStudioModelRoot('remote'), isNull);
+  });
+
+  test(
+    'a ComfyUI on another computer is not "missing" a local folder',
+    () async {
+      await remember({'comfy_ui_url': 'http://192.0.2.7:8188'}, 'comfyui');
+      saved.deleteSync(recursive: true);
+      expect(await studioSavedRootMissing('comfyui'), isFalse);
+    },
+  );
+
+  test('a backend with no models folder is never "missing" one', () async {
+    await remember({}, 'a1111');
+    expect(await studioSavedRootMissing('remote'), isFalse);
+  });
+
+  test('the blocked-download words tell a gone folder from an unset one', () {
+    expect(
+      civitaiBlockedDownload(
+        backend: 'comfyui',
+        savedRoot: null,
+        savedGone: true,
+      ),
+      kStudioSavedFolderGone,
+    );
+    expect(kStudioSavedFolderGone, isNot(contains('/')));
+    expect(
+      civitaiBlockedDownload(backend: 'comfyui', savedRoot: null),
+      'Pick your models folder on this computer first',
+    );
+    expect(
+      civitaiBlockedDownload(
+        backend: 'comfyui',
+        savedRoot: '/models',
+        savedGone: true,
+      ),
+      isNull,
+    );
   });
 }

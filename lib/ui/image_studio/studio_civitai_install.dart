@@ -81,7 +81,12 @@ Future<CivitaiInstallResult> installCivitaiRow({
       return const CivitaiInstallFailed(_kRemoteComfy);
     }
     final root = await savedStudioModelRoot(backend);
-    final blocked = civitaiBlockedDownload(backend: backend, savedRoot: root);
+    final gone = root == null && await studioSavedRootMissing(backend);
+    final blocked = civitaiBlockedDownload(
+      backend: backend,
+      savedRoot: root,
+      savedGone: gone,
+    );
     if (blocked != null || root == null) {
       return CivitaiInstallFailed(
         blocked ?? 'Pick your models folder on this computer first',
