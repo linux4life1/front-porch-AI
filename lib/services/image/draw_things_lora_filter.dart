@@ -105,11 +105,28 @@ String drawThingsVersionForModel(
   return drawThingsVersionFromName(modelFile);
 }
 
+/// A generic Draw Things version and the sizes it stands for. `flux2` names
+/// no size, so it fits both Klein sizes; the sizes do not fit each other.
+/// Every version not listed here has to match exactly: Qwen-Image 1.0 and 2.1,
+/// for one, are different generations.
+const Map<String, Set<String>> kDrawThingsVersionFamilies = {
+  'flux2': {'flux2_4b', 'flux2_9b'},
+};
+
+/// True when a LoRA tagged [tag] can be used with a checkpoint of [wanted].
+/// An empty tag is an unknown version, which is never a reason to hide.
+bool drawThingsVersionFits({required String tag, required String wanted}) {
+  if (tag.isEmpty || tag == wanted) return true;
+  if (kDrawThingsVersionFamilies[tag]?.contains(wanted) ?? false) return true;
+  return kDrawThingsVersionFamilies[wanted]?.contains(tag) ?? false;
+}
+
 /// LoRAs Draw Things would show for [modelVersion].
 ///
-/// An empty model version, or a catalog with no versions at all, keeps
-/// the full list. Otherwise only an exact version match stays. An
-/// unlabeled file is hidden once any LoRA in the catalog is tagged.
+/// An empty model version keeps the full list. Otherwise a LoRA is hidden only
+/// when the catalog tags it with a different, known version (see
+/// [drawThingsVersionFits]). Untagged and zoo LoRAs stay visible, and a file
+/// name never hides anything: only the catalog's tag counts.
 List<String> drawThingsVisibleLoras({
   required List<String> files,
   required Map<String, String> loraVersions,
@@ -117,12 +134,14 @@ List<String> drawThingsVisibleLoras({
 }) {
   final wanted = modelVersion.trim();
   if (wanted.isEmpty) return List<String>.from(files);
-  final tagged = loraVersions.values.any((value) => value.trim().isNotEmpty);
-  if (!tagged) return List<String>.from(files);
   final byBase = _versionsByBase(loraVersions);
   return [
     for (final file in files)
-      if (_indexedVersion(file, loraVersions, byBase) == wanted) file,
+      if (drawThingsVersionFits(
+        tag: _indexedVersion(file, loraVersions, byBase),
+        wanted: wanted,
+      ))
+        file,
   ];
 }
 

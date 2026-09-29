@@ -17,7 +17,8 @@ import 'package:front_porch_ai/services/image/model_family.dart';
 
 /// The lookup as it was before the speed fix, kept here as the reference the
 /// new one must agree with. A file's own version, else the first catalog row
-/// with the same base name.
+/// with the same base name. The visibility rule is restated independently:
+/// hidden only by a different, known tag; `flux2` and its two sizes fit.
 String _referenceVersion(String file, Map<String, String> versions) {
   final base = drawThingsLoraBasename(file);
   final direct = versions[file] ?? versions[base];
@@ -37,11 +38,15 @@ List<String> _referenceVisible(
 ) {
   final wanted = modelVersion.trim();
   if (wanted.isEmpty) return List<String>.from(files);
-  final tagged = versions.values.any((v) => v.trim().isNotEmpty);
-  if (!tagged) return List<String>.from(files);
+  const sizes = {'flux2_4b', 'flux2_9b'};
+  bool fits(String tag) =>
+      tag.isEmpty ||
+      tag == wanted ||
+      (tag == 'flux2' && sizes.contains(wanted)) ||
+      (wanted == 'flux2' && sizes.contains(tag));
   return [
     for (final file in files)
-      if (_referenceVersion(file, versions) == wanted) file,
+      if (fits(_referenceVersion(file, versions))) file,
   ];
 }
 
@@ -60,7 +65,16 @@ void main() {
   group('the same answer as before', () {
     test('on random catalogs with folders, blanks and repeats', () {
       final random = Random(20260929);
-      const versions = ['', ' ', 'flux2_9b', 'ltx2.3', 'flux1', ' flux2_9b '];
+      const versions = [
+        '',
+        ' ',
+        'flux2',
+        'flux2_4b',
+        'flux2_9b',
+        'ltx2.3',
+        'flux1',
+        ' flux2_9b ',
+      ];
       for (var round = 0; round < 60; round++) {
         final names = [
           for (var i = 0; i < 40; i++) 'n${random.nextInt(25)}.ckpt',
@@ -75,7 +89,14 @@ void main() {
                     : p.join('lora', names[random.nextInt(names.length)])):
                 versions[random.nextInt(versions.length)],
         };
-        for (final model in ['flux2_9b', 'ltx2.3', '', 'sd3']) {
+        for (final model in [
+          'flux2_9b',
+          'flux2',
+          'flux2_4b',
+          'ltx2.3',
+          '',
+          'sd3',
+        ]) {
           expect(
             drawThingsVisibleLoras(
               files: files,
