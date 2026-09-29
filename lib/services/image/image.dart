@@ -30,6 +30,7 @@ export 'comfy_starters.dart';
 export 'comfy_template_index.dart';
 export 'comfy_type_folders.dart';
 export 'comfy_workflow_adapt.dart';
+export 'comfy_widget_slots.dart';
 export 'comfy_workflow_convert.dart';
 export 'edit_profile.dart';
 export 'image_gen_lora_slots.dart';
