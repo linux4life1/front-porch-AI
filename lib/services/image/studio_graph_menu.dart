@@ -366,7 +366,14 @@ String deskGraphStance(String json) {
 /// not a graph.
 int workflowNodeCount(String json) {
   if (json.trim().isEmpty) return 0;
-  final decoded = jsonDecode(json);
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(json);
+  } on FormatException {
+    // A saved workflow that is not JSON has no nodes. This is read while the
+    // desk draws, so it must not throw.
+    return 0;
+  }
   if (decoded is! Map) return 0;
   final nodes = decoded['nodes'];
   if (nodes is List) return nodes.length;

@@ -334,13 +334,12 @@ Map<String, dynamic>? _deskGraph({
 }
 
 Map<String, dynamic> _graphWithChoices({
-  required Map<String, dynamic> api,
+  required AdaptedComfyGraph adapted,
   required String workflowId,
   required Map<String, String> modelChoices,
   required String primaryFile,
   required bool edit,
 }) {
-  final adapted = adaptComfyApiWorkflow(api);
   final values = <String, Object?>{};
   for (final slot in adapted.slots) {
     final file = (modelChoices['$workflowId/${slot.token}'] ?? '').trim();
@@ -410,15 +409,15 @@ StudioReadiness deskReadiness({
     return const StudioReadiness(StudioReady.missingFile);
   }
   final uploaded = workflowId == kComfyUploadedWorkflowId;
-  final slots = uploaded
-      ? const <ComfyModelSlot>[]
-      : adaptComfyApiWorkflow(api).slots;
+  final adapted = adaptComfyApiWorkflow(api);
+  final slots = uploaded ? const <ComfyModelSlot>[] : adapted.slots;
+  final tokens = detectComfyTokens(adapted.template);
   StudioReadiness verdict(StudioReady kind, {String? missingClass}) =>
-      StudioReadiness(kind, missingClass, null, null, slots);
+      StudioReadiness(kind, missingClass, null, null, slots, false, tokens);
   final graph = uploaded
       ? api
       : _graphWithChoices(
-          api: api,
+          adapted: adapted,
           workflowId: workflowId,
           modelChoices: modelChoices,
           primaryFile: primaryFile,
@@ -462,5 +461,13 @@ StudioReadiness deskReadiness({
   if (!allowLoraMismatch && deskLoraBlocks(primaryFile, loras)) {
     return verdict(StudioReady.loraMismatch);
   }
-  return StudioReadiness(StudioReady.ready, null, null, retarget.graph, slots);
+  return StudioReadiness(
+    StudioReady.ready,
+    null,
+    null,
+    retarget.graph,
+    slots,
+    false,
+    tokens,
+  );
 }

@@ -119,6 +119,7 @@ Future<StudioReadyReport> checkStudioReady({
         graph,
         verdict.slots,
         loader.canUpdate,
+        verdict.tokens,
       );
     }
   }

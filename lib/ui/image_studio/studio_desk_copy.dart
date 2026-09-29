@@ -64,7 +64,10 @@ String studioAdvancedSummary({
   required double cfg,
   required String sampler,
   required String scheduler,
-}) => '$steps steps · cfg $cfg · $sampler · $scheduler';
+  bool showSampler = true,
+}) => showSampler
+    ? '$steps steps · cfg $cfg · $sampler · $scheduler'
+    : '$steps steps · cfg $cfg';
 
 String studioWorkflowWhy({
   required String workflowId,
@@ -143,7 +146,12 @@ const String kStudioLoraFactsKey = 'image_studio_lora_facts';
 Map<String, DeskLoraCheck> storedLoraFacts(ImageGenSettings settings) {
   final raw = settings.prefs?.getString(settings.k(kStudioLoraFactsKey));
   if (raw == null || raw.isEmpty) return const {};
-  final decoded = jsonDecode(raw);
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(raw);
+  } on FormatException {
+    return const {};
+  }
   if (decoded is! Map) return const {};
   final out = <String, DeskLoraCheck>{};
   for (final entry in decoded.entries) {

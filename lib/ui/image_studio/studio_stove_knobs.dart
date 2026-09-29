@@ -41,6 +41,7 @@ class StudioStoveKnobs extends StatelessWidget {
   const StudioStoveKnobs({
     super.key,
     required this.drawThings,
+    this.showSampler = true,
     required this.drawThingsSampler,
     required this.onDrawThingsSampler,
     required this.steps,
@@ -56,6 +57,9 @@ class StudioStoveKnobs extends StatelessWidget {
   });
 
   final bool drawThings;
+
+  /// False on an edit: it takes no sampler or scheduler.
+  final bool showSampler;
   final int drawThingsSampler;
   final ValueChanged<int>? onDrawThingsSampler;
   final int steps;
@@ -107,20 +111,22 @@ class StudioStoveKnobs extends StatelessWidget {
           label: cfgValue.toStringAsFixed(1),
           onChanged: (value) => onCfg(value.toStringAsFixed(1)),
         ),
-        const Text('Sampler'),
-        _choice(
-          sampler,
-          samplers.isEmpty ? kStudioSamplerChoices : samplers,
-          onSampler,
-        ),
-        const Text('Scheduler'),
-        _choice(
-          scheduler,
-          schedulers.isEmpty
-              ? kStudioSchedulerChoices
-              : ['Automatic', ...schedulers.where((s) => s != 'Automatic')],
-          onScheduler,
-        ),
+        if (showSampler) ...[
+          const Text('Sampler'),
+          _choice(
+            sampler,
+            samplers.isEmpty ? kStudioSamplerChoices : samplers,
+            onSampler,
+          ),
+          const Text('Scheduler'),
+          _choice(
+            scheduler,
+            schedulers.isEmpty
+                ? kStudioSchedulerChoices
+                : ['Automatic', ...schedulers.where((s) => s != 'Automatic')],
+            onScheduler,
+          ),
+        ],
       ],
     );
   }

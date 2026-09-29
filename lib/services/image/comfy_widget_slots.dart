@@ -64,6 +64,8 @@ const kComfyFallbackWidgets = <String, List<String>>{
   'EmptyLatentImage': ['width', 'height', 'batch_size'],
   'EmptySD3LatentImage': ['width', 'height', 'batch_size'],
   'ModelSamplingAuraFlow': ['shift'],
+  'ModelSamplingSD3': ['shift'],
+  'ModelSamplingFlux': ['max_shift', 'base_shift', 'width', 'height'],
   'FluxGuidance': ['guidance'],
   'CFGNorm': ['strength'],
   'LoraLoader': ['lora_name', 'strength_model', 'strength_clip'],

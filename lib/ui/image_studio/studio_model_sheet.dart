@@ -37,7 +37,11 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
   @override
   Widget build(BuildContext context) {
     final query = _query.trim().toLowerCase();
+    // Files whose name looks wrong for this model are listed after all the
+    // others, whatever their family, and marked. They are never hidden: a
+    // name is only a guess.
     final groups = <ModelFamily, List<String>>{};
+    final odd = <ModelFamily, List<String>>{};
     for (final item in widget.items) {
       if (query.isNotEmpty &&
           !item.toLowerCase().contains(query) &&
@@ -47,15 +51,16 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
         continue;
       }
       final family = ImageModelFamily.detectFromName(item);
-      groups.putIfAbsent(family, () => []).add(item);
+      final into = widget.unfit.contains(item) ? odd : groups;
+      into.putIfAbsent(family, () => []).add(item);
     }
     final typed = _query.trim();
     final offerTyped =
         typed.isNotEmpty &&
         !widget.items.any((item) => item.toLowerCase() == typed.toLowerCase());
-    final order = [
+    List<ModelFamily> order(Map<ModelFamily, List<String>> from) => [
       for (final family in ModelFamily.values)
-        if (groups.containsKey(family)) family,
+        if (from.containsKey(family)) family,
     ];
     return AlertDialog(
       backgroundColor: AppColors.surfaceOf(context),
@@ -90,51 +95,8 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
                         Navigator.of(context).pop();
                       },
                     ),
-                  for (final family in order) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
-                      child: Text(
-                        family == ModelFamily.unknown ? 'Other' : family.label,
-                        style: TextStyle(
-                          color: AppColors.formMasterAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    for (final file in groups[family]!)
-                      ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                        ),
-                        leading: Text(
-                          studioQuantBadge(file),
-                          style: TextStyle(
-                            color: AppColors.textSecondary(context),
-                            fontSize: 12,
-                          ),
-                        ),
-                        title: Text(
-                          file,
-                          style: TextStyle(
-                            color: AppColors.textPrimary(context),
-                          ),
-                        ),
-                        subtitle: widget.unfit.contains(file)
-                            ? Text(
-                                'The name does not look like it fits this model.',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary(context),
-                                  fontSize: 12,
-                                ),
-                              )
-                            : null,
-                        onTap: () {
-                          widget.onPick(file);
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                  ],
+                  ..._section(context, groups, order(groups)),
+                  ..._section(context, odd, order(odd), marked: true),
                 ],
               ),
             ),
@@ -148,5 +110,56 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
         ),
       ],
     );
+  }
+
+  List<Widget> _section(
+    BuildContext context,
+    Map<ModelFamily, List<String>> groups,
+    List<ModelFamily> order, {
+    bool marked = false,
+  }) {
+    return [
+      for (final family in order) ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+          child: Text(
+            family == ModelFamily.unknown ? 'Other' : family.label,
+            style: TextStyle(
+              color: AppColors.formMasterAccent,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        for (final file in groups[family]!)
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: Text(
+              studioQuantBadge(file),
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 12,
+              ),
+            ),
+            title: Text(
+              file,
+              style: TextStyle(color: AppColors.textPrimary(context)),
+            ),
+            subtitle: marked
+                ? Text(
+                    'The name does not look like it fits this model.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary(context),
+                      fontSize: 12,
+                    ),
+                  )
+                : null,
+            onTap: () {
+              widget.onPick(file);
+              Navigator.of(context).pop();
+            },
+          ),
+      ],
+    ];
   }
 }

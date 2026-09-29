@@ -22,10 +22,19 @@ import 'studio_commit_field.dart';
 /// current backend, so nothing applies unseen and nothing is shown that does
 /// nothing.
 class StudioDeskKnobs extends StatelessWidget {
-  const StudioDeskKnobs({super.key, required this.settings, this.edit = false});
+  const StudioDeskKnobs({
+    super.key,
+    required this.settings,
+    this.edit = false,
+    this.comfyShift = false,
+  });
 
   final ImageGenSettings settings;
   final bool edit;
+
+  /// The Comfy graph on the desk has a sampling-shift node. Without one the
+  /// slider would change nothing, so it is not shown.
+  final bool comfyShift;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +81,7 @@ class StudioDeskKnobs extends StatelessWidget {
             maxLines: 2,
             onSubmit: settings.setImageGenNegativePrompt,
           ),
-        if (backend == 'comfyui')
+        if (backend == 'comfyui' && comfyShift)
           _shiftRow(primary, settings.editShift, settings.setEditShift),
         if (drawThings) ..._drawThings(context, primary),
         SwitchListTile(

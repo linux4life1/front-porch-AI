@@ -152,11 +152,16 @@ class _StudioStoveState extends State<StudioStove> {
     final primary = AppColors.textPrimary(context);
     final secondary = AppColors.textSecondary(context);
     final drawLabel = studioDrawThingsLabel(widget.drawThingsSampler);
+    // An edit reads its own steps and CFG, but takes no sampler or scheduler
+    // (Comfy's edit graph carries its own), so it shows none. Draw Things has
+    // one sampler list of its own per mode.
+    final showSampler = widget.drawThings || !widget.editing;
     final summary = studioAdvancedSummary(
       steps: widget.steps,
       cfg: widget.cfg,
       sampler: widget.drawThings ? drawLabel : widget.sampler,
       scheduler: widget.drawThings ? drawLabel : widget.scheduler,
+      showSampler: showSampler,
     );
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -328,6 +333,7 @@ class _StudioStoveState extends State<StudioStove> {
             if (_open) ...[
               StudioStoveKnobs(
                 drawThings: widget.drawThings,
+                showSampler: showSampler,
                 drawThingsSampler: widget.drawThingsSampler,
                 onDrawThingsSampler: widget.onDrawThingsSampler,
                 steps: widget.steps,

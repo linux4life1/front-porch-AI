@@ -211,8 +211,6 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         _tokenIfLiteral(ins, 'denoise', ComfyEditTokens.denoise);
       case 'FluxGuidance':
         _tokenIfLiteral(ins, 'guidance', ComfyEditTokens.cfg);
-      case 'ModelSamplingAuraFlow':
-        _tokenIfLiteral(ins, 'shift', ComfyEditTokens.shift);
       case 'EmptyLatentImage':
       case 'EmptySD3LatentImage':
         _tokenIfLiteral(ins, 'width', ComfyEditTokens.width);
@@ -224,6 +222,13 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
           _tokenIfLiteral(ins, 'on_false', ComfyEditTokens.prompt);
         }
       default:
+        // Whichever sampling-shift node the graph has (AuraFlow, SD3, Flux,
+        // LTXV, ...) takes the desk's shift.
+        if (classType.startsWith('ModelSampling')) {
+          for (final key in const ['shift', 'max_shift']) {
+            _tokenIfLiteral(ins, key, ComfyEditTokens.shift);
+          }
+        }
         if (classType == 'TextEncodeQwenImage21') {
           _tokenIfLiteral(ins, 'negative_prompt', ComfyEditTokens.negative);
         }

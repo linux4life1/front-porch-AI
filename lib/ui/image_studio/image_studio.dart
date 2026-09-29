@@ -378,7 +378,7 @@ class _ImageStudioState extends State<ImageStudio> {
   ) {
     setState(() {
       _editablePrompt = entry.prompt;
-      _selectedStyle = entry.style;
+      _selectedStyle = restorableStyle(entry.style, _selectedStyle);
       _currentImageBytes = entry.bytes;
       _error = '';
     });

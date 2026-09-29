@@ -48,6 +48,11 @@ class StudioReadiness {
   /// (another computer, an unrecognised or unsafe loader).
   final bool canUpdateLoader;
 
+  /// The `%TOKEN%` inputs the graph takes (`%SHIFT%`, `%SEED%`, ...). Empty
+  /// for an uploaded graph, which is posted as it is. A control whose token
+  /// is missing here would change nothing.
+  final Set<String> tokens;
+
   const StudioReadiness(
     this.kind, [
     this.missingClass,
@@ -55,6 +60,7 @@ class StudioReadiness {
     this.graph,
     this.slots = const [],
     this.canUpdateLoader = false,
+    this.tokens = const {},
   ]);
 }
 

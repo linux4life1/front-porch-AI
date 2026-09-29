@@ -271,7 +271,11 @@ class _StudioDeskState extends State<StudioDesk> {
           settings.setDrawThingsSampler(value);
         }
       },
-      knobs: StudioDeskKnobs(settings: settings, edit: editing),
+      knobs: StudioDeskKnobs(
+        settings: settings,
+        edit: editing,
+        comfyShift: ready?.tokens.contains(ComfyEditTokens.shift) ?? false,
+      ),
       readyLine: studioReadyLine(
         ready: enabled,
         checking: report == null,

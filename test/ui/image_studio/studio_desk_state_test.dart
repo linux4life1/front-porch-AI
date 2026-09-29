@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart';
+import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
 import 'package:front_porch_ai/services/image/comfy_workflow_convert.dart';
 import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
@@ -49,9 +50,76 @@ class _Comfy {
   String get url => 'http://127.0.0.1:${server.port}';
 }
 
-/// A real loopback ComfyUI: a node list, the Klein template, and the model
-/// lists a desk asks for.
-Future<_Comfy> _serve() async {
+/// A saved API graph with a sampling-shift node and a checkpoint loader, for
+/// the desks that read a shift and a checkpoint slot.
+const _shiftyGraph = {
+  'ckpt': {
+    'class_type': 'CheckpointLoaderSimple',
+    'inputs': {'ckpt_name': 'sd_xl_base_1.0.safetensors'},
+  },
+  'shift': {
+    'class_type': 'ModelSamplingSD3',
+    'inputs': {
+      'model': ['ckpt', 0],
+      'shift': 3.0,
+    },
+  },
+  'pos': {
+    'class_type': 'CLIPTextEncode',
+    'inputs': {
+      'text': 'a porch',
+      'clip': ['ckpt', 1],
+    },
+  },
+  'neg': {
+    'class_type': 'CLIPTextEncode',
+    'inputs': {
+      'text': 'blur',
+      'clip': ['ckpt', 1],
+    },
+  },
+  'latent': {
+    'class_type': 'EmptyLatentImage',
+    'inputs': {'width': 1024, 'height': 1024, 'batch_size': 1},
+  },
+  'ks': {
+    'class_type': 'KSampler',
+    'inputs': {
+      'model': ['shift', 0],
+      'positive': ['pos', 0],
+      'negative': ['neg', 0],
+      'latent_image': ['latent', 0],
+      'seed': 1,
+      'steps': 20,
+      'cfg': 7.0,
+      'sampler_name': 'euler',
+      'scheduler': 'normal',
+      'denoise': 1.0,
+    },
+  },
+  'decode': {
+    'class_type': 'VAEDecode',
+    'inputs': {
+      'samples': ['ks', 0],
+      'vae': ['ckpt', 2],
+    },
+  },
+  'save': {
+    'class_type': 'SaveImage',
+    'inputs': {
+      'images': ['decode', 0],
+      'filename_prefix': 'fpai',
+    },
+  },
+};
+const _shiftyId = 'comfy:default:shifty';
+
+/// A real loopback ComfyUI: a node list, the Klein template, [templates]
+/// (name to graph), and the model lists a desk asks for.
+Future<_Comfy> _serve({
+  Map<String, Object> templates = const {},
+  List<String> checkpoints = const [],
+}) async {
   final template =
       jsonDecode(File(_kleinFile).readAsStringSync()) as Map<String, dynamic>;
   final classes = convertComfyUiToApi(
@@ -82,6 +150,12 @@ Future<_Comfy> _serve() async {
         'required': {'noise_seed': spec('INT')},
       },
     },
+    if (templates.isNotEmpty) ...{
+      for (final t in templates.values)
+        for (final n in (t as Map).values)
+          (n as Map)['class_type'].toString(): <String, dynamic>{},
+    },
+    'CheckpointLoaderSimple': loader('ckpt_name', checkpoints),
     'UNETLoader': loader('unet_name', ['flux-2-klein-4b.safetensors']),
     'CLIPLoader': loader('clip_name', ['qwen_3_4b.safetensors']),
     'VAELoader': loader('vae_name', ['flux2-vae.safetensors']),
@@ -97,6 +171,10 @@ Future<_Comfy> _serve() async {
       request.response.write(jsonEncode(info));
     } else if (path == '/templates/image_flux2_klein_text_to_image.json') {
       request.response.write(File(_kleinFile).readAsStringSync());
+    } else if (path.startsWith('/templates/') &&
+        templates.containsKey(path.substring(11).replaceAll('.json', ''))) {
+      final name = path.substring(11).replaceAll('.json', '');
+      request.response.write(jsonEncode(templates[name]));
     } else {
       request.response.statusCode = HttpStatus.notFound;
     }
@@ -446,6 +524,152 @@ void main() {
     });
   });
 
+  group('controls follow the graph on the desk', () {
+    Future<_Comfy> useShifty(WidgetTester tester, {bool edit = false}) async {
+      await initSettings();
+      final comfy = (await tester.runAsync(
+        () => _serve(
+          templates: {'shifty': _shiftyGraph},
+          checkpoints: const [
+            'sd_xl_base_1.0.safetensors',
+            'other_ckpt.safetensors',
+          ],
+        ),
+      ))!;
+      final s = storage.imageGenSettings;
+      await s.setImageGenBackend('comfyui');
+      await s.setComfyUiUrl(comfy.url);
+      await s.setComfyCreateWorkflowId(_shiftyId);
+      await s.setComfyEditWorkflowId(_shiftyId);
+      for (final setChoice in [
+        s.setComfyCreateModelChoice,
+        s.setComfyEditModelChoice,
+      ]) {
+        await setChoice(
+          _shiftyId,
+          '%MODEL_CHECKPOINT%',
+          'sd_xl_base_1.0.safetensors',
+        );
+      }
+      return comfy;
+    }
+
+    Future<void> openAdvanced(WidgetTester tester) async {
+      await tester.tap(find.textContaining('Advanced'));
+      await tester.pump();
+    }
+
+    testWidgets('Shift is shown when the graph has a shift node', (
+      tester,
+    ) async {
+      final comfy = await useShifty(tester);
+      await pumpDesk(tester, comfy: comfy);
+      await openAdvanced(tester);
+
+      expect(find.text('Shift'), findsOneWidget);
+    });
+
+    testWidgets('Shift is shown for an uploaded graph that has one', (
+      tester,
+    ) async {
+      final comfy = await useShifty(tester);
+      final s = storage.imageGenSettings;
+      await s.setComfyCreateWorkflowId(kComfyUploadedWorkflowId);
+      await s.setComfyCreateUploadedWorkflow(jsonEncode(_shiftyGraph));
+      await pumpDesk(tester, comfy: comfy);
+      await openAdvanced(tester);
+
+      expect(find.text('Shift'), findsOneWidget);
+    });
+
+    testWidgets('Create shows Sampler and Scheduler', (tester) async {
+      final comfy = await useShifty(tester);
+      await pumpDesk(tester, comfy: comfy);
+      await openAdvanced(tester);
+
+      expect(find.text('Sampler'), findsOneWidget);
+      expect(find.text('Scheduler'), findsOneWidget);
+    });
+
+    testWidgets('Edit has no Sampler or Scheduler to set', (tester) async {
+      final comfy = await useShifty(tester);
+      await pumpDesk(tester, comfy: comfy, edit: true);
+      await openAdvanced(tester);
+
+      expect(find.text('Steps'), findsOneWidget);
+      expect(find.text('Sampler'), findsNothing);
+      expect(find.text('Scheduler'), findsNothing);
+    });
+
+    testWidgets('a saved workflow that is not JSON does not break the desk', (
+      tester,
+    ) async {
+      final comfy = await useShifty(tester);
+      final s = storage.imageGenSettings;
+      await s.setComfyCreateWorkflowId(kComfyUploadedWorkflowId);
+      await s.setComfyCreateUploadedWorkflow('{ this was cut off');
+      await pumpDesk(tester, comfy: comfy);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Change graph'), findsOneWidget);
+    });
+
+    Future<void> pickTyped(
+      WidgetTester tester,
+      _Comfy comfy,
+      String name,
+    ) async {
+      await tester.tap(find.text('Change model'));
+      await tester.pump();
+      await tester.enterText(
+        find.byWidgetPredicate(
+          (w) =>
+              w is TextField &&
+              w.decoration?.hintText == 'Search families or files',
+        ),
+        name,
+      );
+      await tester.pump();
+      await tester.tap(find.text('Use this name'));
+      await settle(tester, comfy);
+    }
+
+    testWidgets('a model of another family does not swap the kept graph', (
+      tester,
+    ) async {
+      await initSettings();
+      final comfy = (await tester.runAsync(_serve))!;
+      await useKlein(comfy);
+      await pumpDesk(tester, comfy: comfy);
+      final s = storage.imageGenSettings;
+
+      await pickTyped(tester, comfy, 'z_image_turbo_bf16.safetensors');
+
+      expect(s.comfyCreateWorkflowId, _kleinId);
+      expect(
+        s.comfyCreateModelChoice(_kleinId, '%MODEL_DIFFUSION%'),
+        'z_image_turbo_bf16.safetensors',
+      );
+    });
+
+    testWidgets('a pick fills the kept graph\'s own slot, a checkpoint here', (
+      tester,
+    ) async {
+      final comfy = await useShifty(tester);
+      await pumpDesk(tester, comfy: comfy);
+      final s = storage.imageGenSettings;
+
+      await pickTyped(tester, comfy, 'brand_new_ckpt.safetensors');
+
+      expect(s.comfyCreateWorkflowId, _shiftyId);
+      expect(
+        s.comfyCreateModelChoice(_shiftyId, '%MODEL_CHECKPOINT%'),
+        'brand_new_ckpt.safetensors',
+      );
+      expect(s.comfyCreateModelChoice(_shiftyId, '%MODEL_DIFFUSION%'), isNull);
+    });
+  });
+
   group('every setting a generate reads has a control', () {
     testWidgets('Remote: host, model list, style, prompt format, review', (
       tester,
@@ -487,8 +711,8 @@ void main() {
       expect(find.text('Seed'), findsOneWidget);
       expect(find.text('Negative prompt'), findsOneWidget);
       expect(find.text('CFG Zero'), findsNothing);
-      // Comfy graphs read the sampling shift, so it has a slider here too.
-      expect(find.text('Shift'), findsOneWidget);
+      // The Klein graph has no sampling-shift node, so there is no slider.
+      expect(find.text('Shift'), findsNothing);
 
       await tester.enterText(find.widgetWithText(TextField, '-1'), '42');
       await tester.testTextInput.receiveAction(TextInputAction.done);
