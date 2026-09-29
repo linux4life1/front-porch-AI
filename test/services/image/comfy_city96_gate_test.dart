@@ -300,7 +300,7 @@ void main() {
           final g = City96Gate(
             locate: (_) async => loader,
             pidFor: (_) async => 100,
-            probe: FakeProbe(starts: {if (startedAt != null) 100: startedAt}),
+            probe: FakeProbe(starts: {100: ?startedAt}),
           );
           if (record) {
             await g.records.put(

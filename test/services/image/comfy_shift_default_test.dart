@@ -181,7 +181,7 @@ void main() {
     }
 
     test(
-      'a template with an AuraFlow shift keeps it (it was forced to 3.0)',
+      'a template whose AuraFlow shift is not 3 keeps it (it was forced to 3.0)',
       () {
         final api = convertComfyUiToApi(
           jsonDecode(
@@ -191,11 +191,74 @@ void main() {
               )
               as Map<String, dynamic>,
         );
-        final own = _shifts(api).values.whereType<num>().toList();
-        expect(own, isNotEmpty);
-        expect(_shifts(_posted(api)).values.whereType<num>().toList(), own);
+        // The shipped template says 3, which is also the old default; a
+        // different value is what tells the two apart.
+        var changed = 0;
+        for (final node in api.values.whereType<Map>()) {
+          if (node['class_type'] == 'ModelSamplingAuraFlow') {
+            (node['inputs'] as Map)['shift'] = 5.5;
+            changed++;
+          }
+        }
+        expect(changed, greaterThan(0));
+
+        expect(_shifts(_posted(api)).values, everyElement(5.5));
+        expect(
+          _shifts(_posted(api, shift: 6.5)).values,
+          everyElement(6.5),
+          reason: 'moved for this graph',
+        );
+        expect(_shifts(_posted(api, edit: true)).values, everyElement(5.5));
       },
     );
+
+    // The shipped starters, posted the way the desk posts them by id.
+    for (final id in [
+      'sd',
+      'z_image_turbo',
+      'flux',
+      'qwen_image',
+      'qwen_image_21',
+    ]) {
+      test('starter $id posts its own shifts', () {
+        final starter = comfyStarterGraph(id)!;
+        final req = resolveComfyCreateRequest(
+          workflowId: id,
+          uploadedWorkflowJson: '',
+          modelChoices: const {},
+          prompt: 'p',
+          negative: 'n',
+          seed: 1,
+          steps: 20,
+          cfg: 7,
+          denoise: 1,
+          shift: null,
+          width: 512,
+          height: 512,
+        )!;
+        final posted = substituteComfyWorkflow(req.template, req.values);
+        expect(_shifts(posted), _shifts(starter), reason: id);
+      });
+    }
+
+    test('the Qwen starter\'s own 3.1 is not the default 3.0', () {
+      final req = resolveComfyCreateRequest(
+        workflowId: 'qwen_image',
+        uploadedWorkflowJson: '',
+        modelChoices: const {},
+        prompt: 'p',
+        negative: 'n',
+        seed: 1,
+        steps: 20,
+        cfg: 7,
+        denoise: 1,
+        shift: null,
+        width: 512,
+        height: 512,
+      )!;
+      final posted = substituteComfyWorkflow(req.template, req.values);
+      expect(_shifts(posted).values, contains(3.1));
+    });
   });
 
   group('moving Shift', () {

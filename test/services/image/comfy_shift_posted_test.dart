@@ -84,9 +84,8 @@ Map<String, dynamic> _graph(
 void main() {
   setUp(() => HttpOverrides.global = null);
 
-  /// Generates [graph] as an uploaded workflow, with Shift moved to
-  /// [moved] when it is given, and returns the posted shift node's inputs.
-  Future<Map<String, dynamic>> postedShiftNode(
+  /// The whole graph a generate of [graph] posts.
+  Future<Map<String, dynamic>> postedGraph(
     Map<String, dynamic> graph, {
     double? moved,
   }) async {
@@ -133,8 +132,25 @@ void main() {
     final image = ImageGenService(storage);
     await image.generateImage(prompt: 'a porch at dusk');
     expect(posted, isNotNull, reason: image.statusMessage);
-    return (posted!['shift'] as Map)['inputs'] as Map<String, dynamic>;
+    return posted!;
   }
+
+  /// The inputs of node [id] in the graph a generate posts.
+  Future<Map<String, dynamic>> postedNode(
+    Map<String, dynamic> graph,
+    String id, {
+    double? moved,
+  }) async {
+    final posted = await postedGraph(graph, moved: moved);
+    return (posted[id] as Map)['inputs'] as Map<String, dynamic>;
+  }
+
+  /// Generates [graph] as an uploaded workflow, with Shift moved to
+  /// [moved] when it is given, and returns the posted shift node's inputs.
+  Future<Map<String, dynamic>> postedShiftNode(
+    Map<String, dynamic> graph, {
+    double? moved,
+  }) => postedNode(graph, 'shift', moved: moved);
 
   for (final type in ['ModelSamplingSD3', 'ModelSamplingAuraFlow']) {
     test('$type posts its own shift until Shift is moved', () async {
@@ -147,6 +163,29 @@ void main() {
       expect((await postedShiftNode(graph, moved: 6.5))['shift'], 6.5);
     });
   }
+
+  test(
+    'a shift on a node that is not ModelSampling is left alone, moved or not',
+    () async {
+      final graph = _graph('ModelSamplingSD3', {'shift': 4.5});
+      graph['video'] = {
+        'class_type': 'SomeVideoNode',
+        'inputs': {
+          'model': ['ckpt', 0],
+          'shift': 9.5,
+          'max_shift': 4.25,
+        },
+      };
+      for (final moved in [null, 6.5]) {
+        final other = await postedNode(graph, 'video', moved: moved);
+        expect(other['shift'], 9.5, reason: 'moved: $moved');
+        expect(other['max_shift'], 4.25);
+        // The real shift node beside it does follow Shift.
+        final real = await postedNode(graph, 'shift', moved: moved);
+        expect(real['shift'], moved ?? 4.5);
+      }
+    },
+  );
 
   test('ModelSamplingFlux keeps its max shift, moved or not', () async {
     final graph = _graph('ModelSamplingFlux', {

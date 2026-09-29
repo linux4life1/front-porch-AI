@@ -120,6 +120,63 @@ void main() {
     });
   });
 
+  test(
+    'an image asked for from phone chat never asks, and writes nothing',
+    () async {
+      final h = ReprocessHarness();
+      await h.boot();
+      addTearDown(h.dispose);
+      await h.oneToOneWithStampedReply(needsCard('Mara'));
+      h.llm.mouth = 'a woman on a porch at dusk, warm light';
+      final server = await _comfy();
+      addTearDown(() => server.close(force: true));
+      final dir = Directory.systemTemp.createTempSync('chat-image-city96');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final loader = File('${dir.path}/loader.py')
+        ..writeAsStringSync(kStockCity96Loader);
+      var asked = 0;
+      final saved = City96Gate.instance;
+      City96Gate.instance = City96Gate(
+        locate: (_) async => loader,
+        probe: const FakeProbe(),
+        pidFor: (_) async => 100,
+        // The desktop window: a question that nobody answers.
+        ask: (_) {
+          asked++;
+          return Completer<bool>().future;
+        },
+      );
+      addTearDown(() => City96Gate.instance = saved);
+      final s = h.storage.imageGenSettings;
+      await s.setImageGenEnabled(true);
+      await s.setImageGenPromptReview(false);
+      await s.setImageGenBackend('comfyui');
+      await s.setComfyUiUrl('http://127.0.0.1:${server.port}');
+      await s.setComfyCreateWorkflowId('qwen_image_21');
+      for (final e in {
+        '%MODEL_DIFFUSION%': 'qwen-image-2.1-Q2_K.gguf',
+        '%MODEL_CLIP%': 'Qwen3-VL-8B-Instruct-Q4_K_M.gguf',
+        '%MODEL_VAE%': 'qwen_image_2.1_vae_bf16.safetensors',
+      }.entries) {
+        await s.setComfyCreateModelChoice('qwen_image_21', e.key, e.value);
+      }
+      final image = ImageGenService(h.storage);
+      h.chat.setImageGenService(image);
+      final facade = ChatFacade(h.chat, h.repo, null, null, null);
+
+      facade.send('/image a quiet porch');
+      for (var i = 0; i < 200 && image.statusMessage.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      }
+      await h.settleTurn();
+
+      expect(image.statusMessage, contains(kCity96ConfirmOnDesktop));
+      expect(asked, 0);
+      expect(loader.readAsStringSync(), kStockCity96Loader);
+      expect(File('${loader.path}.bak').existsSync(), isFalse);
+    },
+  );
+
   test('the character creator\'s portrait is answered at once', () async {
     HttpOverrides.global = null;
     final server = await _comfy();

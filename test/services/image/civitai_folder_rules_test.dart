@@ -91,6 +91,60 @@ void main() {
     );
 
     test(
+      'folders the system reads at login are refused though they have no dot',
+      () async {
+        final library = Directory(p.join(home.path, 'Library', 'LaunchAgents'))
+          ..createSync(recursive: true);
+        final appData = Directory(
+          p.join(home.path, 'AppData', 'Roaming', 'Microsoft'),
+        )..createSync(recursive: true);
+        final ordinary = Directory(p.join(home.path, 'Documents', 'models'))
+          ..createSync(recursive: true);
+        final sensitive = [
+          p.join(home.path, 'Library'),
+          p.join(home.path, 'AppData', 'Roaming'),
+        ];
+        Future<bool> check(String folder, {List<String> roots = const []}) =>
+            civitaiFolderIsSafe(
+              folder,
+              home: home.path,
+              systemFolders: const [],
+              sensitiveFolders: sensitive,
+              roots: roots,
+            );
+
+        expect(await check(library.path), isFalse);
+        expect(await check(library.parent.path), isFalse);
+        expect(await check(appData.path), isFalse);
+        expect(await check(ordinary.path), isTrue);
+        // A models folder the person chose in one of them still works.
+        expect(await check(library.path, roots: [library.parent.path]), isTrue);
+      },
+    );
+
+    test('which folders those are, on each OS', () {
+      expect(
+        civitaiSensitiveHomeFolders(home: '/Users/a', os: 'macos', env: {}),
+        [p.join('/Users/a', 'Library')],
+      );
+      expect(
+        civitaiSensitiveHomeFolders(
+          os: 'windows',
+          env: {
+            'APPDATA': r'C:\U\a\AppData\Roaming',
+            'LOCALAPPDATA': r'C:\U\a\AppData\Local',
+          },
+        ),
+        [r'C:\U\a\AppData\Roaming', r'C:\U\a\AppData\Local'],
+      );
+      expect(civitaiSensitiveHomeFolders(os: 'windows', env: {}), isEmpty);
+      expect(
+        civitaiSensitiveHomeFolders(home: '/home/a', os: 'linux', env: {}),
+        isEmpty,
+      );
+    });
+
+    test(
       'a hidden folder outside the home folder is not the rule\'s business',
       () async {
         final hidden = Directory(p.join(elsewhere.path, '.models'))
@@ -345,8 +399,77 @@ void main() {
         expect(e.message, contains('system folder'), reason: 'the safety rule');
         expect(e.folder, isNull, reason: 'and nothing is offered for it');
         expect(host.requests, isEmpty);
+        expect(hidden.listSync(), isEmpty, reason: 'nothing was written');
       },
     );
+
+    test('a hidden folder that does not exist is not made', () async {
+      final missing = p.join(home.path, '.missing', 'checkpoints');
+
+      final e = await refusal(plan(p.join(missing, 'm.safetensors')));
+
+      expect(e.kind, CivitaiFailure.unsafe);
+      expect(host.requests, isEmpty);
+      expect(Directory(p.join(home.path, '.missing')).existsSync(), isFalse);
+    });
+
+    group('a checkpoint that turns out to carry its own encoders', () {
+      final allInOne = civitaiSafetensors([
+        'model.diffusion_model.double_blocks.0.w',
+        'text_encoders.clip_l.transformer.w',
+        'text_encoders.t5xxl.transformer.w',
+        'vae.decoder.conv_in.w',
+      ]);
+
+      CivitaiDownloadPlan aioPlan(
+        String home, {
+        List<String> trusted = const [],
+      }) {
+        return CivitaiDownloadPlan(
+          uri: host.uri('/aio'),
+          path: p.join(models, 'diffusion_models', 'flux.safetensors'),
+          authorization: 'Bearer test-token',
+          log: 'civitai download account=local adult=false',
+          refused: false,
+          root: models,
+          expectedBytes: allInOne.length,
+          allInOnePath: p.join(home, 'checkpoints', 'flux.safetensors'),
+          trustedRoots: trusted,
+        );
+      }
+
+      setUp(() => host.serve('/aio', allInOne));
+
+      test('goes to its own folder when that folder is fine', () async {
+        final fine = Directory(p.join(models, 'more'))..createSync();
+        final landed = await downloadCivitaiPlan(
+          aioPlan(fine.path),
+          home: home.path,
+        );
+
+        expect(landed, p.join(fine.path, 'checkpoints', 'flux.safetensors'));
+        expect(File(landed).lengthSync(), allInOne.length);
+      });
+
+      test(
+        'is refused, and nothing is kept, when that folder is a hidden home folder',
+        () async {
+          final hidden = Directory(p.join(home.path, '.hidden'))..createSync();
+
+          final e = await refusal(aioPlan(hidden.path));
+
+          expect(e.kind, CivitaiFailure.unsafe);
+          expect(hidden.listSync(), isEmpty);
+          // The part file it streamed into is gone too.
+          expect(
+            Directory(
+              p.join(models, 'diffusion_models'),
+            ).listSync().where((f) => f.path.endsWith('.fpai-part')),
+            isEmpty,
+          );
+        },
+      );
+    });
 
     test(
       'a models folder the person chose inside a hidden home folder still works',

@@ -633,11 +633,11 @@ void main() {
         await openAdvanced(tester);
         final s = storage.imageGenSettings;
 
-        await tester.drag(find.byType(Slider).last, const Offset(60, 0));
+        // A tap in the middle of a 0 to 10 slider is 5.0.
+        await tester.tap(find.byType(Slider).last);
         await tester.pump();
 
-        expect(s.comfyShiftFor(_shiftyId, edit: false), isNot(4.5));
-        expect(s.comfyShiftFor(_shiftyId, edit: false), isNotNull);
+        expect(s.comfyShiftFor(_shiftyId, edit: false), 5.0);
         expect(s.comfyShiftFor('comfy:default:other', edit: false), isNull);
         expect(s.comfyShiftFor(_shiftyId, edit: true), isNull);
 

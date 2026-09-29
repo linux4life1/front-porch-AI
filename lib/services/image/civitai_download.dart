@@ -236,6 +236,31 @@ List<String> civitaiSystemFolders() {
   ];
 }
 
+/// Folders of the home folder that hold what a login runs or a program keeps
+/// for the system, though they are not named with a dot: `~/Library` on macOS
+/// (LaunchAgents are in it) and, on Windows, the roaming and local app data
+/// folders (the Startup folder is in the first). Empty on Linux, where those
+/// are dot folders.
+List<String> civitaiSensitiveHomeFolders({
+  String? home,
+  Map<String, String>? env,
+  String? os,
+}) {
+  env ??= Platform.environment;
+  os ??= Platform.operatingSystem;
+  if (os == 'macos') {
+    final h = home ?? env['HOME'] ?? '';
+    return [if (h.isNotEmpty) p.join(h, 'Library')];
+  }
+  if (os == 'windows') {
+    return [
+      for (final key in ['APPDATA', 'LOCALAPPDATA'])
+        if ((env[key] ?? '').isNotEmpty) env[key]!,
+    ];
+  }
+  return const [];
+}
+
 Future<String?> _resolved(String path) async {
   try {
     return await Directory(path).resolveSymbolicLinks();
@@ -290,7 +315,9 @@ bool civitaiFolderInRoots(String folder, List<String> roots) {
 /// The models folder is whatever the backend uses, so a folder that is a link
 /// to another drive is fine. What is refused is a folder that, once every link
 /// is followed, is the drive root, the home folder itself, a system folder, or
-/// inside a hidden folder of the home folder (`~/.ssh`, `~/.config`...) unless
+/// inside a hidden folder of the home folder (`~/.ssh`, `~/.config`...) or one
+/// that the system reads at login ([sensitiveFolders]: `~/Library`, the app
+/// data folders) unless
 /// what it resolves to is inside one of [roots]: the models folders the person
 /// chose, each already resolved (as it was when they chose it), so a link put
 /// inside one of them later does not count as being inside it. A folder that
@@ -300,6 +327,7 @@ Future<bool> civitaiFolderIsSafe(
   String folder, {
   String? home,
   List<String>? systemFolders,
+  List<String>? sensitiveFolders,
   List<String> roots = const [],
 }) async {
   final real = await civitaiRealFolder(folder);
@@ -315,6 +343,14 @@ Future<bool> civitaiFolderIsSafe(
     if (real == realHome) return false;
     if (p.isWithin(realHome, real) &&
         _hiddenBelow(p.relative(real, from: realHome)) &&
+        !civitaiRealInRoots(real, roots)) {
+      return false;
+    }
+  }
+  for (final sensitive
+      in sensitiveFolders ?? civitaiSensitiveHomeFolders(home: home)) {
+    final realSensitive = await _resolved(sensitive) ?? sensitive;
+    if ((real == realSensitive || p.isWithin(realSensitive, real)) &&
         !civitaiRealInRoots(real, roots)) {
       return false;
     }
