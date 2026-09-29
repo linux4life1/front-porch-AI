@@ -26,8 +26,8 @@ import 'package:front_porch_ai/ui/settings/widgets/section_header.dart';
 /// Settings section that turns image generation on or off.
 ///
 /// Surfaces the same `imageGenEnabled` flag (and the existing
-/// [StorageService.setImageGenEnabled] setter) that the Image Studio's
-/// GenerationOptionsTab uses, so the feature can be enabled from the main
+/// [StorageService.setImageGenEnabled] setter) that Image Studio uses, so
+/// the feature can be enabled from the main
 /// Settings → Voice & Media tab. This matters because the ✨ Image Studio
 /// button in the chat toolbar stays hidden until this flag is on, and the
 /// only other place to flip it lived behind the character creator's avatar

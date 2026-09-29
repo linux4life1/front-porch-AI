@@ -38,8 +38,8 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/tabs/tabs.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-// Note: Image Generation *config* options (backend / model / LoRAs) live in a first-class
-// tab-like panel inside the Image Studio (see generation_options_tab.dart + studio integration).
+// Note: Image Generation *config* options (backend / model / LoRAs) live on
+// the Image Studio desk.
 // Only the discoverable on/off switch was re-surfaced in the Voice & Media tab via
 // ImageGenEnableSection — the chat toolbar's Image Studio button stays hidden until it is on.
 

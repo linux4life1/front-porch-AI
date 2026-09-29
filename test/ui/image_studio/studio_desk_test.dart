@@ -50,23 +50,23 @@ void main() {
     );
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Edit'), findsOneWidget);
-    expect(find.text('Model search'), findsOneWidget);
+    expect(find.text('Change model'), findsOneWidget);
     FilledButton generate() => tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Generate'),
     );
     expect(generate().onPressed, isNull);
 
-    await tester.tap(find.text('Remote'));
+    await tester.tap(find.text('Change…'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Automatic1111').last);
+    await tester.tap(find.text('Automatic1111'));
     await tester.pumpAndSettle();
     expect(storage.imageGenSettings.imageGenBackend, 'a1111');
 
-    await tester.tap(find.text('Model search'));
+    await tester.tap(find.text('Change model'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'portrait.safetensors');
     await tester.pump();
-    await tester.tap(find.text('Use portrait.safetensors'));
+    await tester.tap(find.text('Use this name'));
     await tester.pumpAndSettle();
 
     expect(storage.imageGenSettings.imageGenModel, 'portrait.safetensors');

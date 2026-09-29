@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// One journey: open Image Studio, switch Create and Edit, open model search,
+// One journey: open Image Studio, switch Create and Edit, open Change model,
 // and confirm Generate stays off while a required file is empty.
 // Run alone: flutter test integration_test/image_studio_desk_test.dart -d macos
 
@@ -18,7 +18,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:front_porch_ai/main.dart' as app;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/image_studio/studio_search_sheet.dart';
+import 'package:front_porch_ai/ui/image_studio/studio_model_sheet.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
 
@@ -37,7 +37,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'Studio switches Create and Edit, opens model search, and keeps Generate off',
+    'Studio switches Create and Edit, opens Change model, and keeps Generate off',
     (tester) async {
       try {
         final probe = await Socket.connect(
@@ -123,9 +123,9 @@ void main() {
       await tester.enterText(prompt, 'a porch at dusk');
       await tester.pump(const Duration(milliseconds: 300));
 
-      await tester.ensureVisible(find.text('Model search').first);
-      await tester.tap(find.text('Model search').hitTestable());
-      await pumpUntilFound(tester, find.byType(StudioSearchSheet));
+      await tester.ensureVisible(find.text('Change model').first);
+      await tester.tap(find.text('Change model').hitTestable());
+      await pumpUntilFound(tester, find.byType(StudioModelSheet));
       expect(
         tester
             .widget<ElevatedButton>(

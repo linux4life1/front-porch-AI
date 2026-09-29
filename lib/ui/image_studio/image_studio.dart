@@ -37,12 +37,11 @@ part 'studio_prompt_craft.dart';
 part 'image_studio.subject.dart';
 
 /// The Image Studio: one shared canvas driven by a **Subject** selector
-/// (Freeform / Character / Your persona). Backend/model/size/steps/CFG/sampler/
-/// scheduler/seed/LoRA controls live in the collapsible [StudioSettingsPanel].
-/// Picking Character/Persona auto-fills the prompt from their appearance (via
-/// the [ImagePromptBuilder]); Freeform is yours (blank + Craft distills the
-/// current chat scene). Layout lives in [StudioView]; this owns the session
-/// state + handlers.
+/// (Freeform / Character / Your persona). Model, size, steps, and LoRA
+/// controls live on the studio desk. Picking Character/Persona auto-fills
+/// the prompt from their appearance (via the [ImagePromptBuilder]); Freeform
+/// is yours (blank + Craft distills the current chat scene). Layout lives in
+/// [StudioView]; this owns the session state + handlers.
 class ImageStudio extends StatefulWidget {
   final ImageGenMode mode;
   final String? customPrompt;

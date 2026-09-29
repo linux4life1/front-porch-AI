@@ -96,7 +96,7 @@ async function choose(label: string, extra: Partial<StudioDeskProps> = {}) {
 
 describe('StudioDesk CivitAI download', () => {
   it('posts a model row to the download relay and does not send a key', async () => {
-    await choose('Get a model');
+    await choose('Get a model from CivitAI');
     expect(api.post).toHaveBeenCalledWith('/api/image/civitai/download', {
       versionId: 42,
       backend: 'comfyui',
@@ -114,7 +114,7 @@ describe('StudioDesk CivitAI download', () => {
   });
 
   it('posts a LoRA row with the lora flag', async () => {
-    await choose('Get a LoRA');
+    await choose('Get a LoRA from CivitAI');
     expect(api.post).toHaveBeenCalledWith(
       '/api/image/civitai/download',
       expect.objectContaining({ versionId: 42, lora: true, filename: 'portrait.safetensors' }),
@@ -132,7 +132,7 @@ describe('StudioDesk CivitAI download', () => {
       return Promise.resolve({ accept: false });
     });
     const onSave = vi.fn();
-    await choose('Get a model', { onSave });
+    await choose('Get a model from CivitAI', { onSave });
     expect(container.textContent).toContain('Downloading on your computer…');
     expect(container.textContent).not.toContain('Saved to your models folder');
     await act(async () => {
@@ -160,13 +160,14 @@ describe('StudioDesk CivitAI download', () => {
       }
       return Promise.resolve({ downloaded: true });
     });
-    await choose('Get a model', { onSave, workflowId: 'z_image_turbo' });
+    await choose('Get a model from CivitAI', { onSave, workflowId: 'z_image_turbo' });
     expect(api.post).toHaveBeenCalledWith('/api/image/studio/installed', {
       filename: 'portrait.safetensors',
       lora: false,
-      workflowId: 'z_image_turbo',
+      workflowId: 'sd',
     });
     expect(onSave).toHaveBeenCalledWith({
+      comfyCreateWorkflowId: 'z_image_turbo',
       comfyCreateModelChoices: {
         'z_image_turbo/%MODEL_DIFFUSION%': 'portrait.safetensors',
       },
@@ -182,7 +183,7 @@ describe('StudioDesk CivitAI download', () => {
       }
       return Promise.resolve({ downloaded: true });
     });
-    await choose('Get a LoRA', { backend: 'a1111' });
+    await choose('Get a LoRA from CivitAI', { backend: 'a1111' });
     expect(container.textContent).toContain('It is in the Lora folder.');
     expect(container.textContent).not.toContain('Pick it in LoRA search');
   });
@@ -195,7 +196,7 @@ describe('StudioDesk CivitAI download', () => {
       }
       return Promise.resolve({ downloaded: true });
     });
-    await choose('Get a model', { onSave, backend: 'a1111' });
+    await choose('Get a model from CivitAI', { onSave, backend: 'a1111' });
     expect(onSave).toHaveBeenCalledWith({ model: 'portrait.safetensors' });
   });
 
@@ -203,7 +204,7 @@ describe('StudioDesk CivitAI download', () => {
     vi.mocked(api.post).mockRejectedValueOnce(
       new ApiError(400, 'Pick your models folder on this computer first', {}),
     );
-    await choose('Get a model');
+    await choose('Get a model from CivitAI');
     expect(container.textContent).toContain(
       'Pick your models folder on this computer first',
     );
@@ -214,14 +215,14 @@ describe('StudioDesk CivitAI download', () => {
     vi.mocked(api.post).mockRejectedValueOnce(
       new ApiError(502, '<html><body>bad gateway</body></html>', {}),
     );
-    await choose('Get a model');
+    await choose('Get a model from CivitAI');
     expect(container.textContent).toContain('CivitAI download failed.');
     expect(container.textContent).not.toContain('<html>');
   });
 
   it('says the download failed when the relay rejects', async () => {
     vi.mocked(api.post).mockRejectedValueOnce(new Error('nope'));
-    await choose('Get a model');
+    await choose('Get a model from CivitAI');
     expect(container.textContent).toContain('CivitAI download failed.');
   });
 });

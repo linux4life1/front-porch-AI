@@ -65,11 +65,11 @@ describe('StudioDesk', () => {
     const saved: Record<string, unknown>[] = [];
     render({ onSave: (patch) => saved.push(patch) });
     const text = container.textContent ?? '';
-    expect(text).toContain('Model search');
-    expect(text).toContain('CivitAI sign-in');
+    expect(text).toContain('Change model');
+    expect(text).toContain('Get a model from CivitAI');
     const generate = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Generate');
     expect(generate?.hasAttribute('disabled')).toBe(true);
-    const search = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Model search');
+    const search = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Change model');
     act(() => search?.click());
     const box = container.querySelector('input[aria-label="Search"]') as HTMLInputElement;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
@@ -101,7 +101,7 @@ describe('StudioDesk', () => {
     render({ onSave: () => gate });
     await act(async () => { await Promise.resolve(); });
     const before = readyUrls.filter((url) => url.includes('/api/image/studio/ready')).length;
-    const search = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Model search');
+    const search = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Change model');
     act(() => search?.click());
     const box = container.querySelector('input[aria-label="Search"]') as HTMLInputElement;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;

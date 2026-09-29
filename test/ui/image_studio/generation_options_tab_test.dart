@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The old GenerationOptionsTab is gone. This file now pins the desk that
-// replaced it: Create, Edit, model search, and Generate off until a file
+// replaced it: Create, Edit, Change model, and Generate off until a file
 // is chosen.
 
 import 'dart:io';
@@ -31,7 +31,7 @@ void main() {
     );
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Edit'), findsOneWidget);
-    expect(find.text('Model search'), findsOneWidget);
+    expect(find.text('Change model'), findsOneWidget);
     expect(find.text('GenerationOptionsTab'), findsNothing);
     final generate = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Generate'),
