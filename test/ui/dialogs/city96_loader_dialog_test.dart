@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart';
+import 'package:front_porch_ai/services/image/comfy_gguf_city96_write.dart'
+    show kCity96OthersCanWrite;
 import 'package:front_porch_ai/ui/dialogs/city96_loader_dialog.dart';
 
 void main() {
@@ -55,5 +57,40 @@ void main() {
       }),
       isFalse,
     );
+  });
+
+  Future<void> open(WidgetTester tester, {required bool others}) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showCity96LoaderDialog(
+              context,
+              City96Question(
+                loaderPath: question.loaderPath,
+                comfyUrl: question.comfyUrl,
+                othersCanWrite: others,
+              ),
+            ),
+            child: const Text('go'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('go'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('warns when other users can change the folder', (tester) async {
+    await open(tester, others: true);
+
+    expect(find.textContaining(kCity96OthersCanWrite), findsOneWidget);
+    expect(find.text('Update loader'), findsOneWidget);
+  });
+
+  testWidgets('says nothing about it when they cannot', (tester) async {
+    await open(tester, others: false);
+
+    expect(find.textContaining(kCity96OthersCanWrite), findsNothing);
   });
 }

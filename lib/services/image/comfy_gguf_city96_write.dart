@@ -4,83 +4,104 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
 import 'city96_exclusive_write.dart';
+import 'city96_exclusive_write_windows.dart';
+import 'city96_write_common.dart';
 import 'comfy_process_probe.dart';
 
-/// The update was not written, and why. The message is shown as it is.
-class City96WriteRefused implements Exception {
-  const City96WriteRefused(this.message);
+export 'city96_write_common.dart' show City96WriteRefused;
 
-  final String message;
+/// What may be said about writing [loader]: a reason to refuse, or whether
+/// other users could change what is being written to (a warning, not a
+/// refusal: the person is told when they are asked).
+class City96Judgement {
+  const City96Judgement({this.refusal, this.othersCanWrite = false});
 
-  @override
-  String toString() => message;
+  final String? refusal;
+  final bool othersCanWrite;
 }
 
-/// Why [loader] must not be written, or null when it may be.
+const String kCity96OthersCanWrite =
+    'Other users on this computer can change this folder.';
+
+/// Judges [loader], the ComfyUI-GGUF folder and `custom_nodes` above it, and
+/// `loader.py.bak` if there is one, the same way on every OS.
 ///
-/// Every check that cannot be answered refuses: a missing `id`, `stat` or
-/// Windows (which has no user ids here) is "not checked", and unchecked is
-/// not allowed. The ComfyUI-GGUF folder has to be this user's and closed to
-/// group and world writes, because a name in it is what a write goes through.
-/// `loader.py` and `loader.py.bak` may not be links or another user's.
-Future<String?> city96TargetProblem(
+/// Refused: a check that cannot be answered, a link, junction or reparse
+/// point anywhere on the way, an owner that is not this user (an
+/// administrator or root owner is told to update by hand), and an access list
+/// that lets anyone at all in. Allowed with [City96Judgement.othersCanWrite]:
+/// other users may change the folder or the files.
+Future<City96Judgement> city96Judge(
   File loader, {
   ComfyProcessProbe probe = const ComfyProcessProbe(),
 }) async {
-  final me = await probe.currentUid();
+  City96Judgement refuse(String why) => City96Judgement(refusal: why);
+  final me = await probe.currentPrincipal();
   if (me == null) {
-    return 'Front Porch cannot tell which user it runs as here, so it cannot '
-        'check whose ComfyUI-GGUF loader this is and left it alone. Update '
-        'ComfyUI-GGUF by hand.';
+    return refuse(
+      'Front Porch cannot tell which user it runs as here, so it cannot '
+      'check whose ComfyUI-GGUF loader this is and left it alone. Update '
+      'ComfyUI-GGUF by hand.',
+    );
   }
-  final folder = loader.parent.path;
-  final folderOwner = await probe.fileOwner(folder);
-  final folderMode = await probe.filePermissions(folder);
-  if (folderOwner == null || folderMode == null) {
-    return 'Front Porch could not check who owns the ComfyUI-GGUF folder, so '
-        'it left the loader alone.';
-  }
-  if (folderOwner != me) {
-    return 'The ComfyUI-GGUF folder belongs to another user, so its loader '
-        'was left alone.';
-  }
-  if (folderMode & 0x12 != 0) {
-    return 'The ComfyUI-GGUF folder can be written by other users, so its '
-        'loader was left alone.';
-  }
-  for (final path in [loader.path, '${loader.path}.bak']) {
-    if (await FileSystemEntity.type(path, followLinks: false) ==
-        FileSystemEntityType.notFound) {
-      continue;
+  final folder = loader.parent;
+  final checks = <(String path, bool folder, String what)>[
+    (folder.parent.parent.path, true, 'ComfyUI folder'),
+    (folder.parent.path, true, 'custom_nodes folder'),
+    (folder.path, true, 'ComfyUI-GGUF folder'),
+    (loader.path, false, 'loader'),
+    if (await FileSystemEntity.type('${loader.path}.bak', followLinks: false) !=
+        FileSystemEntityType.notFound)
+      ('${loader.path}.bak', false, 'loader backup'),
+  ];
+  var others = false;
+  for (final (path, isFolder, what) in checks) {
+    final facts = await probe.pathFacts(path, folder: isFolder);
+    if (facts == null) {
+      return refuse(
+        'Front Porch could not check who owns its $what, so it left the '
+        'loader alone.',
+      );
     }
-    if (await FileSystemEntity.isLink(path)) {
-      return 'Its ComfyUI-GGUF loader (or its backup) is a link, so it was '
-          'left alone.';
+    if (facts.problem != null) return refuse(facts.problem!);
+    if (facts.isLink) {
+      return refuse(
+        'Its $what is, or is reached through, a link or a junction, so the '
+        'loader was left alone.',
+      );
     }
-    final owner = await probe.fileOwner(path);
+    if (what == 'ComfyUI folder') continue; // Only its being a link matters.
+    final owner = facts.owner;
     if (owner == null) {
-      return 'Front Porch could not check who owns its ComfyUI-GGUF loader, '
-          'so it was left alone.';
+      return refuse(
+        'Front Porch could not check who owns its $what, so it left the '
+        'loader alone.',
+      );
     }
     if (owner != me) {
-      return 'Its ComfyUI-GGUF loader (or its backup) belongs to another '
-          'user, so it was left alone.';
+      return refuse(
+        facts.ownerIsAdmin
+            ? 'Its $what is owned by an administrator (root, Administrators '
+                  'or SYSTEM), so Front Porch left it alone. Update '
+                  'ComfyUI-GGUF by hand.'
+            : 'Its $what belongs to another user, so the loader was left '
+                  'alone.',
+      );
     }
+    final canWrite = facts.othersCanWrite;
+    if (canWrite == null) {
+      return refuse(
+        'Front Porch could not check who else can write to its $what, so it '
+        'left the loader alone.',
+      );
+    }
+    others = others || canWrite;
   }
-  return null;
-}
-
-String _token() {
-  final random = Random.secure();
-  return List.generate(
-    16,
-    (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
-  ).join();
+  return City96Judgement(othersCanWrite: others);
 }
 
 /// Keeps the original as `loader.py.bak` (never replacing one that is
@@ -100,11 +121,19 @@ Future<void> writeCity96Loader(
   @visibleForTesting void Function(String path)? afterCreate,
   @visibleForTesting FutureOr<void> Function(File temp)? beforeRename,
 }) async {
-  final problem = await city96TargetProblem(loader, probe: probe);
-  if (problem != null) throw City96WriteRefused(problem);
+  final judged = await city96Judge(loader, probe: probe);
+  if (judged.refusal != null) throw City96WriteRefused(judged.refusal!);
+  if (Platform.isWindows) {
+    return writeCity96LoaderWindows(
+      loader,
+      patched,
+      afterCreate: afterCreate,
+      beforeRename: (temp) async => beforeRename?.call(File(temp)),
+    );
+  }
   final bak = File('${loader.path}.bak');
   var madeBackup = false;
-  final temp = File('${loader.path}.fpai-tmp-${_token()}');
+  final temp = File('${loader.path}.fpai-tmp-${city96Token()}');
   try {
     final mode = (await loader.stat()).mode & 0xFFF;
     try {

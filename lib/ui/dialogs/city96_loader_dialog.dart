@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart';
+import 'package:front_porch_ai/services/image/comfy_gguf_city96_write.dart'
+    show kCity96OthersCanWrite;
 
 /// Asks before Front Porch changes ComfyUI-GGUF's `loader.py`. False when the
 /// person says no or closes the dialog.
@@ -20,7 +22,8 @@ Future<bool> showCity96LoaderDialog(
         'can load. Front Porch will update this file for the ComfyUI at '
         '${question.comfyUrl}:\n\n${question.loaderPath}\n\n'
         'The original is kept as loader.py.bak. ComfyUI has to be restarted '
-        'afterwards. Other models are not affected either way.',
+        'afterwards. Other models are not affected either way.'
+        '${question.othersCanWrite ? '\n\n$kCity96OthersCanWrite' : ''}',
       ),
       actions: [
         TextButton(

@@ -6,6 +6,8 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
+import 'city96_exclusive_write_windows.dart';
+
 /// Creates [path] (which must not exist, and is not followed if it is a link)
 /// and writes [bytes] through the descriptor that creation returned, so
 /// nothing can redirect the write between the two. The file ends with exactly
@@ -18,6 +20,10 @@ void writeNewFileExclusive(
   required int mode,
   void Function(String path)? afterCreate,
 }) {
+  if (Platform.isWindows) {
+    writeNewFileExclusiveWindows(path, bytes, afterCreate: afterCreate);
+    return;
+  }
   final flags = _flags();
   if (flags == null) {
     throw UnsupportedError('exclusive writes are not supported here');
@@ -57,8 +63,9 @@ void writeNewFileExclusive(
     }
     throw FileSystemException('could not create the file', path);
   }
-  final buffer = calloc<Uint8>(bytes.isEmpty ? 1 : bytes.length);
+  Pointer<Uint8>? buffer;
   try {
+    buffer = calloc<Uint8>(bytes.isEmpty ? 1 : bytes.length);
     afterCreate?.call(path);
     buffer.asTypedList(bytes.length).setAll(0, bytes);
     var done = 0;
@@ -74,22 +81,26 @@ void writeNewFileExclusive(
       throw FileSystemException('could not flush the file', path);
     }
   } finally {
-    calloc.free(buffer);
+    if (buffer != null) calloc.free(buffer);
     close(fd);
   }
 }
 
 /// O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC for this platform, or
-/// null when it is not known.
+/// null when it is not known. The Linux value of O_NOFOLLOW depends on the
+/// architecture, so each one is named and any other is refused.
 int? _flags() {
   const wronly = 1;
   final abi = Abi.current();
   if (abi == Abi.macosArm64 || abi == Abi.macosX64) {
     return wronly | 0x200 | 0x800 | 0x100 | 0x1000000;
   }
-  if (Platform.isLinux) {
-    final x86 = abi == Abi.linuxX64 || abi == Abi.linuxIA32;
-    return wronly | 0x40 | 0x80 | 0x80000 | (x86 ? 0x20000 : 0x8000);
+  const linuxCommon = wronly | 0x40 | 0x80 | 0x80000;
+  if (abi == Abi.linuxX64 || abi == Abi.linuxIA32) {
+    return linuxCommon | 0x20000;
+  }
+  if (abi == Abi.linuxArm64 || abi == Abi.linuxArm) {
+    return linuxCommon | 0x8000;
   }
   return null;
 }

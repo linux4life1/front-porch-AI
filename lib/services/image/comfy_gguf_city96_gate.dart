@@ -79,7 +79,12 @@ enum City96State {
 }
 
 class City96Check {
-  const City96Check(this.state, [this.message, this.canUpdate = false]);
+  const City96Check(
+    this.state, [
+    this.message,
+    this.canUpdate = false,
+    this.othersCanWrite = false,
+  ]);
 
   final City96State state;
   final String? message;
@@ -87,6 +92,10 @@ class City96Check {
   /// The loader is where it should be, and the person could allow the
   /// update from here. False when it cannot be changed at all.
   final bool canUpdate;
+
+  /// Other users on this computer can change the folder. The person is told
+  /// when they are asked.
+  final bool othersCanWrite;
 }
 
 /// Set (as a zone value) around a call that comes from the phone or the web.
@@ -107,10 +116,17 @@ const String kCity96ConfirmOnDesktop =
 
 /// What the person is asked before their loader is changed.
 class City96Question {
-  const City96Question({required this.loaderPath, required this.comfyUrl});
+  const City96Question({
+    required this.loaderPath,
+    required this.comfyUrl,
+    this.othersCanWrite = false,
+  });
 
   final String loaderPath;
   final String comfyUrl;
+
+  /// Other users on this computer can change the folder: the question says so.
+  final bool othersCanWrite;
 }
 
 /// Finds `ComfyUI-GGUF/loader.py` for the ComfyUI serving [comfyUrl], or
@@ -142,9 +158,9 @@ const String _kNoProcessOwner =
     'its loader alone. Update ComfyUI-GGUF by hand.';
 
 const String _kNoListeners =
-    'Front Porch cannot tell which program is listening on that port (it needs '
-    '`lsof` or `ss`), so it cannot be sure which ComfyUI this is and left its '
-    'loader alone. Update ComfyUI-GGUF by hand.';
+    'Front Porch cannot tell which program is listening on that port, so it '
+    'cannot be sure which ComfyUI this is and left its loader alone. Update '
+    'ComfyUI-GGUF by hand.';
 
 String _needs(String why) => '$kCity96NeedsUpdate $why';
 
@@ -168,7 +184,7 @@ Future<City96Target> city96TargetForUrl(
 }) async {
   final port = comfyUrlPort(comfyUrl);
   final procs = processes ?? await scanComfyProcesses();
-  int? me;
+  String? me;
   var meAsked = false;
   Set<int>? listeners;
   var listenersAsked = false;
@@ -181,17 +197,24 @@ Future<City96Target> city96TargetForUrl(
     );
     if (hints.port != port) continue;
     if (!meAsked) {
-      me = await probe.currentUid();
+      me = await probe.currentPrincipal();
       meAsked = true;
     }
     if (me == null) {
       return (loader: null, pid: null, refused: _kNoUser);
     }
-    if (proc.uid == null) {
+    // The owner comes from the process list where it says, else from the OS.
+    final pid = proc.pid;
+    final mine = proc.uid != null
+        ? '${proc.uid}' == me
+        : pid == null
+        ? null
+        : await probe.processIsMine(pid);
+    if (mine == null) {
       unverified = _kNoProcessOwner;
       continue;
     }
-    if (proc.uid != me) continue;
+    if (!mine) continue;
     if (!listenersAsked) {
       listeners = await probe.listeningPids(port);
       listenersAsked = true;
@@ -199,14 +222,14 @@ Future<City96Target> city96TargetForUrl(
     if (listeners == null) {
       return (loader: null, pid: null, refused: _kNoListeners);
     }
-    if (proc.pid == null || !listeners.contains(proc.pid)) continue;
+    if (pid == null || !listeners.contains(pid)) continue;
     for (final dir in [hints.mainPyDir, proc.cwd]) {
       if (dir == null || dir.isEmpty) continue;
       final loader = File(
         p.join(dir, 'custom_nodes', 'ComfyUI-GGUF', 'loader.py'),
       );
       if (await loader.exists()) {
-        return (loader: loader, pid: proc.pid, refused: null);
+        return (loader: loader, pid: pid, refused: null);
       }
     }
   }
@@ -365,10 +388,10 @@ class City96Gate {
       }
       return (const City96Check(City96State.ready), loader, patch);
     }
-    final problem = await city96TargetProblem(loader, probe: probe);
-    if (problem != null) {
+    final judged = await city96Judge(loader, probe: probe);
+    if (judged.refusal != null) {
       return (
-        City96Check(City96State.needsUpdate, _needs(problem)),
+        City96Check(City96State.needsUpdate, _needs(judged.refusal!)),
         loader,
         patch,
       );
@@ -378,6 +401,7 @@ class City96Gate {
         City96State.needsUpdate,
         _needs('Its ComfyUI-GGUF loader has not been updated yet.'),
         true,
+        judged.othersCanWrite,
       ),
       loader,
       patch,
@@ -427,7 +451,11 @@ class City96Gate {
       );
     } else {
       final answer = await asker(
-        City96Question(loaderPath: loader.path, comfyUrl: comfyUrl),
+        City96Question(
+          loaderPath: loader.path,
+          comfyUrl: comfyUrl,
+          othersCanWrite: result.othersCanWrite,
+        ),
       );
       if (answer == null) {
         return City96Check(

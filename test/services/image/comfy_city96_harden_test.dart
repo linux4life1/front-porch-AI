@@ -31,6 +31,8 @@ final _graph = {
 
 const _patched = '# patched\n';
 
+const _posixOnly = 'needs POSIX file modes and hard links';
+
 void main() {
   late Directory dir;
   late File loader;
@@ -59,7 +61,6 @@ void main() {
     test(
       'goes through a new file and a rename, never a write in place',
       () async {
-        if (Platform.isWindows) return;
         // A second name for the same file sees an in-place write, and does not
         // see a rename.
         final twin = p.join(dir.path, 'twin.py');
@@ -68,14 +69,14 @@ void main() {
         expect(File(twin).readAsStringSync(), kStockCity96Loader);
         expect(loader.readAsStringSync(), _patched);
       },
+      skip: Platform.isWindows ? _posixOnly : false,
     );
 
     test('keeps the file mode', () async {
-      if (Platform.isWindows) return;
       await Process.run('chmod', ['640', loader.path]);
       await writeCity96Loader(loader, _patched, probe: const FakeProbe());
       expect((await loader.stat()).mode & 0xFFF, 416); // 0640
-    });
+    }, skip: Platform.isWindows ? _posixOnly : false);
 
     test('never replaces a backup that is already there', () async {
       bak().writeAsStringSync('the first original');
@@ -121,7 +122,6 @@ void main() {
     test(
       'a name swapped for a link after it is created is not written through',
       () async {
-        if (Platform.isWindows) return;
         final victim = File(p.join(dir.path, 'victim.txt'))
           ..writeAsStringSync('keep me');
         // Between creating a new file and writing it, put a link in its place.
@@ -145,12 +145,16 @@ void main() {
         expect(FileSystemEntity.isLinkSync(loader.path), isFalse);
         expect(leftovers(), isEmpty);
       },
+      skip: Platform.isWindows
+          ? 'needs POSIX symbolic links and descriptors'
+          : false,
     );
 
     group('a check that cannot be answered refuses, and writes nothing', () {
-      Future<void> refused(FakeProbe probe, String because) async {
+      Future<void> refused(FakeProbe probe, String because, {File? at}) async {
+        final target = at ?? loader;
         await expectLater(
-          writeCity96Loader(loader, _patched, probe: probe),
+          writeCity96Loader(target, _patched, probe: probe),
           throwsA(
             isA<City96WriteRefused>().having(
               (e) => e.message,
@@ -159,8 +163,8 @@ void main() {
             ),
           ),
         );
-        expect(loader.readAsStringSync(), kStockCity96Loader);
-        expect(bak().existsSync(), isFalse);
+        expect(target.readAsStringSync(), kStockCity96Loader);
+        expect(File('${target.path}.bak').existsSync(), isFalse);
         expect(leftovers(), isEmpty);
       }
 
@@ -176,8 +180,11 @@ void main() {
         );
       });
 
-      test('the permissions of the folder are not known', () {
-        return refused(const FakeProbe(permissionsUnknown: true), 'who owns');
+      test('who else can write to the folder is not known', () {
+        return refused(
+          const FakeProbe(permissionsUnknown: true),
+          'who else can write',
+        );
       });
 
       test('the owner of loader.py is not known', () {
@@ -187,26 +194,114 @@ void main() {
         );
       });
 
-      test('the folder belongs to another user', () {
+      test('the OS layer found a reason of its own (a NULL DACL, say)', () {
         return refused(
-          FakeProbe(owners: {p.basename(dir.path): 0}),
-          'another user',
+          FakeProbe(problems: {p.basename(dir.path): 'no access list at all'}),
+          'no access list at all',
         );
       });
 
+      test('a link or junction anywhere on the way', () {
+        return refused(const FakeProbe(linkedAnywhere: true), 'link');
+      });
+    });
+
+    group('an owner that is not this user refuses', () {
+      Future<void> refused(FakeProbe probe, String because, File target) async {
+        await expectLater(
+          writeCity96Loader(target, _patched, probe: probe),
+          throwsA(
+            isA<City96WriteRefused>().having(
+              (e) => e.message,
+              'message',
+              contains(because),
+            ),
+          ),
+        );
+        expect(target.readAsStringSync(), kStockCity96Loader);
+      }
+
+      File nested() {
+        final gguf = Directory(
+          p.join(dir.path, 'ComfyUI', 'custom_nodes', 'ComfyUI-GGUF'),
+        )..createSync(recursive: true);
+        return File(p.join(gguf.path, 'loader.py'))
+          ..writeAsStringSync(kStockCity96Loader);
+      }
+
+      test('an administrator (root) is told to update by hand', () {
+        return refused(
+          FakeProbe(owners: {p.basename(dir.path): 0}),
+          'by hand',
+          loader,
+        );
+      });
+
+      test('another user is told so', () {
+        return refused(
+          FakeProbe(owners: {p.basename(dir.path): 5}),
+          'another user',
+          loader,
+        );
+      });
+
+      test('the custom_nodes folder counts too', () {
+        return refused(
+          const FakeProbe(owners: {'custom_nodes': 5}),
+          'custom_nodes folder belongs to another user',
+          nested(),
+        );
+      });
+
+      test('and so does an administrator owning custom_nodes', () {
+        return refused(
+          const FakeProbe(owners: {'custom_nodes': 0}),
+          'custom_nodes folder is owned by an administrator',
+          nested(),
+        );
+      });
+    });
+
+    group('others who can write allow the update, with a warning', () {
       for (final mode in [0x1FF, 0x1FD, 0x1F5, 0x1ED | 0x10, 0x1ED | 0x2]) {
         test(
           'the folder is writable by others (mode ${mode.toRadixString(8)})',
-          () {
-            return refused(
-              FakeProbe(permissions: {p.basename(dir.path): mode}),
-              'other users',
-            );
+          () async {
+            final probe = FakeProbe(permissions: {p.basename(dir.path): mode});
+            final judged = await city96Judge(loader, probe: probe);
+            expect(judged.refusal, isNull);
+            expect(judged.othersCanWrite, isTrue);
+
+            await writeCity96Loader(loader, _patched, probe: probe);
+            expect(loader.readAsStringSync(), _patched);
           },
         );
       }
 
-      test('a folder only its owner can write is fine', () async {
+      test('so is the custom_nodes folder above it', () async {
+        final gguf = Directory(
+          p.join(dir.path, 'ComfyUI', 'custom_nodes', 'ComfyUI-GGUF'),
+        )..createSync(recursive: true);
+        final nested = File(p.join(gguf.path, 'loader.py'))
+          ..writeAsStringSync(kStockCity96Loader);
+
+        final judged = await city96Judge(
+          nested,
+          probe: const FakeProbe(permissions: {'custom_nodes': 0x1FF}),
+        );
+
+        expect(judged.refusal, isNull);
+        expect(judged.othersCanWrite, isTrue);
+      });
+
+      test('a folder only its owner can write says nothing', () async {
+        final judged = await city96Judge(
+          loader,
+          probe: FakeProbe(permissions: {p.basename(dir.path): 0x1C0}),
+        );
+        expect(judged.refusal, isNull);
+        expect(judged.othersCanWrite, isFalse);
+
         await writeCity96Loader(
           loader,
           _patched,
@@ -325,7 +420,7 @@ void main() {
           probe: const FakeProbe(byPort: {8188: 7}, portsUnknown: true),
         );
         expect(found.loader, isNull);
-        expect(found.refused, contains('lsof'));
+        expect(found.refused, contains('listening'));
       });
 
       test(
@@ -340,6 +435,20 @@ void main() {
           expect(found.refused, contains('which user'));
         },
       );
+
+      test('a process with no owner in the list is asked about', () async {
+        for (final (owners, found) in [
+          ({7: 1000}, true),
+          ({7: 0}, false),
+        ]) {
+          final result = await city96TargetForUrl(
+            _url,
+            processes: [proc(uid: null)],
+            probe: FakeProbe(byPort: const {8188: 7}, processOwners: owners),
+          );
+          expect(result.loader != null, found, reason: '$owners');
+        }
+      });
 
       test('a process whose owner is unknown is not a candidate', () async {
         final found = await city96TargetForUrl(
@@ -376,21 +485,176 @@ void main() {
     expect(found, hasLength(1));
     expect(found.single.command, contains('--port 8199'));
     expect(found.single.uid, await const ComfyProcessProbe().currentUid());
-  }, skip: Platform.isWindows);
+  }, skip: Platform.isWindows ? 'needs ps and POSIX processes' : false);
+
+  group('listeners and process owners from /proc', () {
+    // Real lines, as Linux writes them: a listener on 8188 (0x1FFC), a
+    // listener on another port, and an established connection on 8188.
+    const tcp =
+        '  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n'
+        '   0: 0100007F:1FFC 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 5001 1 0 100 0\n'
+        '   1: 0100007F:1F90 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 5002 1 0 100 0\n'
+        '   2: 0100007F:1FFC 0100007F:C350 01 00000000:00000000 00:00000000 00000000  1000        0 5003 1 0 100 0\n';
+    const tcp6 =
+        '  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n'
+        '   0: 00000000000000000000000001000000:1FFC 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 6001 1 0 100 0\n';
+
+    test('the listening sockets on a port, IPv4 and IPv6', () {
+      expect(parseProcNetTcp(tcp, 8188), {5001});
+      expect(parseProcNetTcp(tcp6, 8188), {6001});
+      expect(parseProcNetTcp(tcp, 9999), isEmpty);
+    });
+
+    /// A /proc tree with process [pid] holding socket [inode].
+    Directory fakeProc({
+      String v4 = tcp,
+      String? v6 = tcp6,
+      Map<int, int> holds = const {},
+      int uid = 1000,
+    }) {
+      final root = Directory(p.join(dir.path, 'proc'))..createSync();
+      Directory(p.join(root.path, 'net')).createSync();
+      if (v4.isNotEmpty) {
+        File(p.join(root.path, 'net', 'tcp')).writeAsStringSync(v4);
+      }
+      if (v6 != null) {
+        File(p.join(root.path, 'net', 'tcp6')).writeAsStringSync(v6);
+      }
+      holds.forEach((pid, inode) {
+        final fd = Directory(p.join(root.path, '$pid', 'fd'))
+          ..createSync(recursive: true);
+        Link(p.join(fd.path, '3')).createSync('socket:[$inode]');
+        File(
+          p.join(root.path, '$pid', 'status'),
+        ).writeAsStringSync('Name:\tpython\nUid:\t$uid\t$uid\t$uid\t$uid\n');
+      });
+      return root;
+    }
+
+    test('the process that holds a listening socket is found', () {
+      final root = fakeProc(holds: {77: 5001, 88: 5002});
+      expect(linuxListeningPids(8188, proc: root.path), {77});
+      expect(linuxListeningPids(8080, proc: root.path), {88});
+      expect(linuxListeningPids(9999, proc: root.path), isEmpty);
+    }, skip: Platform.isWindows ? _posixOnly : false);
+
+    test('a listener on IPv6 only is found', () {
+      final root = fakeProc(v4: tcp.split('\n').first, holds: {99: 6001});
+      expect(linuxListeningPids(8188, proc: root.path), {99});
+    }, skip: Platform.isWindows ? _posixOnly : false);
+
+    test('no IPv6 on the machine is no listener there, not a failure', () {
+      final root = fakeProc(v6: null, holds: {77: 5001});
+      expect(linuxListeningPids(8188, proc: root.path), {77});
+    }, skip: Platform.isWindows ? _posixOnly : false);
+
+    test('when /proc/net/tcp cannot be read nothing can be said', () {
+      final root = fakeProc(v4: '', v6: null);
+      expect(linuxListeningPids(8188, proc: root.path), isNull);
+    });
+
+    test('the owner is the first Uid in /proc/<pid>/status', () {
+      final root = fakeProc(holds: {77: 5001}, uid: 1234);
+      expect(linuxProcessUid(77, proc: root.path), 1234);
+      expect(linuxProcessUid(1, proc: root.path), isNull);
+    }, skip: Platform.isWindows ? _posixOnly : false);
+
+    test('the real /proc names this very process for its own socket', () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
+      expect(linuxListeningPids(server.port), contains(pid));
+      expect(
+        linuxProcessUid(pid),
+        await const ComfyProcessProbe().currentUid(),
+      );
+    }, skip: Platform.isLinux ? false : 'needs Linux /proc');
+  });
 
   group('the real OS probe', () {
     test('sees a socket this process listens on', () async {
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(server.close);
       final pids = await const ComfyProcessProbe().listeningPids(server.port);
-      // lsof or ss may be missing on a machine; then nothing can be checked.
-      if (pids == null) return;
+      // Linux reads /proc, so this always answers there; macOS has lsof.
+      expect(pids, isNotNull, reason: 'the OS must be able to say');
       expect(pids, contains(pid));
       expect(
         await const ComfyProcessProbe().listeningPids(1),
         isNot(contains(pid)),
       );
-    }, skip: Platform.isWindows);
+    }, skip: Platform.isWindows ? _posixOnly : false);
+
+    test('says who owns a path, and whether others can write it', () async {
+      const probe = ComfyProcessProbe();
+      await Process.run('chmod', ['700', dir.path]);
+      var facts = await probe.pathFacts(dir.path, folder: true);
+      expect(facts, isNotNull);
+      expect(facts!.owner, await probe.currentPrincipal());
+      expect(facts.othersCanWrite, isFalse);
+      expect(facts.isLink, isFalse);
+
+      await Process.run('chmod', ['777', dir.path]);
+      facts = await probe.pathFacts(dir.path, folder: true);
+      expect(facts!.othersCanWrite, isTrue);
+      await Process.run('chmod', ['700', dir.path]);
+    }, skip: Platform.isWindows ? _posixOnly : false);
+
+    test('a folder reached through a link is a link', () async {
+      final real = Directory(p.join(dir.path, 'real'))..createSync();
+      final via = Link(p.join(dir.path, 'via'))..createSync(real.path);
+
+      final probe = const ComfyProcessProbe();
+      expect((await probe.pathFacts(real.path, folder: true))!.isLink, isFalse);
+      expect((await probe.pathFacts(via.path, folder: true))!.isLink, isTrue);
+      // A link further up the path shows too.
+      final inner = Directory(p.join(real.path, 'inner'))..createSync();
+      expect(
+        (await probe.pathFacts(
+          p.join(via.path, 'inner'),
+          folder: true,
+        ))!.isLink,
+        isTrue,
+        reason: inner.path,
+      );
+    }, skip: Platform.isWindows ? _posixOnly : false);
+
+    test('a loader reached through a linked folder is refused', () async {
+      final real = Directory(p.join(dir.path, 'real'));
+      final gguf = Directory(p.join(real.path, 'custom_nodes', 'ComfyUI-GGUF'))
+        ..createSync(recursive: true);
+      File(
+        p.join(gguf.path, 'loader.py'),
+      ).writeAsStringSync(kStockCity96Loader);
+      final via = Link(p.join(dir.path, 'via'))..createSync(real.path);
+      final target = File(
+        p.join(via.path, 'custom_nodes', 'ComfyUI-GGUF', 'loader.py'),
+      );
+
+      await expectLater(
+        writeCity96Loader(target, _patched, probe: const FakeProbe()),
+        throwsA(isA<City96WriteRefused>()),
+      );
+
+      expect(
+        File(p.join(gguf.path, 'loader.py')).readAsStringSync(),
+        kStockCity96Loader,
+      );
+    }, skip: Platform.isWindows ? _posixOnly : false);
+
+    test('without lsof or ss the answer still comes, from /proc', () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
+      final pids = await const ComfyProcessProbe(
+        tools: false,
+      ).listeningPids(server.port);
+      expect(pids, contains(pid));
+    }, skip: Platform.isLinux ? false : 'needs Linux /proc');
+
+    test('knows a process of this user from one that is not', () async {
+      const probe = ComfyProcessProbe();
+      expect(await probe.processIsMine(pid), isTrue);
+      expect(await probe.processIsMine(2147483000), isNull);
+    }, skip: Platform.isWindows ? _posixOnly : false);
 
     test('reads the permission bits of a folder', () async {
       await Process.run('chmod', ['750', dir.path]);
@@ -398,7 +662,7 @@ void main() {
         await const ComfyProcessProbe().filePermissions(dir.path),
         488, // 0750
       );
-    }, skip: Platform.isWindows);
+    }, skip: Platform.isWindows ? _posixOnly : false);
 
     test('says when a process started', () async {
       final proc = await Process.start('sleep', ['30']);
@@ -409,14 +673,14 @@ void main() {
       final age = DateTime.now().difference(started!);
       expect(age.inSeconds, inInclusiveRange(0, 10));
       expect(await const ComfyProcessProbe().processStart(2147483000), isNull);
-    }, skip: Platform.isWindows);
+    }, skip: Platform.isWindows ? _posixOnly : false);
 
     test('knows who owns a file it just made', () async {
       final me = await const ComfyProcessProbe().currentUid();
       final owner = await const ComfyProcessProbe().fileOwner(loader.path);
       expect(me, isNotNull);
       expect(owner, me);
-    }, skip: Platform.isWindows);
+    }, skip: Platform.isWindows ? _posixOnly : false);
   });
 
   group('asking', () {

@@ -369,6 +369,53 @@ void main() {
         },
       );
 
+      group('the question says when other users can change the folder', () {
+        City96Gate withProbe(FakeProbe probe) => City96Gate(
+          probe: probe,
+          pidFor: (_) async => comfyPid,
+          locate: (_) async => loader,
+          ask: (q) async {
+            asked.add(q);
+            return false;
+          },
+        );
+
+        test('and says so when they can', () async {
+          final probe = FakeProbe(permissions: {p.basename(dir.path): 0x1FF});
+          final check = await withProbe(
+            probe,
+          ).check(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+          expect(check.canUpdate, isTrue);
+          expect(check.othersCanWrite, isTrue);
+
+          await withProbe(
+            probe,
+          ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+          expect(asked.single.othersCanWrite, isTrue);
+        });
+
+        test('and says nothing when they cannot', () async {
+          final probe = FakeProbe(permissions: {p.basename(dir.path): 0x1C0});
+          await withProbe(
+            probe,
+          ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+          expect(asked.single.othersCanWrite, isFalse);
+        });
+
+        test(
+          'an administrator-owned folder is not offered for update',
+          () async {
+            final probe = FakeProbe(owners: {p.basename(dir.path): 0});
+            final result = await withProbe(
+              probe,
+            ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+            expect(result.canUpdate, isFalse);
+            expect(result.message, contains('by hand'));
+            expect(asked, isEmpty);
+          },
+        );
+      });
+
       test(
         'no: nothing is written, and the question is not asked again',
         () async {

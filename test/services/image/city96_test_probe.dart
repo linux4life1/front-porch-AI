@@ -16,6 +16,9 @@ class FakeProbe implements ComfyProcessProbe {
     this.portsUnknown = false,
     this.permissionsUnknown = false,
     this.starts = const {},
+    this.problems = const {},
+    this.processOwners = const {},
+    this.linkedAnywhere = false,
   });
 
   /// Which process id listens on which port.
@@ -42,13 +45,51 @@ class FakeProbe implements ComfyProcessProbe {
   /// When each process started. A process not listed has no known start.
   final Map<int, DateTime> starts;
 
+  /// A reason the OS layer would refuse a path (a NULL DACL, say), by its end.
+  final Map<String, String> problems;
+
+  /// The user that owns each process. One not listed has no known owner.
+  final Map<int, int> processOwners;
+
+  /// Every path is reported as a link, as a Windows junction would be.
+  final bool linkedAnywhere;
+
   @override
-  Future<Set<int>?> listeningPids(int port) async => portsUnknown
-      ? null
-      : {if (byPort[port] != null) byPort[port]!};
+  Future<Set<int>?> listeningPids(int port) async =>
+      portsUnknown ? null : {if (byPort[port] != null) byPort[port]!};
+
+  @override
+  bool get tools => true;
 
   @override
   Future<int?> currentUid() async => me;
+
+  @override
+  Future<String?> currentPrincipal() async => me?.toString();
+
+  @override
+  Future<bool?> processIsMine(int pid) async {
+    final owner = processOwners[pid];
+    return owner == null || me == null ? null : owner == me;
+  }
+
+  @override
+  Future<PathFacts?> pathFacts(String path, {required bool folder}) async {
+    final owner = await fileOwner(path);
+    final mode = await filePermissions(path);
+    String? problem;
+    for (final e in problems.entries) {
+      if (path.endsWith(e.key)) problem = e.value;
+    }
+    return PathFacts(
+      owner: owner?.toString(),
+      ownerIsAdmin: owner == 0,
+      isLink:
+          linkedAnywhere || ComfyProcessProbe.linkedPath(path, folder: folder),
+      othersCanWrite: mode == null ? null : mode & 0x12 != 0,
+      problem: problem,
+    );
+  }
 
   @override
   Future<int?> fileOwner(String path) async {
