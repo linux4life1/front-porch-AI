@@ -119,6 +119,7 @@ const _shiftyId = 'comfy:default:shifty';
 Future<_Comfy> _serve({
   Map<String, Object> templates = const {},
   List<String> checkpoints = const [],
+  List<String> clips = const ['qwen_3_4b.safetensors'],
 }) async {
   final template =
       jsonDecode(File(_kleinFile).readAsStringSync()) as Map<String, dynamic>;
@@ -157,7 +158,7 @@ Future<_Comfy> _serve({
     },
     'CheckpointLoaderSimple': loader('ckpt_name', checkpoints),
     'UNETLoader': loader('unet_name', ['flux-2-klein-4b.safetensors']),
-    'CLIPLoader': loader('clip_name', ['qwen_3_4b.safetensors']),
+    'CLIPLoader': loader('clip_name', clips),
     'VAELoader': loader('vae_name', ['flux2-vae.safetensors']),
   };
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -328,6 +329,46 @@ void main() {
         'my-klein.safetensors',
       );
     });
+
+    testWidgets(
+      'the file list of a slot shows every file, the odd one last and marked',
+      (tester) async {
+        await initSettings();
+        // "a_clip_l" sorts first by name and looks wrong for Klein.
+        final comfy = (await tester.runAsync(
+          () => _serve(
+            clips: const ['a_clip_l.safetensors', 'qwen_3_4b.safetensors'],
+          ),
+        ))!;
+        await useKlein(comfy);
+        await pumpDesk(tester, comfy: comfy);
+
+        final row = find.ancestor(
+          of: find.text('Text encoder'),
+          matching: find.byType(Row),
+        );
+        await tester.tap(
+          find.descendant(of: row.first, matching: find.text('Change')),
+        );
+        await tester.pump();
+
+        expect(find.text('a_clip_l.safetensors'), findsOneWidget);
+        expect(find.text('qwen_3_4b.safetensors'), findsWidgets);
+        final marked = find.text(
+          'The name does not look like it fits this model.',
+        );
+        expect(marked, findsOneWidget);
+        final odd = tester.getTopLeft(find.text('a_clip_l.safetensors')).dy;
+        // The listed file that fits comes first, though it sorts second.
+        final dialog = find.byType(AlertDialog);
+        final fits = find.descendant(
+          of: dialog,
+          matching: find.text('qwen_3_4b.safetensors'),
+        );
+        expect(fits, findsOneWidget);
+        expect(tester.getTopLeft(fits).dy, lessThan(odd));
+      },
+    );
 
     testWidgets('an explicit encoder that looks wrong is kept and listed', (
       tester,
