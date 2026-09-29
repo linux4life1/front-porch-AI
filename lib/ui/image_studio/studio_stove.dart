@@ -77,6 +77,7 @@ class StudioStove extends StatefulWidget {
     this.editing = false,
     this.onMode,
     this.status = '',
+    this.onUpdateLoader,
   });
 
   final String backendName;
@@ -135,6 +136,9 @@ class StudioStove extends StatefulWidget {
   final bool editing;
   final ValueChanged<bool>? onMode;
   final String status;
+
+  /// "Update loader…": asks to change ComfyUI-GGUF's loader. Null hides it.
+  final VoidCallback? onUpdateLoader;
 
   @override
   State<StudioStove> createState() => _StudioStoveState();
@@ -207,6 +211,11 @@ class _StudioStoveState extends State<StudioStove> {
                 spacing: 8,
                 children: [
                   Text(widget.status, style: TextStyle(color: primary)),
+                  if (widget.onUpdateLoader != null)
+                    TextButton(
+                      onPressed: widget.onUpdateLoader,
+                      child: const Text('Update loader…'),
+                    ),
                 ],
               ),
             if (widget.checkpointOnly)

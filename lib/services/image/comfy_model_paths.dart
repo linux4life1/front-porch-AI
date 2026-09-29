@@ -45,10 +45,16 @@ class ComfyProcessSnapshot {
   final String? cwd;
   final String? executable;
 
+  /// The process id, and (where the OS says) the user id that owns it.
+  final int? pid;
+  final int? uid;
+
   const ComfyProcessSnapshot({
     required this.command,
     this.cwd,
     this.executable,
+    this.pid,
+    this.uid,
   });
 }
 

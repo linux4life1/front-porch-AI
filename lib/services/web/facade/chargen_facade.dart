@@ -23,6 +23,8 @@ import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide World;
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
+    show kCity96NoAsk;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -303,7 +305,11 @@ class ChargenFacade {
       // Configured size, oriented portrait, configured default negative —
       // mirrors the desktop creator (the old fixed 512x512 failed on remote
       // models that reject small sizes and capped local quality).
-      return await svc.generateImage(prompt: clean, isPortrait: true);
+      // No desktop dialog can be answered from here; see ImageFacade.generate.
+      return await runZoned(
+        () => svc.generateImage(prompt: clean, isPortrait: true),
+        zoneValues: {kCity96NoAsk: true},
+      );
     } catch (_) {
       _hub?.broadcast({
         'event': 'chargen_status',

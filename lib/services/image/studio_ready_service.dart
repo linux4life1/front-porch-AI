@@ -108,13 +108,17 @@ Future<StudioReadyReport> checkStudioReady({
       comfyUrl: settings.comfyUiUrl,
       graph: graph,
     );
-    if (loader.state == City96State.needsUpdate) {
+    if (loader.state == City96State.needsUpdate ||
+        loader.state == City96State.restartNeeded) {
       verdict = StudioReadiness(
-        StudioReady.needsLoaderUpdate,
+        loader.state == City96State.restartNeeded
+            ? StudioReady.needsComfyRestart
+            : StudioReady.needsLoaderUpdate,
         null,
         loader.message ?? kCity96NeedsUpdate,
         graph,
         verdict.slots,
+        loader.canUpdate,
       );
     }
   }

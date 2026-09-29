@@ -98,6 +98,7 @@ String studioReadyStatus(StudioReadiness? ready) {
     case StudioReady.needsUnetGraph:
       return 'A GGUF file needs a diffusion graph.';
     case StudioReady.needsLoaderUpdate:
+    case StudioReady.needsComfyRestart:
       return ready?.message ?? kCity96NeedsUpdate;
     case StudioReady.ready:
     case StudioReady.missingFile:

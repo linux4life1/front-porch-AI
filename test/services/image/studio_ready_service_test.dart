@@ -398,6 +398,7 @@ void main() {
           gate: gate(),
         );
         expect(report.readiness.kind, StudioReady.needsLoaderUpdate);
+        expect(report.readiness.canUpdateLoader, isTrue);
         expect(report.ready, isFalse);
         expect(report.readiness.message, startsWith(kCity96NeedsUpdate));
         expect(located, 1);
@@ -411,6 +412,7 @@ void main() {
       final updated = City96Gate(
         locate: (_) async => loader,
         ask: (_) async => true,
+        pidFor: (_) async => 100,
       );
       final graph = {
         '1': {
@@ -426,6 +428,46 @@ void main() {
       );
       expect(report.readiness.kind, StudioReady.ready);
     });
+
+    test(
+      'after the update it asks for a restart until ComfyUI has restarted',
+      () async {
+        await serveQwen21();
+        var pid = 100;
+        final one = City96Gate(
+          locate: (_) async => loader,
+          ask: (_) async => true,
+          pidFor: (_) async => pid,
+        );
+        await one.ensure(
+          comfyUrl: 'http://127.0.0.1:8188',
+          graph: {
+            '1': {
+              'class_type': 'UnetLoaderGGUF',
+              'inputs': {'unet_name': 'qwen-image-2.1-Q2_K.gguf'},
+            },
+          },
+        );
+
+        final waiting = await checkStudioReady(
+          settings: storage.imageGenSettings,
+          edit: false,
+          gate: one,
+        );
+        expect(waiting.readiness.kind, StudioReady.needsComfyRestart);
+        expect(waiting.ready, isFalse);
+        expect(waiting.readiness.message, contains('Restart ComfyUI'));
+        expect(waiting.readiness.canUpdateLoader, isFalse);
+
+        pid = 200;
+        final restarted = await checkStudioReady(
+          settings: storage.imageGenSettings,
+          edit: false,
+          gate: one,
+        );
+        expect(restarted.readiness.kind, StudioReady.ready);
+      },
+    );
 
     test('a model that is not the pair never looks for a loader', () async {
       final server = await _comfy(

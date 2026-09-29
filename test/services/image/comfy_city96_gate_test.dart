@@ -14,6 +14,7 @@ import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart';
 import 'package:front_porch_ai/services/image/comfy_model_paths.dart';
 
 import 'city96_test_loader.dart';
+import 'city96_test_probe.dart';
 
 Map<String, dynamic> _graph({
   String unet = 'qwen-image-2.1-Q2_K.gguf',
@@ -42,8 +43,12 @@ void main() {
   var answer = true;
   var located = 0;
 
+  /// The id of the ComfyUI process, as a scan would report it.
+  var comfyPid = 100;
+
   City96Gate gate({bool withAsker = true, File? at}) {
     return City96Gate(
+      pidFor: (_) async => comfyPid,
       locate: (_) async {
         located++;
         return at ?? loader;
@@ -65,6 +70,7 @@ void main() {
     asked = [];
     answer = true;
     located = 0;
+    comfyPid = 100;
   });
 
   group('(a) only the posted Qwen-Image 2.1 GGUF pair triggers it', () {
@@ -147,22 +153,29 @@ void main() {
           ComfyProcessSnapshot(
             command: 'python ${p.join(other.path, 'main.py')} --port 8188',
             cwd: other.path,
+            pid: 11,
           ),
           ComfyProcessSnapshot(
             command: 'python ${p.join(mine.path, 'main.py')} --port 8190',
             cwd: mine.path,
+            pid: 12,
           ),
         ];
         final found = await city96LoaderForUrl(
           'http://127.0.0.1:8190',
           processes: procs,
+          probe: const FakeProbe(byPort: {8188: 11, 8190: 12}),
         );
         expect(
           found?.path,
           p.join(mine.path, 'custom_nodes', 'ComfyUI-GGUF', 'loader.py'),
         );
         expect(
-          await city96LoaderForUrl('http://127.0.0.1:9999', processes: procs),
+          await city96LoaderForUrl(
+            'http://127.0.0.1:9999',
+            processes: procs,
+            probe: const FakeProbe(byPort: {8188: 11, 8190: 12}),
+          ),
           isNull,
         );
       },
@@ -225,17 +238,38 @@ void main() {
         },
       );
 
-      test('an already updated loader is ready, and nobody is asked', () async {
-        final g = gate();
-        await g.ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
-        asked.clear();
-        final again = await g.ensure(
-          comfyUrl: 'http://127.0.0.1:8188',
-          graph: _graph(),
-        );
-        expect(again.state, City96State.ready);
-        expect(asked, isEmpty);
-      });
+      test(
+        'the update counts once ComfyUI has restarted, not when the file changes',
+        () async {
+          final g = gate();
+          await g.ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
+          asked.clear();
+
+          // The file is updated, but the ComfyUI that is running is the same
+          // process and has not loaded it.
+          final waiting = await g.ensure(
+            comfyUrl: 'http://127.0.0.1:8188',
+            graph: _graph(),
+          );
+          expect(waiting.state, City96State.restartNeeded);
+          expect(waiting.message, contains('Restart ComfyUI'));
+          expect(
+            (await g.check(
+              comfyUrl: 'http://127.0.0.1:8188',
+              graph: _graph(),
+            )).state,
+            City96State.restartNeeded,
+          );
+
+          comfyPid = 200;
+          final again = await g.ensure(
+            comfyUrl: 'http://127.0.0.1:8188',
+            graph: _graph(),
+          );
+          expect(again.state, City96State.ready);
+          expect(asked, isEmpty);
+        },
+      );
 
       test(
         'no: nothing is written, and the question is not asked again',
@@ -284,18 +318,17 @@ void main() {
       });
 
       test(
-        'a write that fails leaves the original loader and no temp file',
+        'a write that fails is reported and leaves the loader as it was',
         () async {
-          final ro = Directory(p.join(dir.path, 'ro'))..createSync();
-          final file = File(p.join(ro.path, 'loader.py'))
-            ..writeAsStringSync(kStockCity96Loader);
-          Directory(p.join(ro.path, 'loader.py.fpai-tmp')).createSync();
-          final result = await gate(
-            at: file,
+          final result = await City96Gate(
+            locate: (_) async => loader,
+            ask: (_) async => true,
+            pidFor: (_) async => 100,
+            write: (_, _) async => throw const FileSystemException('disk full'),
           ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
           expect(result.state, City96State.needsUpdate);
           expect(result.message, contains('could not be written'));
-          expect(file.readAsStringSync(), kStockCity96Loader);
+          expect(loader.readAsStringSync(), kStockCity96Loader);
         },
       );
     },

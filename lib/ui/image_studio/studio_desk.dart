@@ -293,6 +293,10 @@ class _StudioDeskState extends State<StudioDesk> {
         _checkReady();
       },
       status: studioReadyStatus(ready),
+      onUpdateLoader:
+          ready?.kind == StudioReady.needsLoaderUpdate && ready!.canUpdateLoader
+          ? () => _updateLoader(settings)
+          : null,
     );
   }
 

@@ -390,19 +390,27 @@ Future<void> _walkInstall(Directory dir, int depth, List<String> found) async {
 }
 
 Future<List<ComfyProcessSnapshot>> _scanPosix() async {
-  final result = await Process.run('ps', ['-axww', '-o', 'pid=,args=']);
+  final result = await Process.run('ps', ['-axww', '-o', 'pid=,uid=,args=']);
   if (result.exitCode != 0) return const [];
   final snaps = <ComfyProcessSnapshot>[];
   for (final raw in '${result.stdout}'.split('\n')) {
     final line = raw.trim();
     if (line.isEmpty) continue;
-    final split = line.indexOf(' ');
-    if (split <= 0) continue;
-    final pid = int.tryParse(line.substring(0, split));
-    final command = line.substring(split + 1).trim();
+    final fields = line.split(RegExp(r'\s+'));
+    if (fields.length < 3) continue;
+    final pid = int.tryParse(fields[0]);
+    final uid = int.tryParse(fields[1]);
+    final command = line
+        .substring(line.indexOf(fields[1], fields[0].length) + fields[1].length)
+        .trim();
     if (pid == null || !_interestingCommand(command)) continue;
     snaps.add(
-      ComfyProcessSnapshot(command: command, cwd: await _posixCwd(pid)),
+      ComfyProcessSnapshot(
+        command: command,
+        cwd: await _posixCwd(pid),
+        pid: pid,
+        uid: uid,
+      ),
     );
   }
   return snaps;
@@ -451,6 +459,7 @@ Future<List<ComfyProcessSnapshot>> _scanWindows() async {
       ComfyProcessSnapshot(
         command: command,
         executable: row['ExecutablePath']?.toString(),
+        pid: int.tryParse('${row['ProcessId']}'),
       ),
     );
   }

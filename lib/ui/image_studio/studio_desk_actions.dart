@@ -142,6 +142,27 @@ extension on _StudioDeskState {
     );
   }
 
+  /// "Update loader…": asks, on this computer, to change ComfyUI-GGUF's loader
+  /// for the graph on the desk, then says what happened and judges again. The
+  /// question is asked every time it is pressed, whatever was answered before.
+  Future<void> _updateLoader(ImageGenSettings settings) async {
+    final graph = _ready?.readiness.graph;
+    if (graph == null) return;
+    final result = await City96Gate.instance.ensure(
+      comfyUrl: settings.comfyUiUrl,
+      graph: graph,
+      askAgain: true,
+    );
+    if (!mounted) return;
+    final message = result.message;
+    if (message != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(message)));
+    }
+    await _checkReady(force: true);
+  }
+
   Future<void> _saveGraph(
     ImageGenSettings settings,
     String raw, {

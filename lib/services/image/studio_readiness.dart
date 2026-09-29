@@ -19,6 +19,10 @@ enum StudioReady {
   /// (see `City96Gate`). Only that model is held back; [StudioReadiness.message]
   /// says why.
   needsLoaderUpdate,
+
+  /// The loader was updated, but the ComfyUI that is running started before
+  /// that and has not loaded it. [StudioReadiness.message] says to restart.
+  needsComfyRestart,
 }
 
 /// [objectInfo] null means the server could not be read.
@@ -39,12 +43,18 @@ class StudioReadiness {
   /// whose files are named inside it.
   final List<ComfyModelSlot> slots;
 
+  /// For [StudioReady.needsLoaderUpdate]: the person can allow the update from
+  /// the desk ("Update loader…"). False when it cannot be changed at all
+  /// (another computer, an unrecognised or unsafe loader).
+  final bool canUpdateLoader;
+
   const StudioReadiness(
     this.kind, [
     this.missingClass,
     this.message,
     this.graph,
     this.slots = const [],
+    this.canUpdateLoader = false,
   ]);
 }
 

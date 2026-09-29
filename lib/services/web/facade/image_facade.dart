@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -369,10 +370,15 @@ class ImageFacade {
     // negativePrompt: absent → null → generateImage falls back to the user's
     // configured default (the web panel sends only a prompt). An explicit
     // value — including '' — is respected as-is.
-    final bytes = await _image.generateImage(
-      prompt: prompt,
-      negativePrompt: f['negativePrompt']?.toString(),
-      size: f['size']?.toString(),
+    // The phone or web caller cannot answer the desktop's loader dialog, so
+    // the gate answers "confirm on the desktop" at once instead of waiting.
+    final bytes = await runZoned(
+      () => _image.generateImage(
+        prompt: prompt,
+        negativePrompt: f['negativePrompt']?.toString(),
+        size: f['size']?.toString(),
+      ),
+      zoneValues: {kCity96NoAsk: true},
     );
     if (bytes == null) return null;
     final savedPath = await _image.saveImageToDisk(bytes);

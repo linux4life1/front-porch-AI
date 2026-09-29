@@ -58,8 +58,9 @@ class _MainLayoutState extends State<MainLayout> {
     City96Gate.instance.ask = _askCity96;
   }
 
-  Future<bool> _askCity96(City96Question question) async {
-    if (!mounted) return false;
+  /// Null when the window is gone: nobody was asked, so it is not a "no".
+  Future<bool?> _askCity96(City96Question question) async {
+    if (!mounted) return null;
     return showCity96LoaderDialog(context, question);
   }
 

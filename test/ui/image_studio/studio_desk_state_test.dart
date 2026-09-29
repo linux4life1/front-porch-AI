@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
 
 import '../../services/image/city96_test_loader.dart';
+import '../../services/image/city96_test_probe.dart';
 
 const _kleinId = 'comfy:default:image_flux2_klein_text_to_image';
 const _kleinFile =
@@ -129,16 +130,23 @@ void main() {
   }
 
   /// Waits for real loopback requests, then lets the frame catch up.
-  Future<void> settle(WidgetTester tester, [_Comfy? comfy]) async {
-    for (var i = 0; i < 40; i++) {
+  Future<void> settle(
+    WidgetTester tester, [
+    _Comfy? comfy,
+    int atLeast = 2,
+    int stepMs = 100,
+  ]) async {
+    for (var i = 0; i < 200; i++) {
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        () => Future<void>.delayed(Duration(milliseconds: stepMs)),
       );
       await tester.pump();
       final quiet =
           comfy == null ||
           DateTime.now().difference(comfy.lastRequest).inMilliseconds > 400;
-      if (i >= 2 && quiet && find.text('Checking…').evaluate().isEmpty) break;
+      if (i >= atLeast && quiet && find.text('Checking…').evaluate().isEmpty) {
+        break;
+      }
     }
   }
 
@@ -318,7 +326,11 @@ void main() {
       final loader = File('${dir.path}/loader.py')
         ..writeAsStringSync(kStockCity96Loader);
       final saved = City96Gate.instance;
-      City96Gate.instance = City96Gate(locate: (_) async => loader);
+      City96Gate.instance = City96Gate(
+        locate: (_) async => loader,
+        probe: const FakeProbe(me: 1000),
+        pidFor: (_) async => 100,
+      );
       addTearDown(() => City96Gate.instance = saved);
 
       await pumpDesk(tester, comfy: comfy);
@@ -328,6 +340,111 @@ void main() {
       expect(loader.readAsStringSync(), kStockCity96Loader);
     },
   );
+
+  group('Update loader…', () {
+    late File loader;
+    late _Comfy comfy;
+    var asked = 0;
+    var answers = <bool?>[];
+
+    Future<void> useQwen21(WidgetTester tester) async {
+      await initSettings();
+      comfy = (await tester.runAsync(_serve))!;
+      final s = storage.imageGenSettings;
+      await s.setImageGenBackend('comfyui');
+      await s.setComfyUiUrl(comfy.url);
+      await s.setComfyCreateWorkflowId('qwen_image_21');
+      for (final e in {
+        '%MODEL_DIFFUSION%': 'qwen-image-2.1-Q2_K.gguf',
+        '%MODEL_CLIP%': 'Qwen3-VL-8B-Instruct-Q4_K_M.gguf',
+        '%MODEL_VAE%': 'qwen_image_2.1_vae_bf16.safetensors',
+      }.entries) {
+        await s.setComfyCreateModelChoice('qwen_image_21', e.key, e.value);
+      }
+      loader = File('${dir.path}/loader.py')
+        ..writeAsStringSync(kStockCity96Loader);
+      asked = 0;
+      final saved = City96Gate.instance;
+      City96Gate.instance = City96Gate(
+        locate: (_) async => loader,
+        probe: const FakeProbe(me: 1000),
+        pidFor: (_) async => 100,
+        // The real writer starts processes, which a widget test's fake clock
+        // cannot wait for; the writer has its own tests.
+        write: (loader, text) async => loader.writeAsStringSync(text),
+        ask: (_) async {
+          asked++;
+          return answers.removeAt(0);
+        },
+      );
+      addTearDown(() => City96Gate.instance = saved);
+      await pumpDesk(tester, comfy: comfy);
+    }
+
+    testWidgets('is offered when the model needs the update, and asks once', (
+      tester,
+    ) async {
+      answers = [true];
+      await useQwen21(tester);
+
+      expect(find.textContaining(kCity96NeedsUpdate), findsOneWidget);
+      expect(find.text('Update loader…'), findsOneWidget);
+      expect(asked, 0, reason: 'nothing is asked until it is pressed');
+
+      await tester.tap(find.text('Update loader…'));
+      await settle(tester, comfy, 60, 30);
+
+      expect(asked, 1);
+      expect(loader.readAsStringSync(), contains('qwen3vl'));
+      expect(find.textContaining('Restart ComfyUI'), findsWidgets);
+      expect(find.text('Update loader…'), findsNothing);
+      expect(find.text('Ready to generate.'), findsNothing);
+    });
+
+    testWidgets('asks again each time it is pressed, after a "no"', (
+      tester,
+    ) async {
+      answers = [false, true];
+      await useQwen21(tester);
+
+      await tester.tap(find.text('Update loader…'));
+      await settle(tester, comfy, 60, 30);
+      expect(asked, 1);
+      expect(loader.readAsStringSync(), kStockCity96Loader);
+      expect(find.text('Update loader…'), findsOneWidget);
+
+      await tester.tap(find.text('Update loader…'));
+      await settle(tester, comfy, 60, 30);
+      expect(asked, 2);
+      expect(loader.readAsStringSync(), contains('qwen3vl'));
+    });
+
+    testWidgets('a closed window is not a "no": the button stays', (
+      tester,
+    ) async {
+      answers = [null];
+      await useQwen21(tester);
+
+      await tester.tap(find.text('Update loader…'));
+      await settle(tester, comfy, 60, 30);
+
+      expect(loader.readAsStringSync(), kStockCity96Loader);
+      expect(find.text('Update loader…'), findsOneWidget);
+    });
+
+    testWidgets('is not offered when the loader cannot be changed here', (
+      tester,
+    ) async {
+      answers = [];
+      await useQwen21(tester);
+      loader.writeAsStringSync('# a fork of ComfyUI-GGUF\n');
+      await tester.tap(find.text('Check'));
+      await settle(tester, comfy, 60, 30);
+
+      expect(find.textContaining('does not recognize'), findsOneWidget);
+      expect(find.text('Update loader…'), findsNothing);
+    });
+  });
 
   group('every setting a generate reads has a control', () {
     testWidgets('Remote: host, model list, style, prompt format, review', (
