@@ -6,6 +6,11 @@
 // presets + their workflow schema, and the pure ImageGenService types
 // (mode/backend enums + the remote model info record).
 
+export 'civitai_client.dart';
+export 'civitai_download.dart';
+export 'civitai_fetch.dart';
+export 'civitai_installed.dart';
+export 'civitai_oauth.dart';
 export 'comfy_catalog.dart';
 export 'comfy_create_presets.dart';
 export 'comfy_create_workflow.dart';
