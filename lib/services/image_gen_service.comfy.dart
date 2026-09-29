@@ -88,6 +88,7 @@ extension _ImageGenComfy on ImageGenService {
         workflowTemplate: req.template,
         tokenValues: req.values,
         onProgress: _updateGenProgress,
+        uploaded: settings.comfyEditWorkflowId == kComfyUploadedWorkflowId,
       );
     }
 
@@ -169,6 +170,10 @@ extension _ImageGenComfy on ImageGenService {
         '(${leftover.join(', ')}). Pick a model for each slot.',
       );
     }
-    return comfy.runPromptGraph(graph, onProgress: _updateGenProgress);
+    return comfy.runPromptGraph(
+      graph,
+      onProgress: _updateGenProgress,
+      uploaded: settings.comfyCreateWorkflowId == kComfyUploadedWorkflowId,
+    );
   }
 }
