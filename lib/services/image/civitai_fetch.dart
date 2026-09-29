@@ -29,6 +29,10 @@ const String _kUnsafeFolder =
     'That models folder leads to a system folder, your home folder or the '
     'drive root, so nothing was saved there.';
 
+const String _kOutsideModelsFolder =
+    'The backend\'s config sends this kind of file to a folder that is not in '
+    'your models folder or another one you saved, so nothing was saved there.';
+
 final Set<String> _activePaths = {};
 
 String _lockKey(String path) => p.normalize(path).toLowerCase();
@@ -250,9 +254,20 @@ Future<void> _checkTarget(
   CivitaiFreeBytes freeBytes,
 ) async {
   final root = plan.root;
-  if (!await civitaiFolderIsSafe(p.dirname(path)) ||
-      (root != null && !await civitaiFolderIsSafe(root))) {
+  final chosen = [?root, ...plan.trustedRoots];
+  final folder = p.dirname(path);
+  if (!await civitaiFolderIsSafe(folder, roots: chosen) ||
+      (root != null && !await civitaiFolderIsSafe(root, roots: chosen))) {
     throw const CivitaiDownloadException(CivitaiFailure.unsafe, _kUnsafeFolder);
+  }
+  // A folder the backend's config names for one kind of file is a path a
+  // config file chose, not the person: it has to be in the models folder or in
+  // another models folder they saved.
+  if (root != null && !civitaiFolderInRoots(folder, chosen)) {
+    throw const CivitaiDownloadException(
+      CivitaiFailure.unsafe,
+      _kOutsideModelsFolder,
+    );
   }
   _throwIfTaken(path, expected);
   if (expected != null) {

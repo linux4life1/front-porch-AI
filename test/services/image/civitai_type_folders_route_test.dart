@@ -30,6 +30,9 @@ void main() {
   late CivitaiRoutes routes;
   final swept = <String>[];
 
+  /// The models folders the person saved besides the ComfyUI one.
+  var saved = <String>[];
+
   CivitaiVersion version() {
     final raw =
         jsonDecode(
@@ -53,6 +56,7 @@ void main() {
     host = await CivitaiFileHost.start();
     host.serve('/file', payload);
     swept.clear();
+    saved = [p.dirname(bigDrive)];
     final harness = await CivitaiAuthHarness.create();
     routes = CivitaiRoutes(
       Router(),
@@ -63,6 +67,7 @@ void main() {
       ),
       rootFor: (_) => root.path,
       rootGone: (_) async => false,
+      trustedRootsFor: () async => saved,
       typeFoldersFor: (backend, _) async =>
           backend == 'comfyui' ? {'checkpoints': bigDrive} : const {},
       sweep: (folder) async {
@@ -83,6 +88,7 @@ void main() {
             root: plan.root,
             expectedBytes: plan.expectedBytes,
             sha256: plan.sha256,
+            trustedRoots: plan.trustedRoots,
           ),
           onProgress: onProgress,
           cancel: cancel,
@@ -128,6 +134,35 @@ void main() {
         isFalse,
       );
       expect(swept, containsAll([root.path, bigDrive]));
+    },
+  );
+
+  test(
+    'a config folder that is not a models folder the person saved is refused',
+    () async {
+      saved = [];
+      final res = await routes.download(
+        civitaiRequest(
+          'POST',
+          '/api/image/civitai/download',
+          body: {
+            'versionId': 128713,
+            'filename': file,
+            'lora': false,
+            'backend': 'comfyui',
+          },
+        ),
+      );
+      expect(res.statusCode, 400);
+      expect(
+        (await civitaiJson(res))['error'],
+        contains('not in your models folder'),
+      );
+      expect(File(p.join(bigDrive, file)).existsSync(), isFalse);
+      expect(
+        File(p.join(root.path, 'checkpoints', file)).existsSync(),
+        isFalse,
+      );
     },
   );
 

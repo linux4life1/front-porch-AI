@@ -40,6 +40,7 @@ void main() {
   var fixtureId = 133005;
   bool? adultSeen;
   Uri? uriSeen;
+  CivitaiDownloadPlan? planSeen;
 
   CivitaiVersion version() {
     final raw =
@@ -72,6 +73,7 @@ void main() {
     CivitaiCancel? cancel,
   }) {
     uriSeen = plan.uri;
+    planSeen = plan;
     return downloadCivitaiPlan(
       CivitaiDownloadPlan(
         uri: host.uri('/file'),
@@ -84,6 +86,8 @@ void main() {
         root: plan.root,
         expectedBytes: plan.expectedBytes,
         sha256: plan.sha256,
+        baseModel: plan.baseModel,
+        trustedRoots: plan.trustedRoots,
       ),
       idle: const Duration(milliseconds: 300),
       onProgress: onProgress,
@@ -133,6 +137,7 @@ void main() {
     fixtureId = 133005;
     adultSeen = null;
     uriSeen = null;
+    planSeen = null;
   });
 
   test('a good press installs the file CivitAI lists', () async {
@@ -140,6 +145,16 @@ void main() {
     expect(result, isA<CivitaiInstalled>());
     expect((result as CivitaiInstalled).name, file);
     expect(loraFile().readAsBytesSync(), payload);
+  });
+
+  test('the plan carries every models folder the person saved', () async {
+    final other = Directory.systemTemp.createTempSync('civitai-other');
+    addTearDown(() => other.deleteSync(recursive: true));
+    await rememberStudioModelRoot('a1111', other.path);
+
+    expect(await press(), isA<CivitaiInstalled>());
+
+    expect(planSeen!.trustedRoots, containsAll([root.path, other.path]));
   });
 
   test('the file name comes from CivitAI when the row has none', () async {

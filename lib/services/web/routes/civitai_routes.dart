@@ -38,6 +38,7 @@ class CivitaiRoutes {
     Future<bool> Function(String backend)? rootGone,
     Future<Map<String, String>> Function(String backend, String root)?
     typeFoldersFor,
+    Future<List<String>> Function()? trustedRootsFor,
   }) : _auth = auth,
        _adultAllowed = adultAllowed,
        _relay = relay,
@@ -47,7 +48,8 @@ class CivitaiRoutes {
        _versionFetch = versionFetch ?? fetchCivitaiVersion,
        _sweep = sweep ?? sweepCivitaiParts,
        _rootGone = rootGone ?? studioSavedRootMissing,
-       _typeFoldersFor = typeFoldersFor ?? _noTypeFolders {
+       _typeFoldersFor = typeFoldersFor ?? _noTypeFolders,
+       _trustedRootsFor = trustedRootsFor ?? _noTrustedRoots {
     _ready = relay == null
         ? CivitaiCredentialStore.open().then(CivitaiRelay.new)
         : Future<CivitaiRelay>.value(relay);
@@ -74,8 +76,11 @@ class CivitaiRoutes {
   final Future<Map<String, String>> Function(String backend, String root)
   _typeFoldersFor;
 
+  final Future<List<String>> Function() _trustedRootsFor;
+
   static Future<Map<String, String>> _noTypeFolders(String _, String _) async =>
       const {};
+  static Future<List<String>> _noTrustedRoots() async => const [];
   late final Future<CivitaiRelay> _ready;
 
   Future<String?> _savedRoot(String backend) {
@@ -346,6 +351,7 @@ class CivitaiRoutes {
         fromLoraSheet: body['lora'] == true,
         backend: backend,
         typeFolders: await _typeFoldersFor(backend, savedRoot!),
+        trustedRoots: await _trustedRootsFor(),
       );
       debugPrint(plan.log);
       if (plan.refused || plan.path == null) {

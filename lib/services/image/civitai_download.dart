@@ -244,17 +244,37 @@ Future<String?> _resolved(String path) async {
   }
 }
 
+bool _hiddenBelow(String relative) => p
+    .split(relative)
+    .any((part) => part.startsWith('.') && part != '.' && part != '..');
+
+/// True when [folder] is one of [roots] or inside one, by its own spelling.
+/// Links are not followed: a models folder that is a link to another drive
+/// stays inside its root.
+bool civitaiFolderInRoots(String folder, List<String> roots) {
+  final path = p.normalize(folder);
+  for (final root in roots) {
+    if (root.trim().isEmpty) continue;
+    final base = p.normalize(root);
+    if (path == base || p.isWithin(base, path)) return true;
+  }
+  return false;
+}
+
 /// True when a download may be written into [folder].
 ///
 /// The models folder is whatever the backend uses, so a folder that is a link
 /// to another drive is fine. What is refused is a folder that, once every link
-/// is followed, is the drive root, the home folder itself, or a system
-/// folder. A folder that does not exist yet is judged by its nearest existing
-/// parent. [home] and [systemFolders] default to this machine's.
+/// is followed, is the drive root, the home folder itself, a system folder, or
+/// inside a hidden folder of the home folder (`~/.ssh`, `~/.config`...) unless
+/// it is inside one of [roots], the models folders the person chose. A folder
+/// that does not exist yet is judged by its nearest existing parent. [home]
+/// and [systemFolders] default to this machine's.
 Future<bool> civitaiFolderIsSafe(
   String folder, {
   String? home,
   List<String>? systemFolders,
+  List<String> roots = const [],
 }) async {
   var probe = p.normalize(folder);
   while (!await Directory(probe).exists()) {
@@ -270,8 +290,14 @@ Future<bool> civitaiFolderIsSafe(
       Platform.environment['HOME'] ??
       Platform.environment['USERPROFILE'] ??
       '';
-  if (homePath.isNotEmpty && real == (await _resolved(homePath) ?? homePath)) {
-    return false;
+  if (homePath.isNotEmpty) {
+    final realHome = await _resolved(homePath) ?? homePath;
+    if (real == realHome) return false;
+    if (p.isWithin(realHome, real) &&
+        _hiddenBelow(p.relative(real, from: realHome)) &&
+        !civitaiFolderInRoots(folder, roots)) {
+      return false;
+    }
   }
   for (final system in systemFolders ?? civitaiSystemFolders()) {
     final realSystem = await _resolved(system) ?? system;

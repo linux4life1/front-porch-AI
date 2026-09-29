@@ -82,6 +82,7 @@ class WebBackendRoutes {
         adultAllowed: () => _deps.storage.realismSettings.adultThemesEnabled,
         rootForAsync: savedStudioModelRoot,
         typeFoldersFor: studioModelTypeFolders,
+        trustedRootsFor: studioSavedModelRoots,
       );
     }
   }

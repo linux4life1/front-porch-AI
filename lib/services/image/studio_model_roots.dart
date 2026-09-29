@@ -74,6 +74,17 @@ Future<String> studioComfyUrl() async {
   return saved;
 }
 
+/// Every models folder the person saved, whichever backend it is for.
+Future<List<String>> studioSavedModelRoots() async {
+  final prefs = await SharedPreferences.getInstance();
+  return [
+    for (final folder in decodeModelRoots(
+      prefs.getString(kStudioModelRootsKey),
+    ).values)
+      if (folder.trim().isNotEmpty) folder.trim(),
+  ];
+}
+
 /// True when the saved Comfy URL is not this computer.
 Future<bool> comfyStudioIsRemote() async {
   return !await comfyHostIsLocal(await studioComfyUrl());

@@ -307,6 +307,10 @@ class CivitaiDownloadPlan {
   /// CivitAI's base model for the version, for tagging a saved LoRA.
   final String baseModel;
 
+  /// Models folders the person saved besides [root]. A folder the backend's
+  /// config names for one kind of file is only written to inside these.
+  final List<String> trustedRoots;
+
   const CivitaiDownloadPlan({
     required this.uri,
     required this.path,
@@ -320,6 +324,7 @@ class CivitaiDownloadPlan {
     this.sha256,
     this.allInOnePath,
     this.baseModel = '',
+    this.trustedRoots = const [],
   });
 
   factory CivitaiDownloadPlan.refusal(
@@ -383,6 +388,7 @@ class CivitaiRelay {
     required bool fromLoraSheet,
     required String backend,
     Map<String, String> typeFolders = const {},
+    List<String> trustedRoots = const [],
   }) async {
     final log = civitaiLog(
       action: 'download',
@@ -457,6 +463,7 @@ class CivitaiRelay {
       expectedBytes: file.sizeBytes,
       sha256: file.sha256,
       baseModel: version.baseModel,
+      trustedRoots: trustedRoots,
       allInOnePath: civitaiAllInOnePath(
         root: root,
         backend: backend,
