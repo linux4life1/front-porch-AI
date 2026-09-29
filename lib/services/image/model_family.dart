@@ -100,7 +100,23 @@ class LoraOption {
   final ModelFamily family;
   final bool familyFromMetadata;
 
-  const LoraOption(this.name, this.family, {this.familyFromMetadata = false});
+  /// Draw Things `custom_lora.json` version (`flux2_9b`, `ltx2.3`).
+  /// Empty for other backends. Kept even when [family] stays unknown.
+  final String dtVersion;
+
+  const LoraOption(
+    this.name,
+    this.family, {
+    this.familyFromMetadata = false,
+    this.dtVersion = '',
+  });
+}
+
+/// Qwen-Image 2.1. The December 2512 update and Qwen2.5 encoders stay 1.0.
+bool isQwenImage21(String name) {
+  final s = name.toLowerCase();
+  if (!s.contains('qwen')) return false;
+  return s.contains('2.1') || s.contains('2_1');
 }
 
 /// Pure detection + compatibility statics. No state, no I/O.
@@ -251,13 +267,29 @@ class ImageModelFamily {
     final metaFam = metadata != null
         ? detectFromMetadata(metadata)
         : ModelFamily.unknown;
+    final dtVersion = (metadata?['dt_base_model'] ?? '').toString().trim();
     if (nameFam == ModelFamily.pony) {
-      return LoraOption(name, ModelFamily.pony, familyFromMetadata: false);
+      return LoraOption(
+        name,
+        ModelFamily.pony,
+        familyFromMetadata: false,
+        dtVersion: dtVersion,
+      );
     }
     if (metaFam != ModelFamily.unknown) {
-      return LoraOption(name, metaFam, familyFromMetadata: true);
+      return LoraOption(
+        name,
+        metaFam,
+        familyFromMetadata: true,
+        dtVersion: dtVersion,
+      );
     }
-    return LoraOption(name, nameFam, familyFromMetadata: false);
+    return LoraOption(
+      name,
+      nameFam,
+      familyFromMetadata: false,
+      dtVersion: dtVersion,
+    );
   }
 
   /// Verdict for a LoRA against the active checkpoint. [metadataBacked] is
