@@ -37,12 +37,11 @@ part 'studio_prompt_craft.dart';
 part 'image_studio.subject.dart';
 
 /// The Image Studio: one shared canvas driven by a **Subject** selector
-/// (Freeform / Character / Your persona). Backend/model/size/steps/CFG/sampler/
-/// scheduler/seed/LoRA controls live in the collapsible [StudioSettingsPanel].
-/// Picking Character/Persona auto-fills the prompt from their appearance (via
-/// the [ImagePromptBuilder]); Freeform is yours (blank + Craft distills the
-/// current chat scene). Layout lives in [StudioView]; this owns the session
-/// state + handlers.
+/// (Freeform / Character / Your persona). Backend, model, size, steps, LoRA,
+/// seed and the rest of the generation settings live on the studio desk. The
+/// prompt box starts empty; "Write it for me" crafts one with the LLM (from
+/// the character, or for Freeform the current chat scene). Layout lives in
+/// [StudioView]; this owns the session state + handlers.
 class ImageStudio extends StatefulWidget {
   final ImageGenMode mode;
   final String? customPrompt;
@@ -132,9 +131,10 @@ class _ImageStudioState extends State<ImageStudio> {
   String? _pickedGroupDbId;
   bool _groupShot = false;
   late String _editablePrompt;
-  late String _negativeForGen;
   Uint8List? _currentImageBytes;
   String _error = '';
+  String _seenGraph = '';
+  String _seenModel = '';
   bool _isCrafting = false;
   bool _isGenerating = false;
   bool _saving = false;
@@ -151,7 +151,7 @@ class _ImageStudioState extends State<ImageStudio> {
   final List<({String prompt, Uint8List bytes, String style})> _history = [];
 
   late final ImagePromptBuilder _builder;
-  late ImageGenContext _ctx;
+  StorageService? _storage;
 
   @override
   void initState() {
@@ -159,14 +159,36 @@ class _ImageStudioState extends State<ImageStudio> {
     final storage = Provider.of<StorageService>(context, listen: false);
     _selectedStyle = storage.imageGenSettings.imageGenStyle;
     _paradigm = storage.imageGenSettings.imageGenPromptParadigm;
-    _negativeForGen = storage.imageGenSettings.imageGenNegativePrompt;
     _activeMode = widget.mode;
     _builder = ImagePromptBuilder(llmService: widget.llmService);
-    // No boilerplate prefill for ANY subject: an empty box (with a guiding
-    // hint) until the user types or taps "Write it for me". Dumping the raw
-    // character description made both a poor prompt and poor UX.
+    // No boilerplate prefill for ANY subject: an empty box until the user
+    // types or taps "Write it for me". Dumping the raw character description
+    // made a poor prompt.
     _editablePrompt = '';
-    _ctx = _makeContextForMode(_activeMode);
+    _storage = storage..addListener(_followStyleSettings);
+  }
+
+  @override
+  void dispose() {
+    _storage?.removeListener(_followStyleSettings);
+    super.dispose();
+  }
+
+  /// The style and prompt format are chosen on the desk and stored as the
+  /// defaults. A change there re-applies to the prompt already written, as
+  /// choosing them here always did.
+  void _followStyleSettings() {
+    final settings = _storage?.imageGenSettings;
+    if (settings == null || !mounted) return;
+    if (settings.imageGenStyle == _selectedStyle &&
+        settings.imageGenPromptParadigm == _paradigm) {
+      return;
+    }
+    setState(() {
+      _selectedStyle = settings.imageGenStyle;
+      _paradigm = settings.imageGenPromptParadigm;
+      _reapplyStyle();
+    });
   }
 
   /// Re-apply the live style suffix to a non-empty prompt so Generate sends the
@@ -181,30 +203,16 @@ class _ImageStudioState extends State<ImageStudio> {
     );
   }
 
-  void _updateStyle(String newStyle) {
-    final storage = Provider.of<StorageService>(context, listen: false);
-    storage.imageGenSettings.setImageGenStyle(
-      newStyle,
-    ); // persist global default
-    setState(() {
-      _selectedStyle = newStyle;
-      _reapplyStyle();
-    });
-  }
-
-  void _updateParadigm(String p) => setState(() {
-    _paradigm = p;
-    _reapplyStyle();
-  });
-
   void _updatePrompt(String text) => setState(() => _editablePrompt = text);
-  void _updateNegative(String text) => setState(() => _negativeForGen = text);
 
   bool get _isBusy => _isCrafting || _isGenerating || _saving;
 
   Future<void> _generate() async {
     final prompt = _editablePrompt.trim();
-    if (prompt.isEmpty) return;
+    if (prompt.isEmpty) {
+      setState(() => _error = 'Write a prompt first.');
+      return;
+    }
 
     setState(() {
       _isGenerating = true;
@@ -216,7 +224,6 @@ class _ImageStudioState extends State<ImageStudio> {
     try {
       final bytes = await service.generateImage(
         prompt: prompt,
-        negativePrompt: _negativeForGen,
         isPortrait: _isPortraitSubject, // portraits orient vertically
         referenceImage: _referenceImageBytes, // img2img on local backends
       );
@@ -392,12 +399,27 @@ class _ImageStudioState extends State<ImageStudio> {
     };
   }
 
+  /// A refusal from the last generate no longer applies once the graph or a
+  /// model file has been changed on the desk.
+  void _dropStaleError() {
+    final settings = context.read<StorageService>().imageGenSettings;
+    final graph =
+        '${settings.comfyCreateWorkflowId}|${settings.comfyEditWorkflowId}';
+    final model =
+        '${settings.imageGenModel}|${settings.imageGenEditModel}|${settings.comfyCreateModelChoices}|${settings.comfyEditModelChoices}';
+    final first = _seenGraph.isEmpty && _seenModel.isEmpty;
+    if (graph == _seenGraph && model == _seenModel) return;
+    _seenGraph = graph;
+    _seenModel = model;
+    if (first || _error.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _error.isNotEmpty) setState(() => _error = '');
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final configured = Provider.of<ImageGenService>(
-      context,
-      listen: false,
-    ).isConfigured;
+    _dropStaleError();
     // Any generation (Create OR Edit) flips the shared service busy; fold it in
     // so the tabs lock and Create can't double-submit while Edit is running.
     final genBusy = context.select<ImageGenService, bool>(
@@ -411,30 +433,20 @@ class _ImageStudioState extends State<ImageStudio> {
       groupShotActive: _groupShot,
       onPickGroupMember: _pickGroupSubject,
       onPickGroupShot: () => _pickGroupSubject(null),
-      selectedStyle: _selectedStyle,
-      paradigm: _paradigm,
       prompt: _editablePrompt,
-      negative: _negativeForGen,
       referenceBytes: _referenceImageBytes,
       currentImageBytes: _currentImageBytes,
       error: _error,
-      isCrafting: _isCrafting,
-      isGenerating: _isGenerating,
+      generating: _isGenerating,
+      crafting: _isCrafting,
       saving: _saving,
       isBusy: _isBusy || genBusy,
-      llmAvailable: widget.llmService != null && widget.llmService!.isReady,
-      configured: configured,
-      builder: _builder,
-      ctx: _ctx,
       history: _history,
       onClose: () => Navigator.pop(context),
       onSelectSubject: _selectSubject,
-      onStyleChanged: _updateStyle,
-      onParadigmChanged: _updateParadigm,
       onPickReference: _pickReferenceImage,
       onClearReference: () => setState(() => _referenceImageBytes = null),
       onPromptChanged: _updatePrompt,
-      onNegativeChanged: _updateNegative,
       onCraftLlm: _craftWithLlmIfAvailable,
       onExpressionPack: _packTargetDbId == null ? null : _openExpressionPack,
       onGenerate: _generate,

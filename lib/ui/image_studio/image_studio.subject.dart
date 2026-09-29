@@ -8,18 +8,8 @@
 part of 'image_studio.dart';
 
 extension _ImageStudioSubject on _ImageStudioState {
-  /// Build a fresh snapshot ctx for the given subject.
-  ImageGenContext _makeContextForMode(ImageGenMode mode) => _buildStudioContext(
-    widget,
-    mode: mode,
-    style: _selectedStyle,
-    paradigm: _paradigm,
-    characterName: _activeCharName,
-    characterDescription: _activeCharDesc,
-  );
-
-  /// Switch subject: rebuild the ctx snapshot and clear the prompt box — no
-  /// bleed between subjects, and no raw-description prefill.
+  /// Switch subject and clear the prompt box — no bleed between subjects,
+  /// and no raw-description prefill.
   void _selectSubject(ImageGenMode mode) {
     rebuildState(() {
       _activeMode = mode;
@@ -30,7 +20,6 @@ extension _ImageStudioSubject on _ImageStudioState {
         _pickedGroupDbId = null;
         _groupShot = false;
       }
-      _ctx = _makeContextForMode(mode);
       _editablePrompt = '';
     });
   }
@@ -67,7 +56,6 @@ extension _ImageStudioSubject on _ImageStudioState {
       _pickedGroupDbId = m?.dbId;
       _groupShot = m == null;
       _activeMode = ImageGenMode.characterPortrait;
-      _ctx = _makeContextForMode(_activeMode);
       _editablePrompt = '';
     });
   }
@@ -114,7 +102,10 @@ extension _ImageStudioSubject on _ImageStudioState {
       repository: repo,
       candidateBase: _currentImageBytes ?? _referenceImageBytes,
       basePrompt: basePrompt,
-      negativePrompt: _negativeForGen,
+      negativePrompt: context
+          .read<StorageService>()
+          .imageGenSettings
+          .imageGenNegativePrompt,
     );
     if (ok) widget.onExpressionsImported?.call(dbId);
   }
