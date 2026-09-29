@@ -464,6 +464,63 @@ void main() {
       expect(find.byType(StudioCivitaiGet), findsNothing);
     });
 
+    testWidgets(
+      'a config folder that is not a models folder offers Use this folder',
+      (tester) async {
+        final outside = Directory.systemTemp.createTempSync('civitai-outside');
+        addTearDown(() => outside.deleteSync(recursive: true));
+        final real = outside.resolveSymbolicLinksSync();
+        await startDownload(tester);
+        hold.completeError(
+          CivitaiDownloadException(
+            CivitaiFailure.unsafe,
+            'Not in your models folder.',
+            real,
+          ),
+        );
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await _flush(tester);
+        expect(
+          find.textContaining('Not in your models folder'),
+          findsOneWidget,
+        );
+        expect(find.text(real), findsOneWidget);
+        expect(
+          await tester.runAsync(studioSavedModelRoots),
+          isNot(contains(real)),
+        );
+
+        await tester.tap(find.text('Use this folder'));
+        // The check and the save touch the disk for real.
+        for (var i = 0; i < 20 && find.text(real).evaluate().isNotEmpty; i++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)),
+          );
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await _flush(tester);
+
+        expect(await tester.runAsync(studioSavedModelRoots), contains(real));
+        expect(find.text('Use this folder'), findsNothing);
+        expect(find.textContaining('Press Download again'), findsOneWidget);
+      },
+    );
+
+    testWidgets('a refusal that names no folder offers none', (tester) async {
+      await startDownload(tester);
+      hold.completeError(
+        const CivitaiDownloadException(CivitaiFailure.unsafe, 'Not allowed.'),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await _flush(tester);
+      expect(find.textContaining('Not allowed'), findsOneWidget);
+      expect(find.text('Use this folder'), findsNothing);
+    });
+
     testWidgets('a refusal shows its own words on the sheet', (tester) async {
       await startDownload(tester);
       hold.completeError(const CivitaiDownloadException(CivitaiFailure.locked));

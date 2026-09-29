@@ -27,12 +27,17 @@ enum CivitaiFailure {
 }
 
 class CivitaiDownloadException implements Exception {
-  const CivitaiDownloadException(this.kind, [this.detail = '']);
+  const CivitaiDownloadException(this.kind, [this.detail = '', this.folder]);
 
   final CivitaiFailure kind;
 
   /// Extra words for the kinds that carry one (a file name, an HTTP status).
   final String detail;
+
+  /// For a folder the backend's config named that is not one of the person's
+  /// models folders: where it is, so the desktop can offer to use it. Never
+  /// sent to a phone or the web, and not part of [message].
+  final String? folder;
 
   String get code => switch (kind) {
     CivitaiFailure.keyMissing => 'key_missing',

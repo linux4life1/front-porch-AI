@@ -307,8 +307,9 @@ class CivitaiDownloadPlan {
   /// CivitAI's base model for the version, for tagging a saved LoRA.
   final String baseModel;
 
-  /// Models folders the person saved besides [root]. A folder the backend's
-  /// config names for one kind of file is only written to inside these.
+  /// The models folders the person saved, each as it resolved when they saved
+  /// it. A folder the backend's config names for one kind of file is only
+  /// written to inside [root] or one of these.
   final List<String> trustedRoots;
 
   const CivitaiDownloadPlan({

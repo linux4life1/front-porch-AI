@@ -63,6 +63,7 @@ Future<String> downloadCivitaiPlan(
   CivitaiCancel? cancel,
   CivitaiFreeBytes freeBytes = civitaiFreeDiskBytes,
   VoidCallback? onStarted,
+  @visibleForTesting String? home,
 }) async {
   final start = plan.uri;
   final path = plan.path;
@@ -97,7 +98,7 @@ Future<String> downloadCivitaiPlan(
   var ownsPart = false;
   try {
     cancel?.onCancel(() => client.close(force: true));
-    await _checkTarget(plan, path, expected, freeBytes);
+    await _checkTarget(plan, path, expected, freeBytes, home);
     onStarted?.call();
     var uri = start;
     var headers = civitaiFollowHeaders(
@@ -198,7 +199,7 @@ Future<String> downloadCivitaiPlan(
       if (want != null && digest.value.toString() != want.toLowerCase()) {
         throw const CivitaiDownloadException(CivitaiFailure.hashMismatch);
       }
-      final landed = await _moveIntoPlace(plan, part, path);
+      final landed = await _moveIntoPlace(plan, part, path, home);
       await _noteDrawThingsLora(landed, plan.baseModel);
       return landed;
     }
@@ -252,23 +253,10 @@ Future<void> _checkTarget(
   String path,
   int? expected,
   CivitaiFreeBytes freeBytes,
+  String? home,
 ) async {
-  final root = plan.root;
-  final chosen = [?root, ...plan.trustedRoots];
-  final folder = p.dirname(path);
-  if (!await civitaiFolderIsSafe(folder, roots: chosen) ||
-      (root != null && !await civitaiFolderIsSafe(root, roots: chosen))) {
-    throw const CivitaiDownloadException(CivitaiFailure.unsafe, _kUnsafeFolder);
-  }
-  // A folder the backend's config names for one kind of file is a path a
-  // config file chose, not the person: it has to be in the models folder or in
-  // another models folder they saved.
-  if (root != null && !civitaiFolderInRoots(folder, chosen)) {
-    throw const CivitaiDownloadException(
-      CivitaiFailure.unsafe,
-      _kOutsideModelsFolder,
-    );
-  }
+  final problem = await _folderProblem(plan, p.dirname(path), home);
+  if (problem != null) throw problem;
   _throwIfTaken(path, expected);
   if (expected != null) {
     final free = await freeBytes(p.dirname(path));
@@ -276,6 +264,45 @@ Future<void> _checkTarget(
       throw const CivitaiDownloadException(CivitaiFailure.diskFull);
     }
   }
+}
+
+/// Why nothing may be written into [folder], or null when it may.
+///
+/// The folder is judged with every link followed. A hidden folder of the home
+/// folder is refused unless what it resolves to is inside a models folder the
+/// person saved (their paths as resolved when they saved them, so a link put
+/// inside one later leads nowhere new). A folder the backend's config names
+/// for one kind of file is a path a config file chose, not the person, so it
+/// has to be inside the models folder or a saved one; a link inside the
+/// models folder itself may lead to another drive.
+Future<CivitaiDownloadException?> _folderProblem(
+  CivitaiDownloadPlan plan,
+  String folder,
+  String? home,
+) async {
+  final root = plan.root;
+  final rootReal = root == null ? null : await civitaiRealFolder(root);
+  // A models folder that was not saved is judged as it resolves now.
+  final trusted = [
+    ...plan.trustedRoots,
+    if (plan.trustedRoots.isEmpty && rootReal != null) rootReal,
+  ];
+  if (!await civitaiFolderIsSafe(folder, home: home, roots: trusted) ||
+      (root != null &&
+          !await civitaiFolderIsSafe(root, home: home, roots: trusted))) {
+    return const CivitaiDownloadException(
+      CivitaiFailure.unsafe,
+      _kUnsafeFolder,
+    );
+  }
+  if (root == null || civitaiFolderInRoots(folder, [root])) return null;
+  final real = await civitaiRealFolder(folder);
+  if (real != null && civitaiRealInRoots(real, trusted)) return null;
+  return CivitaiDownloadException(
+    CivitaiFailure.unsafe,
+    _kOutsideModelsFolder,
+    folder,
+  );
 }
 
 /// Throws when something is already at [path]. The same size as CivitAI lists
@@ -296,17 +323,14 @@ Future<String> _moveIntoPlace(
   CivitaiDownloadPlan plan,
   File part,
   String path,
+  String? home,
 ) async {
   var target = path;
   final allInOne = plan.allInOnePath;
   if (allInOne != null && await safetensorsIsAllInOne(part)) {
     target = allInOne;
-    if (!await civitaiFolderIsSafe(p.dirname(target))) {
-      throw const CivitaiDownloadException(
-        CivitaiFailure.unsafe,
-        _kUnsafeFolder,
-      );
-    }
+    final problem = await _folderProblem(plan, p.dirname(target), home);
+    if (problem != null) throw problem;
     await File(target).parent.create(recursive: true);
   }
   _throwIfTaken(target, plan.expectedBytes);

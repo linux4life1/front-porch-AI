@@ -90,6 +90,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   String? _error;
   bool _searching = false;
   bool _needFolder = false;
+  String? _offerFolder;
   String? _progressName;
   int _got = 0;
   int? _total;
@@ -212,6 +213,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       _searching = true;
       _error = null;
       _needFolder = false;
+      _offerFolder = null;
     });
     try {
       final saveError = await _keys.saveTyped();
@@ -282,6 +284,21 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
     }
   }
 
+  /// "Use this folder": the person says the folder ComfyUI's config named is
+  /// theirs, so downloads may go there.
+  Future<void> _useOfferedFolder() async {
+    final folder = _offerFolder;
+    if (folder == null) return;
+    final ok = await addTrustedModelFolder(folder);
+    if (!mounted) return;
+    setState(() {
+      _offerFolder = null;
+      _error = ok
+          ? 'That folder is saved as a models folder. Press Download again.'
+          : 'That folder cannot be used as a models folder.';
+    });
+  }
+
   void _openDetail(CivitaiModelRow row) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -307,6 +324,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       _searchSeq++;
       _searching = false;
       _error = null;
+      _offerFolder = null;
       _progressName = row.filename ?? row.name;
       _got = 0;
       _total = null;
@@ -329,10 +347,15 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
         widget.onInstalled(name);
         Navigator.of(context).pop();
         return;
-      case CivitaiInstallFailed(:final message, :final needFolder):
+      case CivitaiInstallFailed(
+        :final message,
+        :final needFolder,
+        :final offerFolder,
+      ):
         setState(() {
           _error = message;
           _needFolder = needFolder;
+          _offerFolder = offerFolder;
           _progressName = null;
         });
       case CivitaiInstallStopped():
@@ -425,6 +448,16 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
             ),
             onSubmitted: (_) => _search(),
           ),
+          if (_offerFolder != null) ...[
+            Text(
+              _offerFolder!,
+              style: TextStyle(color: AppColors.textSecondary(context)),
+            ),
+            TextButton(
+              onPressed: _downloading ? null : _useOfferedFolder,
+              child: const Text('Use this folder'),
+            ),
+          ],
           if (_needFolder)
             TextButton(
               onPressed: _downloading ? null : _pickFolder,

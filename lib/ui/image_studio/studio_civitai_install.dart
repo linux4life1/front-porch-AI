@@ -46,9 +46,18 @@ class CivitaiInstallStopped extends CivitaiInstallResult {
 }
 
 class CivitaiInstallFailed extends CivitaiInstallResult {
-  const CivitaiInstallFailed(this.message, {this.needFolder = false});
+  const CivitaiInstallFailed(
+    this.message, {
+    this.needFolder = false,
+    this.offerFolder,
+  });
 
   final String message;
+
+  /// A folder the backend's config named that is not one of the person's
+  /// models folders. The desk offers to save it as one ("Use this folder").
+  /// Desktop only: the phone is never told this path.
+  final String? offerFolder;
 
   /// The fix is to pick the models folder.
   final bool needFolder;
@@ -143,7 +152,7 @@ Future<CivitaiInstallResult> installCivitaiRow({
 }
 
 CivitaiInstallFailed _failed(CivitaiDownloadException e) {
-  return CivitaiInstallFailed(e.message);
+  return CivitaiInstallFailed(e.message, offerFolder: e.folder);
 }
 
 CivitaiFailure _lookupFailure(CivitaiLookupKind kind) {

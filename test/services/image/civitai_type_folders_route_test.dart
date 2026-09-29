@@ -53,6 +53,8 @@ void main() {
     addTearDown(() => dir.deleteSync(recursive: true));
     root = Directory(p.join(dir.path, 'data'))..createSync();
     bigDrive = p.join(dir.path, 'big', 'checkpoints');
+    // The config's folder is a real one on the other drive.
+    Directory(bigDrive).createSync(recursive: true);
     host = await CivitaiFileHost.start();
     host.serve('/file', payload);
     swept.clear();
@@ -154,10 +156,11 @@ void main() {
         ),
       );
       expect(res.statusCode, 400);
-      expect(
-        (await civitaiJson(res))['error'],
-        contains('not in your models folder'),
-      );
+      final refused = await civitaiJson(res);
+      expect(refused['error'], contains('not in your models folder'));
+      // The phone is told it was refused, never where the folder is.
+      expect(jsonEncode(refused), isNot(contains(bigDrive)));
+      expect(jsonEncode(refused), isNot(contains('folder"')));
       expect(File(p.join(bigDrive, file)).existsSync(), isFalse);
       expect(
         File(p.join(root.path, 'checkpoints', file)).existsSync(),

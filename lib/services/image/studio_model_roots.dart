@@ -8,11 +8,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/services/grpc/dt_native/dt_local_loras.dart';
+import 'package:front_porch_ai/services/image/civitai_download.dart';
 import 'package:front_porch_ai/services/image/comfy_model_paths.dart';
 import 'package:front_porch_ai/services/image/local_model_roots.dart';
 
 /// Prefs name for the models folders the desk remembers. Not a legacy key.
 const String kStudioModelRootsKey = 'image_studio_model_roots';
+
+/// Each saved folder as it resolved (every link followed) when it was saved,
+/// by the same keys. Downloads are judged against these, so a link put inside
+/// a saved folder later does not count as being inside it.
+const String kStudioModelRootsResolvedKey = 'image_studio_model_roots_resolved';
+
+/// Folders a backend's config named that the person chose to use, as
+/// `[{"path": ..., "resolved": ...}]`.
+const String kStudioExtraModelRootsKey = 'image_studio_extra_model_roots';
 
 Map<String, String> decodeModelRoots(String? raw) {
   if (raw == null || raw.trim().isEmpty) return const {};
@@ -74,15 +84,62 @@ Future<String> studioComfyUrl() async {
   return saved;
 }
 
-/// Every models folder the person saved, whichever backend it is for.
+/// Every models folder the person saved or chose to use, as it resolved when
+/// they did. A folder saved before this was recorded is resolved now.
 Future<List<String>> studioSavedModelRoots() async {
   final prefs = await SharedPreferences.getInstance();
-  return [
-    for (final folder in decodeModelRoots(
-      prefs.getString(kStudioModelRootsKey),
-    ).values)
-      if (folder.trim().isNotEmpty) folder.trim(),
-  ];
+  final saved = decodeModelRoots(prefs.getString(kStudioModelRootsKey));
+  final resolved = decodeModelRoots(
+    prefs.getString(kStudioModelRootsResolvedKey),
+  );
+  final out = <String>[];
+  for (final entry in saved.entries) {
+    final spelled = entry.value.trim();
+    if (spelled.isEmpty) continue;
+    final stored = resolved[entry.key]?.trim() ?? '';
+    out.add(
+      stored.isNotEmpty ? stored : await civitaiRealFolder(spelled) ?? spelled,
+    );
+  }
+  for (final row in _extraRoots(prefs)) {
+    final resolvedPath = row['resolved']?.toString().trim() ?? '';
+    if (resolvedPath.isNotEmpty) out.add(resolvedPath);
+  }
+  return out;
+}
+
+List<Map<String, dynamic>> _extraRoots(SharedPreferences prefs) {
+  final raw = prefs.getString(kStudioExtraModelRootsKey);
+  if (raw == null || raw.isEmpty) return const [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      return [
+        for (final row in decoded)
+          if (row is Map) row.cast<String, dynamic>(),
+      ];
+    }
+  } on FormatException {
+    // Nothing chosen is better than a guess.
+  }
+  return const [];
+}
+
+/// Saves [folder], a folder a backend's config named, as a models folder to
+/// download into. Only a folder that is safe by itself (not the home folder, a
+/// system folder or a hidden folder of home) can be added, whoever asks.
+/// Returns false when it was refused.
+Future<bool> addTrustedModelFolder(String folder) async {
+  final path = folder.trim();
+  if (path.isEmpty || !await civitaiFolderIsSafe(path)) return false;
+  final real = await civitaiRealFolder(path);
+  if (real == null) return false;
+  final prefs = await SharedPreferences.getInstance();
+  final rows = [..._extraRoots(prefs)];
+  if (rows.any((row) => row['resolved'] == real)) return true;
+  rows.add({'path': path, 'resolved': real});
+  await prefs.setString(kStudioExtraModelRootsKey, jsonEncode(rows));
+  return true;
 }
 
 /// True when the saved Comfy URL is not this computer.
@@ -171,7 +228,15 @@ Future<void> rememberStudioModelRoot(String backend, String root) async {
     return;
   }
   final prefs = await SharedPreferences.getInstance();
-  final roots = decodeModelRoots(prefs.getString(kStudioModelRootsKey));
+  final roots = Map.of(decodeModelRoots(prefs.getString(kStudioModelRootsKey)));
   roots[backend] = root.trim();
   await prefs.setString(kStudioModelRootsKey, encodeModelRoots(roots));
+  final resolved = Map.of(
+    decodeModelRoots(prefs.getString(kStudioModelRootsResolvedKey)),
+  );
+  resolved[backend] = await civitaiRealFolder(root.trim()) ?? root.trim();
+  await prefs.setString(
+    kStudioModelRootsResolvedKey,
+    encodeModelRoots(resolved),
+  );
 }

@@ -248,9 +248,33 @@ bool _hiddenBelow(String relative) => p
     .split(relative)
     .any((part) => part.startsWith('.') && part != '.' && part != '..');
 
+/// True when [real], a folder with every link followed, is one of the
+/// resolved [roots] or inside one. This is the check a link cannot get past:
+/// a link inside a models folder that leads to `~/.ssh` resolves to `~/.ssh`.
+bool civitaiRealInRoots(String real, List<String> roots) {
+  for (final root in roots) {
+    if (root.trim().isEmpty) continue;
+    if (real == root || p.isWithin(root, real)) return true;
+  }
+  return false;
+}
+
+/// [folder] with every link followed. A folder that does not exist yet is
+/// judged by its nearest existing parent. Null when it cannot be resolved.
+Future<String?> civitaiRealFolder(String folder) async {
+  var probe = p.normalize(folder);
+  while (!await Directory(probe).exists()) {
+    final parent = p.dirname(probe);
+    if (parent == probe) return null;
+    probe = parent;
+  }
+  return _resolved(probe);
+}
+
 /// True when [folder] is one of [roots] or inside one, by its own spelling.
 /// Links are not followed: a models folder that is a link to another drive
-/// stays inside its root.
+/// stays inside its root. Only for a folder the person's own models folder
+/// names; anything a link could redirect is judged by [civitaiRealInRoots].
 bool civitaiFolderInRoots(String folder, List<String> roots) {
   final path = p.normalize(folder);
   for (final root in roots) {
@@ -267,22 +291,18 @@ bool civitaiFolderInRoots(String folder, List<String> roots) {
 /// to another drive is fine. What is refused is a folder that, once every link
 /// is followed, is the drive root, the home folder itself, a system folder, or
 /// inside a hidden folder of the home folder (`~/.ssh`, `~/.config`...) unless
-/// it is inside one of [roots], the models folders the person chose. A folder
-/// that does not exist yet is judged by its nearest existing parent. [home]
-/// and [systemFolders] default to this machine's.
+/// what it resolves to is inside one of [roots]: the models folders the person
+/// chose, each already resolved (as it was when they chose it), so a link put
+/// inside one of them later does not count as being inside it. A folder that
+/// does not exist yet is judged by its nearest existing parent. [home] and
+/// [systemFolders] default to this machine's.
 Future<bool> civitaiFolderIsSafe(
   String folder, {
   String? home,
   List<String>? systemFolders,
   List<String> roots = const [],
 }) async {
-  var probe = p.normalize(folder);
-  while (!await Directory(probe).exists()) {
-    final parent = p.dirname(probe);
-    if (parent == probe) return false;
-    probe = parent;
-  }
-  final real = await _resolved(probe);
+  final real = await civitaiRealFolder(folder);
   if (real == null) return false;
   if (real == p.rootPrefix(real) || p.dirname(real) == real) return false;
   final homePath =
@@ -295,7 +315,7 @@ Future<bool> civitaiFolderIsSafe(
     if (real == realHome) return false;
     if (p.isWithin(realHome, real) &&
         _hiddenBelow(p.relative(real, from: realHome)) &&
-        !civitaiFolderInRoots(folder, roots)) {
+        !civitaiRealInRoots(real, roots)) {
       return false;
     }
   }
