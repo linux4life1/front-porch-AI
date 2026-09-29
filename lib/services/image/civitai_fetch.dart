@@ -72,6 +72,9 @@ Future<String> downloadCivitaiPlan(
   if (start == null || path == null || authorization == null) {
     throw const CivitaiDownloadException(CivitaiFailure.unsafe);
   }
+  if (!civitaiHopAllowed(start)) {
+    throw const CivitaiDownloadException(CivitaiFailure.redirect);
+  }
   final expected = plan.expectedBytes;
   if (expected != null && expected > kCivitaiMaxBytes) {
     throw const CivitaiDownloadException(CivitaiFailure.tooLarge);

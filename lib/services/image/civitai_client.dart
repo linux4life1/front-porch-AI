@@ -3,6 +3,8 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/image/civitai_download.dart';
 import 'package:front_porch_ai/services/image/civitai_errors.dart';
@@ -55,12 +57,18 @@ Uri civitaiDownloadUri(int versionId, {bool adult = false}) {
 
 String civitaiBearer(String token) => 'Bearer $token';
 
+/// Lets plain http to this computer through, so a test can run a real file
+/// host on loopback. Only tests turn this on; the shipped app never does, and
+/// every CivitAI address it builds is https.
+@visibleForTesting
+bool civitaiAllowLoopbackForTests = false;
+
 bool _isLoopback(String host) {
+  if (!civitaiAllowLoopbackForTests) return false;
   return host == 'localhost' || host == '127.0.0.1' || host == '::1';
 }
 
-/// A redirect may only lead to https. Loopback is the one exception; it never
-/// leaves this computer.
+/// A download, and every redirect on the way, may only use https.
 bool civitaiHopAllowed(Uri to) => to.scheme == 'https' || _isLoopback(to.host);
 
 /// The bearer goes only to the origin the download started at. [from] is

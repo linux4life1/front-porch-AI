@@ -245,6 +245,47 @@ void main() {
     });
   });
 
+  group('the shipped app allows only https', () {
+    setUp(() => civitaiAllowLoopbackForTests = false);
+
+    test('plain http to this computer is not allowed as a start or a hop', () {
+      for (final url in [
+        'http://127.0.0.1:8080/f',
+        'http://localhost/f',
+        'http://[::1]/f',
+        'http://cdn.example/f',
+      ]) {
+        expect(civitaiHopAllowed(Uri.parse(url)), isFalse, reason: url);
+      }
+      expect(civitaiHopAllowed(Uri.parse('https://civitai.com/f')), isTrue);
+    });
+
+    test('and the key is not sent over it', () {
+      final origin = Uri.parse('http://127.0.0.1:8080/api/download/models/1');
+      expect(
+        civitaiFollowHeaders(
+          from: origin,
+          to: origin,
+          authorization: 'Bearer k',
+        ),
+        isEmpty,
+      );
+    });
+
+    test(
+      'a download plan that points at http is refused before any request',
+      () async {
+        host.serve('/ok', bytes);
+        civitaiAllowLoopbackForTests = false;
+        final kind = await civitaiFailureOf(
+          downloadCivitaiPlan(plan(at('loras', 'x.safetensors'), '/ok')),
+        );
+        expect(kind, CivitaiFailure.redirect);
+        expect(host.requests, isEmpty);
+      },
+    );
+  });
+
   group('where a download may be written', () {
     Directory otherPlace() {
       final d = Directory.systemTemp.createTempSync('civitai-elsewhere');

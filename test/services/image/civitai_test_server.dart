@@ -21,6 +21,9 @@ class CivitaiFileHost {
     final saved = HttpOverrides.current;
     HttpOverrides.global = null;
     addTearDown(() => HttpOverrides.global = saved);
+    // The shipped app allows only https; a loopback file host needs http.
+    civitaiAllowLoopbackForTests = true;
+    addTearDown(() => civitaiAllowLoopbackForTests = false);
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final host = CivitaiFileHost._(server);
     server.listen((request) async {
