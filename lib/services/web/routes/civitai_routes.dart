@@ -7,21 +7,29 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/image/civitai_client.dart';
+import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/image/civitai_installed.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
+import 'package:front_porch_ai/services/web/auth/auth_service.dart';
 import 'package:front_porch_ai/services/web/middleware/auth_middleware.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
 /// Phone relay for CivitAI. The account id comes from the session cookie.
-/// The key is sent as a header and is not written to the log.
+/// The key is sent as a header and is not written to the log. Saving or
+/// deleting the key needs a password step-up, like every other credential.
+/// Adult search and adult downloads need the app's adult setting on.
 class CivitaiRoutes {
   CivitaiRoutes(
     Router router, {
+    required AuthService auth,
+    required bool Function() adultAllowed,
     CivitaiRelay? relay,
     String? Function(String backend)? rootFor,
     Future<String?> Function(String backend)? rootForAsync,
     Future<void> Function(CivitaiDownloadPlan plan)? startDownload,
-  }) : _relay = relay,
+  }) : _auth = auth,
+       _adultAllowed = adultAllowed,
+       _relay = relay,
        _rootFor = rootFor ?? ((_) => null),
        _rootForAsync = rootForAsync,
        _startDownload = startDownload {
@@ -36,6 +44,8 @@ class CivitaiRoutes {
     router.post('/api/image/civitai/download', download);
   }
 
+  final AuthService _auth;
+  final bool Function() _adultAllowed;
   final CivitaiRelay? _relay;
   final String? Function(String backend) _rootFor;
   final Future<String?> Function(String backend)? _rootForAsync;
@@ -46,6 +56,23 @@ class CivitaiRoutes {
     final asyncRoot = _rootForAsync;
     if (asyncRoot != null) return asyncRoot(backend);
     return Future<String?>.value(_rootFor(backend));
+  }
+
+  shelf.Response _fail(int status, String code, String message) {
+    return JsonResponse.error(status, message, extra: {'code': code});
+  }
+
+  shelf.Response? _adultRefused(bool wantsAdult) {
+    if (!wantsAdult || _adultAllowed()) return null;
+    return _fail(
+      403,
+      'adult_disabled',
+      'Adult models are turned off. Turn them on in Settings first.',
+    );
+  }
+
+  shelf.Response _keyStoreDown(CivitaiKeyStoreException e) {
+    return _fail(503, 'key_store', e.message);
   }
 
   String? _account(shelf.Request request) {
@@ -61,15 +88,22 @@ class CivitaiRoutes {
     }
     final query = request.url.queryParameters;
     final adult = query['adult'] == 'true';
+    final refused = _adultRefused(adult);
+    if (refused != null) return refused;
     final lora = query['sheet'] == 'lora';
     final relay = _relay ?? await _ready;
-    final plan = await relay.planSearch(
-      accountId: account,
-      query: query['q'] ?? '',
-      adult: adult,
-      lora: lora,
-      baseModel: query['base'] ?? '',
-    );
+    final CivitaiSearchPlan plan;
+    try {
+      plan = await relay.planSearch(
+        accountId: account,
+        query: query['q'] ?? '',
+        adult: adult,
+        lora: lora,
+        baseModel: query['base'] ?? '',
+      );
+    } on CivitaiKeyStoreException catch (e) {
+      return _keyStoreDown(e);
+    }
     debugPrint(plan.log);
     if (plan.uri == null) {
       return JsonResponse.ok({
@@ -163,9 +197,13 @@ class CivitaiRoutes {
       return JsonResponse.unauthorized('Authentication required');
     }
     final relay = _relay ?? await _ready;
-    final green = await relay.store.read(account);
-    final red = await relay.store.readRed(account);
-    return JsonResponse.ok({'saved': green != null, 'red': red != null});
+    try {
+      return JsonResponse.ok({
+        'saved': await relay.store.read(account) != null,
+      });
+    } on CivitaiKeyStoreException catch (e) {
+      return _keyStoreDown(e);
+    }
   }
 
   Future<shelf.Response> saveCredential(shelf.Request request) async {
@@ -174,25 +212,44 @@ class CivitaiRoutes {
     if (account == null) {
       return JsonResponse.unauthorized('Authentication required');
     }
+    final denied = await denyUnlessSteppedUp(
+      auth: _auth,
+      body: body,
+      request: request,
+    );
+    if (denied != null) return denied;
     final token = pastedCivitaiToken(body);
-    if (token == null) return JsonResponse.badRequest('token is required');
+    if (token == null) {
+      return _fail(400, 'bad_request', 'token is required');
+    }
     final relay = _relay ?? await _ready;
-    if (body['red'] == true) {
-      await relay.store.saveRed(account, token);
-    } else {
+    try {
       await relay.store.save(account, token);
+    } on CivitaiKeyStoreException catch (e) {
+      return _keyStoreDown(e);
     }
     debugPrint(civitaiLog(action: 'save', accountId: account));
     return JsonResponse.ok({'saved': true});
   }
 
   Future<shelf.Response> signOut(shelf.Request request) async {
+    final body = await _body(request);
     final account = _account(request);
     if (account == null) {
       return JsonResponse.unauthorized('Authentication required');
     }
+    final denied = await denyUnlessSteppedUp(
+      auth: _auth,
+      body: body,
+      request: request,
+    );
+    if (denied != null) return denied;
     final relay = _relay ?? await _ready;
-    await relay.store.signOut(account);
+    try {
+      await relay.store.signOut(account);
+    } on CivitaiKeyStoreException catch (e) {
+      return _keyStoreDown(e);
+    }
     debugPrint(civitaiLog(action: 'sign-out', accountId: account));
     return JsonResponse.ok({'signedOut': true});
   }
@@ -207,6 +264,8 @@ class CivitaiRoutes {
     if (version is! num) {
       return JsonResponse.badRequest('versionId is required');
     }
+    final refused = _adultRefused(body['adult'] == true);
+    if (refused != null) return refused;
     final backend = body['backend']?.toString() ?? '';
     final savedRoot = await _savedRoot(backend);
     if (backend == 'comfyui' &&

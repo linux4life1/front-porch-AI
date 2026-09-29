@@ -76,6 +76,8 @@ class WebBackendRoutes {
       router.get('/api/image/models', _imageRemoteModels);
       CivitaiRoutes(
         router,
+        auth: _deps.auth,
+        adultAllowed: () => _deps.storage.realismSettings.adultThemesEnabled,
         rootForAsync: savedStudioModelRoot,
         startDownload: downloadCivitaiPlan,
       );

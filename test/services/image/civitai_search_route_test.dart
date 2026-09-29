@@ -5,10 +5,13 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
+import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/web/middleware/auth_middleware.dart';
 import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
+
+import 'civitai_route_support.dart';
 
 class _RecordingRelay extends CivitaiRelay {
   _RecordingRelay(super.store);
@@ -73,7 +76,13 @@ void main() {
         deleteKey: (_) async {},
       ),
     );
-    final routes = CivitaiRoutes(Router(), relay: relay);
+    final harness = await CivitaiAuthHarness.create();
+    final routes = CivitaiRoutes(
+      Router(),
+      auth: harness.auth,
+      adultAllowed: () => false,
+      relay: relay,
+    );
     final response = await routes.search(
       Request(
         'GET',
@@ -93,12 +102,12 @@ void main() {
   test(
     'credential status says a key is saved and does not return it',
     () async {
-      final box = <String, String>{
-        'civitai_credential_local': 'green-key',
-        'civitai_credential_local_red': 'red-key',
-      };
+      final box = <String, String>{'civitai_credential_local': 'green-key'};
+      final harness = await CivitaiAuthHarness.create();
       final routes = CivitaiRoutes(
         Router(),
+        auth: harness.auth,
+        adultAllowed: () => false,
         relay: CivitaiRelay(
           CivitaiCredentialStore(
             readKey: (key) async => box[key],
@@ -116,10 +125,8 @@ void main() {
       );
       expect(response.statusCode, 200);
       final body = jsonDecode(await response.readAsString()) as Map;
-      expect(body['saved'], isTrue);
-      expect(body['red'], isTrue);
+      expect(body, {'saved': true});
       expect(body.toString().contains('green-key'), isFalse);
-      expect(body.toString().contains('red-key'), isFalse);
     },
   );
 }

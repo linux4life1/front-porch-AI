@@ -2,11 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
+import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/web/middleware/auth_middleware.dart';
 import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
+
+import 'civitai_route_support.dart';
 
 void main() {
   CivitaiCredentialStore memory(Map<String, String> box) {
@@ -185,11 +188,18 @@ void main() {
       final box = <String, String>{};
       final store = memory(box);
       await store.save('other', 'keep');
-      final routes = CivitaiRoutes(Router(), relay: CivitaiRelay(store));
+      final harness = await CivitaiAuthHarness.create();
+      final routes = CivitaiRoutes(
+        Router(),
+        auth: harness.auth,
+        adultAllowed: () => false,
+        relay: CivitaiRelay(store),
+      );
       final saved = await routes.saveCredential(
         post('/api/image/civitai/credential', {
           'accountId': 'other',
           'token': 't',
+          'currentPassword': kCivitaiTestPassword,
         }, account: 'local'),
       );
       expect(saved.statusCode, 200);
@@ -199,7 +209,10 @@ void main() {
         Request(
           'DELETE',
           Uri.parse('http://localhost/api/image/civitai/credential'),
-          body: jsonEncode({'accountId': 'other'}),
+          body: jsonEncode({
+            'accountId': 'other',
+            'currentPassword': kCivitaiTestPassword,
+          }),
           context: {kAuthUserIdContextKey: 'local'},
         ),
       );
@@ -210,7 +223,10 @@ void main() {
         Request(
           'DELETE',
           Uri.parse('http://localhost/api/image/civitai/credential'),
-          body: jsonEncode({'accountId': 'other'}),
+          body: jsonEncode({
+            'accountId': 'other',
+            'currentPassword': kCivitaiTestPassword,
+          }),
         ),
       );
       expect(denied.statusCode, 401);
@@ -222,8 +238,11 @@ void main() {
     final box = <String, String>{};
     final store = memory(box);
     await store.save('local', 'super-secret-token');
+    final harness = await CivitaiAuthHarness.create();
     final routes = CivitaiRoutes(
       Router(),
+      auth: harness.auth,
+      adultAllowed: () => false,
       relay: CivitaiRelay(store),
       rootFor: (backend) => backend == 'comfyui' ? '/models' : null,
     );

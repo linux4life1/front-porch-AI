@@ -4,6 +4,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/image/civitai_client.dart';
+import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 
 void main() {
   CivitaiCredentialStore memory(Map<String, String> box) {
@@ -18,7 +19,6 @@ void main() {
     final box = <String, String>{};
     final store = memory(box);
     await store.save('local', 'green-key');
-    await store.saveRed('local', 'red-key');
     final relay = CivitaiRelay(store);
     final search = await relay.planSearch(
       accountId: 'local',

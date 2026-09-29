@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/image/civitai_client.dart';
+import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'studio_civitai_card.dart';
@@ -41,10 +42,7 @@ class _StudioCivitaiDetailState extends State<StudioCivitaiDetail> {
   Future<void> _load() async {
     try {
       final store = await CivitaiCredentialStore.open();
-      final token = await store.readFor(
-        accountId: 'local',
-        adult: widget.adult,
-      );
+      final token = await store.read('local');
       final response = await http
           .get(
             civitaiModelUri(widget.row.id, adult: widget.adult),

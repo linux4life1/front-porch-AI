@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/image/civitai_bases.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
+import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/image/civitai_fetch.dart';
 import 'package:front_porch_ai/services/image/civitai_installed.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';

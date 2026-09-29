@@ -22,8 +22,8 @@ String civitaiCredentialKey(String accountId) {
   return 'civitai_credential_$id';
 }
 
-/// Older installs may still have a second key stored. Adult search no
-/// longer reads it.
+/// A pre-release build stored a second key here. Nothing reads or writes it
+/// now; sign-out only deletes it so no orphan secret stays in the key store.
 String civitaiRedCredentialKey(String accountId) {
   return '${civitaiCredentialKey(accountId)}_red';
 }

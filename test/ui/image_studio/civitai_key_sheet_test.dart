@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/services/image/civitai_client.dart';
+import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_civitai_get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,9 +12,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({
+    SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({
       'civitai_credential_local': 'green-key',
-      'civitai_credential_local_red': 'red-key',
     });
   });
 
@@ -48,13 +49,11 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('green-key'), findsNothing);
-      expect(find.text('red-key'), findsNothing);
       expect(find.text('civitai.red API key'), findsNothing);
       expect(find.widgetWithText(TextField, 'API key'), findsNothing);
 
       final again = await CivitaiCredentialStore.open();
       expect(await again.read('local'), 'green-key');
-      expect(await again.readRed('local'), 'red-key');
     },
   );
 }

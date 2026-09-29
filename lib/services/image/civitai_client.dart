@@ -3,11 +3,9 @@
 
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/image/civitai_download.dart';
 import 'package:front_porch_ai/services/image/civitai_files.dart';
-import 'package:front_porch_ai/services/image/civitai_oauth.dart';
 
 /// A pasted personal API key. A password field is refused.
 String? pastedCivitaiToken(Map<String, Object?> body) {
@@ -278,89 +276,6 @@ class CivitaiDownloadPlan {
   });
 }
 
-/// Read, write, and delete one string. Production uses SharedPreferences.
-typedef CivitaiKeyRead = Future<String?> Function(String key);
-typedef CivitaiKeyWrite = Future<void> Function(String key, String value);
-typedef CivitaiKeyDelete = Future<void> Function(String key);
-
-/// One pasted key per Front Porch account, under [civitaiCredentialKey].
-///
-/// SharedPreferences is the same durable store as the other API keys. The
-/// macOS keychain comes back empty on ad-hoc launches. The name has no
-/// `beta_` prefix. The value is not part of the image-gen settings blob.
-class CivitaiCredentialStore {
-  final CivitaiKeyRead readKey;
-  final CivitaiKeyWrite writeKey;
-  final CivitaiKeyDelete deleteKey;
-
-  CivitaiCredentialStore({
-    required this.readKey,
-    required this.writeKey,
-    required this.deleteKey,
-  });
-
-  factory CivitaiCredentialStore.prefs(SharedPreferences prefs) {
-    return CivitaiCredentialStore(
-      readKey: (key) async => prefs.getString(key),
-      writeKey: (key, value) async {
-        await prefs.setString(key, value);
-      },
-      deleteKey: (key) async {
-        await prefs.remove(key);
-      },
-    );
-  }
-
-  static Future<CivitaiCredentialStore> open() async {
-    return CivitaiCredentialStore.prefs(await SharedPreferences.getInstance());
-  }
-
-  Future<void> save(String accountId, String token) {
-    final trimmed = token.trim();
-    if (trimmed.isEmpty) throw ArgumentError('token');
-    return writeKey(civitaiCredentialKey(accountId), trimmed);
-  }
-
-  Future<void> saveRed(String accountId, String token) {
-    final trimmed = token.trim();
-    if (trimmed.isEmpty) throw ArgumentError('token');
-    return writeKey(civitaiRedCredentialKey(accountId), trimmed);
-  }
-
-  Future<String?> read(String accountId) async {
-    final value = await readKey(civitaiCredentialKey(accountId));
-    if (value == null || value.trim().isEmpty) return null;
-    return value;
-  }
-
-  Future<String?> readRed(String accountId) async {
-    final value = await readKey(civitaiRedCredentialKey(accountId));
-    if (value == null || value.trim().isEmpty) return null;
-    return value;
-  }
-
-  /// One key covers civitai.com and civitai.red. [adult] does not pick a
-  /// second secret.
-  Future<String?> readFor({
-    required String accountId,
-    required bool adult,
-  }) async {
-    final token = await read(accountId);
-    if (token == null && adult) return null;
-    return token;
-  }
-
-  /// Removes this account's key and leaves every other account in place.
-  Future<void> signOut(String accountId) {
-    return deleteKey(civitaiCredentialKey(accountId));
-  }
-
-  /// Removes this account's civitai.red key only.
-  Future<void> clearRed(String accountId) {
-    return deleteKey(civitaiRedCredentialKey(accountId));
-  }
-}
-
 class CivitaiRelay {
   final CivitaiCredentialStore store;
 
@@ -373,7 +288,7 @@ class CivitaiRelay {
     required bool lora,
     String baseModel = '',
   }) async {
-    final token = await store.readFor(accountId: accountId, adult: adult);
+    final token = await store.read(accountId);
     final has = token != null;
     return CivitaiSearchPlan(
       uri: civitaiModelsUri(
@@ -399,7 +314,7 @@ class CivitaiRelay {
     required bool fromLoraSheet,
     required String backend,
   }) async {
-    final token = await store.readFor(accountId: accountId, adult: adult);
+    final token = await store.read(accountId);
     final folder = civitaiSlotFolder(
       fromLoraSheet: fromLoraSheet,
       civitaiType: civitaiType,
