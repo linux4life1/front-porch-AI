@@ -27,6 +27,7 @@ import 'package:http/http.dart' as http;
 import 'comfy_workflow.dart';
 import 'image/comfy_catalog.dart';
 import 'image/comfy_edit_workflow.dart';
+import 'image/comfy_gguf_city96_gate.dart';
 import 'image/comfy_gguf_loaders.dart';
 import 'image/comfy_template_index.dart';
 
@@ -312,6 +313,9 @@ class ComfyUiService {
       primaryFile: primaryFile,
       uploaded: uploaded,
     );
+    // Only a graph that loads the Qwen-Image 2.1 GGUF pair is checked; any
+    // other model posts without the loader ever being looked at.
+    await City96Gate.instance.ensureOrThrow(comfyUrl: _root, graph: posted);
     return _runWorkflow(posted, onProgress);
   }
 

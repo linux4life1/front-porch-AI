@@ -320,6 +320,7 @@ extension _ImageGenGenerate on ImageGenService {
           final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
           _statusMessage =
               e is ComfyGraphNotReady ||
+                  e is ComfyLoaderUpdateNeeded ||
                   msg.startsWith('ComfyUI') ||
                   msg.contains('model')
               ? msg

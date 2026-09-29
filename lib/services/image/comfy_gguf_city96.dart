@@ -1,11 +1,6 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
-
-import 'comfy_model_paths.dart';
-import 'local_model_roots.dart';
-
 /// What a City96 `loader.py` needs before Qwen-Image GGUF can run.
 class City96LoaderPatch {
   final String source;
@@ -20,24 +15,6 @@ class City96LoaderPatch {
     required this.changed,
     required this.recognized,
   });
-}
-
-/// Shown when generation must wait. Null means the loader is ready.
-class City96EnsureResult {
-  final String? message;
-  final bool wrote;
-
-  const City96EnsureResult({this.message, this.wrote = false});
-}
-
-/// Qwen-Image GGUF and its Qwen3-VL text encoder. Other GGUF families
-/// already load with the stock City96 nodes.
-bool filenamesNeedQwenGgufFix(Iterable<String> names) {
-  for (final raw in names) {
-    final base = raw.replaceAll('\\', '/').split('/').last.toLowerCase();
-    if (base.endsWith('.gguf') && base.contains('qwen')) return true;
-  }
-  return false;
 }
 
 /// Stock City96 accepts `qwen_image` in its arch list but still rejects a
@@ -80,81 +57,6 @@ City96LoaderPatch patchCity96Loader(String source) {
   }
   if (crlf) text = text.replaceAll('\n', '\r\n');
   return City96LoaderPatch(source: text, changed: changed, recognized: true);
-}
-
-/// Writes the loader update into a local Comfy install. A server that is
-/// already running keeps the old code until the user restarts it.
-Future<City96EnsureResult> ensureCity96QwenImage({
-  required String comfyUrl,
-  required Iterable<String> filenames,
-  List<File>? loaders,
-  bool? serverRunning,
-  int? preferPort,
-}) async {
-  if (!filenamesNeedQwenGgufFix(filenames)) {
-    return const City96EnsureResult();
-  }
-  if (!await comfyHostIsLocal(comfyUrl)) {
-    return const City96EnsureResult(
-      message:
-          'This ComfyUI is on another computer. Qwen-Image GGUF needs '
-          'that computer\'s GGUF loader updated. Front Porch can only '
-          'update a ComfyUI on this computer.',
-    );
-  }
-  final port = preferPort ?? comfyUrlPort(comfyUrl);
-  final files = loaders ?? await city96LoaderFiles(preferPort: port);
-  if (files.isEmpty) {
-    return const City96EnsureResult(
-      message:
-          'Qwen-Image GGUF needs the ComfyUI-GGUF loader, and it was not '
-          'found in this ComfyUI install.',
-    );
-  }
-  var wrote = false;
-  var recognized = false;
-  for (final file in files) {
-    final patch = patchCity96Loader(await file.readAsString());
-    if (!patch.recognized) continue;
-    recognized = true;
-    if (!patch.changed) continue;
-    await file.writeAsString(patch.source);
-    wrote = true;
-  }
-  if (!recognized) {
-    return const City96EnsureResult(
-      message:
-          'This ComfyUI-GGUF loader is a version Front Porch cannot '
-          'update. Qwen-Image GGUF needs a loader that reads the matching '
-          'mmproj file.',
-    );
-  }
-  final running = serverRunning ?? await _portOpen(port);
-  if (wrote && running) {
-    return const City96EnsureResult(
-      message:
-          'ComfyUI\'s GGUF loader can read Qwen-Image now. Restart '
-          'ComfyUI, then generate again.',
-      wrote: true,
-    );
-  }
-  return City96EnsureResult(wrote: wrote);
-}
-
-Future<bool> _portOpen(int port) async {
-  try {
-    final socket = await Socket.connect(
-      InternetAddress.loopbackIPv4,
-      port,
-      timeout: const Duration(milliseconds: 400),
-    );
-    await socket.close();
-    return true;
-  } on SocketException {
-    return false;
-  } on OSError {
-    return false;
-  }
 }
 
 const _kArchNeedle = '''

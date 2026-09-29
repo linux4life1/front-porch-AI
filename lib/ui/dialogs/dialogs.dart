@@ -8,6 +8,7 @@ export 'byaf_import_dialog.dart';
 export 'chat_settings_dialog.dart';
 export '../pages/home/dialogs/chat_history_dialog.dart';
 export 'chat_settings_generation_section.dart';
+export 'city96_loader_dialog.dart';
 export 'chat_to_story_dialog.dart';
 export 'context_viewer_dialog.dart';
 export 'data_bank_dialog.dart';

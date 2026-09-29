@@ -141,50 +141,6 @@ Future<String?> discoverAutomatic1111Root({
   return null;
 }
 
-/// `loader.py` for every City96 install this machine can see.
-/// A server on [preferPort] is listed first.
-Future<List<File>> city96LoaderFiles({
-  int? preferPort,
-  ComfyMachineLayout? layout,
-  List<ComfyProcessSnapshot>? processes,
-  bool scanMachine = true,
-}) async {
-  final machine = layout ?? currentComfyMachineLayout();
-  final procs =
-      processes ??
-      (scanMachine
-          ? await scanComfyProcesses()
-          : const <ComfyProcessSnapshot>[]);
-  final ordered = <String>[];
-  final rest = <String>[];
-  for (final proc in procs) {
-    final hints = comfyLaunchHints(
-      proc.command,
-      cwd: proc.cwd,
-      executable: proc.executable,
-    );
-    final loader = _loaderNear(hints.mainPyDir) ?? _loaderNear(proc.cwd);
-    if (loader == null) continue;
-    if (preferPort != null && hints.port == preferPort) {
-      ordered.add(loader);
-    } else {
-      rest.add(loader);
-    }
-  }
-  for (final install in await _installDirs(machine.installSearchRoots)) {
-    final loader = _loaderNear(install);
-    if (loader != null) rest.add(loader);
-  }
-  final files = <File>[];
-  final seen = <String>{};
-  for (final path in [...ordered, ...rest]) {
-    if (!seen.add(path)) continue;
-    final file = File(path);
-    if (await file.exists()) files.add(file);
-  }
-  return files;
-}
-
 /// Local `python main.py` / webui processes. Empty when the OS refuses.
 Future<List<ComfyProcessSnapshot>> scanComfyProcesses() async {
   try {
@@ -360,11 +316,6 @@ Future<void> _walkInstall(Directory dir, int depth, List<String> found) async {
   } on FileSystemException {
     return;
   }
-}
-
-String? _loaderNear(String? root) {
-  if (root == null || root.isEmpty) return null;
-  return p.join(root, 'custom_nodes', 'ComfyUI-GGUF', 'loader.py');
 }
 
 Future<List<ComfyProcessSnapshot>> _scanPosix() async {

@@ -19,7 +19,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:front_porch_ai/app_version.dart';
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/pages/pages.dart';
@@ -51,6 +53,14 @@ class _MainLayoutState extends State<MainLayout> {
     // indistinguishable from a working one (sidecar retirement playbook),
     // and users only report what visibly breaks.
     EngineHealth.instance.onFirstFailure = _showEngineFailureNotice;
+    // The desktop is where ComfyUI-GGUF's loader may be changed, and only
+    // after asking.
+    City96Gate.instance.ask = _askCity96;
+  }
+
+  Future<bool> _askCity96(City96Question question) async {
+    if (!mounted) return false;
+    return showCity96LoaderDialog(context, question);
   }
 
   @override
@@ -58,6 +68,7 @@ class _MainLayoutState extends State<MainLayout> {
     if (EngineHealth.instance.onFirstFailure == _showEngineFailureNotice) {
       EngineHealth.instance.onFirstFailure = null;
     }
+    if (City96Gate.instance.ask == _askCity96) City96Gate.instance.ask = null;
     super.dispose();
   }
 
