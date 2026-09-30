@@ -100,6 +100,24 @@ extension ImageStudioDesk on ImageFacade {
   /// own slot. A bundled graph follows the file's family, except that a file
   /// of no known family stays on the graph it was chosen on.
   Future<void> pickModel({required bool edit, required String file}) async {
+    final before = ImageModelFamily.detectFromName(
+      studioPrimaryFor(_s, edit: edit),
+    );
+    await _pickModel(edit: edit, file: file);
+    final after = ImageModelFamily.detectFromName(
+      studioPrimaryFor(_s, edit: edit),
+    );
+    // "Use anyway" belongs to the model it was pressed for: it is dropped when
+    // the model changes to another family.
+    final key = _s.k('image_studio_lora_override_family');
+    final override = _s.prefs?.getString(key) ?? '';
+    if (before != after && override.isNotEmpty && override != after.name) {
+      await _s.prefs?.remove(key);
+      _s.notify();
+    }
+  }
+
+  Future<void> _pickModel({required bool edit, required String file}) async {
     final name = _cleanName(file);
     if (_s.imageGenBackend == 'remote') {
       await _s.setRemoteImageModelFor(_s.imageRemoteApiUrl, name, edit: edit);

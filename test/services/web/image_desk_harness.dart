@@ -4,7 +4,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
@@ -45,13 +47,20 @@ class DeskComfy {
   final List<int> uploaded = [];
   Map<String, dynamic>? posted;
 
+  /// Every path asked of it, with its query, in order.
+  final List<String> requests = [];
+
   static const String stored = 'stored_by_comfy_7.png';
 
+  /// [saved] are the workflows in its Desktop `workflows` folder, by file
+  /// name (`my_flow.json`) with the JSON text of each.
   static Future<DeskComfy> start({
     List<String> unet = const [],
     List<String> clip = const [],
     List<String> vae = const [],
     List<String> checkpoints = const [],
+    List<String> loras = const [],
+    Map<String, String> saved = const {},
   }) async {
     Map<String, dynamic> loader(String input, List<String> files) => {
       'input': {
@@ -66,16 +75,28 @@ class DeskComfy {
       'CLIPLoader': loader('clip_name', clip),
       'VAELoader': loader('vae_name', vae),
       'CheckpointLoaderSimple': loader('ckpt_name', checkpoints),
+      'LoraLoader': loader('lora_name', loras),
     };
     HttpOverrides.global = null;
     final comfy = DeskComfy._(
       await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
     );
     comfy.server.listen((request) async {
-      final path = request.uri.path;
+      final path = Uri.decodeComponent(request.uri.path);
+      comfy.requests.add(
+        request.uri.hasQuery ? '$path?${request.uri.query}' : path,
+      );
       request.response.headers.contentType = ContentType.json;
       if (path == '/object_info') {
         request.response.write(jsonEncode(info));
+      } else if (request.method == 'GET' && path == '/userdata') {
+        request.response.write(
+          jsonEncode([for (final name in saved.keys) 'workflows/$name']),
+        );
+      } else if (request.method == 'GET' &&
+          path.startsWith('/userdata/workflows/') &&
+          saved.containsKey(path.split('/').last)) {
+        request.response.write(saved[path.split('/').last]);
       } else if (request.method == 'POST' && path == '/upload/image') {
         comfy.uploads++;
         await for (final chunk in request) {
@@ -112,11 +133,29 @@ class DeskHarness {
   late final ImageGenService image;
   late final ImageFacade facade;
 
-  static Future<DeskHarness> boot({DeskComfy? comfy}) async {
+  /// With [realPrefs] the settings are kept in (mock) shared preferences, as
+  /// in the app, for what is stored there and not in the sandbox.
+  static Future<DeskHarness> boot({
+    DeskComfy? comfy,
+    bool realPrefs = false,
+  }) async {
     final h = DeskHarness._();
     final dir = Directory.systemTemp.createTempSync('image-desk');
     addTearDown(() => dir.deleteSync(recursive: true));
-    h.storage = StorageService.sandbox(dir.path);
+    if (realPrefs) {
+      SharedPreferences.setMockInitialValues({});
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('plugins.flutter.io/path_provider'),
+            (call) async => call.method == 'getApplicationDocumentsDirectory'
+                ? dir.path
+                : null,
+          );
+      h.storage = StorageService();
+      await h.storage.initialized;
+    } else {
+      h.storage = StorageService.sandbox(dir.path);
+    }
     h.db = AppDatabase.forTesting();
     addTearDown(h.db.close);
     h.auth = AuthService(h.db);
