@@ -17,16 +17,13 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/image_prompt/image_prompt_builder.dart';
-import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
-import 'package:front_porch_ai/ui/image_studio/style_preview.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Dialog for configuring image generation settings.
-/// The body is the studio desk.
+/// The body is the studio desk; its Advanced knobs hold Style and Prompt
+/// format.
 class ImageGenSettingsDialog extends StatelessWidget {
   const ImageGenSettingsDialog({super.key});
 
@@ -75,36 +72,12 @@ class ImageGenSettingsDialog extends StatelessWidget {
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    StudioDesk(showGenerate: false),
-                    SizedBox(height: 16),
-                    _ImageStylePicker(),
-                  ],
-                ),
+                child: const StudioDesk(showGenerate: false),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-/// The style and prompt format, with the preview note that says what each does.
-class _ImageStylePicker extends StatelessWidget {
-  const _ImageStylePicker();
-
-  @override
-  Widget build(BuildContext context) {
-    final settings = context.watch<StorageService>().imageGenSettings;
-    return StylePreview(
-      selectedStyle: settings.imageGenStyle,
-      paradigm: settings.imageGenPromptParadigm,
-      builder: ImagePromptBuilder(),
-      onStyleChanged: settings.setImageGenStyle,
-      onParadigmChanged: settings.setImageGenPromptParadigm,
     );
   }
 }

@@ -13,12 +13,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_settings_dialog.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
-import 'package:front_porch_ai/ui/image_studio/style_preview.dart';
 
 /// A reachable Automatic1111: two checkpoints, two LoRAs. Nothing is dialled.
 class _ReachableA1111 extends ImageGenService {
@@ -242,9 +242,7 @@ void main() {
   });
 
   group('the settings dialog', () {
-    testWidgets('is the desk (without its own Generate) and the style picker', (
-      tester,
-    ) async {
+    testWidgets('is the desk, without its own Generate', (tester) async {
       await storage.imageGenSettings.setImageGenBackend('comfyui');
       await pump(tester, const ImageGenSettingsDialog());
 
@@ -254,7 +252,39 @@ void main() {
         isFalse,
       );
       expect(find.text('Generate'), findsNothing);
-      expect(find.byType(StylePreview), findsOneWidget);
+    });
+
+    testWidgets('has one Style and one Prompt format, and they save', (
+      tester,
+    ) async {
+      final s = storage.imageGenSettings;
+      final host = kImageStudioRemoteHosts.first.url;
+      await s.setImageGenBackend('remote');
+      await s.setImageRemoteApiUrl(host);
+      await storage.backendSettings.setRemoteApiKeyFor(host, 'test-key');
+      await s.setImageGenStyle('photorealistic');
+      await s.setImageGenPromptParadigm('natural');
+      await pump(tester, const ImageGenSettingsDialog());
+
+      await tester.ensureVisible(find.textContaining('Advanced'));
+      await tester.tap(find.textContaining('Advanced'));
+      await tester.pumpAndSettle();
+      expect(find.text('Style'), findsOneWidget);
+      expect(find.text('Prompt format'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Style'));
+      await tester.tap(find.text('Photorealistic'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Watercolor').last);
+      await tester.pumpAndSettle();
+      expect(s.imageGenStyle, 'watercolor');
+
+      await tester.ensureVisible(find.text('Prompt format'));
+      await tester.tap(find.text('Natural language (FLUX / SD3)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Danbooru tags (SD 1.5 / anime)').last);
+      await tester.pumpAndSettle();
+      expect(s.imageGenPromptParadigm, 'tags');
     });
   });
 }
