@@ -221,9 +221,10 @@ class City96Gate {
     final pid = await _pidFor(comfyUrl);
     final started = pid == null ? null : await probe.processStart(pid);
     if (started == null) return true;
-    final loaded = started.isAfter(wrote.add(kStartMargin));
-    if (loaded && record != null) await records.remove(loader.path);
-    return !loaded;
+    // The record stays once ComfyUI has loaded it: it is replaced by the next
+    // write, never dropped, or a later `touch` or a clock that is off would
+    // send the file back to being judged by its own time.
+    return !started.isAfter(wrote.add(kStartMargin));
   }
 
   /// Where the loader stands, without asking or writing anything.

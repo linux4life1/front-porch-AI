@@ -275,252 +275,285 @@ void main() {
       },
     );
 
-    group(
-      'whether ComfyUI has loaded the update follows the process, not memory',
-      () {
-        const url = 'http://127.0.0.1:8188';
-        final patched = patchCity96Loader(kStockCity96Loader).source;
+    group('whether ComfyUI has loaded the update follows the process, not memory', () {
+      const url = 'http://127.0.0.1:8188';
+      final patched = patchCity96Loader(kStockCity96Loader).source;
 
-        City96Gate started(int? pid, DateTime? at) => City96Gate(
+      City96Gate started(int? pid, DateTime? at) => City96Gate(
+        locate: (_) async => loader,
+        pidFor: (_) async => pid,
+        probe: FakeProbe(starts: {?pid: ?at}),
+      );
+
+      // A loader that already holds the patch, written at a known moment.
+      final wrote = DateTime.utc(2026, 5, 1, 12);
+      Future<City96Gate> gateAfter({
+        DateTime? startedAt,
+        bool record = true,
+        String? recordedText,
+        DateTime? mtime,
+      }) async {
+        loader.writeAsStringSync(patched);
+        loader.setLastModifiedSync(mtime ?? wrote);
+        final g = City96Gate(
           locate: (_) async => loader,
-          pidFor: (_) async => pid,
-          probe: FakeProbe(starts: {?pid: ?at}),
+          pidFor: (_) async => 100,
+          probe: FakeProbe(starts: {100: ?startedAt}),
         );
-
-        // A loader that already holds the patch, written at a known moment.
-        final wrote = DateTime.utc(2026, 5, 1, 12);
-        Future<City96Gate> gateAfter({
-          DateTime? startedAt,
-          bool record = true,
-          String? recordedText,
-          DateTime? mtime,
-        }) async {
-          loader.writeAsStringSync(patched);
-          loader.setLastModifiedSync(mtime ?? wrote);
-          final g = City96Gate(
-            locate: (_) async => loader,
-            pidFor: (_) async => 100,
-            probe: FakeProbe(starts: {100: ?startedAt}),
+        if (record) {
+          await g.records.put(
+            loader.path,
+            City96Record(hash: city96Hash(recordedText ?? patched), at: wrote),
           );
-          if (record) {
-            await g.records.put(
-              loader.path,
-              City96Record(
-                hash: city96Hash(recordedText ?? patched),
-                at: wrote,
-              ),
+        }
+        return g;
+      }
+
+      Future<City96State> stateOf(City96Gate g) async =>
+          (await g.check(comfyUrl: url, graph: _graph())).state;
+
+      test(
+        'ComfyUI must have started more than a margin after the write',
+        () async {
+          // Less than a second before, and just after: it has not read it.
+          for (final offset in [
+            const Duration(milliseconds: -500),
+            Duration.zero,
+            const Duration(seconds: 1),
+            const Duration(seconds: 2),
+          ]) {
+            final g = await gateAfter(startedAt: wrote.add(offset));
+            expect(
+              await stateOf(g),
+              City96State.restartNeeded,
+              reason: '$offset',
             );
           }
-          return g;
-        }
-
-        Future<City96State> stateOf(City96Gate g) async =>
-            (await g.check(comfyUrl: url, graph: _graph())).state;
-
-        test(
-          'ComfyUI must have started more than a margin after the write',
-          () async {
-            // Less than a second before, and just after: it has not read it.
-            for (final offset in [
-              const Duration(milliseconds: -500),
-              Duration.zero,
-              const Duration(seconds: 1),
-              const Duration(seconds: 2),
-            ]) {
-              final g = await gateAfter(startedAt: wrote.add(offset));
-              expect(
-                await stateOf(g),
-                City96State.restartNeeded,
-                reason: '$offset',
-              );
-            }
-            final g = await gateAfter(
-              startedAt: wrote.add(const Duration(seconds: 3)),
-            );
-            expect(await stateOf(g), City96State.ready);
-          },
-        );
-
-        test('a start time that cannot be read is never Ready', () async {
-          expect(await stateOf(await gateAfter()), City96State.restartNeeded);
-          expect(
-            await stateOf(await gateAfter(record: false)),
-            City96State.restartNeeded,
+          final g = await gateAfter(
+            startedAt: wrote.add(const Duration(seconds: 3)),
           );
-        });
+          expect(await stateOf(g), City96State.ready);
+        },
+      );
 
-        test(
-          'a file time in the future does not keep Restart stuck, when this app wrote it',
-          () async {
-            final g = await gateAfter(
-              startedAt: wrote.add(const Duration(hours: 1)),
-              mtime: DateTime.now().add(const Duration(days: 2)),
-            );
-            expect(await stateOf(g), City96State.ready);
-          },
+      test('a start time that cannot be read is never Ready', () async {
+        expect(await stateOf(await gateAfter()), City96State.restartNeeded);
+        expect(
+          await stateOf(await gateAfter(record: false)),
+          City96State.restartNeeded,
         );
+      });
 
-        test(
-          'a file time in the future is not believed when nothing was recorded',
-          () async {
-            final g = await gateAfter(
-              startedAt: wrote.add(const Duration(hours: 1)),
-              mtime: DateTime.now().add(const Duration(days: 2)),
-              record: false,
-            );
-            expect(await stateOf(g), City96State.restartNeeded);
-          },
+      test(
+        'a file time in the future does not keep Restart stuck, when this app wrote it',
+        () async {
+          final g = await gateAfter(
+            startedAt: wrote.add(const Duration(hours: 1)),
+            mtime: DateTime.now().add(const Duration(days: 2)),
+          );
+          expect(await stateOf(g), City96State.ready);
+        },
+      );
+
+      test(
+        'a file time in the future is not believed when nothing was recorded',
+        () async {
+          final g = await gateAfter(
+            startedAt: wrote.add(const Duration(hours: 1)),
+            mtime: DateTime.now().add(const Duration(days: 2)),
+            record: false,
+          );
+          expect(await stateOf(g), City96State.restartNeeded);
+        },
+      );
+
+      test('touching the file without changing it is not an update', () async {
+        final g = await gateAfter(
+          startedAt: wrote.add(const Duration(minutes: 10)),
+          mtime: wrote.add(const Duration(minutes: 30)),
         );
+        expect(await stateOf(g), City96State.ready);
+      });
 
-        test(
-          'touching the file without changing it is not an update',
-          () async {
-            final g = await gateAfter(
-              startedAt: wrote.add(const Duration(minutes: 10)),
-              mtime: wrote.add(const Duration(minutes: 30)),
-            );
-            expect(await stateOf(g), City96State.ready);
-          },
-        );
+      test(
+        'a file that is not what was recorded is judged by its own time',
+        () async {
+          final g = await gateAfter(
+            startedAt: wrote.add(const Duration(minutes: 10)),
+            recordedText: 'something else',
+            mtime: wrote.subtract(const Duration(hours: 1)),
+          );
+          expect(await stateOf(g), City96State.ready);
+          final later = await gateAfter(
+            startedAt: wrote.add(const Duration(minutes: 10)),
+            recordedText: 'something else',
+            mtime: wrote.add(const Duration(minutes: 30)),
+          );
+          expect(await stateOf(later), City96State.restartNeeded);
+        },
+      );
 
-        test(
-          'a file that is not what was recorded is judged by its own time',
-          () async {
-            final g = await gateAfter(
-              startedAt: wrote.add(const Duration(minutes: 10)),
-              recordedText: 'something else',
-              mtime: wrote.subtract(const Duration(hours: 1)),
-            );
-            expect(await stateOf(g), City96State.ready);
-            final later = await gateAfter(
-              startedAt: wrote.add(const Duration(minutes: 10)),
-              recordedText: 'something else',
-              mtime: wrote.add(const Duration(minutes: 30)),
-            );
-            expect(await stateOf(later), City96State.restartNeeded);
-          },
-        );
-
-        test('once loaded, the record is dropped', () async {
+      test(
+        'once loaded it stays loaded: a touch or a clock that is off later does not send it back to Restart',
+        () async {
           final g = await gateAfter(
             startedAt: wrote.add(const Duration(hours: 1)),
           );
           expect(await stateOf(g), City96State.ready);
-          expect(await g.records.get(loader.path), isNull);
-        });
 
-        test('what was written is kept across an app restart', () async {
-          SharedPreferences.setMockInitialValues({});
-          final first = City96Gate(
-            locate: (_) async => loader,
-            ask: (_) async => true,
-            pidFor: (_) async => 100,
-            probe: const FakeProbe(),
-          )..records = PrefsCity96Records();
-          await first.ensure(comfyUrl: url, graph: _graph());
-          // The file's own time is not to be trusted (a share, a clock).
+          // The file is touched five minutes after ComfyUI started, and then
+          // its time is put far in the future; the text never changes.
+          loader.setLastModifiedSync(
+            wrote.add(const Duration(hours: 1, minutes: 5)),
+          );
+          expect(await stateOf(g), City96State.ready);
           loader.setLastModifiedSync(
             DateTime.now().add(const Duration(days: 2)),
           );
+          expect(await stateOf(g), City96State.ready);
+          expect(await g.records.get(loader.path), isNotNull);
+        },
+      );
 
-          // A new run of the app: a new gate, the same saved record.
-          final second = City96Gate(
+      test(
+        'the next write replaces the record, so the new write is what ComfyUI must have started after',
+        () async {
+          final g = await gateAfter(
+            startedAt: wrote.add(const Duration(hours: 1)),
+          );
+          expect(await stateOf(g), City96State.ready);
+
+          // The loader goes back to stock (ComfyUI-GGUF updated itself) and is
+          // updated again now; the running ComfyUI is the old one.
+          loader.writeAsStringSync(kStockCity96Loader);
+          final asked = City96Gate(
             locate: (_) async => loader,
+            ask: (_) async => true,
             pidFor: (_) async => 100,
             probe: FakeProbe(
-              starts: {100: DateTime.now().subtract(const Duration(hours: 1))},
+              starts: {100: wrote.add(const Duration(hours: 1))},
             ),
-          )..records = PrefsCity96Records();
-          expect(await stateOf(second), City96State.restartNeeded);
-          final restarted = City96Gate(
+          )..records = g.records;
+          await asked.ensure(comfyUrl: url, graph: _graph());
+
+          final record = await g.records.get(loader.path);
+          expect(
+            record!.at.isAfter(wrote.add(const Duration(days: 1))),
+            isTrue,
+          );
+          expect(await stateOf(asked), City96State.restartNeeded);
+        },
+      );
+
+      test('what was written is kept across an app restart', () async {
+        SharedPreferences.setMockInitialValues({});
+        final first = City96Gate(
+          locate: (_) async => loader,
+          ask: (_) async => true,
+          pidFor: (_) async => 100,
+          probe: const FakeProbe(),
+        )..records = PrefsCity96Records();
+        await first.ensure(comfyUrl: url, graph: _graph());
+        // The file's own time is not to be trusted (a share, a clock).
+        loader.setLastModifiedSync(DateTime.now().add(const Duration(days: 2)));
+
+        // A new run of the app: a new gate, the same saved record.
+        final second = City96Gate(
+          locate: (_) async => loader,
+          pidFor: (_) async => 100,
+          probe: FakeProbe(
+            starts: {100: DateTime.now().subtract(const Duration(hours: 1))},
+          ),
+        )..records = PrefsCity96Records();
+        expect(await stateOf(second), City96State.restartNeeded);
+        final restarted = City96Gate(
+          locate: (_) async => loader,
+          pidFor: (_) async => 100,
+          probe: FakeProbe(
+            starts: {100: DateTime.now().add(const Duration(minutes: 5))},
+          ),
+        )..records = PrefsCity96Records();
+        expect(await stateOf(restarted), City96State.ready);
+      });
+
+      test(
+        'the same gate stops saying restart once ComfyUI restarted, even when the id was unknown at write',
+        () async {
+          int? pid;
+          final restartedAt = DateTime.now().add(const Duration(minutes: 5));
+          final g = City96Gate(
             locate: (_) async => loader,
-            pidFor: (_) async => 100,
-            probe: FakeProbe(
-              starts: {100: DateTime.now().add(const Duration(minutes: 5))},
-            ),
-          )..records = PrefsCity96Records();
-          expect(await stateOf(restarted), City96State.ready);
-        });
-
-        test(
-          'the same gate stops saying restart once ComfyUI restarted, even when the id was unknown at write',
-          () async {
-            int? pid;
-            final restartedAt = DateTime.now().add(const Duration(minutes: 5));
-            final g = City96Gate(
-              locate: (_) async => loader,
-              ask: (_) async => true,
-              pidFor: (_) async => pid,
-              probe: FakeProbe(starts: {300: restartedAt}),
-            );
-            await g.ensure(comfyUrl: url, graph: _graph());
-            expect(
-              (await g.check(comfyUrl: url, graph: _graph())).state,
-              City96State.restartNeeded,
-              reason: 'nothing tells it ComfyUI restarted yet',
-            );
-
-            pid = 300;
-            expect(
-              (await g.check(comfyUrl: url, graph: _graph())).state,
-              City96State.ready,
-            );
-            expect(
-              (await g.check(comfyUrl: url, graph: _graph())).state,
-              City96State.ready,
-              reason: 'and it stays cleared',
-            );
-          },
-        );
-
-        test(
-          'an app restart does not make an unloaded update look Ready',
-          () async {
-            loader.writeAsStringSync(patched);
-            // ComfyUI started an hour before the loader was written.
-            final g = started(
-              100,
-              DateTime.now().subtract(const Duration(hours: 1)),
-            );
-            final result = await g.check(comfyUrl: url, graph: _graph());
-            expect(result.state, City96State.restartNeeded);
-            expect(result.message, contains('Restart ComfyUI'));
-          },
-        );
-
-        test('an update written before ComfyUI started is Ready', () async {
-          loader.writeAsStringSync(patched);
-          loader.setLastModifiedSync(
-            DateTime.now().subtract(const Duration(hours: 2)),
+            ask: (_) async => true,
+            pidFor: (_) async => pid,
+            probe: FakeProbe(starts: {300: restartedAt}),
           );
-          final g = started(
-            100,
-            DateTime.now().subtract(const Duration(hours: 1)),
+          await g.ensure(comfyUrl: url, graph: _graph());
+          expect(
+            (await g.check(comfyUrl: url, graph: _graph())).state,
+            City96State.restartNeeded,
+            reason: 'nothing tells it ComfyUI restarted yet',
           );
+
+          pid = 300;
           expect(
             (await g.check(comfyUrl: url, graph: _graph())).state,
             City96State.ready,
           );
-        });
+          expect(
+            (await g.check(comfyUrl: url, graph: _graph())).state,
+            City96State.ready,
+            reason: 'and it stays cleared',
+          );
+        },
+      );
 
-        test(
-          'with no start time to read, an update this run made still waits',
-          () async {
-            final g = City96Gate(
-              locate: (_) async => loader,
-              ask: (_) async => true,
-              pidFor: (_) async => 100,
-              probe: const FakeProbe(),
-            );
-            await g.ensure(comfyUrl: url, graph: _graph());
-            expect(
-              (await g.check(comfyUrl: url, graph: _graph())).state,
-              City96State.restartNeeded,
-            );
-          },
+      test(
+        'an app restart does not make an unloaded update look Ready',
+        () async {
+          loader.writeAsStringSync(patched);
+          // ComfyUI started an hour before the loader was written.
+          final g = started(
+            100,
+            DateTime.now().subtract(const Duration(hours: 1)),
+          );
+          final result = await g.check(comfyUrl: url, graph: _graph());
+          expect(result.state, City96State.restartNeeded);
+          expect(result.message, contains('Restart ComfyUI'));
+        },
+      );
+
+      test('an update written before ComfyUI started is Ready', () async {
+        loader.writeAsStringSync(patched);
+        loader.setLastModifiedSync(
+          DateTime.now().subtract(const Duration(hours: 2)),
         );
-      },
-    );
+        final g = started(
+          100,
+          DateTime.now().subtract(const Duration(hours: 1)),
+        );
+        expect(
+          (await g.check(comfyUrl: url, graph: _graph())).state,
+          City96State.ready,
+        );
+      });
+
+      test(
+        'with no start time to read, an update this run made still waits',
+        () async {
+          final g = City96Gate(
+            locate: (_) async => loader,
+            ask: (_) async => true,
+            pidFor: (_) async => 100,
+            probe: const FakeProbe(),
+          );
+          await g.ensure(comfyUrl: url, graph: _graph());
+          expect(
+            (await g.check(comfyUrl: url, graph: _graph())).state,
+            City96State.restartNeeded,
+          );
+        },
+      );
+    });
 
     group('the question says when other users can change the folder', () {
       City96Gate withProbe(FakeProbe probe) => City96Gate(
