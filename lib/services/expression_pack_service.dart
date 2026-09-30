@@ -22,11 +22,9 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/expression_pack_base_check.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
-
-/// The most pixels a pack's base picture may declare (about 40 megapixels).
-const int kMaxPackBasePixels = 40 * 1000 * 1000;
 
 /// Decode a candidate pack base and re-emit it at a diffusion-friendly size
 /// that PRESERVES the source aspect ratio — a portrait avatar yields a
@@ -37,28 +35,30 @@ const int kMaxPackBasePixels = 40 * 1000 * 1000;
 /// generation size. Shared by the Studio pack dialog and the creator's
 /// Portrait & Avatars panel. Returns null when the bytes can't be decoded.
 ///
-/// A picture bigger than [kMaxPackBasePixels] is refused from its header, before
-/// anything is decoded: a small file can declare a huge picture, and decoding
-/// one takes seconds and gigabytes. Then null is returned and [onRefused] is
-/// given the sentence to show.
+/// The bytes are judged before any decoder sees them ([inspectPackBase]): only
+/// PNG, JPEG and still WebP, nothing animated, nothing over about 40
+/// megapixels, no PNG that inflates past its size. Then null is returned, and
+/// [onRefused] (when the reason is one to show) is given the refusal. A decode
+/// that fails is null as well.
 ({Uint8List bytes, int width, int height})? normalizePackBase(
   Uint8List raw, {
-  void Function(String reason)? onRefused,
+  void Function(PackBaseRefusal refusal)? onRefused,
 }) {
-  img.DecodeInfo? header;
-  try {
-    header = img.findDecoderForData(raw)?.startDecode(raw);
-  } catch (_) {
-    return null; // not a picture the decoders can read
-  }
-  if (header == null) return null;
-  if (header.width * header.height > kMaxPackBasePixels) {
-    onRefused?.call(
-      'That picture is ${header.width}x${header.height}, which is too large '
-      'to build a pack from. Use one under 40 megapixels.',
-    );
+  final verdict = inspectPackBase(raw);
+  if (verdict.size == null) {
+    final refusal = verdict.refusal;
+    if (refusal != null) onRefused?.call(refusal);
     return null;
   }
+  try {
+    return _normalized(raw);
+  } catch (e) {
+    debugPrint('[ExpressionPack] base picture could not be decoded: $e');
+    return null;
+  }
+}
+
+({Uint8List bytes, int width, int height})? _normalized(Uint8List raw) {
   final decoded = img.decodeImage(raw);
   if (decoded == null) return null;
   final isLandscape = decoded.width >= decoded.height;

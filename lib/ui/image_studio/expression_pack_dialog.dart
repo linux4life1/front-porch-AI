@@ -147,7 +147,10 @@ class ExpressionPackDialog extends StatefulWidget {
     // Anyone wanting different framing can pick a pre-cropped reference
     // image in the Studio first.
     String? refused;
-    final normalized = normalizePackBase(base, onRefused: (r) => refused = r);
+    final normalized = normalizePackBase(
+      base,
+      onRefused: (r) => refused = r.message,
+    );
     if (!context.mounted) return false;
     if (normalized == null) {
       await showWarmDialog(

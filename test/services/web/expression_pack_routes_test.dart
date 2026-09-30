@@ -8,6 +8,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
@@ -24,6 +25,7 @@ import 'package:front_porch_ai/services/image/image.dart'
 import 'package:front_porch_ai/services/web/facade/image_facade.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 
+import '../../helpers/crafted_pictures.dart';
 import '../../helpers/huge_png.dart';
 import 'desk_graphs.dart';
 import 'image_desk_harness.dart';
@@ -392,6 +394,86 @@ void main() {
         expect(comfy.uploads, 0);
         final (gone, _) = await h.call('GET', _pack);
         expect(gone, 404);
+      },
+    );
+
+    group(
+      'a crafted picture is refused at once, and never as a server error',
+      () {
+        final crafted = <String, (Uint8List, int, String)>{
+          'a PNG that inflates to hundreds of megabytes': (
+            pngBomb(inflated: 256 * 1024 * 1024),
+            400,
+            'bad_picture',
+          ),
+          'an APNG with a huge frame': (
+            apng(frameWidth: 16000, frameHeight: 16000),
+            400,
+            'bad_picture',
+          ),
+          'a 30-frame APNG': (
+            apng(frames: 30, frameWidth: 6000, frameHeight: 6000),
+            400,
+            'bad_picture',
+          ),
+          'a tiny JPEG declaring 16000x16000': (
+            tinyJpeg(16000, 16000),
+            413,
+            'too_large',
+          ),
+          'an animated WebP': (webpAnimated(), 400, 'bad_picture'),
+          'a WebP whose inner picture is huge': (
+            webpExtended(
+              canvasWidth: 64,
+              canvasHeight: 64,
+              innerWidth: 16000,
+              innerHeight: 16000,
+            ),
+            413,
+            'too_large',
+          ),
+          'a lossless WebP declaring 16000x16000': (
+            webpLossless(16000, 16000),
+            413,
+            'too_large',
+          ),
+        };
+        crafted.forEach((name, spec) {
+          test(name, () async {
+            final comfy = await boot();
+            final watch = Stopwatch()..start();
+            final (status, body) = await h.call('POST', _pack, {
+              'characterId': mara,
+              'referenceImage':
+                  'data:image/png;base64,${base64Encode(spec.$1)}',
+            });
+            watch.stop();
+
+            expect(status, spec.$2, reason: '$body');
+            expect(body['code'], spec.$3);
+            expect(watch.elapsedMilliseconds, lessThan(1500));
+            expect(comfy.uploads, 0);
+            expect(comfy.postedAll, isEmpty);
+          });
+        });
+
+        test('a picture that passes the checks and then will not decode is '
+            '"not a picture" (400)', () async {
+          await boot();
+          final rows = Uint8List(8 * (1 + 8 * 4))..[0] = 9;
+          final broken = Uint8List.fromList([
+            137, 80, 78, 71, 13, 10, 26, 10, //
+            ...pngHeader(8, 8),
+            ...pngChunk('IDAT', ZLibEncoder().convert(rows)),
+            ...pngChunk('IEND', const []),
+          ]);
+          final (status, body) = await h.call('POST', _pack, {
+            'characterId': mara,
+            'referenceImage': 'data:image/png;base64,${base64Encode(broken)}',
+          });
+          expect(status, 400);
+          expect(body['code'], 'bad_picture');
+        });
       },
     );
 

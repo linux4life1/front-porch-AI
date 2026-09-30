@@ -18,7 +18,7 @@ Uint8List hugePng(int width, int height) {
     final length = ByteData(4)..setUint32(0, data.length);
     out.add(length.buffer.asUint8List());
     out.add(body);
-    final crc = ByteData(4)..setUint32(0, _crc32(body));
+    final crc = ByteData(4)..setUint32(0, pngCrc32(body));
     out.add(crc.buffer.asUint8List());
   }
 
@@ -33,7 +33,7 @@ Uint8List hugePng(int width, int height) {
   return out.toBytes();
 }
 
-int _crc32(List<int> bytes) {
+int pngCrc32(List<int> bytes) {
   var crc = 0xFFFFFFFF;
   for (final b in bytes) {
     crc ^= b;

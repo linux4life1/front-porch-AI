@@ -34,6 +34,7 @@
 export 'desktop_spell_check_service.dart';
 export 'engine_health.dart';
 export 'expression_pack_base.dart';
+export 'expression_pack_base_check.dart';
 export 'expression_pack_service.dart';
 export 'model_fetch.dart';
 export 'model_manager.dart';

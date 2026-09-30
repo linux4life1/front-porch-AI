@@ -73,7 +73,10 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
       return;
     }
     String? refused;
-    final normalized = normalizePackBase(base, onRefused: (r) => refused = r);
+    final normalized = normalizePackBase(
+      base,
+      onRefused: (r) => refused = r.message,
+    );
     if (normalized == null) {
       _fail(refused ?? 'The portrait image could not be decoded.');
       return;
