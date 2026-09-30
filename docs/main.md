@@ -2,6 +2,38 @@
 
 These notes feed the in-app "Update Available" dialog for stable releases on `main`.
 
+## v1.4.1 — KB5069420: Cumulative Porch Update
+
+Round two. Restart not required.
+
+- ⏰ **Needs follow the story clock.** Hunger, sleep and the rest move with the time the scene says passed, not with every message. A quick exchange leaves the bars alone and says "no needs affected." Needs off stays off, and on stays on, when you reopen a chat.
+
+- 📚 **Export a lorebook, your way.** Pick which entries go into the file before you save it.
+
+- 🌍 **Bring a character's lore into your Worlds.** Pick which of a character's lore entries to copy into a place in one of your Worlds, in one step.
+
+- 🚩 **Stoop: report a real person.** Listings that use a real person can be reported from the card.
+
+- 🔎 **Tell the character exactly what to look up.** End your message with `/search -- the name` to search the web, or `/wiki -- the name` to check the chat's wiki. Only the words after `--` get searched, so the character won't guess from the rest of your roleplay. Same on the phone.
+
+- 🔁 **Force a lookup on regenerate.** The regenerate box has a new "Look this up" row. Pick Web or Wiki, type the exact words, and the new reply is written with that search. Web only shows when Web Search is on, and Wiki stays greyed out until the chat has a wiki. Same on the phone.
+
+**Fixes that ride along**
+
+- Windows: the Import, Export and folder pickers open again after an upgrade, even if the last folder you used is gone. A picker that never answers gives up after 10 minutes instead of hanging.
+- Web search only looks at your latest message, not older lines.
+- Bond and trust say "unchanged" when nothing moved, instead of vanishing.
+- Regenerating with Realism off no longer shows Mood, Bond and Trust chips.
+- "Where we are" is kept even when a save runs early.
+- A long thread opens on its latest lines.
+- In a group, you can delete a finished speaker's reply while the next one is still talking.
+- "it's 7:15 pm" typed with a plain apostrophe sets the story clock, same as the curly one.
+- Reprocess Needs hides needs you've turned off, on desktop and phone.
+- Image Studio: stack up to eight LoRAs, filtered by base model; Draw Things LoRAs work; GGUF and saved ComfyUI workflows load properly.
+- macOS: a bundled library is signed properly, so the app build seals cleanly.
+
+For the complete list, see the GitHub release notes.
+
 ## v1.4.0 — Toolbox
 
 New stage. New fighters. Same porch.
