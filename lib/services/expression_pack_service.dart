@@ -145,7 +145,9 @@ class ExpressionPackSession extends ChangeNotifier {
     required PackSlotGenerator generate,
     int? seed, // fixed shared seed; default = random positive int
     bool editMode = false,
+    void Function()? onCancel,
   }) : _basePrompt = basePrompt,
+       _onCancel = onCancel,
        _negativePrompt = negativePrompt,
        _denoise = denoise,
        _generate = generate,
@@ -159,6 +161,11 @@ class ExpressionPackSession extends ChangeNotifier {
   final String _negativePrompt;
   final double _denoise;
   final PackSlotGenerator _generate;
+
+  /// Called when a run that is under way is cancelled, so the caller can stop
+  /// the picture being made (a cancel here only stops the pack before the
+  /// next one).
+  final void Function()? _onCancel;
 
   /// When true an instruction-edit model is driving generation, so each slot's
   /// positive prompt is an EDIT INSTRUCTION off the base portrait (identity kept
@@ -254,6 +261,7 @@ class ExpressionPackSession extends ChangeNotifier {
     }
     if (denoiseOverride != null) slot.customDenoise = denoiseOverride;
     if (newSeed) slot.customSeed = Random().nextInt(1 << 31);
+    _cancelRequested = false;
     _running = true;
     notifyListeners();
     await _generateSlot(slot, slot.customSeed ?? _seed);
@@ -266,6 +274,7 @@ class ExpressionPackSession extends ChangeNotifier {
   /// (a later [run] resumes them).
   void cancel() {
     _cancelRequested = true;
+    if (_running) _onCancel?.call();
   }
 
   void setKeep(int index, bool value) {
@@ -305,6 +314,9 @@ class ExpressionPackSession extends ChangeNotifier {
     if (result != null) {
       slot.bytes = result;
       slot.state = ExpressionSlotState.done;
+    } else if (_cancelRequested) {
+      // Stopped on purpose: not a failure, and Resume makes it again.
+      slot.state = ExpressionSlotState.pending;
     } else {
       slot.state = ExpressionSlotState.failed;
       slot.error = error;

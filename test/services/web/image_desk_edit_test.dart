@@ -18,92 +18,8 @@ import 'package:front_porch_ai/services/image/image.dart'
 import 'package:front_porch_ai/services/web/facade/image_facade.dart'
     show kMaxDeskPictureBytes;
 
+import 'desk_graphs.dart';
 import 'image_desk_harness.dart';
-
-Map<String, dynamic> _node(String type, Map<String, dynamic> inputs) => {
-  'class_type': type,
-  'inputs': inputs,
-};
-
-/// An uploaded Edit graph: a photo, an instruction, and a model file.
-final Map<String, dynamic> _editGraph = {
-  'ckpt': _node('CheckpointLoaderSimple', {
-    'ckpt_name': 'edit-model.safetensors',
-  }),
-  'photo': _node('LoadImage', {'image': '%IMAGE%'}),
-  'pos': _node('CLIPTextEncode', {
-    'text': '%PROMPT%',
-    'clip': ['ckpt', 1],
-  }),
-  'neg': _node('CLIPTextEncode', {
-    'text': '%NEGATIVE%',
-    'clip': ['ckpt', 1],
-  }),
-  'latent': _node('VAEEncode', {
-    'pixels': ['photo', 0],
-    'vae': ['ckpt', 2],
-  }),
-  'ks': _node('KSampler', {
-    'model': ['ckpt', 0],
-    'positive': ['pos', 0],
-    'negative': ['neg', 0],
-    'latent_image': ['latent', 0],
-    'seed': '%SEED%',
-    'steps': '%STEPS%',
-    'cfg': '%CFG%',
-    'sampler_name': 'euler',
-    'scheduler': 'normal',
-    'denoise': '%DENOISE%',
-  }),
-  'decode': _node('VAEDecode', {
-    'samples': ['ks', 0],
-    'vae': ['ckpt', 2],
-  }),
-  'save': _node('SaveImage', {
-    'images': ['decode', 0],
-    'filename_prefix': 'fpai',
-  }),
-};
-
-/// An uploaded Create graph: no photo.
-final Map<String, dynamic> _createGraph = {
-  'ckpt': _node('CheckpointLoaderSimple', {
-    'ckpt_name': 'create-model.safetensors',
-  }),
-  'pos': _node('CLIPTextEncode', {
-    'text': '%PROMPT%',
-    'clip': ['ckpt', 1],
-  }),
-  'neg': _node('CLIPTextEncode', {
-    'text': '%NEGATIVE%',
-    'clip': ['ckpt', 1],
-  }),
-  'latent': _node('EmptyLatentImage', {
-    'width': '%WIDTH%',
-    'height': '%HEIGHT%',
-    'batch_size': 1,
-  }),
-  'ks': _node('KSampler', {
-    'model': ['ckpt', 0],
-    'positive': ['pos', 0],
-    'negative': ['neg', 0],
-    'latent_image': ['latent', 0],
-    'seed': '%SEED%',
-    'steps': '%STEPS%',
-    'cfg': '%CFG%',
-    'sampler_name': 'euler',
-    'scheduler': 'normal',
-    'denoise': 1,
-  }),
-  'decode': _node('VAEDecode', {
-    'samples': ['ks', 0],
-    'vae': ['ckpt', 2],
-  }),
-  'save': _node('SaveImage', {
-    'images': ['decode', 0],
-    'filename_prefix': 'fpai',
-  }),
-};
 
 List<int> _picture() => img.encodePng(img.Image(width: 3, height: 3));
 
@@ -125,10 +41,10 @@ void main() {
     h = await DeskHarness.boot(comfy: comfy);
     final s = h.settings;
     await s.setComfyEditWorkflowId(kComfyUploadedWorkflowId);
-    await s.setComfyEditUploadedWorkflow(jsonEncode(_editGraph));
+    await s.setComfyEditUploadedWorkflow(jsonEncode(deskEditGraph));
     await s.setImageGenEditModel('edit-model.safetensors');
     await s.setComfyCreateWorkflowId(kComfyUploadedWorkflowId);
-    await s.setComfyCreateUploadedWorkflow(jsonEncode(_createGraph));
+    await s.setComfyCreateUploadedWorkflow(jsonEncode(deskCreateGraph));
     await s.setImageGenModel('create-model.safetensors');
   });
 

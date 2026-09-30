@@ -171,14 +171,13 @@ class ExpressionsSection extends StatelessWidget {
             context,
             ok: editReady || savedEdit,
             text: editReady
-                ? 'Edit workflow ready — pack uses Edit when it can; '
-                      'otherwise the Create family above (img2img).'
+                ? 'Edit workflow ready — the pack runs it.'
                 : savedEdit
                 ? 'Saved Edit workflow selected — its model choices are '
                       'checked when the pack starts.'
-                : 'Pack uses the Create family above (img2img). Optional: '
-                      'set up Qwen-Image-Edit or Flux Kontext in Image '
-                      'Studio → Edit.',
+                : 'The pack runs your Edit workflow (Image Studio → Edit) and '
+                      'stops with a message if it is not ready. It never '
+                      'uses the Create family instead.',
           ),
         ],
       );

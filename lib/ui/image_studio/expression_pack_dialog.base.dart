@@ -29,33 +29,4 @@ Future<Uint8List?> _primeAvatarBytes(
   StorageService storage,
   String characterDbId,
   String characterName,
-) async {
-  CharacterCard? card;
-  for (final c in repository.characters) {
-    if (c.dbId == characterDbId) {
-      card = c;
-      break;
-    }
-  }
-
-  final avatars = await repository.getAvatarImages(characterDbId);
-  if (avatars.isNotEmpty) {
-    // primeAvatarIndex is 1-based; clamp handles stale indices.
-    final primeIdx = ((card?.primeAvatarIndex ?? 1) - 1).clamp(
-      0,
-      avatars.length - 1,
-    );
-    final dirPath = storage.characterAvatarDir(characterName).path;
-    for (final avatar in [avatars[primeIdx], ...avatars]) {
-      final file = avatar.file(dirPath);
-      if (await file.exists()) return file.readAsBytes();
-    }
-  }
-
-  final imagePath = card?.imagePath;
-  if (imagePath != null && imagePath.isNotEmpty) {
-    final file = File(imagePath);
-    if (await file.exists()) return file.readAsBytes();
-  }
-  return null;
-}
+) => packBaseImage(repository, storage, characterDbId, characterName);

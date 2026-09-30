@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shelf/shelf.dart' as shelf;
@@ -36,6 +37,9 @@ const List<String> kDeskComfyClasses = [
   'VAEEncode',
 ];
 
+/// A small real picture, what a finished job's `/view` serves.
+final List<int> kDeskPicture = img.encodePng(img.Image(width: 4, height: 4));
+
 /// A real loopback ComfyUI. It lists these model files and every node class
 /// in [kDeskComfyClasses], answers an upload with [stored], and keeps the
 /// graph a generate posts to `/prompt` (then fails it, so nothing waits).
@@ -46,6 +50,12 @@ class DeskComfy {
   int uploads = 0;
   final List<int> uploaded = [];
   Map<String, dynamic>? posted;
+
+  /// Every graph posted to `/prompt`, in order (only when it takes jobs).
+  final List<Map<String, dynamic>> postedAll = [];
+
+  /// The stops asked of it: `queue <body>` and `interrupt <body>`.
+  final List<String> stops = [];
 
   /// Every path asked of it, with its query, in order.
   final List<String> requests = [];
@@ -61,6 +71,13 @@ class DeskComfy {
     List<String> checkpoints = const [],
     List<String> loras = const [],
     Map<String, String> saved = const {},
+
+    /// It takes jobs: each posted graph finishes at once with a picture.
+    bool finish = false,
+
+    /// It takes jobs and never finishes them; its queue lists them as
+    /// running until they are stopped.
+    bool hang = false,
   }) async {
     Map<String, dynamic> loader(String input, List<String> files) => {
       'input': {
@@ -105,9 +122,52 @@ class DeskComfy {
         request.response.write(jsonEncode({'name': stored, 'subfolder': ''}));
       } else if (request.method == 'POST' && path == '/prompt') {
         final body = jsonDecode(await utf8.decodeStream(request)) as Map;
-        comfy.posted = (body['prompt'] as Map).cast<String, dynamic>();
-        request.response.statusCode = HttpStatus.internalServerError;
-        request.response.write('stop');
+        final graph = (body['prompt'] as Map).cast<String, dynamic>();
+        comfy.posted = graph;
+        if (finish || hang) {
+          comfy.postedAll.add(graph);
+          request.response.write(
+            jsonEncode({'prompt_id': 'job${comfy.postedAll.length}'}),
+          );
+        } else {
+          request.response.statusCode = HttpStatus.internalServerError;
+          request.response.write('stop');
+        }
+      } else if (path.startsWith('/history/') && (finish || hang)) {
+        final id = path.substring('/history/'.length);
+        request.response.write(
+          jsonEncode({
+            if (finish)
+              id: {
+                'outputs': {
+                  'save': {
+                    'images': [
+                      {'filename': 'a.png', 'subfolder': '', 'type': 'output'},
+                    ],
+                  },
+                },
+              },
+          }),
+        );
+      } else if (path == '/view' && finish) {
+        request.response.headers.contentType = ContentType('image', 'png');
+        request.response.add(kDeskPicture);
+      } else if (path == '/queue' && request.method == 'GET') {
+        request.response.write(
+          jsonEncode({
+            'queue_running': [
+              if (hang && comfy.stops.isEmpty)
+                for (var i = 1; i <= comfy.postedAll.length; i++)
+                  [0, 'job$i', <String, dynamic>{}],
+            ],
+            'queue_pending': <dynamic>[],
+          }),
+        );
+      } else if (path == '/queue' || path == '/interrupt') {
+        comfy.stops.add(
+          '${path.substring(1)} ${await utf8.decodeStream(request)}',
+        );
+        request.response.write('{}');
       } else {
         await request.drain<void>();
         request.response.statusCode = HttpStatus.notFound;
