@@ -23,24 +23,38 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:front_porch_ai/services/capability/image_reference_role.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
+import 'package:front_porch_ai/services/image/expression_pack_board.dart';
+import 'package:front_porch_ai/services/image/expression_pack_flight.dart';
 import 'package:front_porch_ai/services/image/image.dart';
+import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
 
 part 'image_facade_catalog.dart';
 part 'image_facade_desk.dart';
+part 'image_facade_pack.dart';
 part 'image_facade_ready.dart';
 
 /// Web adapter for image generation: read/flip the backend config (Local A1111 /
 /// Draw Things ↔ remote API) and generate an image. Reuses [ImageGenService]
 /// (which routes to whichever backend is configured) and the existing settings.
 class ImageFacade {
-  ImageFacade(this._image, this._storage);
+  ImageFacade(
+    this._image,
+    this._storage, [
+    this._characters,
+    ExpressionPackBoard? packBoard,
+  ]) : _packBoard = packBoard ?? expressionPackBoard;
 
   final ImageGenService _image;
   final StorageService _storage;
+
+  /// The library a pack is made for and imported into; null where there is none.
+  final CharacterRepository? _characters;
+  final ExpressionPackBoard _packBoard;
 
   /// Current image-gen config for the web panel. The API key is never returned
   /// (presence only), matching the text-backend settings facade.

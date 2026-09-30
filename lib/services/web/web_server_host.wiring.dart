@@ -71,7 +71,7 @@ extension WebServerHostWiring on WebServerHost {
     // Built before ChatFacade so its saved-image resolver (basename → File
     // with the traversal guard) can be shared for chat image messages.
     final imageFacade = _imageGenService != null
-        ? ImageFacade(_imageGenService!, _storage)
+        ? ImageFacade(_imageGenService!, _storage, _characterRepository)
         : null;
 
     final chatFacade = (chatService != null && _characterRepository != null)

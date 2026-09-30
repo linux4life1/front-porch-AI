@@ -29,9 +29,6 @@ class PackRun {
   final String characterName;
   final bool replaceExisting;
 
-  /// Set when the pack could not go on, in words for the person.
-  String? message;
-
   /// How many pictures were imported, or null while none have been.
   int? imported;
 }
@@ -81,7 +78,6 @@ class ExpressionPackBoard {
       'total': slots.length,
       'done': run.session.doneCount,
       'kept': run.session.keptCount,
-      'message': run.message,
       'imported': run.imported,
       'canImport':
           run.origin == PackOrigin.phone &&

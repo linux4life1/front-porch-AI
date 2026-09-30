@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
-import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/database/database.dart' hide World;
+import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -193,11 +195,15 @@ class DeskHarness {
   late final ImageGenService image;
   late final ImageFacade facade;
 
+  /// The character library, when booted with `withCharacters`.
+  CharacterRepository? characters;
+
   /// With [realPrefs] the settings are kept in (mock) shared preferences, as
   /// in the app, for what is stored there and not in the sandbox.
   static Future<DeskHarness> boot({
     DeskComfy? comfy,
     bool realPrefs = false,
+    bool withCharacters = false,
   }) async {
     final h = DeskHarness._();
     final dir = Directory.systemTemp.createTempSync('image-desk');
@@ -232,7 +238,8 @@ class DeskHarness {
       await h.settings.setComfyUiUrl(comfy.url);
     }
     h.image = ImageGenService(h.storage);
-    h.facade = ImageFacade(h.image, h.storage);
+    if (withCharacters) h.characters = CharacterRepository(h.db, h.storage);
+    h.facade = ImageFacade(h.image, h.storage, h.characters);
     h.router = Router();
     WebBackendRoutes(
       WebServerDeps(storage: h.storage, db: h.db, auth: h.auth),
@@ -244,9 +251,27 @@ class DeskHarness {
 
   ImageGenSettings get settings => storage.imageGenSettings;
 
+  /// A character in the library; with [portrait] it has a base avatar picture.
+  Future<String> addCharacter(String name, {List<int>? portrait}) async {
+    final id = await db.insertCharacterReturningId(
+      CharactersCompanion(name: Value(name)),
+    );
+    await characters!.loadCharacters();
+    if (portrait != null) {
+      await characters!.addAvatar(id, name, Uint8List.fromList(portrait), null);
+    }
+    return id;
+  }
+
   Map<String, String> choices({bool edit = false}) => edit
       ? storage.imageGenSettings.comfyEditModelChoices
       : storage.imageGenSettings.comfyCreateModelChoices;
+
+  /// The raw answer to a request, for what is not JSON.
+  Future<shelf.Response> callRaw(String method, String path) => Future.sync(
+    () =>
+        router.call(shelf.Request(method, Uri.parse('http://localhost$path'))),
+  );
 
   Future<(int, Map<String, dynamic>)> call(
     String method,
