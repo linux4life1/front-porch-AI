@@ -39,6 +39,7 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 export 'image/image_gen_types.dart';
 
 part 'image_gen_service.generate.dart';
+part 'image_gen_service.studio.dart';
 part 'image_gen_service.prompt.dart';
 part 'image_gen_service.local_admin.dart';
 part 'image_gen_service.backends.dart';
@@ -60,6 +61,10 @@ class ImageGenService extends ChangeNotifier {
   final StorageService _storage;
 
   bool _isGenerating = false;
+
+  /// True while [startExpressionPack] holds the lock, so the frames it runs
+  /// can go through it without refusing themselves.
+  bool _packFlight = false;
   String _statusMessage = '';
   Uint8List? _lastGeneratedImage;
   String? _lastSavedPath;

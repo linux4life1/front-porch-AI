@@ -51,6 +51,7 @@ extension _ImageGenGenerate on ImageGenService {
     // the Edit tab can offer a "how much should change" control. Ignored outside
     // the edit path.
     double? editStrength,
+    bool fromPack = false,
   }) async {
     // Reentrancy guard: this service holds a SINGLE shared _isGenerating /
     // _statusMessage / _genPreview / _genProgress. Two overlapping calls (the
@@ -58,20 +59,25 @@ extension _ImageGenGenerate on ImageGenService {
     // a Studio gen runs) would clobber each other's status and progress, the
     // first to finish would flip _isGenerating false and unlock the other
     // mid-flight, and on Draw Things both would spawn CLI jobs against one GPU.
-    // Refuse the second start rather than corrupt the first.
-    if (_isGenerating) {
+    // Refuse the second start rather than corrupt the first. A pack flight
+    // already holds that lock and runs its frames inside it.
+    final nested = fromPack && _packFlight;
+    if (fromPack && !_packFlight) return null;
+    if (!nested && _isGenerating) {
       _statusMessage = kAlreadyGeneratingMessage;
       _notify();
       debugPrint('[ImageGen] generateImage refused — a generation is running.');
       return null;
     }
-    _isGenerating = true;
-    _statusMessage = 'Generating image...';
-    _lastGeneratedImage = null;
-    _lastSavedPath = null;
-    _genProgress = null;
-    _genPreview = null;
-    _notify();
+    if (!nested) {
+      _isGenerating = true;
+      _statusMessage = 'Generating image...';
+      _lastGeneratedImage = null;
+      _lastSavedPath = null;
+      _genProgress = null;
+      _genPreview = null;
+      _notify();
+    }
 
     // Callers that don't specify a negative prompt (guest portraits, the
     // character creators, web chargen) get the user's configured default —
@@ -123,7 +129,7 @@ extension _ImageGenGenerate on ImageGenService {
       final stop = plan.stopMessage;
       if (stop != null) {
         _statusMessage = stop;
-        _isGenerating = false;
+        _endGenerationLock();
         _notify();
         return null;
       }
@@ -266,7 +272,7 @@ extension _ImageGenGenerate on ImageGenService {
             }
             _statusMessage = safe;
             debugPrint('ImageGen: Draw Things error: $e');
-            _isGenerating = false;
+            _endGenerationLock();
             _notify();
             return null;
           }
@@ -275,7 +281,7 @@ extension _ImageGenGenerate on ImageGenService {
           final localUrl = _storage.imageGenSettings.localImageGenUrl;
           if (localUrl.isEmpty) {
             _statusMessage = 'No local server URL configured.';
-            _isGenerating = false;
+            _endGenerationLock();
             _notify();
             return null;
           }
@@ -319,7 +325,8 @@ extension _ImageGenGenerate on ImageGenService {
           // generic "is ComfyUI running" guess.
           final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
           _statusMessage =
-              e is ComfyGraphNotReady ||
+              e is ComfyRunCancelled ||
+                  e is ComfyGraphNotReady ||
                   e is ComfyLoaderUpdateNeeded ||
                   msg.startsWith('ComfyUI') ||
                   msg.contains('model')
@@ -327,7 +334,7 @@ extension _ImageGenGenerate on ImageGenService {
               : 'ComfyUI generation failed. Check that ComfyUI is running and '
                     'the URL is correct.';
           debugPrint('ImageGen: ComfyUI error: $e');
-          _isGenerating = false;
+          _endGenerationLock();
           _notify();
           return null;
         }
@@ -336,7 +343,7 @@ extension _ImageGenGenerate on ImageGenService {
         final account = _imageRemoteAccount;
         if (account.key.isEmpty) {
           _statusMessage = 'No API key configured.';
-          _isGenerating = false;
+          _endGenerationLock();
           _notify();
           return null;
         }
@@ -344,7 +351,7 @@ extension _ImageGenGenerate on ImageGenService {
         final imageModel = refModelName;
         if (imageModel.isEmpty) {
           _statusMessage = 'No image model selected.';
-          _isGenerating = false;
+          _endGenerationLock();
           _notify();
           return null;
         }
@@ -386,7 +393,7 @@ extension _ImageGenGenerate on ImageGenService {
         }
       } else {
         _statusMessage = 'This image backend is not available.';
-        _isGenerating = false;
+        _endGenerationLock();
         _notify();
         return null;
       }
@@ -404,7 +411,7 @@ extension _ImageGenGenerate on ImageGenService {
       _notify();
       return null;
     } finally {
-      _isGenerating = false;
+      _endGenerationLock();
       _genProgress = null;
       _genPreview = null;
       _notify();

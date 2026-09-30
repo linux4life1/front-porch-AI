@@ -18,7 +18,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -30,8 +29,12 @@ import 'image/comfy_create_presets.dart';
 import 'image/comfy_edit_workflow.dart';
 import 'image/comfy_gguf_city96_gate.dart';
 import 'image/comfy_gguf_loaders.dart';
+import 'image/comfy_progress_socket.dart';
+import 'image/comfy_run_ledger.dart';
 import 'image/comfy_template_index.dart';
 import 'image/image_submit_error.dart';
+
+export 'image/comfy_run_ledger.dart' show ComfyRunCancelled;
 
 part 'comfy_ui_service.catalog.dart';
 
@@ -50,6 +53,13 @@ class ComfyUiService {
   final String baseUrl;
 
   String get _root => ensureHttpScheme(baseUrl);
+
+  final ComfyRunLedger _runs = ComfyRunLedger();
+
+  /// Stops what this client has running on the server: a queued prompt is
+  /// taken off the queue, a running one is interrupted. The waiting call then
+  /// throws [ComfyRunCancelled].
+  Future<void> cancelRun() => _runs.cancel(_root);
 
   /// Normalize a user-typed server address into a usable base URL: trims,
   /// strips trailing slashes, and prepends `http://` when no scheme is given
@@ -364,14 +374,22 @@ class ComfyUiService {
   ) async {
     final clientId =
         'frontporch-${DateTime.now().microsecondsSinceEpoch.toRadixString(16)}';
-    final submit = await http
-        .post(
-          Uri.parse('$_root/prompt'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'prompt': workflow, 'client_id': clientId}),
-        )
-        .timeout(const Duration(seconds: 30));
+    _runs.submitting();
+    http.Response submit;
+    try {
+      submit = await http
+          .post(
+            Uri.parse('$_root/prompt'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'prompt': workflow, 'client_id': clientId}),
+          )
+          .timeout(const Duration(seconds: 30));
+    } catch (_) {
+      await _runs.submitted(_root, null);
+      rethrow;
+    }
     if (submit.statusCode != 200) {
+      await _runs.submitted(_root, null);
       final refused = parseComfySubmitFailure(_root, submit.body);
       throw Exception(
         refused?.banner ??
@@ -383,55 +401,14 @@ class ComfyUiService {
         (jsonDecode(submit.body) as Map<String, dynamic>)['prompt_id']
             ?.toString();
     if (promptId == null || promptId.isEmpty) {
+      await _runs.submitted(_root, null);
       throw Exception('ComfyUI did not return a prompt_id');
     }
+    await _runs.submitted(_root, promptId);
 
-    // Best-effort live progress over ComfyUI's WebSocket: text frames carry
-    // {type:'progress', data:{value,max}} during sampling; binary frames are
-    // preview images (8-byte header: int32 event type 1 = preview, int32
-    // format, then JPEG/PNG bytes) when the server runs with previews on.
-    WebSocket? ws;
-    if (onProgress != null) {
-      try {
-        final wsRoot = _root
-            .replaceFirst('https://', 'wss://')
-            .replaceFirst('http://', 'ws://');
-        ws = await WebSocket.connect(
-          '$wsRoot/ws?clientId=$clientId',
-        ).timeout(const Duration(seconds: 3));
-        ws.listen(
-          (frame) {
-            try {
-              if (frame is String) {
-                final msg = jsonDecode(frame) as Map<String, dynamic>;
-                if (msg['type'] == 'progress') {
-                  final d = msg['data'] as Map<String, dynamic>?;
-                  final value = (d?['value'] as num?)?.toDouble();
-                  final max = (d?['max'] as num?)?.toDouble();
-                  if (value != null && max != null && max > 0) {
-                    onProgress((value / max).clamp(0.0, 1.0), null);
-                  }
-                }
-              } else if (frame is List<int> && frame.length > 8) {
-                final header = Uint8List.fromList(
-                  frame.sublist(0, 4),
-                ).buffer.asByteData();
-                if (header.getInt32(0) == 1) {
-                  onProgress(null, Uint8List.fromList(frame.sublist(8)));
-                }
-              }
-            } catch (_) {
-              // malformed frame — ignore; progress is decorative
-            }
-          },
-          onError: (_) {},
-          cancelOnError: true,
-        );
-      } catch (e) {
-        debugPrint('ComfyUI: progress WebSocket unavailable ($e)');
-        ws = null;
-      }
-    }
+    final ws = onProgress == null
+        ? null
+        : await openComfyProgress(_root, clientId, onProgress);
 
     // Poll history until this prompt completes (generation can be slow on
     // first model load; 10 min cap mirrors the other local backends). The
@@ -441,6 +418,7 @@ class ComfyUiService {
     try {
       while (DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(const Duration(seconds: 1));
+        if (_runs.isCancelled(promptId)) throw const ComfyRunCancelled();
         try {
           final h = await http
               .get(Uri.parse('$_root/history/$promptId'))
@@ -463,6 +441,7 @@ class ComfyUiService {
         }
       }
     } finally {
+      _runs.finished(promptId);
       unawaited(ws?.close());
     }
     if (outputs == null) {

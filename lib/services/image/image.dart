@@ -28,6 +28,8 @@ export 'comfy_edit_workflow.dart';
 export 'comfy_gguf_city96.dart';
 export 'comfy_gguf_city96_gate.dart';
 export 'comfy_gguf_loaders.dart';
+export 'comfy_progress_socket.dart';
+export 'comfy_run_ledger.dart';
 export 'comfy_starters.dart';
 export 'comfy_template_index.dart';
 export 'comfy_type_folders.dart';
