@@ -186,12 +186,35 @@ Uri civitaiModelUri(int id, {required bool adult}) {
   return Uri.https(adult ? 'civitai.red' : 'civitai.com', '/api/v1/models/$id');
 }
 
-List<String> _civitaiImages(Map? version) {
+/// The one host a listing's pictures may load from on the phone.
+const String kCivitaiImageHost = 'image.civitai.com';
+
+/// [url] when it is an https picture on [kCivitaiImageHost], else null.
+String? civitaiPhoneImage(String? url) {
+  final uri = url == null ? null : Uri.tryParse(url);
+  if (uri == null || uri.scheme != 'https') return null;
+  return uri.host == kCivitaiImageHost ? url : null;
+}
+
+/// True when a listing's picture is rated X or above. A model that is fine to
+/// list can still carry one, and it is not shown unless adult results are on.
+bool civitaiImageIsAdult(Map image) {
+  final level = image['nsfwLevel'];
+  if (level is num && (level.toInt() & kCivitaiImageAdultMask) != 0) {
+    return true;
+  }
+  final legacy = image['nsfw'];
+  if (legacy is bool) return legacy;
+  return legacy is String && {'mature', 'x'}.contains(legacy.toLowerCase());
+}
+
+List<String> _civitaiImages(Map? version, {required bool includeAdult}) {
   final images = version?['images'];
   if (images is! List) return const [];
   final out = <String>[];
   for (final image in images) {
     if (image is! Map) continue;
+    if (!includeAdult && civitaiImageIsAdult(image)) continue;
     final url = image['url'];
     if (url is! String || !url.startsWith('https://')) continue;
     if (out.contains(url)) continue;
@@ -254,7 +277,7 @@ CivitaiModelRow? _civitaiRow(Map item, {required bool includeAdult}) {
   final id = item['id'];
   if (id is! num) return null;
   final versionId = version?['id'];
-  final images = _civitaiImages(version);
+  final images = _civitaiImages(version, includeAdult: includeAdult);
   return CivitaiModelRow(
     id: id.toInt(),
     name: item['name']?.toString() ?? '',

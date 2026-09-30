@@ -180,8 +180,10 @@ class CivitaiRoutes {
             'adult': row.adult,
             'versionId': row.versionId,
             'filename': row.filename,
-            'previewUrl': row.previewUrl,
-            'images': row.imageUrls,
+            // Only CivitAI's own image host: it is the one host the phone's
+            // Content-Security-Policy lets a picture load from.
+            'previewUrl': _phoneImages(row).firstOrNull,
+            'images': _phoneImages(row),
             'description': row.description,
             'downloads': row.downloads,
           },
@@ -189,6 +191,11 @@ class CivitaiRoutes {
       'needsCredential': false,
     });
   }
+
+  List<String> _phoneImages(CivitaiModelRow row) => [
+    for (final url in row.imageUrls)
+      if (civitaiPhoneImage(url) != null) url,
+  ];
 
   Future<shelf.Response> installedFiles(shelf.Request request) async {
     final account = _account(request);

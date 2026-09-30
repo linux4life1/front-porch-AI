@@ -66,6 +66,11 @@ const int kCivitaiAdultRatingMask =
         kCivitaiRatingR |
         kCivitaiRatingX);
 
+/// A picture rated X or above is not shown with adult results off, though
+/// the model it belongs to may be listed (see [kCivitaiAdultRatingMask]).
+const int kCivitaiImageAdultMask =
+    ~(kCivitaiRatingPg | kCivitaiRatingPg13 | kCivitaiRatingR);
+
 /// One model version from `/api/v1/model-versions/{id}`.
 class CivitaiVersion {
   const CivitaiVersion({

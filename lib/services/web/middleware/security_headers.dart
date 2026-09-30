@@ -18,6 +18,8 @@
 
 import 'package:shelf/shelf.dart' as shelf;
 
+import 'package:front_porch_ai/services/image/civitai_client.dart'
+    show kCivitaiImageHost;
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
 /// Baseline security response headers. HSTS is only emitted over a secure
@@ -42,7 +44,7 @@ class SecurityHeaders {
       "default-src 'self'; "
       "script-src 'self' blob:; "
       "style-src 'self' 'unsafe-inline'; "
-      "img-src 'self' data: blob:; "
+      "img-src 'self' data: blob: https://$kCivitaiImageHost; "
       "font-src 'self'; "
       "connect-src 'self'; "
       "worker-src 'self' blob:; "
@@ -59,7 +61,7 @@ class SecurityHeaders {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'Referrer-Policy': 'no-referrer',
-            'Content-Security-Policy': contentSecurityPolicy,
+        'Content-Security-Policy': contentSecurityPolicy,
       };
       if (_deps.isSecure(request)) {
         headers['Strict-Transport-Security'] =
