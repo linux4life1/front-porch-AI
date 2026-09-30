@@ -32,6 +32,11 @@
 // hunger_delta tests red (status comes back 'accepted', the spike survives);
 // restored, they are green again.
 //
+// A hunger DROP without eat/food is the beat the clock named. The old
+// assertion rewrote -20 to -2, which erased every time drop whenever
+// verification was on. That assertion is now false: the drop survives.
+// A GAIN without eat/food is still a spike and is still crushed to +2.
+//
 // The extractors are the PRODUCT's own (evalJsonInt / evalJsonBool, which
 // LlmEvalEngine.extractJsonInt forwards to). The strict-quote matching is
 // half the bug under guard, so a local copy could drift away from the real
@@ -84,15 +89,24 @@ void main() {
       expect(r.correctedRaw, isNot(contains('20')));
     });
 
-    test('the sign survives the correction (−20 → −2)', () async {
-      final r = await _verifier().verify(
-        evalKind: 'needs_impact',
-        rawOutput: '{"hunger_delta": -20, "reason": "starving suddenly"}',
-        sceneResponse: 'we sat on the porch and swapped stories',
-      );
-      expect(r.status, 'corrected');
-      expect(r.correctedRaw, contains('"hunger_delta": -2'));
-    });
+    test(
+      'a hunger drop without eat or food is the beat and survives',
+      () async {
+        final r = await _verifier().verify(
+          evalKind: 'needs_impact',
+          rawOutput: '{"hunger_delta": -20, "reason": "starving suddenly"}',
+          sceneResponse: 'we sat on the porch and swapped stories',
+        );
+        expect(
+          r.status,
+          'accepted',
+          reason:
+              'A time drop is not a spike. The old rule rewrote -20 to -2 '
+              'whenever the scene lacked eat/food, which undid the beat.',
+        );
+        expect(r.correctedRaw, contains('"hunger_delta": -20'));
+      },
+    );
 
     test('the plain "hunger" key remains a live fallback', () async {
       final r = await _verifier().verify(

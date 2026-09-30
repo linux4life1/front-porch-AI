@@ -199,7 +199,7 @@ Entries that are currently active are highlighted, and the sidebar shows what *w
 
 **Worlds** are the **Places** your stories happen in — open **Worlds** in the left sidebar. A place bundles lore (so every character who lives there knows its geography, politics and history), optional cover art, and a **climate**. Attach a place to a chat from the sidebar's **Story Tools → Places** panel, or attach it on the character **Worlds** tab so new chats inherit it.
 
-**Import Lorebook** is its own page (not Import Cards): pick a file → send it to a **new Place**, to **characters**, to a **group**, or to the **current chat**. Pulling one card's lore into another is **Import Character Lore** on the editor.
+**Import Lorebook** is its own page (not Import Cards): pick a file → send it to a **new Place**, to **characters**, to a **group**, or to the **current chat**. Pulling one card's lore into another is **Import Character Lore** on the editor. On **Create World** or **Edit World**, **From character** lists your cards, then the entries on the one you pick. Tick the ones that belong in the place. Nothing else is copied.
 
 Lorebook and world files from SillyTavern import cleanly.
 

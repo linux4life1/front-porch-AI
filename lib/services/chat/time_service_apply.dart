@@ -220,16 +220,15 @@ extension TimeServiceApply on TimeService {
     _clock = next;
     _turnsSinceClockMoved = 0;
     _oocSkipMovedClockThisTurn = true;
+    final destination = '$displayShortDate · $displayClock';
     _noteBodyBeat(
       minutes: 0,
       nextMorning: isNightSkip(lower),
       isSkip: true,
       wearAwake: false,
+      skipDestination: destination,
     );
-    onSetPendingRealismMetadata(
-      'time_skip_to',
-      '$displayShortDate · $displayClock',
-    );
+    onSetPendingRealismMetadata('time_skip_to', destination);
     onNotify();
     debugPrint(
       '[Realism:OOC] Time-skip → $displayClock $displayShortDate (Day $dayCount)',

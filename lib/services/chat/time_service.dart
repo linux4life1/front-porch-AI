@@ -188,9 +188,16 @@ class TimeService {
   String? _timePassedLabel;
   String? get bodyTimeLabel => _timePassedLabel;
 
+  /// Words the needs judge scores. Cleared with the chip label so Continue
+  /// cannot charge the same span again. A skip has no tick chip, so this
+  /// keeps "Next morning" or the destination the clock stamped.
+  String? _needsSpanLabel;
+  String? get needsSpanLabel => _needsSpanLabel;
+
   void clearBodyBeat() {
     _awakeWearMinutes = 0;
     _timePassedLabel = null;
+    _needsSpanLabel = null;
   }
 
   void _noteBodyBeat({
@@ -198,12 +205,19 @@ class TimeService {
     required bool nextMorning,
     required bool isSkip,
     required bool wearAwake,
+    String? skipDestination,
   }) {
     _awakeWearMinutes = wearAwake ? minutes : 0;
     _timePassedLabel = timePassedLabel(
       minutes: minutes,
       nextMorning: nextMorning,
       isSkip: isSkip,
+    );
+    _needsSpanLabel = needsSpanForBeat(
+      minutes: minutes,
+      nextMorning: nextMorning,
+      isSkip: isSkip,
+      skipDestination: skipDestination,
     );
   }
 
@@ -423,6 +437,7 @@ class TimeService {
     _oocSkipMovedClockThisTurn = false;
     _namedReconcileExact = false;
     _passageOfTimeEnabled = true;
+    clearBodyBeat();
     // A brand-new chat has nothing to write back — its clock reaches the row
     // through the ordinary save. Leaving a previous chat's `true` standing here
     // would ask the loader to patch a row this service no longer describes.

@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { ClimateSeasonEditor } from '../components/ClimateSeasonEditor';
+import { ImportCharacterLoreButton } from '../components/ImportCharacterLoreButton';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { WorldCard, type WorldSummary } from '../components/WorldCard';
 import type { BiomeDraft } from '../lib/seasonCalendar';
@@ -477,6 +478,13 @@ export function WorldsPage() {
             />
           </label>
 
+          <div className="row-actions" style={{ marginTop: 8 }}>
+            <ImportCharacterLoreButton
+              onImport={(incoming) =>
+                setEdit({ ...edit, entries: [...edit.entries, ...incoming] })
+              }
+            />
+          </div>
           <LoreEntriesEditor
             entries={edit.entries}
             onChange={(entries) => setEdit({ ...edit, entries })}

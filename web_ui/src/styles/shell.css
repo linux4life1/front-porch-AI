@@ -186,6 +186,8 @@ button.ghost { background: transparent; border-color: var(--border); }
   background: var(--surface-2); display: grid; place-items: center;
 }
 .char-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.char-avatar.compact { width: 36px; height: 36px; flex: 0 0 auto; }
+.char-avatar.compact .char-initial { font-size: 0.95rem; }
 .char-initial { font-size: 1.8rem; color: var(--accent); }
 .char-name { font-size: 0.85rem; font-weight: 600; }
 

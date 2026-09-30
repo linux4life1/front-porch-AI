@@ -31,7 +31,8 @@ part 'needs_impact_bound.dart';
 ///
 /// Model provides net signed deltas for the scene (open prompt, like bond/emotion evals).
 /// Optional Director/Verifier corrects when authority is enabled on the card.
-/// Pace and time-wear are applied in code, after the model answers.
+/// Pace scales minus deltas in code after the model answers. Hunger and
+/// bladder follow the beat the judge was told. There is no clock tax.
 class NeedsImpactEvaluator {
   final Future<String?> Function(
     String responseText, {
@@ -106,7 +107,7 @@ class NeedsImpactEvaluator {
     required this.getNeedsModelAuthorityEnabled,
   });
 
-  /// Minutes line for this beat. Set by the turn before [evaluateAndApply].
+  /// Beat instruction prepended to the scene the judge reads.
   String beatNote = '';
 
   Future<void> evaluateAndApply(

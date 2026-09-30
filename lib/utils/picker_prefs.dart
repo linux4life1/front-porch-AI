@@ -159,6 +159,20 @@ class PickerPrefs {
   })?
   testPickFilesOverride;
 
+  /// Test seam for [saveFile]. When set, the OS save dialog is skipped and
+  /// this receives the bytes that would have been written. Empty bytes still
+  /// throw before this runs. Always null it in teardown.
+  @visibleForTesting
+  static Future<String?> Function({
+    required String category,
+    required Uint8List bytes,
+    String? dialogTitle,
+    String? fileName,
+    FileType? type,
+    List<String>? allowedExtensions,
+  })?
+  testSaveFileOverride;
+
   /// Drop-in for `FilePicker.pickFiles` that resumes at (and records)
   /// the last folder used for [category].
   ///
@@ -230,6 +244,17 @@ class PickerPrefs {
         bytes,
         'bytes',
         'file_picker writes these bytes; empty would wipe the chosen file',
+      );
+    }
+    final override = testSaveFileOverride;
+    if (override != null) {
+      return override(
+        category: category,
+        bytes: bytes,
+        dialogTitle: dialogTitle,
+        fileName: fileName,
+        type: type,
+        allowedExtensions: allowedExtensions,
       );
     }
     final prefs = await SharedPreferences.getInstance();

@@ -415,11 +415,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
         needsSimulation.vector,
       );
     }
-    final passed = _timeService.bodyTimeLabel;
-    _needsImpactEvaluator.beatNote = passed == null
-        ? 'Time wear for this beat is already applied. Report only what the scene did.'
-        : 'THIS BEAT: $passed. Time wear is already applied. '
-              'Report only what the scene did.';
+    _needsImpactEvaluator.beatNote = needsBeatNote(_timeService.needsSpanLabel);
     await _needsImpactEvaluator.evaluateAndApply(responseText, isAfk: wasAfk);
     // During time away, clear the scene-level reason so each need's own
     // reason shows on the chip.

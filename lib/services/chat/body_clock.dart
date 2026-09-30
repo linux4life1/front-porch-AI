@@ -85,6 +85,60 @@ int clampSceneDrop({required int current, required int delta}) {
   return delta;
 }
 
+/// Span the needs judge should score. A skip has no tick chip
+/// ([timePassedLabel] is null), so a night stays "Next morning" and any
+/// other skip keeps the destination the clock already stamped. Continue
+/// clears this with the chip label, so the same span is not charged again.
+String? needsSpanForBeat({
+  required int minutes,
+  required bool nextMorning,
+  required bool isSkip,
+  String? skipDestination,
+}) {
+  if (nextMorning) return 'Next morning';
+  if (isSkip) {
+    final dest = skipDestination?.trim();
+    if (dest == null || dest.isEmpty) return null;
+    return dest;
+  }
+  return timePassedLabel(minutes: minutes, nextMorning: false, isSkip: false);
+}
+
+/// What the needs judge is told about this beat. The judge chooses how
+/// large hunger and bladder move. There is no points-per-hour table.
+String needsBeatNote(String? span) {
+  final text = span?.trim() ?? '';
+  const others =
+      'Energy, hygiene, fun, social, and comfort move only for an explicit '
+      'scene cost or a restoration. Describing how they feel right now is '
+      'not a new cost.';
+  if (text.isEmpty || text == 'same moment') {
+    return 'This beat is the same moment. Hunger and bladder stay put '
+        'unless the scene fed them, they drank, or they used the bathroom. '
+        '$others';
+  }
+  if (text == 'Next morning') {
+    return 'THIS BEAT: Next morning. The night is the whole hunger and '
+        'bladder change for this reply. You choose the size. A meal or a '
+        'bathroom in the morning is that restoration, not a restoration plus '
+        'another drain. Sleep still restores energy. $others';
+  }
+  if (minutesFromTimePassed(text) != null) {
+    return 'THIS BEAT lasted $text. That is awake time their body lived. '
+        'Hunger and bladder must move with that span. You choose the size. '
+        'A few minutes is a small drop. A long stretch is a real one. If the '
+        'scene fed them, hunger is the meal, not the meal plus another drop. '
+        'If they used the bathroom, bladder is that relief. If they drank, '
+        'bladder drops for the drink. If none of that happened, both still '
+        'drop for the span. Zero on hunger or bladder is only legal when '
+        'that need was restored. $others';
+  }
+  return 'THIS BEAT skipped to $text. That jump is the whole hunger and '
+      'bladder change for this reply. You choose the size from how long the '
+      'skip covers. A meal, a drink, or a bathroom replaces a second drop '
+      'for that need. Do not charge those hours twice. $others';
+}
+
 /// Chip text for minutes the clock actually applied. A skip uses the
 /// time-skip chip instead, so pass [isSkip] and this returns null.
 /// Zero minutes still names the beat ("same moment") so the chip paints.

@@ -39,16 +39,18 @@ No new need is added in this work. The seven stay the list. A later need is one 
 
 ## How a turn works
 
-Two jobs.
+The clock names the beat. The needs judge decides hunger and bladder from that span. There is no points-per-hour table and no code tick.
 
-- **Code** wears the body because time passed, and applies pace.
-- **The model** changes the bars because of what the scene did. It sees the bars that are on, and how long the beat was. It picks the numbers as if pace were Normal. Code does not price a meal or a walk.
+- **Hunger and bladder** move with the span the clock just named, unless the scene fed them, they drank, or they used the bathroom. The judge chooses the size. A few minutes is a small drop. A long stretch is a real one.
+- **The other five** move only when the scene itself costs or restores them. Describing the current bar is not a new cost.
+- **Pace** still scales every minus afterward. A plus is never scaled. One reply still cannot empty a bar by itself.
+- Code does not subtract a clock tax. The wear map stays empty. The model picks the numbers as if pace were Normal. Code does not price a meal or a walk.
 
 ## Pace
 
 Pace is a speed control on drops only. It never changes a plus.
 
-The model answers once, at Normal. Code then multiplies every minus by the character's pace and leaves every plus alone. That includes time-wear, which is always a minus, and a scene number that came back negative.
+The model answers once, at Normal. Code then multiplies every minus by the character's pace and leaves every plus alone. That includes a hunger or bladder drop the judge reported for the beat, and any other scene number that came back negative.
 
 - **Sloth** — two thirds of the drop.
 - **Normal** — the drop unchanged.
@@ -58,22 +60,13 @@ A 30 minute bath that the model scores as hygiene up lands on the same plus at S
 
 If one beat has both, they are handled apart. The bath's plus stays. The run's minus, and the time-wear, are what the slider changes. Pace is applied before the result is added to the bar.
 
-**Clock on.**
+**Clock on.** The character replies from the body they already have. The clock decides the minutes. The judge is told that span in the clock's own words (`12 min`, `2 hr 30 min`, `Next morning`, or the skip destination). Hunger and bladder follow it. The other five follow the scene. Code scales any minus by pace, leaves every plus alone, and adds the report. One reply cannot empty a bar by itself. The next reply is the first one that shows it.
 
-1. The character replies from the body they already have. Nothing wears yet.
-2. The clock decides the minutes.
-3. Code wears every need that is on for that awake time, at Normal, then pace scales that drop.
-4. The model reads the reply and reports only the scene, at Normal.
-5. Code scales any minus in that report by pace, leaves every plus alone, and adds both on top of the wear. One reply cannot empty a bar by itself.
-6. The next reply is the first one that shows both.
+**Same moment, Continue, clock off.** No span. Hunger and bladder stay put unless the scene fed them, they drank, or they used the bathroom. Continue clears the beat before the judge, so the same span is not charged again.
 
-**Clock off.** One send wears the body by one ordinary beat, scaled by pace. The model still reports only the scene. No minutes are invented.
+**Night, skip, or time away.** The span the judge is told is the whole hunger and bladder change for that reply. Sleep and a morning meal still restore. Do not add a second drain on top of that.
 
-**Continue.** Same beat. The model scores the new text. Code does not wear the body again.
-
-**Night, skip to morning, or time away.** Awake wear does not run across those hours. The model is the only writer for that beat, and it is told the span: next morning, or gone for about four hours. Its report is the whole change.
-
-**A group.** The minutes pass for everyone who is present, each at their own pace. Only the speaker gets the scene. Someone who is away uses the away beat.
+**A group.** Only the speaker is judged, at their own pace. Co-present members stay where they are until they speak. Someone who is away uses the away beat, and that span is still the hunger and bladder change.
 
 ## Time chip on every turn
 
@@ -102,4 +95,4 @@ When both time and the scene moved a bar, the chip shows both. The time, and the
 - Pace is the only speed control, and it scales drops only. A plus is the same at Sloth, Normal, and Fast. No tick rate remains in the editor, the save file's live path, or the engine.
 - Each need can be turned off per character. Off means no bar, no wear, no scene number, no prompt line. Turning it back on restores the stored bar. All seven default to on.
 - The new engine is new code. The old simulation, decay tables, and tick call are removed, not wrapped.
-- A short clock-on exchange wears less than a long one. Clock off wears one beat per send. Continue does not wear twice. A night or time away does not also run the awake wear.
+- A short clock-on exchange moves hunger and bladder less than a long one, because the judge was told a shorter span. Clock off, Continue, and the same moment do not invent a drop. A night or time away is one span, not an awake tick plus a scene.

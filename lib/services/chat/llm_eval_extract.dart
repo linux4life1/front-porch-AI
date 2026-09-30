@@ -203,7 +203,11 @@ extension LlmEvalExtract on LlmEvalEngine {
             '  • Exercise, yoga, or stretching \u2192 energy +5 to +15, comfort +5\n'
             '  • Drinking any beverage \u2192 energy +5 to +10\n'
             '  • Cooking or preparing food \u2192 comfort +5\n\n'
-            'Report what the scene did. Do not also subtract the hours that passed.\n'
+            'The scene starts with the beat. Hunger and bladder follow that span, '
+            'and it is the whole change for those two. You choose the size. A meal, '
+            'a drink, or a bathroom replaces a second drop for that need. Energy, '
+            'hygiene, fun, social, and comfort move only when the scene itself '
+            'costs or restores them.\n'
             '${toolsMode ? 'Use ONLY the tool — no plain-text reply.' : 'Return raw JSON with no markdown, no explanation.'}';
       } else if (userCritique != null && userCritique.trim().isNotEmpty) {
         // B: unified rich correction prompt (no duplication of context logic)
@@ -249,20 +253,28 @@ extension LlmEvalExtract on LlmEvalEngine {
                 // state was being scored as changing it, and the lower a need
                 // went the more vivid the prose and the harder the next hit.
                 //
-                // CLAUDE.md already forbids this for the Realism Engine — "the
-                // eval scores the USER's message, never the character's own
-                // reply" — and the rule had simply never been applied here.
-                'TIME WEAR IS HANDLED SEPARATELY. The minutes of this beat are already worn off the bars; '
-                'that is not your job. The scene text above was WRITTEN FROM '
-                'the current needs listed below — a character mentioning their empty stomach, dragging their feet, '
-                'or squirming is DESCRIBING the state you are being shown, not becoming worse. Do not charge '
-                'them for it.\n'
-                'Report a NEGATIVE delta only when the scene explicitly describes something that COST them: '
-                'hard exertion, sex, a soaking or a mess, being kept awake, going without, or drinking a '
-                'lot (which fills the bladder rather than emptying it). A described event SHOULD register '
-                'clearly — a soda is a real hit to bladder, a long walk a real hit to energy — it is the '
-                'ambient drift you must not double-count. Otherwise the negative is 0; most needs in most '
-                'scenes should be 0.\n\n'
+                // Hunger and bladder follow the beat named above the scene.
+                // Describing the current bar is not a second cost on top of it.
+                'HUNGER AND BLADDER FOLLOW THE BEAT named at the start of the scene. '
+                'On an awake span they must move with that span. You choose the size: '
+                'a few minutes is a small drop, a long stretch is a real one. If the '
+                'scene fed them, hunger is the meal, not the meal plus another drop. '
+                'If they used the bathroom, bladder is that relief. If they drank, '
+                'bladder drops for the drink. If none of that happened, both still '
+                'drop for the span. Zero on hunger or bladder is only legal when that '
+                'need was restored, or when the beat is the same moment. A night, a '
+                'skip, or time away is the whole change for those two. Sleep still '
+                'restores energy.\n'
+                'The scene text above was WRITTEN FROM the current needs listed below — '
+                'a character mentioning their empty stomach, dragging their feet, or '
+                'squirming is DESCRIBING the state you are being shown, not becoming '
+                'worse. Do not charge them again for that description.\n'
+                'Energy, hygiene, fun, social, and comfort take a NEGATIVE delta only '
+                'when the scene explicitly describes something that COST them: hard '
+                'exertion, sex, a soaking or a mess, or being kept awake. Drinking '
+                'fills the bladder (a drop) rather than emptying it. A described event '
+                'SHOULD register clearly — a soda is a real hit to bladder, a long walk '
+                'a real hit to energy. Otherwise those five stay 0.\n\n'
                 'Report *net signed effects* (deltas) on each need. Answer at Normal. Do not scale your numbers; drops are scaled afterward.\n\n'
                 'The optional Director/Verifier (when enabled with authority on needs) will correct you if your structured output does not match the actual narrative you just wrote.\n\n'
                 'CRITICAL — MAGNITUDE: needs run 0–100 (100 = fully satisfied). A delta of ±5 is a nudge and ±8 BARELY registers, so when the scene clearly SATISFIES or RESTORES a need you MUST use a LARGE positive delta so the need actually fills — do NOT lowball a complete relief:\n'
@@ -275,9 +287,9 @@ extension LlmEvalExtract on LlmEvalEngine {
                 'Partial or interrupted versions get proportionally smaller deltas. Reserve small numbers (±1 to ±8) for INCIDENTAL effects, never for a complete relief or restoration.\n\n' +
             flatJsonAsk +
             (toolsMode
-                ? 'Individual needs may be 0. All seven 0 is a failed eval — score what the beat did to their body and mood.'
+                ? 'Individual needs may be 0. When the beat named a span, all seven 0 is a failed eval — hunger and bladder have to move with it unless that need was restored. On the same moment, all seven 0 is a quiet beat.'
                 : '"reason": "<brief grounded reason for the deltas>" }\n'
-                      'Individual needs may be 0. All seven 0 is a failed eval — score what the beat did to their body and mood.');
+                      'Individual needs may be 0. When the beat named a span, all seven 0 is a failed eval — hunger and bladder have to move with it unless that need was restored. On the same moment, all seven 0 is a quiet beat.');
       }
     }
 

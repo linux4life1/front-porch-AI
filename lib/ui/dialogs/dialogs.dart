@@ -22,6 +22,7 @@ export 'image_crop_dialog.dart';
 export 'image_gen_settings_dialog.dart';
 export 'image_prompt_review_dialog.dart';
 export 'import_character_lore_dialog.dart';
+export 'pick_character_lore_entries_dialog.dart';
 export 'import_name_collision_dialog.dart';
 export 'journal_card_editor.dart';
 export 'journal_card_tile.dart';

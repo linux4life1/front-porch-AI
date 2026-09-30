@@ -24,6 +24,52 @@
 part of 'edit_character_page.dart';
 
 extension _EditCharacterLoreTabs on _EditCharacterPageState {
+  Widget _buildLorebookHeading() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Lorebook',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary(context),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'World lore entries inject context when keywords are detected.',
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.textSecondary(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _lorebookHeaderButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+    bool accent = false,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: accent
+            ? AppColors.formMasterAccent
+            : AppColors.surfaceContainerOf(context),
+        foregroundColor: accent
+            ? AppColors.onChaosAccent
+            : AppColors.textPrimary(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
   Widget _buildLorebookTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -33,72 +79,41 @@ extension _EditCharacterLoreTabs on _EditCharacterPageState {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Lorebook',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary(context),
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'World lore entries inject context when keywords are detected.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary(context),
-                          ),
-                        ),
-                      ],
+              // Header. The editor column is 720px wide and three actions
+              // already fill the row beside the title, so Export sits with
+              // them on the next line instead of crushing the heading.
+              _buildLorebookHeading(),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    _lorebookHeaderButton(
+                      onPressed: _importLorebookJson,
+                      icon: Icons.cloud_upload,
+                      label: 'Import file',
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _importLorebookJson,
-                    icon: const Icon(Icons.cloud_upload, size: 18),
-                    label: const Text('Import file'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.surfaceContainerOf(context),
-                      foregroundColor: AppColors.textPrimary(context),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                    _lorebookHeaderButton(
+                      onPressed: _exportLorebookJson,
+                      icon: Icons.cloud_download,
+                      label: 'Export file',
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: _importLoreFromCharacter,
-                    icon: const Icon(Icons.person_search, size: 18),
-                    label: const Text('From character'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.surfaceContainerOf(context),
-                      foregroundColor: AppColors.textPrimary(context),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                    _lorebookHeaderButton(
+                      onPressed: _importLoreFromCharacter,
+                      icon: Icons.person_search,
+                      label: 'From character',
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: _addLoreEntry,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Entry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.formMasterAccent,
-                      foregroundColor: AppColors.onChaosAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                    _lorebookHeaderButton(
+                      onPressed: _addLoreEntry,
+                      icon: Icons.add,
+                      label: 'Add Entry',
+                      accent: true,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
 
