@@ -70,6 +70,7 @@ extension _ImageGenGenerate on ImageGenService {
       return null;
     }
     if (!nested) {
+      _comfyUi?.clearCancel();
       _isGenerating = true;
       _statusMessage = 'Generating image...';
       _lastGeneratedImage = null;

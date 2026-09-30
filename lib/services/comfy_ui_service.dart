@@ -58,8 +58,13 @@ class ComfyUiService {
 
   /// Stops what this client has running on the server: a queued prompt is
   /// taken off the queue, a running one is interrupted. The waiting call then
-  /// throws [ComfyRunCancelled].
-  Future<void> cancelRun() => _runs.cancel(_root);
+  /// throws [ComfyRunCancelled]. [beforePost]: a generation is under way that
+  /// has not posted its workflow yet.
+  Future<void> cancelRun({bool beforePost = false}) =>
+      _runs.cancel(_root, beforePost: beforePost);
+
+  /// A new generation begins: an earlier cancel does not reach it.
+  void clearCancel() => _runs.clearStop();
 
   /// Normalize a user-typed server address into a usable base URL: trims,
   /// strips trailing slashes, and prepends `http://` when no scheme is given

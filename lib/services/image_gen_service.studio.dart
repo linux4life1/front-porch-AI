@@ -32,6 +32,7 @@ extension ImageGenStudio on ImageGenService {
       _notify();
       return null;
     }
+    _comfyUi?.clearCancel();
     _packFlight = true;
     _isGenerating = true;
     _statusMessage = 'Expression pack';
@@ -94,6 +95,6 @@ extension ImageGenStudio on ImageGenService {
   /// job to stop from here; they finish the picture they are on.
   Future<void> cancelJob() async {
     if (!_lockIsOnThisInstance()) return;
-    await _comfyUi?.cancelRun();
+    await _comfyUi?.cancelRun(beforePost: _isGenerating);
   }
 }

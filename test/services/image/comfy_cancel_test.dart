@@ -19,10 +19,19 @@ import 'package:front_porch_ai/services/storage_service.dart';
 /// A loopback ComfyUI whose jobs run until they are stopped (or, with
 /// [finish], finish at once). [running] is what its queue says is running.
 class _Comfy {
-  _Comfy({this.finish = false, this.submitDelay = Duration.zero});
+  _Comfy({
+    this.finish = false,
+    this.submitDelay = Duration.zero,
+    this.infoDelay = Duration.zero,
+  });
 
   final bool finish;
   final Duration submitDelay;
+
+  /// How long the node list takes to come: the time a generation spends
+  /// before it has posted anything.
+  final Duration infoDelay;
+  final Completer<void> infoAsked = Completer<void>();
   final List<String> calls = [];
   final Set<String> running = {'p1'};
   final Completer<void> posted = Completer<void>();
@@ -42,6 +51,8 @@ class _Comfy {
     final body = await utf8.decodeStream(request);
     response.headers.contentType = ContentType.json;
     if (path == '/object_info') {
+      if (!infoAsked.isCompleted) infoAsked.complete();
+      await Future<void>.delayed(infoDelay);
       response.write(
         jsonEncode({
           'CheckpointLoaderSimple': <String, dynamic>{},
@@ -130,8 +141,13 @@ void main() {
   Future<_Comfy> comfy({
     bool finish = false,
     Duration submitDelay = Duration.zero,
+    Duration infoDelay = Duration.zero,
   }) async {
-    final c = _Comfy(finish: finish, submitDelay: submitDelay);
+    final c = _Comfy(
+      finish: finish,
+      submitDelay: submitDelay,
+      infoDelay: infoDelay,
+    );
     await c.start();
     addTearDown(c.stop);
     return c;
@@ -185,6 +201,37 @@ void main() {
       expect(bytes, isNull);
       expect(image.statusMessage, 'Cancelled.');
       expect(c.calls, contains(startsWith('interrupt')));
+    });
+
+    test('asked before anything is posted (the lists are still being read), '
+        'what is posted is stopped', () async {
+      final c = await comfy(infoDelay: const Duration(milliseconds: 700));
+      final image = await _studio(c, dir);
+      final pending = image.generateImage(prompt: 'a porch at dusk');
+      await c.infoAsked.future;
+
+      await image.cancelJob();
+      final bytes = await pending.timeout(const Duration(seconds: 10));
+
+      expect(bytes, isNull);
+      expect(image.statusMessage, 'Cancelled.');
+      expect(c.calls, contains(startsWith('interrupt')));
+    });
+
+    test('a cancel does not reach the next generation', () async {
+      final c = await comfy(
+        finish: true,
+        infoDelay: const Duration(milliseconds: 300),
+      );
+      final image = await _studio(c, dir);
+      final first = image.generateImage(prompt: 'a porch at dusk');
+      await c.infoAsked.future;
+      await image.cancelJob();
+      await first.timeout(const Duration(seconds: 10));
+
+      final second = await image.generateImage(prompt: 'a porch at dawn');
+
+      expect(second, isNotNull, reason: image.statusMessage);
     });
 
     test('with nothing running it does nothing', () async {

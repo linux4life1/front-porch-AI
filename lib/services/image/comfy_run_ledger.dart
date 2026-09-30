@@ -26,9 +26,16 @@ class ComfyRunLedger {
   final Set<String> _cancelled = {};
   int _submitting = 0;
   bool _stopWhenSubmitted = false;
+  bool _stopNext = false;
 
   /// A workflow is about to be posted.
-  void submitting() => _submitting++;
+  void submitting() {
+    _submitting++;
+    if (_stopNext) _stopWhenSubmitted = true;
+  }
+
+  /// A new generation begins: an earlier cancel does not reach it.
+  void clearStop() => _stopNext = false;
 
   /// The post finished ([id] is null when it failed). A stop asked for while
   /// it was in flight is carried out now that the prompt has a name.
@@ -50,8 +57,12 @@ class ComfyRunLedger {
     _cancelled.remove(id);
   }
 
-  /// Stops every prompt this client has posted and not seen finish.
-  Future<void> cancel(String root) async {
+  /// Stops every prompt this client has posted and not seen finish. With
+  /// [beforePost], a generation is under way that has not posted yet (it is
+  /// still fetching lists or uploading the picture): what it posts is stopped
+  /// as soon as it has a name.
+  Future<void> cancel(String root, {bool beforePost = false}) async {
+    if (beforePost) _stopNext = true;
     if (_submitting > 0) _stopWhenSubmitted = true;
     final ids = _running.toList();
     _cancelled.addAll(ids);
