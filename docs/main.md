@@ -30,6 +30,7 @@ Round two. Restart not required.
 - "it's 7:15 pm" typed with a plain apostrophe sets the story clock, same as the curly one.
 - Reprocess Needs hides needs you've turned off, on desktop and phone.
 - Image Studio: stack up to eight LoRAs, filtered by base model; Draw Things LoRAs work; GGUF and saved ComfyUI workflows load properly.
+- Image Studio: hitting Generate while a picture is already being made now tells you it's already running. Nano models load from the host, with an offline fallback.
 - macOS: a bundled library is signed properly, so the app build seals cleanly.
 
 For the complete list, see the GitHub release notes.

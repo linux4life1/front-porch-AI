@@ -15,18 +15,15 @@
 
 **A local-first AI companion for character chat & roleplay — Windows, macOS, and Linux.** Runs fully offline with local LLMs (KoboldCpp, oMLX, LM Studio, …), driven by a living **Realism Engine** (emotion, trust, needs, memory, pockets) with built-in **TTS and image generation** — and supports remote APIs like OpenRouter, Nano-GPT, and OpenAI with no lock-in when you want them. Open-source (**AGPL-3.0**). Built as a home for people who lost theirs when Backyard AI killed its desktop app.
 
-> ### 🧰 New in 1.4.0 — Toolbox
-> New stage. New fighters. Same porch.
+> ### 🩹 New in 1.4.1 — KB5069420: Cumulative Porch Update
+> Round two. Restart not required.
 >
-> - **Waifu Coder joins the battle.** A private OpenCode you start, stop, and update. Same seat.
-> - **Same recipe cards as chat.** Drop JSON in the library `tools/` folder. Opt in from the Waifu harness and they show up. Skills are her own drawer. Not extra MCP servers.
-> - **A challenger approaches… the web.** Search rides the reply. Not a silent pass before they speak.
-> - **Skip the handwriting.** A wiki can sit in for a lorebook, or next to one.
-> - **New fighter: the second local model.** Feelings and journal can sit beside chat and swap off the GPU.
-> - **Guests have entered the match.** They take turns until you Promote that one person. `.fpchat` remembers who was a guest.
-> - **Image Studio grabs their templates.** Comfy Create runs the graph they ship. Remote Studio can be Nano or OpenRouter without moving chat.
+> - **Needs follow the story clock.** Bars move with the time the scene says passed, not with every message.
+> - **Tell the character exactly what to look up.** `/search -- the name` or `/wiki -- the name`, or force a Web or Wiki lookup from the regenerate box.
+> - **Export a lorebook your way**, and **bring a character's lore into your Worlds.**
+> - **Stoop: report a real person.**
 >
-> Also on the card: the mic, Porch Life as the default stage, pockets per fighter, quests that time out, drop-in, copy like text. Opening a chat lands on the latest line. Afterglow limp only on the first reply. The in-app What's New has the full bout.
+> Plus Windows pickers that no longer hang, Image Studio LoRA and ComfyUI fixes, and a pile of chat fixes. The in-app What's New has the full list.
 
 ## 🕯️ Why Does This Exist?
 
