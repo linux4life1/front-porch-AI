@@ -343,6 +343,7 @@ void main() {
         located++;
         return loader;
       },
+      probe: const FakeProbe(),
     );
 
     Future<void> serveQwen21() async {

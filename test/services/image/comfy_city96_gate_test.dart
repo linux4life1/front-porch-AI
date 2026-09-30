@@ -510,6 +510,7 @@ void main() {
               locate: (_) async => loader,
               ask: (_) async => true,
               pidFor: (_) async => 100,
+              probe: const FakeProbe(),
             );
             await g.ensure(comfyUrl: url, graph: _graph());
             expect(
@@ -615,6 +616,7 @@ void main() {
           locate: (_) async => loader,
           ask: (_) async => true,
           pidFor: (_) async => 100,
+          probe: const FakeProbe(),
           write: (_, _) async => throw const FileSystemException('disk full'),
         ).ensure(comfyUrl: 'http://127.0.0.1:8188', graph: _graph());
         expect(result.state, City96State.needsUpdate);
