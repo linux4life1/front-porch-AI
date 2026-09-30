@@ -298,7 +298,11 @@ void main() {
     setUp(() {
       dir = Directory.systemTemp.createTempSync('comfy-post-city96');
       addTearDown(() => dir.deleteSync(recursive: true));
-      loader = File('${dir.path}/loader.py')
+      // A real ComfyUI layout, so custom_nodes above the loader is this
+      // user's folder and not the root-owned system temp folder.
+      final gguf = Directory('${dir.path}/ComfyUI/custom_nodes/ComfyUI-GGUF')
+        ..createSync(recursive: true);
+      loader = File('${gguf.path}/loader.py')
         ..writeAsStringSync(kStockCity96Loader);
       asked = [];
     });
