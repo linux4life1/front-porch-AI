@@ -111,10 +111,14 @@ extension on _StudioDeskState {
     final schedulers = up && !drawThings
         ? await gen.fetchA1111Schedulers(url)
         : const <String>[];
+    // Automatic1111's own LoRA list, so the slots can be filled from it.
+    final a1111Loras = up && !drawThings
+        ? [for (final l in await gen.fetchA1111Loras(url)) l.name]
+        : const <String>[];
     if (!mounted) return;
     _applyCatalog(
       models: models,
-      loras: drawThings ? listing.names : const [],
+      loras: drawThings ? listing.names : a1111Loras,
       samplers: samplers,
       schedulers: schedulers,
       url: force ? (up ? 'up:$url' : 'down:$url') : url,
