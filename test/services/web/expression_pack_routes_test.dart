@@ -397,6 +397,49 @@ void main() {
       },
     );
 
+    group('only a PNG picture is taken as the base', () {
+      final jpeg = base64Encode(
+        img.encodeJpg(img.Image(width: 96, height: 120)),
+      );
+      // A real 1x1 lossless WebP.
+      const webp = 'UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==';
+
+      for (final (name, mime, data) in [
+        ('a real JPEG', 'image/jpeg', jpeg),
+        ('a real WebP', 'image/webp', webp),
+      ]) {
+        test('$name is refused with 400 and asked to be a PNG', () async {
+          final comfy = await boot();
+          final (status, body) = await h.call('POST', _pack, {
+            'characterId': mara,
+            'referenceImage': 'data:$mime;base64,$data',
+          });
+          expect(status, 400, reason: '$body');
+          expect(body['code'], 'bad_picture');
+          expect(body['error'], contains('Please use a PNG'));
+          expect(comfy.uploads, 0);
+          expect(comfy.postedAll, isEmpty);
+          final (gone, _) = await h.call('GET', _pack);
+          expect(gone, 404);
+        });
+      }
+
+      test('a normal PNG sent with the request still makes the pack', () async {
+        final comfy = await boot();
+        final (status, started) = await h.call('POST', _pack, {
+          'characterId': mara,
+          'referenceImage':
+              'data:image/png;base64,${base64Encode(img.encodePng(img.Image(width: 300, height: 200)))}',
+        });
+        expect(status, 200, reason: '$started');
+
+        final done = await _untilStopped(h);
+        expect(done['done'], _missing.length);
+        expect(done['canImport'], isTrue);
+        expect(comfy.uploads, _missing.length);
+      });
+    });
+
     group(
       'a crafted picture is refused at once, and never as a server error',
       () {
@@ -415,27 +458,6 @@ void main() {
             apng(frames: 30, frameWidth: 6000, frameHeight: 6000),
             400,
             'bad_picture',
-          ),
-          'a tiny JPEG declaring 16000x16000': (
-            tinyJpeg(16000, 16000),
-            413,
-            'too_large',
-          ),
-          'an animated WebP': (webpAnimated(), 400, 'bad_picture'),
-          'a WebP whose inner picture is huge': (
-            webpExtended(
-              canvasWidth: 64,
-              canvasHeight: 64,
-              innerWidth: 16000,
-              innerHeight: 16000,
-            ),
-            413,
-            'too_large',
-          ),
-          'a lossless WebP declaring 16000x16000': (
-            webpLossless(16000, 16000),
-            413,
-            'too_large',
           ),
         };
         crafted.forEach((name, spec) {

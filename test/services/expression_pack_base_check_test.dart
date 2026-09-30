@@ -133,221 +133,70 @@ void main() {
     });
   });
 
-  group('a JPEG', () {
-    test('of a few dozen bytes declaring 16000x16000 is refused before any '
-        'decoder allocates for it', () {
-      final tiny = tinyJpeg(16000, 16000);
-      expect(tiny.length, lessThan(64));
-      _refusedAtOnce(tiny, tooLarge: true, saying: '16000x16000');
+  group('anything that is not a PNG', () {
+    final jpeg = Uint8List.fromList(
+      img.encodeJpg(img.Image(width: 900, height: 1200)),
+    );
+    // A real 1x1 lossless WebP.
+    final webp = Uint8List.fromList(
+      base64Decode('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA=='),
+    );
+
+    test('a real JPEG is refused, and asked to be a PNG', () {
+      expect(jpeg.sublist(0, 3), [0xFF, 0xD8, 0xFF]);
+      _refusedAtOnce(jpeg, tooLarge: false, saying: 'Please use a PNG');
     });
 
-    test('is sized from its frame header, after the APPn segments', () {
-      expect(inspectPackBase(tinyJpeg(100, 50)).size, (100, 50));
-      expect(inspectPackBase(tinyJpeg(100, 50, sof: 0xC2)).size, (100, 50));
+    test('a real WebP is refused, and asked to be a PNG', () {
+      expect(String.fromCharCodes(webp, 8, 12), 'WEBP');
+      _refusedAtOnce(webp, tooLarge: false, saying: 'Please use a PNG');
     });
 
-    test('is judged at the limit, not near it', () {
-      expect(inspectPackBase(tinyJpeg(6400, 6250)).size, (6400, 6250));
-      expect(inspectPackBase(tinyJpeg(6401, 6250)).refusal?.tooLarge, isTrue);
-    });
-
-    test('a kind the decoders do not take, or one cut short, is refused', () {
-      _refusedAtOnce(tinyJpeg(10, 10, sof: 0xC3), saying: 'PNG, JPEG');
-      _refusedAtOnce(Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 0x00]));
-      _refusedAtOnce(tinyJpeg(0, 10));
-    });
-  });
-
-  group('a WebP', () {
-    test('lossless or lossy, declaring far too much, is refused', () {
-      _refusedAtOnce(webpLossless(16000, 16000), tooLarge: true);
-      _refusedAtOnce(webpLossy(16383, 16383), tooLarge: true);
-    });
-
-    test('animated is refused: by its flag, or by frames without one', () {
-      _refusedAtOnce(webpAnimated(), tooLarge: false, saying: 'animated');
-      _refusedAtOnce(
-        webpAnimated(flag: false),
-        tooLarge: false,
-        saying: 'animated',
-      );
-    });
-
-    test('with the animation flag set and no frames, it is still refused', () {
-      _refusedAtOnce(
-        webpExtended(
-          canvasWidth: 64,
-          canvasHeight: 64,
-          innerWidth: 64,
-          innerHeight: 64,
-          flags: 0x02,
-        ),
-        tooLarge: false,
-        saying: 'animated',
-      );
-    });
-
-    test('an extended one is checked at its canvas and at the picture inside '
-        'it, and the two must agree', () {
-      _refusedAtOnce(
-        webpExtended(
-          canvasWidth: 64,
-          canvasHeight: 64,
-          innerWidth: 16000,
-          innerHeight: 16000,
-        ),
-        tooLarge: true,
-      );
-      _refusedAtOnce(
-        webpExtended(
-          canvasWidth: 16000,
-          canvasHeight: 16000,
-          innerWidth: 16000,
-          innerHeight: 16000,
-        ),
-        tooLarge: true,
-      );
-      _refusedAtOnce(
-        webpExtended(
-          canvasWidth: 64,
-          canvasHeight: 64,
-          innerWidth: 32,
-          innerHeight: 32,
-        ),
-      );
-      expect(
-        inspectPackBase(
-          webpExtended(
-            canvasWidth: 64,
-            canvasHeight: 48,
-            innerWidth: 64,
-            innerHeight: 48,
-          ),
-        ).size,
-        (64, 48),
-      );
-    });
-
-    test('two picture chunks, a small one and then a huge one, are refused: '
-        'the decoder would keep the last', () {
-      _refusedAtOnce(
-        webpChunks([vp8l(64, 64), vp8l(16383, 16383)]),
-        saying: null,
-      );
-      // Small first or huge first, lossless or lossy, all the same.
-      _refusedAtOnce(webpChunks([vp8l(16383, 16383), vp8l(64, 64)]));
-      _refusedAtOnce(webpChunks([vp8(64, 64), vp8l(16383, 16383)]));
-      _refusedAtOnce(webpChunks([vp8l(64, 64), vp8(16383, 16383)]));
-      _refusedAtOnce(webpChunks([vp8(64, 64), vp8(64, 64)]));
-    });
-
-    test('a picture chunk after the end the RIFF header claims is still '
-        'seen: the decoder reads to the end of the file', () {
-      final first = vp8l(64, 64);
-      _refusedAtOnce(
-        webpChunks([first, vp8l(16383, 16383)], riffSize: 4 + first.length),
-      );
-    });
-
-    test('a chunk that runs past the end of the file is refused', () {
-      final cut = webpChunks([vp8l(64, 64), vp8l(16383, 16383)]);
-      _refusedAtOnce(Uint8List.sublistView(cut, 0, cut.length - 3));
-      _refusedAtOnce(
-        Uint8List.fromList([
-          ...webpLossless(64, 64),
-          ...'VP8L'.codeUnits,
-          0xFF,
-          0xFF,
-          0xFF,
-          0x7F,
-        ]),
-      );
-    });
-
-    test('one picture chunk is still fine', () {
-      expect(inspectPackBase(webpChunks([vp8l(64, 64)])).size, (64, 64));
-    });
-
-    test('a second extended header is refused', () {
-      final header = webpExtended(
-        canvasWidth: 64,
-        canvasHeight: 64,
-        innerWidth: 64,
-        innerHeight: 64,
-      ).sublist(12, 12 + 18);
-      expect(inspectPackBase(webpChunks([header, vp8l(64, 64)])).size, (
-        64,
-        64,
-      ));
-      _refusedAtOnce(webpChunks([header, header, vp8l(64, 64)]));
-    });
-
-    test('two picture chunks are refused even when both are small', () {
-      _refusedAtOnce(webpChunks([vp8l(64, 64), vp8l(64, 64)]));
-      _refusedAtOnce(webpChunks([vp8(64, 64), vp8(64, 64)]));
-      _refusedAtOnce(webpChunks([vp8(64, 64), vp8l(64, 64)]));
-      _refusedAtOnce(webpChunks([vp8l(64, 64), vp8(64, 64)]));
-    });
-
-    test('a cut-off chunk after the picture is refused', () {
-      _refusedAtOnce(
-        Uint8List.fromList([
-          ...webpLossless(64, 64),
-          ...'JUNK'.codeUnits,
-          100,
-          0,
-          0,
-          0,
-          1,
-          2,
-        ]),
-      );
-    });
-
-    test('a still one is read for its size', () {
-      expect(inspectPackBase(webpLossless(640, 480)).size, (640, 480));
-      expect(inspectPackBase(webpLossy(640, 480)).size, (640, 480));
-      final tiny = base64Decode(
-        'UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==',
-      );
-      expect(inspectPackBase(Uint8List.fromList(tiny)).size, (1, 1));
-    });
-  });
-
-  group('anything else', () {
-    test('a picture of another kind says which kinds are taken', () {
-      _refusedAtOnce(
-        Uint8List.fromList([...'GIF89a'.codeUnits, 1, 0, 1, 0, 0, 0, 0]),
-        saying: 'PNG, JPEG',
-      );
-      _refusedAtOnce(
-        Uint8List.fromList([...'BM'.codeUnits, 0, 0, 0, 0, 0, 0, 0, 0]),
-        saying: 'PNG, JPEG',
-      );
-    });
-
-    test('bytes that are nothing are not a picture', () {
-      expect(inspectPackBase(Uint8List(0)).size, isNull);
-      expect(inspectPackBase(Uint8List.fromList([1, 2, 3])).refusal, isNull);
-    });
+    test(
+      'a GIF, a BMP and bytes that are nothing are refused the same way',
+      () {
+        _refusedAtOnce(
+          Uint8List.fromList([...'GIF89a'.codeUnits, 1, 0, 1, 0, 0, 0, 0]),
+          saying: 'Please use a PNG',
+        );
+        _refusedAtOnce(
+          Uint8List.fromList([...'BM'.codeUnits, 0, 0, 0, 0, 0, 0, 0, 0]),
+          saying: 'Please use a PNG',
+        );
+        _refusedAtOnce(Uint8List(0), saying: 'Please use a PNG');
+        _refusedAtOnce(
+          Uint8List.fromList([1, 2, 3]),
+          saying: 'Please use a PNG',
+        );
+      },
+    );
   });
 
   group('making the base', () {
-    test('a good PNG and a good JPEG become a 768 base', () {
-      final png = Uint8List.fromList(
+    test('a good PNG becomes a 768 base, landscape or portrait', () {
+      final wide = Uint8List.fromList(
         img.encodePng(img.Image(width: 1200, height: 900)),
       );
+      final tall = Uint8List.fromList(
+        img.encodePng(img.Image(width: 900, height: 1200)),
+      );
+      expect(normalizePackBase(wide).let((b) => (b!.width, b.height)), (
+        768,
+        576,
+      ));
+      expect(normalizePackBase(tall).let((b) => (b!.width, b.height)), (
+        576,
+        768,
+      ));
+    });
+
+    test('a JPEG is given back as a refusal and nothing is decoded', () {
+      PackBaseRefusal? got;
       final jpg = Uint8List.fromList(
         img.encodeJpg(img.Image(width: 900, height: 1200)),
       );
-      expect(normalizePackBase(png).let((b) => (b!.width, b.height)), (
-        768,
-        576,
-      ));
-      expect(normalizePackBase(jpg).let((b) => (b!.width, b.height)), (
-        576,
-        768,
-      ));
+      expect(normalizePackBase(jpg, onRefused: (r) => got = r), isNull);
+      expect(got?.message, contains('Please use a PNG'));
     });
 
     test('a refusal is given to the caller, and nothing is decoded', () {

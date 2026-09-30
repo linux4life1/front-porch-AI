@@ -36,8 +36,8 @@ import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 /// Portrait & Avatars panel. Returns null when the bytes can't be decoded.
 ///
 /// The bytes are judged before any decoder sees them ([inspectPackBase]): only
-/// PNG, JPEG and still WebP, nothing animated, nothing over about 40
-/// megapixels, no PNG that inflates past its size. Then null is returned, and
+/// a PNG, not an animated one, nothing over about 40 megapixels, none that
+/// inflates past its size. Then null is returned, and
 /// [onRefused] (when the reason is one to show) is given the refusal. A decode
 /// that fails is null as well.
 ({Uint8List bytes, int width, int height})? normalizePackBase(

@@ -31,7 +31,7 @@ class PackBaseVerdict {
   final PackBaseRefusal? refusal;
 }
 
-const _formats = 'Use a PNG, JPEG or still WebP picture.';
+const _formats = 'Please use a PNG picture.';
 const _animated = 'That picture is animated. $_formats';
 
 PackBaseVerdict _tooLarge(int width, int height) => PackBaseVerdict.refused(
@@ -49,40 +49,26 @@ PackBaseVerdict _sized(int width, int height) {
 }
 
 /// Judges [raw] before it reaches an image decoder, from its bytes alone:
-/// only PNG, JPEG and still WebP are taken; animated pictures (APNG,
-/// animated WebP) are refused; the size is read here (never from the decoder,
-/// which allocates what a header declares before anything is compared); and a
-/// PNG's compressed data is checked to inflate to no more than its size can
+/// only a PNG is taken (anything else, JPEG and WebP included, is refused);
+/// an animated PNG is refused; the size is read here (never from the decoder,
+/// which allocates what a header declares before anything is compared); and
+/// the compressed data is checked to inflate to no more than its size can
 /// hold, stopping the moment it does. A small file can declare or inflate to
 /// gigabytes, so nothing large is allocated here.
 PackBaseVerdict inspectPackBase(Uint8List raw) {
+  if (!_isPng(raw)) {
+    return const PackBaseVerdict.refused(PackBaseRefusal(_formats));
+  }
   try {
-    if (_isPng(raw)) return _png(raw);
-    if (raw.length > 3 && raw[0] == 0xFF && raw[1] == 0xD8 && raw[2] == 0xFF) {
-      return _jpeg(raw);
-    }
-    if (raw.length > 12 &&
-        _fourcc(raw, 0) == 'RIFF' &&
-        _fourcc(raw, 8) == 'WEBP') {
-      return _webp(raw);
-    }
+    return _png(raw);
   } on RangeError {
     return const PackBaseVerdict.notPicture(); // cut short
   }
-  if (raw.length > 4) {
-    return const PackBaseVerdict.refused(PackBaseRefusal(_formats));
-  }
-  return const PackBaseVerdict.notPicture();
 }
 
 String _fourcc(Uint8List b, int at) => String.fromCharCodes(b, at, at + 4);
 int _u32be(Uint8List b, int at) =>
     (b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3];
-int _u16be(Uint8List b, int at) => (b[at] << 8) | b[at + 1];
-int _u16le(Uint8List b, int at) => b[at] | (b[at + 1] << 8);
-int _u24le(Uint8List b, int at) => b[at] | (b[at + 1] << 8) | (b[at + 2] << 16);
-int _u32le(Uint8List b, int at) =>
-    b[at] | (b[at + 1] << 8) | (b[at + 2] << 16) | (b[at + 3] << 24);
 
 // ── PNG ─────────────────────────────────────────────────────────────────────
 
@@ -215,105 +201,4 @@ class _CountingSink extends ByteConversionSinkBase {
 
   @override
   void close() {}
-}
-
-// ── JPEG ────────────────────────────────────────────────────────────────────
-
-PackBaseVerdict _jpeg(Uint8List b) {
-  var at = 2;
-  while (at + 4 <= b.length) {
-    if (b[at] != 0xFF) return const PackBaseVerdict.notPicture();
-    var marker = b[at + 1];
-    while (marker == 0xFF && at + 2 < b.length) {
-      at++; // fill bytes before a marker
-      marker = b[at + 1];
-    }
-    if (marker == 0xD9 || marker == 0xDA) {
-      return const PackBaseVerdict.notPicture(); // no frame header first
-    }
-    if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD8)) {
-      at += 2; // no length
-      continue;
-    }
-    final length = _u16be(b, at + 2);
-    if (length < 2) return const PackBaseVerdict.notPicture();
-    // Baseline, extended sequential and progressive: what the decoders take.
-    if (marker == 0xC0 || marker == 0xC1 || marker == 0xC2) {
-      if (length < 8) return const PackBaseVerdict.notPicture();
-      return _sized(_u16be(b, at + 7), _u16be(b, at + 5));
-    }
-    if (marker >= 0xC3 &&
-        marker <= 0xCF &&
-        marker != 0xC4 &&
-        marker != 0xC8 &&
-        marker != 0xCC) {
-      return const PackBaseVerdict.refused(PackBaseRefusal(_formats));
-    }
-    at += 2 + length;
-  }
-  return const PackBaseVerdict.notPicture();
-}
-
-// ── WebP ────────────────────────────────────────────────────────────────────
-
-PackBaseVerdict _webp(Uint8List b) {
-  // The decoder reads chunks to the end of the file, not to the end the RIFF
-  // size claims, so the walk does too.
-  final end = b.length;
-  var at = 12;
-  (int, int)? canvas;
-  (int, int)? still;
-  while (at + 8 <= end) {
-    final type = _fourcc(b, at);
-    final size = _u32le(b, at + 4);
-    final data = at + 8;
-    // A chunk that runs past the file is not one the decoder can be trusted
-    // with: it takes what it has read of it.
-    if (size > end - data) return const PackBaseVerdict.notPicture();
-    switch (type) {
-      case 'VP8X':
-        if (size < 10 || canvas != null) {
-          return const PackBaseVerdict.notPicture();
-        }
-        if (b[data] & 0x02 != 0) {
-          return const PackBaseVerdict.refused(PackBaseRefusal(_animated));
-        }
-        canvas = (1 + _u24le(b, data + 4), 1 + _u24le(b, data + 7));
-        final sized = _sized(canvas.$1, canvas.$2);
-        if (sized.size == null) return sized;
-      case 'ANIM' || 'ANMF':
-        return const PackBaseVerdict.refused(PackBaseRefusal(_animated));
-      case 'VP8 ':
-        if (size < 10 ||
-            b[data + 3] != 0x9D ||
-            b[data + 4] != 0x01 ||
-            b[data + 5] != 0x2A) {
-          return const PackBaseVerdict.notPicture();
-        }
-        // A still WebP has exactly one picture chunk. The decoder keeps the
-        // last of several, so a second (a huge one after a small one) would
-        // be decoded unchecked.
-        if (still != null) return const PackBaseVerdict.notPicture();
-        still = (_u16le(b, data + 6) & 0x3FFF, _u16le(b, data + 8) & 0x3FFF);
-      case 'VP8L':
-        if (size < 5 || b[data] != 0x2F) {
-          return const PackBaseVerdict.notPicture();
-        }
-        if (still != null) return const PackBaseVerdict.notPicture();
-        final bits = _u32le(b, data + 1);
-        still = ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1);
-    }
-    if (still != null) {
-      final sized = _sized(still.$1, still.$2);
-      if (sized.size == null) return sized;
-    }
-    at = data + size + (size & 1);
-  }
-  if (still == null) return const PackBaseVerdict.notPicture();
-  if (canvas != null && canvas != still) {
-    // The canvas and the picture inside it must agree: a decoder allocates one
-    // and fills the other.
-    return const PackBaseVerdict.notPicture();
-  }
-  return PackBaseVerdict.ok(still.$1, still.$2);
 }

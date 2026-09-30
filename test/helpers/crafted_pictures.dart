@@ -13,8 +13,6 @@ import 'huge_png.dart';
 const List<int> _pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
 
 Uint8List _u32(int v) => (ByteData(4)..setUint32(0, v)).buffer.asUint8List();
-Uint8List _u32le(int v) =>
-    (ByteData(4)..setUint32(0, v, Endian.little)).buffer.asUint8List();
 
 /// One PNG chunk: length, type, data, CRC.
 List<int> pngChunk(String type, List<int> data) {
@@ -121,104 +119,6 @@ Uint8List apng({
     ..addAll(pngChunk('IDAT', zeroZlib(height * (1 + width * 4))))
     ..addAll(pngChunk('IEND', const []));
   return Uint8List.fromList(out);
-}
-
-/// A JPEG that is nothing but markers: SOI, an APP0 segment, a frame header
-/// declaring [width] x [height], EOI.
-Uint8List tinyJpeg(int width, int height, {int sof = 0xC0}) =>
-    Uint8List.fromList([
-      0xFF, 0xD8, //
-      0xFF, 0xE0, 0x00, 0x08, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x00, //
-      0xFF, sof, 0x00, 0x11, 0x08, height >> 8, height & 0xFF, width >> 8,
-      width & 0xFF, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01,
-      0xFF, 0xD9,
-    ]);
-
-List<int> _riffChunk(String type, List<int> data) => [
-  ...type.codeUnits,
-  ..._u32le(data.length),
-  ...data,
-  if (data.length.isOdd) 0,
-];
-
-Uint8List _riff(List<int> chunks) => Uint8List.fromList([
-  ...'RIFF'.codeUnits,
-  ..._u32le(4 + chunks.length),
-  ...'WEBP'.codeUnits,
-  ...chunks,
-]);
-
-List<int> vp8l(int width, int height) => _riffChunk('VP8L', [
-  0x2F,
-  ..._u32le((width - 1) | ((height - 1) << 14)),
-  0,
-]);
-
-List<int> vp8(int width, int height) => _riffChunk('VP8 ', [
-  0,
-  0,
-  0,
-  0x9D,
-  0x01,
-  0x2A,
-  width & 0xFF,
-  width >> 8,
-  height & 0xFF,
-  height >> 8,
-  0,
-  0,
-]);
-
-List<int> _vp8x(int flags, int width, int height) => _riffChunk('VP8X', [
-  flags,
-  0,
-  0,
-  0,
-  (width - 1) & 0xFF,
-  ((width - 1) >> 8) & 0xFF,
-  ((width - 1) >> 16) & 0xFF,
-  (height - 1) & 0xFF,
-  ((height - 1) >> 8) & 0xFF,
-  ((height - 1) >> 16) & 0xFF,
-]);
-
-/// A plain WebP whose lossless header declares [width] x [height].
-Uint8List webpLossless(int width, int height) => _riff(vp8l(width, height));
-
-/// A plain lossy WebP declaring [width] x [height] (14 bits each).
-Uint8List webpLossy(int width, int height) => _riff(vp8(width, height));
-
-/// A WebP that is animated: the animation flag, ANIM and ANMF chunks.
-Uint8List webpAnimated({int width = 64, int height = 64, bool flag = true}) =>
-    _riff([
-      ..._vp8x(flag ? 0x02 : 0, width, height),
-      ..._riffChunk('ANIM', [0, 0, 0, 0, 0, 0]),
-      ..._riffChunk('ANMF', List.filled(16, 0)),
-    ]);
-
-/// An extended WebP: a [canvasWidth] x [canvasHeight] canvas holding a
-/// lossless picture that declares [innerWidth] x [innerHeight].
-Uint8List webpExtended({
-  required int canvasWidth,
-  required int canvasHeight,
-  required int innerWidth,
-  required int innerHeight,
-  int flags = 0,
-}) => _riff([
-  ..._vp8x(flags, canvasWidth, canvasHeight),
-  ...vp8l(innerWidth, innerHeight),
-]);
-
-/// A WebP with several picture chunks, in order: the decoder keeps the last,
-/// whatever came first. [riffSize] overrides the size the RIFF header claims
-/// (the decoder reads to the end of the file, not to that size).
-Uint8List webpChunks(List<List<int>> chunks, {int? riffSize}) {
-  final body = [for (final c in chunks) ...c];
-  final out = _riff(body);
-  if (riffSize != null) {
-    out.setRange(4, 8, _u32le(riffSize));
-  }
-  return out;
 }
 
 /// A PNG whose header appears twice: the first is small, the second huge, and

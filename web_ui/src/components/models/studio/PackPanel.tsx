@@ -207,7 +207,8 @@ export function PackPanel(props: {
       <p>
         {props.picture
           ? `Built from ${props.picture.name}.`
-          : 'Built from the character’s portrait. Choose a picture above to use another.'}
+          : 'Built from the character’s portrait. Choose a picture above to use another.'}{' '}
+        Packs are built from PNG pictures.
       </p>
       <button type="button" disabled={busy || running || !character} onClick={start}>
         Start pack
