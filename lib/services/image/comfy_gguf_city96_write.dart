@@ -112,14 +112,16 @@ Future<City96Judgement> city96Judge(
 /// again, and end with `loader.py`'s mode. When anything fails the temp file,
 /// and a backup made by this call, are removed.
 ///
-/// [afterCreate] (after a new file is created, before it is written) and
-/// [beforeRename] are for tests.
+/// [afterCreate] (after a new file is created, before it is written),
+/// [beforeRead] (before loader.py is read for the backup) and [beforeRename]
+/// are for tests.
 Future<void> writeCity96Loader(
   File loader,
   String patched, {
   ComfyProcessProbe probe = const ComfyProcessProbe(),
   @visibleForTesting void Function(String path)? afterCreate,
   @visibleForTesting FutureOr<void> Function(File temp)? beforeRename,
+  @visibleForTesting void Function(String path)? beforeRead,
 }) async {
   final judged = await city96Judge(loader, probe: probe);
   if (judged.refusal != null) throw City96WriteRefused(judged.refusal!);
@@ -135,11 +137,17 @@ Future<void> writeCity96Loader(
   var madeBackup = false;
   final temp = File('${loader.path}.fpai-tmp-${city96Token()}');
   try {
+    beforeRead?.call(loader.path);
+    // The copy is read through a descriptor opened without following a link:
+    // where other users can write the folder, a link put in loader.py's place
+    // since it was judged would otherwise copy a private file into the backup.
+    final original = readFileNoFollow(loader.path);
+    // Only the new files' mode comes from a look by name.
     final mode = (await loader.stat()).mode & 0xFFF;
     try {
       writeNewFileExclusive(
         bak.path,
-        await loader.readAsBytes(),
+        original,
         mode: mode,
         afterCreate: afterCreate,
       );

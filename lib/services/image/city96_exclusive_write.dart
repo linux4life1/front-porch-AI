@@ -3,10 +3,12 @@
 
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
 import 'city96_exclusive_write_windows.dart';
+import 'city96_write_common.dart';
 
 /// Creates [path] (which must not exist, and is not followed if it is a link)
 /// and writes [bytes] through the descriptor that creation returned, so
@@ -86,21 +88,112 @@ void writeNewFileExclusive(
   }
 }
 
+/// Reads all of [path], which is opened without following a link, so a
+/// loader that was swapped for a link since it was judged is refused and never
+/// read through. Non-blocking, so a pipe put there cannot hang the read.
+/// Throws [City96WriteRefused] for a link, [UnsupportedError] where this
+/// cannot be done safely. [afterOpen] is for tests.
+Uint8List readFileNoFollow(
+  String path, {
+  void Function(String path)? afterOpen,
+}) {
+  final os = _osFlags();
+  if (Platform.isWindows || os == null) {
+    throw UnsupportedError('no-follow reads are not supported here');
+  }
+  final libc = DynamicLibrary.process();
+  final open = libc
+      .lookupFunction<
+        Int32 Function(Pointer<Utf8>, Int32, VarArgs<(Int32,)>),
+        int Function(Pointer<Utf8>, int, int)
+      >('open');
+  final read = libc
+      .lookupFunction<
+        IntPtr Function(Int32, Pointer<Uint8>, IntPtr),
+        int Function(int, Pointer<Uint8>, int)
+      >('read');
+  final close = libc.lookupFunction<Int32 Function(Int32), int Function(int)>(
+    'close',
+  );
+  final name = path.toNativeUtf8();
+  int fd;
+  try {
+    fd = open(name, os.nofollow | os.cloexec | os.nonblock, 0);
+  } finally {
+    calloc.free(name);
+  }
+  if (fd < 0) {
+    if (FileSystemEntity.typeSync(path, followLinks: false) ==
+        FileSystemEntityType.link) {
+      throw const City96WriteRefused(
+        'Its ComfyUI-GGUF loader was replaced by a link while it was being '
+        'read, so nothing was changed.',
+      );
+    }
+    throw FileSystemException('could not open the file', path);
+  }
+  const chunk = 64 * 1024;
+  const cap = 16 * 1024 * 1024;
+  final buffer = calloc<Uint8>(chunk);
+  final out = BytesBuilder(copy: false);
+  try {
+    afterOpen?.call(path);
+    while (true) {
+      final n = read(fd, buffer, chunk);
+      if (n < 0) throw FileSystemException('could not read the file', path);
+      if (n == 0) break;
+      out.add(Uint8List.fromList(buffer.asTypedList(n)));
+      if (out.length > cap) {
+        throw FileSystemException('the file is too large to copy', path);
+      }
+    }
+    return out.takeBytes();
+  } finally {
+    calloc.free(buffer);
+    close(fd);
+  }
+}
+
 /// O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC for this platform, or
-/// null when it is not known. The Linux value of O_NOFOLLOW depends on the
-/// architecture, so each one is named and any other is refused.
+/// null when it is not known.
 int? _flags() {
+  final os = _osFlags();
+  if (os == null) return null;
   const wronly = 1;
+  return wronly | os.creat | os.excl | os.nofollow | os.cloexec;
+}
+
+/// The open flags this platform uses, or null when they are not known. The
+/// Linux value of O_NOFOLLOW depends on the architecture, so each one is named
+/// and any other is refused.
+({int creat, int excl, int nofollow, int cloexec, int nonblock})? _osFlags() {
   final abi = Abi.current();
   if (abi == Abi.macosArm64 || abi == Abi.macosX64) {
-    return wronly | 0x200 | 0x800 | 0x100 | 0x1000000;
+    return (
+      creat: 0x200,
+      excl: 0x800,
+      nofollow: 0x100,
+      cloexec: 0x1000000,
+      nonblock: 0x4,
+    );
   }
-  const linuxCommon = wronly | 0x40 | 0x80 | 0x80000;
   if (abi == Abi.linuxX64 || abi == Abi.linuxIA32) {
-    return linuxCommon | 0x20000;
+    return (
+      creat: 0x40,
+      excl: 0x80,
+      nofollow: 0x20000,
+      cloexec: 0x80000,
+      nonblock: 0x800,
+    );
   }
   if (abi == Abi.linuxArm64 || abi == Abi.linuxArm) {
-    return linuxCommon | 0x8000;
+    return (
+      creat: 0x40,
+      excl: 0x80,
+      nofollow: 0x8000,
+      cloexec: 0x80000,
+      nonblock: 0x800,
+    );
   }
   return null;
 }

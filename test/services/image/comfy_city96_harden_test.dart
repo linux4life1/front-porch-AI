@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/services/image/city96_exclusive_write.dart';
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart';
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_write.dart';
 import 'package:front_porch_ai/services/image/comfy_model_paths.dart';
@@ -118,6 +119,68 @@ void main() {
         expect(loader.readAsStringSync(), kStockCity96Loader);
       },
     );
+
+    test(
+      'a loader swapped for a link after it was judged is not copied',
+      () async {
+        final private = File(p.join(dir.path, 'private.txt'))
+          ..writeAsStringSync('someone else\'s secret');
+        // Between the checks and the copy, another user puts a link in
+        // loader.py's place.
+        void swap(String path) {
+          File(path).deleteSync();
+          Link(path).createSync(private.path);
+        }
+
+        await expectLater(
+          writeCity96Loader(
+            loader,
+            _patched,
+            probe: const FakeProbe(),
+            beforeRead: swap,
+          ),
+          throwsA(isA<City96WriteRefused>()),
+        );
+
+        expect(bak().existsSync(), isFalse, reason: 'nothing was copied');
+        expect(private.readAsStringSync(), 'someone else\'s secret');
+        expect(leftovers(), isEmpty);
+      },
+      skip: Platform.isWindows
+          ? 'needs POSIX symbolic links and descriptors'
+          : false,
+    );
+
+    test(
+      'the copy is read through the descriptor it opened, not the name',
+      () async {
+        final other = File(p.join(dir.path, 'other.txt'))
+          ..writeAsStringSync('not the loader');
+        // Once it is open, the name is pointed elsewhere: what is read is
+        // still what was opened.
+        final got = readFileNoFollow(
+          loader.path,
+          afterOpen: (path) {
+            File(path).deleteSync();
+            Link(path).createSync(other.path);
+          },
+        );
+        expect(String.fromCharCodes(got), kStockCity96Loader);
+      },
+      skip: Platform.isWindows
+          ? 'needs POSIX symbolic links and descriptors'
+          : false,
+    );
+
+    test('a link is refused, never read', () {
+      final target = File(p.join(dir.path, 'target.txt'))
+        ..writeAsStringSync('nope');
+      final link = Link(p.join(dir.path, 'link.txt'))..createSync(target.path);
+      expect(
+        () => readFileNoFollow(link.path),
+        throwsA(isA<City96WriteRefused>()),
+      );
+    }, skip: Platform.isWindows ? 'needs POSIX symbolic links' : false);
 
     test(
       'a planted temp name is never written through',
