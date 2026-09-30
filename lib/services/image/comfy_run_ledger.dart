@@ -71,11 +71,15 @@ class ComfyRunLedger {
     }
   }
 
+  /// Takes [id] off the queue, and interrupts only when the queue says it is
+  /// the one running. An older ComfyUI ignores the prompt_id and stops
+  /// whatever is running, so an interrupt sent on a guess (the queue could not
+  /// be read) could stop someone else's job.
   Future<void> _stop(String root, String id) async {
     const wait = Duration(seconds: 5);
     const json = {'Content-Type': 'application/json'};
     try {
-      final running = await _isRunning(root, id);
+      var running = await _isRunning(root, id);
       await http
           .post(
             Uri.parse('$root/queue'),
@@ -85,7 +89,9 @@ class ComfyRunLedger {
             }),
           )
           .timeout(wait);
-      if (running != false) {
+      // It may have started between the look and the delete.
+      running = running == true || await _isRunning(root, id) == true;
+      if (running) {
         await http
             .post(
               Uri.parse('$root/interrupt'),

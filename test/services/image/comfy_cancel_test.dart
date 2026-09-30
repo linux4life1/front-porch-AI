@@ -34,6 +34,14 @@ class _Comfy {
   final Completer<void> infoAsked = Completer<void>();
   final List<String> calls = [];
   final Set<String> running = {'p1'};
+
+  /// The queue answers with an error, as one that cannot be read does.
+  bool queueBroken = false;
+
+  /// The queue lists [running] only from this read of it on (1 = always), so a
+  /// job can start between two looks at the queue.
+  int runningFromRead = 1;
+  int _queueReads = 0;
   final Completer<void> posted = Completer<void>();
   late HttpServer server;
   int _jobs = 0;
@@ -92,10 +100,17 @@ class _Comfy {
       response.headers.contentType = ContentType('image', 'png');
       response.add([1, 2, 3, 4]);
     } else if (path == '/queue' && request.method == 'GET') {
+      _queueReads++;
+      if (queueBroken) {
+        response.statusCode = HttpStatus.internalServerError;
+        await response.close();
+        return;
+      }
       response.write(
         jsonEncode({
           'queue_running': [
-            for (final id in running) [0, id, <String, dynamic>{}],
+            if (_queueReads >= runningFromRead)
+              for (final id in running) [0, id, <String, dynamic>{}],
           ],
           'queue_pending': <dynamic>[],
         }),
@@ -186,6 +201,37 @@ void main() {
 
       expect(c.calls, contains('queue {"delete":["p1"]}'));
       expect(c.calls.where((c) => c.startsWith('interrupt')), isEmpty);
+    });
+
+    test('when the queue cannot be read, the job is taken off it and nothing '
+        'is interrupted', () async {
+      final c = await comfy();
+      c.queueBroken = true;
+      final image = await _studio(c, dir);
+      final pending = image.generateImage(prompt: 'a porch at dusk');
+      await c.posted.future;
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+      await image.cancelJob();
+      await pending.timeout(const Duration(seconds: 10));
+
+      expect(c.calls, contains('queue {"delete":["p1"]}'));
+      expect(c.calls.where((c) => c.startsWith('interrupt')), isEmpty);
+    });
+
+    test('a job that starts between the look at the queue and the delete is '
+        'still interrupted', () async {
+      final c = await comfy();
+      c.runningFromRead = 2;
+      final image = await _studio(c, dir);
+      final pending = image.generateImage(prompt: 'a porch at dusk');
+      await c.posted.future;
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+      await image.cancelJob();
+      await pending.timeout(const Duration(seconds: 10));
+
+      expect(c.calls.join(), contains('"prompt_id":"p1"'));
     });
 
     test('asked while the workflow is still being posted, it stops once the '
