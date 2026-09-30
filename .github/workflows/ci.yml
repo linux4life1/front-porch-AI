@@ -514,4 +514,6 @@ jobs:
         # 3 consecutive green runs and zero diffs. See the `test` job above for
         # the full rationale and the rollback rule.
         run: flutter test --concurrency=4 --reporter expanded --tags golden
-        timeout-minutes: 10
+        # 20 since 2026-09-30: flutter test loads every test file to find the
+        # golden-tagged ones, and ~970 files pushed the step past 10 minutes.
+        timeout-minutes: 20
