@@ -148,7 +148,7 @@ export function DeskRail(props: {
         Expression pack
       </button>
       {pack ? (
-        <PackPanel prompt={prompt} picture={props.picture} onNote={props.onNote} />
+        <PackPanel prompt={prompt} picture={props.picture} />
       ) : null}
     </div>
   );

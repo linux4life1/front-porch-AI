@@ -59,10 +59,8 @@ const boot = async (
     'GET /api/characters': characters,
     ...routes,
   });
-  const onNote = vi.fn();
-  mount(createElement(PackPanel, { prompt: 'a woman on a porch', picture: null, onNote, ...props }));
+  mount(createElement(PackPanel, { prompt: 'a woman on a porch', picture: null, ...props }));
   await settle();
-  return onNote;
 };
 
 describe('starting a pack', () => {
@@ -145,12 +143,14 @@ describe('starting a pack', () => {
 
   it('says why a pack cannot start, in the computer’s words, and shows no pack', async () => {
     const why = 'An expression pack on ComfyUI runs your Edit graph, and it is not ready: …';
-    const onNote = await boot({ 'POST /api/image/expression-pack': refuse(409, why, { code: 'not_ready' }) });
+    await boot({ 'POST /api/image/expression-pack': refuse(409, why, { code: 'not_ready' }) });
 
     click('Start pack');
     await settle();
 
-    expect(onNote).toHaveBeenCalledWith(why);
+    // Right beside the button, not in the desk's note far below.
+    expect(button('Start pack')!.nextElementSibling?.textContent).toBe(why);
+    expect(button('Start pack')!.nextElementSibling?.getAttribute('role')).toBe('alert');
     expect(container.querySelector('[data-region="pack-status"]')).toBeNull();
     expect(button('Start pack')!.disabled).toBe(false);
   });
@@ -215,6 +215,18 @@ describe('watching a pack', () => {
     expect(button('Cancel pack')).toBeUndefined();
   });
 
+  it('says beside the button why the pack could not be stopped', async () => {
+    await boot({
+      'GET /api/image/expression-pack': view({ running: true, canImport: false }),
+      'POST /api/image/expression-pack/cancel': refuse(500, 'ComfyUI did not answer.'),
+    });
+    click('Cancel pack');
+    await settle();
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toBe('ComfyUI did not answer.');
+    expect(button('Cancel pack')!.parentElement).toBe(alert!.parentElement);
+  });
+
   it('follows the pack as it changes', async () => {
     vi.useFakeTimers();
     try {
@@ -224,7 +236,7 @@ describe('watching a pack', () => {
           n++ === 0 ? view({ running: true, done: 0, canImport: false }) : view({ done: 2 }),
         'GET /api/characters': characters,
       });
-      mount(createElement(PackPanel, { prompt: '', picture: null, onNote: vi.fn() }));
+      mount(createElement(PackPanel, { prompt: '', picture: null, }));
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
@@ -250,7 +262,7 @@ describe('watching a pack', () => {
           n++ === 0 ? view() : refuse(404, 'No expression pack'),
         'GET /api/characters': characters,
       });
-      mount(createElement(PackPanel, { prompt: '', picture: null, onNote: vi.fn() }));
+      mount(createElement(PackPanel, { prompt: '', picture: null, }));
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
@@ -306,12 +318,14 @@ describe('importing', () => {
   });
 
   it('says what went wrong', async () => {
-    const onNote = await boot({
+    await boot({
       'GET /api/image/expression-pack': view(),
       'POST /api/image/expression-pack/import': refuse(409, 'Those pictures are already imported.'),
     });
     click('Import 2 to Mara');
     await settle();
-    expect(onNote).toHaveBeenCalledWith('Those pictures are already imported.');
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toBe('Those pictures are already imported.');
+    expect(button('Import 2 to Mara')!.parentElement).toBe(alert!.parentElement);
   });
 });

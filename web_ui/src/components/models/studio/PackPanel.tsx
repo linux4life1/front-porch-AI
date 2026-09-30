@@ -47,7 +47,6 @@ const message = (e: unknown, fallback: string) => (e instanceof ApiError ? e.mes
 export function PackPanel(props: {
   prompt: string;
   picture: Picture | null;
-  onNote: (message: string) => void;
 }) {
   const [pack, setPack] = useState<PackView | null>(null);
   const [characters, setCharacters] = useState<CharacterRow[]>([]);
@@ -58,7 +57,10 @@ export function PackPanel(props: {
   const [denoise, setDenoise] = useState(0.7);
   const [left, setLeft] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const { onNote } = props;
+  // Why the last thing pressed did not work, shown beside the button that was
+  // pressed (the desk's own note is far down the screen).
+  const [startProblem, setStartProblem] = useState('');
+  const [packProblem, setPackProblem] = useState('');
 
   const refresh = useCallback(() => {
     fetchPack()
@@ -105,16 +107,18 @@ export function PackPanel(props: {
     if (props.picture?.kind === 'saved') body.referenceFilename = props.picture.name;
     setBusy(true);
     setLeft(new Set());
+    setStartProblem('');
     startPack(body)
       .then(setPack)
-      .catch((e: unknown) => onNote(message(e, 'Could not start the pack.')))
+      .catch((e: unknown) => setStartProblem(message(e, 'Could not start the pack.')))
       .finally(() => setBusy(false));
   };
 
   const stop = () => {
+    setPackProblem('');
     cancelPack()
       .then(setPack)
-      .catch((e: unknown) => onNote(message(e, 'Could not stop the pack.')));
+      .catch((e: unknown) => setPackProblem(message(e, 'Could not stop the pack.')));
   };
 
   const doImport = () => {
@@ -123,9 +127,10 @@ export function PackPanel(props: {
       .filter((s) => s.state === 'done' && !left.has(s.emotion))
       .map((s) => s.emotion);
     setBusy(true);
+    setPackProblem('');
     importPack(keep)
       .then(setPack)
-      .catch((e: unknown) => onNote(message(e, 'Could not import the pack.')))
+      .catch((e: unknown) => setPackProblem(message(e, 'Could not import the pack.')))
       .finally(() => setBusy(false));
   };
 
@@ -207,6 +212,7 @@ export function PackPanel(props: {
       <button type="button" disabled={busy || running || !character} onClick={start}>
         Start pack
       </button>
+      {startProblem ? <p role="alert">{startProblem}</p> : null}
       {pack ? (
         <div data-region="pack-status">
           <p>
@@ -256,6 +262,7 @@ export function PackPanel(props: {
               Import {kept} to {pack.characterName}
             </button>
           ) : null}
+          {packProblem ? <p role="alert">{packProblem}</p> : null}
           {pack.imported != null ? (
             <p>
               Imported {pack.imported} for {pack.characterName}.
