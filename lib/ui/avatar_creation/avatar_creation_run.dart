@@ -211,6 +211,7 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
 
   void _replaceSession(ExpressionPackSession s) {
     session?.removeListener(_notify);
+    if (session != null) expressionPackBoard.release(session!);
     session?.dispose();
     session = s;
     s.addListener(_notify);

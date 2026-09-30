@@ -25,6 +25,7 @@ import 'package:flutter/widgets.dart' show TextEditingController;
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
+import 'package:front_porch_ai/services/image/expression_pack_board.dart';
 import 'package:front_porch_ai/services/image/expression_pack_flight.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -475,6 +476,7 @@ class AvatarCreationController extends ChangeNotifier {
     _disposed = true;
     session?.cancel();
     session?.removeListener(_notify);
+    if (session != null) expressionPackBoard.release(session!);
     session?.dispose();
     qc?.cancel();
     qc?.removeListener(_notify);

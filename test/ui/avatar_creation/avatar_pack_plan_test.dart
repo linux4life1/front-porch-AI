@@ -22,6 +22,7 @@ import 'package:front_porch_ai/database/database.dart'
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/image/expression_pack_board.dart';
 import 'package:front_porch_ai/services/image/image.dart'
     show kComfyUploadedWorkflowId;
 import 'package:front_porch_ai/services/image_gen_service.dart';
@@ -108,7 +109,10 @@ void main() {
     File(portrait).writeAsBytesSync(_png());
     card = CharacterCard(name: 'Aerin', imagePath: portrait)..dbId = id;
     engine = _Engine();
+    expressionPackBoard.clear();
   });
+
+  tearDown(() => expressionPackBoard.clear());
 
   AvatarCreationController controller() => AvatarCreationController(
     ensureCardSaved: () async => card,
@@ -152,6 +156,7 @@ void main() {
     expect(c.statusDetail, contains('never made with the Create graph'));
     expect(engine.pictures, isEmpty);
     expect(c.importedCount, 0);
+    expect(expressionPackBoard.run, isNull, reason: 'no pack to show');
   });
 
   test('a ready Edit graph runs the pack as Edit pictures', () async {
@@ -164,5 +169,11 @@ void main() {
     expect(engine.pictures, isNotEmpty);
     expect(engine.pictures.toSet(), {StudioIntent.edit});
     expect(c.importedCount, engine.pictures.length);
+
+    // The phone can see it while the creator is open, and not after it closes.
+    expect(expressionPackBoard.run?.origin, PackOrigin.desktop);
+    expect(expressionPackBoard.run?.characterName, 'Character creator');
+    c.dispose();
+    expect(expressionPackBoard.run, isNull);
   });
 }
