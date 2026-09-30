@@ -70,6 +70,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -238,10 +239,7 @@ void main() {
     ),
   )..dbId = id;
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test(
     'the posture pass reads the reply, and the NEXT turn is grounded in it',
@@ -298,29 +296,25 @@ void main() {
     timeout: const Timeout(Duration(minutes: 2)),
   );
 
-  test(
-    'the pre-generation clock eval no longer asks for posture',
-    () async {
-      await boot(['*She lingers in the doorway.*']);
-      await chat.setActiveCharacter(porchCard('Nia', 'char-posture-clock'));
+  test('the pre-generation clock eval no longer asks for posture', () async {
+    await boot(['*She lingers in the doorway.*']);
+    await chat.setActiveCharacter(porchCard('Nia', 'char-posture-clock'));
 
-      await chat.sendMessage('Come in.');
+    await chat.sendMessage('Come in.');
 
-      expect(llm.timePrompts, isNotEmpty, reason: 'the clock still advances');
-      for (final p in llm.timePrompts) {
-        expect(
-          p.contains('posture'),
-          isFalse,
-          reason:
-              'time stays pre-generation, posture does not — a pre-generation '
-              'prompt that still asked for posture would overwrite the '
-              'post-generation answer on the very next turn, and the move '
-              'would buy nothing',
-        );
-      }
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+    expect(llm.timePrompts, isNotEmpty, reason: 'the clock still advances');
+    for (final p in llm.timePrompts) {
+      expect(
+        p.contains('posture'),
+        isFalse,
+        reason:
+            'time stays pre-generation, posture does not — a pre-generation '
+            'prompt that still asked for posture would overwrite the '
+            'post-generation answer on the very next turn, and the move '
+            'would buy nothing',
+      );
+    }
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   test(
     'Continue re-asks — a continuation that moves her moves the stance',
@@ -420,71 +414,67 @@ void main() {
     timeout: const Timeout(Duration(minutes: 2)),
   );
 
-  test(
-    'group: each speaker keeps their own position (1:1 parity)',
-    () async {
-      await boot([
-        '*Nia settles on the windowsill.*',
-        '*Rue leans on the porch rail.*',
-      ]);
-      await db.insertGroup(
-        GroupsCompanion.insert(id: 'grp-posture', name: 'The Porch'),
-      );
-      await db.insertGroupMember(
-        GroupMembersCompanion.insert(
-          id: 'mem-nia',
-          groupId: 'grp-posture',
-          name: 'Nia',
-          frontPorchExtensions: const Value(
-            '{"realism_engine":{"realism_enabled":true}}',
-          ),
+  test('group: each speaker keeps their own position (1:1 parity)', () async {
+    await boot([
+      '*Nia settles on the windowsill.*',
+      '*Rue leans on the porch rail.*',
+    ]);
+    await db.insertGroup(
+      GroupsCompanion.insert(id: 'grp-posture', name: 'The Porch'),
+    );
+    await db.insertGroupMember(
+      GroupMembersCompanion.insert(
+        id: 'mem-nia',
+        groupId: 'grp-posture',
+        name: 'Nia',
+        frontPorchExtensions: const Value(
+          '{"realism_engine":{"realism_enabled":true}}',
         ),
-      );
-      await db.insertGroupMember(
-        GroupMembersCompanion.insert(
-          id: 'mem-rue',
-          groupId: 'grp-posture',
-          name: 'Rue',
-          frontPorchExtensions: const Value(
-            '{"realism_engine":{"realism_enabled":true}}',
-          ),
+      ),
+    );
+    await db.insertGroupMember(
+      GroupMembersCompanion.insert(
+        id: 'mem-rue',
+        groupId: 'grp-posture',
+        name: 'Rue',
+        frontPorchExtensions: const Value(
+          '{"realism_engine":{"realism_enabled":true}}',
         ),
-      );
-      await chat.setActiveGroup(
-        GroupChat(id: 'grp-posture', name: 'The Porch'),
-        groupRepo: GroupChatRepository(storage, db),
-      );
-      // A group created without per-member realism seeds enters with the
-      // master flag off; the switch is the same one the sidebar shows.
-      await chat.setRealismEnabled(true);
+      ),
+    );
+    await chat.setActiveGroup(
+      GroupChat(id: 'grp-posture', name: 'The Porch'),
+      groupRepo: GroupChatRepository(storage, db),
+    );
+    // A group created without per-member realism seeds enters with the
+    // master flag off; the switch is the same one the sidebar shows.
+    await chat.setRealismEnabled(true);
 
-      final nia = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
-      final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
+    final nia = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
+    final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
 
-      // Plain round-robin: Nia answers the user, then the group advances to
-      // Rue. No forced speaker — the natural flow is what ships.
-      await chat.sendMessage('Make yourselves comfortable.');
-      expect(chat.messages.last.sender, 'Nia');
+    // Plain round-robin: Nia answers the user, then the group advances to
+    // Rue. No forced speaker — the natural flow is what ships.
+    await chat.sendMessage('Make yourselves comfortable.');
+    expect(chat.messages.last.sender, 'Nia');
 
-      await chat.triggerNextCharacter();
-      expect(chat.messages.last.sender, 'Rue');
+    await chat.triggerNextCharacter();
+    expect(chat.messages.last.sender, 'Rue');
 
-      String? stanceOf(CharacterCard c) =>
-          chat.getRealismStateForGroupCharacter(c)?['spatialStance'] as String?;
+    String? stanceOf(CharacterCard c) =>
+        chat.getRealismStateForGroupCharacter(c)?['spatialStance'] as String?;
 
-      expect(
-        stanceOf(nia),
-        'sitting on the windowsill',
-        reason:
-            'the post-gen save persists the speaker\'s own scalar into their '
-            'own _groupRealism entry — the same door bond and needs use',
-      );
-      expect(
-        stanceOf(rue),
-        'leaning on the porch rail',
-        reason: 'and the second speaker\'s answer must not land on the first',
-      );
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+    expect(
+      stanceOf(nia),
+      'sitting on the windowsill',
+      reason:
+          'the post-gen save persists the speaker\'s own scalar into their '
+          'own _groupRealism entry — the same door bond and needs use',
+    );
+    expect(
+      stanceOf(rue),
+      'leaning on the porch rail',
+      reason: 'and the second speaker\'s answer must not land on the first',
+    );
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }

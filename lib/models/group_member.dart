@@ -233,7 +233,7 @@ class GroupMember {
     // Promote is the only path that clears the tier.
 
     return CharacterCard(
-      // group_members.id — persist paths (setGroupNeedsDecayRate) are
+      // group_members.id — persist paths (persistGroupMemberExtensions) are
       // dbId-gated. Leaving this null made Group Settings ext writes no-op.
       dbId: id,
       name: name,

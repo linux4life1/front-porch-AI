@@ -158,6 +158,63 @@ extension _EditCharacterPageHost on _EditCharacterPageState {
     }
   }
 
+  /// World-info JSON, the same shape Import file already accepts.
+  Future<void> _exportLorebookJson() async {
+    if (_loreEntries.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No lorebook entries to export.')),
+      );
+      return;
+    }
+
+    final selected = await showLorebookExportPicker(
+      context: context,
+      entries: _loreEntries,
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+
+    final name = _nameController.text.trim();
+    final payload = encodeStWorldInfo(
+      Lorebook(entries: List<LorebookEntry>.from(selected)),
+      name: name,
+    );
+    final bytes = utf8.encode(
+      const JsonEncoder.withIndent('  ').convert(payload),
+    );
+
+    try {
+      final path = await PickerPrefs.saveFile(
+        category: PickerPrefs.catExport,
+        dialogTitle: 'Export lorebook',
+        fileName: _lorebookExportFileName(name),
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        bytes: bytes,
+      );
+      if (path == null || !mounted) return;
+      final n = selected.length;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Exported $n ${n == 1 ? 'entry' : 'entries'}.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+    }
+  }
+
+  String _lorebookExportFileName(String characterName) {
+    final safe = characterName
+        .trim()
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    final stem = safe.isEmpty ? 'lorebook' : safe;
+    return '${stem}_lorebook.json';
+  }
+
   Widget _buildHost(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),

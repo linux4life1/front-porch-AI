@@ -21,8 +21,9 @@
 // else queued in the page's big Save button.
 //
 // Scope note (mirrors the desktop doc comment): this card holds global Porch
-// Life settings. The closing note names the few defaults a chat can overrule.
-// Web Search is intentionally global-only and has no ChatTools/sidebar toggle.
+// Life settings. The closing note names the defaults a chat can overrule —
+// except Passage of Time, which is the live clock switch. Web Search is
+// intentionally global-only and has no ChatTools/sidebar toggle.
 
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -33,7 +34,6 @@ interface PorchLifeState {
   nsfwCooldownDefault: boolean;
   needsSimDefault: boolean;
   passageOfTimeDefault: boolean;
-  standaloneClockEnabled: boolean;
   objectivesEnabled: boolean;
   objectiveStaleThreshold: number;
   weatherEnabled: boolean;
@@ -69,7 +69,6 @@ const DEFAULTS: PorchLifeState = {
   nsfwCooldownDefault: false,
   needsSimDefault: true,
   passageOfTimeDefault: true,
-  standaloneClockEnabled: false,
   objectivesEnabled: true,
   objectiveStaleThreshold: 2,
   weatherEnabled: true,
@@ -453,33 +452,10 @@ export function PorchLifeSettings() {
           icon="⏰"
           label="Passage of Time"
           need="alone"
-          blurb="The story keeps its own clock — dawn to morning to evening to night, day after day. The AI judges how long each exchange actually took, so a shared meal moves the clock further than a passing hello."
+          blurb={'The story keeps its own clock — dawn to morning to evening to night, day after day. This switch is what runs the clock in every open chat. Off pauses them immediately; on starts them again. The AI judges how long each exchange actually took, so a shared meal moves the clock further than a passing hello. A normal send always moves at least a minute or two.'}
           value={timeOn}
           onChange={(v) => set('passageOfTimeDefault', v)}
-        >
-          {/* Shown only with the engine off — with it on the clock already
-              rides the engine's reading of the scene and costs nothing extra,
-              so a switch there would be a choice about nothing. Mirrors the
-              desktop `_StandaloneClockSwitch`. */}
-          {!engineOn && (
-            <label className="pl-substitch">
-              <span className="pl-sub-body">
-                <span className="pl-sub-label">Keep the clock running without the engine</span>
-                <span className="pl-sub-blurb">
-                  The engine normally judges how long each exchange took as part of work it is
-                  already doing. With it off, the clock needs one short AI call of its own each
-                  turn — so this costs a little speed. Left off, the clock simply holds still.
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                checked={st.standaloneClockEnabled}
-                onChange={(e) => set('standaloneClockEnabled', e.target.checked)}
-                aria-label="Keep the clock running without the engine"
-              />
-            </label>
-          )}
-        </FeatureRow>
+        />
         <FeatureRow
           icon="☁️"
           label="Story Weather"
@@ -660,7 +636,7 @@ export function PorchLifeSettings() {
           icon="🔎"
           label="Web Search"
           need="alone"
-          blurb="When they hit a word or event they don't know, they can look it up and react as themselves — not reciting a wiki. Only the first reply to a message you send can search; Continue, Regenerate, guests, group follow-ups, and Dynamic Responses stay offline. Works with no key: search falls back to Wikipedia (encyclopedia lookups). Add a Tavily API key below for full web coverage. Off by default. Turning this on or off applies to every chat, including ones already open."
+          blurb="When they hit a word or event they don't know, they can look it up and react as themselves — not reciting a wiki. Only the first reply to a message you send can search on its own. To force one lookup, end the line with /search -- the name, or type the words when you regenerate. Continue, guests, group follow-ups, and Dynamic Responses stay offline. Works with no key: search falls back to Wikipedia (encyclopedia lookups). Add a Tavily API key below for full web coverage. Off by default. Turning this on or off applies to every chat, including ones already open."
           value={st.webSearchDefault}
           onChange={(v) => set('webSearchDefault', v)}
         />
@@ -693,7 +669,7 @@ export function PorchLifeSettings() {
       {error && <p className="error pl-error">{error}</p>}
 
       <div className="pl-note">
-        These are the defaults new chats start from. Any single chat can overrule them from its sidebar — Chaos Mode, Needs, Objectives and Growth Rings all have a switch there for that one story.
+        These are the defaults new chats start from. Any single chat can overrule most of them from its sidebar — Chaos Mode, Needs, Objectives and Growth Rings all have a switch there for that one story. Passage of Time is the exception: that row is the live clock switch for every open chat.
       </div>
       {/* After Dark — the approved sketch gives the 18+ feature its own group,
           "shown only when 18+ themes are enabled": absent, not greyed out, for

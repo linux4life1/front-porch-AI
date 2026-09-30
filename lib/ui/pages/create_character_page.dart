@@ -160,14 +160,8 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   int _needsBaselineFun = 80;
   int _needsBaselineHygiene = 80;
   int _needsBaselineComfort = 80;
-
-  int _needsDecayHunger = 5;
-  int _needsDecayBladder = 5;
-  int _needsDecayEnergy = 5;
-  int _needsDecaySocial = 5;
-  int _needsDecayFun = 5;
-  int _needsDecayHygiene = 5;
-  int _needsDecayComfort = 5;
+  String _needsPace = 'normal';
+  List<String> _needsOff = const [];
 
   // ── Token counter ──
   final ValueNotifier<int> _tokenNotifier = ValueNotifier<int>(0);

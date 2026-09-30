@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StepUpFields } from '../StepUpFields';
 import { ComfyCreateFields, type ComfyPreset } from './ComfyCreateFields';
+import { ComfyEditFields } from './ComfyEditFields';
 import { ImageRemoteFields } from './ImageRemoteFields';
 import type { ImageRemoteHost } from './imageRemote';
 
@@ -22,6 +23,20 @@ interface ImageConfig {
   cfgScale: number;
   sampler: string;
   scheduler: string;
+  lora?: string;
+  loraWeight?: number;
+  loras?: { file: string; weight: number }[];
+  surface?: {
+    edit: boolean;
+    img2img: boolean;
+    lora: boolean;
+    negative: boolean;
+    checkpointSlot: boolean;
+    workflowSlots: boolean;
+    scheduler: boolean;
+    editAllowlist: boolean;
+    editPicker: boolean;
+  };
   localUrl: string;
   comfyUrl: string;
   promptReview: boolean;
@@ -35,6 +50,9 @@ interface ImageConfig {
   comfyCreateWorkflowId?: string;
   comfyCreateModelChoices?: Record<string, string>;
   comfyCreatePresets?: ComfyPreset[];
+  comfyEditWorkflowId?: string;
+  comfyEditModelChoices?: Record<string, string>;
+  comfyEditPresets?: ComfyPreset[];
 }
 
 // Mirrors ImageGenService.styleLabels (desktop) + the Image Studio size list.
@@ -81,6 +99,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
   }, []);
 
   if (!cfg) return null;
+  const surface = cfg.surface;
   const set = (patch: Partial<ImageConfig>) => setCfg({ ...cfg, ...patch });
   const saveConfig = (patch: Record<string, unknown>) => {
     // Studio host chips (`imageRemoteHost`) are not credentials — they pick
@@ -110,12 +129,14 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           setPassword('');
           setTotpCode('');
         }
+        return true;
       })
       .catch((e) => {
         if (e instanceof ApiError && e.payload.totpRequired === true) {
           setTotpEnabled(true);
         }
         onError(e instanceof ApiError ? e.message : 'Save failed');
+        return false;
       });
   };
 
@@ -183,10 +204,12 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
               placeholder="http://127.0.0.1:7860"
             />
           </label>
-          <label>
-            Model <span className="muted small">(checkpoint, optional)</span>
-            <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} onBlur={() => saveConfig({ model: cfg.model })} />
-          </label>
+          {surface?.checkpointSlot && (
+            <label>
+              Model <span className="muted small">(checkpoint, optional)</span>
+              <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} onBlur={() => saveConfig({ model: cfg.model })} />
+            </label>
+          )}
         </>
       ) : cfg.backend === 'comfyui' ? (
         <>
@@ -202,15 +225,28 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
               placeholder="http://127.0.0.1:8188"
             />
           </label>
-          <ComfyCreateFields
-            workflowId={cfg.comfyCreateWorkflowId ?? 'sd'}
-            modelChoices={cfg.comfyCreateModelChoices ?? {}}
-            presets={cfg.comfyCreatePresets ?? []}
-            onChange={(patch) => {
-              set(patch as Partial<ImageConfig>);
-              void saveConfig(patch);
-            }}
-          />
+          {surface?.workflowSlots && (
+            <>
+              <ComfyCreateFields
+                workflowId={cfg.comfyCreateWorkflowId ?? 'sd'}
+                modelChoices={cfg.comfyCreateModelChoices ?? {}}
+                presets={cfg.comfyCreatePresets ?? []}
+                onChange={(patch) => {
+                  set(patch as Partial<ImageConfig>);
+                  return saveConfig(patch);
+                }}
+              />
+              <ComfyEditFields
+                workflowId={cfg.comfyEditWorkflowId ?? 'qwen_image_edit'}
+                modelChoices={cfg.comfyEditModelChoices ?? {}}
+                presets={cfg.comfyEditPresets ?? []}
+                onChange={(patch) => {
+                  set(patch as Partial<ImageConfig>);
+                  return saveConfig(patch);
+                }}
+              />
+            </>
+          )}
         </>
       ) : (
         <>
@@ -232,10 +268,12 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
               <input type="number" value={cfg.drawThingsPort} onChange={(e) => set({ drawThingsPort: Number(e.target.value) })} onBlur={() => cfg.drawThingsPort > 0 && saveConfig({ drawThingsPort: cfg.drawThingsPort })} />
             </label>
           </div>
-          <label>
-            Model <span className="muted small">(optional)</span>
-            <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} onBlur={() => saveConfig({ model: cfg.model })} />
-          </label>
+          {surface?.checkpointSlot && (
+            <label>
+              Model <span className="muted small">(optional)</span>
+              <input value={cfg.model} onChange={(e) => set({ model: e.target.value })} onBlur={() => saveConfig({ model: cfg.model })} />
+            </label>
+          )}
         </>
       )}
       {((cfg.backend === 'a1111' && cfg.localUrl !== savedLocalUrl) ||
@@ -294,7 +332,7 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           <input value={cfg.sampler} onChange={(e) => set({ sampler: e.target.value })} onBlur={() => saveConfig({ sampler: cfg.sampler })} placeholder="Euler a" />
         </label>
       </div>
-      {(cfg.backend === 'a1111' || cfg.backend === 'comfyui') && (
+      {surface?.scheduler && (
         <label>
           Scheduler <span className="muted small">(noise schedule — karras, exponential, sgm_uniform…)</span>
           <input value={cfg.scheduler} onChange={(e) => set({ scheduler: e.target.value })} onBlur={() => saveConfig({ scheduler: cfg.scheduler })} placeholder="Automatic" />
@@ -310,10 +348,25 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
           <input type="number" min={1} max={30} step={0.5} value={cfg.cfgScale} onChange={(e) => set({ cfgScale: Number(e.target.value) })} onBlur={() => cfg.cfgScale > 0 && saveConfig({ cfgScale: cfg.cfgScale })} />
         </label>
       </div>
-      <label>
-        Negative prompt
-        <textarea rows={2} value={cfg.negativePrompt} onChange={(e) => set({ negativePrompt: e.target.value })} onBlur={() => saveConfig({ negativePrompt: cfg.negativePrompt })} />
-      </label>
+      {surface?.negative && (
+        <label>
+          Negative prompt
+          <textarea rows={2} value={cfg.negativePrompt} onChange={(e) => set({ negativePrompt: e.target.value })} onBlur={() => saveConfig({ negativePrompt: cfg.negativePrompt })} />
+        </label>
+      )}
+      {surface?.lora && (
+        <LoraSlots
+          slots={loraSlots(cfg)}
+          onChange={(next) => {
+            set({
+              loras: next,
+              lora: next[0]?.file ?? '',
+              loraWeight: next[0]?.weight ?? 0.8,
+            });
+            void saveConfig({ loras: next });
+          }}
+        />
+      )}
 
       <label>
         Prompt
@@ -336,5 +389,63 @@ export function ImageGen({ onError }: { onError: (s: string) => void }) {
         </div>
       )}
     </section>
+  );
+}
+
+const LORA_VISIBLE = 4;
+const LORA_SLOTS = 8;
+
+function loraSlots(cfg: ImageConfig): { file: string; weight: number }[] {
+  const fromList = cfg.loras ?? [];
+  const out = Array.from({ length: LORA_SLOTS }, (_, i) => fromList[i] ?? { file: '', weight: 0.8 });
+  if (fromList.length === 0 && cfg.lora) {
+    out[0] = { file: cfg.lora, weight: cfg.loraWeight ?? 0.8 };
+  }
+  return out;
+}
+
+function LoraSlots({
+  slots,
+  onChange,
+}: {
+  slots: { file: string; weight: number }[];
+  onChange: (next: { file: string; weight: number }[]) => void;
+}) {
+  const setSlot = (index: number, patch: Partial<{ file: string; weight: number }>) => {
+    const next = slots.map((s, i) => (i === index ? { ...s, ...patch } : s));
+    onChange(next);
+  };
+  const row = (index: number) => (
+    <div className="img-row2" key={index}>
+      <label>
+        LoRA {index + 1}
+        <input
+          value={slots[index]?.file ?? ''}
+          onChange={(e) => setSlot(index, { file: e.target.value })}
+          onBlur={() => onChange(slots)}
+        />
+      </label>
+      <label>
+        Weight
+        <input
+          type="number"
+          min={0}
+          max={1}
+          step={0.05}
+          value={slots[index]?.weight ?? 0.8}
+          onChange={(e) => setSlot(index, { weight: Number(e.target.value) })}
+          onBlur={() => onChange(slots)}
+        />
+      </label>
+    </div>
+  );
+  return (
+    <div>
+      {Array.from({ length: LORA_VISIBLE }, (_, i) => row(i))}
+      <details>
+        <summary>More LoRAs</summary>
+        {Array.from({ length: LORA_SLOTS - LORA_VISIBLE }, (_, i) => row(i + LORA_VISIBLE))}
+      </details>
+    </div>
   );
 }

@@ -30,10 +30,9 @@ TimeService makeService() => TimeService(
 
 /// Day 3, Thursday 2026-07-02, 6:30 PM — the same fixed anchor the engine-path
 /// suite uses, so numbers can be compared across the two files by eye.
-void seedFixed(TimeService t, {bool passage = true}) => t.seedFromV2OrExt(
+void seedFixed(TimeService t) => t.seedFromV2OrExt(
   dayCount: 3,
   timeOfDay: 'evening',
-  passageOfTimeEnabled: passage,
   storyStartDate: '2026-06-30',
 );
 
@@ -75,7 +74,8 @@ void main() {
       seedFixed(engine);
       seedFixed(standalone);
 
-      const verdict = '{"minutes_elapsed": 45, "new_day": false, '
+      const verdict =
+          '{"minutes_elapsed": 45, "new_day": false, '
           '"posture": "sitting on the steps"}';
       await runTurn(engine, timeOnly: false, reply: verdict);
       await runTurn(standalone, timeOnly: true, reply: verdict);
@@ -129,7 +129,7 @@ void main() {
           2,
           18,
           30,
-        ).add(Duration(minutes: StoryClock.failureDriftMinutes)),
+        ).add(Duration(minutes: StoryClock.conversationalFloorMinutes)),
       );
     });
 
@@ -170,50 +170,56 @@ void main() {
       expect(standaloneYes.dayCount, 4);
     });
 
-    test('an OOC skip owns the turn, so the eval cannot double-advance', () async {
-      final t = makeService();
-      seedFixed(t);
-      t.detectOocTimeSkip('(OOC: skip ahead a few hours)');
-      final afterSkip = t.clock;
-      expect(afterSkip, DateTime.utc(2026, 7, 2, 20, 30));
+    test(
+      'an OOC skip owns the turn, so the eval cannot double-advance',
+      () async {
+        final t = makeService();
+        seedFixed(t);
+        t.detectOocTimeSkip('(OOC: skip ahead a few hours)');
+        final afterSkip = t.clock;
+        expect(afterSkip, DateTime.utc(2026, 7, 2, 20, 30));
 
-      // The standalone eval still runs this turn, and must count nothing —
-      // this is the "Time skip: 11:50 PM chip under a 1:05 AM clock" bug.
-      await runTurn(
-        t,
-        timeOnly: true,
-        reply: '{"minutes_elapsed": 45, "new_day": false}',
-      );
-      expect(t.clock, afterSkip);
-    });
+        // The standalone eval still runs this turn, and must count nothing —
+        // this is the "Time skip: 11:50 PM chip under a 1:05 AM clock" bug.
+        await runTurn(
+          t,
+          timeOnly: true,
+          reply: '{"minutes_elapsed": 45, "new_day": false}',
+        );
+        expect(t.clock, afterSkip);
+      },
+    );
   });
 
   group('standalone mode asks for time and nothing else', () {
-    test('the prompt drops posture, emotion and relationship tension', () async {
-      final t = makeService();
-      seedFixed(t);
-      String? prompt;
-      await runTurn(
-        t,
-        timeOnly: true,
-        reply: '{"minutes_elapsed": 10, "new_day": false}',
-        capturePrompt: (p) => prompt = p,
-      );
+    test(
+      'the prompt drops posture, emotion and relationship tension',
+      () async {
+        final t = makeService();
+        seedFixed(t);
+        String? prompt;
+        await runTurn(
+          t,
+          timeOnly: true,
+          reply: '{"minutes_elapsed": 10, "new_day": false}',
+          capturePrompt: (p) => prompt = p,
+        );
 
-      expect(prompt, isNotNull);
-      // Realism scalars: nothing reads them with the engine off, so paying
-      // tokens to produce them would be spending a user's budget on a value
-      // that gets dropped.
-      expect(prompt, isNot(contains('posture')));
-      expect(prompt, isNot(contains('Relationship tension')));
-      expect(prompt, isNot(contains('content'))); // the emotion scalar
-      expect(prompt, isNot(contains('leaning on the porch rail')));
-      // But it still asks the one question the clock exists to answer, with
-      // the same ceiling the engine states.
-      expect(prompt, contains('minutes_elapsed'));
-      expect(prompt, contains('new_day'));
-      expect(prompt, contains('${StoryClock.maxMinutesPerTurn}'));
-    });
+        expect(prompt, isNotNull);
+        // Realism scalars: nothing reads them with the engine off, so paying
+        // tokens to produce them would be spending a user's budget on a value
+        // that gets dropped.
+        expect(prompt, isNot(contains('posture')));
+        expect(prompt, isNot(contains('Relationship tension')));
+        expect(prompt, isNot(contains('content'))); // the emotion scalar
+        expect(prompt, isNot(contains('leaning on the porch rail')));
+        // But it still asks the one question the clock exists to answer, with
+        // the same ceiling the engine states.
+        expect(prompt, contains('minutes_elapsed'));
+        expect(prompt, contains('new_day'));
+        expect(prompt, contains('${StoryClock.maxMinutesPerTurn}'));
+      },
+    );
 
     // AMENDED 2026-08-08 (maintainer-approved test change). This asserted
     // `contains('posture')` — that the engine's pre-generation clock call also
@@ -271,20 +277,28 @@ void main() {
       expect(stances, isEmpty);
     });
 
-    test('passage of time off means no call at all, not a silent one', () async {
-      final t = makeService();
-      seedFixed(t, passage: false);
-      final before = t.clock;
-      var called = false;
-      await runTurn(
-        t,
-        timeOnly: true,
-        reply: '{"minutes_elapsed": 45}',
-        capturePrompt: (_) => called = true,
-      );
-      expect(called, isFalse, reason: 'standalone must not bill a frozen clock');
-      expect(t.clock, before);
-    });
+    test(
+      'passage of time off means no call at all, not a silent one',
+      () async {
+        final t = makeService();
+        seedFixed(t);
+        t.setPassageOfTimeEnabled(false);
+        final before = t.clock;
+        var called = false;
+        await runTurn(
+          t,
+          timeOnly: true,
+          reply: '{"minutes_elapsed": 45}',
+          capturePrompt: (_) => called = true,
+        );
+        expect(
+          called,
+          isFalse,
+          reason: 'standalone must not bill a frozen clock',
+        );
+        expect(t.clock, before);
+      },
+    );
   });
 
   group('the time-only tool schema', () {
@@ -305,9 +319,16 @@ void main() {
       final onlyProps = only['properties'] as Map;
 
       expect(onlyProps.keys, isNot(contains('posture')));
-      expect(onlyProps.keys, containsAll(['minutes_elapsed', 'new_day']));
+      expect(
+        onlyProps.keys,
+        containsAll(['minutes_elapsed', 'continuous_instant', 'new_day']),
+      );
       // Reused, not restated — so the two variants cannot drift apart.
       expect(onlyProps['minutes_elapsed'], same(fusedProps['minutes_elapsed']));
+      expect(
+        onlyProps['continuous_instant'],
+        same(fusedProps['continuous_instant']),
+      );
       expect(onlyProps['new_day'], same(fusedProps['new_day']));
     });
   });

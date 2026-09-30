@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/chat/chat.dart' show visibleNeedsFor;
 import 'package:front_porch_ai/services/services.dart';
 
 /// Realism-READ leaf for [ChatFacade] (web server). Pure reads of existing
@@ -87,7 +88,7 @@ class ChatRealismRead {
         // bars after Needs is toggled off — 1:1↔group display parity.
         'needsEnabled': _chat.needsSimEnabled,
         'needs': _chat.needsSimEnabled
-            ? _chat.getNeedsForGroupCharacter(card)
+            ? visibleNeedsFor(_chat.getNeedsForGroupCharacter(card), card)
             : const <String, int>{},
       };
     }
@@ -130,7 +131,7 @@ class ChatRealismRead {
       'fixation': rel.activeFixation,
       'needsEnabled': _chat.needsSimEnabled,
       'needs': _chat.needsSimEnabled
-          ? _chat.needsSimulation.vector
+          ? visibleNeedsFor(_chat.needsSimulation.vector, _chat.activeCharacter)
           : <String, int>{},
     };
   }

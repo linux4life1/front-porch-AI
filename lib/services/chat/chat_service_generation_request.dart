@@ -196,20 +196,23 @@ extension ChatServiceGenerationRequest on ChatService {
 
     // Unified tools catalog: in-process web_search / wiki_search plus user
     // recipe cards from <library>/tools/. Continue / autonomous / xml-only
-    // skip the round-trip. Regen is a new try (directUserSend). Tools ride
-    // the *character* prompt. Doorbell/clerk use the eval side lane
-    // (not user max-gen / thinking). A ring → clerk loop (cap 3), one
-    // collated scrap, then mouth-stream with full character params.
-    // No ring → discard doorbell speech and mouth-stream the same way.
+    // skip the round-trip. Regen is a new try (directUserSend). Web search
+    // sees only the latest user line. Wiki and recipe cards still see the
+    // character prompt. Doorbell/clerk use the eval side lane (not user
+    // max-gen / thinking). A ring → clerk loop (cap 3), one collated scrap,
+    // then mouth-stream with full character params. No ring → discard
+    // doorbell speech and mouth-stream the same way.
     final globalDefault = _storageService.webSearchSettings.webSearchDefault;
     final xmlOnly = _toolProbe.isXmlOnly(_evalBackendIdentity);
-    final includeSearch = shouldAdvertiseWebSearch(
-      globalDefault: globalDefault,
-      directUserSend: t.directUserSend,
-      continueMode: t.mode == GenerationMode.continue_,
-      toolsUnsupported: xmlOnly,
-      autonomousMode: t.autonomous,
-    );
+    final includeSearch =
+        t.forcedWebQuery == null &&
+        shouldAdvertiseWebSearch(
+          globalDefault: globalDefault,
+          directUserSend: t.directUserSend,
+          continueMode: t.mode == GenerationMode.continue_,
+          toolsUnsupported: xmlOnly,
+          autonomousMode: t.autonomous,
+        );
     final userCards = t.userToolCards;
     final includeUser = shouldAdvertiseUserTools(
       hasCards: userCards.isNotEmpty,
@@ -218,13 +221,15 @@ extension ChatServiceGenerationRequest on ChatService {
       toolsUnsupported: xmlOnly,
       autonomousMode: t.autonomous,
     );
-    final includeWiki = shouldAdvertiseWikiSearch(
-      wikiUrl: _wikiBaseUrlImpl,
-      directUserSend: t.directUserSend,
-      continueMode: t.mode == GenerationMode.continue_,
-      toolsUnsupported: xmlOnly,
-      autonomousMode: t.autonomous,
-    );
+    final includeWiki =
+        t.forcedWikiQuery == null &&
+        shouldAdvertiseWikiSearch(
+          wikiUrl: _wikiBaseUrlImpl,
+          directUserSend: t.directUserSend,
+          continueMode: t.mode == GenerationMode.continue_,
+          toolsUnsupported: xmlOnly,
+          autonomousMode: t.autonomous,
+        );
     debugPrint(
       '[WebSearch] gate advertise=$includeSearch global=$globalDefault '
       'directUserSend=${t.directUserSend} '
@@ -248,29 +253,47 @@ extension ChatServiceGenerationRequest on ChatService {
           for (final c in userCards) c.toCatalogTool(),
       ],
     );
+    final scraps = <String>[];
     if (catalog.tools.isNotEmpty) {
-      final round = await _withWorkerLane(
-        () => runCatalogRound(
-          llm: sideLaneLlm,
-          params: genParams,
-          catalog: catalog,
-          search: _webSearchService,
-          wiki: _wikiSearchService,
-          backendIdentity: _evalBackendIdentity,
-        ),
+      final jobs = catalogDoorbellJobs(
+        mouth: genParams,
+        catalog: catalog,
+        lastUserMessage: _latestUserLineForDoorbell(),
+        wikiWindow: wikiWindowFromMessages(_messages),
       );
-      t.searchReceipt = round.searchReceipt;
-      t.toolReceipt = round.toolReceipt;
-      final injection = round.injection;
-      if (injection != null && injection.isNotEmpty) {
-        t.plan.section('web_search').text = injection;
-        genParams = paramsOf(t.plan.userText);
-        debugPrint('[Tools] dispatch inject+stream (in-character reply)');
-      } else {
-        debugPrint(
-          '[Tools] dispatch no tool result — stream in-character reply',
-        );
+      if (jobs.isNotEmpty) {
+        await _withWorkerLane(() async {
+          for (final job in jobs) {
+            final round = await runCatalogRound(
+              llm: sideLaneLlm,
+              params: job.params,
+              catalog: job.catalog,
+              search: _webSearchService,
+              wiki: _wikiSearchService,
+              backendIdentity: _evalBackendIdentity,
+            );
+            if (round.searchReceipt != null) {
+              t.searchReceipt = round.searchReceipt;
+            }
+            if (round.toolReceipt != null) {
+              t.toolReceipt = round.toolReceipt;
+            }
+            final injection = round.injection;
+            if (injection != null && injection.isNotEmpty) {
+              scraps.add(injection);
+            }
+          }
+        });
       }
+    }
+    await _applyForcedLookup(t, scraps);
+    final joined = collateCatalogInjections(scraps);
+    if (joined != null && joined.isNotEmpty) {
+      t.plan.section('web_search').text = joined;
+      genParams = paramsOf(t.plan.userText);
+      debugPrint('[Tools] dispatch inject+stream (in-character reply)');
+    } else if (catalog.tools.isNotEmpty) {
+      debugPrint('[Tools] dispatch no tool result — stream in-character reply');
     }
     // Occupancy wait is load-bearing: catalog `_withWorkerLane` can nest
     // under a journal hold, and releasing the catalog depth must not let
@@ -320,7 +343,7 @@ extension ChatServiceGenerationRequest on ChatService {
 
   /// Pre-turn half of the call-model swap (voice call safe speed lane): the
   /// old swap fired only in the request phase, so every pre-generation LLM
-  /// call of a voice turn — the realism judges, the standalone clock, the
+  /// call of a voice turn — the realism judges, the time eval, the
   /// objective check — still waited on the full-size main model, which is
   /// where the "Thinking…" silence actually lived. sendMessage enters the
   /// swap before that work; the request phase above adopts it into
@@ -352,5 +375,15 @@ extension ChatServiceGenerationRequest on ChatService {
     if (original == null || _llmProvider == null) return;
     _callEvalModelOriginal = null;
     _llmProvider!.openRouterService.configure(modelName: original);
+  }
+
+  /// Latest user line for the web-search doorbell. promptText, so a photo
+  /// is the caption marker and a think block is already stripped.
+  String _latestUserLineForDoorbell() {
+    for (var i = _messages.length - 1; i >= 0; i--) {
+      if (!_messages[i].isUser) continue;
+      return _messages[i].promptText.trim();
+    }
+    return '';
   }
 }

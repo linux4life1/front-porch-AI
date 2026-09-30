@@ -33,16 +33,18 @@ export function ChipsRow({
   onRevert: () => void;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+  const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
   const realism: Pill[] = [];
-  if (chips.bondDelta) realism.push({ key: 'bond', label: `Bond ${signed(chips.bondDelta)}`, cls: chips.bondDelta > 0 ? 'up' : 'down', reason: chips.bondReason });
-  if (chips.trustDelta) realism.push({ key: 'trust', label: `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up' : 'down', reason: chips.trustReason });
+  if (chips.bondDelta != null) realism.push({ key: 'bond', label: chips.bondDelta === 0 ? 'Bond unchanged' : `Bond ${signed(chips.bondDelta)}`, cls: chips.bondDelta > 0 ? 'up' : chips.bondDelta < 0 ? 'down' : 'time', reason: chips.bondReason });
+  if (chips.trustDelta != null) realism.push({ key: 'trust', label: chips.trustDelta === 0 ? 'Trust unchanged' : `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up' : chips.trustDelta < 0 ? 'down' : 'time', reason: chips.trustReason });
   if (chips.arousalDelta) realism.push({ key: 'arousal', label: `Arousal ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up' : 'down' });
   if (chips.emotionLabel) realism.push({ key: 'mood', label: chips.emotionLabel, cls: 'mood' });
+  if (chips.timePassed) realism.push({ key: 'passed', label: `⏱ ${chips.timePassed}`, cls: 'time' });
   if (chips.timeSkipTo) realism.push({ key: 'time', label: `⏱ ${chips.timeSkipTo}`, cls: 'time' });
   if (chips.chanceTimeEvent) realism.push({ key: 'chance', label: '🎲 Chance Time', cls: 'time', reason: chips.chanceTimeEvent });
   if (chips.searchQuery) realism.push({ key: 'search', label: chips.searchOk === false ? '🔎 Looked up — nothing' : '🔎 Looked up', cls: 'time', reason: chips.searchQuery });
+  if (chips.wikiQuery) realism.push({ key: 'wiki', label: chips.wikiOk === false ? '📖 Wiki — nothing' : '📖 Wiki', cls: 'time', reason: chips.wikiQuery });
   const toolName = chips.toolName;
   const toolOk = chips.toolOk;
   if (toolName) realism.push({ key: 'tool', label: toolOk === false ? `${toolName} — nothing` : toolName, cls: 'time', reason: toolName });
@@ -53,6 +55,9 @@ export function ChipsRow({
     const reason = typeof v === 'number' ? undefined : v?.reason;
     if (!delta) continue;
     needs.push({ key: `need-${k}`, label: `${NEED_LABELS[k] ?? k} ${signed(delta)}`, cls: delta > 0 ? 'up' : 'down', reason });
+  }
+  if (chips.needsUnaffected && needs.length === 0) {
+    needs.push({ key: 'unaffected', label: 'No needs affected', cls: 'time' });
   }
 
   const showReprocess = isLast && !busy && !!chips.needsReprocessable;

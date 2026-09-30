@@ -346,6 +346,8 @@ export function ChatPage() {
           onBeginEdit={beginEdit}
           onSwipe={swipe}
           onRegenerate={regenerate}
+          lookupWeb={!!state.lookupSources?.web}
+          lookupWiki={!!state.lookupSources?.wiki}
           onContinue={continueGen}
           onFork={fork}
           onDelete={del}
@@ -482,6 +484,7 @@ export function ChatPage() {
         onClosePersona={() => setShowPersona(false)}
         onPersonaChanged={refresh}
         reprocessIndex={reprocessIndex}
+        messages={state.messages}
         onSubmitReprocess={submitReprocess}
         onCloseReprocess={() => setReprocessIndex(null)}
         chance={chance}

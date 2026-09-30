@@ -165,31 +165,6 @@ void main() {
       expect(partial['fun']['delta'], 3);
     });
 
-    test('tickDecay applies (1:1 path)', () {
-      sim.initializeFresh();
-      sim.tickDecay();
-      // defaults decay at least some
-      expect(
-        sim.vector['hunger']! < NeedsSimulation.needDefaults['hunger']!,
-        true,
-      );
-    });
-
-    test('tickDecay group path via cbs', () {
-      final gn = <String, Map<String, int>>{};
-      final gsim = createTestSim(
-        isGroupNonObserverFn: () => true,
-        speakerIdFn: () => 'g1',
-        groupNeeds: gn,
-      );
-      gn['g1'] = Map<String, int>.from(NeedsSimulation.needDefaults);
-      gsim.tickDecay();
-      expect(
-        gn['g1']!['bladder']! < NeedsSimulation.needDefaults['bladder']!,
-        true,
-      );
-    });
-
     test('needCriticalThreshold exposed', () {
       expect(NeedsSimulation.needCriticalThreshold, 20);
     });
@@ -209,22 +184,6 @@ void main() {
       expect(d['social']['delta'], -3);
       s.restoreFromSnapshot({'vector': p});
       expect(s.vector['social'], p['social']);
-    });
-
-    test('1:1 vs group parity on decay via cbs (observable)', () {
-      final g = <String, Map<String, int>>{};
-      final gs = createTestSim(
-        isGroupNonObserverFn: () => true,
-        speakerIdFn: () => 'c1',
-        groupNeeds: g,
-      );
-      g['c1'] = Map.from(NeedsSimulation.needDefaults);
-      gs.tickDecay();
-      final g1 = createTestSim();
-      g1.initializeFresh();
-      g1.tickDecay();
-      // both decay, values not asserted equal (different starting) but no crash + vector used
-      expect(gs.vector.isNotEmpty || g['c1']!.isNotEmpty, true);
     });
 
     test('resetBuffers is no-op (expunged)', () {

@@ -1,0 +1,63 @@
+{
+  "source": "v1.4.0 eb08028d81c14f2148737ba9f6cf39e36e46d0ad schema 52",
+  "chats": [
+    {
+      "label": "realism_on_1to1",
+      "sessionId": "1790314131886",
+      "character": "HostOn",
+      "isGroup": false,
+      "clock": "2026-09-25T10:30:00.000Z",
+      "dayCount": 1,
+      "timeOfDay": "morning",
+      "messageCount": 7,
+      "senders": ["HostOn", "User", "HostOn", "User", "HostOn", "User", "HostOn"],
+      "swipeCounts": [1, 1, 1, 1, 1, 1, 2],
+      "needsOn": true,
+      "hunger": 74
+    },
+    {
+      "label": "realism_off_1to1",
+      "sessionId": "1790314133281",
+      "character": "HostOff",
+      "isGroup": false,
+      "clock": "2026-09-25T09:00:00.000Z",
+      "dayCount": 1,
+      "timeOfDay": "morning",
+      "messageCount": 5,
+      "senders": ["HostOff", "User", "HostOff", "User", "HostOff"],
+      "swipeCounts": [1, 1, 1, 1, 1],
+      "needsOn": false,
+      "hunger": null
+    },
+    {
+      "label": "clock_advanced",
+      "sessionId": "1790314133694",
+      "character": "Clocked",
+      "isGroup": false,
+      "clock": "2026-09-28T19:00:00.000Z",
+      "dayCount": 4,
+      "timeOfDay": "evening",
+      "messageCount": 9,
+      "senders": ["Clocked", "User", "Clocked", "User", "Clocked", "User", "Clocked", "User", "Clocked"],
+      "swipeCounts": [1, 1, 1, 1, 1, 1, 1, 1, 1],
+      "needsOn": true,
+      "hunger": 72
+    },
+    {
+      "label": "group",
+      "sessionId": "1790314134956",
+      "character": "MemA",
+      "isGroup": true,
+      "groupId": "grp-porch",
+      "groupName": "PorchTrio",
+      "clock": "2026-09-25T09:30:00.000Z",
+      "dayCount": 1,
+      "timeOfDay": "morning",
+      "messageCount": 3,
+      "senders": ["MemA", "User", "MemA"],
+      "swipeCounts": [1, 1, 1],
+      "needsOn": true,
+      "hunger": 78
+    }
+  ]
+}

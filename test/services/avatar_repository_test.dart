@@ -92,7 +92,10 @@ void main() {
       //      test/database/climate_enabled_migration_test.dart.
       // v52: chat_worlds.is_primary — Places Primary (Setting) slot.
       //      Guarded by test/database/chat_worlds_primary_migration_test.dart.
-      expect(db.schemaVersion, 52);
+      // v53: sessions.passage_of_time_gate_migrated — one-shot leftover
+      //      per-chat Passage of Time re-derive. Ladder in
+      //      lib/database/database.migrations.late.dart.
+      expect(db.schemaVersion, 53);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

@@ -66,9 +66,14 @@ void main() {
   testWidgets('TimeStrip — evening, day 3', (tester) async {
     final chat = FakeChatService(timeOfDay: 'evening', dayCount: 3);
     addTearDown(chat.dispose);
+    final storage = _storage();
+    addTearDown(storage.dispose);
     await expectThemedGoldens(
       tester,
-      child: SizedBox(width: 300, child: TimeStrip(chat: chat)),
+      child: ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: SizedBox(width: 300, child: TimeStrip(chat: chat)),
+      ),
       group: 'sidebar',
       name: 'time_strip_evening',
       surface: const Size(340, 120),
@@ -78,9 +83,14 @@ void main() {
   testWidgets('TimeStrip — dawn, day 1', (tester) async {
     final chat = FakeChatService(timeOfDay: 'dawn', dayCount: 1);
     addTearDown(chat.dispose);
+    final storage = _storage();
+    addTearDown(storage.dispose);
     await expectThemedGoldens(
       tester,
-      child: SizedBox(width: 300, child: TimeStrip(chat: chat)),
+      child: ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: SizedBox(width: 300, child: TimeStrip(chat: chat)),
+      ),
       group: 'sidebar',
       name: 'time_strip_dawn',
       surface: const Size(340, 120),
@@ -119,13 +129,18 @@ void main() {
   testWidgets('TimeStrip — morning, tight wrap', (tester) async {
     final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
     addTearDown(chat.dispose);
+    final storage = _storage();
+    addTearDown(storage.dispose);
     await expectThemedGoldens(
       tester,
-      child: SizedBox(
-        width: SidebarTokens.minWidth,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: TimeStrip(chat: chat),
+      child: ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: SizedBox(
+          width: SidebarTokens.minWidth,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: TimeStrip(chat: chat),
+          ),
         ),
       ),
       group: 'sidebar',
@@ -137,9 +152,14 @@ void main() {
   testWidgets('TimeStrip — morning, wide single row', (tester) async {
     final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
     addTearDown(chat.dispose);
+    final storage = _storage();
+    addTearDown(storage.dispose);
     await expectThemedGoldens(
       tester,
-      child: SizedBox(width: 480, child: TimeStrip(chat: chat)),
+      child: ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: SizedBox(width: 480, child: TimeStrip(chat: chat)),
+      ),
       group: 'sidebar',
       name: 'time_strip_morning_wide',
       surface: const Size(520, 120),

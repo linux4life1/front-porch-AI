@@ -21,6 +21,15 @@ part of '../chat_service.dart';
 /// Session persist: enqueue, write, and replace-all.
 /// Guest / group-realism hydrate stays on [ChatServiceSessionState].
 extension ChatServiceSessionStateSave on ChatService {
+  /// An edit of the open chat's recap. Binds the row so the following
+  /// save writes this text, including a deliberate clear.
+  void _rememberRecapEdit(String text) {
+    _summary = text;
+    final id = _currentSessionId;
+    if (id != null) _recapBoundSessionId = id;
+    _recapClearArmed = text.trim().isEmpty;
+  }
+
   Future<void> _saveChat({bool replaceAll = false}) async {
     // Turn taken = this write. Snapshot at enqueue so a later reload
     // cannot shrink the queued transcript. [replaceAll] is only for
@@ -111,7 +120,6 @@ extension ChatServiceSessionStateSave on ChatService {
       });
 
       groupRealismJson = jsonEncode({
-        'globalDecayRates': _groupDecayRates,
         'perChar': _groupRealism,
         'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
         'authorNotes': _groupAuthorNotes,
@@ -176,6 +184,22 @@ extension ChatServiceSessionStateSave on ChatService {
       groupDbId = keptGroup;
     }
 
+    // Opening a chat, a model switch, and quit all save while the live
+    // recap is still empty. That empty copy must not null the row.
+    final kept = recapColumnsForSave(
+      boundToThisSession: _recapBoundSessionId == sessionId,
+      clearArmed: _recapClearArmed,
+      memory: _summary,
+      memoryCursor: _summaryLastIndex,
+      stored: existing?.summary,
+      storedCursor: existing?.summaryLastIndex,
+    );
+    if (_recapBoundSessionId == sessionId && _summary.trim().isNotEmpty) {
+      _recapClearArmed = false;
+    }
+    final summaryText = kept.text ?? '';
+    final summaryIndex = kept.cursor ?? 0;
+
     // Upsert session (INSERT OR REPLACE to avoid UNIQUE constraint errors)
     final timestamp = int.tryParse(sessionId) ?? 0;
     final createdAt = timestamp > 0
@@ -191,10 +215,8 @@ extension ChatServiceSessionStateSave on ChatService {
         userPersonaId: drift.Value(personaId),
         authorNote: drift.Value(_authorNote),
         authorNoteDepth: drift.Value(_authorNoteStrength),
-        summary: drift.Value(_summary.isEmpty ? null : _summary),
-        summaryLastIndex: drift.Value(
-          _summaryLastIndex > 0 ? _summaryLastIndex : null,
-        ),
+        summary: drift.Value(summaryText.isEmpty ? null : summaryText),
+        summaryLastIndex: drift.Value(summaryIndex > 0 ? summaryIndex : null),
         parentSession: drift.Value(_parentSessionId),
         forkIndex: drift.Value(_forkIndex),
         affectionScore: drift.Value(_relationshipService.affectionScore),
@@ -216,11 +238,14 @@ extension ChatServiceSessionStateSave on ChatService {
         storyClock: drift.Value(_timeService.storyClockIso),
         storyStartDate: drift.Value(_timeService.storyStartDateIso),
         passageOfTimeEnabled: drift.Value(_timeService.passageOfTimeEnabled),
+        passageOfTimeGateMigrated: const drift.Value(true),
         nsfwCooldownEnabled: drift.Value(_nsfwService.nsfwCooldownEnabled),
         needsSimEnabled: drift.Value(_needsSimEnabled),
         objectivesEnabled: drift.Value(_objectivesEnabled),
+        // Persist the kit even when the chat-gear switch is off (hide ≠
+        // erase). false+null is a never-seeded row; false+vector is OFF.
         needsVector: drift.Value(
-          _needsSimEnabled
+          _needsSimulation.vector.isNotEmpty
               ? jsonEncode(encodeNeedsPersist(_needsSimulation))
               : null,
         ),

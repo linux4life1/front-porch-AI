@@ -100,54 +100,18 @@ extension ChatServiceRealismDance on ChatService {
       _applyMoodDecay();
     }
 
-    // Group non-observer: ensure this definite speaker receives their per-turn needs decay
-    // (central tick in sendMessage is skipped for groups to support random turn order without
-    // always decaying the 'first' member). Snapshot the pre-decay value for chips/realism_state
-    // *before* applying this turn's decay, then decay the speaker's map entry, then load scalars.
+    // Group: stamp the body as it is now. Wear happens after the clock,
+    // for everyone who is present, not as a per-send tick on the speaker.
     if (_activeGroup != null && !_observerMode && _needsSimEnabled) {
-      final sidForDecay = charId;
-      final currentForSpeaker = _getGroupNeeds(sidForDecay);
-      final preDecay = currentForSpeaker.isNotEmpty
+      final currentForSpeaker = _getGroupNeeds(charId);
+      final preTurn = currentForSpeaker.isNotEmpty
           ? Map<String, int>.from(currentForSpeaker)
           : NeedsSimulation.baselinesFromExtensions(
               speaker.frontPorchExtensions,
             );
-      // Stash the true pre-decay for this speaker so post-gen chip delta computation
-      // (and regen) see the correct baseline including the decay portion of the turn.
       _pendingRealismMetadata ??= {};
-      _pendingRealismMetadata!['needs_pre_turn_vector'] = preDecay;
-
-      // Apply one tick of decay directly to this speaker's group entry using
-      // THIS speaker's own per-member decay rates (from their card ext) — the
-      // same source the 1:1 path uses — so each group member decays at its own
-      // authored rate. `_activeCharacter` is this speaker (impersonated above).
-      // decayedValueFor is THE shared rule (rate + modifier pipeline): group
-      // members get the same conditional decay boosts (low energy → faster
-      // hunger, etc.) that 1:1 always applied — this loop used to skip them.
-      final decayed = Map<String, int>.from(preDecay);
-      final customRates = _activeDecayRates();
-      for (final key in NeedsSimulation.needKeys) {
-        final cur = decayed[key] ?? 80;
-        decayed[key] = _needsSimulation.decayedValueFor(
-          key,
-          cur,
-          decayed,
-          customRates,
-        );
-      }
-      _setGroupNeeds(sidForDecay, decayed);
-
-      // Now load the post-decay state into scalars for the remainder of the speaker eval + prompt injection.
+      _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurn;
       _loadGroupRealismIntoScalars(charId);
-
-      // Catastrophe check on THIS speaker's just-loaded vector — 1:1 parity
-      // (the 1:1 host runs this inside tickDecay). Persist the recovery floor
-      // back to the speaker's group entry so it sticks.
-      _needsSimulation.applyCatastropheIfNeeded();
-      _setGroupNeeds(
-        sidForDecay,
-        Map<String, int>.from(_needsSimulation.vector),
-      );
     } else if (_activeGroup != null) {
       // Group speaker (observer mode or needs-off): load this speaker's persisted
       // group realism state into the scalar fields the eval will read and mutate.

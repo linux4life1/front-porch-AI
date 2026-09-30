@@ -2,7 +2,7 @@
 
 The living-character **defaults** live in **Settings → Porch Life**. Not General. Clock In is on the character card. AFK and RAG live in the chat sidebar.
 
-**Realism Engine is not the master key.** Journal, the story clock, Chaos, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults. An open chat can still override them (Character State → **tune**, or Group Settings → Realism).
+**Realism Engine is not the master key.** Journal, the story clock, Chaos, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults. An open chat can still override most of them (Character State → **tune**, or Group Settings → Realism). **Passage of Time** is the exception: Settings → Porch Life is the only live clock switch. On means every open chat's clock runs. Off pauses them immediately.
 
 **18+ themes** is Settings → **General**. Off hides After Dark and intimate card fields. It does not erase what you already set.
 
@@ -46,12 +46,11 @@ The story has **its own clock**. It is not your wall clock. It is **not allowed*
 
 ### Turn it on
 
-Settings → Porch Life → **Passage of Time**. Per chat: Character State → **tune** → Automatic Passage of Time.
+Settings → Porch Life → **Passage of Time** is the only live clock switch. On means the clock runs in every open chat. Off pauses them immediately.
 
 | Realism Engine | Clock |
 |---|---|
-| **On** | Judged as part of work the engine already does. |
-| **Off** | Passage of Time **on is not enough.** You must also enable **Keep the clock running without the engine** (nested under that row). That is **one extra AI call per turn**. Default **off** — otherwise every engine-off user would suddenly pay that call. Left off, the clock **holds still on purpose**. |
+| **On or off** | Passage of Time on is enough. The Porch Life row is the only control. |
 
 ### Auto (after each reply)
 
@@ -60,7 +59,8 @@ Settings → Porch Life → **Passage of Time**. Per chat: Character State → *
 3. The clock moves. The next speaker is told the new time.
 
 - Cap: **180 minutes (3 hours)** per turn. Bigger jumps are **skips**.
-- Failed / garbage eval: **+5 minutes**. Never a freeze on a failed call.
+- A normal send always moves at least **1–2 minutes**. Same moment needs an explicit continuous instant.
+- Failed / garbage eval: **+2 minutes**, same as a bare 0. The chip names those minutes.
 - Still stuck after **12 turns**: snap to the next period.
 - **Continue does not tick.**
 - **Regenerate / swipe** rewind to `story_clock_before`, then judge again (no double advance).
@@ -97,8 +97,8 @@ AFK story-time pace (hours / half day / full day) is the Dynamic Responses gear,
 
 ### Clock not moving?
 
-1. Passage of Time on (chat tune didn’t override it off).
-2. Engine off → standalone nested switch on.
+1. Passage of Time on in Settings → Porch Life.
+2. Passage of Time on is enough, engine on or off.
 3. You hit Continue.
 4. No model running — auto time *is* an AI question.
 5. You wanted a 6-hour jump — skip.

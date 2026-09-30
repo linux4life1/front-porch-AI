@@ -179,7 +179,7 @@ extension BackporchApiCatalog on BackporchApi {
   }
 
   /// File a report against a card. [category] is one of SPAM, MISLABELED,
-  /// ILLEGAL, STOLEN, LOW_EFFORT, PROHIBITED_IMAGE, OTHER.
+  /// ILLEGAL, STOLEN, REAL_PERSON, LOW_EFFORT, PROHIBITED_IMAGE, OTHER.
   Future<void> reportCharacter(
     String accessToken,
     String characterId, {

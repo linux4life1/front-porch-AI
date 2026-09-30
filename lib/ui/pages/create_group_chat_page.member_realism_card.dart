@@ -100,10 +100,15 @@ extension _GroupWizardMemberRealismCard on _CreateGroupChatPageState {
                   });
                   _updateMemberRealism(id, {'enjoysLowHygiene': v});
                 },
-                needsSimStrength: (seed['needsSimStrength'] as int?) ?? 1,
-                onNeedsSimStrengthChanged: (v) {
-                  _updateMemberRealism(id, {'needsSimStrength': v});
-                },
+                needsPace: (seed['needsPace'] as String?) ?? 'normal',
+                onNeedsPaceChanged: (v) =>
+                    _updateMemberRealism(id, {'needsPace': v}),
+                needsOff: [
+                  for (final item in (seed['needsOff'] as List?) ?? const [])
+                    if (item is String) item,
+                ],
+                onNeedsOffChanged: (v) =>
+                    _updateMemberRealism(id, {'needsOff': v}),
                 baselineHunger: _memberNeedsBaselines[id]?['hunger'] ?? 80,
                 onBaselineHungerChanged: (v) {
                   rebuildState(() {
@@ -153,57 +158,7 @@ extension _GroupWizardMemberRealismCard on _CreateGroupChatPageState {
                   });
                   _updateMemberRealism(id, {'needsBaselineComfort': v});
                 },
-                // Per-member decay ("tick rate") — each member
-                // decays at its own rate, exactly like a solo card.
-                decayHunger: _memberNeedsBaselines[id]?['decayHunger'] ?? 5,
-                onDecayHungerChanged: (v) {
-                  rebuildState(() {
-                    _memberNeedsBaselines[id]!['decayHunger'] = v;
-                  });
-                  _updateMemberRealism(id, {'needsDecayHunger': v});
-                },
-                decayBladder: _memberNeedsBaselines[id]?['decayBladder'] ?? 5,
-                onDecayBladderChanged: (v) {
-                  rebuildState(() {
-                    _memberNeedsBaselines[id]!['decayBladder'] = v;
-                  });
-                  _updateMemberRealism(id, {'needsDecayBladder': v});
-                },
-                decayEnergy: _memberNeedsBaselines[id]?['decayEnergy'] ?? 5,
-                onDecayEnergyChanged: (v) {
-                  rebuildState(() {
-                    _memberNeedsBaselines[id]!['decayEnergy'] = v;
-                  });
-                  _updateMemberRealism(id, {'needsDecayEnergy': v});
-                },
-                decaySocial: _memberNeedsBaselines[id]?['decaySocial'] ?? 5,
-                onDecaySocialChanged: (v) {
-                  rebuildState(() {
-                    _memberNeedsBaselines[id]!['decaySocial'] = v;
-                  });
-                  _updateMemberRealism(id, {'needsDecaySocial': v});
-                },
-                decayFun: _memberNeedsBaselines[id]?['decayFun'] ?? 5,
-                onDecayFunChanged: (v) {
-                  rebuildState(() {
-                    _memberNeedsBaselines[id]!['decayFun'] = v;
-                  });
-                  _updateMemberRealism(id, {'needsDecayFun': v});
-                },
-                decayHygiene: _memberNeedsBaselines[id]?['decayHygiene'] ?? 5,
-                onDecayHygieneChanged: (v) {
-                  rebuildState(() {
-                    _memberNeedsBaselines[id]!['decayHygiene'] = v;
-                  });
-                  _updateMemberRealism(id, {'needsDecayHygiene': v});
-                },
-                decayComfort: _memberNeedsBaselines[id]?['decayComfort'] ?? 5,
-                onDecayComfortChanged: (v) {
-                  rebuildState(() {
-                    _memberNeedsBaselines[id]!['decayComfort'] = v;
-                  });
-                  _updateMemberRealism(id, {'needsDecayComfort': v});
-                },
+                // Pace + per-need on/off — same seed keys edit-group writes.
               ),
               showVerificationToggle: true,
             ),

@@ -79,6 +79,7 @@ class _StoopReportDialogState extends State<StoopReportDialog> {
     'PROHIBITED_IMAGE': 'Nude / explicit image (not allowed)',
     'MISLABELED': 'Wrong or missing NSFW label',
     'STOLEN': 'Stolen / reuploaded',
+    'REAL_PERSON': 'Real person',
     'LOW_EFFORT': 'Low-effort / slop',
     'SPAM': 'Spam or broken',
     'OTHER': 'Something else',

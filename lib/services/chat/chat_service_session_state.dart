@@ -62,8 +62,11 @@ extension ChatServiceSessionState on ChatService {
     }
   }
 
-  void _loadGroupRealismStateFromSession(Session? session) {
-    if (_activeGroup == null) return;
+  /// Returns true when a session-scoped map moved. Caller persists
+  /// once after [_hydrateSessionScalars] — a save here races the
+  /// history-drawer path, which hydrates after this load.
+  Future<bool> _loadGroupRealismStateFromSession(Session? session) async {
+    if (_activeGroup == null) return false;
 
     String? stateJson = session?.groupRealismState;
 
@@ -77,7 +80,6 @@ extension ChatServiceSessionState on ChatService {
     }
 
     _groupRealism = {};
-    _groupDecayRates = {};
     _groupAuthorNotes = {};
     _groupAuthorNoteStrengths = {};
     _groupCharacterSystemPrompts = {};
@@ -105,14 +107,6 @@ extension ChatServiceSessionState on ChatService {
               'vector': _needsSimulation.vector,
               'hygiene_crisis_acked': hygieneAck,
             });
-          }
-
-          // Global group decay rates
-          final globalDecay = map['globalDecayRates'];
-          if (globalDecay is Map) {
-            _groupDecayRates = globalDecay.map(
-              (k, v) => MapEntry(k.toString(), (v as num).toInt()),
-            );
           }
 
           // Per-char author notes (scoped to this group)
@@ -186,6 +180,7 @@ extension ChatServiceSessionState on ChatService {
         _groupRealism = {};
       }
     }
+    return _rekeyGroupStores();
   }
 
   /// Evaluates emotion + relationship baseline from the greeting message only.

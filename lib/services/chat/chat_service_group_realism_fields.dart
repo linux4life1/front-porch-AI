@@ -41,7 +41,8 @@ mixin ChatServiceGroupRealismFields {
   /// Per-character realism / needs / state for group chats.
   /// Keyed by stable charId. Populated from the hidden checkpoint.
   /// Per-member realism state, typed (U7). Keys are runtime member ids
-  /// (stableGroupId). The wrapper preserves the legacy wire format exactly —
+  /// ([groupMemberStoreId], UUID-first). The wrapper preserves the legacy
+  /// wire format exactly —
   /// see group_member_realism.dart for why it is a wrapper and not fields.
   Map<String, GroupMemberRealism> _groupRealism = {};
 

@@ -26,8 +26,8 @@ import '../sidebar_tokens.dart';
 /// The Character State gear flyout — an inline inset panel (not a popup menu,
 /// which would dismiss on every toggle tap) collecting the simulation
 /// switches that used to be scattered through realism_section and the inline
-/// group NSFW toggle: Needs Simulation, Automatic Passage of Time, One-Shot
-/// Eval, and NSFW Enhancements (the arousal system — its settings home after
+/// group NSFW toggle: Needs Simulation, One-Shot Eval, and NSFW Enhancements
+/// (the arousal system — its settings home after
 /// the Lust bar moved in among the bond bars). Manual time nudging lives
 /// ONLY on the TimeStrip's chevrons (a duplicate row here was removed —
 /// user feedback 2026-07-03).
@@ -81,23 +81,6 @@ class CharacterStateSettings extends StatelessWidget {
             onChanged: chat.isGenerating
                 ? null
                 : (val) => chat.setNeedsSimEnabled(val),
-          ),
-          const SizedBox(height: 10),
-          _toggleRow(
-            context,
-            icon: Icons.access_time,
-            label: 'Automatic Passage of Time',
-            caption:
-                'Time advances automatically as you chat. Manual controls '
-                'remain available.',
-            value: chat.timeService.passageOfTimeEnabled,
-            accent: AppColors.timeDayAccentOf(context),
-            // Must go through the ChatService wrapper — the raw TimeService
-            // setter is deliberately side-effect-free (no save, no notify),
-            // which is why this toggle looked dead / possessed before.
-            onChanged: chat.isGenerating
-                ? null
-                : (val) => chat.setPassageOfTimeEnabled(val),
           ),
           const SizedBox(height: 10),
           _modeRow(

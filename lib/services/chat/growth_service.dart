@@ -180,11 +180,19 @@ class GrowthService {
   /// The effective personality for [card]: original description +
   /// personality, plus the compact tier-prefixed ring block (or the legacy
   /// evolved blob while it awaits distillation — no behavior cliff).
-  String effectivePersonality(CharacterCard card) {
-    final base = [
+  /// Description + personality, without the growth block. The chat prompt
+  /// keeps this in the stable head and puts [growthBlockFor] after the
+  /// transcript. [effectivePersonality] still appends growth for callers
+  /// that want the combined string.
+  String cardPersonality(CharacterCard card) {
+    return [
       if (card.description.isNotEmpty) card.description,
       if (card.personality.isNotEmpty) card.personality,
     ].join('\n');
+  }
+
+  String effectivePersonality(CharacterCard card) {
+    final base = cardPersonality(card);
     if (!getGrowthEnabled()) return base;
     return '$base${growthBlockFor(card)}';
   }

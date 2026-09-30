@@ -19,10 +19,36 @@
 part of 'image_gen_service.dart';
 
 /// Cluster C — remote model catalog. fetchImageModels() itself (fake-pinned)
-/// stays a shell instance member; this extension holds only the OpenRouter
-/// HTTP helper it delegates to. The Nano image snapshot is
-/// `_commonImageModels` in `image_gen_service.nano_models.dart`.
+/// stays a shell instance member; this extension holds the HTTP helpers it
+/// delegates to. The Nano snapshot in `image_gen_service.nano_models.dart`
+/// is the offline fallback when GET `{apiUrl}/image-models` fails.
 extension _ImageGenCatalog on ImageGenService {
+  Future<List<ImageModelInfo>> _fetchNanoImageModels(
+    String apiUrl,
+    String apiKey,
+  ) {
+    return loadNanoImageCatalog(
+      fetchBody: () => _readNanoImageModelsBody(apiUrl, apiKey),
+      fallback: List<ImageModelInfo>.from(_commonImageModels),
+    );
+  }
+
+  Future<String?> _readNanoImageModelsBody(String apiUrl, String apiKey) async {
+    final client = http.Client();
+    try {
+      final response = await client
+          .get(
+            Uri.parse('$apiUrl/image-models'),
+            headers: {'Authorization': 'Bearer $apiKey'},
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) return null;
+      return response.body;
+    } finally {
+      client.close();
+    }
+  }
+
   /// Fetch image models specifically from OpenRouter's API.
   ///
   /// OpenRouter supports querying for image-capable models via:

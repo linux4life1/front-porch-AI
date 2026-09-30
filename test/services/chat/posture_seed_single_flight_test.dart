@@ -49,6 +49,8 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 
+import '../../helpers/chat_db_teardown.dart';
+
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -217,8 +219,7 @@ void main() {
             'opening reply is written from the seeded position',
       );
 
-      chat.dispose();
-      await db.close();
+      await disposeChatThenCloseDb(chat, db);
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );

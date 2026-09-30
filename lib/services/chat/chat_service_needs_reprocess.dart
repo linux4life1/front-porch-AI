@@ -83,11 +83,10 @@ extension ChatServiceNeedsReprocess on ChatService {
   /// Re-evaluate a message's needs deltas under a user critique.
   ///
   /// [onlyNeeds] scopes the pass: needs NOT listed keep the deltas they already
-  /// had, untouched and un-re-rolled. Empty = every need the model returns.
-  /// Scoping matters beyond the obvious — a full-set pass makes the model
-  /// re-emit all seven needs against the same scene text, so correcting energy
-  /// silently re-rolls hunger, hygiene and comfort to new numbers nobody asked
-  /// for.
+  /// had, untouched and un-re-rolled. Empty + all seven on = today's unscoped
+  /// path. Empty + a subset on = the enabled set (scoped merge keeps off-need
+  /// deltas). A non-empty selection that intersects the enabled set to nothing
+  /// is a no-op (no LLM call).
   Future<bool> manualReprocessNeeds(
     int index,
     String critique, {
@@ -104,8 +103,6 @@ extension ChatServiceNeedsReprocess on ChatService {
 
     final preState = meta['realism_state'];
     if (preState is! Map || preState['needs'] == null) return false;
-
-    // A: entry guard (usable needs data) already passed; button in UI also checks now.
 
     final oldNeedsDeltas = <String, int>{};
     Map<String, dynamic>? originalNeedsDeltasForStash;
@@ -165,6 +162,34 @@ extension ChatServiceNeedsReprocess on ChatService {
       }
       _loadGroupRealismIntoScalars(sid);
     }
+
+    // After the swap so the speaker card's needsOff is the one used.
+    final target = reprocessNeedsTargetFor(index);
+    final enabled = target?.enabled.toSet() ?? const <String>{};
+    final Set<String> scope;
+    if (target == null) {
+      scope = const <String>{};
+    } else if (onlyNeeds.isEmpty) {
+      scope = enabled;
+    } else {
+      scope = onlyNeeds.intersection(enabled);
+    }
+    if (target == null || (onlyNeeds.isNotEmpty && scope.isEmpty)) {
+      if (isGroupNonObs &&
+          preOpActiveSid != null &&
+          preOpActiveSid.isNotEmpty) {
+        _loadGroupRealismIntoScalars(preOpActiveSid);
+      } else if (isGroupNonObs && sid != null && sid.isNotEmpty) {
+        _setGroupNeeds(sid, livePreClick);
+      }
+      _activeCharacter = preActiveChar;
+      return false;
+    }
+    final allOn =
+        enabled.length == NeedsSimulation.needKeys.length &&
+        enabled.containsAll(NeedsSimulation.needKeys);
+    final evalOnly = (onlyNeeds.isEmpty && allOn) ? const <String>{} : scope;
+
     // Rebuild from the immutable pre-impact baseline, never from realism_state
     // (see _needsPreImpactBaseline for why that field drifts after pass one).
     final Map<String, int> baseline = _needsPreImpactBaseline(meta, preState);
@@ -192,7 +217,7 @@ extension ChatServiceNeedsReprocess on ChatService {
           msg.displayText,
           oldNeedsDeltas,
           critique,
-          onlyNeeds: onlyNeeds,
+          onlyNeeds: evalOnly,
         );
 
     if (!reprocessOk) {
@@ -234,13 +259,17 @@ extension ChatServiceNeedsReprocess on ChatService {
     final computed = _needsSimulation.computeNeedsDeltasWithReasons(
       restoredPreVector,
     );
+    computed.removeWhere(
+      (key, _) => !visibleNeedsFor({key: 1}, target.card).containsKey(key),
+    );
     updatedMeta['needs_deltas'] = computed;
 
     // Keep realism_state['needs'] aligned with manual corrections so swipe
     // navigation and regen do not resurrect a stale pre-reprocess vector.
     if (_needsSimEnabled && updatedMeta['realism_state'] is Map) {
-      final postReprocessVector =
-          Map<String, int>.from(_needsSimulation.vector);
+      final postReprocessVector = Map<String, int>.from(
+        _needsSimulation.vector,
+      );
       final rs = Map<String, dynamic>.from(updatedMeta['realism_state'] as Map);
       final needsSnap = <String, dynamic>{'vector': postReprocessVector};
       if (computed.isNotEmpty) {
@@ -276,7 +305,7 @@ extension ChatServiceNeedsReprocess on ChatService {
       // Drop the impersonation. The group per-character state is already saved
       // to _groupRealism above; leaving _activeCharacter pointed at the
       // impersonated speaker leaked their card into everything that reads
-      // _activeCharacter (verifier flags, needs strength, decay rates) until
+      // _activeCharacter (verifier flags, pace, which needs are on) until
       // the next dance overwrote it. Unconditional (not `!= null`-guarded): in
       // a pure group preActiveChar IS null and must be restored to null; for
       // 1:1 the capture above grabbed the current character, so this is the
@@ -384,8 +413,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     // re-derive a baseline from the (already post-impact) realism_state.
     updated['needs_pre_impact'] = baseline;
     if (_needsSimEnabled && updated['realism_state'] is Map) {
-      final postRevertVector =
-          Map<String, int>.from(_needsSimulation.vector);
+      final postRevertVector = Map<String, int>.from(_needsSimulation.vector);
       final rs = Map<String, dynamic>.from(updated['realism_state'] as Map);
       final needsSnap = <String, dynamic>{'vector': postRevertVector};
       if (stashedDeltasMap.isNotEmpty) {

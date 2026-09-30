@@ -207,6 +207,9 @@ extension AppDatabaseMaintenance on AppDatabase {
         'generation_settings TEXT',
         'user_persona_id TEXT',
         'passage_of_time_enabled INTEGER NOT NULL DEFAULT 1',
+        // v53 — one-shot leftover-PoT re-derive. DEFAULT 0: existing rows
+        // are unmigrated. Must match the Table and the ladder.
+        'passage_of_time_gate_migrated INTEGER NOT NULL DEFAULT 0',
         'nsfw_cooldown_enabled INTEGER NOT NULL DEFAULT 0',
         'cooldown_turns_remaining INTEGER NOT NULL DEFAULT 0',
         'cooldown_turns_total INTEGER NOT NULL DEFAULT 0',
@@ -403,6 +406,28 @@ extension AppDatabaseMaintenance on AppDatabase {
       debugPrint(
         '[DB] Schema repair (including new tables) completed in ${stopwatch.elapsedMilliseconds}ms total',
       );
+    }
+    await _ensureMessageSessionIndex();
+  }
+
+  /// Tail and older-page reads are `session_id = ? ORDER BY position`.
+  /// Without this index each page scans every message blob in the
+  /// library. A long chat then holds the loading cover for minutes.
+  Future<void> _ensureMessageSessionIndex() async {
+    try {
+      final sw = Stopwatch()..start();
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS messages_session_position '
+        'ON messages (session_id, position)',
+      );
+      if (sw.elapsedMilliseconds > 50) {
+        debugPrint(
+          '[DB] messages_session_position ready in '
+          '${sw.elapsedMilliseconds}ms',
+        );
+      }
+    } catch (e) {
+      debugPrint('[DB] messages_session_position skipped: $e');
     }
   }
 

@@ -245,10 +245,7 @@ class RealismStep extends StatelessWidget {
                   state.saveState();
                   state.notify();
                 },
-                // Full needs editor (enable, enjoys-low-hygiene, custom 0-100
-                // baselines + per-tick decay rates) — same widget the character
-                // editor uses, so AI-created characters can ship custom needs
-                // tuning. Strength stays at the default (not exposed here).
+                // Same needs editor the character editor uses.
                 needsFormSection: NeedsFormSection(
                   enabled: state.realismNeedsSim,
                   onEnabledChanged: (v) {
@@ -260,7 +257,16 @@ class RealismStep extends StatelessWidget {
                     state.realismEnjoysLowHygiene = v;
                     state.notify();
                   },
-                  needsSimStrength: 1,
+                  needsPace: state.needsPace,
+                  onNeedsPaceChanged: (v) {
+                    state.needsPace = v;
+                    state.notify();
+                  },
+                  needsOff: state.needsOff,
+                  onNeedsOffChanged: (v) {
+                    state.needsOff = v;
+                    state.notify();
+                  },
                   baselineHunger: state.needsBaselineHunger,
                   onBaselineHungerChanged: (v) {
                     state.needsBaselineHunger = v;
@@ -294,41 +300,6 @@ class RealismStep extends StatelessWidget {
                   baselineComfort: state.needsBaselineComfort,
                   onBaselineComfortChanged: (v) {
                     state.needsBaselineComfort = v;
-                    state.notify();
-                  },
-                  decayHunger: state.needsDecayHunger,
-                  onDecayHungerChanged: (v) {
-                    state.needsDecayHunger = v;
-                    state.notify();
-                  },
-                  decayBladder: state.needsDecayBladder,
-                  onDecayBladderChanged: (v) {
-                    state.needsDecayBladder = v;
-                    state.notify();
-                  },
-                  decayEnergy: state.needsDecayEnergy,
-                  onDecayEnergyChanged: (v) {
-                    state.needsDecayEnergy = v;
-                    state.notify();
-                  },
-                  decaySocial: state.needsDecaySocial,
-                  onDecaySocialChanged: (v) {
-                    state.needsDecaySocial = v;
-                    state.notify();
-                  },
-                  decayFun: state.needsDecayFun,
-                  onDecayFunChanged: (v) {
-                    state.needsDecayFun = v;
-                    state.notify();
-                  },
-                  decayHygiene: state.needsDecayHygiene,
-                  onDecayHygieneChanged: (v) {
-                    state.needsDecayHygiene = v;
-                    state.notify();
-                  },
-                  decayComfort: state.needsDecayComfort,
-                  onDecayComfortChanged: (v) {
-                    state.needsDecayComfort = v;
                     state.notify();
                   },
                 ),

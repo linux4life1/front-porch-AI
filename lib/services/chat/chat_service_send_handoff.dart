@@ -1,23 +1,24 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Decay, generate handoff, director note, guest chime-ins,
-// and dream prefetch. sendMessage capture/guards stay on
-// chat_service_send.dart. preTurnVector is captured before
-// tickDecay. Continue does not tick — this is send only.
+// Generate handoff, director note, guest chime-ins, and dream
+// prefetch. preTurnVector is captured before the reply. Wear
+// happens after the clock. Continue does not wear.
 
 part of '../chat_service.dart';
 
 extension ChatServiceSendHandoff on ChatService {
-  /// Pre-turn needs capture, decay, generate, chips baseline, guest
-  /// chime-ins, and vision caption. Called from [sendMessage] after
+  /// Pre-turn needs capture, generate, chips baseline, guest chime-ins,
+  /// and vision caption. Called from [sendMessage] after
   /// chaos/call-model/task-completion. Capture stays first so
-  /// [preTurnVector] is stamped before [NeedsSimulation.tickDecay].
+  /// [preTurnVector] is the body before this beat's wear.
   Future<void> _sendDecayAndGenerate({
     required CharacterCard? addressedGuest,
     required ChatMessage userMsg,
     required String? imagePath,
     required String? sessionToken,
+    String? forcedWebQuery,
+    String? forcedWikiQuery,
   }) async {
     // Evaluate realism systems before generating response
     // Capture pre-turn needs vector (before decay + fulfillment) so that
@@ -25,18 +26,21 @@ extension ChatServiceSendHandoff on ChatService {
     // can use the same delta-revert mechanism the classic realism fields
     // (bond/trust/arousal) use.
     Map<String, int>? preTurnVector;
+    // Needs is its own switch. Stamp the pre-wear body even when the
+    // Realism engine is off so regen can rewind (hide ≠ skip restore).
+    if (addressedGuest == null &&
+        _activeGroup == null &&
+        _needsSimEnabled &&
+        _needsSimulation.vector.isNotEmpty) {
+      preTurnVector = Map<String, int>.from(_needsSimulation.vector);
+      _pendingRealismMetadata ??= {};
+      _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
+    }
     if (_realismActiveThisMode && addressedGuest == null) {
       // 1:1 only. Group per-speaker stamp lives in the realism dance —
       // writing it here used the last loaded (full) member's vector, then
       // a soft turn skipped the dance and attached that leftover to the
       // guest bubble.
-      if (_activeGroup == null &&
-          _needsSimEnabled &&
-          _needsSimulation.vector.isNotEmpty) {
-        preTurnVector = Map<String, int>.from(_needsSimulation.vector);
-        _pendingRealismMetadata ??= {};
-        _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
-      }
 
       // Short-term bond decay: 1:1 host only. In group mode the speaker isn't
       // picked yet — the old call here fell back to the FIRST member under
@@ -46,15 +50,8 @@ extension ChatServiceSendHandoff on ChatService {
       if (_activeGroup == null) {
         _applyMoodDecay();
       }
-      // Needs decay for 1:1 always here. For group non-observer, speaker-specific decay
-      // (respecting the actual picked speaker for random turn order) is applied inside
-      // _evaluateRealismForUpcomingSpeaker after _pickNextGroupCharacter has run.
-      if (_activeGroup == null || _observerMode || !_needsSimEnabled) {
-        _needsSimulation.tickDecay();
-      } else {
-        // Group non-obs + needs on: decay is applied per-speaker inside the
-        // single eval path (_evaluateRealismForUpcomingSpeaker).
-      }
+      // Wear waits until the clock commits, after this reply. A send is
+      // not a unit of time.
       // Refractory tick for the 1:1 host only. In group mode the speaker
       // hasn't been picked yet — decrementing here mutated whichever member's
       // scalars were still loaded from LAST turn, and the tick was then
@@ -83,11 +80,10 @@ extension ChatServiceSendHandoff on ChatService {
         // before generation — preserving the cancel-aborts-generation escape.)
         await _evaluateRealismForUpcomingSpeaker(_activeCharacter!);
       }
-    } else if (_standaloneClockActive && addressedGuest == null) {
-      // Standalone clock: announce the current time in the prompt; the
-      // post-reply decide lives in _finalizeGenerationTurn with the engine
-      // path (bucket brigade, Scene Guests included). Only stamp the user
-      // turn's story day here so RAG can ground retrieved lines.
+    } else if (_clockRunning && addressedGuest == null) {
+      // PoT is on and the engine did not run this turn. Stamp the user
+      // turn's story day so RAG can ground retrieved lines. The post-reply
+      // decide still lives in _finalizeGenerationTurn.
       if (_messages.isNotEmpty) {
         final last = _messages.last;
         if (last.isUser) {
@@ -104,7 +100,8 @@ extension ChatServiceSendHandoff on ChatService {
     // If cancellation was requested during realism evaluation, abort generation
     if (_realismEvalCancelled) {
       // The turn dies before the request phase can adopt the call-model
-      // swap — put the main model back ourselves.
+      // swap — put the main model back ourselves. Lookup flags are not
+      // armed yet; the generate call below is what consumes them.
       _exitCallEvalModelSwap();
       _needsSimulation.consumePendingCatastrophe();
       await _saveChat();
@@ -114,6 +111,7 @@ extension ChatServiceSendHandoff on ChatService {
     }
 
     if (addressedGuest != null) {
+      _armForcedLookup(webQuery: forcedWebQuery, wikiQuery: forcedWikiQuery);
       await generateGuestTurn(addressedGuest);
     } else {
       if (_activeGroup != null) {
@@ -123,6 +121,8 @@ extension ChatServiceSendHandoff on ChatService {
       // message receiving its first host/group response. Every follow-up,
       // guest, cast, regen, idle, and command generation keeps the default
       // false and therefore cannot advertise or reach search HTTP.
+      // A named /search or /wiki is armed for this first reply only.
+      _armForcedLookup(webQuery: forcedWebQuery, wikiQuery: forcedWikiQuery);
       await _generateResponse(GenerationMode.normal, directUserSend: true);
     }
     // Backend-down abort: no response was generated, so none of the

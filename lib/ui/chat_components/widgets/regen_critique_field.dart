@@ -17,7 +17,10 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 
@@ -80,16 +83,66 @@ class RegenCritiqueField extends StatelessWidget {
   }
 }
 
-/// Cancel → `null`. Confirm → typed text (may be empty = current regen).
-Future<String?> showRegenCritiqueDialog(BuildContext context) {
-  return showDialog<String>(
+/// What the regenerate dialog confirmed. [webQuery] and [wikiQuery] are set
+/// only when the lookup field has words. Empty means an ordinary reroll.
+class RegenCritiqueResult {
+  const RegenCritiqueResult({
+    required this.critique,
+    this.webQuery,
+    this.wikiQuery,
+  });
+
+  final String critique;
+  final String? webQuery;
+  final String? wikiQuery;
+}
+
+/// Session id for the wiki URL, or null when this [ChatService] is a test
+/// double that does not implement the getter.
+String? lookupSessionId(ChatService chat) {
+  try {
+    return chat.currentSessionId;
+  } on NoSuchMethodError {
+    return null;
+  }
+}
+
+/// Whether the regenerate dialog may offer web and wiki lookups.
+({bool web, bool wiki}) lookupRegenSources(
+  StorageService storage,
+  ChatService chat,
+) {
+  return (
+    web: storage.webSearchSettings.webSearchDefault,
+    wiki:
+        parseWikiBaseUrl(
+          storage.webSearchSettings.wikiUrlForChat(lookupSessionId(chat)),
+        ) !=
+        null,
+  );
+}
+
+/// Cancel → `null`. Confirm → the note plus any named lookup.
+Future<RegenCritiqueResult?> showRegenCritiqueDialog(
+  BuildContext context, {
+  bool webEnabled = false,
+  bool wikiEnabled = false,
+}) {
+  return showDialog<RegenCritiqueResult>(
     context: context,
-    builder: (ctx) => const _RegenCritiqueDialog(),
+    builder: (ctx) =>
+        _RegenCritiqueDialog(webEnabled: webEnabled, wikiEnabled: wikiEnabled),
   );
 }
 
 class _RegenCritiqueDialog extends StatefulWidget {
-  const _RegenCritiqueDialog();
+  const _RegenCritiqueDialog({
+    required this.webEnabled,
+    required this.wikiEnabled,
+  });
+
+  final bool webEnabled;
+  final bool wikiEnabled;
 
   @override
   State<_RegenCritiqueDialog> createState() => _RegenCritiqueDialogState();
@@ -97,15 +150,29 @@ class _RegenCritiqueDialog extends StatefulWidget {
 
 class _RegenCritiqueDialogState extends State<_RegenCritiqueDialog> {
   final _controller = TextEditingController();
+  final _lookup = TextEditingController();
+  late bool _wiki = !widget.webEnabled && widget.wikiEnabled;
+
+  bool get _showLookup => widget.webEnabled || widget.wikiEnabled;
 
   @override
   void dispose() {
     _controller.dispose();
+    _lookup.dispose();
     super.dispose();
   }
 
-  void _pop([String? value]) {
-    Navigator.of(context).pop(value ?? _controller.text);
+  void _pop() {
+    final query = _lookup.text.trim();
+    final web = widget.webEnabled && !_wiki && query.isNotEmpty ? query : null;
+    final wiki = widget.wikiEnabled && _wiki && query.isNotEmpty ? query : null;
+    Navigator.of(context).pop(
+      RegenCritiqueResult(
+        critique: _controller.text,
+        webQuery: web,
+        wikiQuery: wiki,
+      ),
+    );
   }
 
   @override
@@ -145,8 +212,18 @@ class _RegenCritiqueDialogState extends State<_RegenCritiqueDialog> {
             const SizedBox(height: 12),
             RegenCritiqueField(
               controller: _controller,
-              onSubmitted: (v) => _pop(v),
+              onSubmitted: (_) => _pop(),
             ),
+            if (_showLookup) ...[
+              const SizedBox(height: 12),
+              _LookupRow(
+                webEnabled: widget.webEnabled,
+                wikiEnabled: widget.wikiEnabled,
+                wiki: _wiki,
+                controller: _lookup,
+                onWiki: (wiki) => setState(() => _wiki = wiki),
+              ),
+            ],
           ],
         ),
       ),
@@ -163,12 +240,195 @@ class _RegenCritiqueDialogState extends State<_RegenCritiqueDialog> {
   }
 }
 
+class _LookupRow extends StatelessWidget {
+  const _LookupRow({
+    required this.webEnabled,
+    required this.wikiEnabled,
+    required this.wiki,
+    required this.controller,
+    required this.onWiki,
+  });
+
+  final bool webEnabled;
+  final bool wikiEnabled;
+  final bool wiki;
+  final TextEditingController controller;
+  final ValueChanged<bool> onWiki;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = AppColors.porchAmberOf(context);
+    final showToggle = webEnabled;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Look this up',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary(context),
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (showToggle)
+          Row(
+            children: [
+              _SourceChip(
+                key: const Key('regen-lookup-web'),
+                label: 'Web',
+                selected: !wiki,
+                onTap: () => onWiki(false),
+              ),
+              const SizedBox(width: 8),
+              _SourceChip(
+                key: const Key('regen-lookup-wiki'),
+                label: 'Wiki',
+                selected: wiki && wikiEnabled,
+                enabled: wikiEnabled,
+                onTap: wikiEnabled ? () => onWiki(true) : null,
+              ),
+            ],
+          )
+        else
+          Text(
+            'Wiki',
+            key: const Key('regen-lookup-wiki'),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary(context),
+            ),
+          ),
+        const SizedBox(height: 8),
+        TextField(
+          key: const Key('regen-lookup-query'),
+          controller: controller,
+          maxLength: 256,
+          style: TextStyle(fontSize: 13, color: AppColors.textPrimary(context)),
+          decoration: InputDecoration(
+            hintText: 'the exact words to look up — optional',
+            hintStyle: TextStyle(
+              fontSize: 13,
+              color: AppColors.textTertiary(context),
+            ),
+            isDense: true,
+            counterText: '',
+            filled: true,
+            fillColor: AppColors.surfaceContainerOf(context),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: tint.withValues(alpha: 0.4)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: tint.withValues(alpha: 0.4)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: tint),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SourceChip extends StatelessWidget {
+  const _SourceChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = AppColors.porchAmberOf(context);
+    final fg = !enabled
+        ? AppColors.textTertiary(context)
+        : selected
+        ? AppColors.onChaosAccent
+        : AppColors.textPrimary(context);
+    return Material(
+      color: !enabled
+          ? AppColors.surfaceContainerOf(context)
+          : selected
+          ? tint
+          : AppColors.surfaceContainerOf(context),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the regenerate dialog with web and wiki choices for this chat.
+Future<void> promptLookupRegen(
+  BuildContext context,
+  ChatService chatService,
+  Future<void> Function({String? critique, String? webQuery, String? wikiQuery})
+  regen,
+) {
+  final sources = lookupRegenSources(
+    context.read<StorageService>(),
+    chatService,
+  );
+  return promptRegenCritiqueThen(
+    context,
+    (c) => regen(critique: c),
+    webEnabled: sources.web,
+    wikiEnabled: sources.wiki,
+    onLookup: (c, {webQuery, wikiQuery}) =>
+        regen(critique: c, webQuery: webQuery, wikiQuery: wikiQuery),
+  );
+}
+
 /// Pops the critique dialog, then [onRegen]. Cancel does nothing.
+/// [onLookup] runs instead when the lookup field has words.
 Future<void> promptRegenCritiqueThen(
   BuildContext context,
-  void Function(String critique) onRegen,
-) async {
-  final reason = await showRegenCritiqueDialog(context);
-  if (reason == null || !context.mounted) return;
-  onRegen(reason);
+  void Function(String critique) onRegen, {
+  bool webEnabled = false,
+  bool wikiEnabled = false,
+  void Function(String critique, {String? webQuery, String? wikiQuery})?
+  onLookup,
+}) async {
+  final result = await showRegenCritiqueDialog(
+    context,
+    webEnabled: webEnabled,
+    wikiEnabled: wikiEnabled,
+  );
+  if (result == null || !context.mounted) return;
+  final web = result.webQuery;
+  final wiki = result.wikiQuery;
+  if (onLookup != null &&
+      ((web != null && web.isNotEmpty) || (wiki != null && wiki.isNotEmpty))) {
+    onLookup(result.critique, webQuery: web, wikiQuery: wiki);
+    return;
+  }
+  onRegen(result.critique);
 }

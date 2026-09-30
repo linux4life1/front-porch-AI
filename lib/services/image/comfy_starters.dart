@@ -258,8 +258,67 @@ const Map<String, dynamic> kComfyStarterQwen = {
   },
 };
 
+/// SD / SDXL / Pony / Illustrious txt2img graph. The same token fill as
+/// Flux, Qwen, and Z-Image substitutes the checkpoint, prompt, size, and
+/// sampler. Img2img and LoRA are spliced afterwards.
+const Map<String, dynamic> kComfyStarterSd = {
+  'ckpt': {
+    'class_type': 'CheckpointLoaderSimple',
+    'inputs': {'ckpt_name': 'v1-5-pruned-emaonly.safetensors'},
+  },
+  'pos': {
+    'class_type': 'CLIPTextEncode',
+    'inputs': {
+      'text': 'a porch',
+      'clip': ['ckpt', 1],
+    },
+  },
+  'neg': {
+    'class_type': 'CLIPTextEncode',
+    'inputs': {
+      'text': '',
+      'clip': ['ckpt', 1],
+    },
+  },
+  'latent': {
+    'class_type': 'EmptyLatentImage',
+    'inputs': {'width': 512, 'height': 512, 'batch_size': 1},
+  },
+  'sampler': {
+    'class_type': 'KSampler',
+    'inputs': {
+      'seed': 0,
+      'steps': 20,
+      'cfg': 7,
+      'sampler_name': 'euler',
+      'scheduler': 'normal',
+      'denoise': 1,
+      'model': ['ckpt', 0],
+      'positive': ['pos', 0],
+      'negative': ['neg', 0],
+      'latent_image': ['latent', 0],
+    },
+  },
+  'decode': {
+    'class_type': 'VAEDecode',
+    'inputs': {
+      'samples': ['sampler', 0],
+      'vae': ['ckpt', 2],
+    },
+  },
+  'save': {
+    'class_type': 'SaveImage',
+    'inputs': {
+      'filename_prefix': 'FrontPorchAI',
+      'images': ['decode', 0],
+    },
+  },
+};
+
 Map<String, dynamic>? comfyStarterGraph(String workflowId) {
   switch (workflowId) {
+    case 'sd':
+      return Map<String, dynamic>.from(kComfyStarterSd);
     case 'z_image_turbo':
     case 'comfy:image_z_image_turbo':
       return Map<String, dynamic>.from(kComfyStarterZit);

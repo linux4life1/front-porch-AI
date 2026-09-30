@@ -156,6 +156,13 @@ class GroupTurnManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Swap one roster slot. [characters] is unmodifiable; writing through
+  /// that getter throws. The chat editor saves onto this mutable list.
+  void replaceCharacterAt(int index, CharacterCard card) {
+    if (index < 0 || index >= _characters.length) return;
+    _characters[index] = card;
+  }
+
   /// Re-resolve the character list after the character repository changes
   /// (add/remove/rename). Clamps indices and drops a forced ID if its
   /// character is no longer present.

@@ -36,7 +36,6 @@ class GroupRealismNeedsTab extends StatefulWidget {
 
 class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
   bool _realismEnabled = false;
-  bool _passageOfTimeEnabled = true;
   bool _chaosModeEnabled = false;
   bool _chaosNsfwEnabled = false;
   bool _nsfwEnhancementsEnabled = false;
@@ -88,7 +87,6 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
     _chars = cs.groupCharacters;
 
     _realismEnabled = cs.realismEnabled;
-    _passageOfTimeEnabled = cs.timeService.passageOfTimeEnabled;
     _chaosModeEnabled = cs.chaosModeService.chaosModeEnabled;
     _chaosNsfwEnabled = cs.chaosModeService.chaosNsfwEnabled;
     // Group NSFW Enhancements (arousal/Lust + post-climax cooldowns). Uses the
@@ -166,11 +164,8 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
   @override
   Widget build(BuildContext context) => _buildRealismTabBody(context);
 
-  // Must be byte-identical to the id every service stores a member under
-  // (ChatService._getCharacterIdFromCard). The hand-rolled version answered ''
-  // for a member with no avatar file and truncated at the first dot otherwise,
-  // so the perChar seed landed under a key the engine never looks up.
-  String _getCharId(CharacterCard c) => c.stableGroupId;
+  // Must match ChatService._getCharacterIdFromCard / groupMemberStoreId.
+  String _getCharId(CharacterCard c) => groupMemberStoreId(c);
 
   @override
   void dispose() {

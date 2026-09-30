@@ -121,7 +121,9 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
               expressionKey = neutralAvatar.first.id;
               expressionEmoji = EmotionLabels.emoji['neutral'];
             }
-            if (displayFile == null && character.imagePath != null) {
+            if (displayFile == null &&
+                character.imagePath != null &&
+                character.imagePath!.isNotEmpty) {
               displayFile = _resolveCharImage(character.imagePath!);
             }
           }
@@ -150,7 +152,9 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
             }
             faceRing = buildFaceRing(
               looks: looksFrom(allImages),
-              hasImagePath: character.imagePath != null,
+              hasImagePath:
+                  character.imagePath != null &&
+                  character.imagePath!.isNotEmpty,
               favorite: favorite,
             );
             final faceDisplay = resolveFaceDisplay(
@@ -166,10 +170,12 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
                 storage.characterBaseDir(libraryCard.name).path,
               );
               expressionKey = 'face_${faceDisplay.image!.id}';
-            } else if (character.imagePath != null) {
+            } else if (character.imagePath != null &&
+                character.imagePath!.isNotEmpty) {
               displayFile = _resolveCharImage(character.imagePath!);
             }
-          } else if (character.imagePath != null) {
+          } else if (character.imagePath != null &&
+              character.imagePath!.isNotEmpty) {
             displayFile = _resolveCharImage(character.imagePath!);
           }
         }

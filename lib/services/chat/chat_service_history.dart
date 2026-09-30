@@ -217,11 +217,16 @@ extension ChatServiceHistory on ChatService {
   /// falls back to chars/4 estimate for remote APIs.
   Future<int> _countTokens(String text) async {
     if (text.isEmpty) return 0;
-    // Use the KoboldCpp tokenizer if we're running locally
-    if (_llmProvider == null || _llmProvider!.isLocal) {
-      return _koboldService.countTokens(text);
-    }
-    // Fallback for remote APIs
-    return (text.length / 4).ceil();
+    // Kobold counts with the model tokenizer. Everyone else is chars/4.
+    // The tag keeps those two answers from being reused for each other.
+    final kobold = _llmProvider == null || _llmProvider!.isLocal;
+    final tag = kobold ? 'kobold' : 'estimate';
+    final hit = _tokenCountMemo.lookup(text, tag);
+    if (hit != null) return hit;
+    final count = kobold
+        ? await _koboldService.countTokens(text)
+        : (text.length / 4).ceil();
+    _tokenCountMemo.remember(text, tag, count);
+    return count;
   }
 }

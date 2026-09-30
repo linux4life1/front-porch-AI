@@ -17,6 +17,10 @@ class SessionHistoryWindow {
   int basePosition = 0;
   int epoch = 0;
   Future<void>? backfill;
+
+  /// Session the in-flight [backfill] belongs to. A second open of that
+  /// same session must not restart the archive load.
+  String? backfillSessionId;
   bool hasMore = false;
 
   bool get isBackfilling => backfill != null;
@@ -24,6 +28,7 @@ class SessionHistoryWindow {
   void reset() {
     epoch++;
     backfill = null;
+    backfillSessionId = null;
     basePosition = 0;
     hasMore = false;
   }

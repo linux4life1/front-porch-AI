@@ -56,6 +56,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -212,10 +213,7 @@ void main() {
     chat.setMemoryService(memory);
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test(
     'retrieved lines reach the prompt day-stamped in story order, the query '
@@ -272,7 +270,9 @@ void main() {
       photoMsg.activeMetadata!['is_user_image'] = true;
       photoMsg.activeMetadata!['image_caption'] = 'a red kite over the bay';
 
-      await chat.sendMessage('That photo was from our last trip, remember what you said?');
+      await chat.sendMessage(
+        'That photo was from our last trip, remember what you said?',
+      );
 
       expect(
         memory.lastQuery,

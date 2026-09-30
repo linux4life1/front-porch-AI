@@ -164,6 +164,7 @@ Right-click any card in the library to get at all of this. (Folder cards also ha
 - **Edit Character** — a four-tab editor (**not** the seven-step Create wizard): **Details** (name, tags, description, personality, scenario, ambitions, likes/dislikes, occupation, intimate chips, worn/carrying, Realism defaults, voice), **Dialogue**, **Lorebook**, and **Worlds**. Portrait lives in **Avatar Gallery**, not a fifth tab. Edits to Realism defaults apply to *new* chats; conversations already in progress keep their living state.
 - **Worlds tab** — attach Places on the card so **new chats** inherit climate/lore without opening Story Tools first.
 - **Import Character Lore** — pull another card's lorebook entries into *this* character. Not the same as **Import Lorebook** (that page can send a file to a new Place, characters, a group, or the current chat).
+- **Export lorebook** — on Edit Character → Lorebook, **Export file** saves these entries as a world-info JSON file. **Import file** on that same tab reads it back.
 - **Avatar Gallery** — portraits, alternate looks, expression images. You can **crop** in-app before save. The ★ marks the canonical avatar (baked into the PNG on export).
 - **AI Enhance** — Home **right-click only** (not Porch Life). Interviews from a chosen chat, you tick what to rewrite, saves `Name (Enhanced)`, optional bring-chats.
 - **Duplicate Character** — full copy named "(duplicate)".

@@ -17,7 +17,7 @@ How a conversation actually works. If the AI will not talk at all, start with [F
   | Card | What it is |
   |---|---|
   | Author's Note | Temporary “it is raining; they are exhausted.” Strength **1–10** = Subtle / Moderate / Strong. |
-  | Character State | Mood, bond/trust, needs, **story clock**, weather, ambitions. Tune icon = per-chat switches. |
+  | Character State | Mood, bond/trust, needs, **story clock**, weather, ambitions. Tune icon = per-chat Needs / One-Shot / Afterglow. Passage of Time is Settings → Porch Life only. |
   | Journal & Memory | Diary + RAG. [User Guide](user-guide.md#long-term-memory). |
   | Objectives | Goals. Groups open these from the focused member, not a fifth card. |
   | Story Tools | Chaos / Chance Time, Dynamic Responses (AFK), Places, lorebooks. |

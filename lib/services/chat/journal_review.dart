@@ -223,15 +223,20 @@ class JournalReview {
     for (final owner in batch.owners) {
       await applyOwnerProposals(batch.sessionId, owner);
     }
+    final recap = batch.recap;
+    if (recap != null && recap.isNotEmpty && batch.recapAccepted) {
+      await store.persistRecap(batch.sessionId, recap);
+    }
+    await store.persistCursor(batch.sessionId, batch.cursorTarget);
     _pending = null;
     // Re-check the session AFTER those awaits (embedMissing alone vectors one
-    // card at a time and can run for seconds). The card writes above are
-    // session-addressed and safe either way, but setRecap/setCursor are the
-    // god's LIVE scalars and onSaveChat stamps them onto whatever chat is open
-    // now — so a switch mid-apply would write this chat's "Where we are" into
-    // another one. Leaving the cursor put simply re-proposes the window later.
+    // card at a time and can run for seconds). The card, recap, and cursor
+    // writes above are session-addressed. setRecap/setCursor are the god's
+    // LIVE scalars and onSaveChat stamps them onto whatever chat is open
+    // now — so a switch mid-apply must not write this chat's "Where we are"
+    // into another one.
     if (getSessionId() == batch.sessionId) {
-      if (batch.recap != null && batch.recapAccepted) setRecap(batch.recap!);
+      if (recap != null && batch.recapAccepted) setRecap(recap);
       setCursor(batch.cursorTarget);
       await onSaveChat();
     }
@@ -247,6 +252,7 @@ class JournalReview {
     final batch = _pending;
     _pending = null;
     if (batch == null) return;
+    await store.persistCursor(batch.sessionId, batch.cursorTarget);
     if (getSessionId() == batch.sessionId) {
       setCursor(batch.cursorTarget);
       await onSaveChat();

@@ -85,8 +85,6 @@ extension ChatServiceWiringEvalJudges on ChatService {
               ?.frontPorchExtensions
               ?.realismNeedsDirectorAuthority ??
           false),
-      getNeedsSimStrength: () =>
-          (_activeCharacter?.frontPorchExtensions?.needsSimStrength ?? 1),
     );
   }
 

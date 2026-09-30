@@ -92,7 +92,6 @@ Widget _needsForm() => NeedsFormSection(
   onEnabledChanged: (_) {},
   enjoysLowHygiene: false,
   onEnjoysLowHygieneChanged: (_) {},
-  needsSimStrength: 2,
   baselineHunger: 70,
   onBaselineHungerChanged: (_) {},
   baselineBladder: 55,
@@ -149,8 +148,7 @@ void main() {
     );
   });
 
-  testWidgets('RealismProgressRow — positive bond Close tier',
-      (tester) async {
+  testWidgets('RealismProgressRow — positive bond Close tier', (tester) async {
     await expectThemedGoldens(
       tester,
       child: const RealismProgressRow(
@@ -287,7 +285,8 @@ void main() {
       child: SizedBox(width: 520, child: _needsForm()),
       group: 'leaf_widgets',
       name: 'needs_form_section',
-      surface: const Size(580, 900),
+      // Pace + per-need on/off grew this past the old 900px box (~139px overflow).
+      surface: const Size(580, 1200),
     );
   });
 }

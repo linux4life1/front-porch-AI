@@ -69,9 +69,12 @@ class _LoraPickerState extends State<LoraPicker> {
 
   // Family badge, colored by the verdict (not just the family) so the eye reads
   // safe/likely/certain at a glance. Sixth-tone warm-porch semantics.
-  Color _okColor(BuildContext c) => AppColors.resolve(c, const Color(0xFF9BBB7C), const Color(0xFF5E7E4A));
-  Color _warnColor(BuildContext c) => AppColors.resolve(c, const Color(0xFFDAA83F), const Color(0xFFA97514));
-  Color _badColor(BuildContext c) => AppColors.resolve(c, const Color(0xFFD6795D), const Color(0xFFA94E36));
+  Color _okColor(BuildContext c) =>
+      AppColors.resolve(c, const Color(0xFF9BBB7C), const Color(0xFF5E7E4A));
+  Color _warnColor(BuildContext c) =>
+      AppColors.resolve(c, const Color(0xFFDAA83F), const Color(0xFFA97514));
+  Color _badColor(BuildContext c) =>
+      AppColors.resolve(c, const Color(0xFFD6795D), const Color(0xFFA94E36));
 
   Widget _badge(BuildContext c, LoraOption l, LoraCompat compat) {
     final Color fg;
@@ -132,10 +135,15 @@ class _LoraPickerState extends State<LoraPicker> {
     final visible = <LoraOption>[];
     final hidden = <LoraOption>[];
     for (final l in widget.loras) {
-      if (_compat(l) == LoraCompat.certain) {
-        hidden.add(l);
-      } else {
+      final show = ImageModelFamily.shownInMainList(
+        lora: l.family,
+        checkpoint: widget.checkpointFamily,
+        metadataBacked: l.familyFromMetadata,
+      );
+      if (show) {
         visible.add(l);
+      } else {
+        hidden.add(l);
       }
     }
     int rank(LoraOption l) {
@@ -161,12 +169,20 @@ class _LoraPickerState extends State<LoraPicker> {
         value: '',
         child: Text(
           '— None —',
-          style: TextStyle(color: AppColors.textSecondary(context), fontSize: 10),
+          style: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 10,
+          ),
         ),
       ),
       for (final l in visible)
         DropdownMenuItem(value: l.name, child: _row(context, l, _compat(l))),
-      if (selectedOpt != null && _compat(selectedOpt) == LoraCompat.certain)
+      if (selectedOpt != null &&
+          !ImageModelFamily.shownInMainList(
+            lora: selectedOpt.family,
+            checkpoint: widget.checkpointFamily,
+            metadataBacked: selectedOpt.familyFromMetadata,
+          ))
         DropdownMenuItem(
           value: selectedOpt.name,
           child: _row(context, selectedOpt, LoraCompat.certain),
@@ -182,7 +198,9 @@ class _LoraPickerState extends State<LoraPicker> {
           isExpanded: true,
           style: TextStyle(color: AppColors.textPrimary(context), fontSize: 10),
           decoration: InputDecoration(
-            hintText: widget.loras.isEmpty ? 'Available when connected' : 'LoRA (opt)',
+            hintText: widget.loras.isEmpty
+                ? 'Available when connected'
+                : 'LoRA (opt)',
             hintStyle: TextStyle(color: AppColors.textTertiary(context)),
             filled: true,
             fillColor: AppColors.surfaceContainerOf(context),
@@ -190,7 +208,10 @@ class _LoraPickerState extends State<LoraPicker> {
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
             isDense: true,
           ),
           items: items,
@@ -223,11 +244,15 @@ class _LoraPickerState extends State<LoraPicker> {
   // asserts otherwise): fall back to null when the persisted name is absent.
   String? _dropdownValue(List<DropdownMenuItem<String>> items) {
     if (widget.selected.isEmpty) return '';
-    return items.any((i) => i.value == widget.selected) ? widget.selected : null;
+    return items.any((i) => i.value == widget.selected)
+        ? widget.selected
+        : null;
   }
 
   Widget _buildDrawer(BuildContext context, List<LoraOption> hidden) {
-    final families = <String>{for (final l in hidden) l.family.label}.join(', ');
+    final families = <String>{
+      for (final l in hidden) l.family.label,
+    }.join(', ');
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Theme(
@@ -240,7 +265,7 @@ class _LoraPickerState extends State<LoraPicker> {
           dense: true,
           visualDensity: VisualDensity.compact,
           title: Text(
-            'Show ${hidden.length} incompatible ($families)',
+            'Show ${hidden.length} other bases ($families)',
             style: TextStyle(
               color: AppColors.textSecondary(context),
               fontSize: 9.5,
@@ -252,7 +277,10 @@ class _LoraPickerState extends State<LoraPicker> {
               InkWell(
                 onTap: () => widget.onSelected(l.name),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 5,
+                    horizontal: 2,
+                  ),
                   child: _row(context, l, LoraCompat.certain),
                 ),
               ),
@@ -284,12 +312,19 @@ class _LoraPickerState extends State<LoraPicker> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(certain ? Icons.error_outline : Icons.warning_amber_rounded, size: 13, color: color),
+          Icon(
+            certain ? Icons.error_outline : Icons.warning_amber_rounded,
+            size: 13,
+            color: color,
+          ),
           const SizedBox(width: 7),
           Expanded(
             child: Text(
               msg,
-              style: TextStyle(color: AppColors.textPrimary(context), fontSize: 9),
+              style: TextStyle(
+                color: AppColors.textPrimary(context),
+                fontSize: 9,
+              ),
             ),
           ),
         ],
@@ -303,7 +338,10 @@ class _LoraPickerState extends State<LoraPicker> {
       children: [
         Text(
           'Wt',
-          style: TextStyle(color: AppColors.textSecondary(context), fontSize: 9),
+          style: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 9,
+          ),
         ),
         Expanded(
           child: Slider(

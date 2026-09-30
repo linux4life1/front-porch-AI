@@ -248,6 +248,28 @@ extension ChatServiceSpeakerObjectives on ChatService {
     return _realismStateInjection.buildRealismStateInjection();
   }
 
+  /// A group delete loads the deleted member into the live scalar
+  /// registers. While another member is mid-turn, put those registers
+  /// back or the next save writes the deleted member onto the speaker.
+  void _keepingLiveSpeaker(void Function() body) {
+    final live = _activeCharacter;
+    if (_activeGroup == null || !_isTurnBusy || live == null) {
+      body();
+      return;
+    }
+    final sid = _getCharacterIdFromCard(live);
+    if (sid.isEmpty) {
+      body();
+      return;
+    }
+    _saveScalarsIntoGroupRealism(sid);
+    try {
+      body();
+    } finally {
+      _loadGroupRealismIntoScalars(sid);
+    }
+  }
+
   /// Group-aware wrapper for [_restoreRealismStateFromMessage]. In a group the
   /// snapshot belongs to the message's SPEAKER, so the restore must go through
   /// their _groupRealism entry (load → restore scalars → save) — a bare scalar
@@ -256,9 +278,12 @@ extension ChatServiceSpeakerObjectives on ChatService {
   /// groups" bug). 1:1 restores the scalars directly, unchanged. No-ops when
   /// the group speaker can't be resolved (renamed/removed member): restoring
   /// into the wrong member's entry would corrupt that member's state.
-  void _restoreRealismStateForSpeaker(ChatMessage msg) {
+  void _restoreRealismStateForSpeaker(
+    ChatMessage msg, {
+    bool restoreClock = false,
+  }) {
     if (_activeGroup == null) {
-      _restoreRealismStateFromMessage(msg);
+      _restoreRealismStateFromMessage(msg, restoreClock: restoreClock);
       return;
     }
     final speaker = _resolveGroupSpeakerForMessage(msg);
@@ -269,7 +294,11 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final state = msg.activeMetadata?['realism_state'];
     final stampHasNeeds = state is Map && state['needs'] is Map;
     _loadGroupRealismIntoScalars(sid);
-    _restoreRealismStateFromMessage(msg, groupSpeakerId: sid);
+    _restoreRealismStateFromMessage(
+      msg,
+      groupSpeakerId: sid,
+      restoreClock: restoreClock,
+    );
     if (!hadStoredNeeds && !stampHasNeeds) {
       // The load's initializeFresh() filled the scalar vector for a member
       // with no needs history, and the stamp carries none either — clear it
@@ -293,19 +322,28 @@ extension ChatServiceSpeakerObjectives on ChatService {
   void _restoreRealismStateFromMessage(
     ChatMessage? msg, {
     String? groupSpeakerId,
+    bool restoreClock = false,
   }) {
     if (msg == null) return;
 
     // Check if the current visible node has an active swipe metadata array or just the base metadata
     final meta = msg.activeMetadata;
-    if (meta == null || !meta.containsKey('realism_state')) {
+    final rawState = meta?['realism_state'];
+    final state = rawState is Map ? Map<String, dynamic>.from(rawState) : null;
+
+    // Default false. Regen/swipe/delete never pass true — the tip
+    // after is the clock. Fork/import pass true only as applyTipClock.
+    if (restoreClock) {
+      _applyTipClock();
+    }
+
+    if (state == null) {
       debugPrint(
         '[Realism] No time-travel snapshot found in message. Legacy state kept.',
       );
       return;
     }
 
-    final state = meta['realism_state'] as Map<String, dynamic>;
     _relationshipService.restoreFromMessageState(
       state,
       groupSpeakerId: groupSpeakerId,
@@ -314,8 +352,6 @@ extension ChatServiceSpeakerObjectives on ChatService {
         state['characterEmotion'] as String? ?? _characterEmotion;
     _emotionIntensity =
         state['emotionIntensity'] as String? ?? _emotionIntensity;
-
-    _timeService.restoreTimeFromRealismState(state);
 
     _nsfwService.restoreNsfwFromRealismState(state);
 
@@ -378,12 +414,11 @@ extension ChatServiceSpeakerObjectives on ChatService {
       _pendingRealismMetadata!['_afk_needs_vector'] = Map<String, int>.from(
         needsSimulation.vector,
       );
-      _pendingRealismMetadata!['_afk_decay_turns'] = 0;
     }
+    _needsImpactEvaluator.beatNote = needsBeatNote(_timeService.needsSpanLabel);
     await _needsImpactEvaluator.evaluateAndApply(responseText, isAfk: wasAfk);
-    // During AFK, clear the scene-level reason so per-need reasons
-    // ("Scene action", "Natural decay") appear in the delta chip
-    // instead of the evaluator's single scene-level reason.
+    // During time away, clear the scene-level reason so each need's own
+    // reason shows on the chip.
     if (wasAfk) {
       needsSimulation.clearLastSceneReason();
     }

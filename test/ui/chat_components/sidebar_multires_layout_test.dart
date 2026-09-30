@@ -7,7 +7,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/sidebar_tokens.dart';
@@ -15,6 +17,14 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/needs_bar.dart';
 
 import '../../golden/support/fakes.dart';
+import '../../golden/support/fakes_storage.dart';
+
+Widget _withStorage(StorageService storage, Widget child) {
+  return ChangeNotifierProvider<StorageService>.value(
+    value: storage,
+    child: child,
+  );
+}
 
 Future<void> _pumpTight(
   WidgetTester tester,
@@ -22,13 +32,18 @@ Future<void> _pumpTight(
   double width = 180,
   double height = 400,
 }) async {
+  final storage = FakeStorageService();
+  addTearDown(storage.dispose);
   await tester.binding.setSurfaceSize(Size(width + 40, height));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
-    MaterialApp(
-      theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
-      home: Scaffold(
-        body: SizedBox(width: width, child: child),
+    _withStorage(
+      storage,
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
+        home: Scaffold(
+          body: SizedBox(width: width, child: child),
+        ),
       ),
     ),
   );
@@ -264,41 +279,49 @@ void main() {
         for (final sidebarWidth in sidebars) {
           final chat = FakeChatService(timeOfDay: 'morning', dayCount: 3);
           addTearDown(chat.dispose);
+          final storage = FakeStorageService();
+          addTearDown(storage.dispose);
 
           final overflows = await _overflowsDuring(tester, () async {
             await tester.binding.setSurfaceSize(window);
             addTearDown(() => tester.binding.setSurfaceSize(null));
             await tester.pumpWidget(
-              MaterialApp(
-                theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
-                home: Scaffold(
-                  body: Row(
-                    children: [
-                      const Spacer(),
-                      SizedBox(
-                        width: sidebarWidth,
-                        child: ListView(
-                          padding: const EdgeInsets.all(12),
-                          children: [
-                            for (final title in titles)
-                              Builder(
-                                builder: (context) => PorchAccordion(
-                                  id: title,
-                                  emoji: '🎭',
-                                  title: title,
-                                  subtitle: 'Fond · Trusting · Evening',
-                                  accent: AppColors.porchTerracottaOf(context),
-                                  initiallyExpanded: title == 'Character State',
-                                  trailing: _characterStateTrailing(),
-                                  child: title == 'Character State'
-                                      ? TimeStrip(chat: chat)
-                                      : const SizedBox.shrink(),
+              _withStorage(
+                storage,
+                MaterialApp(
+                  theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
+                  home: Scaffold(
+                    body: Row(
+                      children: [
+                        const Spacer(),
+                        SizedBox(
+                          width: sidebarWidth,
+                          child: ListView(
+                            padding: const EdgeInsets.all(12),
+                            children: [
+                              for (final title in titles)
+                                Builder(
+                                  builder: (context) => PorchAccordion(
+                                    id: title,
+                                    emoji: '🎭',
+                                    title: title,
+                                    subtitle: 'Fond · Trusting · Evening',
+                                    accent: AppColors.porchTerracottaOf(
+                                      context,
+                                    ),
+                                    initiallyExpanded:
+                                        title == 'Character State',
+                                    trailing: _characterStateTrailing(),
+                                    child: title == 'Character State'
+                                        ? TimeStrip(chat: chat)
+                                        : const SizedBox.shrink(),
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

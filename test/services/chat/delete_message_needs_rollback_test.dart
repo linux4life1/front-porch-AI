@@ -40,6 +40,7 @@ import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -84,7 +85,9 @@ void main() {
         isUser: isUser,
         swipes: Value(jsonEncode([text])),
         metadata: Value(meta),
-        swipeMetadata: Value(meta == null ? null : jsonEncode([jsonDecode(meta)])),
+        swipeMetadata: Value(
+          meta == null ? null : jsonEncode([jsonDecode(meta)]),
+        ),
       ),
     );
   }
@@ -113,13 +116,12 @@ void main() {
         needsSimEnabled: const Value(true),
       ),
     );
-    await chat.setActiveCharacter(CharacterCard(name: 'Misty')..dbId = 'char-a');
+    await chat.setActiveCharacter(
+      CharacterCard(name: 'Misty')..dbId = 'char-a',
+    );
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test('deleting the last message refunds its needs deltas', () async {
     await seedMessage('Feed me.', isUser: true);

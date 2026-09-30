@@ -73,92 +73,85 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
           ),
           const SizedBox(height: 8),
 
-          // 7 baseline sliders, each with its own per-turn decay.
           _needsSlider(
             'Hunger',
+            _kHunger,
             baselines[_kHunger] ?? 80,
             (v) => _updateNeedsBaseline(id, _kHunger, v),
-            decayValue: _decayRates[id]?[_kHunger] ?? 4,
-            onDecayChanged: (v) => _updateMemberDecay(id, _kHunger, v),
-            onDecayChangeEnd: (v) => widget.chatService.setGroupNeedsDecayRate(
-              _kHunger,
-              v,
-              memberId: id,
-            ),
+            id,
           ),
           _needsSlider(
             'Bladder',
+            _kBladder,
             baselines[_kBladder] ?? 80,
             (v) => _updateNeedsBaseline(id, _kBladder, v),
-            decayValue: _decayRates[id]?[_kBladder] ?? 6,
-            onDecayChanged: (v) => _updateMemberDecay(id, _kBladder, v),
-            onDecayChangeEnd: (v) => widget.chatService.setGroupNeedsDecayRate(
-              _kBladder,
-              v,
-              memberId: id,
-            ),
+            id,
           ),
           _needsSlider(
             'Energy',
+            _kEnergy,
             baselines[_kEnergy] ?? 80,
             (v) => _updateNeedsBaseline(id, _kEnergy, v),
-            decayValue: _decayRates[id]?[_kEnergy] ?? 3,
-            onDecayChanged: (v) => _updateMemberDecay(id, _kEnergy, v),
-            onDecayChangeEnd: (v) => widget.chatService.setGroupNeedsDecayRate(
-              _kEnergy,
-              v,
-              memberId: id,
-            ),
+            id,
           ),
           _needsSlider(
             'Social',
+            _kSocial,
             baselines[_kSocial] ?? 80,
             (v) => _updateNeedsBaseline(id, _kSocial, v),
-            decayValue: _decayRates[id]?[_kSocial] ?? 2,
-            onDecayChanged: (v) => _updateMemberDecay(id, _kSocial, v),
-            onDecayChangeEnd: (v) => widget.chatService.setGroupNeedsDecayRate(
-              _kSocial,
-              v,
-              memberId: id,
-            ),
+            id,
           ),
           _needsSlider(
             'Fun',
+            _kFun,
             baselines[_kFun] ?? 80,
             (v) => _updateNeedsBaseline(id, _kFun, v),
-            decayValue: _decayRates[id]?[_kFun] ?? 2,
-            onDecayChanged: (v) => _updateMemberDecay(id, _kFun, v),
-            onDecayChangeEnd: (v) => widget.chatService.setGroupNeedsDecayRate(
-              _kFun,
-              v,
-              memberId: id,
-            ),
+            id,
           ),
           _needsSlider(
             'Hygiene',
+            _kHygiene,
             baselines[_kHygiene] ?? 80,
             (v) => _updateNeedsBaseline(id, _kHygiene, v),
-            decayValue: _decayRates[id]?[_kHygiene] ?? 1,
-            onDecayChanged: (v) => _updateMemberDecay(id, _kHygiene, v),
-            onDecayChangeEnd: (v) => widget.chatService.setGroupNeedsDecayRate(
-              _kHygiene,
-              v,
-              memberId: id,
-            ),
+            id,
           ),
           _needsSlider(
             'Comfort',
+            _kComfort,
             baselines[_kComfort] ?? 80,
             (v) => _updateNeedsBaseline(id, _kComfort, v),
-            decayValue: _decayRates[id]?[_kComfort] ?? 2,
-            onDecayChanged: (v) => _updateMemberDecay(id, _kComfort, v),
-            onDecayChangeEnd: (v) => widget.chatService.setGroupNeedsDecayRate(
-              _kComfort,
-              v,
-              memberId: id,
-            ),
+            id,
           ),
 
+          const SizedBox(height: 8),
+          Divider(color: AppColors.borderOf(context), height: 1),
+          const SizedBox(height: 8),
+          Text(
+            'Pace',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'How fast needs drop as time passes. A meal or a bath stays the same.',
+            style: TextStyle(
+              fontSize: 10,
+              color: AppColors.textTertiary(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'sloth', label: Text('Sloth')),
+              ButtonSegment(value: 'normal', label: Text('Normal')),
+              ButtonSegment(value: 'fast', label: Text('Fast')),
+            ],
+            selected: {_needsPace[id] ?? 'normal'},
+            onSelectionChanged: (next) => _updateNeedsPace(id, next.first),
+          ),
           const SizedBox(height: 8),
           Divider(color: AppColors.borderOf(context), height: 1),
           const SizedBox(height: 8),
@@ -204,12 +197,13 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
 
   Widget _needsSlider(
     String label,
+    String needKey,
     int value,
-    ValueChanged<int> onChanged, {
-    int? decayValue,
-    ValueChanged<int>? onDecayChanged,
-    ValueChanged<int>? onDecayChangeEnd,
-  }) {
+    ValueChanged<int> onChanged,
+    String memberId,
+  ) {
+    final off = _needsOff[memberId] ?? const <String>[];
+    final alive = !off.contains(needKey);
     final baseline = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -230,6 +224,18 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
                 fontSize: 10,
                 color: AppColors.textSecondary(context),
               ),
+            ),
+            Switch(
+              value: alive,
+              onChanged: (next) {
+                final nextOff = [...off];
+                if (next) {
+                  nextOff.remove(needKey);
+                } else if (!nextOff.contains(needKey)) {
+                  nextOff.add(needKey);
+                }
+                _updateNeedsOff(memberId, nextOff);
+              },
             ),
           ],
         ),
@@ -254,81 +260,6 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
       ],
     );
 
-    // No decay wiring → plain baseline slider (keeps the method reusable).
-    if (decayValue == null || onDecayChanged == null) return baseline;
-
-    String decayLabel;
-    if (decayValue == 0) {
-      decayLabel = 'Static (0)';
-    } else if (decayValue <= 2) {
-      decayLabel = 'Very Slow ($decayValue)';
-    } else if (decayValue <= 4) {
-      decayLabel = 'Slow ($decayValue)';
-    } else if (decayValue <= 7) {
-      decayLabel = 'Normal ($decayValue)';
-    } else if (decayValue <= 12) {
-      decayLabel = 'Fast ($decayValue)';
-    } else {
-      decayLabel = 'Very Fast ($decayValue)';
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        baseline,
-        Padding(
-          padding: const EdgeInsets.only(left: 10, right: 4, bottom: 2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Decay / Turn',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: AppColors.textTertiary(context),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    decayLabel,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: AppColors.textTertiary(context),
-                    ),
-                  ),
-                ],
-              ),
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: Colors.tealAccent.withValues(alpha: 0.45),
-                  inactiveTrackColor: AppColors.borderOf(context),
-                  thumbColor: Colors.tealAccent.withValues(alpha: 0.6),
-                  trackHeight: 2,
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 4,
-                  ),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
-                ),
-                child: Slider(
-                  value: decayValue.toDouble(),
-                  min: 0,
-                  max: 20,
-                  divisions: 20,
-                  // Smooth local update while dragging; the (expensive) persist
-                  // to the member PNG + DB row happens once, on release.
-                  onChanged: (d) => onDecayChanged(d.round()),
-                  onChangeEnd: onDecayChangeEnd == null
-                      ? null
-                      : (d) => onDecayChangeEnd(d.round()),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    return baseline;
   }
 }

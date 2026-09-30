@@ -97,16 +97,17 @@ extension ChatServiceControls on ChatService {
     notifyListeners();
   }
 
-  Future<void> setPassageOfTimeEnabled(bool enabled) async {
-    _timeService.setPassageOfTimeEnabled(enabled);
-    await _saveChat();
+  Future<void> _setPassageOfTimeEnabledImpl(bool enabled) async {
+    await _storageService.realismSettings.setPassageOfTimeDefault(enabled);
+    _timeService.markClockGateSource('porch_life');
     notifyListeners();
   }
 
   /// Toggles the Needs Simulation for the current session.
   ///
   /// - `true`: initializes the default need vector (if empty) then begins tracking.
-  /// - `false`: clears the in-memory vector (levels are discarded for this session).
+  /// - `false`: hides the strip. The live vector stays so save can tell
+  ///   explicit OFF from a never-seeded row (hide ≠ erase).
   ///
   /// The change is persisted with the session and broadcast via [notifyListeners].
   /// Matches the side-effect style of [setNsfwCooldownEnabled] and [setChaosModeEnabled].
@@ -116,7 +117,9 @@ extension ChatServiceControls on ChatService {
     // chat_entry/group_entry), so a toggle-on after a needs-off start leaves it
     // empty and the sidebar shows no scores. Seed it now from the active
     // character/group baselines, mirroring the chat-start init so 1:1 and group
-    // behave identically.
+    // behave identically. Off must not wipe the kit — a later save of
+    // false+null looks like a stale never-seeded row and hydrate would
+    // flip Needs back on.
     if (enabled && _needsSimulation.vector.isEmpty) {
       if (_activeGroup != null) {
         _needsSimulation.initializeFreshWithDefaults(const {
@@ -139,8 +142,10 @@ extension ChatServiceControls on ChatService {
         }
       }
     }
-    await _saveChat();
+    // Paint first. A save that throws (unmodifiable needsOff used to)
+    // must not leave the switch ON and the strip empty.
     notifyListeners();
+    await _saveChat();
   }
 
   /// Per-chat Objectives switch (v45). Off means the quests stop running: no
@@ -165,7 +170,9 @@ extension ChatServiceControls on ChatService {
   Future<void> nudgeTimePeriod(int delta) async {
     if (!_clockRunning) return;
     final before = _timeService.clock;
+    _pendingNudgeBefore = before;
     await _timeService.nudgeTimePeriod(delta);
+    _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.nudge);
     // Day-ate journal rides TimeService.onStoryDayChanged.
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     unawaited(_ensureBirthdayState());
@@ -178,7 +185,9 @@ extension ChatServiceControls on ChatService {
   Future<void> setStoryClock(DateTime clock) async {
     if (!_clockRunning) return;
     final before = _timeService.clock;
+    _pendingNudgeBefore = before;
     await _timeService.setClockDirect(clock);
+    _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.nudge);
     // Day-ate journal rides TimeService.onStoryDayChanged.
     await _maybeMintEpisodeCrumbs(before, _timeService.clock);
     unawaited(_ensureBirthdayState());
@@ -190,10 +199,55 @@ extension ChatServiceControls on ChatService {
   /// slides together (Day N is preserved, every date re-derives).
   Future<void> setStoryStartDate(DateTime date) async {
     if (!_clockRunning) return;
+    final oldStart = _timeService.startDate;
     _timeService.setStartDate(date);
+    final delta = _timeService.startDate.difference(oldStart);
+    shiftMessageClockStamps(_messages, delta);
+    await _shiftPersistedSessionClockStamps(delta);
+    _applyTipClock();
     unawaited(_ensureBirthdayState());
     await _saveChat();
     notifyListeners();
+  }
+
+  Future<void> _shiftPersistedSessionClockStamps(Duration delta) async {
+    final sid = _currentSessionId;
+    if (sid == null || delta == Duration.zero) return;
+    final rows = await _db.getMessagesForSession(sid);
+    final seen = Set<Map>.identity();
+    for (final row in rows) {
+      var changed = false;
+      Map<String, dynamic>? meta;
+      if (row.metadata != null) {
+        meta = Map<String, dynamic>.from(
+          jsonDecode(row.metadata!) as Map<String, dynamic>,
+        );
+        if (shiftClockFields(meta, delta, seen)) changed = true;
+      }
+      List<dynamic>? swipes;
+      if (row.swipeMetadata != null) {
+        swipes = [
+          for (final e in jsonDecode(row.swipeMetadata!) as List<dynamic>)
+            e == null
+                ? null
+                : () {
+                    final m = Map<String, dynamic>.from(e as Map);
+                    if (shiftClockFields(m, delta, seen)) changed = true;
+                    return m;
+                  }(),
+        ];
+      }
+      if (!changed) continue;
+      await _db.updateMessage(
+        MessagesCompanion(
+          id: drift.Value(row.id),
+          metadata: drift.Value(meta == null ? null : jsonEncode(meta)),
+          swipeMetadata: drift.Value(
+            swipes == null ? null : jsonEncode(swipes),
+          ),
+        ),
+      );
+    }
   }
 
   // ── Chaos Mode / Chance Time (thin delegation to extracted service) ──────
@@ -249,20 +303,10 @@ extension ChatServiceControls on ChatService {
   // rules (void _ count must stay exactly 15 live grep after every edit + final).
   // Deletion of the now-redundant per-site try/catch guard in _loadActiveObjectives
   // (and its comment) is part of this task (see that site for the removed code).
-  /// Update a group member's needs decay rate. With [memberId] null this targets
-  /// every member (legacy "apply to all"); with a [memberId] it targets that one
-  /// member — the per-character path the Group Settings UI now uses so each
-  /// member decays at its own rate. Persists to the member card ext + PNG + the
-  /// GroupMembers row, which is exactly what runtime `_activeDecayRates()` reads.
-  Future<void> setGroupNeedsDecayRate(
-    String key,
-    int value, {
-    String? memberId,
-  }) async {
+  /// Write a group member's current extensions (pace, which needs are on,
+  /// baselines) to the avatar and the group-members row.
+  Future<void> persistGroupMemberExtensions({String? memberId}) async {
     if (_activeGroup == null) return;
-    // The legacy shared map only has meaning for the "apply to all" call; a
-    // per-member edit writes straight to that member's card ext below.
-    if (memberId == null) _groupDecayRates[key] = value;
 
     if (_characterRepository != null) {
       final v2Service = V2CardService();
@@ -275,17 +319,8 @@ extension ChatServiceControls on ChatService {
             );
       for (final char in targets) {
         final ext = char.frontPorchExtensions ?? FrontPorchExtensions();
-        final newExt = ext.copyWith(
-          needsDecayHunger: key == 'hunger' ? value : null,
-          needsDecayBladder: key == 'bladder' ? value : null,
-          needsDecayEnergy: key == 'energy' ? value : null,
-          needsDecaySocial: key == 'social' ? value : null,
-          needsDecayFun: key == 'fun' ? value : null,
-          needsDecayHygiene: key == 'hygiene' ? value : null,
-          needsDecayComfort: key == 'comfort' ? value : null,
-        );
-        newExt.ensureStableId();
-        char.frontPorchExtensions = newExt;
+        ext.ensureStableId();
+        char.frontPorchExtensions = ext;
 
         if (char.imagePath != null) {
           final file = File(char.imagePath!);
@@ -302,7 +337,7 @@ extension ChatServiceControls on ChatService {
           await db.updateGroupMember(
             GroupMembersCompanion(
               id: drift.Value(char.dbId!),
-              frontPorchExtensions: drift.Value(jsonEncode(newExt.toJson())),
+              frontPorchExtensions: drift.Value(jsonEncode(ext.toJson())),
             ),
           );
         }
@@ -310,28 +345,6 @@ extension ChatServiceControls on ChatService {
     }
 
     await _saveChat();
-    notifyListeners();
-  }
-
-  /// Update a decay rate for the active 1:1 character
-  Future<void> setNeedsDecayRate(String key, int value) async {
-    if (_activeCharacter == null || _characterRepository == null) return;
-
-    final ext =
-        _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
-    final newExt = ext.copyWith(
-      needsDecayHunger: key == 'hunger' ? value : null,
-      needsDecayBladder: key == 'bladder' ? value : null,
-      needsDecayEnergy: key == 'energy' ? value : null,
-      needsDecaySocial: key == 'social' ? value : null,
-      needsDecayFun: key == 'fun' ? value : null,
-      needsDecayHygiene: key == 'hygiene' ? value : null,
-      needsDecayComfort: key == 'comfort' ? value : null,
-    );
-    newExt.ensureStableId();
-    _activeCharacter!.frontPorchExtensions = newExt;
-
-    await _characterRepository!.updateCharacter(_activeCharacter!);
     notifyListeners();
   }
 }

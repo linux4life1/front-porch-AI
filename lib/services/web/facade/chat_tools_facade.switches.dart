@@ -28,8 +28,8 @@ extension ChatToolsFacadeSwitches on ChatToolsFacade {
   }
 
   /// Live in-chat Needs Simulation toggle. Delegates to the same
-  /// [ChatService.setNeedsSimEnabled] the desktop sidebar calls, so decay /
-  /// scene-impact behavior and 1:1↔group parity are inherited.
+  /// [ChatService.setNeedsSimEnabled] the desktop sidebar calls, so clock-wear
+  /// / scene-impact behavior and 1:1↔group parity are inherited.
   Future<void> setNeedsEnabled(bool v) async {
     await _chat.setNeedsSimEnabled(v);
     _notify();

@@ -25,6 +25,17 @@ part of 'message_bubble.dart';
 /// The thought-only-hint vs. `StyledChatMessage` if/else pair still
 /// moves as one selectable child.
 extension _BubbleContent on _MessageBubbleState {
+  /// Live "Thinking…" belongs to the bubble that is streaming. A later
+  /// group speaker keeps [ChatService.isGenerating] true, and an earlier
+  /// think that never recorded a duration would otherwise count the
+  /// whole time that next reply takes.
+  bool get _liveThinkHere {
+    if (widget.isGenerating != null) return widget.isGenerating!;
+    final chat = widget.chatService;
+    if (chat == null) return true;
+    return chat.isGenerating && index == chat.messages.length - 1;
+  }
+
   List<Widget> _thoughtAndBodyChildren(
     BuildContext context,
     ResolvedThemeData theme,
@@ -71,7 +82,7 @@ extension _BubbleContent on _MessageBubbleState {
           message.sender != 'System' &&
           message.displayText.isEmpty &&
           (message.thinkingContent?.isNotEmpty ?? false) &&
-          !widget.chatService!.isGenerating)
+          !_liveThinkHere)
         Text(
           '💭 Only thoughts this turn — Continue or '
           'Regenerate for a spoken reply.',
@@ -148,12 +159,13 @@ extension _BubbleContent on _MessageBubbleState {
             ),
           ),
         ),
-      if (!message.isUser &&
+      if (_liveThinkHere &&
+          !message.isUser &&
           message.thinkingStartTime != null &&
           message.thinkingDurationMs == 0)
         LiveThinkingTimer(
           startMs: message.thinkingStartTime!,
-          generating: widget.isGenerating,
+          generating: true,
         ),
       SelectableBubbleBody(
         child: selectable.length == 1

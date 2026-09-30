@@ -59,6 +59,7 @@ import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.d
 import 'package:front_porch_ai/services/services.dart';
 
 import '../../../integration_test/support/fake_backend.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -291,9 +292,8 @@ void main() {
           ..setDatabase(db)
           ..testLlmServiceOverride = llm;
     addTearDown(() async {
-      chat.dispose();
+      await disposeChatThenCloseDb(chat, db);
       await backend.close();
-      await db.close();
     });
     await chat.setActiveCharacter(
       CharacterCard(
@@ -362,7 +362,8 @@ void main() {
     expect(
       user,
       isNot(contains('Earlier in this story')),
-      reason: 'nothing was dropped, so the recap can only duplicate the '
+      reason:
+          'nothing was dropped, so the recap can only duplicate the '
           'transcript — it must not be injected',
     );
     expect(

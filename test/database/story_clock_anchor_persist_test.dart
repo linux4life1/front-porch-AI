@@ -98,7 +98,6 @@ void main() {
           timeOfDay: row.timeOfDay,
           dayCount: row.dayCount,
           startDayOfWeek: row.startDayOfWeek,
-          passageOfTimeEnabled: row.passageOfTimeEnabled,
           storyClock: row.storyClock,
           storyStartDate: row.storyStartDate,
         );
@@ -122,7 +121,6 @@ void main() {
           timeOfDay: frozen.timeOfDay,
           dayCount: frozen.dayCount,
           startDayOfWeek: frozen.startDayOfWeek,
-          passageOfTimeEnabled: frozen.passageOfTimeEnabled,
           storyClock: frozen.storyClock,
           storyStartDate: frozen.storyStartDate,
         );
@@ -157,12 +155,7 @@ void main() {
         ),
       );
       final t = makeService();
-      t.loadTimeScalars(
-        timeOfDay: 'morning',
-        dayCount: 2,
-        startDayOfWeek: 0,
-        passageOfTimeEnabled: true,
-      );
+      t.loadTimeScalars(timeOfDay: 'morning', dayCount: 2, startDayOfWeek: 0);
       await freeze('s-partial', t);
 
       final after = await db.getSessionById('s-partial');
@@ -195,7 +188,6 @@ void main() {
         timeOfDay: row!.timeOfDay,
         dayCount: row.dayCount,
         startDayOfWeek: row.startDayOfWeek,
-        passageOfTimeEnabled: row.passageOfTimeEnabled,
         storyClock: row.storyClock,
         storyStartDate: row.storyStartDate,
       );

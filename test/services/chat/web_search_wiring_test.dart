@@ -21,10 +21,12 @@ void main() {
     expect(s.searchApiKey, isEmpty);
   });
 
-  test('no slash-command parser /search exists', () {
-    expect(
-      ChatCommandHandler.commands.map((c) => c.command),
-      isNot(contains('search')),
-    );
+  // The doorbell used to be the only lookup, so this file pinned that no
+  // /search command existed. Named lookups are commands now. The words
+  // after -- are the query. The model does not invent one.
+  test('/search and /wiki are advertised named-lookup commands', () {
+    final names = ChatCommandHandler.commands.map((c) => c.command);
+    expect(names, contains('search'));
+    expect(names, contains('wiki'));
   });
 }

@@ -24,7 +24,7 @@ void main() {
       'needs': {'hunger': 80, 'social': 65},
       'relationships': {'bob': 40},
       'needsBaselineHunger': 80,
-      'needsDecayHunger': 5,
+      'needsPace': 'fast',
     },
     'bob': {
       'affection': 35,
@@ -51,9 +51,9 @@ void main() {
       expect(perChar.keys, containsAll(['alice', 'bob']));
       expect((perChar['alice'] as Map)['affection'], 75);
       expect((perChar['alice'] as Map)['trust'], 60);
-      // Needs + per-need baseline/decay survive.
+      // Needs and pace survive.
       expect(((perChar['alice'] as Map)['needs'] as Map)['hunger'], 80);
-      expect((perChar['alice'] as Map)['needsDecayHunger'], 5);
+      expect((perChar['alice'] as Map)['needsPace'], 'fast');
       // Intragroup dynamics (relationships) survive — the whole point.
       expect(((perChar['alice'] as Map)['relationships'] as Map)['bob'], 40);
       expect(((perChar['bob'] as Map)['relationships'] as Map)['alice'], -20);

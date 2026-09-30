@@ -104,6 +104,7 @@ extension _ChatPageSpeakers on _ChatPageState {
     ).coverImageFileFor(lib);
     if (cover != null) return cover;
     final path = lib.imagePath ?? card.imagePath;
-    return path == null ? null : _resolveCharImage(path);
+    if (path == null || path.isEmpty) return null;
+    return _resolveCharImage(path);
   }
 }

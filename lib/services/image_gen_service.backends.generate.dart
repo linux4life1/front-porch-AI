@@ -38,6 +38,7 @@ extension ImageGenBackendsGenerate on ImageGenService {
     bool switchModelFirst = false,
     String loraName = '',
     double loraWeight = 0.8,
+    List<ImageGenLoraSlot> loras = const [],
     int steps = 20,
     double cfgScale = 7.0,
     String samplerName = 'Euler a',
@@ -65,10 +66,11 @@ extension ImageGenBackendsGenerate on ImageGenService {
       '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/$endpoint',
     );
 
-    // Inject LoRA into the prompt: <lora:name:weight>
-    final effectivePrompt = (loraName.isNotEmpty)
-        ? '$prompt <lora:$loraName:${loraWeight.toStringAsFixed(2)}>'
-        : prompt;
+    // Inject every filled slot: <lora:name:weight>
+    final stacked = loras.isNotEmpty
+        ? loras
+        : [ImageGenLoraSlot(file: loraName, weight: loraWeight)];
+    final effectivePrompt = promptWithLoras(prompt, stacked);
 
     debugPrint(
       'ImageGen: POST $uri (model=${modelCheckpoint.isNotEmpty ? modelCheckpoint : "current"}, lora=${loraName.isNotEmpty ? loraName : "none"})',

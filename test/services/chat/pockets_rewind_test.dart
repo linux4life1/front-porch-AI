@@ -45,6 +45,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -140,10 +141,7 @@ void main() {
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   CharacterCard card(String dbId) => CharacterCard(
     name: 'Mara',
@@ -159,9 +157,8 @@ void main() {
     ),
   )..dbId = dbId;
 
-  Pockets record() => chat.pocketsFor(
-    chat.characterIdFor(chat.activeCharacter!),
-  )!;
+  Pockets record() =>
+      chat.pocketsFor(chat.characterIdFor(chat.activeCharacter!))!;
 
   Future<void> drainUntil(bool Function() done) async {
     for (var i = 0; i < 300 && !done(); i++) {
@@ -179,27 +176,28 @@ void main() {
     expect(record().setAside.single.item.name, 'car keys');
   }
 
-  test('REGENERATE rewinds the rejected turn\'s ops before replaying', () async {
-    await chat.setActiveCharacter(card('char-rewind-1'));
-    await parkTheKeys();
+  test(
+    'REGENERATE rewinds the rejected turn\'s ops before replaying',
+    () async {
+      await chat.setActiveCharacter(card('char-rewind-1'));
+      await parkTheKeys();
 
-    // The regenerated variant does nothing with the keys — so after the
-    // rewind + replay, the record must be back to the pre-turn base.
-    llm.inventoryJson = '{"inventory_ops": []}';
-    await chat.regenerateLastMessage();
-    await drainUntil(
-      () => !chat.isGenerating && !chat.isSettlingTurn,
-    );
+      // The regenerated variant does nothing with the keys — so after the
+      // rewind + replay, the record must be back to the pre-turn base.
+      llm.inventoryJson = '{"inventory_ops": []}';
+      await chat.regenerateLastMessage();
+      await drainUntil(() => !chat.isGenerating && !chat.isSettlingTurn);
 
-    expect(
-      record().carrying.single.name,
-      'car keys',
-      reason:
-          'the rejected swipe parked them; the accepted variant never did — '
-          'keys back in hand, not stranded on a table nobody mentioned',
-    );
-    expect(record().setAside, isEmpty);
-  });
+      expect(
+        record().carrying.single.name,
+        'car keys',
+        reason:
+            'the rejected swipe parked them; the accepted variant never did — '
+            'keys back in hand, not stranded on a table nobody mentioned',
+      );
+      expect(record().setAside, isEmpty);
+    },
+  );
 
   test('TAIL DELETE un-happens the turn', () async {
     await chat.setActiveCharacter(card('char-rewind-2'));
@@ -282,43 +280,40 @@ void main() {
     },
   );
 
-  test(
-    'USER-tail delete leaves bot post-pocket kit (H3)',
-    () async {
-      // Bot parks the keys → another user line + no-op bot reply → peel the
-      // tail so the setdown message is the new last. Restoring from that
-      // message's realism_state must keep keys on the table (not pre-gen hand).
-      await chat.setActiveCharacter(cardWithEngine('char-rewind-h3'));
-      await chat.setRealismEnabled(true);
-      await parkTheKeys();
-      expect(record().setAside.single.item.name, 'car keys');
+  test('USER-tail delete leaves bot post-pocket kit (H3)', () async {
+    // Bot parks the keys → another user line + no-op bot reply → peel the
+    // tail so the setdown message is the new last. Restoring from that
+    // message's realism_state must keep keys on the table (not pre-gen hand).
+    await chat.setActiveCharacter(cardWithEngine('char-rewind-h3'));
+    await chat.setRealismEnabled(true);
+    await parkTheKeys();
+    expect(record().setAside.single.item.name, 'car keys');
 
-      llm.inventoryJson = '{"inventory_ops": []}';
-      await chat.sendMessage('Just checking.');
-      await drainUntil(() => !chat.isGenerating && !chat.isSettlingTurn);
-      expect(
-        record().setAside.single.item.name,
-        'car keys',
-        reason: 'no-op second turn must not move the parked keys',
-      );
+    llm.inventoryJson = '{"inventory_ops": []}';
+    await chat.sendMessage('Just checking.');
+    await drainUntil(() => !chat.isGenerating && !chat.isSettlingTurn);
+    expect(
+      record().setAside.single.item.name,
+      'car keys',
+      reason: 'no-op second turn must not move the parked keys',
+    );
 
-      // Peel bot tail, then the trailing user — setdown bot becomes last.
-      chat.deleteMessage(chat.messages.length - 1);
-      await drainUntil(() => chat.messages.isNotEmpty);
-      expect(chat.messages.last.isUser, isTrue);
-      chat.deleteMessage(chat.messages.length - 1);
-      await drainUntil(() => !chat.messages.last.isUser);
+    // Peel bot tail, then the trailing user — setdown bot becomes last.
+    chat.deleteMessage(chat.messages.length - 1);
+    await drainUntil(() => chat.messages.isNotEmpty);
+    expect(chat.messages.last.isUser, isTrue);
+    chat.deleteMessage(chat.messages.length - 1);
+    await drainUntil(() => !chat.messages.last.isUser);
 
-      expect(
-        record().setAside.map((e) => e.item.name),
-        contains('car keys'),
-        reason:
-            'bot reply still in the transcript — inventory must stay post-ops, '
-            'not jump to the pre-generation kit trapped in a stale snapshot',
-      );
-      expect(record().carrying, isEmpty);
-    },
-  );
+    expect(
+      record().setAside.map((e) => e.item.name),
+      contains('car keys'),
+      reason:
+          'bot reply still in the transcript — inventory must stay post-ops, '
+          'not jump to the pre-generation kit trapped in a stale snapshot',
+    );
+    expect(record().carrying, isEmpty);
+  });
 
   test('GROUP give: regen rewinds BOTH giver and recipient', () async {
     // PRE-FIX: only the giver was stamped — Sam kept the keys after reject.

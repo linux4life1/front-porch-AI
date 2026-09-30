@@ -21,8 +21,8 @@ void main() {
       expect(comfyCreatePresetById('nope'), isNull);
     });
 
-    test('SD uses the checkpoint builder; others point at Comfy templates', () {
-      expect(kSdCreatePreset.usesCheckpointBuilder, isTrue);
+    test('SD uses the same token fill; others point at Comfy templates', () {
+      expect(kSdCreatePreset.usesCheckpointBuilder, isFalse);
       expect(kFluxCreatePreset.comfyTemplateName, 'flux_schnell');
       expect(kQwenCreatePreset.comfyTemplateName, 'image_qwen_image');
       expect(kZitCreatePreset.comfyTemplateName, 'image_z_image_turbo');
@@ -54,7 +54,7 @@ void main() {
   });
 
   group('resolveComfyCreateRequest', () {
-    test('SD slot + fallback fill the checkpoint builder', () {
+    test('SD slot + fallback fill the same token graph', () {
       final viaSlot = resolveComfyCreateRequest(
         workflowId: 'sd',
         uploadedWorkflowJson: '',
@@ -70,8 +70,13 @@ void main() {
         height: 1024,
       );
       expect(viaSlot, isNotNull);
-      expect(viaSlot!.useCheckpointBuilder, isTrue);
-      expect(viaSlot.checkpoint, 'pony.safetensors');
+      expect(viaSlot!.useCheckpointBuilder, isFalse);
+      final filled = substituteComfyWorkflow(viaSlot.template, viaSlot.values);
+      expect(unresolvedComfyTokens(filled), isEmpty);
+      final ckpt = filled.values.cast<Map>().firstWhere(
+        (n) => n['class_type'] == 'CheckpointLoaderSimple',
+      );
+      expect(ckpt['inputs']['ckpt_name'], 'pony.safetensors');
 
       final viaFallback = resolveComfyCreateRequest(
         workflowId: 'sd',
@@ -88,7 +93,15 @@ void main() {
         height: 768,
         checkpointFallback: 'sdxl.safetensors',
       );
-      expect(viaFallback!.checkpoint, 'sdxl.safetensors');
+      expect(viaFallback!.useCheckpointBuilder, isFalse);
+      final fallbackFilled = substituteComfyWorkflow(
+        viaFallback.template,
+        viaFallback.values,
+      );
+      final fallbackCkpt = fallbackFilled.values.cast<Map>().firstWhere(
+        (n) => n['class_type'] == 'CheckpointLoaderSimple',
+      );
+      expect(fallbackCkpt['inputs']['ckpt_name'], 'sdxl.safetensors');
     });
 
     test('ZIT starter adapts UNET + lumina2 CLIP + VAE + EmptySD3', () {

@@ -48,6 +48,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -87,7 +88,9 @@ void main() {
           ..setCharacterRepository(CharacterRepository(db, storage));
     await storage.initialized;
 
-    await db.insertGroup(GroupsCompanion.insert(id: 'grp-1', name: 'The Porch'));
+    await db.insertGroup(
+      GroupsCompanion.insert(id: 'grp-1', name: 'The Porch'),
+    );
     await db.insertGroupMember(
       GroupMembersCompanion.insert(
         id: 'mem-1',
@@ -104,10 +107,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<void> enter() => chat.setActiveGroup(
     GroupChat(
@@ -134,23 +134,26 @@ void main() {
     );
   });
 
-  test('and the first save writes it into the session, not an empty map', () async {
-    await enter();
+  test(
+    'and the first save writes it into the session, not an empty map',
+    () async {
+      await enter();
 
-    final sessions = await db.getSessionsForGroup('grp-1');
-    expect(
-      sessions,
-      hasLength(1),
-      reason: 'the greeting branch mints and saves the first session',
-    );
-    final blob = jsonDecode(sessions.single.groupRealismState);
-    expect(
-      (blob as Map)['characterSystemPrompts'],
-      {'mem-1': prompt},
-      reason:
-          'the wipe was persisted, which is why re-opening the chat (or '
-          'restarting the app) never recovered the prompt — the session blob '
-          'is what later loads read.',
-    );
-  });
+      final sessions = await db.getSessionsForGroup('grp-1');
+      expect(
+        sessions,
+        hasLength(1),
+        reason: 'the greeting branch mints and saves the first session',
+      );
+      final blob = jsonDecode(sessions.single.groupRealismState);
+      expect(
+        (blob as Map)['characterSystemPrompts'],
+        {'mem-1': prompt},
+        reason:
+            'the wipe was persisted, which is why re-opening the chat (or '
+            'restarting the app) never recovered the prompt — the session blob '
+            'is what later loads read.',
+      );
+    },
+  );
 }

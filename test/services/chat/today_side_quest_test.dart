@@ -14,6 +14,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 final Directory _root = Directory.systemTemp.createTempSync(
   'fpai_today_quest_',
@@ -79,10 +80,7 @@ void main() {
     await storage.realismSettings.setPlannerEnabled(true);
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   CharacterCard card() => CharacterCard(
     name: 'Ada',

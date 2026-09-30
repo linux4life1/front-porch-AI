@@ -41,14 +41,17 @@ import 'package:front_porch_ai/utils/character_id.dart';
 /// drifting. This is the one copy.
 CharacterCard? resolveGroupSpeakerForMessage(
   List<CharacterCard> cast,
-  ChatMessage msg,
-) {
+  ChatMessage msg, {
+  bool logOnMiss = true,
+}) {
   if (cast.isEmpty) return null;
 
   final stampedId = msg.characterId;
   if (stampedId != null && stampedId.isNotEmpty) {
     for (final c in cast) {
-      if (c.stableGroupId == stampedId) return c;
+      if (groupMemberStoreId(c) == stampedId || c.stableGroupId == stampedId) {
+        return c;
+      }
     }
   }
 
@@ -60,9 +63,11 @@ CharacterCard? resolveGroupSpeakerForMessage(
   final byName = cast.where((c) => c.name == msg.sender).toList();
   if (byName.length == 1) return byName.first;
 
-  debugPrint(
-    '[Realism:Reprocess] Could not identify who said "${msg.sender}" — '
-    'skipping rather than writing their realism onto another member.',
-  );
+  if (logOnMiss) {
+    debugPrint(
+      '[Realism:Reprocess] Could not identify who said "${msg.sender}" — '
+      'skipping rather than writing their realism onto another member.',
+    );
+  }
   return null;
 }

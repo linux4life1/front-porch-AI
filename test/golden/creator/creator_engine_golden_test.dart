@@ -77,9 +77,13 @@ class _ScriptedLlm extends LLMService {
 /// collaborators are all cheap, test-safe constructors (used elsewhere in the
 /// suite); we only override the three getters the engine consults.
 class _FakeLLMProvider extends LLMProvider {
-  _FakeLLMProvider(this._svc, KoboldService k, OpenRouterService o,
-      StorageService s, BackendManager b)
-      : super(k, o, s, b);
+  _FakeLLMProvider(
+    this._svc,
+    KoboldService k,
+    OpenRouterService o,
+    StorageService s,
+    BackendManager b,
+  ) : super(k, o, s, b);
   final LLMService _svc;
 
   @override
@@ -144,15 +148,18 @@ void main() {
       // engine copies the controllers onto the card at save time.
       state.generatedCard = CharacterCard(
         name: 'Aria Vale',
-        lorebook: Lorebook(entries: [
-          LorebookEntry(key: 'keep', content: 'Kept entry.'),
-          LorebookEntry(key: 'drop', content: 'Dropped entry.'),
-        ]),
+        lorebook: Lorebook(
+          entries: [
+            LorebookEntry(key: 'keep', content: 'Kept entry.'),
+            LorebookEntry(key: 'drop', content: 'Dropped entry.'),
+          ],
+        ),
       );
       state.descController.text = '{{char}} is a lighthouse keeper.';
       state.personalityController.text = 'Patient, observant, dry-humored.';
       state.scenarioController.text = '{{user}} climbs the tower at dusk.';
-      state.firstMessageController.text = 'The lamp turns. "You came, {{user}}."';
+      state.firstMessageController.text =
+          'The lamp turns. "You came, {{user}}."';
       state.exampleDialogueController.text =
           '{{user}}: Hi\n{{char}}: The sea is loud tonight.';
       state.systemPromptController.text = '';
@@ -164,7 +171,7 @@ void main() {
       state.realismDayCount = 4;
       state.realismTimeOfDay = 'evening';
       state.needsBaselineHunger = 70;
-      state.needsDecayHunger = 6;
+      state.needsPace = 'fast';
 
       // User unchecked the second lorebook entry in the Review step.
       state.lorebookEntryEnabled = {0: true, 1: false};
@@ -173,18 +180,27 @@ void main() {
 
       // 1) The decisive behavioral assertions (kill the "never persisted" stub).
       expect(ok, isTrue, reason: 'saveCharacter must report success');
-      expect(repo.characters.length, 1,
-          reason: 'the character must reach the repository');
+      expect(
+        repo.characters.length,
+        1,
+        reason: 'the character must reach the repository',
+      );
       final saved = repo.characters.single;
       expect(saved.name, 'Aria Vale');
       expect(saved.description, '{{char}} is a lighthouse keeper.');
       expect(saved.personality, 'Patient, observant, dry-humored.');
-      expect(saved.lorebook!.entries.length, 1,
-          reason: 'unchecked lorebook entries must be dropped');
+      expect(
+        saved.lorebook!.entries.length,
+        1,
+        reason: 'unchecked lorebook entries must be dropped',
+      );
       expect(saved.lorebook!.entries.single.content, 'Kept entry.');
       expect(saved.frontPorchExtensions?.stableId, isNotNull);
-      expect(saved.frontPorchExtensions!.stableId!.isNotEmpty, isTrue,
-          reason: 'ensureStableId must run so later edits stay linked');
+      expect(
+        saved.frontPorchExtensions!.stableId!.isNotEmpty,
+        isTrue,
+        reason: 'ensureStableId must run so later edits stay linked',
+      );
 
       // It must also be durable in the DB, not just the in-memory cache.
       final rows = await db.getAllCharacters();
@@ -192,38 +208,48 @@ void main() {
       expect(rows.single.name, 'Aria Vale');
 
       // 2) Freeze the exact persisted shape (realism seeding + field mapping).
-      expectGoldenJson(_stabilize(saved.toJson()),
-          group: 'creator', name: 'saved_card');
+      expectGoldenJson(
+        _stabilize(saved.toJson()),
+        group: 'creator',
+        name: 'saved_card',
+      );
     });
 
-    test('save is idempotent: a second save UPDATES in place and keeps the '
-        'stableId (the panel saves first, Save & Finish saves again)',
-        () async {
-      final storage = await makeGoldenStorage();
-      final db = AppDatabase.forTesting();
-      final repo = CharacterRepository(db, storage);
-      addTearDown(() async => db.close());
+    test(
+      'save is idempotent: a second save UPDATES in place and keeps the '
+      'stableId (the panel saves first, Save & Finish saves again)',
+      () async {
+        final storage = await makeGoldenStorage();
+        final db = AppDatabase.forTesting();
+        final repo = CharacterRepository(db, storage);
+        addTearDown(() async => db.close());
 
-      final state = CreatorState();
-      addTearDown(state.dispose);
-      state.generatedCard = CharacterCard(name: 'Aria Vale');
-      state.descController.text = 'First draft.';
+        final state = CreatorState();
+        addTearDown(state.dispose);
+        state.generatedCard = CharacterCard(name: 'Aria Vale');
+        state.descController.text = 'First draft.';
 
-      expect(await state.saveCharacter(repo: repo, storage: storage), isTrue);
-      final firstId = state.generatedCard!.frontPorchExtensions!.stableId;
-      expect(firstId, isNotNull);
+        expect(await state.saveCharacter(repo: repo, storage: storage), isTrue);
+        final firstId = state.generatedCard!.frontPorchExtensions!.stableId;
+        expect(firstId, isNotNull);
 
-      // Edit + save again — the flow the Portrait & Avatars panel creates.
-      state.descController.text = 'Edited after the panel saved.';
-      expect(await state.saveCharacter(repo: repo, storage: storage), isTrue);
+        // Edit + save again — the flow the Portrait & Avatars panel creates.
+        state.descController.text = 'Edited after the panel saved.';
+        expect(await state.saveCharacter(repo: repo, storage: storage), isTrue);
 
-      final rows = await db.getAllCharacters();
-      expect(rows.length, 1, reason: 'update in place — never a duplicate');
-      expect(state.generatedCard!.frontPorchExtensions!.stableId, firstId,
-          reason: 'identity must survive the multi-shot save');
-      expect(repo.characters.single.description,
-          'Edited after the panel saved.');
-    });
+        final rows = await db.getAllCharacters();
+        expect(rows.length, 1, reason: 'update in place — never a duplicate');
+        expect(
+          state.generatedCard!.frontPorchExtensions!.stableId,
+          firstId,
+          reason: 'identity must survive the multi-shot save',
+        );
+        expect(
+          repo.characters.single.description,
+          'Edited after the panel saved.',
+        );
+      },
+    );
   });
 
   group('CreatorEngine.generateFromMode — drives the LLM', () {
@@ -236,10 +262,10 @@ void main() {
       final canned = jsonEncode({
         'description':
             '$sentinel {{char}} is a wandering cartographer who maps the '
-                'drowned coast, sketching ruins the tide reveals at dawn.',
+            'drowned coast, sketching ruins the tide reveals at dawn.',
         'personality':
             '$sentinel Curious, meticulous, quietly brave; speaks in measured, '
-                'vivid observations and never leaves a map unfinished.',
+            'vivid observations and never leaves a map unfinished.',
         'scenario':
             '{{user}} finds {{char}} pinning a half-drawn chart to a tavern wall.',
         'first_message':
@@ -273,8 +299,11 @@ void main() {
 
       // The decisive signal: the engine actually called the model. The dummy
       // stub made zero LLM calls.
-      expect(llm.callCount, greaterThan(0),
-          reason: 'the engine must invoke the LLM, not fabricate a card');
+      expect(
+        llm.callCount,
+        greaterThan(0),
+        reason: 'the engine must invoke the LLM, not fabricate a card',
+      );
 
       final card = state.generatedCard;
       expect(card, isNotNull, reason: 'a card must be produced');
@@ -286,10 +315,16 @@ void main() {
       // Model-derived content (not a hardcoded constant): the sentinel the fake
       // emitted must survive into the card.
       final blob = '${card.description}\n${card.personality}';
-      expect(blob, contains(sentinel),
-          reason: 'card fields must come from model output');
-      expect(card.personality, isNot(contains('Brave and clever')),
-          reason: 'must never reproduce the old dummy');
+      expect(
+        blob,
+        contains(sentinel),
+        reason: 'card fields must come from model output',
+      );
+      expect(
+        card.personality,
+        isNot(contains('Brave and clever')),
+        reason: 'must never reproduce the old dummy',
+      );
 
       // Real post-generation flow state (the wizard advances to Realism).
       expect(state.isGenerating, isFalse);

@@ -56,24 +56,3 @@ bool shouldDetectTimeSkip(String lower) {
   return _durationHint.hasMatch(lower);
 }
 
-/// Energy floor after a finished night. Not a spa — hunger/bladder stay.
-const int kNightSkipEnergyFloor = 90;
-const int kNightSkipComfortBump = 15;
-
-Map<String, int> applyNightSkipToNeeds(Map<String, int> vector) {
-  final out = Map<String, int>.from(vector);
-  final energy = out['energy'] ?? 0;
-  if (energy < kNightSkipEnergyFloor) out['energy'] = kNightSkipEnergyFloor;
-  final comfort = out['comfort'] ?? 0;
-  out['comfort'] = (comfort + kNightSkipComfortBump).clamp(0, 100);
-  return out;
-}
-
-/// After a night skip, ignore another sleep-sized fill from the after-reply
-/// pass. Small bumps (coffee) still land.
-void suppressSleepDoubleApply(Map<String, int> deltas) {
-  final e = deltas['energy'] ?? 0;
-  if (e > 15) deltas['energy'] = 0;
-  final c = deltas['comfort'] ?? 0;
-  if (c > 12) deltas['comfort'] = 0;
-}

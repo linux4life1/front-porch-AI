@@ -192,20 +192,18 @@ class LlmEvalEngine {
   Future<String?> evaluateNeedsImpactCall(
     String responseText, {
     void Function(String)? onChunk,
-    int strength = 1,
     String? userCritique,
     Map<String, int>? previousDeltas,
     Map<String, int>? currentNeeds,
-    int? decayTurns,
+    bool awayScene = false,
     Set<String> onlyNeeds = const {},
   }) => _evaluateNeedsImpactCall(
     responseText,
     onChunk: onChunk,
-    strength: strength,
     userCritique: userCritique,
     previousDeltas: previousDeltas,
     currentNeeds: currentNeeds,
-    decayTurns: decayTurns,
+    awayScene: awayScene,
     onlyNeeds: onlyNeeds,
   );
 

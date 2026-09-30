@@ -266,7 +266,7 @@ extension _GreetingSeedSections on _GreetingSeedFormState {
             children: [
               Text(
                 'Baselines (0–100, higher = more sated). Blank inherits the '
-                'card. Decay stays on the card.',
+                'card. Pace stays on the card.',
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.35,

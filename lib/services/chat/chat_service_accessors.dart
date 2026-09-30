@@ -178,30 +178,20 @@ extension ChatServiceAccessors on ChatService {
     preferTextEvals: _storageService.realismSettings.preferTextEvals,
   );
 
-  /// The story clock advances on its OWN eval this turn: the engine is off and
-  /// the user opted in (docs/design/feature-independence.md). Keyed on
-  /// [_realismEnabled], deliberately NOT [_realismActiveThisMode] — the latter
-  /// also goes false during AFK auto-response and in group Director mode,
-  /// where the engine is merely paused and already has its own clock handling.
-  /// Letting standalone fill those gaps would change behaviour for engine-ON
-  /// users, who never asked for it.
-  bool get _standaloneClockActive =>
-      !_realismEnabled &&
-      _timeService.passageOfTimeEnabled &&
-      _storageService.realismSettings.standaloneClockEnabled;
-
-  /// The story clock is actually moving, by whichever driver. This is the
-  /// gate for everything that reads the clock rather than advancing it — the
-  /// time prompt fragment, weather, dreams — because what those needed all
-  /// along was a MOVING clock, not the engine. With the engine off and the
-  /// standalone clock off it is false, which is exactly the frozen-clock state
-  /// the old realism gate produced, so nothing changes by default.
+  /// Porch Life Passage of Time — live. Not a seeded copy, not per-chat.
   bool get _clockRunning => StoryClock.isRunning(
-    passageOfTimeEnabled: _timeService.passageOfTimeEnabled,
-    realismEnabled: _realismEnabled,
-    standaloneClockEnabled:
-        _storageService.realismSettings.standaloneClockEnabled,
+    passageOfTimeEnabled: _storageService.realismSettings.passageOfTimeDefault,
   );
+
+  /// Porch Life alone. Card veto and leftover per-chat are not a gate.
+  bool get _seededPassageOfTime => derivedPassageOfTimeEnabled(
+    porchLifeDefault: _storageService.realismSettings.passageOfTimeDefault,
+  );
+
+  void _applySeededPassageOfTime() {
+    _timeService.setPassageOfTimeEnabled(_seededPassageOfTime);
+    _timeService.markClockGateSource('porch_life');
+  }
 
   /// Objectives are actually running for this chat: the per-chat switch AND the
   /// global one (docs/design/feature-independence.md). Objectives depend on
@@ -371,9 +361,23 @@ extension ChatServiceAccessors on ChatService {
       _expressionService.setExpressionClassifierService(service);
 
   /// Returns a stable ID string for a character card.
-  /// Delegates to the canonical stable ID for group contexts.
-  /// See [StableGroupId.stableGroupId] in lib/utils/character_id.dart
-  String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
+  /// Roster members use [groupMemberStoreId] (UUID-first). A library
+  /// card looked up during a group (cast collapse origin, 1:1 host)
+  /// stays on [CharacterCard.stableGroupId].
+  String _getCharacterIdFromCard(CharacterCard card) {
+    if (_activeGroup != null && _isGroupRosterCard(card)) {
+      return groupMemberStoreId(card);
+    }
+    return card.stableGroupId;
+  }
+
+  bool _isGroupRosterCard(CharacterCard card) {
+    for (final c in _groupCharacters) {
+      if (identical(c, card)) return true;
+      if (card.dbId != null && card.dbId == c.dbId) return true;
+    }
+    return false;
+  }
 
   String _getCharacterId() {
     if (_activeGroup != null) {

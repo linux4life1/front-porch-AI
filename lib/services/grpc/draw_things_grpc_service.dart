@@ -10,6 +10,7 @@ import 'package:front_porch_ai/services/services.dart';
 
 import 'dt_native/draw_things_native_client.dart';
 import 'dt_native/dt_fpzip.dart';
+import 'dt_native/dt_local_loras.dart';
 
 /// Draw Things gRPC service — the pure-Dart native client
 /// (dt_native/draw_things_native_client.dart), in-process, no Python (the
@@ -55,8 +56,18 @@ class DrawThingsGrpcService {
   /// Qwen-Image checkpoint itself.
   static List<String> _filterCheckpoints(List<String> raw) {
     const encoderKeywords = [
-      'clip', 't5', 'text_encoder', 'encoder', 'gemma', 'llama',
-      'mistral', 'ministral', 'qwen', 'phi', 'vicuna', 'alpaca',
+      'clip',
+      't5',
+      'text_encoder',
+      'encoder',
+      'gemma',
+      'llama',
+      'mistral',
+      'ministral',
+      'qwen',
+      'phi',
+      'vicuna',
+      'alpaca',
     ];
     const skip = [
       // VAEs
@@ -110,24 +121,37 @@ class DrawThingsGrpcService {
     }
   }
 
-  /// Fetches available LoRA files from Draw Things (same Echo('models')
-  /// listing the checkpoint fetch uses, filtered to files containing
-  /// "lora"). Returned names are passed verbatim into the generation
-  /// config's `loras` list.
-  Future<List<String>> fetchLoras() async {
+  /// LoRA file names for the Image Studio picker.
+  ///
+  /// Echo("models") is used when Draw Things has Model Browser on. A local
+  /// server that answers with an empty list is read from its Models folder
+  /// instead, so the picker can name a file the gRPC generate config accepts.
+  Future<List<DrawThingsLoraEntry>> fetchLoras() async {
     final native = DrawThingsNativeClient(host: host, port: port);
     try {
       final loras = (await native.listFiles())
           .where((f) => f.toLowerCase().contains('lora'))
+          .map(drawThingsLoraBasename)
+          .where((f) => f.isNotEmpty)
+          .map(DrawThingsLoraEntry.new)
           .toList();
-      debugPrint('[DT-Native] Fetched ${loras.length} LoRAs');
-      return loras;
+      if (loras.isNotEmpty) {
+        debugPrint('[DT-Native] Fetched ${loras.length} LoRAs');
+        return loras;
+      }
     } catch (e) {
-      debugPrint('[DT-Native] fetchLoras failed: $e');
-      return [];
+      debugPrint('[DT-Native] fetchLoras echo failed: $e');
     } finally {
       unawaited(native.shutdown());
     }
+    if (!drawThingsHostIsLocal(host)) return const [];
+    final dir = drawThingsDefaultModelsDirectory();
+    if (dir == null) return const [];
+    final local = await drawThingsLoraFilesIn(dir);
+    debugPrint(
+      '[DT-Native] Fetched ${local.length} LoRAs from the local Models folder',
+    );
+    return local;
   }
 
   /// Resolves the app-wide "-1 = random" seed sentinel the same way the

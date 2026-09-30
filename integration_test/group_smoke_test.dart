@@ -155,7 +155,6 @@ void main() {
       timeOfDay: 'morning',
       dayCount: 1,
     );
-
     await groupRepo.save(
       GroupChat(
         id: groupId,
@@ -174,6 +173,7 @@ void main() {
           name: Value(c.name),
           description: Value(c.description),
           firstMessage: Value(c.firstMessage),
+          avatarFilename: Value('member_$i.png'),
           frontPorchExtensions: Value(
             jsonEncode(c.frontPorchExtensions!.toJson()),
           ),

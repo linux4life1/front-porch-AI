@@ -251,6 +251,8 @@ class WebChatRoutes {
     if (text.trim().isEmpty && image == null) {
       return JsonResponse.badRequest('text is required');
     }
+    final lookupBlock = _facade.lookupCommandBlock(text);
+    if (lookupBlock != null) return JsonResponse.badRequest(lookupBlock);
     _facade.send(text, imageBytes: image);
     return JsonResponse.ok({'status': 'ok'});
   }
@@ -279,7 +281,11 @@ class WebChatRoutes {
 
   Future<shelf.Response> _regenerate(shelf.Request request) async {
     final body = await _json(request);
-    _facade.regenerate(critique: body['critique']?.toString());
+    _facade.regenerate(
+      critique: body['critique']?.toString(),
+      webQuery: body['webQuery']?.toString(),
+      wikiQuery: body['wikiQuery']?.toString(),
+    );
     return JsonResponse.ok({'status': 'ok'});
   }
 

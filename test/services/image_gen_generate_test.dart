@@ -326,38 +326,32 @@ void main() {
       await tempDir.delete(recursive: true);
     });
 
-    test(
-      'saveImageToDisk with nothing generated and no explicit bytes returns '
-      'null and creates no directory',
-      () async {
-        final result = await service.saveImageToDisk();
-        expect(result, isNull);
-        final imagesDir = Directory(
-          p.join(tempDir.path, 'KoboldManager', 'images'),
-        );
-        expect(await imagesDir.exists(), isFalse);
-      },
-    );
+    test('saveImageToDisk with nothing generated and no explicit bytes returns '
+        'null and creates no directory', () async {
+      final result = await service.saveImageToDisk();
+      expect(result, isNull);
+      final imagesDir = Directory(
+        p.join(tempDir.path, 'KoboldManager', 'images'),
+      );
+      expect(await imagesDir.exists(), isFalse);
+    });
 
-    test(
-      'saveImageToDisk writes explicit bytes under KoboldManager/images and '
-      'records the path',
-      () async {
-        final bytes = Uint8List.fromList([1, 2, 3, 4, 5]);
-        final savedPath = await service.saveImageToDisk(bytes);
-        expect(savedPath, isNotNull);
+    test('saveImageToDisk writes explicit bytes under KoboldManager/images and '
+        'records the path', () async {
+      final bytes = Uint8List.fromList([1, 2, 3, 4, 5]);
+      final savedPath = await service.saveImageToDisk(bytes);
+      expect(savedPath, isNotNull);
 
-        final file = File(savedPath!);
-        expect(await file.exists(), isTrue);
-        expect(await file.readAsBytes(), bytes);
-        expect(
-          p.dirname(savedPath),
-          p.join(tempDir.path, 'KoboldManager', 'images'),
-        );
-        expect(p.basename(savedPath), matches(RegExp(r'^img_\d+\.png$')));
-        expect(service.lastSavedPath, savedPath);
-      },
-    );
+      final file = File(savedPath!);
+      expect(await file.exists(), isTrue);
+      expect(await file.readAsBytes(), bytes);
+      expect(
+        p.dirname(savedPath),
+        p.join(tempDir.path, 'KoboldManager', 'images'),
+      );
+      expect(p.basename(savedPath), matches(RegExp(r'^img_\d+\.png$')));
+      expect(service.lastSavedPath, savedPath);
+    });
 
     test(
       'saveImageToDisk falls back to the last generated image when no '
@@ -381,27 +375,24 @@ void main() {
       }),
     );
 
-    test(
-      'saveAvatarToDisk sanitizes the character name and writes under '
-      'charactersDir',
-      () async {
-        final bytes = Uint8List.fromList([9, 8, 7]);
-        final savedPath = await service.saveAvatarToDisk(
-          bytes,
-          characterName: "Wren O'Malley!!",
-        );
-        expect(savedPath, isNotNull);
+    test('saveAvatarToDisk sanitizes the character name and writes under '
+        'charactersDir', () async {
+      final bytes = Uint8List.fromList([9, 8, 7]);
+      final savedPath = await service.saveAvatarToDisk(
+        bytes,
+        characterName: "Wren O'Malley!!",
+      );
+      expect(savedPath, isNotNull);
 
-        final file = File(savedPath!);
-        expect(await file.exists(), isTrue);
-        expect(await file.readAsBytes(), bytes);
-        expect(p.dirname(savedPath), storage.charactersDir.path);
-        expect(
-          p.basename(savedPath),
-          matches(RegExp(r'^Wren_OMalley_\d+\.png$')),
-        );
-      },
-    );
+      final file = File(savedPath!);
+      expect(await file.exists(), isTrue);
+      expect(await file.readAsBytes(), bytes);
+      expect(p.dirname(savedPath), storage.charactersDir.path);
+      expect(
+        p.basename(savedPath),
+        matches(RegExp(r'^Wren_OMalley_\d+\.png$')),
+      );
+    });
 
     test('saveAvatarToDisk with no bytes at all returns null', () async {
       final result = await service.saveAvatarToDisk(null);
@@ -530,10 +521,9 @@ void main() {
         // exactly how a user with no account saw a real-looking model menu,
         // concluded Remote API images were free, and hit "No API key
         // configured." on Generate. No account = no models now (the studio
-        // panel explains where the key lives); the catalog is reserved for
-        // CONFIGURED providers without a listing endpoint — the test below
-        // this one, which is unchanged. The zero-network half of the old
-        // assertion still stands: an unconfigured install must never probe.
+        // panel explains where the key lives). A configured Nano host fetches
+        // /image-models and falls back to the bundled snapshot when that
+        // fetch fails. An unconfigured install must never probe.
         final fake = await _FakeLocalImageServer.start();
         final storage = _FakeStorageForGenerate('/does/not/matter');
         // remoteApiKey stays '' (the BackendSettings default).
@@ -549,8 +539,8 @@ void main() {
     );
 
     test(
-      'returns the curated catalog with zero network calls for a '
-      'non-OpenRouter provider',
+      'returns the bundled catalog when a non-OpenRouter image-models '
+      'fetch fails',
       () => _withRealHttp(() async {
         final fake = await _FakeLocalImageServer.start();
         final storage = _FakeStorageForGenerate('/does/not/matter');
@@ -563,7 +553,7 @@ void main() {
         final service = ImageGenService(storage);
         final models = await service.fetchImageModels();
         expect(models, hasLength(237));
-        expect(fake.requestLog, isEmpty);
+        expect(fake.requestLog, ['GET /nano-gpt/image-models']);
         await fake.close();
       }),
     );

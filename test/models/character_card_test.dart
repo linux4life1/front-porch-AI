@@ -31,13 +31,8 @@ void main() {
       expect(ext.passageOfTimeEnabled, true);
       expect(ext.chaosModeEnabled, false);
       expect(ext.currentTask, '');
-      expect(ext.needsDecayHunger, 2);
-      expect(ext.needsDecayBladder, 3);
-      expect(ext.needsDecayEnergy, 3);
-      expect(ext.needsDecaySocial, 2);
-      expect(ext.needsDecayFun, 2);
-      expect(ext.needsDecayHygiene, 1);
-      expect(ext.needsDecayComfort, 2);
+      expect(ext.needsPace, 'normal');
+      expect(ext.needsOff, isEmpty);
     });
 
     test('accepts custom values', () {
@@ -54,13 +49,8 @@ void main() {
         passageOfTimeEnabled: false,
         chaosModeEnabled: true,
         currentTask: 'Guard the gate',
-        needsDecayHunger: 2,
-        needsDecayBladder: 3,
-        needsDecayEnergy: 4,
-        needsDecaySocial: 6,
-        needsDecayFun: 8,
-        needsDecayHygiene: 9,
-        needsDecayComfort: 10,
+        needsPace: 'fast',
+        needsOff: const ['bladder'],
       );
       expect(ext.realismEnabled, true);
       expect(ext.shortTermBond, 42);
@@ -74,13 +64,8 @@ void main() {
       expect(ext.passageOfTimeEnabled, false);
       expect(ext.chaosModeEnabled, true);
       expect(ext.currentTask, 'Guard the gate');
-      expect(ext.needsDecayHunger, 2);
-      expect(ext.needsDecayBladder, 3);
-      expect(ext.needsDecayEnergy, 4);
-      expect(ext.needsDecaySocial, 6);
-      expect(ext.needsDecayFun, 8);
-      expect(ext.needsDecayHygiene, 9);
-      expect(ext.needsDecayComfort, 10);
+      expect(ext.needsPace, 'fast');
+      expect(ext.needsOff, ['bladder']);
     });
 
     test('toJson includes version and realism_engine', () {
@@ -141,13 +126,8 @@ void main() {
           'passage_of_time_enabled': false,
           'chaos_mode_enabled': true,
           'current_task': 'Sweep the floor',
-          'needs_decay_hunger': 2,
-          'needs_decay_bladder': 4,
-          'needs_decay_energy': 6,
-          'needs_decay_social': 8,
-          'needs_decay_fun': 10,
-          'needs_decay_hygiene': 12,
-          'needs_decay_comfort': 14,
+          'needs_pace': 'sloth',
+          'needs_off': ['hygiene'],
           'stable_id': 'explicit-stable-in-fromjson-full',
         },
       };
@@ -165,13 +145,8 @@ void main() {
       expect(ext.passageOfTimeEnabled, false);
       expect(ext.chaosModeEnabled, true);
       expect(ext.currentTask, 'Sweep the floor');
-      expect(ext.needsDecayHunger, 2);
-      expect(ext.needsDecayBladder, 4);
-      expect(ext.needsDecayEnergy, 6);
-      expect(ext.needsDecaySocial, 8);
-      expect(ext.needsDecayFun, 10);
-      expect(ext.needsDecayHygiene, 12);
-      expect(ext.needsDecayComfort, 14);
+      expect(ext.needsPace, 'sloth');
+      expect(ext.needsOff, ['hygiene']);
     });
 
     test('fromJson with empty realism_engine', () {
@@ -216,20 +191,16 @@ void main() {
         emotionIntensity: 'strong',
         chaosModeEnabled: true,
         currentTask: 'Watch the stars',
-        needsDecayHunger: 1,
-        needsDecayBladder: 2,
-        needsDecayEnergy: 3,
-        needsDecaySocial: 4,
-        needsDecayFun: 5,
-        needsDecayHygiene: 6,
-        needsDecayComfort: 7,
+        needsPace: 'sloth',
+        needsOff: const ['fun'],
         stableId: 'test-stable-uuid-for-roundtrip',
       );
       final json1 = original.toJson();
       final restored = FrontPorchExtensions.fromJson(json1);
       final json2 = restored.toJson();
       expect(json1, json2);
-      expect(restored.needsDecayHunger, 1);
+      expect(restored.needsPace, 'sloth');
+      expect(restored.needsOff, ['fun']);
       expect(restored.stableId, 'test-stable-uuid-for-roundtrip');
       final engine = json1['realism_engine'] as Map<String, dynamic>;
       expect(engine['stable_id'], 'test-stable-uuid-for-roundtrip');

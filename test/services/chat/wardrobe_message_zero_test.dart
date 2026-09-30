@@ -66,6 +66,7 @@ import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -118,23 +119,19 @@ void main() {
     await storage.realismSettings.setPocketsEnabled(true);
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   /// A card dressed the way the character editor now writes it.
-  CharacterCard dressed(String name, String id) =>
-      CharacterCard(
-        name: name,
-        firstMessage: 'Evening.',
-        frontPorchExtensions: FrontPorchExtensions(
-          inventory: Pockets.cardJsonFrom(
-            worn: const ['flour-dusted apron (well-worn)'],
-            carrying: const ['shop keys'],
-          ),
-        ),
-      )..dbId = id;
+  CharacterCard dressed(String name, String id) => CharacterCard(
+    name: name,
+    firstMessage: 'Evening.',
+    frontPorchExtensions: FrontPorchExtensions(
+      inventory: Pockets.cardJsonFrom(
+        worn: const ['flour-dusted apron (well-worn)'],
+        carrying: const ['shop keys'],
+      ),
+    ),
+  )..dbId = id;
 
   /// What the sidebar's Builder reads — `chat.pocketsFor(...)`, keyed exactly
   /// as character_state_group.dart keys it. Asserting through this rather than
@@ -152,34 +149,46 @@ void main() {
       contains('flour-dusted apron'),
       reason: reason,
     );
-    expect(p.carrying.map((i) => i.name), contains('shop keys'), reason: reason);
+    expect(
+      p.carrying.map((i) => i.name),
+      contains('shop keys'),
+      reason: reason,
+    );
   }
 
-  test('opening a chat with a dressed character shows her wardrobe at once', () async {
-    await chat.setActiveCharacter(dressed('Jennifer', 'char-open'));
+  test(
+    'opening a chat with a dressed character shows her wardrobe at once',
+    () async {
+      await chat.setActiveCharacter(dressed('Jennifer', 'char-open'));
 
-    expectDressed(
-      sidebarSees(),
-      reason: 'THE REPORTED BUG. Nothing has been typed yet — this is message '
-          '0, the greeting. seedPocketsFromCards ran only from sendMessage and '
-          'session restore, so the record was null and the sidebar drew '
-          'nothing until after the first reply',
-    );
-  });
+      expectDressed(
+        sidebarSees(),
+        reason:
+            'THE REPORTED BUG. Nothing has been typed yet — this is message '
+            '0, the greeting. seedPocketsFromCards ran only from sendMessage and '
+            'session restore, so the record was null and the sidebar drew '
+            'nothing until after the first reply',
+      );
+    },
+  );
 
-  test('and again after New Chat, which is where an author actually looks', () async {
-    // The likeliest real sequence: dress her in the editor, open her, start a
-    // fresh chat to try it out.
-    final card = dressed('Jennifer', 'char-new');
-    await chat.setActiveCharacter(card);
-    await chat.startNewChat();
+  test(
+    'and again after New Chat, which is where an author actually looks',
+    () async {
+      // The likeliest real sequence: dress her in the editor, open her, start a
+      // fresh chat to try it out.
+      final card = dressed('Jennifer', 'char-new');
+      await chat.setActiveCharacter(card);
+      await chat.startNewChat();
 
-    expectDressed(
-      sidebarSees(),
-      reason: 'startNewChat nulls the record in its own reset block and did '
-          'not re-seed; its comment claimed the first pass would',
-    );
-  });
+      expectDressed(
+        sidebarSees(),
+        reason:
+            'startNewChat nulls the record in its own reset block and did '
+            'not re-seed; its comment claimed the first pass would',
+      );
+    },
+  );
 
   test('an undressed character still gets no record, not an empty one', () async {
     // The seed deliberately leaves the record ABSENT rather than empty when a
@@ -193,15 +202,18 @@ void main() {
     expect(sidebarSees(), isNull);
   });
 
-  test('with the switch off, opening a dressed character shows nothing', () async {
-    // Off still means off. The seed is gated, and `pocketsFor` is gated again
-    // on the read, so turning the feature on later must be what reveals her —
-    // not the chat having been opened while it was on.
-    await storage.realismSettings.setPocketsEnabled(false);
-    await chat.setActiveCharacter(dressed('Jennifer', 'char-off'));
+  test(
+    'with the switch off, opening a dressed character shows nothing',
+    () async {
+      // Off still means off. The seed is gated, and `pocketsFor` is gated again
+      // on the read, so turning the feature on later must be what reveals her —
+      // not the chat having been opened while it was on.
+      await storage.realismSettings.setPocketsEnabled(false);
+      await chat.setActiveCharacter(dressed('Jennifer', 'char-off'));
 
-    expect(sidebarSees(), isNull);
-  });
+      expect(sidebarSees(), isNull);
+    },
+  );
 
   test('turning the switch off hides a record that already exists', () async {
     // THE READ GATE. Opening with the switch already down (the test above)
@@ -225,62 +237,70 @@ void main() {
     );
   });
 
-  test('a group member arrives dressed too — parity, and a different trap', () async {
-    // Parity is mandatory in this project, and the group path had its own
-    // ordering hazard: startNewChat's group branch nulls the record and THEN
-    // rebuilds _groupRealism from the group's member baselines a dozen lines
-    // later, so a seed placed beside the null would be wiped for every group
-    // while working perfectly for every 1:1. That is why the call sits after
-    // the if/else closes rather than next to the assignment it undoes.
-    await db.insertGroup(
-      GroupsCompanion.insert(id: 'grp-1', name: 'The Bakery'),
-    );
-    await db.insertGroupMember(
-      GroupMembersCompanion.insert(
-        id: 'mem-1',
-        groupId: 'grp-1',
-        name: 'Jennifer',
-        frontPorchExtensions: Value(
-          // The envelope FrontPorchExtensions.fromJson actually reads. A bare
-          // top-level 'inventory' parses to {} and the assertion below would
-          // fail against correct code.
-          jsonEncode({
-            'realism_engine': {
-              'inventory': Pockets.cardJsonFrom(
-                worn: const ['flour-dusted apron (well-worn)'],
-                carrying: const ['shop keys'],
-              ),
-            },
-          }),
+  test(
+    'a group member arrives dressed too — parity, and a different trap',
+    () async {
+      // Parity is mandatory in this project, and the group path had its own
+      // ordering hazard: startNewChat's group branch nulls the record and THEN
+      // rebuilds _groupRealism from the group's member baselines a dozen lines
+      // later, so a seed placed beside the null would be wiped for every group
+      // while working perfectly for every 1:1. That is why the call sits after
+      // the if/else closes rather than next to the assignment it undoes.
+      await db.insertGroup(
+        GroupsCompanion.insert(id: 'grp-1', name: 'The Bakery'),
+      );
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-1',
+          groupId: 'grp-1',
+          name: 'Jennifer',
+          frontPorchExtensions: Value(
+            // The envelope FrontPorchExtensions.fromJson actually reads. A bare
+            // top-level 'inventory' parses to {} and the assertion below would
+            // fail against correct code.
+            jsonEncode({
+              'realism_engine': {
+                'inventory': Pockets.cardJsonFrom(
+                  worn: const ['flour-dusted apron (well-worn)'],
+                  carrying: const ['shop keys'],
+                ),
+              },
+            }),
+          ),
         ),
-      ),
-    );
+      );
 
-    // The repo must be passed explicitly: setActiveGroup's no-repo fallback
-    // reads AppDatabase.instance() — the singleton — which is not this test's
-    // in-memory database, so the members would silently resolve to none.
-    await chat.setActiveGroup(
-      GroupChat(id: 'grp-1', name: 'The Bakery'),
-      groupRepo: GroupChatRepository(storage, db),
-    );
+      // The repo must be passed explicitly: setActiveGroup's no-repo fallback
+      // reads AppDatabase.instance() — the singleton — which is not this test's
+      // in-memory database, so the members would silently resolve to none.
+      await chat.setActiveGroup(
+        GroupChat(id: 'grp-1', name: 'The Bakery'),
+        groupRepo: GroupChatRepository(storage, db),
+      );
 
-    final member = chat.groupCharacters.firstWhere((c) => c.name == 'Jennifer');
-    expectDressed(
-      chat.pocketsFor(chat.characterIdFor(member)),
-      reason: 'entering a group must dress its members exactly as entering a '
-          '1:1 dresses her — the group prompt reads the same record',
-    );
+      final member = chat.groupCharacters.firstWhere(
+        (c) => c.name == 'Jennifer',
+      );
+      expectDressed(
+        chat.pocketsFor(chat.characterIdFor(member)),
+        reason:
+            'entering a group must dress its members exactly as entering a '
+            '1:1 dresses her — the group prompt reads the same record',
+      );
 
-    // And through the other entry: a fresh chat inside the group.
-    await chat.startNewChat();
-    final after = chat.groupCharacters.firstWhere((c) => c.name == 'Jennifer');
-    expectDressed(
-      chat.pocketsFor(chat.characterIdFor(after)),
-      reason: 'startNewChat in a group — the branch whose _groupRealism rebuild '
-          'would have eaten a seed placed beside the null',
-    );
-  });
-
+      // And through the other entry: a fresh chat inside the group.
+      await chat.startNewChat();
+      final after = chat.groupCharacters.firstWhere(
+        (c) => c.name == 'Jennifer',
+      );
+      expectDressed(
+        chat.pocketsFor(chat.characterIdFor(after)),
+        reason:
+            'startNewChat in a group — the branch whose _groupRealism rebuild '
+            'would have eaten a seed placed beside the null',
+      );
+    },
+  );
 
   test('a group New Chat re-reads the Porch Life Chaos default', () async {
     // The 1:1 branch of startNewChat re-seeded Chaos from card-or-global; the
@@ -313,7 +333,8 @@ void main() {
     expect(
       chat.chaosModeService.chaosModeEnabled,
       isTrue,
-      reason: 'the group branch never re-read the global, so a fresh group chat '
+      reason:
+          'the group branch never re-read the global, so a fresh group chat '
           'started with Chaos off however the user had set it',
     );
   });
@@ -326,16 +347,22 @@ void main() {
     await chat.setActiveCharacter(card);
     final id = chat.characterIdFor(chat.activeCharacter!);
 
-    chat.setPocketsFor(id, Pockets.fromJson(Pockets.cardJsonFrom(
-      worn: const ['apron (muddy)'],
-      carrying: const [],
-    )));
+    chat.setPocketsFor(
+      id,
+      Pockets.fromJson(
+        Pockets.cardJsonFrom(worn: const ['apron (muddy)'], carrying: const []),
+      ),
+    );
 
     // Re-seeding now would resurrect the shop keys she is no longer carrying.
     chat.seedPocketsFromCards();
 
     final p = chat.pocketsFor(id);
-    expect(p!.carrying, isEmpty, reason: 'the keys were put down and stay down');
+    expect(
+      p!.carrying,
+      isEmpty,
+      reason: 'the keys were put down and stay down',
+    );
     expect(p.worn.single.name, 'apron');
   });
 }

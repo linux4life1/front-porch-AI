@@ -115,11 +115,10 @@ extension AppDatabaseMemoryQueries on AppDatabase {
   /// Every diary owner's cards for one session — the timeline-integrity
   /// invalidation sweep (regen/edit/delete) must cover owners no longer in
   /// the cast, so it cannot iterate the live participant list.
-  Future<List<JournalMemoryData>> getJournalCardsForSession(
-    String sessionId,
-  ) => (select(
-    journalMemories,
-  )..where((j) => j.sessionId.equals(sessionId))).get();
+  Future<List<JournalMemoryData>> getJournalCardsForSession(String sessionId) =>
+      (select(
+        journalMemories,
+      )..where((j) => j.sessionId.equals(sessionId))).get();
 
   Future<List<JournalMemoryData>> getJournalCards(
     String sessionId,
@@ -145,9 +144,9 @@ extension AppDatabaseMemoryQueries on AppDatabase {
   }
 
   /// Single card by primary key (porch-ack clear, rare paths).
-  Future<JournalMemoryData?> getJournalCardById(String id) =>
-      (select(journalMemories)..where((j) => j.id.equals(id)))
-          .getSingleOrNull();
+  Future<JournalMemoryData?> getJournalCardById(String id) => (select(
+    journalMemories,
+  )..where((j) => j.id.equals(id))).getSingleOrNull();
 
   /// Write-by-id partial update (mirrors [updateMessage] style).
   Future<void> updateJournalCard(String id, JournalMemoriesCompanion card) =>
@@ -165,7 +164,10 @@ extension AppDatabaseMemoryQueries on AppDatabase {
     final result = await customSelect(
       'SELECT COUNT(*) AS cnt FROM journal_memories '
       'WHERE session_id = ? AND character_id = ?',
-      variables: [Variable.withString(sessionId), Variable.withString(characterId)],
+      variables: [
+        Variable.withString(sessionId),
+        Variable.withString(characterId),
+      ],
     ).getSingle();
     return result.read<int>('cnt');
   }
@@ -212,9 +214,7 @@ extension AppDatabaseMemoryQueries on AppDatabase {
 
   /// Every ring in one chat, all owners (fork carry-over).
   Future<List<GrowthRingData>> getGrowthRingsForSession(String sessionId) =>
-      (select(
-        growthRings,
-      )..where((g) => g.sessionId.equals(sessionId))).get();
+      (select(growthRings)..where((g) => g.sessionId.equals(sessionId))).get();
 
   /// Re-key one owner's rings within a session (group⇄solo cast transitions —
   /// mirrors [reassignObjectives]).
@@ -222,19 +222,25 @@ extension AppDatabaseMemoryQueries on AppDatabase {
     String fromCharacterId,
     String toCharacterId, {
     required String sessionId,
-  }) => (update(growthRings)..where(
-    (g) =>
-        g.sessionId.equals(sessionId) &
-        g.characterId.equals(fromCharacterId),
-  )).write(GrowthRingsCompanion(characterId: Value(toCharacterId)));
+  }) =>
+      (update(growthRings)..where(
+            (g) =>
+                g.sessionId.equals(sessionId) &
+                g.characterId.equals(fromCharacterId),
+          ))
+          .write(GrowthRingsCompanion(characterId: Value(toCharacterId)));
 
   /// Delete one character's rings in one chat (hard cast-removal hygiene).
   Future<int> deleteGrowthRingsForCharacter(
     String sessionId,
     String characterId,
-  ) => (delete(growthRings)..where(
-    (g) => g.sessionId.equals(sessionId) & g.characterId.equals(characterId),
-  )).go();
+  ) =>
+      (delete(growthRings)..where(
+            (g) =>
+                g.sessionId.equals(sessionId) &
+                g.characterId.equals(characterId),
+          ))
+          .go();
 
   /// The growth pass cursor for a session (0 when no pass has run yet).
   Future<int> getGrowthCursor(String sessionId) async {
@@ -339,10 +345,11 @@ extension AppDatabaseMemoryQueries on AppDatabase {
     String toCharacterId, {
     required String chatId,
   }) async {
-    final n = await (update(objectives)
-          ..where((o) => o.characterId.equals(fromCharacterId))
-          ..where((o) => o.chatId.equals(chatId)))
-        .write(ObjectivesCompanion(characterId: Value(toCharacterId)));
+    final n =
+        await (update(objectives)
+              ..where((o) => o.characterId.equals(fromCharacterId))
+              ..where((o) => o.chatId.equals(chatId)))
+            .write(ObjectivesCompanion(characterId: Value(toCharacterId)));
     await bumpSyncVersion();
     return n;
   }
@@ -356,10 +363,13 @@ extension AppDatabaseMemoryQueries on AppDatabase {
     String toCharacterId, {
     required String chatId,
   }) async {
-    final n = await (update(messageEmbeddings)
-          ..where((e) => e.characterId.equals(fromCharacterId))
-          ..where((e) => e.sessionId.equals(chatId)))
-        .write(MessageEmbeddingsCompanion(characterId: Value(toCharacterId)));
+    final n =
+        await (update(messageEmbeddings)
+              ..where((e) => e.characterId.equals(fromCharacterId))
+              ..where((e) => e.sessionId.equals(chatId)))
+            .write(
+              MessageEmbeddingsCompanion(characterId: Value(toCharacterId)),
+            );
     await bumpSyncVersion();
     return n;
   }
@@ -379,10 +389,11 @@ extension AppDatabaseMemoryQueries on AppDatabase {
     required String toCharacterId,
     required String toSessionId,
   }) async {
-    final rows = await (select(messageEmbeddings)
-          ..where((e) => e.characterId.equals(fromCharacterId))
-          ..where((e) => e.sessionId.equals(fromSessionId)))
-        .get();
+    final rows =
+        await (select(messageEmbeddings)
+              ..where((e) => e.characterId.equals(fromCharacterId))
+              ..where((e) => e.sessionId.equals(fromSessionId)))
+            .get();
     if (rows.isEmpty) return 0;
     final copies = rows
         .map(

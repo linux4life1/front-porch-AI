@@ -182,6 +182,10 @@ extension _ChatPageOverlays on _ChatPageState {
               sessionId: chatService.currentSessionId,
               messages: messages,
               controller: _scrollController,
+              window: _transcriptWindow,
+              onNeedOlderHistory: chatService.hasOlderHistory
+                  ? () => chatService.loadOlderHistory()
+                  : null,
               replyStreaming: chatService.isGenerating,
               followStreamingReplies:
                   storageService.uiSettings.followStreamingReplies,

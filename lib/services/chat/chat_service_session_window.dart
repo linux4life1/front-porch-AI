@@ -49,6 +49,15 @@ extension ChatServiceSessionWindow on ChatService {
   /// hydrate after this returns, and a picker-owned load still has
   /// [loadSession] / [startNewChat] to run.
   Future<void> _openSessionMessages(String sessionId) async {
+    if (_history.backfill != null &&
+        _history.backfillSessionId == sessionId &&
+        _messages.isNotEmpty) {
+      debugPrint(
+        '[ChatOpen] keep tail; archive load already running '
+        'session=$sessionId n=${_messages.length}',
+      );
+      return;
+    }
     final sw = Stopwatch()..start();
     _history.reset();
     final tail = await _db.getMessagesTailForSession(
@@ -69,11 +78,21 @@ extension ChatServiceSessionWindow on ChatService {
     );
     if (_history.hasMore) {
       final epoch = _history.epoch;
+      _history.backfillSessionId = sessionId;
       _history.backfill = _runBackgroundBackfill(sessionId, epoch);
     }
   }
 
   Future<void> _runBackgroundBackfill(String sessionId, int epoch) async {
+    // The open path still has its own queries (scalars, worlds, quests).
+    // Starting the archive scan first queues those behind dozens of
+    // message reads and holds the loading cover over the whole chat.
+    while (_isLoadingSession &&
+        epoch == _history.epoch &&
+        _currentSessionId == sessionId) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    if (epoch != _history.epoch || _currentSessionId != sessionId) return;
     // One frame so ChatPage paints the tail before we decode the archive.
     await Future<void>.delayed(Duration.zero);
     final sw = Stopwatch()..start();
@@ -124,6 +143,13 @@ extension ChatServiceSessionWindow on ChatService {
     _history.basePosition = older.first.position;
     _history.hasMore =
         older.length == kSessionOlderPage && older.first.position > 0;
+    // After basePosition/hasMore so the last page sees a complete
+    // history. A bad stamp cast must not skip the rest of open.
+    try {
+      _backfillLoadedSlotClocks();
+    } catch (e, st) {
+      debugPrint('[Clock] page backfill failed: $e\n$st');
+    }
     return _history.hasMore;
   }
 

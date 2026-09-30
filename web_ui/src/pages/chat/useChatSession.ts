@@ -158,6 +158,7 @@ export function useChatSession() {
           if (!e.active) return null;
           const next = {
             phase: e.phase ?? '',
+            elapsed: e.elapsed,
             busyWith: e.busyWith ?? null,
             queued: e.queued ?? 0,
             promptCur: e.promptCur ?? null,
@@ -169,6 +170,7 @@ export function useChatSession() {
           };
           return prev &&
             prev.phase === next.phase &&
+            prev.elapsed === next.elapsed &&
             prev.busyWith === next.busyWith &&
             prev.queued === next.queued &&
             prev.promptCur === next.promptCur &&

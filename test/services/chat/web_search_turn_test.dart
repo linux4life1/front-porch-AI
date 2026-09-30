@@ -27,6 +27,7 @@
 //   * regen advertising the tool → generateWithToolsCalls increments
 //   * clerk inheriting user maxLength/temperature → eval-lane asserts go red
 //   * no-tool path skipping generateStream → streamPrompts empty (old bubble)
+//   * doorbell seeing the character prompt → latest-user-line assert goes red
 
 import 'dart:convert';
 import 'dart:io';
@@ -41,6 +42,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -159,10 +161,7 @@ void main() {
     };
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   GenerationParams? catalogParams() {
     for (var i = 0; i < llm.toolsPayloads.length; i++) {
@@ -298,7 +297,7 @@ void main() {
   });
 
   test(
-    'search-only generation advertises tools on the character prompt',
+    'search-only generation advertises tools on the latest user line',
     () async {
       await chat.setActiveCharacter(card());
       await chat.sendMessage('what is the weather in Spokane');
@@ -312,16 +311,16 @@ void main() {
         reason: 'web_search must be on a tools payload, not only report_ping',
       );
       expect(
-        searchParams!.prompt.trimRight(),
-        endsWith('Mara:'),
+        searchParams!.prompt.trim(),
+        'what is the weather in Spokane',
         reason:
-            'tools ride the real character completion (the Name: suffix), '
-            'not a stripped silent-check prompt',
+            'web_search doorbell sees the latest user line only, '
+            'not the character completion',
       );
       expect(
         searchParams.systemPrompt,
-        contains(kWebSearchCharacterLine),
-        reason: 'the standing after-search line stays on the character prompt',
+        kWebSearchDoorbellSystem,
+        reason: 'doorbell instruction is the lookup check, not the card',
       );
       expect(
         searchParams.prompt.toLowerCase(),
@@ -343,6 +342,19 @@ void main() {
       expect(searchParams.reasoningMaxTokens, 0);
       expect(searchParams.salvageReasoning, isFalse);
       expect(searchParams.stopSequences, isEmpty);
+      final mouth = mouthParams();
+      expect(mouth, isNotNull);
+      expect(
+        mouth!.prompt.trimRight(),
+        endsWith('Mara:'),
+        reason:
+            'after the doorbell, the mouth still completes on the Name: suffix',
+      );
+      expect(
+        mouth.systemPrompt,
+        contains(kWebSearchCharacterLine),
+        reason: 'the standing after-search line stays on the character prompt',
+      );
       expect(
         llm.streamPrompts.any(
           (p) =>

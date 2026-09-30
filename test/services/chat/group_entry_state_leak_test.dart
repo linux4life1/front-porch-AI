@@ -49,6 +49,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -88,10 +89,7 @@ void main() {
     await storage.initialized;
   }
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   /// A 1:1 host with the engine, Needs and Chaos all live — the chat the user
   /// is leaving.
@@ -145,87 +143,105 @@ void main() {
     );
   }
 
-  test('chance-time pressure from the last chat does not follow you in',
-      () async {
-    await boot();
-    await chat.setActiveCharacter(hostCard('char-leak-1'));
-    expect(chat.chaosModeService.chaosModeEnabled, isTrue);
+  test(
+    'chance-time pressure from the last chat does not follow you in',
+    () async {
+      await boot();
+      await chat.setActiveCharacter(hostCard('char-leak-1'));
+      expect(chat.chaosModeService.chaosModeEnabled, isTrue);
 
-    // A few turns of ambient pressure in the 1:1.
-    for (var i = 0; i < 3; i++) {
-      chat.checkAndTickChaosPressure();
-    }
-    expect(chat.chaosPressure, greaterThan(0));
+      // A few turns of ambient pressure in the 1:1.
+      for (var i = 0; i < 3; i++) {
+        chat.checkAndTickChaosPressure();
+      }
+      expect(chat.chaosPressure, greaterThan(0));
 
-    final group = await seedGroup('grp-leak-1', seeds: true);
-    await chat.setActiveGroup(group, groupRepo: GroupChatRepository(storage, db));
+      final group = await seedGroup('grp-leak-1', seeds: true);
+      await chat.setActiveGroup(
+        group,
+        groupRepo: GroupChatRepository(storage, db),
+      );
 
-    expect(
-      chat.chaosPressure,
-      0,
-      reason:
-          'the group never rolled a die — inherited pressure makes its very '
-          'first turns as likely to fire as the end of a long 1:1, and the '
-          'entry save bakes it onto the session row',
-    );
-    expect(
-      chat.chaosModeService.chaosModeEnabled,
-      isFalse,
-      reason: 'this group asked for Chaos off and the global default is off',
-    );
-    final row = await db.getSessionById(chat.currentSessionId!);
-    expect(row?.chaosPressure, 0);
-  });
+      expect(
+        chat.chaosPressure,
+        0,
+        reason:
+            'the group never rolled a die — inherited pressure makes its very '
+            'first turns as likely to fire as the end of a long 1:1, and the '
+            'entry save bakes it onto the session row',
+      );
+      expect(
+        chat.chaosModeService.chaosModeEnabled,
+        isFalse,
+        reason: 'this group asked for Chaos off and the global default is off',
+      );
+      final row = await db.getSessionById(chat.currentSessionId!);
+      expect(row?.chaosPressure, 0);
+    },
+  );
 
-  test('a group with no realism seeds does not inherit the 1:1 engine/needs',
-      () async {
-    await boot();
-    await chat.setActiveCharacter(hostCard('char-leak-2'));
-    expect(chat.realismEnabled, isTrue);
-    expect(chat.needsSimEnabled, isTrue);
+  test(
+    'a group with no realism seeds does not inherit the 1:1 engine/needs',
+    () async {
+      await boot();
+      await chat.setActiveCharacter(hostCard('char-leak-2'));
+      expect(chat.realismEnabled, isTrue);
+      expect(chat.needsSimEnabled, isTrue);
 
-    final group = await seedGroup('grp-leak-2', seeds: false);
-    await chat.setActiveGroup(group, groupRepo: GroupChatRepository(storage, db));
+      final group = await seedGroup('grp-leak-2', seeds: false);
+      await chat.setActiveGroup(
+        group,
+        groupRepo: GroupChatRepository(storage, db),
+      );
 
-    expect(
-      chat.realismEnabled,
-      isFalse,
-      reason:
-          'nothing in this group asked for the engine — it ran (and paid for '
-          'per-turn evals) only because the previous chat had it on',
-    );
-    expect(chat.needsSimEnabled, isFalse);
-    final row = await db.getSessionById(chat.currentSessionId!);
-    expect(row?.realismEnabled, isFalse);
-    expect(row?.needsSimEnabled, isFalse);
-  });
+      expect(
+        chat.realismEnabled,
+        isFalse,
+        reason:
+            'nothing in this group asked for the engine — it ran (and paid for '
+            'per-turn evals) only because the previous chat had it on',
+      );
+      expect(chat.needsSimEnabled, isFalse);
+      final row = await db.getSessionById(chat.currentSessionId!);
+      expect(row?.realismEnabled, isFalse);
+      expect(row?.needsSimEnabled, isFalse);
+    },
+  );
 
-  test('the global Needs switch vetoes a group the same way it vetoes a 1:1',
-      () async {
-    await boot(needsGlobal: false);
-    final group = await seedGroup('grp-leak-3', seeds: true);
-    await chat.setActiveGroup(group, groupRepo: GroupChatRepository(storage, db));
+  test(
+    'the global Needs switch vetoes a group the same way it vetoes a 1:1',
+    () async {
+      await boot(needsGlobal: false);
+      final group = await seedGroup('grp-leak-3', seeds: true);
+      await chat.setActiveGroup(
+        group,
+        groupRepo: GroupChatRepository(storage, db),
+      );
 
-    expect(
-      chat.realismEnabled,
-      isTrue,
-      reason: 'the Needs veto must not take the whole engine with it',
-    );
-    expect(
-      chat.needsSimEnabled,
-      isFalse,
-      reason:
-          'Porch Life → Needs off must mean off in groups too; before the fix '
-          'the switch was silently 1:1-only',
-    );
-    final row = await db.getSessionById(chat.currentSessionId!);
-    expect(row?.needsSimEnabled, isFalse);
-  });
+      expect(
+        chat.realismEnabled,
+        isTrue,
+        reason: 'the Needs veto must not take the whole engine with it',
+      );
+      expect(
+        chat.needsSimEnabled,
+        isFalse,
+        reason:
+            'Porch Life → Needs off must mean off in groups too; before the fix '
+            'the switch was silently 1:1-only',
+      );
+      final row = await db.getSessionById(chat.currentSessionId!);
+      expect(row?.needsSimEnabled, isFalse);
+    },
+  );
 
   test('with the global ON the member seeds still turn Needs on', () async {
     await boot();
     final group = await seedGroup('grp-leak-4', seeds: true);
-    await chat.setActiveGroup(group, groupRepo: GroupChatRepository(storage, db));
+    await chat.setActiveGroup(
+      group,
+      groupRepo: GroupChatRepository(storage, db),
+    );
 
     expect(
       chat.needsSimEnabled,

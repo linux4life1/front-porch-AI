@@ -90,6 +90,10 @@ void main() {
       // entering it resets realism. setRealismEnabled(false) below is what
       // actually guarantees the state under test.
       'realism_default': false,
+      // Clock evals are gated on Porch Life PoT, not Realism. This
+      // journey asserts no evals and a frozen clock, so PoT must be
+      // off too — otherwise the time-only call is intended.
+      'passage_of_time_default': false,
     });
 
     app.main(const []);
@@ -195,14 +199,14 @@ void main() {
           'made — ${backend.evalRequests} were',
     );
 
-    // ── 3. The story clock is gated on realism, so it must be frozen ────
+    // ── 3. The story clock is gated on Porch Life PoT (off above) ────
     expect(
       time.clock,
       before.clock,
       reason:
-          'the story clock advanced with realism OFF. It is gated on the '
-          'master switch, so either the gate broke or the clock found '
-          'another way to move.',
+          'the story clock advanced with Passage of Time OFF. Porch Life '
+          'PoT is the only clock control, so either that gate broke or '
+          'the clock found another way to move.',
     );
     expect(time.dayCount, before.day);
 
@@ -223,5 +227,107 @@ void main() {
           'with the engine off the sidebar must explain itself instead of '
           'presenting stale bond/trust/mood values as current',
     );
+  });
+
+  testWidgets('Realism off with Passage of Time on runs exactly one time eval', (
+    tester,
+  ) async {
+    try {
+      final probe = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        5001,
+        timeout: const Duration(milliseconds: 500),
+      );
+      probe.destroy();
+      fail('Something is listening on 127.0.0.1:5001 — close it first.');
+    } on SocketException {
+      // Nothing there — safe.
+    }
+
+    final sandbox = Directory.systemTemp.createTempSync('fpai_realism_off_t1_');
+    PathProviderPlatform.instance = SandboxPathProvider(sandbox.path);
+    final backend = await FakeBackendServer.start(replyPieces: _kReplyPieces);
+    addTearDown(() async => backend.close());
+    SharedPreferences.setMockInitialValues({
+      'update_auto_check': false,
+      'import_llmerta_porch_memories': false,
+      'backend_type': 'openRouter',
+      'remote_api_url': '${backend.baseUrl}/v1',
+      'remote_model_name': 'smoke-model',
+      'realism_default': false,
+      'passage_of_time_default': true,
+    });
+
+    app.main(const []);
+    await pumpUntilFound(tester, find.byType(MainLayout));
+    try {
+      await windowManager.setAlwaysOnTop(true);
+      await windowManager.setSize(const Size(1200, 800));
+      await windowManager.setAlignment(Alignment.bottomRight);
+      await windowManager.blur();
+    } catch (e) {
+      debugPrint('[e2e] window_manager placement skipped: $e');
+    }
+    await tester.pump(const Duration(seconds: 2));
+
+    final ctx = tester.element(find.byType(MainLayout));
+    final chatService = Provider.of<ChatService>(ctx, listen: false);
+
+    final character = CharacterCard(
+      name: 'Quiet Companion',
+      description: 'Exists only inside the realism-off PoT-on journey.',
+      firstMessage: _kGreeting,
+    );
+    await Provider.of<CharacterRepository>(
+      ctx,
+      listen: false,
+    ).addCharacter(character);
+    await chatService.setActiveCharacter(character);
+    chatService.setRealismEnabled(false);
+    await chatService.setPassageOfTimeEnabled(true);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(chatService.realismEnabled, isFalse);
+    expect(chatService.timeService.passageOfTimeEnabled, isTrue);
+
+    // ignore: use_build_context_synchronously — ctx is the root MainLayout element.
+    Navigator.of(ctx).push(MaterialPageRoute(builder: (_) => const ChatPage()));
+
+    final d = ChatDriver(tester, chatService, backend);
+    await d.waitForWidget(find.textContaining(_kGreeting, findRichText: true));
+    await d.waitForWidget(d.input);
+    await d.waitSendable();
+
+    final rel = chatService.relationshipService;
+    final time = chatService.timeService;
+    final evalsBefore = backend.evalRequests;
+    final before = (
+      bond: rel.affectionScore,
+      trust: rel.trustLevel,
+      clock: time.clock,
+    );
+
+    await d.sendMessage('Just talking, the porch clock still ticks.');
+    await d.waitForWidget(
+      find.textContaining(_kReplyPieces.join(), findRichText: true),
+    );
+    await d.waitSendable();
+
+    expect(
+      backend.evalRequests,
+      evalsBefore + 1,
+      reason: 'Realism off + PoT on is exactly one time-only eval per send',
+    );
+    expect(backend.evalBodies, isNotEmpty);
+    final prompt = backend.evalBodies.last;
+    expect(prompt, contains('minutes_elapsed'));
+    expect(prompt, isNot(contains('relationship_delta')));
+    expect(prompt, isNot(contains('hunger_delta')));
+    expect(
+      time.clock.isAfter(before.clock),
+      isTrue,
+      reason: 'PoT on must still advance the story clock with Realism off',
+    );
+    expect(rel.affectionScore, before.bond);
+    expect(rel.trustLevel, before.trust);
   });
 }

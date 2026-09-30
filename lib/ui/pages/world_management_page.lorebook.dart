@@ -23,6 +23,26 @@ part of 'world_management_page.dart';
 /// list (enable/disable, edit, delete). [draft.editingEntries] is the
 /// shared edit-session copy (see world_management_page.dialog.dart).
 extension _WorldLorebookSection on _WorldManagementPageState {
+  /// Copy ticked entries from one character into the place draft.
+  /// The character's book is left as it was.
+  Future<void> _importLoreFromCharacter(
+    BuildContext dialogContext,
+    _WorldDraft draft,
+    StateSetter setDialogState,
+  ) async {
+    final repo = Provider.of<CharacterRepository>(dialogContext, listen: false);
+    final pick = await showPickCharacterLoreEntriesDialog(
+      context: dialogContext,
+      characters: repo.characters,
+    );
+    if (pick == null || pick.entries.isEmpty || !dialogContext.mounted) {
+      return;
+    }
+    setDialogState(() {
+      draft.editingEntries.addAll(pick.entries);
+    });
+  }
+
   Widget _buildLorebookSection(
     BuildContext ctx,
     _WorldDraft draft,
@@ -33,15 +53,11 @@ extension _WorldLorebookSection on _WorldManagementPageState {
         color: AppColors.resolve(
           ctx,
           AppColors.surfaceContainer.withValues(alpha: 0.3),
-          AppColors.surfaceContainerLight.withValues(
-            alpha: 0.6,
-          ),
+          AppColors.surfaceContainerLight.withValues(alpha: 0.6),
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.borderOf(
-            ctx,
-          ).withValues(alpha: 0.2),
+          color: AppColors.borderOf(ctx).withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -51,31 +67,46 @@ extension _WorldLorebookSection on _WorldManagementPageState {
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.library_books,
-                      size: 18,
-                      color: const Color(0xFF10B981),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Lorebook Entries (${draft.editingEntries.length})',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary(ctx),
-                      ),
-                    ),
-                  ],
+                Icon(
+                  Icons.library_books,
+                  size: 18,
+                  color: const Color(0xFF10B981),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Lorebook Entries (${draft.editingEntries.length})',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary(ctx),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      _importLoreFromCharacter(ctx, draft, setDialogState),
+                  icon: const Icon(Icons.person_search, size: 16),
+                  label: const Text('From character'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textPrimary(ctx),
+                    side: BorderSide(color: AppColors.borderOf(ctx)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    textStyle: const TextStyle(fontSize: 12),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () async {
-                    final result =
-                        await showLorebookEntryDialog(
+                    final result = await showLorebookEntryDialog(
                       context: ctx,
                       showEnabled: true,
                     );
@@ -88,17 +119,13 @@ extension _WorldLorebookSection on _WorldManagementPageState {
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add Entry'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(
-                      0xFF10B981,
-                    ),
+                    backgroundColor: const Color(0xFF10B981),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 6,
                     ),
-                    textStyle: const TextStyle(
-                      fontSize: 12,
-                    ),
+                    textStyle: const TextStyle(fontSize: 12),
                   ),
                 ),
               ],
@@ -108,26 +135,18 @@ extension _WorldLorebookSection on _WorldManagementPageState {
           // Entries list
           if (draft.editingEntries.isEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                20,
-                0,
-                20,
-                20,
-              ),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: AppColors.resolve(
                     ctx,
                     Colors.white.withValues(alpha: 0.02),
-                    AppColors.surfaceContainerLight
-                        .withValues(alpha: 0.4),
+                    AppColors.surfaceContainerLight.withValues(alpha: 0.4),
                   ),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppColors.borderOf(
-                      ctx,
-                    ).withValues(alpha: 0.3),
+                    color: AppColors.borderOf(ctx).withValues(alpha: 0.3),
                   ),
                 ),
                 child: Column(
@@ -140,9 +159,7 @@ extension _WorldLorebookSection on _WorldManagementPageState {
                     const SizedBox(height: 8),
                     Text(
                       'No lorebook entries yet',
-                      style: TextStyle(
-                        color: AppColors.textSecondary(ctx),
-                      ),
+                      style: TextStyle(color: AppColors.textSecondary(ctx)),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -163,30 +180,24 @@ extension _WorldLorebookSection on _WorldManagementPageState {
               final e = entry.value;
 
               return Container(
-                margin: const EdgeInsets.fromLTRB(
-                  20, 0, 20, 12,
-                ),
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.resolve(
                     ctx,
                     Colors.white.withValues(alpha: 0.02),
-                    AppColors.surfaceContainerLight
-                        .withValues(alpha: 0.4),
+                    AppColors.surfaceContainerLight.withValues(alpha: 0.4),
                   ),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     width: 1.5,
                     color: e.enabled
-                        ? const Color(0xFF10B981)
-                            .withValues(alpha: 0.2)
-                        : AppColors.borderOf(ctx)
-                            .withValues(alpha: 0.3),
+                        ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                        : AppColors.borderOf(ctx).withValues(alpha: 0.3),
                   ),
                 ),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -194,54 +205,40 @@ extension _WorldLorebookSection on _WorldManagementPageState {
                           child: Text(
                             e.displayName,
                             style: TextStyle(
-                              color: AppColors.textPrimary(
-                                ctx,
-                              ),
+                              color: AppColors.textPrimary(ctx),
                               fontWeight: FontWeight.w500,
                               fontSize: 13,
                             ),
                             maxLines: 1,
-                            overflow:
-                                TextOverflow.ellipsis,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (e.constant)
-                          _buildBadge(
-                            ctx,
-                            'Always Active',
-                            Colors.amberAccent,
-                          ),
+                          _buildBadge(ctx, 'Always Active', Colors.amberAccent),
                         if (!e.constant)
                           _buildBadge(
                             ctx,
                             'Depth ${e.stickyDepth}',
-                            Colors.blueAccent, // theme-keep: lorebook always-on vs enabled 2-state marker (pre-existing, moved verbatim in the god-file split)
+                            Colors
+                                .blueAccent, // theme-keep: lorebook always-on vs enabled 2-state marker (pre-existing, moved verbatim in the god-file split)
                           ),
                         const SizedBox(width: 4),
                         IconButton(
                           icon: Icon(
-                            e.enabled
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                            e.enabled ? Icons.visibility : Icons.visibility_off,
                             size: 16,
                             color: e.enabled
                                 ? const Color(0xFF10B981)
-                                : AppColors.textTertiary(
-                                    ctx,
-                                  ),
+                                : AppColors.textTertiary(ctx),
                           ),
-                          tooltip: e.enabled
-                              ? 'Disable entry'
-                              : 'Enable entry',
+                          tooltip: e.enabled ? 'Disable entry' : 'Enable entry',
                           onPressed: () {
                             setDialogState(() {
                               e.enabled = !e.enabled;
                             });
                           },
-                          visualDensity:
-                              VisualDensity.compact,
-                          constraints:
-                              const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(),
                           padding: const EdgeInsets.all(4),
                         ),
                         IconButton(
@@ -252,23 +249,19 @@ extension _WorldLorebookSection on _WorldManagementPageState {
                           ),
                           tooltip: 'Edit entry',
                           onPressed: () async {
-                            final result =
-                                await showLorebookEntryDialog(
+                            final result = await showLorebookEntryDialog(
                               context: ctx,
                               existing: e,
                               showEnabled: true,
                             );
                             if (result != null) {
                               setDialogState(() {
-                                draft.editingEntries[idx] =
-                                    result;
+                                draft.editingEntries[idx] = result;
                               });
                             }
                           },
-                          visualDensity:
-                              VisualDensity.compact,
-                          constraints:
-                              const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(),
                           padding: const EdgeInsets.all(4),
                         ),
                         IconButton(
@@ -283,10 +276,8 @@ extension _WorldLorebookSection on _WorldManagementPageState {
                               draft.editingEntries.removeAt(idx);
                             });
                           },
-                          visualDensity:
-                              VisualDensity.compact,
-                          constraints:
-                              const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(),
                           padding: const EdgeInsets.all(4),
                         ),
                       ],
@@ -296,9 +287,7 @@ extension _WorldLorebookSection on _WorldManagementPageState {
                       Text(
                         e.key,
                         style: TextStyle(
-                          color: AppColors.textSecondary(
-                            ctx,
-                          ),
+                          color: AppColors.textSecondary(ctx),
                           fontSize: 11,
                         ),
                         maxLines: 1,
@@ -312,9 +301,7 @@ extension _WorldLorebookSection on _WorldManagementPageState {
                             ? '${e.content.substring(0, 150)}...'
                             : e.content,
                         style: TextStyle(
-                          color: AppColors.textSecondary(
-                            ctx,
-                          ),
+                          color: AppColors.textSecondary(ctx),
                           fontSize: 11,
                         ),
                         maxLines: 1,

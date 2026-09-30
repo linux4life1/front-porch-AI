@@ -46,6 +46,8 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 
+import '../../helpers/chat_db_teardown.dart';
+
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -80,55 +82,59 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
 
-  test('a failed generation still says __DONE__ on the sentence stream', () async {
-    HttpOverrides.global = null;
-    SharedPreferences.setMockInitialValues({'update_auto_check': false});
-    final db = AppDatabase.forTesting();
-    final storage = StorageService();
-    final chat =
-        ChatService(
-            KoboldService(storage),
-            UserPersonaService(db),
-            storage,
-            WorldRepository(storage, db),
-          )
-          ..setDatabase(db)
-          ..setCharacterRepository(CharacterRepository(db, storage))
-          ..testLlmServiceOverride = _FailingLlm();
-    await storage.initialized;
+  test(
+    'a failed generation still says __DONE__ on the sentence stream',
+    () async {
+      HttpOverrides.global = null;
+      SharedPreferences.setMockInitialValues({'update_auto_check': false});
+      final db = AppDatabase.forTesting();
+      final storage = StorageService();
+      final chat =
+          ChatService(
+              KoboldService(storage),
+              UserPersonaService(db),
+              storage,
+              WorldRepository(storage, db),
+            )
+            ..setDatabase(db)
+            ..setCharacterRepository(CharacterRepository(db, storage))
+            ..testLlmServiceOverride = _FailingLlm();
+      await storage.initialized;
 
-    await chat.setActiveCharacter(
-      CharacterCard(
-        name: 'Nia',
-        description: 'Exists only inside the error-stream test.',
-        firstMessage: 'The screen door bangs shut behind you.',
-      )..dbId = 'char-errstream',
-    );
+      await chat.setActiveCharacter(
+        CharacterCard(
+          name: 'Nia',
+          description: 'Exists only inside the error-stream test.',
+          firstMessage: 'The screen door bangs shut behind you.',
+        )..dbId = 'char-errstream',
+      );
 
-    // Exactly what the call overlay does: it closes its controller on
-    // '__DONE__', and TTS blocks until that happens.
-    final done = Completer<void>();
-    final sub = chat.sentenceStream.listen((s) {
-      if (s == '__DONE__' && !done.isCompleted) done.complete();
-    });
+      // Exactly what the call overlay does: it closes its controller on
+      // '__DONE__', and TTS blocks until that happens.
+      final done = Completer<void>();
+      final sub = chat.sentenceStream.listen((s) {
+        if (s == '__DONE__' && !done.isCompleted) done.complete();
+      });
 
-    await chat.sendMessage('Are you there?');
+      await chat.sendMessage('Are you there?');
 
-    expect(
-      chat.messages.last.sender,
-      'System',
-      reason: 'the turn really did take the error branch (not the cancel one)',
-    );
-    await expectLater(
-      done.future.timeout(const Duration(seconds: 5)),
-      completes,
-      reason:
-          'THE BUG: the error branch signalled only the TOKEN stream, so the '
-          'voice call sat in `await for` forever on any non-socket failure.',
-    );
+      expect(
+        chat.messages.last.sender,
+        'System',
+        reason:
+            'the turn really did take the error branch (not the cancel one)',
+      );
+      await expectLater(
+        done.future.timeout(const Duration(seconds: 5)),
+        completes,
+        reason:
+            'THE BUG: the error branch signalled only the TOKEN stream, so the '
+            'voice call sat in `await for` forever on any non-socket failure.',
+      );
 
-    await sub.cancel();
-    chat.dispose();
-    await db.close();
-  }, timeout: const Timeout(Duration(minutes: 1)));
+      await sub.cancel();
+      await disposeChatThenCloseDb(chat, db);
+    },
+    timeout: const Timeout(Duration(minutes: 1)),
+  );
 }

@@ -53,6 +53,15 @@ extension _ImageGenComfy on ImageGenService {
       final storedSeed = effectiveSeed == -1
           ? Random().nextInt(1 << 31)
           : effectiveSeed;
+      final editName = comfyTemplateNameFor(settings.comfyEditWorkflowId);
+      final editTemplate = editName == null
+          ? null
+          : await comfy.fetchTemplateJson(
+              editName,
+              preferUserdata: comfyTemplatePrefersUserdata(
+                settings.comfyEditWorkflowId,
+              ),
+            );
       final req = resolveComfyEditRequest(
         workflowId: settings.comfyEditWorkflowId,
         uploadedWorkflowJson: settings.comfyEditUploadedWorkflow,
@@ -64,6 +73,9 @@ extension _ImageGenComfy on ImageGenService {
         cfg: settings.editCfgScale,
         denoise: editStrength ?? kEditRecommendedStrength,
         shift: settings.editShift,
+        width: width,
+        height: height,
+        liveTemplate: editTemplate,
       );
       if (req == null) {
         throw Exception(
@@ -82,7 +94,12 @@ extension _ImageGenComfy on ImageGenService {
     final liveName = comfyTemplateNameFor(settings.comfyCreateWorkflowId);
     Map<String, dynamic>? liveTemplate;
     if (liveName != null) {
-      liveTemplate = await comfy.fetchTemplateJson(liveName);
+      liveTemplate = await comfy.fetchTemplateJson(
+        liveName,
+        preferUserdata: comfyTemplatePrefersUserdata(
+          settings.comfyCreateWorkflowId,
+        ),
+      );
     }
     final req = resolveComfyCreateRequest(
       workflowId: settings.comfyCreateWorkflowId,
@@ -108,28 +125,6 @@ extension _ImageGenComfy on ImageGenService {
         'template (and its model files) in Image Studio, or upload one.',
       );
     }
-    if (req.useCheckpointBuilder) {
-      if (req.checkpoint.isEmpty) {
-        throw Exception('Select a checkpoint model for ComfyUI first.');
-      }
-      return comfy.generateImage(
-        prompt: prompt,
-        negativePrompt: negativePrompt,
-        model: req.checkpoint,
-        width: width,
-        height: height,
-        steps: settings.imageGenSteps,
-        cfgScale: settings.imageGenCfgScale,
-        seed: effectiveSeed,
-        samplerName: sampler,
-        scheduler: scheduler,
-        loraName: settings.imageGenLora,
-        loraWeight: settings.imageGenLoraWeight,
-        referenceImageBytes: referenceImage,
-        denoise: denoise ?? settings.imageGenDenoise,
-        onProgress: _updateGenProgress,
-      );
-    }
 
     _statusMessage = 'Generating with ComfyUI...';
     _notify();
@@ -144,15 +139,26 @@ extension _ImageGenComfy on ImageGenService {
         vaeOutputIndex: req.vaeOutputIndex,
       );
     } else {
+      if (detectComfyTokens(template).contains(ComfyEditTokens.image)) {
+        throw Exception(
+          'ComfyUI Create workflow needs a reference image. Choose a '
+          'text-to-image Create family for a new portrait, or upload a '
+          'portrait and select this workflow in Edit for expressions.',
+        );
+      }
       values[ComfyEditTokens.denoise] = 1.0;
     }
-    if (settings.imageGenLora.isNotEmpty) {
-      template = spliceComfyLora(
+    final loraChain = [
+      for (final slot in settings.activeImageGenLoras)
+        (name: slot.file, weight: slot.weight),
+    ];
+    if (loraChain.isNotEmpty) {
+      template = spliceComfyLoraChain(
         template,
-        loraName: settings.imageGenLora,
-        loraWeight: settings.imageGenLoraWeight,
+        loras: loraChain,
         modelNodeId: req.modelNodeId,
         clipNodeId: req.clipNodeId,
+        clipOutputIndex: req.clipOutputIndex,
       );
     }
     final graph = substituteComfyWorkflow(template, values);

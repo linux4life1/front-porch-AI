@@ -23,6 +23,11 @@ int? _extractMinutes(String text) {
   return m == null ? null : int.tryParse(m.group(1)!);
 }
 
+bool _extractContinuousInstant(
+  String text,
+  bool? Function(String, String) extractJsonBool,
+) => extractJsonBool(text, 'continuous_instant') ?? false;
+
 /// LLM minutes decide + the posture-only post-gen pass.
 extension TimeServiceEval on TimeService {
   /// Fire one scene-time or posture eval through the shared tools-vs-text
@@ -101,14 +106,9 @@ extension TimeServiceEval on TimeService {
   /// is a PRE-generation optimisation and posture is no longer a
   /// pre-generation question.
   ///
-  /// [timeOnly] is the standalone clock: the Realism Engine is OFF and the
-  /// user opted the clock in anyway, so the prompt drops the scene framing
-  /// (mood, last known position, relationship tension) that nothing reads
-  /// with the engine off. Everything AFTER the eval is the shared code below:
-  /// the same [_extractMinutes], the same [_newDayCorroboration] guard, the
-  /// same [_applyElapsed] clamp/floor/backstop against the same clock. That
-  /// sharing is what makes engine-on and standalone advance identically for
-  /// an identical verdict, rather than by promise.
+  /// [timeOnly] drops scene framing (mood, stance, tension) when the
+  /// Realism Engine is off. Everything AFTER the eval is shared:
+  /// [_extractMinutes], [_newDayCorroboration], [_applyElapsed].
   Future<void> _evaluateTimeProgressAndPostureIfNeeded({
     required String charName,
     required String recent,
@@ -173,7 +173,14 @@ extension TimeServiceEval on TimeService {
     // Nothing to advance. Posture no longer falls back to this call — it has
     // its own post-generation pass above — so a frozen clock now costs the
     // user nothing at all rather than one posture request per turn.
-    if (!_passageOfTimeEnabled) return;
+    if (!passageOfTimeEnabled) {
+      debugPrint(
+        '[Clock] running=false source=$clockGateSource '
+        'porchLife=${getPorchLifePassageOfTime?.call()} '
+        'reason=porch_life_off',
+      );
+      return;
+    }
     if (skipClockAdvance) {
       debugPrint('[Realism:Time] follow-up speaker — clock already moved');
       return;
@@ -215,6 +222,7 @@ extension TimeServiceEval on TimeService {
       await _applyElapsed(
         minutes: _extractMinutes(text),
         newDay: saidNewDay && newDayCorroborated,
+        continuousInstant: _extractContinuousInstant(text, extractJsonBool),
       );
       if (!skipTodayEval) await _maybeApplyTodayEval(text);
       debugPrint(
@@ -223,27 +231,21 @@ extension TimeServiceEval on TimeService {
       return;
     }
 
-    // The two minutes_elapsed / new_day rules are written once and shared, so
-    // the standalone clock cannot be tuned apart from the engine's by someone
-    // editing one copy.
+    // One minutes_elapsed / new_day rubric, engine on or off.
     final plannerToday = getPlannerEnabled?.call() ?? false;
     final timeRules =
-        '1. "minutes_elapsed": how many in-story minutes passed during the reply that was JUST written (integer, 0-${StoryClock.maxMinutesPerTurn}). '
+        '1. "minutes_elapsed": how many in-story minutes passed during the completed reply that was JUST written (integer, 1-${StoryClock.maxMinutesPerTurn} for a finished spoken exchange). '
         'This sets the clock the NEXT speaker will be told. '
-        'Most conversational exchanges take 2-15 minutes; activities (a meal, a walk, a task, travel) take longer. '
-        'Use 0 ONLY when the scene is a continuous instant (mid-action, mid-sentence).\n'
-        '2. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise. '
+        'Most conversational exchanges take 2-15 minutes; if unsure, use 5. Activities (a meal, a walk, a task, travel) take longer. '
+        'Do NOT report 0 for a finished spoken reply.\n'
+        '2. "continuous_instant": true ONLY when the scene is one continuous instant (mid-action, mid-sentence, the same moment with no time passing). '
+        'A completed spoken reply is never a continuous instant. When true, minutes_elapsed is ignored and the clock stays still.\n'
+        '3. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise. '
         'Merely MENTIONING yesterday, tomorrow, or another day does NOT count — the characters must actually cross a night.\n'
-        '${plannerToday ? '3. "today_sentence": one sentence of what they are doing or planning today. '
+        '${plannerToday ? '4. "today_sentence": one sentence of what they are doing or planning today. '
                   'Empty or "none" abandons the current hold. Omit to keep it.\n' : ''}';
 
-    // ONE time prompt for both drivers. The engine adds its scene framing
-    // (mood, last known position, relationship tension); the standalone clock
-    // asks the question bare, because with the engine off nothing reads those
-    // scalars and paying tokens to restate them spends a user's budget on
-    // context nobody consumes. Neither asks for posture any more — see the
-    // ruling on this method: posture is about the reply that has not been
-    // written yet at this point in the turn.
+    // One time prompt. Engine-on adds scene framing; timeOnly asks bare.
     String buildPrompt({required bool toolsMode}) =>
         'You are evaluating how much story time just passed'
         '${timeOnly ? '' : ' for $charName'}.\n\n'
@@ -252,7 +254,7 @@ extension TimeServiceEval on TimeService {
         'Current story time: $displayClock on $narrativeWeekday, Day $dayCount.\n\n'
         '$timeRules\n'
         'Recent conversation:\n$recent\n\n'
-        '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "minutes_elapsed" and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "minutes_elapsed" and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. '
+        '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "minutes_elapsed", "continuous_instant", and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "minutes_elapsed", "continuous_instant", and "new_day"${plannerToday ? ' and "today_sentence"' : ''}. '
                   'Do NOT use markdown code blocks — return raw JSON only.'}';
 
     try {
@@ -279,6 +281,7 @@ extension TimeServiceEval on TimeService {
           await _applyElapsed(
             minutes: _extractMinutes(text),
             newDay: saidNewDay && newDayCorroborated,
+            continuousInstant: _extractContinuousInstant(text, extractJsonBool),
           );
         }
         if (!skipTodayEval) await _maybeApplyTodayEval(text);
@@ -286,8 +289,7 @@ extension TimeServiceEval on TimeService {
         await _applyElapsed(minutes: null, newDay: false);
       }
     } catch (e) {
-      // Eval failed — deterministic drift so time never freezes (unless the
-      // OOC skip already moved this turn's clock).
+      // Same fail-closed floor as a missing key or garbage JSON.
       if (!skipOwnsClock) {
         await _applyElapsed(minutes: null, newDay: false);
       }
@@ -295,8 +297,7 @@ extension TimeServiceEval on TimeService {
     }
 
     debugPrint(
-      '${timeOnly ? '[Clock:Standalone]' : '[Realism:Time]'} '
-      'Time: $displayClock $displayShortDate (Day $dayCount)',
+      '[Realism:Time] Time: $displayClock $displayShortDate (Day $dayCount)',
     );
   }
 }

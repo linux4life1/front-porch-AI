@@ -139,7 +139,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(gear.first, warnIfMissed: false);
     await d.waitForWidget(find.text('Needs Simulation'));
-    await d.waitForWidget(find.text('Automatic Passage of Time'));
     // Close the flyout again (same gear).
     await tester.tap(gear.first, warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 300));

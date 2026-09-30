@@ -6,7 +6,7 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, useLayoutEffect, useRef, type RefObject } from 'react';
+import { memo, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import {
   classifyTranscriptGrowth,
   followTranscriptWhileStreaming,
@@ -14,6 +14,7 @@ import {
   pinTranscriptToLatest,
   transcriptTipKey,
 } from '../pages/chat/transcriptAutoScroll';
+import { applyTranscriptSpan, revealOlderSpan, type TranscriptSpan } from '../pages/chat/transcriptWindow';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
 import { MessageActions } from './MessageActions';
@@ -28,6 +29,7 @@ import { canonicalizeReasoning } from '../utils/reasoningMarkers';
 /// flags promptDone only when the console confirmed completion.
 export type GenStatus = {
   phase: string;
+  elapsed?: number;
   busyWith: string | null;
   queued: number;
   promptCur: number | null;
@@ -94,7 +96,9 @@ function genStatusLabel(s: GenStatus): { label: string; fraction: number | null 
     };
   }
   if (s.phase === 'thinking') return { label: 'Model is thinking…', fraction: null };
-  return { label: 'Processing prompt…', fraction: null };
+  const secs =
+    s.elapsed != null && s.elapsed >= 1 ? ` (${Math.floor(s.elapsed)}s)` : '';
+  return { label: `Processing prompt…${secs}`, fraction: null };
 }
 
 type TranscriptProps = {
@@ -106,7 +110,12 @@ type TranscriptProps = {
   canSpeak: boolean;
   onBeginEdit: (m: Message) => void;
   onSwipe: (index: number, direction: number, critique?: string) => void;
-  onRegenerate: (critique?: string) => void;
+  onRegenerate: (
+    critique?: string,
+    lookup?: { source: 'web' | 'wiki'; query: string },
+  ) => void;
+  lookupWeb?: boolean;
+  lookupWiki?: boolean;
   onContinue: () => void;
   onFork: (index: number) => void;
   onDelete: (index: number) => void;
@@ -132,6 +141,8 @@ const TranscriptRows = memo(function TranscriptRows({
   onBeginEdit,
   onSwipe,
   onRegenerate,
+  lookupWeb,
+  lookupWiki,
   onContinue,
   onFork,
   onDelete,
@@ -180,7 +191,7 @@ const TranscriptRows = memo(function TranscriptRows({
               )}
               {m.text ? (
                 <MessageContent text={m.text} />
-              ) : !m.isUser && m.thinkingContent && !busy ? (
+              ) : !m.isUser && m.thinkingContent && !(busy && m.index === lastIndex) ? (
                 // Thought-only reply (the model spent its whole turn inside a
                 // <think> block): say so instead of a bare empty bubble.
                 <span className="muted small">
@@ -208,6 +219,8 @@ const TranscriptRows = memo(function TranscriptRows({
               userHasReplied={userHasReplied}
               onSwipe={onSwipe}
               onRegenerate={onRegenerate}
+              lookupWeb={lookupWeb}
+              lookupWiki={lookupWiki}
               onContinue={onContinue}
               onFork={() => onFork(m.index)}
               onEdit={() => onBeginEdit(m)}
@@ -241,15 +254,40 @@ export function ChatMessageList({
   const prevTip = useRef('');
   const prevLen = useRef(0);
   const prevHeight = useRef(0);
+  const spanRef = useRef<TranscriptSpan>({ start: 0, end: 0 });
+  const trackedFull = useRef(0);
+  const spanSession = useRef<string | null | undefined>(undefined);
+  const spanTip = useRef('');
+  const nearTop = useRef(false);
+  const wasNearTop = useRef(false);
+  const settled = useRef(false);
+  const [, bump] = useState(0);
+  const full = transcript.messages;
+  const fullTip = transcriptTipKey(full);
+  const opened = spanSession.current !== sessionId || trackedFull.current === 0;
+  const prepended =
+    !opened && full.length > trackedFull.current && fullTip === spanTip.current;
+  applyTranscriptSpan(spanRef.current, {
+    previousLength: trackedFull.current,
+    nextLength: full.length,
+    opened,
+    prepended,
+    nearTop: settled.current && nearTop.current,
+  });
+  if (opened) settled.current = false;
+  trackedFull.current = full.length;
+  spanTip.current = fullTip;
+  spanSession.current = sessionId ?? null;
+  const visible = full.slice(spanRef.current.start, spanRef.current.end);
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    const nextTip = transcriptTipKey(transcript.messages);
+    const nextTip = transcriptTipKey(visible);
     const kind = classifyTranscriptGrowth({
       sessionId,
       prevSession: pinnedOpen.current,
       prevLen: prevLen.current,
       prevTip: prevTip.current,
-      nextLen: transcript.messages.length,
+      nextLen: visible.length,
       nextTip,
     });
     if (kind === 'open' && el) {
@@ -264,13 +302,28 @@ export function ChatMessageList({
         previousHeight: prevHeight.current,
       });
     }
-    prevLen.current = transcript.messages.length;
+    prevLen.current = visible.length;
     prevTip.current = nextTip;
     prevHeight.current = el?.scrollHeight ?? 0;
-  }, [sessionId, transcript.messages, scrollRef, streaming, followStreamingReplies]);
+    settled.current = true;
+  }, [sessionId, visible, scrollRef, streaming, followStreamingReplies]);
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el || !settled.current) return;
+    const atTop = el.scrollTop <= 64;
+    const enteredTop = atTop && !wasNearTop.current;
+    nearTop.current = atTop;
+    wasNearTop.current = atTop;
+    if (!enteredTop) return;
+    if (revealOlderSpan(spanRef.current, trackedFull.current)) {
+      bump((n) => n + 1);
+      return;
+    }
+    onScroll?.();
+  };
   return (
-    <div className="chat-messages" ref={scrollRef} onScroll={onScroll}>
-      <TranscriptRows {...transcript} />
+    <div className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
+      <TranscriptRows {...transcript} messages={visible} />
       {streaming && (() => {
         // Separate a (possibly still-open) <think> block so reasoning streams
         // into a muted "thinking…" area and the reply shows below — mirrors how

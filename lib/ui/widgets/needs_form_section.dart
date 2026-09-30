@@ -29,8 +29,10 @@ class NeedsFormSection extends StatelessWidget {
   final ValueChanged<bool> onEnabledChanged;
   final bool enjoysLowHygiene;
   final ValueChanged<bool> onEnjoysLowHygieneChanged;
-  final int needsSimStrength;
-  final ValueChanged<int>? onNeedsSimStrengthChanged;
+  final String needsPace;
+  final ValueChanged<String>? onNeedsPaceChanged;
+  final List<String> needsOff;
+  final ValueChanged<List<String>>? onNeedsOffChanged;
 
   // Per-need baselines (0-100).
   final int baselineHunger;
@@ -48,30 +50,16 @@ class NeedsFormSection extends StatelessWidget {
   final int baselineComfort;
   final ValueChanged<int> onBaselineComfortChanged;
 
-  // Decay rates (per turn)
-  final int? decayHunger;
-  final ValueChanged<int>? onDecayHungerChanged;
-  final int? decayBladder;
-  final ValueChanged<int>? onDecayBladderChanged;
-  final int? decayEnergy;
-  final ValueChanged<int>? onDecayEnergyChanged;
-  final int? decaySocial;
-  final ValueChanged<int>? onDecaySocialChanged;
-  final int? decayFun;
-  final ValueChanged<int>? onDecayFunChanged;
-  final int? decayHygiene;
-  final ValueChanged<int>? onDecayHygieneChanged;
-  final int? decayComfort;
-  final ValueChanged<int>? onDecayComfortChanged;
-
   const NeedsFormSection({
     super.key,
     required this.enabled,
     required this.onEnabledChanged,
     required this.enjoysLowHygiene,
     required this.onEnjoysLowHygieneChanged,
-    required this.needsSimStrength,
-    this.onNeedsSimStrengthChanged,
+    this.needsPace = 'normal',
+    this.onNeedsPaceChanged,
+    this.needsOff = const [],
+    this.onNeedsOffChanged,
     required this.baselineHunger,
     required this.onBaselineHungerChanged,
     required this.baselineBladder,
@@ -86,20 +74,6 @@ class NeedsFormSection extends StatelessWidget {
     required this.onBaselineHygieneChanged,
     required this.baselineComfort,
     required this.onBaselineComfortChanged,
-    this.decayHunger,
-    this.onDecayHungerChanged,
-    this.decayBladder,
-    this.onDecayBladderChanged,
-    this.decayEnergy,
-    this.onDecayEnergyChanged,
-    this.decaySocial,
-    this.onDecaySocialChanged,
-    this.decayFun,
-    this.onDecayFunChanged,
-    this.decayHygiene,
-    this.onDecayHygieneChanged,
-    this.decayComfort,
-    this.onDecayComfortChanged,
   });
 
   @override
@@ -148,69 +122,64 @@ class NeedsFormSection extends StatelessWidget {
                 // Per-need baseline sliders
                 _needsSlider(
                   label: 'Hunger',
+                  needKey: 'hunger',
                   value: baselineHunger,
                   onChanged: onBaselineHungerChanged,
-                  decayValue: decayHunger,
-                  onDecayChanged: onDecayHungerChanged,
                   context: context,
                 ),
                 const SizedBox(height: 12),
                 _needsSlider(
                   label: 'Bladder',
+                  needKey: 'bladder',
                   value: baselineBladder,
                   onChanged: onBaselineBladderChanged,
-                  decayValue: decayBladder,
-                  onDecayChanged: onDecayBladderChanged,
                   context: context,
                 ),
                 const SizedBox(height: 12),
                 _needsSlider(
                   label: 'Energy',
+                  needKey: 'energy',
                   value: baselineEnergy,
                   onChanged: onBaselineEnergyChanged,
-                  decayValue: decayEnergy,
-                  onDecayChanged: onDecayEnergyChanged,
                   context: context,
                 ),
                 const SizedBox(height: 12),
                 _needsSlider(
                   label: 'Social',
+                  needKey: 'social',
                   value: baselineSocial,
                   onChanged: onBaselineSocialChanged,
-                  decayValue: decaySocial,
-                  onDecayChanged: onDecaySocialChanged,
                   context: context,
                 ),
                 const SizedBox(height: 12),
                 _needsSlider(
                   label: 'Fun',
+                  needKey: 'fun',
                   value: baselineFun,
                   onChanged: onBaselineFunChanged,
-                  decayValue: decayFun,
-                  onDecayChanged: onDecayFunChanged,
                   context: context,
                 ),
                 const SizedBox(height: 12),
                 _needsSlider(
                   label: 'Hygiene',
+                  needKey: 'hygiene',
                   value: baselineHygiene,
                   onChanged: onBaselineHygieneChanged,
-                  decayValue: decayHygiene,
-                  onDecayChanged: onDecayHygieneChanged,
                   context: context,
                 ),
                 const SizedBox(height: 12),
                 _needsSlider(
                   label: 'Comfort',
+                  needKey: 'comfort',
                   value: baselineComfort,
                   onChanged: onBaselineComfortChanged,
-                  decayValue: decayComfort,
-                  onDecayChanged: onDecayComfortChanged,
                   context: context,
                 ),
 
                 const SizedBox(height: 16),
-                Divider(color: AppColors.borderOf(context).withValues(alpha: 0.4)),
+                Divider(
+                  color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                ),
                 const SizedBox(height: 12),
 
                 // Enjoys low hygiene
@@ -225,29 +194,38 @@ class NeedsFormSection extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 16),
-                Divider(color: AppColors.borderOf(context).withValues(alpha: 0.4)),
+                Divider(
+                  color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                ),
                 const SizedBox(height: 12),
 
-                // Needs delta strength
-                if (onNeedsSimStrengthChanged != null) ...[
-                  Text(
-                    'Needs delta strength: $needsSimStrength x (1x baseline; 5x = 5× larger swings)',
-                    style: TextStyle(
-                      color: AppColors.textSecondary(context),
-                      fontSize: 12,
-                    ),
+                Text(
+                  'Pace',
+                  style: TextStyle(
+                    color: AppColors.textSecondary(context),
+                    fontSize: 12,
                   ),
-                  Slider(
-                    value: needsSimStrength.toDouble(),
-                    min: 1,
-                    max: 5,
-                    divisions: 4,
-                    label: '$needsSimStrength x',
-                    onChanged: (d) {
-                      onNeedsSimStrengthChanged?.call(d.round());
-                    },
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'How fast needs drop as time passes. A meal or a bath stays the same.',
+                  style: TextStyle(
+                    color: AppColors.textTertiary(context),
+                    fontSize: 11,
                   ),
-                ],
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'sloth', label: Text('Sloth')),
+                    ButtonSegment(value: 'normal', label: Text('Normal')),
+                    ButtonSegment(value: 'fast', label: Text('Fast')),
+                  ],
+                  selected: {needsPace},
+                  onSelectionChanged: onNeedsPaceChanged == null
+                      ? null
+                      : (next) => onNeedsPaceChanged!(next.first),
+                ),
               ],
             ],
           ),
@@ -258,12 +236,12 @@ class NeedsFormSection extends StatelessWidget {
 
   Widget _needsSlider({
     required String label,
+    required String needKey,
     required int value,
     required ValueChanged<int> onChanged,
-    int? decayValue,
-    ValueChanged<int>? onDecayChanged,
     required BuildContext context,
   }) {
+    final alive = !needsOff.contains(needKey);
     final mainSlider = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -286,13 +264,29 @@ class NeedsFormSection extends StatelessWidget {
                 fontSize: 12,
               ),
             ),
+            Switch(
+              value: alive,
+              onChanged: onNeedsOffChanged == null
+                  ? null
+                  : (next) {
+                      final off = [...needsOff];
+                      if (next) {
+                        off.remove(needKey);
+                      } else if (!off.contains(needKey)) {
+                        off.add(needKey);
+                      }
+                      onNeedsOffChanged!(off);
+                    },
+            ),
           ],
         ),
         const SizedBox(height: 4),
         SliderTheme(
           data: SliderThemeData(
             activeTrackColor: AppColors.emotionAccent,
-            inactiveTrackColor: AppColors.borderOf(context).withValues(alpha: 0.3),
+            inactiveTrackColor: AppColors.borderOf(
+              context,
+            ).withValues(alpha: 0.3),
             thumbColor: AppColors.emotionAccent,
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
@@ -309,75 +303,6 @@ class NeedsFormSection extends StatelessWidget {
       ],
     );
 
-    if (decayValue == null || onDecayChanged == null) {
-      return mainSlider;
-    }
-
-    String decayDescription;
-    if (decayValue == 0) {
-      decayDescription = 'Static (0)';
-    } else if (decayValue <= 2) {
-      decayDescription = 'Very Slow ($decayValue)';
-    } else if (decayValue <= 4) {
-      decayDescription = 'Slow ($decayValue)';
-    } else if (decayValue <= 7) {
-      decayDescription = 'Normal ($decayValue)';
-    } else if (decayValue <= 12) {
-      decayDescription = 'Fast ($decayValue)';
-    } else {
-      decayDescription = 'Very Fast ($decayValue)';
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        mainSlider,
-        Padding(
-          padding: const EdgeInsets.only(left: 12.0, right: 8.0, top: 2.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Decay Rate / Turn',
-                    style: TextStyle(
-                      color: AppColors.textSecondary(context).withValues(alpha: 0.7),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    decayDescription,
-                    style: TextStyle(
-                      color: AppColors.textSecondary(context).withValues(alpha: 0.7),
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-              SliderTheme(
-                data: SliderThemeData(
-                  activeTrackColor: AppColors.emotionAccent.withValues(alpha: 0.5),
-                  inactiveTrackColor: AppColors.borderOf(context).withValues(alpha: 0.15),
-                  thumbColor: AppColors.emotionAccent.withValues(alpha: 0.7),
-                  trackHeight: 2,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                ),
-                child: Slider(
-                  value: decayValue.toDouble(),
-                  min: 0,
-                  max: 20,
-                  divisions: 20,
-                  onChanged: (d) => onDecayChanged(d.round()),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    return mainSlider;
   }
 }

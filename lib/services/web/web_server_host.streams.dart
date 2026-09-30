@@ -130,7 +130,9 @@ extension WebServerHostStreams on WebServerHost {
         // Server-side interpolation between per-batch updates (same math as
         // the desktop bar) so web clients get a moving fraction without
         // doing their own estimation.
-        final perfSpeed = chatService.lastPerfData?['last_process_speed'];
+        final measured = chatService.prefillMetricsAreMeasured;
+        final speed = chatService.lastPerfData?['last_process_speed'];
+        final perfSpeed = measured ? speed : null;
         final estFraction = fresh
             ? live.estimatedPromptFraction(
                 tokensPerSecond: (perfSpeed is num && perfSpeed > 0)
@@ -142,6 +144,7 @@ extension WebServerHostStreams on WebServerHost {
           'event': 'gen_status',
           'active': true,
           'phase': chatService.generationPhase.name,
+          'elapsed': chatService.prefillElapsedSeconds,
           'busyWith': chatService.isSummaryGenerating
               ? 'journal'
               : (chatService.isGrowthPassRunning ? 'growth' : null),

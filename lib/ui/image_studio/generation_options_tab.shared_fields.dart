@@ -26,6 +26,12 @@ part of 'generation_options_tab.dart';
 /// is identical to when they lived inline. AppColors exclusive.
 extension _GenerationOptionsSharedFields on _GenerationOptionsTabState {
   Widget _buildSharedFields(StorageService st) {
+    final controls = imageSurfaceFor(
+      backend: ImageGenBackend.fromKey(st.imageGenSettings.imageGenBackend),
+      modelName: widget.editScoped
+          ? st.imageGenSettings.imageGenEditModel
+          : st.imageGenSettings.imageGenModel,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -129,22 +135,27 @@ extension _GenerationOptionsSharedFields on _GenerationOptionsTabState {
           ),
         ],
         const SizedBox(height: 6),
-        Text(
-          'Default Negative Prompt',
-          style: TextStyle(
-            color: AppColors.textSecondary(context),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+        if (controls.showNegative) ...[
+          Text(
+            'Default Negative Prompt',
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        TextField(
-          controller: _negativePromptController,
-          maxLines: 2,
-          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
-          decoration: _deco(hint: 'e.g. blurry...'),
-          onChanged: (v) => st.imageGenSettings.setImageGenNegativePrompt(v),
-        ),
-        const SizedBox(height: 8),
+          TextField(
+            controller: _negativePromptController,
+            maxLines: 2,
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontSize: 12,
+            ),
+            decoration: _deco(hint: 'e.g. blurry...'),
+            onChanged: (v) => st.imageGenSettings.setImageGenNegativePrompt(v),
+          ),
+          const SizedBox(height: 8),
+        ],
         Consumer<StorageService>(
           builder: (ctx, st2, c) {
             final local = st2.imageGenSettings.imageGenBackend != 'remote';

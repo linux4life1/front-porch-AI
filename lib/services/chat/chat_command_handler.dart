@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/lookup_force.dart';
 
 part 'chat_command_guest.dart';
 
@@ -207,6 +208,16 @@ class ChatCommandHandler {
       '/image [me | char | raw <prompt> | <description>]',
       'Generate an image in chat — bare /image pictures the current scene',
     ),
+    SlashCommandInfo(
+      'search',
+      '/search -- <what to look up>',
+      'Look up these exact words on the web before she answers. Put your line first, then the command',
+    ),
+    SlashCommandInfo(
+      'wiki',
+      '/wiki -- <what to look up>',
+      'Look up these exact words in this chat\'s wiki. Put your line first, then the command',
+    ),
   ];
 
   /// Attempt to handle [rawInput] as a slash command.
@@ -277,6 +288,14 @@ class ChatCommandHandler {
 
       case 'afk':
         _handleAfk(args);
+        return true;
+
+      case 'search':
+      case 'wiki':
+        // The send path parses `/search -- words` before this handler. A bare
+        // command still has to count as recognized so the cheat sheet cannot
+        // advertise a command that falls through as chat text.
+        _onSystemMessage('⚠ $kLookupForceUsage');
         return true;
 
       case 'image':

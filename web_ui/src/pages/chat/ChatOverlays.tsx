@@ -11,6 +11,8 @@ import { ChanceTimeModal } from '../../components/ChanceTimeModal';
 import { ImagePromptReviewModal } from '../../components/ImagePromptReviewModal';
 import { MessageEditModal } from '../../components/MessageEditModal';
 import { api } from '../../api/client';
+import { type Message } from '../../components/chatTypes';
+import { useReprocessNeeds } from './useReprocessNeeds';
 
 export function ChatOverlays(props: {
   showPicker: boolean;
@@ -25,6 +27,7 @@ export function ChatOverlays(props: {
   onClosePersona: () => void;
   onPersonaChanged: () => void | Promise<void>;
   reprocessIndex: number | null;
+  messages: Message[];
   onSubmitReprocess: (critique: string, onlyNeeds: string[]) => Promise<void>;
   onCloseReprocess: () => void;
   chance: { event: string; revealed: boolean } | null;
@@ -45,6 +48,7 @@ export function ChatOverlays(props: {
     onClosePersona,
     onPersonaChanged,
     reprocessIndex,
+    messages,
     onSubmitReprocess,
     onCloseReprocess,
     chance,
@@ -52,6 +56,10 @@ export function ChatOverlays(props: {
     onAccept,
     imagePromptReview,
   } = props;
+  const { enabledNeeds, speaker, speakerName } = useReprocessNeeds(
+    reprocessIndex,
+    messages,
+  );
 
   return (
     <>
@@ -81,6 +89,9 @@ export function ChatOverlays(props: {
 
       {reprocessIndex !== null && (
         <ReprocessNeedsModal
+          enabledNeeds={enabledNeeds}
+          speaker={speaker}
+          speakerName={speakerName}
           onSubmit={onSubmitReprocess}
           onClose={onCloseReprocess}
         />

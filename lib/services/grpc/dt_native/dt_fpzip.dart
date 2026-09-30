@@ -69,6 +69,27 @@ typedef _ReadD = int Function(Pointer<_FPZ>, Pointer<Void>);
 typedef _ReadCloseC = Void Function(Pointer<_FPZ>);
 typedef _ReadCloseD = void Function(Pointer<_FPZ>);
 
+/// `tools/fpzip` plus [libName] on [start] and its parents.
+///
+/// A debug app lives at build/macos/Build/Products/Debug/App.app/Contents/MacOS,
+/// eight directories below the repo. The walk has to clear that before it
+/// can see tools/fpzip.
+List<String> fpzipDevCandidates(
+  Directory start,
+  String libName, {
+  int hops = 12,
+}) {
+  final paths = <String>[];
+  var dir = start;
+  for (var i = 0; i < hops; i++) {
+    paths.add(p.join(dir.path, 'tools', 'fpzip', libName));
+    final parent = dir.parent;
+    if (parent.path == dir.path) break;
+    dir = parent;
+  }
+  return paths;
+}
+
 /// FFI binding to libfpzip (LLNL predictive float compressor) — decode only.
 /// Build the dylib on macOS with `scripts/build-fpzip-macos.sh`; in release
 /// bundles it ships in Contents/Frameworks/. Lazily loaded; all callers get
@@ -99,18 +120,15 @@ class DtFpzip {
     if (env != null && env.isNotEmpty) paths.add(env);
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     if (Platform.isMacOS) {
-      // .app bundle: Contents/MacOS/<exe> → Contents/Frameworks/
+      // Shipped and notarized builds: Contents/Frameworks, signed with the
+      // app. This stays ahead of any tools/fpzip walk.
       paths.add(p.join(File(exeDir).parent.path, 'Frameworks', _libName));
     }
     paths.add(p.join(exeDir, _libName));
-    // Dev (`flutter run` from the repo): walk up looking for tools/fpzip/.
-    var dir = Directory.current;
-    for (var i = 0; i < 8; i++) {
-      paths.add(p.join(dir.path, 'tools', 'fpzip', _libName));
-      final parent = dir.parent;
-      if (parent.path == dir.path) break;
-      dir = parent;
-    }
+    // `flutter run` puts the debug executable many levels under build/,
+    // and the process cwd is not always the repo. Walk both.
+    paths.addAll(fpzipDevCandidates(Directory(exeDir), _libName));
+    paths.addAll(fpzipDevCandidates(Directory.current, _libName));
     return paths;
   }
 

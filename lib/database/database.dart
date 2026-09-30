@@ -47,6 +47,8 @@ part 'database.queries.chat.dart';
 part 'database.queries.groups.dart';
 part 'database.queries.worlds.dart';
 part 'database.queries.memory.dart';
+part 'database.queries.objectives_rekey.dart';
+part 'database.queries.memory_rekey.dart';
 
 const _uuid = Uuid();
 
@@ -273,7 +275,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 52;
+  int get schemaVersion => 53;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

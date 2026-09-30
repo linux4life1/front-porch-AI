@@ -23,6 +23,8 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show kNeedsUnaffectedMeta;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/facade/chat_session_facade.dart';
@@ -104,7 +106,7 @@ class ChatFacade {
 
   /// The unified cast as JSON. Each entry carries enough to render a roster
   /// (avatar, role, emotion, next-up) and to scope the sidebar via [id]
-  /// (stableGroupId). Avatars resolve to the character endpoint for host/guests
+  /// ([groupMemberStoreId] in groups). Avatars resolve to the character endpoint for host/guests
   /// and the group-member endpoint for members.
   List<Map<String, dynamic>> _castJson() {
     final groupId = _chat.activeGroup?.id;
@@ -141,23 +143,42 @@ class ChatFacade {
       _realism.participantRealism(participantId);
 
   /// Extract the per-message Realism chip deltas from a message's active-swipe
-  /// metadata (the same keys the desktop bubble reads), omitting zeros/empties.
-  Map<String, dynamic>? _messageChips(Map<String, dynamic>? md) {
+  /// metadata (the same keys the desktop bubble reads). Bond and trust keep
+  /// a recorded 0. Arousal still omits zero. A missing key stays omitted.
+  Map<String, dynamic>? _messageChips(Map<String, dynamic>? md, int index) {
     if (md == null) return null;
     final out = <String, dynamic>{};
     for (final entry in const {
       'bond_delta': 'bondDelta',
       'trust_delta': 'trustDelta',
-      'arousal_delta': 'arousalDelta',
     }.entries) {
       final v = md[entry.key];
-      if (v is int && v != 0) out[entry.value] = v;
+      if (v is int) out[entry.value] = v;
+    }
+    final arousal = md['arousal_delta'];
+    if (arousal is int && arousal != 0) out['arousalDelta'] = arousal;
+    // A scored reply with no stored bond/trust is a dropped zero. The
+    // bubble says "unchanged" instead of looking like the judge never ran.
+    final scored =
+        (md['emotion_label'] is String &&
+            (md['emotion_label'] as String).isNotEmpty) ||
+        md['needs_deltas'] is Map ||
+        md[kNeedsUnaffectedMeta] == true ||
+        (md['time_passed'] is String &&
+            (md['time_passed'] as String).isNotEmpty) ||
+        (md['time_skip_to'] is String &&
+            (md['time_skip_to'] as String).isNotEmpty) ||
+        md['realism_verification'] is Map;
+    if (scored) {
+      out.putIfAbsent('bondDelta', () => 0);
+      out.putIfAbsent('trustDelta', () => 0);
     }
     for (final entry in const {
       'emotion_label': 'emotionLabel',
       'bond_reason': 'bondReason',
       'trust_reason': 'trustReason',
       'time_skip_to': 'timeSkipTo',
+      'time_passed': 'timePassed',
       'chance_time_event': 'chanceTimeEvent',
     }.entries) {
       final v = md[entry.key];
@@ -183,19 +204,33 @@ class ChatFacade {
       });
       if (nz.isNotEmpty) out['needsDeltas'] = nz;
     }
-    // Director-redo affordances (mirrors message_bubble.dart): the message can be
-    // reprocessed when it carries a needs snapshot, and reverted when a
-    // pre-reprocess stash exists. The client additionally gates "reprocess" on
-    // this being the last, non-generating message (it already knows both).
-    final rs = md['realism_state'];
-    if (rs is Map && rs['needs'] != null) out['needsReprocessable'] = true;
+    // Director-redo affordances (mirrors message_bubble.dart): the message can
+    // be reprocessed when the service resolver is non-null (Needs on, at
+    // least one need enabled, group speaker resolved). The client still
+    // gates the button on last + not generating.
+    final target = _chat.reprocessNeedsTargetFor(index);
+    if (target != null) {
+      out['needsReprocessable'] = true;
+      out['enabledNeeds'] = target.enabled;
+      out['needsSpeaker'] = target.speaker;
+    }
     if (md['needs_deltas_pre_reprocess'] is Map) out['needsRevertable'] = true;
+    if (md[kNeedsUnaffectedMeta] == true) out['needsUnaffected'] = true;
     final search = md['search_receipt'];
     if (search is Map) {
       final q = (search['query'] as String?)?.trim() ?? '';
       if (q.isNotEmpty) {
         out['searchQuery'] = q;
         out['searchOk'] = search['ok'] == true;
+      }
+    }
+    final wiki = md['wiki_receipt'];
+    if (wiki is Map) {
+      final q = (wiki['query'] as String?)?.trim() ?? '';
+      final webQuery = (out['searchQuery'] as String?) ?? '';
+      if (q.isNotEmpty && q != webQuery) {
+        out['wikiQuery'] = q;
+        out['wikiOk'] = wiki['ok'] == true;
       }
     }
     final toolReceipt = md['tool_receipt'];
@@ -312,10 +347,16 @@ class ChatFacade {
     _notify();
   }
 
-  void regenerate({String? critique}) {
-    _chat.regenerateLastMessage(critique: critique);
+  void regenerate({String? critique, String? webQuery, String? wikiQuery}) {
+    _chat.regenerateLastMessage(
+      critique: critique,
+      webQuery: webQuery,
+      wikiQuery: wikiQuery,
+    );
     _notify();
   }
+
+  String? lookupCommandBlock(String text) => _chat.lookupCommandBlock(text);
 
   void continueGeneration() {
     _chat.continueGeneration();

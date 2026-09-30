@@ -17,6 +17,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -181,10 +182,7 @@ void main() {
     expect(llm!.kinds, isNot(contains('emotion')));
   }
 
-  tearDown(() async {
-    chat?.dispose();
-    await db?.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test('quiet pulse includes a soft Away member', () {
     final misty = CharacterCard(

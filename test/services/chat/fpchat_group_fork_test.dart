@@ -16,7 +16,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show Pockets, StoryClock;
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
@@ -24,6 +25,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -36,7 +38,10 @@ void _setupPathProviderMock() {
       });
 }
 
-String _memberExt({required List<String> worn, required List<String> carrying}) {
+String _memberExt({
+  required List<String> worn,
+  required List<String> carrying,
+}) {
   return jsonEncode({
     'realism_engine': {
       'realism_enabled': true,
@@ -66,23 +71,21 @@ void main() {
     await storage.realismSettings.setPocketsEnabled(true);
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<void> seedGroupSession({
     required String tipBlob,
     required List<
-            ({
-              String id,
-              int pos,
-              String sender,
-              bool isUser,
-              String text,
-              Map<String, dynamic>? realism
-            })>
-        messages,
+      ({
+        String id,
+        int pos,
+        String sender,
+        bool isUser,
+        String text,
+        Map<String, dynamic>? realism,
+      })
+    >
+    messages,
     required GroupRealismBlobs blobs,
   }) async {
     await db.insertGroup(
@@ -98,6 +101,7 @@ void main() {
         id: 'mem-ana',
         groupId: 'grp-fork',
         name: 'Ana',
+        avatarFilename: const Value('Ana.png'),
         frontPorchExtensions: Value(
           _memberExt(worn: const ['red scarf'], carrying: const ['house key']),
         ),
@@ -108,6 +112,7 @@ void main() {
         id: 'mem-bea',
         groupId: 'grp-fork',
         name: 'Bea',
+        avatarFilename: const Value('Bea.png'),
         frontPorchExtensions: Value(
           _memberExt(worn: const ['blue coat'], carrying: const ['notebook']),
         ),
@@ -254,7 +259,11 @@ void main() {
 
       expect(chat.getAffectionForGroupCharacter(ana), 200);
       expect(chat.getAffectionForGroupCharacter(bea), 180);
-      expect(chat.timeService.dayCount, 99);
+      expect(
+        chat.timeService.dayCount,
+        9,
+        reason: 'one-path load applies tip.after (Ana day 9), not session 99',
+      );
 
       await chat.forkFromMessage(4);
 
@@ -271,7 +280,8 @@ void main() {
       expect(
         chat.timeService.dayCount,
         9,
-        reason: 'nearest stamp from fork is Ana day 9 — NOT last-roster '
+        reason:
+            'nearest stamp from fork is Ana day 9 — NOT last-roster '
             'Bea day 40 (the pre-fix bug) and NOT tip 99',
       );
       expect(chat.timeService.timeOfDay, 'afternoon');
@@ -289,7 +299,7 @@ void main() {
   );
 
   test(
-    'group stamp-less fork reseeds bond from card and keeps wardrobe',
+    'group stamp-less fork at Day-99 tip reseeds bond and keeps Day 99',
     () async {
       final blobs = buildGroupRealismBlobs(
         seeds: {
@@ -360,8 +370,16 @@ void main() {
 
       final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
       final bea = chat.groupCharacters.firstWhere((c) => c.name == 'Bea');
-      expect(chat.timeService.dayCount, 99, reason: 'pre-fork tip poison');
+      // Transcript: [0 You first user, 1 Ana, 2 You tip]. Fork index 2
+      // is the tip, after the first user turn — Day 99, not the start.
+      expect(
+        chat.timeService.dayCount,
+        99,
+        reason: 'stamp-less Day-99 session stays Day 99 on load (not floored)',
+      );
       expect(chat.getAffectionForGroupCharacter(ana), 200);
+      final tipClock = chat.timeService.clock;
+      final tipStart = chat.timeService.startDate;
 
       await chat.forkFromMessage(2);
 
@@ -369,9 +387,12 @@ void main() {
       expect(chat.getAffectionForGroupCharacter(bea), 42);
       expect(
         chat.timeService.dayCount,
-        1,
-        reason: 'stamp-less uses group time seed (day 1), never tip 99',
+        99,
+        reason: 'fork at tip of a Day-99 chat lands on Day 99, not Day 1',
       );
+      expect(chat.timeService.clock, tipClock);
+      expect(chat.timeService.startDate, tipStart);
+      expect(chat.timeService.timeOfDay, 'night');
       expect(
         chat.pocketsFor(chat.characterIdFor(bea))?.worn.map((i) => i.name),
         contains('blue coat'),
@@ -468,7 +489,11 @@ void main() {
       expect(chat.getAffectionForGroupCharacter(ana), 35);
       final after = chat.getRealismStateForGroupCharacter(ana);
       final pockets = after?['pockets'];
-      expect(pockets, isNotNull, reason: 'HIDES≠erase: stamp-less reseed kept kit');
+      expect(
+        pockets,
+        isNotNull,
+        reason: 'HIDES≠erase: stamp-less reseed kept kit',
+      );
       expect(
         (pockets as Map)['worn']?.toString() ?? '',
         contains('acquired cloak'),
@@ -477,110 +502,217 @@ void main() {
     },
   );
 
-  test(
-    'group stamp-less with empty time blobs floors day to 1 (not tip 99)',
-    () async {
-      // Fix #2 of d285304d: parseGroupTimeSeed returns null when blobs are {}.
-      final emptyBlobs = const GroupRealismBlobs(
-        defaultMemberJson: '{}',
-        baselineJson: '{}',
-      );
-      // Still need perChar affection seeds for bond reseed — put them without
-      // top-level time so parseGroupTimeSeed is null.
-      final seedsOnly = jsonEncode({
-        'perChar': {
-          'Ana': {...defaultGroupMemberRealismSeed(), 'affection': 35}
-            ..remove('timeOfDay')
-            ..remove('dayCount'),
-          'Bea': {...defaultGroupMemberRealismSeed(), 'affection': 42}
-            ..remove('timeOfDay')
-            ..remove('dayCount'),
-        },
-      });
+  test('group stamp-less empty-blob fork at Day-99 tip stays Day 99', () async {
+    // Fix #2 of d285304d: parseGroupTimeSeed returns null when blobs are {}.
+    final emptyBlobs = const GroupRealismBlobs(
+      defaultMemberJson: '{}',
+      baselineJson: '{}',
+    );
+    // Still need perChar affection seeds for bond reseed — put them without
+    // top-level time so parseGroupTimeSeed is null.
+    final seedsOnly = jsonEncode({
+      'perChar': {
+        'Ana': {...defaultGroupMemberRealismSeed(), 'affection': 35}
+          ..remove('timeOfDay')
+          ..remove('dayCount'),
+        'Bea': {...defaultGroupMemberRealismSeed(), 'affection': 42}
+          ..remove('timeOfDay')
+          ..remove('dayCount'),
+      },
+    });
 
+    final tipBlob = jsonEncode({
+      'perChar': {
+        'Ana': {'affection': 200},
+        'Bea': {'affection': 180},
+      },
+    });
+
+    await db.insertGroup(
+      GroupsCompanion.insert(
+        id: 'grp-fork',
+        name: 'The Porch',
+        defaultMemberRealismState: Value(seedsOnly),
+        baselineRealismState: const Value('{}'),
+      ),
+    );
+    await db.insertGroupMember(
+      GroupMembersCompanion.insert(
+        id: 'mem-ana',
+        groupId: 'grp-fork',
+        name: 'Ana',
+        avatarFilename: const Value('Ana.png'),
+      ),
+    );
+    await db.insertGroupMember(
+      GroupMembersCompanion.insert(
+        id: 'mem-bea',
+        groupId: 'grp-fork',
+        name: 'Bea',
+        avatarFilename: const Value('Bea.png'),
+      ),
+    );
+    await db.insertSession(
+      SessionsCompanion.insert(
+        id: 'sess-gfork',
+        characterId: const Value('group_grp-fork'),
+        groupId: const Value('grp-fork'),
+        realismEnabled: const Value(true),
+        dayCount: const Value(99),
+        timeOfDay: const Value('night'),
+        groupRealismState: Value(tipBlob),
+      ),
+    );
+    await db.insertMessage(
+      MessagesCompanion.insert(
+        id: 'm0',
+        sessionId: 'sess-gfork',
+        position: 0,
+        sender: 'You',
+        isUser: true,
+        swipes: Value(jsonEncode(['hi'])),
+      ),
+    );
+    await db.insertMessage(
+      MessagesCompanion.insert(
+        id: 'm1',
+        sessionId: 'sess-gfork',
+        position: 1,
+        sender: 'Ana',
+        isUser: false,
+        swipes: Value(jsonEncode(['yo'])),
+      ),
+    );
+
+    await chat.setActiveGroup(
+      GroupChat(
+        id: 'grp-fork',
+        name: 'The Porch',
+        defaultMemberRealismState: seedsOnly,
+        baselineRealismState: emptyBlobs.baselineJson,
+      ),
+      groupRepo: GroupChatRepository(storage, db),
+    );
+
+    // Transcript: [0 You first user, 1 Ana tip]. Fork index 1 is the
+    // tip, after the first user turn — Day 99 of this chat.
+    expect(
+      chat.timeService.dayCount,
+      99,
+      reason: 'empty-blob Day-99 session stays Day 99 on load (not floored)',
+    );
+    final tipClock = chat.timeService.clock;
+    final anchorBefore = chat.timeService.storyStartDateIso;
+    await chat.forkFromMessage(1);
+    expect(
+      chat.timeService.dayCount,
+      99,
+      reason: 'fork at tip of a Day-99 chat lands on Day 99, not Day 1',
+    );
+    expect(chat.timeService.clock, tipClock);
+    expect(chat.timeService.timeOfDay, 'night');
+    expect(
+      chat.timeService.storyStartDateIso,
+      anchorBefore,
+      reason: 'tip-fork keeps the Day-99 start — never re-anchor on today',
+    );
+  });
+
+  test(
+    'group stamp-less fork at greeting (before first user) lands on Day 1',
+    () async {
+      // Counterpart to the two tip-forks: greeting is the story start.
+      // Fork index 0 is before the first user turn → Day 1 of the start.
+      final blobs = buildGroupRealismBlobs(
+        seeds: {
+          'Ana': {
+            ...defaultGroupMemberRealismSeed(),
+            'affection': 35,
+            'trust': 20,
+          },
+          'Bea': {
+            ...defaultGroupMemberRealismSeed(),
+            'affection': 42,
+            'trust': 25,
+          },
+        },
+        needsEnabled: false,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
       final tipBlob = jsonEncode({
         'perChar': {
-          'Ana': {'affection': 200},
-          'Bea': {'affection': 180},
+          'Ana': {'affection': 200, 'trust': 90, 'dayCount': 99},
+          'Bea': {'affection': 180, 'trust': 80, 'dayCount': 99},
         },
       });
 
-      await db.insertGroup(
-        GroupsCompanion.insert(
-          id: 'grp-fork',
-          name: 'The Porch',
-          defaultMemberRealismState: Value(seedsOnly),
-          baselineRealismState: const Value('{}'),
-        ),
-      );
-      await db.insertGroupMember(
-        GroupMembersCompanion.insert(
-          id: 'mem-ana',
-          groupId: 'grp-fork',
-          name: 'Ana',
-        ),
-      );
-      await db.insertGroupMember(
-        GroupMembersCompanion.insert(
-          id: 'mem-bea',
-          groupId: 'grp-fork',
-          name: 'Bea',
-        ),
-      );
-      await db.insertSession(
-        SessionsCompanion.insert(
-          id: 'sess-gfork',
-          characterId: const Value('group_grp-fork'),
-          groupId: const Value('grp-fork'),
-          realismEnabled: const Value(true),
-          dayCount: const Value(99),
-          timeOfDay: const Value('night'),
-          groupRealismState: Value(tipBlob),
-        ),
-      );
-      await db.insertMessage(
-        MessagesCompanion.insert(
-          id: 'm0',
-          sessionId: 'sess-gfork',
-          position: 0,
-          sender: 'You',
-          isUser: true,
-          swipes: Value(jsonEncode(['hi'])),
-        ),
-      );
-      await db.insertMessage(
-        MessagesCompanion.insert(
-          id: 'm1',
-          sessionId: 'sess-gfork',
-          position: 1,
-          sender: 'Ana',
-          isUser: false,
-          swipes: Value(jsonEncode(['yo'])),
-        ),
+      await seedGroupSession(
+        tipBlob: tipBlob,
+        blobs: blobs,
+        messages: [
+          (
+            id: 'm0',
+            pos: 0,
+            sender: 'Ana',
+            isUser: false,
+            text: 'Greeting.',
+            realism: null,
+          ),
+          (
+            id: 'm1',
+            pos: 1,
+            sender: 'You',
+            isUser: true,
+            text: 'hi',
+            realism: null,
+          ),
+          (
+            id: 'm2',
+            pos: 2,
+            sender: 'Ana',
+            isUser: false,
+            text: 'Later.',
+            realism: null,
+          ),
+        ],
       );
 
       await chat.setActiveGroup(
         GroupChat(
           id: 'grp-fork',
           name: 'The Porch',
-          defaultMemberRealismState: seedsOnly,
-          baselineRealismState: emptyBlobs.baselineJson,
+          defaultMemberRealismState: blobs.defaultMemberJson,
+          baselineRealismState: blobs.baselineJson,
         ),
         groupRepo: GroupChatRepository(storage, db),
       );
 
-      expect(chat.timeService.dayCount, 99);
-      final anchorBefore = chat.timeService.storyStartDateIso;
-      await chat.forkFromMessage(1);
+      expect(chat.messages, hasLength(3));
+      expect(chat.messages[0].isUser, isFalse);
+      expect(chat.messages[1].isUser, isTrue);
+      expect(
+        chat.timeService.dayCount,
+        99,
+        reason: 'live tip is still Day 99 before the start-fork',
+      );
+      final start = chat.timeService.startDate;
+
+      await chat.forkFromMessage(0);
+
+      expect(chat.forkIndex, 0);
       expect(
         chat.timeService.dayCount,
         1,
-        reason: 'no stamp + null timeSeed must floor to day 1, not tip 99',
+        reason:
+            'fork at/before the first user turn lands on Day 1 of the start, '
+            'not the Day-99 tip',
       );
+      expect(chat.timeService.startDate, start);
       expect(
-        chat.timeService.storyStartDateIso,
-        anchorBefore,
-        reason: 'floor keeps story Day 1 — never re-anchor on today',
+        StoryClock.dateOnly(chat.timeService.clock),
+        StoryClock.dateOnly(start),
+        reason: 'Day 1 clock sits on the story start date',
       );
     },
   );
@@ -644,7 +776,6 @@ void main() {
         dayCount: 4,
         timeOfDay: 'morning',
         storyStartDate: '1890-03-01',
-        passageOfTimeEnabled: true,
       );
       expect(chat.timeService.storyStartDateIso, '1890-03-01');
 
@@ -655,9 +786,12 @@ void main() {
         '1890-03-01',
         reason: 'group floor must keep live re-anchor, not blob 1887',
       );
-      expect(chat.getAffectionForGroupCharacter(
-        chat.groupCharacters.firstWhere((c) => c.name == 'Ana'),
-      ), 35);
+      expect(
+        chat.getAffectionForGroupCharacter(
+          chat.groupCharacters.firstWhere((c) => c.name == 'Ana'),
+        ),
+        35,
+      );
     },
   );
 
@@ -708,9 +842,11 @@ void main() {
         MessagesCompanion(
           id: const Value('m1'),
           metadata: Value(jsonEncode({'story_day': 5})),
-          swipeMetadata: Value(jsonEncode([
-            {'story_day': 5},
-          ])),
+          swipeMetadata: Value(
+            jsonEncode([
+              {'story_day': 5},
+            ]),
+          ),
         ),
       );
 
@@ -729,7 +865,6 @@ void main() {
         dayCount: 30,
         timeOfDay: 'night',
         storyStartDate: '2026-06-01',
-        passageOfTimeEnabled: true,
       );
       final anchorBefore = chat.timeService.storyStartDateIso;
       expect(chat.timeService.dayCount, 30);

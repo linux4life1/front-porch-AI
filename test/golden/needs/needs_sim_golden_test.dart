@@ -49,19 +49,6 @@ void main() {
     expectGoldenJson(table, group: 'needs', name: 'hygiene_inversion');
   });
 
-  test('per-turn decay from fresh defaults is stable', () {
-    final sim = createTestSim();
-    sim.initializeFresh();
-    final snapshots = <String, Map<String, int>>{
-      'turn0': Map<String, int>.from(sim.vector),
-    };
-    for (var turn = 1; turn <= 5; turn++) {
-      sim.tickDecay();
-      snapshots['turn$turn'] = Map<String, int>.from(sim.vector);
-    }
-    expectGoldenJson(snapshots, group: 'needs', name: 'decay_curve');
-  });
-
   test('applyNeedsDeltas clamps to 0..100', () {
     final sim = createTestSim();
     sim.initializeFreshWithDefaults({

@@ -56,6 +56,12 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
     // On the Edit tab these knobs are edit-scoped so an edit never clobbers
     // Create's txt2img settings; everywhere else they are the shared knobs.
     final editScoped = widget.editScoped;
+    final controls = imageSurfaceFor(
+      backend: ImageGenBackend.fromKey(st.imageGenSettings.imageGenBackend),
+      modelName: editScoped
+          ? st.imageGenSettings.imageGenEditModel
+          : st.imageGenSettings.imageGenModel,
+    );
     final steps = editScoped
         ? st.imageGenSettings.editSteps
         : st.imageGenSettings.imageGenSteps;
@@ -245,7 +251,7 @@ extension _GenerationOptionsAdvanced on _GenerationOptionsTabState {
       // choice here only clobbered the Create-tab scheduler (same as sampler).
       // 'Automatic' means the backend decides (A1111 default / sampler-derived
       // for ComfyUI); the fetched list is server-specific.
-      if (!isDrawThings && !editScoped)
+      if (controls.showScheduler && !editScoped)
         Row(
           children: [
             Expanded(

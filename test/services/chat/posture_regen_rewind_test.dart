@@ -68,6 +68,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -260,10 +261,7 @@ void main() {
   Future<Session> row() async =>
       (await db.getSessionById(chat.currentSessionId!))!;
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   /// Both 1:1 card shapes run the identical journey — the bug was never about
   /// what the card carried, and proving that is half the point.
@@ -426,7 +424,7 @@ void main() {
       final blob =
           jsonDecode((await row()).groupRealismState) as Map<String, dynamic>;
       final perChar = blob['perChar'] as Map<String, dynamic>;
-      final mine = perChar[card.stableGroupId] as Map<String, dynamic>?;
+      final mine = perChar[groupMemberStoreId(card)] as Map<String, dynamic>?;
       return mine?['spatialStance'] as String?;
     }
 

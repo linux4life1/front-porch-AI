@@ -1,65 +1,143 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// GROUP SETTINGS → NEEDS → "RESET" WAS A LYING BUTTON.
-//
-// It rewrote the three local maps in the dialog's State and called
-// resetRealismForGroupCharacter, which only drops the live _groupRealism slot.
-// The member's card extension — the thing runtime _activeDecayRates() reads
-// every turn — kept the hand-tuned decay rate and baselines. So a character the
-// user had just "reset" went on decaying hunger at 20/turn while the slider
-// read 4, and the old number reappeared the moment the dialog was reopened.
-//
-// WHY THIS IS A SOURCE PIN AND NOT AN INTERACTION TEST. Every ChatService door
-// this tab writes through (setGroupNeedsDecayRate, resetRealismForGroupCharacter)
-// is an EXTENSION member: it resolves on the static ChatService type, so a test
-// double cannot intercept it — the real body runs and reaches ChatService's
-// private _groupManager field, which no `implements ChatService` fake can have.
-// The resulting NoSuchMethodError is an uncaught async error (the button
-// discards the Future), so it is not even takeable with tester.takeException.
-// And a REAL ChatService cannot be driven under testWidgets — drift wall-hangs
-// there (see the note in edit_group_page_interaction_test.dart), which I
-// confirmed by hanging a probe on exactly that setup. So the honest guard is:
-// pin that the reset still routes through the persisting setters. Tapping the
-// button for real belongs in an integration_test suite, where a live app has a
-// real ChatService — noted rather than faked.
+// Group Needs Reset must target the per-member store id
+// (groupMemberStoreId == member UUID when present). Members with no
+// avatar file still have dbId == GroupMember.id; stableGroupId is the
+// name. Resetting Bea must clear Bea's live Needs and leave Ava's alone.
 
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+void _setupPathProviderMock() {
+  const channel = MethodChannel('plugins.flutter.io/path_provider');
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (MethodCall call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return Directory.systemTemp
+              .createTempSync('fpai_grp_needs_reset_')
+              .path;
+        }
+        return null;
+      });
+}
+
+Map<String, dynamic> _dirtySeed(int hunger) {
+  final seed = defaultGroupMemberRealismSeed();
+  seed['needs'] = <String, int>{
+    'hunger': hunger,
+    'bladder': hunger,
+    'energy': hunger,
+    'social': hunger,
+    'fun': hunger,
+    'hygiene': hunger,
+    'comfort': hunger,
+  };
+  return seed;
+}
 
 void main() {
-  test('Reset persists through the doors the engine reads', () {
-    final src = File(
-      'lib/ui/dialogs/group_settings/needs_tab.dart',
-    ).readAsStringSync();
-    final reset = src.substring(
-      src.indexOf('_resetCharacterNeeds(CharacterCard'),
-    );
+  TestWidgetsFlutterBinding.ensureInitialized();
+  _setupPathProviderMock();
 
-    // Decay is read off the member card ext every turn (_activeDecayRates), and
-    // setGroupNeedsDecayRate(memberId:) is the only thing that writes it there
-    // (+ PNG + the GroupMembers row). A reset that skips it is the bug.
-    expect(reset, contains('setGroupNeedsDecayRate('));
-    expect(reset, contains('memberId: id'));
+  test(
+    'resetRealismForGroupCharacter clears only the store-id member',
+    () async {
+      HttpOverrides.global = null;
+      SharedPreferences.setMockInitialValues({
+        'update_auto_check': false,
+        'realism_default': true,
+        'needs_sim_default': true,
+        'passage_of_time_default': true,
+      });
+      final db = AppDatabase.forTesting();
+      addTearDown(db.close);
+      final storage = StorageService();
+      final chat =
+          ChatService(
+              KoboldService(storage),
+              UserPersonaService(db),
+              storage,
+              WorldRepository(storage, db),
+            )
+            ..setDatabase(db)
+            ..setCharacterRepository(CharacterRepository(db, storage));
+      addTearDown(chat.dispose);
+      await storage.initialized;
 
-    // Baselines and the hygiene preference go through the same setters the
-    // sliders use — the ones that write char.frontPorchExtensions — rather than
-    // a second, silent copy of the write.
-    expect(reset, contains('_updateNeedsBaseline('));
-    expect(reset, contains('_updateMemberEnjoysLowHygiene('));
+      const groupId = 'grp-needs-reset';
+      final blobs = buildGroupRealismBlobs(
+        seeds: {'mem-ava': _dirtySeed(30), 'mem-bea': _dirtySeed(20)},
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      await db.insertGroup(
+        GroupsCompanion.insert(
+          id: groupId,
+          name: 'The Stoop',
+          defaultMemberRealismState: Value(blobs.defaultMemberJson),
+          baselineRealismState: Value(blobs.baselineJson),
+        ),
+      );
+      for (final m in [
+        (id: 'mem-ava', name: 'Ava'),
+        (id: 'mem-bea', name: 'Bea'),
+      ]) {
+        await db.insertGroupMember(
+          GroupMembersCompanion.insert(
+            id: m.id,
+            groupId: groupId,
+            name: m.name,
+            firstMessage: const Value('Evening.'),
+          ),
+        );
+      }
+      await chat.setActiveGroup(
+        GroupChat(
+          id: groupId,
+          name: 'The Stoop',
+          defaultMemberRealismState: blobs.defaultMemberJson,
+          baselineRealismState: blobs.baselineJson,
+        ),
+        groupRepo: GroupChatRepository(storage, db),
+      );
+      for (var i = 0; i < 40 && chat.groupCharacters.length < 2; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
 
-    // ...and the local maps alone are no longer the whole story: the old body
-    // assigned _needsBaselines[id] / _decayRates[id] / _enjoysLowHygiene[id]
-    // directly and stopped there.
-    expect(reset.contains('_needsBaselines[id] = {'), isFalse);
-    expect(reset.contains('_enjoysLowHygiene[id] = false'), isFalse);
+      final ava = chat.groupCharacters.firstWhere((c) => c.name == 'Ava');
+      final bea = chat.groupCharacters.firstWhere((c) => c.name == 'Bea');
+      expect(ava.imagePath, anyOf(isNull, isEmpty));
+      expect(bea.imagePath, anyOf(isNull, isEmpty));
+      expect(groupMemberStoreId(bea), bea.dbId);
+      expect(groupMemberStoreId(bea), 'mem-bea');
+      expect(groupMemberStoreId(bea), isNot(bea.stableGroupId));
 
-    // The member id must be the one every service stores a member under. The
-    // hand-rolled version answered '' for a member with no avatar file (group
-    // members resolve to an EMPTY imagePath, not null) and truncated at the
-    // first dot otherwise — and setGroupNeedsDecayRate matches its target by
-    // exactly this id, so a mismatch silently persists nothing.
-    expect(src, contains('_getCharId(CharacterCard c) => c.stableGroupId'));
-  });
+      expect(chat.getNeedsForGroupCharacter(ava)['hunger'], 30);
+      expect(chat.getNeedsForGroupCharacter(bea)['hunger'], 20);
+
+      chat.resetRealismForGroupCharacter(bea);
+
+      expect(
+        chat.getNeedsForGroupCharacter(bea),
+        isEmpty,
+        reason: 'Bea\'s store-id slot must be dropped — not keyed by name',
+      );
+      expect(
+        chat.getNeedsForGroupCharacter(ava)['hunger'],
+        30,
+        reason: 'Ava\'s Needs must survive a Reset aimed at Bea',
+      );
+    },
+  );
 }

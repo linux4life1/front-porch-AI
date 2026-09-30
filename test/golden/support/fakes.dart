@@ -138,6 +138,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     this.tokensPerSecond = 0.0,
     this.prefillElapsedSeconds = 0.0,
     this.prefillPromptTokens = 0,
+    this.prefillMetricsAreMeasured = true,
     this.lastPerfData,
     // Realism-processing overlay surface.
     this.isVerifyingRealism = false,
@@ -172,7 +173,6 @@ class FakeChatService extends ChangeNotifier implements ChatService {
         )..seedFromV2OrExt(
           timeOfDay: timeOfDay,
           dayCount: dayCount,
-          passageOfTimeEnabled: true,
           storyStartDate: '2026-06-30',
         );
     _nsfw = NsfwService(
@@ -327,6 +327,8 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   final int prefillPromptTokens;
   @override
+  final bool prefillMetricsAreMeasured;
+  @override
   final Map<String, dynamic>? lastPerfData;
 
   /// No live backend source in goldens → the status bar renders its
@@ -352,6 +354,13 @@ class FakeChatService extends ChangeNotifier implements ChatService {
 
   @override
   TimeService get timeService => _time;
+
+  @override
+  Future<void> setPassageOfTimeEnabled(bool enabled) async {
+    _time.setPassageOfTimeEnabled(enabled);
+    notifyListeners();
+  }
+
   @override
   NsfwService get nsfwService => _nsfw;
   @override

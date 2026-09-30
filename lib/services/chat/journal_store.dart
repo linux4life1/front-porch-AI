@@ -214,6 +214,21 @@ class JournalStore {
     );
   }
 
+  /// Session-addressed "Where we are". The live `_summary` scalar is only
+  /// the open chat; this write lands on [sessionId] even if the user has
+  /// already left, switched models, or the full chat save has not run.
+  /// Empty text clears the column.
+  Future<void> persistRecap(String sessionId, String recap) async {
+    final db = getDb();
+    if (db == null) return;
+    final stored = recap.trim().isEmpty ? null : recap.trim();
+    await db.customUpdate(
+      'UPDATE sessions SET summary = ? WHERE id = ?',
+      variables: [Variable(stored), Variable(sessionId)],
+      updates: {db.sessions},
+    );
+  }
+
   /// Timeline-integrity invalidation: content at/after [fromPosition] was
   /// rewritten (regen, swipe, edit, delete), so every card CITING that
   /// region describes events that no longer happened — delete them, pinned

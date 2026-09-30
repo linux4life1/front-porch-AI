@@ -38,10 +38,12 @@ extension ChatServiceImpersonate on ChatService {
     try {
       final userName = _userPersonaService.persona.name;
 
-      // Determine the speaking character (needed for prompt construction)
+      // The person the user is answering, not whoever happens to be first
+      // on the roster. 1:1 is the open character.
       CharacterCard speakingCharacter;
       if (_activeGroup != null) {
-        speakingCharacter = _groupCharacters.first;
+        speakingCharacter =
+            _impersonateGroupSpeaker() ?? _pickPresentGroupSpeaker();
       } else {
         speakingCharacter = _activeCharacter!;
       }
@@ -104,12 +106,9 @@ extension ChatServiceImpersonate on ChatService {
         );
       } else {
         personaBlock =
-            "${speakingCharacter.name}'s Persona: ${_macroResolver.resolve(
-              _getEffectivePersonality(speakingCharacter),
-              MacroContext(userName: userName, characterName: speakingCharacter.name),
-              section: 'persona',
-            )}";
+            "${speakingCharacter.name}'s Persona: ${_resolvedCardPersonality(speakingCharacter, userName)}";
       }
+      final growthBlock = _resolvedGrowthBlock(speakingCharacter, userName);
 
       // User persona — inject user's self-description + learned facts
       final userPersonaBlock = await _buildUserPersonaBlock(userName);
@@ -118,10 +117,7 @@ extension ChatServiceImpersonate on ChatService {
       if (_activeGroup != null && _activeGroup!.scenario.isNotEmpty) {
         rawScenario = _activeGroup!.scenario;
       } else {
-        final scenarioChar = _activeGroup != null
-            ? _groupCharacters.first
-            : speakingCharacter;
-        rawScenario = _getEffectiveScenario(scenarioChar);
+        rawScenario = _getEffectiveScenario(speakingCharacter);
       }
       String scenario = rawScenario;
 
@@ -199,11 +195,15 @@ extension ChatServiceImpersonate on ChatService {
       final plan = PromptPlan();
       plan.add(id: 'system', inSystem: true, text: '$systemPrompt\n');
       plan.add(id: 'persona', inSystem: true, text: '$personaBlock\n');
-      plan.add(id: 'lore.after', inSystem: true, text: loreAfter);
       plan.add(id: 'user_persona', inSystem: true, text: userPersonaBlock);
+      plan.add(id: 'examples', inSystem: true, text: mesExampleBlock);
+      plan.add(id: 'start', text: '<START>\n');
+      plan.add(id: 'history', text: '', counted: false);
+      plan.add(id: 'lore.before', text: loreBefore);
+      plan.add(id: 'growth', text: growthBlock);
+      plan.add(id: 'lore.after', text: loreAfter);
       plan.add(
         id: 'scenario',
-        inSystem: true,
         text: ScenarioFade.wrapScenario(
           scenario,
           ScenarioFade.strengthForUserMessageCount(
@@ -211,12 +211,8 @@ extension ChatServiceImpersonate on ChatService {
           ),
         ),
       );
-      plan.add(id: 'lore.ex_top', inSystem: true, text: loreExTop);
-      plan.add(id: 'examples', inSystem: true, text: mesExampleBlock);
-      plan.add(id: 'lore.ex_bottom', inSystem: true, text: loreExBottom);
-      plan.add(id: 'start', text: '<START>\n');
-      plan.add(id: 'history', text: '', counted: false);
-      plan.add(id: 'lore.before', text: loreBefore);
+      plan.add(id: 'lore.ex_top', text: loreExTop);
+      plan.add(id: 'lore.ex_bottom', text: loreExBottom);
       plan.add(id: 'post_history', text: postHistoryBlock);
       plan.add(id: 'lore.an_top', text: loreAnTop);
       plan.add(id: 'author_note', text: authorNoteBlock);
@@ -335,5 +331,20 @@ extension ChatServiceImpersonate on ChatService {
       _isGenerating = false;
       notifyListeners();
     }
+  }
+
+  /// Last character line the user is answering. Skips banners and the
+  /// director. Null when nobody has spoken yet.
+  CharacterCard? _impersonateGroupSpeaker() {
+    for (var i = _messages.length - 1; i >= 0; i--) {
+      final message = _messages[i];
+      if (message.isUser || message.isStatusBanner) continue;
+      if (message.sender == 'System' || message.characterId == '__director__') {
+        continue;
+      }
+      final card = _resolveGroupSpeakerForMessage(message);
+      if (card != null) return card;
+    }
+    return null;
   }
 }

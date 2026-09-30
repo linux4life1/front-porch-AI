@@ -1683,6 +1683,21 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _passageOfTimeGateMigratedMeta =
+      const VerificationMeta('passageOfTimeGateMigrated');
+  @override
+  late final GeneratedColumn<bool> passageOfTimeGateMigrated =
+      GeneratedColumn<bool>(
+        'passage_of_time_gate_migrated',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("passage_of_time_gate_migrated" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _arousalLevelMeta = const VerificationMeta(
     'arousalLevel',
   );
@@ -2079,6 +2094,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     storyStartDate,
     nsfwCooldownEnabled,
     passageOfTimeEnabled,
+    passageOfTimeGateMigrated,
     arousalLevel,
     cooldownTurnsRemaining,
     cooldownTurnsTotal,
@@ -2361,6 +2377,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         passageOfTimeEnabled.isAcceptableOrUnknown(
           data['passage_of_time_enabled']!,
           _passageOfTimeEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('passage_of_time_gate_migrated')) {
+      context.handle(
+        _passageOfTimeGateMigratedMeta,
+        passageOfTimeGateMigrated.isAcceptableOrUnknown(
+          data['passage_of_time_gate_migrated']!,
+          _passageOfTimeGateMigratedMeta,
         ),
       );
     }
@@ -2745,6 +2770,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.bool,
         data['${effectivePrefix}passage_of_time_enabled'],
       )!,
+      passageOfTimeGateMigrated: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}passage_of_time_gate_migrated'],
+      )!,
       arousalLevel: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}arousal_level'],
@@ -2911,6 +2940,12 @@ class Session extends DataClass implements Insertable<Session> {
   final String? storyStartDate;
   final bool nsfwCooldownEnabled;
   final bool passageOfTimeEnabled;
+
+  /// v53 — one-shot: leftover `passage_of_time_enabled` from the old
+  /// card-AND / auto-seed cannot be told from a user-set false. First
+  /// hydrate after this column exists re-derives (card AND Porch Life
+  /// default) and sets this true so a later chat-settings Off sticks.
+  final bool passageOfTimeGateMigrated;
   final int arousalLevel;
   final int cooldownTurnsRemaining;
   final int cooldownTurnsTotal;
@@ -3016,6 +3051,7 @@ class Session extends DataClass implements Insertable<Session> {
     this.storyStartDate,
     required this.nsfwCooldownEnabled,
     required this.passageOfTimeEnabled,
+    required this.passageOfTimeGateMigrated,
     required this.arousalLevel,
     required this.cooldownTurnsRemaining,
     required this.cooldownTurnsTotal,
@@ -3100,6 +3136,9 @@ class Session extends DataClass implements Insertable<Session> {
     }
     map['nsfw_cooldown_enabled'] = Variable<bool>(nsfwCooldownEnabled);
     map['passage_of_time_enabled'] = Variable<bool>(passageOfTimeEnabled);
+    map['passage_of_time_gate_migrated'] = Variable<bool>(
+      passageOfTimeGateMigrated,
+    );
     map['arousal_level'] = Variable<int>(arousalLevel);
     map['cooldown_turns_remaining'] = Variable<int>(cooldownTurnsRemaining);
     map['cooldown_turns_total'] = Variable<int>(cooldownTurnsTotal);
@@ -3205,6 +3244,7 @@ class Session extends DataClass implements Insertable<Session> {
           : Value(storyStartDate),
       nsfwCooldownEnabled: Value(nsfwCooldownEnabled),
       passageOfTimeEnabled: Value(passageOfTimeEnabled),
+      passageOfTimeGateMigrated: Value(passageOfTimeGateMigrated),
       arousalLevel: Value(arousalLevel),
       cooldownTurnsRemaining: Value(cooldownTurnsRemaining),
       cooldownTurnsTotal: Value(cooldownTurnsTotal),
@@ -3302,6 +3342,9 @@ class Session extends DataClass implements Insertable<Session> {
       passageOfTimeEnabled: serializer.fromJson<bool>(
         json['passageOfTimeEnabled'],
       ),
+      passageOfTimeGateMigrated: serializer.fromJson<bool>(
+        json['passageOfTimeGateMigrated'],
+      ),
       arousalLevel: serializer.fromJson<int>(json['arousalLevel']),
       cooldownTurnsRemaining: serializer.fromJson<int>(
         json['cooldownTurnsRemaining'],
@@ -3384,6 +3427,9 @@ class Session extends DataClass implements Insertable<Session> {
       'storyStartDate': serializer.toJson<String?>(storyStartDate),
       'nsfwCooldownEnabled': serializer.toJson<bool>(nsfwCooldownEnabled),
       'passageOfTimeEnabled': serializer.toJson<bool>(passageOfTimeEnabled),
+      'passageOfTimeGateMigrated': serializer.toJson<bool>(
+        passageOfTimeGateMigrated,
+      ),
       'arousalLevel': serializer.toJson<int>(arousalLevel),
       'cooldownTurnsRemaining': serializer.toJson<int>(cooldownTurnsRemaining),
       'cooldownTurnsTotal': serializer.toJson<int>(cooldownTurnsTotal),
@@ -3450,6 +3496,7 @@ class Session extends DataClass implements Insertable<Session> {
     Value<String?> storyStartDate = const Value.absent(),
     bool? nsfwCooldownEnabled,
     bool? passageOfTimeEnabled,
+    bool? passageOfTimeGateMigrated,
     int? arousalLevel,
     int? cooldownTurnsRemaining,
     int? cooldownTurnsTotal,
@@ -3519,6 +3566,8 @@ class Session extends DataClass implements Insertable<Session> {
         : this.storyStartDate,
     nsfwCooldownEnabled: nsfwCooldownEnabled ?? this.nsfwCooldownEnabled,
     passageOfTimeEnabled: passageOfTimeEnabled ?? this.passageOfTimeEnabled,
+    passageOfTimeGateMigrated:
+        passageOfTimeGateMigrated ?? this.passageOfTimeGateMigrated,
     arousalLevel: arousalLevel ?? this.arousalLevel,
     cooldownTurnsRemaining:
         cooldownTurnsRemaining ?? this.cooldownTurnsRemaining,
@@ -3642,6 +3691,9 @@ class Session extends DataClass implements Insertable<Session> {
       passageOfTimeEnabled: data.passageOfTimeEnabled.present
           ? data.passageOfTimeEnabled.value
           : this.passageOfTimeEnabled,
+      passageOfTimeGateMigrated: data.passageOfTimeGateMigrated.present
+          ? data.passageOfTimeGateMigrated.value
+          : this.passageOfTimeGateMigrated,
       arousalLevel: data.arousalLevel.present
           ? data.arousalLevel.value
           : this.arousalLevel,
@@ -3758,6 +3810,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('storyStartDate: $storyStartDate, ')
           ..write('nsfwCooldownEnabled: $nsfwCooldownEnabled, ')
           ..write('passageOfTimeEnabled: $passageOfTimeEnabled, ')
+          ..write('passageOfTimeGateMigrated: $passageOfTimeGateMigrated, ')
           ..write('arousalLevel: $arousalLevel, ')
           ..write('cooldownTurnsRemaining: $cooldownTurnsRemaining, ')
           ..write('cooldownTurnsTotal: $cooldownTurnsTotal, ')
@@ -3824,6 +3877,7 @@ class Session extends DataClass implements Insertable<Session> {
     storyStartDate,
     nsfwCooldownEnabled,
     passageOfTimeEnabled,
+    passageOfTimeGateMigrated,
     arousalLevel,
     cooldownTurnsRemaining,
     cooldownTurnsTotal,
@@ -3889,6 +3943,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.storyStartDate == this.storyStartDate &&
           other.nsfwCooldownEnabled == this.nsfwCooldownEnabled &&
           other.passageOfTimeEnabled == this.passageOfTimeEnabled &&
+          other.passageOfTimeGateMigrated == this.passageOfTimeGateMigrated &&
           other.arousalLevel == this.arousalLevel &&
           other.cooldownTurnsRemaining == this.cooldownTurnsRemaining &&
           other.cooldownTurnsTotal == this.cooldownTurnsTotal &&
@@ -3952,6 +4007,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<String?> storyStartDate;
   final Value<bool> nsfwCooldownEnabled;
   final Value<bool> passageOfTimeEnabled;
+  final Value<bool> passageOfTimeGateMigrated;
   final Value<int> arousalLevel;
   final Value<int> cooldownTurnsRemaining;
   final Value<int> cooldownTurnsTotal;
@@ -4014,6 +4070,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.storyStartDate = const Value.absent(),
     this.nsfwCooldownEnabled = const Value.absent(),
     this.passageOfTimeEnabled = const Value.absent(),
+    this.passageOfTimeGateMigrated = const Value.absent(),
     this.arousalLevel = const Value.absent(),
     this.cooldownTurnsRemaining = const Value.absent(),
     this.cooldownTurnsTotal = const Value.absent(),
@@ -4077,6 +4134,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.storyStartDate = const Value.absent(),
     this.nsfwCooldownEnabled = const Value.absent(),
     this.passageOfTimeEnabled = const Value.absent(),
+    this.passageOfTimeGateMigrated = const Value.absent(),
     this.arousalLevel = const Value.absent(),
     this.cooldownTurnsRemaining = const Value.absent(),
     this.cooldownTurnsTotal = const Value.absent(),
@@ -4140,6 +4198,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<String>? storyStartDate,
     Expression<bool>? nsfwCooldownEnabled,
     Expression<bool>? passageOfTimeEnabled,
+    Expression<bool>? passageOfTimeGateMigrated,
     Expression<int>? arousalLevel,
     Expression<int>? cooldownTurnsRemaining,
     Expression<int>? cooldownTurnsTotal,
@@ -4207,6 +4266,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
         'nsfw_cooldown_enabled': nsfwCooldownEnabled,
       if (passageOfTimeEnabled != null)
         'passage_of_time_enabled': passageOfTimeEnabled,
+      if (passageOfTimeGateMigrated != null)
+        'passage_of_time_gate_migrated': passageOfTimeGateMigrated,
       if (arousalLevel != null) 'arousal_level': arousalLevel,
       if (cooldownTurnsRemaining != null)
         'cooldown_turns_remaining': cooldownTurnsRemaining,
@@ -4278,6 +4339,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<String?>? storyStartDate,
     Value<bool>? nsfwCooldownEnabled,
     Value<bool>? passageOfTimeEnabled,
+    Value<bool>? passageOfTimeGateMigrated,
     Value<int>? arousalLevel,
     Value<int>? cooldownTurnsRemaining,
     Value<int>? cooldownTurnsTotal,
@@ -4343,6 +4405,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       storyStartDate: storyStartDate ?? this.storyStartDate,
       nsfwCooldownEnabled: nsfwCooldownEnabled ?? this.nsfwCooldownEnabled,
       passageOfTimeEnabled: passageOfTimeEnabled ?? this.passageOfTimeEnabled,
+      passageOfTimeGateMigrated:
+          passageOfTimeGateMigrated ?? this.passageOfTimeGateMigrated,
       arousalLevel: arousalLevel ?? this.arousalLevel,
       cooldownTurnsRemaining:
           cooldownTurnsRemaining ?? this.cooldownTurnsRemaining,
@@ -4477,6 +4541,11 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (passageOfTimeEnabled.present) {
       map['passage_of_time_enabled'] = Variable<bool>(
         passageOfTimeEnabled.value,
+      );
+    }
+    if (passageOfTimeGateMigrated.present) {
+      map['passage_of_time_gate_migrated'] = Variable<bool>(
+        passageOfTimeGateMigrated.value,
       );
     }
     if (arousalLevel.present) {
@@ -4616,6 +4685,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('storyStartDate: $storyStartDate, ')
           ..write('nsfwCooldownEnabled: $nsfwCooldownEnabled, ')
           ..write('passageOfTimeEnabled: $passageOfTimeEnabled, ')
+          ..write('passageOfTimeGateMigrated: $passageOfTimeGateMigrated, ')
           ..write('arousalLevel: $arousalLevel, ')
           ..write('cooldownTurnsRemaining: $cooldownTurnsRemaining, ')
           ..write('cooldownTurnsTotal: $cooldownTurnsTotal, ')

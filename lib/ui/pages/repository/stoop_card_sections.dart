@@ -209,8 +209,8 @@ Widget stoopRealismSection(BuildContext context, Map<String, dynamic> re) {
   );
 }
 
-/// Sims-style Needs baseline (starting level) + tick rate (decay per turn). Only
-/// shown when the creator enabled the needs simulation on the card.
+/// Starting needs, pace, and which needs are on. Shown when the card has
+/// needs simulation enabled.
 Widget stoopNeedsSection(BuildContext context, Map<String, dynamic> re) {
   if (re['needs_sim_enabled'] != true) return const SizedBox.shrink();
   const needs = [
@@ -222,6 +222,10 @@ Widget stoopNeedsSection(BuildContext context, Map<String, dynamic> re) {
     ('Hygiene', 'hygiene'),
     ('Comfort', 'comfort'),
   ];
+  final off = re['needs_off'] is List
+      ? {for (final item in re['needs_off'] as List) item.toString()}
+      : <String>{};
+  final pace = (re['needs_pace'] ?? 'normal').toString();
   final head = TextStyle(
     color: stoopMute(context),
     fontSize: 12,
@@ -239,33 +243,32 @@ Widget stoopNeedsSection(BuildContext context, Map<String, dynamic> re) {
         .toList(),
   );
   return StoopCollapsible(
-    title: 'Needs baseline & tick rates',
-    child: Table(
-      columnWidths: const {
-        0: FlexColumnWidth(2),
-        1: FlexColumnWidth(1.2),
-        2: FlexColumnWidth(1.4),
-      },
+    title: 'Needs',
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        tableRow([
-          Text('Need', style: head),
-          Text('Baseline', style: head, textAlign: TextAlign.end),
-          Text('Decay/turn', style: head, textAlign: TextAlign.end),
-        ]),
-        for (final (label, key) in needs)
-          tableRow([
-            Text(label, style: cell),
-            Text(
-              '${_i(re, 'needs_baseline_$key', 80)}',
-              style: cell,
-              textAlign: TextAlign.end,
-            ),
-            Text(
-              '−${_i(re, 'needs_decay_$key', 0)}',
-              style: cell,
-              textAlign: TextAlign.end,
-            ),
-          ]),
+        Text('Pace: $pace', style: cell),
+        const SizedBox(height: 8),
+        Table(
+          columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(1.2)},
+          children: [
+            tableRow([
+              Text('Need', style: head),
+              Text('Start', style: head, textAlign: TextAlign.end),
+            ]),
+            for (final (label, key) in needs)
+              tableRow([
+                Text(label, style: cell),
+                Text(
+                  off.contains(key)
+                      ? 'Off'
+                      : '${_i(re, 'needs_baseline_$key', 80)}',
+                  style: cell,
+                  textAlign: TextAlign.end,
+                ),
+              ]),
+          ],
+        ),
       ],
     ),
   );

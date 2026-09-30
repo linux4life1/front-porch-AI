@@ -321,25 +321,13 @@ extension _RealismEvalSupport on RealismEvals {
       }
     }
 
-    // Nonzero deltas → pending (for chips + message metadata). Only record
-    // nonzero so UI and revert logic stay uncluttered (0s are the default).
-    // Exception for trust: always record the trust_delta and trust_reason from the
-    // relationship eval (even 0) if the eval produced a non-"none" reason. This makes
-    // "Trust: 0 (He embraced my filth without judgment — that built something real)"
-    // visible and revertible, fixing cases where trust movement was "dropped" from
-    // metadata/synthesis/attachment/logs on accepted verifier output for deep
-    // acceptance scenes.
-    if (bondDelta != 0 || arousalDelta != 0 || trustDelta != 0) {
-      var pending = getPendingRealismMetadata() ?? {};
-      if (bondDelta != 0) pending['bond_delta'] = bondDelta;
-      if (arousalDelta != 0) pending['arousal_delta'] = arousalDelta;
-      // Always record trust_delta from the relationship eval (even 0) so that
-      // "Trust: 0 (reason)" from deep acceptance scenes is carried to metadata,
-      // synthesis, attachment, chips, and revert. The previous !=0 guard was
-      // the direct cause of "trust delta dropped" in logs and pending.
-      pending['trust_delta'] = trustDelta;
-      setPendingRealismMetadata(pending);
-    }
+    // Always keep both deltas, including 0. A missing chip reads as "the
+    // judge never ran." Revert still ignores a 0. Arousal stays nonzero-only.
+    var pending = getPendingRealismMetadata() ?? {};
+    pending['bond_delta'] = bondDelta;
+    pending['trust_delta'] = trustDelta;
+    if (arousalDelta != 0) pending['arousal_delta'] = arousalDelta;
+    setPendingRealismMetadata(pending);
 
     // Reasons (for hover tooltips on chips). Always extract; set if present
     // and not the sentinel "none".

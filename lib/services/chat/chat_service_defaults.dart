@@ -167,8 +167,13 @@ bool _realismEvalCancelled = false;
 
 /// Set when regenerate/continue abort in-flight post-gen evals (needs,
 /// climax, pockets, posture) so the rejected reply is not scored. Cleared
-/// once settling has exited.
+/// after a successful yield, at finalize start, and in regen's finally —
+/// leftover latch must not survive into the next turn.
 bool _postGenAbortRequested = false;
+
+/// Pre-nudge live clock, stamped on the slot as `nudge_from` so a tail
+/// delete can restore it without rewriting `story_clock_before`.
+DateTime? _pendingNudgeBefore;
 
 /// Bumped on regen / settling abort so a fire-and-forget Journal or Growth
 /// pass started against the rejected window cannot apply (or fall through
@@ -178,6 +183,11 @@ int _memoryPassEpoch = 0;
 /// True while [sendMessage] is holding a typed line behind post-gen evals.
 /// The composer already cleared; the bubble is not in the list yet.
 bool _sendWaitingOnSettle = false;
+
+/// Porch Life Passage of Time alone. Card veto and leftover per-chat
+/// are not a gate.
+bool derivedPassageOfTimeEnabled({required bool porchLifeDefault}) =>
+    porchLifeDefault;
 
 /// Bumped by [_invalidateGreetingEval] (selectGreeting, startNewChat,
 /// setActiveCharacter, setActiveGroup, loadSession, _loadLastSession,

@@ -77,8 +77,7 @@ extension ChatServiceIdleAutonomous on ChatService {
       _resetIdleTimer();
       return;
     }
-    final llm = _llmProvider?.activeService ?? _koboldService;
-    if (!llm.isReady) {
+    if (!_mouthLlm.isReady) {
       _resetIdleTimer();
       return;
     }
@@ -174,9 +173,8 @@ extension ChatServiceIdleAutonomous on ChatService {
     // advances iff the clock has a driver (the guard in _onIdleTimerFired) AND
     // passage of time is enabled (the guard inside advanceTimePeriods) — both
     // of which _clockRunning states directly. If we announced "a few hours have
-    // passed" while the clock was frozen — e.g. Realism off, standalone clock
-    // off, but passage-of-time still defaulted on — the cue would contradict
-    // the unchanging time on every AFK turn.
+    // passed" while Passage of Time was off, the cue would contradict the
+    // unchanging time on every AFK turn.
     final timeAdvancing = _clockRunning;
     final timeStr = timeAdvancing
         ? '${_timeService.timeOfDay} (Day ${_timeService.dayCount})'

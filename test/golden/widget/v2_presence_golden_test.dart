@@ -10,8 +10,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_card.dart';
@@ -22,15 +25,27 @@ import '../support/creator_test_support.dart';
 import '../support/fakes.dart';
 import '../support/golden_app.dart';
 
-Widget _stack(FakeChatService chat, PresenceWhere where) {
-  return SizedBox(
-    width: 300,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TimeStrip(chat: chat),
-        PresenceWord(where: where),
-      ],
+StorageService _storage() {
+  SharedPreferences.setMockInitialValues({});
+  return StorageService();
+}
+
+Widget _stack(
+  FakeChatService chat,
+  PresenceWhere where,
+  StorageService storage,
+) {
+  return ChangeNotifierProvider<StorageService>.value(
+    value: storage,
+    child: SizedBox(
+      width: 300,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TimeStrip(chat: chat),
+          PresenceWord(where: where),
+        ],
+      ),
     ),
   );
 }
@@ -41,9 +56,11 @@ void main() {
   testWidgets('Chat — With you', (tester) async {
     final chat = FakeChatService(timeOfDay: 'evening', dayCount: 3);
     addTearDown(chat.dispose);
+    final storage = _storage();
+    addTearDown(storage.dispose);
     await expectThemedGoldens(
       tester,
-      child: _stack(chat, PresenceWhere.withYou),
+      child: _stack(chat, PresenceWhere.withYou, storage),
       group: 'v2',
       name: 'with_you',
       surface: const Size(340, 200),
@@ -53,9 +70,11 @@ void main() {
   testWidgets('Chat — Away, strip still live, no today line', (tester) async {
     final chat = FakeChatService(timeOfDay: 'evening', dayCount: 3);
     addTearDown(chat.dispose);
+    final storage = _storage();
+    addTearDown(storage.dispose);
     await expectThemedGoldens(
       tester,
-      child: _stack(chat, PresenceWhere.away),
+      child: _stack(chat, PresenceWhere.away, storage),
       group: 'v2',
       name: 'away',
       surface: const Size(340, 180),
@@ -65,9 +84,11 @@ void main() {
   testWidgets('Chat — At work (derived)', (tester) async {
     final chat = FakeChatService(timeOfDay: 'afternoon', dayCount: 3);
     addTearDown(chat.dispose);
+    final storage = _storage();
+    addTearDown(storage.dispose);
     await expectThemedGoldens(
       tester,
-      child: _stack(chat, PresenceWhere.atWork),
+      child: _stack(chat, PresenceWhere.atWork, storage),
       group: 'v2',
       name: 'at_work',
       surface: const Size(340, 180),

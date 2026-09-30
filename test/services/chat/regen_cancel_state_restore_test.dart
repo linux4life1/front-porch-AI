@@ -45,6 +45,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -156,13 +157,14 @@ void main() {
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<void> drainTurn() async {
-    for (var i = 0; i < 400 && (chat.isGenerating || chat.isSettlingTurn); i++) {
+    for (
+      var i = 0;
+      i < 400 && (chat.isGenerating || chat.isSettlingTurn);
+      i++
+    ) {
       await Future<void>.delayed(Duration.zero);
     }
     for (var i = 0; i < 50; i++) {
@@ -197,7 +199,8 @@ void main() {
     await drainTurn();
 
     expect(
-      chat.messages, hasLength(messageCount),
+      chat.messages,
+      hasLength(messageCount),
       reason: 'the popped reply must come back — nothing is destroyed',
     );
     expect(chat.messages.last.text, acceptedText);

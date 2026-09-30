@@ -57,10 +57,14 @@ extension ChatServiceGenerationBlocks on ChatService {
           '\n\n[Voice Call Mode] ${_storageService.sttSettings.callSystemPrompt}';
     }
 
-    if ((_webSearchService.isActive || _wikiSearchService.isActive) &&
-        t.directUserSend &&
-        !t.autonomous &&
-        t.mode != GenerationMode.continue_) {
+    final forcedLookup =
+        (t.forcedWebQuery != null && t.forcedWebQuery!.isNotEmpty) ||
+        (t.forcedWikiQuery != null && t.forcedWikiQuery!.isNotEmpty);
+    if (forcedLookup ||
+        ((_webSearchService.isActive || _wikiSearchService.isActive) &&
+            t.directUserSend &&
+            !t.autonomous &&
+            t.mode != GenerationMode.continue_)) {
       t.systemPrompt += '\n\n$kSearchCharacterLine';
     }
     t.userToolCards = loadUserToolCards(_storageService.toolsDir);
@@ -108,12 +112,9 @@ extension ChatServiceGenerationBlocks on ChatService {
       );
     } else {
       t.personaBlock =
-          "${t.speakingCharacter.name}'s Persona: ${_macroResolver.resolve(
-            _getEffectivePersonality(t.speakingCharacter),
-            MacroContext(userName: t.userName, characterName: t.speakingCharacter.name),
-            section: 'persona',
-          )}";
+          "${t.speakingCharacter.name}'s Persona: ${_resolvedCardPersonality(t.speakingCharacter, t.userName)}";
     }
+    t.growthBlock = _resolvedGrowthBlock(t.speakingCharacter, t.userName);
 
     // User persona — inject user's self-description + learned facts
     t.userPersonaBlock = await _buildUserPersonaBlock(t.userName);
@@ -376,11 +377,7 @@ extension ChatServiceGenerationBlocks on ChatService {
           );
     final persona = buildSpeakerPersonaLine(
       name: speaker.name,
-      personality: _macroResolver.resolve(
-        _getEffectivePersonality(speaker),
-        MacroContext(userName: t.userName, characterName: speaker.name),
-        section: 'persona',
-      ),
+      personality: _resolvedCardPersonality(speaker, t.userName),
     );
     var example = '';
     if (speaker.mesExample.isNotEmpty) {

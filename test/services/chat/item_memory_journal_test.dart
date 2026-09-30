@@ -52,6 +52,7 @@ import 'package:front_porch_ai/services/chat/chat.dart'
         kEvalClampMarker,
         kEvalMessageCharCap;
 import 'package:front_porch_ai/services/chat/prompt_injection/journal_injection.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -191,16 +192,14 @@ void main() {
       await storage.initialized;
     });
 
-    tearDown(() async {
-      chat.dispose();
-      await db.close();
-    });
+    tearDown(() => disposeChatThenCloseDb(chat, db));
 
     Future<List<JournalMemoryData>> itemCards() async {
-      final cards = await db.getJournalCardsForSession(
-        chat.currentSessionId!,
-      );
-      return [for (final c in cards) if (JournalPhysics.isItemCard(c)) c];
+      final cards = await db.getJournalCardsForSession(chat.currentSessionId!);
+      return [
+        for (final c in cards)
+          if (JournalPhysics.isItemCard(c)) c,
+      ];
     }
 
     Future<void> drainUntil(Future<bool> Function() done) async {
@@ -322,7 +321,8 @@ void main() {
       expect(
         await itemCards(),
         isEmpty,
-        reason: 'eraser is the human override — diary must not keep the placement',
+        reason:
+            'eraser is the human override — diary must not keep the placement',
       );
     });
 

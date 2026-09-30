@@ -30,6 +30,12 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
     final backend = ImageGenBackend.fromKey(
       st.imageGenSettings.imageGenBackend,
     );
+    final controls = imageSurfaceFor(
+      backend: backend,
+      modelName: widget.editScoped && isDT
+          ? st.imageGenSettings.imageGenEditModel
+          : st.imageGenSettings.imageGenModel,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -49,6 +55,10 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
               ? 'Is ComfyUI running? It listens on http://127.0.0.1:8188 '
                     'by default.'
               : 'Is Stable Diffusion WebUI running with the --api flag?',
+          emptyModelsHint: isDT
+              ? 'Draw Things answered, but sent no model list. Turn on '
+                    'Model Browser in its gRPC server settings, then retry.'
+              : null,
           onRetry: _testConnection,
         ),
         const SizedBox(height: 8),
@@ -304,7 +314,7 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
         ],
         // LoRA (name + weight slider). A1111 injects <lora:name:weight> into
         // the prompt; Draw Things applies it natively via the gRPC config.
-        ...[
+        if (controls.showLora) ...[
           Divider(color: AppColors.borderOf(context)),
           const SizedBox(height: 4),
           Text(
@@ -336,20 +346,16 @@ extension _GenerationOptionsLocalPanel on _GenerationOptionsTabState {
               ),
             )
           else
-            LoraPicker(
+            LoraSlotBoard(
               loras: _localLoras,
-              // Family-filter against the slot this surface generates with
-              // (the Edit tab pairs LoRAs with the EDIT model on DT).
               checkpointFamily: ImageModelFamily.detectFromName(
                 widget.editScoped && isDT
                     ? st.imageGenSettings.imageGenEditModel
                     : st.imageGenSettings.imageGenModel,
               ),
-              selected: st.imageGenSettings.imageGenLora,
-              weight: st.imageGenSettings.imageGenLoraWeight,
-              onSelected: (val) => st.imageGenSettings.setImageGenLora(val),
-              onWeightChanged: (v) =>
-                  st.imageGenSettings.setImageGenLoraWeight(v),
+              slots: st.imageGenSettings.imageGenLoraSlots,
+              onSlot: (index, file, weight) => st.imageGenSettings
+                  .setImageGenLoraSlot(index, file: file, weight: weight),
             ),
         ],
         const SizedBox(height: 8),

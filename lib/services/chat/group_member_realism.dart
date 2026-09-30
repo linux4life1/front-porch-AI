@@ -42,7 +42,7 @@
 ///    therefore NULLABLE (absent → null) and every call site keeps its own
 ///    default, exactly as the old `?? defaultValue` casts did.
 ///  * **Unknown keys ride through verbatim.** A live slot carries ~22
-///    config/seed keys (needsBaseline*/needsDecay*/verification*/…) beside
+///    config/seed keys (needsBaseline*/needsPace/verification*/…) beside
 ///    the runtime state, and imports may carry keys this build has never
 ///    heard of. They are simply left in the map.
 ///

@@ -26,8 +26,11 @@ extension _BubbleRealismChips on _MessageBubbleState {
     required Widget Function(Widget child, String tip) maybeTooltip,
     required bool timeReversal,
     required String timeSkipTo,
+    required String timePassed,
     required String searchQuery,
     required bool searchOk,
+    String wikiQuery = '',
+    bool wikiOk = false,
     required String toolName,
     required bool toolOk,
     required String chanceTimeEvent,
@@ -66,6 +69,30 @@ extension _BubbleRealismChips on _MessageBubbleState {
               ),
             ],
           ),
+        ),
+      );
+    }
+
+    if (timePassed.isNotEmpty) {
+      chips.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.schedule,
+              size: 11,
+              color: AppColors.porchAmberOf(context),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              timePassed,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.porchAmberOf(context),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -116,6 +143,32 @@ extension _BubbleRealismChips on _MessageBubbleState {
           searchOk
               ? 'Looked up: $searchQuery'
               : 'Looked up "$searchQuery" — nothing reliable',
+        ),
+      );
+    }
+
+    if (wikiQuery.isNotEmpty) {
+      final amber = AppColors.porchAmberOf(context);
+      chips.add(
+        maybeTooltip(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.menu_book, size: 11, color: amber),
+              const SizedBox(width: 4),
+              Text(
+                wikiOk ? 'Wiki' : 'Wiki — nothing',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: amber,
+                ),
+              ),
+            ],
+          ),
+          wikiOk
+              ? 'Looked up: $wikiQuery'
+              : 'Looked up "$wikiQuery" — nothing reliable',
         ),
       );
     }

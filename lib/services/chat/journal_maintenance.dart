@@ -302,10 +302,11 @@ class JournalMaintenance {
           if (isRecapOwner) parkedRecap = recapText;
         } else {
           await review.applyOwnerProposals(sessionToken, ownerProposals);
-          if (isRecapOwner &&
-              recapText != null &&
-              getSessionId() == sessionToken) {
-            setRecap(recapText);
+          if (isRecapOwner && recapText != null && recapText.isNotEmpty) {
+            // The row, not only the open chat. Leaving, quitting, or a
+            // reload must not drop the recap the cursor just moved past.
+            await store.persistRecap(sessionToken, recapText);
+            if (getSessionId() == sessionToken) setRecap(recapText);
           } else if (isRecapOwner &&
               recapText == null &&
               ownerProposals.ops.isNotEmpty) {
@@ -330,9 +331,13 @@ class JournalMaintenance {
       // cursor target with it; an empty "nothing to journal" result settles
       // immediately (there is nothing to review).
       if (anySucceeded) {
-        await store.persistCursor(sessionToken, cursorTarget);
-        if (getSessionId() == sessionToken) {
-          if (reviewMode && (parked.isNotEmpty || parkedRecap != null)) {
+        final parking =
+            reviewMode && (parked.isNotEmpty || parkedRecap != null);
+        if (parking) {
+          // The recap is still a proposal. Watermarking the row now and
+          // then quitting would skip this window forever and keep the old
+          // "Where we are". Park it; apply/discard write the cursor.
+          if (getSessionId() == sessionToken) {
             review.park(
               JournalReviewBatch(
                 sessionId: sessionToken,
@@ -341,7 +346,10 @@ class JournalMaintenance {
                 recap: parkedRecap,
               ),
             );
-          } else {
+          }
+        } else {
+          await store.persistCursor(sessionToken, cursorTarget);
+          if (getSessionId() == sessionToken) {
             setCursor(cursorTarget);
             await onSaveChat();
           }

@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 import '../../golden/support/fakes.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 class _IdleSearchLlm extends LLMService {
   final List<String> webSearchPrompts = [];
@@ -60,10 +61,23 @@ class _IdleSearchLlm extends LLMService {
     );
   }
 
+  /// Idle cue is injected into the user prompt (`idle_cue` section).
+  /// Clock evals also call [generateStream] after `_isGenerating` is
+  /// raised; they are not idle mouth turns.
+  bool _isIdleMouthPrompt(GenerationParams params) {
+    return params.prompt.contains(
+      'solitary scene observed from outside the chat',
+    );
+  }
+
   @override
   Stream<String> generateStream(GenerationParams params) async* {
     streamCalls++;
-    if (streamCalls > 1) {
+    if (params.prompt.contains('"minutes_elapsed"')) {
+      yield '{"minutes_elapsed": 0, "new_day": false}';
+      return;
+    }
+    if (_isIdleMouthPrompt(params)) {
       idleStreamCalls++;
       yield '*The quiet idle snapshot continues.*';
       return;
@@ -132,9 +146,8 @@ void main() {
           ..setCharacterRepository(CharacterRepository(db, storage))
           ..setLLMProvider(provider);
     addTearDown(() async {
-      chat.dispose();
+      await disposeChatThenCloseDb(chat, db);
       provider.dispose();
-      await db.close();
     });
 
     await storage.initialized;

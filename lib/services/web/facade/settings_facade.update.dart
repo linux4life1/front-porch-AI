@@ -65,10 +65,8 @@ extension SettingsFacadeUpdate on SettingsFacade {
       if (pot is bool) {
         await _storage.realismSettings.setPassageOfTimeDefault(pot);
       }
-      // No live-chat push: unlike the toggles around it, this one is read
-      // per turn straight off StorageService (ChatService._standaloneClockActive
-      // and ._clockRunning), so writing the setting IS the whole update and an
-      // open conversation picks it up on its next turn.
+      // Leftover pref: old PWAs still write it. The live clock gates on
+      // chat-gear Passage of Time, not this flag.
       final sc = realism['standaloneClockEnabled'];
       if (sc is bool) {
         await _storage.realismSettings.setStandaloneClockEnabled(sc);
@@ -93,8 +91,7 @@ extension SettingsFacadeUpdate on SettingsFacade {
       if (mood is bool) {
         await _storage.realismSettings.setStandingMoodEnabled(mood);
       }
-      // No live-chat push for either of these, and for the same reason the
-      // standalone clock has none: both are read straight off StorageService at
+      // No live-chat push: both are read straight off StorageService at
       // the moment they matter. "Acts on desires" is resolved per turn when the
       // preferences fragment is built, and Chaos seeds when a chat is entered —
       // so writing the setting IS the whole update.

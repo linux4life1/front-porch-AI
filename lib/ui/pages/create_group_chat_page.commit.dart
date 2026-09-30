@@ -114,13 +114,19 @@ extension _GroupWizardCommit on _CreateGroupChatPageState {
           realismNeedsDirectorAuthority:
               (seed['needsDirectorAuthority'] as bool?) ??
               source.frontPorchExtensions!.realismNeedsDirectorAuthority,
-          needsSimStrength:
-              (seed['needsSimStrength'] as int?) ??
-              source.frontPorchExtensions!.needsSimStrength,
-          // Carry the group-creator's per-member needs baselines + decay
-          // choices (the seed). Without these two blocks, cards that already
-          // ship a FrontPorchExtensions (the common case) silently lost every
-          // baseline/decay adjustment made in the creator at save time.
+          needsPace:
+              (seed['needsPace'] as String?) ??
+              source.frontPorchExtensions!.needsPace,
+          needsOff: seed['needsOff'] is List
+              ? [
+                  for (final item in seed['needsOff'] as List)
+                    if (item is String) item,
+                ]
+              : source.frontPorchExtensions!.needsOff,
+          // Carry the group-creator's per-member needs baselines, Pace, and
+          // on/off (the seed). Without these blocks, cards that already ship a
+          // FrontPorchExtensions (the common case) silently lost every
+          // adjustment made in the creator at save time.
           needsBaselineHunger:
               (seed['needsBaselineHunger'] as int?) ??
               source.frontPorchExtensions!.needsBaselineHunger,
@@ -142,27 +148,6 @@ extension _GroupWizardCommit on _CreateGroupChatPageState {
           needsBaselineComfort:
               (seed['needsBaselineComfort'] as int?) ??
               source.frontPorchExtensions!.needsBaselineComfort,
-          needsDecayHunger:
-              (seed['needsDecayHunger'] as int?) ??
-              source.frontPorchExtensions!.needsDecayHunger,
-          needsDecayBladder:
-              (seed['needsDecayBladder'] as int?) ??
-              source.frontPorchExtensions!.needsDecayBladder,
-          needsDecayEnergy:
-              (seed['needsDecayEnergy'] as int?) ??
-              source.frontPorchExtensions!.needsDecayEnergy,
-          needsDecaySocial:
-              (seed['needsDecaySocial'] as int?) ??
-              source.frontPorchExtensions!.needsDecaySocial,
-          needsDecayFun:
-              (seed['needsDecayFun'] as int?) ??
-              source.frontPorchExtensions!.needsDecayFun,
-          needsDecayHygiene:
-              (seed['needsDecayHygiene'] as int?) ??
-              source.frontPorchExtensions!.needsDecayHygiene,
-          needsDecayComfort:
-              (seed['needsDecayComfort'] as int?) ??
-              source.frontPorchExtensions!.needsDecayComfort,
         );
       } else if (_realismEnabled) {
         memberFp = FrontPorchExtensions(
@@ -182,14 +167,11 @@ extension _GroupWizardCommit on _CreateGroupChatPageState {
           needsBaselineFun: (seed['needsBaselineFun'] as int?) ?? 80,
           needsBaselineHygiene: (seed['needsBaselineHygiene'] as int?) ?? 80,
           needsBaselineComfort: (seed['needsBaselineComfort'] as int?) ?? 80,
-          needsDecayHunger: (seed['needsDecayHunger'] as int?) ?? 5,
-          needsDecayBladder: (seed['needsDecayBladder'] as int?) ?? 5,
-          needsDecayEnergy: (seed['needsDecayEnergy'] as int?) ?? 5,
-          needsDecaySocial: (seed['needsDecaySocial'] as int?) ?? 5,
-          needsDecayFun: (seed['needsDecayFun'] as int?) ?? 5,
-          needsDecayHygiene: (seed['needsDecayHygiene'] as int?) ?? 5,
-          needsDecayComfort: (seed['needsDecayComfort'] as int?) ?? 5,
-          needsSimStrength: (seed['needsSimStrength'] as int?) ?? 1,
+          needsPace: (seed['needsPace'] as String?) ?? 'normal',
+          needsOff: [
+            for (final item in (seed['needsOff'] as List?) ?? const [])
+              if (item is String) item,
+          ],
         );
         memberFp.ensureStableId();
       }

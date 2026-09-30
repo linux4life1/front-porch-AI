@@ -244,6 +244,7 @@
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
 				A46123EE478FF4E7411CA61B /* [CP] Embed Pods Frameworks */,
+				F7A1FP210000000000000001 /* Copy libfpzip */,
 			);
 			buildRules = (
 			);
@@ -363,6 +364,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"$FLUTTER_ROOT\"/packages/flutter_tools/bin/macos_assemble.sh && touch Flutter/ephemeral/tripwire";
+		};
+		F7A1FP210000000000000001 /* Copy libfpzip */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../tools/fpzip/libfpzip.dylib",
+			);
+			name = "Copy libfpzip";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/libfpzip.dylib",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nLIB=\"${SRCROOT}/../tools/fpzip/libfpzip.dylib\"\nif [ ! -f \"$LIB\" ]; then\n  \"${SRCROOT}/../scripts/build-fpzip-macos.sh\"\nfi\nDEST=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nmkdir -p \"$DEST\"\ncp \"$LIB\" \"$DEST/libfpzip.dylib\"\n# Xcode seals the .app at the end of every config. An unsigned nested\n# dylib fails that seal (nightly: code object is not signed at all).\n# Ad-hoc sign here so flutter run and flutter build both succeed. The\n# Developer ID pass re-signs with --force afterwards.\ncodesign --force --sign - \"$DEST/libfpzip.dylib\"\n";
 		};
 		A269611A2A7580B82FDE657A /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;

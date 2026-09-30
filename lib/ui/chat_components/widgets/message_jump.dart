@@ -52,15 +52,22 @@ Future<void> jumpToMessage({
   required List<ChatMessage> messages,
   required ChatMessage target,
   required GlobalKey? Function(ChatMessage) keyOf,
+  int builtStart = 0,
+  int? builtEnd,
 }) async {
   if (!controller.hasClients) return;
   final index = messages.indexWhere((m) => identical(m, target));
   if (index < 0) return;
+  final end = builtEnd ?? messages.length;
+  final count = end - builtStart;
+  if (count <= 0) return;
+  final local = index - builtStart;
+  if (local < 0 || local >= count) return;
 
   final reverse = controller.position.axisDirection == AxisDirection.up;
-  if (keyOf(target)?.currentContext == null && messages.length > 1) {
+  if (keyOf(target)?.currentContext == null && count > 1) {
     final position = controller.position;
-    final fraction = index / (messages.length - 1);
+    final fraction = local / (count - 1);
     final along = reverse ? 1 - fraction : fraction;
     controller.jumpTo(
       (position.maxScrollExtent * along).clamp(

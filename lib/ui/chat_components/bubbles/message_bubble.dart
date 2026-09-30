@@ -193,11 +193,18 @@ class _MessageBubbleState extends State<MessageBubble> {
         children: [
           if (!message.isUser && !isDirectorNote)
             CircleAvatar(
-              backgroundImage: characterImage != null
-                  ? FileImage(characterImage!)
-                  : null,
               radius: 16,
-              child: characterImage == null ? const Icon(Icons.person) : null,
+              child: characterImage == null
+                  ? const Icon(Icons.person)
+                  : ClipOval(
+                      child: Image.file(
+                        characterImage!,
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(Icons.person),
+                      ),
+                    ),
             ),
           if (!message.isUser && !isDirectorNote) const SizedBox(width: 12),
 

@@ -67,9 +67,6 @@ class CastRosterChip extends StatelessWidget {
               child: CircleAvatar(
                 radius: 16,
                 backgroundColor: color,
-                backgroundImage: imageFile != null
-                    ? FileImage(imageFile!)
-                    : null,
                 child: imageFile == null
                     ? Text(
                         name.isNotEmpty ? name[0] : '?',
@@ -78,7 +75,21 @@ class CastRosterChip extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       )
-                    : null,
+                    : ClipOval(
+                        child: Image.file(
+                          imageFile!,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Text(
+                            name.isNotEmpty ? name[0] : '?',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
               ),
             ),
             const SizedBox(height: 2),

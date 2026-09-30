@@ -43,6 +43,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -136,34 +137,36 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
-  test('swiping a buried reply does not rewind the chat to that turn', () async {
-    await seedChat();
-    expect(chat.relationshipService.affectionScore, 200);
+  test(
+    'swiping a buried reply does not rewind the chat to that turn',
+    () async {
+      await seedChat();
+      expect(chat.relationshipService.affectionScore, 200);
 
-    await chat.swipeMessage(1, 1); // the buried reply, not the tip
+      await chat.swipeMessage(1, 1); // the buried reply, not the tip
 
-    expect(chat.messages[1].text, 'old B', reason: 'the swipe itself works');
-    expect(
-      chat.relationshipService.affectionScore,
-      200,
-      reason: 'reading an old alternative must not drag bond back twenty '
-          'turns while every later message stays on screen',
-    );
-    expect(chat.relationshipService.trustLevel, 60);
+      expect(chat.messages[1].text, 'old B', reason: 'the swipe itself works');
+      expect(
+        chat.relationshipService.affectionScore,
+        200,
+        reason:
+            'reading an old alternative must not drag bond back twenty '
+            'turns while every later message stays on screen',
+      );
+      expect(chat.relationshipService.trustLevel, 60);
 
-    final row = await db.getSessionById('sess-swipe');
-    expect(
-      row?.affectionScore,
-      200,
-      reason: 'and the save at the end of swipeMessage must not bake the '
-          'rewind onto the session row',
-    );
-  });
+      final row = await db.getSessionById('sess-swipe');
+      expect(
+        row?.affectionScore,
+        200,
+        reason:
+            'and the save at the end of swipeMessage must not bake the '
+            'rewind onto the session row',
+      );
+    },
+  );
 
   test('swiping the tip still rewinds, exactly as before', () async {
     await seedChat();
@@ -174,7 +177,8 @@ void main() {
     expect(
       chat.relationshipService.affectionScore,
       150,
-      reason: 'the tip IS the live state — its alternatives must still carry '
+      reason:
+          'the tip IS the live state — its alternatives must still carry '
           'their own bond/trust, or regenerate-and-swipe-back is broken',
     );
     expect(chat.relationshipService.trustLevel, 30);

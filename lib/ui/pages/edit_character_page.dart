@@ -184,8 +184,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   int _realismVerificationMaxReprocesses = 1;
   int _realismVerificationStrictness = 3;
   bool _realismNeedsDirectorAuthority = false;
-  int _needsSimStrength =
-      1; // 1-5 multiplier for needs deltas (injected to model + Director)
+  String _needsPace = 'normal';
+  List<String> _needsOff = const [];
 
   // Per-need baseline values (0-100).
   int _needsBaselineHunger = 80;
@@ -195,14 +195,6 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   int _needsBaselineFun = 80;
   int _needsBaselineHygiene = 80;
   int _needsBaselineComfort = 80;
-
-  int _needsDecayHunger = 5;
-  int _needsDecayBladder = 5;
-  int _needsDecayEnergy = 5;
-  int _needsDecaySocial = 5;
-  int _needsDecayFun = 5;
-  int _needsDecayHygiene = 5;
-  int _needsDecayComfort = 5;
 
   @override
   void initState() {
@@ -287,7 +279,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           ext.realismVerificationMaxReprocesses;
       _realismVerificationStrictness = ext.realismVerificationStrictness;
       _realismNeedsDirectorAuthority = ext.realismNeedsDirectorAuthority;
-      _needsSimStrength = ext.needsSimStrength;
+      _needsPace = ext.needsPace;
+      _needsOff = List<String>.from(ext.needsOff);
       _needsBaselineHunger = ext.needsBaselineHunger;
       _needsBaselineBladder = ext.needsBaselineBladder;
       _needsBaselineEnergy = ext.needsBaselineEnergy;
@@ -295,14 +288,6 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _needsBaselineFun = ext.needsBaselineFun;
       _needsBaselineHygiene = ext.needsBaselineHygiene;
       _needsBaselineComfort = ext.needsBaselineComfort;
-
-      _needsDecayHunger = ext.needsDecayHunger;
-      _needsDecayBladder = ext.needsDecayBladder;
-      _needsDecayEnergy = ext.needsDecayEnergy;
-      _needsDecaySocial = ext.needsDecaySocial;
-      _needsDecayFun = ext.needsDecayFun;
-      _needsDecayHygiene = ext.needsDecayHygiene;
-      _needsDecayComfort = ext.needsDecayComfort;
     }
     _ambitions = List<String>.from(
       widget.character.frontPorchExtensions?.ambitions ?? const [],

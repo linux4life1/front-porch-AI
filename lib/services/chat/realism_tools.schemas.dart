@@ -213,8 +213,15 @@ final List<Map<String, dynamic>> kNeedsImpactEvalTools = [
 
 final Map<String, Map<String, dynamic>> _sceneTimeFields = {
   'minutes_elapsed': _intField(
-    'In-story minutes the latest exchange took (0-180; 0 only mid-action).',
+    'In-story minutes the latest completed exchange took (1-180). Never 0 '
+    'for a finished spoken reply; use continuous_instant for the same moment.',
   ),
+  'continuous_instant': {
+    'type': 'boolean',
+    'description':
+        'True ONLY when the scene is one continuous instant (mid-action, '
+        'same moment). A finished spoken reply is never this.',
+  },
   'new_day': {
     'type': 'boolean',
     'description':
@@ -243,19 +250,16 @@ final List<Map<String, dynamic>> kSceneTimeEvalTools = [
   ),
 ];
 
-/// The per-turn clock advance — BOTH drivers, the engine's and the standalone
-/// one (TimeService's `timeOnly` mode is only about how much scene framing the
-/// PROMPT carries; the schema is one). Deliberately the SAME tool name as the
-/// posture variant, so [realismToolCallToJson] and every parse step downstream
-/// are literally the same code path; it just drops `posture`. Field
-/// definitions are reused from [_sceneTimeFields] rather than restated, so the
-/// two variants cannot drift.
+/// The per-turn clock advance. `timeOnly` only changes how much scene
+/// framing the prompt carries; the schema is one. Same tool name as the
+/// posture variant so [realismToolCallToJson] stays one parse path.
 final List<Map<String, dynamic>> kSceneTimeOnlyEvalTools = [
   _tool(
     kSceneTimeTool,
     'Report how much in-story time the latest exchange took.',
     {
       'minutes_elapsed': _sceneTimeFields['minutes_elapsed']!,
+      'continuous_instant': _sceneTimeFields['continuous_instant']!,
       'new_day': _sceneTimeFields['new_day']!,
     },
     const ['minutes_elapsed'],
@@ -274,6 +278,7 @@ final List<Map<String, dynamic>> kSceneTimeOnlyEvalToolsWithToday = [
     'Report how much in-story time the latest exchange took, and today\'s plan.',
     {
       'minutes_elapsed': _sceneTimeFields['minutes_elapsed']!,
+      'continuous_instant': _sceneTimeFields['continuous_instant']!,
       'new_day': _sceneTimeFields['new_day']!,
       'today_sentence': _todaySentenceField,
     },

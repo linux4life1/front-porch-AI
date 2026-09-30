@@ -60,6 +60,8 @@ extension _ImageGenGenerate on ImageGenService {
     // mid-flight, and on Draw Things both would spawn CLI jobs against one GPU.
     // Refuse the second start rather than corrupt the first.
     if (_isGenerating) {
+      _statusMessage = kAlreadyGeneratingMessage;
+      _notify();
       debugPrint('[ImageGen] generateImage refused — a generation is running.');
       return null;
     }
@@ -93,79 +95,45 @@ extension _ImageGenGenerate on ImageGenService {
       final backend = ImageGenBackend.fromKey(
         _storage.imageGenSettings.imageGenBackend,
       );
-
-      // Resolve what the reference image MEANS for this backend + model (the
-      // single seam). Create keeps today's behavior; Edit routes an edit model
-      // to editConditioning, and refuses honestly when the backend can't edit.
-      //
-      // Model-slot split (phase #12): EDIT intent resolves against the edit
-      // slot, create against the create slot. One shared slot used to let an
-      // edit model left selected after an Edit session silently poison base
-      // generation (edit models can't txt2img). An explicit [model] wins
-      // (batch flows pass their own). ComfyUI's edit path ignores this — its
-      // models come from the comfyEdit* workflow slots.
-      var refModelName =
-          model ??
-          (intent == StudioIntent.edit
-              ? _storage.imageGenSettings.imageGenEditModel
-              : _storage.imageGenSettings.imageGenModel);
-      if (backend == ImageGenBackend.remote) {
-        final account = _imageRemoteAccount;
-        final picked = pickRemoteImageModelId(
-          explicit: model,
-          slotModel: intent == StudioIntent.edit
-              ? _storage.imageGenSettings.imageGenEditModel
-              : _storage.imageGenSettings.imageGenModel,
-          hostModel: _storage.imageGenSettings.remoteImageModelFor(
-            account.url,
-            edit: intent == StudioIntent.edit,
-          ),
-        );
-        if (picked == null) {
-          final leftover =
-              looksLikeLocalImageModel(refModelName) ||
-              looksLikeLocalImageModel(model ?? '');
-          if (leftover) {
-            if (intent == StudioIntent.edit) {
-              await _storage.imageGenSettings.setImageGenEditModel('');
-            } else {
-              await _storage.imageGenSettings.setImageGenModel('');
-            }
-          }
-          _statusMessage = leftover
-              ? kRemoteLocalCheckpointMessage
-              : 'No image model selected.';
-          _isGenerating = false;
-          _notify();
-          return null;
-        }
-        refModelName = picked;
-      }
-      final refCapability = ImageReferenceResolver.resolveForBackend(
+      final remoteAccount = backend == ImageGenBackend.remote
+          ? _imageRemoteAccount
+          : null;
+      final plan = planImageJob(
         backend: backend,
-        modelName: refModelName,
-      );
-      final refCount = (referenceImage != null && referenceImage.isNotEmpty)
-          ? 1
-          : 0;
-      final refRole = routeReference(
         intent: intent,
-        attachedRefCount: refCount,
-        cap: refCapability,
+        explicitModel: model,
+        createSlot: _storage.imageGenSettings.imageGenModel,
+        editSlot: _storage.imageGenSettings.imageGenEditModel,
+        hostModel: remoteAccount == null
+            ? ''
+            : _storage.imageGenSettings.remoteImageModelFor(
+                remoteAccount.url,
+                edit: intent == StudioIntent.edit,
+              ),
+        attachedRefCount: (referenceImage != null && referenceImage.isNotEmpty)
+            ? 1
+            : 0,
       );
-      if (refRole == ImageReferenceRole.unsupported) {
-        _statusMessage =
-            refCapability.degradeReason ??
-            'This backend can’t edit from a photo. Try Create instead.';
+      if (plan.model.clearEditSlot) {
+        await _storage.imageGenSettings.setImageGenEditModel('');
+      }
+      if (plan.model.clearCreateSlot) {
+        await _storage.imageGenSettings.setImageGenModel('');
+      }
+      final stop = plan.stopMessage;
+      if (stop != null) {
+        _statusMessage = stop;
         _isGenerating = false;
         _notify();
         return null;
       }
+      final refModelName = plan.model.model;
+      final refCapability = plan.capability;
+      final refRole = plan.role;
 
-      if (backend == ImageGenBackend.a1111 ||
-          backend == ImageGenBackend.drawThings) {
-        final isDrawThings =
-            _storage.imageGenSettings.imageGenBackend == 'drawthings';
+      if (plan.backend == ImageGenBackend.a1111 ||
+          plan.backend == ImageGenBackend.drawThings) {
+        final isDrawThings = plan.backend == ImageGenBackend.drawThings;
 
         if (isDrawThings) {
           // Use gRPC for Draw Things (Python client bridge)
@@ -203,38 +171,26 @@ extension _ImageGenGenerate on ImageGenService {
             final cfgZeroStar = _storage.imageGenSettings.drawThingsCfgZeroStar;
             // Same shared LoRA setting the A1111 path uses; DT applies it
             // natively via the generation config instead of a prompt tag.
-            final loraName = _storage.imageGenSettings.imageGenLora;
-            final loraWeight = _storage.imageGenSettings.imageGenLoraWeight;
-
-            // Edit models (Qwen-Image-Edit / Flux Kontext) read the reference as
-            // conditioning. The Edit tab keeps its OWN edit-scoped copy of these
-            // knobs (steps/CFG/sampler/shift/seed-mode) so tuning an edit never
-            // clobbers Create's txt2img settings — see edit_profile.dart. This
-            // service is a DUMB PIPE for them: whatever the user set on the Edit
-            // tab is sent verbatim, no silent override.
-            var dtStrength = strength;
-            var dtSteps = steps;
-            var dtCfg = cfgScale;
-            var dtShift = shift;
-            var dtSampler = sampler;
-            var dtSeedMode = seedMode;
-            var dtLoras = loraName.isEmpty
-                ? const <Map<String, dynamic>>[]
-                : [
-                    {'file': loraName, 'weight': loraWeight},
-                  ];
+            final dtLoras = [
+              for (final slot in _storage.imageGenSettings.activeImageGenLoras)
+                {'file': slot.file, 'weight': slot.weight},
+            ];
+            final dt = drawThingsGenerationKnobs(
+              role: refRole,
+              createSteps: steps,
+              createCfg: cfgScale,
+              createSampler: sampler,
+              createShift: shift,
+              createSeedMode: seedMode,
+              createStrength: strength,
+              editSteps: _storage.imageGenSettings.editSteps,
+              editCfg: _storage.imageGenSettings.editCfgScale,
+              editSampler: _storage.imageGenSettings.editSampler,
+              editShift: _storage.imageGenSettings.editShift,
+              editSeedMode: _storage.imageGenSettings.editSeedMode,
+              editStrength: editStrength,
+            );
             if (refRole == ImageReferenceRole.editConditioning) {
-              // Every knob the user sees on the Edit tab, honored as-is (the
-              // edit-scoped store is seeded with the field-tested recipe so the
-              // FIRST edit already works — UniPC + moderate CFG — without
-              // clobbering Create). The "how much should change" slider provides
-              // the denoise strength; the user's LoRA rides along unchanged.
-              dtSteps = _storage.imageGenSettings.editSteps;
-              dtCfg = _storage.imageGenSettings.editCfgScale;
-              dtSampler = _storage.imageGenSettings.editSampler;
-              dtShift = _storage.imageGenSettings.editShift;
-              dtSeedMode = _storage.imageGenSettings.editSeedMode;
-              dtStrength = editStrength ?? kEditRecommendedStrength;
               _statusMessage = refCapability.editKind == EditModelKind.kontext
                   ? 'Editing with Flux Kontext...'
                   : 'Editing with Qwen-Image-Edit...';
@@ -248,13 +204,13 @@ extension _ImageGenGenerate on ImageGenService {
               model: modelCheckpoint,
               width: width,
               height: height,
-              steps: dtSteps,
-              cfgScale: dtCfg,
+              steps: dt.steps,
+              cfgScale: dt.cfg,
               seed: effectiveSeed,
-              strength: dtStrength,
-              shift: dtShift,
-              sampler: dtSampler,
-              seedMode: dtSeedMode,
+              strength: dt.strength,
+              shift: dt.shift,
+              sampler: dt.sampler,
+              seedMode: dt.seedMode,
               teaCache: teaCache,
               cfgZeroStar: cfgZeroStar,
               loras: dtLoras,
@@ -332,8 +288,7 @@ extension _ImageGenGenerate on ImageGenService {
             size: imageSize,
             modelCheckpoint: modelCheckpoint,
             switchModelFirst: modelCheckpoint.isNotEmpty,
-            loraName: _storage.imageGenSettings.imageGenLora,
-            loraWeight: _storage.imageGenSettings.imageGenLoraWeight,
+            loras: _storage.imageGenSettings.activeImageGenLoras,
             steps: _storage.imageGenSettings.imageGenSteps,
             cfgScale: _storage.imageGenSettings.imageGenCfgScale,
             samplerName: _storage.imageGenSettings.imageGenSampler,
@@ -343,7 +298,7 @@ extension _ImageGenGenerate on ImageGenService {
             denoise: denoise ?? _storage.imageGenSettings.imageGenDenoise,
           );
         }
-      } else if (backend == ImageGenBackend.comfyUi) {
+      } else if (plan.backend == ImageGenBackend.comfyUi) {
         _statusMessage = 'Connecting to ComfyUI...';
         _notify();
         try {
@@ -370,7 +325,7 @@ extension _ImageGenGenerate on ImageGenService {
           _notify();
           return null;
         }
-      } else {
+      } else if (plan.backend == ImageGenBackend.remote) {
         // ── Remote API ─────────────────────────────────────────────────
         final account = _imageRemoteAccount;
         if (account.key.isEmpty) {
@@ -423,6 +378,11 @@ extension _ImageGenGenerate on ImageGenService {
             editImage: remoteEdit ? referenceImage : null,
           );
         }
+      } else {
+        _statusMessage = 'This image backend is not available.';
+        _isGenerating = false;
+        _notify();
+        return null;
       }
 
       _lastGeneratedImage = imageBytes;

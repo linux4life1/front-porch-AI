@@ -61,15 +61,22 @@ const _fullSlot = <String, dynamic>{
   'cooldownTurnsTotal': 0,
   'emotion': 'happy',
   'emotionIntensity': 'moderate',
-  'needs': {'hunger': 72, 'bladder': 74, 'energy': 76, 'social': 90,
-            'fun': 91, 'hygiene': 80, 'comfort': 84},
+  'needs': {
+    'hunger': 72,
+    'bladder': 74,
+    'energy': 76,
+    'social': 90,
+    'fun': 91,
+    'hygiene': 80,
+    'comfort': 84,
+  },
   'relationships': {'member_1': 0},
   // The config/seed keys the wrapper has no accessors for — pass-through.
   'timeOfDay': 'morning',
   'dayCount': 1,
   'enjoysLowHygiene': false,
   'needsDirectorAuthority': false,
-  'needsSimStrength': 1,
+  'needsPace': 'normal',
   'verificationEnabled': false,
   'verificationMaxReprocesses': 1,
   'verificationStrictness': 1,
@@ -80,13 +87,6 @@ const _fullSlot = <String, dynamic>{
   'needsBaselineFun': 80,
   'needsBaselineHygiene': 80,
   'needsBaselineComfort': 80,
-  'needsDecayHunger': 5,
-  'needsDecayBladder': 5,
-  'needsDecayEnergy': 5,
-  'needsDecaySocial': 5,
-  'needsDecayFun': 5,
-  'needsDecayHygiene': 5,
-  'needsDecayComfort': 5,
 };
 
 void main() {
@@ -100,7 +100,8 @@ void main() {
       expect(
         roundTripped,
         jsonDecode(jsonEncode(_fullSlot)),
-        reason: 'any key or value the wrapper drops or reshapes here is data '
+        reason:
+            'any key or value the wrapper drops or reshapes here is data '
             'loss in all three persistence paths at once',
       );
     });
@@ -112,7 +113,8 @@ void main() {
       expect(
         out.containsKey('needs'),
         isFalse,
-        reason: 'a needs key appearing from nowhere would flag Needs as '
+        reason:
+            'a needs key appearing from nowhere would flag Needs as '
             'enabled for the whole group on the next load',
       );
 
@@ -150,7 +152,8 @@ void main() {
       expect(
         () => m.setValue('brand_new_key', 1),
         throwsA(isA<AssertionError>()),
-        reason: 'stringly access creeping back in is exactly what U7 removed; '
+        reason:
+            'stringly access creeping back in is exactly what U7 removed; '
             'new keys get named in GroupRealismKeys first',
       );
       m.setValue(GroupRealismKeys.turnsSinceDecayCheck, 7);
@@ -163,9 +166,7 @@ void main() {
       // analyzer cannot type-check. Grok's review flagged that the round-trip
       // test above never exercised it; this does, wrapper-in-map and all.
       final wrapped = {
-        'perChar': {
-          'member_0': GroupMemberRealism.fromJson(_fullSlot),
-        },
+        'perChar': {'member_0': GroupMemberRealism.fromJson(_fullSlot)},
       };
       final decoded = jsonDecode(jsonEncode(wrapped)) as Map<String, dynamic>;
       expect(
@@ -179,9 +180,8 @@ void main() {
       // Known slots nest one level (needs/relationships), but pass-through
       // keys from imports may nest deeper. Grok's review proved the old
       // one-level copy left depth>=2 aliased; fromJson now copies recursively.
-      final source = jsonDecode(
-        '{"importedConfig": {"outer": {"inner": 1}}}',
-      ) as Map;
+      final source =
+          jsonDecode('{"importedConfig": {"outer": {"inner": 1}}}') as Map;
       final m = GroupMemberRealism.fromJson(source);
       ((m.toJson()['importedConfig'] as Map)['outer'] as Map)['inner'] = 999;
       expect(
@@ -196,9 +196,13 @@ void main() {
       final source = jsonDecode(jsonEncode(_fullSlot)) as Map;
       final m = GroupMemberRealism.fromJson(source);
       m.affection = 999;
-      expect(source['affection'], 26,
-          reason: 'the wrapper must own its data — writes leaking back into '
-              'the decoded JSON would corrupt sibling readers');
+      expect(
+        source['affection'],
+        26,
+        reason:
+            'the wrapper must own its data — writes leaking back into '
+            'the decoded JSON would corrupt sibling readers',
+      );
     });
   });
 }

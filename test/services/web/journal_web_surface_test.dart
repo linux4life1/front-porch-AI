@@ -12,6 +12,7 @@ import 'package:front_porch_ai/services/web/facade/facades.dart';
 
 import '../../golden/support/creator_test_support.dart';
 import '../../golden/support/fakes.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 class _JournalChat extends FakeChatService {
   _JournalChat({required this.store}) {
@@ -67,10 +68,7 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<JournalMemoryData> seed({
     required String content,

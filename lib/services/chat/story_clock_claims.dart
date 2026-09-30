@@ -31,7 +31,10 @@ const Map<String, int> _kSpokenHour = {
 /// If [reply] names a present wall-clock time close to [current], return
 /// that instant on the story calendar. Null = no claim, or too far to trust.
 DateTime? clockNamedInReply(String reply, DateTime current) {
-  final text = stripThinkTags(reply);
+  // One alphabet for it's / 's — curly and straight take the same path.
+  final text = stripThinkTags(
+    reply,
+  ).replaceAll('\u2018', "'").replaceAll('\u2019', "'");
   if (text.isEmpty) return null;
 
   final claims = <({int hour, int minute, int index})>[];
@@ -112,7 +115,7 @@ bool _boundIsNotPresent(String text, int start) {
   final lead = text.substring(start > 24 ? start - 24 : 0, start);
   if (_notPresent.hasMatch(lead)) return true;
   final trimmed = lead.trimRight().toLowerCase();
-  if (trimmed.endsWith('it is')) return false;
+  if (trimmed.endsWith('it is') || trimmed.endsWith("it's")) return false;
   return trimmed.endsWith(' is') || trimmed.endsWith("'s");
 }
 

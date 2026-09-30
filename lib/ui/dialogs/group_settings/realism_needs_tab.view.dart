@@ -236,43 +236,7 @@ extension _GroupRealismNeedsView on _GroupRealismNeedsTabState {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Passage of Time
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.access_time,
-                        size: 18,
-                        color: Colors.tealAccent,
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Passage of Time',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      Switch(
-                        value: _passageOfTimeEnabled,
-                        activeThumbColor: Colors.tealAccent,
-                        onChanged: _updatePassageOfTime,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Automatically advances narrative time between turns. Manual nudge controls remain available in the sidebar.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary(context),
-                    ),
-                  ),
-
-                  ..._timeAndChaosControls(cs, group),
-                ],
+                children: [..._timeAndChaosControls(cs, group)],
               ),
             ),
 

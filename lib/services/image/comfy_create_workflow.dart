@@ -29,7 +29,7 @@ class ComfyCreatePreset {
   /// Official Comfy template file stem (`image_z_image_turbo`). Empty for SD.
   final String comfyTemplateName;
 
-  /// SD pile: [ComfyWorkflow] builders, not a template.
+  /// Kept on the wire for older panels. Create no longer takes this branch.
   final bool usesCheckpointBuilder;
 
   final List<ComfyModelSlot> modelSlots;
@@ -57,6 +57,10 @@ class ComfyCreateRequest {
   final String modelNodeId;
   final String clipNodeId;
 
+  /// Output index on [clipNodeId] that is CLIP. 1 for a checkpoint, 0 for a
+  /// CLIP loader.
+  final int clipOutputIndex;
+
   const ComfyCreateRequest({
     required this.template,
     required this.values,
@@ -67,6 +71,7 @@ class ComfyCreateRequest {
     this.vaeOutputIndex = 0,
     this.modelNodeId = 'unet',
     this.clipNodeId = 'clip',
+    this.clipOutputIndex = 0,
   });
 }
 
@@ -103,28 +108,61 @@ Map<String, dynamic> applyCreateImg2Img(
   return out;
 }
 
-/// Insert LoraLoader and rewire MODEL/CLIP consumers to it.
+/// Insert one LoraLoader and rewire MODEL/CLIP consumers to it.
 Map<String, dynamic> spliceComfyLora(
   Map<String, dynamic> graph, {
   required String loraName,
   required double loraWeight,
   required String modelNodeId,
   required String clipNodeId,
+  int clipOutputIndex = 0,
 }) {
-  if (loraName.isEmpty) return graph;
-  final out = substituteComfyWorkflow(graph, const {});
-  out['lora'] = {
-    'class_type': 'LoraLoader',
-    'inputs': {
-      'lora_name': loraName,
-      'strength_model': loraWeight,
-      'strength_clip': loraWeight,
-      'model': [modelNodeId, 0],
-      'clip': [clipNodeId, 0],
-    },
-  };
-  _rewire(out, from: [modelNodeId, 0], to: ['lora', 0], skip: 'lora');
-  _rewire(out, from: [clipNodeId, 0], to: ['lora', 1], skip: 'lora');
+  return spliceComfyLoraChain(
+    graph,
+    loras: [(name: loraName, weight: loraWeight)],
+    modelNodeId: modelNodeId,
+    clipNodeId: clipNodeId,
+    clipOutputIndex: clipOutputIndex,
+  );
+}
+
+/// Stack LoRAs. The first loader is node `lora` (same as [spliceComfyLora]).
+/// Each later loader reads the previous loader's MODEL and CLIP outputs.
+Map<String, dynamic> spliceComfyLoraChain(
+  Map<String, dynamic> graph, {
+  required List<({String name, double weight})> loras,
+  required String modelNodeId,
+  required String clipNodeId,
+  int clipOutputIndex = 0,
+}) {
+  var out = graph;
+  var fromModel = modelNodeId;
+  var fromModelIndex = 0;
+  var fromClip = clipNodeId;
+  var fromClipIndex = clipOutputIndex;
+  var n = 0;
+  for (final lora in loras) {
+    if (lora.name.trim().isEmpty) continue;
+    final id = n == 0 ? 'lora' : 'lora_$n';
+    out = substituteComfyWorkflow(out, const {});
+    out[id] = {
+      'class_type': 'LoraLoader',
+      'inputs': {
+        'lora_name': lora.name.trim(),
+        'strength_model': lora.weight,
+        'strength_clip': lora.weight,
+        'model': [fromModel, fromModelIndex],
+        'clip': [fromClip, fromClipIndex],
+      },
+    };
+    _rewire(out, from: [fromModel, fromModelIndex], to: [id, 0], skip: id);
+    _rewire(out, from: [fromClip, fromClipIndex], to: [id, 1], skip: id);
+    fromModel = id;
+    fromModelIndex = 0;
+    fromClip = id;
+    fromClipIndex = 1;
+    n++;
+  }
   return out;
 }
 

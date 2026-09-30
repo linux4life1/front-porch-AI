@@ -10,7 +10,9 @@
 
 import 'dart:convert';
 
+import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 
 /// Canonical (de)serialization for a group's per-member realism/needs/dynamics
 /// seeds ↔ the two GroupChat blobs (`defaultMemberRealismState`,
@@ -22,7 +24,7 @@ import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 /// - `defaultMemberRealismState` = `{ "perChar": { memberId: <full seed> } }`,
 ///   where the full seed carries `affection`/`trust`/`emotion`/`emotionIntensity`,
 ///   the `needs` map, the `relationships` map (intragroup feelings, targetId→int),
-///   and the per-need baseline/decay fields.
+///   and the per-need baseline / Pace / on-off fields.
 /// - `baselineRealismState` = `{ memberId: {affection, trust, emotion,
 ///   emotionIntensity, timeOfDay, dayCount} }` — scalars only (no needs/relationships).
 class GroupRealismBlobs {
@@ -128,7 +130,8 @@ Map<String, dynamic> defaultGroupMemberRealismSeed() => {
   'verificationMaxReprocesses': 1,
   'verificationStrictness': 3,
   'needsDirectorAuthority': false,
-  'needsSimStrength': 1,
+  'needsPace': 'normal',
+  'needsOff': <String>[],
   'needsBaselineHunger': 80,
   'needsBaselineBladder': 80,
   'needsBaselineEnergy': 80,
@@ -136,13 +139,6 @@ Map<String, dynamic> defaultGroupMemberRealismSeed() => {
   'needsBaselineFun': 80,
   'needsBaselineHygiene': 80,
   'needsBaselineComfort': 80,
-  'needsDecayHunger': 5,
-  'needsDecayBladder': 5,
-  'needsDecayEnergy': 5,
-  'needsDecaySocial': 5,
-  'needsDecayFun': 5,
-  'needsDecayHygiene': 5,
-  'needsDecayComfort': 5,
   'relationships': <String, int>{},
 };
 
@@ -282,6 +278,58 @@ List<String> parseGroupAlternateGreetings(String defaultMemberJson) {
 
 List<GreetingRealismSeed?> parseGroupGreetingSeeds(String defaultMemberJson) {
   return parseGroupOpeningPairs(defaultMemberJson).seeds;
+}
+
+/// Re-key a defaultMember / session realism blob: perChar plus other
+/// member-keyed maps, and relationship targets inside each seed.
+/// If a UUID key already exists, the legacy name key is dropped.
+/// Returns true when [blob] was mutated.
+bool migrateGroupRealismBlobKeys(
+  Map<String, dynamic> blob,
+  Iterable<CharacterCard> members,
+) {
+  var changed = false;
+  void migrateNested(String key) {
+    final raw = blob[key];
+    if (raw is! Map) return;
+    final map = Map<String, dynamic>.from(raw);
+    if (!migrateGroupStoreKeys(map, members)) return;
+    blob[key] = map;
+    changed = true;
+  }
+
+  migrateNested('perChar');
+  for (final key in const [
+    'authorNotes',
+    'authorNoteStrengths',
+    'characterSystemPrompts',
+    'characterRAGPriorities',
+    'objectives',
+    'imported_member_objectives',
+  ]) {
+    migrateNested(key);
+  }
+
+  final perChar = blob['perChar'];
+  if (perChar is Map) {
+    final idMap = groupMemberLegacyIdMap(members);
+    if (idMap.isNotEmpty) {
+      for (final seed in perChar.values) {
+        if (seed is! Map) continue;
+        final rels = seed['relationships'];
+        if (rels is! Map) continue;
+        if (!rels.keys.map((k) => k.toString()).any(idMap.containsKey)) {
+          continue;
+        }
+        seed['relationships'] = {
+          for (final e in rels.entries)
+            idMap[e.key.toString()] ?? e.key.toString(): e.value,
+        };
+        changed = true;
+      }
+    }
+  }
+  return changed;
 }
 
 /// Patch alt greetings onto an existing group blob without touching perChar

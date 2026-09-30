@@ -86,6 +86,31 @@
 bool recapIsRedundant({required int dropped, required int basePosition}) =>
     dropped == 0 && basePosition == 0;
 
+/// What a full chat save may write into `sessions.summary`.
+///
+/// An empty in-memory recap is not permission to blank the row. Opening a
+/// chat, switching models, and quitting all save while the live copy is
+/// still empty. Only a recap that was loaded for this session, or an
+/// intentional clear, may replace the stored text.
+({String? text, int? cursor}) recapColumnsForSave({
+  required bool boundToThisSession,
+  required bool clearArmed,
+  required String memory,
+  required int memoryCursor,
+  String? stored,
+  int? storedCursor,
+}) {
+  final trimmed = memory.trim();
+  final writeMemory = boundToThisSession && (trimmed.isNotEmpty || clearArmed);
+  if (!writeMemory) {
+    return (text: stored, cursor: storedCursor);
+  }
+  return (
+    text: trimmed.isEmpty ? null : memory,
+    cursor: memoryCursor > 0 ? memoryCursor : null,
+  );
+}
+
 /// Recap is Journal-owned. Guests never journal. When the Journal toggle is
 /// off, a stale `_summary` must not still ride the prompt.
 String recapBlockForTurn({

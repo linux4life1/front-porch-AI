@@ -21,6 +21,8 @@ export function MessageActions({
   userHasReplied = false,
   onSwipe,
   onRegenerate,
+  lookupWeb = false,
+  lookupWiki = false,
   onContinue,
   onFork,
   onEdit,
@@ -35,7 +37,14 @@ export function MessageActions({
   greetingIndex?: number;
   userHasReplied?: boolean;
   onSwipe: (index: number, direction: number, critique?: string) => void;
-  onRegenerate: (critique?: string) => void;
+  onRegenerate: (
+    critique?: string,
+    lookup?: { source: 'web' | 'wiki'; query: string },
+  ) => void;
+  /** Porch Life web search is on. Hidden entirely when false. */
+  lookupWeb?: boolean;
+  /** This chat has a wiki. Shown disabled when web is on and this is false. */
+  lookupWiki?: boolean;
   onContinue: () => void;
   onFork: () => void;
   onEdit: () => void;
@@ -47,6 +56,9 @@ export function MessageActions({
   const [picker, setPicker] = useState(false);
   const [critiqueOpen, setCritiqueOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupIsWiki, setLookupIsWiki] = useState(false);
+  const showLookup = lookupWeb || lookupWiki;
   // Generated-image messages carry no regenerable text — hide the text-gen
   // actions for them (desktop bubble parity).
   const isImage = !!m.image;
@@ -72,12 +84,23 @@ export function MessageActions({
   };
   const openCritique = () => {
     setDraft('');
+    setLookupQuery('');
+    setLookupIsWiki(!lookupWeb && lookupWiki);
     setCritiqueOpen(true);
   };
   const closeCritique = () => setCritiqueOpen(false);
   const confirmCritique = (e?: FormEvent) => {
     e?.preventDefault();
+    const query = lookupQuery.trim();
     setCritiqueOpen(false);
+    if (query && lookupIsWiki && lookupWiki) {
+      onRegenerate(draft, { source: 'wiki', query });
+      return;
+    }
+    if (query && !lookupIsWiki && lookupWeb) {
+      onRegenerate(draft, { source: 'web', query });
+      return;
+    }
     onRegenerate(draft);
   };
   return (
@@ -125,7 +148,7 @@ export function MessageActions({
         <button className="icon-btn" title="Fork from here" disabled={busy} onClick={onFork}>⑂</button>
       )}
       <button className="icon-btn" title="Edit" disabled={busy} onClick={onEdit}>✎</button>
-      <button className="icon-btn" title="Delete" disabled={busy} onClick={onDelete}>🗑</button>
+      <button className="icon-btn" title="Delete" disabled={busy && isLast} onClick={onDelete}>🗑</button>
       </div>
       {picker && (
         <VariantPickerModal
@@ -162,6 +185,41 @@ export function MessageActions({
               onChange={(e) => setDraft(e.target.value)}
               placeholder="why this take was wrong — optional"
             />
+            {showLookup && (
+              <div className="regen-lookup">
+                {lookupWeb ? (
+                  <div className="regen-lookup-toggle" role="group" aria-label="Where to look">
+                    <button
+                      type="button"
+                      data-testid="regen-lookup-web"
+                      aria-pressed={!lookupIsWiki}
+                      onClick={() => setLookupIsWiki(false)}
+                    >
+                      Web
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="regen-lookup-wiki"
+                      aria-pressed={lookupIsWiki && lookupWiki}
+                      disabled={!lookupWiki}
+                      onClick={() => lookupWiki && setLookupIsWiki(true)}
+                    >
+                      Wiki
+                    </button>
+                  </div>
+                ) : (
+                  <span className="muted small" data-testid="regen-lookup-wiki">Wiki</span>
+                )}
+                <input
+                  className="regen-lookup-query"
+                  data-testid="regen-lookup-query"
+                  maxLength={256}
+                  value={lookupQuery}
+                  onChange={(e) => setLookupQuery(e.target.value)}
+                  placeholder="the exact words to look up — optional"
+                />
+              </div>
+            )}
             <div className="regen-critique-actions">
               <button type="button" className="link-btn" onClick={closeCritique}>Cancel</button>
               <button type="submit">Regenerate</button>

@@ -276,8 +276,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
       // report). Raw 100% means the console really said so.
       final rawDone = (live.promptFraction() ?? 0) >= 1.0;
       final estFraction =
-          live.estimatedPromptFraction(tokensPerSecond: _prefillSpeed(cs)) ??
-          0;
+          live.estimatedPromptFraction(tokensPerSecond: _prefillSpeed(cs)) ?? 0;
       final pct = (estFraction * 100).toInt();
       final estTokens = rawDone
           ? live.promptTotal
@@ -321,8 +320,16 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
       );
     }
 
-    // No live console data (remote backend, or nothing printed yet): keep the
-    // estimate-based label.
+    // No live console data yet. Kobold may show its tokenizer estimate
+    // until the console ticker arrives. oMLX and remote hosts must not:
+    // that estimate is chars/4, and lastPerfData can be a leftover Kobold
+    // speed. Elapsed time is the honest label until real progress exists.
+    if (!cs.prefillMetricsAreMeasured) {
+      final label = busyWith != null
+          ? 'Waiting — $busyWith is using the model$elapsedStr'
+          : 'Processing prompt$elapsedStr$queueNote';
+      return (label, color, Icons.memory_rounded, false);
+    }
     final promptTokens = cs.prefillPromptTokens;
     String tokenStr = '';
     if (promptTokens > 0) {
@@ -365,6 +372,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
   /// The backend's measured prefill speed (t/s) from the perf poll — the
   /// anchor for interpolating progress between per-batch console lines.
   double? _prefillSpeed(ChatService cs) {
+    if (!cs.prefillMetricsAreMeasured) return null;
     final speed = cs.lastPerfData?['last_process_speed'];
     return (speed is num && speed > 0) ? speed.toDouble() : null;
   }

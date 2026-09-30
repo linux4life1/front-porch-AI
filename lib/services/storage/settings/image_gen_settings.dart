@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 
 import '../../image/edit_profile.dart';
+import '../../image/image_gen_lora_slots.dart';
 import 'image_gen_remote.dart';
 import 'settings_base.dart';
 
@@ -53,8 +54,7 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   String _imageGenNegativePrompt = 'blurry, low quality, watermark, text';
   String _imageGenStyle = 'photorealistic';
   String _imageGenPromptParadigm = 'natural'; // 'natural', 'tags'
-  String _imageGenLora = '';
-  double _imageGenLoraWeight = 0.8;
+  List<ImageGenLoraSlot> _imageGenLoraSlots = ImageGenLoraSlot.blank();
   // img2img denoising strength — the single, backend-agnostic knob for how far
   // a generation moves away from the supplied reference image (0 = keep the
   // reference, 1 = ignore it). Only takes effect when a reference image is
@@ -112,8 +112,18 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   String get imageGenNegativePrompt => _imageGenNegativePrompt;
   String get imageGenStyle => _imageGenStyle;
   String get imageGenPromptParadigm => _imageGenPromptParadigm;
-  String get imageGenLora => _imageGenLora;
-  double get imageGenLoraWeight => _imageGenLoraWeight;
+  List<ImageGenLoraSlot> get imageGenLoraSlots =>
+      List.unmodifiable(_imageGenLoraSlots);
+
+  /// Filled slots, in order. Empty pickers are skipped.
+  List<ImageGenLoraSlot> get activeImageGenLoras => [
+    for (final s in _imageGenLoraSlots)
+      if (!s.isEmpty) s,
+  ];
+
+  /// Slot 0. Kept so older call sites and the web single-field still read.
+  String get imageGenLora => _imageGenLoraSlots.first.file;
+  double get imageGenLoraWeight => _imageGenLoraSlots.first.weight;
   double get imageGenDenoise => _imageGenDenoise;
   int get imageGenSteps => _imageGenSteps;
   double get imageGenCfgScale => _imageGenCfgScale;
@@ -222,15 +232,38 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
     notify();
   }
 
-  Future<void> setImageGenLora(String value) async {
-    _imageGenLora = value;
-    await prefs?.setString(k('image_gen_lora'), value);
-    notify();
+  Future<void> setImageGenLora(String value) =>
+      setImageGenLoraSlot(0, file: value);
+
+  Future<void> setImageGenLoraWeight(double value) =>
+      setImageGenLoraSlot(0, weight: value);
+
+  Future<void> setImageGenLoraSlot(
+    int index, {
+    String? file,
+    double? weight,
+  }) async {
+    if (index < 0 || index >= kImageGenLoraSlotCount) return;
+    final cur = _imageGenLoraSlots[index];
+    _imageGenLoraSlots[index] = cur.copyWith(
+      file: file,
+      weight: weight?.clamp(0.0, 1.0),
+    );
+    await _persistLoraSlots();
   }
 
-  Future<void> setImageGenLoraWeight(double value) async {
-    _imageGenLoraWeight = value.clamp(0.0, 1.0);
-    await prefs?.setDouble(k('image_gen_lora_weight'), _imageGenLoraWeight);
+  Future<void> setImageGenLoraSlots(List<ImageGenLoraSlot> slots) async {
+    _imageGenLoraSlots = ImageGenLoraSlot.fit(slots);
+    await _persistLoraSlots();
+  }
+
+  Future<void> _persistLoraSlots() async {
+    await prefs?.setString(
+      k('image_gen_loras'),
+      ImageGenLoraSlot.encode(_imageGenLoraSlots),
+    );
+    await prefs?.setString(k('image_gen_lora'), imageGenLora);
+    await prefs?.setDouble(k('image_gen_lora_weight'), imageGenLoraWeight);
     notify();
   }
 

@@ -21,9 +21,9 @@ part of 'image_gen_service.dart';
 /// Common image generation models for Nano-GPT and similar providers.
 /// Always shown so the picker works when `/v1/models` lists text only.
 ///
-/// Snapshot of https://nano-gpt.com/models/image via GET
-/// `/api/v1/image-models` (21 Sep 2026). Not a live fetch — refresh this
-/// const when Nano's image page changes. `isPaid: false` follows
+/// Offline fallback for GET `{apiUrl}/image-models` (snapshot of
+/// https://nano-gpt.com/models/image, 21 Sep 2026). Used when that fetch
+/// fails or parses empty. `isPaid: false` follows
 /// `/api/subscription/v1/image-models` (Pro-included).
 const _commonImageModels = <ImageModelInfo>[
   // ── Included with Nano-GPT subscription ──

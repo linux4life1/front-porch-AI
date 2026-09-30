@@ -19,6 +19,7 @@ import 'package:front_porch_ai/services/chat/chat_command_handler.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 import '../../../integration_test/support/fake_backend.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 CharacterCard _card(String name) => CharacterCard(
   name: name,
@@ -175,9 +176,8 @@ void main() {
                 modelName: 'smoke-model',
               );
         addTearDown(() async {
-          chat.dispose();
+          await disposeChatThenCloseDb(chat, db);
           await backend.close();
-          await db.close();
         });
         await storage.initialized;
 

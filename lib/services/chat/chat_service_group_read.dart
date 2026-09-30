@@ -143,7 +143,10 @@ extension ChatServiceGroupRead on ChatService {
     CharacterCard character, {
     int count = 2,
   }) {
-    final needs = getNeedsForGroupCharacter(character);
+    final needs = visibleNeeds(
+      getNeedsForGroupCharacter(character),
+      character.frontPorchExtensions?.needsOff ?? const [],
+    );
     if (needs.isEmpty) return const [];
 
     final sorted = needs.entries.toList()

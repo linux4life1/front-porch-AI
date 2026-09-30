@@ -19,6 +19,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/web/facade/chat_session_facade.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -51,10 +52,7 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 50));
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test('list(groupId) returns that group without activating a chat', () async {
     await db.insertSession(

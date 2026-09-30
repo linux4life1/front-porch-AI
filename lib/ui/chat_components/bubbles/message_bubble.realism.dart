@@ -28,6 +28,10 @@ part of 'message_bubble.dart';
 /// split map's H3.
 extension _BubbleRealism on _MessageBubbleState {
   Widget _buildRealismIndicator(Map<String, dynamic> metadata) {
+    // A present key means the relationship judge ran, even when it
+    // returned 0. A missing key is an older turn or a skipped judge.
+    final bondRecorded = metadata.containsKey('bond_delta');
+    final trustRecorded = metadata.containsKey('trust_delta');
     final bondDelta = metadata['bond_delta'] as int? ?? 0;
     final emotionLabel = metadata['emotion_label'] as String? ?? '';
     final arousalDelta = metadata['arousal_delta'] as int? ?? 0;
@@ -35,15 +39,21 @@ extension _BubbleRealism on _MessageBubbleState {
     final bondReason = metadata['bond_reason'] as String? ?? '';
     final trustReason = metadata['trust_reason'] as String? ?? '';
     final timeSkipTo = metadata['time_skip_to'] as String? ?? '';
+    final timePassed = metadata['time_passed'] as String? ?? '';
     final chanceTimeEvent = metadata['chance_time_event'] as String? ?? '';
     final timeReversal = metadata['time_reversal'] as bool? ?? false;
     final searchReceipt = metadata['search_receipt'] as Map<String, dynamic>?;
     final searchQuery = (searchReceipt?['query'] as String?)?.trim() ?? '';
     final searchOk = searchReceipt?['ok'] == true;
+    final wikiReceipt = metadata['wiki_receipt'] as Map<String, dynamic>?;
+    final wikiQueryRaw = (wikiReceipt?['query'] as String?)?.trim() ?? '';
+    final wikiQuery = wikiQueryRaw == searchQuery ? '' : wikiQueryRaw;
+    final wikiOk = wikiReceipt?['ok'] == true;
     final toolReceipt = metadata['tool_receipt'] as Map<String, dynamic>?;
     final toolName = (toolReceipt?['tool'] as String?)?.trim() ?? '';
     final toolOk = toolReceipt?['ok'] == true;
     final needsDeltas = metadata['needs_deltas'] as Map<String, dynamic>?;
+    final needsUnaffected = metadata[kNeedsUnaffectedMeta] == true;
 
     // Pockets & Wardrobe receipts, read BEFORE the early return below: Pockets
     // answers to its own switch and runs with the Realism Engine off, so a
@@ -65,18 +75,37 @@ extension _BubbleRealism on _MessageBubbleState {
     final verifStatus = (verifData?['status'] as String? ?? '').trim();
     final verifPasses = (verifData?['passes'] as num?)?.toInt() ?? 0;
     final verifReason = (verifData?['reason'] as String? ?? '').trim();
+    // Mood, clock, needs, or the verifier mean this reply was scored.
+    // A missing bond/trust key on that reply is a dropped zero, not a
+    // skipped judge. Say so, the same way Needs says nothing moved.
+    final realismTouched =
+        emotionLabel.isNotEmpty ||
+        needsUnaffected ||
+        (needsDeltas != null && needsDeltas.isNotEmpty) ||
+        timePassed.isNotEmpty ||
+        timeSkipTo.isNotEmpty ||
+        verifStatus.isNotEmpty ||
+        bondRecorded ||
+        trustRecorded;
+    final showBond = bondRecorded || realismTouched;
+    final showTrust = trustRecorded || realismTouched;
+    final bondUnchanged = !bondRecorded || bondDelta == 0;
+    final trustUnchanged = !trustRecorded || trustDelta == 0;
 
     if ((needsDeltas == null || needsDeltas.isEmpty) &&
-        bondDelta == 0 &&
+        !needsUnaffected &&
+        !showBond &&
         emotionLabel.isEmpty &&
         arousalDelta == 0 &&
-        trustDelta == 0 &&
+        !showTrust &&
         timeSkipTo.isEmpty &&
+        timePassed.isEmpty &&
         chanceTimeEvent.isEmpty &&
         !timeReversal &&
         verifStatus.isEmpty &&
         pocketReceipts.isEmpty &&
         searchQuery.isEmpty &&
+        wikiQuery.isEmpty &&
         toolName.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -192,22 +221,54 @@ extension _BubbleRealism on _MessageBubbleState {
       });
     }
 
-    if (bondDelta != 0) {
+    if (needsUnaffected && needsChipList.isEmpty) {
+      final amber = AppColors.porchAmberOf(context);
+      needsChipList.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule, size: 11, color: amber),
+            const SizedBox(width: 4),
+            Text(
+              kNeedsUnaffectedLabel,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: amber,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (showBond) {
+      final bondColor = bondUnchanged
+          ? AppColors.textSecondary(context)
+          : bondDelta > 0
+          ? Colors.pinkAccent
+          : Colors.redAccent;
       final chip = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            bondDelta > 0 ? Icons.favorite : Icons.heart_broken,
+            bondUnchanged
+                ? Icons.favorite_border
+                : bondDelta > 0
+                ? Icons.favorite
+                : Icons.heart_broken,
             size: 11,
-            color: bondDelta > 0 ? Colors.pinkAccent : Colors.redAccent,
+            color: bondColor,
           ),
           const SizedBox(width: 4),
           Text(
-            'Bond: ${bondDelta > 0 ? '+$bondDelta' : '$bondDelta'}',
+            bondUnchanged
+                ? 'Bond unchanged'
+                : 'Bond: ${bondDelta > 0 ? '+$bondDelta' : '$bondDelta'}',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: bondDelta > 0 ? Colors.pinkAccent : Colors.redAccent,
+              color: bondColor,
             ),
           ),
           if (bondReason.isNotEmpty) ...[
@@ -287,34 +348,37 @@ extension _BubbleRealism on _MessageBubbleState {
       );
     }
 
-    if (trustDelta != 0) {
+    if (showTrust) {
+      final trustColor = trustUnchanged
+          ? AppColors.textSecondary(context)
+          : trustDelta > 0
+          ? Colors.blueAccent
+          : AppColors.resolve(
+              context,
+              Colors.deepPurpleAccent,
+              const Color(0xFF7C3AED),
+            );
       final chip = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            trustDelta > 0 ? Icons.handshake : Icons.gavel,
+            trustUnchanged
+                ? Icons.handshake_outlined
+                : trustDelta > 0
+                ? Icons.handshake
+                : Icons.gavel,
             size: 11,
-            color: trustDelta > 0
-                ? Colors.blueAccent
-                : AppColors.resolve(
-                    context,
-                    Colors.deepPurpleAccent,
-                    const Color(0xFF7C3AED),
-                  ),
+            color: trustColor,
           ),
           const SizedBox(width: 4),
           Text(
-            'Trust: ${trustDelta > 0 ? '+$trustDelta' : '$trustDelta'}',
+            trustUnchanged
+                ? 'Trust unchanged'
+                : 'Trust: ${trustDelta > 0 ? '+$trustDelta' : '$trustDelta'}',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: trustDelta > 0
-                  ? Colors.blueAccent
-                  : AppColors.resolve(
-                      context,
-                      Colors.deepPurpleAccent,
-                      const Color(0xFF7C3AED),
-                    ),
+              color: trustColor,
             ),
           ),
           if (trustReason.isNotEmpty) ...[
@@ -335,8 +399,11 @@ extension _BubbleRealism on _MessageBubbleState {
       maybeTooltip: maybeTooltip,
       timeReversal: timeReversal,
       timeSkipTo: timeSkipTo,
+      timePassed: timePassed,
       searchQuery: searchQuery,
       searchOk: searchOk,
+      wikiQuery: wikiQuery,
+      wikiOk: wikiOk,
       toolName: toolName,
       toolOk: toolOk,
       chanceTimeEvent: chanceTimeEvent,

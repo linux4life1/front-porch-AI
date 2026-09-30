@@ -239,6 +239,27 @@ extension ChatServiceGrowth on ChatService {
   String _getEffectivePersonality(CharacterCard card) =>
       _growthService.effectivePersonality(card);
 
+  /// Card text only. Growth rides its own post-transcript section.
+  String _resolvedCardPersonality(CharacterCard card, String userName) {
+    return _macroResolver.resolve(
+      _growthService.cardPersonality(card),
+      MacroContext(userName: userName, characterName: card.name),
+      section: 'persona',
+    );
+  }
+
+  /// Growth block for the prompt tail. Empty when growth is off or quiet.
+  String _resolvedGrowthBlock(CharacterCard card, String userName) {
+    if (!_growthService.getGrowthEnabled()) return '';
+    final raw = _growthService.growthBlockFor(card);
+    if (raw.isEmpty) return '';
+    return _macroResolver.resolve(
+      raw,
+      MacroContext(userName: userName, characterName: card.name),
+      section: 'persona',
+    );
+  }
+
   // Scenario evolution is retired (growth-rings design §3.2): the Journal
   // recap owns "where we are", so every mode uses the card's own scenario.
   String _getEffectiveScenario(CharacterCard card) => card.scenario;

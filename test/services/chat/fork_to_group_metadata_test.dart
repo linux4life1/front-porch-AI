@@ -43,6 +43,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -79,10 +80,7 @@ void main() {
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   CharacterCard card(String name, String id) => CharacterCard(
     name: name,
@@ -95,15 +93,17 @@ void main() {
 
     // A generated image: empty text, all of its content in metadata. If the
     // copy drops metadata this message becomes a blank bubble forever.
-    await chat.addGeneratedImageMessage('/pictures/porch-dusk.png', 'a porch at dusk');
+    await chat.addGeneratedImageMessage(
+      '/pictures/porch-dusk.png',
+      'a porch at dusk',
+    );
     // And a stamp of the kind every rewind reads back.
     final stamped = chat.messages.last;
     stamped.metadata!['realism_state'] = {'affection': 42};
 
-    final group = await chat.forkToGroupChat(
-      [card('Marisol', 'char-fork-arrival')],
-      GroupChatRepository(storage, db),
-    );
+    final group = await chat.forkToGroupChat([
+      card('Marisol', 'char-fork-arrival'),
+    ], GroupChatRepository(storage, db));
 
     expect(group, isNotNull, reason: 'the conversion itself must succeed');
 

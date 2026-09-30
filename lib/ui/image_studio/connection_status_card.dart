@@ -37,6 +37,11 @@ class ConnectionStatusCard extends StatelessWidget {
   /// Shown when unreachable, e.g. "Is ComfyUI running? It listens on
   /// http://127.0.0.1:8188 by default."
   final String notReachableHint;
+
+  /// Shown when the server answered but listed no models. Draw Things needs
+  /// this because an empty Echo("models") means Model Browser is off, not
+  /// that the gRPC server is down.
+  final String? emptyModelsHint;
   final VoidCallback onRetry;
 
   const ConnectionStatusCard({
@@ -47,6 +52,7 @@ class ConnectionStatusCard extends StatelessWidget {
     required this.modelCount,
     required this.loraCount,
     required this.notReachableHint,
+    this.emptyModelsHint,
     required this.onRetry,
   });
 
@@ -79,7 +85,8 @@ class ConnectionStatusCard extends StatelessWidget {
       detail = modelCount > 0
           ? '$modelCount model${modelCount == 1 ? '' : 's'}'
                 '${loraCount > 0 ? ' · $loraCount LoRA${loraCount == 1 ? '' : 's'}' : ''}'
-          : 'No models reported — check the server\'s model folder.';
+          : (emptyModelsHint ??
+                'No models reported — check the server\'s model folder.');
     } else if (connected == false) {
       accent = AppColors.logError;
       icon = const Icon(

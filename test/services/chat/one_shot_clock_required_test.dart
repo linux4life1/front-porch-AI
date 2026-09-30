@@ -60,6 +60,17 @@ void main() {
       expect(_properties(kSceneTimeOnlyEvalTools), contains('new_day'));
     });
 
+    test('continuous_instant is optional on the scene-time lane', () {
+      expect(
+        _required(kSceneTimeOnlyEvalTools),
+        isNot(contains('continuous_instant')),
+      );
+      expect(
+        _properties(kSceneTimeOnlyEvalTools),
+        contains('continuous_instant'),
+      );
+    });
+
     test('every required field is actually declared in the schema', () {
       final props = _properties(kOneShotEvalTools);
       for (final key in _required(kOneShotEvalTools)) {

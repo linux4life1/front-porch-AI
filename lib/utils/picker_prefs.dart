@@ -20,10 +20,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/app_version.dart';
 
 // Re-export the file_picker types call sites need. FilePickerResult is gone
-// in file_picker 12; we keep a local shim below.
+// since file_picker 12; we keep a local shim below.
 export 'package:file_picker/file_picker.dart' show FileType, PlatformFile;
 
-/// Compatibility shim for file_picker 12, which dropped [FilePickerResult]
+/// Compatibility shim for file_picker 12+, which dropped [FilePickerResult]
 /// and now returns `List<PlatformFile>` (empty list = cancel).
 class FilePickerResult {
   const FilePickerResult(this.files);
@@ -44,9 +44,10 @@ class FilePickerResult {
 
 /// In-memory [PlatformFile] for tests and the web chargen facade.
 /// file_picker 12 made [PlatformFile] an abstract base with no constructor.
+/// file_picker 13 / platform_interface 4.0 added abstract [lengthSync].
 base class MemoryPlatformFile extends PlatformFile {
   MemoryPlatformFile({required this.name, required Uint8List bytes})
-      : _bytes = bytes;
+    : _bytes = bytes;
 
   @override
   final String name;
@@ -60,7 +61,10 @@ base class MemoryPlatformFile extends PlatformFile {
   XFile get xFile => XFile.fromData(_bytes, name: name);
 
   @override
-  Future<int> length() async => _bytes.length;
+  int? lengthSync() => _bytes.length;
+
+  @override
+  Future<int?> length() async => _bytes.length;
 
   @override
   Future<Uint8List> readAsBytes() async => _bytes;
@@ -69,16 +73,27 @@ base class MemoryPlatformFile extends PlatformFile {
   Stream<Uint8List> readAsByteStream() => Stream<Uint8List>.value(_bytes);
 }
 
+/// The Windows file dialog never returned. The remembered folder for that
+/// category has already been cleared. Callers surface this as
+/// `Export failed: $e`.
+class PickerDialogTimeout implements Exception {
+  const PickerDialogTimeout();
+
+  @override
+  String toString() =>
+      'The file dialog did not open. The remembered folder was cleared; try again.';
+}
+
 /// Thin wrapper around `FilePicker` that remembers the last folder
 /// used per [category] and reopens the native dialog there (#84).
 ///
-/// file_picker ≥12.1.1 is required: 12.0.0's facade does not forward
-/// allowMultiple/withData/withReadStream, and skipEntitlementsChecks is a
-/// no-op until 12.1.1. 12.1.0 restored [PlatformFile.extension] but still
-/// is not the pin. Single-file picks go through [FilePicker.pickFile]
-/// because 12 defaults [FilePicker.pickFiles] `allowMultiple` to true.
+/// file_picker ≥13.1.0 is required. 13 removed top-level
+/// `lockParentWindow` / `allowMultiple` / `withData` on the FilePicker
+/// facade; modal lock is [WindowsOptions] / [LinuxOptions], multi-file
+/// is [FilePicker.pickFiles] (always multi), single-file is
+/// [FilePicker.pickFile], and bytes come from [PlatformFile.readAsBytes].
 /// Android SAF persistable URI grants are never enabled (we never pass
-/// FilePickerAndroidOptions).
+/// AndroidOptions).
 ///
 /// Every open/save/directory dialog previously started at the OS default (root
 /// of the drive on macOS), which made repetitive imports from the same folder
@@ -86,6 +101,13 @@ base class MemoryPlatformFile extends PlatformFile {
 /// it back as `initialDirectory` next time — bucketed by [category] so image
 /// imports, general file imports, exports and folder pickers each resume where
 /// that particular workflow last left off.
+///
+/// A remembered folder that is gone or unreachable is not passed again, and
+/// its key is cleared. On Windows the dialog call is also bounded:
+/// windows_file_picker 2.0.0 runs the dialog in an isolate and waits on
+/// `port.first`. `SHCreateItemFromParsingName` throws for a deleted,
+/// renamed, cloud-only, or missing-drive folder, the isolate sends nothing,
+/// and that wait never finishes.
 ///
 /// Self-contained on [SharedPreferences] (the same store [StorageService] uses)
 /// so call sites don't need a BuildContext/service handle. Keys follow the same
@@ -121,7 +143,7 @@ class PickerPrefs {
     }
   }
 
-  /// Convert file_picker 12's [Uri?] save result back to the [String?] path
+  /// Convert file_picker's [Uri?] save result back to the [String?] path
   /// callers still expect. File URIs become filesystem paths; other schemes
   /// keep `toString()`.
   @visibleForTesting
@@ -155,12 +177,106 @@ class PickerPrefs {
   })?
   testPickFilesOverride;
 
+  /// Test seam for [saveFile]. When set, the OS save dialog is skipped and
+  /// this receives the bytes that would have been written. Empty bytes still
+  /// throw before this runs. Always null it in teardown.
+  @visibleForTesting
+  static Future<String?> Function({
+    required String category,
+    required Uint8List bytes,
+    String? dialogTitle,
+    String? fileName,
+    FileType? type,
+    List<String>? allowedExtensions,
+  })?
+  testSaveFileOverride;
+
+  /// Stands in for the native dialog after the remembered-folder check.
+  ///
+  /// [op] is `saveFile`, `pickFile`, `pickFiles`, or `getDirectoryPath`.
+  /// [initialDirectory] is the folder that would be passed (null when none
+  /// or the remembered folder is gone). Return null to act as a cancel.
+  /// `pickFiles` may also return a `List<PlatformFile>`.
+  @visibleForTesting
+  static Future<Object?> Function({
+    required String op,
+    required String? initialDirectory,
+  })?
+  testNativePicker;
+
+  /// When true, the Windows dialog timeout applies on this platform too.
+  @visibleForTesting
+  static bool testForceWindowsPickerGuard = false;
+
+  /// How long a Windows dialog may sit before [PickerDialogTimeout].
+  @visibleForTesting
+  static Duration testWindowsPickerTimeout = const Duration(minutes: 10);
+
+  /// SharedPreferences key for [category], including the beta prefix.
+  @visibleForTesting
+  static String testPrefsKey(String category) => _key(category);
+
+  static bool _folderExists(String path) {
+    try {
+      return Directory(path).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Remembered folder for [category], or null when it is missing.
+  /// A missing folder is dropped so the next dialog is not pointed at it.
+  static Future<String?> _initialDirectory(
+    SharedPreferences prefs,
+    String category,
+  ) async {
+    final remembered = _read(prefs, category);
+    if (remembered == null || remembered.isEmpty) return null;
+    if (_folderExists(remembered)) return remembered;
+    await prefs.remove(_key(category));
+    return null;
+  }
+
+  static bool get _guardHungWindowsDialog =>
+      Platform.isWindows || testForceWindowsPickerGuard;
+
+  static Future<T> _callPicker<T>(
+    Future<T> pending,
+    SharedPreferences prefs,
+    String category,
+  ) {
+    if (!_guardHungWindowsDialog) return pending;
+    return pending.timeout(
+      testWindowsPickerTimeout,
+      onTimeout: () => _pickerTimedOut<T>(prefs, category),
+    );
+  }
+
+  static Future<T> _pickerTimedOut<T>(
+    SharedPreferences prefs,
+    String category,
+  ) async {
+    await prefs.remove(_key(category));
+    throw const PickerDialogTimeout();
+  }
+
+  static Future<T> _native<T>({
+    required String op,
+    required String? initialDirectory,
+    required Future<T> Function() real,
+    required T Function(Object? raw) decode,
+  }) {
+    final hook = testNativePicker;
+    if (hook == null) return real();
+    return hook(op: op, initialDirectory: initialDirectory).then(decode);
+  }
+
   /// Drop-in for `FilePicker.pickFiles` that resumes at (and records)
   /// the last folder used for [category].
   ///
   /// [allowMultiple] defaults to false and routes through [FilePicker.pickFile]
-  /// so a 12.x default of true cannot leak in. Bytes are read later via
-  /// [PlatformFile.readAsBytes] — `withData` is not passed. pickFiles itself
+  /// so file_picker 13's always-multi [FilePicker.pickFiles] cannot leak in.
+  /// Bytes are read later via [PlatformFile.readAsBytes]. pickFiles itself
   /// does not eager-read GGUF/ZIP/PDF.
   static Future<FilePickerResult?> pickFiles({
     required String category,
@@ -175,16 +291,29 @@ class PickerPrefs {
       return override(category: category, allowedExtensions: allowedExtensions);
     }
     final prefs = await SharedPreferences.getInstance();
-    final initialDirectory = _read(prefs, category);
+    final initialDirectory = await _initialDirectory(prefs, category);
+    final windowsOptions = WindowsOptions(lockParentWindow: lockParentWindow);
+    final linuxOptions = LinuxOptions(lockParentWindow: lockParentWindow);
 
     if (allowMultiple) {
-      final files = await FilePicker.pickFiles(
-        dialogTitle: dialogTitle,
-        initialDirectory: initialDirectory,
-        type: type,
-        allowedExtensions: allowedExtensions,
-        allowMultiple: true,
-        lockParentWindow: lockParentWindow,
+      final files = await _callPicker(
+        _native<List<PlatformFile>>(
+          op: 'pickFiles',
+          initialDirectory: initialDirectory,
+          real: () => FilePicker.pickFiles(
+            dialogTitle: dialogTitle,
+            initialDirectory: initialDirectory,
+            type: type,
+            allowedExtensions: allowedExtensions,
+            windowsOptions: windowsOptions,
+            linuxOptions: linuxOptions,
+          ),
+          decode: (raw) => raw == null
+              ? const <PlatformFile>[]
+              : (raw as List<PlatformFile>),
+        ),
+        prefs,
+        category,
       );
       if (files.isEmpty) return null;
       final path = files.first.path;
@@ -192,12 +321,22 @@ class PickerPrefs {
       return FilePickerResult(files);
     }
 
-    final file = await FilePicker.pickFile(
-      dialogTitle: dialogTitle,
-      initialDirectory: initialDirectory,
-      type: type,
-      allowedExtensions: allowedExtensions,
-      lockParentWindow: lockParentWindow,
+    final file = await _callPicker(
+      _native<PlatformFile?>(
+        op: 'pickFile',
+        initialDirectory: initialDirectory,
+        real: () => FilePicker.pickFile(
+          dialogTitle: dialogTitle,
+          initialDirectory: initialDirectory,
+          type: type,
+          allowedExtensions: allowedExtensions,
+          windowsOptions: windowsOptions,
+          linuxOptions: linuxOptions,
+        ),
+        decode: (raw) => raw as PlatformFile?,
+      ),
+      prefs,
+      category,
     );
     if (file == null) return null;
     final path = file.path;
@@ -205,7 +344,7 @@ class PickerPrefs {
     return FilePickerResult([file]);
   }
 
-  /// Save [bytes] through the native dialog. file_picker 12 writes those
+  /// Save [bytes] through the native dialog. file_picker writes those
   /// bytes itself (Windows/Linux/macOS `writeAsBytes` after the dialog).
   /// [bytes] is required and must be non-empty — a dummy `Uint8List(0)`
   /// truncates/wipes the chosen file.
@@ -222,18 +361,40 @@ class PickerPrefs {
       throw ArgumentError.value(
         bytes,
         'bytes',
-        'file_picker 12 writes these bytes; empty would wipe the chosen file',
+        'file_picker writes these bytes; empty would wipe the chosen file',
+      );
+    }
+    final override = testSaveFileOverride;
+    if (override != null) {
+      return override(
+        category: category,
+        bytes: bytes,
+        dialogTitle: dialogTitle,
+        fileName: fileName,
+        type: type,
+        allowedExtensions: allowedExtensions,
       );
     }
     final prefs = await SharedPreferences.getInstance();
-    final uri = await FilePicker.saveFile(
-      dialogTitle: dialogTitle,
-      fileName: fileName ?? 'untitled',
-      bytes: bytes,
-      initialDirectory: _read(prefs, category),
-      type: type,
-      allowedExtensions: allowedExtensions,
-      lockParentWindow: lockParentWindow,
+    final initialDirectory = await _initialDirectory(prefs, category);
+    final uri = await _callPicker(
+      _native<Uri?>(
+        op: 'saveFile',
+        initialDirectory: initialDirectory,
+        real: () => FilePicker.saveFile(
+          dialogTitle: dialogTitle,
+          fileName: fileName ?? 'untitled',
+          bytes: bytes,
+          initialDirectory: initialDirectory,
+          type: type,
+          allowedExtensions: allowedExtensions,
+          windowsOptions: WindowsOptions(lockParentWindow: lockParentWindow),
+          linuxOptions: LinuxOptions(lockParentWindow: lockParentWindow),
+        ),
+        decode: (raw) => raw as Uri?,
+      ),
+      prefs,
+      category,
     );
     final path = uriToSavePath(uri);
     if (path != null) await _remember(prefs, category, p.dirname(path));
@@ -294,10 +455,21 @@ class PickerPrefs {
     bool lockParentWindow = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final path = await FilePicker.getDirectoryPath(
-      dialogTitle: dialogTitle,
-      initialDirectory: _read(prefs, category),
-      lockParentWindow: lockParentWindow,
+    final initialDirectory = await _initialDirectory(prefs, category);
+    final path = await _callPicker(
+      _native<String?>(
+        op: 'getDirectoryPath',
+        initialDirectory: initialDirectory,
+        real: () => FilePicker.getDirectoryPath(
+          dialogTitle: dialogTitle,
+          initialDirectory: initialDirectory,
+          windowsOptions: WindowsOptions(lockParentWindow: lockParentWindow),
+          linuxOptions: LinuxOptions(lockParentWindow: lockParentWindow),
+        ),
+        decode: (raw) => raw as String?,
+      ),
+      prefs,
+      category,
     );
     if (path != null) await _remember(prefs, category, path);
     return path;

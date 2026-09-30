@@ -31,6 +31,9 @@ class AdaptedComfyGraph {
   final String modelNodeId;
   final String clipNodeId;
 
+  /// CheckpointLoaderSimple CLIP is output 1. A CLIP loader's CLIP is output 0.
+  final int clipOutputIndex;
+
   const AdaptedComfyGraph({
     required this.template,
     required this.slots,
@@ -39,6 +42,7 @@ class AdaptedComfyGraph {
     this.vaeOutputIndex = 0,
     this.modelNodeId = 'unet',
     this.clipNodeId = 'clip',
+    this.clipOutputIndex = 0,
   });
 }
 
@@ -46,6 +50,8 @@ const _kPromptTextNodes = {
   'CLIPTextEncode',
   'CLIPTextEncodeFlux',
   'TextEncodeQwenImageEditPlus',
+  'TextEncodeQwenImage21',
+  'TextGenerate',
 };
 
 const _kPromptKeys = {'text', 'prompt'};
@@ -55,7 +61,6 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
   final graph = ensureComfyApiGraph(api) ?? Map<String, dynamic>.from(api);
   final slots = <ComfyModelSlot>[];
   final classes = <String>{};
-  var promptCount = 0;
   var diffusionN = 0;
   var clipN = 0;
   var vaeN = 0;
@@ -63,7 +68,20 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
   var vaeNodeId = '';
   var modelNodeId = '';
   var clipNodeId = '';
+  var clipFromCheckpoint = false;
   var hasFluxGuidance = false;
+  final promptSwitchIds = <String>{};
+  for (final node in graph.values.whereType<Map>()) {
+    if (!_kPromptTextNodes.contains(node['class_type'])) continue;
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    for (final key in _kPromptKeys) {
+      final value = inputs[key];
+      if (value is List && value.isNotEmpty) {
+        promptSwitchIds.add(value.first.toString());
+      }
+    }
+  }
   for (final v in graph.values) {
     if (v is Map && v['class_type'] == 'FluxGuidance') hasFluxGuidance = true;
   }
@@ -104,43 +122,59 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
 
     switch (classType) {
       case 'UNETLoader':
+      case 'UnetLoaderGGUF':
+      case 'UnetLoaderGGUFAdvanced':
         diffusionN++;
         modelNodeId = modelNodeId.isEmpty ? e.key : modelNodeId;
         slot(
           diffusionN == 1
               ? '%MODEL_DIFFUSION%'
               : '%MODEL_DIFFUSION_$diffusionN%',
-          'UNETLoader',
+          classType,
           'unet_name',
           diffusionN == 1 ? 'Diffusion model' : 'Diffusion model $diffusionN',
           'diffusion_models',
         );
       case 'CLIPLoader':
+      case 'CLIPLoaderGGUF':
         clipN++;
-        clipNodeId = clipNodeId.isEmpty ? e.key : clipNodeId;
+        if (clipNodeId.isEmpty) {
+          clipNodeId = e.key;
+          clipFromCheckpoint = false;
+        }
         slot(
           clipN == 1 ? '%MODEL_CLIP%' : '%MODEL_CLIP_$clipN%',
-          'CLIPLoader',
+          classType,
           'clip_name',
           clipN == 1 ? 'Text encoder' : 'Text encoder $clipN',
           'text_encoders',
         );
       case 'DualCLIPLoader':
-        clipNodeId = clipNodeId.isEmpty ? e.key : clipNodeId;
-        slot(
-          '%MODEL_CLIP1%',
-          'DualCLIPLoader',
-          'clip_name1',
-          'Text encoder 1 (CLIP-L)',
-          'text_encoders',
-        );
-        slot(
-          '%MODEL_CLIP2%',
-          'DualCLIPLoader',
-          'clip_name2',
-          'Text encoder 2 (T5-XXL)',
-          'text_encoders',
-        );
+      case 'DualCLIPLoaderGGUF':
+      case 'TripleCLIPLoaderGGUF':
+      case 'QuadrupleCLIPLoaderGGUF':
+        if (clipNodeId.isEmpty) {
+          clipNodeId = e.key;
+          clipFromCheckpoint = false;
+        }
+        final count = classType.startsWith('Quadruple')
+            ? 4
+            : classType.startsWith('Triple')
+            ? 3
+            : 2;
+        for (var i = 1; i <= count; i++) {
+          slot(
+            '%MODEL_CLIP$i%',
+            classType,
+            'clip_name$i',
+            classType == 'DualCLIPLoader'
+                ? (i == 1
+                      ? 'Text encoder 1 (CLIP-L)'
+                      : 'Text encoder 2 (T5-XXL)')
+                : 'Text encoder $i',
+            'text_encoders',
+          );
+        }
       case 'VAELoader':
         vaeN++;
         vaeNodeId = vaeNodeId.isEmpty ? e.key : vaeNodeId;
@@ -154,7 +188,10 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
       case 'CheckpointLoaderSimple':
         ckptN++;
         modelNodeId = modelNodeId.isEmpty ? e.key : modelNodeId;
-        clipNodeId = clipNodeId.isEmpty ? e.key : clipNodeId;
+        if (clipNodeId.isEmpty) {
+          clipNodeId = e.key;
+          clipFromCheckpoint = true;
+        }
         vaeNodeId = vaeNodeId.isEmpty ? e.key : vaeNodeId;
         slot(
           ckptN == 1 ? '%MODEL_CHECKPOINT%' : '%MODEL_CHECKPOINT_$ckptN%',
@@ -182,26 +219,20 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
         _tokenIfLiteral(ins, 'height', ComfyEditTokens.height);
       case 'LoadImage':
         _tokenIfLiteral(ins, 'image', ComfyEditTokens.image);
+      case 'ComfySwitchNode':
+        if (promptSwitchIds.contains(e.key) && ins['on_false'] is String) {
+          _tokenIfLiteral(ins, 'on_false', ComfyEditTokens.prompt);
+        }
       default:
-        if (_kPromptTextNodes.contains(classType)) {
-          for (final key in _kPromptKeys) {
-            if (!ins.containsKey(key)) continue;
-            promptCount++;
-            _tokenIfLiteral(
-              ins,
-              key,
-              promptCount == 1
-                  ? ComfyEditTokens.prompt
-                  : ComfyEditTokens.negative,
-            );
-            break;
-          }
+        if (classType == 'TextEncodeQwenImage21') {
+          _tokenIfLiteral(ins, 'negative_prompt', ComfyEditTokens.negative);
         }
     }
 
     node['inputs'] = ins;
     graph[e.key] = node;
   }
+  _assignPromptTokens(graph);
 
   if (vaeNodeId.isEmpty) {
     for (final e in graph.entries) {
@@ -221,7 +252,61 @@ AdaptedComfyGraph adaptComfyApiWorkflow(Map<String, dynamic> api) {
     vaeOutputIndex: ckptN > 0 && vaeN == 0 ? 2 : 0,
     modelNodeId: modelNodeId.isEmpty ? 'unet' : modelNodeId,
     clipNodeId: clipNodeId.isEmpty ? 'clip' : clipNodeId,
+    clipOutputIndex: clipFromCheckpoint ? 1 : 0,
   );
+}
+
+/// A linked socket or a converter-stamped `%PROMPT%` already owns the user
+/// prompt. Literals then become the negative, so document order cannot put
+/// the user text on the negative encoder.
+void _assignPromptTokens(Map<String, dynamic> graph) {
+  final sites = <({String id, String key})>[];
+  var userTaken = false;
+  for (final entry in graph.entries) {
+    final node = entry.value;
+    if (node is! Map) continue;
+    final type = node['class_type']?.toString() ?? '';
+    if (!_kPromptTextNodes.contains(type)) continue;
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    for (final key in _kPromptKeys) {
+      if (!inputs.containsKey(key)) continue;
+      final value = inputs[key];
+      if (value == ComfyEditTokens.prompt ||
+          _linkOwnsUserPrompt(graph, value)) {
+        userTaken = true;
+      }
+      sites.add((id: entry.key, key: key));
+      break;
+    }
+  }
+  var literals = 0;
+  for (final site in sites) {
+    final node = graph[site.id];
+    if (node is! Map) continue;
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    final value = inputs[site.key];
+    if (value is List) continue;
+    if (value is String && value.startsWith('%') && value.endsWith('%')) {
+      continue;
+    }
+    final token = !userTaken && literals == 0
+        ? ComfyEditTokens.prompt
+        : ComfyEditTokens.negative;
+    literals++;
+    final typed = Map<String, dynamic>.from(inputs);
+    _tokenIfLiteral(typed, site.key, token);
+    node['inputs'] = typed;
+  }
+}
+
+bool _linkOwnsUserPrompt(Map<String, dynamic> graph, Object? value) {
+  if (value is! List || value.isEmpty) return false;
+  final source = graph['${value.first}'];
+  if (source is! Map) return true;
+  final type = source['class_type']?.toString() ?? '';
+  return !_kPromptTextNodes.contains(type);
 }
 
 void _tokenIfLiteral(Map<String, dynamic> inputs, String key, String token) {

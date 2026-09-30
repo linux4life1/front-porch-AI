@@ -16,6 +16,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -86,10 +87,7 @@ void main() {
       await storage.initialized;
     });
 
-    tearDown(() async {
-      chat.dispose();
-      await db.close();
-    });
+    tearDown(() => disposeChatThenCloseDb(chat, db));
 
     Future<void> seedGroup({required bool needsEnabled}) async {
       final blobs = buildGroupRealismBlobs(

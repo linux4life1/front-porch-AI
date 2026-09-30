@@ -45,8 +45,11 @@ extension ImageGenSettingsLoad on ImageGenSettings {
     _imageGenStyle = prefs?.getString(k('image_gen_style')) ?? 'photorealistic';
     _imageGenPromptParadigm =
         prefs?.getString(k('image_gen_prompt_paradigm')) ?? 'natural';
-    _imageGenLora = prefs?.getString(k('image_gen_lora')) ?? '';
-    _imageGenLoraWeight = prefs?.getDouble(k('image_gen_lora_weight')) ?? 0.8;
+    _imageGenLoraSlots = ImageGenLoraSlot.decode(
+      prefs?.getString(k('image_gen_loras')),
+      legacyFile: prefs?.getString(k('image_gen_lora')) ?? '',
+      legacyWeight: prefs?.getDouble(k('image_gen_lora_weight')) ?? 0.8,
+    );
     _imageGenDenoise = prefs?.getDouble(k('image_gen_denoise')) ?? 0.5;
     _imageGenSteps = prefs?.getInt(k('image_gen_steps')) ?? 4;
     _imageGenCfgScale = prefs?.getDouble(k('image_gen_cfg_scale')) ?? 1.0;

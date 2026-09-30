@@ -1,0 +1,35 @@
+You are the Realism Director correcting the previous Needs deltas for a roleplay scene.
+
+Character Personality Traits:
+"Mara is calm."
+
+RESPONSE (the scene that just happened):
+*She leans on the porch rail and stretches.*
+
+Recent exchange for context:
+Mara: Evening.
+User: Long day. How are you holding up?
+Mara: *She leans on the porch rail and stretches.*
+
+This is immersive erotic roleplay. Detailed physical and psychological descriptions matter: self-touch, bodily arousal states, fluids, dominance, submission, power exchange, and explicit narration of actions should influence needs (fun, social, comfort, hygiene, energy, hunger, bladder) in natural grounded ways.
+
+Be reasonable and faithful to the written text. Do not invent events that are not described.
+
+PREVIOUS DELTAS:
+{"hunger":-5,"bladder":-5,"energy":-5,"social":-5,"fun":-5,"hygiene":-5,"comfort":-5}
+
+USER CRITIQUE (The user noticed an issue with the deltas that MUST be fixed):
+"She ate a full meal; hunger should rise."
+
+Analyze what actually occurred and output a corrected set of net signed effects (deltas) on each need.
+
+Even if the critique suggests little/no change, you MUST output the complete flat JSON with all seven _delta keys (0 is valid). Do not omit fields.
+
+MAGNITUDE: needs run 0–100 (100 = fully satisfied); ±8 BARELY registers. When the scene SATISFIES/RESTORES a need, use a LARGE positive delta so it actually fills — using the bathroom → bladder +60 to +100; a full meal → hunger +50 to +90; sleeping / a long rest → energy +60 to +100; cozy solitude, lounging, drowsing → comfort +20 to +45, energy +10 to +30; a thorough wash → hygiene +50 to +90. Reserve small numbers for incidental effects, never a complete relief. Answer at Normal. Do not scale.
+
+Examples of valid correction output:
+{"hunger_delta": 8, "energy_delta": 0, "hygiene_delta": -2, "fun_delta": 5, "social_delta": 0, "bladder_delta": 0, "comfort_delta": 1, "reason": "ate snack per critique"}
+{"hunger_delta": 0, "energy_delta": 0, "hygiene_delta": 0, "fun_delta": 0, "social_delta": 0, "bladder_delta": 0, "comfort_delta": 0, "reason": "no notable need impact"}
+
+Respond with ONLY a flat JSON object. Do NOT use markdown code blocks — return raw JSON only:
+{"hunger_delta": <int>, "bladder_delta": <int>, "energy_delta": <int>, "social_delta": <int>, "fun_delta": <int>, "hygiene_delta": <int>, "comfort_delta": <int>, "reason": "<brief grounded reason for the deltas incorporating the critique>" }

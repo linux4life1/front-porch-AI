@@ -19,6 +19,7 @@ import 'package:front_porch_ai/services/chat/fpchat_format.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 
+import '../../helpers/chat_db_teardown.dart';
 import 'relationship_service_test.dart' show createTestRelationship;
 
 void _setupPathProviderMock() {
@@ -91,10 +92,7 @@ void main() {
       storage,
       WorldRepository(storage, db),
     )..setDatabase(db);
-    addTearDown(() async {
-      chat.dispose();
-      await db.close();
-    });
+    addTearDown(() => disposeChatThenCloseDb(chat, db));
     await storage.initialized;
     await chat.startFreshChatWith(
       character: CharacterCard(

@@ -135,9 +135,9 @@ extension _BubbleRealismLayout on _MessageBubbleState {
       return const <Widget>[];
     }
     final meta = message.activeMetadata;
-    // Only show the reprocess affordance if this msg carries realism_state['needs']
-    final rs = meta?['realism_state'];
-    final canReprocess = rs is Map && rs['needs'] != null;
+    // Resolver is the one gate: Needs off, zero enabled, or an unresolved
+    // group speaker hide the chip even if a stale needs snapshot is stamped.
+    final canReprocess = chat.reprocessNeedsTargetFor(index) != null;
     // Revert is offered only when a pre-reprocess stash exists on this (last) msg
     final canRevert = meta != null && meta['needs_deltas_pre_reprocess'] is Map;
     if (!canReprocess && !canRevert) return const <Widget>[];

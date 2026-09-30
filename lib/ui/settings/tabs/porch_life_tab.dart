@@ -40,8 +40,9 @@ import 'porch_life_mcp_web_card.dart';
 /// it; the chips on each row report that finding rather than a guess.
 ///
 /// Scope note: this tab holds global Porch Life settings. The closing card
-/// names the defaults a single chat can overrule. Web Search is intentionally
-/// global-only and has no sidebar override.
+/// names the defaults a single chat can overrule — except Passage of Time,
+/// which is the live clock switch. Web Search is intentionally global-only
+/// and has no sidebar override.
 ///
 /// Chaos Mode joined the tab on 2026-08-08 (maintainer: "Chaos mode should have
 /// a global toggle in Porch life with no hard dep"). It was the last feature the
@@ -58,13 +59,10 @@ import 'porch_life_mcp_web_card.dart';
 /// Dependency truths per the maintainer: Needs and Afterglow genuinely REQUIRE
 /// the engine.
 ///
-/// Passage of Time no longer does (2026-08-06). What the clock needs is a model
-/// call sizing each exchange, not bond and trust — so it now runs on its own
-/// eval when the engine is off, behind the opt-in sub-switch on that row. The
-/// deterministic drift underneath remains what it always was: the cushion for
-/// one failed call, never a mode and never offered as one. Weather and Dreams
-/// follow the CLOCK rather than the engine, which is what this tab already
-/// told users they did.
+/// Passage of Time no longer does (2026-08-06). What the clock needs is a
+/// model call sizing each exchange, not bond and trust. This row is the
+/// live clock switch for every chat. Weather and Dreams follow the CLOCK
+/// rather than the engine.
 class PorchLifeTab extends StatelessWidget {
   const PorchLifeTab({super.key});
 
@@ -75,6 +73,7 @@ class PorchLifeTab extends StatelessWidget {
 
     // The engine gates everything in "needs Realism" rows; passage of time
     // additionally gates weather and dreams, and weather gates the °F display.
+    // Porch Life Passage of Time is the only live clock gate.
     final engineOn = storage.realismSettings.realismDefault;
     final timeOn = storage.realismSettings.passageOfTimeDefault;
     final weatherOn = storage.realismSettings.weatherEnabled;
@@ -84,17 +83,6 @@ class PorchLifeTab extends StatelessWidget {
     // thing that moves ambition progress.
     final objectivesOn = storage.realismSettings.objectivesEnabled;
     final adultOn = storage.realismSettings.adultThemesEnabled;
-
-    // Weather and dreams gate on the Passage of Time FLAG, deliberately not on
-    // whether the clock is currently moving (ChatService._clockRunning). An
-    // earlier draft used the latter, on the theory that it was more honest —
-    // it is not, it is the old bug wearing a new hat. With the engine off and
-    // the standalone opt-in off, gating on it greys out Story Weather again,
-    // which is precisely the dead-switch problem this tab was built to end.
-    // This tab sets DEFAULTS: a user must be able to record what they want now
-    // and have it apply the moment the clock starts moving. The one fact that
-    // subtlety depends on — "left off, the clock simply holds still" — is
-    // stated on the row that owns it, one row above.
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -121,22 +109,14 @@ class PorchLifeTab extends StatelessWidget {
               need: FeatureNeed.alone,
               blurb:
                   'The story keeps its own clock — dawn to morning to evening '
-                  'to night, day after day. The AI judges how long each '
-                  'exchange actually took, so a shared meal moves the clock '
-                  'further than a passing hello.',
+                  'to night, day after day. This switch is what runs the clock '
+                  'in every open chat. Off pauses them immediately; on starts '
+                  'them again. The AI judges how long each exchange actually '
+                  'took, so a shared meal moves the clock further than a '
+                  'passing hello. A normal send always moves at least a '
+                  'minute or two.',
               value: timeOn,
               onChanged: storage.realismSettings.setPassageOfTimeDefault,
-              // Shown only with the engine off. With it on, the clock already
-              // rides the engine's own reading of the scene and costs nothing
-              // extra, so offering a switch there would be a choice about
-              // nothing.
-              child: engineOn
-                  ? null
-                  : StandaloneClockSwitch(
-                      value: realism.standaloneClockEnabled,
-                      onChanged:
-                          storage.realismSettings.setStandaloneClockEnabled,
-                    ),
             ),
             FeatureRow(
               icon: Icons.cloud_outlined,

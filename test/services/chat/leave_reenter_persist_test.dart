@@ -40,13 +40,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall call) async {
         if (call.method == 'getApplicationDocumentsDirectory') {
-          return Directory.systemTemp.createTempSync('fpai_leave_reenter_').path;
+          return Directory.systemTemp
+              .createTempSync('fpai_leave_reenter_')
+              .path;
         }
         return null;
       });
@@ -105,22 +108,20 @@ void main() {
     });
     db = AppDatabase.forTesting();
     storage = StorageService();
-    chat = ChatService(
-      KoboldService(storage),
-      UserPersonaService(db),
-      storage,
-      WorldRepository(storage, db),
-    )
-      ..setDatabase(db)
-      ..setCharacterRepository(CharacterRepository(db, storage))
-      ..testLlmServiceOverride = _SilentLlm();
+    chat =
+        ChatService(
+            KoboldService(storage),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..setCharacterRepository(CharacterRepository(db, storage))
+          ..testLlmServiceOverride = _SilentLlm();
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   CharacterCard alice({String? dbId = 'char-alice'}) => CharacterCard(
     name: 'Alice',
@@ -135,7 +136,11 @@ void main() {
   )..dbId = 'char-bob';
 
   Future<void> waitForReply() async {
-    for (var i = 0; i < 200 && (chat.isGenerating || chat.isSettlingTurn); i++) {
+    for (
+      var i = 0;
+      i < 200 && (chat.isGenerating || chat.isSettlingTurn);
+      i++
+    ) {
       await Future<void>.delayed(Duration.zero);
     }
   }
@@ -160,96 +165,90 @@ void main() {
     },
   );
 
-  test(
-    'the user line is in the DB before the reply stream finishes',
-    () async {
-      final llm = _HangingLlm();
-      chat.testLlmServiceOverride = llm;
-      await chat.setActiveCharacter(alice());
-      final send = chat.sendMessage('park this line');
-      Message? found;
-      for (var i = 0; i < 400; i++) {
-        final sid = chat.currentSessionId;
-        if (sid != null) {
-          final rows = await db.getMessagesForSession(sid);
-          if (swipesBlob(rows).contains('park this line')) {
-            found = rows.firstWhere((r) => r.swipes.contains('park this line'));
-            break;
-          }
+  test('the user line is in the DB before the reply stream finishes', () async {
+    final llm = _HangingLlm();
+    chat.testLlmServiceOverride = llm;
+    await chat.setActiveCharacter(alice());
+    final send = chat.sendMessage('park this line');
+    Message? found;
+    for (var i = 0; i < 400; i++) {
+      final sid = chat.currentSessionId;
+      if (sid != null) {
+        final rows = await db.getMessagesForSession(sid);
+        if (swipesBlob(rows).contains('park this line')) {
+          found = rows.firstWhere((r) => r.swipes.contains('park this line'));
+          break;
         }
-        await Future<void>.delayed(Duration.zero);
       }
-      expect(
-        found,
-        isNotNull,
-        reason:
-            'sending must persist the user turn immediately — generation '
-            'is not allowed to be the thing that makes it durable',
-      );
-      expect(llm.gate.isCompleted, isFalse);
-      llm.gate.complete();
-      await send;
-    },
-  );
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(
+      found,
+      isNotNull,
+      reason:
+          'sending must persist the user turn immediately — generation '
+          'is not allowed to be the thing that makes it durable',
+    );
+    expect(llm.gate.isCompleted, isFalse);
+    llm.gate.complete();
+    await send;
+  });
 
-  test(
-    'a shorter upsert cannot erase a turn that already landed',
-    () async {
-      const sid = 'sess-tail';
-      await db.insertSession(
-        SessionsCompanion.insert(id: sid, characterId: const Value('char-x')),
-      );
-      await db.insertMessage(
-        MessagesCompanion.insert(
-          id: 'm0',
-          sessionId: sid,
-          position: 0,
-          sender: 'Alice',
-          isUser: false,
-          swipes: const Value('["greeting"]'),
-        ),
-      );
-      await db.insertMessage(
-        MessagesCompanion.insert(
-          id: 'm1',
-          sessionId: sid,
-          position: 1,
-          sender: 'Linus',
-          isUser: true,
-          swipes: const Value('["hello"]'),
-        ),
-      );
-      await db.insertMessage(
-        MessagesCompanion.insert(
-          id: 'm2',
-          sessionId: sid,
-          position: 2,
-          sender: 'Alice',
-          isUser: false,
-          swipes: const Value('["reply"]'),
-        ),
-      );
+  test('a shorter upsert cannot erase a turn that already landed', () async {
+    const sid = 'sess-tail';
+    await db.insertSession(
+      SessionsCompanion.insert(id: sid, characterId: const Value('char-x')),
+    );
+    await db.insertMessage(
+      MessagesCompanion.insert(
+        id: 'm0',
+        sessionId: sid,
+        position: 0,
+        sender: 'Alice',
+        isUser: false,
+        swipes: const Value('["greeting"]'),
+      ),
+    );
+    await db.insertMessage(
+      MessagesCompanion.insert(
+        id: 'm1',
+        sessionId: sid,
+        position: 1,
+        sender: 'Linus',
+        isUser: true,
+        swipes: const Value('["hello"]'),
+      ),
+    );
+    await db.insertMessage(
+      MessagesCompanion.insert(
+        id: 'm2',
+        sessionId: sid,
+        position: 2,
+        sender: 'Alice',
+        isUser: false,
+        swipes: const Value('["reply"]'),
+      ),
+    );
 
-      await db.upsertMessagesPreservingTail(sid, [
-        MessagesCompanion(
-          sessionId: const Value(sid),
-          position: const Value(0),
-          sender: const Value('Alice'),
-          isUser: const Value(false),
-          swipes: const Value('["greeting"]'),
-        ),
-      ]);
+    await db.upsertMessagesPreservingTail(sid, [
+      MessagesCompanion(
+        sessionId: const Value(sid),
+        position: const Value(0),
+        sender: const Value('Alice'),
+        isUser: const Value(false),
+        swipes: const Value('["greeting"]'),
+      ),
+    ]);
 
-      expect(
-        (await db.getMessagesForSession(sid)).length,
-        3,
-        reason:
-            'default persist is upsert-by-position — a stale shorter '
-            'snapshot must not delete the landed exchange',
-      );
-      expect(swipesBlob(await db.getMessagesForSession(sid)), contains('reply'));
-    },
-  );
+    expect(
+      (await db.getMessagesForSession(sid)).length,
+      3,
+      reason:
+          'default persist is upsert-by-position — a stale shorter '
+          'snapshot must not delete the landed exchange',
+    );
+    expect(swipesBlob(await db.getMessagesForSession(sid)), contains('reply'));
+  });
 
   test(
     're-enter with a dbId-less grid card keeps the live transcript',

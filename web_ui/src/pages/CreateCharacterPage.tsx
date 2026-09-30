@@ -191,7 +191,7 @@ export function CreateCharacterPage() {
             />
             <ReviewRow label="Pockets & Wardrobe" value={d.pocketsEnabled ? 'On' : 'Off'} />
             {d.realismEnabled && (
-              <ReviewRow label="Needs" value={d.needsSimEnabled ? `On · ${d.needsSimStrength}× strength` : 'Off'} />
+              <ReviewRow label="Needs" value={d.needsSimEnabled ? `On · ${d.needsPace} pace` : 'Off'} />
             )}
             {error && <p className="error">{error}</p>}
           </div>

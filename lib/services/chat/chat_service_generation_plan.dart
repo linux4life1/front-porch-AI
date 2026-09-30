@@ -184,7 +184,7 @@ extension ChatServiceGenerationPlan on ChatService {
       // Ambitions ("needs Objectives"), Promises ("needs the Journal"), the
       // real-absence note that was lifted out of TimeInjection to escape
       // exactly this kind of gate, and the story clock's own time and weather
-      // lines — which meant the standalone clock spent an LLM call every turn
+      // lines — which meant the time eval spent an LLM call every turn
       // to advance a clock whose reading could never reach the model.
       //
       // The engine's OWN fragments are unaffected: they answer to

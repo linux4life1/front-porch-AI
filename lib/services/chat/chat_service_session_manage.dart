@@ -153,10 +153,8 @@ extension ChatServiceSessionManage on ChatService {
         timeOfDay: extSeed.timeOfDay,
         storyStartDate: extSeed.storyStartDate,
         storyStartTime: extSeed.storyStartTime,
-        passageOfTimeEnabled:
-            extSeed.passageOfTimeEnabled &&
-            _storageService.realismSettings.passageOfTimeDefault,
       );
+      _applySeededPassageOfTime();
       _characterEmotion = extSeed.characterEmotion;
       _emotionIntensity = extSeed.emotionIntensity;
       _nsfwService.seedFromV2OrExt(
@@ -249,9 +247,8 @@ extension ChatServiceSessionManage on ChatService {
               timeOfDay: timeSeed.timeOfDay,
               storyStartDate: timeSeed.storyStartDate,
               storyStartTime: timeSeed.storyStartTime,
-              passageOfTimeEnabled:
-                  _storageService.realismSettings.passageOfTimeDefault,
             );
+            _applySeededPassageOfTime();
           }
         }
         _nsfwService.resetForFreshChat();
@@ -279,7 +276,7 @@ extension ChatServiceSessionManage on ChatService {
         // state lives in _groupRealism, which startNewChat never reset (the leak).
         // This mirrors the 1:1 branch's resetForFreshChat + card re-seed (parity).
         // Only _groupRealism is reset — group config (per-char system prompts, RAG
-        // priorities, author notes, decay rates) is intentionally preserved, which
+        // priorities, author notes) is intentionally preserved, which
         // is why we do NOT route through _loadGroupRealismStateFromSession(null):
         // defaultMemberRealismState is perChar-only, so that path would wipe those
         // config maps. parseGroupRealismSeeds pulls just the perChar baselines.
@@ -287,6 +284,7 @@ extension ChatServiceSessionManage on ChatService {
           _groupRealism = parseGroupRealismSeeds(
             _activeGroup!.defaultMemberRealismState,
           ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));
+          await _rekeyGroupStores();
           // Re-derive Needs from those seeds, exactly as FRESH GROUP ENTRY
           // does (chat_service_group_entry.dart — presence-inference: the
           // creator omits the per-member 'needs' sub-map when Needs was off
@@ -393,6 +391,10 @@ extension ChatServiceSessionManage on ChatService {
           ),
         );
         _lorebookScanner.scanLatest();
+        _writeSlotClock(
+          _messages.isEmpty ? null : _messages.first,
+          kind: _SlotClockWrite.seed,
+        );
         // Overlay 0 / inherit baseline into live emotion and slots.
         // Previously only the empty-empty path applied seed, so leftover
         // swipe fury survived New Chat on a custom opener or member-greet.
@@ -421,6 +423,10 @@ extension ChatServiceSessionManage on ChatService {
           ),
         );
         _lorebookScanner.scanLatest();
+        _writeSlotClock(
+          _messages.isEmpty ? null : _messages.first,
+          kind: _SlotClockWrite.seed,
+        );
         if (_activeCharacter!.firstMessage.trim().isEmpty) {
           await _applyGreetingOpeningSeed(card: _activeCharacter!, index: 0);
         }

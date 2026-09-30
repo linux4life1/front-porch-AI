@@ -46,6 +46,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -148,10 +149,7 @@ void main() {
     await storage.initialized;
   });
 
-  tearDown(() async {
-    chat.dispose();
-    await db.close();
-  });
+  tearDown(() => disposeChatThenCloseDb(chat, db));
 
   CharacterCard card(String dbId, {bool engine = false}) => CharacterCard(
     name: 'Mara',
@@ -167,9 +165,8 @@ void main() {
     ),
   )..dbId = dbId;
 
-  Pockets record() => chat.pocketsFor(
-    chat.characterIdFor(chat.activeCharacter!),
-  )!;
+  Pockets record() =>
+      chat.pocketsFor(chat.characterIdFor(chat.activeCharacter!))!;
 
   Future<void> drainTurn() async {
     for (
@@ -219,145 +216,159 @@ void main() {
     expect(record().setAside, isEmpty);
   });
 
-  test('a continuation preserves the first half\'s pockets_before stamp',
-      () async {
-    await chat.setActiveCharacter(card('char-cont-2'));
+  test(
+    'a continuation preserves the first half\'s pockets_before stamp',
+    () async {
+      await chat.setActiveCharacter(card('char-cont-2'));
 
-    // First half parks the keys — pockets_before = keys in hand.
-    llm.inventoryJson =
-        '{"inventory_ops": [{"op": "setdown", "item": "keys", '
-        '"where": "on the hallway table"}]}';
-    await chat.sendMessage('Make yourself at home.');
-    await drainTurn();
-    expect(record().setAside.single.item.name, 'car keys');
+      // First half parks the keys — pockets_before = keys in hand.
+      llm.inventoryJson =
+          '{"inventory_ops": [{"op": "setdown", "item": "keys", '
+          '"where": "on the hallway table"}]}';
+      await chat.sendMessage('Make yourself at home.');
+      await drainTurn();
+      expect(record().setAside.single.item.name, 'car keys');
 
-    // Continuation picks them back up. Ops apply incrementally…
-    llm.replyText = ' On second thought she scoops the keys back up.';
-    llm.inventoryJson = '{"inventory_ops": [{"op": "pickup", "item": "keys"}]}';
-    await chat.continueGeneration();
-    await drainTurn();
-    expect(record().carrying.single.name, 'car keys');
-    expect(record().setAside, isEmpty);
+      // Continuation picks them back up. Ops apply incrementally…
+      llm.replyText = ' On second thought she scoops the keys back up.';
+      llm.inventoryJson =
+          '{"inventory_ops": [{"op": "pickup", "item": "keys"}]}';
+      await chat.continueGeneration();
+      await drainTurn();
+      expect(record().carrying.single.name, 'car keys');
+      expect(record().setAside, isEmpty);
 
-    // …but the before-stamp must still be the TURN's pre-state (keys in
-    // hand), not the mid-turn record the continuation started from. A
-    // regen that replays with no ops must land on the base.
-    final stamp =
-        chat.messages.last.metadata?['pockets_before'] as Map?;
-    final stampRecord = Pockets.fromJson(stamp?['record']);
-    expect(
-      stampRecord.carrying.map((e) => e.name),
-      contains('car keys'),
-      reason:
-          'overwriting pockets_before mid-turn would make regen and tail '
-          'delete rewind to the middle of the turn instead of its start',
-    );
-    expect(stampRecord.setAside, isEmpty);
+      // …but the before-stamp must still be the TURN's pre-state (keys in
+      // hand), not the mid-turn record the continuation started from. A
+      // regen that replays with no ops must land on the base.
+      final stamp = chat.messages.last.metadata?['pockets_before'] as Map?;
+      final stampRecord = Pockets.fromJson(stamp?['record']);
+      expect(
+        stampRecord.carrying.map((e) => e.name),
+        contains('car keys'),
+        reason:
+            'overwriting pockets_before mid-turn would make regen and tail '
+            'delete rewind to the middle of the turn instead of its start',
+      );
+      expect(stampRecord.setAside, isEmpty);
 
-    llm.replyText = '*She hums, hands empty of intent.*';
-    llm.inventoryJson = '{"inventory_ops": []}';
-    await chat.regenerateLastMessage();
-    await drainTurn();
-    expect(record().carrying.single.name, 'car keys');
-    expect(record().setAside, isEmpty);
-  });
+      llm.replyText = '*She hums, hands empty of intent.*';
+      llm.inventoryJson = '{"inventory_ops": []}';
+      await chat.regenerateLastMessage();
+      await drainTurn();
+      expect(record().carrying.single.name, 'car keys');
+      expect(record().setAside, isEmpty);
+    },
+  );
 
-  test('needs impact arriving via Continue applies once and merges the chip',
-      () async {
-    await chat.setActiveCharacter(card('char-cont-3', engine: true));
-    await chat.setRealismEnabled(true);
+  test(
+    'needs impact arriving via Continue applies once and merges the chip',
+    () async {
+      await chat.setActiveCharacter(card('char-cont-3', engine: true));
+      await chat.setRealismEnabled(true);
 
-    llm.needsJson = '{"hunger_delta": -5, "reason": "long porch talk"}';
-    await chat.sendMessage('Tell me about your day.');
-    await drainTurn();
-    final hungerAfterTurn = chat.needsSimulation.vector['hunger']!;
-    final chipAfterTurn =
-        ((chat.messages.last.activeMetadata?['needs_deltas']
-                as Map?)?['hunger'] as Map?)?['delta'] as num?;
-    expect(chipAfterTurn, isNotNull,
-        reason: 'the original turn must attach a hunger chip to build on');
+      llm.needsJson = '{"hunger_delta": -5, "reason": "long porch talk"}';
+      await chat.sendMessage('Tell me about your day.');
+      await drainTurn();
+      final hungerAfterTurn = chat.needsSimulation.vector['hunger']!;
+      final chipAfterTurn =
+          ((chat.messages.last.activeMetadata?['needs_deltas']
+                      as Map?)?['hunger']
+                  as Map?)?['delta']
+              as num?;
+      expect(
+        chipAfterTurn,
+        isNotNull,
+        reason: 'the original turn must attach a hunger chip to build on',
+      );
 
-    // Continue: she finishes nothing and gets hungrier — only the new text
-    // is scored, so exactly -7 lands (no decay tick, no -5 re-apply).
-    llm.replyText = ' Her stomach growls through the last of the story.';
-    llm.needsJson = '{"hunger_delta": -7, "reason": "still no dinner"}';
-    await chat.continueGeneration();
-    await drainTurn();
+      // Continue: she finishes nothing and gets hungrier — only the new text
+      // is scored, so exactly -7 lands (no decay tick, no -5 re-apply).
+      llm.replyText = ' Her stomach growls through the last of the story.';
+      llm.needsJson = '{"hunger_delta": -7, "reason": "still no dinner"}';
+      await chat.continueGeneration();
+      await drainTurn();
 
-    expect(
-      chat.needsSimulation.vector['hunger'],
-      hungerAfterTurn - 7,
-      reason:
-          'the continuation\'s impact must land exactly once — unchanged '
-          'means the pass was skipped (the old bug), more than -7 means the '
-          'first half was re-applied (the double-apply the old skip feared)',
-    );
-    final chipAfterContinue =
-        ((chat.messages.last.activeMetadata?['needs_deltas']
-                as Map?)?['hunger'] as Map?)?['delta'] as num?;
-    expect(
-      chipAfterContinue,
-      chipAfterTurn! - 7,
-      reason:
-          'the chip is live-vector minus the pre-turn stamp, so it must now '
-          'read as the merged whole-turn delta',
-    );
-  });
+      expect(
+        chat.needsSimulation.vector['hunger'],
+        hungerAfterTurn - 7,
+        reason:
+            'the continuation\'s impact must land exactly once — unchanged '
+            'means the pass was skipped (the old bug), more than -7 means the '
+            'first half was re-applied (the double-apply the old skip feared)',
+      );
+      final chipAfterContinue =
+          ((chat.messages.last.activeMetadata?['needs_deltas']
+                      as Map?)?['hunger']
+                  as Map?)?['delta']
+              as num?;
+      expect(
+        chipAfterContinue,
+        chipAfterTurn! - 7,
+        reason:
+            'the chip is live-vector minus the pre-turn stamp, so it must now '
+            'read as the merged whole-turn delta',
+      );
+    },
+  );
 
-  test('continuing a Scene Guest\'s tail scores nothing against the host',
-      () async {
-    // The speaker resolution for Continue falls back to the HOST in 1:1, so
-    // without the guest guard the guest's continuation text would run the
-    // pockets/needs/climax family against the host's record. Seeded
-    // directly (arrange-don't-simulate): a guest-authored tail is any
-    // non-user 1:1 message whose characterId differs from the host's.
-    await chat.setActiveCharacter(card('char-cont-4'));
-    await db.insertSession(
-      SessionsCompanion.insert(
-        id: 'sess-guest-cont',
-        characterId: const Value('char-cont-4'),
-      ),
-    );
-    for (final (i, seed) in const [
-      ('Mara', false, 'char-cont-4'),
-      ('You', true, null),
-      ('Riley', false, 'guest-riley'),
-    ].indexed) {
-      await db.insertMessage(
-        MessagesCompanion.insert(
-          id: 'guest-seed-$i',
-          sessionId: 'sess-guest-cont',
-          position: i,
-          sender: seed.$1,
-          isUser: seed.$2,
-          characterId: Value(seed.$3),
-          swipes: const Value(
-            '["*The porch light hums while they talk.*"]',
-          ),
+  test(
+    'continuing a Scene Guest\'s tail scores nothing against the host',
+    () async {
+      // The speaker resolution for Continue falls back to the HOST in 1:1, so
+      // without the guest guard the guest's continuation text would run the
+      // pockets/needs/climax family against the host's record. Seeded
+      // directly (arrange-don't-simulate): a guest-authored tail is any
+      // non-user 1:1 message whose characterId differs from the host's.
+      await chat.setActiveCharacter(card('char-cont-4'));
+      await db.insertSession(
+        SessionsCompanion.insert(
+          id: 'sess-guest-cont',
+          characterId: const Value('char-cont-4'),
         ),
       );
-    }
-    await chat.loadSession('sess-guest-cont');
-    expect(chat.messages, hasLength(3));
-    expect(record().carrying.single.name, 'car keys');
+      for (final (i, seed) in const [
+        ('Mara', false, 'char-cont-4'),
+        ('You', true, null),
+        ('Riley', false, 'guest-riley'),
+      ].indexed) {
+        await db.insertMessage(
+          MessagesCompanion.insert(
+            id: 'guest-seed-$i',
+            sessionId: 'sess-guest-cont',
+            position: i,
+            sender: seed.$1,
+            isUser: seed.$2,
+            characterId: Value(seed.$3),
+            swipes: const Value('["*The porch light hums while they talk.*"]'),
+          ),
+        );
+      }
+      await chat.loadSession('sess-guest-cont');
+      expect(chat.messages, hasLength(3));
+      expect(record().carrying.single.name, 'car keys');
 
-    llm.pocketsPrompts = 0;
-    llm.replyText = ' Riley keeps talking about setting keys down.';
-    llm.inventoryJson =
-        '{"inventory_ops": [{"op": "setdown", "item": "keys", '
-        '"where": "on the hallway table"}]}';
-    await chat.continueGeneration();
-    await drainTurn();
+      llm.pocketsPrompts = 0;
+      llm.replyText = ' Riley keeps talking about setting keys down.';
+      llm.inventoryJson =
+          '{"inventory_ops": [{"op": "setdown", "item": "keys", '
+          '"where": "on the hallway table"}]}';
+      await chat.continueGeneration();
+      await drainTurn();
 
-    expect(
-      record().carrying.single.name,
-      'car keys',
-      reason:
-          'the guest\'s words must not move the HOST\'s belongings — the '
-          'incremental pass skips guest-authored tails entirely',
-    );
-    expect(record().setAside, isEmpty);
-    expect(llm.pocketsPrompts, 0,
-        reason: 'no bookkeeping call should even fire for a guest tail');
-  });
+      expect(
+        record().carrying.single.name,
+        'car keys',
+        reason:
+            'the guest\'s words must not move the HOST\'s belongings — the '
+            'incremental pass skips guest-authored tails entirely',
+      );
+      expect(record().setAside, isEmpty);
+      expect(
+        llm.pocketsPrompts,
+        0,
+        reason: 'no bookkeeping call should even fire for a guest tail',
+      );
+    },
+  );
 }

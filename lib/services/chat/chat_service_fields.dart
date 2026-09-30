@@ -22,6 +22,10 @@ part of '../chat_service.dart';
 /// Extensions in this library can still read them; a Dart extension cannot
 /// *declare* instance state, so this mixin is the legal home.
 mixin ChatServiceFieldBag {
+  /// Named lookup for the next reply only. Cleared when that reply starts.
+  String? _pendingForcedWebQuery;
+  String? _pendingForcedWikiQuery;
+
   // Action suggestions
   List<String> _suggestedActions = [];
   bool _isGeneratingActions = false;
@@ -157,6 +161,7 @@ mixin ChatServiceFieldBag {
   int _prefillPromptTokens =
       0; // Estimated prompt token count for progress display
   Map<String, dynamic>? _lastPerfData; // Cached KoboldCPP perf data
+  final TokenCountMemo _tokenCountMemo = TokenCountMemo();
   final List<String> _tokenBuffer = [];
   Timer? _drainTimer;
   int _displayedTokenCount = 0;
@@ -242,6 +247,13 @@ mixin ChatServiceFieldBag {
   // ── Chat Summary ──
   String _summary = '';
   int _summaryLastIndex = 0;
+
+  /// Session id whose in-memory recap matches the row. Until hydrate,
+  /// a save must not blank or replace `sessions.summary`.
+  String? _recapBoundSessionId;
+
+  /// The editor or a timeline rewrite cleared "Where we are" on purpose.
+  bool _recapClearArmed = false;
   // Secondary runtime flag (like _isSummaryGenerating); must be defensively
   // zeroed on *all* reset/new-chat/0-session/group/setActive/load/delete
   // paths or pause state leaks across contexts (see CLAUDE.md keep-sync).
@@ -291,19 +303,12 @@ mixin ChatServiceFieldBag {
   // resume) — see [isAwaitingChanceTime] / [acceptPendingChanceTime].
   String? _webChanceTimeEvent;
 
-  // ── Sims/Needs Simulation (extracted) + Needs Impact Evaluator ──
-  // Straight decay ticks in _needsSimulation; model deltas (+ optional Director review when authority) in _needsImpactEvaluator.
-  // See CLAUDE.md for full reset keep-sync + "incomplete zeroing now complete" + buffer removal + authority decision (simple model+Director path).
+  // ── Needs simulation + scene-impact evaluator ──
   bool _needsSimEnabled = false;
   // Per-chat Objectives switch (v45). Defaults true; read via objectivesActive.
   bool _objectivesEnabled = true;
   bool _enjoysLowHygiene =
       false; // inversion for hygiene (enjoys being dirty/sweaty/musky)
-
-  // Legacy shared group decay map. No longer the runtime source of truth (that
-  // is each member's card ext, via `_activeDecayRates()`); retained only as a
-  // load/save + fallback bridge for pre-per-member groups (see session state).
-  Map<String, int> _groupDecayRates = {};
 
   /// Per-chat lore session state (ST sticky/cooldown timers, macro locals,
   /// chat-scoped lorebook) — persisted inside the session's groupRealismState

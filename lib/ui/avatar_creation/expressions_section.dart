@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
-import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
 import 'package:front_porch_ai/ui/image_studio/comfy_create_panel.dart';
@@ -152,108 +152,118 @@ class ExpressionsSection extends StatelessWidget {
   }
 
   /// The edit-model row — the Studio's Edit-tab setup, shown here. One config.
+  /// Which row appears comes from [imageSurfaceControls], not a backend switch.
   Widget _editModelRow(BuildContext context, AvatarCreationController c) {
-    switch (c.backend) {
-      case ImageGenBackend.drawThings:
-      case ImageGenBackend.remote:
-        final options = c.backend == ImageGenBackend.remote
-            // Remote edit models are an explicit allowlist.
-            ? [
-                for (final o in c.modelOptions)
-                  if (remoteEditSpec(o.value) != null) o,
-              ]
-            : c.modelOptions;
-        final slotValue = c.storage.imageGenSettings.imageGenEditModel;
-        final shown = options.isNotEmpty
-            ? options
-            : (slotValue.isNotEmpty
-                  ? [(value: slotValue, label: slotValue)]
-                  : const <({String value, String label})>[]);
-        final ready = c.editCapability.supportsEdit;
-        return Wrap(
-          spacing: 10,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _label(context, 'Edit model'),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: shown.isEmpty
-                  ? Text(
-                      c.backend == ImageGenBackend.remote
-                          ? 'No edit-capable models in this provider\'s list.'
-                          : 'Models appear once the engine is connected.',
-                      style: TextStyle(
-                        color: AppColors.textTertiary(context),
-                        fontSize: 11,
-                      ),
-                    )
-                  : ModelSlotDropdown(
-                      settings: c.storage.imageGenSettings,
-                      editSlot: true,
-                      keyPrefix: 'creator-edit-model',
-                      fontSize: 12,
-                      decoration: InputDecoration(
-                        hintText: 'Pick an edit model',
-                        hintStyle: TextStyle(
-                          color: AppColors.textTertiary(context),
-                        ),
-                        filled: true,
-                        fillColor: AppColors.surfaceContainerOf(context),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        isDense: true,
-                      ),
-                      options: shown,
-                    ),
-            ),
-            _readiness(
-              context,
-              ok: ready,
-              text: ready
-                  ? 'Ready'
-                  : c.backend == ImageGenBackend.remote
-                  ? 'Pick an edit model'
-                  : 'img2img fallback',
-            ),
-          ],
-        );
-      case ImageGenBackend.comfyUi:
-        final editReady = c.packEditModeNow;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const ComfyCreatePanel(),
-            const SizedBox(height: 8),
-            _readiness(
-              context,
-              ok: editReady,
-              text: editReady
-                  ? 'Edit workflow ready — pack uses Edit when it can; '
-                        'otherwise the Create family above (img2img).'
-                  : 'Pack uses the Create family above (img2img). Optional: '
-                        'set up Qwen-Image-Edit or Flux Kontext in Image '
-                        'Studio → Edit.',
-            ),
-          ],
-        );
-      case ImageGenBackend.a1111:
-        return Text(
-          'img2img fallback — A1111 can\'t run instruction-edit models; the '
-          'pack still works, identity anchored by the base portrait.',
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
-            height: 1.35,
+    final controls = imageSurfaceFor(
+      backend: c.backend,
+      modelName: c.storage.imageGenSettings.imageGenEditModel,
+    );
+    if (controls.showWorkflowSlots) {
+      final editReady = c.packEditModeNow;
+      final savedEdit = c.storage.imageGenSettings.comfyEditWorkflowId
+          .startsWith('comfy:');
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ComfyCreatePanel(),
+          const SizedBox(height: 8),
+          _readiness(
+            context,
+            ok: editReady || savedEdit,
+            text: editReady
+                ? 'Edit workflow ready — pack uses Edit when it can; '
+                      'otherwise the Create family above (img2img).'
+                : savedEdit
+                ? 'Saved Edit workflow selected — its model choices are '
+                      'checked when the pack starts.'
+                : 'Pack uses the Create family above (img2img). Optional: '
+                      'set up Qwen-Image-Edit or Flux Kontext in Image '
+                      'Studio → Edit.',
           ),
-        );
+        ],
+      );
     }
+    if (controls.showEditPicker) {
+      final options = controls.editAllowlist
+          ? [
+              for (final o in c.modelOptions)
+                if (remoteEditSpec(o.value) != null) o,
+            ]
+          : c.modelOptions;
+      final slotValue = c.storage.imageGenSettings.imageGenEditModel;
+      final shown = options.isNotEmpty
+          ? options
+          : (slotValue.isNotEmpty
+                ? [(value: slotValue, label: slotValue)]
+                : const <({String value, String label})>[]);
+      final ready = c.editCapability.supportsEdit;
+      return Wrap(
+        spacing: 10,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _label(context, 'Edit model'),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: shown.isEmpty
+                ? Text(
+                    controls.editAllowlist
+                        ? 'No edit-capable models in this provider\'s list.'
+                        : 'Models appear once the engine is connected.',
+                    style: TextStyle(
+                      color: AppColors.textTertiary(context),
+                      fontSize: 11,
+                    ),
+                  )
+                : ModelSlotDropdown(
+                    settings: c.storage.imageGenSettings,
+                    editSlot: true,
+                    keyPrefix: 'creator-edit-model',
+                    fontSize: 12,
+                    decoration: InputDecoration(
+                      hintText: 'Pick an edit model',
+                      hintStyle: TextStyle(
+                        color: AppColors.textTertiary(context),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.surfaceContainerOf(context),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      isDense: true,
+                    ),
+                    options: shown,
+                  ),
+          ),
+          _readiness(
+            context,
+            ok: ready,
+            text: ready
+                ? 'Ready'
+                : controls.editAllowlist
+                ? 'Pick an edit model'
+                : 'img2img fallback',
+          ),
+        ],
+      );
+    }
+    if (controls.showImg2img) {
+      return Text(
+        'img2img fallback — this engine can\'t run instruction-edit models; '
+        'the pack still works, identity anchored by the base portrait.',
+        style: TextStyle(
+          color: AppColors.textTertiary(context),
+          fontSize: 11,
+          height: 1.35,
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _readiness(

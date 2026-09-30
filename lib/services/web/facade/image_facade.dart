@@ -22,6 +22,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
+import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
@@ -40,6 +41,10 @@ class ImageFacade {
   Map<String, dynamic> config() {
     final img = _storage.imageGenSettings;
     final b = _storage.backendSettings;
+    final surface = imageSurfaceFor(
+      backend: ImageGenBackend.fromKey(img.imageGenBackend),
+      modelName: img.imageGenModel,
+    );
     return {
       'backend': img.imageGenBackend, // 'remote' | 'a1111' | 'drawthings'
       'isConfigured': _image.isConfigured,
@@ -53,6 +58,13 @@ class ImageFacade {
       'cfgScale': img.imageGenCfgScale,
       'sampler': img.imageGenSampler,
       'scheduler': img.imageGenScheduler,
+      'lora': img.imageGenLora,
+      'loraWeight': img.imageGenLoraWeight,
+      'loras': [
+        for (final slot in img.imageGenLoraSlots)
+          {'file': slot.file, 'weight': slot.weight},
+      ],
+      'surface': surface.toJson(),
       'localUrl': img.localImageGenUrl,
       'comfyUrl': img.comfyUiUrl,
       'promptReview': img.imageGenPromptReview,
@@ -66,6 +78,28 @@ class ImageFacade {
       'comfyCreateUploadedWorkflow': img.comfyCreateUploadedWorkflow
           .trim()
           .isNotEmpty,
+      'comfyEditWorkflowId': img.comfyEditWorkflowId,
+      'comfyEditModelChoices': img.comfyEditModelChoices,
+      'comfyEditUploadedWorkflow': img.comfyEditUploadedWorkflow
+          .trim()
+          .isNotEmpty,
+      'comfyEditPresets': [
+        for (final preset in kComfyEditPresets)
+          {
+            'id': preset.id,
+            'label': preset.label,
+            'slots': [
+              for (final slot in preset.modelSlots)
+                {
+                  'token': slot.token,
+                  'label': slot.label,
+                  'loaderClass': slot.loaderClass,
+                  'inputName': slot.inputName,
+                  'folderHint': slot.folderHint,
+                },
+            ],
+          },
+      ],
       'comfyCreatePresets': [
         for (final p in kComfyCreatePresets)
           {
@@ -92,7 +126,15 @@ class ImageFacade {
   Future<Map<String, dynamic>> comfyCatalog() async {
     final url = _storage.imageGenSettings.comfyUiUrl;
     final cat = await _image.fetchComfyCatalog(url);
-    final templates = await _image.fetchComfyCreateTemplates(url);
+    final comfy = ComfyUiService(baseUrl: url);
+    final templates = [
+      ...await comfy.fetchCreateTemplates(),
+      ...await comfy.fetchUserWorkflows(),
+    ];
+    final editTemplates = [
+      ...await comfy.fetchEditTemplates(),
+      ...await comfy.fetchUserWorkflows(),
+    ];
     return {
       'checkpoints': cat.checkpoints,
       'diffusionModels': cat.diffusionModels,
@@ -102,7 +144,77 @@ class ImageFacade {
       'createDiscovery': cat.createDiscovery,
       'templates': [
         for (final t in templates)
-          {'id': t.pickerId, 'name': t.name, 'title': t.title},
+          {
+            'id': t.pickerId,
+            'name': t.name,
+            'title': t.title,
+            'source': t.source,
+          },
+      ],
+      'editTemplates': [
+        for (final t in editTemplates)
+          {
+            'id': t.pickerId,
+            'name': t.name,
+            'title': t.title,
+            'source': t.source,
+          },
+      ],
+    };
+  }
+
+  /// Resolve slots from the selected live or uploaded workflow.
+  Future<Map<String, dynamic>> comfyWorkflowSlots(
+    String workflowId, {
+    bool edit = false,
+  }) async {
+    final img = _storage.imageGenSettings;
+    final comfy = ComfyUiService(baseUrl: img.comfyUiUrl);
+    final name = comfyTemplateNameFor(workflowId);
+    final live = name == null
+        ? null
+        : await comfy.fetchTemplateJson(
+            name,
+            preferUserdata: comfyTemplatePrefersUserdata(workflowId),
+          );
+    Map<String, dynamic>? source;
+    if (edit && workflowId == kComfyUploadedWorkflowId) {
+      try {
+        final decoded = jsonDecode(img.comfyEditUploadedWorkflow);
+        if (decoded is Map) source = decoded.cast<String, dynamic>();
+      } catch (_) {}
+    } else if (edit) {
+      source = live;
+    } else {
+      source = loadComfyCreateSource(
+        workflowId: workflowId,
+        uploadedWorkflowJson: img.comfyCreateUploadedWorkflow,
+        liveTemplate: live,
+      );
+    }
+    final graph = source == null ? null : ensureComfyApiGraph(source);
+    final presetSlots = edit
+        ? comfyEditPresetById(workflowId)?.modelSlots
+        : comfyCreatePresetById(workflowId)?.modelSlots;
+    final slots = presetSlots != null && presetSlots.isNotEmpty
+        ? presetSlots
+        : graph == null
+        ? const <ComfyModelSlot>[]
+        : adaptComfyApiWorkflow(graph).slots;
+    return {
+      'slots': [
+        for (final slot in slots)
+          {
+            'token': slot.token,
+            'label': slot.label,
+            'loaderClass': slot.loaderClass,
+            'inputName': slot.inputName,
+            'folderHint': slot.folderHint,
+            'files': await comfy.fetchModelFilesFor(
+              slot.loaderClass,
+              slot.inputName,
+            ),
+          },
       ],
     };
   }
@@ -128,6 +240,25 @@ class ImageFacade {
     }
     if (f['scheduler'] is String) {
       await img.setImageGenScheduler(f['scheduler'] as String);
+    }
+    if (f['lora'] is String) {
+      await img.setImageGenLora(f['lora'] as String);
+    }
+    if (f['loraWeight'] is num) {
+      await img.setImageGenLoraWeight((f['loraWeight'] as num).toDouble());
+    }
+    if (f['loras'] is List) {
+      final parsed = <ImageGenLoraSlot>[];
+      for (final row in f['loras'] as List) {
+        if (row is! Map) continue;
+        parsed.add(
+          ImageGenLoraSlot(
+            file: row['file']?.toString() ?? '',
+            weight: (row['weight'] as num?)?.toDouble() ?? 0.8,
+          ),
+        );
+      }
+      await img.setImageGenLoraSlots(parsed);
     }
     if (f['localUrl'] is String) {
       await img.setLocalImageGenUrl(f['localUrl'] as String);
@@ -182,6 +313,32 @@ class ImageFacade {
         keyFor: b.remoteApiKeyFor,
       ).url;
       await b.setRemoteApiKeyFor(url, apiKey);
+    }
+    if (f['comfyCreateUploadedWorkflow'] is String) {
+      await img.setComfyCreateUploadedWorkflow(
+        f['comfyCreateUploadedWorkflow'] as String,
+      );
+    }
+    if (f['comfyEditUploadedWorkflow'] is String) {
+      await img.setComfyEditUploadedWorkflow(
+        f['comfyEditUploadedWorkflow'] as String,
+      );
+    }
+    if (f['comfyEditWorkflowId'] is String) {
+      await img.setComfyEditWorkflowId(f['comfyEditWorkflowId'] as String);
+    }
+    final editChoices = f['comfyEditModelChoices'];
+    if (editChoices is Map) {
+      for (final entry in editChoices.entries) {
+        final key = entry.key.toString();
+        final slash = key.indexOf('/');
+        if (slash <= 0) continue;
+        await img.setComfyEditModelChoice(
+          key.substring(0, slash),
+          key.substring(slash + 1),
+          entry.value.toString(),
+        );
+      }
     }
     if (f['comfyCreateWorkflowId'] is String) {
       await img.setComfyCreateWorkflowId(f['comfyCreateWorkflowId'] as String);

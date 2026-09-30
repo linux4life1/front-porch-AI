@@ -49,6 +49,8 @@ export type WsEvent = {
   // console (`active` above carries the lifecycle), plus which background
   // pass (journal/growth) is holding the single local slot.
   phase?: string;
+  // Seconds since prefill started. Shown when there is no measured count.
+  elapsed?: number;
   busyWith?: string | null;
   // Backend-reported queue depth (oMLX) — stated neutrally, never attributed.
   queued?: number;
