@@ -397,46 +397,61 @@ void main() {
       },
     );
 
-    group('only a PNG picture is taken as the base', () {
+    group('a JPEG or a WebP is converted to a PNG for the pack', () {
       final jpeg = base64Encode(
-        img.encodeJpg(img.Image(width: 96, height: 120)),
+        img.encodeJpg(img.Image(width: 300, height: 200)),
       );
-      // A real 1x1 lossless WebP.
-      const webp = 'UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==';
+      final webp = base64Encode(
+        img.encodeWebP(img.Image(width: 300, height: 200)),
+      );
+      final png = base64Encode(
+        img.encodePng(img.Image(width: 300, height: 200)),
+      );
 
-      for (final (name, mime, data) in [
-        ('a real JPEG', 'image/jpeg', jpeg),
-        ('a real WebP', 'image/webp', webp),
+      for (final (name, mime, data, note) in [
+        ('a real JPEG', 'image/jpeg', jpeg, true),
+        ('a real WebP', 'image/webp', webp, true),
+        ('a normal PNG', 'image/png', png, false),
       ]) {
-        test('$name is refused with 400 and asked to be a PNG', () async {
-          final comfy = await boot();
-          final (status, body) = await h.call('POST', _pack, {
-            'characterId': mara,
-            'referenceImage': 'data:$mime;base64,$data',
-          });
-          expect(status, 400, reason: '$body');
-          expect(body['code'], 'bad_picture');
-          expect(body['error'], contains('Please use a PNG'));
-          expect(comfy.uploads, 0);
-          expect(comfy.postedAll, isEmpty);
-          final (gone, _) = await h.call('GET', _pack);
-          expect(gone, 404);
-        });
+        test(
+          '$name makes the pack end to end'
+          '${note ? ', and says it was converted' : ' with no note'}',
+          () async {
+            final comfy = await boot();
+            final (status, started) = await h.call('POST', _pack, {
+              'characterId': mara,
+              'referenceImage': 'data:$mime;base64,$data',
+            });
+            expect(status, 200, reason: '$started');
+            expect(
+              started['note'],
+              note ? 'Converted your portrait to PNG for the pack.' : isNull,
+            );
+
+            final done = await _untilStopped(h);
+            expect(done['done'], _missing.length);
+            expect(done['canImport'], isTrue);
+            expect(done['note'], started['note']);
+            expect(comfy.uploads, _missing.length);
+          },
+        );
       }
 
-      test('a normal PNG sent with the request still makes the pack', () async {
+      test('a GIF is refused with 400', () async {
         final comfy = await boot();
-        final (status, started) = await h.call('POST', _pack, {
+        final gif = base64Encode([
+          ...'GIF89a'.codeUnits,
+          1, 0, 1, 0, 0, 0, 0, //
+        ]);
+        final (status, body) = await h.call('POST', _pack, {
           'characterId': mara,
-          'referenceImage':
-              'data:image/png;base64,${base64Encode(img.encodePng(img.Image(width: 300, height: 200)))}',
+          'referenceImage': 'data:image/gif;base64,$gif',
         });
-        expect(status, 200, reason: '$started');
-
-        final done = await _untilStopped(h);
-        expect(done['done'], _missing.length);
-        expect(done['canImport'], isTrue);
-        expect(comfy.uploads, _missing.length);
+        expect(status, 400, reason: '$body');
+        expect(body['code'], 'bad_picture');
+        expect(comfy.uploads, 0);
+        final (gone, _) = await h.call('GET', _pack);
+        expect(gone, 404);
       });
     });
 
@@ -459,6 +474,33 @@ void main() {
             400,
             'bad_picture',
           ),
+          'a tiny JPEG declaring 16000x16000': (
+            tinyJpeg(16000, 16000),
+            413,
+            'too_large',
+          ),
+          'a JPEG with a frame header hidden in another segment': (
+            jpegWithHiddenFrame(
+              Uint8List.fromList(
+                img.encodeJpg(img.Image(width: 64, height: 64)),
+              ),
+              7000,
+              7000,
+            ),
+            400,
+            'bad_picture',
+          ),
+          'a 74-byte WebP with the top bits of its size set': (
+            webpLossyTopBits(0x4000 | 64, 0x4000 | 64),
+            413,
+            'too_large',
+          ),
+          'a WebP with a small picture chunk and then a huge one': (
+            webpChunks([vp8l(64, 64), vp8l(16383, 16383)]),
+            413,
+            'too_large',
+          ),
+          'an animated WebP': (webpAnimated(), 400, 'bad_picture'),
         };
         crafted.forEach((name, spec) {
           test(name, () async {

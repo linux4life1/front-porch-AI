@@ -149,6 +149,9 @@ class AvatarCreationController extends ChangeNotifier {
   // ── Run state ─────────────────────────────────────────────────────────────
   AvatarRunStage stage = AvatarRunStage.idle;
   String statusDetail = '';
+
+  /// The pack's base was a JPEG or WebP that was converted to a PNG.
+  bool packBaseConverted = false;
   ExpressionPackSession? session;
   ExpressionPackQc? qc;
   int importedCount = 0;
@@ -404,6 +407,7 @@ class AvatarCreationController extends ChangeNotifier {
     importedCount = 0;
     flaggedExcluded = 0;
     statusDetail = '';
+    packBaseConverted = false;
     final wantPortrait = source == PortraitSource.generate;
 
     _setStage(AvatarRunStage.saving);

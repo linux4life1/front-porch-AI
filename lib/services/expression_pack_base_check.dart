@@ -34,13 +34,15 @@ class PackBaseVerdict {
 const _formats = 'Please use a PNG picture.';
 const _animated = 'That picture is animated. $_formats';
 
-PackBaseVerdict _tooLarge(int width, int height) => PackBaseVerdict.refused(
-  PackBaseRefusal(
-    'That picture is ${width}x$height, which is too large to build a pack '
-    'from. Use one under 40 megapixels.',
-    tooLarge: true,
-  ),
+/// The refusal for a picture of [width] x [height], over [kMaxPackBasePixels].
+PackBaseRefusal packBaseTooLarge(int width, int height) => PackBaseRefusal(
+  'That picture is ${width}x$height, which is too large to build a pack '
+  'from. Use one under 40 megapixels.',
+  tooLarge: true,
 );
+
+PackBaseVerdict _tooLarge(int width, int height) =>
+    PackBaseVerdict.refused(packBaseTooLarge(width, height));
 
 PackBaseVerdict _sized(int width, int height) {
   if (width <= 0 || height <= 0) return const PackBaseVerdict.notPicture();

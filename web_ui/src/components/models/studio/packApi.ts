@@ -26,6 +26,8 @@ export interface PackView {
   kept: number;
   imported: number | null;
   canImport: boolean;
+  /** E.g. that the base picture was converted to a PNG; absent on older computers. */
+  note?: string | null;
   slots: PackSlot[];
 }
 

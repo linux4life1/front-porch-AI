@@ -278,6 +278,18 @@ describe('watching a pack', () => {
     }
   });
 
+  it('says when the computer converted the picture to a PNG for the pack', async () => {
+    await boot({
+      'GET /api/image/expression-pack': view({ note: 'Converted your portrait to PNG for the pack.' }),
+    });
+    expect(text()).toContain('Converted your portrait to PNG for the pack.');
+  });
+
+  it('shows no conversion note for a pack made from a PNG', async () => {
+    await boot({ 'GET /api/image/expression-pack': view() });
+    expect(text()).not.toContain('Converted your portrait');
+  });
+
   it('shows a pack the computer started, without offering to import it', async () => {
     await boot({ 'GET /api/image/expression-pack': view({ origin: 'desktop', canImport: false }) });
     expect(text()).toContain('Started on the computer.');

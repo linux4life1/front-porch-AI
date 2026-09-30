@@ -135,3 +135,79 @@ Uint8List pngWithTwoHeaders({
   ...pngChunk('IDAT', zeroZlib(firstHeight * (1 + firstWidth * 4))),
   ...pngChunk('IEND', const []),
 ]);
+
+Uint8List _u32le(int v) =>
+    (ByteData(4)..setUint32(0, v, Endian.little)).buffer.asUint8List();
+
+/// A JPEG that is nothing but markers: SOI, an APP0 segment, a frame header
+/// declaring [width] x [height], EOI (33 bytes).
+Uint8List tinyJpeg(int width, int height) => Uint8List.fromList([
+  0xFF, 0xD8, //
+  0xFF, 0xE0, 0x00, 0x08, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x00, //
+  0xFF, 0xC0, 0x00, 0x11, 0x08, height >> 8, height & 0xFF, width >> 8,
+  width & 0xFF, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01,
+  0xFF, 0xD9,
+]);
+
+/// [jpeg], a real JPEG, with a segment that hides a frame header put in front
+/// of its own. The segment is an unknown kind whose last three bytes are
+/// `FF C0 00`; the decoder steps back over them and reads the bytes after the
+/// segment as that frame header, declaring [width] x [height], and allocates
+/// for it before it reaches the frame header that is really there. A reader
+/// that skips the segment by its length sees only the real, small, one.
+Uint8List jpegWithHiddenFrame(Uint8List jpeg, int width, int height) {
+  final hiddenBody = [
+    0x11, 0x08, height >> 8, height & 0xFF, width >> 8, width & 0xFF, //
+    0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01,
+  ];
+  return Uint8List.fromList([
+    0xFF, 0xD8, //
+    0xFF, 0xF0, 0x00, 0x05, 0xFF, 0xC0, 0x00, //
+    ...hiddenBody,
+    ...jpeg.sublist(2),
+  ]);
+}
+
+List<int> _riffChunk(String type, List<int> data) => [
+  ...type.codeUnits,
+  ..._u32le(data.length),
+  ...data,
+  if (data.length.isOdd) 0,
+];
+
+Uint8List _riff(List<int> chunks) => Uint8List.fromList([
+  ...'RIFF'.codeUnits,
+  ..._u32le(4 + chunks.length),
+  ...'WEBP'.codeUnits,
+  ...chunks,
+]);
+
+/// A lossless picture chunk whose header declares [width] x [height], with no
+/// picture data behind it.
+List<int> vp8l(int width, int height) => _riffChunk('VP8L', [
+  0x2F,
+  ..._u32le((width - 1) | ((height - 1) << 14)),
+  ...List.filled(7, 0), // the bit reader reads ahead of the header
+]);
+
+/// A WebP with these chunks, in order.
+Uint8List webpChunks(List<List<int>> chunks) =>
+    _riff([for (final c in chunks) ...c]);
+
+/// A 74-byte lossy WebP whose frame header gives [width] x [height] in 16 bits
+/// each. Only 14 are the size in the format; the decoder reads all 16, so the
+/// top two bits (a scale, in the format) make it far larger than it looks.
+Uint8List webpLossyTopBits(int width, int height) => _riff(
+  _riffChunk('VP8 ', [
+    0x10, 0, 0, 0x9D, 0x01, 0x2A, //
+    width & 0xFF, width >> 8, height & 0xFF, height >> 8,
+    ...List.filled(44, 0),
+  ]),
+);
+
+/// A WebP that says it is animated: the flag, ANIM and ANMF chunks.
+Uint8List webpAnimated() => _riff([
+  ..._riffChunk('VP8X', [0x02, 0, 0, 0, 63, 0, 0, 63, 0, 0]),
+  ..._riffChunk('ANIM', [0, 0, 0, 0, 0, 0]),
+  ..._riffChunk('ANMF', List.filled(16, 0)),
+]);

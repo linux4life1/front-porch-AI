@@ -39,6 +39,9 @@ Uint8List _png() =>
 class _Engine extends ChangeNotifier implements ImageGenService {
   final List<StudioIntent> pictures = [];
 
+  /// What a portrait comes back as.
+  Uint8List portrait = _png();
+
   @override
   bool get isConfigured => true;
 
@@ -61,7 +64,7 @@ class _Engine extends ChangeNotifier implements ImageGenService {
     StudioIntent intent = StudioIntent.create,
     double? editStrength,
   }) async {
-    if (isPortrait) return _png();
+    if (isPortrait) return portrait;
     pictures.add(intent);
     return _png();
   }
@@ -175,4 +178,31 @@ void main() {
     c.dispose();
     expect(expressionPackBoard.run, isNull);
   });
+
+  for (final (name, bytes, converted) in [
+    (
+      'a JPEG portrait is converted for the pack, and the creator says so',
+      Uint8List.fromList(img.encodeJpg(img.Image(width: 96, height: 120))),
+      true,
+    ),
+    (
+      'a WebP portrait is converted for the pack, and the creator says so',
+      Uint8List.fromList(img.encodeWebP(img.Image(width: 96, height: 120))),
+      true,
+    ),
+    ('a PNG portrait is used as it is, with no note', _png(), false),
+  ]) {
+    test(name, () async {
+      await comfyWith(kComfyUploadedWorkflowId);
+      engine.portrait = bytes;
+      final c = controller();
+      await c.run();
+      await c.continueFromReview();
+
+      expect(c.stage, AvatarRunStage.done, reason: c.statusDetail);
+      expect(engine.pictures, isNotEmpty);
+      expect(c.packBaseConverted, converted);
+      c.dispose();
+    });
+  }
 }

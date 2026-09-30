@@ -20,6 +20,7 @@ class PackRun {
     required this.characterName,
     this.characterId,
     this.replaceExisting = true,
+    this.note,
   });
 
   final ExpressionPackSession session;
@@ -28,6 +29,9 @@ class PackRun {
   final String? characterId;
   final String characterName;
   final bool replaceExisting;
+
+  /// A line the phone shows with the pack (that its base was converted).
+  final String? note;
 
   /// How many pictures were imported, or null while none have been.
   int? imported;
@@ -75,6 +79,7 @@ class ExpressionPackBoard {
       'characterId': run.characterId,
       'characterName': run.characterName,
       'replaceExisting': run.replaceExisting,
+      'note': run.note,
       'total': slots.length,
       'done': run.session.doneCount,
       'kept': run.session.keptCount,

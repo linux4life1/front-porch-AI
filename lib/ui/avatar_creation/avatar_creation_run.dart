@@ -73,14 +73,16 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
       return;
     }
     String? refused;
-    final normalized = normalizePackBase(
+    final normalized = await preparePackBase(
       base,
       onRefused: (r) => refused = r.message,
     );
+    if (_disposed) return;
     if (normalized == null) {
       _fail(refused ?? 'The portrait image could not be decoded.');
       return;
     }
+    packBaseConverted = normalized.converted;
     // The same decision as Studio's pack dialog: a ComfyUI Edit graph that is
     // not ready, or a remote API without an edit model, stops with the reason.
     final plan = await planExpressionPack(storage);

@@ -59,6 +59,7 @@ class ExpressionPackDialog extends StatefulWidget {
     required this.basePrompt,
     required this.negativePrompt,
     required this.existingEmotions,
+    this.note,
   });
 
   final String characterDbId;
@@ -79,6 +80,9 @@ class ExpressionPackDialog extends StatefulWidget {
   /// a second pack run (Starter first, Full later) keeps them by default
   /// and only generates the missing ones.
   final Set<String> existingEmotions;
+
+  /// Shown in the setup when the base was converted to a PNG.
+  final String? note;
 
   /// Run the whole flow. Returns true iff a pack was imported.
   static Future<bool> launch(
@@ -147,7 +151,7 @@ class ExpressionPackDialog extends StatefulWidget {
     // Anyone wanting different framing can pick a pre-cropped reference
     // image in the Studio first.
     String? refused;
-    final normalized = normalizePackBase(
+    final normalized = await preparePackBase(
       base,
       onRefused: (r) => refused = r.message,
     );
@@ -187,6 +191,7 @@ class ExpressionPackDialog extends StatefulWidget {
         baseImage: normalized.bytes,
         baseWidth: normalized.width,
         baseHeight: normalized.height,
+        note: normalized.converted ? kPackConvertedNote : null,
         basePrompt: basePrompt,
         negativePrompt: negativePrompt,
         existingEmotions: existingEmotions,
@@ -421,6 +426,7 @@ class _ExpressionPackDialogState extends State<ExpressionPackDialog> {
                           baseImage: widget.baseImage,
                           characterName: widget.characterName,
                           existingEmotions: widget.existingEmotions,
+                          note: widget.note,
                           storage: widget.storage,
                           onCancel: () => Navigator.of(context).pop(false),
                           onStart: _start,

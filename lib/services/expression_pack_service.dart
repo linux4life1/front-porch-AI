@@ -34,6 +34,8 @@ import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 /// output size from the reference image — the base must literally BE the
 /// generation size. Shared by the Studio pack dialog and the creator's
 /// Portrait & Avatars panel. Returns null when the bytes can't be decoded.
+/// This takes a PNG only; a JPEG or WebP is made into one first by
+/// [preparePackBase], which is what callers use.
 ///
 /// The bytes are judged before any decoder sees them ([inspectPackBase]): only
 /// a PNG, not an animated one, nothing over about 40 megapixels, none that
@@ -59,7 +61,7 @@ import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 }
 
 ({Uint8List bytes, int width, int height})? _normalized(Uint8List raw) {
-  final decoded = img.decodeImage(raw);
+  final decoded = img.decodePng(raw);
   if (decoded == null) return null;
   final isLandscape = decoded.width >= decoded.height;
   final scale = 768 / (isLandscape ? decoded.width : decoded.height);

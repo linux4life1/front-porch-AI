@@ -207,8 +207,7 @@ export function PackPanel(props: {
       <p>
         {props.picture
           ? `Built from ${props.picture.name}.`
-          : 'Built from the character’s portrait. Choose a picture above to use another.'}{' '}
-        Packs are built from PNG pictures.
+          : 'Built from the character’s portrait. Choose a picture above to use another.'}
       </p>
       <button type="button" disabled={busy || running || !character} onClick={start}>
         Start pack
@@ -225,6 +224,7 @@ export function PackPanel(props: {
               ? 'Made with the Edit graph.'
               : 'This engine has no Edit path, so the pack varies the portrait (img2img).'}
           </p>
+          {pack.note ? <p>{pack.note}</p> : null}
           {pack.origin === 'desktop' ? <p>Started on the computer.</p> : null}
           <ul>
             {pack.slots.map((slot) => (

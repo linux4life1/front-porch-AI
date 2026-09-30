@@ -38,10 +38,14 @@ class ExpressionPackSetup extends StatefulWidget {
     required this.onCancel,
     required this.onStart,
     this.storage,
+    this.note,
   });
 
   final StorageService? storage;
   final Uint8List baseImage;
+
+  /// A short line shown under the portrait (that it was converted to PNG).
+  final String? note;
   final String characterName;
 
   /// Emotions this character already has images for (drives the default
@@ -110,6 +114,17 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
             ),
           ],
         ),
+        if (widget.note != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            widget.note!,
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         if (ImageGenBackend.fromKey(
               (widget.storage ?? context.read<StorageService>())

@@ -47,6 +47,7 @@ Future<ExpressionPackFlight> beginExpressionPack({
   String? characterId,
   PackOrigin origin = PackOrigin.desktop,
   bool replaceExisting = true,
+  String? note,
   ExpressionPackBoard? board,
   void Function()? onCancelled,
 }) async {
@@ -99,6 +100,7 @@ Future<ExpressionPackFlight> beginExpressionPack({
           characterId: characterId,
           characterName: characterName,
           replaceExisting: replaceExisting,
+          note: note,
         ),
       );
       ready.complete(session);

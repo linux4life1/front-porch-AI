@@ -48,7 +48,7 @@ extension ImageStudioPacks on ImageFacade {
       );
     }
     PackBaseRefusal? refused;
-    final base = normalizePackBase(raw, onRefused: (r) => refused = r);
+    final base = await preparePackBase(raw, onRefused: (r) => refused = r);
     if (base == null) {
       final why = refused;
       throw why == null
@@ -105,6 +105,7 @@ extension ImageStudioPacks on ImageFacade {
         characterId: id,
         origin: PackOrigin.phone,
         replaceExisting: f['replaceExisting'] != false,
+        note: base.converted ? kPackConvertedNote : null,
         board: _board,
       ),
     );
