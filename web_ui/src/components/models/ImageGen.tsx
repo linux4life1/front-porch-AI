@@ -6,9 +6,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/client';
-import { PackGrid } from './PackGrid';
 import { ImageRemoteFields } from './ImageRemoteFields';
 import { StudioDesk, type GenerateRequest } from './StudioDesk';
+import { PackBanner } from './studio/PackBanner';
 import type { ImageConfig } from './studio/types';
 
 const PROGRESS_MS = 1000;
@@ -124,7 +124,7 @@ export function ImageGen({
   return (
     <section className="card">
       <h3>Image generation</h3>
-      <PackGrid />
+      <PackBanner />
       <StudioDesk
         cfg={cfg}
         onConfig={setCfg}

@@ -3,8 +3,8 @@
 
 import { useRef, useState } from 'react';
 import { ApiError } from '../../../api/client';
-import { PackGrid } from '../PackGrid';
 import { writePrompt } from './deskApi';
+import { PackPanel } from './PackPanel';
 import type { Mode } from './types';
 
 export type Subject = 'free' | 'char' | 'persona';
@@ -147,16 +147,8 @@ export function DeskRail(props: {
       <button type="button" aria-expanded={pack} onClick={() => setPack((open) => !open)}>
         Expression pack
       </button>
-      <p>
-        {mode === 'edit'
-          ? 'Pack uses this edit model.'
-          : 'Pack uses this Create model to vary the portrait.'}
-      </p>
       {pack ? (
-        <div>
-          <p>A pack starts from Image Studio on your computer. Its progress shows here.</p>
-          <PackGrid />
-        </div>
+        <PackPanel prompt={prompt} picture={props.picture} onNote={props.onNote} />
       ) : null}
     </div>
   );

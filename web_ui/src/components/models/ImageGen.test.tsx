@@ -212,13 +212,45 @@ describe('around the desk', () => {
     expect(text()).toContain('Workflow · Edit · qwen_image_edit');
   });
 
-  it('shows the pack a computer is running, above the desk', async () => {
+  it('shows the pack a computer is running, above the desk, and stops it', async () => {
     await open({
-      'GET /api/image/expression-pack': { running: true, filenames: ['joy.png'], verdicts: [] },
+      'GET /api/image/expression-pack': {
+        running: true,
+        characterName: 'Mara',
+        done: 3,
+        total: 8,
+        slots: [],
+      },
+      'POST /api/image/expression-pack/cancel': {
+        running: false,
+        characterName: 'Mara',
+        done: 3,
+        total: 8,
+        slots: [],
+      },
     });
 
-    expect(text().indexOf('Expression pack running')).toBeLessThan(text().indexOf('Subject'));
-    expect(text()).toContain('joy.png');
+    expect(text().indexOf('Expression pack for Mara: 3 of 8 made.')).toBeLessThan(
+      text().indexOf('Subject'),
+    );
+    click('Cancel pack');
+    await settle();
+
+    expect(posts('/api/image/expression-pack/cancel')).toHaveLength(1);
+    expect(text()).not.toContain('Expression pack for Mara');
+  });
+
+  it('says nothing above the desk when no pack is running', async () => {
+    await open({
+      'GET /api/image/expression-pack': {
+        running: false,
+        characterName: 'Mara',
+        done: 8,
+        total: 8,
+        slots: [],
+      },
+    });
+    expect(text()).not.toContain('Expression pack for Mara');
   });
 
   it('offers the remote host and model on a remote backend, and saves the host', async () => {

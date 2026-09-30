@@ -3,7 +3,7 @@
 //
 // Every button on the phone desk does something: Write it for me writes a
 // prompt for the subject picked, the subject buttons say who it is about,
-// Expression pack shows the pack, and Choose file takes a graph after the
+// Expression pack opens the pack panel, and Choose file takes a graph after the
 // password.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -111,35 +111,17 @@ describe('Choose picture', () => {
   });
 });
 
-describe("Expression pack", () => {
-  it('shows the pack the computer is running, with its own status', async () => {
-    await boot(
-      {},
-      {
-        'GET /api/image/expression-pack': {
-          running: true,
-          filenames: ['joy.png'],
-          verdicts: [{ emotion: 'joy', samePerson: true, expressionMatches: true, note: '' }],
-        },
-      },
-    );
-    expect(text()).not.toContain('joy.png');
+describe('Expression pack', () => {
+  it('opens the pack panel, where a pack can be started', async () => {
+    await boot({}, { 'GET /api/characters': [{ id: 'c1', name: 'Mara' }] });
+    expect(button('Start pack')).toBeUndefined();
 
     click('Expression pack');
     await settle();
 
-    expect(text()).toContain('A pack starts from Image Studio on your computer.');
-    expect(text()).toContain('joy.png');
-    expect(text()).toContain('joy: pass');
+    expect(button('Start pack')).toBeDefined();
     expect(button('Expression pack')!.getAttribute('aria-expanded')).toBe('true');
-  });
-
-  it('says which model the pack uses in each mode', async () => {
-    await boot();
-    expect(text()).toContain('Pack uses this Create model to vary the portrait.');
-    click('Edit');
-    await settle();
-    expect(text()).toContain('Pack uses this edit model.');
+    expect(text()).toContain('runs your Edit graph');
   });
 });
 
