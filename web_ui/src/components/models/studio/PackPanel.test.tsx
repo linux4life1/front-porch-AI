@@ -215,6 +215,61 @@ describe('watching a pack', () => {
     expect(button('Cancel pack')).toBeUndefined();
   });
 
+  it('says the pack stopped once it has been cancelled', async () => {
+    await boot({
+      'GET /api/image/expression-pack': view({ running: true, canImport: false }),
+      'POST /api/image/expression-pack/cancel': view({ running: false, canImport: false }),
+    });
+    expect(text()).not.toContain('Pack stopped.');
+
+    click('Cancel pack');
+    await settle();
+
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('Pack stopped.');
+  });
+
+  it('asks about the pack again only while one is running', async () => {
+    vi.useFakeTimers();
+    try {
+      serve({
+        'GET /api/image/expression-pack': refuse(404, 'No expression pack'),
+        'GET /api/characters': characters,
+      });
+      mount(createElement(PackPanel, { prompt: '', picture: null }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10000);
+      });
+      expect(gets('/api/image/expression-pack')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops asking once the pack has stopped', async () => {
+    vi.useFakeTimers();
+    try {
+      let n = 0;
+      serve({
+        'GET /api/image/expression-pack': () =>
+          n++ === 0 ? view({ running: true, canImport: false }) : view(),
+        'GET /api/characters': characters,
+      });
+      mount(createElement(PackPanel, { prompt: '', picture: null }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2100);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10000);
+      });
+      expect(gets('/api/image/expression-pack')).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('says beside the button why the pack could not be stopped', async () => {
     await boot({
       'GET /api/image/expression-pack': view({ running: true, canImport: false }),
@@ -259,7 +314,7 @@ describe('watching a pack', () => {
       let n = 0;
       serve({
         'GET /api/image/expression-pack': () =>
-          n++ === 0 ? view() : refuse(404, 'No expression pack'),
+          n++ === 0 ? view({ running: true, canImport: false }) : refuse(404, 'No expression pack'),
         'GET /api/characters': characters,
       });
       mount(createElement(PackPanel, { prompt: '', picture: null, }));

@@ -40,10 +40,15 @@ export function DeskConnection(props: {
   const key = cfg.backend === 'comfyui' ? 'comfyUrl' : cfg.backend === 'a1111' ? 'localUrl' : 'drawThingsHost';
   const dirty = cfg.backend !== 'remote' && address.trim() !== saved;
   const portValue = Number(port);
+  const portValid = Number.isInteger(portValue) && portValue > 0 && portValue < 65536;
   const portDirty = cfg.backend === 'drawthings' && portValue !== cfg.drawThingsPort;
 
+  // The host and the port decide where this computer dials, so both need the
+  // password, and are saved together.
   const saveAddress = () => {
-    const patch: Record<string, unknown> = { [key]: address.trim(), currentPassword: password };
+    const patch: Record<string, unknown> = { currentPassword: password };
+    if (dirty) patch[key] = address.trim();
+    if (portDirty && portValid) patch.drawThingsPort = portValue;
     if (props.totpEnabled && totp.trim()) patch.totpCode = totp.trim();
     void save(patch).then((ok) => {
       if (ok) {
@@ -79,15 +84,10 @@ export function DeskConnection(props: {
                 max={65535}
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
-                onBlur={() => {
-                  if (portDirty && portValue > 0 && portValue < 65536) {
-                    void save({ drawThingsPort: portValue }).then((ok) => ok && props.onCheck());
-                  }
-                }}
               />
             </label>
           ) : null}
-          {dirty ? (
+          {dirty || (portDirty && portValid) ? (
             <>
               <StepUpFields
                 password={password}
@@ -101,8 +101,12 @@ export function DeskConnection(props: {
                     : 'Changing the local image host — confirm your web login password.'
                 }
               />
-              <button type="button" disabled={!password || !address.trim()} onClick={saveAddress}>
-                Save address
+              <button
+                type="button"
+                disabled={!password || (dirty && !address.trim())}
+                onClick={saveAddress}
+              >
+                {dirty ? 'Save address' : 'Save port'}
               </button>
             </>
           ) : null}

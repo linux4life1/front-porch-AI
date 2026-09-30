@@ -37,6 +37,9 @@ class ComfyRunLedger {
   /// A new generation begins: an earlier cancel does not reach it.
   void clearStop() => _stopNext = false;
 
+  /// Whether the next post is to be stopped as soon as it has a name.
+  bool get stopIsPending => _stopNext;
+
   /// The post finished ([id] is null when it failed). A stop asked for while
   /// it was in flight is carried out now that the prompt has a name.
   Future<void> submitted(String root, String? id) async {

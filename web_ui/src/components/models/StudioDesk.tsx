@@ -129,8 +129,8 @@ export function StudioDesk(props: StudioDeskProps) {
   const installed = async (filename: string, lora: boolean): Promise<string> => {
     const saved = 'Saved to your models folder on this computer.';
     const where = lora
-      ? cfg.backend === 'a1111' ? 'It is in the Lora folder.' : 'Pick it in LoRA search.'
-      : 'Pick it in Model search.';
+      ? cfg.backend === 'a1111' ? 'It is in the Lora folder.' : 'Pick it with Add under LoRA.'
+      : 'Pick it with Change model.';
     try {
       const choice = await installedChoice({ filename, lora, workflowId: facts?.workflowId ?? '' });
       if (!choice.accept) return choice.kind === 'lora-full' ? `${saved} All LoRA slots are full.` : `${saved} ${where}`;

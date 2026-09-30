@@ -40,6 +40,8 @@ extension ImageGenStudio on ImageGenService {
     try {
       return await driver(List<String>.from(emotions));
     } finally {
+      // A cancel asked of the picture that was in flight ends with the pack.
+      _comfyUi?.clearCancel();
       _packFlight = false;
       _isGenerating = false;
       _statusMessage = '';
@@ -89,6 +91,9 @@ extension ImageGenStudio on ImageGenService {
       editStrength: editStrength,
     );
   }
+
+  /// Whether a cancel is still waiting for the next ComfyUI post; for tests.
+  bool get comfyCancelIsPending => _comfyUi?.cancelIsPending ?? false;
 
   /// Stops the job the server is running for this service: on ComfyUI the
   /// prompt is taken off the queue or interrupted. The other backends have no

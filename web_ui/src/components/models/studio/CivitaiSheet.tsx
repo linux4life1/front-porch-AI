@@ -104,8 +104,13 @@ export function CivitaiSheet(props: {
     const t = token.trim();
     if (!t) return;
     void saveKey(t, password, props.totpEnabled ? totp : undefined)
-      .then(() => {
+      .then((stored) => {
         if (!live.current) return;
+        // "Saved" is what the computer says, not that the request went through.
+        if (stored.saved !== true) {
+          setNote('Could not save the API key.');
+          return;
+        }
         setSaved(true);
         setToken('');
         setPassword('');
@@ -116,6 +121,7 @@ export function CivitaiSheet(props: {
   };
 
   const finish = (row: CivitaiRow) => {
+    setNote('');
     void props.onInstalled(row.filename, lora).then((message) => {
       if (live.current) setNote(message);
     });

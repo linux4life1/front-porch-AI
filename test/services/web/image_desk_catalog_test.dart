@@ -350,18 +350,25 @@ void main() {
     });
 
     test(
-      'moving the Draw Things port needs no password, the host does',
+      'moving the Draw Things port needs the password, like the host',
       () async {
+        // The port decides where a host is dialled, so it is as sensitive as
+        // the host itself (this used to be writable without the password).
         final (port, _) = await h.call('POST', '/api/image/config', {
           'drawThingsPort': 7860,
         });
         final (host, _) = await h.call('POST', '/api/image/config', {
           'drawThingsHost': 'elsewhere.example',
         });
+        final (steppedUp, _) = await h.call('POST', '/api/image/config', {
+          'drawThingsPort': 7860,
+          'currentPassword': kDeskPassword,
+        });
 
-        expect(port, 200);
-        expect(h.settings.drawThingsGrpcPort, 7860);
+        expect(port, 401);
         expect(host, 401);
+        expect(steppedUp, 200);
+        expect(h.settings.drawThingsGrpcPort, 7860);
       },
     );
   });

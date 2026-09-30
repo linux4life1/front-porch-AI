@@ -172,6 +172,28 @@ void main() {
           : false,
     );
 
+    test(
+      'the mode is the opened file\'s, not whatever the name holds later',
+      () async {
+        Process.runSync('chmod', ['640', loader.path]);
+        int? seen;
+        readFileNoFollow(
+          loader.path,
+          onMode: (m) => seen = m,
+          afterOpen: (path) {
+            // The name now holds a different file with a different mode.
+            final swapped = File('$path.swap')..writeAsStringSync('other');
+            Process.runSync('chmod', ['600', swapped.path]);
+            swapped.renameSync(path);
+          },
+        );
+        expect(seen, 416); // 0640
+      },
+      skip: Platform.isWindows
+          ? 'needs POSIX symbolic links and descriptors'
+          : false,
+    );
+
     test('a link is refused, never read', () {
       final target = File(p.join(dir.path, 'target.txt'))
         ..writeAsStringSync('nope');

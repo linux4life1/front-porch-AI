@@ -19,6 +19,7 @@ import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_settings_dialog.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
+import 'package:front_porch_ai/ui/image_studio/studio_desk_knobs.dart';
 
 /// A reachable Automatic1111: two checkpoints, two LoRAs. Nothing is dialled.
 class _ReachableA1111 extends ImageGenService {
@@ -285,6 +286,31 @@ void main() {
       await tester.tap(find.text('Danbooru tags (SD 1.5 / anime)').last);
       await tester.pumpAndSettle();
       expect(s.imageGenPromptParadigm, 'tags');
+    });
+  });
+
+  group('Style and Prompt format', () {
+    const hint = 'Style and Prompt format are in Create mode.';
+
+    Future<void> knobs(WidgetTester tester, {required bool edit}) async {
+      final s = storage.imageGenSettings;
+      await s.setImageGenBackend('comfyui');
+      await pump(tester, StudioDeskKnobs(settings: s, edit: edit));
+    }
+
+    testWidgets('are on the desk in Create mode, with no hint', (tester) async {
+      await knobs(tester, edit: false);
+      expect(find.text('Style'), findsOneWidget);
+      expect(find.text('Prompt format'), findsOneWidget);
+      expect(find.text(hint), findsNothing);
+    });
+
+    testWidgets('are not in Edit mode, which says where they are', (
+      tester,
+    ) async {
+      await knobs(tester, edit: true);
+      expect(find.text('Style'), findsNothing);
+      expect(find.text(hint), findsOneWidget);
     });
   });
 }

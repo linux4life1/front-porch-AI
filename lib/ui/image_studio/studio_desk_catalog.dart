@@ -112,6 +112,9 @@ extension on _StudioDeskState {
         ? await gen.fetchA1111Schedulers(url)
         : const <String>[];
     // Automatic1111's own LoRA list, so the slots can be filled from it.
+    // A server lists the LoRAs it found at start, so a re-check (and a finished
+    // download) asks it to look at the folder again before listing.
+    if (force && up && !drawThings) await gen.refreshA1111Loras(url);
     final a1111Loras = up && !drawThings
         ? [for (final l in await gen.fetchA1111Loras(url)) l.name]
         : const <String>[];

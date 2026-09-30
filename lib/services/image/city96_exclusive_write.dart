@@ -93,9 +93,14 @@ void writeNewFileExclusive(
 /// read through. Non-blocking, so a pipe put there cannot hang the read.
 /// Throws [City96WriteRefused] for a link, [UnsupportedError] where this
 /// cannot be done safely. [afterOpen] is for tests.
+///
+/// [onMode] is given the permission bits of the file that was opened, taken
+/// through the open descriptor (`/dev/fd/N` is the descriptor, not the name,
+/// so nothing swapped in at the name since is looked at).
 Uint8List readFileNoFollow(
   String path, {
   void Function(String path)? afterOpen,
+  void Function(int mode)? onMode,
 }) {
   final os = _osFlags();
   if (Platform.isWindows || os == null) {
@@ -138,6 +143,7 @@ Uint8List readFileNoFollow(
   final out = BytesBuilder(copy: false);
   try {
     afterOpen?.call(path);
+    if (onMode != null) onMode(File('/dev/fd/$fd').statSync().mode & 0xFFF);
     while (true) {
       final n = read(fd, buffer, chunk);
       if (n < 0) throw FileSystemException('could not read the file', path);

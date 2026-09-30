@@ -314,6 +314,31 @@ void main() {
       expect(image.isGenerating, isFalse);
     });
 
+    test(
+      'a cancel asked of a picture in flight does not outlive the pack',
+      () async {
+        final c = await comfy(
+          finish: true,
+          infoDelay: const Duration(milliseconds: 300),
+        );
+        final image = await _studio(c, dir);
+        await image.startExpressionPack(['happy'], (emotions) async {
+          final frame = image.expressionFrame(prompt: 'happy');
+          await c.infoAsked.future;
+          await image.cancelJob();
+          expect(
+            image.comfyCancelIsPending,
+            isTrue,
+            reason: 'asked mid-picture',
+          );
+          await frame.timeout(const Duration(seconds: 10));
+          return emotions;
+        });
+
+        expect(image.comfyCancelIsPending, isFalse);
+      },
+    );
+
     test('a second start is refused and its driver never runs', () async {
       final c = await comfy(finish: true);
       final image = await _studio(c, dir);

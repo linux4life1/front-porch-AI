@@ -295,3 +295,29 @@ extension _ImageGenLocalAdmin on ImageGenService {
     }
   }
 }
+
+/// Asks Automatic1111 to look at its Lora folder again. It lists the LoRAs it
+/// found when it started, so a file downloaded since is not in
+/// `GET /sdapi/v1/loras` until this is asked. A public extension (not a class
+/// member) so the test doubles that implement the service need no change.
+extension A1111LoraRefresh on ImageGenService {
+  /// `POST /sdapi/v1/refresh-loras`. A server that has no such endpoint, or
+  /// does not answer, is simply left as it was: false.
+  Future<bool> refreshA1111Loras(String baseUrl) async {
+    final client = http.Client();
+    try {
+      final uri = Uri.parse(
+        '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/refresh-loras',
+      );
+      final response = await client
+          .post(uri)
+          .timeout(const Duration(seconds: 15));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('ImageGen: refreshA1111Loras failed (ignored): $e');
+      return false;
+    } finally {
+      client.close();
+    }
+  }
+}

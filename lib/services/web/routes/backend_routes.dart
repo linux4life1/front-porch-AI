@@ -298,6 +298,7 @@ class WebBackendRoutes {
           currentLocalUrl: '${cfg['localUrl'] ?? ''}',
           currentComfyUrl: '${cfg['comfyUrl'] ?? ''}',
           currentDrawThingsHost: '${cfg['drawThingsHost'] ?? ''}',
+          currentDrawThingsPort: cfg['drawThingsPort'] as int?,
         )) {
       final denied = await denyUnlessSteppedUp(
         auth: _deps.auth,

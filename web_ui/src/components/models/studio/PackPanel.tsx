@@ -61,6 +61,7 @@ export function PackPanel(props: {
   // pressed (the desk's own note is far down the screen).
   const [startProblem, setStartProblem] = useState('');
   const [packProblem, setPackProblem] = useState('');
+  const [stopped, setStopped] = useState(false);
 
   const refresh = useCallback(() => {
     fetchPack()
@@ -70,11 +71,20 @@ export function PackPanel(props: {
       });
   }, []);
 
+  const running = pack?.running === true;
+
+  // Looked at once, and then only while a pack is running: with no pack, or
+  // one that has stopped, nothing is asked. What this panel starts or stops it
+  // already has in the answer.
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!running) return;
     const timer = window.setInterval(refresh, 2000);
     return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [running, refresh]);
 
   useEffect(() => {
     let live = true;
@@ -108,6 +118,7 @@ export function PackPanel(props: {
     setBusy(true);
     setLeft(new Set());
     setStartProblem('');
+    setStopped(false);
     startPack(body)
       .then(setPack)
       .catch((e: unknown) => setStartProblem(message(e, 'Could not start the pack.')))
@@ -117,7 +128,10 @@ export function PackPanel(props: {
   const stop = () => {
     setPackProblem('');
     cancelPack()
-      .then(setPack)
+      .then((view) => {
+        setPack(view);
+        setStopped(true);
+      })
       .catch((e: unknown) => setPackProblem(message(e, 'Could not stop the pack.')));
   };
 
@@ -142,7 +156,6 @@ export function PackPanel(props: {
       return next;
     });
 
-  const running = pack?.running === true;
   const kept = pack ? pack.slots.filter((s) => s.state === 'done' && !left.has(s.emotion)).length : 0;
   return (
     <div className="fp-pack" data-region="pack">
@@ -258,6 +271,7 @@ export function PackPanel(props: {
               Cancel pack
             </button>
           ) : null}
+          {stopped && !running ? <p role="status">Pack stopped.</p> : null}
           {pack.canImport ? (
             <button type="button" disabled={busy || kept === 0} onClick={doImport}>
               Import {kept} to {pack.characterName}

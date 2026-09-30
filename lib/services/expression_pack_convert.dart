@@ -172,13 +172,35 @@ PackConversion _answer(Object? message) {
 /// [PackBaseRefusal.tooLarge] (413). Nothing is written anywhere: the PNG is
 /// returned and it is the only copy.
 ///
+/// One conversion runs at a time in this process (a decode can take most of a
+/// gigabyte, and this runs before a pack's own lock); others wait their turn,
+/// and the timeout counts from when their isolate starts.
+///
 /// [entry] and [onSpawn] are for tests.
 Future<PackConversion> convertPackBase(
   Uint8List raw, {
   Duration timeout = kPackConvertTimeout,
   @visibleForTesting PackConvertEntry entry = packConvertEntry,
   @visibleForTesting void Function(Isolate isolate)? onSpawn,
-}) async {
+}) {
+  final previous = _turn;
+  // The turn is shared by everything in the process, so it belongs to no
+  // zone that may end (a test's) before the next caller takes its turn.
+  final done = Zone.root.run(() => Completer<void>());
+  _turn = done.future;
+  return previous
+      .then((_) => _convert(raw, timeout, entry, onSpawn))
+      .whenComplete(done.complete);
+}
+
+Future<void> _turn = Future<void>.value();
+
+Future<PackConversion> _convert(
+  Uint8List raw,
+  Duration timeout,
+  PackConvertEntry entry,
+  void Function(Isolate isolate)? onSpawn,
+) async {
   if (raw.length > kMaxConvertBytes) {
     return const PackConversion.refused(
       PackBaseRefusal(

@@ -42,10 +42,25 @@ export interface PackStart {
   referenceFilename?: string;
 }
 
+const CHANGED = 'fpai:pack-changed';
+
+/** The panel and the banner both show the pack; what one does, the other hears. */
+const announce = (view: PackView): PackView => {
+  window.dispatchEvent(new Event(CHANGED));
+  return view;
+};
+
+/** Calls [run] when the pack was started, stopped or imported from this phone. */
+export const onPackChanged = (run: () => void) => {
+  window.addEventListener(CHANGED, run);
+  return () => window.removeEventListener(CHANGED, run);
+};
+
 export const fetchPack = () => api.get<PackView>('/api/image/expression-pack');
-export const startPack = (body: PackStart) => api.post<PackView>('/api/image/expression-pack', body);
-export const cancelPack = () => api.post<PackView>('/api/image/expression-pack/cancel', {});
+export const startPack = (body: PackStart) =>
+  api.post<PackView>('/api/image/expression-pack', body).then(announce);
+export const cancelPack = () => api.post<PackView>('/api/image/expression-pack/cancel', {}).then(announce);
 export const importPack = (keep: string[]) =>
-  api.post<PackView>('/api/image/expression-pack/import', { keep });
+  api.post<PackView>('/api/image/expression-pack/import', { keep }).then(announce);
 export const packPicture = (emotion: string) =>
   `/api/image/expression-pack/picture?emotion=${encodeURIComponent(emotion)}`;

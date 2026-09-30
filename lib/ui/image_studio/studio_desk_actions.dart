@@ -374,9 +374,9 @@ extension on _StudioDeskState {
                 'It is in the Lora folder.'
           : lora
           ? 'Saved to your models folder on this computer. '
-                'Pick it in LoRA search.'
+                'Pick it with Add under LoRA.'
           : 'Saved to your models folder on this computer. '
-                'Pick it in Model search.';
+                'Pick it with Change model.';
       ScaffoldMessenger.maybeOf(
         deskContext,
       )?.showSnackBar(SnackBar(content: Text(message)));

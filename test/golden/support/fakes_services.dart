@@ -136,9 +136,9 @@ class FakeVoiceManager extends ChangeNotifier implements VoiceManager {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// [ImageGenService] double for [ImageGenSettingsDialog] (via
-/// [GenerationOptionsTab]). [fetchImageModels] returns an empty list so
-/// [_fetchModels] completes without network access.
+/// [ImageGenService] double for [ImageGenSettingsDialog] (the studio desk).
+/// [fetchImageModels] returns an empty list so the desk's model list completes
+/// without network access.
 class FakeImageGenService extends ChangeNotifier implements ImageGenService {
   @override
   Future<List<ImageModelInfo>> fetchImageModels() async => const [];

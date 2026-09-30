@@ -204,6 +204,24 @@ describe('a download', () => {
     expect(text()).toContain('Saved to your models folder on this computer.');
   });
 
+  it('stops saying it is downloading once it is done, while the file is being picked', async () => {
+    const p = await open(
+      { onInstalled: vi.fn(() => new Promise<string>(() => {})) },
+      routes([job({ percent: 50 }), job({ state: 'done', percent: 100 })]),
+    );
+    await search();
+
+    click('portrait.safetensors');
+    await until(() => (container.querySelector('progress[aria-label="Download progress"]') as HTMLProgressElement | null)?.value === 50);
+    expect(text()).toContain('Downloading on your computer…');
+
+    await new Promise((r) => setTimeout(r, 60));
+    await settle();
+
+    expect(p.onInstalled).toHaveBeenCalled();
+    expect(text()).not.toContain('Downloading on your computer…');
+  });
+
   it('can be cancelled from the phone', async () => {
     await open({}, routes([job({ percent: 10 })]));
     await search();
@@ -332,6 +350,21 @@ describe('the key', () => {
     expect(text()).toContain('API key saved.');
     expect(container.querySelector('input[autocomplete="off"]')).toBeNull();
     expect(container.innerHTML).not.toContain('sk-secret');
+  });
+
+  it('is not called saved when the computer did not save it', async () => {
+    await open({}, {
+      'GET /api/image/civitai/credential': { saved: false },
+      'POST /api/image/civitai/credential': { saved: false },
+    });
+    type('input[autocomplete="off"]', 'sk-secret');
+    type('input[autocomplete="current-password"]', 'hunter2');
+    click('Save key');
+    await settle();
+
+    expect(text()).toContain('Could not save the API key.');
+    expect(text()).not.toContain('API key saved.');
+    expect(container.querySelector('input[autocomplete="off"]')).not.toBeNull();
   });
 
   it('says what the computer said when the password is wrong', async () => {

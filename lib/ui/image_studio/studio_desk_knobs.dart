@@ -102,7 +102,19 @@ class StudioDeskKnobs extends StatelessWidget {
           activeTrackColor: AppColors.formMasterAccent,
           onChanged: settings.setImageGenPromptReview,
         ),
-        if (!edit) ..._promptStyle(context),
+        if (!edit)
+          ..._promptStyle(context)
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Style and Prompt format are in Create mode.',
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 12,
+              ),
+            ),
+          ),
       ],
     );
   }

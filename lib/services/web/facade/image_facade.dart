@@ -220,7 +220,9 @@ class ImageFacade {
       await img.setDrawThingsGrpcHost(f['drawThingsHost'] as String);
     }
     if (f['drawThingsPort'] is int) {
-      await img.setDrawThingsGrpcPort(f['drawThingsPort'] as int);
+      await img.setDrawThingsGrpcPort(
+        (f['drawThingsPort'] as int).clamp(1, 65535),
+      );
     }
     if (f['drawThingsSampler'] is int) {
       await img.setDrawThingsSampler(f['drawThingsSampler'] as int);

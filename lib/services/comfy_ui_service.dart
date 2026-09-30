@@ -66,6 +66,9 @@ class ComfyUiService {
   /// A new generation begins: an earlier cancel does not reach it.
   void clearCancel() => _runs.clearStop();
 
+  /// Whether a cancel is waiting for the next post; for tests.
+  bool get cancelIsPending => _runs.stopIsPending;
+
   /// Normalize a user-typed server address into a usable base URL: trims,
   /// strips trailing slashes, and prepends `http://` when no scheme is given
   /// (`localhost:8188`, `192.168.1.20:7860` → valid URLs instead of a silent

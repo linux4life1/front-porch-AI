@@ -141,9 +141,12 @@ Future<void> writeCity96Loader(
     // The copy is read through a descriptor opened without following a link:
     // where other users can write the folder, a link put in loader.py's place
     // since it was judged would otherwise copy a private file into the backup.
-    final original = readFileNoFollow(loader.path);
-    // Only the new files' mode comes from a look by name.
-    final mode = (await loader.stat()).mode & 0xFFF;
+    // The mode comes from the same open file, never from a look by name.
+    late final int mode;
+    final original = readFileNoFollow(
+      loader.path,
+      onMode: (found) => mode = found,
+    );
     try {
       writeNewFileExclusive(
         bak.path,

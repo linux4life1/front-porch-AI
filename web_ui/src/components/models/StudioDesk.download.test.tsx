@@ -82,7 +82,7 @@ describe('a downloaded model', () => {
     ]);
     expect(p.onConfig).toHaveBeenCalledWith(baseConfig);
     expect(text()).toContain('Saved to your models folder on this computer.');
-    expect(text()).not.toContain('Pick it in Model search');
+    expect(text()).not.toContain('Pick it with Change model');
   });
 
   it('is selected as the model on a backend with one model slot', async () => {
@@ -97,7 +97,7 @@ describe('a downloaded model', () => {
     await download('Get a model from CivitAI', { accept: false });
 
     expect(posts('/api/image/studio/pick')).toHaveLength(0);
-    expect(text()).toContain('Saved to your models folder on this computer. Pick it in Model search.');
+    expect(text()).toContain('Saved to your models folder on this computer. Pick it with Change model.');
   });
 });
 
@@ -118,12 +118,12 @@ describe('a downloaded LoRA', () => {
   it('says where an Automatic1111 LoRA is', async () => {
     await download('Get a LoRA from CivitAI', { accept: false }, { cfg: { ...baseConfig, backend: 'a1111' } });
     expect(text()).toContain('It is in the Lora folder.');
-    expect(text()).not.toContain('Pick it in LoRA search');
+    expect(text()).not.toContain('Pick it with Add under LoRA');
   });
 
-  it('says to pick it in LoRA search elsewhere', async () => {
+  it('says to pick it with Add under LoRA elsewhere', async () => {
     await download('Get a LoRA from CivitAI', { accept: false });
-    expect(text()).toContain('Pick it in LoRA search.');
+    expect(text()).toContain('Pick it with Add under LoRA.');
   });
 });
 
@@ -135,7 +135,7 @@ describe('when the computer cannot say', () => {
       },
     });
 
-    expect(text()).toContain('Saved to your models folder on this computer. Pick it in Model search.');
+    expect(text()).toContain('Saved to your models folder on this computer. Pick it with Change model.');
     expect(container.querySelector('progress')).toBeNull();
     expect(calls.filter((c) => c.path === '/api/image/studio/pick')).toEqual([]);
   });

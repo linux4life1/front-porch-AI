@@ -50,6 +50,13 @@ void _slowEntry(PackConvertJob job) {
   ]);
 }
 
+/// Works for a moment, then answers with a refusal.
+void _briefEntry(PackConvertJob job) {
+  final until = DateTime.now().add(const Duration(milliseconds: 250));
+  while (DateTime.now().isBefore(until)) {}
+  job.reply.send([null, 'done', false]);
+}
+
 void _throwingEntry(PackConvertJob job) => throw StateError('decoder blew up');
 
 void _silentEntry(PackConvertJob job) {}
@@ -227,6 +234,36 @@ void main() {
         );
       },
     );
+
+    test(
+      'only one conversion runs at a time, the rest wait their turn',
+      () async {
+        var running = 0;
+        var mostAtOnce = 0;
+        final all = await Future.wait([
+          for (var i = 0; i < 3; i++)
+            convertPackBase(
+              Uint8List(8),
+              entry: _briefEntry,
+              onSpawn: (isolate) {
+                running++;
+                mostAtOnce = running > mostAtOnce ? running : mostAtOnce;
+                final port = ReceivePort();
+                isolate.addOnExitListener(port.sendPort);
+                port.first.then((_) => running--);
+              },
+            ),
+        ]);
+        expect(all.map((c) => c.refusal?.message), ['done', 'done', 'done']);
+        expect(mostAtOnce, 1);
+      },
+    );
+
+    test('a conversion that fails does not hold up the next one', () async {
+      await convertPackBase(Uint8List(8), entry: _throwingEntry);
+      final next = await convertPackBase(Uint8List(8), entry: _briefEntry);
+      expect(next.refusal?.message, 'done');
+    });
 
     test('a decoder that throws is a refusal, not a crash', () async {
       final done = await convertPackBase(Uint8List(8), entry: _throwingEntry);

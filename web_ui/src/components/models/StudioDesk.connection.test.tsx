@@ -116,26 +116,51 @@ describe('the local server\'s address', () => {
 describe('Draw Things', () => {
   const cfg = { ...baseConfig, backend: 'drawthings', drawThingsHost: '10.0.0.9', drawThingsPort: 7859 };
 
-  it('saves a new port without the password', async () => {
+  it('needs the password to save a new port, and saves nothing before', async () => {
     const p = await boot({ cfg });
 
     expect(field<HTMLInputElement>('input[aria-label="Draw Things port"]').value).toBe('7859');
+    expect(container.querySelector('input[type="password"]')).toBeNull();
     type('input[aria-label="Draw Things port"]', '7900');
     blur('input[aria-label="Draw Things port"]');
     await settle();
 
-    expect(p.save).toHaveBeenCalledWith({ drawThingsPort: 7900 });
-    expect(container.querySelector('input[type="password"]')).toBeNull();
+    expect(p.save).not.toHaveBeenCalled();
+    expect(container.querySelector('input[type="password"]')).not.toBeNull();
+    expect(button('Save port')!.disabled).toBe(true);
+
+    type('input[type="password"]', 'hunter2');
+    click('Save port');
+    await settle();
+
+    expect(p.save).toHaveBeenCalledWith({ drawThingsPort: 7900, currentPassword: 'hunter2' });
   });
 
-  it('does not save a port that is not one', async () => {
+  it('saves a new host and port together, with the password once', async () => {
+    const p = await boot({ cfg });
+
+    type('input[aria-label="Draw Things host"]', '10.0.0.10');
+    type('input[aria-label="Draw Things port"]', '7900');
+    type('input[type="password"]', 'hunter2');
+    click('Save address');
+    await settle();
+
+    expect(p.save).toHaveBeenCalledWith({
+      drawThingsHost: '10.0.0.10',
+      drawThingsPort: 7900,
+      currentPassword: 'hunter2',
+    });
+  });
+
+  it('does not offer to save a port that is not one', async () => {
     const p = await boot({ cfg });
 
     for (const bad of ['0', '70000', '']) {
       type('input[aria-label="Draw Things port"]', bad);
       blur('input[aria-label="Draw Things port"]');
+      await settle();
+      expect(container.querySelector('input[type="password"]')).toBeNull();
     }
-    await settle();
 
     expect(p.save).not.toHaveBeenCalled();
   });
