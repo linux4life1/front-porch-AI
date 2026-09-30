@@ -33,6 +33,25 @@ class _ZoneSpyLlm extends RecordingLlm {
   }
 }
 
+/// Waits in real time (not a count of event-loop turns, which a slower disk
+/// outruns) until the model has been asked, then for the turn to end. Say what
+/// the chat looked like if it never was.
+Future<void> _turn(ReprocessHarness h, _ZoneSpyLlm spy) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 20));
+  while (spy.phone.isEmpty && DateTime.now().isBefore(deadline)) {
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+  }
+  await h.settleTurn();
+  expect(
+    spy.phone,
+    isNotEmpty,
+    reason:
+        'the model was never asked (generating=${h.chat.isGenerating}, '
+        'settling=${h.chat.isSettlingTurn}, messages=${h.chat.messages.length}, '
+        'last=${h.chat.messages.isEmpty ? null : h.chat.messages.last.sender})',
+  );
+}
+
 Future<HttpServer> _comfy() async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
@@ -93,28 +112,28 @@ void main() {
 
     test('sent from the phone is', () async {
       facade.send('Still there?');
-      await h.settleTurn();
+      await _turn(h, spy);
       expect(spy.phone, isNotEmpty);
       expect(spy.phone, everyElement(isTrue));
     });
 
     test('regenerated from the phone is', () async {
       facade.regenerate();
-      await h.settleTurn();
+      await _turn(h, spy);
       expect(spy.phone, isNotEmpty);
       expect(spy.phone, everyElement(isTrue));
     });
 
     test('continued from the phone is', () async {
       facade.continueGeneration();
-      await h.settleTurn();
+      await _turn(h, spy);
       expect(spy.phone, isNotEmpty);
       expect(spy.phone, everyElement(isTrue));
     });
 
     test('swiped from the phone is', () async {
       facade.swipe(last, 1);
-      await h.settleTurn();
+      await _turn(h, spy);
       expect(spy.phone, isNotEmpty);
       expect(spy.phone, everyElement(isTrue));
     });
