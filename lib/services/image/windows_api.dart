@@ -119,6 +119,11 @@ class Win32Api {
         Uint32 Function(IntPtr, Pointer<Utf16>, Uint32, Uint32),
         int Function(int, Pointer<Utf16>, int, int)
       >('GetFinalPathNameByHandleW', isLeaf: true);
+  static final _getLongPath = _k32
+      .lookupFunction<
+        Uint32 Function(Pointer<Utf16>, Pointer<Utf16>, Uint32),
+        int Function(Pointer<Utf16>, Pointer<Utf16>, int)
+      >('GetLongPathNameW', isLeaf: true);
   static final _setInfo = _k32
       .lookupFunction<
         Int32 Function(IntPtr, Int32, Pointer<Uint8>, Uint32),
@@ -248,6 +253,22 @@ class Win32Api {
       if (n == 0 || n >= cap) return null;
       return buf.toDartString(length: n);
     } finally {
+      calloc.free(buf);
+    }
+  }
+
+  /// [path] with every 8.3 short name in it (`RUNNER~1`) spelled out, or null
+  /// when it cannot be expanded (it does not exist, or the call failed).
+  String? longPath(String path) {
+    const cap = 32768;
+    final name = path.toNativeUtf16();
+    final buf = calloc<Uint16>(cap).cast<Utf16>();
+    try {
+      final n = _getLongPath(name, buf, cap);
+      if (n == 0 || n >= cap) return null;
+      return buf.toDartString(length: n);
+    } finally {
+      calloc.free(name);
       calloc.free(buf);
     }
   }

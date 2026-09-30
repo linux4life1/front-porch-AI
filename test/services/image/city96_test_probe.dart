@@ -1,7 +1,26 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
 import 'package:front_porch_ai/services/image/comfy_process_probe.dart';
+
+/// `false` when this machine can make symbolic links; otherwise the reason to
+/// give `skip:`. Windows makes them only with developer mode or elevation.
+Object city96LinkSkip() {
+  if (!Platform.isWindows) return false;
+  final probe = Directory.systemTemp.createTempSync('fpai-symlink-probe');
+  try {
+    Link(p.join(probe.path, 'l')).createSync(probe.path);
+    return false;
+  } on FileSystemException {
+    return 'this runner cannot create symbolic links (needs developer mode)';
+  } finally {
+    probe.deleteSync(recursive: true);
+  }
+}
 
 /// What the OS would say about ports, users, file owners and process starts,
 /// without asking it, so a test can describe another user's process or file,

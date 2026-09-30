@@ -18,6 +18,12 @@ import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 
 import 'civitai_test_server.dart';
 
+/// Symbolic links and POSIX paths like `/etc`: not something a Windows runner
+/// can be assumed to allow (links need developer mode there).
+final Object _noLinks = Platform.isWindows
+    ? 'POSIX-only: it makes symbolic links or names a Unix system folder'
+    : false;
+
 Directory _made(String prefix) {
   final dir = Directory.systemTemp.createTempSync(prefix);
   addTearDown(() => dir.deleteSync(recursive: true));
@@ -29,13 +35,11 @@ void main() {
     late Directory home;
     late Directory elsewhere;
 
+    // Resolved, as the app's own paths are: a temp folder is otherwise spelled
+    // with a short name on Windows and behind a link on macOS.
     setUp(() {
-      home = Directory.systemTemp.createTempSync('civitai-home');
-      elsewhere = Directory.systemTemp.createTempSync('civitai-else');
-      addTearDown(() {
-        home.deleteSync(recursive: true);
-        elsewhere.deleteSync(recursive: true);
-      });
+      home = _made('civitai-home');
+      elsewhere = _made('civitai-else');
     });
 
     /// [roots] are resolved paths, as the app stores them.
@@ -121,6 +125,48 @@ void main() {
         expect(await check(library.path, roots: [library.parent.path]), isTrue);
       },
     );
+
+    test(
+      'on Windows a home folder is judged by its own AppData, not the environment\'s',
+      () {
+        // A test's or a copy's home folder inside the real app data folder
+        // (the temp folder is one) must not make everything in it refused.
+        expect(
+          civitaiSensitiveHomeFolders(
+            home: r'C:\Users\RUNNER~1\AppData\Local\Temp\home',
+            os: 'windows',
+            env: {
+              'APPDATA': r'C:\Users\runneradmin\AppData\Roaming',
+              'LOCALAPPDATA': r'C:\Users\runneradmin\AppData\Local',
+            },
+          ),
+          [
+            r'C:\Users\RUNNER~1\AppData\Local\Temp\home\AppData\Roaming',
+            r'C:\Users\RUNNER~1\AppData\Local\Temp\home\AppData\Local',
+          ],
+        );
+        // The environment's own, when it is inside the home folder, once.
+        expect(
+          civitaiSensitiveHomeFolders(
+            home: r'C:\Users\a',
+            os: 'windows',
+            env: {'APPDATA': r'c:\users\A\appdata\roaming'},
+          ),
+          [r'c:\users\A\appdata\roaming', r'C:\Users\a\AppData\Local'],
+        );
+      },
+    );
+
+    test('the home folder is USERPROFILE on Windows, HOME elsewhere', () {
+      final env = {'HOME': '/c/Users/a', 'USERPROFILE': r'C:\Users\a'};
+      expect(civitaiHomeFolder(env: env, os: 'windows'), r'C:\Users\a');
+      expect(civitaiHomeFolder(env: env, os: 'linux'), '/c/Users/a');
+      expect(
+        civitaiHomeFolder(env: {'USERPROFILE': r'C:\Users\a'}, os: 'linux'),
+        r'C:\Users\a',
+      );
+      expect(civitaiHomeFolder(env: {}, os: 'windows'), isEmpty);
+    });
 
     test('which folders those are, on each OS', () {
       expect(
@@ -241,7 +287,7 @@ void main() {
         expect(ssh.listSync(), isEmpty);
       },
     );
-  }, skip: Platform.isWindows);
+  }, skip: _noLinks);
 
   group('a saved models folder is trusted as it was when it was saved', () {
     late Directory home;
@@ -282,7 +328,7 @@ void main() {
       expect(kind, CivitaiFailure.unsafe);
       expect(host.requests, isEmpty);
       expect(ssh.listSync(), isEmpty);
-    }, skip: Platform.isWindows);
+    }, skip: _noLinks);
 
     test('the folders come back as they resolved when saved', () async {
       final real = _made('civitai-real');
@@ -291,7 +337,7 @@ void main() {
       await rememberStudioModelRoot('comfyui', link);
 
       expect(await studioSavedModelRoots(), [real.path]);
-    }, skip: Platform.isWindows);
+    }, skip: _noLinks);
 
     test(
       'a folder the person chose to use is added, and only a safe one',
@@ -306,7 +352,7 @@ void main() {
         expect(await addTrustedModelFolder(''), isFalse);
         expect(await studioSavedModelRoots(), [mine.path]);
       },
-      skip: Platform.isWindows,
+      skip: _noLinks,
     );
   });
 

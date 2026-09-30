@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import 'civitai_home_folders.dart';
 import 'civitai_version.dart';
 import 'model_family.dart';
 
@@ -236,31 +237,6 @@ List<String> civitaiSystemFolders() {
   ];
 }
 
-/// Folders of the home folder that hold what a login runs or a program keeps
-/// for the system, though they are not named with a dot: `~/Library` on macOS
-/// (LaunchAgents are in it) and, on Windows, the roaming and local app data
-/// folders (the Startup folder is in the first). Empty on Linux, where those
-/// are dot folders.
-List<String> civitaiSensitiveHomeFolders({
-  String? home,
-  Map<String, String>? env,
-  String? os,
-}) {
-  env ??= Platform.environment;
-  os ??= Platform.operatingSystem;
-  if (os == 'macos') {
-    final h = home ?? env['HOME'] ?? '';
-    return [if (h.isNotEmpty) p.join(h, 'Library')];
-  }
-  if (os == 'windows') {
-    return [
-      for (final key in ['APPDATA', 'LOCALAPPDATA'])
-        if ((env[key] ?? '').isNotEmpty) env[key]!,
-    ];
-  }
-  return const [];
-}
-
 Future<String?> _resolved(String path) async {
   try {
     return await Directory(path).resolveSymbolicLinks();
@@ -333,11 +309,7 @@ Future<bool> civitaiFolderIsSafe(
   final real = await civitaiRealFolder(folder);
   if (real == null) return false;
   if (real == p.rootPrefix(real) || p.dirname(real) == real) return false;
-  final homePath =
-      home ??
-      Platform.environment['HOME'] ??
-      Platform.environment['USERPROFILE'] ??
-      '';
+  final homePath = home ?? civitaiHomeFolder();
   if (homePath.isNotEmpty) {
     final realHome = await _resolved(homePath) ?? homePath;
     if (real == realHome) return false;

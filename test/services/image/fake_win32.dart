@@ -29,6 +29,13 @@ class FakeWin32Api extends Win32Api {
   /// name), and the final path they report.
   final Map<String, String> finalPathOf = {};
 
+  /// 8.3 short names (lowercase) and the long name each stands for. Windows
+  /// spells every one out in a final path and in GetLongPathName.
+  final Map<String, String> shortNames = {};
+
+  String _long(String path) =>
+      path.split(r'\').map((s) => shortNames[s.toLowerCase()] ?? s).join(r'\');
+
   /// Paths that are reparse points (junctions, symbolic links).
   final Set<String> reparse = {};
 
@@ -131,8 +138,11 @@ class FakeWin32Api extends Win32Api {
   String? finalPath(int handle) {
     if (_fail('finalPath') != 0) return null;
     final open = _open[handle]!;
-    return finalPathOf[open.key] ?? '\\\\?\\${open.path}';
+    return finalPathOf[open.key] ?? '\\\\?\\${_long(open.path)}';
   }
+
+  @override
+  String? longPath(String path) => _fail('longPath') != 0 ? null : _long(path);
 
   @override
   int renameByHandle(int handle, String target, {required bool ex}) {

@@ -66,11 +66,18 @@ String windowsVerbatim(String path) {
   return r'\\?\' + full;
 }
 
-/// True when [a] and [b] name the same place, ignoring case and a trailing
-/// separator.
+/// True when [a] and [b] name the same place: the `\\?\` prefix (and its
+/// `UNC` form), the case of the drive letter and of every name, the kind of
+/// slash and a trailing separator are not differences.
 bool windowsSamePath(String a, String b) {
   String norm(String s) {
-    var t = s.toLowerCase();
+    var t = s.replaceAll('/', r'\');
+    if (t.toLowerCase().startsWith(r'\\?\unc\')) {
+      t = r'\\' + t.substring(8);
+    } else if (t.startsWith(r'\\?\') || t.startsWith(r'\\.\')) {
+      t = t.substring(4);
+    }
+    t = t.toLowerCase();
     while (t.length > 3 && t.endsWith(r'\')) {
       t = t.substring(0, t.length - 1);
     }
@@ -78,6 +85,15 @@ bool windowsSamePath(String a, String b) {
   }
 
   return norm(a) == norm(b);
+}
+
+/// True when the handle's [finalPath] is the place [path] is spelled as. The
+/// spelled path is expanded first: a temp folder is usually written with an
+/// 8.3 short name (`C:\Users\RUNNER~1`) and its final path never is. What
+/// still differs is a real link, or a substituted or mapped drive.
+bool windowsSpelledAs(Win32Api api, String finalPath, String path) {
+  final verbatim = windowsVerbatim(path);
+  return windowsSamePath(finalPath, api.longPath(verbatim) ?? verbatim);
 }
 
 /// Owner, reparse state and who else may write [path], read through a handle
@@ -106,7 +122,7 @@ Future<PathFacts?> windowsPathFacts(
     final reparse = attributes & kAttributeReparsePoint != 0;
     final finalPath = files.finalPath(handle);
     if (finalPath == null) return null;
-    final moved = !windowsSamePath(finalPath, windowsVerbatim(path));
+    final moved = !windowsSpelledAs(files, finalPath, path);
     final (sec, secErr) = security.security(handle);
     if (sec == null || secErr != 0) return null;
     final aces = sec.aces;

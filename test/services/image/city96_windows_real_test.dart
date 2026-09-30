@@ -17,25 +17,14 @@ import 'package:front_porch_ai/services/image/city96_write_common.dart';
 import 'package:front_porch_ai/services/image/comfy_process_probe_windows.dart';
 
 import 'city96_test_loader.dart';
+import 'city96_test_probe.dart';
 
 final Object _skip = Platform.isWindows
     ? false
     : 'Windows only: this calls the real Win32 API';
 
-/// Whether this runner may create symbolic links (it needs developer mode or
-/// elevation); the reason to skip when it may not.
-Object _symlinkSkip() {
-  if (!Platform.isWindows) return _skip;
-  final probe = Directory.systemTemp.createTempSync('fpai-symlink-probe');
-  try {
-    Link(p.join(probe.path, 'l')).createSync(probe.path);
-    return false;
-  } on FileSystemException {
-    return 'this runner cannot create symbolic links (needs developer mode)';
-  } finally {
-    probe.deleteSync(recursive: true);
-  }
-}
+/// Symbolic links need developer mode or elevation on Windows.
+Object _symlinkSkip() => Platform.isWindows ? city96LinkSkip() : _skip;
 
 void main() {
   late Directory root;

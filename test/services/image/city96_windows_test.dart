@@ -373,6 +373,58 @@ void main() {
       },
     );
 
+    test(
+      'a folder spelled with a short name is not a link: the final path spells it out',
+      () async {
+        const short = r'C:\Users\RUNNER~1\AppData\Local\Temp\ComfyUI-GGUF';
+        files
+          ..shortNames['runner~1'] = 'runneradmin'
+          ..addFolder(short);
+
+        final f = await windowsPathFacts(
+          short,
+          folder: true,
+          files: files,
+          security: FakeWin32Security()..pathOf = files.pathForHandle,
+        );
+
+        expect(f!.isLink, isFalse);
+      },
+    );
+
+    test(
+      'a short name that cannot be expanded is refused, not believed',
+      () async {
+        const short = r'C:\Users\RUNNER~1\Temp\ComfyUI-GGUF';
+        files
+          ..shortNames['runner~1'] = 'runneradmin'
+          ..failing['longPath'] = 5
+          ..addFolder(short);
+
+        final f = await windowsPathFacts(
+          short,
+          folder: true,
+          files: files,
+          security: FakeWin32Security()..pathOf = files.pathForHandle,
+        );
+
+        expect(f!.isLink, isTrue);
+      },
+    );
+
+    test('what is not a difference between two spellings of a path', () {
+      expect(windowsSamePath(r'\\?\C:\a\b', r'c:\A\B'), isTrue);
+      expect(windowsSamePath(r'C:/a/b/', r'\\?\c:\a\b'), isTrue);
+      expect(
+        windowsSamePath(r'\\?\UNC\srv\share\a', r'\\SRV\share\A\'),
+        isTrue,
+      );
+      expect(windowsSamePath(r'C:\', r'\\?\c:\'), isTrue);
+      expect(windowsSamePath(r'\\?\C:\a\b', r'\\?\D:\a\b'), isFalse);
+      expect(windowsSamePath(r'\\?\C:\a\b', r'\\?\C:\a\bc'), isFalse);
+      expect(windowsSamePath(r'\\?\C:\a\b', r'\\?\C:\a\b\c'), isFalse);
+    });
+
     test('case and a trailing separator are not a difference', () async {
       files.finalPathOf[folderPath.toLowerCase()] =
           r'\\?\c:\comfyui\CUSTOM_NODES\comfyui-gguf\';
@@ -467,6 +519,23 @@ void main() {
         expect(fs.text(bakPath), kStockCity96Loader);
         expect(leftovers(), isEmpty);
         expect(fs.openHandles, isEmpty);
+      },
+    );
+
+    test(
+      'a folder spelled with a short name is written to, as a temp folder is',
+      () async {
+        const shortFolder = r'C:\Users\RUNNER~1\ComfyUI-GGUF';
+        const shortLoader = '$shortFolder\\loader.py';
+        fs
+          ..shortNames['runner~1'] = 'runneradmin'
+          ..addFolder(shortFolder)
+          ..addFile(shortLoader, kStockCity96Loader);
+
+        await writeCity96LoaderWindows(File(shortLoader), 'patched', api: fs);
+
+        expect(fs.text(shortLoader), 'patched');
+        expect(fs.text('$shortLoader.bak'), kStockCity96Loader);
       },
     );
 

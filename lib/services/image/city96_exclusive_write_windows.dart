@@ -124,7 +124,7 @@ Future<void> writeCity96LoaderWindows(
 void _requirePlain(Win32Api api, int handle, String path, String what) {
   _requireNotReparse(api, handle, what);
   final final_ = api.finalPath(handle);
-  if (final_ == null || !windowsSamePath(final_, windowsVerbatim(path))) {
+  if (final_ == null || !windowsSpelledAs(api, final_, path)) {
     throw City96WriteRefused(
       'Its ComfyUI-GGUF $what is not where it is spelled (a link, a '
       'substituted drive or a short name), so it was left alone.',

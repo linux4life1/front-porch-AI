@@ -32,6 +32,7 @@ final _graph = {
 const _patched = '# patched\n';
 
 const _posixOnly = 'needs POSIX file modes and hard links';
+final Object _links = city96LinkSkip();
 
 void main() {
   late Directory dir;
@@ -85,39 +86,51 @@ void main() {
       expect(loader.readAsStringSync(), _patched);
     });
 
-    test('refuses a symlinked loader and leaves the target alone', () async {
-      final target = File(p.join(dir.path, 'elsewhere.py'))
-        ..writeAsStringSync('not yours');
-      loader.deleteSync();
-      Link(loader.path).createSync(target.path);
-      await expectLater(
-        writeCity96Loader(loader, _patched, probe: const FakeProbe()),
-        throwsA(isA<City96WriteRefused>()),
-      );
-      expect(target.readAsStringSync(), 'not yours');
-      expect(bak().existsSync(), isFalse);
-    });
+    test(
+      'refuses a symlinked loader and leaves the target alone',
+      skip: _links,
+      () async {
+        final target = File(p.join(dir.path, 'elsewhere.py'))
+          ..writeAsStringSync('not yours');
+        loader.deleteSync();
+        Link(loader.path).createSync(target.path);
+        await expectLater(
+          writeCity96Loader(loader, _patched, probe: const FakeProbe()),
+          throwsA(isA<City96WriteRefused>()),
+        );
+        expect(target.readAsStringSync(), 'not yours');
+        expect(bak().existsSync(), isFalse);
+      },
+    );
 
-    test('refuses a symlinked backup and does not write through it', () async {
-      final victim = File(p.join(dir.path, 'victim.txt'))
-        ..writeAsStringSync('keep me');
-      Link(bak().path).createSync(victim.path);
-      await expectLater(
-        writeCity96Loader(loader, _patched, probe: const FakeProbe()),
-        throwsA(isA<City96WriteRefused>()),
-      );
-      expect(victim.readAsStringSync(), 'keep me');
-      expect(loader.readAsStringSync(), kStockCity96Loader);
-    });
+    test(
+      'refuses a symlinked backup and does not write through it',
+      skip: _links,
+      () async {
+        final victim = File(p.join(dir.path, 'victim.txt'))
+          ..writeAsStringSync('keep me');
+        Link(bak().path).createSync(victim.path);
+        await expectLater(
+          writeCity96Loader(loader, _patched, probe: const FakeProbe()),
+          throwsA(isA<City96WriteRefused>()),
+        );
+        expect(victim.readAsStringSync(), 'keep me');
+        expect(loader.readAsStringSync(), kStockCity96Loader);
+      },
+    );
 
-    test('a planted temp name is never written through', () async {
-      final victim = File(p.join(dir.path, 'victim.txt'))
-        ..writeAsStringSync('keep me');
-      Link('${loader.path}.fpai-tmp').createSync(victim.path);
-      await writeCity96Loader(loader, _patched, probe: const FakeProbe());
-      expect(victim.readAsStringSync(), 'keep me');
-      expect(loader.readAsStringSync(), _patched);
-    });
+    test(
+      'a planted temp name is never written through',
+      skip: _links,
+      () async {
+        final victim = File(p.join(dir.path, 'victim.txt'))
+          ..writeAsStringSync('keep me');
+        Link('${loader.path}.fpai-tmp').createSync(victim.path);
+        await writeCity96Loader(loader, _patched, probe: const FakeProbe());
+        expect(victim.readAsStringSync(), 'keep me');
+        expect(loader.readAsStringSync(), _patched);
+      },
+    );
 
     test(
       'a name swapped for a link after it is created is not written through',
