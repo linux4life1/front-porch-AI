@@ -100,6 +100,12 @@ void main() {
       );
     });
 
+    test('two headers, a small one and then a huge one, are refused: the '
+        'decoder takes the size from the last', () {
+      _refusedAtOnce(pngWithTwoHeaders());
+      _refusedAtOnce(pngWithTwoHeaders(secondWidth: 4, secondHeight: 4));
+    });
+
     test('an APNG is refused, whatever its frames declare', () {
       _refusedAtOnce(
         apng(frameWidth: 16000, frameHeight: 16000),
@@ -219,6 +225,82 @@ void main() {
           ),
         ).size,
         (64, 48),
+      );
+    });
+
+    test('two picture chunks, a small one and then a huge one, are refused: '
+        'the decoder would keep the last', () {
+      _refusedAtOnce(
+        webpChunks([vp8l(64, 64), vp8l(16383, 16383)]),
+        saying: null,
+      );
+      // Small first or huge first, lossless or lossy, all the same.
+      _refusedAtOnce(webpChunks([vp8l(16383, 16383), vp8l(64, 64)]));
+      _refusedAtOnce(webpChunks([vp8(64, 64), vp8l(16383, 16383)]));
+      _refusedAtOnce(webpChunks([vp8l(64, 64), vp8(16383, 16383)]));
+      _refusedAtOnce(webpChunks([vp8(64, 64), vp8(64, 64)]));
+    });
+
+    test('a picture chunk after the end the RIFF header claims is still '
+        'seen: the decoder reads to the end of the file', () {
+      final first = vp8l(64, 64);
+      _refusedAtOnce(
+        webpChunks([first, vp8l(16383, 16383)], riffSize: 4 + first.length),
+      );
+    });
+
+    test('a chunk that runs past the end of the file is refused', () {
+      final cut = webpChunks([vp8l(64, 64), vp8l(16383, 16383)]);
+      _refusedAtOnce(Uint8List.sublistView(cut, 0, cut.length - 3));
+      _refusedAtOnce(
+        Uint8List.fromList([
+          ...webpLossless(64, 64),
+          ...'VP8L'.codeUnits,
+          0xFF,
+          0xFF,
+          0xFF,
+          0x7F,
+        ]),
+      );
+    });
+
+    test('one picture chunk is still fine', () {
+      expect(inspectPackBase(webpChunks([vp8l(64, 64)])).size, (64, 64));
+    });
+
+    test('a second extended header is refused', () {
+      final header = webpExtended(
+        canvasWidth: 64,
+        canvasHeight: 64,
+        innerWidth: 64,
+        innerHeight: 64,
+      ).sublist(12, 12 + 18);
+      expect(inspectPackBase(webpChunks([header, vp8l(64, 64)])).size, (
+        64,
+        64,
+      ));
+      _refusedAtOnce(webpChunks([header, header, vp8l(64, 64)]));
+    });
+
+    test('two picture chunks are refused even when both are small', () {
+      _refusedAtOnce(webpChunks([vp8l(64, 64), vp8l(64, 64)]));
+      _refusedAtOnce(webpChunks([vp8(64, 64), vp8(64, 64)]));
+      _refusedAtOnce(webpChunks([vp8(64, 64), vp8l(64, 64)]));
+      _refusedAtOnce(webpChunks([vp8l(64, 64), vp8(64, 64)]));
+    });
+
+    test('a cut-off chunk after the picture is refused', () {
+      _refusedAtOnce(
+        Uint8List.fromList([
+          ...webpLossless(64, 64),
+          ...'JUNK'.codeUnits,
+          100,
+          0,
+          0,
+          0,
+          1,
+          2,
+        ]),
       );
     });
 

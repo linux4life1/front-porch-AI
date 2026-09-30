@@ -208,3 +208,30 @@ Uint8List webpExtended({
   ..._vp8x(flags, canvasWidth, canvasHeight),
   ...vp8l(innerWidth, innerHeight),
 ]);
+
+/// A WebP with several picture chunks, in order: the decoder keeps the last,
+/// whatever came first. [riffSize] overrides the size the RIFF header claims
+/// (the decoder reads to the end of the file, not to that size).
+Uint8List webpChunks(List<List<int>> chunks, {int? riffSize}) {
+  final body = [for (final c in chunks) ...c];
+  final out = _riff(body);
+  if (riffSize != null) {
+    out.setRange(4, 8, _u32le(riffSize));
+  }
+  return out;
+}
+
+/// A PNG whose header appears twice: the first is small, the second huge, and
+/// the decoder takes its size from the last.
+Uint8List pngWithTwoHeaders({
+  int firstWidth = 4,
+  int firstHeight = 4,
+  int secondWidth = 16000,
+  int secondHeight = 16000,
+}) => Uint8List.fromList([
+  ..._pngSignature,
+  ...pngHeader(firstWidth, firstHeight),
+  ...pngHeader(secondWidth, secondHeight),
+  ...pngChunk('IDAT', zeroZlib(firstHeight * (1 + firstWidth * 4))),
+  ...pngChunk('IEND', const []),
+]);

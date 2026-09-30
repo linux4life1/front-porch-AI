@@ -134,6 +134,9 @@ PackBaseVerdict _png(Uint8List b) {
       bits = _channels[color]! * depth;
       final sized = _sized(width, height);
       if (sized.size == null) return sized;
+    } else if (type == 'IHDR') {
+      // The decoder takes the size, depth and colour type from the last IHDR.
+      return const PackBaseVerdict.notPicture();
     } else if (type == 'acTL' || type == 'fcTL' || type == 'fdAT') {
       return const PackBaseVerdict.refused(PackBaseRefusal(_animated));
     } else if (type == 'IDAT') {
@@ -254,7 +257,9 @@ PackBaseVerdict _jpeg(Uint8List b) {
 // ── WebP ────────────────────────────────────────────────────────────────────
 
 PackBaseVerdict _webp(Uint8List b) {
-  final end = (8 + _u32le(b, 4)).clamp(12, b.length);
+  // The decoder reads chunks to the end of the file, not to the end the RIFF
+  // size claims, so the walk does too.
+  final end = b.length;
   var at = 12;
   (int, int)? canvas;
   (int, int)? still;
@@ -262,10 +267,14 @@ PackBaseVerdict _webp(Uint8List b) {
     final type = _fourcc(b, at);
     final size = _u32le(b, at + 4);
     final data = at + 8;
-    if (size > end - data) break;
+    // A chunk that runs past the file is not one the decoder can be trusted
+    // with: it takes what it has read of it.
+    if (size > end - data) return const PackBaseVerdict.notPicture();
     switch (type) {
       case 'VP8X':
-        if (size < 10) return const PackBaseVerdict.notPicture();
+        if (size < 10 || canvas != null) {
+          return const PackBaseVerdict.notPicture();
+        }
         if (b[data] & 0x02 != 0) {
           return const PackBaseVerdict.refused(PackBaseRefusal(_animated));
         }
@@ -281,13 +290,18 @@ PackBaseVerdict _webp(Uint8List b) {
             b[data + 5] != 0x2A) {
           return const PackBaseVerdict.notPicture();
         }
-        still ??= (_u16le(b, data + 6) & 0x3FFF, _u16le(b, data + 8) & 0x3FFF);
+        // A still WebP has exactly one picture chunk. The decoder keeps the
+        // last of several, so a second (a huge one after a small one) would
+        // be decoded unchecked.
+        if (still != null) return const PackBaseVerdict.notPicture();
+        still = (_u16le(b, data + 6) & 0x3FFF, _u16le(b, data + 8) & 0x3FFF);
       case 'VP8L':
         if (size < 5 || b[data] != 0x2F) {
           return const PackBaseVerdict.notPicture();
         }
+        if (still != null) return const PackBaseVerdict.notPicture();
         final bits = _u32le(b, data + 1);
-        still ??= ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1);
+        still = ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1);
     }
     if (still != null) {
       final sized = _sized(still.$1, still.$2);
