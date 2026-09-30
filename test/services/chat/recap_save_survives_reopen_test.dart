@@ -112,7 +112,7 @@ void main() {
 
     first.dispose();
     second = _chat(db, storage);
-    await second!.setActiveCharacter(card);
+    await second.setActiveCharacter(card);
 
     expect(second.summary, recap);
     expect((await db.getSessionById(sid))!.summary, recap);
