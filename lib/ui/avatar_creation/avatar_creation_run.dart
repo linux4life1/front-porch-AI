@@ -72,9 +72,10 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
       _fail('The expression pack needs a portrait to build from.');
       return;
     }
-    final normalized = normalizePackBase(base);
+    String? refused;
+    final normalized = normalizePackBase(base, onRefused: (r) => refused = r);
     if (normalized == null) {
-      _fail('The portrait image could not be decoded.');
+      _fail(refused ?? 'The portrait image could not be decoded.');
       return;
     }
     // The same decision as Studio's pack dialog: a ComfyUI Edit graph that is

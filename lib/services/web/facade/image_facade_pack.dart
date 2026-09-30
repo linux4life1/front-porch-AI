@@ -47,9 +47,12 @@ extension ImageStudioPacks on ImageFacade {
         '${card.name} has no portrait yet. Pick a picture to build from.',
       );
     }
-    final base = normalizePackBase(raw);
+    String? refused;
+    final base = normalizePackBase(raw, onRefused: (r) => refused = r);
     if (base == null) {
-      throw const DeskRefused('bad_picture', 'That is not a picture.');
+      throw refused != null
+          ? DeskRefused('too_large', refused!, 413)
+          : const DeskRefused('bad_picture', 'That is not a picture.');
     }
     final prompt = '${f['prompt'] ?? ''}'.trim();
     if (!plan.edit && prompt.isEmpty) {

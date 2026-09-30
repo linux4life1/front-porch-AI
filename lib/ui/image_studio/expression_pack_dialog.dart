@@ -146,15 +146,17 @@ class ExpressionPackDialog extends StatefulWidget {
     // expressions look like the avatar the user already sees in the sidebar.
     // Anyone wanting different framing can pick a pre-cropped reference
     // image in the Studio first.
-    final normalized = normalizePackBase(base);
+    String? refused;
+    final normalized = normalizePackBase(base, onRefused: (r) => refused = r);
     if (!context.mounted) return false;
     if (normalized == null) {
       await showWarmDialog(
         context,
         title: 'Unreadable image',
         icon: Icons.broken_image_outlined,
-        content: const WarmDialogText(
-          'That image could not be decoded — try a different portrait.',
+        content: WarmDialogText(
+          refused ??
+              'That image could not be decoded — try a different portrait.',
         ),
         actions: [warmDialogCancel(context, label: 'Got it')],
       );

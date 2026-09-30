@@ -25,6 +25,9 @@ import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 
+/// The most pixels a pack's base picture may declare (about 40 megapixels).
+const int kMaxPackBasePixels = 40 * 1000 * 1000;
+
 /// Decode a candidate pack base and re-emit it at a diffusion-friendly size
 /// that PRESERVES the source aspect ratio — a portrait avatar yields a
 /// portrait pack instead of being forced square. The long side lands on 768
@@ -33,7 +36,29 @@ import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
 /// output size from the reference image — the base must literally BE the
 /// generation size. Shared by the Studio pack dialog and the creator's
 /// Portrait & Avatars panel. Returns null when the bytes can't be decoded.
-({Uint8List bytes, int width, int height})? normalizePackBase(Uint8List raw) {
+///
+/// A picture bigger than [kMaxPackBasePixels] is refused from its header, before
+/// anything is decoded: a small file can declare a huge picture, and decoding
+/// one takes seconds and gigabytes. Then null is returned and [onRefused] is
+/// given the sentence to show.
+({Uint8List bytes, int width, int height})? normalizePackBase(
+  Uint8List raw, {
+  void Function(String reason)? onRefused,
+}) {
+  img.DecodeInfo? header;
+  try {
+    header = img.findDecoderForData(raw)?.startDecode(raw);
+  } catch (_) {
+    return null; // not a picture the decoders can read
+  }
+  if (header == null) return null;
+  if (header.width * header.height > kMaxPackBasePixels) {
+    onRefused?.call(
+      'That picture is ${header.width}x${header.height}, which is too large '
+      'to build a pack from. Use one under 40 megapixels.',
+    );
+    return null;
+  }
   final decoded = img.decodeImage(raw);
   if (decoded == null) return null;
   final isLandscape = decoded.width >= decoded.height;

@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/image/image.dart'
 import 'package:front_porch_ai/services/web/facade/image_facade.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 
+import '../../helpers/huge_png.dart';
 import 'desk_graphs.dart';
 import 'image_desk_harness.dart';
 
@@ -370,6 +371,29 @@ void main() {
       expect(status, 400);
       expect(body['code'], 'bad_picture');
     });
+
+    test(
+      'a picture that declares over 40 megapixels is refused, undecoded',
+      () async {
+        final comfy = await boot();
+        final huge = hugePng(16000, 16000);
+
+        final watch = Stopwatch()..start();
+        final (status, body) = await h.call('POST', _pack, {
+          'characterId': mara,
+          'referenceImage': 'data:image/png;base64,${base64Encode(huge)}',
+        });
+        watch.stop();
+
+        expect(status, 413);
+        expect(body['code'], 'too_large');
+        expect(body['error'], contains('16000x16000'));
+        expect(watch.elapsedMilliseconds, lessThan(2000));
+        expect(comfy.uploads, 0);
+        final (gone, _) = await h.call('GET', _pack);
+        expect(gone, 404);
+      },
+    );
 
     test('a character that already has every one of them', () async {
       await boot();
