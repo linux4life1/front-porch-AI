@@ -289,34 +289,62 @@ Future<List<DeskGraphChoice>> loadDeskGraphMenu({
   );
 }
 
-/// Both Change graph lists from one round of reads: the three listings
-/// together, then every saved workflow together and only once.
-Future<({List<DeskGraphChoice> create, List<DeskGraphChoice> edit})>
-loadDeskGraphMenus({
-  required ComfyUiService comfy,
-  String modelFile = '',
-}) async {
+/// What one round of reads found on a Comfy: its Create and Edit template
+/// listings, its saved workflows, and which mode each saved one is for.
+class DeskGraphReads {
+  const DeskGraphReads._(
+    this.createTemplates,
+    this.editTemplates,
+    this.savedWorkflows,
+    this._saved,
+  );
+
+  final List<ComfyTemplateEntry> createTemplates;
+  final List<ComfyTemplateEntry> editTemplates;
+  final List<ComfyTemplateEntry> savedWorkflows;
+  final List<_SavedGraph> _saved;
+
+  /// Both Change graph lists, for the file the desk has picked.
+  ({List<DeskGraphChoice> create, List<DeskGraphChoice> edit}) menus({
+    String modelFile = '',
+  }) => (
+    create: _menuFor(
+      edit: false,
+      templates: createTemplates,
+      saved: _saved,
+      modelFile: modelFile,
+    ),
+    edit: _menuFor(
+      edit: true,
+      templates: editTemplates,
+      saved: _saved,
+      modelFile: modelFile,
+    ),
+  );
+}
+
+/// The three listings together, then every saved workflow together and only
+/// once. The desktop desk and the phone both read this way.
+Future<DeskGraphReads> readDeskGraphs(ComfyUiService comfy) async {
   final lists = await Future.wait([
     comfy.fetchCreateTemplates(),
     comfy.fetchEditTemplates(),
     comfy.fetchUserWorkflows(),
   ]);
-  final saved = await _readSavedGraphs(comfy, lists[2]);
-  return (
-    create: _menuFor(
-      edit: false,
-      templates: lists[0],
-      saved: saved,
-      modelFile: modelFile,
-    ),
-    edit: _menuFor(
-      edit: true,
-      templates: lists[1],
-      saved: saved,
-      modelFile: modelFile,
-    ),
+  return DeskGraphReads._(
+    lists[0],
+    lists[1],
+    lists[2],
+    await _readSavedGraphs(comfy, lists[2]),
   );
 }
+
+/// Both Change graph lists from one round of reads.
+Future<({List<DeskGraphChoice> create, List<DeskGraphChoice> edit})>
+loadDeskGraphMenus({
+  required ComfyUiService comfy,
+  String modelFile = '',
+}) async => (await readDeskGraphs(comfy)).menus(modelFile: modelFile);
 
 /// JSON workflow text from a `.json` file or from a PNG Comfy saved.
 /// Null when the bytes are neither.

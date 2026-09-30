@@ -124,6 +124,32 @@ extension ImageStudioReady on ImageFacade {
       'loraCount': loraCount,
       'neighborUrl': '',
       'savedUrl': settings.comfyUiUrl,
+      'mode': edit ? 'edit' : 'create',
+      'workflowId': report.workflowId,
+      'canUpdateLoader': ready.canUpdateLoader,
+      // The model files the graph loads, so the phone lists exactly the
+      // slots the graph has (a saved graph can have different ones).
+      'slots': [
+        for (final slot in ready.slots)
+          {
+            'token': slot.token,
+            'label': slot.label,
+            'file':
+                (edit
+                    ? settings.comfyEditModelChoices
+                    : settings
+                          .comfyCreateModelChoices)['${report.workflowId}/${slot.token}'] ??
+                '',
+          },
+      ],
+      'uploadedTitle': edit
+          ? settings.comfyEditUploadedTitle
+          : settings.comfyCreateUploadedTitle,
+      'uploadedNodes': workflowNodeCount(
+        edit
+            ? settings.comfyEditUploadedWorkflow
+            : settings.comfyCreateUploadedWorkflow,
+      ),
     };
   }
 

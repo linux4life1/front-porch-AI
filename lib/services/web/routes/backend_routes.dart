@@ -22,6 +22,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
+import 'package:front_porch_ai/services/web/routes/image_desk_routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
@@ -76,6 +77,7 @@ class WebBackendRoutes {
       router.post('/api/image/studio/installed', _imageInstalled);
       router.get('/api/image/comfy-workflow-slots', _imageComfyWorkflowSlots);
       router.get('/api/image/models', _imageRemoteModels);
+      ImageDeskRoutes(router, deps: _deps, image: image);
       CivitaiRoutes(
         router,
         auth: _deps.auth,
@@ -285,13 +287,16 @@ class WebBackendRoutes {
     // must not redirect image generation either. Local A1111 / Comfy /
     // Draw Things hosts are the same class of SSRF.
     final cfg = _image!.config();
-    if (imageConfigWriteNeedsStepUp(
-      body,
-      currentRemoteApiUrl: '${cfg['remoteApiUrl'] ?? ''}',
-      currentLocalUrl: '${cfg['localUrl'] ?? ''}',
-      currentComfyUrl: '${cfg['comfyUrl'] ?? ''}',
-      currentDrawThingsHost: '${cfg['drawThingsHost'] ?? ''}',
-    )) {
+    // A graph the caller supplies is what Comfy runs on this computer, so it
+    // needs the password too.
+    if (imageConfigUploadsGraph(body) ||
+        imageConfigWriteNeedsStepUp(
+          body,
+          currentRemoteApiUrl: '${cfg['remoteApiUrl'] ?? ''}',
+          currentLocalUrl: '${cfg['localUrl'] ?? ''}',
+          currentComfyUrl: '${cfg['comfyUrl'] ?? ''}',
+          currentDrawThingsHost: '${cfg['drawThingsHost'] ?? ''}',
+        )) {
       final denied = await denyUnlessSteppedUp(
         auth: _deps.auth,
         body: body,
@@ -299,16 +304,37 @@ class WebBackendRoutes {
       );
       if (denied != null) return denied;
     }
-    await _image.updateConfig(body);
+    try {
+      await _image.updateConfig(body);
+    } on DeskRefused catch (e) {
+      return ImageDeskRoutes.refused(e);
+    }
     return JsonResponse.ok(_image.config());
   }
 
   Future<shelf.Response> _imageGenerate(shelf.Request r) async {
-    final body = await _json(r);
+    // An Edit carries its picture in the body, which can be larger than the
+    // usual JSON limit.
+    final Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(
+        r,
+        maxBytes: RequestBody.uploadMaxBytes,
+      );
+    } on BodyTooLarge {
+      return JsonResponse.error(413, 'That picture is too large.');
+    } on FormatException {
+      return JsonResponse.badRequest('That request was not JSON.');
+    }
     if ((body['prompt']?.toString().trim() ?? '').isEmpty) {
       return JsonResponse.badRequest('prompt is required');
     }
-    final result = await _image!.generate(body);
+    final Map<String, dynamic>? result;
+    try {
+      result = await _image!.generate(body);
+    } on DeskRefused catch (e) {
+      return ImageDeskRoutes.refused(e);
+    }
     if (result == null) {
       return JsonResponse.error(
         502,
@@ -318,8 +344,16 @@ class WebBackendRoutes {
     return JsonResponse.ok(result);
   }
 
-  Future<shelf.Response> _imageComfyCatalog(shelf.Request r) async =>
-      JsonResponse.ok(await _image!.comfyCatalog());
+  Future<shelf.Response> _imageComfyCatalog(shelf.Request r) async {
+    final q = r.url.queryParameters;
+    return JsonResponse.ok(
+      await _image!.comfyCatalog(
+        edit: q['mode'] == 'edit',
+        token: q['token'] ?? '',
+        loraFacts: q['lora'] == '1',
+      ),
+    );
+  }
 
   Future<shelf.Response> _imageLocalCatalog(shelf.Request r) async =>
       JsonResponse.ok(
