@@ -19,9 +19,8 @@
 part of 'image_gen_service.dart';
 
 /// Cluster E — local backend discovery & model admin. Every public member
-/// here is fake-pinned by `_TabFakeImageGenService`
-/// (test/ui/image_studio/generation_options_tab_test.dart), so the shell
-/// keeps one-line forwarding stubs and this extension holds the verbatim
+/// here is overridden by test doubles that `implement` the service (the desk
+/// tests among them), so the shell keeps one-line forwarding stubs and this extension holds the verbatim
 /// bodies (renamed with an `Impl` suffix). `_waitForModelReady` was already
 /// private and unfaked, so it moves with its original name unchanged.
 extension _ImageGenLocalAdmin on ImageGenService {

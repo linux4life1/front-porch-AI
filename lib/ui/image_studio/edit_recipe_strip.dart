@@ -28,7 +28,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// field-tested recipe, and warns (without forcing) when the sampler/CFG stray
 /// into the "no image" band Qwen-Image-Edit tends to return a blank for.
 ///
-/// ComfyUI has its own panel ([ComfyEditPanel]); other backends show neither.
+/// ComfyUI's Edit graph is chosen on the desk; other backends show neither.
 class EditRecipeStrip extends StatelessWidget {
   final bool busy;
 
