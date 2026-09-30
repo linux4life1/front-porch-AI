@@ -575,6 +575,25 @@ void main() {
       expect(fs.text(loaderPath), 'patched');
     });
 
+    test('a file that is already there is reported as taken, error lost', () {
+      fs.addFile(r'C:\x\taken.txt', 'mine');
+      fs.loseErrors = true;
+      expect(
+        () => writeNewFileExclusiveWindows(r'C:\x\taken.txt', [1], api: fs),
+        throwsA(isA<PathExistsException>()),
+      );
+      expect(fs.text(r'C:\x\taken.txt'), 'mine');
+    });
+
+    test('an existing backup stays when the error code was lost', () async {
+      fs.addFile(bakPath, 'the first original');
+      fs.loseErrors = true;
+      await write();
+
+      expect(fs.text(bakPath), 'the first original');
+      expect(fs.text(loaderPath), 'patched');
+    });
+
     test(
       'a failed write does not remove a backup that was already there',
       () async {

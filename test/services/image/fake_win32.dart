@@ -40,6 +40,10 @@ class FakeWin32Api extends Win32Api {
   /// nothing, as the by-handle rename did with a wrong buffer layout.
   final Set<String> silent = {};
 
+  /// A failed createFile reports error 0, as GetLastError does when something
+  /// else has already reset it.
+  bool loseErrors = false;
+
   /// Paths that are reparse points (junctions, symbolic links).
   final Set<String> reparse = {};
 
@@ -92,7 +96,9 @@ class FakeWin32Api extends Win32Api {
     if (_fail(call) != 0) return (kInvalidHandle, _fail(call));
     final key = _key(path);
     if (disposition == kCreateNew) {
-      if (_nodes.containsKey(key)) return (kInvalidHandle, kErrorFileExists);
+      if (_nodes.containsKey(key)) {
+        return (kInvalidHandle, loseErrors ? 0 : kErrorFileExists);
+      }
       _nodes[key] = _Node.file(Uint8List(0));
       onCreated?.call(path);
     } else if (!_nodes.containsKey(key)) {

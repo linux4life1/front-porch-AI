@@ -70,7 +70,9 @@ Future<void> writeCity96LoaderWindows(
       kFlagOpenReparsePoint | kFlagWriteThrough,
     );
     if (bh == kInvalidHandle) {
-      if (bErr != kErrorFileExists) throw _failed('create the backup', bErr);
+      if (!_nameTaken(api, bakPath, bErr)) {
+        throw _failed('create the backup', bErr);
+      }
     } else {
       madeBackup = true;
       try {
@@ -141,6 +143,13 @@ Future<void> writeCity96LoaderWindows(
   }
 }
 
+/// True when a CREATE_NEW that failed with [err] failed because [path] is
+/// taken. GetLastError can already read 0 when Dart asks for it (the VM makes
+/// Win32 calls of its own in between), so an error that was lost is settled by
+/// looking: a name that is there is taken.
+bool _nameTaken(Win32Api api, String path, int err) =>
+    err == kErrorFileExists || (err == 0 && api.pathAttributes(path) != null);
+
 void _requirePlain(Win32Api api, int handle, String path, String what) {
   _requireNotReparse(api, handle, what);
   final final_ = api.finalPath(handle);
@@ -198,8 +207,11 @@ void writeNewFileExclusiveWindows(
     kFlagOpenReparsePoint | kFlagWriteThrough,
   );
   if (h == kInvalidHandle) {
-    if (err == kErrorFileExists) {
-      throw PathExistsException(path, OSError('File exists', err));
+    if (_nameTaken(api, path, err)) {
+      throw PathExistsException(
+        path,
+        const OSError('File exists', kErrorFileExists),
+      );
     }
     throw _failed('create a file', err);
   }
