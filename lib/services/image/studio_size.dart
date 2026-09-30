@@ -12,3 +12,17 @@
 
   return (width: snap(width), height: snap(height));
 }
+
+/// [size] (`1024x1024`) with each side snapped, as the desk sends it. A value
+/// that is not `WxH` is returned as it came.
+String snappedStudioSize(String size) {
+  final match = RegExp(
+    r'^\s*(\d{1,5})\s*[x×]\s*(\d{1,5})\s*$',
+  ).firstMatch(size);
+  if (match == null) return size;
+  final snapped = snapStudioSize(
+    int.parse(match.group(1)!),
+    int.parse(match.group(2)!),
+  );
+  return '${snapped.width}x${snapped.height}';
+}

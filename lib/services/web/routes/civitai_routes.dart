@@ -12,6 +12,7 @@ import 'package:front_porch_ai/services/image/civitai_client.dart';
 import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/image/civitai_errors.dart';
 import 'package:front_porch_ai/services/image/civitai_fetch.dart';
+import 'package:front_porch_ai/services/image/civitai_images.dart';
 import 'package:front_porch_ai/services/image/civitai_installed.dart';
 import 'package:front_porch_ai/services/image/civitai_jobs.dart';
 import 'package:front_porch_ai/services/image/civitai_version.dart';

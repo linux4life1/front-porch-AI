@@ -300,6 +300,43 @@ void main() {
       expect(config['drawThingsPort'], isA<int>());
     });
 
+    test('says whether adult CivitAI results are allowed', () async {
+      final (_, off) = await h.call('GET', '/api/image/config');
+      await h.storage.realismSettings.setAdultThemesEnabled(true);
+      final (_, on) = await h.call('GET', '/api/image/config');
+
+      expect(off['adultAllowed'], isFalse);
+      expect(on['adultAllowed'], isTrue);
+    });
+
+    test(
+      'lists the Draw Things samplers by the desktop\'s wire values',
+      () async {
+        final (_, config) = await h.call('GET', '/api/image/config');
+
+        final samplers = (config['drawThingsSamplers'] as List)
+            .cast<Map<String, dynamic>>();
+        expect(samplers.first, {'label': 'DDIM Trailing', 'value': 16});
+        expect(samplers.map((s) => s['value']).toSet(), hasLength(19));
+      },
+    );
+
+    test('snaps a size to multiples of 64 within 256 to 2048', () async {
+      final (_, snapped) = await h.call('POST', '/api/image/config', {
+        'size': '300x1000',
+      });
+      final (_, clamped) = await h.call('POST', '/api/image/config', {
+        'size': '9000x100',
+      });
+      final (_, odd) = await h.call('POST', '/api/image/config', {
+        'size': 'wide',
+      });
+
+      expect(snapped['size'], '320x1024');
+      expect(clamped['size'], '2048x256');
+      expect(odd['size'], 'wide');
+    });
+
     test('takes the Edit model and the Draw Things sampler', () async {
       final (status, config) = await h.call('POST', '/api/image/config', {
         'editModel': 'qwen_image_edit_2509_fp8.safetensors',

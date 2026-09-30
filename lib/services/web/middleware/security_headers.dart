@@ -18,7 +18,7 @@
 
 import 'package:shelf/shelf.dart' as shelf;
 
-import 'package:front_porch_ai/services/image/civitai_client.dart'
+import 'package:front_porch_ai/services/image/civitai_images.dart'
     show kCivitaiImageHost;
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 

@@ -76,9 +76,16 @@ class ImageFacade {
       'localUrl': img.localImageGenUrl,
       'comfyUrl': img.comfyUiUrl,
       'promptReview': img.imageGenPromptReview,
+      // Whether adult CivitAI results may be asked for: the app's own adult
+      // setting, which the phone cannot change.
+      'adultAllowed': _storage.realismSettings.adultThemesEnabled,
       'drawThingsHost': img.drawThingsGrpcHost,
       'drawThingsPort': img.drawThingsGrpcPort,
       'drawThingsSampler': img.drawThingsSampler,
+      'drawThingsSamplers': [
+        for (final s in kDrawThingsSamplers)
+          {'label': s.label, 'value': s.value},
+      ],
       // Studio-scoped remote host (chips). `remoteApiUrl` is the resolved
       // Studio URL — flipping it here must not rewrite chat's mouth.
       ..._remoteHostConfig(img, b),
@@ -150,7 +157,9 @@ class ImageFacade {
     if (f['backend'] is String) {
       await img.setImageGenBackend(f['backend'] as String);
     }
-    if (f['size'] is String) await img.setImageGenSize(f['size'] as String);
+    if (f['size'] is String) {
+      await img.setImageGenSize(snappedStudioSize(f['size'] as String));
+    }
     if (f['style'] is String) await img.setImageGenStyle(f['style'] as String);
     if (f['negativePrompt'] is String) {
       await img.setImageGenNegativePrompt(f['negativePrompt'] as String);

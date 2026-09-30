@@ -27,7 +27,7 @@ Add to Home Screen: Android may show a banner. iPhone: Share → Add to Home Scr
 
 ## What works on the phone
 
-Chats (including groups), library and editors, AI create, models (including **generate a picture** and insert), settings (one scrolling page, not six tabs), Worlds, Porch Stories, browsing The Stoop (download, follow, vote, comments if your email is confirmed).
+Chats (including groups), library and editors, AI create, models (the Image Studio desk: Create and Edit, model, graph and LoRA choosing, graph upload after your password, sizes, CivitAI with a download percent, and **generate a picture** and insert), settings (one scrolling page, not six tabs), Worlds, Porch Stories, browsing The Stoop (download, follow, vote, comments if your email is confirmed).
 
 Push-to-talk mic over HTTPS. Impersonate, fork, swipes, `/image`, attach a photo.
 
@@ -37,7 +37,7 @@ Push-to-talk mic over HTTPS. Impersonate, fork, swipes, `/image`, attach a photo
 
 Do these on the Mac/PC app:
 
-- Full **Image Studio** (Create / Edit / LoRA / expression-pack QC)
+- Starting an expression pack and its quality check
 - **Voice Call** (green call button, call model, buffer, call prompt)
 - **Suggest Actions**
 - Photo Understanding (the phone **can** attach a photo; the offline describer is desktop)

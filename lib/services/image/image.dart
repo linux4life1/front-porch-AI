@@ -11,6 +11,7 @@ export 'civitai_credentials.dart';
 export 'civitai_disk.dart';
 export 'civitai_download.dart';
 export 'civitai_home_folders.dart';
+export 'civitai_images.dart';
 export 'civitai_errors.dart';
 export 'civitai_fetch.dart';
 export 'civitai_files.dart';

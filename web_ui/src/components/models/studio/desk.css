@@ -1,0 +1,66 @@
+/* Copyright (C) 2026 Front Porch AI
+   SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.fp-civitai-page,
+.fp-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: auto;
+  background: var(--bg, #0f172a);
+  padding: 24px;
+}
+.fp-pill {
+  border-radius: 999px;
+  border: 1px solid #f4a259;
+  background: transparent;
+  color: #f4a259;
+  padding: 6px 14px;
+  margin: 0 8px 8px 0;
+  font-weight: 600;
+}
+.fp-pill[aria-pressed='true'] {
+  background: #f4a259;
+  color: #1a1200;
+}
+.fp-desk-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  column-gap: 16px;
+  align-items: start;
+}
+.fp-desk-rail {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+.fp-desk-output {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+}
+.fp-desk-output img {
+  max-width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+}
+.fp-desk-stove {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .fp-desk-body {
+    display: flex;
+    flex-direction: column;
+  }
+  .fp-desk-rail,
+  .fp-desk-stove,
+  .fp-desk-output {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .fp-desk-output {
+    order: 3;
+  }
+}
