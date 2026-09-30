@@ -4,6 +4,8 @@
 // What ComfyProcessProbe says on Windows, from the Win32 calls (no PowerShell,
 // no helper process). Each answer is null when a call fails.
 
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 import 'comfy_process_probe.dart';
@@ -141,5 +143,27 @@ Future<PathFacts?> windowsPathFacts(
     );
   } finally {
     files.closeHandle(handle);
+  }
+}
+
+/// True when [path] is a link, or when [folder] is reached through one: a
+/// folder is compared with what it resolves to, with the spelling read the
+/// way Windows does (short names spelled out, `\\?\`, case and a trailing
+/// separator are not differences). [resolve] is for tests.
+bool windowsLinked(
+  String path, {
+  required bool folder,
+  Win32Api api = kWin32,
+  String Function(String path)? resolve,
+}) {
+  if (FileSystemEntity.isLinkSync(path)) return true;
+  if (!folder) return false;
+  try {
+    final real = (resolve ?? (s) => Directory(s).resolveSymbolicLinksSync())(
+      path,
+    );
+    return !windowsSpelledAs(api, real, path);
+  } on FileSystemException {
+    return true;
   }
 }

@@ -277,21 +277,11 @@ class Win32Api {
   /// what is there. [ex] uses FileRenameInfoEx with POSIX semantics. Returns
   /// the error (0 = ok).
   int renameByHandle(int handle, String target, {required bool ex}) {
-    final name = '\\\\?\\$target'.codeUnits;
-    final ptr = sizeOf<IntPtr>();
-    final nameAt = ptr * 2 + 4 + (ptr == 8 ? 4 : 0);
-    final total = nameAt + name.length * 2 + 2;
-    final info = calloc<Uint8>(total);
+    final bytes = fileRenameInfo(target, ex: ex, pointerSize: sizeOf<IntPtr>());
+    final info = calloc<Uint8>(bytes.length);
     try {
-      final data = ByteData.sublistView(info.asTypedList(total));
-      // FILE_RENAME_INFO: flags (or ReplaceIfExists), the root handle (none),
-      // the name length in bytes, then the name.
-      data.setUint32(0, ex ? 0x3 : 0x1, Endian.little);
-      data.setUint32(ptr * 2, name.length * 2, Endian.little);
-      for (var i = 0; i < name.length; i++) {
-        data.setUint16(nameAt + i * 2, name[i], Endian.little);
-      }
-      final ok = _setInfo(handle, ex ? 22 : 3, info, total);
+      info.asTypedList(bytes.length).setAll(0, bytes);
+      final ok = _setInfo(handle, ex ? 22 : 3, info, bytes.length);
       return ok == 0 ? _getLastError() : 0;
     } finally {
       calloc.free(info);
@@ -320,4 +310,28 @@ class Win32Api {
       calloc.free(b);
     }
   }
+}
+
+/// The FILE_RENAME_INFO buffer for renaming to [target] (a full path).
+///
+/// Layout: the flags (or ReplaceIfExists) as a DWORD; the root directory
+/// HANDLE, aligned to the pointer size (offset 8 on x64, 4 on x86); the name
+/// length in bytes, right after it; then the name, a DWORD later (offset 20 on
+/// x64, 12 on x86). [ex] asks for replace-if-exists and POSIX semantics.
+Uint8List fileRenameInfo(
+  String target, {
+  required bool ex,
+  required int pointerSize,
+}) {
+  final name = '\\\\?\\$target'.codeUnits;
+  final lengthAt = pointerSize * 2;
+  final nameAt = lengthAt + 4;
+  final bytes = Uint8List(nameAt + name.length * 2 + 2);
+  final data = ByteData.sublistView(bytes);
+  data.setUint32(0, ex ? 0x3 : 0x1, Endian.little);
+  data.setUint32(lengthAt, name.length * 2, Endian.little);
+  for (var i = 0; i < name.length; i++) {
+    data.setUint16(nameAt + i * 2, name[i], Endian.little);
+  }
+  return bytes;
 }

@@ -36,6 +36,10 @@ class FakeWin32Api extends Win32Api {
   String _long(String path) =>
       path.split(r'\').map((s) => shortNames[s.toLowerCase()] ?? s).join(r'\');
 
+  /// Renames (`renameEx`, `renamePlain`, `move`) that report success and do
+  /// nothing, as the by-handle rename did with a wrong buffer layout.
+  final Set<String> silent = {};
+
   /// Paths that are reparse points (junctions, symbolic links).
   final Set<String> reparse = {};
 
@@ -149,9 +153,11 @@ class FakeWin32Api extends Win32Api {
     renames.add(ex ? 'ex' : 'plain');
     final err = _fail(ex ? 'renameEx' : 'renamePlain');
     if (err != 0) return err;
+    if (silent.contains(ex ? 'renameEx' : 'renamePlain')) return 0;
     final open = _open[handle]!;
     final node = _nodes.remove(open.key)!;
     _nodes[_key(target)] = node;
+    _open[handle] = _Open(_key(target), target);
     return 0;
   }
 
@@ -159,6 +165,7 @@ class FakeWin32Api extends Win32Api {
   int moveReplacing(String from, String to) {
     renames.add('move');
     if (_fail('move') != 0) return _fail('move');
+    if (silent.contains('move')) return 0;
     final node = _nodes.remove(_key(from));
     if (node == null) return 2;
     _nodes[_key(to)] = node;

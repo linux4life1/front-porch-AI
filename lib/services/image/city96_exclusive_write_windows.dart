@@ -21,6 +21,9 @@ const _kNotWritten =
     'Front Porch could not update its ComfyUI-GGUF loader safely on this '
     'computer, so it was left alone.';
 
+/// A rename or move that reported success and changed nothing.
+const int _nothing = -1;
+
 City96WriteRefused _failed(String what, int err) =>
     City96WriteRefused('$_kNotWritten ($what: Windows error $err)');
 
@@ -92,7 +95,8 @@ Future<void> writeCity96LoaderWindows(
     if (th == kInvalidHandle) throw _failed('create the new file', tErr);
     temp = th;
     afterCreate?.call(tempPath);
-    final werr = api.writeAll(temp, Uint8List.fromList(utf8.encode(patched)));
+    final patchedBytes = Uint8List.fromList(utf8.encode(patched));
+    final werr = api.writeAll(temp, patchedBytes);
     if (werr != 0) throw _failed('write the new file', werr);
     final ferr = api.flush(temp);
     if (ferr != 0) throw _failed('flush the new file', ferr);
@@ -101,13 +105,29 @@ Future<void> writeCity96LoaderWindows(
 
     // Rename by handle, replacing loader.py. Where that form is not
     // supported, the older form; only then a path move, with the folder still
-    // held and the new file closed.
-    var err = api.renameByHandle(temp, loader.path, ex: true);
-    if (err != 0) err = api.renameByHandle(temp, loader.path, ex: false);
+    // held and the new file closed. A rename that says it worked is believed
+    // only when the file the handle holds is now at loader.py.
+    bool moved() {
+      final at = api.finalPath(temp);
+      return at != null && windowsSpelledAs(api, at, loader.path);
+    }
+
+    var err = _nothing;
+    for (final ex in [true, false]) {
+      err = api.renameByHandle(temp, loader.path, ex: ex);
+      if (err == 0 && !moved()) err = _nothing;
+      if (err == 0) break;
+    }
     if (err != 0) {
       api.closeHandle(temp);
       temp = kInvalidHandle;
       err = api.moveReplacing(tempPath, loader.path);
+      if (err == 0 && !_holds(api, loader.path, patchedBytes)) err = _nothing;
+    }
+    if (err == _nothing) {
+      throw const City96WriteRefused(
+        '$_kNotWritten (replacing loader.py reported success, but loader.py did not change)',
+      );
     }
     if (err != 0) throw _failed('replace loader.py', err);
     done = true;
@@ -193,4 +213,14 @@ void writeNewFileExclusiveWindows(
   } finally {
     api.closeHandle(h);
   }
+}
+
+/// True when the file at [path] holds exactly [bytes].
+bool _holds(Win32Api api, String path, Uint8List bytes) {
+  final now = _readChecked(api, path);
+  if (now.length != bytes.length) return false;
+  for (var i = 0; i < now.length; i++) {
+    if (now[i] != bytes[i]) return false;
+  }
+  return true;
 }

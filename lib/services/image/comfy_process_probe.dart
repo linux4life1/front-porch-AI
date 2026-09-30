@@ -119,6 +119,7 @@ class ComfyProcessProbe {
   /// True when [path], or a folder above it, is a link. A folder is compared
   /// with what it resolves to, so a link anywhere in its path shows.
   static bool linkedPath(String path, {required bool folder}) {
+    if (Platform.isWindows) return windowsLinked(path, folder: folder);
     if (FileSystemEntity.isLinkSync(path)) return true;
     if (!folder) return false;
     try {

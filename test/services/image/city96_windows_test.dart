@@ -34,6 +34,9 @@ WindowsAce _allow(String sid, int mask, {int flags = 0}) =>
     WindowsAce(type: kAceAllowed, flags: flags, mask: mask, sid: sid);
 
 void main() {
+  _renameInfoLayout();
+  _linkedFolders();
+
   group('who counts as another user', () {
     test('this user, the system and its administrators do not', () {
       for (final sid in [
@@ -662,6 +665,48 @@ void main() {
       },
     );
 
+    test(
+      'a rename that says it worked and did nothing is not believed: the next form is tried',
+      () async {
+        fs.silent.add('renameEx');
+        await write();
+        expect(fs.renames, ['ex', 'plain']);
+        expect(fs.text(loaderPath), 'patched');
+
+        fs = FakeWin32Api()
+          ..addFolder(folder)
+          ..addFile(loaderPath, kStockCity96Loader)
+          ..silent.addAll(['renameEx', 'renamePlain']);
+        await write();
+        expect(fs.renames, ['ex', 'plain', 'move']);
+        expect(fs.text(loaderPath), 'patched');
+        expect(leftovers(), isEmpty);
+        expect(fs.openHandles, isEmpty);
+      },
+    );
+
+    test(
+      'when every form says it worked and none did, it refuses and leaves loader.py as it was',
+      () async {
+        fs.silent.addAll(['renameEx', 'renamePlain', 'move']);
+
+        await expectLater(
+          write(),
+          throwsA(
+            isA<City96WriteRefused>().having(
+              (e) => e.message,
+              'message',
+              contains('loader.py did not change'),
+            ),
+          ),
+        );
+
+        expect(fs.text(loaderPath), kStockCity96Loader);
+        expect(leftovers(), isEmpty);
+        expect(fs.openHandles, isEmpty);
+      },
+    );
+
     group(
       'each call that fails refuses, leaves no temp file and no open handle',
       () {
@@ -710,6 +755,94 @@ void main() {
       await writeCity96LoaderWindows(File(loaderPath), 'π', api: fs);
       expect(fs.text(loaderPath), isNotNull);
       expect(utf8.decode(fs.text(loaderPath)!.codeUnits), 'π');
+    });
+  });
+}
+
+void _renameInfoLayout() {
+  group('the rename buffer', () {
+    ByteData info(int pointerSize, {bool ex = true}) => ByteData.sublistView(
+      fileRenameInfo(r'C:\a\loader.py', ex: ex, pointerSize: pointerSize),
+    );
+
+    String nameOf(ByteData data, int at, int bytes) => String.fromCharCodes([
+      for (var i = 0; i < bytes; i += 2) data.getUint16(at + i, Endian.little),
+    ]);
+
+    test('puts the name 20 bytes in on a 64-bit Windows', () {
+      final data = info(8);
+      const name = r'\\?\C:\a\loader.py';
+
+      expect(data.getUint32(0, Endian.little), 3);
+      expect(data.getUint32(16, Endian.little), name.length * 2);
+      expect(nameOf(data, 20, name.length * 2), name);
+      expect(data.lengthInBytes, 20 + name.length * 2 + 2);
+    });
+
+    test('puts the name 12 bytes in on a 32-bit Windows', () {
+      final data = info(4);
+      const name = r'\\?\C:\a\loader.py';
+
+      expect(data.getUint32(8, Endian.little), name.length * 2);
+      expect(nameOf(data, 12, name.length * 2), name);
+    });
+
+    test(
+      'asks only to replace, without POSIX semantics, in the older form',
+      () {
+        expect(info(8, ex: false).getUint32(0, Endian.little), 1);
+      },
+    );
+  });
+}
+
+void _linkedFolders() {
+  group('whether a folder is reached through a link', () {
+    late FakeWin32Api api;
+    setUp(() {
+      api = FakeWin32Api()..shortNames['runner~1'] = 'runneradmin';
+    });
+
+    test('is no when only the spelling of the path is short', () {
+      const spelled = r'C:\Users\RUNNER~1\AppData\Local\Temp\ComfyUI';
+
+      final linked = windowsLinked(
+        spelled,
+        folder: true,
+        api: api,
+        resolve: (_) => r'C:\Users\runneradmin\AppData\Local\Temp\ComfyUI',
+      );
+
+      expect(linked, isFalse);
+    });
+
+    test('is yes when it resolves to another place', () {
+      final linked = windowsLinked(
+        r'C:\Users\RUNNER~1\Temp\ComfyUI',
+        folder: true,
+        api: api,
+        resolve: (_) => r'D:\Elsewhere\ComfyUI',
+      );
+
+      expect(linked, isTrue);
+    });
+
+    test('is yes when the folder cannot be resolved', () {
+      final linked = windowsLinked(
+        r'C:\ComfyUI',
+        folder: true,
+        api: api,
+        resolve: (_) => throw const FileSystemException('gone'),
+      );
+
+      expect(linked, isTrue);
+    });
+
+    test('is no for a file, which is only a link if it is one itself', () {
+      expect(
+        windowsLinked(r'C:\ComfyUI\loader.py', folder: false, api: api),
+        isFalse,
+      );
     });
   });
 }
