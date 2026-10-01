@@ -48,9 +48,13 @@ void main() {
     HttpOverrides.global = null;
     SharedPreferences.setMockInitialValues({'update_auto_check': false});
 
-    final expected = jsonDecode(
-      File('test/fixtures/v14_upgrade/expected.json').readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final expected =
+        jsonDecode(
+              File(
+                'test/fixtures/v14_upgrade/expected.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
     final chats = (expected['chats'] as List).cast<Map<String, dynamic>>();
 
     final dir = Directory.systemTemp.createTempSync('fpai_v14_pin_db_');

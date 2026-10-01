@@ -20,7 +20,11 @@ function message(partial: Partial<Message> & Pick<Message, 'index' | 'text'>): M
   };
 }
 
-function renderList(messages: Message[], scrollRef: RefObject<HTMLDivElement | null>) {
+function renderList(
+  messages: Message[],
+  scrollRef: RefObject<HTMLDivElement | null>,
+  extra?: { streaming?: string; followStreamingReplies?: boolean },
+) {
   act(() => {
     root.render(
       createElement(ChatMessageList, {
@@ -38,13 +42,39 @@ function renderList(messages: Message[], scrollRef: RefObject<HTMLDivElement | n
         onDelete: noop,
         onReprocess: noop,
         onRevert: noop,
-        streaming: '',
+        streaming: extra?.streaming ?? '',
+        followStreamingReplies: extra?.followStreamingReplies ?? true,
         genStatus: null,
         scrollRef,
         sessionId: 's1',
       }),
     );
   });
+}
+
+/** Records observers so a test can fire the one watching the message column. */
+function installFakeResizeObserver() {
+  const live: FakeResizeObserver[] = [];
+  class FakeResizeObserver {
+    cb: ResizeObserverCallback;
+    constructor(cb: ResizeObserverCallback) {
+      this.cb = cb;
+      live.push(this);
+    }
+    observe() {}
+    unobserve() {}
+    disconnect() {
+      const i = live.indexOf(this);
+      if (i >= 0) live.splice(i, 1);
+    }
+  }
+  vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+  return {
+    fireLatest() {
+      const obs = live[live.length - 1];
+      obs?.cb([], obs as unknown as ResizeObserver);
+    },
+  };
 }
 
 function metrics(el: HTMLDivElement, scrollHeight: number, clientHeight: number) {
@@ -108,5 +138,42 @@ describe('ChatMessageList open stick', () => {
       img.dispatchEvent(new Event('load'));
     });
     expect(el.scrollTop).toBe(100);
+  });
+
+  it('does not pin a follow-off reader when the reply lands', () => {
+    const fake = installFakeResizeObserver();
+    try {
+      const scrollRef = createRef<HTMLDivElement>();
+      const opened = [
+        message({ index: 0, text: 'older', sender: 'You', isUser: true }),
+        message({ index: 1, text: 'look' }),
+      ];
+      renderList(opened, scrollRef, { followStreamingReplies: false });
+      const el = container.querySelector('.chat-messages') as HTMLDivElement;
+      metrics(el, 2400, 700);
+      el.scrollTop = 1700;
+      renderList(opened, scrollRef, {
+        streaming: 'still writing',
+        followStreamingReplies: false,
+      });
+      let height = 2400;
+      Object.defineProperty(el, 'scrollHeight', {
+        configurable: true,
+        get: () => height,
+      });
+      height = 3000;
+      renderList(
+        [...opened, message({ index: 2, text: 'landed' })],
+        scrollRef,
+        { followStreamingReplies: false },
+      );
+      el.scrollTop = 1700;
+      act(() => {
+        fake.fireLatest();
+      });
+      expect(el.scrollTop).toBe(1700);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

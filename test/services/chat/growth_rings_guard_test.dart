@@ -11,6 +11,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/services/chat/growth_ops.dart';
+import 'package:front_porch_ai/services/chat/growth_physics.dart';
 import 'package:front_porch_ai/services/chat/growth_prompt.dart';
 import 'package:front_porch_ai/services/chat/growth_review.dart';
 import 'package:front_porch_ai/services/chat/growth_service.dart';
@@ -91,22 +92,25 @@ void main() {
 
     tearDown(() async => db.close());
 
-    test('forced Check on a caught-up cursor cannot reinforce already-read messages', () async {
-      await store.addRing(
-        sessionId: 's1',
-        characterId: 'mira',
-        content: 'tightens bonds when exhausted',
-        category: 'habit',
-        strength: 0.55,
-        sourcePositions: const [1],
-      );
-      await store.setCursor('s1', chatty.length);
-      xmlReply = '<ring action="reinforce" id="1" src="3"/>';
-      await makeService(messages: chatty).runGrowthPass(force: true);
-      final ring = (await store.ringsFor('s1', 'mira')).single;
-      expect(ring.strength, closeTo(0.55, 1e-9));
-      expect(GrowthStore.receiptsOf(ring), [1]);
-    });
+    test(
+      'forced Check on a caught-up cursor cannot reinforce already-read messages',
+      () async {
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'mira',
+          content: 'tightens bonds when exhausted',
+          category: 'habit',
+          strength: 0.55,
+          sourcePositions: const [1],
+        );
+        await store.setCursor('s1', chatty.length);
+        xmlReply = '<ring action="reinforce" id="1" src="3"/>';
+        await makeService(messages: chatty).runGrowthPass(force: true);
+        final ring = (await store.ringsFor('s1', 'mira')).single;
+        expect(ring.strength, closeTo(0.55, 1e-9));
+        expect(GrowthStore.receiptsOf(ring), [1]);
+      },
+    );
 
     test(
       'forced Check still adds new rings but does not fade the others',
@@ -209,6 +213,76 @@ void main() {
         expect(GrowthStore.receiptsOf(later), [6, 18]);
       },
     );
+
+    test(
+      'a full interval of user messages lets the next pass reinforce',
+      () async {
+        // Cite 8, then ten alternating lines (five of them from the user),
+        // then cite 18. Counting transcript slots blocks that step; counting
+        // user messages does not.
+        final messages = <ChatMessage>[
+          for (var i = 0; i <= 18; i++)
+            _msg(i.isEven ? 'You' : 'Mira', 'line $i', isUser: i.isEven),
+        ];
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'mira',
+          content: 'existing habit',
+          category: 'habit',
+          strength: 0.55,
+          sourcePositions: const [8],
+        );
+        await store.setCursor('s1', 9);
+        xmlReply = '<ring action="reinforce" id="1" src="18"/>';
+        await makeService(messages: messages).runGrowthPass();
+        final ring = (await store.ringsFor('s1', 'mira')).single;
+        expect(ring.strength, closeTo(0.75, 1e-9));
+        expect(GrowthStore.receiptsOf(ring), [8, 18]);
+      },
+    );
+
+    test(
+      'a forced Check on a caught-up chat does not reinforce an old cite',
+      () async {
+        final messages = <ChatMessage>[
+          for (var i = 0; i < 20; i++)
+            _msg(i.isEven ? 'You' : 'Mira', 'line $i', isUser: i.isEven),
+        ];
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'mira',
+          content: 'existing habit',
+          category: 'habit',
+          strength: 0.55,
+          sourcePositions: const [1],
+        );
+        await store.setCursor('s1', 20);
+        xmlReply = '<ring action="reinforce" id="1" src="18"/>';
+        await makeService(messages: messages).runGrowthPass(force: true);
+        final ring = (await store.ringsFor('s1', 'mira')).single;
+        expect(ring.strength, closeTo(0.55, 1e-9));
+        expect(GrowthStore.receiptsOf(ring), [1]);
+      },
+    );
+
+    test('the pass log counts applied adds, not every proposal', () async {
+      final cap = GrowthPhysics.kMaxNewRingsPerPass;
+      final logs = <String>[];
+      final previous = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) logs.add(message);
+      };
+      try {
+        xmlReply = [
+          for (var i = 0; i < cap + 2; i++) '<ring action="add">Ring $i</ring>',
+        ].join();
+        await makeService(messages: chatty).runGrowthPass();
+      } finally {
+        debugPrint = previous;
+      }
+      final line = logs.singleWhere((entry) => entry.startsWith('[Growth] ✓'));
+      expect(line, startsWith('[Growth] ✓ Mira: $cap op(s) (+$cap add,'));
+    });
   });
 
   test('the growth prompt asks for a new ring, not another reinforce', () {

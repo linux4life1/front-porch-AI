@@ -344,6 +344,12 @@ export function ChatMessageList({
     prevHeight.current = el?.scrollHeight ?? 0;
     settled.current = true;
   }, [sessionId, visible, scrollRef, streaming, followStreamingReplies, pinSelf]);
+  // The streaming bubble sits outside contentRef, so a follow-off reply
+  // never resizes that node and nothing else drops the open stick. Clear
+  // it before the observer can pin the landed message to the bottom.
+  useLayoutEffect(() => {
+    if (streaming && !followStreamingReplies) stickToLatest.current = false;
+  }, [streaming, followStreamingReplies]);
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (!content || typeof ResizeObserver === 'undefined') return;

@@ -341,7 +341,6 @@ class GrowthService {
           windowStart: start,
           windowLength: window.length,
           rewound: rewound,
-          freshFrom: freshFrom,
           intervalHeld: intervalHeld,
         );
         final proposals = GrowthOwnerProposals(

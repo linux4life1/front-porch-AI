@@ -133,4 +133,41 @@ void main() {
       expect((await ringRow("id = 'rLate'"))['created_at'], created);
     },
   );
+
+  test('a restamped receipt dates the ring at its own earlier time', () async {
+    const t = 1790500000;
+    const reinforced = 1790700000;
+    const restamped = 1790900000;
+    await db.customStatement(
+      "INSERT INTO messages (id, session_id, position, sender, is_user, "
+      "updated_at) VALUES ('m3', 's1', 3, 'Tess', 0, ?)",
+      [restamped],
+    );
+    await db.customStatement(
+      "INSERT INTO growth_rings (id, session_id, character_id, content, "
+      "source_message_ids, last_reinforced_at, updated_at) "
+      "VALUES ('rEarly', 's1', 'tess', 'habit', '[3]', ?, ?)",
+      [reinforced, t],
+    );
+
+    await db.migration.onUpgrade(Migrator(db), 53, db.schemaVersion);
+
+    final row = await ringRow("id = 'rEarly'");
+    expect(row['created_at'], t);
+    expect(row['last_reinforced_at'], reinforced);
+    expect(row['updated_at'], t);
+
+    await db.migration.onUpgrade(Migrator(db), 53, db.schemaVersion);
+    expect((await ringRow("id = 'rEarly'"))['created_at'], t);
+  });
+
+  test('a malformed receipt list still lets the library open', () async {
+    await db.customStatement(
+      "INSERT INTO growth_rings (id, session_id, character_id, content, "
+      "source_message_ids) VALUES ('rBad', 's1', 'tess', 'x', 'oops')",
+    );
+    await db.migration.onUpgrade(Migrator(db), 53, db.schemaVersion);
+    final row = await ringRow("id = 'rBad'");
+    expect(row['created_at'] as int, greaterThan(0));
+  });
 }

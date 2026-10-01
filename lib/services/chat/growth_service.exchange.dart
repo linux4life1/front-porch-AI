@@ -124,7 +124,6 @@ extension GrowthServiceExchange on GrowthService {
     int windowStart = 0,
     int windowLength = 0,
     bool rewound = false,
-    int freshFrom = 0,
     Set<String>? intervalHeld,
   }) {
     String named(String text) =>
@@ -176,10 +175,23 @@ extension GrowthServiceExchange on GrowthService {
               for (final position in had) {
                 if (position > newest) newest = position;
               }
-              // At most one strength step per growth interval. The ring
-              // still counts as seen (intervalHeld) so this pass does not
-              // fade it for showing up.
-              if (newest >= freshFrom - getGrowthInterval()) {
+              var cited = newest;
+              for (final position in op.sourcePositions) {
+                if (position > cited) cited = position;
+              }
+              // The interval counts user messages, not transcript slots.
+              // A ring cited late in one pass can still step on the next
+              // scheduled pass once a full interval of user turns has
+              // landed. Held rings stay fade-exempt.
+              final messages = getMessages();
+              var userTurns = 0;
+              final end = cited >= messages.length
+                  ? messages.length - 1
+                  : cited;
+              for (var i = newest + 1; i <= end; i++) {
+                if (messages[i].isUser) userTurns++;
+              }
+              if (userTurns < getGrowthInterval()) {
                 intervalHeld?.add(ring.id);
                 continue;
               }

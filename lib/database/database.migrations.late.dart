@@ -219,30 +219,29 @@ extension _AppDatabaseMigrationLate on AppDatabase {
       // from the best evidence: the first receipt's message time, else the
       // first reinforce, else the chat's creation, else now.
       // messages.updated_at is the last edit, and whole chats get
-      // bulk-touched, so that guess can land AFTER last_reinforced_at.
-      // A ring cannot be created after it was last strengthened: when a
-      // reinforce time exists, clamp to it. Only rows still at 0 are
-      // touched, so a re-run (dual-version open) is a no-op.
+      // bulk-touched, so that guess can land after the ring's own stamps.
+      // created_at is the earliest of the guess, last_reinforced_at, and
+      // updated_at (a missing stamp does not pull the min down). A bad
+      // source_message_ids value must not throw — that fails the open.
+      // Only rows still at 0 are touched, so a re-run is a no-op.
       await customStatement('''
-        UPDATE growth_rings SET created_at = (
-          SELECT CASE
-            WHEN growth_rings.last_reinforced_at > 0
-              THEN MIN(guess, growth_rings.last_reinforced_at)
-            ELSE guess
-          END
-          FROM (
-            SELECT COALESCE(
-              NULLIF((SELECT MIN(m.updated_at) FROM messages m
-                      WHERE m.session_id = growth_rings.session_id
-                        AND m.position = CAST(json_extract(
-                          growth_rings.source_message_ids, '\$[0]') AS INTEGER)
-                        AND m.updated_at > 0), 0),
-              NULLIF(growth_rings.last_reinforced_at, 0),
-              NULLIF((SELECT s.created_at FROM sessions s
-                      WHERE s.id = growth_rings.session_id), 0),
-              CAST(strftime('%s', 'now') AS INTEGER)
-            ) AS guess
-          )
+        UPDATE growth_rings SET created_at = MIN(
+          COALESCE(
+            NULLIF((SELECT MIN(m.updated_at) FROM messages m
+                    WHERE m.session_id = growth_rings.session_id
+                      AND m.position = CAST(
+                        CASE WHEN json_valid(growth_rings.source_message_ids)
+                          THEN json_extract(
+                            growth_rings.source_message_ids, '\$[0]')
+                        END AS INTEGER)
+                      AND m.updated_at > 0), 0),
+            NULLIF(growth_rings.last_reinforced_at, 0),
+            NULLIF((SELECT s.created_at FROM sessions s
+                    WHERE s.id = growth_rings.session_id), 0),
+            CAST(strftime('%s', 'now') AS INTEGER)
+          ),
+          COALESCE(NULLIF(growth_rings.last_reinforced_at, 0), 9223372036854775807),
+          COALESCE(NULLIF(growth_rings.updated_at, 0), 9223372036854775807)
         )
         WHERE created_at = 0
       ''');
