@@ -101,4 +101,36 @@ void main() {
   test('schemaVersion covers the backfill', () {
     expect(db.schemaVersion, greaterThanOrEqualTo(54));
   });
+
+  test(
+    'a later-edited receipt cannot date the ring after its last reinforce',
+    () async {
+      // messages.updated_at is the last edit. A bulk touch can move it
+      // past the ring's last_reinforced_at. created_at must not follow.
+      const reinforced = 1790600000;
+      const editedLater = 1790800000;
+      await db.customStatement(
+        "INSERT INTO messages (id, session_id, position, sender, is_user, "
+        "updated_at) VALUES ('m3', 's1', 3, 'Tess', 0, ?)",
+        [editedLater],
+      );
+      await db.customStatement(
+        "INSERT INTO growth_rings (id, session_id, character_id, content, "
+        "source_message_ids, last_reinforced_at) "
+        "VALUES ('rLate', 's1', 'tess', 'habit', '[3]', ?)",
+        [reinforced],
+      );
+
+      await db.migration.onUpgrade(Migrator(db), 53, db.schemaVersion);
+
+      final row = await ringRow("id = 'rLate'");
+      expect(row['last_reinforced_at'], reinforced);
+      final created = row['created_at'] as int;
+      expect(created, greaterThan(0));
+      expect(created, lessThanOrEqualTo(reinforced));
+
+      await db.migration.onUpgrade(Migrator(db), 53, db.schemaVersion);
+      expect((await ringRow("id = 'rLate'"))['created_at'], created);
+    },
+  );
 }
