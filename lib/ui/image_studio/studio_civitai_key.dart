@@ -192,13 +192,14 @@ class CivitaiKeyPanel extends StatelessWidget {
                 onChanged: (_) => controller.startReplacing(),
                 onSubmitted: (_) => _save(),
               ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: _save,
-                child: const Text('Save key'),
+            if (!showSaved)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: _save,
+                  child: const Text('Save key'),
+                ),
               ),
-            ),
           ],
         );
       },

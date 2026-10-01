@@ -3,7 +3,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { StepUpFields } from '../../StepUpFields';
-import { civitaiBaseGroups, filterCivitaiBases, visibleCivitaiBase } from '../civitaiBases';
+import { civitaiBaseGroups, civitaiBaseLabel, civitaiBaseShown, filterCivitaiBases } from '../civitaiBases';
+import { CivitaiBasePicker } from './CivitaiBasePicker';
 import {
   cancelJob,
   civitaiNote,
@@ -48,8 +49,14 @@ export function CivitaiSheet(props: {
   const [base, setBase] = useState('');
   const [baseQuery, setBaseQuery] = useState('');
   const [installedOnly, setInstalledOnly] = useState(false);
+  const [baseNote, setBaseNote] = useState('');
   const [installed, setInstalled] = useState<{ bases: string[]; models: string[]; loras: string[] } | null>(null);
   const [rows, setRows] = useState<CivitaiRow[]>([]);
+  // What the rows on screen were searched for, and where Load more starts.
+  const [asked, setAsked] = useState<{ query: string; base: string; adult: boolean } | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const searchSeq = useRef(0);
   const [detail, setDetail] = useState<CivitaiRow | null>(null);
   const [saved, setSaved] = useState(false);
   const [token, setToken] = useState('');
@@ -74,30 +81,60 @@ export function CivitaiSheet(props: {
   const have = (name: string) =>
     (lora ? installed?.loras : installed?.models)?.some((n) => n.toLowerCase() === name.toLowerCase()) ?? false;
 
-  const shownBases = filterCivitaiBases(civitaiBaseGroups, baseQuery, installedOnly ? installed?.bases ?? [] : null);
-  const baseSent = visibleCivitaiBase(base, shownBases);
+  /** A pick "Only installed" hides is dropped, so turning it off never
+   *  brings it back. Left alone while the computer is still looking. */
+  const dropHidden = (only: boolean, bases: string[] | null) => {
+    if (!base || !only || !bases) return;
+    if (civitaiBaseShown(filterCivitaiBases(civitaiBaseGroups, '', bases), base)) return;
+    setBaseNote(`${civitaiBaseLabel(base)} isn't installed — showing Any base.`);
+    setBase('');
+  };
+
+  useEffect(() => {
+    dropHidden(installedOnly, installed?.bases ?? null);
+    // Only when the installed list arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installed]);
+
+  const run = (ask: { query: string; base: string; adult: boolean }, from?: string) => {
+    const seq = ++searchSeq.current;
+    setNote('');
+    setDetail(null);
+    setSearching(true);
+    void searchCivitai({ query: ask.query, lora, adult: ask.adult, base: ask.base, cursor: from })
+      .then((found) => {
+        if (!live.current || seq !== searchSeq.current) return;
+        if (found.needsCredential) {
+          setNote('Paste an API key to search adult models.');
+          setRows([]);
+          setCursor(null);
+          return;
+        }
+        const next = from ? [...rows, ...found.rows.filter((r) => !rows.some((have) => have.versionId === r.versionId))] : found.rows;
+        setRows(next);
+        setAsked(ask);
+        setCursor(found.nextCursor);
+        if (next.length === 0) setNote(found.note || 'CivitAI returned no models for that search.');
+        else if (found.note && found.rows.length > 0) setNote(found.note);
+      })
+      .catch((e: unknown) => {
+        if (!live.current || seq !== searchSeq.current) return;
+        if (!from) setRows([]);
+        setNote(civitaiNote(e, 'CivitAI search failed.'));
+      })
+      .finally(() => {
+        if (live.current && seq === searchSeq.current) setSearching(false);
+      });
+  };
 
   const search = () => {
     const q = query.trim();
     if (!q) return;
-    setNote('');
-    setDetail(null);
-    void searchCivitai({ query: q, lora, adult: adult && props.adultAllowed, base: baseSent })
-      .then(({ rows: found, needsCredential }) => {
-        if (!live.current) return;
-        if (needsCredential) {
-          setNote('Paste an API key to search adult models.');
-          setRows([]);
-          return;
-        }
-        setRows(found);
-        if (found.length === 0) setNote('CivitAI returned no models for that search.');
-      })
-      .catch((e: unknown) => {
-        if (!live.current) return;
-        setRows([]);
-        setNote(civitaiNote(e, 'CivitAI search failed.'));
-      });
+    run({ query: q, base, adult: adult && props.adultAllowed });
+  };
+
+  const loadMore = () => {
+    if (asked && cursor) run(asked, cursor);
   };
 
   const saveTheKey = () => {
@@ -201,6 +238,7 @@ export function CivitaiSheet(props: {
             onChange={(e) => {
               setAdult(e.target.checked);
               setRows([]);
+              setCursor(null);
               setDetail(null);
             }}
           />
@@ -233,34 +271,23 @@ export function CivitaiSheet(props: {
           ) : null}
         </div>
       )}
-      <label>
-        Filter bases
-        <input
-          aria-label="Filter bases"
-          placeholder="Qwen, Flux, SDXL"
-          value={baseQuery}
-          onChange={(e) => setBaseQuery(e.target.value)}
-        />
-      </label>
-      <label>
-        <input type="checkbox" checked={installedOnly} onChange={(e) => setInstalledOnly(e.target.checked)} />
-        Only installed models
-      </label>
-      {installedOnly && !installed ? <p>Looking through the models folder…</p> : null}
-      <label>
-        Base model
-        <select aria-label="Base model" value={baseSent} onChange={(e) => setBase(e.target.value)}>
-          <option value="">Any base</option>
-          {shownBases.map((group) => (
-            <optgroup key={group.title} label={group.title}>
-              {group.choices.map((choice) => (
-                <option key={choice.api} value={choice.api}>{choice.label}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-      {installedOnly && installed && shownBases.length === 0 ? <p>No installed model matches a CivitAI base.</p> : null}
+      <CivitaiBasePicker
+        base={base}
+        onBase={(api) => {
+          setBase(api);
+          setBaseNote('');
+        }}
+        query={baseQuery}
+        onQuery={setBaseQuery}
+        installedOnly={installedOnly}
+        onInstalledOnly={(on) => {
+          setInstalledOnly(on);
+          setBaseNote('');
+          dropHidden(on, installed?.bases ?? null);
+        }}
+        installedBases={installed ? installed.bases : null}
+        note={baseNote}
+      />
       <input
         aria-label="Search"
         placeholder={lora ? 'Clothes' : 'Search CivitAI'}
@@ -300,6 +327,9 @@ export function CivitaiSheet(props: {
           </div>
         ))
       )}
+      {cursor && !detail ? (
+        <button type="button" disabled={searching} onClick={loadMore}>Load more</button>
+      ) : null}
       {note ? <p>{note}</p> : null}
     </div>
   );

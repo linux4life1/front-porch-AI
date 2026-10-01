@@ -6,9 +6,10 @@
 // percent and can stop it, adult results are asked for only when the app allows
 // them, and saving the key needs the web password.
 
+import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  button, calls, click, container, createElement, field, mount, pickOption, posts, refuse, reset, serve, settle, text,
+  button, calls, click, container, createElement, field, mount, posts, refuse, reset, serve, settle, text,
   type, unmount, until,
 } from './deskTestKit';
 
@@ -69,7 +70,8 @@ const search = async (q = 'portrait') => {
 describe('searching', () => {
   it('sends the query, the kind and the base, and shows each result with its picture', async () => {
     await open({ lora: true });
-    pickOption('select[aria-label="Base model"]', 'Qwen');
+    act(() => field('input[aria-label="Base model"]').focus());
+    click('Qwen-Image, 2512, and Image Edit');
     await search('clothes');
 
     const sent = calls.find((c) => c.path.startsWith('/api/image/civitai/search'))!.path;

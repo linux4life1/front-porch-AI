@@ -34,15 +34,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Filter bases'), findsOneWidget);
+      // One picker: the base field is also where a base is typed.
+      expect(find.text('Filter bases'), findsNothing);
       expect(find.text('Only installed models'), findsOneWidget);
       expect(find.text('Base model'), findsOneWidget);
       await tester.enterText(
-        find.byKey(const Key('studio-civitai-base-filter')),
+        find.byKey(const Key('studio-civitai-base')),
         'qwen',
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('studio-civitai-base')));
       await tester.pumpAndSettle();
       expect(find.text('Qwen 2.1'), findsWidgets);
       expect(find.text('Flux.1 Dev'), findsNothing);

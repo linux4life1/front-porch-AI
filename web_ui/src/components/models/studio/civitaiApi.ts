@@ -30,20 +30,26 @@ interface SearchBody {
     description?: string;
   }[];
   needsCredential?: boolean;
+  nextCursor?: string | null;
+  note?: string;
 }
 
+/** One search, or with [cursor] the next pages of the last one. The computer
+ *  follows CivitAI's pages and hands back where Load more carries on. */
 export async function searchCivitai(opts: {
   query: string;
   lora: boolean;
   adult: boolean;
   base: string;
-}): Promise<{ rows: CivitaiRow[]; needsCredential: boolean }> {
+  cursor?: string;
+}): Promise<{ rows: CivitaiRow[]; needsCredential: boolean; nextCursor: string | null; note: string }> {
   const q = new URLSearchParams({
     q: opts.query,
     adult: opts.adult ? 'true' : 'false',
     sheet: opts.lora ? 'lora' : 'model',
     base: opts.base,
   });
+  if (opts.cursor) q.set('cursor', opts.cursor);
   const body = await api.get<SearchBody>(`/api/image/civitai/search?${q.toString()}`);
   const rows = (body.items ?? []).flatMap((row) => {
     if (!row.filename || typeof row.versionId !== 'number') return [];
@@ -60,7 +66,12 @@ export async function searchCivitai(opts: {
       },
     ];
   });
-  return { rows, needsCredential: body.needsCredential === true };
+  return {
+    rows,
+    needsCredential: body.needsCredential === true,
+    nextCursor: typeof body.nextCursor === 'string' && body.nextCursor ? body.nextCursor : null,
+    note: typeof body.note === 'string' ? body.note : '',
+  };
 }
 
 export const keySaved = () =>

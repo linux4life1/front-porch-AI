@@ -4,7 +4,6 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
@@ -15,6 +14,7 @@ import 'package:front_porch_ai/services/image/civitai_fetch.dart';
 import 'package:front_porch_ai/services/image/civitai_images.dart';
 import 'package:front_porch_ai/services/image/civitai_installed.dart';
 import 'package:front_porch_ai/services/image/civitai_jobs.dart';
+import 'package:front_porch_ai/services/image/civitai_search_pages.dart';
 import 'package:front_porch_ai/services/image/civitai_version.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/web/auth/auth_service.dart';
@@ -146,34 +146,39 @@ class CivitaiRoutes {
     final headers = <String, String>{
       if (plan.authorization != null) 'Authorization': plan.authorization!,
     };
-    final http.Response response;
+    final CivitaiSearchPages found;
     try {
-      response = await http
-          .get(plan.uri!, headers: headers)
-          .timeout(const Duration(seconds: 20));
+      found = await civitaiSearchPages(
+        first: plan.uri!,
+        headers: headers,
+        includeAdult: adult,
+        cursor: _cursor(query['cursor']),
+      );
     } catch (e) {
       debugPrint('civitai search failed: ${e.runtimeType}');
       return _fail(502, 'network', 'CivitAI search failed');
     }
-    final kind = civitaiHttpKind(response.statusCode);
-    if (kind == CivitaiHttpKind.needsCredential) {
-      final hadKey = plan.authorization != null;
-      return _fail(
-        401,
-        hadKey ? 'key_refused' : 'key_missing',
-        civitaiSearchNote(kind: kind, hadKey: hadKey, rows: 0),
-      );
+    final hadKey = plan.authorization != null;
+    final kind = found.kind;
+    // A page after the first that fails keeps the rows already found.
+    if (found.rows.isEmpty || kind == CivitaiHttpKind.ok) {
+      if (kind == CivitaiHttpKind.needsCredential) {
+        return _fail(
+          401,
+          hadKey ? 'key_refused' : 'key_missing',
+          civitaiSearchNote(kind: kind, hadKey: hadKey, rows: 0),
+        );
+      }
+      if (kind == CivitaiHttpKind.locked) {
+        return _fail(403, 'locked', 'CivitAI refused this search');
+      }
+      if (kind != CivitaiHttpKind.ok) {
+        return _fail(502, 'http', 'CivitAI search failed');
+      }
     }
-    if (kind == CivitaiHttpKind.locked) {
-      return _fail(403, 'locked', 'CivitAI refused this search');
-    }
-    if (kind != CivitaiHttpKind.ok) {
-      return _fail(502, 'http', 'CivitAI search failed');
-    }
-    final rows = parseCivitaiModels(response.body, includeAdult: adult);
     return JsonResponse.ok({
       'items': [
-        for (final row in rows)
+        for (final row in found.rows)
           {
             'id': row.id,
             'name': row.name,
@@ -190,7 +195,16 @@ class CivitaiRoutes {
           },
       ],
       'needsCredential': false,
+      'nextCursor': found.nextCursor,
+      'note': found.note(hadKey: hadKey),
     });
+  }
+
+  /// CivitAI's own cursor, passed back as it came; anything odd starts over.
+  static String? _cursor(String? raw) {
+    final cursor = raw?.trim() ?? '';
+    if (cursor.isEmpty || cursor.length > 512) return null;
+    return cursor;
   }
 
   List<String> _phoneImages(CivitaiModelRow row) => [

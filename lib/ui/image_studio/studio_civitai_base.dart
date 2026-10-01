@@ -55,28 +55,81 @@ PreferredSizeWidget? studioCivitaiStatus({
   );
 }
 
-/// Base picker: a text filter, then the bases those words leave.
+/// One searchable base picker. The sheet holds its state: typing into
+/// [text] narrows the menu ([query]) without dropping [base], and the field
+/// shows [base]'s label once it is left.
 class StudioCivitaiBasePicker extends StatelessWidget {
   const StudioCivitaiBasePicker({
     super.key,
     required this.base,
     required this.query,
+    required this.text,
+    required this.focus,
     required this.installedOnly,
     required this.modelFiles,
     required this.scanning,
     required this.onBase,
-    required this.onQuery,
     required this.onInstalledOnly,
+    this.note,
   });
 
   final String base;
   final String query;
+  final TextEditingController text;
+  final FocusNode focus;
   final bool installedOnly;
   final List<String> modelFiles;
   final bool scanning;
   final ValueChanged<String> onBase;
-  final ValueChanged<String> onQuery;
   final ValueChanged<bool> onInstalledOnly;
+
+  /// Why the pick was dropped, when it was.
+  final String? note;
+
+  Widget _option(BuildContext context, String api, String label) {
+    final picked = api == base;
+    return ListTile(
+      dense: true,
+      selected: picked,
+      title: Text(label),
+      trailing: picked ? const Icon(Icons.check, size: 18) : null,
+      onTap: () => onBase(api),
+    );
+  }
+
+  Widget _menu(BuildContext context, List<CivitaiBaseGroup> groups) {
+    final secondary = AppColors.textSecondary(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 320),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _option(context, '', 'Any base'),
+            for (final group in groups) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+                child: Text(
+                  group.title,
+                  style: TextStyle(color: secondary, fontSize: 12),
+                ),
+              ),
+              for (final choice in group.choices)
+                _option(context, choice.api, choice.label),
+            ],
+            if (groups.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'No base matches that.',
+                  style: TextStyle(color: secondary),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,60 +139,65 @@ class StudioCivitaiBasePicker extends StatelessWidget {
       query: query,
       onlyApis: only,
     );
-    final apis = {
-      for (final group in groups)
-        for (final choice in group.choices) choice.api,
-    };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Base model'),
-        TextField(
-          key: const Key('studio-civitai-base-filter'),
-          decoration: const InputDecoration(
-            labelText: 'Filter bases',
-            hintText: 'Qwen, Flux, SDXL',
+    final open = focus.hasFocus;
+    final secondary = AppColors.textSecondary(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Taps on the menu count as inside the field, so the field keeps
+          // focus until a base is picked.
+          TextFieldTapRegion(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  key: const Key('studio-civitai-base'),
+                  controller: text,
+                  focusNode: focus,
+                  decoration: InputDecoration(
+                    labelText: 'Base model',
+                    hintText: 'Type to narrow: Qwen, Flux, SDXL',
+                    suffixIcon: open && text.text.isNotEmpty
+                        ? IconButton(
+                            tooltip: 'Clear',
+                            icon: const Icon(Icons.clear),
+                            onPressed: text.clear,
+                          )
+                        : const Icon(Icons.arrow_drop_down),
+                  ),
+                ),
+                if (open) _menu(context, groups),
+              ],
+            ),
           ),
-          onChanged: onQuery,
-        ),
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          value: installedOnly,
-          title: const Text('Only installed models'),
-          subtitle: Text(
-            scanning
-                ? 'Looking through the models folder…'
-                : 'Limits this list to bases that match model files on this computer.',
+          if (note != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(note!, style: TextStyle(color: secondary)),
+            ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: installedOnly,
+            title: const Text('Only installed models'),
+            subtitle: Text(
+              scanning
+                  ? 'Looking through the models folder…'
+                  : 'Limits the bases to ones that match model files on this computer.',
+            ),
+            onChanged: (next) {
+              if (next == null) return;
+              onInstalledOnly(next);
+            },
           ),
-          onChanged: (next) {
-            if (next == null) return;
-            onInstalledOnly(next);
-          },
-        ),
-        DropdownButton<String>(
-          key: const Key('studio-civitai-base'),
-          isExpanded: true,
-          value: apis.contains(base) ? base : '',
-          items: [
-            const DropdownMenuItem(value: '', child: Text('Any base')),
-            for (final group in groups) ...[
-              DropdownMenuItem<String>(
-                enabled: false,
-                value: 'group:${group.title}',
-                child: Text(group.title),
-              ),
-              for (final choice in group.choices)
-                DropdownMenuItem(value: choice.api, child: Text(choice.label)),
-            ],
-          ],
-          onChanged: (next) => onBase(next ?? ''),
-        ),
-        if (installedOnly && !scanning && groups.isEmpty)
-          Text(
-            'No installed model matches a CivitAI base.',
-            style: TextStyle(color: AppColors.textSecondary(context)),
-          ),
-      ],
+          if (installedOnly && !scanning && query.isEmpty && groups.isEmpty)
+            Text(
+              'No installed model matches a CivitAI base.',
+              style: TextStyle(color: secondary),
+            ),
+        ],
+      ),
     );
   }
 }

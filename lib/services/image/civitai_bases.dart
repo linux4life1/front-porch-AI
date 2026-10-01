@@ -2,13 +2,29 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /// One still-image base CivitAI's `baseModels` filter accepts.
-/// [api] is the enum string from `GET /api/v1/enums` (`BaseModel`).
+/// [api] is the enum string from `GET /api/v1/enums` (`BaseModel`), or, for
+/// a choice that stands for several bases, the picker's own key for it.
 class CivitaiBaseChoice {
   final String label;
   final String api;
 
-  const CivitaiBaseChoice(this.label, this.api);
+  /// The bases a choice for several sends. Empty means just [api].
+  final List<String> several;
+
+  const CivitaiBaseChoice(this.label, this.api, [this.several = const []]);
+
+  /// What a search sends as `baseModels`.
+  List<String> get sends => several.isEmpty ? [api] : several;
 }
+
+/// Every Flux.2 Klein base: CivitAI files Klein LoRAs under all four.
+const kCivitaiKleinAll =
+    CivitaiBaseChoice('Flux.2 Klein (all)', 'Flux.2 Klein (all)', [
+      'Flux.2 Klein 9B',
+      'Flux.2 Klein 9B-base',
+      'Flux.2 Klein 4B',
+      'Flux.2 Klein 4B-base',
+    ]);
 
 /// A labeled group in the Get a model / Get a LoRA picker.
 class CivitaiBaseGroup {
@@ -28,6 +44,7 @@ const List<CivitaiBaseGroup> kCivitaiBaseGroups = [
     CivitaiBaseChoice('Flux.1 Krea', 'Flux.1 Krea'),
     CivitaiBaseChoice('Flux.1 Kontext', 'Flux.1 Kontext'),
     CivitaiBaseChoice('Flux.2 Dev', 'Flux.2 D'),
+    kCivitaiKleinAll,
     CivitaiBaseChoice('Flux.2 Klein 9B', 'Flux.2 Klein 9B'),
     CivitaiBaseChoice('Flux.2 Klein 9B base', 'Flux.2 Klein 9B-base'),
     CivitaiBaseChoice('Flux.2 Klein 4B', 'Flux.2 Klein 4B'),
@@ -116,12 +133,47 @@ const List<CivitaiBaseGroup> kCivitaiBaseGroups = [
 List<String> civitaiBaseApiValues() {
   return [
     for (final group in kCivitaiBaseGroups)
-      for (final choice in group.choices) choice.api,
+      for (final choice in group.choices)
+        if (choice.several.isEmpty) choice.api,
   ];
 }
 
+/// The `baseModels` values for a picked base: a choice for several bases
+/// sends each of them; anything else is sent as it is.
+List<String> civitaiBaseSends(String picked) {
+  final key = picked.trim();
+  if (key.isEmpty) return const [];
+  for (final group in kCivitaiBaseGroups) {
+    for (final choice in group.choices) {
+      if (choice.api == key) return choice.sends;
+    }
+  }
+  return [key];
+}
+
+/// The picker label for [api], or [api] itself when no choice has it.
+String civitaiBaseLabel(String api) {
+  for (final group in kCivitaiBaseGroups) {
+    for (final choice in group.choices) {
+      if (choice.api == api) return choice.label;
+    }
+  }
+  return api;
+}
+
+/// Whether [api] is in [groups] (a filtered list).
+bool civitaiBaseShown(List<CivitaiBaseGroup> groups, String api) {
+  for (final group in groups) {
+    for (final choice in group.choices) {
+      if (choice.api == api) return true;
+    }
+  }
+  return false;
+}
+
 /// Bases whose label, API value, or group title contains [query].
-/// [onlyApis] limits the list to bases for installed model files.
+/// [onlyApis] limits the list to bases for installed model files; a choice
+/// for several bases stays while any of them is installed.
 /// Null means every base. An empty set means none of them.
 List<CivitaiBaseGroup> filterCivitaiBaseGroups(
   List<CivitaiBaseGroup> groups, {
@@ -134,7 +186,7 @@ List<CivitaiBaseGroup> filterCivitaiBaseGroups(
     final title = group.title.toLowerCase();
     final choices = <CivitaiBaseChoice>[];
     for (final choice in group.choices) {
-      if (onlyApis != null && !onlyApis.contains(choice.api)) continue;
+      if (onlyApis != null && !choice.sends.any(onlyApis.contains)) continue;
       if (needle.isEmpty ||
           title.contains(needle) ||
           choice.label.toLowerCase().contains(needle) ||

@@ -1,8 +1,22 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/** Still-image bases. `api` is CivitAI's BaseModel enum string. No video. */
-export const civitaiBaseGroups: { title: string; choices: { label: string; api: string }[] }[] = [
+/** One base. `several` are the bases a choice for several sends. */
+export interface CivitaiBaseChoice {
+  label: string;
+  api: string;
+  several?: string[];
+}
+
+export interface CivitaiBaseGroup {
+  title: string;
+  choices: CivitaiBaseChoice[];
+}
+
+/** Still-image bases. `api` is CivitAI's BaseModel enum string, or the
+ *  picker's own key for a choice that stands for several. No video. Same list
+ *  as Dart `kCivitaiBaseGroups`. */
+export const civitaiBaseGroups: CivitaiBaseGroup[] = [
   {
     title: 'Flux',
     choices: [
@@ -11,6 +25,11 @@ export const civitaiBaseGroups: { title: string; choices: { label: string; api: 
       { label: 'Flux.1 Krea', api: 'Flux.1 Krea' },
       { label: 'Flux.1 Kontext', api: 'Flux.1 Kontext' },
       { label: 'Flux.2 Dev', api: 'Flux.2 D' },
+      {
+        label: 'Flux.2 Klein (all)',
+        api: 'Flux.2 Klein (all)',
+        several: ['Flux.2 Klein 9B', 'Flux.2 Klein 9B-base', 'Flux.2 Klein 4B', 'Flux.2 Klein 4B-base'],
+      },
       { label: 'Flux.2 Klein 9B', api: 'Flux.2 Klein 9B' },
       { label: 'Flux.2 Klein 9B base', api: 'Flux.2 Klein 9B-base' },
       { label: 'Flux.2 Klein 4B', api: 'Flux.2 Klein 4B' },
@@ -111,19 +130,24 @@ export const civitaiBaseGroups: { title: string; choices: { label: string; api: 
   },
 ];
 
-/** Same rule as Dart `filterCivitaiBaseGroups`. Null [onlyApis] keeps every base. */
+/** What a choice sends as `baseModels`. */
+export const civitaiBaseSends = (choice: CivitaiBaseChoice): string[] =>
+  choice.several && choice.several.length > 0 ? choice.several : [choice.api];
+
+/** Same rule as Dart `filterCivitaiBaseGroups`. Null [onlyApis] keeps every
+ *  base; a choice for several stays while any of them is installed. */
 export function filterCivitaiBases(
-  groups: { title: string; choices: { label: string; api: string }[] }[],
+  groups: CivitaiBaseGroup[],
   query: string,
   onlyApis: string[] | null,
-): { title: string; choices: { label: string; api: string }[] }[] {
+): CivitaiBaseGroup[] {
   const needle = query.trim().toLowerCase();
   const only = onlyApis == null ? null : new Set(onlyApis);
-  const out: { title: string; choices: { label: string; api: string }[] }[] = [];
+  const out: CivitaiBaseGroup[] = [];
   for (const group of groups) {
     const title = group.title.toLowerCase();
     const choices = group.choices.filter((choice) => {
-      if (only && !only.has(choice.api)) return false;
+      if (only && !civitaiBaseSends(choice).some((api) => only.has(api))) return false;
       if (!needle) return true;
       return (
         title.includes(needle) ||
@@ -136,11 +160,14 @@ export function filterCivitaiBases(
   return out;
 }
 
-/** The selected base, or empty when the filter hid it. */
-export function visibleCivitaiBase(
-  current: string,
-  groups: { choices: { api: string }[] }[],
-): string {
-  const apis = new Set(groups.flatMap((group) => group.choices.map((choice) => choice.api)));
-  return current !== '' && apis.has(current) ? current : '';
+/** Whether [api] is in [groups] (a filtered list). */
+export const civitaiBaseShown = (groups: CivitaiBaseGroup[], api: string): boolean =>
+  groups.some((group) => group.choices.some((choice) => choice.api === api));
+
+/** The picker label for [api], or [api] itself. */
+export function civitaiBaseLabel(api: string): string {
+  for (const group of civitaiBaseGroups) {
+    for (const choice of group.choices) if (choice.api === api) return choice.label;
+  }
+  return api;
 }

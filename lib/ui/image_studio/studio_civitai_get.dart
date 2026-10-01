@@ -4,7 +4,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/image/civitai_bases.dart';
 import 'package:front_porch_ai/services/image/civitai_client.dart';
@@ -12,6 +11,7 @@ import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/image/civitai_errors.dart';
 import 'package:front_porch_ai/services/image/civitai_fetch.dart';
 import 'package:front_porch_ai/services/image/civitai_installed.dart';
+import 'package:front_porch_ai/services/image/civitai_search_pages.dart';
 import 'package:front_porch_ai/services/image/civitai_version.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -23,22 +23,11 @@ import 'studio_civitai_detail.dart';
 import 'studio_civitai_install.dart';
 import 'studio_civitai_key.dart';
 
-/// One CivitAI search answer: the HTTP status and body.
-typedef CivitaiSearchCall =
-    Future<({int status, String body})> Function(
-      Uri uri,
-      Map<String, String> headers,
-    );
+export 'package:front_porch_ai/services/image/civitai_search_pages.dart'
+    show CivitaiSearchCall;
 
-Future<({int status, String body})> _httpSearch(
-  Uri uri,
-  Map<String, String> headers,
-) async {
-  final response = await http
-      .get(uri, headers: headers)
-      .timeout(const Duration(seconds: 20));
-  return (status: response.statusCode, body: response.body);
-}
+part 'studio_civitai_get_base.dart';
+part 'studio_civitai_get_search.dart';
 
 /// CivitAI search. A hit is downloaded into the saved models folder.
 /// The search title is not stored as the installed file name.
@@ -52,7 +41,7 @@ class StudioCivitaiGet extends StatefulWidget {
     required this.onInstalled,
     this.onAdultChanged,
     this.onSaveKey,
-    this.searchCall = _httpSearch,
+    this.searchCall = civitaiHttpSearch,
     this.versionFetch = fetchCivitaiVersion,
     this.saveCall = saveCivitaiToDisk,
   });
@@ -81,12 +70,20 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
     onSaveKey: widget.onSaveKey,
   );
   String _base = '';
+  final TextEditingController _baseText = TextEditingController();
+  final FocusNode _baseFocus = FocusNode();
   String _baseQuery = '';
+  bool _baseShowsLabel = false;
+  String? _baseNote;
   bool _installedOnly = false;
   List<String> _modelFiles = const [];
   List<String> _localNames = const [];
   bool _scanning = true;
   List<CivitaiModelRow> _rows = const [];
+
+  /// What the rows on screen were searched for, and where Load more starts.
+  ({String query, String base, bool adult})? _asked;
+  String? _cursor;
   String? _error;
   bool _searching = false;
   bool _needFolder = false;
@@ -104,6 +101,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   @override
   void initState() {
     super.initState();
+    _watchBaseField();
     unawaited(_loadKeys());
     unawaited(_noteFolder());
   }
@@ -157,6 +155,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
       _modelFiles = models;
       _localNames = local;
       _scanning = false;
+      _dropHiddenBase();
       if (blocked != null) {
         _error = blocked;
         _needFolder = widget.backend == 'comfyui' || widget.backend == 'a1111';
@@ -173,25 +172,13 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
     }
   }
 
-  String _selectedBase() {
-    final groups = filterCivitaiBaseGroups(
-      kCivitaiBaseGroups,
-      query: _baseQuery,
-      onlyApis: _installedOnly ? civitaiBasesForFiles(_modelFiles) : null,
-    );
-    for (final group in groups) {
-      for (final choice in group.choices) {
-        if (choice.api == _base) return _base;
-      }
-    }
-    return '';
-  }
-
   @override
   void dispose() {
     _cancel?.cancel();
     unawaited(_keys.keepTypedOnClose());
     _query.dispose();
+    _baseText.dispose();
+    _baseFocus.dispose();
     _keys.dispose();
     super.dispose();
   }
@@ -204,70 +191,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
 
   bool _current(int seq) => mounted && seq == _searchSeq;
 
-  /// A newer search replaces an older one, so the list on screen is always
-  /// the answer to the last thing asked.
-  Future<void> _search() async {
-    if (_downloading) return;
-    final seq = ++_searchSeq;
-    setState(() {
-      _searching = true;
-      _error = null;
-      _needFolder = false;
-      _offerFolder = null;
-    });
-    try {
-      final saveError = await _keys.saveTyped();
-      if (!_current(seq)) return;
-      if (saveError != null) {
-        setState(() => _error = saveError);
-        return;
-      }
-      final relay = CivitaiRelay(await CivitaiCredentialStore.open());
-      final plan = await relay.planSearch(
-        accountId: 'local',
-        query: _query.text.trim(),
-        adult: _adultNow,
-        lora: widget.lora,
-        baseModel: _selectedBase(),
-      );
-      if (!_current(seq)) return;
-      if (plan.needsCredential || plan.uri == null) {
-        setState(() {
-          _rows = const [];
-          _error = civitaiSearchNote(
-            kind: CivitaiHttpKind.needsCredential,
-            hadKey: _keys.saved,
-            rows: 0,
-          );
-        });
-        return;
-      }
-      final response = await widget.searchCall(plan.uri!, {
-        if (plan.authorization != null) 'Authorization': plan.authorization!,
-      });
-      if (!_current(seq)) return;
-      final kind = civitaiHttpKind(response.status);
-      final rows = kind == CivitaiHttpKind.ok
-          ? parseCivitaiModels(response.body, includeAdult: _adultNow)
-          : const <CivitaiModelRow>[];
-      final note = civitaiSearchNote(
-        kind: kind,
-        hadKey: _keys.saved || plan.authorization != null,
-        rows: rows.length,
-      );
-      setState(() {
-        _rows = rows;
-        _error = note.isEmpty ? null : note;
-      });
-    } on CivitaiKeyStoreException catch (e) {
-      if (_current(seq)) setState(() => _error = e.message);
-    } catch (e) {
-      debugPrint('civitai search failed: ${e.runtimeType}');
-      if (_current(seq)) setState(() => _error = 'CivitAI search failed.');
-    } finally {
-      if (_current(seq)) setState(() => _searching = false);
-    }
-  }
+  void _set(VoidCallback change) => setState(change);
 
   Future<void> _pickFolder() async {
     final picked = await PickerPrefs.getDirectoryPath(
@@ -433,12 +357,14 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
           StudioCivitaiBasePicker(
             base: _base,
             query: _baseQuery,
+            text: _baseText,
+            focus: _baseFocus,
             installedOnly: _installedOnly,
             modelFiles: _modelFiles,
             scanning: _scanning,
-            onBase: (value) => setState(() => _base = value),
-            onQuery: (value) => setState(() => _baseQuery = value),
-            onInstalledOnly: (value) => setState(() => _installedOnly = value),
+            note: _baseNote,
+            onBase: _pickBase,
+            onInstalledOnly: _setInstalledOnly,
           ),
           TextField(
             controller: _query,
@@ -474,6 +400,14 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
               installed: civitaiFileInstalled(row.filename, _localNames),
               onOpen: () => _openDetail(row),
               onDownload: () => _install(row),
+            ),
+          if (_cursor != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _searching || _downloading ? null : _loadMore,
+                child: const Text('Load more'),
+              ),
             ),
         ],
       ),

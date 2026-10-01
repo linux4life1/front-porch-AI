@@ -5,12 +5,16 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:front_porch_ai/services/image/civitai_bases.dart';
 import 'package:front_porch_ai/services/image/civitai_credentials.dart';
 import 'package:front_porch_ai/services/image/civitai_download.dart';
 import 'package:front_porch_ai/services/image/civitai_errors.dart';
 import 'package:front_porch_ai/services/image/civitai_files.dart';
 import 'package:front_porch_ai/services/image/civitai_images.dart';
 import 'package:front_porch_ai/services/image/civitai_version.dart';
+
+export 'civitai_search_pages.dart'
+    show CivitaiHttpKind, civitaiHttpKind, civitaiSearchNote;
 
 /// A pasted personal API key. A password field is refused.
 String? pastedCivitaiToken(Map<String, Object?> body) {
@@ -32,20 +36,31 @@ String? civitaiRelayAccount(String? cookieAccount) {
 /// PG search is anonymous on civitai.com. Adult search uses the same key
 /// against civitai.red with `nsfw=true`. `browsingLevel` is omitted because
 /// CivitAI rejects that query value. The key is never placed in the query.
-
+///
+/// CivitAI matches the words first and only then keeps the bases asked for,
+/// one page at a time, so a word plus a base asks for 100 a page: 20 could
+/// all be other bases. Each of [baseModels] is its own `baseModels` value.
 Uri? civitaiModelsUri({
   required String query,
   required bool adult,
   required bool hasCredential,
   required bool lora,
   String baseModel = '',
+  List<String> baseModels = const [],
+  String? cursor,
 }) {
   if (adult && !hasCredential) return null;
+  final bases = {
+    for (final base in [baseModel, ...baseModels])
+      if (base.trim().isNotEmpty) base.trim(),
+  }.toList();
+  final both = query.trim().isNotEmpty && bases.isNotEmpty;
   return Uri.https(adult ? 'civitai.red' : 'civitai.com', '/api/v1/models', {
     'query': query,
-    'limit': '20',
+    'limit': both ? '100' : '20',
     'types': lora ? 'LORA' : 'Checkpoint',
-    if (baseModel.trim().isNotEmpty) 'baseModels': baseModel.trim(),
+    if (bases.isNotEmpty) 'baseModels': bases,
+    if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
     if (adult) 'nsfw': 'true',
   });
 }
@@ -97,36 +112,6 @@ String civitaiLog({
   bool adult = false,
 }) {
   return 'civitai $action account=$accountId adult=$adult';
-}
-
-enum CivitaiHttpKind { ok, needsCredential, locked, failed }
-
-/// 401 asks for a key. 403 is a locked file and is not retried.
-CivitaiHttpKind civitaiHttpKind(int status) {
-  if (status == 200) return CivitaiHttpKind.ok;
-  if (status == 401) return CivitaiHttpKind.needsCredential;
-  if (status == 403) return CivitaiHttpKind.locked;
-  return CivitaiHttpKind.failed;
-}
-
-/// What to show after a CivitAI search. Empty means the rows are the result.
-String civitaiSearchNote({
-  required CivitaiHttpKind kind,
-  required bool hadKey,
-  required int rows,
-}) {
-  switch (kind) {
-    case CivitaiHttpKind.needsCredential:
-      return hadKey
-          ? 'That API key was refused. Paste a valid key and search again.'
-          : 'Paste an API key to search adult models.';
-    case CivitaiHttpKind.locked:
-      return 'CivitAI refused this search.';
-    case CivitaiHttpKind.failed:
-      return 'CivitAI search failed.';
-    case CivitaiHttpKind.ok:
-      return rows == 0 ? 'CivitAI returned no models for that search.' : '';
-  }
 }
 
 class CivitaiModelRow {
@@ -369,7 +354,7 @@ class CivitaiRelay {
         adult: adult,
         hasCredential: has,
         lora: lora,
-        baseModel: baseModel,
+        baseModels: civitaiBaseSends(baseModel),
       ),
       authorization: token != null && adult ? civitaiBearer(token) : null,
       log: civitaiLog(action: 'search', accountId: accountId, adult: adult),

@@ -19,6 +19,7 @@ export 'civitai_jobs.dart';
 export 'civitai_installed.dart';
 export 'civitai_oauth.dart';
 export 'civitai_safetensors.dart';
+export 'civitai_search_pages.dart';
 export 'civitai_version.dart';
 export 'comfy_catalog.dart';
 export 'comfy_create_presets.dart';
