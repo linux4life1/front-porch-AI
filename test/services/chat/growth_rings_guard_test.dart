@@ -283,6 +283,37 @@ void main() {
       final line = logs.singleWhere((entry) => entry.startsWith('[Growth] ✓'));
       expect(line, startsWith('[Growth] ✓ Mira: $cap op(s) (+$cap add,'));
     });
+
+    test('AI-only turns do not count toward the growth interval', () async {
+      // Group/narrator bursts: many AI lines, only two user lines since
+      // the ring's receipt. The interval counts USER messages, so this
+      // reinforce is held even though 8 transcript slots passed.
+      final messages = <ChatMessage>[
+        _msg('You', 'line 0', isUser: true),
+        _msg('Mira', 'line 1', charId: 'mira'),
+        for (var i = 2; i < 10; i++)
+          _msg(
+            i == 4 || i == 7 ? 'You' : 'Mira',
+            'line $i',
+            isUser: i == 4 || i == 7,
+            charId: 'mira',
+          ),
+      ];
+      await store.addRing(
+        sessionId: 's1',
+        characterId: 'mira',
+        content: 'existing habit',
+        category: 'habit',
+        strength: 0.55,
+        sourcePositions: const [1],
+      );
+      await store.setCursor('s1', 2);
+      xmlReply = '<ring action="reinforce" id="1" src="9"/>';
+      await makeService(messages: messages).runGrowthPass();
+      final ring = (await store.ringsFor('s1', 'mira')).single;
+      expect(ring.strength, closeTo(0.55, 1e-9));
+      expect(GrowthStore.receiptsOf(ring), [1]);
+    });
   });
 
   test('the growth prompt asks for a new ring, not another reinforce', () {
