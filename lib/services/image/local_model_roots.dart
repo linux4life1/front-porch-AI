@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'bounded_process.dart';
 import 'comfy_model_paths.dart';
 import 'comfy_type_folders.dart';
 
@@ -406,10 +407,10 @@ Future<void> _walkInstall(Directory dir, int depth, List<String> found) async {
 }
 
 Future<List<ComfyProcessSnapshot>> _scanPosix() async {
-  final result = await Process.run('ps', ['-axww', '-o', 'pid=,uid=,args=']);
-  if (result.exitCode != 0) return const [];
+  final listing = await runBounded('ps', ['-axww', '-o', 'pid=,uid=,args=']);
+  if (listing == null) return const [];
   final snaps = <ComfyProcessSnapshot>[];
-  for (final raw in '${result.stdout}'.split('\n')) {
+  for (final raw in listing.split('\n')) {
     final line = raw.trim();
     if (line.isEmpty) continue;
     final fields = line.split(RegExp(r'\s+'));
@@ -440,7 +441,7 @@ Future<String?> _posixCwd(int pid) async {
       return null;
     }
   }
-  final result = await Process.run('lsof', [
+  final listing = await runBounded('lsof', [
     '-a',
     '-p',
     '$pid',
@@ -448,21 +449,21 @@ Future<String?> _posixCwd(int pid) async {
     'cwd',
     '-Fn',
   ]);
-  if (result.exitCode != 0) return null;
-  for (final raw in '${result.stdout}'.split('\n')) {
+  if (listing == null) return null;
+  for (final raw in listing.split('\n')) {
     if (raw.startsWith('n') && raw.length > 1) return raw.substring(1);
   }
   return null;
 }
 
 Future<List<ComfyProcessSnapshot>> _scanWindows() async {
-  final result = await Process.run('powershell', [
+  final listing = await runBounded('powershell', [
     '-NoProfile',
     '-Command',
     r"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and ($_.CommandLine -match 'main.py' -or $_.CommandLine -match 'webui.py' -or $_.CommandLine -match 'launch.py') } | Select-Object ProcessId, CommandLine, ExecutablePath | ConvertTo-Json -Compress",
   ]);
-  if (result.exitCode != 0) return const [];
-  final text = '${result.stdout}'.trim();
+  if (listing == null) return const [];
+  final text = listing.trim();
   if (text.isEmpty) return const [];
   final decoded = jsonDecode(text);
   final rows = decoded is List ? decoded : [decoded];

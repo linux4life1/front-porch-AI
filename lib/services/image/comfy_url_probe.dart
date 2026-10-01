@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 
+import 'bounded_process.dart';
 import 'comfy_model_paths.dart';
 import 'local_model_roots.dart';
 
@@ -169,6 +170,7 @@ class ComfyUrlFinder {
     Future<int?> Function()? desktopPort,
     this.fallbackPorts = kComfyFallbackPorts,
     this.timeout = kComfyProbeTimeout,
+    this.lookupTimeout = kComfyLookupTimeout,
   }) : _processes = processes ?? scanComfyProcesses,
        _desktopPort = desktopPort ?? comfyDesktopPort;
 
@@ -176,6 +178,14 @@ class ComfyUrlFinder {
   final Future<int?> Function() _desktopPort;
   final List<int> fallbackPorts;
   final Duration timeout;
+
+  /// How long the process list and Desktop's settings may take.
+  final Duration lookupTimeout;
+
+  static List<ComfyProcessSnapshot> _noProcesses() {
+    debugPrint('ComfyUI: the process list took too long; trying usual ports');
+    return const [];
+  }
 
   /// Whether ComfyUI answers at [url].
   Future<bool> answers(String url) =>
@@ -192,9 +202,15 @@ class ComfyUrlFinder {
   Future<String?> find(String saved) => _outside(() => _find(saved));
 
   Future<String?> _find(String saved) async {
+    // A hung ps, lsof or PowerShell, or a slow disk, falls back to the saved
+    // and the usual ports rather than holding the search up.
     final (processes, desktop) = await (
-      _processes().catchError((_) => const <ComfyProcessSnapshot>[]),
-      _desktopPort().catchError((_) => null),
+      _processes()
+          .timeout(lookupTimeout, onTimeout: _noProcesses)
+          .catchError((_) => const <ComfyProcessSnapshot>[]),
+      _desktopPort()
+          .timeout(lookupTimeout, onTimeout: () => null)
+          .catchError((_) => null),
     ).wait;
     final candidates = comfyUrlCandidates(
       saved: saved,
@@ -235,13 +251,34 @@ class ComfyRedial {
 
 /// Looks for ComfyUI and, when the person never gave an address, switches to
 /// the one that answers. An address they gave is kept; one found elsewhere
-/// is returned as [ComfyRedial.offer].
+/// is returned as [ComfyRedial.offer]. Callers at the same time (Check
+/// pressed again and again, the desk and the phone) share one look.
 Future<ComfyRedial> redialComfy(
   ImageGenSettings settings, {
   ComfyUrlFinder? finder,
-}) async {
+}) {
+  final running = _redialing;
+  if (running != null && identical(_redialingFor, settings)) return running;
+  _redialingFor = settings;
+  // Made in the root zone: a caller's zone (a test's) ending part way must
+  // not leave the next caller waiting on a look that never finishes.
+  late final Future<ComfyRedial> look;
+  look = Zone.root.run(
+    () => _redial(settings, finder ?? ComfyUrlFinder()).whenComplete(() {
+      if (identical(_redialing, look)) _redialing = null;
+    }),
+  );
+  return _redialing = look;
+}
+
+Future<ComfyRedial>? _redialing;
+ImageGenSettings? _redialingFor;
+
+Future<ComfyRedial> _redial(
+  ImageGenSettings settings,
+  ComfyUrlFinder look,
+) async {
   final saved = ComfyUiService.ensureHttpScheme(settings.comfyUiUrl);
-  final look = finder ?? ComfyUrlFinder();
   // The saved address answering is the common case: nothing to look for.
   if (await look.answers(saved)) {
     return ComfyRedial(foundAt: saved, saved: saved);

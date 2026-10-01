@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -92,6 +93,9 @@ class _StudioDeskState extends State<StudioDesk> {
   bool? _reportedReady;
   StorageService? _storage;
   ComfyBackoff? _comfyBackoff;
+  Future<bool>? _looking;
+  Timer? _comfyUpWatch;
+  bool _askingIfUp = false;
   bool? _comfyUp;
   String? _comfyOffer;
   bool _lookedForComfy = false;
@@ -125,6 +129,7 @@ class _StudioDeskState extends State<StudioDesk> {
   void dispose() {
     _storage?.removeListener(_onStorage);
     _comfyBackoff?.stop();
+    _comfyUpWatch?.cancel();
     super.dispose();
   }
 
