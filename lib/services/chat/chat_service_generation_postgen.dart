@@ -109,9 +109,21 @@ extension ChatServiceGenerationPostGen on ChatService {
           ? glueContinueText(prefix, newPart)
           : newPart.trim();
 
-      // Close a dangling think. Lift only a *closed* think-only body
-      // (Qwen reasoning_content). An unclosed cut-off stays tagged.
-      finalResponse = resolveMouthSpeech(finalResponse);
+      // Close a dangling think. Lift only a short closed think-only line.
+      // A long reasoning dump stays tagged. An unclosed cut-off stays tagged.
+      final mouthIn = finalResponse;
+      finalResponse = resolveMouthSpeech(mouthIn);
+      final mouthParts = splitMessageForEdit(closeOpenThink(mouthIn));
+      if (mouthParts.body.trim().isEmpty &&
+          mouthParts.thinking.trim().isNotEmpty) {
+        final kept = finalResponse.toLowerCase().contains('<think>');
+        debugPrint(
+          kept
+              ? '[Mouth] kept think-only dump '
+                    '(${mouthParts.thinking.trim().length} chars)'
+              : '[Mouth] lifted think-only (${finalResponse.length} chars)',
+        );
+      }
 
       // ── Output Sanitizer ──────────────────────────────────────────────
       // NOTE: This runs BEFORE _lorebookScanner.scanLatest() below, so

@@ -123,6 +123,9 @@ extension GrowthServiceExchange on GrowthService {
     required String ownerName,
     int windowStart = 0,
     int windowLength = 0,
+    bool rewound = false,
+    int freshFrom = 0,
+    Set<String>? intervalHeld,
   }) {
     String named(String text) =>
         resolveGrowthMacros(text, charName: ownerName, userName: getUserName());
@@ -158,6 +161,30 @@ extension GrowthServiceExchange on GrowthService {
           // User-pinned rings are permanent: the pass may reinforce or
           // reword them, but only the diary UI may retire them.
           if (op.action == GrowthOpAction.retire && ring.pinned) continue;
+          if (op.action == GrowthOpAction.reinforce) {
+            // Reinforcement needs a NEW message. A rewound re-check has
+            // none, and a reinforce that only re-cites the ring's own
+            // receipts is the same event counted twice.
+            if (rewound) continue;
+            final had = GrowthStore.receiptsOf(ring).toSet();
+            final freshCite = op.sourcePositions.any(
+              (position) => !had.contains(position),
+            );
+            if (!freshCite) continue;
+            if (had.isNotEmpty) {
+              var newest = 0;
+              for (final position in had) {
+                if (position > newest) newest = position;
+              }
+              // At most one strength step per growth interval. The ring
+              // still counts as seen (intervalHeld) so this pass does not
+              // fade it for showing up.
+              if (newest >= freshFrom - getGrowthInterval()) {
+                intervalHeld?.add(ring.id);
+                continue;
+              }
+            }
+          }
           resolved.add(
             GrowthProposedOp(
               action: op.action,

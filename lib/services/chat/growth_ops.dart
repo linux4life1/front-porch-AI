@@ -90,7 +90,10 @@ List<GrowthOp> parseGrowthOps(String raw) {
     }
     // A bare <ring category="...">text</ring> with no action is an add — the
     // most natural thing for a small model to emit.
-    final action = _normalizeAction(attrs['action'], hasText: (match.group(2) ?? '').trim().isNotEmpty);
+    final action = _normalizeAction(
+      attrs['action'],
+      hasText: (match.group(2) ?? '').trim().isNotEmpty,
+    );
     if (action == null) continue;
 
     final handle = int.tryParse(attrs['id'] ?? '');
@@ -244,10 +247,7 @@ const List<Map<String, dynamic>> kGrowthTools = [
                 'The change, third person with {{char}}/{{user}} macros, at '
                 'most 30 words.',
           },
-          'category': {
-            'type': 'string',
-            'enum': kGrowthCategories,
-          },
+          'category': {'type': 'string', 'enum': kGrowthCategories},
           'src': {
             'type': 'array',
             'items': {'type': 'integer'},
@@ -263,8 +263,8 @@ const List<Map<String, dynamic>> kGrowthTools = [
     'function': {
       'name': 'reinforce_ring',
       'description':
-          'Mark that an existing ring showed up again in these events '
-          '(instead of adding a duplicate).',
+          'Mark that an existing ring showed up again in a NEW message in '
+          'this window. Cite at least one message from this window.',
       'parameters': {
         'type': 'object',
         'properties': {

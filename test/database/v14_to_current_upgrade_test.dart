@@ -48,13 +48,9 @@ void main() {
     HttpOverrides.global = null;
     SharedPreferences.setMockInitialValues({'update_auto_check': false});
 
-    final expected =
-        jsonDecode(
-              File(
-                'test/fixtures/v14_upgrade/expected.json',
-              ).readAsStringSync(),
-            )
-            as Map<String, dynamic>;
+    final expected = jsonDecode(
+      File('test/fixtures/v14_upgrade/expected.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
     final chats = (expected['chats'] as List).cast<Map<String, dynamic>>();
 
     final dir = Directory.systemTemp.createTempSync('fpai_v14_pin_db_');
@@ -132,7 +128,7 @@ void main() {
     }
 
     final first = await hydrateOnce();
-    expect(first['_meta']!['user_version'], 53);
+    expect(first['_meta']!['user_version'], 54);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -157,7 +153,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 53);
+    expect(second['_meta']!['user_version'], 54);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

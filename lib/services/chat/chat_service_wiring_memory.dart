@@ -211,6 +211,7 @@ extension ChatServiceWiringMemory on ChatService {
       getGrowthEnabled: () =>
           _storageService.memorySettings.characterEvolutionEnabled,
       getReviewFirst: () => _storageService.memorySettings.growthReviewFirst,
+      getGrowthInterval: () => _storageService.memorySettings.growthInterval,
       getIsPassRunning: () => _isGrowthPassRunning,
       setIsPassRunning: (v) => _isGrowthPassRunning = v,
       refreshCache: () => _refreshGrowthCache(),

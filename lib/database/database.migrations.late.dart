@@ -7,7 +7,7 @@
 
 part of 'database.dart';
 
-/// Schema v40 → v53 of the onUpgrade ladder. Blocks are byte-verbatim.
+/// Schema v40 → v54 of the onUpgrade ladder. Blocks are byte-verbatim.
 extension _AppDatabaseMigrationLate on AppDatabase {
   Future<void> _upgradeFromV40(Migrator m, int from, int to) async {
     if (from < 40) {
@@ -211,6 +211,36 @@ extension _AppDatabaseMigrationLate on AppDatabase {
       } catch (_) {
         // already present (re-run / dual-version)
       }
+    }
+    if (from < 54) {
+      // v53→v54: growth_rings came from the raw v36 DDL with
+      // `created_at/last_reinforced_at/updated_at ... DEFAULT 0`, and addRing
+      // never wrote them, so every upgraded ring reads 1970. Backfill once
+      // from the best evidence: the first receipt's message time, else the
+      // first reinforce, else the chat's creation, else now. Only rows still
+      // at 0 are touched, so a re-run (dual-version open) is a no-op.
+      await customStatement('''
+        UPDATE growth_rings SET created_at = COALESCE(
+          NULLIF((SELECT MIN(m.updated_at) FROM messages m
+                  WHERE m.session_id = growth_rings.session_id
+                    AND m.position = CAST(json_extract(
+                      growth_rings.source_message_ids, '\$[0]') AS INTEGER)
+                    AND m.updated_at > 0), 0),
+          NULLIF(growth_rings.last_reinforced_at, 0),
+          NULLIF((SELECT s.created_at FROM sessions s
+                  WHERE s.id = growth_rings.session_id), 0),
+          CAST(strftime('%s', 'now') AS INTEGER))
+        WHERE created_at = 0
+      ''');
+      await customStatement(
+        'UPDATE growth_rings SET last_reinforced_at = created_at '
+        'WHERE last_reinforced_at = 0',
+      );
+      await customStatement(
+        'UPDATE growth_rings SET updated_at = MAX(created_at, last_reinforced_at) '
+        'WHERE updated_at = 0',
+      );
+      debugPrint('[DB] v54: backfilled growth_rings timestamps');
     }
   }
 

@@ -95,7 +95,9 @@ void main() {
       // v53: sessions.passage_of_time_gate_migrated — one-shot leftover
       //      per-chat Passage of Time re-derive. Ladder in
       //      lib/database/database.migrations.late.dart.
-      expect(db.schemaVersion, 53);
+      // v54: growth_rings timestamp backfill (raw v36 DDL left created_at=0).
+      //      Guarded by test/database/growth_rings_created_at_test.dart.
+      expect(db.schemaVersion, 54);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

@@ -116,6 +116,22 @@ class _ChatMessageListState extends State<ChatMessageList> {
   bool _revealQueued = false;
   int _openPins = 0;
 
+  /// Open-time stick-to-latest. True from open until the reader (or a
+  /// journal jump) moves the list. While true, a content-size change
+  /// (image decode, font load, late chips) re-pins to the bottom.
+  bool _stickToLatest = false;
+  bool _selfJump = false;
+  bool _repinQueued = false;
+
+  void _jumpSelf(ScrollController c, double to) {
+    _selfJump = true;
+    try {
+      c.jumpTo(to);
+    } finally {
+      _selfJump = false;
+    }
+  }
+
   ScrollController? get _controller => widget.controller ?? _owned;
   TranscriptWindow get _window => widget.window ?? _ownedWindow!;
 
@@ -156,6 +172,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
       nearTop: _openSettled && _nearTop,
     );
     if (opened) {
+      _stickToLatest = true;
       _openSettled = false;
       _openPins = 0;
       _nearTop = false;
@@ -203,16 +220,30 @@ class _ChatMessageListState extends State<ChatMessageList> {
       if (!mounted) return;
       final c = _controller;
       final pending = _pending;
-      applyTranscriptGrowth(c, pending: pending, previousMax: _maxAtLastFrame);
+      _selfJump = true;
+      try {
+        applyTranscriptGrowth(
+          c,
+          pending: pending,
+          previousMax: _maxAtLastFrame,
+        );
+      } finally {
+        _selfJump = false;
+      }
       if (pending == TranscriptGrowth.open) {
         _settleOpenPin();
       } else if (pending == null || pending == TranscriptGrowth.other) {
-        followTranscriptWhileStreaming(
-          c,
-          followEnabled: widget.followStreamingReplies,
-          generating: widget.replyStreaming,
-          previousMax: _maxAtLastFrame,
-        );
+        _selfJump = true;
+        try {
+          followTranscriptWhileStreaming(
+            c,
+            followEnabled: widget.followStreamingReplies,
+            generating: widget.replyStreaming,
+            previousMax: _maxAtLastFrame,
+          );
+        } finally {
+          _selfJump = false;
+        }
         _openSettled = true;
       } else {
         _openSettled = true;
@@ -243,7 +274,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     final max = c.position.maxScrollExtent;
     if (max - c.offset > 1 && _openPins < 8) {
       _openPins++;
-      c.jumpTo(max);
+      _jumpSelf(c, max);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _settleOpenPin();
       });
@@ -255,7 +286,33 @@ class _ChatMessageListState extends State<ChatMessageList> {
     _maxAtLastFrame = max;
   }
 
+  /// Content height changed with no scroll (image decoded, chips landed).
+  void _onMetrics(ScrollMetricsNotification n) {
+    if (n.depth != 0 || !_stickToLatest || _repinQueued) return;
+    if (widget.replyStreaming && !widget.followStreamingReplies) {
+      _stickToLatest = false;
+      return;
+    }
+    _repinQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _repinQueued = false;
+      final c = _controller;
+      if (!mounted || !_stickToLatest || c == null || !c.hasClients) return;
+      final max = c.position.maxScrollExtent;
+      if ((max - c.offset).abs() > 0.5) _jumpSelf(c, max);
+      _maxAtLastFrame = max;
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
   void _onScroll(ScrollNotification notification) {
+    if (notification.depth == 0 &&
+        !_selfJump &&
+        (notification is ScrollUpdateNotification ||
+            (notification is UserScrollNotification &&
+                notification.direction != ScrollDirection.idle))) {
+      _stickToLatest = false;
+    }
     if (!_openSettled) return;
     if (notification.metrics.axis != Axis.vertical) return;
     if (notification is! ScrollUpdateNotification &&
@@ -288,40 +345,45 @@ class _ChatMessageListState extends State<ChatMessageList> {
   Widget build(BuildContext context) {
     final start = _start;
     final visibleCount = _end - start;
-    final scrollBehavior = ScrollConfiguration.of(
-      context,
-    ).copyWith(scrollbars: false);
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        _onScroll(notification);
+    final scrollBehavior = ScrollConfiguration.of(context)
+        .copyWith(scrollbars: false);
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (n) {
+        _onMetrics(n);
         return false;
       },
-      child: ScrollConfiguration(
-        behavior: scrollBehavior,
-        child: Scrollbar(
-          controller: _controller,
-          interactive: true,
-          thumbVisibility: true,
-          trackVisibility: true,
-          thickness: 12,
-          radius: const Radius.circular(6),
-          notificationPredicate: (notification) => notification.depth == 0,
-          child: ListView.builder(
-            key: const ValueKey('transcript-listview'),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          _onScroll(notification);
+          return false;
+        },
+        child: ScrollConfiguration(
+          behavior: scrollBehavior,
+          child: Scrollbar(
             controller: _controller,
-            reverse: false,
-            primary: false,
-            scrollCacheExtent: const ScrollCacheExtent.pixels(4000),
-            padding: widget.padding,
-            itemCount: visibleCount + (widget.generatingImage ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (widget.generatingImage && index == visibleCount) {
-                return const GeneratingImageBubble();
-              }
-              final messageIndex = start + index;
-              final msg = widget.messages[messageIndex];
-              return _row(msg, messageIndex);
-            },
+            interactive: true,
+            thumbVisibility: true,
+            trackVisibility: true,
+            thickness: 12,
+            radius: const Radius.circular(6),
+            notificationPredicate: (notification) => notification.depth == 0,
+            child: ListView.builder(
+              key: const ValueKey('transcript-listview'),
+              controller: _controller,
+              reverse: false,
+              primary: false,
+              scrollCacheExtent: const ScrollCacheExtent.pixels(4000),
+              padding: widget.padding,
+              itemCount: visibleCount + (widget.generatingImage ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (widget.generatingImage && index == visibleCount) {
+                  return const GeneratingImageBubble();
+                }
+                final messageIndex = start + index;
+                final msg = widget.messages[messageIndex];
+                return _row(msg, messageIndex);
+              },
+            ),
           ),
         ),
       ),
