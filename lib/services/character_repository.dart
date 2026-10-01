@@ -50,6 +50,15 @@ class CharacterRepository extends ChangeNotifier {
   final List<CharacterCard> _characters = [];
   bool _isLoading = false;
 
+  /// Test-only stall after a load marks itself in flight. Null in the app,
+  /// so production loads do not wait. Lets a test hold the constructor's
+  /// load open instead of hoping the database is slow.
+  @visibleForTesting
+  static Future<void> Function()? debugPauseLoad;
+
+  Future<void>? _loadInFlight;
+  bool _reloadAfterFlight = false;
+
   List<CharacterCard> get characters => List.unmodifiable(_characters);
   bool get isLoading => _isLoading;
 
@@ -89,7 +98,7 @@ class CharacterRepository extends ChangeNotifier {
     return '${_storage.charactersDir.path}/$basename';
   }
 
-  /// Update the database reference (e.g. after cloud sync replaces the DB file).
+  /// Update the database reference after a library swap replaces the DB file.
   void updateDatabase(AppDatabase db) {
     _db = db;
   }
@@ -105,13 +114,32 @@ class CharacterRepository extends ChangeNotifier {
   /// to every part via `part of`, and does nothing but forward the call.
   void _notify() => notifyListeners();
 
-  Future<void> loadCharacters() async {
-    // Re-entrancy guard: the toolbar refresh button (and other callers) can trigger
-    // rapid or concurrent calls. Skip redundant work while a load is already in flight.
-    // This prevents interleaved _characters mutations and flickering isLoading state.
-    // A skipped call also skips the initial _isLoading=true/notify (no spurious flicker for that caller).
-    // Fire-and-forget callers (e.g. some web server paths) may be dropped when busy;
-    // the in-flight load will still deliver the final update to listeners.
+  /// Loads the library. A call that arrives while one is already running
+  /// waits for it, then runs one more pass so the await cannot return
+  /// against an empty or partial list.
+  Future<void> loadCharacters() {
+    if (_loadInFlight != null) {
+      _reloadAfterFlight = true;
+      return _loadInFlight!;
+    }
+    _loadInFlight = _loadPasses();
+    return _loadInFlight!;
+  }
+
+  Future<void> _loadPasses() async {
+    try {
+      do {
+        _reloadAfterFlight = false;
+        await _loadCharactersOnce();
+      } while (_reloadAfterFlight);
+    } finally {
+      _loadInFlight = null;
+    }
+  }
+
+  Future<void> _loadCharactersOnce() async {
+    // Import paths set _isLoading themselves and do not take _loadInFlight.
+    // Skipping here keeps those passes from interleaving a second clear/fill.
     if (_isLoading) return;
 
     // Full reload = the path that picks up EXTERNAL changes (Character
@@ -122,6 +150,8 @@ class CharacterRepository extends ChangeNotifier {
 
     _isLoading = true;
     notifyListeners();
+    final pause = debugPauseLoad;
+    if (pause != null) await pause();
     final traceStart = DateTime.now();
 
     try {
@@ -213,11 +243,11 @@ class CharacterRepository extends ChangeNotifier {
         _characters.add(card);
       }
 
-      // Summarize missing PNGs once (common when developing from source or after cloud deletes)
+      // Summarize missing portrait files once.
       if (missingPngNames.isNotEmpty) {
         debugPrint(
-          '[CharacterRepository] ${missingPngNames.length} characters have missing local PNG files '
-          '(they can be restored via Cloud Sync): ${missingPngNames.join(", ")}',
+          '[CharacterRepository] ${missingPngNames.length} characters are '
+          'missing their portrait file: ${missingPngNames.join(", ")}',
         );
       }
       if (noCardDataNames.isNotEmpty) {
@@ -240,10 +270,14 @@ class CharacterRepository extends ChangeNotifier {
   }
 
   /// Delete PNG files in the Characters directory that are not referenced
-  /// by any character in the database. This cleans up orphans left behind
-  /// when the DB is replaced via cloud sync or characters are deleted
-  /// without their file being removed.
+  /// by any loaded character. Cleans up orphans left when the database is
+  /// swapped or a character is deleted without its file.
+  ///
+  /// Returns 0 and deletes nothing while a load is in flight. The in-memory
+  /// list is empty or partial then, and a sweep would treat live portraits
+  /// as orphans.
   Future<int> cleanOrphanedPngs() async {
+    if (isLoading) return 0;
     try {
       final charDir = _storage.charactersDir;
       if (!await charDir.exists()) return 0;
