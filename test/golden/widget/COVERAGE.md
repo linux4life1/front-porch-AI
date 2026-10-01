@@ -38,8 +38,8 @@ and flip the row to ✅.
   UiSettingsDialog, ChatSettingsDialog, ModelSettingsDialog, ModelManagerPage,
   TtsSettingsDialog (ttsEngine/Enabled/SpeechRate/Concurrency/AutoPlay/NarrateQuotedOnly/
   IgnoreAsterisks/ReplaceCurlyQuotes/VoiceModel/openaiTtsApiKey/BaseUrl/Model),
-  ImageGenSettingsDialog (imageGenEnabled/Model/Size/Style/PromptParadigm/
-  NegativePrompt/Backend/Seed/drawThingsGrpcHost/Port/localImageGenUrl).
+  ImageGenSettingsDialog (the Image Studio desk: Create/Edit tabs, Connection,
+  Model, LoRA, Size, Style and Prompt format).
 - ✅ `support/fakes_services.dart` — `FakeKoboldService` (logs/isRunning/isReady/isStarting),
   `FakeVoiceManager` (catalog=[]/isLoadingCatalog/fetchCatalog no-op/listInstalledVoices=>[]),
   `FakeImageGenService` (fetchImageModels async=>[]).
