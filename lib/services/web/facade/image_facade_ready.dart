@@ -62,6 +62,11 @@ extension ImageStudioReady on ImageFacade {
   Future<Map<String, dynamic>> studioReady({required bool edit}) async {
     final settings = _storage.imageGenSettings;
     final backend = settings.imageGenBackend;
+    // A ComfyUI that moved, or was started after Front Porch, is found here
+    // too; one the person did not choose is only named ('neighborUrl').
+    final redial = backend == 'comfyui'
+        ? await redialComfy(settings, finder: comfyFinder)
+        : null;
     final comfy = backend == 'comfyui'
         ? ComfyUiService(baseUrl: settings.comfyUiUrl)
         : null;
@@ -122,7 +127,7 @@ extension ImageStudioReady on ImageFacade {
       'reachable': up,
       'diffusionCount': diffusionCount,
       'loraCount': loraCount,
-      'neighborUrl': '',
+      'neighborUrl': redial?.offer ?? '',
       'savedUrl': settings.comfyUiUrl,
       'mode': edit ? 'edit' : 'create',
       'workflowId': report.workflowId,

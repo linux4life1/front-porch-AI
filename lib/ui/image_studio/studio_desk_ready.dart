@@ -46,6 +46,7 @@ extension on _StudioDeskState {
     if (!mounted || seq != _readySeq) return;
     rebuildState(() => _ready = report);
     _reportReady(report.ready);
+    _watchComfy(report);
     // "Use anyway" belongs to the model it was pressed for. It is dropped when
     // this desk's own model changes to another family, not merely because the
     // other tab's desk (a different model) also reads the same setting.

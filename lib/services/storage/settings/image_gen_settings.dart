@@ -26,6 +26,7 @@ import 'image_gen_remote.dart';
 import 'settings_base.dart';
 
 part 'image_gen_settings.comfy_shift.dart';
+part 'image_gen_settings.comfy_url.dart';
 part 'image_gen_settings.load.dart';
 
 /// Image generation (A1111/Draw Things/remote) + Draw Things gRPC settings.
@@ -40,7 +41,8 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   String _imageGenBackend =
       'remote'; // 'remote', 'a1111', 'drawthings', 'comfyui'
   String _localImageGenUrl = 'http://127.0.0.1:7860';
-  String _comfyUiUrl = 'http://127.0.0.1:8188';
+  String _comfyUiUrl = kDefaultComfyUiUrl;
+  bool _comfyUiUrlExplicit = false;
   String _imageGenModel = '';
 
   // The EDIT-task model slot (phase #12 model-slot split). One shared
@@ -193,9 +195,15 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
     notify();
   }
 
+  /// An address the person gave (typed on the desk, or saved from the phone):
+  /// it always wins over one found on its own. An empty one turns finding the
+  /// address on again.
   Future<void> setComfyUiUrl(String value) async {
-    _comfyUiUrl = value;
-    await prefs?.setString(k('comfy_ui_url'), value);
+    final cleared = value.trim().isEmpty;
+    _comfyUiUrl = cleared ? kDefaultComfyUiUrl : value;
+    _comfyUiUrlExplicit = !cleared;
+    await prefs?.setString(k('comfy_ui_url'), _comfyUiUrl);
+    await prefs?.setBool(k('comfy_ui_url_explicit'), _comfyUiUrlExplicit);
     notify();
   }
 

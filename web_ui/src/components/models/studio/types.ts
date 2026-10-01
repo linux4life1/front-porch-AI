@@ -77,6 +77,8 @@ export interface ReadyFacts {
   loraFamily?: string;
   loraFacts?: LoraFact[];
   reachable?: boolean;
+  /** Where ComfyUI answers when the saved address (one the person gave) does not. */
+  neighborUrl?: string;
   diffusionCount?: number;
   loraCount?: number;
   mode?: Mode;

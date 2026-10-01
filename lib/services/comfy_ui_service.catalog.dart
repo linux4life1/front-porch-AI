@@ -114,9 +114,14 @@ extension ComfyUiCatalogApi on ComfyUiService {
   /// two minutes is reused; a fresh [fetchObjectInfo] refreshes it.
   Future<Map<String, dynamic>?> objectInfoForRun() => _objectInfo();
 
-  Future<ComfyFileCatalog> fetchCatalog() async {
+  Future<ComfyFileCatalog> fetchCatalog() async =>
+      await fetchCatalogIfUp() ?? const ComfyFileCatalog();
+
+  /// [fetchCatalog], or null when the server did not answer (an empty
+  /// catalog is a server that answered with nothing installed).
+  Future<ComfyFileCatalog?> fetchCatalogIfUp() async {
     final info = await _objectInfo(fresh: true);
-    if (info == null) return const ComfyFileCatalog();
+    if (info == null) return null;
     return assembleComfyCatalog(
       checkpoints: ComfyUiService.optionsFromObjectInfo(
         info,

@@ -80,13 +80,12 @@ Future<String?> discoverComfyModelsRoot({
           ? await scanComfyProcesses()
           : const <ComfyProcessSnapshot>[]);
   final candidates = <String>[];
-  for (final proc in procs) {
+  for (final proc in _preferringPort(procs, preferPort)) {
     final hints = comfyLaunchHints(
       proc.command,
       cwd: proc.cwd,
       executable: proc.executable,
     );
-    if (preferPort != null && hints.port != preferPort) continue;
     final yamls = [
       ...hints.extraYamls,
       if (hints.mainPyDir != null)
@@ -140,6 +139,24 @@ Future<String?> discoverAutomatic1111Root({
     if (await _isWebuiRoot(root)) return root;
   }
   return null;
+}
+
+/// [procs] with the ones serving [port] first. The others still count: the
+/// saved address can be stale (ComfyUI Desktop moved, or a test port), and
+/// skipping every server on another port would miss the one that is running.
+List<ComfyProcessSnapshot> _preferringPort(
+  List<ComfyProcessSnapshot> procs,
+  int? port,
+) {
+  if (port == null) return procs;
+  bool on(ComfyProcessSnapshot proc) =>
+      comfyLaunchHints(
+        proc.command,
+        cwd: proc.cwd,
+        executable: proc.executable,
+      ).port ==
+      port;
+  return [...procs.where(on), ...procs.where((proc) => !on(proc))];
 }
 
 /// Local `python main.py` / webui processes. Empty when the OS refuses.
@@ -233,13 +250,12 @@ Future<Map<String, String>> discoverComfyTypeFolders(
           ? await scanComfyProcesses()
           : const <ComfyProcessSnapshot>[]);
   final yamls = <String>[];
-  for (final proc in procs) {
+  for (final proc in _preferringPort(procs, preferPort)) {
     final hints = comfyLaunchHints(
       proc.command,
       cwd: proc.cwd,
       executable: proc.executable,
     );
-    if (preferPort != null && hints.port != preferPort) continue;
     yamls.addAll(hints.extraYamls);
     if (hints.mainPyDir != null) {
       yamls.add(p.join(hints.mainPyDir!, 'extra_model_paths.yaml'));

@@ -12,6 +12,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 
 import 'studio_civitai_get.dart';
+import 'studio_comfy_address.dart';
 import 'studio_commit_field.dart';
 import 'studio_desk_copy.dart';
 import 'studio_desk_knobs.dart';
@@ -22,6 +23,7 @@ import 'studio_stove.dart';
 
 part 'studio_desk_actions.dart';
 part 'studio_desk_catalog.dart';
+part 'studio_desk_comfy.dart';
 part 'studio_desk_ready.dart';
 
 /// The studio desk. Reads and writes [StorageService] image settings.
@@ -79,6 +81,7 @@ class _StudioDeskState extends State<StudioDesk> {
   Map<String, String> _dtLoraVersions = const {};
   Map<String, String> _dtModelVersions = const {};
   String? _catalogUrl;
+  String? _catalogPending;
   bool _remoteListed = false;
 
   StudioReadyReport? _ready;
@@ -88,6 +91,10 @@ class _StudioDeskState extends State<StudioDesk> {
   ModelFamily? _checkedFamily;
   bool? _reportedReady;
   StorageService? _storage;
+  ComfyBackoff? _comfyBackoff;
+  bool? _comfyUp;
+  String? _comfyOffer;
+  bool _lookedForComfy = false;
 
   @override
   void didChangeDependencies() {
@@ -102,6 +109,10 @@ class _StudioDeskState extends State<StudioDesk> {
         settings.prefs?.getBool(settings.k('image_studio_adult')) ?? _adult;
     _refreshCatalog(settings);
     _checkReady();
+    if (!_lookedForComfy && settings.imageGenBackend == 'comfyui') {
+      _lookedForComfy = true;
+      _lookForComfy();
+    }
   }
 
   @override
@@ -113,6 +124,7 @@ class _StudioDeskState extends State<StudioDesk> {
   @override
   void dispose() {
     _storage?.removeListener(_onStorage);
+    _comfyBackoff?.stop();
     super.dispose();
   }
 
@@ -189,6 +201,18 @@ class _StudioDeskState extends State<StudioDesk> {
       url: _url(settings),
       onBackend: settings.setImageGenBackend,
       onEditUrl: () => _editUrl(settings),
+      address: backend == 'comfyui'
+          ? StudioComfyAddress(
+              url: settings.comfyUiUrl,
+              explicit: settings.comfyUiUrlExplicit,
+              offer: _comfyOffer,
+              onSave: (url) async {
+                rebuildState(() => _comfyOffer = null);
+                await settings.setComfyUiUrl(url);
+                if (url.isEmpty) await _lookForComfy();
+              },
+            )
+          : null,
       remoteNote: backend == 'remote'
           ? StudioRemoteKeyNote(settings: settings, storage: storage)
           : null,
@@ -325,6 +349,7 @@ class _StudioDeskState extends State<StudioDesk> {
   }
 
   void _retryCatalog() {
+    _lookForComfy();
     setState(() => _catalogUrl = null);
     _refreshCatalog(
       context.read<StorageService>().imageGenSettings,

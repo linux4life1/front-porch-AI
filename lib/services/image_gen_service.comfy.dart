@@ -33,8 +33,14 @@ extension _ImageGenComfy on ImageGenService {
     required double? editStrength,
     required ImageReferenceRole refRole,
   }) async {
-    final comfy = _ensureComfyUi;
     final settings = _storage.imageGenSettings;
+    var comfy = _ensureComfyUi;
+    // An address nobody typed is only a guess: when nothing answers there,
+    // look for ComfyUI before giving up.
+    if (!settings.comfyUiUrlExplicit && !await comfy.testConnection()) {
+      await redialComfy(settings);
+      comfy = _ensureComfyUi;
+    }
     final (width, height) = _parseSize(size ?? settings.imageGenSize);
     final available = await comfy.fetchSamplers();
     final storedSampler = settings.imageGenSampler;

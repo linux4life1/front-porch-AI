@@ -56,6 +56,10 @@ class ImageFacade {
   final CharacterRepository? _characters;
   final ExpressionPackBoard _packBoard;
 
+  /// How the ready check looks for ComfyUI; tests point it at their servers.
+  @visibleForTesting
+  ComfyUrlFinder? comfyFinder;
+
   /// Current image-gen config for the web panel. The API key is never returned
   /// (presence only), matching the text-backend settings facade.
   Map<String, dynamic> config() {

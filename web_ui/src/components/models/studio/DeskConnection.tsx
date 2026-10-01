@@ -110,6 +110,14 @@ export function DeskConnection(props: {
               </button>
             </>
           ) : null}
+          {cfg.backend === 'comfyui' && facts?.neighborUrl && facts.neighborUrl !== address.trim() ? (
+            <p>
+              ComfyUI answers at {facts.neighborUrl}{' '}
+              <button type="button" onClick={() => setAddress(facts.neighborUrl!)}>
+                Use this
+              </button>
+            </p>
+          ) : null}
           {facts?.reachable ? (
             local || cfg.backend === 'drawthings' ? (
               <p>

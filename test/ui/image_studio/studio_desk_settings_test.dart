@@ -180,13 +180,10 @@ void main() {
       await storage.imageGenSettings.setImageGenBackend('comfyui');
       await pump(tester, const StudioDesk());
 
+      // The address is a visible field now, not a tap that opens a dialog.
+      final address = find.widgetWithText(TextField, 'ComfyUI address');
       expect(find.text(storage.imageGenSettings.comfyUiUrl), findsOneWidget);
-      await tester.tap(find.text(storage.imageGenSettings.comfyUiUrl));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byType(TextField).last,
-        'http://10.0.0.5:8188',
-      );
+      await tester.enterText(address, 'http://10.0.0.5:8188');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 

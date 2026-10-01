@@ -140,10 +140,17 @@ extension on _StudioDeskState {
     required bool force,
   }) async {
     final url = settings.comfyUiUrl;
-    if (!force && _catalogUrl == url) return;
-    _catalogUrl = url;
+    if (!force && (_catalogUrl == url || _catalogPending == url)) return;
+    // Marked as listed only once it has been: a ComfyUI that was down is
+    // asked again on the next look, not only after Check.
+    _catalogPending = url;
     final service = ComfyUiService(baseUrl: url);
-    final catalog = await service.fetchCatalog();
+    final catalog = await service.fetchCatalogIfUp();
+    if (_catalogPending == url) _catalogPending = null;
+    if (catalog == null) {
+      if (mounted && _catalogUrl == url) rebuildState(() => _catalogUrl = null);
+      return;
+    }
     final samplers = await service.fetchSamplers();
     final schedulers = await service.fetchSchedulers();
     if (!mounted) return;

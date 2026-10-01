@@ -11,6 +11,7 @@ import 'studio_gen_progress.dart';
 import 'studio_size_fields.dart';
 import 'studio_size_pill.dart';
 import 'studio_stove_knobs.dart';
+import 'studio_stove_modes.dart';
 
 /// One LoRA sitting on the stove, with the badge the family check earned.
 class StudioStoveLora {
@@ -30,6 +31,7 @@ class StudioStove extends StatefulWidget {
     required this.url,
     required this.onBackend,
     required this.onEditUrl,
+    this.address,
     this.remoteNote,
     this.reachable = false,
     this.checkedDown = false,
@@ -85,6 +87,9 @@ class StudioStove extends StatefulWidget {
   final String url;
   final ValueChanged<String> onBackend;
   final VoidCallback onEditUrl;
+
+  /// Shown instead of the tappable address (ComfyUI's editable field).
+  final Widget? address;
   final Widget? remoteNote;
   final bool reachable;
   final bool checkedDown;
@@ -173,7 +178,8 @@ class _StudioStoveState extends State<StudioStove> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (widget.showModes) _modes(context),
+            if (widget.showModes)
+              StudioStoveModes(editing: widget.editing, onMode: widget.onMode),
             _connection(context, primary, secondary),
             const SizedBox(height: 12),
             Text(
@@ -382,25 +388,6 @@ class _StudioStoveState extends State<StudioStove> {
     );
   }
 
-  Widget _modes(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Wrap(
-        spacing: 8,
-        children: [
-          TextButton(
-            onPressed: widget.editing ? () => widget.onMode?.call(false) : null,
-            child: const Text('Create'),
-          ),
-          TextButton(
-            onPressed: widget.editing ? null : () => widget.onMode?.call(true),
-            child: const Text('Edit'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _connection(BuildContext context, Color primary, Color secondary) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,13 +405,14 @@ class _StudioStoveState extends State<StudioStove> {
                 ),
               ),
               Text(widget.backendName, style: TextStyle(color: primary)),
-              InkWell(
-                onTap: widget.onEditUrl,
-                child: Text(
-                  widget.url,
-                  style: TextStyle(color: secondary, fontSize: 12),
-                ),
-              ),
+              widget.address ??
+                  InkWell(
+                    onTap: widget.onEditUrl,
+                    child: Text(
+                      widget.url,
+                      style: TextStyle(color: secondary, fontSize: 12),
+                    ),
+                  ),
               if (widget.remoteNote != null) widget.remoteNote!,
               if (widget.reachable)
                 Text(
