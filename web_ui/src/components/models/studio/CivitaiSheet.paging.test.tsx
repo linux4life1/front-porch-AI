@@ -80,7 +80,6 @@ describe('Load more', () => {
     await runSearch('look');
     expect(text()).toContain('Look 1');
 
-    type('input[aria-label="Search"]', 'something else');
     click('Load more');
     await settle();
 

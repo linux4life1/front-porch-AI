@@ -57,6 +57,7 @@ export function CivitaiSheet(props: {
   const [cursor, setCursor] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const searchSeq = useRef(0);
+  const searchNote = useRef('');
   const [detail, setDetail] = useState<CivitaiRow | null>(null);
   const [saved, setSaved] = useState(false);
   const [token, setToken] = useState('');
@@ -88,6 +89,7 @@ export function CivitaiSheet(props: {
     if (civitaiBaseShown(filterCivitaiBases(civitaiBaseGroups, '', bases), base)) return;
     setBaseNote(`${civitaiBaseLabel(base)} isn't installed — showing Any base.`);
     setBase('');
+    clearResults();
   };
 
   useEffect(() => {
@@ -95,6 +97,26 @@ export function CivitaiSheet(props: {
     // Only when the installed list arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installed]);
+
+  /** What a search says; it goes with that search's results. */
+  const say = (words: string) => {
+    searchNote.current = words;
+    setNote(words);
+  };
+
+  /** A new base, new words or the adult box make the results the answer to
+   *  something no longer asked: they go, with Load more, until Search is
+   *  pressed again. A search still under way is dropped too. */
+  const clearResults = () => {
+    searchSeq.current++;
+    setSearching(false);
+    setRows([]);
+    setCursor(null);
+    setAsked(null);
+    setDetail(null);
+    if (searchNote.current && note === searchNote.current) setNote('');
+    searchNote.current = '';
+  };
 
   const run = (ask: { query: string; base: string; adult: boolean }, from?: string) => {
     const seq = ++searchSeq.current;
@@ -105,7 +127,7 @@ export function CivitaiSheet(props: {
       .then((found) => {
         if (!live.current || seq !== searchSeq.current) return;
         if (found.needsCredential) {
-          setNote('Paste an API key to search adult models.');
+          say('Paste an API key to search adult models.');
           setRows([]);
           setCursor(null);
           return;
@@ -114,13 +136,13 @@ export function CivitaiSheet(props: {
         setRows(next);
         setAsked(ask);
         setCursor(found.nextCursor);
-        if (next.length === 0) setNote(found.note || 'CivitAI returned no models for that search.');
-        else if (found.note && found.rows.length > 0) setNote(found.note);
+        if (next.length === 0) say(found.note || 'CivitAI returned no models for that search.');
+        else if (found.note && found.rows.length > 0) say(found.note);
       })
       .catch((e: unknown) => {
         if (!live.current || seq !== searchSeq.current) return;
         if (!from) setRows([]);
-        setNote(civitaiNote(e, 'CivitAI search failed.'));
+        say(civitaiNote(e, 'CivitAI search failed.'));
       })
       .finally(() => {
         if (live.current && seq === searchSeq.current) setSearching(false);
@@ -237,9 +259,7 @@ export function CivitaiSheet(props: {
             checked={adult}
             onChange={(e) => {
               setAdult(e.target.checked);
-              setRows([]);
-              setCursor(null);
-              setDetail(null);
+              clearResults();
             }}
           />
           Include adult models from civitai.red
@@ -274,6 +294,7 @@ export function CivitaiSheet(props: {
       <CivitaiBasePicker
         base={base}
         onBase={(api) => {
+          if (api !== base) clearResults();
           setBase(api);
           setBaseNote('');
         }}
@@ -292,7 +313,10 @@ export function CivitaiSheet(props: {
         aria-label="Search"
         placeholder={lora ? 'Clothes' : 'Search CivitAI'}
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          if (e.target.value.trim() !== query.trim()) clearResults();
+          setQuery(e.target.value);
+        }}
         onKeyDown={(e) => e.key === 'Enter' && search()}
       />
       <button type="button" onClick={search}>Search</button>

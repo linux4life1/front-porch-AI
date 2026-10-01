@@ -12,12 +12,20 @@ const kComfyLookupTimeout = Duration(seconds: 2);
 
 /// Runs [executable] and returns what it printed, or null when it could not
 /// start, exited with an error, or took longer than [timeout] (it is then
-/// killed), so a hung tool cannot hold up finding ComfyUI.
+/// killed), so a hung tool cannot hold up finding ComfyUI. Runs outside the
+/// caller's zone, so a widget's zone (a test's fake clock) is not left
+/// holding its timer.
 Future<String?> runBounded(
   String executable,
   List<String> arguments, {
   Duration timeout = kComfyLookupTimeout,
-}) async {
+}) => Zone.root.run(() => _runBounded(executable, arguments, timeout));
+
+Future<String?> _runBounded(
+  String executable,
+  List<String> arguments,
+  Duration timeout,
+) async {
   final Process process;
   try {
     process = await Process.start(executable, arguments);

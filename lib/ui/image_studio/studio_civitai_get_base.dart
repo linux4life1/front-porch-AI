@@ -42,6 +42,7 @@ extension _CivitaiBaseState on _StudioCivitaiGetState {
 
   void _pickBase(String api) {
     _set(() {
+      if (api != _base) _clearResults();
       _base = api;
       _baseNote = null;
     });
@@ -72,6 +73,7 @@ extension _CivitaiBaseState on _StudioCivitaiGetState {
     _baseNote =
         "${civitaiBaseLabel(_base)} isn't installed — showing Any base.";
     _base = '';
+    _clearResults();
     if (!_baseFocus.hasFocus) _showBaseLabel();
   }
 }

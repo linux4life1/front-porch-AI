@@ -84,6 +84,10 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   /// What the rows on screen were searched for, and where Load more starts.
   ({String query, String base, bool adult})? _asked;
   String? _cursor;
+
+  /// [_error] is what the last search said, so it goes with its results.
+  bool _errorFromSearch = false;
+  String _lastWords = '';
   String? _error;
   bool _searching = false;
   bool _needFolder = false;
@@ -102,6 +106,7 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   void initState() {
     super.initState();
     _watchBaseField();
+    _query.addListener(_wordsChanged);
     unawaited(_loadKeys());
     unawaited(_noteFolder());
   }
@@ -344,7 +349,10 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
               title: const Text('Include adult models from civitai.red'),
               onChanged: (value) {
                 if (value == null) return;
-                setState(() => _adult = value);
+                setState(() {
+                  _adult = value;
+                  _clearResults();
+                });
                 widget.onAdultChanged?.call(value);
               },
             ),

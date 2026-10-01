@@ -6,6 +6,31 @@ part of 'studio_civitai_get.dart';
 /// Searching CivitAI from the sheet: a new search, and Load more, which
 /// carries on from where the last one stopped with the same words and base.
 extension _CivitaiSearching on _StudioCivitaiGetState {
+  /// A new base, new words or the adult box make the rows on screen the
+  /// answer to something no longer asked: they go, with Load more, until
+  /// Search is pressed again. A search still under way is dropped too. Call
+  /// inside a state change.
+  void _clearResults() {
+    _searchSeq++;
+    _searching = false;
+    _rows = const [];
+    _cursor = null;
+    _asked = null;
+    if (_errorFromSearch) {
+      _error = null;
+      _errorFromSearch = false;
+    }
+  }
+
+  void _wordsChanged() {
+    final words = _query.text.trim();
+    if (words == _lastWords) return;
+    _lastWords = words;
+    if (_rows.isNotEmpty || _cursor != null || _searching || _errorFromSearch) {
+      _set(_clearResults);
+    }
+  }
+
   Future<void> _search() => _runSearch(more: false);
 
   Future<void> _loadMore() => _runSearch(more: true);
@@ -77,6 +102,7 @@ extension _CivitaiSearching on _StudioCivitaiGetState {
         _asked = asked;
         _cursor = found.nextCursor;
         _error = note.isEmpty ? null : note;
+        _errorFromSearch = note.isNotEmpty;
       });
     } on CivitaiKeyStoreException catch (e) {
       if (_current(seq)) _set(() => _error = e.message);
