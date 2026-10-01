@@ -465,6 +465,9 @@ class AvatarCreationController extends ChangeNotifier {
 
   /// Stop after whatever is in flight; completed images always stay.
   void cancel() {
+    // A listener that cancels on every notify would otherwise call this
+    // again from its own notify, without end.
+    if (_cancelRequested) return;
     _cancelRequested = true;
     session?.cancel();
     qc?.cancel();

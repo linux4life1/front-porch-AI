@@ -299,7 +299,9 @@ class ExpressionPackSession extends ChangeNotifier {
 
   /// Finish the in-flight slot, then stop; remaining slots stay pending
   /// (a later [run] resumes them).
+  /// Once per cancel: a second call does not interrupt ComfyUI again.
   void cancel() {
+    if (_cancelRequested) return;
     _cancelRequested = true;
     if (_running) _onCancel?.call();
   }

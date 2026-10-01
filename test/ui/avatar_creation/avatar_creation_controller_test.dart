@@ -544,5 +544,25 @@ void main() {
       final avatars = await repo.getAvatarImages(card.dbId!);
       expect(avatars.length, c.importedCount);
     });
+
+    test('a listener that cancels on every notify does not cancel again from '
+        'its own notify', () async {
+      final c = controller();
+      final gate = Completer<void>();
+      gen.freeSlots = 1;
+      gen.slotGate = gate;
+      var heard = 0;
+      c.addListener(() {
+        if (c.stage != AvatarRunStage.pack) return;
+        heard++;
+        c.cancel();
+        if (!gate.isCompleted) gate.complete();
+      });
+      await c.run();
+      expect(c.stage, AvatarRunStage.portraitReview);
+      await c.continueFromReview();
+      expect(c.stage, AvatarRunStage.done);
+      expect(heard, lessThan(50));
+    });
   });
 }
