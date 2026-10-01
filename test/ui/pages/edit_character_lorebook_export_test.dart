@@ -133,6 +133,9 @@ void main() {
 
     await tester.tap(find.text('Export file'));
     await tester.pumpAndSettle();
+    // Entries start ticked. Confirm the picker before the save dialog.
+    await tester.tap(find.widgetWithText(FilledButton, 'Export'));
+    await tester.pumpAndSettle();
 
     expect(savedCategory, PickerPrefs.catExport);
     expect(savedTitle, 'Export lorebook');

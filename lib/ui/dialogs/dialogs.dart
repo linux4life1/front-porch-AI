@@ -31,6 +31,7 @@ export 'journal_review_dialog.dart';
 export 'journal_timeline_tab.dart';
 export 'kobold_log_dialog.dart';
 export 'lorebook_entry_dialog.dart';
+export 'lorebook_export_picker_dialog.dart';
 export 'message_edit_dialog.dart';
 export 'model_settings_dialog.dart';
 export 'persona_picker_dialog.dart';

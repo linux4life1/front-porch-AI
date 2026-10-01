@@ -168,9 +168,15 @@ extension _EditCharacterPageHost on _EditCharacterPageState {
       return;
     }
 
+    final selected = await showLorebookExportPicker(
+      context: context,
+      entries: _loreEntries,
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+
     final name = _nameController.text.trim();
     final payload = encodeStWorldInfo(
-      Lorebook(entries: List<LorebookEntry>.from(_loreEntries)),
+      Lorebook(entries: List<LorebookEntry>.from(selected)),
       name: name,
     );
     final bytes = utf8.encode(
@@ -187,7 +193,7 @@ extension _EditCharacterPageHost on _EditCharacterPageState {
         bytes: bytes,
       );
       if (path == null || !mounted) return;
-      final n = _loreEntries.length;
+      final n = selected.length;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Exported $n ${n == 1 ? 'entry' : 'entries'}.')),
       );

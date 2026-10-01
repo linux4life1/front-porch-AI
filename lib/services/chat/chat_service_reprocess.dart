@@ -390,7 +390,11 @@ extension ChatServiceReprocess on ChatService {
         // normal path (line 4020) so emotion_label and realism_state are in
         // _pendingRealismMetadata before _generateResponse consumes it.
         _pendingRealismMetadata ??= {};
-        _pendingRealismMetadata!['emotion_label'] = _characterEmotion;
+        // Mood only when Realism ran. With Realism off this stamped the
+        // stale mood, and that one key lit Mood + Bond/Trust unchanged chips.
+        if (_realismEnabled) {
+          _pendingRealismMetadata!['emotion_label'] = _characterEmotion;
+        }
         _pendingRealismMetadata!['realism_state'] = _captureRealismState(
           preTurn: regenPreTurn,
         );

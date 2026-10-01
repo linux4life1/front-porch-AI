@@ -28,7 +28,7 @@ void main() {
       'lib/services/chat/chat_service_generation_stream.dart',
     ).readAsStringSync();
     expect(stream, contains('closeOpenThink(t.streamTarget.text)'));
-    expect(stream, contains('closeOpenThink(last.text)'));
+    expect(stream, contains('closeOpenThink(streamTarget.text)'));
     final post = File(
       'lib/services/chat/chat_service_generation_postgen.dart',
     ).readAsStringSync();
