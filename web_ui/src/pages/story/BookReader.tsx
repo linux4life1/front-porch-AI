@@ -7,7 +7,7 @@
 // ambient + page-turn audio (gracefully omitted if the assets aren't served).
 // A clean web reader — it does not pixel-match the Flutter CustomPageFlip.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { StoryProject } from '../../storyTypes';
@@ -15,7 +15,7 @@ import { useBookPages } from './useBookPages';
 import { useSceneNarration } from './useSceneNarration';
 import { TocDrawer } from './TocDrawer';
 
-export function BookReader({ id, project }: { id: string; project: StoryProject }) {
+export function BookReader({ id, project, modeToggle }: { id: string; project: StoryProject; modeToggle?: ReactNode }) {
   const navigate = useNavigate();
   const flowRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -126,6 +126,7 @@ export function BookReader({ id, project }: { id: string; project: StoryProject 
       <div className="reader-bar">
         <button className="ghost" onClick={() => navigate(`/stories/${id}`)}>← {project.title}</button>
         <h2>{project.title}</h2>
+        {modeToggle}
         {proseScenes.length > 0 && (
           narration.reading ? (
             <button className="icon-btn on" title="Stop reading" onClick={narration.stop}>⏹</button>

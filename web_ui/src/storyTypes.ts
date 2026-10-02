@@ -45,8 +45,122 @@ export interface StoryCastMember {
   name: string;
   role: string;
   description: string;
+  voice_sample?: string;
   voice_model?: string;
   details: Record<string, string>;
+  flaw?: string;
+  desire?: string;
+  interview?: string;
+  portrait?: string;
+}
+
+/** A sequence: a run of scenes inside an act bound by one dramatic question. */
+export interface StorySequence {
+  number: number;
+  act: number;
+  title: string;
+  function: string;
+  dramatic_question: string;
+  description: string;
+  climax: string;
+  ending_hook: string;
+  thread_ids: string[];
+  summary: string;
+}
+
+export interface RelationshipShift {
+  scene_id: string;
+  from: string;
+  to: string;
+  reason: string;
+}
+
+/** How `from` sees `to`. Directed: A→B and B→A are separate rows. */
+export interface StoryRelationship {
+  from: string;
+  to: string;
+  feeling: string;
+  note: string;
+  subtext: string;
+  trust: number;
+  history: RelationshipShift[];
+}
+
+export interface ContinuityFact {
+  category: string;
+  key: string;
+  value: string;
+  entity: string;
+  scene_id: string;
+  retired_scene_id?: string;
+}
+
+export interface StoryLens {
+  id: string;
+  name: string;
+  context: string;
+  glyph: string;
+}
+
+export interface ProseEdit {
+  find: string;
+  replace: string;
+}
+
+export interface ContinuityFix {
+  reason: string;
+  before: string;
+  edits: ProseEdit[];
+}
+
+export interface DirectorAction {
+  type: string;
+  scene_id: string;
+  beat: number;
+  sequence: number;
+  act: number;
+  summary: string;
+  details: Record<string, string>;
+  enabled: boolean;
+  locked: boolean;
+  result: string;
+}
+
+export interface DirectorPlan {
+  directive: string;
+  evaluation: string;
+  scope: 'local' | 'arc';
+  consistency_notes: string;
+  actions: DirectorAction[];
+  review: string;
+  created_at: string;
+}
+
+export interface DirectorApplied {
+  directive: string;
+  applied_at: string;
+  change_count: number;
+}
+
+/** One quality chip the server computed for a passage. */
+export interface QualityChip {
+  label: string;
+  tone: 'plain' | 'good' | 'warn' | 'bad';
+}
+
+/** One model call from the story's run log. */
+export interface StoryRunEntry {
+  at: string;
+  stage: string;
+  role: string;
+  backend: string;
+  attempt: number;
+  verdict: string;
+  note: string;
+  millis: number;
+  tokens: number;
+  prompt: string;
+  response: string;
 }
 
 export interface StoryThread {
@@ -78,6 +192,19 @@ export interface StoryScene {
   location: string;
   cast_names: string[];
   valence: number;
+  id?: string;
+  sequence?: number;
+  scene_type?: string;
+  lens?: string;
+  tension?: number;
+  value_from?: string;
+  value_to?: string;
+  objective?: string;
+  pov?: string;
+  commitments?: string;
+  entry?: string;
+  exit?: string;
+  summary?: string;
 }
 
 export interface StoryBeat {
@@ -87,11 +214,16 @@ export interface StoryBeat {
   emotional_shift: string;
   valence: number;
   pacing: number;
+  initiator?: string;
+  reactor?: string;
+  subtext?: string;
+  anchor?: string;
 }
 
 export interface BeatProse {
   draft?: string;
   final?: string;
+  fix?: ContinuityFix;
 }
 
 // The full project. Editable fields are typed; scenes/beats/prose are kept as
@@ -128,15 +260,40 @@ export interface StoryProject {
   scenes: Record<string, StoryScene[]>;
   beats: Record<string, StoryBeat[]>;
   prose: Record<string, BeatProse>;
+  // Studio engine (all optional on the wire; the server defaults them).
+  engine_mode?: 'quick' | 'studio';
+  target_words?: number;
+  story_format?: 'novel' | 'audioDrama';
+  model_lanes?: { planning: string; prose: string; review: string };
+  review_enabled?: boolean;
+  lenses_enabled?: boolean;
+  sequences?: StorySequence[];
+  relationships?: StoryRelationship[];
+  continuity?: ContinuityFact[];
+  twists?: string;
+  banned_phrases?: string[];
+  auto_banned_phrases?: string[];
+  director_plan?: DirectorPlan | null;
+  director_applied?: DirectorApplied | null;
+  reader_mode?: 'book' | 'scroll';
+  reader_scroll?: number;
   [key: string]: unknown;
 }
 
 export interface StoryStatus {
   running: boolean;
+  stopping?: boolean;
   step: string;
   status: string;
   tokens: number;
 }
+
+/** Target length choices (stored key → label), same words as the desktop. */
+export const TARGET_LENGTHS: { key: string; label: string; words: number }[] = [
+  { key: 'Short', label: 'Novella · 30k', words: 30000 },
+  { key: 'Standard', label: 'Novel · 80k', words: 80000 },
+  { key: 'Epic', label: 'Epic · 120k', words: 120000 },
+];
 
 // ── Option lists (1:1 with the desktop StorySetupPage) ──
 export const POV_OPTIONS = [
@@ -170,9 +327,9 @@ export const WRITING_STYLES = [
 
 // Length / pace / dialogue / maturity carry explanatory subtitles on desktop.
 export const PROSE_LENGTHS: Record<string, string> = {
-  Short: 'Novella (~20K words)',
-  Standard: 'Novel (~50K words)',
-  Epic: 'Long novel (~80K+ words)',
+  Short: 'Novella (~30K words)',
+  Standard: 'Novel (~80K words)',
+  Epic: 'Epic (~120K words)',
 };
 export const PACES: Record<string, string> = {
   'Slow Burn': 'Atmospheric, detailed worldbuilding',
@@ -210,6 +367,11 @@ export const BEAT_TYPE_CLASS: Record<string, string> = {
   Dialogue: 'dialogue',
   Revelation: 'revelation',
   Resolution: 'resolution',
+  Environment: 'environment',
+  Reflection: 'reflection',
+  Memory: 'reflection',
+  Sensory: 'sensory',
+  Transition: 'transition',
 };
 
 /** Pacing index → glyph (0 Slow, 1 Balanced, 2 Fast). */

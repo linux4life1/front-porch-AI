@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -31,33 +30,12 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 part 'engine_step.lanes.dart';
 
-/// "Main model · Qwen3 32B" / "Worker model · Gemma" — what each lane
-/// would run on right now. The worker label is null when no worker is set.
-({String main, String? worker}) storyLaneLabels(BuildContext context) {
-  final storage = Provider.of<StorageService>(context, listen: false);
-  final llm = Provider.of<LLMProvider>(context, listen: false);
-  String name(String remote, String? local) {
-    if (remote.isNotEmpty) return remote;
-    if (local != null && local.isNotEmpty) {
-      return path.basenameWithoutExtension(local);
-    }
-    return 'no model picked';
-  }
-
-  final settings = storage.backendSettings;
-  final main = settings.backendType == 'kobold'
-      ? name('', settings.lastUsedModelPath)
-      : name(settings.remoteModelName, null);
-  final worker = !llm.workerConfigured
-      ? null
-      : storage.workerBackendType == 'kobold'
-      ? name('', storage.workerKoboldModelPath ?? settings.lastUsedModelPath)
-      : name(storage.workerRemoteModelName, null);
-  return (
-    main: 'Main model · $main',
-    worker: worker == null ? null : 'Worker model · $worker',
-  );
-}
+/// The lane labels for this app's current backends.
+({String main, String? worker}) storyLaneLabels(BuildContext context) =>
+    storyLaneLabelsFor(
+      Provider.of<StorageService>(context, listen: false),
+      Provider.of<LLMProvider>(context, listen: false),
+    );
 
 /// Wizard step: how the story is written — engine mode, length, format,
 /// which model does which job, review and lens switches, and the AI engine

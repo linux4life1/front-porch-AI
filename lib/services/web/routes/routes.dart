@@ -18,6 +18,7 @@ export 'static_routes.dart';
 export 'stoop_routes.dart';
 export 'story_export_routes.dart';
 export 'story_routes.dart';
+export 'story_studio_routes.dart';
 export 'stream_routes.dart';
 export 'voice_routes.dart';
 export 'world_routes.dart';

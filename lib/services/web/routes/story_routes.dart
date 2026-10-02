@@ -88,9 +88,19 @@ class WebStoryRoutes {
   }
 
   Future<shelf.Response> _readingPosition(shelf.Request r, String id) async {
-    final page = (await _json(r))['page'];
-    if (page is! int) return JsonResponse.badRequest('page is required');
-    final ok = await _facade.saveReadingPosition(id, page);
+    final body = await _json(r);
+    final page = body['page'];
+    final mode = body['mode'];
+    final scroll = body['scroll'];
+    if (page is! int && mode is! String && scroll is! num) {
+      return JsonResponse.badRequest('page, mode or scroll is required');
+    }
+    final ok = await _facade.saveReadingPosition(
+      id,
+      page is int ? page : null,
+      mode: mode is String ? mode : null,
+      scroll: scroll is num ? scroll.toDouble() : null,
+    );
     if (!ok) return JsonResponse.error(404, 'Story not found');
     return JsonResponse.ok({'status': 'ok'});
   }
@@ -108,6 +118,7 @@ class WebStoryRoutes {
       actIndex: asInt('actIndex'),
       sceneIndex: asInt('sceneIndex'),
       beatIndex: asInt('beatIndex'),
+      args: body,
     );
     if (!ok) {
       return JsonResponse.error(

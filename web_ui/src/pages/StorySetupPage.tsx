@@ -9,17 +9,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
-import { AiEngineStrip } from '../components/AiEngineStrip';
 import { StepIndicator } from '../components/StepIndicator';
 import { OptionTiles } from './story/OptionTiles';
+import { EngineStep } from './story/EngineStep';
 import {
   type StoryProject, type StoryArchetype,
-  POV_OPTIONS, ROLE_OPTIONS, GENRES, MOODS, WRITING_STYLES, PROSE_LENGTHS,
-  PACES, DIALOGUE, MATURITY, PROMPT_TIERS,
+  POV_OPTIONS, ROLE_OPTIONS, GENRES, MOODS, WRITING_STYLES,
+  PACES, DIALOGUE, MATURITY,
 } from '../storyTypes';
 import '../styles/ws-j.css';
+import '../styles/studio.css';
 
-const STEPS = ['Concept', 'Style', 'Cast & AI'];
+const STEPS = ['Concept', 'Style', 'Cast', 'Engine'];
 
 export function StorySetupPage() {
   const { id = '' } = useParams();
@@ -34,7 +35,9 @@ export function StorySetupPage() {
   const rolesInit = useRef(false);
 
   useEffect(() => {
-    api.get<StoryProject>(`/api/stories/${id}`).then(setP)
+    // A brand-new story defaults to the Studio engine, like the desktop wizard.
+    api.get<StoryProject>(`/api/stories/${id}`)
+      .then((loaded) => setP(loaded.acts.length === 0 && !loaded.concept ? { ...loaded, engine_mode: 'studio' } : loaded))
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load'));
     api.get<{ id: string; name: string }[]>('/api/characters')
       .then((r) => setChars(r.map((c) => ({ id: c.id, name: c.name }))))
@@ -147,7 +150,7 @@ export function StorySetupPage() {
               {POV_OPTIONS.map((o) => <option key={o}>{o}</option>)}
             </select>
           </label>
-          <label>Acts: {p.act_count}
+          <label>Acts: {p.act_count} <span className="muted small">(Quick engine only — Studio always builds three acts and eight sequences)</span>
             <input type="range" min={1} max={5} value={p.act_count}
               onChange={(e) => set({ act_count: Number(e.target.value) })} />
           </label>
@@ -161,8 +164,6 @@ export function StorySetupPage() {
               {WRITING_STYLES.map((o) => <option key={o}>{o}</option>)}
             </select>
           </label>
-          <OptionTiles label="Prose length" options={PROSE_LENGTHS}
-            value={p.prose_length} onChange={(v) => set({ prose_length: v })} />
           <OptionTiles label="Narrative pace" options={PACES}
             value={p.narrative_pace} onChange={(v) => set({ narrative_pace: v })} />
           <OptionTiles label="Dialogue density" options={DIALOGUE}
@@ -225,15 +226,10 @@ export function StorySetupPage() {
               </select>
             </div>
           )}
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '14px 0' }} />
-          <AiEngineStrip />
-          <label>Prompt style — how prompts are written for your model (this does not pick the model)
-            <select value={p.prompt_tier} onChange={(e) => set({ prompt_tier: e.target.value })}>
-              {PROMPT_TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </label>
         </section>
       )}
+
+      {step === 3 && <EngineStep p={p} set={set} />}
 
       {error && <p className="error">{error}</p>}
       <div className="wizard-nav">

@@ -1,10 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Story bible dashboard: view the generated structure (concept, cast + voices,
-// threads, lore, editable acts + convergence points), distill chat history, drive
-// the pipeline with live progress, export (txt/md/epub/audiobook), and jump to
-// the structure/writer/reader. Mirrors the desktop StoryDashboardPage.
+// Story overview inside the studio shell: the story bible (concept, cast +
+// voices, threads, lore, editable acts), chat distilling, the first pipeline
+// buttons, and export. Mirrors the desktop StoryDashboardPage's Overview.
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -16,12 +15,13 @@ import { ChatDistillPanel } from './story/ChatDistillPanel';
 import { CastVoiceEditor } from './story/CastVoiceEditor';
 import { ActsEditor } from './story/ActsEditor';
 import { StoryExportBar } from './story/StoryExportBar';
+import { Chip, StudioShell } from './story/StudioShell';
 import '../styles/ws-j.css';
 
 export function StoryDashboardPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const { project: p, status, error, run, save } = useStory(id);
+  const { project: p, status, error, run, stop, save } = useStory(id);
   const [voices, setVoices] = useState<StoryVoice[]>([]);
 
   useEffect(() => {
@@ -37,6 +37,7 @@ export function StoryDashboardPage() {
   const hasBible = p.concept.trim() !== '' && (p.cast.length > 0 || p.status_quo.trim() !== '');
   const hasActs = p.acts.length > 0;
   const hasProse = !!p.prose && Object.keys(p.prose).length > 0;
+  const studio = p.engine_mode === 'studio';
 
   const pickVoice = (i: number, voiceId: string) => {
     const cast = p.cast.map((c, idx) =>
@@ -46,33 +47,21 @@ export function StoryDashboardPage() {
   const saveActs = async (acts: StoryAct[]) => { await save({ acts }); };
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <button className="ghost" onClick={() => navigate('/stories')}>← Stories</button>
-        <h2>{p.title}</h2>
-        <button className="ghost small" onClick={() => navigate(`/stories/${id}/setup`)}>Edit setup</button>
-      </div>
+    <StudioShell id={id} project={p} section="overview" status={status} error={error} onStop={stop}>
       <AiEngineStrip />
-
-      {busy && (
-        <div className="card story-progress" aria-live="polite">
-          <div className="spinner small" />
-          <div>
-            <strong>{status?.step || 'Working'}</strong>
-            <p className="muted small">{status?.status}{status?.tokens ? ` · ${status.tokens} tokens` : ''}</p>
-          </div>
-        </div>
-      )}
-      {error && <p className="error">{error}</p>}
-
       <section className="card">
-        <h3>Pipeline</h3>
-        <div className="btn-row">
+        <div className="s-row">
+          <h3 style={{ margin: 0 }}>Pipeline</h3>
+          <Chip tone={studio ? 'amber' : ''}>{studio ? 'Studio engine' : 'Quick engine'}</Chip>
+          {studio && <Chip tone={p.review_enabled === false ? '' : 'teal'}>{p.review_enabled === false ? 'Reviews off' : 'Reviews on'}</Chip>}
+          {studio && p.story_format === 'audioDrama' && <Chip tone="honey">Audio drama</Chip>}
+        </div>
+        <div className="btn-row" style={{ marginTop: 10 }}>
           <button className="primary" disabled={busy} onClick={() => run('story-architect')}>
             {hasBible ? 'Regenerate bible' : 'Generate story bible'}
           </button>
           <button className="ghost" disabled={busy || !hasBible} onClick={() => run('act-structure')}>
-            {hasActs ? 'Regenerate acts' : 'Generate act structure'}
+            {hasActs ? 'Regenerate acts' : (studio ? 'Generate acts & sequences' : 'Generate act structure')}
           </button>
           <button className="ghost" disabled={busy} onClick={() => run('autopilot')}>Autopilot (everything)</button>
         </div>
@@ -98,6 +87,7 @@ export function StoryDashboardPage() {
             {p.status_quo && <p><strong>Status quo:</strong> {p.status_quo}</p>}
             {p.inciting_incident && <p><strong>Inciting incident:</strong> {p.inciting_incident}</p>}
             {p.themes && <p><strong>Themes:</strong> {p.themes}</p>}
+            {p.twists && <p><strong>Planned reversals:</strong> {p.twists}</p>}
             {(p.style?.genre || p.style?.mood) && (
               <p className="muted small">{[p.style.genre, p.style.mood].filter(Boolean).join(' · ')}</p>
             )}
@@ -130,6 +120,6 @@ export function StoryDashboardPage() {
           <StoryExportBar id={id} title={p.title} />
         </>
       )}
-    </div>
+    </StudioShell>
   );
 }

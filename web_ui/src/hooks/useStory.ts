@@ -16,6 +16,8 @@ export interface RunArgs {
   actIndex?: number;
   sceneIndex?: number;
   beatIndex?: number;
+  /** Stage-specific extras (sequence, directive, protect, refinement, name). */
+  [key: string]: unknown;
 }
 
 export function useStory(id: string) {
@@ -88,5 +90,16 @@ export function useStory(id: string) {
     [id, project, reload],
   );
 
-  return { project, status, error, run, save, reload };
+  /// Ask the running stage to stop at its next safe point; the status
+  /// stream flips `stopping` until it does.
+  const stop = useCallback(async () => {
+    try {
+      const s = await api.post<StoryStatus>(`/api/stories/${id}/stop`, {});
+      setStatus(s);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not stop');
+    }
+  }, [id]);
+
+  return { project, status, error, run, stop, save, reload };
 }

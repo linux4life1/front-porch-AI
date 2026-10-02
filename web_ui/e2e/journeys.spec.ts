@@ -212,3 +212,32 @@ test('the chat model sheet lists models you can tap, and offers providers', asyn
   await sheet.getByRole('button', { name: 'Close' }).click();
   await expect(sheet).toHaveCount(0);
 });
+
+test('a story opens in the studio: the sidebar switches screens, the Engine step offers Quick and Studio, and the reader can scroll', async ({ page }) => {
+  const stories = ((await (await page.request.get('/api/stories')).json()) as { stories: { id: string; title: string }[] }).stories ?? [];
+  let story = stories.find((s) => s.title === 'Journey Story');
+  if (!story) {
+    story = (await (await page.request.post('/api/stories', { data: { title: 'Journey Story' } })).json()) as { id: string; title: string };
+  }
+  await openRoute(page, `/stories/${story.id}`);
+  await expect(page.getByRole('heading', { name: 'Journey Story' })).toBeVisible();
+  await page.getByTestId('studio-nav-director').click();
+  await expect(page).toHaveURL(new RegExp(`/stories/${story.id}/director$`));
+  await expect(page.getByTestId('director-directive')).toBeVisible();
+  await page.getByTestId('studio-nav-lore').click();
+  await expect(page.getByRole('button', { name: 'Continuity' })).toBeVisible();
+  await page.getByTestId('studio-nav-structure').click();
+  await expect(page.getByTestId('story-continue')).toBeVisible();
+
+  await openRoute(page, `/stories/${story.id}/setup`);
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByTestId('story-engine-studio')).toBeVisible();
+  await page.getByTestId('story-engine-quick').click();
+  await expect(page.getByTestId('story-engine-quick')).toHaveClass(/\bon\b/);
+
+  await openRoute(page, `/stories/${story.id}/read`);
+  await page.getByTestId('reader-mode').getByRole('button', { name: 'Scroll' }).click();
+  await expect(page.getByTestId('scroll-reader')).toBeVisible();
+  await page.getByTestId('reader-mode').getByRole('button', { name: 'Book' }).click();
+  await expect(page.getByTestId('scroll-reader')).toHaveCount(0);
+});

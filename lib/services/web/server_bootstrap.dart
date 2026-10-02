@@ -96,7 +96,11 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
     );
   }
   if (deps.voiceFacade != null) WebVoiceRoutes(deps.voiceFacade!, router);
-  if (deps.storyFacade != null) WebStoryRoutes(deps.storyFacade!, router);
+  if (deps.storyFacade != null) {
+    // Studio first: its fixed paths must beat the `<id>` params below.
+    WebStoryStudioRoutes(deps.storyFacade!, router);
+    WebStoryRoutes(deps.storyFacade!, router);
+  }
   if (deps.storyExportFacade != null) {
     WebStoryExportRoutes(deps.storyExportFacade!, router);
   }

@@ -59,7 +59,13 @@ const ROUTES: ((i: { character: string; story: string }) => string)[] = [
   (i) => `/stories/${i.story}`,
   (i) => `/stories/${i.story}/setup`,
   (i) => `/stories/${i.story}/structure`,
+  (i) => `/stories/${i.story}/write`,
   (i) => `/stories/${i.story}/read`,
+  (i) => `/stories/${i.story}/director`,
+  (i) => `/stories/${i.story}/cast`,
+  (i) => `/stories/${i.story}/relationships`,
+  (i) => `/stories/${i.story}/lore`,
+  (i) => `/stories/${i.story}/log`,
   (i) => `/edit/${i.character}`,
 ];
 
