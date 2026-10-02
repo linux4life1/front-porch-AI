@@ -102,6 +102,14 @@ extension StoryPipelineStudioBible on StoryPipelineService {
     await _repository.saveProject(project);
   }
 
+  /// The illustrator's brief for a cast member: how they look, in the
+  /// story's genre and mood. Same words on desktop and web.
+  static String portraitPrompt(StoryProject project, StoryCastMember member) {
+    final look = member.details['appearance'] ?? member.description;
+    return 'Portrait of ${member.name}. $look. ${project.style.genre} story, '
+        '${project.style.mood} mood. Head and shoulders, painterly, no text.';
+  }
+
   /// Interview (or re-interview) one cast member on request.
   Future<void> runCharacterInterview(StoryProject project, String name) =>
       _guard(() async {

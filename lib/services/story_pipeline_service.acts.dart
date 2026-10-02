@@ -172,6 +172,13 @@ extension StoryPipelineActs on StoryPipelineService {
 
     final isFirstScene = actIndex == 0 && sceneIndex == 0;
     final pov = project.pov;
+    // Same rolling ban list the Studio writer gets: phrases the model has
+    // leaned on in the last few scenes.
+    project.autoBannedPhrases = StoryQuality.overusedPhrases(
+      StoryQuality.recentProse(project, actIndex, sceneIndex),
+      exclude: [...project.cast.map((c) => c.name), ...project.bannedPhrases],
+    );
+    final bannedBlock = StudioProsePrompts.bannedBlock(project);
     final pace = project.narrativePace;
     final dialogue = project.dialogueDensity;
     final styleGuide = project.writingStyle.isNotEmpty
@@ -271,6 +278,7 @@ WRITING RULES:
 5. Write 400-800 words of rich, detailed prose for this beat.
 6. Vary sentence length. Mix short punchy sentences with longer descriptive ones.
 $styleGuide
+$bannedBlock
 ${runningContext.isNotEmpty ? '\nCONTINUITY — The story so far ends with:\n"""\n...$runningContext\n"""\nYour prose MUST continue seamlessly from this text. The reader should feel zero discontinuity.' : ''}
 $forwardHint
 

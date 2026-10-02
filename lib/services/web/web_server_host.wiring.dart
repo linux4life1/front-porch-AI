@@ -189,6 +189,7 @@ extension WebServerHostWiring on WebServerHost {
             tts: _ttsService,
             storage: _storage,
             llm: _llmProvider,
+            imageGen: _imageGenService,
           )
         : null;
 

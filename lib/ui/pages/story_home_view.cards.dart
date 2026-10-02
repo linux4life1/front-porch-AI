@@ -137,6 +137,28 @@ extension _StoryHomeViewCards on _StoryHomeViewState {
                   ],
                 ),
               ),
+              if (project.engineMode == StoryEngineMode.studio) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.porchAmberOf(
+                      context,
+                    ).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Studio',
+                    style: TextStyle(
+                      color: AppColors.porchAmberOf(context),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
               // Tier badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

@@ -56,7 +56,7 @@ ${chatContext.isNotEmpty ? '\nCRITICAL: Chat history is provided above. This is 
         project: project,
         label: 'Story Architect',
       );
-      final json = StoryJson.parseJson(response);
+      final json = StoryQuickXml.parse('architect', response);
 
       if (json == null) {
         throw Exception('Failed to parse story bible JSON from AI response');
@@ -139,7 +139,7 @@ Threads: ${jsonEncode(project.threads.map((t) => t.toJson()).toList())}''';
         project: project,
         label: 'Act Structurer',
       );
-      final json = StoryJson.parseJson(response);
+      final json = StoryQuickXml.parse('acts', response);
 
       if (json == null || json['acts'] == null) {
         throw Exception('Failed to parse act structure from AI response');
@@ -198,7 +198,7 @@ ${chatContext.isNotEmpty ? '\nCRITICAL: The chat history above is CANON. Scenes 
         project: project,
         label: 'Scene Weaver',
       );
-      final json = StoryJson.parseJson(response);
+      final json = StoryQuickXml.parse('scenes', response);
 
       if (json == null || json['scenes'] == null) {
         throw Exception('Failed to parse scenes from AI response');
@@ -263,7 +263,7 @@ Scene Valence: ${scene.valence}''';
       debugPrint(
         '[BeatDirector] Raw response (first 500): ${response.length > 500 ? response.substring(0, 500) : response}',
       );
-      final json = StoryJson.parseJson(response);
+      final json = StoryQuickXml.parse('beats', response);
 
       if (json == null || json['beats'] == null) {
         debugPrint(

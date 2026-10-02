@@ -146,10 +146,7 @@ class _CastCard extends StatelessWidget {
 
   Future<void> _generatePortrait(BuildContext context) async {
     final igs = Provider.of<ImageGenService>(context, listen: false);
-    final look = member.details['appearance'] ?? member.description;
-    final prompt =
-        'Portrait of ${member.name}. $look. ${project.style.genre} story, '
-        '${project.style.mood} mood. Head and shoulders, painterly, no text.';
+    final prompt = StoryPipelineStudioBible.portraitPrompt(project, member);
     try {
       final bytes = await igs.generateImage(prompt: prompt, isPortrait: true);
       final path = await igs.saveAvatarToDisk(

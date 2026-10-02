@@ -96,6 +96,30 @@ extension StoryFacadeStudio on StoryFacade {
     ];
   }
 
+  /// Paint a portrait for [name] with the image engine and keep it on the
+  /// cast member. Throws a plain-language error when nothing can paint.
+  Future<bool> generatePortrait(String id, String name) async {
+    final p = await _project(id);
+    final member = p?.castByName(name);
+    if (p == null || member == null) return false;
+    final igs = _imageGen;
+    if (igs == null || !igs.isConfigured) {
+      throw StateError(
+        'Image generation isn\'t set up. Pick an image engine under '
+        'Settings → Images first.',
+      );
+    }
+    final bytes = await igs.generateImage(
+      prompt: StoryPipelineStudioBible.portraitPrompt(p, member),
+      isPortrait: true,
+    );
+    final path = await igs.saveAvatarToDisk(bytes, characterName: member.name);
+    if (path == null) throw StateError('The image could not be saved.');
+    member.portrait = path;
+    await _repo.saveProject(p);
+    return true;
+  }
+
   /// The portrait file a cast member's `portrait` path points at, if any.
   Future<File?> portraitFile(String id, String name) async {
     final p = await _project(id);

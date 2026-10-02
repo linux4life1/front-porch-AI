@@ -119,7 +119,7 @@ function StoryCard({
         <span>{status.icon}</span>
         <span>{status.label}</span>
       </div>
-      <span className="story-tier">{TIER_LABELS[s.tier] || s.tier}</span>
+      <span className="story-tier">{s.engine === 'studio' ? 'Studio · ' : ''}{TIER_LABELS[s.tier] || s.tier}</span>
       <div className="story-card-actions" onClick={stop}>
         {s.hasProse && (
           <button className="ghost small" onClick={onRead}>Read 📖</button>

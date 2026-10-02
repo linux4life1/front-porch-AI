@@ -30,6 +30,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 part 'story_writer_page.beats.dart';
+part 'story_writer_page.lenses.dart';
 part 'story_writer_page.studio.dart';
 
 /// Writer page — beat-by-beat prose view with write / rewrite controls,
@@ -201,9 +202,7 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
       );
     }
 
-    final banned = project.engineMode == StoryEngineMode.studio
-        ? _buildBannedCard(project)
-        : const SizedBox.shrink();
+    final banned = _buildBannedCard(project);
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.all(16),

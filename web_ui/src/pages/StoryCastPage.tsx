@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { useStory } from '../hooks/useStory';
 import type { StoryCastMember, StoryVoice } from '../storyTypes';
 import { Chip, StudioShell } from './story/StudioShell';
@@ -23,7 +23,9 @@ function Portrait({ id, member, cardArt }: { id: string; member: StoryCastMember
 
 export function StoryCastPage() {
   const { id = '' } = useParams();
-  const { project: p, status, error, run, stop, save } = useStory(id);
+  const { project: p, status, error, run, stop, save, reload } = useStory(id);
+  const [painting, setPainting] = useState('');
+  const [paintError, setPaintError] = useState('');
   const [voices, setVoices] = useState<StoryVoice[]>([]);
   const [art, setArt] = useState<Record<string, string>>({});
   const [open, setOpen] = useState<string | null>(null);
@@ -45,10 +47,23 @@ export function StoryCastPage() {
     void save({ cast });
   };
   const short = (s: string) => (s.length > 40 ? `${s.slice(0, 40)}…` : s);
+  const paint = async (name: string) => {
+    setPainting(name);
+    setPaintError('');
+    try {
+      await api.post(`/api/stories/${id}/portrait`, { name });
+      reload();
+    } catch (e) {
+      setPaintError(e instanceof ApiError ? e.message : 'Could not paint a portrait');
+    } finally {
+      setPainting('');
+    }
+  };
 
   return (
     <StudioShell id={id} project={p} section="cast" status={status} error={error} onStop={stop}>
       {p.cast.length === 0 && <p className="muted">No cast yet — the story bible creates it.</p>}
+      {paintError && <p className="error">{paintError}</p>}
       {p.cast.map((c, i) => {
         const drive = [c.role || 'Supporting', c.desire ? `wants ${c.desire}` : '', c.flaw ? `flaw: ${c.flaw}` : ''].filter(Boolean).join(' · ');
         const interview = c.interview ?? '';
@@ -62,11 +77,16 @@ export function StoryCastPage() {
                 <div className="muted small">{drive}</div>
                 {c.description && <div className="s-small" style={{ marginTop: 4 }}>{c.description}</div>}
               </div>
-              {studio && (
-                <button className="s-btn-quiet" disabled={busy} onClick={() => run('interview', { name: c.name })}>
-                  {interview ? 'Interview again' : `Interview ${c.name.split(' ')[0]}`}
+              <div className="s-row">
+                {studio && (
+                  <button className="s-btn-quiet" disabled={busy} onClick={() => run('interview', { name: c.name })}>
+                    {interview ? 'Interview again' : `Interview ${c.name.split(' ')[0]}`}
+                  </button>
+                )}
+                <button className="s-btn-ghost" disabled={busy || painting === c.name} onClick={() => paint(c.name)}>
+                  {painting === c.name ? 'Painting…' : 'Generate portrait'}
                 </button>
-              )}
+              </div>
             </div>
             {excerpt && (
               <>

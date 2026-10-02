@@ -147,7 +147,8 @@ void main() {
     expect(
       conceptCtrl?.text.trim(),
       conceptText,
-      reason: 'concept must stick before Concept→Style (Windows enterText '
+      reason:
+          'concept must stick before Concept→Style (Windows enterText '
           'gate); empty concept makes _onNextPressed snackbar and never '
           'reveal Next: Format',
     );
@@ -171,6 +172,16 @@ void main() {
       await d.tapUntil([
         find.byKey(const ValueKey('story-setup-next')),
       ], find.textContaining(after[i]));
+      // The Engine step (where "Next: Review" shows) now defaults a new
+      // story to the Studio engine. This suite pins the ORIGINAL Quick
+      // pipeline (architect → acts → scenes → beats → prose and the stage
+      // order asserted below); Studio has its own suite
+      // (story_studio_test.dart). Pick Quick before moving on.
+      if (after[i] == 'Next: Review') {
+        await d.tapUntil([
+          find.byKey(const ValueKey('story-engine-quick')),
+        ], find.byKey(const ValueKey('story-engine-quick-on')));
+      }
     }
 
     // ── The dashboard auto-fires the Story Architect ────────────────────

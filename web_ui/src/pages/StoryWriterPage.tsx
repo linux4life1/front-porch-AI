@@ -39,6 +39,7 @@ export function StoryWriterPage() {
   const [copied, setCopied] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [lensOpen, setLensOpen] = useState(false);
+  const [newLens, setNewLens] = useState<{ name: string; context: string; prompt: string } | null>(null);
   const [bannedOpen, setBannedOpen] = useState(false);
   const [bannedText, setBannedText] = useState('');
 
@@ -72,7 +73,12 @@ export function StoryWriterPage() {
 
   const beatText = (bi: number) => p.prose[`${ai}-${si}-${bi}`]?.final || '';
   const sceneText = beats.map((_, bi) => beatText(bi)).filter(Boolean).join('\n\n');
-  const lens = lenses.find((l) => l.id === (sc.lens || 'BASELINE_NEUTRAL'));
+  const customLenses = (p.custom_lenses ?? []) as { id: string; name: string; context: string; prompt: string }[];
+  const allLenses = [
+    ...lenses.filter((l) => !customLenses.some((c) => c.id === l.id)),
+    ...customLenses.map((c) => ({ ...c, glyph: '✎' })),
+  ];
+  const lens = allLenses.find((l) => l.id === (sc.lens || 'BASELINE_NEUTRAL'));
 
   const copy = async (text: string, tag: string) => {
     try {
@@ -90,6 +96,15 @@ export function StoryWriterPage() {
     const scenes = { ...p.scenes, [String(ai)]: p.scenes[String(ai)].map((s, i) => (i === si ? { ...s, lens: lensId } : s)) };
     setLensOpen(false);
     await save({ scenes } as Partial<StoryProject>);
+  };
+  const saveNewLens = async () => {
+    if (!newLens || !newLens.name.trim()) return;
+    const lensId = newLens.name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+    const custom_lenses = [...customLenses.filter((c) => c.id !== lensId), { ...newLens, id: lensId }];
+    const scenes = { ...p.scenes, [String(ai)]: p.scenes[String(ai)].map((s, i) => (i === si ? { ...s, lens: lensId } : s)) };
+    setNewLens(null);
+    setLensOpen(false);
+    await save({ custom_lenses, scenes } as Partial<StoryProject>);
   };
   const undoFix = async (bi: number) => {
     await api.post(`/api/stories/${id}/undo-fix`, { actIndex: ai, sceneIndex: si, beatIndex: bi });
@@ -137,7 +152,7 @@ export function StoryWriterPage() {
         </div>
       </div>
 
-      {studio && banned.length > 0 && (
+      {banned.length > 0 && (
         <section className="s-card" style={{ marginBottom: 12 }}>
           <div className="s-row">
             <span className="s-key s-grow">Banned this chapter (repeated too often lately)</span>
@@ -231,13 +246,27 @@ export function StoryWriterPage() {
       {lensOpen && (
         <section className="s-card" style={{ marginTop: 10 }}>
           <span className="s-key">Writing lens for this scene</span>
-          {lenses.map((l) => (
+          {allLenses.map((l) => (
             <button key={l.id} className={`s-btn-ghost${l.id === (sc.lens || 'BASELINE_NEUTRAL') ? ' on' : ''}`}
               style={{ textAlign: 'left', display: 'flex', gap: 10, alignItems: 'center' }} onClick={() => setLens(l.id)}>
-              <LensMark lensId={l.id} lenses={lenses} />
+              <LensMark lensId={l.id} lenses={allLenses} />
               <span><strong>{l.name}</strong> <span className="muted small">{l.context}</span></span>
             </button>
           ))}
+          {newLens ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <input placeholder="Name" value={newLens.name} onChange={(e) => setNewLens({ ...newLens, name: e.target.value })} />
+              <input placeholder="When to use it (one line)" value={newLens.context} onChange={(e) => setNewLens({ ...newLens, context: e.target.value })} />
+              <textarea className="s-textarea" placeholder="How to write in it: sentence rhythm, what the narration notices, how people talk…"
+                value={newLens.prompt} onChange={(e) => setNewLens({ ...newLens, prompt: e.target.value })} />
+              <div className="s-row">
+                <button className="s-btn-primary" disabled={!newLens.name.trim()} onClick={saveNewLens}>Save lens</button>
+                <button className="s-btn-ghost" onClick={() => setNewLens(null)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button className="s-btn-quiet" style={{ alignSelf: 'flex-start' }} onClick={() => setNewLens({ name: '', context: '', prompt: '' })}>Add your own lens</button>
+          )}
         </section>
       )}
     </StudioShell>

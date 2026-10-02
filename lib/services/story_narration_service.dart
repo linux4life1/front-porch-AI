@@ -54,6 +54,8 @@ class StoryNarrationService {
     String text,
     List<StoryCastMember> cast,
   ) {
+    final script = parseScriptSegments(text, cast);
+    if (script != null) return script;
     final segments = <StoryVoiceSegment>[];
     // Match quoted dialogue using straight or curly double quotes.
     final dialoguePattern = RegExp(r'["“”]([^"“”]+)["“”]');
@@ -111,6 +113,56 @@ class StoryNarrationService {
     }
 
     return segments;
+  }
+
+  static final _speakerLine = RegExp(r"^([A-Z][A-Z .'\-]{0,30}):\s*(.*)$");
+
+  /// Audio-drama scripts ("NARRATOR: …", "MARA: …") voice each line by its
+  /// speaker label — a cast member's first name gets their voice, NARRATOR
+  /// and unknown labels read in the narrator voice. Null when [text] is
+  /// ordinary prose (fewer than six in ten lines carry a label).
+  static List<StoryVoiceSegment>? parseScriptSegments(
+    String text,
+    List<StoryCastMember> cast,
+  ) {
+    final lines = text
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+    if (lines.length < 2) return null;
+    final labelled = lines.where(_speakerLine.hasMatch).length;
+    if (labelled * 10 < lines.length * 6) return null;
+
+    final segments = <StoryVoiceSegment>[];
+    for (final line in lines) {
+      final m = _speakerLine.firstMatch(line);
+      if (m == null) {
+        segments.add(StoryVoiceSegment(text: line));
+        continue;
+      }
+      final label = m.group(1)!.trim().toLowerCase();
+      final spoken = m.group(2)!.trim();
+      if (spoken.isEmpty) continue;
+      StoryCastMember? who;
+      for (final c in cast) {
+        final first = c.name.split(' ').first.toLowerCase();
+        if (first.isNotEmpty &&
+            (label == first || label.startsWith('$first '))) {
+          who = c;
+          break;
+        }
+      }
+      final voice = who?.voiceModel;
+      segments.add(
+        StoryVoiceSegment(
+          text: spoken,
+          voiceKey: (voice ?? '').isEmpty ? null : voice,
+          characterName: who?.name,
+        ),
+      );
+    }
+    return segments.isEmpty ? null : segments;
   }
 
   /// Synthesize [text] to a single WAV, voicing each character's dialogue with

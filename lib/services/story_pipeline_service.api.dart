@@ -154,4 +154,70 @@ extension StoryPipelineApi on StoryPipelineService {
   /// Concept to finished prose without stopping.
   Future<void> runAutopilot(StoryProject project) =>
       _guard(() => _autopilot(project));
+
+  /// "Continue writing": one tap, one scene. The next unfinished scene in
+  /// story order gets its beats (if it has none) and its prose; when the
+  /// story has run out of planned scenes, the next sequence (Studio) or act
+  /// (Quick) is outlined first. Returns false when the story is finished.
+  Future<bool> writeNextScene(StoryProject project) async {
+    var wrote = false;
+    await _guard(() async {
+      if (project.acts.isEmpty) {
+        await (_studio(project) ? _studioActs(project) : _quickActs(project));
+      }
+      var next = _nextUnfinished(project);
+      if (next == null) {
+        if (_studio(project)) {
+          final seq = project.sequences
+              .where((s) => project.sceneIndexesInSequence(s.number).isEmpty)
+              .firstOrNull;
+          if (seq != null) await _studioScenes(project, seq.number);
+        } else {
+          for (var act = 0; act < project.acts.length; act++) {
+            if (project.scenes[act]?.isEmpty ?? true) {
+              await _quickScenes(project, act);
+              break;
+            }
+          }
+        }
+        next = _nextUnfinished(project);
+      }
+      if (next == null) {
+        _setStatus('Complete', 'The whole story is written.');
+        return;
+      }
+      final key = StoryProjectShape.sceneKey(next.act, next.index);
+      if (project.beats[key]?.isEmpty ?? true) {
+        await (_studio(project)
+            ? _studioBeats(project, next.act, next.index)
+            : _quickBeats(project, next.act, next.index));
+      }
+      await (_studio(project)
+          ? _studioWriteScene(project, next.act, next.index)
+          : _quickAutoWriteScene(project, next.act, next.index));
+      if (_studio(project)) {
+        await _studioSequenceSummary(project, next.scene.sequence);
+      }
+      wrote = true;
+      _setStatus(
+        'Scene ${project.sceneLabel(next.act, next.index)}',
+        '"${next.scene.title}" is written.',
+      );
+    });
+    return wrote;
+  }
+
+  SceneRef? _nextUnfinished(StoryProject project) {
+    for (final ref in project.orderedScenes) {
+      final count =
+          project
+              .beats[StoryProjectShape.sceneKey(ref.act, ref.index)]
+              ?.length ??
+          0;
+      if (count == 0 || project.beatsWritten(ref.act, ref.index) < count) {
+        return ref;
+      }
+    }
+    return null;
+  }
 }

@@ -17,6 +17,7 @@ export interface StoryListItem {
   genre: string;
   mood: string;
   tier: string;
+  engine?: string;
   sceneCount: number;
   proseCount: number;
   hasConcept: boolean;

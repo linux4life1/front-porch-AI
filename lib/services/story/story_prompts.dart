@@ -27,14 +27,18 @@ import 'package:front_porch_ai/models/models.dart';
 /// fake_backend.dart` sniffs their exact opening sentences to route stages
 /// to the right canned reply — a reformatted prompt breaks E2E silently.
 abstract final class StoryPrompts {
+  /// Planning stages answer in tags: a small model that drops a comma
+  /// ruins a whole JSON reply, while a tag reply degrades one field at a
+  /// time. A model that answers in JSON anyway is still read
+  /// (StoryQuickXml falls back to the JSON parser).
   static String _jsonInstruction(PromptTier tier) {
     switch (tier) {
       case PromptTier.frontier:
-        return 'Output ONLY valid JSON. No markdown, no explanation, no text before or after the JSON.';
+        return 'Answer with the tags below and nothing else — no markdown fences, no commentary before or after. Wrap the whole answer in <response>…</response>.';
       case PromptTier.largLocal:
-        return 'IMPORTANT: Your response must be ONLY valid JSON. Start with { and end with }. No other text.';
+        return 'IMPORTANT: Answer ONLY with the tags below, wrapped in <response>…</response>. No other text.';
       case PromptTier.smallLocal:
-        return 'RESPOND WITH JSON ONLY. START WITH { END WITH }. NO OTHER TEXT ALLOWED.';
+        return 'ANSWER WITH THE TAGS BELOW ONLY, INSIDE <response>…</response>. NO OTHER TEXT.';
     }
   }
 
@@ -69,18 +73,17 @@ $prefs
 
 ${_jsonInstruction(tier)}
 
-Output this JSON structure:
-{
-  "concept": "refined summary",
-  "status_quo": "the normal world before plot begins",
-  "inciting_incident": "event that breaks status quo",
-  "themes": "core ideas explored",
-  "pov": "${project.pov}",
-  "style": {"genre": "...", "mood": "...", "writing_guide": "tone instructions"},
-  "threads": [{"id": "t1", "name": "Main Arc", "description": "..."}],
-  "protagonist": {"name": "...", "role": "Protagonist", "description": "...", "voice_sample": "sample dialogue", "details": {"history": "...", "goals": "...", "evolution": "..."}},
-  "world_lore": [{"topic": "Setting", "detail": "...", "related_to": ["..."]}]
-}''';
+Answer in this shape:
+<response>
+  <concept>refined summary</concept>
+  <status_quo>the normal world before the plot begins</status_quo>
+  <inciting_incident>the event that breaks the status quo</inciting_incident>
+  <themes>core ideas explored</themes>
+  <style><genre>...</genre><mood>...</mood><writing_guide>tone instructions</writing_guide></style>
+  <threads><thread><id>t1</id><name>Main Arc</name><description>...</description></thread></threads>
+  <protagonist><name>...</name><role>Protagonist</role><description>...</description><voice_sample>sample dialogue</voice_sample><details><history>...</history><goals>...</goals><evolution>...</evolution></details></protagonist>
+  <world_lore><entry><topic>Setting</topic><detail>...</detail><related_to>related topic, another</related_to></entry></world_lore>
+</response>''';
     }
     return '''You are a Lead Narrative Designer. Input: A concept. Task: Deconstruct this into a rich Story Bible.
 
@@ -96,44 +99,40 @@ REQUIREMENTS:
 
 ${_jsonInstruction(tier)}
 
-Output JSON:
-{
-  "concept": "Refined summary",
-  "status_quo": "Description of the normal world...",
-  "inciting_incident": "The specific event...",
-  "themes": "The core ideas being explored...",
-  "pov": "${project.pov}",
-  "style": {
-    "genre": "...",
-    "mood": "...",
-    "writing_guide": "Instructions for the writer agent on tone/voice"
-  },
-  "threads": [
-    { "id": "t1", "name": "Main Arc", "description": "..." },
-    { "id": "t2", "name": "Relationship Arc", "description": "..." },
-    { "id": "t3", "name": "Subplot Arc", "description": "..." }
-  ],
-  "protagonist": {
-    "name": "Name",
-    "role": "Protagonist",
-    "description": "Physical & Personality",
-    "voice_sample": "Dialogue sample",
-    "details": {
-      "history": "Backstory...",
-      "story_events": "Start...",
-      "goals": "...",
-      "evolution": "..."
-    }
-  },
-  "world_lore": [{ "topic": "Setting", "detail": "...", "related_to": ["Related Topic"] }]
-}''';
+Answer in this shape:
+<response>
+  <concept>Refined summary</concept>
+  <status_quo>Description of the normal world...</status_quo>
+  <inciting_incident>The specific event...</inciting_incident>
+  <themes>The core ideas being explored...</themes>
+  <style>
+    <genre>...</genre>
+    <mood>...</mood>
+    <writing_guide>Instructions for the writer on tone and voice</writing_guide>
+  </style>
+  <threads>
+    <thread><id>t1</id><name>Main Arc</name><description>...</description></thread>
+    <thread><id>t2</id><name>Relationship Arc</name><description>...</description></thread>
+    <thread><id>t3</id><name>Subplot Arc</name><description>...</description></thread>
+  </threads>
+  <protagonist>
+    <name>Name</name>
+    <role>Protagonist</role>
+    <description>Physical and personality</description>
+    <voice_sample>Dialogue sample</voice_sample>
+    <details><history>Backstory...</history><story_events>Start...</story_events><goals>...</goals><evolution>...</evolution></details>
+  </protagonist>
+  <world_lore>
+    <entry><topic>Setting</topic><detail>...</detail><related_to>Related topic</related_to></entry>
+  </world_lore>
+</response>''';
   }
 
   static String actStructure(int actCount, PromptTier tier) {
     final actExamples = List.generate(actCount, (i) {
       final n = i + 1;
-      return '    {"number": $n, "title": "...", "description": "full act description", "focus_thread_ids": ["t1"], "knots": [{"description": "event", "interaction": "how threads interact"}]}';
-    }).join(',\n');
+      return '    <act><number>$n</number><title>...</title><description>full act description</description><focus_thread_ids>t1</focus_thread_ids><knots><knot><description>event</description><interaction>how threads interact</interaction></knot></knots></act>';
+    }).join('\n');
 
     if (tier == PromptTier.smallLocal) {
       return '''Create a $actCount-act story structure.
@@ -141,12 +140,12 @@ The first act is setup, the last act is resolution. Middle acts are confrontatio
 
 ${_jsonInstruction(tier)}
 
-Output JSON:
-{
-  "acts": [
+Answer in this shape:
+<response>
+  <acts>
 $actExamples
-  ]
-}''';
+  </acts>
+</response>''';
     }
 
     String actGuidance;
@@ -175,12 +174,12 @@ THREAD REQUIREMENT: Define 2-3 "Convergence Events" (Knots) per act where thread
 
 ${_jsonInstruction(tier)}
 
-Output JSON:
-{
-  "acts": [
+Answer in this shape:
+<response>
+  <acts>
 $actExamples
-  ]
-}''';
+  </acts>
+</response>''';
   }
 
   static String sceneWeaver(int actNumber, PromptTier tier) {
@@ -193,13 +192,13 @@ $actExamples
 
 ${_jsonInstruction(tier)}
 
-Output JSON:
-{
-  "scenes": [
-    {"number": 1, "title": "...", "description": "what happens", "active_thread_ids": ["t1"], "location": "...", "cast_names": ["Hero"], "valence": 0, "causality": {"interaction_type": "Isolation", "description": "..."}}
-  ],
-  "new_characters": [{"name": "...", "role": "...", "description": "..."}]
-}''';
+Answer in this shape:
+<response>
+  <scenes>
+    <scene><number>1</number><title>...</title><description>what happens</description><active_thread_ids>t1</active_thread_ids><location>...</location><cast_names>Hero, Friend</cast_names><valence>0</valence><causality><interaction_type>Isolation</interaction_type><description>...</description></causality></scene>
+  </scenes>
+  <new_characters><character><name>...</name><role>...</role><description>...</description></character></new_characters>
+</response>''';
     }
     return '''You are an author creating scenes for ACT $actNumber.
 
@@ -219,13 +218,22 @@ Assign valence (-10 to +10) to each scene for emotional charge.
 
 ${_jsonInstruction(tier)}
 
-Output JSON:
-{
-  "scenes": [
-    { "number": 1, "title": "Scene Title", "description": "detailed plot events and authorial intent", "active_thread_ids": ["t1"], "location": "Setting", "cast_names": ["Hero"], "valence": 0, "causality": { "interaction_type": "Isolation", "description": "Establishes Hero's situation." } }
-  ],
-  "new_characters": [ { "name": "...", "role": "...", "description": "..." } ]
-}''';
+Answer in this shape:
+<response>
+  <scenes>
+    <scene>
+      <number>1</number>
+      <title>Scene Title</title>
+      <description>detailed plot events and authorial intent</description>
+      <active_thread_ids>t1</active_thread_ids>
+      <location>Setting</location>
+      <cast_names>Hero, Friend</cast_names>
+      <valence>0</valence>
+      <causality><interaction_type>Isolation</interaction_type><description>Establishes Hero's situation.</description></causality>
+    </scene>
+  </scenes>
+  <new_characters><character><name>...</name><role>...</role><description>...</description></character></new_characters>
+</response>''';
   }
 
   static String beatDirector(PromptTier tier) {
@@ -234,12 +242,12 @@ Output JSON:
 
 ${_jsonInstruction(tier)}
 
-Output JSON:
-{
-  "beats": [
-    {"number": 1, "type": "Action", "description": "what happens and why", "emotional_shift": "how mood changes", "valence": 0, "pacing": 1}
-  ]
-}''';
+Answer in this shape:
+<response>
+  <beats>
+    <beat><number>1</number><type>Action</type><description>what happens and why</description><emotional_shift>how mood changes</emotional_shift><valence>0</valence><pacing>1</pacing></beat>
+  </beats>
+</response>''';
     }
     return '''You are the architect of a single narrative scene. Break it into 6-10 distinct beats.
 
@@ -255,12 +263,12 @@ VALENCE: -10 to +10, oscillating to maintain tension
 
 ${_jsonInstruction(tier)}
 
-Output JSON:
-{
-  "beats": [
-    { "number": 1, "type": "Action/Reaction/Dialogue", "description": "what happens, who is involved, authorial intent", "emotional_shift": "How the mood changes", "valence": 4, "pacing": 1 }
-  ]
-}''';
+Answer in this shape:
+<response>
+  <beats>
+    <beat><number>1</number><type>Action</type><description>what happens, who is involved, authorial intent</description><emotional_shift>How the mood changes</emotional_shift><valence>4</valence><pacing>1</pacing></beat>
+  </beats>
+</response>''';
   }
 
   static String drafter(StoryProject project) {
@@ -331,11 +339,11 @@ Return ONLY the polished prose text, nothing else.''';
 
 ${_jsonInstruction(tier)}
 
-Output JSON:
-{
-  "cast_updates": [{"name": "...", "append_history": "...", "append_story_events": "...", "update_goals": "..."}],
-  "lore_updates": [{"topic": "...", "detail": "...", "related_to": ["..."]}]
-}''';
+Answer in this shape:
+<response>
+  <cast_updates><update><name>...</name><append_history>...</append_history><append_story_events>...</append_story_events><update_goals>...</update_goals></update></cast_updates>
+  <lore_updates><entry><topic>...</topic><detail>...</detail><related_to>...</related_to></entry></lore_updates>
+</response>''';
     }
     return '''You are the Story Archivist. Analyze the just-written text and return UPDATES.
 
@@ -350,22 +358,22 @@ Output JSON:
 
 ${_jsonInstruction(tier)}
 
-Output JSON:
-{
-  "cast_updates": [
-    { "name": "Hero", "append_history": "...", "append_story_events": "...", "update_goals": "..." }
-  ],
-  "lore_updates": [
-    { "topic": "...", "detail": "...", "related_to": ["..."] }
-  ]
-}''';
+Answer in this shape:
+<response>
+  <cast_updates>
+    <update><name>Hero</name><append_history>...</append_history><append_story_events>...</append_story_events><update_goals>...</update_goals></update>
+  </cast_updates>
+  <lore_updates>
+    <entry><topic>...</topic><detail>...</detail><related_to>...</related_to></entry>
+  </lore_updates>
+</response>''';
   }
 
   static String beatValidator(PromptTier tier) {
     return '''You are a Script Doctor. Check if the written prose allows the next planned beat to happen.
 
-If YES: Return {"valid": true, "reason": "", "rectified_beats": []}
-If NO: Return {"valid": false, "reason": "why it's invalid", "rectified_beats": [rewritten future beats]}
+If YES: <response><valid>true</valid><reason></reason><rectified_beats></rectified_beats></response>
+If NO: <response><valid>false</valid><reason>why it's invalid</reason><rectified_beats><beat><number>2</number><type>Action</type><description>rewritten future beat</description><emotional_shift>...</emotional_shift><valence>0</valence><pacing>1</pacing></beat></rectified_beats></response>
 
 ${_jsonInstruction(tier)}''';
   }

@@ -27,6 +27,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'fake_backend_studio.dart';
+
 class FakeBackendServer {
   FakeBackendServer._(this._server, this.replyPieces, this.chatChunkDelay);
 
@@ -246,6 +248,13 @@ class FakeBackendServer {
             'Has started saving the porch swing for their favorite guest.'
             '</ring>',
       ]);
+      return;
+    }
+    // ── Studio story stages (fake_backend_studio.dart) ─────────────────
+    final studio = studioStoryReply(lastContent);
+    if (studio != null) {
+      storyStagesServed.add(studio.stage);
+      await _streamSse(req, studio.pieces);
       return;
     }
     // ── Story pipeline stages ──────────────────────────────────────────

@@ -41,6 +41,7 @@ export 'story_lore_index.dart';
 export 'story_pacing.dart';
 export 'story_prompts.dart';
 export 'story_quality.dart';
+export 'story_quick_xml.dart';
 export 'story_review.dart';
 export 'story_structure.dart';
 export 'story_studio_store.dart';

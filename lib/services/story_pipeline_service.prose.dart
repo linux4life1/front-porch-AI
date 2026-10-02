@@ -98,6 +98,8 @@ $voices
 ## Style & Tone
 ${project.style.writingGuide}
 
+${StudioProsePrompts.bannedBlock(project)}
+
 ${prevBeatText.isNotEmpty ? '## Previous Beat Text (continue from here)\n$prevBeatText' : '## This is the FIRST beat of the scene.'}
 
 ${nextBeat != null ? '## Next Beat Preview (end just before this)\n${nextBeat.description}' : '## This is the LAST beat of the scene. Bring it to a satisfying close.'}
@@ -197,7 +199,7 @@ ${sceneText.toString().substring(0, sceneText.length.clamp(0, 3000))}
         project: project,
         label: 'Archivist',
       );
-      final json = StoryJson.parseJson(response);
+      final json = StoryQuickXml.parse('archivist', response);
 
       if (json != null) {
         // Apply cast updates
@@ -286,7 +288,7 @@ Next Beat Plan: ${nextBeat.description}''';
         project: project,
         label: 'Beat Validator',
       );
-      final json = StoryJson.parseJson(response);
+      final json = StoryQuickXml.parse('validator', response);
 
       if (json != null &&
           json['valid'] == false &&
@@ -331,6 +333,10 @@ Next Beat Plan: ${nextBeat.description}''';
     // is cancellable, so the user would watch it burn tokens forever. A scene
     // is a handful of beats; this only ever trips on a runaway.
     final beatCeiling = (project.beats[sId]?.length ?? 0) + 24;
+    project.autoBannedPhrases = StoryQuality.overusedPhrases(
+      StoryQuality.recentProse(project, actIndex, sceneIndex),
+      exclude: [...project.cast.map((c) => c.name), ...project.bannedPhrases],
+    );
     for (
       int i = 0;
       i < (project.beats[sId]?.length ?? 0) && i < beatCeiling;

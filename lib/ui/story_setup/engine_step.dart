@@ -280,7 +280,8 @@ class EngineStep extends StatelessWidget {
     final selected = draft.engineMode == mode;
     final accent = AppColors.porchAmberOf(context);
     return InkWell(
-      key: ValueKey('story-engine-${mode.name}'),
+      // The suffix lets a driver confirm the pick landed.
+      key: ValueKey('story-engine-${mode.name}${selected ? '-on' : ''}'),
       borderRadius: BorderRadius.circular(12),
       onTap: () {
         draft.engineMode = mode;

@@ -306,6 +306,38 @@ void main() {
     });
   });
 
+  group('StoryQuickXml', () {
+    test('tags fold into the maps the Quick stages already read', () {
+      final acts = StoryQuickXml.parse(
+        'acts',
+        '<response><acts><act><number>1</number><title>Debt</title>'
+            '<description>d</description><focus_thread_ids>t1, t2</focus_thread_ids>'
+            '<knots><knot><description>k</description><interaction>i</interaction>'
+            '</knot></knots></act></acts></response>',
+      )!;
+      final act = (acts['acts'] as List).single as Map<String, dynamic>;
+      expect(act['number'], 1);
+      expect(act['focus_thread_ids'], ['t1', 't2']);
+      expect((act['knots'] as List).single['interaction'], 'i');
+
+      final beats = StoryQuickXml.parse(
+        'beats',
+        '<beats><beat><number>1</number><type>Dialogue</type>'
+            '<description>x</description><valence>-3</valence><pacing>2</pacing>'
+            '</beat></beats>',
+      )!;
+      expect((beats['beats'] as List).single['valence'], -3);
+
+      final valid = StoryQuickXml.parse('validator', '<valid>false</valid>')!;
+      expect(valid['valid'], isFalse);
+
+      // A model that still answers in JSON is read the old way.
+      final json = StoryQuickXml.parse('scenes', '{"scenes":[{"number":2}]}')!;
+      expect((json['scenes'] as List).single['number'], 2);
+      expect(StoryQuickXml.parse('scenes', 'nothing here'), isNull);
+    });
+  });
+
   group('StoryProject shape', () {
     test('a pre-sequence story upgrades to one sequence per act on load', () {
       final legacy = StoryProject(

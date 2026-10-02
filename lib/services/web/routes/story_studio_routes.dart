@@ -41,6 +41,7 @@ class WebStoryStudioRoutes {
     router.post('/api/stories/<id>/lore', _addLore);
     router.post('/api/stories/<id>/lore/search', _searchLore);
     router.get('/api/stories/<id>/portrait', _portrait);
+    router.post('/api/stories/<id>/portrait', _paintPortrait);
     router.get('/api/stories/<id>/log', _log);
     router.post('/api/stories/<id>/log/clear', _clearLog);
   }
@@ -144,6 +145,18 @@ class WebStoryStudioRoutes {
         'cache-control': 'public, max-age=3600',
       },
     );
+  }
+
+  Future<shelf.Response> _paintPortrait(shelf.Request r, String id) async {
+    final body = await _json(r);
+    final name = body['name']?.toString() ?? '';
+    if (name.isEmpty) return JsonResponse.badRequest('name is required');
+    try {
+      final ok = await _facade.generatePortrait(id, name);
+      return ok ? JsonResponse.ok({'status': 'ok'}) : _notFound();
+    } on StateError catch (e) {
+      return JsonResponse.badRequest(e.message);
+    }
   }
 
   Future<shelf.Response> _log(shelf.Request r, String id) async =>

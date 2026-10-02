@@ -40,10 +40,12 @@ class StoryFacade {
     TtsService? tts,
     StorageService? storage,
     LLMProvider? llm,
+    ImageGenService? imageGen,
   }) : _snapshotBuilder = snapshotBuilder,
        _tts = tts,
        _storage = storage,
-       _llm = llm;
+       _llm = llm,
+       _imageGen = imageGen;
 
   final StoryRepository _repo;
   final StoryPipelineService _pipeline;
@@ -52,6 +54,7 @@ class StoryFacade {
   final TtsService? _tts;
   final StorageService? _storage;
   final LLMProvider? _llm;
+  final ImageGenService? _imageGen;
 
   bool _loaded = false;
 
@@ -82,6 +85,7 @@ class StoryFacade {
         'genre': p.style.genre,
         'mood': p.style.mood,
         'tier': p.promptTier.name,
+        'engine': p.engineMode.name,
         'sceneCount': sceneCount,
         'proseCount': proseCount,
         'hasConcept': p.concept.trim().isNotEmpty,

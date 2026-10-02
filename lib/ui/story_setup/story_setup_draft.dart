@@ -70,7 +70,11 @@ class StorySetupDraft {
     titleController.text = project.title;
     conceptController.text = project.concept;
     tier = project.promptTier;
-    engineMode = project.engineMode;
+    // A story that has not been set up yet carries the model's Quick default;
+    // the wizard recommends Studio, so only an existing story's choice is
+    // taken as a choice.
+    final fresh = project.concept.trim().isEmpty && project.acts.isEmpty;
+    engineMode = fresh ? StoryEngineMode.studio : project.engineMode;
     storyFormat = project.storyFormat;
     planningLane = project.planningLane;
     proseLane = project.proseLane;
