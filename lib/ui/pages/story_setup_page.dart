@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/story_dashboard_page.dart';
 import 'package:front_porch_ai/ui/story_setup/cast_step.dart';
 import 'package:front_porch_ai/ui/story_setup/concept_step.dart';
+import 'package:front_porch_ai/ui/story_setup/engine_step.dart';
 import 'package:front_porch_ai/ui/story_setup/format_step.dart';
 import 'package:front_porch_ai/ui/story_setup/setup_widgets.dart';
 import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
@@ -33,9 +34,9 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// New-story wizard — the standard creation-wizard shell (top-bar step dots +
 /// linear progression, same pattern as `create_character_page.dart`), warm
-/// porch throughout. Step one puts the AI engine front and center: stories
-/// need a running, model-loaded backend, and this is where you see and fix
-/// that before investing in a setup.
+/// porch throughout. The Engine step (how it writes, which models, and the
+/// AI backend itself) sits just before Review, so the choices it offers can
+/// be made with the story already in mind.
 class StorySetupPage extends StatefulWidget {
   final String projectId;
   const StorySetupPage({super.key, required this.projectId});
@@ -49,11 +50,11 @@ class _StorySetupPageState extends State<StorySetupPage> {
   int _currentStep = 0;
 
   static const _stepLabels = [
-    'Engine',
     'Concept',
     'Style',
     'Format',
     'Cast',
+    'Engine',
     'Review',
   ];
 
@@ -187,18 +188,15 @@ class _StorySetupPageState extends State<StorySetupPage> {
     final Widget content;
     switch (_currentStep) {
       case 0:
-        content = _buildEngineStep();
+        content = ConceptStep(draft: _draft, onChanged: () => setState(() {}));
       case 1:
-        content = ConceptStep(
-          draft: _draft,
-          onChanged: () => setState(() {}),
-        );
-      case 2:
         content = StyleStep(draft: _draft, onChanged: () => setState(() {}));
-      case 3:
+      case 2:
         content = FormatStep(draft: _draft, onChanged: () => setState(() {}));
-      case 4:
+      case 3:
         content = CastStep(draft: _draft, onChanged: () => setState(() {}));
+      case 4:
+        content = EngineStep(draft: _draft, onChanged: () => setState(() {}));
       default:
         content = _buildReviewStep();
     }
@@ -215,42 +213,6 @@ class _StorySetupPageState extends State<StorySetupPage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildEngineStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SetupSectionHeader(
-          'AI Engine',
-          Icons.memory,
-          subtitle:
-              'Stories are written by the same AI backend as chat. It must be '
-              'running with a model loaded before anything can generate — '
-              'story writing works best with strong models (a remote API or '
-              'a large local model).',
-        ),
-        const SizedBox(height: 12),
-        const AiEngineStatusCard(),
-        const SizedBox(height: 28),
-        const SetupSectionHeader(
-          'Prompt Style',
-          Icons.tune,
-          subtitle:
-              'How the story prompts are written for your model. This does '
-              'NOT pick the model — that\'s the engine card above.',
-        ),
-        const SizedBox(height: 10),
-        ...PromptTier.values.map(
-          (tier) => SetupRadioTile(
-            storyTierName(tier),
-            storyTierDescription(tier),
-            selected: _draft.tier == tier,
-            onTap: () => setState(() => _draft.tier = tier),
-          ),
-        ),
-      ],
     );
   }
 
@@ -338,6 +300,12 @@ class _StorySetupPageState extends State<StorySetupPage> {
                     '${_draft.dialogueDensity} · ${_draft.actCount} acts · '
                     '${_draft.maturityRating}',
               ),
+              row(
+                'Engine',
+                '${_draft.engineMode == StoryEngineMode.studio ? 'Studio' : 'Quick'}'
+                    ' · ${_draft.storyFormat == StoryFormat.audioDrama ? 'audio drama' : 'novel'}'
+                    ' · ${_draft.reviewEnabled ? 'checks on' : 'checks off'}',
+              ),
               row('Prompt style', storyTierName(_draft.tier)),
               row(
                 'Cast',
@@ -404,7 +372,11 @@ class _StorySetupPageState extends State<StorySetupPage> {
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: accent,
-                  foregroundColor: AppColors.resolve(context, AppColors.onChaosAccent, AppColors.userText),
+                  foregroundColor: AppColors.resolve(
+                    context,
+                    AppColors.onChaosAccent,
+                    AppColors.userText,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -419,8 +391,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
 
   void _onNextPressed() {
     // The concept is the one hard requirement — everything else has defaults.
-    if (_currentStep == 1 &&
-        _draft.conceptController.text.trim().isEmpty) {
+    if (_currentStep == 0 && _draft.conceptController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Describe your story concept first'),
@@ -439,7 +410,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
 
   Future<void> _startGeneration() async {
     if (_draft.conceptController.text.trim().isEmpty) {
-      setState(() => _currentStep = 1);
+      setState(() => _currentStep = 0);
       return;
     }
     final repo = Provider.of<StoryRepository>(context, listen: false);

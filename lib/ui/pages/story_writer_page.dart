@@ -23,23 +23,32 @@ import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 part 'story_writer_page.beats.dart';
+part 'story_writer_page.studio.dart';
 
-/// Writer page — beat-by-beat prose view with draft/edit/regenerate controls.
+/// Writer page — beat-by-beat prose view with write / rewrite controls,
+/// quality chips and continuity fixes. [embedded] inside the studio shell
+/// it drops its app bar for a header with a scene picker ([onPickScene]).
 class StoryWriterPage extends StatefulWidget {
   final String projectId;
   final int actIndex;
   final int sceneIndex;
+  final bool embedded;
+  final void Function(int act, int scene)? onPickScene;
 
   const StoryWriterPage({
     super.key,
     required this.projectId,
     required this.actIndex,
     required this.sceneIndex,
+    this.embedded = false,
+    this.onPickScene,
   });
 
   @override
@@ -76,6 +85,21 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
         }
 
         final beats = project.beats[_sId] ?? [];
+
+        if (widget.embedded) {
+          return Column(
+            children: [
+              _buildEmbeddedHeader(project, scene, beats, pipeline),
+              Expanded(
+                child: pipeline.isRunning
+                    ? StudioRunningOverlay(pipeline)
+                    : _buildBeatList(project, beats, pipeline),
+              ),
+              if (!pipeline.isRunning)
+                _buildBottomBar(project, beats, pipeline),
+            ],
+          );
+        }
 
         return Scaffold(
           backgroundColor: AppColors.backgroundOf(context),
@@ -127,80 +151,17 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
                     style: TextStyle(color: AppColors.bondHighOf(context)),
                   ),
                 ),
-              PopupMenuButton<String>(
-                icon: Icon(
-                  Icons.more_vert,
-                  color: AppColors.iconSecondary(context),
-                ),
-                color: AppColors.surfaceContainerOf(context),
-                onSelected: (v) => _handleMenuAction(v, project, pipeline),
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'copy',
-                    child: ListTile(
-                      leading: Icon(Icons.copy, size: 18),
-                      title: Text(
-                        'Copy Scene Text',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      dense: true,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'export',
-                    child: ListTile(
-                      leading: Icon(Icons.save_alt, size: 18),
-                      title: Text(
-                        'Export Scene',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      dense: true,
-                    ),
-                  ),
-                ],
-              ),
+              _menuButton(project, pipeline),
             ],
           ),
           body: pipeline.isRunning
-              ? _buildRunningState(pipeline)
+              ? StudioRunningOverlay(pipeline)
               : _buildBeatList(project, beats, pipeline),
+          bottomNavigationBar: pipeline.isRunning
+              ? null
+              : _buildBottomBar(project, beats, pipeline),
         );
       },
-    );
-  }
-
-  Widget _buildRunningState(StoryPipelineService pipeline) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              color: AppColors.porchHoneyOf(context),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            pipeline.currentStep,
-            style: TextStyle(
-              color: AppColors.textPrimary(context),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            pipeline.statusMessage,
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -240,12 +201,16 @@ class _StoryWriterPageState extends State<StoryWriterPage> {
       );
     }
 
+    final banned = project.engineMode == StoryEngineMode.studio
+        ? _buildBannedCard(project)
+        : const SizedBox.shrink();
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.all(16),
-      itemCount: beats.length,
-      itemBuilder: (context, idx) =>
-          _buildBeatCard(project, beats[idx], idx, pipeline),
+      itemCount: beats.length + 1,
+      itemBuilder: (context, idx) => idx == 0
+          ? Padding(padding: const EdgeInsets.only(bottom: 12), child: banned)
+          : _buildBeatCard(project, beats[idx - 1], idx - 1, pipeline),
     );
   }
 }

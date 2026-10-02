@@ -27,6 +27,7 @@ import 'package:front_porch_ai/ui/widgets/custom_page_flip.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story_narration_service.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -36,9 +37,11 @@ part 'story_reader_page.actions.dart';
 part 'story_reader_page.toc.dart';
 part 'story_reader_page.pagination.dart';
 part 'story_reader_page.pages.dart';
+part 'story_reader_page.scroll.dart';
 
 /// A book-like reader for completed Porch Stories with paper aesthetic
-/// and page-by-page navigation.
+/// and page-by-page navigation, or a continuous scroll with chapter
+/// headings (the story remembers which).
 class StoryReaderPage extends StatefulWidget {
   final String projectId;
   const StoryReaderPage({super.key, required this.projectId});
@@ -75,6 +78,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   // _regenCurrentScene now lives in the extension in
   // story_reader_page.actions.dart.
   bool _isRegenerating = false;
+
+  // Scroll mode (story_reader_page.scroll.dart).
+  final ScrollController _scrollController = ScrollController();
+  final List<GlobalKey> _chapterKeys = [];
+  int _scrollChapter = 0;
+  bool _hudHidden = false;
+  bool _scrollRestored = false;
+  Timer? _scrollSaveTimer;
 
   @override
   void initState() {
@@ -129,6 +140,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     _ambientPlayer.dispose();
     _sfxPlayer.dispose();
     _readAlongPlayer?.dispose();
+    _scrollSaveTimer?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -150,6 +163,14 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         // Trigger page recalculation if size changes significantly
         // For simplicity, we trigger build right here
         _buildPages(constraints, isTwoPageSpread);
+
+        final scrollProject = Provider.of<StoryRepository>(
+          context,
+          listen: false,
+        ).getById(widget.projectId);
+        if (scrollProject != null && scrollProject.readerMode == 'scroll') {
+          return _buildScrollMode(scrollProject);
+        }
 
         final flipCount = _getFlipPageCount();
 
@@ -213,13 +234,22 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
             backgroundColor: AppColors.surfaceOf(context),
             foregroundColor: AppColors.textPrimary(context),
             elevation: 0,
-            title: Text(
-              'Page $logicalPageLabel of ${_pages!.length}',
-              style: const TextStyle(
-                fontFamily: 'Georgia',
-                fontSize: 14,
-                letterSpacing: 1.5,
-              ),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Page $logicalPageLabel of ${_pages!.length}',
+                  style: const TextStyle(
+                    fontFamily: 'Georgia',
+                    fontSize: 14,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                if (scrollProject != null) ...[
+                  const SizedBox(width: 12),
+                  _modeToggle(scrollProject),
+                ],
+              ],
             ),
             centerTitle: true,
             actions: [

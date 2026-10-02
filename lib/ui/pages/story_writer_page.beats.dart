@@ -116,6 +116,13 @@ extension _StoryWriterBeats on _StoryWriterPageState {
           ),
 
           // Prose content
+          if (hasProse) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: _qualityChips(project, prose!.final_!),
+            ),
+            if (prose.fix != null) _buildFixCard(project, idx, prose, pipeline),
+          ],
           if (hasProse)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -159,7 +166,7 @@ extension _StoryWriterBeats on _StoryWriterPageState {
                   TextButton.icon(
                     onPressed: pipeline.isRunning
                         ? null
-                        : () => _writeBeat(project, idx, pipeline),
+                        : () => _rewriteBeat(project, idx, pipeline),
                     icon: const Icon(Icons.refresh, size: 14),
                     label: const Text(
                       'Rewrite',
@@ -206,6 +213,13 @@ extension _StoryWriterBeats on _StoryWriterPageState {
         return AppColors.fixationAccentOf(context);
       case 'resolution':
         return AppColors.bondHighOf(context);
+      case 'environment':
+        return AppColors.journalAccentOf(context);
+      case 'reflection':
+      case 'memory':
+        return AppColors.emotionAccentOf(context);
+      case 'sensory':
+        return AppColors.porchAmberOf(context);
       default:
         return AppColors.textTertiary(context);
     }
@@ -227,6 +241,7 @@ extension _StoryWriterBeats on _StoryWriterPageState {
     }
   }
 
+  /// Write a beat that has no prose yet.
   Future<void> _writeBeat(
     StoryProject project,
     int beatIdx,

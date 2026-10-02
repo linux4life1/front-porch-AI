@@ -183,7 +183,12 @@ extension _StoryReaderReadAlong on _StoryReaderPageState {
 
       // Advance to next page
       if (_currentPage < flipCount - 1) {
-        _flipKey.currentState?.nextPage();
+        // In scroll mode there is no flip widget to advance the page.
+        if (_flipKey.currentState != null) {
+          _flipKey.currentState!.nextPage();
+        } else {
+          rebuildState(() => _currentPage++);
+        }
         await Future.delayed(const Duration(milliseconds: 800));
       } else {
         break; // End of story

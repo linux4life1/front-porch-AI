@@ -23,7 +23,9 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/pages/story_structure_page.dart';
 import 'package:front_porch_ai/ui/pages/story_reader_page.dart';
+import 'package:front_porch_ai/ui/pages/story_writer_page.dart';
 import 'package:front_porch_ai/services/audiobook_generator_service.dart';
+import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/services/epub_generator_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -40,8 +42,11 @@ part 'story_dashboard_page.body.dart';
 part 'story_dashboard_page.chat_history.dart';
 part 'story_dashboard_page.act_cards.dart';
 part 'story_dashboard_page.bible_cards.dart';
+part 'story_dashboard_page.shell.dart';
 
-/// Dashboard page — story bible overview: concept, themes, cast, threads, lore.
+/// The story studio: a sidebar of screens (overview, structure, write, read,
+/// director, cast, relationships, lore, run log) around one story. The
+/// overview is the story bible; structure and write embed their own pages.
 class StoryDashboardPage extends StatefulWidget {
   final String projectId;
   final bool autoRunStoryArchitect;
@@ -57,6 +62,10 @@ class StoryDashboardPage extends StatefulWidget {
 }
 
 class _StoryDashboardPageState extends State<StoryDashboardPage> {
+  StudioSection _section = StudioSection.overview;
+
+  /// The scene the Write screen shows; null picks the next unfinished one.
+  ({int act, int scene})? _writeTarget;
   bool _hasAutoRun = false;
   bool _showChatPreview = false;
   List<String> _chatPreviewMessages = [];
@@ -121,51 +130,28 @@ class _StoryDashboardPageState extends State<StoryDashboardPage> {
         return Scaffold(
           backgroundColor: AppColors.backgroundOf(context),
           appBar: AppBar(
-            title: Text(project.title),
+            title: _buildTitle(project),
             backgroundColor: AppColors.surfaceContainerOf(context),
             foregroundColor: AppColors.textPrimary(context),
             elevation: 0,
             actions: [
-              if (project.acts.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          StoryReaderPage(projectId: widget.projectId),
+              if (pipeline.isRunning)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: TextButton.icon(
+                    onPressed: pipeline.stopRequested
+                        ? null
+                        : pipeline.requestStop,
+                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                    label: Text(pipeline.stopRequested ? 'Stopping…' : 'Stop'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary(context),
                     ),
-                  ),
-                  icon: Icon(
-                    Icons.menu_book,
-                    color: AppColors.porchHoneyOf(context),
-                  ),
-                  label: Text(
-                    'Read',
-                    style: TextStyle(
-                      color: AppColors.porchHoneyOf(context),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              if (project.acts.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          StoryStructurePage(projectId: widget.projectId),
-                    ),
-                  ),
-                  icon: Icon(
-                    Icons.account_tree,
-                    color: AppColors.textSecondary(context),
-                  ),
-                  label: Text(
-                    'Structure',
-                    style: TextStyle(color: AppColors.textSecondary(context)),
                   ),
                 ),
             ],
           ),
-          body: _buildBody(project, pipeline),
+          body: _buildShell(project, pipeline),
         );
       },
     );

@@ -26,55 +26,7 @@ part of 'story_dashboard_page.dart';
 extension _StoryDashboardBody on _StoryDashboardPageState {
   Widget _buildBody(StoryProject project, StoryPipelineService pipeline) {
     // Show loading state
-    if (pipeline.isRunning) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(48),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 56,
-                height: 56,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: AppColors.porchHoneyOf(context),
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                pipeline.currentStep,
-                style: TextStyle(
-                  color: AppColors.textPrimary(context),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                pipeline.statusMessage,
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (pipeline.tokenCount > 0) ...[
-                const SizedBox(height: 16),
-                Text(
-                  '${pipeline.tokenCount} tokens generated',
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
+    if (pipeline.isRunning) return StudioRunningOverlay(pipeline);
 
     // Show story bible
     return SingleChildScrollView(
@@ -335,12 +287,7 @@ extension _StoryDashboardBody on _StoryDashboardPageState {
                 ),
               if (project.acts.isNotEmpty)
                 ElevatedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          StoryStructurePage(projectId: widget.projectId),
-                    ),
-                  ),
+                  onPressed: () => _openSection(StudioSection.structure),
                   icon: const Icon(Icons.view_timeline),
                   label: const Text('View Structure & Write'),
                   style: ElevatedButton.styleFrom(

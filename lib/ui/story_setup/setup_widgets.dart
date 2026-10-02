@@ -157,9 +157,7 @@ class SetupRadioChip extends StatelessWidget {
                       ? Icons.radio_button_checked
                       : Icons.radio_button_unchecked,
                   size: 16,
-                  color: selected
-                      ? accent
-                      : AppColors.iconSecondary(context),
+                  color: selected ? accent : AppColors.iconSecondary(context),
                 ),
                 const SizedBox(width: 6),
                 Text(

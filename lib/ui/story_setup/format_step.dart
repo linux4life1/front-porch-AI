@@ -35,20 +35,6 @@ class FormatStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SetupSectionHeader('Prose Length', Icons.format_size),
-        const SizedBox(height: 10),
-        ...storyProseLengths.entries.map(
-          (e) => SetupRadioTile(
-            e.key,
-            e.value,
-            selected: draft.proseLength == e.key,
-            onTap: () {
-              draft.proseLength = e.key;
-              onChanged();
-            },
-          ),
-        ),
-        const SizedBox(height: 20),
         const SetupSectionHeader('Narrative Pace', Icons.speed),
         const SizedBox(height: 10),
         Wrap(
@@ -89,7 +75,13 @@ class FormatStep extends StatelessWidget {
               .toList(),
         ),
         const SizedBox(height: 28),
-        const SetupSectionHeader('Story Structure', Icons.account_tree),
+        const SetupSectionHeader(
+          'Story Structure',
+          Icons.account_tree,
+          subtitle:
+              'Quick engine only. Studio always builds three acts and eight '
+              'sequences; its length is set on the Engine step.',
+        ),
         const SizedBox(height: 12),
         _buildActCountSlider(context),
         const SizedBox(height: 20),

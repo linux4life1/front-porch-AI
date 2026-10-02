@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/story/story.dart';
 
 /// All the choices the Story Setup wizard collects, held mutably while the
 /// user walks the steps, with load-from / apply-to [StoryProject] round-trips.
@@ -40,6 +41,17 @@ class StorySetupDraft {
   String dialogueDensity = 'Balanced';
   String maturityRating = 'Mature';
 
+  // Engine.
+  StoryEngineMode engineMode = StoryEngineMode.studio;
+  StoryFormat storyFormat = StoryFormat.novel;
+  StoryModelLane planningLane = StoryModelLane.main;
+  StoryModelLane proseLane = StoryModelLane.main;
+  StoryModelLane reviewLane = StoryModelLane.worker;
+  bool reviewEnabled = true;
+  bool lensesEnabled = true;
+
+  int get targetWords => targetWordsForLength(proseLength);
+
   // AI config.
   PromptTier tier = PromptTier.frontier;
   bool useChatHistory = false;
@@ -58,6 +70,13 @@ class StorySetupDraft {
     titleController.text = project.title;
     conceptController.text = project.concept;
     tier = project.promptTier;
+    engineMode = project.engineMode;
+    storyFormat = project.storyFormat;
+    planningLane = project.planningLane;
+    proseLane = project.proseLane;
+    reviewLane = project.reviewLane;
+    reviewEnabled = project.reviewEnabled;
+    lensesEnabled = project.lensesEnabled;
     useChatHistory = project.useChatHistory;
     parallelGeneration = project.parallelGeneration;
     selectedCharacterIds.addAll(project.chatHistoryCharacterIds);
@@ -98,6 +117,14 @@ class StorySetupDraft {
         : titleController.text.trim();
     project.concept = conceptController.text.trim();
     project.promptTier = tier;
+    project.engineMode = engineMode;
+    project.targetWords = targetWords;
+    project.storyFormat = storyFormat;
+    project.planningLane = planningLane;
+    project.proseLane = proseLane;
+    project.reviewLane = reviewLane;
+    project.reviewEnabled = reviewEnabled;
+    project.lensesEnabled = lensesEnabled;
     project.useChatHistory = useChatHistory;
     project.parallelGeneration = parallelGeneration;
     project.chatHistoryCharacterIds = selectedCharacterIds.toList();
@@ -105,7 +132,10 @@ class StorySetupDraft {
     project.userPersonaRole = userPersonaRole;
 
     project.pov = pov;
-    project.actCount = actCount;
+    // Studio always builds three acts and eight sequences.
+    project.actCount = engineMode == StoryEngineMode.studio
+        ? StoryPacing.actCount
+        : actCount;
     project.selectedGenres = selectedGenres.toList();
     project.selectedMoods = selectedMoods.toList();
     project.writingStyle = writingStyle;
@@ -210,9 +240,9 @@ const storyWritingStyles = [
 ];
 
 const storyProseLengths = {
-  'Short': 'Novella (~20K words)',
-  'Standard': 'Novel (~50K words)',
-  'Epic': 'Long novel (~80K+ words)',
+  'Short': 'Novella (~30K words)',
+  'Standard': 'Novel (~80K words)',
+  'Epic': 'Epic (~120K words)',
 };
 
 const storyPaceOptions = {

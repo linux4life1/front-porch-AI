@@ -22,15 +22,27 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/pages/story_writer_page.dart';
 import 'package:front_porch_ai/ui/pages/story_reader_page.dart';
+import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 part 'story_structure_page.tree.dart';
 
-/// Structure page — act/scene tree with valence indicators and generation controls.
+/// Structure page — the act / sequence / scene board with generation
+/// controls. Standalone it is a full page; [embedded] inside the studio
+/// shell it is the board plus its toolbar, and scene taps go to
+/// [onOpenWriter] instead of pushing a route.
 class StoryStructurePage extends StatefulWidget {
   final String projectId;
-  const StoryStructurePage({super.key, required this.projectId});
+  final bool embedded;
+  final void Function(int act, int scene)? onOpenWriter;
+
+  const StoryStructurePage({
+    super.key,
+    required this.projectId,
+    this.embedded = false,
+    this.onOpenWriter,
+  });
 
   @override
   State<StoryStructurePage> createState() => _StoryStructurePageState();
@@ -50,6 +62,18 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
         final project = repo.getById(widget.projectId);
         if (project == null) {
           return const Scaffold(body: Center(child: Text('Project not found')));
+        }
+
+        final body = pipeline.isRunning
+            ? StudioRunningOverlay(pipeline)
+            : _buildStructureTree(project, pipeline);
+        if (widget.embedded) {
+          return Column(
+            children: [
+              _buildToolbar(project, pipeline),
+              Expanded(child: body),
+            ],
+          );
         }
 
         return Scaffold(
@@ -81,62 +105,122 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                 ),
             ],
           ),
-          body: pipeline.isRunning
-              ? _buildRunningOverlay(pipeline)
-              : _buildStructureTree(project, pipeline),
+          body: body,
         );
       },
     );
   }
 
-  Widget _buildRunningOverlay(StoryPipelineService pipeline) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(48),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 56,
-              height: 56,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                color: AppColors.porchHoneyOf(context),
-              ),
+  /// Continue writing · Autopilot · Reviews chip · Read Story.
+  Widget _buildToolbar(StoryProject project, StoryPipelineService pipeline) {
+    final busy = pipeline.isRunning;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          StoryPrimaryButton(
+            'Continue writing',
+            icon: Icons.play_arrow,
+            onPressed: busy || project.concept.isEmpty
+                ? null
+                : () => _continueWriting(project, pipeline),
+          ),
+          StoryQuietButton(
+            'Autopilot',
+            icon: Icons.all_inclusive,
+            onPressed: busy || project.concept.isEmpty
+                ? null
+                : () => _autopilot(project, pipeline),
+          ),
+          if (project.engineMode == StoryEngineMode.studio)
+            StoryChip(
+              project.reviewEnabled ? 'Reviews on' : 'Reviews off',
+              tone: project.reviewEnabled ? 'teal' : '',
             ),
-            const SizedBox(height: 32),
-            Text(
-              pipeline.currentStep,
-              style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              pipeline.statusMessage,
-              style: TextStyle(
-                color: AppColors.textSecondary(context),
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (pipeline.tokenCount > 0) ...[
-              const SizedBox(height: 16),
-              Text(
-                '${pipeline.tokenCount} tokens generated',
-                style: TextStyle(
-                  color: AppColors.textTertiary(context),
-                  fontSize: 12,
+          if (project.prose.isNotEmpty)
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StoryReaderPage(projectId: widget.projectId),
                 ),
               ),
-            ],
-          ],
-        ),
+              icon: Icon(
+                Icons.auto_stories,
+                size: 18,
+                color: AppColors.porchHoneyOf(context),
+              ),
+              label: Text(
+                'Read Story',
+                style: TextStyle(color: AppColors.porchHoneyOf(context)),
+              ),
+            ),
+        ],
       ),
     );
+  }
+
+  Future<void> _continueWriting(
+    StoryProject project,
+    StoryPipelineService pipeline,
+  ) async {
+    try {
+      final wrote = await pipeline.writeNextScene(project);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            wrote ? pipeline.statusMessage : 'The whole story is written.',
+          ),
+          backgroundColor: AppColors.surfaceContainerOf(context),
+        ),
+      );
+    } catch (e) {
+      if (mounted) showAiErrorSnackBar(context, e);
+    }
+  }
+
+  Future<void> _autopilot(
+    StoryProject project,
+    StoryPipelineService pipeline,
+  ) async {
+    final ok = await showWarmDialog<bool>(
+      context,
+      title: 'Write the whole story?',
+      icon: Icons.all_inclusive,
+      content: const WarmDialogText(
+        'Autopilot keeps going until every scene is written. You can stop '
+        'at any time and keep what is done.',
+      ),
+      actions: [
+        warmDialogCancel(context, value: false),
+        warmDialogConfirm(
+          context,
+          label: 'Start',
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+      ],
+    );
+    if (ok != true) return;
+    try {
+      await pipeline.runAutopilot(project);
+    } catch (e) {
+      if (mounted) showAiErrorSnackBar(context, e);
+    }
+  }
+
+  Future<void> _planSequence(
+    StoryProject project,
+    int number,
+    StoryPipelineService pipeline,
+  ) async {
+    try {
+      await pipeline.planSequenceScenes(project, number);
+    } catch (e) {
+      if (mounted) showAiErrorSnackBar(context, e);
+    }
   }
 
   Future<void> _generateFullAct(
