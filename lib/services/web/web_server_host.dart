@@ -87,6 +87,9 @@ class WebServerHost extends ChangeNotifier {
   bool _wasEvaluatingRealism = false;
   bool _wasAwaitingChanceTime = false;
   bool _wasPendingImageReview = false;
+  // A turn's last writes (the new swipe, chips) land while it settles, after
+  // the stream's `done`; see the turn-settled broadcast in _attachLiveRelays.
+  bool _wasTurnBusy = false;
   // Throttle/dedupe state for the processing broadcast: during evals every
   // ChatService notify (≤150ms apart) used to re-send the FULL accumulated
   // eval text — O(n²) bytes over the socket and a client re-render per frame,
@@ -387,6 +390,7 @@ class WebServerHost extends ChangeNotifier {
       _realismListener = null;
     }
     _wasEvaluatingRealism = false;
+    _wasTurnBusy = false;
     if (_genStatusListener != null) {
       _chatService?.removeListener(_genStatusListener!);
       _koboldService?.removeListener(_genStatusListener!);

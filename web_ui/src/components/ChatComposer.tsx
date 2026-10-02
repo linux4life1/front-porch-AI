@@ -7,7 +7,7 @@
 // state; sending is delegated to onSend so all chat/network state stays in
 // ChatPage.
 
-import { useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
 import { renderRpInline } from './rpText';
 import { prepareChatPhotoBase64 } from '../pages/chatPhoto';
@@ -86,13 +86,16 @@ export function ChatComposer({
   apiReady?: boolean;
 }) {
   const [draft, setDraftState] = useState('');
-  const setDraft = (v: string | ((d: string) => string)) => {
-    setDraftState((prev) => {
-      const next = typeof v === 'function' ? v(prev) : v;
-      onDraftChange?.(next);
-      return next;
-    });
-  };
+  const setDraft = useCallback(
+    (v: string | ((d: string) => string)) => {
+      setDraftState((prev) => {
+        const next = typeof v === 'function' ? v(prev) : v;
+        onDraftChange?.(next);
+        return next;
+      });
+    },
+    [onDraftChange],
+  );
   const [slashDismissed, setSlashDismissed] = useState(false);
 
   // "@" cast autocomplete — the cast-name twin of the slash cheat sheet
@@ -162,7 +165,7 @@ export function ChatComposer({
       ta.focus();
       ta.setSelectionRange(impersonateFill.length, impersonateFill.length);
     });
-  }, [impersonateFill]);
+  }, [impersonateFill, setDraft]);
 
   // Keep the coloured backdrop scrolled in lock-step with the textarea.
   const syncScroll = () => {

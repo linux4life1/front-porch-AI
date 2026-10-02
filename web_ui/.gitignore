@@ -4,3 +4,7 @@ dist/
 *.local
 .vite/
 npm-debug.log*
+# Browser E2E output (web_ui/e2e)
+e2e/report/
+e2e/results/
+e2e/.auth/

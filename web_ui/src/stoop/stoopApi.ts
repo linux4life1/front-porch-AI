@@ -457,7 +457,6 @@ export function stoopErrorText(e: unknown): string {
     // on. Surface the real reason; it is the only breadcrumb a remote user
     // can copy into a bug report.
     const detail = e instanceof Error ? e.message : '';
-    // eslint-disable-next-line no-console
     console.error('[Stoop] request failed', e);
     return detail
       ? `Something went wrong: ${detail}`

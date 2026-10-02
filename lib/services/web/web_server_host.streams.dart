@@ -96,6 +96,13 @@ extension WebServerHostStreams on WebServerHost {
           streamHub.broadcast({'event': 'chat_updated'});
           _wasPendingImageReview = pendingReview;
         }
+        // Turn fully settled. Web clients refetch on `done`, which fires when
+        // the text stops streaming — before post-gen appends the new swipe
+        // and chips — so without this a regenerated reply read "1/1" on the
+        // phone until something else changed.
+        final turnBusy = chatService.isGenerating || chatService.isSettlingTurn;
+        if (_wasTurnBusy && !turnBusy) streamHub.broadcastChatUpdate();
+        _wasTurnBusy = turnBusy;
       }
 
       _realismListener = onProcessing;

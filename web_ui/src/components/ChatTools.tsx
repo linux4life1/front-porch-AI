@@ -113,7 +113,7 @@ export function ChatTools({
       <Toggle label="Realism engine" value={t.realismEnabled} onChange={(v) => toggle('realism', v)} />
       <Toggle label="Needs simulation" value={t.needsEnabled} onChange={(v) => toggle('needs', v)} />
       <div className="tool-row">
-        <button className="link-btn" onClick={() => setShowBudget(true)}>
+        <button className="link-btn budget-link" onClick={() => setShowBudget(true)}>
           📊 Context budget — what the model was sent
         </button>
       </div>
