@@ -23,6 +23,22 @@ List<Map<String, Object>> phoneLoraFacts({
 }
 
 extension ImageStudioReady on ImageFacade {
+  void setExistingLoaderSupport({
+    required String comfyUrl,
+    required bool confirmed,
+  }) {
+    final settings = _storage.imageGenSettings;
+    if (settings.imageGenBackend != 'comfyui' ||
+        comfyUrl != settings.comfyUiUrl) {
+      throw const DeskRefused(
+        'stale_server',
+        'The ComfyUI address changed. Check again.',
+      );
+    }
+    City96Gate.instance.setExistingSupport(comfyUrl, confirmed: confirmed);
+    settings.notify();
+  }
+
   /// Checkpoints and LoRAs Draw Things listed. Other backends get an
   /// empty catalog so the phone sheet does not borrow Comfy's folders.
   Future<Map<String, dynamic>> localCatalog({String model = ''}) async {
@@ -132,6 +148,9 @@ extension ImageStudioReady on ImageFacade {
       'mode': edit ? 'edit' : 'create',
       'workflowId': report.workflowId,
       'canUpdateLoader': ready.canUpdateLoader,
+      'loaderSupportConfirmed': City96Gate.instance.hasExistingSupport(
+        settings.comfyUiUrl,
+      ),
       // The model files the graph loads, so the phone lists exactly the
       // slots the graph has (a saved graph can have different ones).
       'slots': [

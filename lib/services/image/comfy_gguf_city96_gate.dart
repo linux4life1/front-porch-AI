@@ -7,9 +7,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import 'city96_records.dart';
-import 'comfy_gguf_city96.dart';
-import 'comfy_gguf_city96_target.dart';
+import 'image.dart';
 import 'comfy_gguf_city96_write.dart';
 import 'comfy_process_probe.dart';
 import 'local_model_roots.dart' show comfyHostIsLocal;
@@ -186,6 +184,20 @@ class City96Gate {
   City96Asker? ask;
 
   final Map<String, bool> _answers = {};
+  final Set<String> _existingSupport = {};
+
+  /// Explicit acknowledgement for this server until Front Porch restarts.
+  /// This never writes a loader or claims its runtime support was detected.
+  void setExistingSupport(String comfyUrl, {required bool confirmed}) {
+    if (confirmed) {
+      _existingSupport.add(comfyUrl);
+    } else {
+      _existingSupport.remove(comfyUrl);
+    }
+  }
+
+  bool hasExistingSupport(String comfyUrl) =>
+      _existingSupport.contains(comfyUrl);
 
   /// What was written to each loader, and when. ComfyUI reads the loader when
   /// it starts, so an update counts once a ComfyUI that started after the write
@@ -234,6 +246,9 @@ class City96Gate {
   ) async {
     if (!graphNeedsCity96Patch(graph)) {
       return (const City96Check(City96State.notNeeded), null, null);
+    }
+    if (hasExistingSupport(comfyUrl)) {
+      return (const City96Check(City96State.ready), null, null);
     }
     if (!await comfyHostIsLocal(comfyUrl)) {
       return (

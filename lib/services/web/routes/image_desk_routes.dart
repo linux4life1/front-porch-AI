@@ -18,10 +18,32 @@ class ImageDeskRoutes {
     router.post('/api/image/studio/pick', _pick);
     router.post('/api/image/studio/graph', _graph);
     router.post('/api/image/studio/write-prompt', _writePrompt);
+    router.post('/api/image/studio/loader-support', _loaderSupport);
   }
 
   final WebServerDeps deps;
   final ImageFacade image;
+
+  Future<shelf.Response> _loaderSupport(shelf.Request request) async {
+    final (body, failed) = await _body(request);
+    if (body == null) return failed!;
+    final confirmed = body['confirmed'];
+    final comfyUrl = body['comfyUrl'];
+    if (confirmed is! bool || comfyUrl is! String) {
+      return refused(
+        const DeskRefused(
+          'bad_request',
+          'Choose whether to use existing GGUF support.',
+        ),
+      );
+    }
+    try {
+      image.setExistingLoaderSupport(comfyUrl: comfyUrl, confirmed: confirmed);
+    } on DeskRefused catch (e) {
+      return refused(e);
+    }
+    return JsonResponse.ok({'confirmed': confirmed});
+  }
 
   /// Longest instruction "Write it for me" is given.
   static const int maxInstruction = 2000;

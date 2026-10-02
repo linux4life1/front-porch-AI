@@ -17,7 +17,7 @@ import { DeskSize } from './studio/DeskSize';
 import { GraphSheet } from './studio/GraphSheet';
 import { LoraSheet } from './studio/LoraSheet';
 import { ModelSheet } from './studio/ModelSheet';
-import { installedChoice, pick } from './studio/deskApi';
+import { installedChoice, pick, setLoaderSupport } from './studio/deskApi';
 import { factsByFile, readyLine } from './studio/deskRules';
 import { useDeskReady } from './studio/useDeskReady';
 import type { GraphUpload, ImageConfig, LoraFact, LoraSlot, Mode } from './studio/types';
@@ -93,6 +93,15 @@ export function StudioDesk(props: StudioDeskProps) {
       props.onConfig(next);
       refresh();
     });
+
+  const useLoaderSupport = () => {
+    const url = facts?.savedUrl ?? cfg.comfyUrl;
+    if (props.busy || !url) return;
+    const confirmed = facts?.loaderSupportConfirmed === true;
+    if (!confirmed && !window.confirm(`Choose this if your workflow already runs in ComfyUI with a compatible loader or extension. Front Porch will skip its GGUF compatibility check for ${url} until Front Porch restarts. ComfyUI will still validate the workflow.`)) return;
+    void setLoaderSupport(url, !confirmed).then(refresh)
+      .catch((e) => failed(e, 'Could not change the GGUF support check.'));
+  };
 
   const pickGraph = (id: string, forMode: Mode) => {
     setSheet(null);
@@ -200,6 +209,8 @@ export function StudioDesk(props: StudioDeskProps) {
             onGraph={() => setSheet({ kind: 'graph' })}
             onModel={(token) => setSheet({ kind: 'model', token })}
             onCivitai={() => setSheet({ kind: 'civitai', lora: false })}
+            onLoaderSupport={useLoaderSupport}
+            busy={props.busy}
           />
           <DeskLoras
             slots={paddedSlots(cfg)}

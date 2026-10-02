@@ -10,6 +10,9 @@ import type { Catalog, GraphUpload, ImageConfig, Mode, ReadyFacts } from './type
 export const fetchReady = (mode: Mode) =>
   api.get<ReadyFacts>(`/api/image/studio/ready?mode=${mode}`);
 
+export const setLoaderSupport = (comfyUrl: string, confirmed: boolean) =>
+  api.post<{ confirmed: boolean }>('/api/image/studio/loader-support', { comfyUrl, confirmed });
+
 export function fetchCatalog(
   mode: Mode,
   opts: { token?: string; lora?: boolean } = {},

@@ -25,6 +25,8 @@ export function DeskModel(props: {
   onModel: (token?: string) => void;
   onCivitai: () => void;
   onUpdateLoader?: () => void;
+  onLoaderSupport?: () => void;
+  busy?: boolean;
 }) {
   const { cfg, mode, facts } = props;
   const file = facts?.primary ?? '';
@@ -54,6 +56,11 @@ export function DeskModel(props: {
       )}
       {facts?.kind === 'needsLoaderUpdate' && facts.canUpdateLoader ? (
         <p>Confirm the ComfyUI-GGUF loader update on your computer, then check again.</p>
+      ) : null}
+      {comfy && (facts?.kind === 'needsLoaderUpdate' || facts?.loaderSupportConfirmed) ? (
+        <button type="button" onClick={props.onLoaderSupport} disabled={props.busy}>
+          {facts?.loaderSupportConfirmed ? 'Recheck GGUF support' : 'Use existing GGUF support…'}
+        </button>
       ) : null}
       {comfy && hasGraphSlots ? (
         support.length === 0 ? (

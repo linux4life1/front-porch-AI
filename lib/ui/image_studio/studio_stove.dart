@@ -6,12 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-import 'studio_desk_copy.dart';
-import 'studio_gen_progress.dart';
-import 'studio_size_fields.dart';
-import 'studio_size_pill.dart';
-import 'studio_stove_knobs.dart';
-import 'studio_stove_modes.dart';
+import 'studio_widgets.dart';
 
 /// One LoRA sitting on the stove, with the badge the family check earned.
 class StudioStoveLora {
@@ -80,6 +75,7 @@ class StudioStove extends StatefulWidget {
     this.onMode,
     this.status = '',
     this.onUpdateLoader,
+    this.loaderSupportAction,
   });
 
   final String backendName;
@@ -144,6 +140,7 @@ class StudioStove extends StatefulWidget {
 
   /// "Update loader…": asks to change ComfyUI-GGUF's loader. Null hides it.
   final VoidCallback? onUpdateLoader;
+  final Widget? loaderSupportAction;
 
   @override
   State<StudioStove> createState() => _StudioStoveState();
@@ -216,12 +213,15 @@ class _StudioStoveState extends State<StudioStove> {
                 ),
               ],
             ),
-            if (widget.status.isNotEmpty)
+            if (widget.status.isNotEmpty || widget.loaderSupportAction != null)
               Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: 8,
                 children: [
-                  Text(widget.status, style: TextStyle(color: primary)),
+                  if (widget.status.isNotEmpty)
+                    Text(widget.status, style: TextStyle(color: primary)),
+                  if (widget.loaderSupportAction != null)
+                    widget.loaderSupportAction!,
                   if (widget.onUpdateLoader != null)
                     TextButton(
                       onPressed: widget.onUpdateLoader,

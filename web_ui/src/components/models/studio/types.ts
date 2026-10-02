@@ -79,11 +79,13 @@ export interface ReadyFacts {
   reachable?: boolean;
   /** Where ComfyUI answers when the saved address (one the person gave) does not. */
   neighborUrl?: string;
+  savedUrl?: string;
   diffusionCount?: number;
   loraCount?: number;
   mode?: Mode;
   workflowId?: string;
   canUpdateLoader?: boolean;
+  loaderSupportConfirmed?: boolean;
   slots?: { token: string; label: string; file: string }[];
   uploadedTitle?: string;
   uploadedNodes?: number;

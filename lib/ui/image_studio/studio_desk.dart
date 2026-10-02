@@ -12,15 +12,7 @@ import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 
-import 'studio_civitai_get.dart';
-import 'studio_comfy_address.dart';
-import 'studio_commit_field.dart';
-import 'studio_desk_copy.dart';
-import 'studio_desk_knobs.dart';
-import 'studio_graph_sheet.dart';
-import 'studio_lora_sheet.dart';
-import 'studio_model_sheet.dart';
-import 'studio_stove.dart';
+import 'studio_widgets.dart';
 
 part 'studio_desk_actions.dart';
 part 'studio_desk_catalog.dart';
@@ -330,6 +322,21 @@ class _StudioDeskState extends State<StudioDesk> {
         _checkReady();
       },
       status: studioReadyStatus(ready),
+      loaderSupportAction:
+          backend == 'comfyui' &&
+              (ready?.kind == StudioReady.needsLoaderUpdate ||
+                  City96Gate.instance.hasExistingSupport(settings.comfyUiUrl))
+          ? TextButton(
+              onPressed: widget.generating
+                  ? null
+                  : () => _useExistingLoaderSupport(settings),
+              child: Text(
+                City96Gate.instance.hasExistingSupport(settings.comfyUiUrl)
+                    ? 'Recheck GGUF support'
+                    : 'Use existing GGUF support…',
+              ),
+            )
+          : null,
       onUpdateLoader:
           ready?.kind == StudioReady.needsLoaderUpdate && ready!.canUpdateLoader
           ? () => _updateLoader(settings)
@@ -415,6 +422,7 @@ class _StudioDeskState extends State<StudioDesk> {
       edit,
       settings.imageGenBackend,
       settings.comfyUiUrl,
+      City96Gate.instance.hasExistingSupport(settings.comfyUiUrl),
       edit ? settings.comfyEditWorkflowId : settings.comfyCreateWorkflowId,
       edit ? settings.comfyEditModelChoices : settings.comfyCreateModelChoices,
       uploaded.length,

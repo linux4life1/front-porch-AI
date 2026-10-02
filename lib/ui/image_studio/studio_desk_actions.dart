@@ -142,6 +142,43 @@ extension on _StudioDeskState {
     );
   }
 
+  Future<void> _useExistingLoaderSupport(ImageGenSettings settings) async {
+    final url = settings.comfyUiUrl;
+    final confirmed = City96Gate.instance.hasExistingSupport(url);
+    if (!confirmed) {
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Use existing GGUF support?'),
+          content: Text(
+            'Choose this if your workflow already runs in ComfyUI with a compatible loader or extension. '
+            'Front Porch will skip its GGUF compatibility check for $url until Front Porch restarts. '
+            'ComfyUI will still validate the workflow.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Use existing support'),
+            ),
+          ],
+        ),
+      );
+      if (yes != true ||
+          !mounted ||
+          settings.comfyUiUrl != url ||
+          settings.imageGenBackend != 'comfyui') {
+        return;
+      }
+    }
+    City96Gate.instance.setExistingSupport(url, confirmed: !confirmed);
+    settings.notify();
+    await _checkReady(force: true);
+  }
+
   /// "Update loader…": asks, on this computer, to change ComfyUI-GGUF's loader
   /// for the graph on the desk, then says what happened and judges again. The
   /// question is asked every time it is pressed, whatever was answered before.
