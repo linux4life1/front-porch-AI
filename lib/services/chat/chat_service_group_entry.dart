@@ -304,6 +304,16 @@ extension ChatServiceGroupEntry on ChatService {
 
       // If no session, create a greeting
       if (_messages.isEmpty && _groupCharacters.isNotEmpty) {
+        // #328, group twin of setActiveCharacter: a never-opened group has no
+        // row for _loadLastSession to restore a persona from, so the previous
+        // chat's in-chat persona leaked into the greeting's {{user}} and the
+        // new session's binding. Start as the default; a stored zero-message
+        // group chat (`_currentSessionId` already set) keeps its own.
+        if (_currentSessionId == null) {
+          await _userPersonaService.setActivePersona(
+            _userPersonaService.defaultPersonaId,
+          );
+        }
         // Each member's authored starting quest, imported once per fresh chat.
         for (final c in _groupCharacters) {
           _importAuthoredTask(c.frontPorchExtensions, target: c);

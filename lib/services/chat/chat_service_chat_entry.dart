@@ -297,6 +297,19 @@ extension ChatServiceChatEntry on ChatService {
 
         // If no session loaded, start fresh
         if (_messages.isEmpty) {
+          // #328: a never-opened character has no row to restore a persona
+          // from, so _loadLastSession's _activateSessionPersona never ran and
+          // the PREVIOUS chat's in-chat persona was still live — the greeting
+          // resolved {{user}} as them and the _saveChat below bound the new
+          // session to them. A fresh chat starts as the default, same as
+          // startNewChat. Done before the greeting is built so the macro sees
+          // it too. `_currentSessionId == null` is load-bearing: a stored
+          // zero-message chat also lands here, and it keeps its own persona.
+          if (_currentSessionId == null) {
+            await _userPersonaService.setActivePersona(
+              _userPersonaService.defaultPersonaId,
+            );
+          }
           // Seed Realism Engine state from V2.5 card extensions (new conversations only)
           if (_activeCharacter!.frontPorchExtensions != null) {
             final ext = _activeCharacter!.frontPorchExtensions!;
