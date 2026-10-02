@@ -25,7 +25,32 @@ part of 'story_pipeline_service.dart';
 /// ChatService-parts precedent: a library-private extension would be
 /// invisible to importing libraries).
 extension StoryPipelineLlm on StoryPipelineService {
-  /// Call the LLM and get a text response. Streams tokens to _streamingText for UI.
+  /// Which service a [role] runs on for [project]. The worker lane is used
+  /// only when the story asks for it and a worker is actually live; the last
+  /// retry of a planning job ([escalate]) always goes to the main model.
+  ({LLMService service, bool onWorker}) _laneFor(
+    StoryProject? project,
+    StoryRole role, {
+    bool escalate = false,
+  }) {
+    final wanted = project == null
+        ? StoryModelLane.main
+        : switch (role) {
+            StoryRole.planning => project.planningLane,
+            StoryRole.prose => project.proseLane,
+            StoryRole.review => project.reviewLane,
+          };
+    if (wanted == StoryModelLane.worker && !escalate) {
+      final worker = _lanes?.worker();
+      if (worker != null && worker.isReady) {
+        return (service: worker, onWorker: true);
+      }
+    }
+    return (service: _llmService, onWorker: false);
+  }
+
+  /// One model call: streams tokens to `_streamingText` for the UI and
+  /// returns the text with an unsaved run-log entry for it.
   ///
   /// Every story stage funnels through here, so this is also where backend
   /// availability is enforced: the story pages and the web client surface
@@ -33,14 +58,22 @@ extension StoryPipelineLlm on StoryPipelineService {
   /// refused the network connection" on Windows) tells users nothing. Guard
   /// up-front and translate connection failures into a plain-language
   /// [LlmUnavailableException] instead.
-  Future<String> _callLLM(
+  Future<({String text, StoryRunEntry entry})> _call(
     String prompt, {
     int maxLength = 4096,
     StoryStageParams stage = StoryStageParams.planning,
+    StoryProject? project,
+    StoryRole role = StoryRole.planning,
+    String label = '',
+    int attempt = 1,
+    bool escalate = false,
   }) async {
-    if (!_llmService.isReady) {
+    if (_stopRequested) throw StoryStoppedException();
+    final lane = _laneFor(project, role, escalate: escalate);
+    final service = lane.service;
+    if (!service.isReady) {
       throw LlmUnavailableException(
-        'The AI backend (${_llmService.backendName}) isn\'t ready. Stories '
+        'The AI backend (${service.backendName}) isn\'t ready. Stories '
         'use the same AI engine as chat — start it and load a model in '
         'Settings (or set up your remote API), then try again.',
       );
@@ -63,10 +96,10 @@ extension StoryPipelineLlm on StoryPipelineService {
     _tokenCount = 0;
     _notify();
 
-    final buffer = StringBuffer();
-    int notifyCounter = 0;
-    try {
-      await for (final token in _llmService.generateStream(params)) {
+    Future<String> stream() async {
+      final buffer = StringBuffer();
+      int notifyCounter = 0;
+      await for (final token in service.generateStream(params)) {
         buffer.write(token);
         _streamingText = buffer.toString();
         _tokenCount++;
@@ -77,10 +110,21 @@ extension StoryPipelineLlm on StoryPipelineService {
           _notify();
         }
       }
+      return buffer.toString();
+    }
+
+    final started = DateTime.now();
+    final String text;
+    try {
+      text = lane.onWorker
+          ? await _lanes!.hold<String>(stream)
+          : await stream();
     } catch (e) {
+      // Stop aborts the HTTP client, which surfaces here as a socket error.
+      if (_stopRequested) throw StoryStoppedException();
       if (looksLikeBackendUnreachable(e)) {
         throw LlmUnavailableException(
-          'Couldn\'t reach the AI backend (${_llmService.backendName}) — '
+          'Couldn\'t reach the AI backend (${service.backendName}) — '
           'nothing answered at its address, or it stopped responding '
           'mid-generation. Make sure the engine is running with a model '
           'loaded (stories use the same AI backend as chat), then try again.',
@@ -88,10 +132,50 @@ extension StoryPipelineLlm on StoryPipelineService {
       }
       rethrow;
     }
+    if (_stopRequested) throw StoryStoppedException();
     // Final update
-    _streamingText = buffer.toString();
+    _streamingText = text;
     _notify();
-    return buffer.toString();
+    return (
+      text: text,
+      entry: StoryRunEntry(
+        at: started,
+        stage: label,
+        role: role.name,
+        backend: service.backendName,
+        attempt: attempt,
+        millis: DateTime.now().difference(started).inMilliseconds,
+        tokens: _tokenCount,
+        prompt: prompt,
+        response: text,
+      ),
+    );
+  }
+
+  Future<void> _log(StoryProject? project, StoryRunEntry entry) async {
+    final id = project?.dbId;
+    if (id != null) await store.add(id, entry);
+  }
+
+  /// [_call] for stages with no gate: the call is logged as it stands.
+  Future<String> _callLLM(
+    String prompt, {
+    int maxLength = 4096,
+    StoryStageParams stage = StoryStageParams.planning,
+    StoryProject? project,
+    StoryRole role = StoryRole.planning,
+    String label = '',
+  }) async {
+    final result = await _call(
+      prompt,
+      maxLength: maxLength,
+      stage: stage,
+      project: project,
+      role: role,
+      label: label,
+    );
+    await _log(project, result.entry);
+    return result.text;
   }
 
   /// Get chat history context for characters.
@@ -168,7 +252,7 @@ extension StoryPipelineLlm on StoryPipelineService {
   /// Loads all messages from DB, chunks them, and uses the LLM to extract
   /// a chronological timeline of plot-critical events. Result is stored on
   /// `project.distilledTimeline`.
-  Future<void> runChatDistiller(StoryProject project) async {
+  Future<void> _chatDistiller(StoryProject project) async {
     if (!project.useChatHistory || project.chatHistoryCharacterIds.isEmpty) {
       return;
     }
@@ -268,6 +352,8 @@ Extract the timeline now. Output ONLY the timeline entries, nothing else.''';
           prompt,
           maxLength: 4096,
           stage: StoryStageParams.distill,
+          project: project,
+          label: 'Chat Distiller',
         );
         final cleaned = StoryJson.stripThinkTags(response).trim();
         if (cleaned.isNotEmpty) {
@@ -295,6 +381,8 @@ Output the merged, deduplicated, chronologically ordered timeline. Output ONLY t
           mergePrompt,
           maxLength: 8192,
           stage: StoryStageParams.distillMerge,
+          project: project,
+          label: 'Chat Distiller (merge)',
         );
         finalTimeline = StoryJson.stripThinkTags(mergeResponse).trim();
       } else {

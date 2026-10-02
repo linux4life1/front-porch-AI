@@ -67,15 +67,12 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
     final liveDb = AppDatabase.current ?? db;
     storyLlmService = llmProvider.activeService;
     storyDb = liveDb;
-    return StoryPipelineService(
-      Provider.of<StoryRepository>(context, listen: false),
-      llmProvider.activeService,
-      MemoryService(
-        Provider.of<EmbeddingService>(context, listen: false),
-        storage,
-        liveDb,
-      ),
-      liveDb,
+    return buildStoryPipelineService(
+      repository: Provider.of<StoryRepository>(context, listen: false),
+      llm: llmProvider,
+      storage: storage,
+      embeddings: Provider.of<EmbeddingService>(context, listen: false),
+      db: liveDb,
     );
   }
 

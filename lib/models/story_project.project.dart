@@ -77,6 +77,32 @@ class StoryProject {
   // Prose indexed by "actIdx-sceneIdx-beatIdx"
   Map<String, BeatProse> prose;
 
+  // ── Studio engine ──
+  StoryEngineMode engineMode;
+  int targetWords;
+  StoryFormat storyFormat;
+  StoryModelLane planningLane;
+  StoryModelLane proseLane;
+  StoryModelLane reviewLane;
+  bool reviewEnabled;
+  bool lensesEnabled;
+  List<StorySequence> sequences;
+  List<StoryRelationship> relationships;
+  List<ContinuityFact> continuity;
+  String twists;
+
+  /// Phrases the user never wants, and phrases the engine noticed the model
+  /// repeating lately (rolling, rewritten as chapters land).
+  List<String> bannedPhrases;
+  List<String> autoBannedPhrases;
+  List<StoryLens> customLenses;
+  DirectorPlan? directorPlan;
+  DirectorApplied? directorApplied;
+
+  /// Reader: 'book' (page flip) or 'scroll', and how far down the scroll is.
+  String readerMode;
+  double readerScroll;
+
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -115,9 +141,34 @@ class StoryProject {
     Map<int, List<StoryScene>>? scenes,
     Map<String, List<StoryBeat>>? beats,
     Map<String, BeatProse>? prose,
+    this.engineMode = StoryEngineMode.quick,
+    this.targetWords = 80000,
+    this.storyFormat = StoryFormat.novel,
+    this.planningLane = StoryModelLane.main,
+    this.proseLane = StoryModelLane.main,
+    this.reviewLane = StoryModelLane.worker,
+    this.reviewEnabled = true,
+    this.lensesEnabled = true,
+    List<StorySequence>? sequences,
+    List<StoryRelationship>? relationships,
+    List<ContinuityFact>? continuity,
+    this.twists = '',
+    List<String>? bannedPhrases,
+    List<String>? autoBannedPhrases,
+    List<StoryLens>? customLenses,
+    this.directorPlan,
+    this.directorApplied,
+    this.readerMode = 'book',
+    this.readerScroll = 0,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : style = style ?? StoryStyle(),
+       sequences = sequences ?? [],
+       relationships = relationships ?? [],
+       continuity = continuity ?? [],
+       bannedPhrases = bannedPhrases ?? [],
+       autoBannedPhrases = autoBannedPhrases ?? [],
+       customLenses = customLenses ?? [],
        selectedGenres = selectedGenres ?? [],
        selectedMoods = selectedMoods ?? [],
        cast = cast ?? [],
@@ -128,7 +179,9 @@ class StoryProject {
        beats = beats ?? {},
        prose = prose ?? {},
        createdAt = createdAt ?? DateTime.now(),
-       updatedAt = updatedAt ?? DateTime.now();
+       updatedAt = updatedAt ?? DateTime.now() {
+    normalize();
+  }
 
   /// Serialize the entire project to JSON string for database storage.
   String toJsonString() => jsonEncode(toJson());
@@ -171,6 +224,27 @@ class StoryProject {
       (k, v) => MapEntry(k, v.map((b) => b.toJson()).toList()),
     ),
     'prose': prose.map((k, v) => MapEntry(k, v.toJson())),
+    'engine_mode': engineMode.name,
+    'target_words': targetWords,
+    'story_format': storyFormat.name,
+    'model_lanes': {
+      'planning': planningLane.name,
+      'prose': proseLane.name,
+      'review': reviewLane.name,
+    },
+    'review_enabled': reviewEnabled,
+    'lenses_enabled': lensesEnabled,
+    'sequences': sequences.map((s) => s.toJson()).toList(),
+    'relationships': relationships.map((r) => r.toJson()).toList(),
+    'continuity': continuity.map((f) => f.toJson()).toList(),
+    'twists': twists,
+    'banned_phrases': bannedPhrases,
+    'auto_banned_phrases': autoBannedPhrases,
+    'custom_lenses': customLenses.map((l) => l.toJson()).toList(),
+    if (directorPlan != null) 'director_plan': directorPlan!.toJson(),
+    if (directorApplied != null) 'director_applied': directorApplied!.toJson(),
+    'reader_mode': readerMode,
+    'reader_scroll': readerScroll,
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
   };
@@ -202,7 +276,52 @@ class StoryProject {
       });
     }
 
+    final lanes = json['model_lanes'] as Map<String, dynamic>? ?? const {};
+    StoryModelLane lane(String key, StoryModelLane fallback) =>
+        _enumByName(StoryModelLane.values, lanes[key], fallback);
+    List<T> list<T>(String key, T Function(Map<String, dynamic>) parse) =>
+        (json[key] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(parse)
+            .toList() ??
+        [];
+
     return StoryProject(
+      engineMode: _enumByName(
+        StoryEngineMode.values,
+        json['engine_mode'],
+        StoryEngineMode.quick,
+      ),
+      targetWords:
+          (json['target_words'] as num?)?.toInt() ??
+          targetWordsForLength(json['prose_length']?.toString()),
+      storyFormat: _enumByName(
+        StoryFormat.values,
+        json['story_format'],
+        StoryFormat.novel,
+      ),
+      planningLane: lane('planning', StoryModelLane.main),
+      proseLane: lane('prose', StoryModelLane.main),
+      reviewLane: lane('review', StoryModelLane.worker),
+      reviewEnabled: json['review_enabled'] ?? true,
+      lensesEnabled: json['lenses_enabled'] ?? true,
+      sequences: list('sequences', StorySequence.fromJson),
+      relationships: list('relationships', StoryRelationship.fromJson),
+      continuity: list('continuity', ContinuityFact.fromJson),
+      twists: json['twists']?.toString() ?? '',
+      bannedPhrases: _stringList(json['banned_phrases']),
+      autoBannedPhrases: _stringList(json['auto_banned_phrases']),
+      customLenses: list('custom_lenses', StoryLens.fromJson),
+      directorPlan: json['director_plan'] is Map<String, dynamic>
+          ? DirectorPlan.fromJson(json['director_plan'])
+          : null,
+      directorApplied: json['director_applied'] is Map<String, dynamic>
+          ? DirectorApplied.fromJson(json['director_applied'])
+          : null,
+      readerMode: json['reader_mode'] == 'scroll' ? 'scroll' : 'book',
+      readerScroll: ((json['reader_scroll'] as num?)?.toDouble() ?? 0)
+          .clamp(0.0, 1.0)
+          .toDouble(),
       title: json['title'] ?? 'Untitled Story',
       concept: json['concept'] ?? '',
       statusQuo: json['status_quo'] ?? '',

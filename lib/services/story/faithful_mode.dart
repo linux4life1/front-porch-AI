@@ -58,12 +58,13 @@ StoryProject buildChatStoryProject({
     title: faithful
         ? 'The Story of $charName & $userName'
         : 'Inspired by $charName & $userName',
-    concept: (faithful
+    concept:
+        (faithful
             ? 'A faithful novelization of the roleplay between $charName '
-                'and $userName — the real events of their chat, retold as '
-                'prose.'
+                  'and $userName — the real events of their chat, retold as '
+                  'prose.'
             : 'A story inspired by the roleplay between $charName and '
-                '$userName.') +
+                  '$userName.') +
         (recap.trim().isEmpty ? '' : '\n\nWhere the story stands: $recap'),
     useChatHistory: true,
     chatHistoryCharacterIds: [characterId],

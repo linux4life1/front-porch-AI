@@ -19,6 +19,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -26,10 +27,29 @@ import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/story_stage_params.dart';
 import 'package:front_porch_ai/database/database.dart' hide StoryProject;
 
+part 'story_pipeline_service.acts.dart';
+part 'story_pipeline_service.agent.dart';
+part 'story_pipeline_service.api.dart';
+part 'story_pipeline_service.director.dart';
+part 'story_pipeline_service.director_apply.dart';
 part 'story_pipeline_service.llm.dart';
 part 'story_pipeline_service.planning.dart';
 part 'story_pipeline_service.prose.dart';
-part 'story_pipeline_service.acts.dart';
+part 'story_pipeline_service.studio_bible.dart';
+part 'story_pipeline_service.studio_memory.dart';
+part 'story_pipeline_service.studio_prose.dart';
+part 'story_pipeline_service.studio_structure.dart';
+
+/// Routes Studio jobs to the worker model when a story asks for that.
+class StoryLanes {
+  const StoryLanes({required this.worker, required this.hold});
+
+  /// The live worker service, or null when none is configured.
+  final LLMService? Function() worker;
+
+  /// Runs [work] while holding the worker lane (so a shared GPU can swap).
+  final Future<T> Function<T>(Future<T> Function() work) hold;
+}
 
 /// Orchestrates the multi-agent AI novel-writing pipeline for Porch Stories.
 ///
@@ -43,13 +63,25 @@ class StoryPipelineService extends ChangeNotifier {
   _memoryService; // ignore: unused_field - Reserved for future story RAG / memory injection
   AppDatabase _db;
 
+  /// Run log and Director undo snapshots (side files, not the project blob).
+  final StoryStudioStore store;
+  final StoryLanes? _lanes;
+  final StoryLoreIndex _loreIndex;
+
   bool _isRunning = false;
   String _currentStep = '';
   String _statusMessage = '';
   String _streamingText = '';
   int _tokenCount = 0;
 
-  bool get isRunning => _isRunning;
+  /// Nesting depth of public operations; see [_guard].
+  int _depth = 0;
+  bool _stopRequested = false;
+
+  /// True for the whole of an outermost operation, including the gaps between
+  /// its stages (each stage still clears `_isRunning` in its own `finally`).
+  bool get isRunning => _isRunning || _depth > 0;
+  bool get stopRequested => _stopRequested;
   String get currentStep => _currentStep;
   String get statusMessage => _statusMessage;
   String get streamingText => _streamingText;
@@ -59,8 +91,47 @@ class StoryPipelineService extends ChangeNotifier {
     this._repository,
     this._llmService,
     this._memoryService,
-    this._db,
-  );
+    this._db, {
+    StoryStudioStore? store,
+    StoryLanes? lanes,
+    EmbeddingService? embeddings,
+  }) : store = store ?? StoryStudioStore(),
+       _lanes = lanes,
+       _loreIndex = StoryLoreIndex(embeddings) {
+    _repository.onDelete = this.store.deleteProject;
+  }
+
+  /// Ask the running operation to stop at the next safe point. Everything
+  /// already written stays saved.
+  void requestStop() {
+    if (!isRunning || _stopRequested) return;
+    _stopRequested = true;
+    _statusMessage = 'Stopping…';
+    _llmService.abortGeneration();
+    _lanes?.worker()?.abortGeneration();
+    notifyListeners();
+  }
+
+  /// Wraps every public operation. Tracks nesting so `isRunning` and the stop
+  /// request span the outermost call, and turns a user stop into a quiet
+  /// finish instead of an error.
+  Future<void> _guard(Future<void> Function() body) async {
+    _depth++;
+    try {
+      await body();
+    } on StoryStoppedException {
+      if (_depth > 1) rethrow;
+      _currentStep = 'Stopped';
+      _statusMessage = 'Stopped. Everything written so far is saved.';
+    } finally {
+      _depth--;
+      if (_depth == 0) {
+        _isRunning = false;
+        _stopRequested = false;
+        notifyListeners();
+      }
+    }
+  }
 
   /// Re-point at a reopened database (backup restore, storage move, stable-DB
   /// import) — same contract as StoryRepository.updateDatabase. Without this

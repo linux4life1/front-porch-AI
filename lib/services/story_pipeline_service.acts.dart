@@ -31,7 +31,7 @@ extension StoryPipelineActs on StoryPipelineService {
   ///   1. Scene Weaver (scenes + beats in one call)
   ///   2. Combined prose for the entire act (one call)
   /// This reduces ~20+ calls per act down to just 2-3.
-  Future<void> generateFullAct(StoryProject project, int actIndex) async {
+  Future<void> _quickFullAct(StoryProject project, int actIndex) async {
     _isRunning = true;
     final act = project.acts[actIndex];
 
@@ -43,7 +43,7 @@ extension StoryPipelineActs on StoryPipelineService {
           'Act ${act.number}: Scenes',
           'Generating scenes for "${act.title}"...',
         );
-        await runSceneWeaver(project, actIndex);
+        await _quickScenes(project, actIndex);
         // Every stage clears _isRunning in its own `finally`, but the act is
         // far from done — the prose phase below is the long part. Without
         // this re-arm the progress overlay vanishes and every Generate
@@ -64,7 +64,7 @@ extension StoryPipelineActs on StoryPipelineService {
             'Act ${act.number}: Beats',
             'Planning beats for scene ${sceneIdx + 1}/${scenes.length}...',
           );
-          await runBeatDirector(project, actIndex, sceneIdx);
+          await _quickBeats(project, actIndex, sceneIdx);
           _isRunning = true; // same stage-finally reset as above
         }
       }
@@ -90,7 +90,7 @@ extension StoryPipelineActs on StoryPipelineService {
   }
 
   /// Public method to regenerate prose for a single scene (after clearing old prose).
-  Future<void> regenerateSceneProse(
+  Future<void> _quickRegenerateScene(
     StoryProject project,
     int actIndex,
     int sceneIndex,
@@ -280,6 +280,9 @@ Output ONLY the prose text for this single beat, nothing else. No labels, no hea
         prompt,
         maxLength: tier == PromptTier.smallLocal ? 4096 : 8192,
         stage: StoryStageParams.prose,
+        project: project,
+        role: StoryRole.prose,
+        label: 'Writing',
       );
       final cleanedResponse = StoryJson.stripThinkTags(response).trim();
 
@@ -300,7 +303,7 @@ Output ONLY the prose text for this single beat, nothing else. No labels, no hea
   }
 
   /// Autopilot: run the entire pipeline from concept to finished prose.
-  Future<void> runAutopilot(StoryProject project) async {
+  Future<void> _autopilot(StoryProject project) async {
     try {
       // 1. Story Architect
       await runStoryArchitect(project);
