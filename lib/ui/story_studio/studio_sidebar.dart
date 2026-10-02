@@ -103,8 +103,15 @@ class StudioSidebar extends StatelessWidget {
     );
     return horizontal
         ? SizedBox(height: 52, child: rail)
-        : SizedBox(width: 190, child: rail);
+        : SizedBox(width: 200, child: rail);
   }
+
+  TextStyle _labelStyle(BuildContext context, bool on) => TextStyle(
+    fontSize: 13,
+    color: on
+        ? AppColors.textPrimary(context)
+        : AppColors.textSecondary(context),
+  );
 
   Widget _item(BuildContext context, StudioSection s) {
     final on = s == selected;
@@ -138,17 +145,18 @@ class StudioSidebar extends StatelessWidget {
                   : AppColors.textSecondary(context),
             ),
             const SizedBox(width: 8),
-            Text(
-              s.label,
-              style: TextStyle(
-                fontSize: 13,
-                color: on
-                    ? AppColors.textPrimary(context)
-                    : AppColors.textSecondary(context),
+            if (horizontal)
+              Text(s.label, style: _labelStyle(context, on))
+            else
+              Expanded(
+                child: Text(
+                  s.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: _labelStyle(context, on),
+                ),
               ),
-            ),
             if (_isNew(s)) ...[
-              if (!horizontal) const Spacer() else const SizedBox(width: 6),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(

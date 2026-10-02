@@ -78,6 +78,10 @@ void main() {
         'backend_type': 'openRouter',
         'remote_api_url': '${backend.baseUrl}/v1',
         'remote_model_name': 'smoke-model',
+        // A non-empty saved key skips the keychain read at startup. A debug
+        // build on a developer Mac otherwise waits on the macOS keychain
+        // prompt and the home page never appears; CI runners never prompt.
+        'search_api_key': 'e2e-no-keychain',
       });
 
       app.main(const []);
@@ -149,10 +153,19 @@ void main() {
           find.byKey(const ValueKey('story-setup-next')),
         ], find.textContaining(next));
       }
-      // Studio is the default; the Engine step says so.
+      // Studio is the default; the Engine step says so. A novella keeps the
+      // scene budget at two per sequence — what the fake backend outlines.
       expect(
         find.byKey(const ValueKey('story-engine-studio-on')),
         findsOneWidget,
+      );
+      await d.tapUntilTrue(
+        [find.text('Novella · 30k')],
+        () => find
+            .textContaining('beats each')
+            .evaluate()
+            .any((e) => (e.widget as Text).data!.contains('16–27 scenes')),
+        () => 'the pacing line to show the novella budget',
       );
       await d.tapUntil([
         find.byKey(const ValueKey('story-setup-next')),
@@ -210,8 +223,13 @@ void main() {
       );
       // Two sequences × (scenes + review) then per scene: beats + review,
       // three beats each with a continuity check, an archive, and the
-      // sequence summary. Order of the first sequence is the contract.
-      expect(backend.storyStagesServed.take(16).toList(), [
+      // sequence summary. Order of the first sequence is the contract. The
+      // fake writes the same words for every beat, so from the second scene
+      // on the rolling banned-phrase scrub ('fix') fires after a write —
+      // proof that machinery runs; it is filtered out of the order check.
+      final served = backend.storyStagesServed;
+      expect(served, contains('fix'));
+      expect(served.where((s) => s != 'fix').take(16).toList(), [
         'scenes',
         'scenes-review',
         'beats',
@@ -229,7 +247,7 @@ void main() {
         'continuity',
         'write',
       ]);
-      expect(backend.storyStagesServed.where((s) => s == 'summary').length, 2);
+      expect(served.where((s) => s == 'summary').length, 2);
       expect(project.beatsWritten(0, 0), 3);
       expect(project.scenes[0]!.first.summary, contains('stay'));
       expect(project.continuity.single.key, 'The notebook');
@@ -240,7 +258,10 @@ void main() {
       await d.tapUntil([
         find.byKey(const ValueKey('studio-nav-director')),
       ], find.byKey(const ValueKey('director-directive')));
-      final directive = find.byKey(const ValueKey('director-directive'));
+      final directive = find.descendant(
+        of: find.byKey(const ValueKey('director-directive')),
+        matching: find.byType(TextField),
+      );
       await tester.enterText(directive, 'Add the smell of lamp oil.');
       tester.widget<TextField>(directive).controller?.text =
           'Add the smell of lamp oil.';
