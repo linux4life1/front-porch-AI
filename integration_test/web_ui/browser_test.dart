@@ -59,13 +59,27 @@ Directory _repoRoot() {
   }
 }
 
+Future<void>? _pumping;
+
 /// Let the app run for a beat while something outside drives it. A frame is
-/// requested but not awaited past a second: an occluded test window may not
-/// draw, and a pump that never returns would hang the wait loop.
-Future<void> _idle(WidgetTester tester) => Future.any([
-  tester.pump(const Duration(milliseconds: 200)),
-  Future<void>.delayed(const Duration(seconds: 1)),
-]);
+/// requested but not awaited past a second: a slow or occluded test window
+/// may take longer to draw, and a pump that never returns would hang the wait
+/// loop. Only one pump is ever in flight — WidgetTester refuses overlapping
+/// pumps ("Guarded function conflict"), which a slow CI frame triggered.
+Future<void> _idle(WidgetTester tester) {
+  _pumping ??= tester
+      .pump(const Duration(milliseconds: 200))
+      .whenComplete(() => _pumping = null);
+  return Future.any([
+    _pumping!,
+    Future<void>.delayed(const Duration(seconds: 1)),
+  ]);
+}
+
+/// Let a still-running pump finish before the test tears down.
+Future<void> _settlePump() async {
+  await _pumping?.timeout(const Duration(seconds: 15), onTimeout: () {});
+}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -179,6 +193,7 @@ void main() {
       while (!stop.existsSync() && DateTime.now().isBefore(until)) {
         await _idle(tester);
       }
+      await _settlePump();
       await host.stop();
       await backend.close();
       return;
@@ -212,6 +227,7 @@ void main() {
     }
     if (code == null) proc.kill();
 
+    await _settlePump();
     await host.stop();
     await backend.close();
     try {
