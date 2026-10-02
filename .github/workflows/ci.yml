@@ -433,6 +433,8 @@ jobs:
         run: flutter pub get
 
       - name: Run browser suite (under xvfb)
+        env:
+          FPAI_REPO_ROOT: ${{ github.workspace }}
         run: |
           xvfb-run -a -s "-screen 0 1600x1000x24" \
             flutter test integration_test/web_ui/browser_test.dart -d linux
