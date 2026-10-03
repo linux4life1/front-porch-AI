@@ -180,6 +180,8 @@ extension _StoryDashboardShell on _StoryDashboardPageState {
           key: ValueKey('reader-${project.dbId}'),
           projectId: widget.projectId,
           embedded: true,
+          onToggleSidebar: () =>
+              rebuildState(() => _sidebarShown = !_sidebarShown),
         );
       case StudioSection.structure:
         return StoryStructurePage(

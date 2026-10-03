@@ -135,12 +135,6 @@ extension _StoryReaderScroll on _StoryReaderPageState {
         _updateVisibleChapter();
       });
     }
-    final paper = AppColors.resolve(
-      context,
-      const Color(0xFFE8DDCF),
-      AppColors.textPrimary(context),
-    );
-    final muted = AppColors.porchHoneyOf(context);
     final chapter = chapters.isEmpty
         ? null
         : chapters[_scrollChapter.clamp(0, chapters.length - 1)];
@@ -155,53 +149,13 @@ extension _StoryReaderScroll on _StoryReaderPageState {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: AppColors.backgroundOf(context),
       endDrawer: _buildTocDrawer(MediaQuery.of(context).size.width > 800),
+      backgroundColor: StudioColors.bgOf(context),
       appBar: _hudHidden
           ? null
-          : AppBar(
-              automaticallyImplyLeading: !widget.embedded,
-              backgroundColor: AppColors.surfaceOf(context),
-              foregroundColor: AppColors.textPrimary(context),
-              elevation: 0,
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    project.title,
-                    style: const TextStyle(fontFamily: 'Georgia', fontSize: 14),
-                  ),
-                  const SizedBox(width: 12),
-                  _modeToggle(project),
-                ],
-              ),
-              centerTitle: true,
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Center(
-                    child: Text(
-                      chapter == null
-                          ? ''
-                          : 'Ch. ${_scrollChapter + 1} · $percent%',
-                      style: TextStyle(
-                        color: AppColors.textTertiary(context),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.file_download_outlined),
-                  tooltip: 'Export as text file',
-                  onPressed: _exportStory,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.menu_book),
-                  tooltip: 'Table of Contents',
-                  onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-                ),
-              ],
+          : _studioBar(
+              project,
+              chapter == null ? '' : 'Ch. ${_scrollChapter + 1} · $percent%',
             ),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
@@ -239,22 +193,17 @@ extension _StoryReaderScroll on _StoryReaderPageState {
                             Text(
                               'CHAPTER ${_chapterWord(i + 1)}',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: muted,
-                                fontFamily: 'Georgia',
-                                fontSize: 12,
-                                letterSpacing: 2.5,
-                              ),
+                              style: StudioType.prose(
+                                context,
+                                size: 12,
+                                color: StudioColors.honeyOf(context),
+                              ).copyWith(letterSpacing: 2.5),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               ref.scene.title,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: paper,
-                                fontFamily: 'Georgia',
-                                fontSize: 22,
-                              ),
+                              style: StudioType.prose(context, size: 22),
                             ),
                             const SizedBox(height: 18),
                             for (final para in text.split(RegExp(r'\n\s*\n')))
@@ -262,11 +211,10 @@ extension _StoryReaderScroll on _StoryReaderPageState {
                                 padding: const EdgeInsets.only(bottom: 14),
                                 child: SelectableText(
                                   para.trim(),
-                                  style: TextStyle(
-                                    color: paper,
-                                    fontFamily: 'Georgia',
-                                    fontSize: 15.5,
-                                    height: 1.7,
+                                  style: StudioType.prose(
+                                    context,
+                                    size: 17,
+                                    height: 1.75,
                                   ),
                                 ),
                               ),
@@ -280,37 +228,29 @@ extension _StoryReaderScroll on _StoryReaderPageState {
               if (!_hudHidden)
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  color: AppColors.surfaceOf(context).withValues(alpha: 0.9),
+                  decoration: BoxDecoration(
+                    color: StudioColors.sideOf(context),
+                    border: Border(
+                      top: BorderSide(color: StudioColors.lineOf(context)),
+                    ),
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      TextButton(
+                      StoryButton.ghost(
+                        'Ch. $_scrollChapter',
+                        icon: Icons.chevron_left,
                         onPressed: _scrollChapter > 0
                             ? () => _jumpToChapter(_scrollChapter - 1)
                             : null,
-                        child: Text('◀ Ch. $_scrollChapter'),
                       ),
                       const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: chapters.isEmpty
-                            ? null
-                            : () => _readAloudVisibleChapter(project),
-                        icon: Icon(
-                          _isReadingAlong ? Icons.stop : Icons.play_arrow,
-                          size: 16,
-                        ),
-                        label: Text(_isReadingAlong ? 'Stop' : 'Read aloud'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textPrimary(context),
-                          side: BorderSide(color: AppColors.borderOf(context)),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton(
+                      StoryButton.ghost(
+                        'Ch. ${_scrollChapter + 2}',
+                        icon: Icons.chevron_right,
                         onPressed: _scrollChapter < chapters.length - 1
                             ? () => _jumpToChapter(_scrollChapter + 1)
                             : null,
-                        child: Text('Ch. ${_scrollChapter + 2} ▶'),
                       ),
                     ],
                   ),
@@ -321,10 +261,4 @@ extension _StoryReaderScroll on _StoryReaderPageState {
       ),
     );
   }
-
-  Widget _modeToggle(StoryProject project) => StorySegmented(
-    options: const {'book': 'Book', 'scroll': 'Scroll'},
-    selected: project.readerMode,
-    onSelect: (m) => _setReaderMode(project, m),
-  );
 }

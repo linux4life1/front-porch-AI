@@ -205,6 +205,17 @@ extension StoryFacadeStudio on StoryFacade {
     ];
   }
 
+  /// Rename without touching anything else — a full-project write from
+  /// the shelf could overwrite a run in progress.
+  Future<bool> rename(String id, String title) async {
+    await _ensureLoaded();
+    final p = _repo.getById(id);
+    if (p == null || title.trim().isEmpty) return false;
+    p.title = title.trim();
+    await _repo.saveProject(p);
+    return true;
+  }
+
   /// Save a key for a host the story picker is about to use.
   Future<void> saveHostKey(String type, String url, String key) async {
     final storage = _storage;

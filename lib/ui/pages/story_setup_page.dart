@@ -51,9 +51,9 @@ class _StorySetupPageState extends State<StorySetupPage> {
 
   static const _stepLabels = ['Idea', 'Cast', 'Shape', 'Engine'];
 
-  bool get _editing =>
-      widget.projectId != null &&
-      (_project?.concept.trim().isNotEmpty ?? false);
+  /// Decided once at load: an existing, finished story is being edited; a
+  /// draft resumed from the shelf is still a new story.
+  late final bool _editing;
 
   StoryProject? get _project {
     final id = _projectId;
@@ -66,6 +66,10 @@ class _StorySetupPageState extends State<StorySetupPage> {
     super.initState();
     _projectId = widget.projectId;
     final project = _project;
+    _editing =
+        project != null &&
+        project.setupStep == null &&
+        project.concept.trim().isNotEmpty;
     if (project != null) {
       _draft.loadFrom(
         project,
@@ -194,7 +198,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
           StoryButton.ghost(
             _step == 0 ? 'Cancel' : 'Back',
             key: const ValueKey('story-setup-back'),
-            onPressed: _step == 0 ? _leave : () => setState(() => _step--),
+            onPressed: _step == 0 ? _leave : _back,
           ),
           const Spacer(),
           if (_narrow) ...[
@@ -219,6 +223,11 @@ class _StorySetupPageState extends State<StorySetupPage> {
   }
 
   void _changed() => setState(() {});
+
+  Future<void> _back() async {
+    await _save(step: _step - 1);
+    if (mounted) setState(() => _step--);
+  }
 
   Future<void> _leave() async {
     // Nothing typed yet: nothing to keep.

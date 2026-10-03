@@ -69,6 +69,9 @@ class _StoryDashboardPageState extends State<StoryDashboardPage> {
   ({int act, int scene})? _writeTarget;
   bool _hasAutoRun = false;
 
+  /// The reader folds the sidebar away; ☰ in its bar brings it back.
+  bool _sidebarShown = true;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -86,7 +89,10 @@ class _StoryDashboardPageState extends State<StoryDashboardPage> {
   /// Re-exposes the protected [setState] for the `part of` extensions.
   void rebuildState(VoidCallback fn) => setState(fn);
 
-  void _open(StudioSection s) => setState(() => _section = s);
+  void _open(StudioSection s) => setState(() {
+    _section = s;
+    _sidebarShown = s != StudioSection.read;
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -124,9 +130,9 @@ class _StoryDashboardPageState extends State<StoryDashboardPage> {
               children: [
                 _buildHeader(project, pipeline),
                 _buildProgress(project),
-                if (narrow) sidebar,
+                if (narrow && _sidebarShown) sidebar,
                 Expanded(
-                  child: narrow
+                  child: narrow || !_sidebarShown
                       ? _buildSection(project, pipeline)
                       : Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,

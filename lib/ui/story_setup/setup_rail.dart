@@ -104,7 +104,7 @@ class SetupRail extends StatelessWidget {
         const SizedBox(height: 4),
         for (final (k, v, at) in rows) ...[
           const SizedBox(height: 8),
-          Text(k, style: StudioType.label(context)),
+          Text(k.toUpperCase(), style: StudioType.label(context)),
           const SizedBox(height: 2),
           Text(
             v ??

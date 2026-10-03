@@ -150,7 +150,7 @@ class StoryStepDots extends StatelessWidget {
         if (i > 0) const SizedBox(width: 14),
         InkWell(
           key: ValueKey('story-step-$i'),
-          onTap: onTap == null || i > current ? null : () => onTap!(i),
+          onTap: onTap == null ? null : () => onTap!(i),
           borderRadius: BorderRadius.circular(6),
           child: Column(
             mainAxisSize: MainAxisSize.min,

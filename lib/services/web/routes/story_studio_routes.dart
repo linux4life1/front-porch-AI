@@ -36,6 +36,7 @@ class WebStoryStudioRoutes {
     router.post('/api/stories/host-key', _hostKey);
     router.post('/api/stories/quality', _quality);
     router.post('/api/stories/<id>/stop', _stop);
+    router.post('/api/stories/<id>/rename', _rename);
     router.post('/api/stories/<id>/director/action', _directorAction);
     router.post('/api/stories/<id>/director/protect', _directorProtect);
     router.post('/api/stories/<id>/director/discard', _directorDiscard);
@@ -60,6 +61,14 @@ class WebStoryStudioRoutes {
   }
 
   shelf.Response _lanes(shelf.Request r) => JsonResponse.ok(_facade.lanes());
+
+  Future<shelf.Response> _rename(shelf.Request r, String id) async {
+    final body = await _json(r);
+    final ok = await _facade.rename(id, body['title']?.toString() ?? '');
+    return ok
+        ? JsonResponse.ok({'ok': true})
+        : JsonResponse.error(404, 'No such story, or an empty title');
+  }
 
   Future<shelf.Response> _laneLabel(shelf.Request r) async {
     final body = await _json(r);

@@ -91,7 +91,14 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
   bool _kindMatches(Map<String, dynamic> h) {
     final url = _choice.apiUrl.trim();
     if (h['kind'] == 'custom') {
-      return _hosts.every((o) => o['kind'] == 'custom' || o['url'] != url);
+      // Custom is any remote URL no named host owns (KoboldCpp has no URL
+      // and must not count as owning the empty one).
+      return _hosts.every(
+        (o) =>
+            o['type'] != 'openRouter' ||
+            o['kind'] == 'custom' ||
+            o['url'] != url,
+      );
     }
     return h['url'] == url;
   }
