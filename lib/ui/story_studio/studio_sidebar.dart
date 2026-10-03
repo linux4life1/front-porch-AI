@@ -25,20 +25,19 @@ import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 /// The screens of a story, as the sidebar lists them. Labels and order are
 /// the spec's; the web NAV in StudioShell.tsx must match.
 enum StudioSection {
-  overview('Overview', Icons.auto_stories_outlined, 'Story'),
-  structure('Structure', Icons.account_tree_outlined, 'Story'),
-  write('Write', Icons.edit_outlined, 'Story'),
-  read('Read', Icons.menu_book_outlined, 'Story'),
-  director('Director', Icons.theater_comedy_outlined, 'Story'),
-  cast('Cast', Icons.people_outline, 'World'),
-  relationships('Relationships', Icons.hub_outlined, 'World'),
-  lore('Lore & continuity', Icons.public_outlined, 'World'),
-  runLog('Run log', Icons.receipt_long_outlined, 'Engine');
+  overview('Overview', 'Story'),
+  structure('Structure', 'Story'),
+  write('Write', 'Story'),
+  read('Read', 'Story'),
+  director('Director', 'Story'),
+  cast('Cast', 'World'),
+  relationships('Relationships', 'World'),
+  lore('Lore & continuity', 'World'),
+  runLog('Run log', 'Engine');
 
-  const StudioSection(this.label, this.icon, this.group);
+  const StudioSection(this.label, this.group);
 
   final String label;
-  final IconData icon;
   final String group;
 }
 
@@ -161,8 +160,6 @@ class StudioSidebar extends StatelessWidget {
         child: Row(
           mainAxisSize: horizontal ? MainAxisSize.min : MainAxisSize.max,
           children: [
-            Icon(s.icon, size: 16, color: fg),
-            const SizedBox(width: 8),
             if (horizontal)
               Text(s.label, style: StudioType.ui(context, color: fg))
             else

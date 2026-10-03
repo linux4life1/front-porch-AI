@@ -1,60 +1,50 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The story studio shell: title with progress, the progress card with Stop,
-// the sidebar (a strip on phones), and whichever screen is open. Mirrors the
-// desktop StoryDashboardPage shell + StudioSidebar.
+// The story studio shell (sketch M): the header with its 4px progress bar, the
+// sidebar (a strip under 760px) and whichever screen is open. Nothing is ever
+// laid over the screen while a run is on; the active section streams in place.
+// Mirrors StoryDashboardPage's shell + StudioSidebar on the desktop.
 
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StoryProject, StoryStatus } from '../../storyTypes';
-import { groupThousands, nextUnfinished, ROMAN, wordCount } from './storyShape';
+import { StudioHeader } from './StudioHeader';
+import { orderedScenes, scenesWritten } from './storyShape';
+import { useShelfState } from './useShelfState';
 import '../../styles/studio.css';
 
 export type StudioSection =
   | 'overview' | 'structure' | 'write' | 'read' | 'director'
   | 'cast' | 'relationships' | 'lore' | 'log';
 
-const NAV: { key: StudioSection; label: string; group: string; icon: string; path: (id: string) => string }[] = [
-  { key: 'overview', label: 'Overview', group: 'Story', icon: '▤', path: (id) => `/stories/${id}` },
-  { key: 'structure', label: 'Structure', group: 'Story', icon: '⌁', path: (id) => `/stories/${id}/structure` },
-  { key: 'write', label: 'Write', group: 'Story', icon: '✎', path: (id) => `/stories/${id}/write` },
-  { key: 'read', label: 'Read', group: 'Story', icon: '▣', path: (id) => `/stories/${id}/read` },
-  { key: 'director', label: 'Director', group: 'Story', icon: '☷', path: (id) => `/stories/${id}/director` },
-  { key: 'cast', label: 'Cast', group: 'World', icon: '☺', path: (id) => `/stories/${id}/cast` },
-  { key: 'relationships', label: 'Relationships', group: 'World', icon: '∞', path: (id) => `/stories/${id}/relationships` },
-  { key: 'lore', label: 'Lore & continuity', group: 'World', icon: '✦', path: (id) => `/stories/${id}/lore` },
-  { key: 'log', label: 'Run log', group: 'Engine', icon: '≡', path: (id) => `/stories/${id}/log` },
+const NAV: { key: StudioSection; label: string; group: string; path: (id: string) => string }[] = [
+  { key: 'overview', label: 'Overview', group: 'Story', path: (id) => `/stories/${id}` },
+  { key: 'structure', label: 'Structure', group: 'Story', path: (id) => `/stories/${id}/structure` },
+  { key: 'write', label: 'Write', group: 'Story', path: (id) => `/stories/${id}/write` },
+  { key: 'read', label: 'Read', group: 'Story', path: (id) => `/stories/${id}/read` },
+  { key: 'director', label: 'Director', group: 'Story', path: (id) => `/stories/${id}/director` },
+  { key: 'cast', label: 'Cast', group: 'World', path: (id) => `/stories/${id}/cast` },
+  { key: 'relationships', label: 'Relationships', group: 'World', path: (id) => `/stories/${id}/relationships` },
+  { key: 'lore', label: 'Lore & continuity', group: 'World', path: (id) => `/stories/${id}/lore` },
+  { key: 'log', label: 'Run log', group: 'Engine', path: (id) => `/stories/${id}/log` },
 ];
 
 export function studioPath(id: string, section: StudioSection): string {
   return NAV.find((n) => n.key === section)!.path(id);
 }
 
-function isNew(p: StoryProject, key: StudioSection): boolean {
+/** The mono count on a sidebar item: scenes written of planned, cast size, continuity facts. */
+export function navCount(p: StoryProject, key: StudioSection): string | null {
   switch (key) {
-    case 'director': return !p.director_plan;
-    case 'relationships': return (p.relationships ?? []).length === 0;
-    case 'lore': return (p.continuity ?? []).length === 0;
-    case 'log': return p.acts.length === 0;
-    default: return false;
+    case 'structure': {
+      const total = orderedScenes(p).length;
+      return total > 0 ? `${scenesWritten(p)}/${total}` : null;
+    }
+    case 'cast': return p.cast.length > 0 ? `${p.cast.length}` : null;
+    case 'lore': return (p.continuity ?? []).length > 0 ? `${(p.continuity ?? []).length}` : null;
+    default: return null;
   }
-}
-
-export function StudioProgress({ status, onStop }: { status: StoryStatus | null; onStop: () => void }) {
-  if (!status?.running) return null;
-  return (
-    <div className="card s-progress" aria-live="polite">
-      <div className="spinner small" />
-      <div className="s-grow">
-        <strong>{status.step || 'Working'}</strong>
-        <span className="muted small">{status.status}{status.tokens ? ` · ${status.tokens} tokens` : ''}</span>
-      </div>
-      <button className="s-btn-quiet" disabled={!!status.stopping} onClick={onStop} data-testid="story-stop">
-        {status.stopping ? 'Stopping…' : 'Stop'}
-      </button>
-    </div>
-  );
 }
 
 export function StudioShell({
@@ -69,51 +59,48 @@ export function StudioShell({
   children: ReactNode;
 }) {
   const navigate = useNavigate();
-  const words = wordCount(p);
-  const next = nextUnfinished(p);
-  const actLabel = p.acts.length === 0
-    ? 'Setting up'
-    : `Act ${ROMAN[(next?.act ?? p.acts.length - 1) + 1] ?? ''}`;
-  const progress = p.engine_mode === 'studio'
-    ? `${groupThousands(words)} / ${groupThousands(p.target_words ?? 80000)} words`
-    : `${groupThousands(words)} words`;
+  const running = status?.running ?? false;
+  const shelf = useShelfState(id, p, running, status?.step);
+  const fraction = Math.min(Math.max(shelf?.fraction ?? 0, 0), 1);
 
   return (
-    <div className="studio">
-      <div className="studio-head">
-        <button className="ghost" onClick={() => navigate('/stories')}>← Stories</button>
-        <div>
-          <h2>{p.title}</h2>
-          <div className="studio-sub">{actLabel} · {progress}</div>
-        </div>
-        <span className="spacer" />
-        {status?.running && (
-          <button className="s-btn-quiet" disabled={!!status.stopping} onClick={onStop}>
-            {status.stopping ? 'Stopping…' : 'Stop'}
-          </button>
-        )}
-        <button className="ghost small" onClick={() => navigate(`/stories/${id}/setup`)}>Edit setup</button>
+    <div className="studio-scope studio">
+      <StudioHeader id={id} project={p} shelf={shelf} status={status} onStop={onStop} />
+      <div className={`studio-progress${shelf?.done ? ' done' : ''}`} role="progressbar" aria-label="Story progress"
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fraction * 100)}>
+        <i style={{ width: `${fraction * 100}%` }} />
       </div>
       <nav className="studio-side" aria-label="Story screens">
         {['Story', 'World', 'Engine'].map((group) => (
           <div key={group} style={{ display: 'contents' }}>
             <div className="h">{group}</div>
-            {NAV.filter((n) => n.group === group).map((n) => (
-              <button key={n.key} className={`studio-nav${n.key === section ? ' on' : ''}`}
-                data-testid={`studio-nav-${n.key}`}
-                onClick={() => navigate(n.path(id))}>
-                <span aria-hidden="true">{n.icon}</span>{n.label}
-                {isNew(p, n.key) && <span className="new">new</span>}
-              </button>
-            ))}
+            {NAV.filter((n) => n.group === group).map((n) => {
+              const count = navCount(p, n.key);
+              return (
+                <button key={n.key} type="button" className={`studio-nav${n.key === section ? ' on' : ''}`}
+                  data-testid={`studio-nav-${n.key}`} aria-current={n.key === section ? 'page' : undefined}
+                  onClick={() => navigate(n.path(id))}>
+                  {n.label}
+                  {count && <span className="cnt">{count}</span>}
+                </button>
+              );
+            })}
           </div>
         ))}
       </nav>
       <main className="studio-main">
-        <StudioProgress status={status} onStop={onStop} />
-        {error && <p className="error">{error}</p>}
+        {error && <p className="s-error">{error}</p>}
         {children}
       </main>
+    </div>
+  );
+}
+
+/** What a studio page shows until its project has loaded (or why it could not). */
+export function StudioLoading({ error }: { error?: string }) {
+  return (
+    <div className="studio-scope s-loading">
+      {error ? <p className="s-error">{error}</p> : <p className="s-muted">Loading…</p>}
     </div>
   );
 }

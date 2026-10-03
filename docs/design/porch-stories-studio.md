@@ -77,9 +77,31 @@ still answers in JSON keeps working.
 
 ## Model lanes
 
-Each story points planning, prose and review at the main or the worker model
-(`StoryLanes`, wired in `story_pipeline_factory.dart`). Worker calls hold the
-worker lane so a shared GPU can swap. No worker → everything on main.
+Each story points planning, prose and review at a `StoryLaneChoice`: the
+chat model, the worker model, or any configured host (KoboldCpp, oMLX,
+LM Studio, OpenRouter-compatible) with a model picked from that host's list
+(`story_pipeline_factory.dart` → `LLMProvider.laneHost()` in
+`llm_provider.lanes.dart`). A local host lane rides the existing GPU swap
+(`GpuSwapOccupancy`) so a Kobold story model can take the GPU from the chat
+model and give it back when the run ends (`restoreLaneHosts`). Lane labels
+in both UIs come from `story_lane_labels.dart`; the web reads them through
+`/api/stories/lanes`, `/api/stories/host-models` and
+`/api/stories/lane-label`.
+
+## Tool transport
+
+The structured stages (review, continuity, line patches, beats, scenes,
+acts, sequences, scene archive, sequence summary, Director plan) ask for a
+native tool call first. `lib/services/story/story_tools.dart` holds one
+spec per stage; each schema mirrors the tag template its prompt describes,
+and `StoryTools.toTags` writes the call's arguments back as that tag text so
+the existing readers stay the one parser. Every call sends the same shared
+`definitions` list with `tool_choice` naming the function (KoboldCpp's jinja
+cache keeps its prefix). A host that refuses the tool gets the tag prompt and
+is not asked again that session (`_toolsRefused`, per service identity). The
+bible stays on tags; prose stays text and streams. Frontier models are the
+target — no schema is trimmed for small local models; the tag backup is what
+keeps them working.
 
 ## Director
 
@@ -102,13 +124,24 @@ far stays.
 
 ## Surfaces
 
-Desktop: `lib/ui/story_studio/` (shell sidebar, sections, shared widgets),
-`story_setup/engine_step.dart`, the embedded structure/writer pages, the
-reader's scroll part. Web: `web_ui/src/pages/story/StudioShell.tsx` and the
-story pages; every number the web shows (quality chips, pacing, lane labels,
-lenses) comes from `/api/stories/*` so the engine is not duplicated. Scene
-labels and "what is written" are presentation and are mirrored in
-`storyShape.ts`.
+Both surfaces follow [porch-stories-ui-spec.md](porch-stories-ui-spec.md):
+the shelf, the four-step wizard (Idea / Cast / Shape / Engine) with its rail,
+and one studio shell whose sidebar lists Overview, Structure, Write, Read,
+Director, Cast, Relationships, Lore & continuity and Run log. The palette and
+type roles are `StudioColors` / `StudioType` (`lib/ui/theme/studio_colors.dart`,
+`lib/ui/story_studio/studio_theme.dart`) on desktop and the `--s-*` tokens in
+`web_ui/src/styles/studio.css` on the web; the two must agree, and the local
+check `.upstream-ref/ui_spec_check.py` (not CI) compares them and the
+sidebar / wizard labels before a commit.
+
+Desktop: `lib/ui/story_studio/` (shell, sections, `Story*` primitives),
+`lib/ui/story_setup/` (wizard steps, rail, model picker), the embedded
+structure / writer / reader pages. Web: `web_ui/src/pages/story/` (shell,
+header, `setup/`, `overview/`, `structure/`, `write/`, `director/`, `cast/`,
+`relationships/`, `lore/`, `runlog/`) behind the story pages; every number the
+web shows (quality chips, pacing, lane labels, lenses, shelf status) comes
+from `/api/stories/*` so the engine is not duplicated. Scene labels and "what
+is written" are presentation and are mirrored in `storyShape.ts`.
 
 ## Tests
 

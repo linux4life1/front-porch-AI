@@ -62,7 +62,7 @@ extension _StoryWriterLenses on _StoryWriterPageState {
                 '${auto.length} of these ${auto.length == 1 ? 'was' : 'were'} '
                     'noticed by the engine in the last chapter',
               if (own.isNotEmpty)
-                '${auto.isNotEmpty ? 'the rest are' : 'these are'} yours and '
+                '${auto.isNotEmpty ? 'the rest are' : 'These are'} yours and '
                     'stay for the whole story',
             ].join('; '),
             style: StudioType.ui(

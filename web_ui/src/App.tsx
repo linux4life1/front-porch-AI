@@ -73,6 +73,7 @@ export function App() {
         <Route path="/worlds" element={<WorldsPage />} />
         <Route path="/worlds/from-wiki" element={<WorldFromWikiPage />} />
         <Route path="/stories" element={<StoriesPage />} />
+        <Route path="/stories/new" element={<StorySetupPage />} />
         <Route path="/stories/:id" element={<StoryDashboardPage />} />
         <Route path="/stories/:id/setup" element={<StorySetupPage />} />
         <Route path="/stories/:id/structure" element={<StoryStructurePage />} />

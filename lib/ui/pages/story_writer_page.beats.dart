@@ -340,14 +340,11 @@ extension _StoryWriterBeats on _StoryWriterPageState {
     StoryScene scene,
     StoryPipelineService pipeline,
   ) async {
-    final words = countWords(
-      project.sceneText(widget.actIndex, widget.sceneIndex),
-    );
     final ok = await showStoryConfirm(
       context,
       title:
           'Rewrite ${project.sceneLabel(widget.actIndex, widget.sceneIndex)} · ${scene.title}?',
-      body: 'Its ${thousands(words)} words will be replaced. The beats stay.',
+      body: storyRewriteSceneBody(project, widget.actIndex, widget.sceneIndex),
       confirmLabel: 'Rewrite',
       destructive: true,
     );

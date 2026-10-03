@@ -25,7 +25,7 @@ import {
 let controlsSeen = 0;
 
 const SKIP =
-  /delet|remov|sign ?out|log ?out|revoke|reset|wipe|purge|clear|restart|stop|shut ?down|install|download|export|import|upload|backup|restore|disable|unlink|publish|submit|send|generat|continu|imperson|fork|swipe|regen|reprocess|revert|tailscale|pair|connect|scan|retest|spin|accept|attach|photo|mic\b|record|speak|play|save|apply|create|new|duplicat|move|start|run|write|enhanc|merge|extract|promot|join|exit|copy|share|pick a file|browse|choose file|refresh|reload|retry|try again|cancel all|pause|resume/i;
+  /delet|remov|sign ?out|log ?out|revoke|reset|wipe|purge|clear|restart|stop|shut ?down|install|download|export|import|upload|backup|restore|disable|unlink|publish|submit|send|generat|continu|imperson|fork|swipe|regen|reprocess|revert|tailscale|pair|connect|scan|retest|spin|accept|attach|photo|mic\b|record|speak|play|save|apply|create|new|duplicat|move|start|run|write|enhanc|build|merge|extract|promot|join|exit|copy|share|pick a file|browse|choose file|refresh|reload|retry|try again|cancel all|pause|resume/i;
 const CLOSE = /^(close|cancel|done|×|✕|✖|back|not now|dismiss|ok|got it)$/i;
 const MAX_CLICKS = 70;
 
@@ -56,6 +56,7 @@ const ROUTES: ((i: { character: string; story: string }) => string)[] = [
   () => '/worlds',
   () => '/worlds/from-wiki',
   () => '/stories',
+  () => '/stories/new',
   (i) => `/stories/${i.story}`,
   (i) => `/stories/${i.story}/setup`,
   (i) => `/stories/${i.story}/structure`,

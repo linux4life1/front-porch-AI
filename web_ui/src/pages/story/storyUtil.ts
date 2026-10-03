@@ -1,35 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Shared Porch Stories client helpers: library-card status derivation, file
-// downloads, and text/binary export. Reused by the library list and the bible
-// dashboard so the logic lives in one place.
+// Shared Porch Stories client helpers: file downloads and text/binary export,
+// reused by the studio's export bar and the reader so the logic lives in one
+// place. (The shelf's status line comes from the relay: StoryListItem.shelf.)
 
 import { api } from '../../api/client';
-import type { StoryListItem } from '../../storyTypes';
-
-export interface CardStatus {
-  label: string;
-  tone: string; // CSS var token name suffix → var(--story-status-<tone>)
-  icon: string;
-}
-
-/** Granular library-card status (mirrors the desktop home card). */
-export function cardStatus(s: StoryListItem): CardStatus {
-  if (s.proseCount > 0) {
-    return { label: `${s.proseCount} beats written`, tone: 'prose', icon: '✍️' };
-  }
-  if (s.sceneCount > 0) {
-    return { label: `${s.sceneCount} scenes planned`, tone: 'scenes', icon: '🎬' };
-  }
-  if (s.actCount > 0) {
-    return { label: `${s.actCount} acts structured`, tone: 'acts', icon: '🌳' };
-  }
-  if (s.hasConcept) {
-    return { label: 'Bible created', tone: 'bible', icon: '📖' };
-  }
-  return { label: 'New — needs concept', tone: 'new', icon: '💡' };
-}
 
 /** Trigger a browser download for a blob. */
 export function downloadBlob(blob: Blob, filename: string) {

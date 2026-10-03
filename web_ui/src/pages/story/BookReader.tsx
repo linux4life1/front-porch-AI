@@ -2,30 +2,33 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The web book reader: a paper, two-margin, CSS-columns paginated book with
-// prev/next, keyboard flips, a Table of Contents, reading-progress persistence
-// (last_read_page_index), continuous "Read to me" scene narration, and optional
-// ambient + page-turn audio (gracefully omitted if the assets aren't served).
-// A clean web reader — it does not pixel-match the Flutter CustomPageFlip.
+// prev/next, keyboard flips, a Contents drawer, reading-progress persistence
+// (last_read_page_index), continuous "Read aloud" scene narration, and the
+// page-turn sound when ambient sound is on. The bar above it is the shared
+// ReaderBar. A clean web reader — it does not pixel-match the Flutter
+// CustomPageFlip.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import type { StoryProject } from '../../storyTypes';
+import { ChevronLeftIcon, ChevronRightIcon } from './icons';
+import { splitParagraphs } from './paragraphs';
+import { ReaderBar, ReaderStatus, type ReaderChrome } from './ReaderBar';
+import { TocDrawer } from './TocDrawer';
+import { bookTocEntries } from './tocEntries';
 import { useBookPages } from './useBookPages';
 import { useSceneNarration } from './useSceneNarration';
-import { TocDrawer } from './TocDrawer';
 
-export function BookReader({ id, project, modeToggle }: { id: string; project: StoryProject; modeToggle?: ReactNode }) {
-  const navigate = useNavigate();
+export function BookReader({ id, project, chrome }: { id: string; project: StoryProject; chrome: ReaderChrome }) {
   const flowRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [page, setPage] = useState(0);
   const [tocOpen, setTocOpen] = useState(false);
-  const [ambientOn, setAmbientOn] = useState(false);
-  const [ambientOk, setAmbientOk] = useState(true);
-  const ambientRef = useRef<HTMLAudioElement | null>(null);
   const restoredRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The page-turn sound follows the ambient switch, like the desktop's.
+  const soundRef = useRef(chrome.ambient.on);
+  useEffect(() => { soundRef.current = chrome.ambient.on; }, [chrome.ambient.on]);
 
   const sceneProse = useCallback((ai: number, si: number): string => {
     const beats = project.beats[`${ai}-${si}`] ?? [];
@@ -53,6 +56,7 @@ export function BookReader({ id, project, modeToggle }: { id: string; project: S
   anchorsRef.current = anchors;
 
   const playPageTurn = () => {
+    if (!soundRef.current) return;
     try {
       const a = new Audio('/audio/page_turn.wav');
       a.volume = 0.5;
@@ -74,6 +78,16 @@ export function BookReader({ id, project, modeToggle }: { id: string; project: S
   }, [goTo]);
 
   const narration = useSceneNarration(id, proseScenes, jumpToScene);
+
+  // Read aloud starts at the scene on the page in view, like the desktop starts at the current page.
+  const sceneInView = () => {
+    let at = 0;
+    proseScenes.forEach((s, i) => {
+      const start = anchors[`scene:${s.ai}-${s.si}`];
+      if (start !== undefined && start <= page) at = i;
+    });
+    return at;
+  };
 
   // Restore saved reading position once the layout is known.
   useEffect(() => {
@@ -112,108 +126,76 @@ export function BookReader({ id, project, modeToggle }: { id: string; project: S
     return () => window.removeEventListener('keydown', onKey);
   }, [page, goTo]);
 
-  const toggleAmbient = () => {
-    const next = !ambientOn;
-    setAmbientOn(next);
-    const a = ambientRef.current;
-    if (!a) return;
-    if (next) { a.volume = 0.3; void a.play().catch(() => setAmbientOk(false)); }
-    else a.pause();
-  };
+  const entries = bookTocEntries(project, anchors, page, goTo);
 
   return (
-    <div className="story-reader">
-      <div className="reader-bar">
-        <button className="ghost" onClick={() => navigate(`/stories/${id}`)}>← {project.title}</button>
-        <h2>{project.title}</h2>
-        {modeToggle}
-        {proseScenes.length > 0 && (
-          narration.reading ? (
-            <button className="icon-btn on" title="Stop reading" onClick={narration.stop}>⏹</button>
-          ) : (
-            <button className="icon-btn" title="Read to me" onClick={() => narration.start(0)}>🔊</button>
-          )
-        )}
-        {ambientOk && (
-          <button className={`icon-btn${ambientOn ? ' on' : ''}`} title="Ambient sound"
-            onClick={toggleAmbient}>{ambientOn ? '🎵' : '🔇'}</button>
-        )}
-        <button className="icon-btn" title="Contents" onClick={() => setTocOpen(true)}>☰</button>
-      </div>
+    <div>
+      <ReaderBar chrome={chrome} where={`Page ${page + 1} of ${totalPages}`}
+        reading={narration.reading} canRead={proseScenes.length > 0}
+        onRead={() => { void narration.start(sceneInView()); }} onStop={narration.stop}
+        onContents={() => setTocOpen(true)} />
+      <ReaderStatus chrome={chrome} narration={narration} />
 
-      {narration.reading && (
-        <div className="read-status">
-          <span>Reading scene {narration.current + 1} of {narration.total}</span>
-          {narration.buffering && <span className="read-buf">buffering…</span>}
-        </div>
-      )}
-      {!narration.reading && narration.error && (
-        <div className="read-status" role="status">
-          <span>{narration.error}</span>
-        </div>
-      )}
+      <div className="s-reader-book">
+        <div className="book-wrap">
+          <div className="book-page" ref={viewportRef}>
+            <div className="book-flow" ref={flowRef}
+              style={{ transform: `translateX(-${page * stride}px)` }}>
+              <div className="book-cover" data-anchor="title">
+                <h1>{project.title}</h1>
+                <p className="byline">A Porch Story</p>
+                {project.concept && <p className="concept">{project.concept}</p>}
+              </div>
 
-      <div className="book-wrap">
-        <div className="book-page" ref={viewportRef}>
-          <div className="book-flow" ref={flowRef}
-            style={{ transform: `translateX(-${page * stride}px)` }}>
-            <div className="book-cover" data-anchor="title">
-              <h1>{project.title}</h1>
-              <p className="byline">A story by Front Porch AI</p>
-              {project.concept && <p className="concept">{project.concept}</p>}
-            </div>
-
-            {project.acts.map((act, ai) => {
-              const scenes = project.scenes[String(ai)] ?? [];
-              return (
-                <div key={ai} style={{ display: 'contents' }}>
-                  <div className="book-act" data-anchor={`act:${ai}`}>
-                    <span className="act-kicker">Act {act.number}</span>
-                    {act.title && <h2>{act.title}</h2>}
-                    {act.description && <p className="act-desc">{act.description}</p>}
-                  </div>
-                  {scenes.map((sc, si) => {
-                    const text = sceneProse(ai, si);
-                    if (!text) return null;
-                    return (
-                      <div key={si} className="book-scene" data-anchor={`scene:${ai}-${si}`}>
-                        <div className="scene-h">
-                          <h3>{sc.title || `Scene ${sc.number}`}</h3>
-                          {sc.location && <div className="scene-loc">{sc.location}</div>}
+              {project.acts.map((act, ai) => {
+                const scenes = project.scenes[String(ai)] ?? [];
+                return (
+                  <div key={ai} style={{ display: 'contents' }}>
+                    <div className="book-act" data-anchor={`act:${ai}`}>
+                      <span className="act-kicker">Act {act.number}</span>
+                      {act.title && <h2>{act.title}</h2>}
+                      {act.description && <p className="act-desc">{act.description}</p>}
+                    </div>
+                    {scenes.map((sc, si) => {
+                      const text = sceneProse(ai, si);
+                      if (!text) return null;
+                      return (
+                        <div key={si} className="book-scene" data-anchor={`scene:${ai}-${si}`}>
+                          <div className="scene-h">
+                            <h3>{sc.title || `Scene ${sc.number}`}</h3>
+                            {sc.location && <div className="scene-loc">{sc.location}</div>}
+                          </div>
+                          {splitParagraphs(text).map((para, pi) => <p key={pi}>{para}</p>)}
                         </div>
-                        {text.split(/\n\n+/).map((para, pi) => <p key={pi}>{para}</p>)}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                      );
+                    })}
+                  </div>
+                );
+              })}
 
-            <div className="book-end" data-anchor="end">
-              <h2>The End</h2>
-              <p>— {project.title} —</p>
+              <div className="book-end" data-anchor="end">
+                <h2>The End</h2>
+                <p>— {project.title} —</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="reader-foot">
-        <button className="ghost reader-nav-btn" disabled={page <= 0} onClick={() => goTo(page - 1)}>‹</button>
-        <div className="reader-prog">
-          <span style={{ width: `${totalPages > 1 ? Math.round((page / (totalPages - 1)) * 100) : 0}%` }} />
+      <div className="s-pager">
+        <div className="s-pager-prog">
+          <i style={{ width: `${totalPages > 1 ? Math.round((page / (totalPages - 1)) * 100) : 100}%` }} />
         </div>
-        <span className="page-ind">Page {page + 1} / {totalPages}</span>
-        <button className="ghost reader-nav-btn" disabled={page >= totalPages - 1} onClick={() => goTo(page + 1)}>›</button>
+        <div className="s-pager-pill">
+          <button type="button" className="s-btn-ico ghost" data-testid="reader-prev-page" aria-label="Previous page"
+            disabled={page <= 0} onClick={() => goTo(page - 1)}><ChevronLeftIcon /></button>
+          <span className="s-pager-ind">Page {page + 1} / {totalPages}</span>
+          <button type="button" className="s-btn-ico ghost" data-testid="reader-next-page" aria-label="Next page"
+            disabled={page >= totalPages - 1} onClick={() => goTo(page + 1)}><ChevronRightIcon /></button>
+        </div>
       </div>
 
-      {/* Ambient loop (muted until the user enables it — satisfies autoplay). */}
-      <audio ref={ambientRef} loop preload="none" src="/audio/ambient_reading.wav"
-        onError={() => setAmbientOk(false)} />
-
-      {tocOpen && (
-        <TocDrawer project={project} anchors={anchors} currentPage={page}
-          onJump={goTo} onClose={() => setTocOpen(false)} />
-      )}
+      {tocOpen && <TocDrawer title={project.title} entries={entries} onClose={() => setTocOpen(false)} />}
     </div>
   );
 }

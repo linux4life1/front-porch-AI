@@ -75,13 +75,11 @@ class _StorySetupPageState extends State<StorySetupPage> {
         project,
         Provider.of<CharacterRepository>(context, listen: false),
       );
+      // A draft resumes where it stopped; a finished story reopens every
+      // step.
       final resume = project.setupStep;
-      if (resume != null && project.concept.trim().isEmpty) {
-        _step = resume.clamp(0, _stepLabels.length - 1);
-      }
-      _reached = project.concept.trim().isEmpty
-          ? _step
-          : _stepLabels.length - 1;
+      if (resume != null) _step = resume.clamp(0, _stepLabels.length - 1);
+      _reached = _editing ? _stepLabels.length - 1 : _step;
     }
     final chat = widget.fromChat;
     if (chat != null) _draft.adoptChat(chat);

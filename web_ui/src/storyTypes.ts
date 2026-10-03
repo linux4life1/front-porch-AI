@@ -12,8 +12,7 @@ export interface StoryListItem {
   actCount: number;
   hasProse: boolean;
   updatedAt: string;
-  // Enriched fields for the library card (genre/mood line, granular status,
-  // tier badge) — mirror the desktop home cards.
+  // Older enriched fields; the shelf reads `shelf` and `genreLine` below.
   genre: string;
   mood: string;
   tier: string;
@@ -21,7 +20,47 @@ export interface StoryListItem {
   sceneCount: number;
   proseCount: number;
   hasConcept: boolean;
+  // The shelf (desktop sketch H): one wording for both surfaces. The relay
+  // computes these through the same Dart helpers the desktop shelf calls, so
+  // the page shows `shelf.status` and `genreLine` verbatim.
+  setupStep?: number | null;
+  wordCount: number;
+  targetWords: number;
+  genreLine: string;
+  shelf: StoryShelfState;
 }
+
+/** Where a story stands on the shelf: status line, bar fraction, finished, still in setup. */
+export interface StoryShelfState {
+  status: string;
+  fraction: number;
+  done: boolean;
+  setup: boolean;
+}
+
+/** Which model runs a job: the chat model, the worker model, or another host. */
+export type StoryLaneKind = 'main' | 'worker' | 'host';
+
+/** One job's model. `backend`/`url`/`model`/`kcpps` only matter for `lane: 'host'`. */
+export interface StoryLaneChoice {
+  lane: StoryLaneKind;
+  backend: string;
+  url: string;
+  model: string;
+  kcpps: string;
+}
+
+/** A lane as stored under `model_lanes`: host details only ride along for `lane: 'host'`. */
+export interface StoryLaneJson {
+  lane: StoryLaneKind;
+  backend?: string;
+  url?: string;
+  model?: string;
+  kcpps?: string;
+}
+
+/** The three jobs a story assigns a model to (`model_lanes` keys). */
+export type StoryJob = 'planning' | 'prose' | 'review';
 
 /** A quick-concept seed for the setup wizard (genre/style/concept). */
 export interface StoryArchetype {
@@ -240,6 +279,8 @@ export interface StoryProject {
   prompt_tier: string;
   use_chat_history: boolean;
   chat_history_character_ids: string[];
+  chat_history_session_ids?: string[];
+  faithful_mode?: boolean;
   character_card_snapshots: Record<string, string>[];
   include_user_persona: boolean;
   user_persona_role: string;
@@ -265,7 +306,11 @@ export interface StoryProject {
   engine_mode?: 'quick' | 'studio';
   target_words?: number;
   story_format?: 'novel' | 'audioDrama';
-  model_lanes?: { planning: string; prose: string; review: string };
+  // Each lane is an object; projects saved before the model picker hold a bare
+  // lane name ('main' | 'worker') instead.
+  model_lanes?: Partial<Record<StoryJob, StoryLaneJson | string>>;
+  /** Set while New Story is unfinished (the step to resume at); null/absent once done. */
+  setup_step?: number | null;
   review_enabled?: boolean;
   lenses_enabled?: boolean;
   sequences?: StorySequence[];
@@ -276,6 +321,10 @@ export interface StoryProject {
   auto_banned_phrases?: string[];
   director_plan?: DirectorPlan | null;
   director_applied?: DirectorApplied | null;
+  /** What was typed in the Director's box, kept when you leave the section. */
+  director_draft?: string;
+  /** "Protect written prose": absent means on. */
+  director_protect?: boolean;
   reader_mode?: 'book' | 'scroll';
   reader_scroll?: number;
   [key: string]: unknown;
@@ -287,6 +336,8 @@ export interface StoryStatus {
   step: string;
   status: string;
   tokens: number;
+  /** The prose the model has produced so far for the beat being written (the Write screen streams it in place). */
+  streamingText?: string;
 }
 
 /** Target length choices (stored key → label), same words as the desktop. */
@@ -296,12 +347,14 @@ export const TARGET_LENGTHS: { key: string; label: string; words: number }[] = [
   { key: 'Epic', label: 'Epic · 120k', words: 120000 },
 ];
 
-// ── Option lists (1:1 with the desktop StorySetupPage) ──
-export const POV_OPTIONS = [
-  'First Person',
-  'Third Person Limited',
-  'Third Person Omniscient',
-];
+// ── Option lists (1:1 with the desktop story_setup_draft.dart) ──
+// Stored values are what the prompts read; the labels are what the user sees.
+/** Told-from choices (stored value → label). */
+export const POV_LABELS: Record<string, string> = {
+  'First Person': 'First person',
+  'Third Person Limited': 'Third person, close',
+  'Third Person Omniscient': 'Third person, wide',
+};
 
 /** Story-character roles (first selected character defaults to Protagonist). */
 export const ROLE_OPTIONS = [
@@ -326,40 +379,27 @@ export const WRITING_STYLES = [
   'Gothic', 'Hardboiled', 'Philosophical', 'Cinematic', 'Fairy-Tale',
 ];
 
-// Length / pace / dialogue / maturity carry explanatory subtitles on desktop.
-export const PROSE_LENGTHS: Record<string, string> = {
-  Short: 'Novella (~30K words)',
-  Standard: 'Novel (~80K words)',
-  Epic: 'Epic (~120K words)',
+export const PACE_LABELS: Record<string, string> = {
+  'Slow Burn': 'Slow',
+  Balanced: 'Even',
+  'Fast-Paced': 'Fast',
 };
-export const PACES: Record<string, string> = {
-  'Slow Burn': 'Atmospheric, detailed worldbuilding',
-  Balanced: 'Mix of action and reflection',
-  'Fast-Paced': 'Tight scenes, rapid plot movement',
+export const DIALOGUE_LABELS: Record<string, string> = {
+  Sparse: 'Sparse',
+  Balanced: 'Balanced',
+  'Dialogue-Heavy': 'Heavy',
 };
-export const DIALOGUE: Record<string, string> = {
-  Sparse: 'Mostly narrative prose',
-  Balanced: 'Even mix of dialogue and prose',
-  'Dialogue-Heavy': 'Character-driven, lots of conversation',
-};
-export const MATURITY: Record<string, string> = {
-  Clean: 'All ages, no violence or language',
-  Mature: 'Adult themes, moderate violence',
-  Explicit: 'Graphic content, no restrictions',
+export const MATURITY_LABELS: Record<string, string> = {
+  Clean: 'All ages',
+  Mature: 'Mature',
+  Explicit: '18+',
 };
 
 export const PROMPT_TIERS: { value: string; label: string }[] = [
-  { value: 'frontier', label: 'Full detail — for cloud APIs' },
-  { value: 'largLocal', label: 'Rich — for big local models (70B+)' },
-  { value: 'smallLocal', label: 'Simplified — for small local models (7-34B)' },
+  { value: 'frontier', label: 'Full detail' },
+  { value: 'largLocal', label: 'Rich' },
+  { value: 'smallLocal', label: 'Simplified' },
 ];
-
-/** Short label for a prompt tier (library card badge). */
-export const TIER_LABELS: Record<string, string> = {
-  frontier: 'Frontier',
-  largLocal: 'Large Local',
-  smallLocal: 'Small Local',
-};
 
 /** Beat-type → CSS modifier class for the colored badge in the writer. */
 export const BEAT_TYPE_CLASS: Record<string, string> = {

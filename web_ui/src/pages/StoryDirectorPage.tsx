@@ -1,129 +1,144 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// The Director: describe a change in plain words, get a plan, tick what you
-// want, apply it, undo it. The plan list stacks on phones; nothing changes
-// until Apply. Mirrors the desktop DirectorSection.
+// The Director (sketch Q): describe a change in plain words, get a plan, tick
+// what you want, apply it, undo it. The box and the protect switch are
+// remembered on the project; an applied plan folds into the "Last applied" line.
+// Web twin of the desktop DirectorSection.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { ApiError } from '../api/client';
 import { useStory } from '../hooks/useStory';
-import type { DirectorAction, StoryProject } from '../storyTypes';
-import { Chip, StudioShell } from './story/StudioShell';
-import { findScene, sceneLabel, timeAgo } from './story/storyShape';
-import '../styles/ws-j.css';
-
-const KIND: Record<string, string> = {
-  MODIFY_STORY: 'Story', ADD_CHARACTER: 'Character', MODIFY_CHARACTER: 'Character', DELETE_CHARACTER: 'Character',
-  MODIFY_RELATIONSHIP: 'Relationship', ADD_LORE: 'Lore', MODIFY_LORE: 'Lore', ADD_FACT: 'Fact',
-  MODIFY_ACT: 'Act', MODIFY_SEQUENCE: 'Sequence', ADD_SCENE: 'Scene', MODIFY_SCENE: 'Scene', DELETE_SCENE: 'Scene',
-  MOVE_SCENE: 'Scene', INSERT_BEAT: 'Beat', MODIFY_BEAT: 'Beat', DELETE_BEAT: 'Beat', REWRITE_PROSE: 'Prose', EDIT_PROSE: 'Prose',
-};
-
-function target(p: StoryProject, a: DirectorAction): string {
-  const ref = findScene(p, a.scene_id);
-  if (ref) return `${sceneLabel(p, ref.act, ref.index)} ${ref.scene.title}${a.beat > 0 ? ` beat ${a.beat}` : ''}`;
-  if (a.details?.character) return a.details.character;
-  if (a.sequence > 0) return `Sequence ${a.sequence}`;
-  if (a.act > 0) return `Act ${a.act}`;
-  return '';
-}
+import { discardPlanCopy } from './story/confirmCopy';
+import { directorPost, saveDirectorFields } from './story/director/directorApi';
+import { changes, isApplied } from './story/director/directorShape';
+import { PlanCard } from './story/director/PlanCard';
+import { FieldsDialog } from './story/FieldsDialog';
+import { formatRelativeTime } from './story/relativeTime';
+import { StudioLoading, StudioShell } from './story/StudioShell';
+import { useConfirm } from './story/useConfirm';
+import { useNotice } from './story/world/useNotice';
+import { useSerialQueue } from './story/world/useSerialQueue';
 
 export function StoryDirectorPage() {
   const { id = '' } = useParams();
   const { project: p, status, error, run, stop, reload } = useStory(id);
-  const [directive, setDirective] = useState('');
-  const [protect, setProtect] = useState(true);
-  const [refine, setRefine] = useState('');
+  // null = untouched: the box shows what the project remembers.
+  const [draft, setDraft] = useState<string | null>(null);
+  const [protectChoice, setProtectChoice] = useState<boolean | null>(null);
   const [refining, setRefining] = useState(false);
+  const [failure, setFailure] = useState('');
+  const [notice, setNotice] = useNotice();
+  const enqueue = useSerialQueue();
+  const { ask, dialog } = useConfirm();
+  const typed = useRef<string | null>(null);
 
-  if (!p) {
-    return <div className="page">{error ? <p className="error">{error}</p> : <div className="spinner" />}</div>;
-  }
-  const busy = status?.running ?? false;
+  // Leaving the section remembers the box, like the desktop's dispose().
+  useEffect(() => () => {
+    const text = typed.current;
+    if (text !== null) saveDirectorFields(id, { director_draft: text }).catch((e) => console.warn('director draft not saved', e));
+  }, [id]);
+
+  if (!p) return <StudioLoading error={error} />;
+
+  const running = status?.running ?? false;
   const plan = p.director_plan ?? null;
-  const applied = !!plan && plan.actions.some((a) => a.result);
-  const applicable = plan ? plan.actions.filter((a) => a.enabled && !a.locked).length : 0;
+  const showPlan = !!plan && !isApplied(plan);
+  const applied = p.director_applied ?? null;
+  const text = draft ?? p.director_draft ?? '';
+  const protect = protectChoice ?? p.director_protect !== false;
+  const noActs = p.acts.length === 0;
 
-  const post = async (path: string, body: unknown) => {
-    await api.post(`/api/stories/${id}/director/${path}`, body);
-    reload();
+  const type = (value: string) => { typed.current = value; setDraft(value); };
+  const remember = () => {
+    if (typed.current !== null) {
+      const value = typed.current;
+      enqueue(() => saveDirectorFields(id, { director_draft: value })).catch((e) => console.warn('director draft not saved', e));
+    }
   };
-  const toggleProtect = async (v: boolean) => { setProtect(v); await post('protect', { protect: v }); };
+  // Server edits that end in a reload, so the page shows what the server now holds.
+  const mutate = (job: () => Promise<unknown>) => {
+    setFailure('');
+    enqueue(job)
+      .catch((e) => setFailure(e instanceof ApiError ? e.message : 'That change did not go through'))
+      .finally(reload);
+  };
+
+  const planChanges = () => {
+    setFailure('');
+    // The box is saved first, so the run and the remembered text agree.
+    enqueue(() => saveDirectorFields(id, { director_draft: text }))
+      .then(() => run('director-plan', { directive: text, protect }))
+      .catch((e) => setFailure(e instanceof ApiError ? e.message : 'The plan could not be started'));
+  };
+  const setProtect = (on: boolean) => {
+    setProtectChoice(on);
+    // The switch is saved on the project (a plan may not exist yet), then the plan's locks follow it.
+    mutate(async () => {
+      await saveDirectorFields(id, { director_protect: on });
+      await directorPost(id, 'protect', { protect: on });
+    });
+  };
+  const undo = () => mutate(async () => {
+    const r = await directorPost(id, 'undo');
+    if (r.status === 'nothing-to-undo' || r.ok === false) setNotice('Nothing to undo: the snapshot for that plan is gone.');
+  });
+  const revise = (refinement: string) => {
+    setRefining(false);
+    if (plan && refinement) void run('director-plan', { directive: plan.directive || text, protect, refinement });
+  };
 
   return (
     <StudioShell id={id} project={p} section="director" status={status} error={error} onStop={stop}>
+      {failure && <p className="s-error">{failure}</p>}
       <section className="s-card">
         <span className="s-key">What should change?</span>
-        <textarea className="s-textarea" value={directive} data-testid="director-directive"
+        <textarea className="s-textarea" rows={3} data-testid="director-directive" aria-label="What should change?"
           placeholder="e.g. Teodor should be hiding that he set the wagon fire. Plant hints before 3.3 and let Mara find out in Sequence 5."
-          onChange={(e) => setDirective(e.target.value)} />
+          value={text} onChange={(e) => type(e.target.value)} onBlur={remember} />
         <div className="s-row">
-          <label className="s-tog s-grow">
-            <input type="checkbox" checked={protect} onChange={(e) => toggleProtect(e.target.checked)} />
-            Protect written prose (only touch unwritten scenes)
+          <label className="s-tog-row s-grow" data-testid="director-protect">
+            <span className={`s-tog${protect ? ' on' : ''}${running ? ' dis' : ''}`}>
+              <input type="checkbox" checked={protect} disabled={running} onChange={(e) => setProtect(e.target.checked)} />
+            </span>
+            <span className="s-grow">Protect written prose (only touch unwritten scenes)</span>
           </label>
-          <button className="s-btn-primary" disabled={busy || !directive.trim() || p.acts.length === 0} data-testid="director-plan"
-            onClick={() => run('director-plan', { directive, protect })}>Plan changes</button>
+          <button type="button" className="s-btn-primary" data-testid="director-plan"
+            disabled={noActs || running || !text.trim()} onClick={planChanges}>
+            {running ? 'Planning…' : 'Plan changes'}
+          </button>
         </div>
-        {p.acts.length === 0 && <span className="muted small">The Director needs a structure to work on. Build the story bible and acts first.</span>}
+        {noActs && (
+          <span className="s-muted s-small">The Director needs a structure to work on. Build the story bible and acts first.</span>
+        )}
       </section>
 
-      {plan && (
-        <section className="s-card" style={{ marginTop: 12 }}>
-          <div className="s-row">
-            <span className="s-key s-grow">Proposed plan · {plan.actions.length} change{plan.actions.length === 1 ? '' : 's'} · {plan.scope === 'arc' ? 'whole arc' : 'local'}</span>
-            {plan.review === 'consistent'
-              ? <Chip tone="teal">Reviewed: consistent</Chip>
-              : plan.review ? <Chip tone="honey">Review: {plan.review}</Chip> : null}
-          </div>
-          {plan.evaluation && <p className="muted small" style={{ margin: 0 }}>{plan.evaluation}</p>}
-          {plan.actions.map((a, i) => (
-            <div key={i} className={`s-plan-row${a.locked ? ' locked' : ''}`}>
-              <input type="checkbox" checked={a.enabled && !a.locked} disabled={a.locked || applied}
-                onChange={(e) => post('action', { index: i, enabled: e.target.checked })} />
-              <Chip tone={KIND[a.type] === 'Prose' ? 'terra' : 'honey'}>{KIND[a.type] ?? a.type}</Chip>
-              <span className="s-grow">
-                {target(p, a) && <span className="s-muted">{target(p, a)}: </span>}{a.summary}
-              </span>
-              {a.locked && <Chip tone="bad">locked — written</Chip>}
-              {a.result === 'applied' && <Chip tone="teal">applied</Chip>}
-              {a.result.startsWith('failed') && <Chip tone="bad" title={a.result}>could not apply</Chip>}
-            </div>
-          ))}
-          {refining ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <textarea className="s-textarea" value={refine} placeholder="e.g. keep him sympathetic"
-                onChange={(e) => setRefine(e.target.value)} />
-              <div className="s-row">
-                <button className="s-btn-primary" disabled={busy || !refine.trim()}
-                  onClick={() => { setRefining(false); run('director-plan', { directive: plan.directive, protect, refinement: refine }); }}>Revise plan</button>
-                <button className="s-btn-ghost" onClick={() => setRefining(false)}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <div className="s-row">
-              <button className="s-btn-quiet" disabled={applied || busy} onClick={() => setRefining(true)}>Refine…</button>
-              <span className="s-grow" />
-              <button className="s-btn-quiet" disabled={busy} onClick={() => post('discard', {})}>Discard</button>
-              <button className="s-btn-primary" disabled={applied || busy || applicable === 0} data-testid="director-apply"
-                onClick={() => run('director-apply')}>
-                {applied ? 'Applied' : `Apply ${applicable} change${applicable === 1 ? '' : 's'}`}
-              </button>
-            </div>
-          )}
-        </section>
+      {plan && showPlan && (
+        <PlanCard p={p} plan={plan} running={running}
+          onToggle={(index, enabled) => mutate(() => directorPost(id, 'action', { index, enabled }))}
+          onRefine={() => setRefining(true)}
+          onDiscard={() => ask(discardPlanCopy, () => mutate(() => directorPost(id, 'discard')))}
+          onApply={() => { void run('director-apply'); }} />
       )}
 
-      {p.director_applied && (
-        <div className="s-row" style={{ marginTop: 10 }}>
-          <span className="s-grow muted small">
-            Last applied: “{p.director_applied.directive}” · {timeAgo(p.director_applied.applied_at)}
+      {applied && (
+        <div className="s-row">
+          <span className="s-grow s-muted s-small" data-testid="director-last-applied">
+            Last applied: “{applied.directive}” · {formatRelativeTime(applied.applied_at)} · {changes(applied.change_count)}
           </span>
-          <button className="s-btn-ghost" disabled={busy} onClick={() => post('undo', {})}>Undo that plan</button>
+          <button type="button" className="s-btn-ghost" data-testid="director-undo" disabled={running} onClick={undo}>Undo that plan</button>
         </div>
       )}
+      {notice && <p className="s-muted s-small" role="status">{notice}</p>}
+
+      {refining && (
+        <FieldsDialog title="Refine the plan" wide confirmLabel="Revise plan" required="refinement"
+          note={<div className="body">Say what to change about the plan, e.g. “keep him sympathetic” or “do it in Sequence 4 instead”.</div>}
+          fields={[{ key: 'refinement', hint: 'Your note', multiline: true, rows: 3, testid: 'director-refinement' }]}
+          onSubmit={(values) => revise(values.refinement)} onCancel={() => setRefining(false)} />
+      )}
+      {dialog}
     </StudioShell>
   );
 }

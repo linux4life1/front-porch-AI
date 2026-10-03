@@ -16,14 +16,6 @@
   --story-wood-edge: #5a3a25;
   --story-gold: #ffca28;
 
-  /* Beat-type badges (mirror the desktop _beatTypeColor accents). */
-  --beat-action: #ff5252;
-  --beat-reaction: #448aff;
-  --beat-dialogue: #ffd740;
-  --beat-revelation: #e040fb;
-  --beat-resolution: #69f0ae;
-  --beat-default: rgba(255, 255, 255, 0.45);
-
   /* Library-card status tones. */
   --story-status-prose: #69f0ae;
   --story-status-scenes: #448aff;
@@ -127,17 +119,6 @@
   background: var(--surface-2); color: var(--muted); align-self: flex-start;
 }
 .story-card-actions { display: flex; gap: 6px; margin-top: 8px; }
-.export-pop { position: relative; }
-.export-menu {
-  position: absolute; right: 0; bottom: calc(100% + 4px); z-index: 5;
-  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-  display: flex; flex-direction: column; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
-.export-menu button {
-  background: none; border: none; color: var(--text); text-align: left;
-  padding: 8px 12px; cursor: pointer; font-size: 0.85rem;
-}
-.export-menu button:hover { background: var(--surface-2); }
 
 /* ── Structure: cast names, valence sparkline, completion ────────────────── */
 .scene-cast { color: var(--muted); font-size: 0.78rem; }
@@ -152,27 +133,7 @@
 }
 .valence-spark > i.neg { background: var(--story-val-neg); }
 
-/* ── Writer: beat badges, pacing/valence, copy ───────────────────────────── */
-.beat-badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.beat-type {
-  font-size: 0.7rem; padding: 1px 8px; border-radius: 999px; font-weight: 600;
-  background: var(--beat-default); color: var(--bg);
-}
-.beat-type.action { background: var(--beat-action); }
-.beat-type.reaction { background: var(--beat-reaction); }
-.beat-type.dialogue { background: var(--beat-dialogue); }
-.beat-type.revelation { background: var(--beat-revelation); }
-.beat-type.resolution { background: var(--beat-resolution); }
-.beat-meta { font-size: 0.72rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
-.beat-actions { display: flex; gap: 6px; align-items: center; }
-.scene-menu { position: relative; }
-
-/* ── Reader: paper book ──────────────────────────────────────────────────── */
-.story-reader { display: flex; flex-direction: column; gap: 8px; }
-.reader-bar { display: flex; align-items: center; gap: 8px; }
-.reader-bar h2 { flex: 1; font-size: 1.05rem; margin: 0; }
-.reader-bar .icon-btn.on { color: var(--story-gold); }
-
+/* ── Reader: paper book (the bar, pager and Contents are in studio.css) ──── */
 .book-wrap {
   height: min(72vh, 880px); display: flex; align-items: stretch; justify-content: center;
   background: var(--story-wood); border-radius: var(--radius); padding: 16px; overflow: hidden;
@@ -208,59 +169,11 @@
 .book-scene .scene-h h3 { margin: 0; font-size: 1.15rem; }
 .book-scene .scene-h .scene-loc { font-size: 0.8rem; color: var(--story-ink-soft); font-style: italic; }
 
-.reader-foot { display: flex; align-items: center; gap: 12px; }
-.reader-foot .page-ind { font-size: 0.8rem; color: var(--muted); min-width: 90px; text-align: center; }
-.reader-prog { flex: 1; height: 5px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
-.reader-prog > span { display: block; height: 100%; background: var(--accent); }
-.reader-nav-btn { font-size: 1.1rem; padding: 6px 12px; }
-
-/* Reading status (read-to-me). */
-.read-status {
-  display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted);
-  padding: 4px 10px;
-}
-.read-status .read-buf {
-  font-size: 0.7rem; padding: 1px 8px; border-radius: 999px;
-  background: var(--surface-2); color: var(--muted);
-}
-
-/* Table of contents drawer. */
-.toc-scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 40; }
-.toc {
-  position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 85vw); z-index: 41;
-  background: var(--story-wood); color: var(--story-paper);
-  display: flex; flex-direction: column; box-shadow: -8px 0 24px rgba(0,0,0,0.5);
-}
-.toc-head { padding: 20px 18px 14px; border-bottom: 1px solid var(--story-wood-edge); }
-.toc-head .toc-title { font-family: Georgia, serif; font-weight: 700; font-size: 1.1rem; }
-.toc-head .toc-sub { font-size: 0.72rem; letter-spacing: 2px; opacity: 0.55; }
-.toc-list { flex: 1; overflow: auto; padding: 8px 0; }
-.toc-entry {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  background: none; border: none; color: var(--story-paper); cursor: pointer;
-  font-family: Georgia, serif; padding: 6px 18px; text-align: left; font-size: 0.85rem;
-}
-.toc-entry.act { font-weight: 600; padding-top: 12px; }
-.toc-entry.scene { padding-left: 36px; opacity: 0.85; font-size: 0.82rem; }
-.toc-entry.current { color: var(--story-gold); background: rgba(90, 58, 37, 0.4); }
-.toc-entry .toc-num { margin-left: auto; opacity: 0.4; font-size: 0.72rem; }
-.toc-entry:hover { background: rgba(90, 58, 37, 0.3); }
-
-/* ── Phone reader: keep the bar one row + give the page real height ──────── */
+/* ── Phone book: the paper page takes the height ─────────────────────────── */
 @media (max-width: 768px) {
-  /* The back button already carries the title; hide the duplicate <h2> so the
-     bar stays a single row instead of collapsing the title into a vertical
-     one-letter-per-line strip that eats the whole screen. */
-  .reader-bar h2 { display: none; }
-  .reader-bar .ghost {
-    flex: 1 1 auto; min-width: 0; text-align: left;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  /* With the bar compact again, the paper page reclaims the vertical space. */
   .book-wrap { height: 76vh; padding: 10px; }
   .book-page { max-width: 100%; }
   /* Tighter page margins + slightly larger type for comfortable phone reading
      (.book-flow is absolutely inset, not padded). */
   .book-flow { font-size: 1.08rem; line-height: 1.75; top: 22px; bottom: 22px; left: 20px; right: 20px; }
-  .reader-foot .page-ind { min-width: 0; }
 }

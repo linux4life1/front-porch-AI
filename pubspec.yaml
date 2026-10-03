@@ -137,6 +137,8 @@ flutter:
     # non-recursive, so the Vite assets/ subdir is listed explicitly.
     - assets/web_app/
     - assets/web_app/assets/
+    - assets/web_app/audio/
+    - assets/web_app/fonts/
     # Bundled so GoogleFonts.fraunces works when runtime fetch is off
     # (widget goldens / offline). File name must match google_fonts.
     - google_fonts/Fraunces-SemiBold.ttf

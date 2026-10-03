@@ -210,18 +210,10 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
   ) async {
     final sc = p.scenes[act]?[scene];
     if (sc == null) return;
-    final words = p
-        .sceneText(act, scene)
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .length;
-    final facts = p.continuity.where((f) => f.sceneId == sc.id).length;
     final ok = await showStoryConfirm(
       context,
       title: 'Rewrite ${p.sceneLabel(act, scene)} · ${sc.title}?',
-      body:
-          'Its ${thousands(words)} words will be replaced. The beats stay.'
-          '${facts > 0 ? ' $facts continuity fact${facts == 1 ? '' : 's'} recorded from this scene ${facts == 1 ? 'is' : 'are'} retired first.' : ''}',
+      body: storyRewriteSceneBody(p, act, scene),
       confirmLabel: 'Rewrite',
       destructive: true,
     );

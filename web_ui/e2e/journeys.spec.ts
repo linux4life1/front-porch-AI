@@ -214,11 +214,9 @@ test('the chat model sheet lists models you can tap, and offers providers', asyn
 });
 
 test('a story opens in the studio: the sidebar switches screens, the Engine step offers Quick and Studio, and the reader can scroll', async ({ page }) => {
-  const stories = ((await (await page.request.get('/api/stories')).json()) as { stories: { id: string; title: string }[] }).stories ?? [];
-  let story = stories.find((s) => s.title === 'Journey Story');
-  if (!story) {
-    story = (await (await page.request.post('/api/stories', { data: { title: 'Journey Story' } })).json()) as { id: string; title: string };
-  }
+  // A fresh story each run: a draft resumes at the step it was left on, so a
+  // story the other browser walked to Engine would not open on Idea below.
+  const story = (await (await page.request.post('/api/stories', { data: { title: 'Journey Story' } })).json()) as { id: string; title: string };
   await openRoute(page, `/stories/${story.id}`);
   await expect(page.getByRole('heading', { name: 'Journey Story' })).toBeVisible();
   await page.getByTestId('studio-nav-director').click();
@@ -230,8 +228,11 @@ test('a story opens in the studio: the sidebar switches screens, the Engine step
   await page.getByTestId('studio-nav-structure').click();
   await expect(page.getByTestId('story-continue')).toBeVisible();
 
+  // Setup walks Idea → Cast → Shape → Engine. The idea comes first, so a story
+  // that has none yet is given one before Next moves on.
   await openRoute(page, `/stories/${story.id}/setup`);
-  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByTestId('story-concept').fill('A lighthouse keeper finds a door in the rock.');
+  for (let i = 0; i < 3; i++) await page.getByTestId('story-setup-next').click();
   await expect(page.getByTestId('story-engine-studio')).toBeVisible();
   await page.getByTestId('story-engine-quick').click();
   await expect(page.getByTestId('story-engine-quick')).toHaveClass(/\bon\b/);
@@ -241,4 +242,51 @@ test('a story opens in the studio: the sidebar switches screens, the Engine step
   await expect(page.getByTestId('scroll-reader')).toBeVisible();
   await page.getByTestId('reader-mode').getByRole('button', { name: 'Book' }).click();
   await expect(page.getByTestId('scroll-reader')).toHaveCount(0);
+});
+
+test('New Story walks four steps, keeps the draft when you leave, and the shelf says where it stopped', async ({ page }) => {
+  await openRoute(page, '/stories');
+  await page.getByTestId('story-new').click();
+  await expect(page).toHaveURL(/\/stories\/new$/);
+  const step = page.getByTestId('story-setup-step');
+  await expect(step).toHaveText('Idea');
+
+  // No idea yet: Next asks for one instead of moving on (and saves nothing).
+  await page.getByTestId('story-setup-next').click();
+  await expect(page.getByText('Say what the story is first.')).toBeVisible();
+  await expect(step).toHaveText('Idea');
+
+  await page.getByTestId('story-title').fill('Draft Journey');
+  await page.getByTestId('story-concept').fill('A courier on a drowned coast owes a smuggler forty silver.');
+  await page.getByTestId('story-setup-next').click();
+  await expect(step).toHaveText('Cast');
+  await page.getByTestId('story-persona').click();
+  await page.getByTestId('story-setup-next').click();
+  await expect(step).toHaveText('Shape');
+  await page.getByRole('button', { name: 'Fantasy', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Fantasy', exact: true })).toHaveClass(/\bon\b/);
+  await page.getByTestId('story-setup-next').click();
+  await expect(step).toHaveText('Engine');
+
+  // Studio is the default and is recommended; Quick can be picked and shows its acts.
+  await expect(page.getByTestId('story-engine-studio')).toHaveClass(/\bon\b/);
+  await page.getByTestId('story-engine-quick').click();
+  await expect(page.getByTestId('story-engine-quick')).toHaveClass(/\bon\b/);
+
+  // Each job's model opens the picker, which offers the chat model and another host.
+  await page.getByTestId('story-lane-prose').click();
+  const sheet = page.getByTestId('story-model-picker');
+  await expect(sheet).toContainText('Prose model');
+  await expect(sheet.getByTestId('story-lane-chat')).toContainText('Same as chat');
+  await sheet.getByTestId('story-lane-host').click();
+  await expect(sheet.getByTestId('story-host-openRouter')).toBeVisible();
+  await expect(sheet.getByTestId('story-lane-use')).toBeDisabled();
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await expect(sheet).toHaveCount(0);
+
+  // Leaving keeps the draft; the shelf shows the step it stopped at.
+  await page.getByRole('button', { name: 'Back to stories' }).click();
+  await expect(page).toHaveURL(/\/stories$/);
+  const book = page.locator('[data-testid^="story-book-"]', { hasText: 'Draft Journey' }).first();
+  await expect(book).toContainText('Stopped at step 4 · Engine');
 });

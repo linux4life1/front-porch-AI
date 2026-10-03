@@ -1,120 +1,133 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Cast dossiers: portrait (the story's own, else the character card's art,
-// else initials), role, what drives them, their interview, their read-along
-// voice. Mirrors the desktop CastSection.
+// Cast (sketch R): one dossier per character. Add, edit and remove are here, so
+// the New Story's Cast step and this screen are the same list. Two columns on
+// wide screens, one under 900px. Web twin of the desktop CastSection.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { useStory } from '../hooks/useStory';
-import type { StoryCastMember, StoryVoice } from '../storyTypes';
-import { Chip, StudioShell } from './story/StudioShell';
-import '../styles/ws-j.css';
+import { CastCard } from './story/cast/CastCard';
+import { InterviewDialog, VoiceDialog } from './story/cast/CastDialogs';
+import { castFields, removeMember, saveMember, setVoice } from './story/cast/castEdits';
+import { useCastData } from './story/cast/useCastData';
+import { interviewAgainCopy, removeFromCastCopy } from './story/confirmCopy';
+import { FieldsDialog } from './story/FieldsDialog';
+import { StudioLoading, StudioShell } from './story/StudioShell';
+import { useConfirm } from './story/useConfirm';
+import { EmptyState } from './story/world/EmptyState';
 
-function Portrait({ id, member, cardArt }: { id: string; member: StoryCastMember; cardArt?: string }) {
-  const src = member.portrait
-    ? `/api/stories/${id}/portrait?name=${encodeURIComponent(member.name)}`
-    : cardArt;
-  if (src) return <img className="s-portrait" src={src} alt="" />;
-  return <div className="s-portrait">{member.name ? member.name[0] : '?'}</div>;
-}
+type Open =
+  | { kind: 'edit'; index: number | null }
+  | { kind: 'read'; index: number }
+  | { kind: 'voice'; index: number };
 
 export function StoryCastPage() {
   const { id = '' } = useParams();
   const { project: p, status, error, run, stop, save, reload } = useStory(id);
-  const [painting, setPainting] = useState('');
-  const [paintError, setPaintError] = useState('');
-  const [voices, setVoices] = useState<StoryVoice[]>([]);
-  const [art, setArt] = useState<Record<string, string>>({});
-  const [open, setOpen] = useState<string | null>(null);
+  const { voices, art, canPaint } = useCastData();
+  const [open, setOpen] = useState<Open | null>(null);
+  const [painting, setPainting] = useState<ReadonlySet<string>>(new Set());
+  // When each portrait was last painted: the address changes, so the browser fetches the new one.
+  const [painted, setPainted] = useState<Record<string, number>>({});
+  const [failure, setFailure] = useState('');
+  const { ask, dialog } = useConfirm();
 
-  useEffect(() => {
-    api.get<{ voices: StoryVoice[] }>('/api/stories/voices').then((r) => setVoices(r.voices)).catch(() => {});
-    api.get<{ id: string; name: string }[]>('/api/characters')
-      .then((r) => setArt(Object.fromEntries(r.map((c) => [c.name, `/api/characters/${c.id}/avatar?w=128`]))))
-      .catch(() => {});
-  }, []);
+  if (!p) return <StudioLoading error={error} />;
 
-  if (!p) {
-    return <div className="page">{error ? <p className="error">{error}</p> : <div className="spinner" />}</div>;
-  }
-  const busy = status?.running ?? false;
+  const running = status?.running ?? false;
   const studio = p.engine_mode === 'studio';
-  const pickVoice = (i: number, voiceId: string) => {
-    const cast = p.cast.map((c, idx) => (idx === i ? { ...c, voice_model: voiceId || undefined } : c));
-    void save({ cast });
+  const count = p.cast.length;
+
+  const interview = (index: number) => {
+    const name = p.cast[index].name;
+    if (p.cast[index].interview) ask(interviewAgainCopy(name), () => { void run('interview', { name }); });
+    else void run('interview', { name });
   };
-  const short = (s: string) => (s.length > 40 ? `${s.slice(0, 40)}…` : s);
   const paint = async (name: string) => {
-    setPainting(name);
-    setPaintError('');
+    setFailure('');
+    setPainting((prev) => new Set(prev).add(name));
     try {
       await api.post(`/api/stories/${id}/portrait`, { name });
+      setPainted((prev) => ({ ...prev, [name]: Date.now() }));
       reload();
     } catch (e) {
-      setPaintError(e instanceof ApiError ? e.message : 'Could not paint a portrait');
+      setFailure(e instanceof ApiError ? e.message : 'The portrait could not be painted');
     } finally {
-      setPainting('');
+      setPainting((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
     }
   };
+  const portraitOf = (name: string, hasOwn: boolean): string | undefined => {
+    if (!hasOwn) return art[name];
+    const stamp = painted[name];
+    return `/api/stories/${id}/portrait?name=${encodeURIComponent(name)}${stamp ? `&v=${stamp}` : ''}`;
+  };
+
+  const target = open && open.kind !== 'edit' ? p.cast[open.index] : null;
+  const editing = open?.kind === 'edit' ? open : null;
 
   return (
     <StudioShell id={id} project={p} section="cast" status={status} error={error} onStop={stop}>
-      {p.cast.length === 0 && <p className="muted">No cast yet — the story bible creates it.</p>}
-      {paintError && <p className="error">{paintError}</p>}
-      {p.cast.map((c, i) => {
-        const drive = [c.role || 'Supporting', c.desire ? `wants ${c.desire}` : '', c.flaw ? `flaw: ${c.flaw}` : ''].filter(Boolean).join(' · ');
-        const interview = c.interview ?? '';
-        const excerpt = interview.length > 420 ? `${interview.slice(0, 420).trimEnd()}…` : interview;
-        return (
-          <section key={c.name} className="s-card" style={{ marginBottom: 12 }}>
-            <div className="s-row" style={{ alignItems: 'flex-start' }}>
-              <Portrait id={id} member={c} cardArt={art[c.name]} />
-              <div className="s-grow">
-                <strong style={{ fontSize: '1rem' }}>{c.name}</strong>
-                <div className="muted small">{drive}</div>
-                {c.description && <div className="s-small" style={{ marginTop: 4 }}>{c.description}</div>}
-              </div>
-              <div className="s-row">
-                {studio && (
-                  <button className="s-btn-quiet" disabled={busy} onClick={() => run('interview', { name: c.name })}>
-                    {interview ? 'Interview again' : `Interview ${c.name.split(' ')[0]}`}
-                  </button>
-                )}
-                <button className="s-btn-ghost" disabled={busy || painting === c.name} onClick={() => paint(c.name)}>
-                  {painting === c.name ? 'Painting…' : 'Generate portrait'}
-                </button>
-              </div>
-            </div>
-            {excerpt && (
-              <>
-                <span className="s-key">From their interview</span>
-                <p className="s-prose" style={{ margin: 0 }}>“{open === c.name ? interview : excerpt}”</p>
-                {interview.length > 420 && (
-                  <button className="s-btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setOpen(open === c.name ? null : c.name)}>
-                    {open === c.name ? 'Show less' : 'Read the whole interview'}
-                  </button>
-                )}
-              </>
-            )}
-            <div className="s-chips">
-              {c.voice_sample && <Chip>Voice: {short(c.voice_sample)}</Chip>}
-              {c.details?.secret && <Chip tone="honey">Secret: {short(c.details.secret)}</Chip>}
-            </div>
-            {voices.length > 0 && (
-              <label className="s-row s-small">
-                <span className="muted">Read-along voice:</span>
-                <select value={c.voice_model ?? ''} onChange={(e) => pickVoice(i, e.target.value)}>
-                  <option value="">Default narrator</option>
-                  {voices.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
-              </label>
-            )}
-          </section>
-        );
-      })}
+      <div className="s-row nowrap">
+        <span className="s-grow s-muted s-body">{count} character{count === 1 ? '' : 's'}</span>
+        <button type="button" className="s-btn-quiet" data-testid="cast-add" onClick={() => setOpen({ kind: 'edit', index: null })}>
+          + Add character
+        </button>
+      </div>
+      {failure && <p className="s-error">{failure}</p>}
+
+      {count === 0 ? (
+        <EmptyState title="No cast yet" detail="The story bible creates it, or add someone yourself." testid="cast-empty" />
+      ) : (
+        <div className="s-over-cols">
+          {p.cast.map((m, i) => (
+            <CastCard key={`${m.name}-${i}`} member={m} studio={studio} running={running} canPaint={canPaint} voices={voices}
+              painting={painting.has(m.name)} portrait={portraitOf(m.name, !!m.portrait)}
+              actions={{
+                interview: () => interview(i),
+                paint: () => { void paint(m.name); },
+                edit: () => setOpen({ kind: 'edit', index: i }),
+                remove: () => ask(removeFromCastCopy(m.name), () => { void save(removeMember(p, i)); }),
+                readInterview: () => setOpen({ kind: 'read', index: i }),
+                pickVoice: () => setOpen({ kind: 'voice', index: i }),
+              }} />
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <FieldsDialog wide title={editing.index === null ? 'Add character' : `Edit ${p.cast[editing.index].name}`}
+          confirmLabel={editing.index === null ? 'Add' : 'Save'} required="name"
+          onCancel={() => setOpen(null)}
+          onSubmit={(values) => {
+            setOpen(null);
+            void save(saveMember(p, editing.index, {
+              name: values.name, role: values.role, description: values.description, desire: values.desire, flaw: values.flaw,
+            }));
+          }}
+          fields={(() => {
+            const f = castFields(editing.index === null ? null : p.cast[editing.index]);
+            return [
+              { key: 'name', hint: 'Name', value: f.name, testid: 'cast-edit-name' },
+              { key: 'role', hint: 'Role (Protagonist, Mentor…)', value: f.role, testid: 'cast-edit-role' },
+              { key: 'description', hint: 'Who they are', value: f.description, multiline: true, rows: 3, testid: 'cast-edit-description' },
+              { key: 'desire', hint: 'What they want', value: f.desire, testid: 'cast-edit-desire' },
+              { key: 'flaw', hint: 'Their flaw', value: f.flaw, testid: 'cast-edit-flaw' },
+            ];
+          })()} />
+      )}
+      {open?.kind === 'read' && target && <InterviewDialog member={target} onClose={() => setOpen(null)} />}
+      {open?.kind === 'voice' && target && (
+        <VoiceDialog current={target.voice_model ?? ''} voices={voices} onCancel={() => setOpen(null)}
+          onPick={(voiceId) => { const index = open.index; setOpen(null); void save(setVoice(p, index, voiceId)); }} />
+      )}
+      {dialog}
     </StudioShell>
   );
 }

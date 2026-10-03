@@ -1,0 +1,13 @@
+The fonts in this folder are the latin variable subsets served by Google
+Fonts, redistributed unchanged under the SIL Open Font License 1.1
+(https://openfontlicense.org):
+
+  Figtree.woff2          Figtree, Copyright 2022 The Figtree Project Authors
+                         https://github.com/erikdkennedy/figtree
+  Literata.woff2         Literata, Copyright 2016-2022 The Literata Project Authors
+  Literata-Italic.woff2  https://github.com/googlefonts/literata
+  JetBrainsMono.woff2    JetBrains Mono, Copyright 2020 The JetBrains Mono Project Authors
+                         https://github.com/JetBrains/JetBrainsMono
+
+Under the OFL the fonts may be bundled with, redistributed with and sold
+with software as long as they are not sold on their own.

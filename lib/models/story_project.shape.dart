@@ -123,6 +123,17 @@ extension StoryProjectShape on StoryProject {
     ];
   }
 
+  /// Whether Continue writing still has something to outline before it can
+  /// write: a Studio sequence with no scenes, or a Quick act with none. The
+  /// engine's `writeNextScene` outlines that first; the UIs say "written"
+  /// only when this is false too. Mirrored by `hasUnoutlined` in
+  /// storyShape.ts.
+  bool get hasUnoutlined => engineMode == StoryEngineMode.studio
+      ? sequences.any((s) => sceneIndexesInSequence(s.number).isEmpty)
+      : [
+          for (var act = 0; act < acts.length; act++) act,
+        ].any((act) => scenes[act]?.isEmpty ?? true);
+
   /// Every scene in story order.
   Iterable<SceneRef> get orderedScenes sync* {
     for (var act = 0; act < acts.length; act++) {

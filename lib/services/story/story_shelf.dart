@@ -24,7 +24,10 @@ import 'package:front_porch_ai/models/models.dart';
 ({String status, double fraction, bool done, bool setup}) storyShelfStatus(
   StoryProject p,
 ) {
-  final setup = p.concept.trim().isEmpty && p.acts.isEmpty;
+  // A draft keeps its step until the wizard finishes (null); a story from
+  // before the wizard kept a step is in setup only when it has nothing yet.
+  final setup =
+      p.setupStep != null || (p.concept.trim().isEmpty && p.acts.isEmpty);
   if (setup) {
     final step = p.setupStep;
     const names = ['Idea', 'Cast', 'Shape', 'Engine'];
@@ -107,4 +110,22 @@ String storyGenreLine(StoryProject p) {
   }
   if (picked.isNotEmpty) return picked.take(3).join(' · ');
   return p.chatHistorySessionIds.isNotEmpty ? 'From a chat' : 'No genre yet';
+}
+
+/// The body of the "Rewrite scene" confirm. Write and Structure both offer
+/// it, and the web mirrors this in `confirmCopy.ts`, so the words live once.
+/// Clearing a scene's prose also retires the continuity facts it recorded;
+/// the sentence says so when there are any.
+String storyRewriteSceneBody(StoryProject p, int act, int scene) {
+  final sc = p.scenes[act]?[scene];
+  final words = countWords(p.sceneText(act, scene));
+  final facts = sc == null
+      ? 0
+      : p.continuity.where((f) => f.sceneId == sc.id).length;
+  final retired = facts == 0
+      ? ''
+      : ' $facts continuity fact${facts == 1 ? '' : 's'} recorded from this '
+            'scene ${facts == 1 ? 'is' : 'are'} retired first.';
+  return 'Its ${thousands(words)} words will be replaced. The beats stay.'
+      '$retired';
 }

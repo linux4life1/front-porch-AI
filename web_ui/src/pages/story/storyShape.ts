@@ -92,7 +92,40 @@ export function nextUnfinished(p: StoryProject): SceneRef | undefined {
   });
 }
 
+/**
+ * Whether Continue writing still has something to outline before it can
+ * write: a Studio sequence with no scenes, or a Quick act with none. The
+ * engine outlines that first, so "the whole story is written" needs this
+ * false as well as no unfinished scene. Twin of `hasUnoutlined` in
+ * story_project.shape.dart.
+ */
+export function hasUnoutlined(p: StoryProject): boolean {
+  if (p.engine_mode === 'studio') {
+    return (p.sequences ?? []).some((s) => {
+      const act = p.acts.findIndex((a) => a.number === s.act);
+      return sceneIndexesInSequence(p, act, s.number).length === 0;
+    });
+  }
+  return p.acts.some((_, act) => (p.scenes[String(act)] ?? []).length === 0);
+}
+
 export const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+
+/** "II" for act 2; the desktop's romanAct stops at V. */
+export function romanAct(n: number): string {
+  return ROMAN[Math.min(Math.max(n, 1), 5)];
+}
+
+/** Scenes with at least one finished beat: the count behind "24 of 51 scenes written". */
+export function scenesWritten(p: StoryProject): number {
+  return orderedScenes(p).filter((r) => beatsWritten(p, r.act, r.index) > 0).length;
+}
+
+/** Models write lens ids loosely ("kinetic action"); this is the stored form. */
+export function normalizeLensId(raw: string): string {
+  const id = raw.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+  return id === '' ? 'BASELINE_NEUTRAL' : id;
+}
 
 export function groupThousands(n: number): string {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');

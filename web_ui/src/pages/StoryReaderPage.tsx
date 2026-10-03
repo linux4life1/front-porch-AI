@@ -1,51 +1,68 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Reader shell: loads the project and shows it as a paginated book or as a
-// continuous scroll with chapter headings; the story remembers which.
-// Mirrors the desktop StoryReaderPage.
+// Read (sketch P): a section of the studio, not a separate route. The sidebar
+// folds away behind ☰ to give the book room; one bar (Book | Scroll, Read
+// aloud, Contents, ⋯) serves both the paged book and the continuous scroll, and
+// the story remembers which. Web twin of the desktop StoryReaderPage.
 
-import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { api, ApiError } from '../api/client';
 import { useStory } from '../hooks/useStory';
 import { BookReader } from './story/BookReader';
+import type { ReaderChrome, ReaderMode } from './story/ReaderBar';
 import { ScrollReader } from './story/ScrollReader';
+import { StudioLoading, StudioShell } from './story/StudioShell';
+import { exportText } from './story/storyUtil';
+import { useAmbient } from './story/useAmbient';
 import '../styles/ws-j.css';
-import '../styles/studio.css';
 
 export function StoryReaderPage() {
   const { id = '' } = useParams();
-  const navigate = useNavigate();
-  const { project, error, reload } = useStory(id);
+  const { project, status, error, stop, reload } = useStory(id);
+  const ambient = useAmbient();
+  // Reading starts with the sidebar folded; ☰ brings it back.
+  const [sideShown, setSideShown] = useState(false);
+  const [problem, setProblem] = useState('');
 
-  if (!project) {
-    return <div className="page">{error ? <p className="error">{error}</p> : <div className="spinner" />}</div>;
-  }
-  const mode = project.reader_mode === 'scroll' ? 'scroll' : 'book';
-  const setMode = async (m: 'book' | 'scroll') => {
-    await api.post(`/api/stories/${id}/reading-position`, { mode: m });
-    reload();
+  if (!project) return <StudioLoading error={error} />;
+
+  const mode: ReaderMode = project.reader_mode === 'scroll' ? 'scroll' : 'book';
+  const failure = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
+  const chrome: ReaderChrome = {
+    title: project.title,
+    mode,
+    onMode: async (m) => {
+      if (m === mode) return;
+      try {
+        await api.post(`/api/stories/${id}/reading-position`, { mode: m });
+        reload();
+      } catch (e) {
+        setProblem(failure(e, 'The reading mode could not be changed'));
+      }
+    },
+    onToggleSidebar: () => setSideShown((shown) => !shown),
+    ambient,
+    onExport: async () => {
+      try {
+        await exportText(id, 'markdown', project.title);
+      } catch (e) {
+        setProblem(failure(e, 'The text could not be exported'));
+      }
+    },
+    problem,
+    onDismissProblem: () => setProblem(''),
   };
-  const toggle = (
-    <div className="s-seg" data-testid="reader-mode">
-      <button className={mode === 'book' ? 'on' : ''} onClick={() => setMode('book')}>Book</button>
-      <button className={mode === 'scroll' ? 'on' : ''} onClick={() => setMode('scroll')}>Scroll</button>
-    </div>
-  );
 
   return (
-    <div className="page">
-      {mode === 'scroll' ? (
-        <ScrollReader id={id} project={project} bar={(
-          <div className="reader-bar">
-            <button className="ghost" onClick={() => navigate(`/stories/${id}`)}>← {project.title}</button>
-            <h2>{project.title}</h2>
-            {toggle}
-          </div>
-        )} />
-      ) : (
-        <BookReader id={id} project={project} modeToggle={toggle} />
-      )}
-    </div>
+    <StudioShell id={id} project={project} section="read" status={status} error={error} onStop={stop}>
+      <div className="s-reader" data-testid="studio-read" data-side={sideShown ? 'shown' : 'hidden'}>
+        {mode === 'scroll'
+          ? <ScrollReader key="scroll" id={id} project={project} chrome={chrome} />
+          : <BookReader key="book" id={id} project={project} chrome={chrome} />}
+        {ambient.element}
+      </div>
+    </StudioShell>
   );
 }

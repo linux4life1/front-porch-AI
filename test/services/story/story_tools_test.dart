@@ -285,8 +285,6 @@ class _ToolLlm extends LLMService {
   @override
   bool get hasListeners => false;
   @override
-  void dispose() {}
-  @override
   void notifyListeners() {}
 }
 

@@ -20,6 +20,25 @@ export interface RunArgs {
   [key: string]: unknown;
 }
 
+/** Fired after a save made outside a page's own `useStory` (the studio header's Rename). */
+const SAVED_EVENT = 'story-saved';
+
+/// Save a whole project from somewhere that has no `useStory` of its own (the
+/// shell's Rename). Every `useStory` showing that story reloads, so no page
+/// keeps the old title and writes it back on its next save.
+export async function saveStoryProject(id: string, body: Record<string, unknown>): Promise<void> {
+  await api.post(`/api/stories/${id}`, body);
+  window.dispatchEvent(new CustomEvent(SAVED_EVENT, { detail: id }));
+}
+
+/// Rename through the title-only route. A whole-project write from the shelf
+/// or the header could overwrite a run in progress; this one touches nothing
+/// else. Pages showing the story reload the same way as after a save.
+export async function renameStory(id: string, title: string): Promise<void> {
+  await api.post(`/api/stories/${id}/rename`, { title });
+  window.dispatchEvent(new CustomEvent(SAVED_EVENT, { detail: id }));
+}
+
 export function useStory(id: string) {
   const [project, setProject] = useState<StoryProject | null>(null);
   const [status, setStatus] = useState<StoryStatus | null>(null);
@@ -32,6 +51,12 @@ export function useStory(id: string) {
   }, [id]);
 
   useEffect(reload, [reload]);
+
+  useEffect(() => {
+    const onSaved = (e: Event) => { if ((e as CustomEvent<string>).detail === id) reload(); };
+    window.addEventListener(SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(SAVED_EVENT, onSaved);
+  }, [id, reload]);
 
   useEffect(() => {
     api.get<StoryStatus>('/api/stories/status').then(setStatus).catch(() => {});

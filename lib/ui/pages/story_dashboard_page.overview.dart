@@ -93,11 +93,13 @@ extension _StoryDashboardOverview on _StoryDashboardPageState {
         key: const ValueKey('story-build-acts'),
         onPressed: running ? null : () => _buildActs(project),
       );
-    } else if (next == null && project.orderedScenes.isEmpty) {
-      title = 'Acts ready';
+    } else if (next == null && project.hasUnoutlined) {
+      title = project.orderedScenes.isEmpty
+          ? 'Acts ready'
+          : 'Next part not outlined yet';
       detail =
-          'Continue writing outlines the first sequence and writes its '
-          'first scene.';
+          'Continue writing outlines what comes next and writes its first '
+          'scene.';
       primary = StoryButton.primary(
         'Continue writing',
         key: const ValueKey('story-continue'),
@@ -178,7 +180,11 @@ extension _StoryDashboardOverview on _StoryDashboardPageState {
               StoryButton(
                 'Autopilot…',
                 key: const ValueKey('story-autopilot'),
-                onPressed: running || next == null && project.acts.isNotEmpty
+                onPressed:
+                    running ||
+                        next == null &&
+                            project.acts.isNotEmpty &&
+                            !project.hasUnoutlined
                     ? null
                     : () => _autopilot(project),
               ),
