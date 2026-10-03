@@ -53,13 +53,14 @@ void main() {
       expect(askedDeltaKeys(h.llm.reprocessPrompts.single), {
         'hunger',
         'bladder',
+        'bowels',
         'energy',
         'social',
         'comfort',
       }, reason: 'the prompt must name exactly the enabled keys');
       expect(
         h.llm.reprocessPrompts.single,
-        isNot(contains('all seven _delta keys')),
+        isNot(contains('all eight _delta keys')),
       );
       // AMENDMENT 1: a subset goes through the existing scoped onlyNeeds path.
       expect(
@@ -154,14 +155,14 @@ void main() {
       expect(h.storedNeedsFingerprint(i), before);
     });
 
-    test('B7 guard: all 7 on + empty selection keeps today\'s unscoped prompt '
+    test('B7 guard: all 8 on + empty selection keeps today\'s unscoped prompt '
         'byte-identical', () async {
       final i = await h.oneToOneWithStampedReply(needsCard('Mara'));
       final ok = await h.chat.manualReprocessNeeds(i, _critique);
       expect(ok, isTrue);
       // Captured from origin/Rawhide bb04f0d5 with this exact harness.
       final expected = File(
-        'test/fixtures/reprocess_needs/all_seven_unscoped_prompt.txt',
+        'test/fixtures/reprocess_needs/all_eight_unscoped_prompt.txt',
       ).readAsStringSync();
       expect(h.llm.reprocessPrompts.single, expected);
       expect(askedDeltaKeys(expected), kAllNeeds.toSet());

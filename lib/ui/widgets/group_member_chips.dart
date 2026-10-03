@@ -73,8 +73,10 @@ class MiniTierChip extends StatelessWidget {
   }
 }
 
-/// One urgent need as a single letter and a number ("H12"), amber normally and
-/// the negative accent once it crosses [needCriticalThreshold].
+/// One urgent need as a two-letter abbreviation and a number ("Hu12"), amber
+/// normally and the negative accent once it crosses [needCriticalThreshold].
+/// Two letters (not one) so needs sharing an initial — hunger/hygiene,
+/// bladder/bowels — stay distinguishable at a glance.
 class MiniNeedChip extends StatelessWidget {
   const MiniNeedChip({super.key, required this.name, required this.value});
 
@@ -84,6 +86,7 @@ class MiniNeedChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCrit = value <= needCriticalThreshold;
+    final abbr = name.length >= 2 ? name.substring(0, 2) : name;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
@@ -95,7 +98,7 @@ class MiniNeedChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
-        '${name[0].toUpperCase()}$value',
+        '${abbr[0].toUpperCase()}${abbr.substring(1)}$value',
         style: TextStyle(
           fontSize: 9,
           color: isCrit

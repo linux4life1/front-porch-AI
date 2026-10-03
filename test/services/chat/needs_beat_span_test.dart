@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Hunger and bladder follow the span the clock already named. Code does
+// Hunger, bladder and bowels follow the span the clock already named. Code does
 // not subtract a points-per-hour tax. A same-moment beat may stay at 0.
 // A long beat's hunger drop must survive the verifier when nobody ate.
 // A hunger gain without eat/food is still crushed.
@@ -57,7 +57,7 @@ Future<void> _apply(TimeService t, String json) {
 
 void main() {
   test(
-    'an awake span tells hunger and bladder to move, with no hourly tax',
+    'an awake span tells hunger, bladder and bowels to move, with no hourly tax',
     () {
       expect(
         needsSpanForBeat(minutes: 150, nextMorning: false, isSkip: false),
@@ -67,7 +67,7 @@ void main() {
       expect(note, contains('must move with that span'));
       expect(note, contains('A few minutes is a small drop'));
       expect(note, contains('A long stretch is a real one'));
-      expect(note, contains('Zero on hunger or bladder is only legal'));
+      expect(note, contains('Zero on hunger or bladder or bowels is only legal'));
       expect(note, isNot(contains('per hour')));
       expect(note, isNot(contains('already worn')));
       expect(note, isNot(contains('already applied')));
@@ -75,7 +75,7 @@ void main() {
   );
 
   test(
-    'the same moment, and a cleared beat, allow hunger and bladder to stay',
+    'the same moment, and a cleared beat, allow hunger, bladder and bowels to stay',
     () {
       for (final span in [null, '', 'same moment']) {
         final note = needsBeatNote(span);
@@ -193,7 +193,7 @@ void main() {
   });
 
   test(
-    'the needs prompt tells hunger and bladder to follow the beat',
+    'the needs prompt tells hunger, bladder and bowels to follow the beat',
     () async {
       String? scenePrompt;
       String? awayPrompt;
@@ -204,16 +204,16 @@ void main() {
           return Stream.value(
             '{"hunger_delta":-8,"energy_delta":0,"hygiene_delta":0,'
             '"fun_delta":0,"social_delta":0,"bladder_delta":-6,'
-            '"comfort_delta":0,"reason":"a long afternoon"}',
+            '"bowels_delta":-4,"comfort_delta":0,"reason":"a long afternoon"}',
           );
         },
       );
       await scene.evaluateNeedsImpactCall('they talked on the porch');
-      expect(scenePrompt, contains('HUNGER AND BLADDER FOLLOW THE BEAT'));
+      expect(scenePrompt, contains('HUNGER, BLADDER AND BOWELS FOLLOW THE BEAT'));
       expect(scenePrompt, contains('You choose the size'));
       expect(
         scenePrompt,
-        contains('On the same moment, all seven 0 is a quiet beat'),
+        contains('On the same moment, all eight 0 is a quiet beat'),
       );
       expect(scenePrompt, isNot(contains('already worn off the bars')));
       expect(scenePrompt, isNot(contains('TIME WEAR IS HANDLED SEPARATELY')));
@@ -226,7 +226,7 @@ void main() {
           return Stream.value(
             '{"hunger_delta":-12,"energy_delta":0,"hygiene_delta":0,'
             '"fun_delta":0,"social_delta":0,"bladder_delta":-10,'
-            '"comfort_delta":0,"reason":"gone for the afternoon"}',
+            '"bowels_delta":-8,"comfort_delta":0,"reason":"gone for the afternoon"}',
           );
         },
       );
@@ -234,7 +234,7 @@ void main() {
         'she came back from the walk',
         awayScene: true,
       );
-      expect(awayPrompt, contains('Hunger and bladder follow that span'));
+      expect(awayPrompt, contains('Hunger, bladder and bowels follow that span'));
       expect(
         awayPrompt,
         isNot(contains('Do not also subtract the hours that passed')),

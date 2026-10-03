@@ -29,6 +29,7 @@
         "likes": [],
         "long_term_bond": 0,
         "needs_baseline_bladder": 80,
+        "needs_baseline_bowels": 80,
         "needs_baseline_comfort": 80,
         "needs_baseline_energy": 80,
         "needs_baseline_fun": 80,

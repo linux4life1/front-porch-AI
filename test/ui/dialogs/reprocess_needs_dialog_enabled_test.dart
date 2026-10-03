@@ -20,6 +20,7 @@ import '../../helpers/reprocess_needs_harness.dart';
 const _labels = {
   'hunger': 'Hunger',
   'bladder': 'Bladder',
+  'bowels': 'Bowels',
   'energy': 'Energy',
   'social': 'Social',
   'fun': 'Fun',
@@ -129,7 +130,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setupReprocessPathProviderMock();
 
-  testWidgets('C1 Hygiene+Fun off: exactly the 5 enabled chips, the off '
+  testWidgets('C1 Hygiene+Fun off: exactly the 6 enabled chips, the off '
       'ones hidden (not greyed)', (tester) async {
     await _withHarness(tester, (h) async {
       final i = await tester.runAsync(
@@ -138,10 +139,11 @@ void main() {
         ),
       );
       await _openDialog(tester, h, i!);
-      expect(find.byType(FilterChip), findsNWidgets(5));
+      expect(find.byType(FilterChip), findsNWidgets(6));
       expect(_offeredChipLabels(tester), {
         'Hunger',
         'Bladder',
+        'Bowels',
         'Energy',
         'Social',
         'Comfort',
@@ -270,7 +272,7 @@ void main() {
     });
   });
 
-  testWidgets('C6 group: Ayla (Social off) is offered 6 chips, Bram all 7', (
+  testWidgets('C6 group: Ayla (Social off) is offered 7 chips, Bram all 8', (
     tester,
   ) async {
     await _withHarness(tester, (h) async {

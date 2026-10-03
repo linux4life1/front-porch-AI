@@ -96,6 +96,7 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
         realismNeedsDirectorAuthority: _realismNeedsDirectorAuthority,
         needsBaselineHunger: _needsBaselineHunger,
         needsBaselineBladder: _needsBaselineBladder,
+        needsBaselineBowels: _needsBaselineBowels,
         needsBaselineEnergy: _needsBaselineEnergy,
         needsBaselineSocial: _needsBaselineSocial,
         needsBaselineFun: _needsBaselineFun,
@@ -249,6 +250,7 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
       _realismNeedsDirectorAuthority = false;
       _needsBaselineHunger = 80;
       _needsBaselineBladder = 80;
+      _needsBaselineBowels = 80;
       _needsBaselineEnergy = 80;
       _needsBaselineSocial = 80;
       _needsBaselineFun = 80;

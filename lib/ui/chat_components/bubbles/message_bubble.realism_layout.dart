@@ -103,7 +103,7 @@ extension _BubbleRealismLayout on _MessageBubbleState {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.white10),
             ),
-            // Wrap, not Row: all seven needs can carry a delta at once (a
+            // Wrap, not Row: all eight needs can carry a delta at once (a
             // manual reprocess routinely returns a full set) and seven chips
             // overflow the bubble — Windows hit it first, by 0.668px.
             child: Wrap(spacing: 8, runSpacing: 4, children: needsChipList),

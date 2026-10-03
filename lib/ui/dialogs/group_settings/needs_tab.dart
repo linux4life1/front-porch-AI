@@ -15,6 +15,7 @@ part 'needs_tab.member.dart';
 
 const _kHunger = 'hunger';
 const _kBladder = 'bladder';
+const _kBowels = 'bowels';
 const _kEnergy = 'energy';
 const _kSocial = 'social';
 const _kFun = 'fun';
@@ -24,6 +25,7 @@ const _kComfort = 'comfort';
 const _needFields = [
   _kHunger,
   _kBladder,
+  _kBowels,
   _kEnergy,
   _kSocial,
   _kFun,
@@ -90,6 +92,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
       _needsBaselines[id] = {
         _kHunger: ext?.needsBaselineHunger ?? 80,
         _kBladder: ext?.needsBaselineBladder ?? 80,
+        _kBowels: ext?.needsBaselineBowels ?? 80,
         _kEnergy: ext?.needsBaselineEnergy ?? 80,
         _kSocial: ext?.needsBaselineSocial ?? 80,
         _kFun: ext?.needsBaselineFun ?? 80,
@@ -122,6 +125,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
             (char.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
               needsBaselineHunger: _needsBaselines[id]?[_kHunger] ?? 80,
               needsBaselineBladder: _needsBaselines[id]?[_kBladder] ?? 80,
+              needsBaselineBowels: _needsBaselines[id]?[_kBowels] ?? 80,
               needsBaselineEnergy: _needsBaselines[id]?[_kEnergy] ?? 80,
               needsBaselineSocial: _needsBaselines[id]?[_kSocial] ?? 80,
               needsBaselineFun: _needsBaselines[id]?[_kFun] ?? 80,
@@ -341,7 +345,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Simulates need satisfaction (hunger, bladder, energy, social, fun, hygiene, comfort). Higher = more sated (100=full, 0=critical). Low values influence AI behavior and prompt injections.',
+                    'Simulates need satisfaction (hunger, bladder, bowels, energy, social, fun, hygiene, comfort). Higher = more sated (100=full, 0=critical). Low values influence AI behavior and prompt injections.',
                     style: TextStyle(
                       fontSize: 11,
                       color: AppColors.textSecondary(context),

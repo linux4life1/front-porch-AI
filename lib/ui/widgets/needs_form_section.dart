@@ -39,6 +39,8 @@ class NeedsFormSection extends StatelessWidget {
   final ValueChanged<int> onBaselineHungerChanged;
   final int baselineBladder;
   final ValueChanged<int> onBaselineBladderChanged;
+  final int baselineBowels;
+  final ValueChanged<int> onBaselineBowelsChanged;
   final int baselineEnergy;
   final ValueChanged<int> onBaselineEnergyChanged;
   final int baselineSocial;
@@ -64,6 +66,8 @@ class NeedsFormSection extends StatelessWidget {
     required this.onBaselineHungerChanged,
     required this.baselineBladder,
     required this.onBaselineBladderChanged,
+    required this.baselineBowels,
+    required this.onBaselineBowelsChanged,
     required this.baselineEnergy,
     required this.onBaselineEnergyChanged,
     required this.baselineSocial,
@@ -133,6 +137,14 @@ class NeedsFormSection extends StatelessWidget {
                   needKey: 'bladder',
                   value: baselineBladder,
                   onChanged: onBaselineBladderChanged,
+                  context: context,
+                ),
+                const SizedBox(height: 12),
+                _needsSlider(
+                  label: 'Bowels',
+                  needKey: 'bowels',
+                  value: baselineBowels,
+                  onChanged: onBaselineBowelsChanged,
                   context: context,
                 ),
                 const SizedBox(height: 12),

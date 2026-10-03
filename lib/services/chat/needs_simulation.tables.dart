@@ -21,6 +21,7 @@ part of 'needs_simulation.dart';
 const List<String> _needKeys = [
   'hunger',
   'bladder',
+  'bowels',
   'energy',
   'social',
   'fun',
@@ -31,6 +32,7 @@ const List<String> _needKeys = [
 const Map<String, int> _needDefaults = {
   'hunger': 75,
   'bladder': 80,
+  'bowels': 75,
   'energy': 80,
   'social': 65,
   'fun': 65,
@@ -60,6 +62,13 @@ const Map<String, List<String>> _needSteppedText = {
     '''A strong, insistent pressure has built up — visibly uncomfortable, watching for a polite way to slip away soon.''',
     '''A steady, distracting pressure low in the belly; the need keeps growing — a bathroom before too long would be a relief.''',
     '''A faint but persistent urge to use the restroom sits at the back of the mind, bringing slight restlessness.''',
+  ],
+  'bowels': [
+    '''Cramping hard and losing the fight completely — gut twisting, an urgent, audible release of gas slipping out despite everything; the pressure has become a real physical crisis, holding on any longer feels impossible.''',
+    '''Fighting a losing battle against building pressure — stomach cramping, grip on the situation slipping, an occasional audible slip escaping despite every effort to hold it in.''',
+    '''A persistent, uncomfortable bloating and gassiness has set in — occasional audible gurgles or a telltale slip, growing more self-conscious about it by the minute.''',
+    '''A steady gassy pressure building low in the belly — the occasional soft rumble, thoughts drifting toward finding a private moment before too long.''',
+    '''A faint gassy fullness at the back of the mind — nothing urgent, just a quiet awareness that a bathroom might be needed eventually.''',
   ],
   'energy': [
     '''The body gives out completely — eyes flutter mid-sentence and collapse follows, slumping to the floor or into {{user}}'s arms, fully unconscious from exhaustion.''',
@@ -131,6 +140,8 @@ const Map<String, String> _needCatastropheText = {
       '''Starvation buckles them — they sag, grey-faced and unsteady, and have to catch themselves on the nearest support just to stay upright. Their body has hit its limit and it shows.''',
   'bladder':
       '''Their control gives out. It's happening right now, in the scene — a hot, unstoppable release, fabric darkening, a spreading wet patch, the smell of it. The accident is occurring this instant, not a warning or a near-miss.''',
+  'bowels':
+      '''Their body gives out completely. It's happening right now, in the scene — a sudden, uncontrolled release, a mess in their underwear or pants, the smell of it immediate and impossible to hide. The accident is occurring this instant, not a warning or a near-miss.''',
   'energy':
       '''Exhaustion drops them mid-action — their knees buckle and they collapse, briefly blacking out as they slump to the floor or the nearest surface. They come to a few seconds later, dazed and groggy, barely able to keep their eyes open or form a clear thought.''',
   'hygiene':
@@ -141,14 +152,15 @@ const Map<String, String> _needCatastropheText = {
 
 /// Recovery floor by need CLASS after a catastrophe (no magic per-need +N):
 ///   body-reset — a physiological event that (partly) empties the meter:
-///     bladder (just went → nearly empty), hunger (stabilized, not fed),
-///     energy (came to groggy, NOT a full rest — user said collapse-and-groggy,
-///     not fall-asleep).
+///     bladder (just went → nearly empty), bowels (same — just went),
+///     hunger (stabilized, not fed), energy (came to groggy, NOT a full
+///     rest — user said collapse-and-groggy, not fall-asleep).
 ///   crisis-vent — a behavioral/sensory peak with only partial relief:
 ///     comfort (the moment passes; nothing was actually fixed).
 /// Hygiene is deliberately ABSENT: noticing they reek does not clean them.
 const Map<String, int> _needPostCatastropheFloor = {
   'bladder': 85,
+  'bowels': 85,
   'hunger': 70,
   'energy': 65,
   'comfort': 60,
@@ -157,6 +169,7 @@ const Map<String, int> _needPostCatastropheFloor = {
 /// The only needs that fire a hard catastrophe (see [needCatastropheText]).
 const List<String> _catastropheNeeds = [
   'bladder',
+  'bowels',
   'energy',
   'hunger',
   'comfort',

@@ -205,6 +205,7 @@ void main() {
         'vector': {
           'hunger': 60,
           'bladder': 0, // bottomed out
+          'bowels': 60,
           'energy': 60,
           'social': 60,
           'fun': 60,
@@ -220,6 +221,35 @@ void main() {
         NeedsSimulation.needPostCatastropheFloor['bladder'],
       ); // lifted
     });
+
+    test(
+      'bowels catastrophe fires at 0 + lifts to floor (bladder\'s twin)',
+      () {
+        sim.initializeFresh();
+        sim.restoreFromSnapshot({
+          'vector': {
+            'hunger': 60,
+            'bladder': 60,
+            'bowels': 0, // bottomed out
+            'energy': 60,
+            'social': 60,
+            'fun': 60,
+            'hygiene': 60,
+            'comfort': 60,
+          },
+        });
+        sim.applyCatastropheIfNeeded();
+        expect(sim.pendingCatastrophe, isNotNull);
+        expect(
+          sim.pendingCatastrophe,
+          contains('mess in their underwear or pants'),
+        ); // bowels
+        expect(
+          sim.vector['bowels'],
+          NeedsSimulation.needPostCatastropheFloor['bowels'],
+        ); // lifted, same body-reset class as bladder
+      },
+    );
 
     test('social/fun at 0 do NOT fire a catastrophe (moods, not events)', () {
       sim.initializeFresh();

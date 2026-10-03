@@ -306,6 +306,7 @@ extension ChatServiceSessionManage on ChatService {
             _needsSimulation.initializeFreshWithDefaults(const {
               'hunger': 80,
               'bladder': 80,
+              'bowels': 80,
               'energy': 80,
               'social': 80,
               'fun': 80,

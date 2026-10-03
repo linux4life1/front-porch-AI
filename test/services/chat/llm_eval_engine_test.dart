@@ -460,7 +460,7 @@ void main() {
         expect(
           last.prompt,
           contains(
-            'MUST output the complete flat JSON with all seven _delta keys',
+            'MUST output the complete flat JSON with all eight _delta keys',
           ),
         );
       },
@@ -543,7 +543,7 @@ void main() {
       expect(
         toolCalls,
         0,
-        reason: 'scoped reprocess must not fire the 7-field tool',
+        reason: 'scoped reprocess must not fire the 8-field tool',
       );
       expect(
         captured,
@@ -555,7 +555,7 @@ void main() {
       expect(prompt, contains('"energy_delta"'));
       expect(
         prompt,
-        isNot(contains('all seven _delta keys')),
+        isNot(contains('all eight _delta keys')),
         reason: 'must not ask the model to re-roll hunger/hygiene/etc.',
       );
       expect(prompt, isNot(contains('"hunger_delta": 8')));

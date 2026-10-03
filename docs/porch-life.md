@@ -87,7 +87,7 @@ Auto will never jump a week. Skip instead.
 
 1. **Type it** — `(OOC: several hours later)`, `[OOC] skip ahead`, `OOC: time skip`, “a few hours”, “hours later”, “the next morning”, “the next day”, “a week later”, “next week”, “a month later”, “slept through the night”, “sleep until morning”, “woke up”.
 
-   “Let's go to bed” is a **scene**, not a skip. A **finished** night is. Night skip lands **morning** (energy can recover a bit; hunger/bladder stay). Time-skip chip on the next reply.
+   “Let's go to bed” is a **scene**, not a skip. A **finished** night is. Night skip lands **morning** (energy can recover a bit; hunger/bladder/bowels stay). Time-skip chip on the next reply.
 
 2. **‹ ›** next to the date — one period.
 

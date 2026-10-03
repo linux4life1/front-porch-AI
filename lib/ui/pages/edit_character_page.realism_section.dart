@@ -166,6 +166,11 @@ extension _EditCharacterRealismSection on _EditCharacterPageState {
               _needsBaselineBladder = v;
               _realismSettingsModified = true;
             }),
+            baselineBowels: _needsBaselineBowels,
+            onBaselineBowelsChanged: (v) => rebuildState(() {
+              _needsBaselineBowels = v;
+              _realismSettingsModified = true;
+            }),
             baselineEnergy: _needsBaselineEnergy,
             onBaselineEnergyChanged: (v) => rebuildState(() {
               _needsBaselineEnergy = v;

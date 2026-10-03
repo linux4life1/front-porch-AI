@@ -88,6 +88,13 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
             id,
           ),
           _needsSlider(
+            'Bowels',
+            _kBowels,
+            baselines[_kBowels] ?? 80,
+            (v) => _updateNeedsBaseline(id, _kBowels, v),
+            id,
+          ),
+          _needsSlider(
             'Energy',
             _kEnergy,
             baselines[_kEnergy] ?? 80,

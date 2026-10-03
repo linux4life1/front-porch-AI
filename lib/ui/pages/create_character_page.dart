@@ -155,6 +155,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   // ── Needs Simulation baselines (0-100) ──
   int _needsBaselineHunger = 80;
   int _needsBaselineBladder = 80;
+  int _needsBaselineBowels = 80;
   int _needsBaselineEnergy = 80;
   int _needsBaselineSocial = 80;
   int _needsBaselineFun = 80;

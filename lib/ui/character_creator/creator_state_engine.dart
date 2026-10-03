@@ -132,6 +132,7 @@ extension CreatorEngine on CreatorState {
         realismNeedsDirectorAuthority: realismNeedsDirectorAuthority,
         needsBaselineHunger: needsBaselineHunger,
         needsBaselineBladder: needsBaselineBladder,
+        needsBaselineBowels: needsBaselineBowels,
         needsBaselineEnergy: needsBaselineEnergy,
         needsBaselineSocial: needsBaselineSocial,
         needsBaselineFun: needsBaselineFun,

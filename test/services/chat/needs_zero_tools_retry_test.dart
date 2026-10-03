@@ -23,6 +23,7 @@ const _zeroArgs = {
   'fun_delta': 0,
   'social_delta': 0,
   'bladder_delta': 0,
+  'bowels_delta': 0,
   'comfort_delta': 0,
   'reason': 'none',
 };
@@ -34,7 +35,7 @@ void main() {
         needsImpactHasNonZeroDelta(
           '{"hunger_delta":0,"energy_delta":0,"hygiene_delta":0,'
           '"fun_delta":0,"social_delta":0,"bladder_delta":0,'
-          '"comfort_delta":0,"reason":"none"}',
+          '"bowels_delta":0,"comfort_delta":0,"reason":"none"}',
         ),
         isFalse,
       );

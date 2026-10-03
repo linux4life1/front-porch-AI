@@ -98,6 +98,8 @@ class GroupMemberRealismEditor extends StatelessWidget {
         onBaselineHungerChanged: (v) => onUpdate({'needsBaselineHunger': v}),
         baselineBladder: _i('needsBaselineBladder', 80),
         onBaselineBladderChanged: (v) => onUpdate({'needsBaselineBladder': v}),
+        baselineBowels: _i('needsBaselineBowels', 80),
+        onBaselineBowelsChanged: (v) => onUpdate({'needsBaselineBowels': v}),
         baselineEnergy: _i('needsBaselineEnergy', 80),
         onBaselineEnergyChanged: (v) => onUpdate({'needsBaselineEnergy': v}),
         baselineSocial: _i('needsBaselineSocial', 80),

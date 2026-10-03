@@ -226,6 +226,7 @@ export function GreetingSeedForm({
 const NEEDS: [keyof GreetingSeed & string, string][] = [
   ['needsBaselineHunger', 'Hunger'],
   ['needsBaselineBladder', 'Bladder'],
+  ['needsBaselineBowels', 'Bowels'],
   ['needsBaselineEnergy', 'Energy'],
   ['needsBaselineSocial', 'Social'],
   ['needsBaselineFun', 'Fun'],

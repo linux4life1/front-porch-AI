@@ -96,6 +96,8 @@ Widget _needsForm() => NeedsFormSection(
   onBaselineHungerChanged: (_) {},
   baselineBladder: 55,
   onBaselineBladderChanged: (_) {},
+  baselineBowels: 50,
+  onBaselineBowelsChanged: (_) {},
   baselineEnergy: 80,
   onBaselineEnergyChanged: (_) {},
   baselineSocial: 45,

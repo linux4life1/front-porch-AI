@@ -22,7 +22,7 @@ void main() {
   });
   tearDown(() => h.dispose());
 
-  test('1:1 with Hygiene+Fun off: speaker is the active card, 5 enabled in '
+  test('1:1 with Hygiene+Fun off: speaker is the active card, 6 enabled in '
       'canonical order', () async {
     final i = await h.oneToOneWithStampedReply(
       needsCard('Mara', needsOff: ['hygiene', 'fun']),
@@ -30,10 +30,10 @@ void main() {
     final t = h.chat.reprocessNeedsTargetFor(i);
     expect(t, isNotNull);
     expect(t!.speaker, 'Mara');
-    expect(t.enabled, ['hunger', 'bladder', 'energy', 'social', 'comfort']);
+    expect(t.enabled, ['hunger', 'bladder', 'bowels', 'energy', 'social', 'comfort']);
   });
 
-  test('1:1 with all 7 on: all 7 in canonical order', () async {
+  test('1:1 with all 8 on: all 8 in canonical order', () async {
     final i = await h.oneToOneWithStampedReply(needsCard('Mara'));
     expect(h.chat.reprocessNeedsTargetFor(i)?.enabled, kAllNeeds);
   });
@@ -76,6 +76,7 @@ void main() {
     expect(ta?.enabled, [
       'hunger',
       'bladder',
+      'bowels',
       'energy',
       'fun',
       'hygiene',

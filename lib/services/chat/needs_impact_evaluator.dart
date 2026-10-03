@@ -31,8 +31,8 @@ part 'needs_impact_bound.dart';
 ///
 /// Model provides net signed deltas for the scene (open prompt, like bond/emotion evals).
 /// Optional Director/Verifier corrects when authority is enabled on the card.
-/// Pace scales minus deltas in code after the model answers. Hunger and
-/// bladder follow the beat the judge was told. There is no clock tax.
+/// Pace scales minus deltas in code after the model answers. Hunger, bladder 
+/// and bowels follow the beat the judge was told. There is no clock tax.
 class NeedsImpactEvaluator {
   final Future<String?> Function(
     String responseText, {
@@ -306,7 +306,7 @@ class NeedsImpactEvaluator {
           '[Realism:Needs] reprocess empty response, retrying once...',
         );
         final retryAsk = onlyNeeds.isEmpty
-            ? 'Output ONLY the flat JSON now with all seven _delta keys.'
+            ? 'Output ONLY the flat JSON now with all eight _delta keys.'
             : 'Output ONLY the flat JSON now with '
                   '${onlyNeeds.map((k) => '${k}_delta').join(', ')}.';
         text = await evaluateNeedsImpactCall(
@@ -324,7 +324,7 @@ class NeedsImpactEvaluator {
       final deltas = _parseNeedDeltas(effectiveText);
 
       // Drop anything outside the requested scope. A model that ignores the
-      // scope line and answers with all seven keys must not be able to move a
+      // scope line and answers with all eight keys must not be able to move a
       // need the user did not tick — the prompt asks, this enforces.
       if (onlyNeeds.isNotEmpty) {
         deltas.removeWhere((k, _) => !onlyNeeds.contains(k));

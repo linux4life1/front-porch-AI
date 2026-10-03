@@ -159,6 +159,7 @@ final Map<String, Map<String, dynamic>> _needsImpactFields = {
     'fun',
     'social',
     'bladder',
+    'bowels',
     'comfort',
   ])
     '${k}_delta': _intField('Net signed effect on $k.'),
@@ -177,6 +178,7 @@ final List<Map<String, dynamic>> kNeedsImpactEvalTools = [
       'fun_delta',
       'social_delta',
       'bladder_delta',
+      'bowels_delta',
       'comfort_delta',
       'reason',
       // CLIMAX MOVED OUT (2026-08-07). It used to be required here, and the

@@ -1,5 +1,6 @@
 {
   "bladder": 50,
+  "bowels": 50,
   "comfort": 50,
   "energy": 0,
   "fun": 40,

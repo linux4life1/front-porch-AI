@@ -220,7 +220,7 @@ extension _GroupWizardRealismStep on _CreateGroupChatPageState {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Hunger, bladder, energy, social, fun, hygiene, comfort. Only relevant when Realism is enabled.',
+                    'Hunger, bladder, bowels, energy, social, fun, hygiene, comfort. Only relevant when Realism is enabled.',
                     style: TextStyle(
                       fontSize: 11,
                       color: AppColors.textSecondary(context),

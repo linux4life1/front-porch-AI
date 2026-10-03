@@ -100,6 +100,7 @@ export interface RealismValues {
   needsOff: string[];
   needsBaselineHunger: number;
   needsBaselineBladder: number;
+  needsBaselineBowels: number;
   needsBaselineEnergy: number;
   needsBaselineSocial: number;
   needsBaselineFun: number;
@@ -126,6 +127,7 @@ export interface GreetingSeed {
   currentTask?: string;
   needsBaselineHunger?: number;
   needsBaselineBladder?: number;
+  needsBaselineBowels?: number;
   needsBaselineEnergy?: number;
   needsBaselineSocial?: number;
   needsBaselineFun?: number;
@@ -173,6 +175,7 @@ export const REALISM_DEFAULTS: RealismValues = {
   needsOff: [],
   needsBaselineHunger: 80,
   needsBaselineBladder: 80,
+  needsBaselineBowels: 80,
   needsBaselineEnergy: 80,
   needsBaselineSocial: 80,
   needsBaselineFun: 80,

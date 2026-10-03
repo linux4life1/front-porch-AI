@@ -30,6 +30,7 @@ void main() {
   const canonical = [
     'hunger',
     'bladder',
+    'bowels',
     'energy',
     'social',
     'fun',
@@ -42,18 +43,19 @@ void main() {
   });
 
   group('enabledNeedKeys', () {
-    test('null card -> all 7 in canonical order', () {
+    test('null card -> all 8 in canonical order', () {
       expect(enabledNeedKeys(null), canonical);
     });
 
-    test('card without Front Porch extensions -> all 7', () {
+    test('card without Front Porch extensions -> all 8', () {
       expect(enabledNeedKeys(_card(withExt: false)), canonical);
     });
 
-    test('Hygiene+Fun off -> the other 5, canonical order', () {
+    test('Hygiene+Fun off -> the other 6, canonical order', () {
       expect(enabledNeedKeys(_card(off: ['hygiene', 'fun'])), [
         'hunger',
         'bladder',
+        'bowels',
         'energy',
         'social',
         'comfort',
@@ -67,7 +69,7 @@ void main() {
       );
     });
 
-    test('all 7 off -> empty', () {
+    test('all 8 off -> empty', () {
       expect(enabledNeedKeys(_card(off: List.of(canonical))), isEmpty);
     });
   });
@@ -90,6 +92,7 @@ void main() {
     final vector = {
       'hunger': 58,
       'bladder': 70,
+      'bowels': 70,
       'energy': 40,
       'social': 65,
       'fun': 50,
@@ -106,7 +109,7 @@ void main() {
     test('Hygiene+Fun off -> those two hidden, same as visibleNeeds', () {
       final got = visibleNeedsFor(vector, _card(off: ['hygiene', 'fun']));
       expect(got, visibleNeeds(vector, ['hygiene', 'fun']));
-      expect(got.keys, ['hunger', 'bladder', 'energy', 'social', 'comfort']);
+      expect(got.keys, ['hunger', 'bladder', 'bowels', 'energy', 'social', 'comfort']);
     });
 
     test('all off -> empty map, same as visibleNeeds', () {

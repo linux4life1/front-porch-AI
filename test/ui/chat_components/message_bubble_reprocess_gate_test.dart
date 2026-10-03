@@ -71,7 +71,7 @@ void main() {
   setupReprocessPathProviderMock();
 
   testWidgets(
-    'D1 control (guard, green on Rawhide by design): 5 of 7 enabled -> pill shown',
+    'D1 control (guard, green on Rawhide by design): 6 of 8 enabled -> pill shown',
     (tester) async {
       await _withHarness(tester, (h) async {
         await tester.runAsync(

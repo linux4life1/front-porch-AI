@@ -433,7 +433,7 @@ Works if the message looks like a skip, including:
 
 “Let's go to bed” is **a scene**, not a skip. A **finished** night is.
 
-A night skip lands **morning**, can restore energy a bit (hunger/bladder stay). You'll see a small **time-skip chip** on the next reply.
+A night skip lands **morning**, can restore energy a bit (hunger/bladder/bowels stay). You'll see a small **time-skip chip** on the next reply.
 
 **2. Nudge one period**
 

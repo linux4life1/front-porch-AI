@@ -24,7 +24,7 @@ import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 List<String> needsOffOf(CharacterCard? c) =>
     c?.frontPorchExtensions?.needsOff ?? const [];
 
-/// Canonical-order keys this card has on. A null card is all seven.
+/// Canonical-order keys this card has on. A null card is all eight.
 List<String> enabledNeedKeys(CharacterCard? c) =>
     needsThatAreOn(NeedsSimulation.needKeys, needsOffOf(c));
 

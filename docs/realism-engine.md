@@ -218,21 +218,22 @@ A few practical notes:
 
 ## The Needs Simulation
 
-The Needs Simulation is an optional layer on top of the Realism Engine that gives characters a body and a daily rhythm, in the spirit of classic life-sim games. It's off by default; switch it on per character in the editor or per chat from the Character State gear. Each character tracks **seven needs**, each on a 0–100 scale:
+The Needs Simulation is an optional layer on top of the Realism Engine that gives characters a body and a daily rhythm, in the spirit of classic life-sim games. It's off by default; switch it on per character in the editor or per chat from the Character State gear. Each character tracks **eight needs**, each on a 0–100 scale:
 
 | Need | When it runs low... |
 |---|---|
 | **Hunger** | Stomach growls; they'll want to eat, and eventually can't ignore it |
 | **Bladder** | Increasingly distracted; will excuse themselves if you don't |
+| **Bowels** | Grows gassy and self-conscious before it becomes a real crisis |
 | **Energy** | Yawning, flagging, genuinely exhausted |
 | **Social** | Craves real connection and attention |
 | **Fun** | Restless and bored; wants stimulation, mischief, *anything* |
 | **Hygiene** | Feels grimy; wants to freshen up |
 | **Comfort** | Physically uncomfortable; wants to shift, stretch, or relocate |
 
-**How it plays out.** Every turn drains each need a little. Below **35** a need becomes urgent and starts shading the character's behavior; below **20** it's critical and they will act on it. Let hunger, energy, bladder, hygiene, or comfort hit rock bottom and you get a genuine story consequence — a character who hasn't eaten in far too long doesn't just mention it, they hit a wall — after which that need recovers partway, the way a body does. Needs also interact: a deeply bored character finds company less soothing, exhaustion makes hunger bite harder, and nobody's comfortable with a desperately full bladder.
+**How it plays out.** Every turn drains each need a little. Below **35** a need becomes urgent and starts shading the character's behavior; below **20** it's critical and they will act on it. Let hunger, energy, bladder, bowels, hygiene, or comfort hit rock bottom and you get a genuine story consequence — a character who hasn't eaten in far too long doesn't just mention it, they hit a wall — after which that need recovers partway, the way a body does. Needs also interact: a deeply bored character finds company less soothing, exhaustion makes hunger bite harder, and nobody's comfortable with a desperately full bladder.
 
-**The scene feeds the simulation.** What actually happens in the story is what moves the numbers. A meal restores hunger. A bath restores hygiene. A nap restores energy. Laughter, affection, and adventure top up fun and social. An intimate scene ripples through several at once — energy and hygiene down, fun and social up.
+**The scene feeds the simulation.** What actually happens in the story is what moves the numbers. A meal restores hunger. A bath restores hygiene. A nap restores energy. A trip to the bathroom restores both bladder and bowels — a bowel movement alone; venting gas only takes the edge off. Laughter, affection, and adventure top up fun and social. An intimate scene ripples through several at once — energy and hygiene down, fun and social up.
 
 **What you'll see.** Chips under each reply show which needs moved and *why* ("Scene action," "Natural decay," or the model's own short reason) — needs that didn't change stay out of the way. The sidebar shows live bars for every need, and in group chats each member's card shows their own.
 

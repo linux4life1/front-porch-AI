@@ -42,6 +42,7 @@ void main() {
     expect(c['enabledNeeds'], [
       'hunger',
       'bladder',
+      'bowels',
       'energy',
       'social',
       'comfort',
@@ -59,6 +60,7 @@ void main() {
       expect(ca['enabledNeeds'], [
         'hunger',
         'bladder',
+        'bowels',
         'energy',
         'fun',
         'hygiene',

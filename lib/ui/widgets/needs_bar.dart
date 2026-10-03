@@ -57,6 +57,10 @@ class NeedsBar extends StatelessWidget {
         icon = Icons.water_drop;
         color = Colors.lightBlueAccent;
         break;
+      case 'bowels':
+        icon = Icons.wc;
+        color = Colors.brown.shade300;
+        break;
       case 'energy':
         icon = Icons.bolt;
         color = Colors.amberAccent;

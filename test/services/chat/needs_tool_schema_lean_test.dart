@@ -45,7 +45,7 @@ void main() {
       return (params['properties'] as Map).cast<String, dynamic>();
     }
 
-    test('carries exactly the fields something reads: 7 deltas + reason', () {
+    test('carries exactly the fields something reads: 8 deltas + reason', () {
       final props = schemaProps();
       for (final k in const [
         'hunger_delta',
@@ -54,6 +54,7 @@ void main() {
         'fun_delta',
         'social_delta',
         'bladder_delta',
+        'bowels_delta',
         'comfort_delta',
         'reason',
       ]) {

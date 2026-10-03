@@ -303,6 +303,7 @@ class CreatorState extends ChangeNotifier {
   // the same setup; written into FrontPorchExtensions on save.
   int needsBaselineHunger = 80;
   int needsBaselineBladder = 80;
+  int needsBaselineBowels = 80;
   int needsBaselineEnergy = 80;
   int needsBaselineSocial = 80;
   int needsBaselineFun = 80;

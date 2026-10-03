@@ -113,6 +113,7 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
         // Per-need baseline values
         'needs_baseline_hunger': needsBaselineHunger,
         'needs_baseline_bladder': needsBaselineBladder,
+        'needs_baseline_bowels': needsBaselineBowels,
         'needs_baseline_energy': needsBaselineEnergy,
         'needs_baseline_social': needsBaselineSocial,
         'needs_baseline_fun': needsBaselineFun,
@@ -181,6 +182,7 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
     List<String>? needsOff,
     int? needsBaselineHunger,
     int? needsBaselineBladder,
+    int? needsBaselineBowels,
     int? needsBaselineEnergy,
     int? needsBaselineSocial,
     int? needsBaselineFun,
@@ -247,6 +249,7 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
       needsOff: List<String>.from(needsOff ?? this.needsOff),
       needsBaselineHunger: needsBaselineHunger ?? this.needsBaselineHunger,
       needsBaselineBladder: needsBaselineBladder ?? this.needsBaselineBladder,
+      needsBaselineBowels: needsBaselineBowels ?? this.needsBaselineBowels,
       needsBaselineEnergy: needsBaselineEnergy ?? this.needsBaselineEnergy,
       needsBaselineSocial: needsBaselineSocial ?? this.needsBaselineSocial,
       needsBaselineFun: needsBaselineFun ?? this.needsBaselineFun,

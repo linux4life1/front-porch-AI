@@ -123,6 +123,13 @@ extension _GroupWizardMemberRealismCard on _CreateGroupChatPageState {
                   });
                   _updateMemberRealism(id, {'needsBaselineBladder': v});
                 },
+                baselineBowels: _memberNeedsBaselines[id]?['bowels'] ?? 80,
+                onBaselineBowelsChanged: (v) {
+                  rebuildState(() {
+                    _memberNeedsBaselines[id]!['bowels'] = v;
+                  });
+                  _updateMemberRealism(id, {'needsBaselineBowels': v});
+                },
                 baselineEnergy: _memberNeedsBaselines[id]?['energy'] ?? 80,
                 onBaselineEnergyChanged: (v) {
                   rebuildState(() {

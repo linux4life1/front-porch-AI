@@ -279,6 +279,7 @@ void main() {
     'vector': {
       'hunger': hunger,
       'bladder': 80,
+      'bowels': 80,
       'energy': 80,
       'social': 80,
       'fun': 80,
@@ -340,6 +341,7 @@ void main() {
         {
           'hunger': 80,
           'bladder': 80,
+          'bowels': 80,
           'energy': 80,
           'social': 80,
           'fun': 80,

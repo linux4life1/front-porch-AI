@@ -113,28 +113,29 @@ String needsBeatNote(String? span) {
       'scene cost or a restoration. Describing how they feel right now is '
       'not a new cost.';
   if (text.isEmpty || text == 'same moment') {
-    return 'This beat is the same moment. Hunger and bladder stay put '
+    return 'This beat is the same moment. Hunger, bladder and bowels stay put '
         'unless the scene fed them, they drank, or they used the bathroom. '
         '$others';
   }
   if (text == 'Next morning') {
-    return 'THIS BEAT: Next morning. The night is the whole hunger and '
-        'bladder change for this reply. You choose the size. A meal or a '
+    return 'THIS BEAT: Next morning. The night is the whole hunger, bladder and '
+        'bowels change for this reply. You choose the size. A meal or a '
         'bathroom in the morning is that restoration, not a restoration plus '
         'another drain. Sleep still restores energy. $others';
   }
   if (minutesFromTimePassed(text) != null) {
     return 'THIS BEAT lasted $text. That is awake time their body lived. '
-        'Hunger and bladder must move with that span. You choose the size. '
+        'Hunger, bladder and bowels must move with that span. You choose the size. '
         'A few minutes is a small drop. A long stretch is a real one. If the '
         'scene fed them, hunger is the meal, not the meal plus another drop. '
-        'If they used the bathroom, bladder is that relief. If they drank, '
-        'bladder drops for the drink. If none of that happened, both still '
-        'drop for the span. Zero on hunger or bladder is only legal when '
+        'If they used the bathroom to pee, bladder is that relief. If they drank, '
+        'bladder drops for the drink. If they eat, bowels drops for the meal. '
+        'If none of that happened, all three still drop for the span. Zero on '
+        'hunger or bladder or bowels is only legal when '
         'that need was restored. $others';
   }
-  return 'THIS BEAT skipped to $text. That jump is the whole hunger and '
-      'bladder change for this reply. You choose the size from how long the '
+  return 'THIS BEAT skipped to $text. That jump is the whole hunger, '
+      'bladder and bowels change for this reply. You choose the size from how long the '
       'skip covers. A meal, a drink, or a bathroom replaces a second drop '
       'for that need. Do not charge those hours twice. $others';
 }

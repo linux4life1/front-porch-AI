@@ -56,6 +56,7 @@ const _kCritique = 'She rested on the sofa — energy should have improved.';
 const _kCorrection = {
   'hunger': -11,
   'bladder': -12,
+  'bowels': -7,
   'energy': 14,
   'social': 13,
   'fun': -9,
@@ -175,7 +176,7 @@ void main() {
     expect(original.keys, contains('energy'));
 
     // From here the fake answers any needs prompt carrying the critique with
-    // _kCorrection — a full seven-key set, all of it different.
+    // _kCorrection — a full eight-key set, all of it different.
     backend.reprocessMarker = _kCritique;
     backend.reprocessDeltas = _kCorrection;
 

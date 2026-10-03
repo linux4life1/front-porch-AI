@@ -10,10 +10,11 @@ import { type RealismValues } from './realismTypes';
 
 type Patch = (patch: Partial<RealismValues>) => void;
 
-// [label, baseline key] for the seven needs.
+// [label, baseline key] for the eight needs.
 const NEEDS: [string, keyof RealismValues][] = [
   ['Hunger', 'needsBaselineHunger'],
   ['Bladder', 'needsBaselineBladder'],
+  ['Bowels', 'needsBaselineBowels'],
   ['Energy', 'needsBaselineEnergy'],
   ['Social', 'needsBaselineSocial'],
   ['Fun', 'needsBaselineFun'],

@@ -27,6 +27,7 @@ import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 const kAllNeeds = [
   'hunger',
   'bladder',
+  'bowels',
   'energy',
   'social',
   'fun',
@@ -50,7 +51,7 @@ class RecordingLlm extends LLMService {
   /// Prompts of every live (per-turn) needs eval, in call order.
   final List<String> liveNeedsPrompts = [];
 
-  /// Reply for a reprocess eval. Default: a non-zero delta for all seven.
+  /// Reply for a reprocess eval. Default: a non-zero delta for all eight.
   String reprocessReply =
       '{"hunger_delta": 9, "bladder_delta": 9, "energy_delta": 9, '
       '"social_delta": 9, "fun_delta": 9, "hygiene_delta": 9, '

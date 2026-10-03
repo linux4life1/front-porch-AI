@@ -216,6 +216,7 @@ Widget stoopNeedsSection(BuildContext context, Map<String, dynamic> re) {
   const needs = [
     ('Hunger', 'hunger'),
     ('Bladder', 'bladder'),
+    ('Bowels', 'bowels'),
     ('Energy', 'energy'),
     ('Social', 'social'),
     ('Fun', 'fun'),

@@ -156,6 +156,10 @@ extension _BubbleRealism on _MessageBubbleState {
             icon = Icons.water_drop;
             color = Colors.lightBlueAccent;
             break;
+          case 'bowels':
+            icon = Icons.wc;
+            color = Colors.brown.shade300;
+            break;
           case 'energy':
             icon = Icons.bolt;
             color = AppColors.resolve(

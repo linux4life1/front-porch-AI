@@ -64,6 +64,7 @@ const _fullSlot = <String, dynamic>{
   'needs': {
     'hunger': 72,
     'bladder': 74,
+    'bowels': 71,
     'energy': 76,
     'social': 90,
     'fun': 91,
@@ -82,6 +83,7 @@ const _fullSlot = <String, dynamic>{
   'verificationStrictness': 1,
   'needsBaselineHunger': 80,
   'needsBaselineBladder': 80,
+  'needsBaselineBowels': 80,
   'needsBaselineEnergy': 80,
   'needsBaselineSocial': 80,
   'needsBaselineFun': 80,
@@ -91,7 +93,7 @@ const _fullSlot = <String, dynamic>{
 
 void main() {
   group('the typed wrapper is invisible on disk', () {
-    test('fromJson -> toJson is identity on a full 41-key live slot', () {
+    test('fromJson -> toJson is identity on a full 43-key live slot', () {
       // Through a REAL encode/decode cycle, not object equality games.
       final decoded = jsonDecode(jsonEncode(_fullSlot)) as Map;
       final roundTripped = jsonDecode(

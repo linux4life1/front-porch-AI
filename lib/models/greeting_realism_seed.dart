@@ -25,6 +25,7 @@ class GreetingRealismSeed {
   final String? currentTask;
   final int? needsBaselineHunger;
   final int? needsBaselineBladder;
+  final int? needsBaselineBowels;
   final int? needsBaselineEnergy;
   final int? needsBaselineSocial;
   final int? needsBaselineFun;
@@ -45,6 +46,7 @@ class GreetingRealismSeed {
     this.currentTask,
     this.needsBaselineHunger,
     this.needsBaselineBladder,
+    this.needsBaselineBowels,
     this.needsBaselineEnergy,
     this.needsBaselineSocial,
     this.needsBaselineFun,
@@ -68,6 +70,7 @@ class GreetingRealismSeed {
       currentTask == null &&
       needsBaselineHunger == null &&
       needsBaselineBladder == null &&
+      needsBaselineBowels == null &&
       needsBaselineEnergy == null &&
       needsBaselineSocial == null &&
       needsBaselineFun == null &&
@@ -90,6 +93,7 @@ class GreetingRealismSeed {
     Object? currentTask = _keep,
     Object? needsBaselineHunger = _keep,
     Object? needsBaselineBladder = _keep,
+    Object? needsBaselineBowels = _keep,
     Object? needsBaselineEnergy = _keep,
     Object? needsBaselineSocial = _keep,
     Object? needsBaselineFun = _keep,
@@ -115,6 +119,7 @@ class GreetingRealismSeed {
         needsBaselineBladder,
         this.needsBaselineBladder,
       ),
+      needsBaselineBowels: take(needsBaselineBowels, this.needsBaselineBowels),
       needsBaselineEnergy: take(needsBaselineEnergy, this.needsBaselineEnergy),
       needsBaselineSocial: take(needsBaselineSocial, this.needsBaselineSocial),
       needsBaselineFun: take(needsBaselineFun, this.needsBaselineFun),
@@ -147,6 +152,8 @@ class GreetingRealismSeed {
         'needs_baseline_hunger': needsBaselineHunger,
       if (needsBaselineBladder != null)
         'needs_baseline_bladder': needsBaselineBladder,
+      if (needsBaselineBowels != null)
+        'needs_baseline_bowels': needsBaselineBowels,
       if (needsBaselineEnergy != null)
         'needs_baseline_energy': needsBaselineEnergy,
       if (needsBaselineSocial != null)
@@ -177,6 +184,8 @@ class GreetingRealismSeed {
         'needsBaselineHunger': needsBaselineHunger,
       if (needsBaselineBladder != null)
         'needsBaselineBladder': needsBaselineBladder,
+      if (needsBaselineBowels != null)
+        'needsBaselineBowels': needsBaselineBowels,
       if (needsBaselineEnergy != null)
         'needsBaselineEnergy': needsBaselineEnergy,
       if (needsBaselineSocial != null)
@@ -213,6 +222,11 @@ class GreetingRealismSeed {
         json,
         'needs_baseline_bladder',
         'needsBaselineBladder',
+      ),
+      needsBaselineBowels: _int(
+        json,
+        'needs_baseline_bowels',
+        'needsBaselineBowels',
       ),
       needsBaselineEnergy: _int(
         json,

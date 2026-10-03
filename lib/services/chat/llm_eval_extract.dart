@@ -158,7 +158,7 @@ extension LlmEvalExtract on LlmEvalEngine {
       // The format sections below are the ONLY difference between the tools
       // and text transports — every guideline/magnitude line is shared, so
       // the two paths can never drift in what the model is told.
-      // The text ask names ONLY fields something still reads: the seven
+      // The text ask names ONLY fields something still reads: the eight
       // deltas + reason. `activities`/`intensity` were requested for years
       // and never read by anything (the Director hint even said so), and
       // `is_climax`/`refractory_turns` moved out with Afterglow's own pass
@@ -182,14 +182,16 @@ extension LlmEvalExtract on LlmEvalEngine {
         return 'Evaluate how this daily scene affects $charName\'s needs.\n\n'
             '$needsStateStr'
             'Scene:\n$responseText\n\n'
-            '${toolsMode ? 'Report the effects by calling the $kNeedsImpactTool tool with all seven _delta fields and a reason.\n\n' : 'Return ONLY raw JSON with all seven _delta fields and a reason. '
+            '${toolsMode ? 'Report the effects by calling the $kNeedsImpactTool tool with all eight _delta fields and a reason.\n\n' : 'Return ONLY raw JSON with all eight _delta fields and a reason. '
                       'Do not use markdown code blocks. No other text.\n'
                       '{"hunger_delta": <int>, "energy_delta": <int>, "hygiene_delta": <int>, '
                       '"fun_delta": <int>, "social_delta": <int>, "bladder_delta": <int>, '
+                      '"bowels_delta": <int>, '
                       '"comfort_delta": <int>, "reason": "<brief reason>"}\n\n'}'
             'Guidelines (answer at Normal; do not scale these numbers):\n'
             '  • Eating food or a meal \u2192 hunger +15 to +70\n'
             '  • Using toilet or bathroom \u2192 bladder +30 to +90\n'
+            '  • Pooping or a bowel movement \u2192 bowels +40 to +90\n'
             '  • Sleeping or long rest \u2192 energy +40 to +80\n'
             '  • Napping, dozing, or lying down \u2192 energy +15 to +35\n'
             '  • Shower, bath, or full washing \u2192 hygiene +30 to +70\n'
@@ -203,7 +205,7 @@ extension LlmEvalExtract on LlmEvalEngine {
             '  • Exercise, yoga, or stretching \u2192 energy +5 to +15, comfort +5\n'
             '  • Drinking any beverage \u2192 energy +5 to +10\n'
             '  • Cooking or preparing food \u2192 comfort +5\n\n'
-            'The scene starts with the beat. Hunger and bladder follow that span, '
+            'The scene starts with the beat. Hunger, bladder and bowels follow that span, '
             'and it is the whole change for those two. You choose the size. A meal, '
             'a drink, or a bathroom replaces a second drop for that need. Energy, '
             'hygiene, fun, social, and comfort move only when the scene itself '
@@ -218,14 +220,14 @@ extension LlmEvalExtract on LlmEvalEngine {
                 'RESPONSE (the scene that just happened):\n$responseText\n\n'
                 'Recent exchange for context:\n$recent\n\n'
                 '$needsStateStr'
-                'This is immersive erotic roleplay. Detailed physical and psychological descriptions matter: self-touch, bodily arousal states, fluids, dominance, submission, power exchange, and explicit narration of actions should influence needs (fun, social, comfort, hygiene, energy, hunger, bladder) in natural grounded ways.\n\n'
+                'This is immersive erotic roleplay. Detailed physical and psychological descriptions matter: self-touch, bodily arousal states, fluids, dominance, submission, power exchange, and explicit narration of actions should influence needs (fun, social, comfort, hygiene, energy, hunger, bladder, bowels) in natural grounded ways.\n\n'
                 'Be reasonable and faithful to the written text. Do not invent events that are not described.\n\n'
                 'PREVIOUS DELTAS:\n$prev\n\n'
                 'USER CRITIQUE (The user noticed an issue with the deltas that MUST be fixed):\n"$userCritique"\n\n'
                 'Analyze what actually occurred and output a corrected set of net signed effects (deltas) on each need.\n\n'
-                '${scoped.isEmpty ? 'Even if the critique suggests little/no change, you MUST output the complete flat JSON with all seven _delta keys (0 is valid). Do not omit fields.\n\n' : 'Reconsider ONLY ${scoped.join(', ')}. Do not emit any other need — those values are already correct and will be kept. Output ONLY {$deltaAsk, "reason": "<brief>"}.\n\n'}'
-                'MAGNITUDE: needs run 0–100 (100 = fully satisfied); ±8 BARELY registers. When the scene SATISFIES/RESTORES a need, use a LARGE positive delta so it actually fills — using the bathroom → bladder +60 to +100; a full meal → hunger +50 to +90; sleeping / a long rest → energy +60 to +100; cozy solitude, lounging, drowsing → comfort +20 to +45, energy +10 to +30; a thorough wash → hygiene +50 to +90. Reserve small numbers for incidental effects, never a complete relief. Answer at Normal. Do not scale.\n\n'
-                '${scoped.isEmpty ? 'Examples of valid correction output:\n{"hunger_delta": 8, "energy_delta": 0, "hygiene_delta": -2, "fun_delta": 5, "social_delta": 0, "bladder_delta": 0, "comfort_delta": 1, "reason": "ate snack per critique"}\n{"hunger_delta": 0, "energy_delta": 0, "hygiene_delta": 0, "fun_delta": 0, "social_delta": 0, "bladder_delta": 0, "comfort_delta": 0, "reason": "no notable need impact"}\n\n' : 'Example: {$deltaAsk, "reason": "rested per critique"}\n\n'}' +
+                '${scoped.isEmpty ? 'Even if the critique suggests little/no change, you MUST output the complete flat JSON with all eight _delta keys (0 is valid). Do not omit fields.\n\n' : 'Reconsider ONLY ${scoped.join(', ')}. Do not emit any other need — those values are already correct and will be kept. Output ONLY {$deltaAsk, "reason": "<brief>"}.\n\n'}'
+                'MAGNITUDE: needs run 0–100 (100 = fully satisfied); ±8 BARELY registers. When the scene SATISFIES/RESTORES a need, use a LARGE positive delta so it actually fills — using the bathroom to pee → bladder +60 to +100; using the restroom to poop → bowels +40 to +90; a full meal → hunger +50 to +90; sleeping / a long rest → energy +60 to +100; cozy solitude, lounging, drowsing → comfort +20 to +45, energy +10 to +30; a thorough wash → hygiene +50 to +90. Reserve small numbers for incidental effects, never a complete relief. Answer at Normal. Do not scale.\n\n'
+                '${scoped.isEmpty ? 'Examples of valid correction output:\n{"hunger_delta": 8, "energy_delta": 0, "hygiene_delta": -2, "fun_delta": 5, "social_delta": 0, "bladder_delta": 0, "bowels_delta": -4, "comfort_delta": 1, "reason": "ate snack per critique"}\n{"hunger_delta": 0, "energy_delta": 0, "hygiene_delta": 0, "fun_delta": 0, "social_delta": 0, "bladder_delta": 0, "bowels_delta": 0, "comfort_delta": 0, "reason": "no notable need impact"}\n\n' : 'Example: {$deltaAsk, "reason": "rested per critique"}\n\n'}' +
             flatJsonAsk +
             (toolsMode
                 ? ''
@@ -253,9 +255,9 @@ extension LlmEvalExtract on LlmEvalEngine {
                 // state was being scored as changing it, and the lower a need
                 // went the more vivid the prose and the harder the next hit.
                 //
-                // Hunger and bladder follow the beat named above the scene.
+                // Hunger, bladder and bowels follow the beat named above the scene.
                 // Describing the current bar is not a second cost on top of it.
-                'HUNGER AND BLADDER FOLLOW THE BEAT named at the start of the scene. '
+                'HUNGER, BLADDER AND BOWELS FOLLOW THE BEAT named at the start of the scene. '
                 'On an awake span they must move with that span. You choose the size: '
                 'a few minutes is a small drop, a long stretch is a real one. If the '
                 'scene fed them, hunger is the meal, not the meal plus another drop. '
@@ -272,13 +274,16 @@ extension LlmEvalExtract on LlmEvalEngine {
                 'Energy, hygiene, fun, social, and comfort take a NEGATIVE delta only '
                 'when the scene explicitly describes something that COST them: hard '
                 'exertion, sex, a soaking or a mess, or being kept awake. Drinking '
-                'fills the bladder (a drop) rather than emptying it. A described event '
-                'SHOULD register clearly — a soda is a real hit to bladder, a long walk '
-                'a real hit to energy. Otherwise those five stay 0.\n\n'
+                'fills the bladder (a drop) rather than emptying it. Holding in a bowel '
+                'movement for a long stretch fills bowels rather than emptying it.\n'
+                'A described event SHOULD register clearly — a soda is a real hit to '
+                'bladder, a long walk a real hit to energy, a big meal a real hit to bowels. '
+                'Otherwise those five stay 0.\n\n'
                 'Report *net signed effects* (deltas) on each need. Answer at Normal. Do not scale your numbers; drops are scaled afterward.\n\n'
                 'The optional Director/Verifier (when enabled with authority on needs) will correct you if your structured output does not match the actual narrative you just wrote.\n\n'
                 'CRITICAL — MAGNITUDE: needs run 0–100 (100 = fully satisfied). A delta of ±5 is a nudge and ±8 BARELY registers, so when the scene clearly SATISFIES or RESTORES a need you MUST use a LARGE positive delta so the need actually fills — do NOT lowball a complete relief:\n'
                 '  • Using the bathroom / relieving oneself → bladder +60 to +100 (a full relief nearly maxes it; +8 leaves them still desperate to go)\n'
+                '  • Pooping → bowels +40 to +90 (full relief nearly maxes it; farting alone is a smaller +5 to +15 partial relief)\n'
                 '  • A full meal → hunger +50 to +90 (a snack is smaller, ~+15)\n'
                 '  • Sleeping, a long rest, or "through the night / waking next morning" → energy +60 to +100 (and broadly restores other physical needs as the body recovers; hygiene/social/fun stay only mildly affected)\n'
                 '  • Drowsing, lounging, cozy solitude, or quiet relaxation → comfort +20 to +45, energy +10 to +30\n'
@@ -287,9 +292,9 @@ extension LlmEvalExtract on LlmEvalEngine {
                 'Partial or interrupted versions get proportionally smaller deltas. Reserve small numbers (±1 to ±8) for INCIDENTAL effects, never for a complete relief or restoration.\n\n' +
             flatJsonAsk +
             (toolsMode
-                ? 'Individual needs may be 0. When the beat named a span, all seven 0 is a failed eval — hunger and bladder have to move with it unless that need was restored. On the same moment, all seven 0 is a quiet beat.'
+                ? 'Individual needs may be 0. When the beat named a span, all eight 0 is a failed eval — hunger, bladder and bowels have to move with it unless that need was restored. On the same moment, all eight 0 is a quiet beat.'
                 : '"reason": "<brief grounded reason for the deltas>" }\n'
-                      'Individual needs may be 0. When the beat named a span, all seven 0 is a failed eval — hunger and bladder have to move with it unless that need was restored. On the same moment, all seven 0 is a quiet beat.');
+                      'Individual needs may be 0. When the beat named a span, all eight 0 is a failed eval — hunger, bladder and bowels have to move with it unless that need was restored. On the same moment, all eight 0 is a quiet beat.');
       }
     }
 
@@ -302,8 +307,8 @@ extension LlmEvalExtract on LlmEvalEngine {
       // Tools transport when wired (the shared negotiation — one probe per
       // backend identity per run, shared app-wide); plain text path otherwise
       // (tests / hosts without the tools door).
-      // A scoped reprocess (user ticked Energy, not all seven) skips the
-      // tools+text pair: the tool schema is the fixed seven-field contract,
+      // A scoped reprocess (user ticked Energy, not all eight) skips the
+      // tools+text pair: the tool schema is the fixed eight-field contract,
       // and falling back after an empty tool call is how one Energy click
       // became four oMLX jobs.
       final useTools = scoped.isEmpty && fireToolEval != null && probe != null;

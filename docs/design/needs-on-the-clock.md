@@ -9,7 +9,7 @@ The old engine stays in place until the new one is finished. Then it is deleted.
 Unchanged in the chat, on desktop and on the phone:
 
 - The needs on/off switch, for the whole system.
-- A bar for each need that is turned on, in the sidebar, for the solo character and for each group member. All seven start on, so an untouched character looks as it does today.
+- A bar for each need that is turned on, in the sidebar, for the solo character and for each group member. All eight start on, so an untouched character looks as it does today.
 - Starting values on the character.
 - "Enjoys low hygiene."
 - Chips under the reply for what changed, with the reason, and redo / revert on the last reply.
@@ -22,7 +22,7 @@ The character editor and the group needs tab lose the seven decay sliders and th
 
 ## Needs can be turned off one by one
 
-Each character chooses which needs are alive. All seven start on.
+Each character chooses which needs are alive. all eight start on.
 
 A need that is off:
 
@@ -39,9 +39,9 @@ No new need is added in this work. The seven stay the list. A later need is one 
 
 ## How a turn works
 
-The clock names the beat. The needs judge decides hunger and bladder from that span. There is no points-per-hour table and no code tick.
+The clock names the beat. The needs judge decides hunger, bladder and bowels from that span. There is no points-per-hour table and no code tick.
 
-- **Hunger and bladder** move with the span the clock just named, unless the scene fed them, they drank, or they used the bathroom. The judge chooses the size. A few minutes is a small drop. A long stretch is a real one.
+- **Hunger, bladder and bowels** move with the span the clock just named, unless the scene fed them, they drank, or they used the bathroom. The judge chooses the size. A few minutes is a small drop. A long stretch is a real one.
 - **The other five** move only when the scene itself costs or restores them. Describing the current bar is not a new cost.
 - **Pace** still scales every minus afterward. A plus is never scaled. One reply still cannot empty a bar by itself.
 - Code does not subtract a clock tax. The wear map stays empty. The model picks the numbers as if pace were Normal. Code does not price a meal or a walk.
@@ -50,7 +50,7 @@ The clock names the beat. The needs judge decides hunger and bladder from that s
 
 Pace is a speed control on drops only. It never changes a plus.
 
-The model answers once, at Normal. Code then multiplies every minus by the character's pace and leaves every plus alone. That includes a hunger or bladder drop the judge reported for the beat, and any other scene number that came back negative.
+The model answers once, at Normal. Code then multiplies every minus by the character's pace and leaves every plus alone. That includes a hunger or bladder or bowels drop the judge reported for the beat, and any other scene number that came back negative.
 
 - **Sloth** — two thirds of the drop.
 - **Normal** — the drop unchanged.
@@ -62,11 +62,11 @@ If one beat has both, they are handled apart. The bath's plus stays. The run's m
 
 **Clock on.** The character replies from the body they already have. The clock decides the minutes. The judge is told that span in the clock's own words (`12 min`, `2 hr 30 min`, `Next morning`, or the skip destination). Hunger and bladder follow it. The other five follow the scene. Code scales any minus by pace, leaves every plus alone, and adds the report. One reply cannot empty a bar by itself. The next reply is the first one that shows it.
 
-**Same moment, Continue, clock off.** No span. Hunger and bladder stay put unless the scene fed them, they drank, or they used the bathroom. Continue clears the beat before the judge, so the same span is not charged again.
+**Same moment, Continue, clock off.** No span. Hunger, bladder and bowels stay put unless the scene fed them, they drank, or they used the bathroom. Continue clears the beat before the judge, so the same span is not charged again.
 
 **Night, skip, or time away.** The span the judge is told is the whole hunger and bladder change for that reply. Sleep and a morning meal still restore. Do not add a second drain on top of that.
 
-**A group.** Only the speaker is judged, at their own pace. Co-present members stay where they are until they speak. Someone who is away uses the away beat, and that span is still the hunger and bladder change.
+**A group.** Only the speaker is judged, at their own pace. Co-present members stay where they are until they speak. Someone who is away uses the away beat, and that span is still the hunger, bladder and bowels change.
 
 ## Time chip on every turn
 
@@ -93,6 +93,6 @@ When both time and the scene moved a bar, the chip shows both. The time, and the
 
 - Chat screens listed above still work, desktop and phone, solo and group.
 - Pace is the only speed control, and it scales drops only. A plus is the same at Sloth, Normal, and Fast. No tick rate remains in the editor, the save file's live path, or the engine.
-- Each need can be turned off per character. Off means no bar, no wear, no scene number, no prompt line. Turning it back on restores the stored bar. All seven default to on.
+- Each need can be turned off per character. Off means no bar, no wear, no scene number, no prompt line. Turning it back on restores the stored bar. all eight default to on.
 - The new engine is new code. The old simulation, decay tables, and tick call are removed, not wrapped.
-- A short clock-on exchange moves hunger and bladder less than a long one, because the judge was told a shorter span. Clock off, Continue, and the same moment do not invent a drop. A night or time away is one span, not an awake tick plus a scene.
+- A short clock-on exchange moves hunger, bladder and bowels less than a long one, because the judge was told a shorter span. Clock off, Continue, and the same moment do not invent a drop. A night or time away is one span, not an awake tick plus a scene.

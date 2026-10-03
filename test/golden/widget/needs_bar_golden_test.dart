@@ -68,7 +68,7 @@ void main() {
     );
   });
 
-  testWidgets('NeedsGrid — full 7-need set', (tester) async {
+  testWidgets('NeedsGrid — full 8-need set', (tester) async {
     await expectThemedGoldens(
       tester,
       child: const SizedBox(
@@ -77,6 +77,7 @@ void main() {
           needs: {
             'hunger': 75,
             'bladder': 10,
+            'bowels': 45,
             'energy': 55,
             'social': 40,
             'fun': 88,
@@ -87,7 +88,7 @@ void main() {
       ),
       group: 'needs_bar',
       name: 'grid_full',
-      surface: const Size(440, 420),
+      surface: const Size(440, 460),
     );
   });
 }

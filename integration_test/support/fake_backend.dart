@@ -454,6 +454,7 @@ class FakeBackendServer {
       eval['fun_delta'] = 6;
       eval['social_delta'] = 5;
       eval['bladder_delta'] = -3;
+      eval['bowels_delta'] = -1;
       eval['comfort_delta'] = 2;
     }
     // Climax detection. Its OWN eval since Afterglow was decoupled from Needs

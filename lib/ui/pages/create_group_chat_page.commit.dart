@@ -133,6 +133,9 @@ extension _GroupWizardCommit on _CreateGroupChatPageState {
           needsBaselineBladder:
               (seed['needsBaselineBladder'] as int?) ??
               source.frontPorchExtensions!.needsBaselineBladder,
+          needsBaselineBowels:
+              (seed['needsBaselineBowels'] as int?) ??
+              source.frontPorchExtensions!.needsBaselineBowels,
           needsBaselineEnergy:
               (seed['needsBaselineEnergy'] as int?) ??
               source.frontPorchExtensions!.needsBaselineEnergy,
@@ -162,6 +165,7 @@ extension _GroupWizardCommit on _CreateGroupChatPageState {
               (seed['needsDirectorAuthority'] as bool?) ?? false,
           needsBaselineHunger: (seed['needsBaselineHunger'] as int?) ?? 80,
           needsBaselineBladder: (seed['needsBaselineBladder'] as int?) ?? 80,
+          needsBaselineBowels: (seed['needsBaselineBowels'] as int?) ?? 80,
           needsBaselineEnergy: (seed['needsBaselineEnergy'] as int?) ?? 80,
           needsBaselineSocial: (seed['needsBaselineSocial'] as int?) ?? 80,
           needsBaselineFun: (seed['needsBaselineFun'] as int?) ?? 80,

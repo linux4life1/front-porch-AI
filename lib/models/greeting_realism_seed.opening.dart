@@ -18,6 +18,7 @@ class GreetingOpeningSnapshot {
   final String currentTask;
   final int needsBaselineHunger;
   final int needsBaselineBladder;
+  final int needsBaselineBowels;
   final int needsBaselineEnergy;
   final int needsBaselineSocial;
   final int needsBaselineFun;
@@ -38,6 +39,7 @@ class GreetingOpeningSnapshot {
     required this.currentTask,
     required this.needsBaselineHunger,
     required this.needsBaselineBladder,
+    required this.needsBaselineBowels,
     required this.needsBaselineEnergy,
     required this.needsBaselineSocial,
     required this.needsBaselineFun,
@@ -49,6 +51,7 @@ class GreetingOpeningSnapshot {
   Map<String, int> get needsBaselines => {
     'hunger': needsBaselineHunger,
     'bladder': needsBaselineBladder,
+    'bowels': needsBaselineBowels,
     'energy': needsBaselineEnergy,
     'social': needsBaselineSocial,
     'fun': needsBaselineFun,
@@ -71,6 +74,7 @@ class GreetingOpeningBase {
   final String currentTask;
   final int needsBaselineHunger;
   final int needsBaselineBladder;
+  final int needsBaselineBowels;
   final int needsBaselineEnergy;
   final int needsBaselineSocial;
   final int needsBaselineFun;
@@ -91,6 +95,7 @@ class GreetingOpeningBase {
     this.currentTask = '',
     this.needsBaselineHunger = 80,
     this.needsBaselineBladder = 80,
+    this.needsBaselineBowels = 80,
     this.needsBaselineEnergy = 80,
     this.needsBaselineSocial = 80,
     this.needsBaselineFun = 80,
@@ -254,6 +259,7 @@ GreetingOpeningSnapshot resolveGreetingOpening(
     currentTask: o?.currentTask ?? base.currentTask,
     needsBaselineHunger: o?.needsBaselineHunger ?? base.needsBaselineHunger,
     needsBaselineBladder: o?.needsBaselineBladder ?? base.needsBaselineBladder,
+    needsBaselineBowels: o?.needsBaselineBowels ?? base.needsBaselineBowels,
     needsBaselineEnergy: o?.needsBaselineEnergy ?? base.needsBaselineEnergy,
     needsBaselineSocial: o?.needsBaselineSocial ?? base.needsBaselineSocial,
     needsBaselineFun: o?.needsBaselineFun ?? base.needsBaselineFun,

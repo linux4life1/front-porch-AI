@@ -23,7 +23,7 @@ void main() {
   tearDown(() => h.dispose());
 
   test(
-    'A2 guard: 1:1 with Hygiene+Fun off: the live eval asks only the 5 enabled '
+    'A2 guard: 1:1 with Hygiene+Fun off: the live eval asks only the 6 enabled '
     'needs',
     () async {
       await h.oneToOneWithStampedReply(
@@ -37,6 +37,7 @@ void main() {
         expect(askedDeltaKeys(p), {
           'hunger',
           'bladder',
+          'bowels',
           'energy',
           'social',
           'comfort',

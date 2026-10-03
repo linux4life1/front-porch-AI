@@ -162,6 +162,9 @@ extension _CreateCharacterRealismStep on _CreateCharacterPageState {
                   baselineBladder: _needsBaselineBladder,
                   onBaselineBladderChanged: (v) =>
                       rebuildState(() => _needsBaselineBladder = v),
+                  baselineBowels: _needsBaselineBowels,
+                  onBaselineBowelsChanged: (v) =>
+                      rebuildState(() => _needsBaselineBowels = v),
                   baselineEnergy: _needsBaselineEnergy,
                   onBaselineEnergyChanged: (v) =>
                       rebuildState(() => _needsBaselineEnergy = v),

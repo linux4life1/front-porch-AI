@@ -156,6 +156,7 @@ extension _EditCharacterSave on _EditCharacterPageState {
         needsOff: _needsOff,
         needsBaselineHunger: _needsBaselineHunger,
         needsBaselineBladder: _needsBaselineBladder,
+        needsBaselineBowels: _needsBaselineBowels,
         needsBaselineEnergy: _needsBaselineEnergy,
         needsBaselineSocial: _needsBaselineSocial,
         needsBaselineFun: _needsBaselineFun,

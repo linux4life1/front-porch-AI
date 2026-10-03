@@ -239,6 +239,7 @@ extension ChatServiceGroupEntry on ChatService {
             final defaults = <String, int>{
               'hunger': 80,
               'bladder': 80,
+              'bowels': 80,
               'energy': 80,
               'social': 80,
               'fun': 80,

@@ -83,7 +83,7 @@ extension ChatServiceNeedsReprocess on ChatService {
   /// Re-evaluate a message's needs deltas under a user critique.
   ///
   /// [onlyNeeds] scopes the pass: needs NOT listed keep the deltas they already
-  /// had, untouched and un-re-rolled. Empty + all seven on = today's unscoped
+  /// had, untouched and un-re-rolled. Empty + all eight on = today's unscoped
   /// path. Empty + a subset on = the enabled set (scoped merge keeps off-need
   /// deltas). A non-empty selection that intersects the enabled set to nothing
   /// is a no-op (no LLM call).

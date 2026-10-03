@@ -97,6 +97,7 @@ class NeedsSimulation {
     return {
       'hunger': ext.needsBaselineHunger,
       'bladder': ext.needsBaselineBladder,
+      'bowels': ext.needsBaselineBowels,
       'energy': ext.needsBaselineEnergy,
       'social': ext.needsBaselineSocial,
       'fun': ext.needsBaselineFun,
@@ -327,9 +328,10 @@ class NeedsSimulation {
   }
 
   /// Returns the lowest (worst) needs that should receive background state
-  /// this turn, worst-first, capped at 3. Hunger and bladder stay silent at
-  /// mild (step 4) — a faint urge made every chat about peeing and eating.
-  /// Other needs still inject at step 4. Sated needs never surface.
+  /// this turn, worst-first, capped at 3. Hunger, bladder, and bowels stay
+  /// silent at mild (step 4) — a faint urge made every chat about peeing,
+  /// pooping, and eating. Other needs still inject at step 4. Sated needs
+  /// never surface.
   ///
   /// [enjoysLowHygieneOverride] MUST carry the specific speaker's flag in
   /// group chats (same reason as [getInjectionEffectiveStep]) — without it the
@@ -367,9 +369,9 @@ class NeedsSimulation {
         .toList();
   }
 
-  /// Hunger/bladder at step 4 is "a faint urge" — too loud for ambient clocks.
+  /// Hunger/bladder/bowels at step 4 is "a faint urge" — too loud for ambient clocks.
   static bool _injectsNeed(String key, int effectiveStep) {
-    if (key == 'hunger' || key == 'bladder') return effectiveStep <= 3;
+    if (key == 'hunger' || key == 'bladder' || key == 'bowels') return effectiveStep <= 3;
     return effectiveStep <= 4;
   }
 }

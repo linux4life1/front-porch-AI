@@ -208,6 +208,12 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
           (s) => s.copyWith(needsBaselineBladder: null),
         ),
         (
+          'Bowels',
+          (s) => s.needsBaselineBowels,
+          (s, v) => s.copyWith(needsBaselineBowels: v),
+          (s) => s.copyWith(needsBaselineBowels: null),
+        ),
+        (
           'Energy',
           (s) => s.needsBaselineEnergy,
           (s, v) => s.copyWith(needsBaselineEnergy: v),

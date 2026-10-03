@@ -72,8 +72,8 @@ class CharacterStateSettings extends StatelessWidget {
             icon: Icons.battery_std,
             label: 'Needs Simulation',
             caption:
-                'Tracks satisfaction levels (hunger, bladder, energy, social, '
-                'fun, hygiene, comfort). Higher = more sated / less urgent '
+                'Tracks satisfaction levels (hunger, bladder, bowels, energy, '
+                'social, fun, hygiene, comfort). Higher = more sated / less urgent '
                 '(100 = full, 0 = critical). Affects prompts & behavior when '
                 'low.',
             value: chat.needsSimEnabled,

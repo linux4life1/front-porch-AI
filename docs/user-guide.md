@@ -277,7 +277,7 @@ The feature that makes characters feel alive instead of stateless. When it's on,
 - **Arousal** — a −100 to +100 scale with its own pacing and recovery, for stories with 18+ themes.
 - **Time** — the story clock moves **every single turn**, by however long the exchange actually took, and rolls over into days, weekdays and seasons. You can nudge it with the ‹ › chevrons in the sidebar or skip ahead by writing something like *(OOC: we drive for several hours)*.
 - **Weather** — each chat gets consistent, believable weather (with real temperatures) from the Place it's set in, and the character reacts to it. See [Lorebooks & Worlds](#lorebooks--worlds).
-- **Needs** — a Sims-style layer: hunger, bladder, energy, social, fun, hygiene, comfort — each drifting realistically and coloring the character's behavior.
+- **Needs** — a Sims-style layer: hunger, bladder, bowels, energy, social, fun, hygiene, comfort — each drifting realistically and coloring the character's behavior.
 - **Fixations, objectives & ambitions** — characters can develop obsessions, pursue goals of their own, and carry longer-term ambitions that inch forward over many sessions.
 - **Growth Rings** — instead of rewriting a personality, long stories add *rings*: new stances, habits, skills and scars that layer on top of who the character already was. You can review them in the sidebar.
 - **Promises** — commitments either of you make are tracked. Kept ones warm trust; broken ones hurt; open ones hang over the next reply.

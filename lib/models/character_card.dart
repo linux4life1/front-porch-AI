@@ -136,7 +136,7 @@ class FrontPorchExtensions {
   /// Body pace: sloth, normal, or fast. Scales drops only.
   String needsPace;
 
-  /// Need keys this character has turned off. Empty means all seven are on.
+  /// Need keys this character has turned off. Empty means all eight are on.
   /// The stored bar stays; it is just not worn, shown, or scored.
   /// Growable — Save / persist mutate this in place when a need is
   /// toggled. A const default throws "Cannot modify an unmodifiable list".
@@ -146,6 +146,7 @@ class FrontPorchExtensions {
   // with this character. Default 80 matches legacy initialization behavior.
   int needsBaselineHunger;
   int needsBaselineBladder;
+  int needsBaselineBowels;
   int needsBaselineEnergy;
   int needsBaselineSocial;
   int needsBaselineFun;
@@ -242,6 +243,7 @@ class FrontPorchExtensions {
     // Per-need baseline values (0-100). Default 80 matches legacy initialization.
     this.needsBaselineHunger = 80,
     this.needsBaselineBladder = 80,
+    this.needsBaselineBowels = 80,
     this.needsBaselineEnergy = 80,
     this.needsBaselineSocial = 80,
     this.needsBaselineFun = 80,
@@ -331,6 +333,7 @@ class FrontPorchExtensions {
           : <String>[],
       needsBaselineHunger: realism['needs_baseline_hunger'] as int? ?? 80,
       needsBaselineBladder: realism['needs_baseline_bladder'] as int? ?? 80,
+      needsBaselineBowels: realism['needs_baseline_bowels'] as int? ?? 80,
       needsBaselineEnergy: realism['needs_baseline_energy'] as int? ?? 80,
       needsBaselineSocial: realism['needs_baseline_social'] as int? ?? 80,
       needsBaselineFun: realism['needs_baseline_fun'] as int? ?? 80,
@@ -397,6 +400,7 @@ class FrontPorchExtensions {
     currentTask: currentTask,
     needsBaselineHunger: needsBaselineHunger,
     needsBaselineBladder: needsBaselineBladder,
+    needsBaselineBowels: needsBaselineBowels,
     needsBaselineEnergy: needsBaselineEnergy,
     needsBaselineSocial: needsBaselineSocial,
     needsBaselineFun: needsBaselineFun,

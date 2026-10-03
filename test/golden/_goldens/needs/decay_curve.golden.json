@@ -1,6 +1,7 @@
 {
   "turn0": {
     "bladder": 80,
+    "bowels": 75,
     "comfort": 70,
     "energy": 80,
     "fun": 65,
@@ -10,6 +11,7 @@
   },
   "turn1": {
     "bladder": 77,
+    "bowels": 73,
     "comfort": 68,
     "energy": 77,
     "fun": 63,
@@ -19,6 +21,7 @@
   },
   "turn2": {
     "bladder": 74,
+    "bowels": 71,
     "comfort": 66,
     "energy": 74,
     "fun": 61,
@@ -28,6 +31,7 @@
   },
   "turn3": {
     "bladder": 71,
+    "bowels": 69,
     "comfort": 64,
     "energy": 71,
     "fun": 59,
@@ -37,6 +41,7 @@
   },
   "turn4": {
     "bladder": 68,
+    "bowels": 67,
     "comfort": 62,
     "energy": 68,
     "fun": 57,
@@ -46,6 +51,7 @@
   },
   "turn5": {
     "bladder": 65,
+    "bowels": 65,
     "comfort": 60,
     "energy": 65,
     "fun": 55,
