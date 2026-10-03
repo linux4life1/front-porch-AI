@@ -18,12 +18,7 @@
 
 part of 'expression_pack_dialog.dart';
 
-/// The best on-disk portrait for [characterDbId]: the prime (else first)
-/// expression avatar when any exist, else the character's MAIN card avatar
-/// ([CharacterCard.imagePath]). The card avatar is the load-bearing case —
-/// a character about to get their first expression pack has no expression
-/// images yet (creating them is the whole point), but almost always has a
-/// card portrait. Null only when the character has no image at all.
+/// The current card portrait, falling back to existing expression avatars.
 Future<Uint8List?> _primeAvatarBytes(
   CharacterRepository repository,
   StorageService storage,

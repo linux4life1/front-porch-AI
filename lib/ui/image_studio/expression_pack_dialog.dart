@@ -23,7 +23,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/image/expression_pack_board.dart';
 import 'package:front_porch_ai/services/image/expression_pack_flight.dart';
@@ -117,8 +116,8 @@ class ExpressionPackDialog extends StatefulWidget {
 
     // Base portrait: the studio's current result/reference when it has one
     // (style-matched to what the user is making right now), else the
-    // character's existing avatar (prime expression avatar, falling back to
-    // the main card portrait).
+    // character's current card portrait, falling back to
+    // existing expression avatars).
     final base =
         candidateBase ??
         await _primeAvatarBytes(

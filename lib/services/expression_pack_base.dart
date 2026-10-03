@@ -1,29 +1,38 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/services.dart';
 
-/// The portrait a pack is built from when the person picked none: the
-/// character's prime expression avatar (else any avatar), else the card's own
-/// image. Null when the character has no picture at all.
+/// Reads the card's current portrait from its stored image path.
+Future<Uint8List?> packCurrentPortraitImage(
+  CharacterRepository repository,
+  StorageService storage,
+  String characterDbId,
+) async {
+  final card = await repository.getCharacterCardById(characterDbId);
+  final path = card?.imagePath;
+  if (path == null || path.isEmpty) return null;
+  final file = storage.resolveCharacterImage(path);
+  return await file.exists() ? file.readAsBytes() : null;
+}
+
+/// Current card portrait, falling back to existing expression avatars.
 Future<Uint8List?> packBaseImage(
   CharacterRepository repository,
   StorageService storage,
   String characterDbId,
   String characterName,
 ) async {
-  CharacterCard? card;
-  for (final c in repository.characters) {
-    if (c.dbId == characterDbId) {
-      card = c;
-      break;
-    }
-  }
+  final portrait = await packCurrentPortraitImage(
+    repository,
+    storage,
+    characterDbId,
+  );
+  if (portrait != null) return portrait;
+
+  final card = await repository.getCharacterCardById(characterDbId);
 
   final avatars = await repository.getAvatarImages(characterDbId);
   if (avatars.isNotEmpty) {
@@ -39,10 +48,5 @@ Future<Uint8List?> packBaseImage(
     }
   }
 
-  final imagePath = card?.imagePath;
-  if (imagePath != null && imagePath.isNotEmpty) {
-    final file = File(imagePath);
-    if (await file.exists()) return file.readAsBytes();
-  }
   return null;
 }
