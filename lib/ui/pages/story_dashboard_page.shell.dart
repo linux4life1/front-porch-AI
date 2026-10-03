@@ -18,71 +18,152 @@
 
 part of 'story_dashboard_page.dart';
 
-/// The studio shell: title with progress, the sidebar, and the section it
-/// selected. Structure and Write embed their own pages; Read opens the
-/// reader as a full-screen route.
+/// The studio header (sketch M): ← Stories, title, where you are, the one
+/// Stop while a run is on, Setup, ⋯. Then the 4px progress bar and the
+/// section router.
 extension _StoryDashboardShell on _StoryDashboardPageState {
-  Widget _buildTitle(StoryProject project) {
-    final words = project.wordCount;
-    final next = project.orderedScenes
-        .where(
-          (r) =>
-              (project.beats['${r.act}-${r.index}']?.length ?? 0) == 0 ||
-              project.beatsWritten(r.act, r.index) <
-                  project.beats['${r.act}-${r.index}']!.length,
-        )
-        .firstOrNull;
-    final actLabel = project.acts.isEmpty
-        ? 'Setting up'
-        : 'Act ${_roman((next?.act ?? project.acts.length - 1) + 1)}';
-    final progress = project.engineMode == StoryEngineMode.studio
-        ? '${_group(words)} / ${_group(project.targetWords)} words'
-        : '${_group(words)} words';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildHeader(StoryProject project, StoryPipelineService pipeline) {
+    final st = storyShelfStatus(project);
+    final running = pipeline.isRunning;
+    // "Act II · 41,200 / 80,000" gains the unit here; the shelf has no room.
+    final subtitle = running && project.acts.isEmpty
+        ? 'Building the bible…'
+        : st.status.contains(' / ')
+        ? '${st.status} words'
+        : st.status;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: StudioColors.sideOf(context),
+        border: Border(bottom: BorderSide(color: StudioColors.lineOf(context))),
+      ),
+      child: Row(
+        children: [
+          StoryButton.ghost(
+            '← Stories',
+            key: const ValueKey('studio-back'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: InkWell(
+              onTap: () => renameStory(context, project),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      project.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: StudioType.ui(
+                        context,
+                        size: 15,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: StudioType.ui(
+                        context,
+                        size: 12.5,
+                        color: StudioColors.mutedOf(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (running) ...[
+            StoryChip(
+              pipeline.stopRequested
+                  ? 'Stopping after this step…'
+                  : '● ${pipeline.currentStep}',
+              tone: 'amber',
+            ),
+            const SizedBox(width: 8),
+            StoryButton(
+              'Stop',
+              key: const ValueKey('story-stop'),
+              onPressed: pipeline.stopRequested ? null : pipeline.requestStop,
+            ),
+            const SizedBox(width: 8),
+          ],
+          _audiobookChip(),
+          StoryButton.ghost(
+            'Setup',
+            key: const ValueKey('studio-setup'),
+            onPressed: running
+                ? null
+                : () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => StorySetupPage(projectId: project.dbId!),
+                    ),
+                  ),
+          ),
+          StoryMenuButton(
+            key: const ValueKey('studio-menu'),
+            entries: [
+              StoryMenuEntry(
+                'Export eBook (.epub)',
+                enabled: project.wordCount > 0,
+                onSelect: () => _exportEpub(project),
+              ),
+              StoryMenuEntry(
+                'Export audiobook (.wav)',
+                enabled: project.wordCount > 0,
+                onSelect: () => _exportAudiobook(project),
+              ),
+              StoryMenuEntry(
+                'Export text (.md)',
+                enabled: project.wordCount > 0,
+                onSelect: () => _exportText(project),
+              ),
+              StoryMenuEntry(
+                'Rename',
+                divider: true,
+                onSelect: () => renameStory(context, project),
+              ),
+              StoryMenuEntry(
+                'Delete story…',
+                danger: true,
+                enabled: !running,
+                onSelect: () => _deleteStory(project),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// A slim status while an audiobook compiles, with Abort.
+  Widget _audiobookChip() {
+    final service = context.watch<AudiobookGeneratorService>();
+    if (!service.isGenerating) return const SizedBox.shrink();
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(project.title, style: const TextStyle(fontSize: 16)),
-        Text(
-          '$actLabel · $progress',
-          style: TextStyle(
-            fontSize: 11.5,
-            color: AppColors.textTertiary(context),
-          ),
+        StoryChip(
+          'Exporting audiobook ${(service.progress * 100).round()}%',
+          tone: 'honey',
         ),
+        StoryButton.ghost('Abort', onPressed: service.stop),
+        const SizedBox(width: 4),
       ],
     );
   }
 
-  static String _roman(int n) =>
-      const [
-        '',
-        'I',
-        'II',
-        'III',
-        'IV',
-        'V',
-        'VI',
-        'VII',
-        'VIII',
-      ].elementAtOrNull(n) ??
-      '$n';
-
-  static String _group(int n) => n.toString().replaceAllMapped(
-    RegExp(r'(\d)(?=(\d{3})+$)'),
-    (m) => '${m[1]},',
-  );
-
-  void _openSection(StudioSection section) {
-    if (section == StudioSection.read) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => StoryReaderPage(projectId: widget.projectId),
-        ),
-      );
-      return;
-    }
-    rebuildState(() => _section = section);
+  Widget _buildProgress(StoryProject project) {
+    final st = storyShelfStatus(project);
+    return StoryProgressBar(st.fraction, done: st.done);
   }
 
   void _openWriter(int act, int scene) => rebuildState(() {
@@ -90,43 +171,16 @@ extension _StoryDashboardShell on _StoryDashboardPageState {
     _section = StudioSection.write;
   });
 
-  Widget _buildShell(StoryProject project, StoryPipelineService pipeline) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final narrow = constraints.maxWidth < kStudioSidebarBreakpoint;
-        final sidebar = StudioSidebar(
-          project: project,
-          selected: _section,
-          onSelect: _openSection,
-          horizontal: narrow,
-        );
-        final main = _buildSection(project, pipeline);
-        if (narrow) {
-          return Column(
-            children: [
-              sidebar,
-              Divider(height: 1, color: AppColors.borderOf(context)),
-              Expanded(child: main),
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            sidebar,
-            VerticalDivider(width: 1, color: AppColors.borderOf(context)),
-            Expanded(child: main),
-          ],
-        );
-      },
-    );
-  }
-
   Widget _buildSection(StoryProject project, StoryPipelineService pipeline) {
     switch (_section) {
       case StudioSection.overview:
+        return _buildOverview(project, pipeline);
       case StudioSection.read:
-        return _buildBody(project, pipeline);
+        return StoryReaderPage(
+          key: ValueKey('reader-${project.dbId}'),
+          projectId: widget.projectId,
+          embedded: true,
+        );
       case StudioSection.structure:
         return StoryStructurePage(
           projectId: widget.projectId,
@@ -136,13 +190,15 @@ extension _StoryDashboardShell on _StoryDashboardPageState {
       case StudioSection.write:
         final target = _writeTarget ?? _defaultWriteTarget(project);
         if (target == null) {
-          return _emptySection(
-            'Nothing to write yet',
-            'Build the structure first; the Write screen follows the scene '
-                'you pick there.',
-            action: StoryPrimaryButton(
-              'Go to Structure',
-              onPressed: () => _openSection(StudioSection.structure),
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: StoryEmptyState(
+              title: 'Nothing to write yet',
+              detail:
+                  'Build the structure first; Write follows the scene you '
+                  'pick there.',
+              action: 'Go to Structure',
+              onAction: () => _open(StudioSection.structure),
             ),
           );
         }
@@ -172,40 +228,15 @@ extension _StoryDashboardShell on _StoryDashboardPageState {
     SceneRef? last;
     for (final ref in project.orderedScenes) {
       last = ref;
-      final count = project.beats['${ref.act}-${ref.index}']?.length ?? 0;
+      final count =
+          project
+              .beats[StoryProjectShape.sceneKey(ref.act, ref.index)]
+              ?.length ??
+          0;
       if (count == 0 || project.beatsWritten(ref.act, ref.index) < count) {
         return (act: ref.act, scene: ref.index);
       }
     }
     return last == null ? null : (act: last.act, scene: last.index);
   }
-
-  Widget _emptySection(String title, String body, {Widget? action}) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: AppColors.textPrimary(context),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            body,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 13.5,
-            ),
-          ),
-          if (action != null) ...[const SizedBox(height: 16), action],
-        ],
-      ),
-    ),
-  );
 }

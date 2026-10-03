@@ -19,9 +19,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_theme.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// The screens of a story, as the sidebar lists them.
+/// The screens of a story, as the sidebar lists them. Labels and order are
+/// the spec's; the web NAV in StudioShell.tsx must match.
 enum StudioSection {
   overview('Overview', Icons.auto_stories_outlined, 'Story'),
   structure('Structure', Icons.account_tree_outlined, 'Story'),
@@ -44,7 +46,8 @@ enum StudioSection {
 const double kStudioSidebarBreakpoint = 760;
 
 /// Left rail (or top strip on narrow windows) that switches the story's
-/// screens. "new" marks screens that have nothing in them yet.
+/// screens (sketch M). Counts in mono on the right: scenes written of
+/// planned, cast size, continuity facts.
 class StudioSidebar extends StatelessWidget {
   final StoryProject project;
   final StudioSection selected;
@@ -59,19 +62,23 @@ class StudioSidebar extends StatelessWidget {
     this.horizontal = false,
   });
 
-  bool _isNew(StudioSection s) => switch (s) {
-    StudioSection.director => project.directorPlan == null,
-    StudioSection.relationships => project.relationships.isEmpty,
-    StudioSection.lore => project.continuity.isEmpty,
-    StudioSection.runLog => project.acts.isEmpty,
-    _ => false,
+  String? _count(StudioSection s) => switch (s) {
+    StudioSection.structure when project.orderedScenes.isNotEmpty =>
+      '${project.orderedScenes.where((r) => project.beatsWritten(r.act, r.index) > 0).length}'
+          '/${project.orderedScenes.length}',
+    StudioSection.cast when project.cast.isNotEmpty => '${project.cast.length}',
+    StudioSection.lore when project.continuity.isNotEmpty =>
+      '${project.continuity.length}',
+    _ => null,
   };
 
   @override
   Widget build(BuildContext context) {
     final rail = Container(
-      color: AppColors.surfaceOf(context),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      color: StudioColors.sideOf(context),
+      padding: horizontal
+          ? const EdgeInsets.symmetric(vertical: 6, horizontal: 8)
+          : const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       child: horizontal
           ? SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -88,11 +95,11 @@ class StudioSidebar extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
                     child: Text(
                       group.toUpperCase(),
-                      style: TextStyle(
-                        color: AppColors.textTertiary(context),
-                        fontSize: 10.5,
-                        letterSpacing: 1,
-                      ),
+                      style: StudioType.ui(
+                        context,
+                        size: 10.5,
+                        color: StudioColors.mutedOf(context),
+                      ).copyWith(letterSpacing: 1),
                     ),
                   ),
                   for (final s in StudioSection.values)
@@ -102,73 +109,78 @@ class StudioSidebar extends StatelessWidget {
             ),
     );
     return horizontal
-        ? SizedBox(height: 52, child: rail)
-        : SizedBox(width: 200, child: rail);
+        ? DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: StudioColors.lineOf(context)),
+              ),
+            ),
+            child: SizedBox(height: 46, child: rail),
+          )
+        : DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                right: BorderSide(color: StudioColors.lineOf(context)),
+              ),
+            ),
+            child: SizedBox(width: 190, child: rail),
+          );
   }
-
-  TextStyle _labelStyle(BuildContext context, bool on) => TextStyle(
-    fontSize: 13,
-    color: on
-        ? AppColors.textPrimary(context)
-        : AppColors.textSecondary(context),
-  );
 
   Widget _item(BuildContext context, StudioSection s) {
     final on = s == selected;
+    final fg = on ? StudioColors.inkOf(context) : StudioColors.mutedOf(context);
+    final count = _count(s);
     return InkWell(
       key: ValueKey('studio-nav-${s.name}'),
       onTap: () => onSelect(s),
       borderRadius: BorderRadius.circular(7),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 1, horizontal: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        margin: const EdgeInsets.symmetric(vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: on ? AppColors.surfaceContainerOf(context) : null,
+          color: on ? StudioColors.raiseOf(context) : null,
           borderRadius: BorderRadius.circular(7),
           border: on
               ? Border(
-                  left: BorderSide(
-                    color: AppColors.porchAmberOf(context),
-                    width: 3,
-                  ),
+                  left: horizontal
+                      ? BorderSide.none
+                      : BorderSide(
+                          color: StudioColors.amberOf(context),
+                          width: 3,
+                        ),
+                  bottom: horizontal
+                      ? BorderSide(
+                          color: StudioColors.amberOf(context),
+                          width: 3,
+                        )
+                      : BorderSide.none,
                 )
               : null,
         ),
         child: Row(
           mainAxisSize: horizontal ? MainAxisSize.min : MainAxisSize.max,
           children: [
-            Icon(
-              s.icon,
-              size: 16,
-              color: on
-                  ? AppColors.textPrimary(context)
-                  : AppColors.textSecondary(context),
-            ),
+            Icon(s.icon, size: 16, color: fg),
             const SizedBox(width: 8),
             if (horizontal)
-              Text(s.label, style: _labelStyle(context, on))
+              Text(s.label, style: StudioType.ui(context, color: fg))
             else
               Expanded(
                 child: Text(
                   s.label,
                   overflow: TextOverflow.ellipsis,
-                  style: _labelStyle(context, on),
+                  style: StudioType.ui(context, color: fg),
                 ),
               ),
-            if (_isNew(s)) ...[
+            if (count != null) ...[
               const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.porchHoneyOf(context)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'new',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.porchHoneyOf(context),
-                  ),
+              Text(
+                count,
+                style: StudioType.mono(
+                  context,
+                  size: 11,
+                  color: StudioColors.faintOf(context),
                 ),
               ),
             ],

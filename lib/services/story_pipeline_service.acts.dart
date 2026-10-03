@@ -313,15 +313,18 @@ Output ONLY the prose text for this single beat, nothing else. No labels, no hea
   /// Autopilot: run the entire pipeline from concept to finished prose.
   Future<void> _autopilot(StoryProject project) async {
     try {
-      // 1. Story Architect
-      await runStoryArchitect(project);
-
-      // 2. Act Structure
-      await runActStructurer(project);
-
-      // 3. Generate each act end-to-end
-      for (int actIdx = 0; actIdx < project.acts.length; actIdx++) {
-        await generateFullAct(project, actIdx);
+      // Writes what is left. The bible and the acts are built only when
+      // they do not exist yet; a fresh start is "Regenerate bible" first.
+      if (project.cast.isEmpty && project.concept.trim().isNotEmpty) {
+        await runStoryArchitect(project);
+      }
+      if (project.acts.isEmpty) {
+        await runActStructurer(project);
+      }
+      // One scene at a time through the same path as "Continue writing",
+      // so Stop lands between scenes and nothing written is touched.
+      while (await writeNextScene(project)) {
+        if (_stopRequested) break;
       }
 
       _setStatus('Complete', 'Story generation finished!');

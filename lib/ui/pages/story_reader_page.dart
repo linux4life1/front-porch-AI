@@ -44,7 +44,16 @@ part 'story_reader_page.scroll.dart';
 /// headings (the story remembers which).
 class StoryReaderPage extends StatefulWidget {
   final String projectId;
-  const StoryReaderPage({super.key, required this.projectId});
+
+  /// Inside the studio (sketch P): no back arrow of its own; the studio
+  /// header and sidebar surround it.
+  final bool embedded;
+
+  const StoryReaderPage({
+    super.key,
+    required this.projectId,
+    this.embedded = false,
+  });
 
   @override
   State<StoryReaderPage> createState() => _StoryReaderPageState();
@@ -231,6 +240,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           backgroundColor: AppColors.backgroundOf(context),
           endDrawer: _buildTocDrawer(isTwoPageSpread),
           appBar: AppBar(
+            automaticallyImplyLeading: !widget.embedded,
             backgroundColor: AppColors.surfaceOf(context),
             foregroundColor: AppColors.textPrimary(context),
             elevation: 0,

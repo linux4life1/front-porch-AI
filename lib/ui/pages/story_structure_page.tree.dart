@@ -18,297 +18,235 @@
 
 part of 'story_structure_page.dart';
 
-/// The structure board: acts, their sequences, and scene rows carrying the
-/// lens, tension, type and how much of the scene is written.
+/// The board: act headers (raised, inline ✎), sequence headings in honey,
+/// scene rows per the spec (number · lens · title/detail · tension · type ·
+/// status · ⋯).
 extension _StoryStructureTree on _StoryStructurePageState {
   Widget _buildStructureTree(
     StoryProject project,
     StoryPipelineService pipeline,
-  ) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: project.acts.length,
-      itemBuilder: (context, actIdx) => _buildAct(project, pipeline, actIdx),
-    );
-  }
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (var a = 0; a < project.acts.length; a++) ...[
+        if (a > 0) const SizedBox(height: 10),
+        _buildAct(project, a, pipeline),
+      ],
+    ],
+  );
 
-  Widget _buildAct(
-    StoryProject project,
-    StoryPipelineService pipeline,
-    int actIdx,
-  ) {
-    final accent = AppColors.porchTerracottaOf(context);
-    final act = project.acts[actIdx];
-    final scenes = project.scenes[actIdx] ?? [];
-    final isExpanded = _expandedActIndex == actIdx;
+  Widget _buildAct(StoryProject p, int a, StoryPipelineService pipeline) {
+    final act = p.acts[a];
+    final scenes = p.scenes[a] ?? const <StoryScene>[];
+    final written = [
+      for (var i = 0; i < scenes.length; i++)
+        if (p.beatsWritten(a, i) > 0) i,
+    ].length;
+    final open = _open.contains(a);
+    final studio = p.engineMode == StoryEngineMode.studio;
+    final seqs = studio ? p.sequencesInAct(a) : const <StorySequence>[];
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         InkWell(
+          key: ValueKey('story-act-$a'),
+          borderRadius: BorderRadius.circular(8),
           onTap: () =>
-              rebuildState(() => _expandedActIndex = isExpanded ? -1 : actIdx),
-          borderRadius: BorderRadius.circular(12),
+              rebuildState(() => open ? _open.remove(a) : _open.add(a)),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.cardOf(context),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isExpanded
-                    ? accent
-                    : AppColors.borderOf(context).withValues(alpha: 0.4),
-                width: isExpanded ? 2 : 1,
-              ),
+              color: StudioColors.raiseOf(context),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${act.number}',
-                      style: TextStyle(
-                        color: accent,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
+                Text('ACT ${romanAct(a + 1)}', style: StudioType.mono(context)),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        act.title,
-                        style: TextStyle(
-                          color: AppColors.textPrimary(context),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        scenes.isEmpty
-                            ? 'No scenes yet'
-                            : '${scenes.length} scenes · '
-                                  '${project.sequencesInAct(actIdx).length} '
-                                  'sequence${project.sequencesInAct(actIdx).length == 1 ? '' : 's'}',
-                        style: TextStyle(
-                          color: AppColors.textTertiary(context),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    act.title.isEmpty ? 'Untitled act' : act.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: StudioType.ui(context, weight: FontWeight.w700),
                   ),
                 ),
-                if (scenes.isNotEmpty)
-                  SizedBox(
-                    width: 100,
-                    height: 30,
-                    child: CustomPaint(
-                      painter: _ValenceSparklinePainter(
-                        scenes.map((s) => s.valence).toList(),
-                        lineColor: AppColors.frostAccentOf(
-                          context,
-                        ).withValues(alpha: 0.6),
-                        zeroLineColor: AppColors.borderOf(
-                          context,
-                        ).withValues(alpha: 0.4),
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 if (scenes.isEmpty)
-                  ElevatedButton.icon(
-                    onPressed: pipeline.isRunning
-                        ? null
-                        : () => _generateFullAct(project, actIdx, pipeline),
-                    icon: const Icon(Icons.auto_fix_high, size: 16),
-                    label: const Text(
-                      'Generate Act',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.porchHoneyOf(context),
-                      foregroundColor: AppColors.resolve(
-                        context,
-                        AppColors.onChaosAccent,
-                        AppColors.userText,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                    ),
+                  const StoryChip('No scenes yet')
+                else if (written == scenes.length)
+                  StoryChip('✓ $written scenes written', tone: 'teal')
+                else
+                  StoryChip(
+                    '$written of ${scenes.length} written',
+                    tone: 'amber',
                   ),
-                if (scenes.isNotEmpty) ...[
-                  _actCompletionBadge(project, actIdx),
-                  const SizedBox(width: 8),
-                ],
-                Icon(
-                  isExpanded ? Icons.expand_less : Icons.expand_more,
-                  color: AppColors.iconSecondary(context),
+                StoryIconButton(
+                  Icons.edit_outlined,
+                  tooltip: 'Edit act',
+                  onPressed: () => _editAct(p, a),
+                ),
+                StoryIconButton(
+                  open ? Icons.expand_less : Icons.expand_more,
+                  tooltip: open ? 'Collapse' : 'Expand',
+                  onPressed: () =>
+                      rebuildState(() => open ? _open.remove(a) : _open.add(a)),
                 ),
               ],
             ),
           ),
         ),
-        if (isExpanded)
-          Padding(
-            padding: const EdgeInsets.only(left: 16, top: 8),
-            child: scenes.isEmpty
-                ? _emptyAct(project, pipeline, actIdx)
-                : Column(
-                    children: [
-                      for (final seq in project.sequencesInAct(actIdx))
-                        _buildSequence(project, pipeline, actIdx, seq),
-                    ],
+        if (open) ...[
+          if (act.description.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
+              child: Text(
+                act.description,
+                style: StudioType.ui(
+                  context,
+                  size: 12.5,
+                  color: StudioColors.mutedOf(context),
+                ),
+              ),
+            ),
+          if (scenes.isEmpty && seqs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Nothing planned for this act yet.',
+                      style: StudioType.ui(
+                        context,
+                        size: 12.5,
+                        color: StudioColors.mutedOf(context),
+                      ),
+                    ),
                   ),
-          ),
-        const SizedBox(height: 12),
+                  StoryButton(
+                    'Generate act',
+                    onPressed: pipeline.isRunning
+                        ? null
+                        : () => _generateFullAct(p, a, pipeline),
+                  ),
+                ],
+              ),
+            ),
+          if (seqs.isEmpty)
+            for (var i = 0; i < scenes.length; i++)
+              _buildSceneRow(p, a, i, pipeline)
+          else
+            for (final seq in seqs) _buildSequence(p, a, seq, pipeline),
+        ],
       ],
     );
   }
 
-  Widget _emptyAct(
-    StoryProject project,
-    StoryPipelineService pipeline,
-    int actIdx,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.sunkenSurfaceOf(context),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.2),
-        ),
-      ),
-      child: Center(
-        child: Text(
-          project.engineMode == StoryEngineMode.studio
-              ? 'Generate Act outlines each sequence, then writes it scene by '
-                    'scene.'
-              : 'Generate scenes to fill this act',
-          style: TextStyle(color: AppColors.textTertiary(context)),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSequence(
-    StoryProject project,
-    StoryPipelineService pipeline,
-    int actIdx,
+    StoryProject p,
+    int a,
     StorySequence seq,
+    StoryPipelineService pipeline,
   ) {
-    final indexes = project.sceneIndexesInSequence(seq.number);
-    final studio = project.engineMode == StoryEngineMode.studio;
+    final indexes = p.sceneIndexesInSequence(seq.number);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (studio)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 10,
-              runSpacing: 4,
-              children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Sequence ${seq.number}${seq.title.isEmpty ? '' : ' · ${seq.title}'}',
+                style: StudioType.ui(
+                  context,
+                  weight: FontWeight.w600,
+                  color: StudioColors.honeyOf(context),
+                ),
+              ),
+              if (seq.dramaticQuestion.isNotEmpty)
                 Text(
-                  'Sequence ${seq.number} · ${seq.title}',
-                  style: TextStyle(
-                    color: AppColors.porchHoneyOf(context),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.5,
+                  '“${seq.dramaticQuestion}”',
+                  style: StudioType.ui(
+                    context,
+                    size: 12,
+                    color: StudioColors.mutedOf(context),
                   ),
                 ),
-                StoryChip('Act ${project.acts[actIdx].number}', tone: 'honey'),
-                if (seq.dramaticQuestion.isNotEmpty)
-                  Text(
-                    '“${seq.dramaticQuestion}”',
-                    style: TextStyle(
-                      color: AppColors.textTertiary(context),
-                      fontSize: 12,
-                    ),
-                  ),
-                if (indexes.isEmpty)
-                  TextButton(
-                    onPressed: pipeline.isRunning
-                        ? null
-                        : () => _planSequence(project, seq.number, pipeline),
-                    child: const Text('Outline scenes'),
-                  ),
-              ],
-            ),
+              if (indexes.isEmpty)
+                StoryButton.ghost(
+                  'Outline scenes',
+                  key: ValueKey('story-outline-${seq.number}'),
+                  onPressed: pipeline.isRunning
+                      ? null
+                      : () => _planSequence(p, seq.number, pipeline),
+                ),
+            ],
           ),
-        for (final i in indexes) _buildSceneRow(project, pipeline, actIdx, i),
+        ),
+        for (final i in indexes) _buildSceneRow(p, a, i, pipeline),
       ],
     );
   }
 
   Widget _buildSceneRow(
-    StoryProject project,
+    StoryProject p,
+    int a,
+    int i,
     StoryPipelineService pipeline,
-    int actIdx,
-    int sceneIdx,
   ) {
-    final scene = project.scenes[actIdx]![sceneIdx];
-    final beats = project.beats['$actIdx-$sceneIdx'] ?? const <StoryBeat>[];
-    final written = project.beatsWritten(actIdx, sceneIdx);
-    final studio = project.engineMode == StoryEngineMode.studio;
-    final isNext = beats.isEmpty || written < beats.length;
-    final status = beats.isEmpty
+    final sc = p.scenes[a]![i];
+    final beats = p.beats[StoryProjectShape.sceneKey(a, i)] ?? const [];
+    final written = p.beatsWritten(a, i);
+    final studio = p.engineMode == StoryEngineMode.studio;
+    final isNext = beats.isEmpty || written < beats.length
+        ? _isFirstUnfinished(p, a, i)
+        : false;
+    final detail = [
+      if (sc.castNames.isNotEmpty) sc.castNames.join(', '),
+      if (sc.location.isNotEmpty) sc.location,
+      if (sc.valueFrom.isNotEmpty || sc.valueTo.isNotEmpty)
+        '${sc.valueFrom} → ${sc.valueTo}',
+    ].join(' · ');
+    final Widget status = beats.isEmpty
         ? const StoryChip('Not planned')
-        : written == beats.length
-        ? const StoryChip('Written', tone: 'teal')
         : written == 0
         ? StoryChip('${beats.length} beats planned', tone: 'amber')
-        : StoryChip('$written of ${beats.length} written', tone: 'amber');
-    final detail = [
-      if (scene.castNames.isNotEmpty) scene.castNames.join(', '),
-      if (scene.location.isNotEmpty) scene.location,
-      if (scene.valueFrom.isNotEmpty || scene.valueTo.isNotEmpty)
-        '${scene.valueFrom} → ${scene.valueTo}',
-    ].join(' · ');
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isNext && written == 0 && beats.isNotEmpty
-              ? AppColors.porchAmberOf(context)
-              : AppColors.borderOf(context).withValues(alpha: 0.4),
-        ),
-      ),
+        : written < beats.length
+        ? StoryChip('$written of ${beats.length} written', tone: 'amber')
+        : const StoryChip('Written', tone: 'teal');
+    final running = pipeline.isRunning;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
       child: InkWell(
+        key: ValueKey('story-scene-$a-$i'),
         borderRadius: BorderRadius.circular(8),
-        onTap: () => _openScene(actIdx, sceneIdx),
-        child: Padding(
+        onTap: () => widget.onOpenWriter?.call(a, i),
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: StudioColors.cardOf(context),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isNext
+                  ? StudioColors.amberOf(context)
+                  : StudioColors.lineOf(context),
+            ),
+          ),
           child: Row(
             children: [
               SizedBox(
-                width: 36,
+                width: 44,
                 child: Text(
-                  project.sceneLabel(actIdx, sceneIdx),
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 12,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                  p.sceneLabel(a, i),
+                  style: StudioType.mono(context),
                 ),
               ),
-              if (studio && project.lensesEnabled) ...[
-                StoryLensMark(scene.lens),
+              if (studio && p.lensesEnabled) ...[
+                StoryLensMark(sc.lens),
                 const SizedBox(width: 10),
               ],
               Expanded(
@@ -316,75 +254,68 @@ extension _StoryStructureTree on _StoryStructurePageState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      scene.title,
-                      style: TextStyle(
-                        color: AppColors.textPrimary(context),
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      sc.title.isEmpty ? 'Untitled scene' : sc.title,
+                      overflow: TextOverflow.ellipsis,
+                      style: StudioType.ui(context, weight: FontWeight.w600),
                     ),
                     if (detail.isNotEmpty)
                       Text(
                         detail,
-                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.textTertiary(context),
-                          fontSize: 11.5,
+                        style: StudioType.ui(
+                          context,
+                          size: 12,
+                          color: StudioColors.mutedOf(context),
                         ),
                       ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Wrap(
-                spacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (studio) StoryTensionBars(scene.tension),
-                  if (studio && scene.sceneType.isNotEmpty)
-                    StoryChip(
-                      scene.sceneType == 'reaction' ? 'Reaction' : 'Action',
-                    ),
-                  status,
-                  if (beats.isNotEmpty)
-                    Text(
-                      '$written/${beats.length}',
-                      style: TextStyle(
-                        color: written == beats.length
-                            ? AppColors.bondHighOf(context)
-                            : AppColors.textTertiary(context),
-                        fontSize: 12,
-                      ),
-                    ),
-                  if (written > 0)
-                    IconButton(
-                      icon: Icon(
-                        Icons.refresh,
-                        size: 16,
-                        color: AppColors.taskAccentOf(
-                          context,
-                        ).withValues(alpha: 0.8),
-                      ),
-                      tooltip: 'Rewrite scene prose',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                      onPressed: pipeline.isRunning
-                          ? null
-                          : () => _regenerateScene(
-                              project,
-                              actIdx,
-                              sceneIdx,
-                              pipeline,
-                            ),
-                    ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: AppColors.iconSecondary(context),
+              const SizedBox(width: 10),
+              if (studio) ...[
+                StoryTensionBars(sc.tension),
+                const SizedBox(width: 10),
+                if (sc.sceneType.isNotEmpty) ...[
+                  StoryChip(
+                    sc.sceneType[0].toUpperCase() + sc.sceneType.substring(1),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+              ],
+              status,
+              StoryMenuButton(
+                key: ValueKey('story-scene-menu-$a-$i'),
+                entries: [
+                  StoryMenuEntry(
+                    'Write this scene',
+                    enabled: !running,
+                    onSelect: () => _writeScene(p, a, i, pipeline),
+                  ),
+                  StoryMenuEntry(
+                    beats.isEmpty ? 'Plan beats' : 'Plan beats again…',
+                    enabled: !running,
+                    onSelect: () => _planBeats(p, a, i, pipeline),
+                  ),
+                  StoryMenuEntry(
+                    'Edit title & summary…',
+                    onSelect: () => _editScene(p, a, i),
+                  ),
+                  StoryMenuEntry(
+                    'Insert scene after…',
+                    divider: true,
+                    enabled: !running,
+                    onSelect: () => _insertAfter(p, a, i),
+                  ),
+                  StoryMenuEntry(
+                    'Rewrite prose…',
+                    enabled: !running && written > 0,
+                    onSelect: () => _rewriteScene(p, a, i, pipeline),
+                  ),
+                  StoryMenuEntry(
+                    'Delete scene…',
+                    danger: true,
+                    enabled: !running,
+                    onSelect: () => _deleteScene(p, a, i),
                   ),
                 ],
               ),
@@ -395,94 +326,14 @@ extension _StoryStructureTree on _StoryStructurePageState {
     );
   }
 
-  void _openScene(int actIdx, int sceneIdx) {
-    final open = widget.onOpenWriter;
-    if (open != null) {
-      open(actIdx, sceneIdx);
-      return;
-    }
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => StoryWriterPage(
-          projectId: widget.projectId,
-          actIndex: actIdx,
-          sceneIndex: sceneIdx,
-        ),
-      ),
-    );
-  }
-
-  Widget _actCompletionBadge(StoryProject project, int actIdx) {
-    final scenes = project.scenes[actIdx] ?? [];
-    var done = 0;
-    for (var s = 0; s < scenes.length; s++) {
-      final count = project.beats['$actIdx-$s']?.length ?? 0;
-      if (count > 0 && project.beatsWritten(actIdx, s) == count) done++;
-    }
-    final isComplete = done == scenes.length && scenes.isNotEmpty;
-    final color = isComplete
-        ? AppColors.bondHighOf(context)
-        : AppColors.porchHoneyOf(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        isComplete ? '✓ Complete' : '$done/${scenes.length}',
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-/// Draws a tiny sparkline of scene valence values.
-class _ValenceSparklinePainter extends CustomPainter {
-  final List<int> values;
-  final Color lineColor;
-  final Color zeroLineColor;
-
-  _ValenceSparklinePainter(
-    this.values, {
-    required this.lineColor,
-    required this.zeroLineColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.length < 2) return;
-
-    final paint = Paint()
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..color = lineColor;
-
-    final zeroPaint = Paint()
-      ..color = zeroLineColor
-      ..strokeWidth = 0.5;
-
-    final yCenter = size.height / 2;
-    canvas.drawLine(Offset(0, yCenter), Offset(size.width, yCenter), zeroPaint);
-
-    final path = Path();
-    for (int i = 0; i < values.length; i++) {
-      final x = (i / (values.length - 1)) * size.width;
-      final y = yCenter - (values[i] / 10.0) * (size.height / 2);
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
+  bool _isFirstUnfinished(StoryProject p, int a, int i) {
+    for (final ref in p.orderedScenes) {
+      final count =
+          p.beats[StoryProjectShape.sceneKey(ref.act, ref.index)]?.length ?? 0;
+      if (count == 0 || p.beatsWritten(ref.act, ref.index) < count) {
+        return ref.act == a && ref.index == i;
       }
     }
-    canvas.drawPath(path, paint);
+    return false;
   }
-
-  @override
-  bool shouldRepaint(covariant _ValenceSparklinePainter oldDelegate) =>
-      values != oldDelegate.values || lineColor != oldDelegate.lineColor;
 }

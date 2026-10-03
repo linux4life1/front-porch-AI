@@ -160,6 +160,7 @@ extension _StoryReaderScroll on _StoryReaderPageState {
       appBar: _hudHidden
           ? null
           : AppBar(
+              automaticallyImplyLeading: !widget.embedded,
               backgroundColor: AppColors.surfaceOf(context),
               foregroundColor: AppColors.textPrimary(context),
               elevation: 0,
