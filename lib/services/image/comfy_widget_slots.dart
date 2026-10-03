@@ -180,3 +180,23 @@ bool _isWidgetSpec(Object? spec) {
   if (first is String) return !kComfyLinkTypes.contains(first);
   return false;
 }
+
+/// Read saved widget values in the same order for nodes and promoted ports.
+Map<String, Object?> comfyWidgetValues(
+  Map<String, dynamic>? objectInfo,
+  String type,
+  Iterable<Object?> widgets,
+) {
+  const controls = {'randomize', 'fixed', 'increment', 'decrement'};
+  final values = <String, Object?>{};
+  final pending = [...comfyWidgetSlots(objectInfo, type)];
+  for (final value in widgets) {
+    if (value is String && controls.contains(value)) continue;
+    if (pending.isEmpty) break;
+    final slot = pending.removeAt(0);
+    values.putIfAbsent(slot.name, () => value);
+    final picked = value is String ? slot.options[value] : null;
+    if (picked != null) pending.insertAll(0, picked);
+  }
+  return values;
+}

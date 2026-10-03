@@ -45,3 +45,37 @@ bool isExposedPromptFeed(String? port, String type, String name) =>
             (name == 'string_a' || name == 'string_b')) ||
         (type == 'ComfySwitchNode' &&
             (name == 'on_false' || name == 'on_true')));
+
+/// Resolve a boundary port from its promoted owner before applying fanout.
+Object? promotedSubgraphWidgetValue(
+  Map raw,
+  List widgetPorts,
+  Map port,
+  List<(String, String, Map<String, Object?>)> consumers,
+) {
+  final properties = raw['properties'];
+  final proxy = properties is Map ? properties['proxyWidgets'] : null;
+  final owner =
+      consumers.where((consumer) {
+        return proxy is List &&
+            proxy.any(
+              (entry) =>
+                  entry is List &&
+                  entry.length >= 2 &&
+                  entry[0].toString() == consumer.$1 &&
+                  entry[1].toString() == consumer.$2,
+            );
+      }).firstOrNull ??
+      consumers
+          .where((consumer) => consumer.$3[consumer.$2] != null)
+          .firstOrNull;
+  final index = comfySubgraphWidgetIndex(
+    raw,
+    widgetPorts,
+    port,
+    owner?.$1 ?? '',
+    owner?.$2 ?? '',
+  );
+  return subgraphWidgetValue(raw, port['name']?.toString(), index) ??
+      owner?.$3[owner.$2];
+}

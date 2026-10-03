@@ -17,10 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'comfy_subgraph_widgets.dart';
-import 'comfy_widget_slots.dart';
+import 'image.dart';
 
 const _kSkipTypes = {'MarkdownNote', 'Note'};
-const _kControlAfter = {'randomize', 'fixed', 'increment', 'decrement'};
 
 bool isComfyApiWorkflow(Map<String, dynamic> raw) {
   if (raw.containsKey('nodes') && raw.containsKey('links')) return false;
@@ -56,7 +55,7 @@ Map<String, dynamic> convertComfyUiToApi(
   Map<String, dynamic> ui, {
   Map<String, dynamic>? objectInfo,
 }) {
-  final flat = _flattenComfyUiGraph(ui);
+  final flat = _flattenComfyUiGraph(ui, objectInfo);
   final nodes = flat.nodes;
   final linksById = {for (final l in flat.links) l.id: l};
   final nodesById = {for (final n in nodes) n.id: n};
@@ -79,14 +78,12 @@ Map<String, dynamic> convertComfyUiToApi(
       if (origin == null) continue;
       inputs[inp.name] = [origin.$1, origin.$2];
     }
-    final pending = [...comfyWidgetSlots(objectInfo, n.type)];
-    for (final value in n.widgets) {
-      if (value is String && _kControlAfter.contains(value)) continue;
-      if (pending.isEmpty) break;
-      final slot = pending.removeAt(0);
-      inputs.putIfAbsent(slot.name, () => value);
-      final picked = value is String ? slot.options[value] : null;
-      if (picked != null) pending.insertAll(0, picked);
+    for (final entry in comfyWidgetValues(
+      objectInfo,
+      n.type,
+      n.widgets,
+    ).entries) {
+      inputs.putIfAbsent(entry.key, () => entry.value);
     }
     inputs.addAll(flat.values[n.id] ?? const {});
     out[n.id] = {'class_type': n.type, 'inputs': inputs};
@@ -189,7 +186,10 @@ class _FlatUi {
   const _FlatUi(this.nodes, this.links, this.values);
 }
 
-_FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
+_FlatUi _flattenComfyUiGraph(
+  Map<String, dynamic> ui,
+  Map<String, dynamic>? objectInfo,
+) {
   final subgraphs = <String, Map<String, dynamic>>{};
   final defs = ui['definitions'];
   if (defs is Map && defs['subgraphs'] is List) {
@@ -219,6 +219,26 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
           for (final port in ports)
             if (port is Map && !kComfyLinkTypes.contains(port['type'])) port,
         ];
+        final consumers = <int, List<(String, String, Map<String, Object?>)>>{};
+        for (final internal in _asList(sg['links'])) {
+          final origin = _linkOrigin(internal);
+          final target = _linkTarget(internal);
+          if (origin?.$1 != '-10' || target == null) continue;
+          final child = nodes
+              .where((n) => n.id == '${id}_${target.$1}')
+              .firstOrNull;
+          if (child == null ||
+              target.$2 < 0 ||
+              target.$2 >= child.inputs.length) {
+            continue;
+          }
+          consumers.putIfAbsent(origin!.$2, () => []).add((
+            target.$1,
+            child.inputs[target.$2].name,
+            comfyWidgetValues(objectInfo, child.type, child.widgets),
+          ));
+        }
+        final portValues = <int, Object?>{};
         for (final internal in _asList(sg['links'])) {
           final origin = _linkOrigin(internal);
           final target = _linkTarget(internal);
@@ -241,14 +261,15 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
             continue;
           }
           final inputName = child.inputs[target.$2].name;
-          final widgetIndex = comfySubgraphWidgetIndex(
-            raw,
-            widgetPorts,
-            ports[portIndex],
-            target.$1,
-            inputName,
+          final widgetValue = portValues.putIfAbsent(
+            portIndex,
+            () => promotedSubgraphWidgetValue(
+              raw,
+              widgetPorts,
+              ports[portIndex] as Map,
+              consumers[portIndex] ?? const [],
+            ),
           );
-          final widgetValue = subgraphWidgetValue(raw, portName, widgetIndex);
           final parentInput = _asList(
             raw['inputs'],
           ).whereType<Map>().where((i) => i['name'] == portName).firstOrNull;
