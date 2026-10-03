@@ -21,25 +21,13 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/story/story.dart';
+import 'package:front_porch_ai/ui/story_setup/model_picker_sheet.dart';
 import 'package:front_porch_ai/ui/story_setup/setup_widgets.dart';
 import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
-import 'package:front_porch_ai/ui/story_studio/studio_widgets.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 
-part 'engine_step.lanes.dart';
-
-/// The lane labels for this app's current backends.
-({String main, String? worker}) storyLaneLabels(BuildContext context) =>
-    storyLaneLabelsFor(
-      Provider.of<StorageService>(context, listen: false),
-      Provider.of<LLMProvider>(context, listen: false),
-    );
-
-/// Wizard step: how the story is written — engine mode, length, format,
-/// which model does which job, review and lens switches, and the AI engine
-/// itself.
+/// Step 4 of 4 (sketch L): Quick or Studio, who does which job, prompt
+/// style. No engine card, no door into the chat's model dialog.
 class EngineStep extends StatelessWidget {
   final StorySetupDraft draft;
   final VoidCallback onChanged;
@@ -48,353 +36,210 @@ class EngineStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = storyLaneLabels(context);
-    final pacing = StoryPacing.forTarget(draft.targetWords);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final wide = MediaQuery.of(context).size.width >= 760;
+    final storage = Provider.of<StorageService>(context);
+    final llm = Provider.of<LLMProvider>(context);
+    final quick = draft.engineMode == StoryEngineMode.quick;
+    final quickCard = StoryCard(
+      key: ValueKey('story-engine-quick${quick ? '-on' : ''}'),
+      selected: quick,
+      raised: !quick,
+      onTap: () => _mode(StoryEngineMode.quick),
       children: [
-        const SetupSectionHeader('How should it write?', Icons.auto_awesome),
-        const SizedBox(height: 10),
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _modeCard(
-                context,
-                mode: StoryEngineMode.quick,
-                title: 'Quick',
-                chip: 'fewer calls',
-                body:
-                    'Plans and writes in one pass. No reviewers. Best for '
-                    'small local models or a first draft.',
-              ),
+            Text(
+              'Quick',
+              style: StudioType.ui(context, weight: FontWeight.w700),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _modeCard(
-                context,
-                mode: StoryEngineMode.studio,
-                title: 'Studio',
-                chip: 'recommended',
-                chipAccent: true,
-                body:
-                    'Interviews the cast, checks every step, tracks '
-                    'continuity and relationships. Slower, much steadier.',
-              ),
-            ),
+            const SizedBox(width: 8),
+            const StoryChip('fewer calls'),
           ],
         ),
-        const SizedBox(height: 20),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _panel(
-                context,
-                label: 'Target length',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _segmented(
-                      context,
-                      options: const {
-                        'Short': 'Novella · 30k',
-                        'Standard': 'Novel · 80k',
-                        'Epic': 'Epic · 120k',
-                      },
-                      selected: draft.proseLength,
-                      onSelect: (v) {
-                        draft.proseLength = v;
-                        onChanged();
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      draft.engineMode == StoryEngineMode.studio
-                          ? pacing.summary
-                          : 'About ${draft.targetWords ~/ 1000}k words',
-                      style: TextStyle(
-                        color: AppColors.textTertiary(context),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _panel(
-                context,
-                label: 'Format',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _segmented(
-                      context,
-                      options: const {
-                        'novel': 'Novel',
-                        'audioDrama': 'Audio drama',
-                      },
-                      selected: draft.storyFormat.name,
-                      onSelect: (v) {
-                        draft.storyFormat = v == 'audioDrama'
-                            ? StoryFormat.audioDrama
-                            : StoryFormat.novel;
-                        onChanged();
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Audio drama writes a voiced script for your cast '
-                      'voices.',
-                      style: TextStyle(
-                        color: AppColors.textTertiary(context),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        const SetupNote(
+          'Plans and writes in one pass. No reviewers. Good for a fast first '
+          'draft.',
         ),
-        const SizedBox(height: 20),
-        _panel(
-          context,
-          label: 'Who does which job',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        Opacity(
+          opacity: quick ? 1 : 0.5,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _laneField(
-                      context,
-                      'Planning',
-                      draft.planningLane,
-                      labels,
-                      (v) => draft.planningLane = v,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _laneField(
-                      context,
-                      'Prose',
-                      draft.proseLane,
-                      labels,
-                      (v) => draft.proseLane = v,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _laneField(
-                      context,
-                      'Review',
-                      draft.reviewLane,
-                      labels,
-                      (v) => draft.reviewLane = v,
-                    ),
-                  ),
-                ],
-              ),
-              if (labels.worker == null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'No worker model is set up, so every job runs on the '
-                    'main model. Add one under Settings → AI Engine to '
-                    'send reviews to a smaller, faster model.',
-                    style: TextStyle(
-                      color: AppColors.textTertiary(context),
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              _toggleRow(
-                context,
-                title: 'Check each step before moving on',
-                trailing: 'Off is faster',
-                value: draft.reviewEnabled,
-                onChanged: (v) {
-                  draft.reviewEnabled = v;
-                  onChanged();
-                },
-              ),
-              _toggleRow(
-                context,
-                title: 'Narrative lenses (a writing mode per scene)',
-                value: draft.lensesEnabled,
-                onChanged: (v) {
-                  draft.lensesEnabled = v;
-                  onChanged();
-                },
+              const SetupNote('Acts'),
+              const SizedBox(width: 10),
+              StorySegmented(
+                options: {for (var i = 1; i <= 5; i++) '$i': '$i'},
+                selected: '${draft.actCount}',
+                onSelect: quick
+                    ? (v) {
+                        draft.actCount = int.parse(v);
+                        onChanged();
+                      }
+                    : (_) => _mode(StoryEngineMode.quick),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 28),
-        const SetupSectionHeader(
-          'AI Engine',
-          Icons.memory,
-          subtitle:
-              'Stories are written by the same AI backend as chat. It must be '
-              'running with a model loaded before anything can generate.',
+      ],
+    );
+    final studioCard = StoryCard(
+      key: ValueKey('story-engine-studio${quick ? '' : '-on'}'),
+      selected: !quick,
+      raised: quick,
+      onTap: () => _mode(StoryEngineMode.studio),
+      children: [
+        Row(
+          children: [
+            Text(
+              'Studio',
+              style: StudioType.ui(context, weight: FontWeight.w700),
+            ),
+            const SizedBox(width: 8),
+            const StoryChip('recommended', tone: 'amber'),
+          ],
         ),
-        const SizedBox(height: 12),
-        const AiEngineStatusCard(),
-        const SizedBox(height: 20),
-        const SetupSectionHeader(
-          'Prompt Style',
-          Icons.tune,
-          subtitle:
-              'How the prompts are written for your model. This does NOT '
-              'pick the model — that\'s the engine card above.',
+        const SetupNote(
+          'Interviews the cast, checks every step, tracks continuity and '
+          'relationships. 3 acts, 8 sequences.',
         ),
-        const SizedBox(height: 10),
-        ...PromptTier.values.map(
-          (tier) => SetupRadioTile(
-            storyTierName(tier),
-            storyTierDescription(tier),
-            selected: draft.tier == tier,
-            onTap: () {
-              draft.tier = tier;
-              onChanged();
-            },
-          ),
+        StoryToggleRow(
+          value: draft.reviewEnabled,
+          onChanged: quick
+              ? null
+              : (v) {
+                  draft.reviewEnabled = v;
+                  onChanged();
+                },
+          label: 'Check each step before moving on',
+        ),
+        StoryToggleRow(
+          value: draft.lensesEnabled,
+          onChanged: quick
+              ? null
+              : (v) {
+                  draft.lensesEnabled = v;
+                  onChanged();
+                },
+          label: 'A writing lens per scene',
         ),
       ],
     );
-  }
-
-  Widget _modeCard(
-    BuildContext context, {
-    required StoryEngineMode mode,
-    required String title,
-    required String chip,
-    required String body,
-    bool chipAccent = false,
-  }) {
-    final selected = draft.engineMode == mode;
-    final accent = AppColors.porchAmberOf(context);
-    return InkWell(
-      // The suffix lets a driver confirm the pick landed.
-      key: ValueKey('story-engine-${mode.name}${selected ? '-on' : ''}'),
-      borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        draft.engineMode = mode;
-        onChanged();
-      },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.08)
-              : AppColors.cardOf(context),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected
-                ? accent
-                : AppColors.borderOf(context).withValues(alpha: 0.5),
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Column(
+    final lanes = [
+      ('Planning', 'planning', draft.planningLane),
+      ('Prose', 'prose', draft.proseLane),
+      ('Review', 'review', draft.reviewLane),
+    ];
+    final laneFields = [
+      for (final (label, key, choice) in lanes)
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: AppColors.textPrimary(context),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                StoryChip(chip, tone: chipAccent ? 'amber' : ''),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              body,
-              style: TextStyle(
-                color: AppColors.textSecondary(context),
-                fontSize: 12.5,
-              ),
+            SetupNote(label),
+            const SizedBox(height: 4),
+            StoryPickField(
+              key: ValueKey('story-lane-$key'),
+              value: storyLaneLabel(storage, llm, choice),
+              onTap: () => _pick(context, label, choice),
             ),
           ],
         ),
-      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        StoryCard(
+          children: [
+            const StoryKeyLabel('How should it write?'),
+            if (wide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: quickCard),
+                  const SizedBox(width: 12),
+                  Expanded(child: studioCard),
+                ],
+              )
+            else ...[
+              quickCard,
+              const SizedBox(height: 12),
+              studioCard,
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        StoryCard(
+          children: [
+            const StoryKeyLabel('Who does which job'),
+            if (wide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < laneFields.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 10),
+                    Expanded(child: laneFields[i]),
+                  ],
+                ],
+              )
+            else
+              for (final f in laneFields) f,
+            const SetupNote(
+              'Planning plans and checks. Prose writes. Review reads '
+              'planning\'s work and sends it back when it slips.',
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        StoryCard(
+          children: [
+            Row(
+              children: [
+                const Expanded(child: StoryKeyLabel('Prompt style')),
+                StorySegmented(
+                  options: {
+                    for (final e in storyTierOptions.entries)
+                      e.key.name: e.value,
+                  },
+                  selected: draft.tier.name,
+                  onSelect: (v) {
+                    draft.tier = PromptTier.values.firstWhere(
+                      (t) => t.name == v,
+                    );
+                    onChanged();
+                  },
+                ),
+              ],
+            ),
+            const SetupNote(
+              'Full detail is written for frontier models. Rich trims for '
+              'large local models; Simplified for small ones.',
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _panel(
-    BuildContext context, {
-    required String label,
-    required Widget child,
-  }) => WarmCard(
-    padding: const EdgeInsets.all(14),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
-            letterSpacing: 0.8,
-          ),
-        ),
-        const SizedBox(height: 10),
-        child,
-      ],
-    ),
-  );
+  void _mode(StoryEngineMode m) {
+    draft.engineMode = m;
+    onChanged();
+  }
 
-  Widget _segmented(
-    BuildContext context, {
-    required Map<String, String> options,
-    required String selected,
-    required ValueChanged<String> onSelect,
-  }) {
-    final accent = AppColors.porchAmberOf(context);
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.borderOf(context)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final e in options.entries)
-            InkWell(
-              onTap: () => onSelect(e.key),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                color: selected == e.key ? accent : Colors.transparent,
-                child: Text(
-                  e.value,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: selected == e.key
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                    color: selected == e.key
-                        ? AppColors.onChaosAccent
-                        : AppColors.textSecondary(context),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+  Future<void> _pick(
+    BuildContext context,
+    String job,
+    StoryLaneChoice choice,
+  ) async {
+    final picked = await showModelPickerSheet(
+      context,
+      job: job,
+      current: choice,
     );
+    if (picked == null) return;
+    choice
+      ..lane = picked.lane
+      ..backendType = picked.backendType
+      ..apiUrl = picked.apiUrl
+      ..model = picked.model
+      ..kcpps = picked.kcpps;
+    onChanged();
   }
 }

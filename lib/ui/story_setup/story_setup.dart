@@ -16,17 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// Barrel for the story studio: the shell's sidebar, the sections it hosts,
-// and the small widgets every story screen shares.
+/// New Story: the four steps, the rail, the pickers and the draft.
+library;
 
-export 'cast_section.dart';
-export 'director_section.dart';
-export 'lore_section.dart';
-export 'relationships_section.dart';
-export 'run_log_section.dart';
-export 'studio_running_overlay.dart';
-export 'studio_sidebar.dart';
-export 'studio_buttons.dart';
-export 'studio_cards.dart';
-export 'studio_theme.dart';
-export 'studio_widgets.dart';
+export 'cast_step.dart';
+export 'chat_source_picker.dart';
+export 'engine_step.dart';
+export 'idea_step.dart';
+export 'model_picker_sheet.dart';
+export 'setup_rail.dart';
+export 'setup_widgets.dart';
+export 'shape_step.dart';
+export 'story_setup_draft.dart';

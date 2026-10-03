@@ -9,7 +9,7 @@
 // (at your option) any later version.
 //
 // Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY, without even the implied warranty of
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 //
@@ -22,24 +22,21 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/story_dashboard_page.dart';
-import 'package:front_porch_ai/ui/story_setup/cast_step.dart';
-import 'package:front_porch_ai/ui/story_setup/concept_step.dart';
-import 'package:front_porch_ai/ui/story_setup/engine_step.dart';
-import 'package:front_porch_ai/ui/story_setup/format_step.dart';
-import 'package:front_porch_ai/ui/story_setup/setup_widgets.dart';
-import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
-import 'package:front_porch_ai/ui/story_setup/style_step.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/story_setup/story_setup.dart';
+import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// New-story wizard — the standard creation-wizard shell (top-bar step dots +
-/// linear progression, same pattern as `create_character_page.dart`), warm
-/// porch throughout. The Engine step (how it writes, which models, and the
-/// AI backend itself) sits just before Review, so the choices it offers can
-/// be made with the story already in mind.
+/// New Story (sketches I–L): Idea → Cast → Shape → Engine, with a summary
+/// rail that fills in as you go. The project row is created on the first
+/// Next and saved after every step, so backing out keeps the draft and the
+/// shelf shows where it stopped. With [projectId] it reopens an existing
+/// story's setup (the studio's "Setup" button); with [fromChat] it starts
+/// at Idea with that chat already chosen.
 class StorySetupPage extends StatefulWidget {
-  final String projectId;
-  const StorySetupPage({super.key, required this.projectId});
+  final String? projectId;
+  final StoryChatSource? fromChat;
+
+  const StorySetupPage({super.key, this.projectId, this.fromChat});
 
   @override
   State<StorySetupPage> createState() => _StorySetupPageState();
@@ -47,24 +44,43 @@ class StorySetupPage extends StatefulWidget {
 
 class _StorySetupPageState extends State<StorySetupPage> {
   final _draft = StorySetupDraft();
-  int _currentStep = 0;
+  int _step = 0;
+  int _reached = 0;
+  String? _projectId;
+  bool _saving = false;
 
-  static const _stepLabels = [
-    'Concept',
-    'Style',
-    'Format',
-    'Cast',
-    'Engine',
-    'Review',
-  ];
+  static const _stepLabels = ['Idea', 'Cast', 'Shape', 'Engine'];
+
+  bool get _editing =>
+      widget.projectId != null &&
+      (_project?.concept.trim().isNotEmpty ?? false);
+
+  StoryProject? get _project {
+    final id = _projectId;
+    if (id == null) return null;
+    return Provider.of<StoryRepository>(context, listen: false).getById(id);
+  }
 
   @override
   void initState() {
     super.initState();
-    final repo = Provider.of<StoryRepository>(context, listen: false);
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-    final project = repo.getById(widget.projectId);
-    if (project != null) _draft.loadFrom(project, charRepo);
+    _projectId = widget.projectId;
+    final project = _project;
+    if (project != null) {
+      _draft.loadFrom(
+        project,
+        Provider.of<CharacterRepository>(context, listen: false),
+      );
+      final resume = project.setupStep;
+      if (resume != null && project.concept.trim().isEmpty) {
+        _step = resume.clamp(0, _stepLabels.length - 1);
+      }
+      _reached = project.concept.trim().isEmpty
+          ? _step
+          : _stepLabels.length - 1;
+    }
+    final chat = widget.fromChat;
+    if (chat != null) _draft.adoptChat(chat);
   }
 
   @override
@@ -73,367 +89,209 @@ class _StorySetupPageState extends State<StorySetupPage> {
     super.dispose();
   }
 
+  bool get _narrow => MediaQuery.of(context).size.width < 760;
+
+  /// Phones get a fifth "Ready?" screen in place of the rail.
+  int get _stepCount => _stepLabels.length + (_narrow ? 1 : 0);
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundOf(context),
-      appBar: AppBar(
-        title: Row(
+    return StudioTheme(
+      child: Scaffold(
+        backgroundColor: StudioColors.bgOf(context),
+        body: Column(
           children: [
-            Icon(
-              Icons.auto_stories,
-              color: AppColors.porchHoneyOf(context),
-              size: 22,
+            _header(context),
+            Expanded(
+              child: _narrow
+                  ? _stepBody(context)
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: _stepBody(context)),
+                        SetupRail(draft: _draft, step: _step),
+                      ],
+                    ),
             ),
-            const SizedBox(width: 8),
-            const Text('New Porch Story'),
-            const Spacer(),
-            _buildStepIndicator(),
+            _footer(context),
           ],
         ),
-        backgroundColor: AppColors.cardOf(context),
-        foregroundColor: AppColors.textPrimary(context),
-        elevation: 0,
-      ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: _buildStepBody(),
       ),
     );
   }
 
-  // ── Step indicator (create_character_page pattern) ────────────────────────
-
-  Widget _buildStepIndicator() {
-    final children = <Widget>[];
-    for (var i = 0; i < _stepLabels.length; i++) {
-      if (i > 0) {
-        children.add(
-          Container(
-            width: 24,
-            height: 2,
-            margin: const EdgeInsets.only(bottom: 14),
-            color: AppColors.borderOf(context).withValues(alpha: 0.35),
-          ),
-        );
-      }
-      children.add(_stepDot(i, _stepLabels[i]));
-    }
-    return Row(mainAxisSize: MainAxisSize.min, children: children);
-  }
-
-  Widget _stepDot(int step, String label) {
-    final isActive = _currentStep >= step;
-    final isCurrent = _currentStep == step;
-    final accent = AppColors.porchHoneyOf(context);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+  Widget _header(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+    decoration: BoxDecoration(
+      color: StudioColors.sideOf(context),
+      border: Border(bottom: BorderSide(color: StudioColors.lineOf(context))),
+    ),
+    child: Row(
       children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isActive ? accent : AppColors.surfaceContainerOf(context),
-            border: isCurrent
-                ? Border.all(color: AppColors.textPrimary(context), width: 2)
-                : Border.all(
-                    color: AppColors.borderOf(context).withValues(alpha: 0.3),
-                  ),
-          ),
-          child: Center(
-            child: isActive && !isCurrent
-                ? Icon(
-                    Icons.check,
-                    size: 14,
-                    color: AppColors.resolve(
-                      context,
-                      AppColors.onChaosAccent,
-                      AppColors.userText,
-                    ),
-                  )
-                : Text(
-                    '${step + 1}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isActive
-                          ? AppColors.resolve(
-                              context,
-                              AppColors.onChaosAccent,
-                              AppColors.userText,
-                            )
-                          : AppColors.textTertiary(context),
-                    ),
-                  ),
-          ),
+        StoryIconButton(
+          Icons.arrow_back,
+          tooltip: 'Back to stories',
+          onPressed: _leave,
         ),
-        const SizedBox(height: 2),
+        const SizedBox(width: 6),
         Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: isActive
-                ? AppColors.textSecondary(context)
-                : AppColors.textTertiary(context),
+          _editing ? 'Setup' : 'New story',
+          style: StudioType.ui(context, size: 15, weight: FontWeight.w700),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          _step < _stepLabels.length ? _stepLabels[_step] : 'Ready?',
+          style: StudioType.ui(
+            context,
+            size: 12.5,
+            color: StudioColors.mutedOf(context),
           ),
         ),
+        const Spacer(),
+        if (!_narrow)
+          StoryStepDots(
+            steps: _stepLabels,
+            current: _step,
+            onTap: (i) {
+              if (i <= _reached) setState(() => _step = i);
+            },
+          ),
       ],
-    );
-  }
+    ),
+  );
 
-  // ── Step bodies ────────────────────────────────────────────────────────────
-
-  Widget _buildStepBody() {
-    final Widget content;
-    switch (_currentStep) {
-      case 0:
-        content = ConceptStep(draft: _draft, onChanged: () => setState(() {}));
-      case 1:
-        content = StyleStep(draft: _draft, onChanged: () => setState(() {}));
-      case 2:
-        content = FormatStep(draft: _draft, onChanged: () => setState(() {}));
-      case 3:
-        content = CastStep(draft: _draft, onChanged: () => setState(() {}));
-      case 4:
-        content = EngineStep(draft: _draft, onChanged: () => setState(() {}));
-      default:
-        content = _buildReviewStep();
-    }
-
-    return Center(
-      key: ValueKey('story-setup-step-$_currentStep'),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [content, _buildNavButtons()],
-          ),
-        ),
+  Widget _stepBody(BuildContext context) {
+    final Widget body = switch (_step) {
+      0 => IdeaStep(draft: _draft, onChanged: _changed),
+      1 => CastStep(draft: _draft, onChanged: _changed),
+      2 => ShapeStep(draft: _draft, onChanged: _changed),
+      3 => EngineStep(draft: _draft, onChanged: _changed),
+      _ => SetupRail(draft: _draft, step: _step, asPage: true),
+    };
+    return SingleChildScrollView(
+      key: ValueKey('story-setup-step-$_step'),
+      padding: const EdgeInsets.all(16),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 820),
+        child: body,
       ),
     );
   }
 
-  Widget _buildReviewStep() {
-    final genres = _draft.selectedGenres.isEmpty
-        ? '—'
-        : _draft.selectedGenres.join(', ');
-    final moods = _draft.selectedMoods.isEmpty
-        ? '—'
-        : _draft.selectedMoods.join(', ');
-    final title = _draft.titleController.text.trim().isEmpty
-        ? 'Untitled Story'
-        : _draft.titleController.text.trim();
-
-    Widget row(String label, String value) => Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+  Widget _footer(BuildContext context) {
+    final last = _step == _stepCount - 1;
+    final next = last
+        ? (_editing ? 'Save changes' : 'Build the story bible')
+        : 'Next: ${_step + 1 < _stepLabels.length ? _stepLabels[_step + 1] : 'Ready?'}';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        color: StudioColors.sideOf(context),
+        border: Border(top: BorderSide(color: StudioColors.lineOf(context))),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 130,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: AppColors.textTertiary(context),
-                fontSize: 12,
-              ),
-            ),
+          StoryButton.ghost(
+            _step == 0 ? 'Cancel' : 'Back',
+            key: const ValueKey('story-setup-back'),
+            onPressed: _step == 0 ? _leave : () => setState(() => _step--),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontSize: 13,
+          const Spacer(),
+          if (_narrow) ...[
+            Text(
+              '${_step + 1} of $_stepCount',
+              style: StudioType.ui(
+                context,
+                size: 12,
+                color: StudioColors.mutedOf(context),
               ),
             ),
+            const SizedBox(width: 12),
+          ],
+          StoryButton.primary(
+            next,
+            key: const ValueKey('story-setup-next'),
+            onPressed: _saving ? null : _next,
           ),
         ],
       ),
     );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SetupSectionHeader(
-          'Ready to build your story bible',
-          Icons.auto_awesome,
-          subtitle:
-              'The Story Architect turns your concept into a full bible — '
-              'cast, world, themes, and hooks — which you can review and '
-              'edit before any prose is written.',
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.borderOf(context).withValues(alpha: 0.5),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              row('Title', title),
-              row(
-                'Concept',
-                _draft.conceptController.text.trim().isEmpty
-                    ? '— (required)'
-                    : _draft.conceptController.text.trim(),
-              ),
-              row('Point of view', _draft.pov),
-              row('Genres', genres),
-              row('Moods', moods),
-              row(
-                'Style',
-                _draft.writingStyle.isEmpty ? 'Default' : _draft.writingStyle,
-              ),
-              row(
-                'Shape',
-                '${_draft.proseLength} · ${_draft.narrativePace} · '
-                    '${_draft.dialogueDensity} · ${_draft.actCount} acts · '
-                    '${_draft.maturityRating}',
-              ),
-              row(
-                'Engine',
-                '${_draft.engineMode == StoryEngineMode.studio ? 'Studio' : 'Quick'}'
-                    ' · ${_draft.storyFormat == StoryFormat.audioDrama ? 'audio drama' : 'novel'}'
-                    ' · ${_draft.reviewEnabled ? 'checks on' : 'checks off'}',
-              ),
-              row('Prompt style', storyTierName(_draft.tier)),
-              row(
-                'Cast',
-                _draft.useChatHistory
-                    ? '${_draft.selectedCharacterIds.length} character(s)'
-                          '${_draft.includeUserPersona ? ' + you' : ''}, '
-                          'chat history woven in'
-                    : 'Fresh cast, invented by the Architect',
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        const AiEngineStatusCard(),
-      ],
-    );
   }
 
-  // ── Navigation ─────────────────────────────────────────────────────────────
+  void _changed() => setState(() {});
 
-  Widget _buildNavButtons() {
-    final isLast = _currentStep == _stepLabels.length - 1;
-    final accent = AppColors.porchHoneyOf(context);
+  Future<void> _leave() async {
+    // Nothing typed yet: nothing to keep.
+    if (_projectId == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    await _save(step: _step);
+    if (mounted) Navigator.of(context).pop();
+  }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 32),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_currentStep > 0) ...[
-              SizedBox(
-                height: 52,
-                child: OutlinedButton.icon(
-                  onPressed: () => setState(() => _currentStep -= 1),
-                  icon: const Icon(Icons.arrow_back, size: 18),
-                  label: const Text('Back', style: TextStyle(fontSize: 14)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary(context),
-                    side: BorderSide(color: AppColors.borderOf(context)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-            ],
-            SizedBox(
-              width: 280,
-              height: 52,
-              child: ElevatedButton.icon(
-                key: const ValueKey('story-setup-next'),
-                onPressed: _onNextPressed,
-                icon: Icon(
-                  isLast ? Icons.auto_awesome : Icons.arrow_forward,
-                  size: 20,
-                ),
-                label: Text(
-                  isLast
-                      ? 'Generate Story Bible'
-                      : 'Next: ${_stepLabels[_currentStep + 1]}',
-                  style: const TextStyle(fontSize: 16),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: accent,
-                  foregroundColor: AppColors.resolve(
-                    context,
-                    AppColors.onChaosAccent,
-                    AppColors.userText,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
+  Future<void> _next() async {
+    if (_step == 0 && _draft.conceptController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Say what the story is first.')),
+      );
+      return;
+    }
+    if (_step < _stepCount - 1) {
+      await _save(step: _step + 1);
+      if (!mounted) return;
+      setState(() {
+        _step++;
+        if (_step > _reached) _reached = _step;
+      });
+      return;
+    }
+    await _finish();
+  }
+
+  /// Create the row on the first Next; save the draft after every step.
+  Future<void> _save({required int step}) async {
+    if (_saving) return;
+    _saving = true;
+    try {
+      final repo = Provider.of<StoryRepository>(context, listen: false);
+      final charRepo = Provider.of<CharacterRepository>(context, listen: false);
+      final persona = Provider.of<UserPersonaService>(context, listen: false);
+      var project = _project;
+      if (project == null) {
+        project = await repo.createProject();
+        _projectId = project.dbId;
+      }
+      _draft.applyTo(project, charRepo, persona);
+      if (!_editing) project.setupStep = step;
+      await repo.saveProject(project);
+    } finally {
+      _saving = false;
+    }
+  }
+
+  Future<void> _finish() async {
+    final editing = _editing;
+    await _save(step: _stepLabels.length);
+    final project = _project;
+    if (project == null || !mounted) return;
+    project.setupStep = null;
+    await Provider.of<StoryRepository>(
+      context,
+      listen: false,
+    ).saveProject(project);
+    if (!mounted) return;
+    if (editing) {
+      Navigator.of(context).pop();
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => StoryDashboardPage(
+          projectId: project.dbId!,
+          autoRunStoryArchitect: true,
         ),
       ),
     );
-  }
-
-  void _onNextPressed() {
-    // The concept is the one hard requirement — everything else has defaults.
-    if (_currentStep == 0 && _draft.conceptController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Describe your story concept first'),
-          backgroundColor: AppColors.negativeAccentOf(context),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    if (_currentStep < _stepLabels.length - 1) {
-      setState(() => _currentStep += 1);
-      return;
-    }
-    _startGeneration();
-  }
-
-  Future<void> _startGeneration() async {
-    if (_draft.conceptController.text.trim().isEmpty) {
-      setState(() => _currentStep = 0);
-      return;
-    }
-    final repo = Provider.of<StoryRepository>(context, listen: false);
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-    final personaService = Provider.of<UserPersonaService>(
-      context,
-      listen: false,
-    );
-    final project = repo.getById(widget.projectId);
-    if (project == null) return;
-
-    _draft.applyTo(project, charRepo, personaService);
-    await repo.saveProject(project);
-
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => StoryDashboardPage(
-            projectId: widget.projectId,
-            autoRunStoryArchitect: true,
-          ),
-        ),
-      );
-    }
   }
 }

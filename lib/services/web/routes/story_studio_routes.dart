@@ -31,6 +31,9 @@ class WebStoryStudioRoutes {
     router.get('/api/stories/lenses', _lenses);
     router.get('/api/stories/pacing', _pacing);
     router.get('/api/stories/lanes', _lanes);
+    router.post('/api/stories/lane-label', _laneLabel);
+    router.get('/api/stories/host-models', _hostModels);
+    router.post('/api/stories/host-key', _hostKey);
     router.post('/api/stories/quality', _quality);
     router.post('/api/stories/<id>/stop', _stop);
     router.post('/api/stories/<id>/director/action', _directorAction);
@@ -57,6 +60,31 @@ class WebStoryStudioRoutes {
   }
 
   shelf.Response _lanes(shelf.Request r) => JsonResponse.ok(_facade.lanes());
+
+  Future<shelf.Response> _laneLabel(shelf.Request r) async {
+    final body = await _json(r);
+    return JsonResponse.ok({'label': _facade.laneLabel(body)});
+  }
+
+  Future<shelf.Response> _hostModels(shelf.Request r) async {
+    final q = r.url.queryParameters;
+    try {
+      final models = await _facade.hostModels(q['type'] ?? '', q['url'] ?? '');
+      return JsonResponse.ok({'models': models});
+    } catch (e) {
+      return JsonResponse.error(502, 'Could not list models: $e');
+    }
+  }
+
+  Future<shelf.Response> _hostKey(shelf.Request r) async {
+    final body = await _json(r);
+    await _facade.saveHostKey(
+      body['type']?.toString() ?? '',
+      body['url']?.toString() ?? '',
+      body['key']?.toString() ?? '',
+    );
+    return JsonResponse.ok({'ok': true});
+  }
 
   Future<shelf.Response> _quality(shelf.Request r) async {
     final body = await _json(r);

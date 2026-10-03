@@ -30,7 +30,7 @@ table below are the source; the other two must match it exactly.
 | Bad (fail, banned, destructive) | `#E57373` | `#B3261E` | `StudioColors.bad` | `--studio-bad` |
 | Ink on amber (text on a primary button) | `#2A1A08` | `#FFFDF9` | `StudioColors.amberInk` | `--studio-amber-ink` |
 
-Chip borders are the accent at ~45% alpha; continuity diff: deleted text on
+Portrait placeholder gradient `#6A4A2A` → `#30271E` with honey initials; shelf cover gradient `#4A3421` → `#251E17`. Chip borders are the accent at ~45% alpha; continuity diff: deleted text on
 `#3A1E1C` with `#F0B3AE`, inserted on `#16302D` with `#A6E3DB`.
 
 No other surface or accent may appear in story UI: not `cardOf`, `surfaceOf`,

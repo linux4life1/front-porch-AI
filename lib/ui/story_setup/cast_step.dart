@@ -9,7 +9,7 @@
 // (at your option) any later version.
 //
 // Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY, without even the implied warranty of
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 //
@@ -19,13 +19,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/story_setup/setup_widgets.dart';
 import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Wizard step: seed the story from your characters — chat-history import,
-/// per-character roles, and the optional self-insert persona.
+/// Step 2 of 4 (sketch J): characters from the library with a role chip
+/// row each, "You in the story", and whether the chat is canon.
 class CastStep extends StatelessWidget {
   final StorySetupDraft draft;
   final VoidCallback onChanged;
@@ -34,309 +36,215 @@ class CastStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chars = Provider.of<CharacterRepository>(context).characters;
+    final persona = Provider.of<UserPersonaService>(context).persona;
+    final picked = [
+      for (final c in chars)
+        if (c.dbId != null && draft.selectedCharacterIds.contains(c.dbId)) c,
+    ];
+    final chat = draft.chatSource;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SetupSectionHeader(
-          'Cast & Canon',
-          Icons.groups,
-          subtitle:
-              'Optional — build the story around your characters and what '
-              'actually happened in your chats',
+        StoryCard(
+          children: [
+            Row(
+              children: [
+                const Expanded(child: StoryKeyLabel('From your characters')),
+                StoryButton(
+                  'Add from library',
+                  key: const ValueKey('story-add-cast'),
+                  icon: Icons.add,
+                  onPressed: () => _addFromLibrary(context, chars),
+                ),
+              ],
+            ),
+            if (picked.isEmpty)
+              const SetupNote(
+                'No one yet. Anyone you don\'t add here, the bible writes for '
+                'you.',
+              ),
+            for (final c in picked)
+              _CastRow(
+                name: c.name,
+                detail: chat?.characterId == c.dbId
+                    ? 'From the chat · the card and the chat are canon'
+                    : 'Library card',
+                imagePath: c.imagePath,
+                role: draft.characterRoles[c.dbId!] ?? 'Supporting',
+                onRole: (r) {
+                  draft.characterRoles[c.dbId!] = r;
+                  onChanged();
+                },
+                onRemove: () {
+                  draft.selectedCharacterIds.remove(c.dbId);
+                  draft.characterRoles.remove(c.dbId);
+                  if (chat?.characterId == c.dbId) draft.dropChat();
+                  onChanged();
+                },
+              ),
+          ],
         ),
         const SizedBox(height: 12),
-        SetupToggleTile(
-          title: 'Chat History Integration',
-          subtitle: 'Weave past character conversations into the story',
-          icon: Icons.history,
-          value: draft.useChatHistory,
-          onChanged: (v) {
-            draft.useChatHistory = v;
-            onChanged();
-          },
-        ),
-        if (draft.useChatHistory) ...[
-          const SizedBox(height: 12),
-          _buildCharacterPicker(context),
-          if (draft.selectedCharacterIds.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _buildRoleAssignment(context),
+        StoryCard(
+          children: [
+            StoryToggleRow(
+              key: const ValueKey('story-persona'),
+              value: draft.includeUserPersona,
+              onChanged: (v) {
+                draft.includeUserPersona = v;
+                onChanged();
+              },
+              label: 'You in the story',
+              detail: 'as your persona, ${persona.name}',
+            ),
+            if (draft.includeUserPersona)
+              SetupChipRow(
+                options: {for (final r in storyRoleOptions) r: r},
+                selected: {draft.userPersonaRole},
+                onToggle: (r, _) {
+                  draft.userPersonaRole = r;
+                  onChanged();
+                },
+              ),
           ],
+        ),
+        if (chat != null) ...[
           const SizedBox(height: 12),
-          _buildUserPersonaToggle(context),
+          StoryCard(
+            children: [
+              StoryToggleRow(
+                value: draft.useChatHistory,
+                onChanged: (v) {
+                  draft.useChatHistory = v;
+                  onChanged();
+                },
+                label: 'Use the chat as canon',
+                detail:
+                    'The chat with ${chat.characterName} is distilled into a '
+                    'timeline the bible must respect',
+              ),
+            ],
+          ),
         ],
+        const SizedBox(height: 12),
+        const SetupNote(
+          'You can add or remove cast later from the Cast screen.',
+        ),
       ],
     );
   }
 
-  Widget _buildCharacterPicker(BuildContext context) {
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-    final accent = AppColors.porchHoneyOf(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Select characters whose chat history to include:',
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: charRepo.characters.where((c) => c.dbId != null).map((
-              char,
-            ) {
-              final charDbId = char.dbId!;
-              final isSelected = draft.selectedCharacterIds.contains(charDbId);
-              return FilterChip(
-                selected: isSelected,
-                label: Text(char.name),
-                selectedColor: accent.withValues(alpha: 0.25),
-                checkmarkColor: accent,
-                labelStyle: TextStyle(
-                  color: isSelected
-                      ? AppColors.textPrimary(context)
-                      : AppColors.textSecondary(context),
-                  fontSize: 12,
-                ),
-                backgroundColor: AppColors.surfaceContainerOf(context),
-                side: BorderSide(
-                  color: isSelected
-                      ? accent
-                      : AppColors.borderOf(context).withValues(alpha: 0.5),
-                ),
-                onSelected: (selected) {
-                  if (selected) {
-                    draft.selectedCharacterIds.add(charDbId);
-                    // Default the first pick to Protagonist.
-                    if (draft.selectedCharacterIds.length == 1) {
-                      draft.characterRoles[charDbId] = 'Protagonist';
-                    } else {
-                      draft.characterRoles.putIfAbsent(
-                        charDbId,
-                        () => 'Supporting',
-                      );
-                    }
-                  } else {
-                    draft.selectedCharacterIds.remove(charDbId);
-                    draft.characterRoles.remove(charDbId);
-                  }
-                  onChanged();
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRoleAssignment(BuildContext context) {
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-    final accent = AppColors.porchTerracottaOf(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.theater_comedy, size: 16, color: accent),
-              const SizedBox(width: 8),
-              Text(
-                'Assign Roles',
-                style: TextStyle(
-                  color: accent,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ...charRepo.characters
-              .where(
-                (c) =>
-                    c.dbId != null &&
-                    draft.selectedCharacterIds.contains(c.dbId),
-              )
-              .map(
-                (char) => _roleRow(
-                  context,
-                  avatarLetter: char.name.isEmpty ? '?' : char.name[0],
-                  name: char.name,
-                  accent: accent,
-                  value: draft.characterRoles[char.dbId!] ?? 'Supporting',
-                  onChanged: (v) {
-                    draft.characterRoles[char.dbId!] = v ?? 'Supporting';
-                    onChanged();
-                  },
-                ),
-              ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUserPersonaToggle(BuildContext context) {
-    final personaService = Provider.of<UserPersonaService>(
+  Future<void> _addFromLibrary(
+    BuildContext context,
+    List<CharacterCard> chars,
+  ) async {
+    final available = [
+      for (final c in chars)
+        if (c.dbId != null && !draft.selectedCharacterIds.contains(c.dbId)) c,
+    ];
+    final chosen = await showStoryDialog<CharacterCard>(
       context,
-      listen: false,
-    );
-    final persona = personaService.persona;
-    final accent = AppColors.porchHoneyOf(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: draft.includeUserPersona
-              ? accent.withValues(alpha: 0.4)
-              : AppColors.borderOf(context).withValues(alpha: 0.5),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.person_pin,
-                size: 18,
-                color: draft.includeUserPersona
-                    ? accent
-                    : AppColors.iconSecondary(context),
+      title: 'Add from library',
+      width: 460,
+      body: available.isEmpty
+          ? Text(
+              'Every character is already in the cast.',
+              style: StudioType.ui(
+                context,
+                size: 12.5,
+                color: StudioColors.mutedOf(context),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Play as a character?',
-                  style: TextStyle(
-                    color: draft.includeUserPersona
-                        ? accent
-                        : AppColors.textSecondary(context),
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              Switch(
-                value: draft.includeUserPersona,
-                activeThumbColor: accent,
-                onChanged: (v) {
-                  draft.includeUserPersona = v;
-                  onChanged();
-                },
-              ),
-            ],
-          ),
-          if (draft.includeUserPersona) ...[
-            const SizedBox(height: 8),
-            _roleRow(
-              context,
-              avatarLetter: persona.name.isEmpty ? '?' : persona.name[0],
-              name: persona.name,
-              subtitle: persona.persona.isEmpty ? null : persona.persona,
-              accent: accent,
-              value: draft.userPersonaRole,
-              onChanged: (v) {
-                draft.userPersonaRole = v ?? 'Protagonist';
-                onChanged();
-              },
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// One "avatar · name · role dropdown" row, shared by character role
-  /// assignment and the persona picker.
-  Widget _roleRow(
-    BuildContext context, {
-    required String avatarLetter,
-    required String name,
-    String? subtitle,
-    required Color accent,
-    required String value,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: accent.withValues(alpha: 0.25),
-            child: Text(
-              avatarLetter,
-              style: TextStyle(color: accent, fontSize: 12),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    color: AppColors.textPrimary(context),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: AppColors.textTertiary(context),
-                      fontSize: 11,
+                for (final c in available)
+                  InkWell(
+                    key: ValueKey('story-library-${c.dbId}'),
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => Navigator.pop(context, c),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          StoryAvatar(c.name, imagePath: c.imagePath),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              c.name,
+                              style: StudioType.ui(
+                                context,
+                                weight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
               ],
             ),
-          ),
-          DropdownButton<String>(
-            value: value,
-            dropdownColor: AppColors.surfaceContainerOf(context),
-            underline: Container(
-              height: 1,
-              color: AppColors.borderOf(context).withValues(alpha: 0.5),
-            ),
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 12,
-            ),
-            items: storyRoleOptions
-                .map(
-                  (r) => DropdownMenuItem(
-                    value: r,
-                    child: Text(r, style: const TextStyle(fontSize: 12)),
-                  ),
-                )
-                .toList(),
-            onChanged: onChanged,
-          ),
-        ],
-      ),
+      actions: (ctx) => [
+        StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx)),
+      ],
     );
+    if (chosen == null) return;
+    draft.selectedCharacterIds.add(chosen.dbId!);
+    draft.characterRoles[chosen.dbId!] =
+        draft.characterRoles.values.any((r) => r == 'Protagonist')
+        ? 'Supporting'
+        : 'Protagonist';
+    onChanged();
   }
+}
+
+class _CastRow extends StatelessWidget {
+  final String name;
+  final String detail;
+  final String? imagePath;
+  final String role;
+  final ValueChanged<String> onRole;
+  final VoidCallback onRemove;
+
+  const _CastRow({
+    required this.name,
+    required this.detail,
+    required this.imagePath,
+    required this.role,
+    required this.onRole,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      StoryAvatar(name, imagePath: imagePath),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(name, style: StudioType.ui(context, weight: FontWeight.w600)),
+            Text(
+              detail,
+              style: StudioType.ui(
+                context,
+                size: 12,
+                color: StudioColors.mutedOf(context),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SetupChipRow(
+              options: {for (final r in storyRoleOptions) r: r},
+              selected: {role},
+              onToggle: (r, _) => onRole(r),
+            ),
+          ],
+        ),
+      ),
+      StoryIconButton(Icons.close, tooltip: 'Remove', onPressed: onRemove),
+    ],
+  );
 }

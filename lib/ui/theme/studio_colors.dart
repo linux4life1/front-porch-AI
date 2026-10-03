@@ -120,6 +120,14 @@ class StudioColors {
   static Color amberInkOf(BuildContext context) =>
       AppColors.resolve(context, amberInk, amberInkLight);
 
+  /// Shelf cover gradient (sketch H).
+  static const Color coverStart = Color(0xFF4A3421);
+  static const Color coverEnd = Color(0xFF251E17);
+
+  /// Portrait placeholder gradient (top-left → bottom-right).
+  static const Color portraitStart = Color(0xFF6A4A2A);
+  static const Color portraitEnd = Color(0xFF30271E);
+
   /// Continuity diff: removed text.
   static const Color diffDelBg = Color(0xFF3A1E1C);
   static const Color diffDelFg = Color(0xFFF0B3AE);

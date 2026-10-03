@@ -54,6 +54,12 @@ StoryPipelineService buildStoryPipelineService({
     lanes: StoryLanes(
       worker: () => llm.workerService,
       hold: llm.withWorkerLane,
+      host: (choice) => llm.laneHost(
+        type: choice.backendType,
+        url: choice.apiUrl,
+        model: choice.model,
+        kcpps: choice.kcpps,
+      ),
     ),
     embeddings: embeddings,
   );

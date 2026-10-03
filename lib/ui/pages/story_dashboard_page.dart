@@ -51,10 +51,14 @@ class StoryDashboardPage extends StatefulWidget {
   final String projectId;
   final bool autoRunStoryArchitect;
 
+  /// Which section to open first (the shelf's Read, a deep link).
+  final StudioSection? openSection;
+
   const StoryDashboardPage({
     super.key,
     required this.projectId,
     this.autoRunStoryArchitect = false,
+    this.openSection,
   });
 
   @override
@@ -62,7 +66,7 @@ class StoryDashboardPage extends StatefulWidget {
 }
 
 class _StoryDashboardPageState extends State<StoryDashboardPage> {
-  StudioSection _section = StudioSection.overview;
+  late StudioSection _section = widget.openSection ?? StudioSection.overview;
 
   /// The scene the Write screen shows; null picks the next unfinished one.
   ({int act, int scene})? _writeTarget;

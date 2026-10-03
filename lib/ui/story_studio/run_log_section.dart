@@ -22,7 +22,7 @@ import 'package:flutter/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
-import 'package:front_porch_ai/ui/story_studio/studio_widgets.dart';
+import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 

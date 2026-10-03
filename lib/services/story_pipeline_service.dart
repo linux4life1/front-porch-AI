@@ -17,8 +17,11 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
@@ -40,15 +43,23 @@ part 'story_pipeline_service.studio_memory.dart';
 part 'story_pipeline_service.studio_prose.dart';
 part 'story_pipeline_service.studio_structure.dart';
 
-/// Routes Studio jobs to the worker model when a story asks for that.
+/// Routes story jobs to the model each lane asks for: the worker model, or
+/// a host the story picked itself (any provider, any model).
 class StoryLanes {
-  const StoryLanes({required this.worker, required this.hold});
+  const StoryLanes({
+    required this.worker,
+    required this.hold,
+    required this.host,
+  });
 
   /// The live worker service, or null when none is configured.
   final LLMService? Function() worker;
 
   /// Runs [work] while holding the worker lane (so a shared GPU can swap).
   final Future<T> Function<T>(Future<T> Function() work) hold;
+
+  /// The host for a lane's own choice, or null when it cannot be built.
+  final LaneHost? Function(StoryLaneChoice choice) host;
 }
 
 /// Orchestrates the multi-agent AI novel-writing pipeline for Porch Stories.
@@ -77,6 +88,9 @@ class StoryPipelineService extends ChangeNotifier {
   /// Nesting depth of public operations; see [_guard].
   int _depth = 0;
   bool _stopRequested = false;
+
+  /// The lane host whose model is resident right now (local swaps only).
+  LaneHost? _activeLaneHost;
 
   /// True for the whole of an outermost operation, including the gaps between
   /// its stages (each stage still clears `_isRunning` in its own `finally`).
@@ -129,6 +143,13 @@ class StoryPipelineService extends ChangeNotifier {
         _isRunning = false;
         _stopRequested = false;
         notifyListeners();
+        // Put the chat model back after the run, not after every call, so
+        // a run that alternates lanes swaps once per stage.
+        unawaited(
+          restoreLaneHosts().catchError(
+            (Object e) => debugPrint('[Story] lane restore failed: $e'),
+          ),
+        );
       }
     }
   }

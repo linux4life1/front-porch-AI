@@ -24,9 +24,71 @@ enum StoryEngineMode { quick, studio }
 
 enum StoryFormat { novel, audioDrama }
 
-/// Which configured model a pipeline job runs on. `worker` falls back to the
-/// main model when no worker is configured.
-enum StoryModelLane { main, worker }
+/// Where a pipeline job runs: the chat model, the worker model, or a host
+/// the story picked itself. `worker` falls back to the chat model when no
+/// worker is configured.
+enum StoryModelLane { main, worker, host }
+
+/// One job's model: "Same as chat", "Worker model", or another host with
+/// its own model (and, for KoboldCpp, a launch preset). Stored under
+/// `model_lanes` as an object; the old form was a bare lane name.
+class StoryLaneChoice {
+  StoryModelLane lane;
+  String backendType;
+  String apiUrl;
+  String model;
+  String kcpps;
+
+  StoryLaneChoice({
+    this.lane = StoryModelLane.main,
+    this.backendType = '',
+    this.apiUrl = '',
+    this.model = '',
+    this.kcpps = '',
+  });
+
+  static StoryLaneChoice chat() => StoryLaneChoice();
+  static StoryLaneChoice worker() =>
+      StoryLaneChoice(lane: StoryModelLane.worker);
+
+  bool get isHost => lane == StoryModelLane.host && model.trim().isNotEmpty;
+
+  StoryLaneChoice copy() => StoryLaneChoice(
+    lane: lane,
+    backendType: backendType,
+    apiUrl: apiUrl,
+    model: model,
+    kcpps: kcpps,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'lane': lane.name,
+    if (lane == StoryModelLane.host) ...{
+      'backend': backendType,
+      'url': apiUrl,
+      'model': model,
+      'kcpps': kcpps,
+    },
+  };
+
+  static StoryLaneChoice fromJson(Object? raw, StoryLaneChoice fallback) {
+    if (raw is String) {
+      return StoryLaneChoice(
+        lane: _enumByName(StoryModelLane.values, raw, fallback.lane),
+      );
+    }
+    if (raw is Map) {
+      return StoryLaneChoice(
+        lane: _enumByName(StoryModelLane.values, raw['lane'], fallback.lane),
+        backendType: _str(raw['backend']),
+        apiUrl: _str(raw['url']),
+        model: _str(raw['model']),
+        kcpps: _str(raw['kcpps']),
+      );
+    }
+    return fallback.copy();
+  }
+}
 
 T _enumByName<T extends Enum>(List<T> values, Object? name, T fallback) {
   for (final v in values) {

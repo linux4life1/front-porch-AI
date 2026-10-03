@@ -33,12 +33,15 @@ import 'package:front_porch_ai/services/omlx_status_poller.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/story_lane_labels.dart';
 import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/services/worker_gpu_swap.dart';
 import 'package:front_porch_ai/services/xai/xai.dart';
 
 part 'llm_provider.worker.dart';
+part 'llm_provider.lanes.dart';
 
 /// The available backend types. The former `pseudoRemote` (a local KoboldCpp
 /// launched from a .kcpps preset) was folded into [kobold]: the local backend

@@ -92,6 +92,8 @@ abstract final class StoryArchetypes {
       final concept = _concepts[(rng + i * 3) % _concepts.length];
       options.add({
         'label': '$genre / $style / ${concept.substring(0, 30)}...',
+        // The spark chip on the Idea step: the premise alone, capitalised.
+        'spark': concept[0].toUpperCase() + concept.substring(1),
         'value': 'A $genre story written in a $style style, wherein $concept.',
       });
     }

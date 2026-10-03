@@ -18,386 +18,247 @@
 
 part of 'story_home_view.dart';
 
-/// Project cards, export actions, and delete confirm for [StoryHomeView].
-extension _StoryHomeViewCards on _StoryHomeViewState {
-  Widget _buildProjectCard(
-    BuildContext context,
-    StoryProject project,
-    StoryRepository repo,
-  ) {
-    final hasActs = project.acts.isNotEmpty;
-    final totalScenes = project.scenes.values.fold<int>(
-      0,
-      (sum, s) => sum + s.length,
-    );
-    final totalProse = project.prose.values
-        .where((p) => p.final_ != null)
-        .length;
+/// A book on the shelf: cover, title, genre line, progress, where you are.
+class StoryShelfCard extends StatelessWidget {
+  final StoryProject project;
 
-    String statusLabel;
-    Color statusColor;
-    IconData statusIcon;
+  const StoryShelfCard({super.key, required this.project});
 
-    if (totalProse > 0) {
-      statusLabel = '$totalProse beats written';
-      statusColor = AppColors.bondHighOf(context);
-      statusIcon = Icons.edit_note;
-    } else if (totalScenes > 0) {
-      statusLabel = '$totalScenes scenes planned';
-      statusColor = AppColors.frostAccentOf(context);
-      statusIcon = Icons.view_timeline;
-    } else if (hasActs) {
-      statusLabel = '${project.acts.length} acts structured';
-      statusColor = AppColors.fixationAccentOf(context);
-      statusIcon = Icons.account_tree;
-    } else if (project.concept.isNotEmpty) {
-      statusLabel = 'Bible created';
-      statusColor = AppColors.taskAccentOf(context);
-      statusIcon = Icons.menu_book;
-    } else {
-      statusLabel = 'New — needs concept';
-      statusColor = AppColors.textTertiary(context);
-      statusIcon = Icons.lightbulb_outline;
-    }
-
-    return Card(
-      color: AppColors.cardOf(context),
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.borderOf(context).withValues(alpha: 0.1),
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => project.concept.isEmpty
-                  ? StorySetupPage(projectId: project.dbId!)
-                  : StoryDashboardPage(projectId: project.dbId!),
+  @override
+  Widget build(BuildContext context) {
+    final p = project;
+    final st = storyShelfStatus(p);
+    return StoryCard(
+      key: ValueKey('story-book-${p.dbId}'),
+      padding: const EdgeInsets.all(12),
+      onTap: () => openStory(context, p),
+      alignment: CrossAxisAlignment.stretch,
+      children: [
+        Stack(
+          children: [
+            Container(
+              height: 84,
+              padding: const EdgeInsets.all(8),
+              alignment: Alignment.bottomLeft,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(7),
+                gradient: const LinearGradient(
+                  begin: Alignment(-0.6, -1),
+                  end: Alignment(0.6, 1),
+                  colors: [StudioColors.coverStart, StudioColors.coverEnd],
+                ),
+              ),
+              child: Text(
+                p.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.prose(
+                  context,
+                  size: 14,
+                  height: 1.2,
+                  color: StudioColors.honeyOf(context),
+                ),
+              ),
             ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Story icon
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: AppColors.porchHoneyOf(
-                    context,
-                  ).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.auto_stories,
-                  color: AppColors.porchHoneyOf(context),
-                  size: 28,
+            Positioned(top: 8, right: 8, child: _engineChip(p, st)),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                p.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.ui(
+                  context,
+                  size: 14,
+                  weight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 16),
-              // Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      project.title,
-                      style: TextStyle(
-                        color: AppColors.textPrimary(context),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    if (project.style.genre.isNotEmpty)
-                      Text(
-                        '${project.style.genre} • ${project.style.mood}',
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                          fontSize: 13,
-                        ),
-                      ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(statusIcon, size: 14, color: statusColor),
-                        const SizedBox(width: 6),
-                        Text(
-                          statusLabel,
-                          style: TextStyle(color: statusColor, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (project.engineMode == StoryEngineMode.studio) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.porchAmberOf(
-                      context,
-                    ).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Studio',
-                    style: TextStyle(
-                      color: AppColors.porchAmberOf(context),
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
-              // Tier badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _tierColor(
-                    context,
-                    project.promptTier,
-                  ).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _tierLabel(project.promptTier),
-                  style: TextStyle(
-                    color: _tierColor(context, project.promptTier),
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Read Button
-              if (hasActs)
-                IconButton(
-                  icon: Icon(
-                    Icons.menu_book,
-                    color: AppColors.porchHoneyOf(context),
-                    size: 20,
-                  ),
-                  tooltip: 'Read Story',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => StoryReaderPage(projectId: project.dbId!),
-                    ),
-                  ),
-                ),
-              // Export menu (only for stories with prose)
-              if (totalProse > 0)
-                PopupMenuButton<String>(
-                  icon: Icon(
-                    Icons.download,
-                    color: AppColors.iconSecondary(context),
-                    size: 20,
-                  ),
-                  tooltip: 'Export',
-                  color: AppColors.surfaceContainerOf(context),
-                  onSelected: (value) {
-                    if (value == 'audiobook') _startAudiobookExport(project);
-                    if (value == 'epub') _startEpubExport(project);
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem(
-                      value: 'audiobook',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.headphones,
-                            color: AppColors.porchHoneyOf(context),
-                            size: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Export Audiobook (.wav)',
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'epub',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.book,
-                            color: AppColors.frostAccentOf(context),
-                            size: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Export eBook (.epub)',
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              // Delete
-              IconButton(
-                icon: Icon(
-                  Icons.delete_outline,
-                  color: AppColors.negativeAccentOf(
-                    context,
-                  ).withValues(alpha: 0.6),
-                  size: 20,
-                ),
-                tooltip: 'Delete story',
-                onPressed: () => _confirmDelete(context, project, repo),
-              ),
-            ],
+            ),
+            StoryShelfMenu(project: p),
+          ],
+        ),
+        Text(
+          storyGenreLine(p),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: StudioType.ui(
+            context,
+            size: 12,
+            color: StudioColors.mutedOf(context),
           ),
         ),
-      ),
+        StoryProgressBar(st.fraction, done: st.done),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                st.status,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.ui(
+                  context,
+                  size: 12,
+                  color: StudioColors.mutedOf(context),
+                ),
+              ),
+            ),
+            Text(
+              formatRelativeTime(p.updatedAt),
+              style: StudioType.ui(
+                context,
+                size: 12,
+                color: StudioColors.mutedOf(context),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+Widget _engineChip(
+  StoryProject p,
+  ({String status, double fraction, bool done, bool setup}) st,
+) => st.setup
+    ? const StoryChip('Setup', tone: 'honey')
+    : p.engineMode == StoryEngineMode.studio
+    ? const StoryChip('Studio', tone: 'amber')
+    : const StoryChip('Quick');
+
+/// The phone row: avatar, title, status, engine chip, progress.
+class StoryShelfRow extends StatelessWidget {
+  final StoryProject project;
+
+  const StoryShelfRow({super.key, required this.project});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = project;
+    final st = storyShelfStatus(p);
+    return StoryCard(
+      key: ValueKey('story-book-${p.dbId}'),
+      onTap: () => openStory(context, p),
+      alignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            StoryAvatar(p.title),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    p.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: StudioType.ui(
+                      context,
+                      size: 14,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    st.status,
+                    style: StudioType.ui(
+                      context,
+                      size: 12,
+                      color: StudioColors.mutedOf(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _engineChip(p, st),
+            StoryShelfMenu(project: p),
+          ],
+        ),
+        StoryProgressBar(st.fraction, done: st.done),
+      ],
+    );
+  }
+}
+
+/// Setup still open → the wizard where it stopped; otherwise the studio.
+void openStory(BuildContext context, StoryProject p) {
+  final page = storyShelfStatus(p).setup
+      ? StorySetupPage(projectId: p.dbId!)
+      : StoryDashboardPage(projectId: p.dbId!);
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+}
+
+/// Open · Read · Rename · Delete story…
+class StoryShelfMenu extends StatelessWidget {
+  final StoryProject project;
+
+  const StoryShelfMenu({super.key, required this.project});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = project;
+    return StoryMenuButton(
+      entries: [
+        StoryMenuEntry('Open', onSelect: () => openStory(context, p)),
+        StoryMenuEntry(
+          'Read',
+          enabled: p.wordCount > 0,
+          onSelect: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => StoryDashboardPage(
+                projectId: p.dbId!,
+                openSection: StudioSection.read,
+              ),
+            ),
+          ),
+        ),
+        StoryMenuEntry('Rename', onSelect: () => renameStory(context, p)),
+        StoryMenuEntry(
+          'Delete story…',
+          danger: true,
+          divider: true,
+          onSelect: () => _delete(context, p),
+        ),
+      ],
     );
   }
 
-  Future<void> _startAudiobookExport(StoryProject project) async {
-    final service = Provider.of<AudiobookGeneratorService>(
+  Future<void> _delete(BuildContext context, StoryProject p) async {
+    final words = p.wordCount;
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Delete ${p.title}?',
+      body: words > 0
+          ? '${thousands(words)} words, its bible and its run log will be '
+                'removed. This cannot be undone.'
+          : 'Its setup and bible will be removed. This cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (!ok || !context.mounted) return;
+    await Provider.of<StoryRepository>(
       context,
       listen: false,
-    );
-    try {
-      final audiobook = await service.generateAudiobook(project);
-      if (audiobook != null && mounted) {
-        final wav = await audiobook.file.readAsBytes();
-        final String? outputFile = await PickerPrefs.saveFile(
-          category: PickerPrefs.catExport,
-          bytes: wav,
-          dialogTitle: 'Save Audiobook',
-          fileName: 'audiobook_${project.title.replaceAll(' ', '_')}.wav',
-          type: FileType.custom,
-          allowedExtensions: ['wav'],
-        );
-        if (outputFile != null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Audiobook saved to $outputFile'),
-                backgroundColor: AppColors.surfaceContainerOf(context),
-              ),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Audiobook failed: $e'),
-            backgroundColor: AppColors.negativeAccentOf(context),
-          ),
-        );
-      }
-    }
+    ).deleteProject(p.dbId!);
   }
+}
 
-  Future<void> _startEpubExport(StoryProject project) async {
-    try {
-      final epub = await EpubGeneratorService.generateEpub(project);
-      if (epub != null && mounted) {
-        final String? outputFile = await PickerPrefs.saveFile(
-          category: PickerPrefs.catExport,
-          bytes: Uint8List.fromList(epub.bytes),
-          dialogTitle: 'Save eBook',
-          fileName: '${project.title.replaceAll(' ', '_')}.epub',
-          type: FileType.custom,
-          allowedExtensions: ['epub'],
-        );
-        if (outputFile != null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('eBook saved to $outputFile'),
-                backgroundColor: AppColors.surfaceContainerOf(context),
-              ),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('eBook export failed: $e'),
-            backgroundColor: AppColors.negativeAccentOf(context),
-          ),
-        );
-      }
-    }
-  }
-
-  String _tierLabel(PromptTier tier) {
-    switch (tier) {
-      case PromptTier.frontier:
-        return 'Frontier';
-      case PromptTier.largLocal:
-        return '70B+';
-      case PromptTier.smallLocal:
-        return '7-34B';
-    }
-  }
-
-  Color _tierColor(BuildContext context, PromptTier tier) {
-    switch (tier) {
-      case PromptTier.frontier:
-        return AppColors.frostAccentOf(context);
-      case PromptTier.largLocal:
-        return AppColors.bondHighOf(context);
-      case PromptTier.smallLocal:
-        return AppColors.taskAccentOf(context);
-    }
-  }
-
-  void _confirmDelete(
-    BuildContext context,
-    StoryProject project,
-    StoryRepository repo,
-  ) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        title: Text(
-          'Delete Story?',
-          style: TextStyle(color: AppColors.textPrimary(context)),
-        ),
-        content: Text(
-          'Delete "${project.title}" and all its content? This cannot be undone.',
-          style: TextStyle(color: AppColors.textSecondary(context)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              repo.deleteProject(project.dbId!);
-              Navigator.pop(ctx);
-            },
-            child: Text(
-              'Delete',
-              style: TextStyle(color: AppColors.negativeAccentOf(context)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+/// Rename in place; the same dialog the studio header uses.
+Future<void> renameStory(BuildContext context, StoryProject p) async {
+  final ctl = TextEditingController(text: p.title);
+  final ok = await showStoryDialog<bool>(
+    context,
+    title: 'Rename',
+    body: StoryField(controller: ctl, hint: 'Title'),
+    actions: (ctx) => [
+      StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx, false)),
+      StoryButton.primary('Rename', onPressed: () => Navigator.pop(ctx, true)),
+    ],
+  );
+  if (ok != true || !context.mounted || ctl.text.trim().isEmpty) return;
+  p.title = ctl.text.trim();
+  await Provider.of<StoryRepository>(context, listen: false).saveProject(p);
 }

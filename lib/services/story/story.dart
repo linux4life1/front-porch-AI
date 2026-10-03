@@ -20,7 +20,6 @@
 // this directory now holds 6 files with multi-file importers). Deliberately
 // NOT re-exported from the curated `services.dart` (the chat/-leaf
 // precedent: `services.dart` does not re-export domain leaves either).
-
 export 'faithful_mode.dart';
 export 'prompts/director_prompts.dart';
 export 'prompts/studio_archive_prompts.dart';
@@ -43,6 +42,7 @@ export 'story_prompts.dart';
 export 'story_quality.dart';
 export 'story_quick_xml.dart';
 export 'story_review.dart';
+export 'story_shelf.dart';
 export 'story_structure.dart';
 export 'story_studio_store.dart';
 export 'story_xml.dart';

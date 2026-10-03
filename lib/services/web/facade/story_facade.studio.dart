@@ -164,14 +164,52 @@ extension StoryFacadeStudio on StoryFacade {
     };
   }
 
-  /// "Main model · …" / "Worker model · …" for the Engine step.
-  Map<String, String?> lanes() {
+  /// What the model picker offers (chat, worker, hosts, local files).
+  Map<String, dynamic> lanes() {
     final storage = _storage;
     final llm = _llm;
     if (storage == null || llm == null) {
-      return {'main': 'Main model', 'worker': null};
+      return {
+        'chat': {'label': 'Same as chat', 'detail': ''},
+        'worker': null,
+        'hosts': const [],
+        'koboldModels': const [],
+        'kcpps': const [],
+      };
     }
-    final labels = storyLaneLabelsFor(storage, llm);
-    return {'main': labels.main, 'worker': labels.worker};
+    return storyLaneOptionsFor(storage, llm);
+  }
+
+  /// "OpenRouter · anthropic/claude-opus-5.5" for a lane choice.
+  String laneLabel(Map<String, dynamic> json) {
+    final storage = _storage;
+    final llm = _llm;
+    final choice = StoryLaneChoice.fromJson(json, StoryLaneChoice.chat());
+    if (storage == null || llm == null) return choice.lane.name;
+    return storyLaneLabel(storage, llm, choice);
+  }
+
+  /// The models a remote host offers, with the key saved for that host.
+  Future<List<Map<String, String>>> hostModels(String type, String url) async {
+    final storage = _storage;
+    final llm = _llm;
+    if (storage == null || llm == null) return const [];
+    final resolved = storyLaneResolvedUrl(type, url);
+    final key = storage.remoteApiKeyFor(resolved);
+    final list = await llm.openRouterService.fetchAvailableModels(
+      apiUrl: resolved,
+      apiKey: key,
+    );
+    return [
+      for (final m in list) {'id': m.id, 'name': m.name},
+    ];
+  }
+
+  /// Save a key for a host the story picker is about to use.
+  Future<void> saveHostKey(String type, String url, String key) async {
+    final storage = _storage;
+    if (storage == null || key.trim().isEmpty) return;
+    final resolved = storyLaneResolvedUrl(type, url);
+    await storage.setRemoteApiKeyFor(resolved, key.trim());
   }
 }

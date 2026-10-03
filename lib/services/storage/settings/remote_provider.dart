@@ -68,6 +68,17 @@ bool remoteProviderNeedsApiKey(RemoteProviderKind kind) => switch (kind) {
 bool remoteProviderShowsUrlField(RemoteProviderKind kind) =>
     kind == RemoteProviderKind.custom;
 
+/// Display name, as the provider chips and the story lane labels show it.
+String remoteProviderKindLabel(RemoteProviderKind kind) => switch (kind) {
+  RemoteProviderKind.kobold => 'KoboldCpp',
+  RemoteProviderKind.openRouter => 'OpenRouter',
+  RemoteProviderKind.nanoGpt => 'Nano-GPT',
+  RemoteProviderKind.xai => 'xAI',
+  RemoteProviderKind.lmStudio => 'LM Studio',
+  RemoteProviderKind.omlx => 'oMLX',
+  RemoteProviderKind.custom => 'Custom',
+};
+
 /// What a key field may show: the saved key for the live host, never a
 /// SuperGrok session token riding [BackendSettings.bearerOverlay].
 String typedRemoteApiKey(BackendSettings b) =>

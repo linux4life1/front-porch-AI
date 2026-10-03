@@ -19,63 +19,95 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/story/story.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_theme.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Colour for a chip tone shared by every story screen: '' (muted),
-/// 'amber', 'honey', 'teal', 'bad', 'terra'. The quality chips map their
-/// tones onto these (good → teal, warn → honey, bad → bad).
+// The small pieces every story screen is built from, each exactly as the
+// spec draws it (docs/design/porch-stories-ui-spec.md § Components). The web
+// twins are the .s-* classes in web_ui/src/styles/studio.css.
+
+/// Accent for a chip tone: '' (muted), 'amber', 'honey', 'teal', 'bad',
+/// 'terra'. Quality chips map good → teal, warn → honey.
 Color storyToneColor(BuildContext context, String tone) => switch (tone) {
-  'amber' => AppColors.porchAmberOf(context),
-  'honey' || 'warn' => AppColors.porchHoneyOf(context),
-  'teal' || 'good' => AppColors.journalAccentOf(context),
-  'bad' => AppColors.negativeAccentOf(context),
-  'terra' => AppColors.porchTerracottaOf(context),
-  _ => AppColors.textSecondary(context),
+  'amber' => StudioColors.amberOf(context),
+  'honey' || 'warn' => StudioColors.honeyOf(context),
+  'teal' || 'good' => StudioColors.tealOf(context),
+  'bad' => StudioColors.badOf(context),
+  'terra' => StudioColors.terraOf(context),
+  _ => StudioColors.mutedOf(context),
 };
 
-/// A small pill: "Reviews on", "412 words", "14 beats planned".
+/// A pill: "412 words", "Written", "14 beats planned". With [onTap] it is a
+/// pick chip (raised fill; [selected] = amber fill, ink text).
 class StoryChip extends StatelessWidget {
   final String label;
   final String tone;
   final IconData? icon;
+  final bool selected;
+  final VoidCallback? onTap;
 
-  const StoryChip(this.label, {super.key, this.tone = '', this.icon});
+  const StoryChip(
+    this.label, {
+    super.key,
+    this.tone = '',
+    this.icon,
+    this.selected = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = storyToneColor(context, tone);
-    return Container(
+    final pick = onTap != null;
+    final accent = storyToneColor(context, tone);
+    final fg = selected ? StudioColors.amberInkOf(context) : accent;
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
       decoration: BoxDecoration(
+        color: selected
+            ? StudioColors.amberOf(context)
+            : pick
+            ? StudioColors.raiseOf(context)
+            : null,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: tone.isEmpty
-              ? AppColors.borderOf(context)
-              : color.withValues(alpha: 0.5),
+          color: selected
+              ? StudioColors.amberOf(context)
+              : tone.isEmpty
+              ? StudioColors.lineOf(context)
+              : accent.withValues(alpha: 0.45),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 12, color: color),
+            Icon(icon, size: 12, color: fg),
             const SizedBox(width: 4),
           ],
           Text(
             label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11.5,
-              fontWeight: tone.isEmpty ? FontWeight.w500 : FontWeight.w600,
+            style: StudioType.ui(
+              context,
+              size: 11.5,
+              color: fg,
+              weight: selected || tone.isNotEmpty
+                  ? FontWeight.w600
+                  : FontWeight.w500,
             ),
           ),
         ],
       ),
     );
+    if (!pick) return chip;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: chip,
+    );
   }
 }
 
-/// The lens mark: a rounded square with the lens glyph.
+/// The lens mark: a 22px raised square with the lens glyph in amber.
 class StoryLensMark extends StatelessWidget {
   final String lensId;
   final double size;
@@ -93,14 +125,14 @@ class StoryLensMark extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerOf(context),
+          color: StudioColors.raiseOf(context),
           borderRadius: BorderRadius.circular(6),
         ),
         alignment: Alignment.center,
         child: Text(
           StoryLenses.glyph(lensId),
           style: TextStyle(
-            color: AppColors.porchAmberOf(context),
+            color: StudioColors.amberOf(context),
             fontSize: size * 0.55,
           ),
         ),
@@ -109,7 +141,7 @@ class StoryLensMark extends StatelessWidget {
   }
 }
 
-/// Four bars; the filled ones show how intense the scene is.
+/// Four 4px bars, terracotta when filled, rising 5→14px.
 class StoryTensionBars extends StatelessWidget {
   final int tension;
 
@@ -131,8 +163,8 @@ class StoryTensionBars extends StatelessWidget {
               margin: const EdgeInsets.only(right: 2),
               decoration: BoxDecoration(
                 color: i < filled
-                    ? AppColors.porchTerracottaOf(context)
-                    : AppColors.borderOf(context),
+                    ? StudioColors.terraOf(context)
+                    : StudioColors.lineOf(context),
                 borderRadius: BorderRadius.circular(1),
               ),
             ),
@@ -142,24 +174,18 @@ class StoryTensionBars extends StatelessWidget {
   }
 }
 
-/// Small uppercase label above a group of controls.
+/// 11px uppercase label above a group of controls.
 class StoryKeyLabel extends StatelessWidget {
   final String text;
 
   const StoryKeyLabel(this.text, {super.key});
 
   @override
-  Widget build(BuildContext context) => Text(
-    text.toUpperCase(),
-    style: TextStyle(
-      color: AppColors.textTertiary(context),
-      fontSize: 11,
-      letterSpacing: 0.8,
-    ),
-  );
+  Widget build(BuildContext context) =>
+      Text(text.toUpperCase(), style: StudioType.label(context));
 }
 
-/// A segmented switch ("Continuity | Lore | Story so far").
+/// Segmented control: hairline frame, selected segment amber with ink text.
 class StorySegmented extends StatelessWidget {
   final Map<String, String> options;
   final String selected;
@@ -174,10 +200,10 @@ class StorySegmented extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.porchAmberOf(context);
+    final amber = StudioColors.amberOf(context);
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.borderOf(context)),
+        border: Border.all(color: StudioColors.lineOf(context)),
         borderRadius: BorderRadius.circular(8),
       ),
       clipBehavior: Clip.antiAlias,
@@ -186,23 +212,25 @@ class StorySegmented extends StatelessWidget {
         children: [
           for (final e in options.entries)
             InkWell(
+              key: ValueKey('story-seg-${e.key}'),
               onTap: () => onSelect(e.key),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 6,
                 ),
-                color: selected == e.key ? accent : Colors.transparent,
+                color: selected == e.key ? amber : null,
                 child: Text(
                   e.value,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: selected == e.key
+                  style: StudioType.ui(
+                    context,
+                    size: 12.5,
+                    weight: selected == e.key
                         ? FontWeight.w600
                         : FontWeight.w400,
                     color: selected == e.key
-                        ? AppColors.onChaosAccent
-                        : AppColors.textSecondary(context),
+                        ? StudioColors.amberInkOf(context)
+                        : StudioColors.mutedOf(context),
                   ),
                 ),
               ),
@@ -213,93 +241,242 @@ class StorySegmented extends StatelessWidget {
   }
 }
 
-/// The amber primary button used on every studio screen.
-class StoryPrimaryButton extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final VoidCallback? onPressed;
-
-  const StoryPrimaryButton(
-    this.label, {
-    super.key,
-    this.icon,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) => ElevatedButton.icon(
-    onPressed: onPressed,
-    icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 16),
-    label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-    style: ElevatedButton.styleFrom(
-      backgroundColor: AppColors.porchAmberOf(context),
-      foregroundColor: AppColors.onChaosAccent,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ),
-  );
-}
-
-/// The quiet secondary button.
-class StoryQuietButton extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final VoidCallback? onPressed;
-
-  const StoryQuietButton(
-    this.label, {
-    super.key,
-    this.icon,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
-    onPressed: onPressed,
-    icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 16),
-    label: Text(label),
-    style: OutlinedButton.styleFrom(
-      foregroundColor: AppColors.textPrimary(context),
-      side: BorderSide(color: AppColors.borderOf(context)),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ),
-  );
-}
-
-/// "Teodor should be hiding…" style multi-line field.
+/// Multi-line field: page-background fill, hairline, radius 8.
 class StoryTextArea extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final int minLines;
+  final ValueChanged<String>? onChanged;
+  final bool prose;
 
   const StoryTextArea({
     super.key,
     required this.controller,
     this.hint = '',
     this.minLines = 2,
+    this.onChanged,
+    this.prose = false,
   });
 
   @override
   Widget build(BuildContext context) => TextField(
     controller: controller,
     minLines: minLines,
-    maxLines: minLines + 6,
-    style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13.5),
+    maxLines: minLines + 8,
+    onChanged: onChanged,
+    style: prose
+        ? StudioType.prose(context, size: 14)
+        : StudioType.ui(context, size: 13.5),
     decoration: InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: AppColors.textTertiary(context)),
-      filled: true,
-      fillColor: AppColors.backgroundOf(context),
       contentPadding: const EdgeInsets.all(10),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderOf(context)),
+    ),
+  );
+}
+
+/// Single-line field with the same face.
+class StoryField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final String? label;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+
+  const StoryField({
+    super.key,
+    required this.controller,
+    this.hint = '',
+    this.label,
+    this.onChanged,
+    this.onSubmitted,
+  });
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    onChanged: onChanged,
+    onSubmitted: onSubmitted,
+    style: StudioType.ui(context, size: 13),
+    decoration: InputDecoration(hintText: hint, labelText: label),
+  );
+}
+
+/// A field that opens a picker on tap and ends with ▾.
+class StoryPickField extends StatelessWidget {
+  final String value;
+  final String? placeholder;
+  final VoidCallback? onTap;
+
+  const StoryPickField({
+    super.key,
+    required this.value,
+    this.placeholder,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final empty = value.isEmpty;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: StudioColors.bgOf(context),
+          border: Border.all(color: StudioColors.lineOf(context)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                empty ? (placeholder ?? '') : value,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.ui(
+                  context,
+                  size: 13,
+                  color: empty
+                      ? StudioColors.faintOf(context)
+                      : StudioColors.inkOf(context),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text('▾', style: TextStyle(color: StudioColors.mutedOf(context))),
+          ],
+        ),
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderOf(context)),
+    );
+  }
+}
+
+/// A toggle row: switch, label, optional trailing hint ("Off is faster").
+class StoryToggleRow extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final String label;
+  final String? detail;
+  final String? trailing;
+
+  const StoryToggleRow({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.label,
+    this.detail,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onChanged == null ? null : () => onChanged!(!value),
+    borderRadius: BorderRadius.circular(6),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            height: 24,
+            child: FittedBox(
+              child: Switch(value: value, onChanged: onChanged),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: StudioType.ui(context)),
+                if (detail != null)
+                  Text(
+                    detail!,
+                    style: StudioType.ui(
+                      context,
+                      size: 12,
+                      color: StudioColors.mutedOf(context),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (trailing != null)
+            Text(
+              trailing!,
+              style: StudioType.ui(
+                context,
+                size: 12,
+                color: StudioColors.mutedOf(context),
+              ),
+            ),
+        ],
       ),
     ),
   );
+}
+
+/// A radio row: 16px ring, title, muted detail.
+class StoryRadioRow extends StatelessWidget {
+  final bool selected;
+  final VoidCallback onTap;
+  final String title;
+  final String? detail;
+
+  const StoryRadioRow({
+    super.key,
+    required this.selected,
+    required this.onTap,
+    required this.title,
+    this.detail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final amber = StudioColors.amberOf(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              margin: const EdgeInsets.only(top: 2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? amber : StudioColors.lineOf(context),
+                  width: selected ? 5 : 2,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: StudioType.ui(context, weight: FontWeight.w600),
+                  ),
+                  if (detail != null)
+                    Text(
+                      detail!,
+                      style: StudioType.ui(
+                        context,
+                        size: 12,
+                        color: StudioColors.mutedOf(context),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

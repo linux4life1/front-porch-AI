@@ -81,9 +81,9 @@ class StoryProject {
   StoryEngineMode engineMode;
   int targetWords;
   StoryFormat storyFormat;
-  StoryModelLane planningLane;
-  StoryModelLane proseLane;
-  StoryModelLane reviewLane;
+  StoryLaneChoice planningLane;
+  StoryLaneChoice proseLane;
+  StoryLaneChoice reviewLane;
   bool reviewEnabled;
   bool lensesEnabled;
   List<StorySequence> sequences;
@@ -101,6 +101,10 @@ class StoryProject {
 
   /// Reader: 'book' (page flip) or 'scroll', and how far down the scroll is.
   String readerMode;
+
+  /// Which New Story step the writer reached; null once setup is done.
+  /// The shelf shows "Stopped at step 2 · Cast" while it is set.
+  int? setupStep;
   double readerScroll;
 
   DateTime createdAt;
@@ -144,9 +148,9 @@ class StoryProject {
     this.engineMode = StoryEngineMode.quick,
     this.targetWords = 80000,
     this.storyFormat = StoryFormat.novel,
-    this.planningLane = StoryModelLane.main,
-    this.proseLane = StoryModelLane.main,
-    this.reviewLane = StoryModelLane.worker,
+    StoryLaneChoice? planningLane,
+    StoryLaneChoice? proseLane,
+    StoryLaneChoice? reviewLane,
     this.reviewEnabled = true,
     this.lensesEnabled = true,
     List<StorySequence>? sequences,
@@ -159,10 +163,14 @@ class StoryProject {
     this.directorPlan,
     this.directorApplied,
     this.readerMode = 'book',
+    this.setupStep,
     this.readerScroll = 0,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : style = style ?? StoryStyle(),
+       planningLane = planningLane ?? StoryLaneChoice.chat(),
+       proseLane = proseLane ?? StoryLaneChoice.chat(),
+       reviewLane = reviewLane ?? StoryLaneChoice.worker(),
        sequences = sequences ?? [],
        relationships = relationships ?? [],
        continuity = continuity ?? [],
@@ -228,9 +236,9 @@ class StoryProject {
     'target_words': targetWords,
     'story_format': storyFormat.name,
     'model_lanes': {
-      'planning': planningLane.name,
-      'prose': proseLane.name,
-      'review': reviewLane.name,
+      'planning': planningLane.toJson(),
+      'prose': proseLane.toJson(),
+      'review': reviewLane.toJson(),
     },
     'review_enabled': reviewEnabled,
     'lenses_enabled': lensesEnabled,
@@ -244,6 +252,7 @@ class StoryProject {
     if (directorPlan != null) 'director_plan': directorPlan!.toJson(),
     if (directorApplied != null) 'director_applied': directorApplied!.toJson(),
     'reader_mode': readerMode,
+    if (setupStep != null) 'setup_step': setupStep,
     'reader_scroll': readerScroll,
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
@@ -277,8 +286,8 @@ class StoryProject {
     }
 
     final lanes = json['model_lanes'] as Map<String, dynamic>? ?? const {};
-    StoryModelLane lane(String key, StoryModelLane fallback) =>
-        _enumByName(StoryModelLane.values, lanes[key], fallback);
+    StoryLaneChoice lane(String key, StoryLaneChoice fallback) =>
+        StoryLaneChoice.fromJson(lanes[key], fallback);
     List<T> list<T>(String key, T Function(Map<String, dynamic>) parse) =>
         (json[key] as List?)
             ?.whereType<Map<String, dynamic>>()
@@ -300,9 +309,9 @@ class StoryProject {
         json['story_format'],
         StoryFormat.novel,
       ),
-      planningLane: lane('planning', StoryModelLane.main),
-      proseLane: lane('prose', StoryModelLane.main),
-      reviewLane: lane('review', StoryModelLane.worker),
+      planningLane: lane('planning', StoryLaneChoice.chat()),
+      proseLane: lane('prose', StoryLaneChoice.chat()),
+      reviewLane: lane('review', StoryLaneChoice.worker()),
       reviewEnabled: json['review_enabled'] ?? true,
       lensesEnabled: json['lenses_enabled'] ?? true,
       sequences: list('sequences', StorySequence.fromJson),
@@ -319,6 +328,7 @@ class StoryProject {
           ? DirectorApplied.fromJson(json['director_applied'])
           : null,
       readerMode: json['reader_mode'] == 'scroll' ? 'scroll' : 'book',
+      setupStep: (json['setup_step'] as num?)?.toInt(),
       readerScroll: ((json['reader_scroll'] as num?)?.toDouble() ?? 0)
           .clamp(0.0, 1.0)
           .toDouble(),

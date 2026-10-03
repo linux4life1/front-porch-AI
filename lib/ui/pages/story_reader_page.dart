@@ -27,7 +27,7 @@ import 'package:front_porch_ai/ui/widgets/custom_page_flip.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story_narration_service.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/story_studio/studio_widgets.dart';
+import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';

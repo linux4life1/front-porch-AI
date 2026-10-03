@@ -25,28 +25,54 @@ part of 'story_pipeline_service.dart';
 /// ChatService-parts precedent: a library-private extension would be
 /// invisible to importing libraries).
 extension StoryPipelineLlm on StoryPipelineService {
-  /// Which service a [role] runs on for [project]. The worker lane is used
-  /// only when the story asks for it and a worker is actually live; the last
-  /// retry of a planning job ([escalate]) always goes to the main model.
-  ({LLMService service, bool onWorker}) _laneFor(
+  /// Which service a [role] runs on for [project], and how to hold the GPU
+  /// for it. The worker lane is used only when the story asks for it and a
+  /// worker is actually live; a host lane the story picked itself is used
+  /// when it can be built. The last retry of a planning job ([escalate])
+  /// always goes to the chat model.
+  _Lane _laneFor(
     StoryProject? project,
     StoryRole role, {
     bool escalate = false,
   }) {
-    final wanted = project == null
-        ? StoryModelLane.main
-        : switch (role) {
-            StoryRole.planning => project.planningLane,
-            StoryRole.prose => project.proseLane,
-            StoryRole.review => project.reviewLane,
-          };
-    if (wanted == StoryModelLane.worker && !escalate) {
-      final worker = _lanes?.worker();
-      if (worker != null && worker.isReady) {
-        return (service: worker, onWorker: true);
-      }
+    final chat = _Lane(_llmService, hold: null, host: null);
+    if (project == null || escalate) return chat;
+    final wanted = switch (role) {
+      StoryRole.planning => project.planningLane,
+      StoryRole.prose => project.proseLane,
+      StoryRole.review => project.reviewLane,
+    };
+    switch (wanted.lane) {
+      case StoryModelLane.main:
+        return chat;
+      case StoryModelLane.worker:
+        final worker = _lanes?.worker();
+        if (worker != null && worker.isReady) {
+          return _Lane(worker, hold: _lanes!.hold, host: null);
+        }
+        return chat;
+      case StoryModelLane.host:
+        final host = _lanes?.host(wanted);
+        if (host == null) return chat;
+        return _Lane(host.service, hold: host.hold, host: host);
     }
-    return (service: _llmService, onWorker: false);
+  }
+
+  /// A local lane model that is not the one about to run is put back
+  /// first, so two local engines never fight for the GPU.
+  Future<void> _swapLaneHost(LaneHost? next) async {
+    final prev = _activeLaneHost;
+    if (prev != null && !identical(prev, next)) {
+      await prev.restore();
+    }
+    _activeLaneHost = next;
+  }
+
+  /// Called when a run ends: put the chat model back.
+  Future<void> restoreLaneHosts() async {
+    final prev = _activeLaneHost;
+    _activeLaneHost = null;
+    if (prev != null) await prev.restore();
   }
 
   /// One model call: streams tokens to `_streamingText` for the UI and
@@ -116,9 +142,9 @@ extension StoryPipelineLlm on StoryPipelineService {
     final started = DateTime.now();
     final String text;
     try {
-      text = lane.onWorker
-          ? await _lanes!.hold<String>(stream)
-          : await stream();
+      await _swapLaneHost(lane.host);
+      final hold = lane.hold;
+      text = hold == null ? await stream() : await hold<String>(stream);
     } catch (e) {
       // Stop aborts the HTTP client, which surfaces here as a socket error.
       if (_stopRequested) throw StoryStoppedException();
@@ -411,4 +437,13 @@ Output the merged, deduplicated, chronologically ordered timeline. Output ONLY t
       _notify();
     }
   }
+}
+
+/// A resolved lane: the service, an optional GPU hold, and the host it came
+/// from (null for the chat model and the worker).
+class _Lane {
+  const _Lane(this.service, {required this.hold, required this.host});
+  final LLMService service;
+  final Future<T> Function<T>(Future<T> Function() work)? hold;
+  final LaneHost? host;
 }

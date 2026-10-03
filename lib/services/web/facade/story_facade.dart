@@ -89,6 +89,20 @@ class StoryFacade {
         'sceneCount': sceneCount,
         'proseCount': proseCount,
         'hasConcept': p.concept.trim().isNotEmpty,
+        // The shelf (sketch H): one wording for desktop and web.
+        'setupStep': p.setupStep,
+        'wordCount': p.wordCount,
+        'targetWords': p.targetWords,
+        'genreLine': storyGenreLine(p),
+        'shelf': () {
+          final st = storyShelfStatus(p);
+          return {
+            'status': st.status,
+            'fraction': st.fraction,
+            'done': st.done,
+            'setup': st.setup,
+          };
+        }(),
       };
     }).toList();
   }
