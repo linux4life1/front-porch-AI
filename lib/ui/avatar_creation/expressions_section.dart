@@ -19,12 +19,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
-import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-import 'avatar_creation_controller.dart';
-import 'avatar_studio_line.dart';
+import 'avatar_creation_widgets.dart';
 
 /// "Expressions — independent of how the portrait got here": the pack toggle
 /// + the Studio's two presets verbatim (8 base / all 28), the capability-gated
@@ -74,6 +73,16 @@ class ExpressionsSection extends StatelessWidget {
                     : null,
               ),
               if (packOn) _presetDropdown(context, c),
+              if (packOn)
+                TextButton(
+                  onPressed: c.running
+                      ? null
+                      : () => editCreatorPromptRules(context, c),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.formMasterAccent,
+                  ),
+                  child: const Text('Prompt rules…'),
+                ),
               if (packOn && c.qcVisible) ...[
                 const SizedBox(width: 4),
                 _label(context, 'Vision QC'),

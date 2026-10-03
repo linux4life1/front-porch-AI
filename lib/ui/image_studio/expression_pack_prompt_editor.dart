@@ -33,13 +33,12 @@ Future<void> showPackRerollEditor(
   ExpressionPackSession session,
   int index,
 ) async {
-  final controller = TextEditingController(
-    text: session.effectivePromptFor(index),
-  );
+  final initialPrompt = session.effectivePromptFor(index);
+  final controller = TextEditingController(text: initialPrompt);
   var denoise = session.effectiveDenoiseFor(index);
   var newSeed = false;
   final emotion = session.slots[index].emotion;
-  final confirmed = await showDialog<bool>(
+  final route = DialogRoute<bool>(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
@@ -47,10 +46,7 @@ Future<void> showPackRerollEditor(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
           'Re-roll «$emotion»',
-          style: TextStyle(
-            fontSize: 15,
-            color: AppColors.textPrimary(context),
-          ),
+          style: TextStyle(fontSize: 15, color: AppColors.textPrimary(context)),
         ),
         content: SizedBox(
           width: 460,
@@ -159,13 +155,18 @@ Future<void> showPackRerollEditor(
       ),
     ),
   );
+  final confirmed = await Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push(route);
   final prompt = controller.text;
+  await route.completed;
   controller.dispose();
   if (confirmed == true) {
     unawaited(
       session.reroll(
         index,
-        promptOverride: prompt,
+        promptOverride: prompt.trim() == initialPrompt.trim() ? null : prompt,
         denoiseOverride: denoise,
         newSeed: newSeed,
       ),

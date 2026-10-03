@@ -19,7 +19,7 @@
   margin: 0 8px 8px 0;
   font-weight: 600;
 }
-.fp-pill[aria-pressed='true'] {
+.fp-pill[aria-pressed="true"] {
   background: #f4a259;
   color: #1a1200;
 }
@@ -63,4 +63,33 @@
   .fp-desk-output {
     order: 3;
   }
+}
+
+.fp-prompt-rules {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 20px;
+}
+.fp-prompt-rules::backdrop {
+  background: rgb(0 0 0 / 65%);
+}
+.fp-prompt-rules pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.fp-prompt-rules label {
+  display: block;
+  margin-block: 8px;
+}
+.fp-prompt-rules textarea {
+  width: 100%;
+}
+.fp-prompt-rules :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

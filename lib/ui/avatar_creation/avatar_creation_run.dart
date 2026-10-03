@@ -106,6 +106,7 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
     final flight = await beginExpressionPack(
       imageGen: imageGen,
       plan: plan,
+      promptRules: packPromptRules,
       emotions: emotions,
       basePrompt: '${promptController.text.trim()}, $kExpressionFraming',
       negativePrompt: storage.imageGenSettings.imageGenNegativePrompt,

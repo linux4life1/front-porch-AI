@@ -25,17 +25,16 @@ import 'package:flutter/widgets.dart' show TextEditingController;
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
-import 'package:front_porch_ai/services/image/expression_pack_board.dart';
-import 'package:front_porch_ai/services/image/expression_pack_flight.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/expression_pack_qc.dart';
-import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/services/portrait_promotion.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
 import 'package:front_porch_ai/ui/image_studio/backend_catalog.dart';
 
 part 'avatar_creation_run.dart';
+part 'avatar_creation_prompt_rules.dart';
 
 /// Where the card's portrait comes from in the "Portrait & Avatars" step.
 enum PortraitSource { upload, generate, none }
@@ -124,6 +123,7 @@ class AvatarCreationController extends ChangeNotifier {
   PortraitSource source = PortraitSource.upload;
   bool packEnabled = false;
   bool fullSet = false;
+  ExpressionPromptRules? _packPromptRules;
 
   // ── Applied images ────────────────────────────────────────────────────────
   /// The portrait as applied to the card this session (uploaded or generated);

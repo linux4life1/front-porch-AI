@@ -19,14 +19,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'expression_pack_widgets.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/expression_pack_qc.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-import 'expression_pack_prompt_editor.dart';
-import 'expression_pack_qc_ui.dart';
 
 /// Step 2 of the Expression-pack dialog: the live generation grid. One cell
 /// per emotion, generated sequentially by the [ExpressionPackSession]; this
@@ -36,6 +34,7 @@ import 'expression_pack_qc_ui.dart';
 class ExpressionPackGrid extends StatelessWidget {
   const ExpressionPackGrid({
     super.key,
+    this.storage,
     required this.session,
     required this.imageGen,
     required this.cancelRequested,
@@ -48,6 +47,7 @@ class ExpressionPackGrid extends StatelessWidget {
     required this.onImport,
   });
 
+  final StorageService? storage;
   final ExpressionPackSession session;
   final ImageGenService imageGen;
   final bool cancelRequested;
@@ -144,6 +144,38 @@ class ExpressionPackGrid extends StatelessWidget {
         ),
       );
     } else {
+      final settings = storage?.expressionSettings;
+      if (settings != null) {
+        buttons.add(
+          TextButton(
+            onPressed: importing
+                ? null
+                : () async {
+                    final rules = await showExpressionPromptRulesEditor(
+                      context,
+                      rules: session.promptRules,
+                      previewPrompt: (emotion, rules) =>
+                          session.previewPromptFor(
+                            session.slots.indexWhere(
+                              (s) => s.emotion == emotion,
+                            ),
+                            rules,
+                          ),
+                      globalDefaults: () => settings.expressionPromptRules,
+                      saveDefaults: settings.setExpressionPromptRules,
+                      originals: {
+                        for (var i = 0; i < session.slots.length; i++)
+                          session.slots[i].emotion: session.originalPromptFor(
+                            i,
+                          ),
+                      },
+                    );
+                    if (rules != null) session.updatePromptRules(rules);
+                  },
+            child: const Text('Prompt rules…'),
+          ),
+        );
+      }
       // Vision QC (advisory): only offered once there are images to check and
       // no import is writing them out.
       if (session.doneCount > 0 && !importing) {
@@ -206,7 +238,12 @@ class ExpressionPackGrid extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.borderOf(context))),
       ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.end, children: buttons),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 8,
+        runSpacing: 8,
+        children: buttons,
+      ),
     );
   }
 }
@@ -336,8 +373,7 @@ class _PackCell extends StatelessWidget {
                       child: Checkbox(
                         value: slot.keep,
                         activeColor: AppColors.formMasterAccent,
-                        onChanged: (v) =>
-                            session.setKeep(index, v ?? false),
+                        onChanged: (v) => session.setKeep(index, v ?? false),
                       ),
                     ),
                   ),
@@ -386,10 +422,7 @@ class _PackCell extends StatelessWidget {
               const SizedBox(height: 4),
               IconButton(
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 28,
-                  minHeight: 28,
-                ),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                 iconSize: 16,
                 // A failed slot produced NO image, so a same-settings retry
                 // is meaningful (errors are usually transient).

@@ -1,31 +1,37 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError } from '../../../api/client';
-import type { Picture } from './DeskRail';
+import { useCallback, useEffect, useState } from "react";
+import { api, ApiError } from "../../../api/client";
+import type { Picture } from "./DeskRail";
+import { PromptRulesEditor } from "./PromptRulesEditor";
 import {
   cancelPack,
+  resumePack,
+  rerollPack,
+  fetchPromptDefaults,
+  updatePackRules,
+  type PromptRules,
   fetchPack,
   importPack,
   packPicture,
   startPack,
   type PackStart,
   type PackView,
-} from './packApi';
+} from "./packApi";
 
 interface CharacterRow {
   id: string;
   name: string;
 }
 
-const REMEMBER = 'fpai.pack.character';
+const REMEMBER = "fpai.pack.character";
 
 function remembered(): string {
   try {
-    return window.localStorage.getItem(REMEMBER) ?? '';
+    return window.localStorage.getItem(REMEMBER) ?? "";
   } catch {
-    return '';
+    return "";
   }
 }
 
@@ -37,20 +43,22 @@ function remember(id: string) {
   }
 }
 
-const message = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
+const message = (e: unknown, fallback: string) =>
+  e instanceof ApiError ? e.message : fallback;
 
 /**
  * Expression packs: pick a character, start one, watch it, stop it, and
  * import what it made. The pictures are made on the computer, by the Edit
  * graph or with the reason it cannot; nothing here decides that.
  */
-export function PackPanel(props: {
-  prompt: string;
-  picture: Picture | null;
-}) {
+export function PackPanel(props: { prompt: string; picture: Picture | null }) {
   const [pack, setPack] = useState<PackView | null>(null);
+  const [rules, setRules] = useState<PromptRules | null>(null);
+  const [editingRules, setEditingRules] = useState<"setup" | "pack" | null>(
+    null,
+  );
   const [characters, setCharacters] = useState<CharacterRow[]>([]);
-  const [character, setCharacter] = useState('');
+  const [character, setCharacter] = useState("");
   const [full, setFull] = useState(false);
   const [skipExisting, setSkipExisting] = useState(true);
   const [replaceExisting, setReplaceExisting] = useState(true);
@@ -59,8 +67,8 @@ export function PackPanel(props: {
   const [busy, setBusy] = useState(false);
   // Why the last thing pressed did not work, shown beside the button that was
   // pressed (the desk's own note is far down the screen).
-  const [startProblem, setStartProblem] = useState('');
-  const [packProblem, setPackProblem] = useState('');
+  const [startProblem, setStartProblem] = useState("");
+  const [packProblem, setPackProblem] = useState("");
   const [stopped, setStopped] = useState(false);
 
   const refresh = useCallback(() => {
@@ -72,6 +80,24 @@ export function PackPanel(props: {
   }, []);
 
   const running = pack?.running === true;
+  const editRules = (scope: "setup" | "pack") => {
+    if (scope === "pack" && pack?.promptRules) {
+      setEditingRules(scope);
+      return;
+    }
+    if (rules) {
+      setEditingRules(scope);
+      return;
+    }
+    fetchPromptDefaults()
+      .then((value) => {
+        setRules(value);
+        setEditingRules(scope);
+      })
+      .catch((e: unknown) =>
+        setStartProblem(message(e, "Could not load prompt rules.")),
+      );
+  };
 
   // Looked at once, and then only while a pack is running: with no pack, or
   // one that has stopped, nothing is asked. What this panel starts or stops it
@@ -89,12 +115,14 @@ export function PackPanel(props: {
   useEffect(() => {
     let live = true;
     api
-      .get<CharacterRow[]>('/api/characters')
+      .get<CharacterRow[]>("/api/characters")
       .then((rows) => {
         if (!live) return;
         setCharacters(rows);
         const saved = remembered();
-        setCharacter(rows.some((r) => r.id === saved) ? saved : (rows[0]?.id ?? ''));
+        setCharacter(
+          rows.some((r) => r.id === saved) ? saved : (rows[0]?.id ?? ""),
+        );
       })
       .catch(() => {
         if (live) setCharacters([]);
@@ -107,44 +135,65 @@ export function PackPanel(props: {
   const start = () => {
     const body: PackStart = {
       characterId: character,
-      set: full ? 'full' : 'starter',
+      set: full ? "full" : "starter",
       skipExisting,
       replaceExisting,
       denoise,
       prompt: props.prompt,
     };
-    if (props.picture?.kind === 'file') body.referenceImage = props.picture.dataUrl;
-    if (props.picture?.kind === 'saved') body.referenceFilename = props.picture.name;
+    if (rules) body.promptRules = rules;
+    if (props.picture?.kind === "file")
+      body.referenceImage = props.picture.dataUrl;
+    if (props.picture?.kind === "saved")
+      body.referenceFilename = props.picture.name;
     setBusy(true);
     setLeft(new Set());
-    setStartProblem('');
+    setStartProblem("");
     setStopped(false);
     startPack(body)
       .then(setPack)
-      .catch((e: unknown) => setStartProblem(message(e, 'Could not start the pack.')))
+      .catch((e: unknown) =>
+        setStartProblem(message(e, "Could not start the pack.")),
+      )
       .finally(() => setBusy(false));
   };
 
   const stop = () => {
-    setPackProblem('');
+    setPackProblem("");
     cancelPack()
       .then((view) => {
         setPack(view);
         setStopped(true);
       })
-      .catch((e: unknown) => setPackProblem(message(e, 'Could not stop the pack.')));
+      .catch((e: unknown) =>
+        setPackProblem(message(e, "Could not stop the pack.")),
+      );
   };
 
   const doImport = () => {
     if (!pack) return;
     const keep = pack.slots
-      .filter((s) => s.state === 'done' && !left.has(s.emotion))
+      .filter((s) => s.state === "done" && !left.has(s.emotion))
       .map((s) => s.emotion);
     setBusy(true);
-    setPackProblem('');
+    setPackProblem("");
     importPack(keep)
       .then(setPack)
-      .catch((e: unknown) => setPackProblem(message(e, 'Could not import the pack.')))
+      .catch((e: unknown) =>
+        setPackProblem(message(e, "Could not import the pack.")),
+      )
+      .finally(() => setBusy(false));
+  };
+
+  const iterate = (emotion?: string) => {
+    setBusy(true);
+    setPackProblem("");
+    setStopped(false);
+    (emotion ? rerollPack(emotion) : resumePack())
+      .then(setPack)
+      .catch((e: unknown) =>
+        setPackProblem(message(e, "Could not continue the pack.")),
+      )
       .finally(() => setBusy(false));
   };
 
@@ -156,12 +205,16 @@ export function PackPanel(props: {
       return next;
     });
 
-  const kept = pack ? pack.slots.filter((s) => s.state === 'done' && !left.has(s.emotion)).length : 0;
+  const kept = pack
+    ? pack.slots.filter((s) => s.state === "done" && !left.has(s.emotion))
+        .length
+    : 0;
   return (
     <div className="fp-pack" data-region="pack">
       <p>
-        A pack makes each expression from a portrait, one after another. On ComfyUI it runs your Edit
-        graph; if that graph is not ready it stops and says what is missing.
+        A pack makes each expression from a portrait, one after another. On
+        ComfyUI it runs your Edit graph; if that graph is not ready it stops and
+        says what is missing.
       </p>
       <label>
         Character
@@ -182,10 +235,20 @@ export function PackPanel(props: {
         </select>
       </label>
       <div>
-        <button type="button" className="fp-pill" aria-pressed={!full} onClick={() => setFull(false)}>
+        <button
+          type="button"
+          className="fp-pill"
+          aria-pressed={!full}
+          onClick={() => setFull(false)}
+        >
           Starter (8)
         </button>
-        <button type="button" className="fp-pill" aria-pressed={full} onClick={() => setFull(true)}>
+        <button
+          type="button"
+          className="fp-pill"
+          aria-pressed={full}
+          onClick={() => setFull(true)}
+        >
           Full (28)
         </button>
       </div>
@@ -220,9 +283,36 @@ export function PackPanel(props: {
       <p>
         {props.picture
           ? `Built from ${props.picture.name}.`
-          : 'Built from the character’s portrait. Choose a picture above to use another.'}
+          : "Built from the character’s portrait. Choose a picture above to use another."}
       </p>
-      <button type="button" disabled={busy || running || !character} onClick={start}>
+      <button
+        type="button"
+        disabled={busy || running}
+        onClick={() => editRules("setup")}
+      >
+        Prompt rules...
+      </button>
+      {editingRules && (editingRules === "pack" ? pack?.promptRules : rules) ? (
+        <PromptRulesEditor
+          rules={(editingRules === "pack" ? pack?.promptRules : rules)!}
+          prompt={props.prompt}
+          full={full}
+          activePack={editingRules === "pack"}
+          onClose={() => setEditingRules(null)}
+          onUse={async (value) => {
+            if (editingRules === "pack") {
+              setPack(await updatePackRules(value));
+            } else {
+              setRules(value);
+            }
+          }}
+        />
+      ) : null}
+      <button
+        type="button"
+        disabled={busy || running || !character}
+        onClick={start}
+      >
         Start pack
       </button>
       {startProblem ? <p role="alert">{startProblem}</p> : null}
@@ -230,29 +320,59 @@ export function PackPanel(props: {
         <div data-region="pack-status">
           <p>
             {pack.characterName}: {pack.done} of {pack.total} made
-            {running ? ' — working…' : ''}
+            {running ? " — working…" : ""}
           </p>
           <p>
-            {pack.mode === 'edit'
-              ? 'Made with the Edit graph.'
-              : 'This engine has no Edit path, so the pack varies the portrait (img2img).'}
+            {pack.mode === "edit"
+              ? "Made with the Edit graph."
+              : "This engine has no Edit path, so the pack varies the portrait (img2img)."}
           </p>
           {pack.note ? <p>{pack.note}</p> : null}
-          {pack.origin === 'desktop' ? <p>Started on the computer.</p> : null}
+          {pack.origin === "desktop" ? <p>Started on the computer.</p> : null}
+          {!running ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => editRules("pack")}
+            >
+              Edit pack prompt rules...
+            </button>
+          ) : null}
           <ul>
             {pack.slots.map((slot) => (
               <li key={slot.emotion}>
-                {slot.state === 'done' ? (
-                  <img alt={slot.emotion} src={packPicture(slot.emotion)} width={64} height={64} />
+                {slot.state === "done" ? (
+                  <img
+                    alt={slot.emotion}
+                    src={packPicture(slot.emotion)}
+                    width={64}
+                    height={64}
+                  />
                 ) : null}
                 <span>
-                  {slot.emotion}: {slot.state === 'generating' ? 'making' : slot.state}
+                  {slot.emotion}:{" "}
+                  {slot.state === "generating" ? "making" : slot.state}
                 </span>
-                {slot.error ? <span> — {slot.error}</span> : null}
-                {slot.verdict && !(slot.verdict.samePerson && slot.verdict.expressionMatches) ? (
-                  <span> — check{slot.verdict.note ? `: ${slot.verdict.note}` : ''}</span>
+                {!running &&
+                pack.origin === "phone" &&
+                pack.imported == null ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => iterate(slot.emotion)}
+                  >
+                    Reroll {slot.emotion}
+                  </button>
                 ) : null}
-                {pack.canImport && slot.state === 'done' ? (
+                {slot.error ? <span> — {slot.error}</span> : null}
+                {slot.verdict &&
+                !(slot.verdict.samePerson && slot.verdict.expressionMatches) ? (
+                  <span>
+                    {" "}
+                    — check{slot.verdict.note ? `: ${slot.verdict.note}` : ""}
+                  </span>
+                ) : null}
+                {pack.canImport && slot.state === "done" ? (
                   <label>
                     <input
                       type="checkbox"
@@ -266,6 +386,14 @@ export function PackPanel(props: {
               </li>
             ))}
           </ul>
+          {!running &&
+          pack.origin === "phone" &&
+          pack.imported == null &&
+          pack.slots.some((slot) => slot.state === "pending") ? (
+            <button type="button" disabled={busy} onClick={() => iterate()}>
+              Generate remaining
+            </button>
+          ) : null}
           {running ? (
             <button type="button" onClick={stop}>
               Cancel pack
@@ -273,7 +401,11 @@ export function PackPanel(props: {
           ) : null}
           {stopped && !running ? <p role="status">Pack stopped.</p> : null}
           {pack.canImport ? (
-            <button type="button" disabled={busy || kept === 0} onClick={doImport}>
+            <button
+              type="button"
+              disabled={busy || kept === 0}
+              onClick={doImport}
+            >
               Import {kept} to {pack.characterName}
             </button>
           ) : null}
@@ -283,7 +415,7 @@ export function PackPanel(props: {
               Imported {pack.imported} for {pack.characterName}.
             </p>
           ) : null}
-          {!running && pack.origin === 'desktop' && pack.done > 0 ? (
+          {!running && pack.origin === "desktop" && pack.done > 0 ? (
             <p>Import it from Image Studio on the computer.</p>
           ) : null}
         </div>

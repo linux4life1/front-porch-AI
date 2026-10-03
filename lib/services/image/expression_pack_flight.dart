@@ -6,9 +6,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/capability/capability.dart';
-import 'package:front_porch_ai/services/expression_pack_service.dart';
-import 'package:front_porch_ai/services/image/expression_pack_board.dart';
-import 'package:front_porch_ai/services/image_gen_service.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/image/image.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 
 /// A pack start. [session] is null when the pack did not start: [busy] when
 /// another generation holds the lock, otherwise [error] says why. [done]
@@ -45,6 +45,7 @@ Future<ExpressionPackFlight> beginExpressionPack({
   required Uint8List baseImage,
   required String characterName,
   String? characterId,
+  ExpressionPromptRules? promptRules,
   PackOrigin origin = PackOrigin.desktop,
   bool replaceExisting = true,
   String? note,
@@ -54,6 +55,7 @@ Future<ExpressionPackFlight> beginExpressionPack({
   assert(plan.canStart, 'a pack that cannot start was started');
   final onBoard = board ?? expressionPackBoard;
   final edit = plan.edit;
+  final rules = (promptRules ?? ExpressionPromptRules()).copy();
   final ready = Completer<ExpressionPackSession?>();
   String? error;
   final started = imageGen.startExpressionPack(emotions, (names) async {
@@ -64,6 +66,7 @@ Future<ExpressionPackFlight> beginExpressionPack({
         negativePrompt: negativePrompt,
         denoise: denoise,
         editMode: edit,
+        promptRules: rules,
         onCancel: () {
           unawaited(imageGen.cancelJob());
           onCancelled?.call();

@@ -26,16 +26,15 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
-import 'package:front_porch_ai/services/image/expression_pack_board.dart';
-import 'package:front_porch_ai/services/image/expression_pack_flight.dart';
 import 'package:front_porch_ai/services/image/image.dart';
-import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
 
 part 'image_facade_catalog.dart';
 part 'image_facade_desk.dart';
 part 'image_facade_pack.dart';
+part 'image_facade_pack_rules.dart';
 part 'image_facade_ready.dart';
 
 /// Web adapter for image generation: read/flip the backend config (Local A1111 /

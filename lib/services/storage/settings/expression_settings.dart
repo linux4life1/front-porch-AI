@@ -16,12 +16,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
+
 import 'settings_base.dart';
 
 /// Expression images / avatar classification + display settings.
 ///
 /// Lifted Stage 7.
 class ExpressionSettings with SettingsBase {
+  ExpressionPromptRules _promptRules = ExpressionPromptRules();
+  ExpressionPromptRules get expressionPromptRules => _promptRules;
+  Future<void> setExpressionPromptRules(ExpressionPromptRules value) async {
+    final copy = value.copy();
+    final preferences = prefs;
+    if (preferences == null ||
+        !await preferences.setString(
+          k('expression_prompt_rules'),
+          jsonEncode(copy.toJson()),
+        )) {
+      throw StateError('Prompt defaults could not be saved.');
+    }
+    _promptRules = copy;
+    notify();
+  }
+
   bool _expressionEnabled = false;
   String _expressionClassificationMode = 'llm'; // 'llm', 'onnx', 'manual'
   String _expressionDisplayMode = 'sidebar'; // 'sidebar', 'background', 'both'
@@ -39,6 +59,15 @@ class ExpressionSettings with SettingsBase {
   double get expressionEmojiBurstSize => _expressionEmojiBurstSize;
 
   void load() {
+    _promptRules = ExpressionPromptRules();
+    try {
+      final stored = prefs?.getString(k('expression_prompt_rules'));
+      if (stored != null) {
+        _promptRules = ExpressionPromptRules.fromJson(jsonDecode(stored));
+      }
+    } catch (e) {
+      debugPrint('[ExpressionPack] Invalid saved prompt rules: $e');
+    }
     _expressionEnabled = prefs?.getBool(k('expression_enabled')) ?? false;
     _expressionClassificationMode =
         prefs?.getString(k('expression_classification_mode')) ?? 'llm';
@@ -51,8 +80,10 @@ class ExpressionSettings with SettingsBase {
     _expressionEmojiBurst =
         prefs?.getBool(k('expression_emoji_burst')) ?? false;
     _expressionEmojiBurstSize =
-        (prefs?.getDouble(k('expression_emoji_burst_size')) ?? 28.0)
-            .clamp(12.0, 60.0);
+        (prefs?.getDouble(k('expression_emoji_burst_size')) ?? 28.0).clamp(
+          12.0,
+          60.0,
+        );
   }
 
   Future<void> setExpressionEnabled(bool value) async {

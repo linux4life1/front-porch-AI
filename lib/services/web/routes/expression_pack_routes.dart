@@ -13,8 +13,32 @@ import 'package:front_porch_ai/services/web/util/util.dart';
 class ExpressionPackRoutes {
   ExpressionPackRoutes(Router router, {required this.image}) {
     router.get('/api/image/expression-pack', _status);
+    router.get(
+      '/api/image/expression-pack/settings',
+      (_) => JsonResponse.ok(image.packPromptDefaults()),
+    );
+    router.post(
+      '/api/image/expression-pack/settings',
+      (shelf.Request r) => _rules(r, save: true),
+    );
+    router.post(
+      '/api/image/expression-pack/preview',
+      (shelf.Request r) => _rules(r, preview: true),
+    );
+    router.post(
+      '/api/image/expression-pack/rules',
+      (shelf.Request r) => _rules(r),
+    );
     router.post('/api/image/expression-pack', _start);
     router.post('/api/image/expression-pack/cancel', _cancel);
+    router.post(
+      '/api/image/expression-pack/resume',
+      (shelf.Request r) => _continue(r),
+    );
+    router.post(
+      '/api/image/expression-pack/reroll',
+      (shelf.Request r) => _continue(r, reroll: true),
+    );
     router.post('/api/image/expression-pack/import', _import);
     router.get('/api/image/expression-pack/picture', _picture);
   }
@@ -44,6 +68,26 @@ class ExpressionPackRoutes {
     }
   }
 
+  Future<shelf.Response> _rules(
+    shelf.Request request, {
+    bool save = false,
+    bool preview = false,
+  }) async {
+    final (body, failed) = await _body(request);
+    if (body == null) return failed!;
+    try {
+      return JsonResponse.ok(
+        save
+            ? await image.savePackPromptDefaults(body)
+            : preview
+            ? image.previewPackPrompts(body)
+            : image.updatePackPromptRules(body),
+      );
+    } on DeskRefused catch (e) {
+      return _refused(e);
+    }
+  }
+
   shelf.Response _status(shelf.Request request) {
     final view = image.packView();
     return view == null
@@ -64,6 +108,19 @@ class ExpressionPackRoutes {
   shelf.Response _cancel(shelf.Request request) {
     try {
       return JsonResponse.ok(image.cancelPack());
+    } on DeskRefused catch (e) {
+      return _refused(e);
+    }
+  }
+
+  Future<shelf.Response> _continue(
+    shelf.Request request, {
+    bool reroll = false,
+  }) async {
+    final (body, failed) = await _body(request);
+    if (body == null) return failed!;
+    try {
+      return JsonResponse.ok(await image.continuePack(body, reroll: reroll));
     } on DeskRefused catch (e) {
       return _refused(e);
     }

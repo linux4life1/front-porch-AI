@@ -21,10 +21,8 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
-import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/services/expression_pack_base_check.dart';
-import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 
 /// Decode a candidate pack base and re-emit it at a diffusion-friendly size
 /// that PRESERVES the source aspect ratio — a portrait avatar yields a
@@ -172,6 +170,7 @@ class ExpressionPackSession extends ChangeNotifier {
     required PackSlotGenerator generate,
     int? seed, // fixed shared seed; default = random positive int
     bool editMode = false,
+    ExpressionPromptRules? promptRules,
     void Function()? onCancel,
   }) : _basePrompt = basePrompt,
        _onCancel = onCancel,
@@ -179,6 +178,7 @@ class ExpressionPackSession extends ChangeNotifier {
        _denoise = denoise,
        _generate = generate,
        _editMode = editMode,
+       _promptRules = (promptRules ?? ExpressionPromptRules()).copy(),
        // Must be a fixed POSITIVE value: ComfyUI randomizes -1 client-side and
        // A1111 server-side, so sharing a seed across slots requires pinning it.
        _seed = seed ?? Random().nextInt(1 << 31),
@@ -198,6 +198,26 @@ class ExpressionPackSession extends ChangeNotifier {
   /// positive prompt is an EDIT INSTRUCTION off the base portrait (identity kept
   /// by the reference), not the img2img geometry-tags + base-composition prompt.
   final bool _editMode;
+  ExpressionPromptRules _promptRules;
+  ExpressionPromptRules get promptRules => _promptRules;
+  String originalPromptFor(int index) => originalExpressionPrompt(
+    emotion: _slots[index].emotion,
+    basePrompt: _basePrompt,
+    editMode: _editMode,
+  );
+  String previewPromptFor(int index, ExpressionPromptRules rules) {
+    final custom = _slots[index].customPrompt;
+    if (custom != null && custom.isNotEmpty) return custom;
+    return rules.apply(originalPromptFor(index));
+  }
+
+  bool updatePromptRules(ExpressionPromptRules rules) {
+    if (_running || _disposed) return false;
+    _promptRules = rules.copy();
+    notifyListeners();
+    return true;
+  }
+
   final int _seed;
   final List<ExpressionSlot> _slots;
 
@@ -251,13 +271,12 @@ class ExpressionPackSession extends ChangeNotifier {
   String _promptFor(ExpressionSlot slot) {
     final custom = slot.customPrompt;
     if (custom != null && custom.isNotEmpty) return custom;
-    // Edit path: an instruction off the base portrait (identity comes from the
-    // reference image, so no base-composition prompt).
-    if (_editMode) return expressionEditInstruction(slot.emotion);
-    final modifier = kExpressionModifiers[slot.emotion] ?? slot.emotion;
-    // Emotion first: front tokens get the most conditioning weight, and at
-    // turbo-model CFG (~1) a tail phrase was too weak to change the face.
-    return '$modifier, $_basePrompt';
+    return composeExpressionPrompt(
+      emotion: slot.emotion,
+      basePrompt: _basePrompt,
+      editMode: _editMode,
+      rules: _promptRules,
+    );
   }
 
   /// Regenerate ONE slot. By DEFAULT the slot's current seed is kept (the

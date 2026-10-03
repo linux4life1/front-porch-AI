@@ -19,9 +19,10 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'expression_pack_widgets.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -39,9 +40,15 @@ class ExpressionPackSetup extends StatefulWidget {
     required this.onStart,
     this.storage,
     this.note,
+    this.promptRules,
+    this.onRulesChanged,
+    this.originalPrompts = const {},
   });
 
   final StorageService? storage;
+  final ExpressionPromptRules? promptRules;
+  final ValueChanged<ExpressionPromptRules>? onRulesChanged;
+  final Map<String, String> originalPrompts;
   final Uint8List baseImage;
 
   /// A short line shown under the portrait (that it was converted to PNG).
@@ -67,6 +74,22 @@ class ExpressionPackSetup extends StatefulWidget {
 }
 
 class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
+  ExpressionPromptRules? _rules;
+  Future<void> _editRules() async {
+    final settings =
+        (widget.storage ?? context.read<StorageService>()).expressionSettings;
+    final rules = await showExpressionPromptRulesEditor(
+      context,
+      rules: _rules ?? widget.promptRules ?? settings.expressionPromptRules,
+      globalDefaults: () => settings.expressionPromptRules,
+      saveDefaults: settings.setExpressionPromptRules,
+      originals: widget.originalPrompts,
+    );
+    if (!mounted || rules == null) return;
+    setState(() => _rules = rules);
+    widget.onRulesChanged?.call(rules);
+  }
+
   bool _fullSet = false;
   bool _skipExisting = true;
   // 0.7 default from maintainer field-testing: at 0.5 the img2img anchor
@@ -278,6 +301,7 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
             fontSize: 11.5,
           ),
         ),
+        TextButton(onPressed: _editRules, child: const Text('Prompt rules…')),
         const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
