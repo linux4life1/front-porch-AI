@@ -35,9 +35,9 @@ export function CastCard({ id, p, onOpen }: { id: string; p: StoryProject; onOpe
   );
 }
 
-/** Events on the distilled timeline: its non-empty lines. */
+/** Events on the distilled timeline: its `[EVENT N]` markers — the desktop's distilledEventCount. */
 export function timelineEvents(p: StoryProject): number {
-  return (p.distilled_timeline ?? '').split('\n').filter((l) => l.trim() !== '').length;
+  return ((p.distilled_timeline ?? '').match(/\[EVENT \d+\]/g) ?? []).length;
 }
 
 export function ChatCard({ p, running, onRedistill }: { p: StoryProject; running: boolean; onRedistill: () => void }) {

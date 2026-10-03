@@ -18,6 +18,14 @@
 
 part of 'story_dashboard_page.dart';
 
+/// Number of `[EVENT N]` markers in a distilled timeline — the chat card's
+/// count. The pattern must stay byte-identical to the one the distiller
+/// itself counts with (`story_pipeline_service.llm.dart`) and to the web
+/// twin's `/\[EVENT \d+\]/g`; a line count (or a double-escaped copy of the
+/// pattern) reports the wrong number.
+int distilledEventCount(String timeline) =>
+    RegExp(r'\[EVENT \d+\]').allMatches(timeline).length;
+
 /// Overview (sketch M): "where am I and what next" first, then the bible
 /// with inline edits, the cast strip, the chat card, the engine card and
 /// the story so far.
@@ -367,10 +375,7 @@ extension _StoryDashboardOverview on _StoryDashboardPageState {
   );
 
   Widget _chatCard(StoryProject project) {
-    final events = project.distilledTimeline
-        .split('\n')
-        .where((l) => l.trim().isNotEmpty)
-        .length;
+    final events = distilledEventCount(project.distilledTimeline);
     return StoryCard(
       children: [
         Row(

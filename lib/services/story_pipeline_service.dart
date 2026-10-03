@@ -35,6 +35,7 @@ part 'story_pipeline_service.agent.dart';
 part 'story_pipeline_service.api.dart';
 part 'story_pipeline_service.director.dart';
 part 'story_pipeline_service.director_apply.dart';
+part 'story_pipeline_service.distill.dart';
 part 'story_pipeline_service.llm.dart';
 part 'story_pipeline_service.planning.dart';
 part 'story_pipeline_service.prose.dart';

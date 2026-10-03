@@ -382,12 +382,13 @@ extension _StoryWriterBeats on _StoryWriterPageState {
     final text = project.sceneText(widget.actIndex, widget.sceneIndex);
     final out = await PickerPrefs.saveFile(
       category: PickerPrefs.catExport,
-      bytes: Uint8List.fromList(utf8.encode('# ${scene.title}\n\n$text')),
+      bytes: Uint8List.fromList(utf8.encode(text)),
       dialogTitle: 'Save scene',
-      fileName:
-          '${project.sceneLabel(widget.actIndex, widget.sceneIndex)}_${scene.title.replaceAll(' ', '_')}.md',
+      fileName: p.basename(
+        storySceneExportPath('', project.title, scene.title),
+      ),
       type: FileType.custom,
-      allowedExtensions: ['md'],
+      allowedExtensions: ['txt'],
     );
     if (out != null && mounted) {
       ScaffoldMessenger.of(
@@ -395,4 +396,21 @@ extension _StoryWriterBeats on _StoryWriterPageState {
       ).showSnackBar(SnackBar(content: Text('Scene saved to $out')));
     }
   }
+}
+
+/// Path a scene export is written to: [dirPath] plus a sanitized
+/// `<project>_<scene>.txt` file name. Only the FILE NAME is sanitized — a
+/// sanitizer run over the whole path once turned every separator (and the
+/// Windows drive colon) into `_`, so exports landed in the process working
+/// directory under a mangled name. The save dialog takes the basename.
+String storySceneExportPath(
+  String dirPath,
+  String projectTitle,
+  String sceneTitle,
+) {
+  final name = '${projectTitle}_$sceneTitle.txt'.replaceAll(
+    RegExp(r'[^\w\s.]'),
+    '_',
+  );
+  return p.join(dirPath, name);
 }
