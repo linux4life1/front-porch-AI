@@ -93,6 +93,16 @@ extension _StoryDashboardOverview on _StoryDashboardPageState {
         key: const ValueKey('story-build-acts'),
         onPressed: running ? null : () => _buildActs(project),
       );
+    } else if (next == null && project.orderedScenes.isEmpty) {
+      title = 'Acts ready';
+      detail =
+          'Continue writing outlines the first sequence and writes its '
+          'first scene.';
+      primary = StoryButton.primary(
+        'Continue writing',
+        key: const ValueKey('story-continue'),
+        onPressed: running ? null : () => _continueWriting(project),
+      );
     } else if (next == null) {
       title = 'The whole story is written';
       detail =

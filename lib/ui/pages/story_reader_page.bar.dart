@@ -21,75 +21,98 @@ part of 'story_reader_page.dart';
 /// The reader bar (sketch P), shared by Book and Scroll: ☰ (fold the studio
 /// sidebar), title, Book | Scroll, where you are, Read aloud, Contents, ⋯.
 extension _StoryReaderBar on _StoryReaderPageState {
-  PreferredSizeWidget _studioBar(
-    StoryProject project,
-    String where,
-  ) => PreferredSize(
-    preferredSize: const Size.fromHeight(48),
-    child: Container(
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-      decoration: BoxDecoration(
-        color: StudioColors.sideOf(context),
-        border: Border(bottom: BorderSide(color: StudioColors.lineOf(context))),
-      ),
-      child: Row(
-        children: [
-          if (widget.onToggleSidebar != null)
-            StoryIconButton(
-              Icons.menu,
-              key: const ValueKey('reader-sidebar-toggle'),
-              tooltip: 'Show or hide the studio sidebar',
-              onPressed: widget.onToggleSidebar,
-            )
-          else if (!widget.embedded)
-            StoryIconButton(
-              Icons.arrow_back,
-              tooltip: 'Back',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              project.title,
-              overflow: TextOverflow.ellipsis,
-              style: StudioType.ui(context, size: 15, weight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(width: 10),
-          StorySegmented(
-            key: const ValueKey('reader-mode'),
-            options: const {'book': 'Book', 'scroll': 'Scroll'},
-            selected: project.readerMode,
-            onSelect: (m) => _setReaderMode(project, m),
-          ),
-          const Spacer(),
-          Text(where, style: StudioType.mono(context)),
-          const SizedBox(width: 8),
-          _readAloudButton(project),
-          StoryButton.ghost(
-            'Contents',
-            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-          ),
-          StoryMenuButton(
-            entries: [
-              StoryMenuEntry(
-                _isAudioMuted ? 'Ambient sound on' : 'Ambient sound off',
-                onSelect: _toggleAudio,
+  PreferredSizeWidget _studioBar(StoryProject project, String where) =>
+      PreferredSize(
+        preferredSize: const Size.fromHeight(48),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Under 760px (the phone frame) the labels give way to icons.
+            final compact = constraints.maxWidth < 760;
+            return Container(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+              decoration: BoxDecoration(
+                color: StudioColors.sideOf(context),
+                border: Border(
+                  bottom: BorderSide(color: StudioColors.lineOf(context)),
+                ),
               ),
-              StoryMenuEntry(
-                'Export text…',
-                divider: true,
-                onSelect: _exportStory,
+              child: Row(
+                children: [
+                  if (widget.onToggleSidebar != null)
+                    StoryIconButton(
+                      Icons.menu,
+                      key: const ValueKey('reader-sidebar-toggle'),
+                      tooltip: 'Show or hide the studio sidebar',
+                      onPressed: widget.onToggleSidebar,
+                    )
+                  else if (!widget.embedded)
+                    StoryIconButton(
+                      Icons.arrow_back,
+                      tooltip: 'Back',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      project.title,
+                      overflow: TextOverflow.ellipsis,
+                      style: StudioType.ui(
+                        context,
+                        size: 15,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  StorySegmented(
+                    key: const ValueKey('reader-mode'),
+                    options: const {'book': 'Book', 'scroll': 'Scroll'},
+                    selected: project.readerMode,
+                    onSelect: (m) => _setReaderMode(project, m),
+                  ),
+                  const Spacer(),
+                  if (!compact) ...[
+                    Text(where, style: StudioType.mono(context)),
+                    const SizedBox(width: 8),
+                  ],
+                  _readAloudButton(project, compact: compact),
+                  if (compact)
+                    StoryIconButton(
+                      Icons.list,
+                      tooltip: 'Contents',
+                      onPressed: () =>
+                          _scaffoldKey.currentState?.openEndDrawer(),
+                    )
+                  else
+                    StoryButton.ghost(
+                      'Contents',
+                      onPressed: () =>
+                          _scaffoldKey.currentState?.openEndDrawer(),
+                    ),
+                  StoryMenuButton(
+                    entries: [
+                      StoryMenuEntry(
+                        _isAudioMuted
+                            ? 'Ambient sound on'
+                            : 'Ambient sound off',
+                        onSelect: _toggleAudio,
+                      ),
+                      StoryMenuEntry(
+                        'Export text…',
+                        divider: true,
+                        onSelect: _exportStory,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
-      ),
-    ),
-  );
+            );
+          },
+        ),
+      );
 
   /// Read aloud / Stop, with the buffered-pages pill while reading.
-  Widget _readAloudButton(StoryProject project) {
+  Widget _readAloudButton(StoryProject project, {bool compact = false}) {
     if (_isReadingAlong) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -106,13 +129,22 @@ extension _StoryReaderBar on _StoryReaderPageState {
         ],
       );
     }
+    final onPressed = project.readerMode == 'scroll'
+        ? () => _readAloudVisibleChapter(project)
+        : _startReadAlong;
+    if (compact) {
+      return StoryIconButton(
+        Icons.play_arrow,
+        key: const ValueKey('reader-read-aloud'),
+        tooltip: 'Read aloud',
+        onPressed: onPressed,
+      );
+    }
     return StoryButton.ghost(
       'Read aloud',
       key: const ValueKey('reader-read-aloud'),
       icon: Icons.play_arrow,
-      onPressed: project.readerMode == 'scroll'
-          ? () => _readAloudVisibleChapter(project)
-          : _startReadAlong,
+      onPressed: onPressed,
     );
   }
 }

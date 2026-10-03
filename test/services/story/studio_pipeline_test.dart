@@ -209,7 +209,7 @@ Future<StoryProject> _studioProject(StoryRepository repo) async {
     ..engineMode = StoryEngineMode.studio
     ..targetWords = 30000
     ..concept = 'A porch light that flickers messages.'
-    ..reviewLane = StoryModelLane.main;
+    ..reviewLane = StoryLaneChoice.chat();
   await repo.saveProject(p);
   return p;
 }

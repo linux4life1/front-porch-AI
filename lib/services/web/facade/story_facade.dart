@@ -189,6 +189,9 @@ class StoryFacade {
     'step': _pipeline.currentStep,
     'status': _pipeline.statusMessage,
     'tokens': _pipeline.tokenCount,
+    // The beat being written streams in place on the Write screen. The
+    // pipeline notifies every ~3 tokens, so this rides the same cadence.
+    'streamingText': _pipeline.streamingText,
   };
 
   /// Kick off one pipeline [stage] in the background. Progress streams as

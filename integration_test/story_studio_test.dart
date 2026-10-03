@@ -104,63 +104,40 @@ void main() {
         backend,
       );
 
-      // ── Wizard: concept, then defaults through to the Engine step ───────
+      // ── New Story: Idea → Cast → Shape (novella) → Engine ───────────────
+      // The shelf's "New story" opens the four-step flow (sketches H–L).
       await d.tapUntil([
         find.text('Porch Stories'),
-      ], find.widgetWithText(ElevatedButton, 'New Story'));
+      ], find.byKey(const ValueKey('story-new')));
       await d.tapUntil([
-        find.widgetWithText(ElevatedButton, 'New Story'),
-      ], find.text('New Porch Story'));
-      await pumpUntilFound(
-        tester,
-        find.widgetWithText(TextField, 'Story title...'),
-      );
+        find.byKey(const ValueKey('story-new')),
+      ], find.byKey(const ValueKey('story-concept')));
 
       const titleText = 'The Porch Light';
       const conceptText =
           'A porch light that flickers messages to whoever tends it.';
-      final titleField = find.widgetWithText(TextField, 'Story title...');
-      await tester.enterText(titleField.first, titleText);
-      tester
-          .widget<TextField>(titleField.first)
-          .controller
-          ?.value = const TextEditingValue(
-        text: titleText,
-        selection: TextSelection.collapsed(offset: titleText.length),
+      await tester.enterText(
+        find.byKey(const ValueKey('story-title')),
+        titleText,
       );
-      final conceptField = find.byWidgetPredicate(
-        (w) => w is TextField && w.maxLines == 7,
-      );
-      await tester.enterText(conceptField.first, conceptText);
-      tester
-          .widget<TextField>(conceptField.first)
-          .controller
-          ?.value = const TextEditingValue(
-        text: conceptText,
-        selection: TextSelection.collapsed(offset: conceptText.length),
+      await tester.enterText(
+        find.byKey(const ValueKey('story-concept')),
+        conceptText,
       );
       await tester.pump();
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pump(const Duration(milliseconds: 300));
 
-      for (final next in const [
-        'Next: Format',
-        'Next: Cast',
-        'Next: Engine',
-        'Next: Review',
-      ]) {
-        await d.tapUntil([
-          find.byKey(const ValueKey('story-setup-next')),
-        ], find.textContaining(next));
-      }
-      // Studio is the default; the Engine step says so. A novella keeps the
-      // scene budget at two per sequence — what the fake backend outlines.
-      expect(
-        find.byKey(const ValueKey('story-engine-studio-on')),
-        findsOneWidget,
-      );
+      await d.tapUntil([
+        find.byKey(const ValueKey('story-setup-next')),
+      ], find.byKey(const ValueKey('story-persona')));
+      await d.tapUntil([
+        find.byKey(const ValueKey('story-setup-next')),
+      ], find.byKey(const ValueKey('story-length')));
+      // A novella keeps the scene budget at two per sequence — what the
+      // fake backend outlines.
       await d.tapUntilTrue(
-        [find.text('Novella · 30k')],
+        [find.byKey(const ValueKey('story-seg-Short'))],
         () => find
             .textContaining('beats each')
             .evaluate()
@@ -169,12 +146,16 @@ void main() {
       );
       await d.tapUntil([
         find.byKey(const ValueKey('story-setup-next')),
-      ], find.textContaining('Generate Story Bible'));
+      ], find.byKey(const ValueKey('story-engine-studio-on')));
+      // Studio is the default; the Engine step says so.
+      expect(find.text('Build the story bible'), findsOneWidget);
 
       // ── Bible: world → interview (the lead only) → arc → review ─────────
+      // The last Next builds the bible and lands on the studio Overview,
+      // whose Up next card then offers "Build acts".
       await d.tapUntil(
-        [find.text('Generate Story Bible')],
-        find.text('Generate Act Structure'),
+        [find.byKey(const ValueKey('story-setup-next'))],
+        find.byKey(const ValueKey('story-build-acts')),
         timeout: const Duration(seconds: 90),
       );
       expect(backend.storyStagesServed, [
@@ -193,8 +174,8 @@ void main() {
       // ── Acts and the eight sequences ─────────────────────────────────────
       backend.storyStagesServed.clear();
       await d.tapUntil(
-        [find.text('Generate Act Structure')],
-        find.text('View Structure & Write'),
+        [find.byKey(const ValueKey('story-build-acts'))],
+        find.byKey(const ValueKey('story-continue')),
         timeout: const Duration(seconds: 90),
       );
       expect(backend.storyStagesServed, [
@@ -205,13 +186,13 @@ void main() {
       ]);
       expect(project.sequences.map((s) => s.act), [1, 1, 2, 2, 2, 2, 3, 3]);
 
-      // ── Structure board: Generate Act writes sequence by sequence ────────
+      // ── Structure board: Generate act writes sequence by sequence ────────
       await d.tapUntil([
-        find.text('View Structure & Write'),
+        find.byKey(const ValueKey('studio-nav-structure')),
       ], find.byType(StoryStructurePage));
       backend.storyStagesServed.clear();
       await d.tapUntil(
-        [find.widgetWithText(ElevatedButton, 'Generate Act')],
+        [find.text('Generate act')],
         find.text('Reading the Flicker'),
         timeout: const Duration(minutes: 3),
       );
@@ -252,7 +233,7 @@ void main() {
       expect(project.scenes[0]!.first.summary, contains('stay'));
       expect(project.continuity.single.key, 'The notebook');
       expect(project.sceneLabel(0, 2), '2.1');
-      expect(find.text('3/3'), findsWidgets);
+      expect(find.text('Written'), findsWidgets);
 
       // ── Director: plan, apply a prose patch, see it land ─────────────────
       await d.tapUntil([
@@ -279,9 +260,10 @@ void main() {
         reason: 'EDIT_PROSE patches lines in place; protection leaves it open',
       );
       backend.storyStagesServed.clear();
+      // An applied plan folds into the "Last applied" line (sketch Q).
       await d.tapUntil(
         [find.byKey(const ValueKey('director-apply'))],
-        find.text('applied'),
+        find.textContaining('Last applied'),
         timeout: const Duration(seconds: 90),
       );
       expect(backend.storyStagesServed, ['patch', 'archivist']);

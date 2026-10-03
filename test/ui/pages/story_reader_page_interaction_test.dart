@@ -158,7 +158,9 @@ void main() {
             'seam that eats this tap is exactly what this net exists for');
 
     // ── Table of Contents: opens, lists the act + scenes, and jumps ────────
-    await tester.tap(find.byIcon(Icons.menu_book));
+    // The studio reader bar (sketch P): "Contents" on wide windows, the
+    // list icon on narrow ones (this test's 800px surface).
+    await tester.tap(find.byTooltip('Contents'));
     await frames();
     expect(find.text('The Porch Swing'), findsOneWidget,
         reason: 'TOC drawer must list the first scene');

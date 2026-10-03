@@ -358,7 +358,7 @@ void main() {
 
     test('studio fields round-trip through JSON', () {
       final p = _project()
-        ..reviewLane = StoryModelLane.main
+        ..reviewLane = StoryLaneChoice.chat()
         ..storyFormat = StoryFormat.audioDrama
         ..directorPlan = DirectorPlan(
           directive: 'd',
@@ -372,7 +372,7 @@ void main() {
           ],
         );
       final back = StoryProject.fromJsonString(p.toJsonString());
-      expect(back.reviewLane, StoryModelLane.main);
+      expect(back.reviewLane.lane, StoryModelLane.main);
       expect(back.storyFormat, StoryFormat.audioDrama);
       expect(
         back.directorPlan!.actions.single.type,

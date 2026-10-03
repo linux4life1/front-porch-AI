@@ -71,9 +71,17 @@ extension _StoryStructureTree on _StoryStructurePageState {
                   ),
                 ),
                 const SizedBox(width: 10),
-                if (scenes.isEmpty)
-                  const StoryChip('No scenes yet')
-                else if (written == scenes.length)
+                if (scenes.isEmpty) ...[
+                  StoryButton.ghost(
+                    'Generate act',
+                    key: ValueKey('story-generate-act-$a'),
+                    onPressed: pipeline.isRunning
+                        ? null
+                        : () => _generateFullAct(p, a, pipeline),
+                  ),
+                  const SizedBox(width: 6),
+                  const StoryChip('No scenes yet'),
+                ] else if (written == scenes.length)
                   StoryChip('✓ $written scenes written', tone: 'teal')
                 else
                   StoryChip(
@@ -111,25 +119,13 @@ extension _StoryStructureTree on _StoryStructurePageState {
           if (scenes.isEmpty && seqs.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Nothing planned for this act yet.',
-                      style: StudioType.ui(
-                        context,
-                        size: 12.5,
-                        color: StudioColors.mutedOf(context),
-                      ),
-                    ),
-                  ),
-                  StoryButton(
-                    'Generate act',
-                    onPressed: pipeline.isRunning
-                        ? null
-                        : () => _generateFullAct(p, a, pipeline),
-                  ),
-                ],
+              child: Text(
+                'Nothing planned for this act yet.',
+                style: StudioType.ui(
+                  context,
+                  size: 12.5,
+                  color: StudioColors.mutedOf(context),
+                ),
               ),
             ),
           if (seqs.isEmpty)
