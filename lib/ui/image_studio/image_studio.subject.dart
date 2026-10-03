@@ -16,7 +16,6 @@ extension _ImageStudioSubject on _ImageStudioState {
       // Leaving the Character subject clears any group pick/shot.
       if (mode != ImageGenMode.characterPortrait) {
         _pickedGroupName = null;
-        _pickedGroupDesc = null;
         _pickedGroupDbId = null;
         _groupShot = false;
       }
@@ -33,17 +32,6 @@ extension _ImageStudioSubject on _ImageStudioState {
     return _pickedGroupName ?? widget.characterName;
   }
 
-  /// Appearance for the portrait context: all members' appearances for a group
-  /// shot, a picked member's, else the 1:1 character's.
-  String? get _activeCharDesc {
-    if (_groupShot) {
-      return widget.groupCharacters
-          .map((c) => '${c.name}: ${c.description}')
-          .join('\n\n');
-    }
-    return _pickedGroupDesc ?? widget.characterDescription;
-  }
-
   /// Portrait one chosen cast member (reliable — a single subject), or with a
   /// null [index] the caveated whole-cast "group shot".
   void _pickGroupSubject(int? index) {
@@ -52,7 +40,6 @@ extension _ImageStudioSubject on _ImageStudioState {
     rebuildState(() {
       final m = index == null ? null : members[index];
       _pickedGroupName = m?.name;
-      _pickedGroupDesc = m?.description;
       _pickedGroupDbId = m?.dbId;
       _groupShot = m == null;
       _activeMode = ImageGenMode.characterPortrait;
@@ -71,44 +58,7 @@ extension _ImageStudioSubject on _ImageStudioState {
   /// Launch the Expression-pack flow. An empty prompt box gets the same
   /// crafting as the Craft button (for the active subject); the dialog owns
   /// the rest: backend guard, base image, crop, generation, import.
-  Future<void> _openExpressionPack() async {
-    final dbId = _packTargetDbId;
-    if (dbId == null) return;
-    final imageGen = Provider.of<ImageGenService>(context, listen: false);
-    final repo = Provider.of<CharacterRepository>(context, listen: false);
-    var basePrompt = _editablePrompt.trim();
-    if (basePrompt.isEmpty) {
-      // Never throws: generateSmartPrompt has its own static fallback.
-      rebuildState(() => _isCrafting = true);
-      basePrompt = await _craftStudioPrompt(
-        widget,
-        service: imageGen,
-        llm: _liveStudioLlm(context, widget.llmService),
-        mode: ImageGenMode.characterPortrait,
-        style: _selectedStyle,
-        characterName: _activeCharName,
-        characterDescription: _activeCharDesc,
-        // Neutral base: the per-slot emotion modifiers supply ALL the feeling;
-        // a base crafted around the character's live emotion would fight them.
-        currentExpression: 'neutral',
-      );
-      if (!mounted) return;
-      rebuildState(() => _isCrafting = false);
-    }
-    final ok = await ExpressionPackDialog.launch(
-      context,
-      characterDbId: dbId,
-      characterName: _activeCharName ?? '',
-      repository: repo,
-      candidateBase: _currentImageBytes ?? _referenceImageBytes,
-      basePrompt: basePrompt,
-      negativePrompt: context
-          .read<StorageService>()
-          .imageGenSettings
-          .imageGenNegativePrompt,
-    );
-    if (ok) widget.onExpressionsImported?.call(dbId);
-  }
+  void _openExpressionPack() => rebuildState(() => _studioTab = 2);
 
   bool get _isPortraitSubject =>
       _activeMode == ImageGenMode.characterPortrait ||

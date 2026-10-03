@@ -31,6 +31,7 @@ export interface ImageConfig {
   backend: string;
   isConfigured: boolean;
   isGenerating?: boolean;
+  packConfigMode?: Mode;
   statusMessage?: string;
   genProgress?: number | null;
   adultAllowed?: boolean;

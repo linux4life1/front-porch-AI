@@ -201,7 +201,9 @@ Future<void> applyImageRemoteHost({
   required String url,
   required String chatRemoteApiUrl,
   required bool editScoped,
+  bool Function()? canWrite,
 }) async {
+  if (!(canWrite?.call() ?? true)) return;
   final next = normalizeRemoteApiUrl(url);
   if (next.isEmpty) return;
   final prev = normalizeRemoteApiUrl(
@@ -216,9 +218,12 @@ Future<void> applyImageRemoteHost({
       currentModel.isNotEmpty &&
       prev != next &&
       !looksLikeLocalImageModel(currentModel)) {
+    if (!(canWrite?.call() ?? true)) return;
     await image.setRemoteImageModelFor(prev, currentModel, edit: editScoped);
   }
+  if (!(canWrite?.call() ?? true)) return;
   await image.setImageRemoteApiUrl(next);
+  if (!(canWrite?.call() ?? true)) return;
   final restored = image.remoteImageModelFor(next, edit: editScoped);
   if (restored.isNotEmpty) {
     if (editScoped) {

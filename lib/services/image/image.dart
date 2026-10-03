@@ -57,3 +57,6 @@ export 'studio_ready_service.dart';
 export 'studio_readiness.dart';
 export 'studio_size.dart';
 export 'studio_support_fit.dart';
+
+export 'expression_pack_board.dart';
+export 'expression_pack_flight.dart';

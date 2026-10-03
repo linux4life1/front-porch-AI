@@ -27,14 +27,11 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-import 'edit_view.dart';
-import 'expression_pack_dialog.dart';
-import 'studio_helpers.dart';
-import 'studio_mode_tabs.dart';
-import 'studio_view.dart';
+import 'studio_widgets.dart';
 
 part 'studio_prompt_craft.dart';
 part 'image_studio.subject.dart';
+part 'image_studio.workspace.dart';
 
 /// The Image Studio: one shared canvas driven by a **Subject** selector
 /// (Freeform / Character / Your persona). Backend, model, size, steps, LoRA,
@@ -121,17 +118,19 @@ class _ImageStudioState extends State<ImageStudio> {
   late String _selectedStyle;
   late String _paradigm;
 
-  /// 0 = Create, 1 = Edit (the intent tabs).
+  /// 0 = Create, 1 = Edit, 2 = Expressions.
   int _studioTab = 0;
+  final _expressionsKey = GlobalKey<StudioExpressionTabState>();
+  bool _allowClose = false;
 
   // Group-chat subject: the picked cast member, or a whole-cast "group shot".
   // Both null/false → fall back to the 1:1 character passed on the widget.
   String? _pickedGroupName;
-  String? _pickedGroupDesc;
   String? _pickedGroupDbId;
   bool _groupShot = false;
   late String _editablePrompt;
   Uint8List? _currentImageBytes;
+  Uint8List? _lastStudioImage;
   String _error = '';
   String _seenGraph = '';
   String _seenModel = '';
@@ -208,6 +207,7 @@ class _ImageStudioState extends State<ImageStudio> {
   bool get _isBusy => _isCrafting || _isGenerating || _saving;
 
   Future<void> _generate() async {
+    if (context.read<ImageGenService>().isGenerating) return;
     final prompt = _editablePrompt.trim();
     if (prompt.isEmpty) {
       setState(() => _error = 'Write a prompt first.');
@@ -232,6 +232,7 @@ class _ImageStudioState extends State<ImageStudio> {
       setState(() {
         _isGenerating = false;
         _currentImageBytes = bytes;
+        if (bytes != null) _lastStudioImage = bytes;
         if (bytes == null) {
           _error = service.statusMessage.isNotEmpty
               ? service.statusMessage
@@ -336,7 +337,7 @@ class _ImageStudioState extends State<ImageStudio> {
       );
     }
     widget.onAccept?.call(path);
-    Navigator.pop(context);
+    await _closeStudio();
   }
 
   /// Save the current result to the character's Avatar Gallery as a look
@@ -418,64 +419,5 @@ class _ImageStudioState extends State<ImageStudio> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    _dropStaleError();
-    // Any generation (Create OR Edit) flips the shared service busy; fold it in
-    // so the tabs lock and Create can't double-submit while Edit is running.
-    final genBusy = context.select<ImageGenService, bool>(
-      (s) => s.isGenerating,
-    );
-
-    return StudioView(
-      activeMode: _activeMode,
-      characterName: _activeCharName,
-      groupCharacters: widget.groupCharacters,
-      groupShotActive: _groupShot,
-      onPickGroupMember: _pickGroupSubject,
-      onPickGroupShot: () => _pickGroupSubject(null),
-      prompt: _editablePrompt,
-      referenceBytes: _referenceImageBytes,
-      currentImageBytes: _currentImageBytes,
-      error: _error,
-      generating: _isGenerating,
-      crafting: _isCrafting,
-      saving: _saving,
-      isBusy: _isBusy || genBusy,
-      history: _history,
-      onClose: () => Navigator.pop(context),
-      onSelectSubject: _selectSubject,
-      onPickReference: _pickReferenceImage,
-      onClearReference: () => setState(() => _referenceImageBytes = null),
-      onPromptChanged: _updatePrompt,
-      onCraftLlm: _craftWithLlmIfAvailable,
-      onExpressionPack: _packTargetDbId == null ? null : _openExpressionPack,
-      onGenerate: _generate,
-      onSave: _save,
-      onAccept: _accept,
-      onVariations: _variations,
-      onEditRegen: _editAndRegen,
-      onSendToChat: _sendToChat,
-      onSaveToGallery: _canSaveToGallery ? _saveToGallery : null,
-      onRestore: _restoreFromHistory,
-      showEdit: _studioTab == 1,
-      modeTabs: StudioModeTabs(
-        selected: _studioTab,
-        onChanged: (i) => setState(() => _studioTab = i),
-        enabled: !_isBusy && !genBusy,
-      ),
-      editBody: EditView(
-        onSendToChat: widget.onSendToChat,
-        onAcceptBytes: hasAcceptAction(_activeMode)
-            ? (bytes) => _accept(bytes)
-            : null,
-        onSaveToGalleryBytes: _canSaveToGallery
-            ? (bytes) => _saveToGallery(bytes)
-            : null,
-        acceptLabel: getAcceptLabel(_activeMode),
-        // Pre-load the current portrait as the edit source (the user can still
-        // swap in an unrelated photo via "Add photo").
-        initialSourcePath: widget.characterImagePath,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _buildStudio(context);
 }

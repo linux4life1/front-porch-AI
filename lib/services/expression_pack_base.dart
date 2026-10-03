@@ -5,8 +5,20 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/services.dart';
+
+/// Expressions workspace explicitly starts from the card's current portrait.
+Future<Uint8List?> packCurrentPortraitImage(
+  CharacterRepository repository,
+  StorageService storage,
+  String characterDbId,
+) async {
+  final card = await repository.getCharacterCardById(characterDbId);
+  final path = card?.imagePath;
+  if (path == null || path.isEmpty) return null;
+  final file = storage.resolveCharacterImage(path);
+  return await file.exists() ? file.readAsBytes() : null;
+}
 
 /// The portrait a pack is built from when the person picked none: the
 /// character's prime expression avatar (else any avatar), else the card's own

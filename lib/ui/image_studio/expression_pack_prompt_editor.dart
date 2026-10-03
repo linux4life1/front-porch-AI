@@ -19,6 +19,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -33,6 +34,8 @@ Future<void> showPackRerollEditor(
   ExpressionPackSession session,
   int index,
 ) async {
+  final imageGen = context.read<ImageGenService?>();
+  if (imageGen?.isGenerating ?? false) return;
   final controller = TextEditingController(
     text: session.effectivePromptFor(index),
   );
@@ -47,10 +50,7 @@ Future<void> showPackRerollEditor(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
           'Re-roll «$emotion»',
-          style: TextStyle(
-            fontSize: 15,
-            color: AppColors.textPrimary(context),
-          ),
+          style: TextStyle(fontSize: 15, color: AppColors.textPrimary(context)),
         ),
         content: SizedBox(
           width: 460,
@@ -161,7 +161,7 @@ Future<void> showPackRerollEditor(
   );
   final prompt = controller.text;
   controller.dispose();
-  if (confirmed == true) {
+  if (confirmed == true && !(imageGen?.isGenerating ?? false)) {
     unawaited(
       session.reroll(
         index,

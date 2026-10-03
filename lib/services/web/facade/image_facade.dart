@@ -26,16 +26,15 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
-import 'package:front_porch_ai/services/image/expression_pack_board.dart';
-import 'package:front_porch_ai/services/image/expression_pack_flight.dart';
 import 'package:front_porch_ai/services/image/image.dart';
-import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
 
 part 'image_facade_catalog.dart';
 part 'image_facade_desk.dart';
 part 'image_facade_pack.dart';
+part 'image_facade_pack_workspace.dart';
 part 'image_facade_ready.dart';
 
 /// Web adapter for image generation: read/flip the backend config (Local A1111 /
@@ -73,6 +72,7 @@ class ImageFacade {
       'backend': img.imageGenBackend, // 'remote' | 'a1111' | 'drawthings'
       'isConfigured': _image.isConfigured,
       'isGenerating': _image.isGenerating,
+      'packConfigMode': packConfigMode,
       'statusMessage': _image.statusMessage,
       'size': img.imageGenSize,
       'style': img.imageGenStyle,
@@ -160,6 +160,7 @@ class ImageFacade {
 
   /// Apply any subset of the image-gen config (only present keys change).
   Future<void> updateConfig(Map<String, dynamic> f) async {
+    requireIdleImageSettings();
     final img = _storage.imageGenSettings;
     final b = _storage.backendSettings;
     // A graph is checked before anything in this write is stored, so a
@@ -173,29 +174,43 @@ class ImageFacade {
           key: checkedDeskGraph(f[key] as String),
     };
     if (f['backend'] is String) {
+      requireIdleImageSettings();
       await img.setImageGenBackend(f['backend'] as String);
     }
     if (f['size'] is String) {
+      requireIdleImageSettings();
       await img.setImageGenSize(snappedStudioSize(f['size'] as String));
     }
-    if (f['style'] is String) await img.setImageGenStyle(f['style'] as String);
+    if (f['style'] is String) {
+      requireIdleImageSettings();
+      await img.setImageGenStyle(f['style'] as String);
+    }
     if (f['negativePrompt'] is String) {
+      requireIdleImageSettings();
       await img.setImageGenNegativePrompt(f['negativePrompt'] as String);
     }
-    if (f['steps'] is int) await img.setImageGenSteps(f['steps'] as int);
+    if (f['steps'] is int) {
+      requireIdleImageSettings();
+      await img.setImageGenSteps(f['steps'] as int);
+    }
     if (f['cfgScale'] is num) {
+      requireIdleImageSettings();
       await img.setImageGenCfgScale((f['cfgScale'] as num).toDouble());
     }
     if (f['sampler'] is String) {
+      requireIdleImageSettings();
       await img.setImageGenSampler(f['sampler'] as String);
     }
     if (f['scheduler'] is String) {
+      requireIdleImageSettings();
       await img.setImageGenScheduler(f['scheduler'] as String);
     }
     if (f['lora'] is String) {
+      requireIdleImageSettings();
       await img.setImageGenLora(f['lora'] as String);
     }
     if (f['loraWeight'] is num) {
+      requireIdleImageSettings();
       await img.setImageGenLoraWeight((f['loraWeight'] as num).toDouble());
     }
     if (f['loras'] is List) {
@@ -209,29 +224,37 @@ class ImageFacade {
           ),
         );
       }
+      requireIdleImageSettings();
       await img.setImageGenLoraSlots(parsed);
     }
     if (f['localUrl'] is String) {
+      requireIdleImageSettings();
       await img.setLocalImageGenUrl(f['localUrl'] as String);
     }
     if (f['comfyUrl'] is String) {
+      requireIdleImageSettings();
       await img.setComfyUiUrl(f['comfyUrl'] as String);
     }
     if (f['promptReview'] is bool) {
+      requireIdleImageSettings();
       await img.setImageGenPromptReview(f['promptReview'] as bool);
     }
     if (f['drawThingsHost'] is String) {
+      requireIdleImageSettings();
       await img.setDrawThingsGrpcHost(f['drawThingsHost'] as String);
     }
     if (f['drawThingsPort'] is int) {
+      requireIdleImageSettings();
       await img.setDrawThingsGrpcPort(
         (f['drawThingsPort'] as int).clamp(1, 65535),
       );
     }
     if (f['drawThingsSampler'] is int) {
+      requireIdleImageSettings();
       await img.setDrawThingsSampler(f['drawThingsSampler'] as int);
     }
     if (f['loraOverrideFamily'] is String) {
+      requireIdleImageSettings();
       await img.prefs?.setString(
         img.k('image_studio_lora_override_family'),
         f['loraOverrideFamily'] as String,
@@ -239,35 +262,48 @@ class ImageFacade {
       img.notify();
     }
     if (f['editModel'] is String) {
+      requireIdleImageSettings();
       await img.setImageGenEditModel(f['editModel'] as String);
     }
     // Studio-scoped host only. `imageRemoteHost` is the chip id; a raw
     // `remoteApiUrl` from older PWAs still parks on Image Studio, never chat.
     final hostUrl = imageRemoteUrlForHostId('${f['imageRemoteHost'] ?? ''}');
     if (hostUrl != null) {
+      requireIdleImageSettings();
       await applyImageRemoteHost(
         image: img,
         url: hostUrl,
         chatRemoteApiUrl: b.remoteApiUrl,
-        editScoped: false,
+        editScoped: f['mode'] == 'edit',
+        canWrite: () {
+          requireIdleImageSettings();
+          return true;
+        },
       );
     } else if (f['remoteApiUrl'] is String) {
+      requireIdleImageSettings();
       await applyImageRemoteHost(
         image: img,
         url: f['remoteApiUrl'] as String,
         chatRemoteApiUrl: b.remoteApiUrl,
-        editScoped: false,
+        editScoped: f['mode'] == 'edit',
+        canWrite: () {
+          requireIdleImageSettings();
+          return true;
+        },
       );
     }
     if (f['model'] is String) {
       final id = f['model'] as String;
       if (!looksLikeLocalImageModel(id)) {
+        requireIdleImageSettings();
         await img.setImageGenModel(id);
         final url = resolveImageStudioRemoteAccount(
           imageRemoteApiUrl: img.imageRemoteApiUrl,
           chatRemoteApiUrl: b.remoteApiUrl,
           keyFor: b.remoteApiKeyFor,
         ).url;
+        requireIdleImageSettings();
         await img.setRemoteImageModelFor(url, id);
       }
     }
@@ -278,21 +314,25 @@ class ImageFacade {
         chatRemoteApiUrl: b.remoteApiUrl,
         keyFor: b.remoteApiKeyFor,
       ).url;
+      requireIdleImageSettings();
       await b.setRemoteApiKeyFor(url, apiKey);
     }
     if (f['comfyCreateUploadedWorkflow'] is String) {
+      requireIdleImageSettings();
       await img.setComfyCreateUploadedWorkflow(
         graphs['comfyCreateUploadedWorkflow'] ?? '',
         title: f['comfyCreateUploadedTitle']?.toString() ?? '',
       );
     }
     if (f['comfyEditUploadedWorkflow'] is String) {
+      requireIdleImageSettings();
       await img.setComfyEditUploadedWorkflow(
         graphs['comfyEditUploadedWorkflow'] ?? '',
         title: f['comfyEditUploadedTitle']?.toString() ?? '',
       );
     }
     if (f['comfyEditWorkflowId'] is String) {
+      requireIdleImageSettings();
       await img.setComfyEditWorkflowId(f['comfyEditWorkflowId'] as String);
     }
     final editChoices = f['comfyEditModelChoices'];
@@ -301,6 +341,7 @@ class ImageFacade {
         final key = entry.key.toString();
         final slash = key.indexOf('/');
         if (slash <= 0) continue;
+        requireIdleImageSettings();
         await img.setComfyEditModelChoice(
           key.substring(0, slash),
           key.substring(slash + 1),
@@ -309,6 +350,7 @@ class ImageFacade {
       }
     }
     if (f['comfyCreateWorkflowId'] is String) {
+      requireIdleImageSettings();
       await img.setComfyCreateWorkflowId(f['comfyCreateWorkflowId'] as String);
     }
     final choices = f['comfyCreateModelChoices'];
@@ -317,6 +359,7 @@ class ImageFacade {
         final key = e.key.toString();
         final slash = key.indexOf('/');
         if (slash <= 0) continue;
+        requireIdleImageSettings();
         await img.setComfyCreateModelChoice(
           key.substring(0, slash),
           key.substring(slash + 1),

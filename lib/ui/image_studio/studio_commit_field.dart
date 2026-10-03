@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'studio_settings_gate.dart';
 
 /// A field that writes its text when the user submits it or leaves it.
 class StudioCommitField extends StatefulWidget {
@@ -42,6 +43,11 @@ class _StudioCommitFieldState extends State<StudioCommitField> {
   }
 
   void _commit() {
+    if (studioSettingsLocked(context)) {
+      _controller.text = widget.value;
+      _committed = widget.value;
+      return;
+    }
     if (_controller.text == _committed) return;
     _committed = _controller.text;
     widget.onSubmit(_controller.text);

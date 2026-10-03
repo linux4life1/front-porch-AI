@@ -17,12 +17,14 @@ extension on _StudioDeskState {
     String token,
     String file,
   ) {
+    if (_configurationLocked) return Future.value();
     return _editing
         ? settings.setComfyEditModelChoice(workflowId, token, file)
         : settings.setComfyCreateModelChoice(workflowId, token, file);
   }
 
   Future<void> _setWorkflow(ImageGenSettings settings, String workflowId) {
+    if (_configurationLocked) return Future.value();
     return _editing
         ? settings.setComfyEditWorkflowId(workflowId)
         : settings.setComfyCreateWorkflowId(workflowId);
@@ -34,6 +36,7 @@ extension on _StudioDeskState {
     ImageGenSettings settings,
     List<ComfyModelSlot> slots,
   ) async {
+    if (_configurationLocked) return;
     final id = _workflowId(settings);
     if (settings.imageGenBackend != 'comfyui' || id.isEmpty) return;
     if (id == kComfyUploadedWorkflowId) return;
@@ -65,6 +68,7 @@ extension on _StudioDeskState {
   /// the file's family, except that a file of no known family stays on the
   /// graph it was chosen on.
   Future<void> _pickModel(ImageGenSettings settings, String file) async {
+    if (_configurationLocked) return;
     if (settings.imageGenBackend == 'remote') {
       await settings.setRemoteImageModelFor(
         settings.imageRemoteApiUrl,
@@ -132,6 +136,7 @@ extension on _StudioDeskState {
         items: items,
         unfit: unfit,
         onPick: (file) {
+          if (_configurationLocked) return;
           if (token != null && settings.imageGenBackend == 'comfyui') {
             _setChoice(settings, _workflowId(settings), token, file);
             return;
@@ -169,6 +174,7 @@ extension on _StudioDeskState {
     bool? forEdit,
     String name = '',
   }) async {
+    if (_configurationLocked) return;
     final kept = pngWorkflowText({'prompt': raw});
     if (kept == null) {
       if (!mounted) return;
@@ -181,9 +187,11 @@ extension on _StudioDeskState {
     final title = name.trim().isEmpty ? 'workflow' : name.trim();
     if (edit) {
       await settings.setComfyEditUploadedWorkflow(kept, title: title);
+      if (_configurationLocked) return;
       await settings.setComfyEditWorkflowId(kComfyUploadedWorkflowId);
     } else {
       await settings.setComfyCreateUploadedWorkflow(kept, title: title);
+      if (_configurationLocked) return;
       await settings.setComfyCreateWorkflowId(kComfyUploadedWorkflowId);
     }
   }
@@ -239,6 +247,7 @@ extension on _StudioDeskState {
           _saveGraph(settings, json, forEdit: forEdit, name: name);
         },
         onUseOther: (id, {required bool forEdit}) {
+          if (_configurationLocked) return;
           if (forEdit) {
             settings.setComfyEditWorkflowId(id);
           } else {
@@ -257,6 +266,7 @@ extension on _StudioDeskState {
     String id,
     String file,
   ) async {
+    if (_configurationLocked) return;
     final chosen = isGgufFile(file) && id == 'sd'
         ? workflowForModel(edit: _editing, file: file)
         : id;
@@ -291,9 +301,9 @@ extension on _StudioDeskState {
         primaryFile: primary,
         facts: _loraFacts,
         onPick: (index, file) =>
-            settings.setImageGenLoraSlot(index, file: file),
+            _write(() => settings.setImageGenLoraSlot(index, file: file)),
         onWeight: (index, weight) =>
-            settings.setImageGenLoraSlot(index, weight: weight),
+            _write(() => settings.setImageGenLoraSlot(index, weight: weight)),
       ),
     );
   }
@@ -334,6 +344,7 @@ extension on _StudioDeskState {
     String file,
     bool lora,
   ) async {
+    if (_configurationLocked) return;
     await _refreshCatalog(settings, force: true);
     if (!mounted) return;
     final id = _workflowId(settings);
@@ -389,6 +400,7 @@ extension on _StudioDeskState {
         token: deskPrimaryToken(workflowId: id, file: file, slots: _slots),
       );
     }
+    if (_configurationLocked) return;
     await applyInstalledDeskChoice(
       settings: settings,
       choice: choice,

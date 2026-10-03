@@ -53,13 +53,19 @@ String checkedDeskGraph(String raw) {
 extension ImageStudioDesk on ImageFacade {
   ImageGenSettings get _s => _storage.imageGenSettings;
 
-  Future<void> _setWorkflow(bool edit, String id) =>
-      edit ? _s.setComfyEditWorkflowId(id) : _s.setComfyCreateWorkflowId(id);
+  Future<void> _setWorkflow(bool edit, String id) {
+    requireIdleImageSettings();
+    return edit
+        ? _s.setComfyEditWorkflowId(id)
+        : _s.setComfyCreateWorkflowId(id);
+  }
 
-  Future<void> _setChoice(bool edit, String id, String token, String file) =>
-      edit
-      ? _s.setComfyEditModelChoice(id, token, file)
-      : _s.setComfyCreateModelChoice(id, token, file);
+  Future<void> _setChoice(bool edit, String id, String token, String file) {
+    requireIdleImageSettings();
+    return edit
+        ? _s.setComfyEditModelChoice(id, token, file)
+        : _s.setComfyCreateModelChoice(id, token, file);
+  }
 
   /// The model files the graph on the desk loads, as the readiness rule read
   /// them. Empty when Comfy cannot be read.
@@ -100,6 +106,7 @@ extension ImageStudioDesk on ImageFacade {
   /// own slot. A bundled graph follows the file's family, except that a file
   /// of no known family stays on the graph it was chosen on.
   Future<void> pickModel({required bool edit, required String file}) async {
+    requireIdleImageSettings();
     final before = ImageModelFamily.detectFromName(
       studioPrimaryFor(_s, edit: edit),
     );
@@ -112,15 +119,19 @@ extension ImageStudioDesk on ImageFacade {
     final key = _s.k('image_studio_lora_override_family');
     final override = _s.prefs?.getString(key) ?? '';
     if (before != after && override.isNotEmpty && override != after.name) {
+      requireIdleImageSettings();
       await _s.prefs?.remove(key);
       _s.notify();
     }
   }
 
   Future<void> _pickModel({required bool edit, required String file}) async {
+    requireIdleImageSettings();
     final name = _cleanName(file);
     if (_s.imageGenBackend == 'remote') {
       await _s.setRemoteImageModelFor(_s.imageRemoteApiUrl, name, edit: edit);
+      requireIdleImageSettings();
+      await (edit ? _s.setImageGenEditModel(name) : _s.setImageGenModel(name));
       return;
     }
     if (_s.imageGenBackend != 'comfyui') {
@@ -149,6 +160,7 @@ extension ImageStudioDesk on ImageFacade {
   /// bundled graph of its own family; a saved or template graph keeps the
   /// files it has and empty slots are filled.
   Future<void> pickGraph({required bool edit, required String id}) async {
+    requireIdleImageSettings();
     final graph = _cleanName(id);
     final uploaded = edit
         ? _s.comfyEditUploadedWorkflow
@@ -191,6 +203,7 @@ extension ImageStudioDesk on ImageFacade {
     required String token,
     required String file,
   }) async {
+    requireIdleImageSettings();
     final slot = _cleanName(token);
     if (!RegExp(r'^%MODEL_[A-Z0-9_]+%$').hasMatch(slot)) {
       throw const DeskRefused('bad_slot', 'That is not a model slot.');
@@ -221,6 +234,7 @@ extension ImageStudioDesk on ImageFacade {
     required bool edit,
     String? useFor,
   }) async {
+    requireIdleImageSettings();
     if (bytes.length > kMaxDeskGraphBytes) {
       throw const DeskRefused(
         'too_large',
@@ -256,9 +270,11 @@ extension ImageStudioDesk on ImageFacade {
     final shown = title.length > 120 ? title.substring(0, 120) : title;
     if (forEdit) {
       await _s.setComfyEditUploadedWorkflow(json, title: shown);
+      requireIdleImageSettings();
       await _s.setComfyEditWorkflowId(kComfyUploadedWorkflowId);
     } else {
       await _s.setComfyCreateUploadedWorkflow(json, title: shown);
+      requireIdleImageSettings();
       await _s.setComfyCreateWorkflowId(kComfyUploadedWorkflowId);
     }
     return {

@@ -29,6 +29,16 @@
   column-gap: 16px;
   align-items: start;
 }
+.studio-desk [hidden] { display: none !important; }
+.fp-workspace-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.fp-workspace-tabs [aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+.fp-workspace-tabs :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fp-desk-settings, .fp-pack-draft, .fp-pack-options { margin: 0; padding: 12px; border: 1px solid var(--border); min-width: 0; }
+.fp-pack-draft textarea { width: 100%; box-sizing: border-box; }
+.fp-pack-draft img { object-fit: contain; display: block; margin-block: 8px; }
+.fp-pack ul { padding-inline-start: 20px; }
+.fp-pack li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 8px; }
+.fp-pack button { margin: 4px; }
 .fp-desk-rail {
   grid-column: 1;
   grid-row: 1;

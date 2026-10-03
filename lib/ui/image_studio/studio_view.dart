@@ -19,18 +19,13 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-import 'reference_image_picker.dart';
-import 'result_view.dart';
-import 'generation_history.dart';
-import 'studio_helpers.dart';
-import 'subject_picker.dart';
-import 'studio_desk.dart';
-import 'studio_desk_copy.dart';
-import 'studio_desk_frame.dart';
+import 'studio_widgets.dart';
 
 /// Presentational shell for the Image Studio: the dialog frame, header, subject
 /// picker, style/reference/prompt canvas, generate/result/history, and the
@@ -73,6 +68,9 @@ class StudioView extends StatelessWidget {
     this.modeTabs,
     this.editBody,
     this.showEdit = false,
+    this.workspaceIndex,
+    this.expressionBody,
+    this.draftBusy = false,
   });
 
   final ImageGenMode activeMode;
@@ -123,6 +121,9 @@ class StudioView extends StatelessWidget {
 
   /// True when the Edit tab is active.
   final bool showEdit;
+  final int? workspaceIndex;
+  final Widget? expressionBody;
+  final bool draftBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -153,8 +154,22 @@ class StudioView extends StatelessWidget {
                         );
                   return IndexedStack(
                     sizing: StackFit.expand,
-                    index: showEdit ? 1 : 0,
-                    children: [create, editBody ?? const SizedBox.shrink()],
+                    index: workspaceIndex ?? (showEdit ? 1 : 0),
+                    children: [
+                      ExcludeFocus(
+                        excluding: (workspaceIndex ?? (showEdit ? 1 : 0)) != 0,
+                        child: create,
+                      ),
+                      ExcludeFocus(
+                        excluding: (workspaceIndex ?? (showEdit ? 1 : 0)) != 1,
+                        child: editBody ?? const SizedBox.shrink(),
+                      ),
+                      if (expressionBody != null)
+                        ExcludeFocus(
+                          excluding: workspaceIndex != 2,
+                          child: expressionBody!,
+                        ),
+                    ],
                   );
                 },
               ),
@@ -174,9 +189,9 @@ class StudioView extends StatelessWidget {
             selected: activeMode,
             characterName: characterName,
             groupCharacters: groupCharacters,
-            onChanged: isBusy ? null : onSelectSubject,
-            onPickGroupMember: isBusy ? null : onPickGroupMember,
-            onPickGroupShot: isBusy ? null : onPickGroupShot,
+            onChanged: draftBusy ? null : onSelectSubject,
+            onPickGroupMember: draftBusy ? null : onPickGroupMember,
+            onPickGroupShot: draftBusy ? null : onPickGroupShot,
           ),
           if (groupShotActive) ...[
             const SizedBox(height: 8),
@@ -185,16 +200,23 @@ class StudioView extends StatelessWidget {
         ],
       ),
       prompt: prompt,
-      onPromptChanged: isBusy ? null : onPromptChanged,
-      onCraft: isBusy ? null : onCraftLlm,
+      onPromptChanged: draftBusy ? null : onPromptChanged,
+      onCraft: draftBusy ? null : onCraftLlm,
       crafting: crafting,
       well: kStudioCreateWell,
-      packNote: kStudioCreatePack,
+      packNote:
+          context.watch<StorageService>().imageGenSettings.imageGenBackend ==
+                  'comfyui' ||
+              ImageReferenceResolver.packEditMode(
+                context.watch<StorageService>().imageGenSettings,
+              )
+          ? 'Pack uses the Edit model and workflow.'
+          : kStudioCreatePack,
       showPack: onExpressionPack != null,
-      onExpressionPack: isBusy ? null : onExpressionPack,
+      onExpressionPack: onExpressionPack,
       picture: ReferenceImagePicker(
         referenceBytes: referenceBytes,
-        isBusy: isBusy,
+        isBusy: draftBusy,
         onPick: onPickReference,
         onClear: onClearReference,
       ),
@@ -202,7 +224,7 @@ class StudioView extends StatelessWidget {
       stove: StudioDesk(
         editMode: false,
         showGenerate: true,
-        onGenerate: generating ? null : onGenerate,
+        onGenerate: isBusy ? null : onGenerate,
         errorText: error,
         generating: generating,
       ),
@@ -226,7 +248,7 @@ class StudioView extends StatelessWidget {
                   isSaving: saving,
                   onSave: onSave,
                   onAccept: onAccept,
-                  onVariations: onVariations,
+                  onVariations: isBusy ? null : onVariations,
                   onEditRegen: onEditRegen,
                   onSendToChat: onSendToChat,
                   onSaveToGallery: onSaveToGallery,

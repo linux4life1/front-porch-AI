@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'studio_desk.dart';
+import 'studio_widgets.dart';
 
 /// Edit stove. Readiness comes from the same desk the Create tab uses.
 class StudioEditPane extends StatelessWidget {
@@ -22,16 +22,13 @@ class StudioEditPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      ignoring: busy,
-      child: StudioDesk(
-        editMode: true,
-        showGenerate: true,
-        generating: busy,
-        onGenerate: onGenerate,
-        errorText: errorText,
-        onReadyChanged: onReadyChanged,
-      ),
+    return StudioDesk(
+      editMode: true,
+      showGenerate: true,
+      generating: busy,
+      onGenerate: onGenerate,
+      errorText: errorText,
+      onReadyChanged: onReadyChanged,
     );
   }
 }

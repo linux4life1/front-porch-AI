@@ -15,6 +15,17 @@ extension ImageStudioPacks on ImageFacade {
   /// Starts a pack for [f]`['characterId']`. It answers at once with the
   /// pack's state; the pictures are made in the background.
   Future<Map<String, Object?>> startPack(Map<String, dynamic> f) async {
+    requireIdlePackImport();
+    if (f['workspace'] == true && _board.run != null) {
+      throw const DeskRefused(
+        'existing_pack',
+        'Choose New pack to discard the current results first.',
+        409,
+      );
+    }
+    if (f['workspace'] == true && _image.isGenerating) {
+      throw const DeskRefused('busy', kAlreadyGeneratingMessage, 409);
+    }
     final repo = _characters;
     if (repo == null) {
       throw const DeskRefused(
@@ -40,7 +51,9 @@ extension ImageStudioPacks on ImageFacade {
 
     final raw =
         await _reference(f) ??
-        await packBaseImage(repo, _storage, id, card.name);
+        (f['baseSource'] == 'currentPortrait'
+            ? await packCurrentPortraitImage(repo, _storage, id)
+            : await packBaseImage(repo, _storage, id, card.name));
     if (raw == null) {
       throw DeskRefused(
         'no_base',
@@ -91,6 +104,14 @@ extension ImageStudioPacks on ImageFacade {
       0.30,
       0.85,
     );
+    if (f['workspace'] == true && _board.run != null) {
+      throw const DeskRefused(
+        'existing_pack',
+        'Choose New pack to discard the current results first.',
+        409,
+      );
+    }
+    requireIdlePackImport();
     final flight = await withoutCity96Ask(
       () => beginExpressionPack(
         imageGen: _image,
@@ -148,6 +169,13 @@ extension ImageStudioPacks on ImageFacade {
         409,
       );
     }
+    if (run.importing) {
+      throw const DeskRefused(
+        'importing',
+        'Wait for the pack import to finish.',
+        409,
+      );
+    }
     if (run.session.isRunning) {
       throw const DeskRefused('running', 'It is still making pictures.', 409);
     }
@@ -173,14 +201,98 @@ extension ImageStudioPacks on ImageFacade {
         409,
       );
     }
-    run.imported = await ExpressionPackImporter.importPack(
-      repository: repo,
-      storage: _storage,
-      characterDbId: run.characterId!,
-      characterName: run.characterName,
-      slots: run.session.slots,
-      replaceSameLabel: run.replaceExisting,
+    run.importing = true;
+    try {
+      run.imported = await ExpressionPackImporter.importPack(
+        repository: repo,
+        storage: _storage,
+        characterDbId: run.characterId!,
+        characterName: run.characterName,
+        slots: run.session.slots,
+        replaceSameLabel: run.replaceExisting,
+      );
+    } finally {
+      run.importing = false;
+    }
+    return _board.view()!;
+  }
+
+  Future<Map<String, Object?>> continuePack(
+    Map<String, dynamic> f, {
+    bool reroll = false,
+  }) async {
+    final run = _board.run;
+    if (run == null) {
+      throw const DeskRefused('no_pack', 'No expression pack.', 404);
+    }
+    if (run.origin != PackOrigin.phone) {
+      throw const DeskRefused(
+        'desktop_pack',
+        'Continue this pack on the computer.',
+        409,
+      );
+    }
+    if (run.imported != null) {
+      throw const DeskRefused(
+        'already_imported',
+        'Those pictures are already imported.',
+        409,
+      );
+    }
+    if (run.importing) {
+      throw const DeskRefused(
+        'importing',
+        'Wait for the pack import to finish.',
+        409,
+      );
+    }
+    if (run.session.isRunning) {
+      throw const DeskRefused('running', 'It is still making pictures.', 409);
+    }
+    final index = run.session.slots.indexWhere(
+      (s) => s.emotion == f['emotion'],
     );
+    if (reroll && index < 0) {
+      throw const DeskRefused('no_slot', 'Pick an expression in this pack.');
+    }
+    if (!reroll && run.session.pendingCount == 0) {
+      throw const DeskRefused(
+        'nothing_to_do',
+        'There are no pending expressions.',
+        409,
+      );
+    }
+    final ready = Completer<bool>();
+    final work = _image.startExpressionPack(
+      reroll
+          ? [run.session.slots[index].emotion]
+          : [
+              for (final s in run.session.slots)
+                if (s.state == ExpressionSlotState.pending) s.emotion,
+            ],
+      (_) async {
+        final generating = reroll
+            ? run.session.reroll(index, newSeed: true)
+            : run.session.run();
+        ready.complete(true);
+        await generating;
+        return const <String>[];
+      },
+    );
+    unawaited(
+      work.then(
+        (_) {
+          if (!ready.isCompleted) ready.complete(false);
+        },
+        onError: (Object e, StackTrace st) {
+          debugPrint('[ExpressionPack] Could not continue: $e');
+          if (!ready.isCompleted) ready.complete(false);
+        },
+      ),
+    );
+    if (!await ready.future) {
+      throw const DeskRefused('busy', kAlreadyGeneratingMessage, 409);
+    }
     return _board.view()!;
   }
 

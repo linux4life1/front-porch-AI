@@ -9,8 +9,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-import 'remote_image_host_chips.dart';
-import 'studio_commit_field.dart';
+import 'studio_widgets.dart';
 
 /// Every setting a generate reads that the graph and model controls do not
 /// cover, each with a control you can see: the Remote host, seed, negative
@@ -26,12 +25,17 @@ class StudioDeskKnobs extends StatelessWidget {
     super.key,
     required this.settings,
     this.edit = false,
+    this.canWrite,
     this.comfyShiftGraph,
     this.comfyOwnShift = kEditRecommendedShift,
   });
 
   final ImageGenSettings settings;
   final bool edit;
+  final bool Function()? canWrite;
+  void _write(VoidCallback action) {
+    if (canWrite?.call() ?? true) action();
+  }
 
   /// The id of the Comfy graph on the desk when it has a sampling-shift node.
   /// Without one the slider would change nothing, so it is not shown.
@@ -57,11 +61,14 @@ class StudioDeskKnobs extends StatelessWidget {
           RemoteImageHostChips(
             selectedUrl: settings.imageRemoteApiUrl,
             keyFor: storage.backendSettings.remoteApiKeyFor,
-            onSelect: (url) => applyImageRemoteHost(
-              image: settings,
-              url: url,
-              chatRemoteApiUrl: storage.backendSettings.remoteApiUrl,
-              editScoped: edit,
+            onSelect: (url) => _write(
+              () => applyImageRemoteHost(
+                image: settings,
+                url: url,
+                chatRemoteApiUrl: storage.backendSettings.remoteApiUrl,
+                editScoped: edit,
+                canWrite: canWrite,
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -83,7 +90,8 @@ class StudioDeskKnobs extends StatelessWidget {
             label: 'Negative prompt',
             hint: 'e.g. blurry, extra fingers',
             maxLines: 2,
-            onSubmit: settings.setImageGenNegativePrompt,
+            onSubmit: (value) =>
+                _write(() => settings.setImageGenNegativePrompt(value)),
           ),
         if (backend == 'comfyui' && comfyShiftGraph != null)
           ..._comfyShift(primary, comfyShiftGraph!),
@@ -100,7 +108,8 @@ class StudioDeskKnobs extends StatelessWidget {
           ),
           value: settings.imageGenPromptReview,
           activeTrackColor: AppColors.formMasterAccent,
-          onChanged: settings.setImageGenPromptReview,
+          onChanged: (value) =>
+              _write(() => settings.setImageGenPromptReview(value)),
         ),
         if (!edit)
           ..._promptStyle(context)
@@ -133,7 +142,8 @@ class StudioDeskKnobs extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(
-            onPressed: () => settings.clearComfyShift(graph, edit: edit),
+            onPressed: () =>
+                _write(() => settings.clearComfyShift(graph, edit: edit)),
             child: const Text('Use the graph\'s own shift'),
           ),
         ),
@@ -173,6 +183,7 @@ class StudioDeskKnobs extends StatelessWidget {
               DropdownMenuItem(value: 3, child: Text('From prompt')),
             ],
             onChanged: (value) {
+              if (!(canWrite?.call() ?? true)) return;
               if (value == null) return;
               if (edit) {
                 settings.setEditSeedMode(value);
@@ -189,7 +200,8 @@ class StudioDeskKnobs extends StatelessWidget {
         title: Text('TeaCache', style: TextStyle(color: primary)),
         value: settings.drawThingsTeaCache,
         activeTrackColor: AppColors.formMasterAccent,
-        onChanged: settings.setDrawThingsTeaCache,
+        onChanged: (value) =>
+            _write(() => settings.setDrawThingsTeaCache(value)),
       ),
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
@@ -197,7 +209,8 @@ class StudioDeskKnobs extends StatelessWidget {
         title: Text('CFG Zero', style: TextStyle(color: primary)),
         value: settings.drawThingsCfgZeroStar,
         activeTrackColor: AppColors.formMasterAccent,
-        onChanged: settings.setDrawThingsCfgZeroStar,
+        onChanged: (value) =>
+            _write(() => settings.setDrawThingsCfgZeroStar(value)),
       ),
     ];
   }
@@ -219,7 +232,7 @@ class StudioDeskKnobs extends StatelessWidget {
             divisions: 100,
             label: shift.toStringAsFixed(1),
             activeColor: AppColors.formMasterAccent,
-            onChanged: onChanged,
+            onChanged: (value) => _write(() => onChanged(value)),
           ),
         ),
         Text(shift.toStringAsFixed(1), style: TextStyle(color: primary)),
@@ -245,6 +258,7 @@ class StudioDeskKnobs extends StatelessWidget {
             DropdownMenuItem(value: entry.key, child: Text(entry.value)),
         ],
         onChanged: (value) {
+          if (!(canWrite?.call() ?? true)) return;
           if (value != null) settings.setImageGenStyle(value);
         },
       ),
@@ -265,6 +279,7 @@ class StudioDeskKnobs extends StatelessWidget {
           ),
         ],
         onChanged: (value) {
+          if (!(canWrite?.call() ?? true)) return;
           if (value != null) settings.setImageGenPromptParadigm(value);
         },
       ),

@@ -52,7 +52,10 @@ extension on _StudioDeskState {
     // other tab's desk (a different model) also reads the same setting.
     final changedFamily = _checkedFamily != null && _checkedFamily != family;
     _checkedFamily = family;
-    if (override.isNotEmpty && override != family.name && changedFamily) {
+    if (!_configurationLocked &&
+        override.isNotEmpty &&
+        override != family.name &&
+        changedFamily) {
       await settings.prefs?.remove(
         settings.k('image_studio_lora_override_family'),
       );

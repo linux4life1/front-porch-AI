@@ -5,7 +5,7 @@
 // asks the computer to make each choice by the desktop's own rules; it writes
 // nothing on its own, only what a tap asks for.
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ApiError } from '../../api/client';
 import { CivitaiSheet } from './studio/CivitaiSheet';
 import { DeskAdvanced } from './studio/DeskAdvanced';
@@ -14,12 +14,14 @@ import { DeskLoras } from './studio/DeskLoras';
 import { DeskModel } from './studio/DeskModel';
 import { DeskRail, type Picture, type Subject } from './studio/DeskRail';
 import { DeskSize } from './studio/DeskSize';
+import { PackPanel } from './studio/PackPanel';
 import { GraphSheet } from './studio/GraphSheet';
 import { LoraSheet } from './studio/LoraSheet';
 import { ModelSheet } from './studio/ModelSheet';
 import { installedChoice, pick } from './studio/deskApi';
 import { factsByFile, readyLine } from './studio/deskRules';
 import { useDeskReady } from './studio/useDeskReady';
+import { useSharedGeneration } from './studio/useSharedGeneration';
 import type { GraphUpload, ImageConfig, LoraFact, LoraSlot, Mode } from './studio/types';
 import './studio/desk.css';
 
@@ -51,6 +53,8 @@ export interface StudioDeskProps {
   lastSaved?: { name: string; url: string } | null;
   /** How often a CivitAI download is asked about; for tests. */
   civitaiPollMs?: number;
+  onSharedBusy?: (busy: boolean) => void;
+  onConfigMode?: (mode: Mode) => void;
 }
 
 type Sheet =
@@ -69,6 +73,9 @@ function paddedSlots(cfg: ImageConfig): LoraSlot[] {
 export function StudioDesk(props: StudioDeskProps) {
   const { cfg } = props;
   const [mode, setMode] = useState<Mode>('create');
+  const [tab, setTab] = useState<Mode | 'pack'>('create');
+  const [packVisited, setPackVisited] = useState(false);
+  const [packBusy, setPackBusy] = useState(false);
   const [subject, setSubject] = useState<Subject>('free');
   const [picture, setPicture] = useState<Picture | null>(null);
   const [sheet, setSheet] = useState<Sheet | null>(null);
@@ -81,15 +88,23 @@ export function StudioDesk(props: StudioDeskProps) {
     cfg.comfyUrl, cfg.localUrl, cfg.drawThingsHost, cfg.drawThingsPort,
     cfg.comfyCreateUploadedTitle, cfg.comfyEditUploadedTitle,
   ]);
-  const { facts, refresh } = useDeskReady(mode, readyKey);
+  const configMode = tab === 'pack' ? cfg.packConfigMode ?? (cfg.backend === 'a1111' ? 'create' : 'edit') : mode;
+  const { onConfigMode, onSharedBusy } = props;
+  useEffect(() => onConfigMode?.(configMode), [configMode, onConfigMode]);
+  const globalGeneration = useSharedGeneration();
+  const globalBusy = globalGeneration.busy;
+  const sharedBusy = props.busy === true || (globalBusy ?? cfg.isGenerating) === true || packBusy;
+  useEffect(() => onSharedBusy?.(sharedBusy), [sharedBusy, onSharedBusy]);
+  const { facts, refresh } = useDeskReady(configMode, readyKey);
   const file = facts?.primary ?? '';
   const facing = { ...factsByFile(facts?.loraFacts), ...known };
 
   const failed = (e: unknown, fallback: string) =>
     setNote(e instanceof ApiError && e.message ? e.message : fallback);
 
+  const saveConfig = (patch: Record<string, unknown>) => sharedBusy ? Promise.resolve(false) : props.save(patch);
   const choose = (body: Parameters<typeof pick>[0]) =>
-    pick(body).then((next) => {
+    sharedBusy ? Promise.resolve() : pick(body).then((next) => {
       props.onConfig(next);
       refresh();
     });
@@ -101,7 +116,7 @@ export function StudioDesk(props: StudioDeskProps) {
 
   const pickFile = (name: string, token?: string) => {
     setSheet(null);
-    void choose(token ? { kind: 'support', mode, token, file: name } : { kind: 'model', mode, file: name })
+    void choose(token ? { kind: 'support', mode: configMode, token, file: name } : { kind: 'model', mode: configMode, file: name })
       .catch((e) => failed(e, 'Could not use that file.'));
   };
 
@@ -114,7 +129,7 @@ export function StudioDesk(props: StudioDeskProps) {
     }
     slots[index] = { file: name, weight: slots[index].weight || 0.8 };
     setSheet(null);
-    void props.save({ loras: slots }).then(refresh);
+    void saveConfig({ loras: slots }).then(refresh);
   };
 
   const storedGraph = (result: GraphUpload) => {
@@ -135,11 +150,11 @@ export function StudioDesk(props: StudioDeskProps) {
       const choice = await installedChoice({ filename, lora, workflowId: facts?.workflowId ?? '' });
       if (!choice.accept) return choice.kind === 'lora-full' ? `${saved} All LoRA slots are full.` : `${saved} ${where}`;
       if (choice.kind === 'lora' && choice.loras) {
-        await props.save({ loras: choice.loras });
+        await saveConfig({ loras: choice.loras });
       } else if (choice.kind === 'comfy' && choice.token) {
-        await choose({ kind: 'support', mode, token: choice.token, file: filename });
+        await choose({ kind: 'support', mode: configMode, token: choice.token, file: filename });
       } else if (choice.kind === 'slot') {
-        await choose({ kind: 'model', mode, file: filename });
+        await choose({ kind: 'model', mode: configMode, file: filename });
       } else {
         return `${saved} ${where}`;
       }
@@ -154,7 +169,7 @@ export function StudioDesk(props: StudioDeskProps) {
   const needsPicture = mode === 'edit' && !picture;
   const line = readyLine({
     ready,
-    busy: props.busy === true,
+    busy: sharedBusy,
     kind: facts?.kind,
     message: facts?.message,
     missingClass: facts?.missingClass,
@@ -165,7 +180,37 @@ export function StudioDesk(props: StudioDeskProps) {
 
   return (
     <section className="studio-desk">
+      <div role="tablist" aria-label="Image Studio workspace" className="fp-workspace-tabs">
+        {(['create', 'edit', 'pack'] as const).map((value) => (
+          <button key={value} id={`studio-tab-${value}`} type="button" role="tab"
+            aria-selected={tab === value} aria-pressed={tab === value}
+            aria-expanded={value === 'pack' ? tab === 'pack' : undefined}
+            aria-controls={value === 'pack' ? 'studio-pack-panel' : 'studio-image-panel'}
+            tabIndex={tab === value ? 0 : -1}
+            onKeyDown={(e) => {
+              const values = ['create', 'edit', 'pack'] as const;
+              const index = values.indexOf(value);
+              const next = e.key === 'ArrowRight' ? values[(index + 1) % 3]
+                : e.key === 'ArrowLeft' ? values[(index + 2) % 3]
+                : e.key === 'Home' ? 'create' : e.key === 'End' ? 'pack' : null;
+              if (next) {
+                e.preventDefault();
+                document.getElementById(`studio-tab-${next}`)?.click();
+                document.getElementById(`studio-tab-${next}`)?.focus();
+              }
+            }}
+            onClick={() => {
+              setTab(value);
+              if (value === 'pack') setPackVisited(true);
+              else setMode(value);
+            }}>
+            {value === 'pack' ? 'Expression pack' : value === 'create' ? 'Create' : 'Edit'}
+          </button>
+        ))}
+      </div>
       <div className="fp-desk-body">
+        <div className="fp-desk-rail" id="studio-image-panel" role="tabpanel"
+          aria-labelledby={`studio-tab-${mode}`} hidden={tab === 'pack'}>
         <DeskRail
           mode={mode}
           subject={subject}
@@ -176,26 +221,30 @@ export function StudioDesk(props: StudioDeskProps) {
           onPicture={setPicture}
           lastSaved={props.lastSaved ?? null}
           onNote={setNote}
+          showPack={false}
         />
+        </div>
+        {packVisited ? <div className="fp-desk-rail" id="studio-pack-panel" role="tabpanel"
+          aria-labelledby="studio-tab-pack" hidden={tab !== 'pack'}>
+          <PackPanel prompt="" picture={null} workspace lastSaved={props.lastSaved ?? null}
+            sharedBusy={props.busy === true || (globalBusy ?? cfg.isGenerating) === true}
+            configMode={configMode} onBusy={setPackBusy} />
+        </div> : null}
         {props.result ? <div className="fp-desk-output" data-region="output">{props.result}</div> : null}
         <div className="fp-desk-stove" data-region="stove">
+          <fieldset className="fp-desk-settings" disabled={sharedBusy}>
+          <legend>{tab === 'pack' ? `Pack settings · ${configMode === 'edit' ? 'Edit' : 'Create / img2img'}` : 'Image settings'}</legend>
           <DeskConnection
             cfg={cfg}
             facts={facts}
             totpEnabled={props.totpEnabled}
-            onBackend={(backend) => void props.save({ backend }).then(refresh)}
-            save={props.save}
+            onBackend={(backend) => void saveConfig({ backend }).then(refresh)}
+            save={saveConfig}
             onCheck={refresh}
           />
-          <div>
-            <button type="button" aria-pressed={mode === 'create'} onClick={() => setMode('create')}>Create</button>
-            <span>make a new portrait</span>
-            <button type="button" aria-pressed={mode === 'edit'} onClick={() => setMode('edit')}>Edit</button>
-            <span>change this portrait</span>
-          </div>
           <DeskModel
             cfg={cfg}
-            mode={mode}
+            mode={configMode}
             facts={facts}
             onGraph={() => setSheet({ kind: 'graph' })}
             onModel={(token) => setSheet({ kind: 'model', token })}
@@ -205,13 +254,14 @@ export function StudioDesk(props: StudioDeskProps) {
             slots={paddedSlots(cfg)}
             facts={facts}
             known={facing}
-            onWeights={(next) => void props.save({ loras: next }).then(refresh)}
+            onWeights={(next) => void saveConfig({ loras: next }).then(refresh)}
             onAdd={() => setSheet({ kind: 'lora' })}
             onCivitai={() => setSheet({ kind: 'civitai', lora: true })}
-            onUseAnyway={(family) => void props.save({ loraOverrideFamily: family }).then(refresh)}
+            onUseAnyway={(family) => void saveConfig({ loraOverrideFamily: family }).then(refresh)}
           />
-          <DeskSize size={cfg.size} onSize={(size) => void props.save({ size })} />
-          <DeskAdvanced cfg={cfg} samplers={cfg.drawThingsSamplers ?? []} save={props.save} />
+          <DeskSize size={cfg.size} onSize={(size) => void saveConfig({ size })} />
+          <DeskAdvanced cfg={cfg} samplers={cfg.drawThingsSamplers ?? []} save={saveConfig} />
+          </fieldset>
           {props.busy ? (
             <div>
               <progress aria-label="Generation progress" max={1} value={props.progress ?? undefined} />
@@ -220,20 +270,21 @@ export function StudioDesk(props: StudioDeskProps) {
           ) : null}
           <p>{line}</p>
           {needsPicture ? <p>Pick a picture to edit.</p> : null}
-          <button
+          {tab !== 'pack' ? <button
             type="button"
-            disabled={!ready || props.busy === true || needsPicture || !props.prompt.trim()}
+            disabled={!ready || props.busy === true || globalBusy === true || packBusy || needsPicture || !props.prompt.trim()}
             onClick={() => props.onGenerate({ mode, picture })}
           >
             Generate
-          </button>
+          </button> : null}
           {props.generateError ? <p>{props.generateError}</p> : null}
           {note ? <p>{note}</p> : null}
+          {globalGeneration.problem ? <p role="status">{globalGeneration.problem}</p> : null}
         </div>
       </div>
-      {sheet?.kind === 'graph' ? (
+      {!sharedBusy && sheet?.kind === 'graph' ? (
         <GraphSheet
-          mode={mode}
+          mode={configMode}
           backend={cfg.backend}
           totpEnabled={props.totpEnabled}
           onPick={pickGraph}
@@ -241,9 +292,9 @@ export function StudioDesk(props: StudioDeskProps) {
           onClose={() => setSheet(null)}
         />
       ) : null}
-      {sheet?.kind === 'model' ? (
+      {!sharedBusy && sheet?.kind === 'model' ? (
         <ModelSheet
-          mode={mode}
+          mode={configMode}
           backend={cfg.backend}
           token={sheet.token}
           primary={file}
@@ -251,9 +302,9 @@ export function StudioDesk(props: StudioDeskProps) {
           onClose={() => setSheet(null)}
         />
       ) : null}
-      {sheet?.kind === 'lora' ? (
+      {!sharedBusy && sheet?.kind === 'lora' ? (
         <LoraSheet
-          mode={mode}
+          mode={configMode}
           backend={cfg.backend}
           facts={facts}
           onFacts={setKnown}
@@ -261,7 +312,7 @@ export function StudioDesk(props: StudioDeskProps) {
           onClose={() => setSheet(null)}
         />
       ) : null}
-      {sheet?.kind === 'civitai' ? (
+      {!sharedBusy && sheet?.kind === 'civitai' ? (
         <CivitaiSheet
           lora={sheet.lora}
           backend={cfg.backend}

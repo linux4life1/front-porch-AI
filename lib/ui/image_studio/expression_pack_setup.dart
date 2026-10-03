@@ -38,10 +38,12 @@ class ExpressionPackSetup extends StatefulWidget {
     required this.onCancel,
     required this.onStart,
     this.storage,
+    this.busy = false,
     this.note,
   });
 
   final StorageService? storage;
+  final bool busy;
   final Uint8List baseImage;
 
   /// A short line shown under the portrait (that it was converted to PNG).
@@ -291,7 +293,7 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
             ),
             const SizedBox(width: 10),
             ElevatedButton.icon(
-              onPressed: _effectiveCount == 0
+              onPressed: widget.busy || _effectiveCount == 0
                   ? null
                   : () => widget.onStart(
                       fullSet: _fullSet,

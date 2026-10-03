@@ -1,0 +1,33 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+export 'edit_view.dart';
+export 'expression_pack_dialog.dart';
+export 'studio_helpers.dart';
+export 'studio_mode_tabs.dart';
+export 'studio_view.dart';
+export 'reference_image_picker.dart';
+export 'result_view.dart';
+export 'generation_history.dart';
+export 'subject_picker.dart';
+export 'studio_desk.dart';
+export 'studio_desk_copy.dart';
+export 'studio_desk_frame.dart';
+export 'edit_recipe_strip.dart';
+export 'edit_source_well.dart';
+export 'studio_edit_pane.dart';
+export 'studio_settings_gate.dart';
+export 'studio_expression_tab.dart';
+export 'vision_gate.dart';
+export 'expression_pack_widgets.dart';
+export 'studio_civitai_get.dart';
+export 'studio_comfy_address.dart';
+export 'studio_commit_field.dart';
+export 'studio_desk_knobs.dart';
+export 'studio_graph_sheet.dart';
+export 'studio_lora_sheet.dart';
+export 'studio_model_sheet.dart';
+export 'studio_stove.dart';
+export 'remote_image_host_chips.dart';
+export 'expression_pack_grid.dart';
+export 'expression_pack_setup.dart';

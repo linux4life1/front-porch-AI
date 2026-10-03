@@ -27,12 +27,7 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-import 'edit_recipe_strip.dart';
-import 'edit_source_well.dart';
-import 'result_view.dart';
-import 'studio_desk_copy.dart';
-import 'studio_desk_frame.dart';
-import 'studio_edit_pane.dart';
+import 'studio_widgets.dart';
 
 /// The **Edit** tab: keep this exact character, describe the change. Feeds the
 /// same [ImageGenService.generateImage] with `intent: StudioIntent.edit`, so the
@@ -58,6 +53,7 @@ class EditView extends StatefulWidget {
   /// "Edit → change this portrait" starts from the existing avatar instead of an
   /// empty "Add photo". Null (persona / group shot) → the user picks a photo.
   final String? initialSourcePath;
+  final ValueChanged<Uint8List>? onResultImage;
 
   const EditView({
     super.key,
@@ -66,6 +62,7 @@ class EditView extends StatefulWidget {
     this.onSaveToGalleryBytes,
     this.acceptLabel = 'Use image',
     this.initialSourcePath,
+    this.onResultImage,
   });
 
   @override
@@ -128,6 +125,7 @@ class _EditViewState extends State<EditView> {
   }
 
   Future<void> _generate() async {
+    if (context.read<ImageGenService>().isGenerating) return;
     final instruction = _instructionCtrl.text.trim();
     if (_sourceBytes == null || instruction.isEmpty) {
       setState(
@@ -151,6 +149,7 @@ class _EditViewState extends State<EditView> {
         editStrength: _strength,
       );
       if (!mounted) return;
+      if (bytes != null) widget.onResultImage?.call(bytes);
       setState(() {
         _busy = false;
         _resultBytes = bytes;
@@ -172,6 +171,7 @@ class _EditViewState extends State<EditView> {
 
   /// Reset the Draw Things edit recipe and the strength slider together.
   void _useRecommendedEdit() {
+    if (studioSettingsLocked(context)) return;
     Provider.of<StorageService>(
       context,
       listen: false,
@@ -251,7 +251,7 @@ class _EditViewState extends State<EditView> {
               if (mounted) setState(() => _saving = false);
             });
           },
-          onVariations: (_busy || genBusy) ? () {} : _generate,
+          onVariations: (_busy || genBusy) ? null : _generate,
           onEditRegen: () => setState(() {
             _resultBytes = null;
             _error = '';

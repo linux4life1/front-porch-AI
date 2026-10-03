@@ -24,7 +24,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// — "make a new portrait" vs "change this one" — never pipeline names. The
 /// single [ImageReferenceRole] router still decides what actually happens.
 class StudioModeTabs extends StatelessWidget {
-  /// 0 = Create, 1 = Edit.
+  /// 0 = Create, 1 = Edit, 2 = Expressions.
   final int selected;
   final ValueChanged<int> onChanged;
   final bool enabled;
@@ -42,11 +42,13 @@ class StudioModeTabs extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 4),
       child: Row(
         children: [
-          Expanded(
-            child: _tab(context, 0, 'Create', 'make a new portrait'),
-          ),
+          Expanded(child: _tab(context, 0, 'Create', 'make a new portrait')),
           const SizedBox(width: 8),
           Expanded(child: _tab(context, 1, 'Edit', 'change this portrait')),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _tab(context, 2, 'Expressions', 'build an expression pack'),
+          ),
         ],
       ),
     );
@@ -55,45 +57,49 @@ class StudioModeTabs extends StatelessWidget {
   Widget _tab(BuildContext context, int index, String label, String sub) {
     final active = selected == index;
     final accent = AppColors.formMasterAccent;
-    return Material(
-      color: active
-          ? accent.withValues(alpha: 0.14)
-          : AppColors.surfaceContainerOf(context),
-      borderRadius: BorderRadius.circular(11),
-      child: InkWell(
+    return Semantics(
+      selected: active,
+      button: true,
+      child: Material(
+        color: active
+            ? accent.withValues(alpha: 0.14)
+            : AppColors.surfaceContainerOf(context),
         borderRadius: BorderRadius.circular(11),
-        onTap: (enabled && !active) ? () => onChanged(index) : null,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(11),
-            border: Border.all(
-              color: active ? accent : AppColors.borderOf(context),
-              width: active ? 1.5 : 1,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(11),
+          onTap: (enabled && !active) ? () => onChanged(index) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: active ? accent : AppColors.borderOf(context),
+                width: active ? 1.5 : 1,
+              ),
             ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: active ? accent : AppColors.textSecondary(context),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: active ? accent : AppColors.textSecondary(context),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                sub,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: active
-                      ? accent.withValues(alpha: 0.85)
-                      : AppColors.textTertiary(context),
+                const SizedBox(height: 1),
+                Text(
+                  sub,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: active
+                        ? accent.withValues(alpha: 0.85)
+                        : AppColors.textTertiary(context),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

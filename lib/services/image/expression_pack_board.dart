@@ -35,6 +35,8 @@ class PackRun {
 
   /// How many pictures were imported, or null while none have been.
   int? imported;
+
+  bool importing = false;
 }
 
 /// The one pack the phone can see, start, cancel and import. A new pack
@@ -74,6 +76,7 @@ class ExpressionPackBoard {
     final slots = run.session.slots;
     return {
       'running': run.session.isRunning,
+      'importing': run.importing,
       'mode': run.mode.name,
       'origin': run.origin.name,
       'characterId': run.characterId,
@@ -87,6 +90,7 @@ class ExpressionPackBoard {
       'canImport':
           run.origin == PackOrigin.phone &&
           run.imported == null &&
+          !run.importing &&
           !run.session.isRunning &&
           run.session.keptCount > 0,
       'slots': [

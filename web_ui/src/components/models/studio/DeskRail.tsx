@@ -43,6 +43,7 @@ export function DeskRail(props: {
   /** The picture the last generate made, if it was saved. */
   lastSaved: { name: string; url: string } | null;
   onNote: (message: string) => void;
+  showPack?: boolean;
 }) {
   const { mode, prompt } = props;
   const [writing, setWriting] = useState(false);
@@ -144,10 +145,10 @@ export function DeskRail(props: {
       ) : mode === 'edit' ? (
         <p>Pick a picture to edit.</p>
       ) : null}
-      <button type="button" aria-expanded={pack} onClick={() => setPack((open) => !open)}>
+      {props.showPack !== false ? <button type="button" aria-expanded={pack} onClick={() => setPack((open) => !open)}>
         Expression pack
-      </button>
-      {pack ? (
+      </button> : null}
+      {props.showPack !== false && pack ? (
         <PackPanel prompt={prompt} picture={props.picture} />
       ) : null}
     </div>
