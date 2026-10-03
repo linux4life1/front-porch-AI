@@ -152,16 +152,6 @@ extension StoryProjectShape on StoryProject {
     return null;
   }
 
-  /// Position of scene [id] in story order, or -1 when it no longer exists.
-  int sceneOrdinal(String id) {
-    var n = 0;
-    for (final ref in orderedScenes) {
-      if (ref.scene.id == id) return n;
-      n++;
-    }
-    return -1;
-  }
-
   /// "3.2" — sequence number, then the scene's place inside that sequence.
   String sceneLabel(int act, int index) {
     final list = scenes[act] ?? const <StoryScene>[];

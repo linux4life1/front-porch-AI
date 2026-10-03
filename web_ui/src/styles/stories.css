@@ -1,17 +1,10 @@
 /* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
 /*
-   Porch Stories, thinking-strength chips, and the AI character creator.
+   Chip toggles and wizard nav shared by the creators, thinking-strength
+   chips, and the AI character creator. (Porch Stories lives in studio.css.)
 */
 
-/* Porch Stories */
-.story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.story-card { cursor: pointer; position: relative; display: flex; flex-direction: column; gap: 6px; }
-.story-card:hover { border-color: var(--accent); }
-.story-del { position: absolute; top: 8px; right: 8px; opacity: 0.6; }
-.clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.field-label { margin: 10px 0 4px; font-size: 0.85rem; color: var(--muted); }
-.chip-select { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Shared creator bits */
 .chip-toggle {
   padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border);
   background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem;
@@ -44,18 +37,8 @@
 }
 .thinking-strength-chip.on .thinking-strength-chip-sub { opacity: 0.9; }
 .thinking-strength-caption { margin: 0; }
-.char-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .wizard-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; }
-.story-progress { display: flex; align-items: center; gap: 12px; }
 .spinner.small { width: 20px; height: 20px; }
-.story-scene-row { padding: 8px 0; border-top: 1px solid var(--border); }
-.scene-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.valence { font-size: 0.75rem; padding: 1px 6px; border-radius: 999px; }
-.valence.vpos { background: rgba(80, 200, 120, 0.18); color: #4ade80; }
-.valence.vneg { background: rgba(255, 107, 107, 0.18); color: var(--danger); }
-.beat-card .beat-prose { display: flex; gap: 8px; align-items: flex-start; }
-.beat-card .beat-prose p { white-space: pre-wrap; flex: 1; }
-.reader { max-width: 640px; line-height: 1.7; }
 
 /* AI character creator: live generation steps. */
 .chargen-steps { margin: 8px 0 0; padding-left: 20px; }

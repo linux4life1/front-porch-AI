@@ -97,17 +97,6 @@ extension StoryPipelineApi on StoryPipelineService {
     }
   });
 
-  /// Record what a finished scene established.
-  Future<void> runArchivist(
-    StoryProject project,
-    int actIndex,
-    int sceneIndex,
-  ) => _guard(
-    () => _studio(project)
-        ? _studioArchive(project, actIndex, sceneIndex)
-        : _quickArchivist(project, actIndex, sceneIndex),
-  );
-
   /// Write every unwritten beat of a scene, then archive it.
   Future<void> autoWriteScene(
     StoryProject project,

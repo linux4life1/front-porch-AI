@@ -71,10 +71,6 @@ export function beatsWritten(p: StoryProject, act: number, index: number): numbe
   return beats.filter((_, b) => beatText(p, act, index, b)).length;
 }
 
-export function sceneHasProse(p: StoryProject, act: number, index: number): boolean {
-  return beatsWritten(p, act, index) > 0;
-}
-
 export function countWords(text: string): number {
   const t = text.trim();
   return t ? t.split(/\s+/).length : 0;
@@ -144,13 +140,3 @@ export function trustTone(trust: number): 'warm' | 'mid' | 'hot' {
   return trust >= 7 ? 'warm' : trust <= 3 ? 'hot' : 'mid';
 }
 
-export function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(ms / 60000);
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min} min ago`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h} h ago`;
-  const d = Math.floor(h / 24);
-  return `${d} day${d === 1 ? '' : 's'} ago`;
-}

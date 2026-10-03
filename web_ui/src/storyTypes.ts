@@ -400,21 +400,3 @@ export const PROMPT_TIERS: { value: string; label: string }[] = [
   { value: 'largLocal', label: 'Rich' },
   { value: 'smallLocal', label: 'Simplified' },
 ];
-
-/** Beat-type → CSS modifier class for the colored badge in the writer. */
-export const BEAT_TYPE_CLASS: Record<string, string> = {
-  Action: 'action',
-  Reaction: 'reaction',
-  Dialogue: 'dialogue',
-  Revelation: 'revelation',
-  Resolution: 'resolution',
-  Environment: 'environment',
-  Reflection: 'reflection',
-  Memory: 'reflection',
-  Sensory: 'sensory',
-  Transition: 'transition',
-};
-
-/** Pacing index → glyph (0 Slow, 1 Balanced, 2 Fast). */
-export const PACING_GLYPH = ['🐢', '➖', '⚡'];
-export const PACING_LABEL = ['Slow', 'Balanced', 'Fast'];

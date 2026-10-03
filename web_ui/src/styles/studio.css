@@ -82,7 +82,6 @@
 .s-mono { font-family: var(--studio-mono); font-size: 12px; color: var(--studio-muted); }
 .s-prose { font-family: var(--studio-serif); font-size: 14.5px; line-height: 1.7; color: var(--studio-prose); }
 .s-prose p + p { margin-top: 0.8em; }
-.s-title { font-weight: 700; font-size: 15px; }
 
 /* ── Layout helpers ────────────────────────────────────────────────── */
 .s-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -94,7 +93,6 @@
 .s-error { color: var(--studio-bad); font-size: 12.5px; }
 .s-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .s-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.s-stack { display: flex; flex-direction: column; gap: 12px; }
 
 /* ── Card ──────────────────────────────────────────────────────────── */
 .s-card {
@@ -216,8 +214,6 @@
 .s-avatar { width: 36px; height: 36px; border-radius: 9px; background: linear-gradient(135deg, #6A4A2A, #30271E); flex: none; display: grid; place-items: center; font-weight: 700; color: var(--studio-honey); font-size: 13px; overflow: hidden; }
 .s-avatar.lg { width: 52px; height: 52px; border-radius: 10px; font-size: 17px; }
 .s-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.s-status { display: inline-flex; align-items: center; gap: 6px; }
-.s-status::before { content: '●'; color: var(--studio-amber); font-size: 9px; }
 .s-empty { display: flex; flex-direction: column; gap: 8px; }
 
 /* ── Studio shell ──────────────────────────────────────────────────── */

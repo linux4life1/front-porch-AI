@@ -159,11 +159,3 @@ String storyShortModelName(Object? raw) {
 /// The URL a lane choice actually talks to (oMLX ignores the stored URL).
 String storyLaneResolvedUrl(String type, String url) =>
     type == 'omlx' ? kOmlxApiV1 : resolvedLaneApiUrl(type, url);
-
-/// Default URL for a host kind, for the picker's URL field.
-String storyHostDefaultUrl(String kind) {
-  for (final k in RemoteProviderKind.values) {
-    if (k.name == kind) return urlForRemoteProvider(k) ?? kOpenRouterApiV1;
-  }
-  return '';
-}
