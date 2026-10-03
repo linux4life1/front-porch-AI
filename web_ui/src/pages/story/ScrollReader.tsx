@@ -78,6 +78,9 @@ export function ScrollReader({ id, project, bar }: { id: string; project: StoryP
         ))}
         {chapters.length === 0 && <p className="muted">Nothing written yet.</p>}
       </div>
+      {hud && !narration.reading && narration.error && (
+        <div className="read-status" role="status"><span>{narration.error}</span></div>
+      )}
       {hud && (
         <div className="s-scroll-bar">
           <button className="s-btn-ghost" disabled={chapter <= 0} onClick={() => jump(chapter - 1)}>◀ Ch. {chapter}</button>

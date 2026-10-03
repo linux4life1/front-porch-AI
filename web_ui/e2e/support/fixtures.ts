@@ -19,6 +19,9 @@ const KNOWN: { method: string; status: number; path: RegExp; why: string }[] = [
   { method: 'GET', status: 404, path: /^\/api\/image\/expression-pack$/, why: '"no pack running" is a 404 by contract' },
   // The sandboxed test app has no OS keychain; the page shows the store as unavailable.
   { method: 'GET', status: 503, path: /^\/api\/image\/civitai\/credential$/, why: 'no keychain in the test sandbox' },
+  // TTS is off in the sandbox; "Read aloud" is answered 503 by contract and
+  // the reader shows the reason.
+  { method: 'POST', status: 503, path: /^\/api\/stories\/[^/]+\/narrate$/, why: 'TTS is off in the test sandbox' },
 ];
 
 type Hooks = { fn: AllowFn; acceptConfirms: boolean };

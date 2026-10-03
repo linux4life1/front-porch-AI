@@ -147,6 +147,11 @@ export function BookReader({ id, project, modeToggle }: { id: string; project: S
           {narration.buffering && <span className="read-buf">buffering…</span>}
         </div>
       )}
+      {!narration.reading && narration.error && (
+        <div className="read-status" role="status">
+          <span>{narration.error}</span>
+        </div>
+      )}
 
       <div className="book-wrap">
         <div className="book-page" ref={viewportRef}>

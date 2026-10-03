@@ -225,7 +225,8 @@ test('a story opens in the studio: the sidebar switches screens, the Engine step
   await expect(page).toHaveURL(new RegExp(`/stories/${story.id}/director$`));
   await expect(page.getByTestId('director-directive')).toBeVisible();
   await page.getByTestId('studio-nav-lore').click();
-  await expect(page.getByRole('button', { name: 'Continuity' })).toBeVisible();
+  // exact: the "Lore & continuity" nav button also matches a loose name.
+  await expect(page.getByRole('button', { name: 'Continuity', exact: true })).toBeVisible();
   await page.getByTestId('studio-nav-structure').click();
   await expect(page.getByTestId('story-continue')).toBeVisible();
 

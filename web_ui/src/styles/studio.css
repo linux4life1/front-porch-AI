@@ -15,7 +15,9 @@
 }
 
 /* ── Shell ─────────────────────────────────────────────────────────── */
-.studio { display: grid; grid-template-columns: 190px 1fr; min-height: calc(100vh - 56px); }
+/* Rows are pinned so the min-height goes to the page, never to the header
+   or the nav (a stretched nav strip is what the phone sweep caught). */
+.studio { display: grid; grid-template-columns: 190px 1fr; grid-template-rows: auto 1fr; min-height: calc(100vh - 56px); }
 .studio-head {
   grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--card);
@@ -41,7 +43,7 @@
 }
 .studio-main { padding: 14px 16px 32px; min-width: 0; }
 @media (max-width: 760px) {
-  .studio { grid-template-columns: 1fr; }
+  .studio { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
   .studio-side { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 6px 8px; }
   .studio-side .h { display: none; }
   .studio-nav { white-space: nowrap; width: auto; }

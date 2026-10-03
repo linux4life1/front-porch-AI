@@ -69,9 +69,26 @@ extension _StoryReaderReadAlong on _StoryReaderPageState {
 
   Future<void> _startReadAlong() async {
     if (_isReadingAlong || _pages == null) return;
+    final tts = Provider.of<TtsService>(context, listen: false);
+    final storage = Provider.of<StorageService>(context, listen: false);
+    if (!storage.ttsSettings.ttsEnabled) {
+      // With TTS off every page would synthesize to nothing and the book
+      // would flip through in silence. Say so instead (web reader does too).
+      await showWarmDialog<void>(
+        context,
+        title: 'Voice is off',
+        icon: Icons.volume_off_outlined,
+        content: const Text(
+          'Reading aloud needs the voice engine. Turn it on under '
+          'Settings → Voice & Media → Text-to-Speech, then tap Read to me '
+          'again.',
+        ),
+        actions: [warmDialogCancel(context, label: 'OK')],
+      );
+      return;
+    }
     rebuildState(() => _isReadingAlong = true);
 
-    final tts = Provider.of<TtsService>(context, listen: false);
     final repo = Provider.of<StoryRepository>(context, listen: false);
     final project = repo.getById(widget.projectId);
     final cast = project?.cast ?? [];

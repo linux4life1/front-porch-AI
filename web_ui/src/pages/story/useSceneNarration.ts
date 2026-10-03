@@ -23,6 +23,9 @@ export function useSceneNarration(
   const [reading, setReading] = useState(false);
   const [current, setCurrent] = useState(0);
   const [buffering, setBuffering] = useState(false);
+  // Why the host refused ("TTS is off — enable it to read aloud"); the
+  // reader shows it instead of pretending to read. Cleared on the next start.
+  const [error, setError] = useState<string | null>(null);
   const readingRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cache = useRef<Map<number, string>>(new Map());
@@ -59,6 +62,7 @@ export function useSceneNarration(
     if (readingRef.current || scenes.length === 0) return;
     readingRef.current = true;
     setReading(true);
+    setError(null);
     let idx = Math.max(0, Math.min(from, scenes.length - 1));
 
     while (readingRef.current && idx < scenes.length) {
@@ -66,10 +70,21 @@ export function useSceneNarration(
       onJump(scenes[idx].ai, scenes[idx].si);
 
       let url: string | null = null;
+      let refused: string | null = null;
       setBuffering(true);
-      try { url = await fetchScene(idx); } catch { url = null; }
+      try {
+        url = await fetchScene(idx);
+      } catch (e) {
+        refused = e instanceof Error && e.message ? e.message : 'Could not read this scene aloud.';
+      }
       setBuffering(false);
       if (!readingRef.current) break;
+      if (refused) {
+        // The host said no (TTS off, voice missing). Stop here rather than
+        // skipping every scene in silence.
+        setError(refused);
+        break;
+      }
 
       // Prefetch the next scene while this one plays.
       void fetchScene(idx + 1).catch(() => {});
@@ -102,5 +117,5 @@ export function useSceneNarration(
     clearCache();
   }, [clearCache]);
 
-  return { reading, current, buffering, total: scenes.length, start, stop };
+  return { reading, current, buffering, error, total: scenes.length, start, stop };
 }
