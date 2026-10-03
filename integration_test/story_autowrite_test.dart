@@ -80,6 +80,11 @@ void main() {
       'backend_type': 'openRouter',
       'remote_api_url': '${backend.baseUrl}/v1',
       'remote_model_name': 'smoke-model',
+      // A non-empty saved key skips the keychain read at startup. A debug
+      // build on a developer Mac otherwise waits on the macOS keychain
+      // prompt, the provider never re-syncs to the fake, and every story
+      // call goes to a Kobold that is not there; CI runners never prompt.
+      'search_api_key': 'e2e-no-keychain',
     });
 
     // ── Boot ────────────────────────────────────────────────────────────
@@ -115,7 +120,11 @@ void main() {
     project.concept = 'A lamp that refuses to gutter.';
     project.actCount = 1;
     project.acts = [
-      StoryAct(number: 1, title: 'The Long Evening', description: 'Wren waits.'),
+      StoryAct(
+        number: 1,
+        title: 'The Long Evening',
+        description: 'Wren waits.',
+      ),
     ];
     project.scenes[0] = [
       StoryScene(
@@ -140,7 +149,11 @@ void main() {
     ];
     await storyRepo.saveProject(project);
     expect(project.dbId, isNotNull);
-    expect(project.prose, isEmpty, reason: 'Auto-Write must start from no prose');
+    expect(
+      project.prose,
+      isEmpty,
+      reason: 'Auto-Write must start from no prose',
+    );
 
     // ── Open the writer page on that scene and run Auto-Write ───────────
     // ignore: use_build_context_synchronously — root MainLayout element.
@@ -153,10 +166,15 @@ void main() {
         ),
       ),
     );
-    await d.waitForWidget(find.text('Auto-Write'));
+    // The studio Write page keeps the whole-scene write in the scene's ⋯
+    // menu ("Write the whole scene"); the primary button writes one beat.
+    await d.waitForWidget(find.byKey(const ValueKey('story-scene-menu')));
+    await tester.tap(find.byKey(const ValueKey('story-scene-menu')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Write the whole scene'));
+    await tester.pump(const Duration(milliseconds: 300));
 
-    await d.tapUntilTrue(
-      [find.text('Auto-Write')],
+    await d.waitFor(
       () => backend.storyStagesServed.contains('archivist'),
       () =>
           'the Auto-Write run to reach the archivist '
@@ -183,9 +201,7 @@ void main() {
       () => 'the written prose to land on the project',
       timeout: const Duration(seconds: 45),
     );
-    final written = project.prose.values
-        .map((p) => p.final_ ?? '')
-        .join('\n');
+    final written = project.prose.values.map((p) => p.final_ ?? '').join('\n');
     expect(
       written,
       contains(_kEditorPhrase),

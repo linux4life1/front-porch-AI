@@ -61,7 +61,8 @@ export function upNextFor(
     return {
       ...common,
       title: orderedScenes(p).length === 0 ? 'Acts ready' : 'Next part not outlined yet',
-      detail: 'Continue writing outlines what comes next and writes its first scene.',
+      // The acts land before the sequences are planned; while that runs the card carries the engine's status line.
+      detail: running ? statusMessage : 'Continue writing outlines what comes next and writes its first scene.',
       action: 'continue',
       label: 'Continue writing',
     };

@@ -108,9 +108,12 @@ extension _StoryDashboardOverview on _StoryDashboardPageState {
       title = project.orderedScenes.isEmpty
           ? 'Acts ready'
           : 'Next part not outlined yet';
-      detail =
-          'Continue writing outlines what comes next and writes its first '
-          'scene.';
+      // The acts land before the sequences are planned; while that runs the
+      // card carries the engine's status line instead of an offer.
+      detail = running
+          ? pipeline.statusMessage
+          : 'Continue writing outlines what comes next and writes its first '
+                'scene.';
       primary = StoryButton.primary(
         'Continue writing',
         key: const ValueKey('story-continue'),

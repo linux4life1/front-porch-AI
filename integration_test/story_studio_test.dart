@@ -187,6 +187,14 @@ void main() {
         find.byKey(const ValueKey('story-continue')),
         timeout: const Duration(seconds: 90),
       );
+      // Continue writing appears once the acts exist, while the sequences
+      // are still being planned; read the stage list only once idle.
+      await pumpUntilTrue(
+        tester,
+        () => !pipeline.isRunning,
+        describe: () => 'the acts and sequences to finish',
+        timeout: const Duration(seconds: 90),
+      );
       expect(backend.storyStagesServed, [
         'acts',
         'acts-review',
