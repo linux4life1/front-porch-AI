@@ -39,6 +39,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 part 'story_dashboard_page.shell.dart';
 part 'story_dashboard_page.overview.dart';
+part 'story_dashboard_page.up_next.dart';
 part 'story_dashboard_page.actions.dart';
 
 /// The studio (sketch M): one header for the whole story, the sidebar, and
