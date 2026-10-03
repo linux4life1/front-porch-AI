@@ -25,13 +25,18 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
-import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_buttons.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_cards.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_theme.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_widgets.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-/// The facts the story must keep straight, the lore behind it, and the
-/// story so far — with lore file uploads and a search tester.
+part 'lore_section.facts.dart';
+
+/// Lore & continuity (sketch T): the facts the story must keep straight,
+/// the lore (bible + dropped-in files), and the story so far.
 class LoreSection extends StatefulWidget {
   final StoryProject project;
   final StoryPipelineService pipeline;
@@ -50,6 +55,8 @@ class _LoreSectionState extends State<LoreSection> {
   Future<void> _save() =>
       Provider.of<StoryRepository>(context, listen: false).saveProject(p);
 
+  void rebuildState(VoidCallback fn) => setState(fn);
+
   int get _fileCount => {
     for (final l in p.lore)
       for (final r in l.relatedTo)
@@ -58,20 +65,16 @@ class _LoreSectionState extends State<LoreSection> {
 
   @override
   Widget build(BuildContext context) {
+    final muted = StudioColors.mutedOf(context);
     final subtitle =
         '${p.continuity.length} fact${p.continuity.length == 1 ? '' : 's'} · '
         '${p.lore.length} lore entr${p.lore.length == 1 ? 'y' : 'ies'} · '
         '$_fileCount file${_fileCount == 1 ? '' : 's'}';
     return ListView(
+      key: const ValueKey('studio-lore'),
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          subtitle,
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 12.5,
-          ),
-        ),
+        Text(subtitle, style: StudioType.ui(context, size: 12.5, color: muted)),
         const SizedBox(height: 10),
         Wrap(
           spacing: 10,
@@ -87,245 +90,152 @@ class _LoreSectionState extends State<LoreSection> {
               selected: _tab,
               onSelect: (v) => setState(() => _tab = v),
             ),
-            StoryQuietButton(
+            StoryButton(
+              'Add fact',
+              key: const ValueKey('lore-add-fact'),
+              icon: Icons.add,
+              onPressed: () => _editFact(null),
+            ),
+            StoryButton(
               'Add lore file',
-              icon: Icons.upload_file_outlined,
+              key: const ValueKey('lore-add-file'),
               onPressed: _addFile,
             ),
-            StoryQuietButton(
+            StoryButton(
               'Test search',
-              icon: Icons.search,
+              key: const ValueKey('lore-search'),
               onPressed: p.lore.isEmpty ? null : _testSearch,
             ),
           ],
         ),
         const SizedBox(height: 12),
-        WarmCard(
-          padding: const EdgeInsets.all(12),
-          child: switch (_tab) {
-            'lore' => _loreTab(),
-            'sofar' => _soFarTab(),
-            _ => _continuityTab(),
-          },
-        ),
+        switch (_tab) {
+          'lore' => _loreTab(),
+          'sofar' => _soFarTab(),
+          _ => _continuityTab(),
+        },
       ],
-    );
-  }
-
-  Widget _empty(String text) => Padding(
-    padding: const EdgeInsets.all(12),
-    child: Text(
-      text,
-      style: TextStyle(color: AppColors.textTertiary(context), fontSize: 13),
-    ),
-  );
-
-  Widget _continuityTab() {
-    if (p.continuity.isEmpty) {
-      return _empty(
-        p.engineMode == StoryEngineMode.studio
-            ? 'Facts are added automatically after each scene is written.'
-            : 'The Quick engine does not keep a continuity ledger. Switch '
-                  'the story to Studio to get one.',
-      );
-    }
-    final active = p.continuity.where((f) => !f.isRetired).toList();
-    final retired = p.continuity.where((f) => f.isRetired).toList();
-    return Column(
-      children: [
-        for (final f in active) _factRow(f),
-        for (final f in retired) _factRow(f),
-      ],
-    );
-  }
-
-  Widget _factRow(ContinuityFact f) {
-    final muted = AppColors.textTertiary(context);
-    final from = f.sceneId.isEmpty ? '' : p.sceneLabelById(f.sceneId);
-    final until = f.isRetired ? p.sceneLabelById(f.retiredSceneId) : '';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          StoryChip(
-            f.isRetired ? 'Retired' : f.category,
-            tone: f.isRetired ? '' : 'honey',
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: f.key,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  TextSpan(text: ' · ${f.value}'),
-                  if (f.entity.isNotEmpty)
-                    TextSpan(
-                      text: '  (${f.entity})',
-                      style: TextStyle(color: muted),
-                    ),
-                ],
-              ),
-              style: TextStyle(
-                color: f.isRetired ? muted : AppColors.textSecondary(context),
-                fontSize: 12.5,
-                decoration: f.isRetired ? TextDecoration.lineThrough : null,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            f.isRetired
-                ? '$from → $until'
-                : (from.isEmpty ? 'always' : 'from $from'),
-            style: TextStyle(
-              color: muted,
-              fontSize: 11.5,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.close, size: 14, color: muted),
-            tooltip: 'Forget this fact',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            onPressed: () async {
-              p.continuity.remove(f);
-              await _save();
-              setState(() {});
-            },
-          ),
-        ],
-      ),
     );
   }
 
   Widget _loreTab() {
+    final muted = StudioColors.mutedOf(context);
     if (p.lore.isEmpty) {
-      return _empty(
-        'No lore yet. Add a file or let the story bible create some.',
+      return const StoryEmptyState(
+        title: 'No lore yet',
+        detail: 'Add a file, or let the story bible create some.',
       );
     }
-    final muted = AppColors.textTertiary(context);
-    return Column(
+    return StoryCard(
       children: [
         for (final l in p.lore)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            l.topic,
-                            style: TextStyle(
-                              color: AppColors.textPrimary(context),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12.5,
-                            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          l.topic,
+                          style: StudioType.ui(
+                            context,
+                            size: 12.5,
+                            weight: FontWeight.w700,
                           ),
-                          const SizedBox(width: 8),
-                          for (final r in l.relatedTo)
-                            if (r.startsWith('file:'))
-                              StoryChip(
-                                r.substring(5),
-                                icon: Icons.description_outlined,
-                              ),
-                          if (l.validFromAct > 1 || l.validFromScene > 1)
-                            Text(
-                              '  from act ${l.validFromAct}, scene ${l.validFromScene}',
-                              style: TextStyle(color: muted, fontSize: 11),
-                            ),
-                        ],
-                      ),
-                      Text(
-                        l.detail,
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                          fontSize: 12.5,
                         ),
-                      ),
-                    ],
-                  ),
+                        for (final r in l.relatedTo)
+                          if (r.startsWith('file:'))
+                            StoryChip(
+                              r.substring(5),
+                              icon: Icons.description_outlined,
+                            ),
+                        if (l.validFromAct > 1 || l.validFromScene > 1)
+                          Text(
+                            'from act ${l.validFromAct}, scene ${l.validFromScene}',
+                            style: StudioType.mono(context, size: 11),
+                          ),
+                      ],
+                    ),
+                    Text(
+                      l.detail,
+                      style: StudioType.ui(context, size: 12.5, color: muted),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: Icon(Icons.close, size: 14, color: muted),
-                  tooltip: 'Remove',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 28,
-                    minHeight: 28,
+              ),
+              StoryMenuButton(
+                entries: [
+                  StoryMenuEntry(
+                    'Remove…',
+                    danger: true,
+                    onSelect: () async {
+                      final ok = await showStoryConfirm(
+                        context,
+                        title: 'Remove “${l.topic}”?',
+                        body: 'The writer stops seeing this entry.',
+                        confirmLabel: 'Remove',
+                        destructive: true,
+                      );
+                      if (!ok || !mounted) return;
+                      p.lore.remove(l);
+                      await _save();
+                      setState(() {});
+                    },
                   ),
-                  onPressed: () async {
-                    p.lore.remove(l);
-                    await _save();
-                    setState(() {});
-                  },
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
       ],
     );
   }
 
   Widget _soFarTab() {
-    final rows = <Widget>[];
+    final muted = StudioColors.mutedOf(context);
+    final blocks = <Widget>[];
     for (final seq in p.sequences) {
-      final indexes = p.sceneIndexesInSequence(seq.number);
-      if (indexes.isEmpty) continue;
-      final act = p.actIndexForSequence(seq.number);
-      rows.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 4),
-          child: Text(
-            'Sequence ${seq.number} · ${seq.title}',
-            style: TextStyle(
-              color: AppColors.porchHoneyOf(context),
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-        ),
-      );
-      if (seq.summary.isNotEmpty) {
-        rows.add(
-          Text(
-            seq.summary,
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 12.5,
-            ),
-          ),
-        );
-      }
-      for (final i in indexes) {
-        final s = p.scenes[act]![i];
-        if (s.summary.isEmpty) continue;
-        rows.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Text(
-              '${p.sceneLabel(act, i)} ${s.title}: ${s.summary}',
-              style: TextStyle(
-                color: AppColors.textTertiary(context),
-                fontSize: 12,
+      final scenes = p.sceneIndexesInSequence(seq.number);
+      final act = seq.act - 1;
+      final lines = [
+        for (final i in scenes)
+          if (p.scenes[act]?[i].summary.isNotEmpty ?? false)
+            '${p.sceneLabel(act, i)} ${p.scenes[act]![i].title}: '
+                '${p.scenes[act]![i].summary}',
+      ];
+      if (seq.summary.isEmpty && lines.isEmpty) continue;
+      blocks.add(
+        StoryCard(
+          children: [
+            Text(
+              'Sequence ${seq.number}${seq.title.isEmpty ? '' : ' · ${seq.title}'}',
+              style: StudioType.ui(
+                context,
+                weight: FontWeight.w600,
+                color: StudioColors.honeyOf(context),
               ),
             ),
-          ),
-        );
-      }
+            if (seq.summary.isNotEmpty)
+              Text(seq.summary, style: StudioType.prose(context, size: 13.5)),
+            for (final l in lines)
+              Text(l, style: StudioType.ui(context, size: 12.5, color: muted)),
+          ],
+        ),
+      );
+      blocks.add(const SizedBox(height: 10));
     }
-    return rows.isEmpty
-        ? _empty('Nothing written yet.')
-        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: rows);
+    if (blocks.isEmpty) {
+      return const StoryEmptyState(
+        title: 'Nothing written yet',
+        detail: 'Each sequence gets a summary once its scenes are written.',
+      );
+    }
+    return Column(children: blocks);
   }
 
   Future<void> _addFile() async {
@@ -356,7 +266,6 @@ class _LoreSectionState extends State<LoreSection> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Added $added lore entr${added == 1 ? 'y' : 'ies'}.'),
-        backgroundColor: AppColors.surfaceContainerOf(context),
       ),
     );
   }
@@ -364,13 +273,12 @@ class _LoreSectionState extends State<LoreSection> {
   Future<void> _testSearch() async {
     final controller = TextEditingController();
     List<LoreHit> hits = const [];
-    await showWarmDialog<void>(
+    await showStoryDialog<void>(
       context,
       title: 'What would the writer see?',
-      icon: Icons.search,
       width: 520,
-      content: StatefulBuilder(
-        builder: (context, setLocal) => Column(
+      body: StatefulBuilder(
+        builder: (ctx, setLocal) => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -382,7 +290,7 @@ class _LoreSectionState extends State<LoreSection> {
             const SizedBox(height: 8),
             Row(
               children: [
-                StoryPrimaryButton(
+                StoryButton.primary(
                   'Search',
                   onPressed: () async {
                     final found = await widget.pipeline.searchLore(
@@ -397,9 +305,10 @@ class _LoreSectionState extends State<LoreSection> {
                   widget.pipeline.loreSearchIsSemantic
                       ? 'by meaning (embeddings)'
                       : 'by word overlap (embedding model not set up)',
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 11.5,
+                  style: StudioType.ui(
+                    ctx,
+                    size: 11.5,
+                    color: StudioColors.mutedOf(ctx),
                   ),
                 ),
               ],
@@ -408,19 +317,31 @@ class _LoreSectionState extends State<LoreSection> {
             for (final h in hits)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  '${(h.score * 100).round()}%  ${h.entry.topic}: '
-                  '${h.entry.detail}',
-                  style: TextStyle(
-                    color: AppColors.textSecondary(context),
-                    fontSize: 12.5,
-                  ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 40,
+                      child: Text(
+                        '${(h.score * 100).round()}%',
+                        style: StudioType.mono(ctx),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '${h.entry.topic}: ${h.entry.detail}',
+                        style: StudioType.ui(ctx, size: 12.5),
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],
         ),
       ),
-      actions: [warmDialogCancel(context, label: 'Close')],
+      actions: (ctx) => [
+        StoryButton.ghost('Close', onPressed: () => Navigator.pop(ctx)),
+      ],
     );
   }
 }

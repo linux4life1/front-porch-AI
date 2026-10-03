@@ -17,25 +17,23 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
-import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_buttons.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_cards.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_theme.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_widgets.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
-/// "How long ago" for the last-applied line.
-String storyTimeAgo(DateTime at) {
-  final d = DateTime.now().difference(at);
-  if (d.inMinutes < 1) return 'just now';
-  if (d.inHours < 1) return '${d.inMinutes} min ago';
-  if (d.inDays < 1) return '${d.inHours} h ago';
-  return '${d.inDays} day${d.inDays == 1 ? '' : 's'} ago';
-}
-
-/// The Director: describe a change in plain words, get a plan, tick what you
-/// want, apply it, undo it.
+/// The Director (sketch Q): describe a change in plain words, get a plan,
+/// tick what you want, apply it, undo it. The directive and the protect
+/// switch are remembered on the project; an applied plan folds into the
+/// "Last applied" line.
 class DirectorSection extends StatefulWidget {
   final StoryProject project;
   final StoryPipelineService pipeline;
@@ -51,17 +49,23 @@ class DirectorSection extends StatefulWidget {
 }
 
 class _DirectorSectionState extends State<DirectorSection> {
-  final _directive = TextEditingController();
-  bool _protect = true;
-
-  @override
-  void dispose() {
-    _directive.dispose();
-    super.dispose();
-  }
+  late final TextEditingController _directive = TextEditingController(
+    text: widget.project.directorDraft,
+  );
 
   StoryProject get p => widget.project;
   StoryPipelineService get pipeline => widget.pipeline;
+
+  @override
+  void dispose() {
+    if (p.directorDraft != _directive.text) {
+      p.directorDraft = _directive.text;
+      // Remember the box without blocking the pop.
+      Provider.of<StoryRepository>(context, listen: false).saveProject(p);
+    }
+    _directive.dispose();
+    super.dispose();
+  }
 
   Future<void> _run(Future<void> Function() work) async {
     try {
@@ -74,79 +78,70 @@ class _DirectorSectionState extends State<DirectorSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (pipeline.isRunning) return StudioRunningOverlay(pipeline);
     final plan = p.directorPlan;
+    final applied = plan?.actions.any((a) => a.result.isNotEmpty) ?? false;
+    final running = pipeline.isRunning;
+    final muted = StudioColors.mutedOf(context);
     return ListView(
+      key: const ValueKey('studio-director'),
       padding: const EdgeInsets.all(16),
       children: [
-        WarmCard(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const StoryKeyLabel('What should change?'),
-              const SizedBox(height: 8),
-              StoryTextArea(
-                key: const ValueKey('director-directive'),
-                controller: _directive,
-                hint:
-                    'e.g. Teodor should be hiding that he set the wagon fire. '
-                    'Plant hints before 3.3 and let Mara find out in '
-                    'Sequence 5.',
-                minLines: 3,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Switch(
-                    value: _protect,
-                    activeThumbColor: AppColors.porchAmberOf(context),
-                    onChanged: (v) {
-                      setState(() => _protect = v);
-                      pipeline.setDirectorProtection(p, v);
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Protect written prose (only touch unwritten scenes)',
-                      style: TextStyle(
-                        color: AppColors.textPrimary(context),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  StoryPrimaryButton(
-                    'Plan changes',
-                    key: const ValueKey('director-plan'),
-                    onPressed: p.acts.isEmpty
+        StoryCard(
+          children: [
+            const StoryKeyLabel('What should change?'),
+            StoryTextArea(
+              key: const ValueKey('director-directive'),
+              controller: _directive,
+              hint:
+                  'e.g. Teodor should be hiding that he set the wagon fire. '
+                  'Plant hints before 3.3 and let Mara find out in '
+                  'Sequence 5.',
+              minLines: 3,
+              onChanged: (v) => p.directorDraft = v,
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: StoryToggleRow(
+                    key: const ValueKey('director-protect'),
+                    value: p.directorProtect,
+                    onChanged: running
                         ? null
-                        : () => _run(
-                            () => pipeline.runDirectorPlan(
-                              p,
-                              _directive.text,
-                              protectWrittenProse: _protect,
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-              if (p.acts.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'The Director needs a structure to work on. Build the '
-                    'story bible and acts first.',
-                    style: TextStyle(
-                      color: AppColors.textTertiary(context),
-                      fontSize: 12,
-                    ),
+                        : (v) {
+                            setState(() => p.directorProtect = v);
+                            _run(() => pipeline.setDirectorProtection(p, v));
+                          },
+                    label:
+                        'Protect written prose (only touch unwritten scenes)',
                   ),
                 ),
-            ],
-          ),
+                StoryButton.primary(
+                  running ? 'Planning…' : 'Plan changes',
+                  key: const ValueKey('director-plan'),
+                  onPressed: p.acts.isEmpty || running
+                      ? null
+                      : () => _run(
+                          () => pipeline.runDirectorPlan(
+                            p,
+                            _directive.text,
+                            protectWrittenProse: p.directorProtect,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+            if (p.acts.isEmpty)
+              Text(
+                'The Director needs a structure to work on. Build the story '
+                'bible and acts first.',
+                style: StudioType.ui(context, size: 12, color: muted),
+              ),
+          ],
         ),
-        if (plan != null) ...[const SizedBox(height: 12), _planCard(plan)],
+        if (plan != null && !applied) ...[
+          const SizedBox(height: 12),
+          _planCard(plan, running),
+        ],
         if (p.directorApplied != null) ...[
           const SizedBox(height: 10),
           Row(
@@ -154,28 +149,30 @@ class _DirectorSectionState extends State<DirectorSection> {
               Expanded(
                 child: Text(
                   'Last applied: “${p.directorApplied!.directive}” · '
-                  '${storyTimeAgo(p.directorApplied!.appliedAt)}',
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 12,
-                  ),
+                  '${formatRelativeTime(p.directorApplied!.appliedAt)} · '
+                  '${p.directorApplied!.changeCount} change'
+                  '${p.directorApplied!.changeCount == 1 ? '' : 's'}',
+                  style: StudioType.ui(context, size: 12, color: muted),
                 ),
               ),
-              TextButton(
-                onPressed: () => _run(() async {
-                  final ok = await pipeline.undoDirectorPlan(p);
-                  if (!ok && mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Nothing to undo — the snapshot for that plan is '
-                          'gone.',
-                        ),
-                      ),
-                    );
-                  }
-                }),
-                child: const Text('Undo that plan'),
+              StoryButton.ghost(
+                'Undo that plan',
+                key: const ValueKey('director-undo'),
+                onPressed: running
+                    ? null
+                    : () => _run(() async {
+                        final ok = await pipeline.undoDirectorPlan(p);
+                        if (!ok && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Nothing to undo: the snapshot for that plan '
+                                'is gone.',
+                              ),
+                            ),
+                          );
+                        }
+                      }),
               ),
             ],
           ),
@@ -184,163 +181,159 @@ class _DirectorSectionState extends State<DirectorSection> {
     );
   }
 
-  Widget _planCard(DirectorPlan plan) {
-    final applied = plan.actions.any((a) => a.result.isNotEmpty);
-    return WarmCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: StoryKeyLabel(
-                  'Proposed plan · ${plan.actions.length} change'
-                  '${plan.actions.length == 1 ? '' : 's'} · '
-                  '${plan.scope == 'arc' ? 'whole arc' : 'local'}',
-                ),
-              ),
-              if (plan.review == 'consistent')
-                const StoryChip('Reviewed: consistent', tone: 'teal')
-              else if (plan.review.isNotEmpty)
-                Flexible(
-                  child: StoryChip('Review: ${plan.review}', tone: 'honey'),
-                ),
-            ],
-          ),
-          if (plan.evaluation.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                plan.evaluation,
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 12.5,
-                ),
+  Widget _planCard(DirectorPlan plan, bool running) {
+    final muted = StudioColors.mutedOf(context);
+    return StoryCard(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: StoryKeyLabel(
+                'Proposed plan · ${plan.actions.length} change'
+                '${plan.actions.length == 1 ? '' : 's'} · '
+                '${plan.scope == 'arc' ? 'whole arc' : 'local'}',
               ),
             ),
-          const SizedBox(height: 8),
-          for (var i = 0; i < plan.actions.length; i++)
-            _actionRow(plan, i, applied),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              StoryQuietButton(
-                'Refine…',
-                icon: Icons.tune,
-                onPressed: applied ? null : _refine,
+            if (plan.review == 'consistent')
+              const StoryChip('Reviewed: consistent', tone: 'teal')
+            else if (plan.review.isNotEmpty)
+              Flexible(
+                child: StoryChip('Review: ${plan.review}', tone: 'honey'),
               ),
-              const Spacer(),
-              StoryQuietButton(
-                'Discard',
-                onPressed: () => _run(() => pipeline.discardDirectorPlan(p)),
-              ),
-              const SizedBox(width: 8),
-              StoryPrimaryButton(
-                applied
-                    ? 'Applied'
-                    : 'Apply ${plan.applicableCount} change'
-                          '${plan.applicableCount == 1 ? '' : 's'}',
-                key: const ValueKey('director-apply'),
-                onPressed: applied || plan.applicableCount == 0
-                    ? null
-                    : () => _run(() => pipeline.applyDirectorPlan(p)),
-              ),
-            ],
+          ],
+        ),
+        if (plan.evaluation.isNotEmpty)
+          Text(
+            plan.evaluation,
+            style: StudioType.ui(context, size: 12.5, color: muted),
           ),
-        ],
-      ),
+        for (var i = 0; i < plan.actions.length; i++)
+          _actionRow(plan, i, running),
+        Row(
+          children: [
+            StoryButton.ghost(
+              'Refine…',
+              icon: Icons.tune,
+              onPressed: running ? null : _refine,
+            ),
+            const Spacer(),
+            StoryButton(
+              'Discard…',
+              key: const ValueKey('director-discard'),
+              onPressed: running ? null : _discard,
+            ),
+            const SizedBox(width: 8),
+            StoryButton.primary(
+              'Apply ${plan.applicableCount} change'
+              '${plan.applicableCount == 1 ? '' : 's'}',
+              key: const ValueKey('director-apply'),
+              onPressed: running || plan.applicableCount == 0
+                  ? null
+                  : () => _run(() => pipeline.applyDirectorPlan(p)),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _actionRow(DirectorPlan plan, int index, bool applied) {
+  Widget _actionRow(DirectorPlan plan, int index, bool running) {
     final a = plan.actions[index];
     final target = StoryDirector.target(p, a);
     final tone = a.type.kind == 'Prose' ? 'terra' : 'honey';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 44,
+    return Row(
+      children: [
+        SizedBox(
+          height: 24,
+          child: FittedBox(
             child: Switch(
               value: a.enabled && !a.locked,
-              activeThumbColor: AppColors.porchAmberOf(context),
-              onChanged: a.locked || applied
+              onChanged: a.locked || running
                   ? null
                   : (v) => _run(
                       () => pipeline.setDirectorActionEnabled(p, index, v),
                     ),
             ),
           ),
-          const SizedBox(width: 8),
-          StoryChip(a.type.kind, tone: tone),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  if (target.isNotEmpty)
-                    TextSpan(
-                      text: '$target: ',
-                      style: TextStyle(color: AppColors.textSecondary(context)),
-                    ),
-                  TextSpan(text: a.summary),
-                ],
-              ),
-              style: TextStyle(
-                color: a.locked
-                    ? AppColors.textTertiary(context)
-                    : AppColors.textPrimary(context),
-                fontSize: 13,
-              ),
+        ),
+        const SizedBox(width: 10),
+        StoryChip(a.type.kind, tone: tone),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                if (target.isNotEmpty)
+                  TextSpan(
+                    text: '$target: ',
+                    style: TextStyle(color: StudioColors.mutedOf(context)),
+                  ),
+                TextSpan(text: a.summary),
+              ],
+            ),
+            style: StudioType.ui(
+              context,
+              color: a.locked
+                  ? StudioColors.faintOf(context)
+                  : StudioColors.inkOf(context),
             ),
           ),
-          if (a.locked) ...[
-            const SizedBox(width: 6),
-            const StoryChip('locked — written', tone: 'bad'),
-          ],
-          if (a.result == 'applied') ...[
-            const SizedBox(width: 6),
-            const StoryChip('applied', tone: 'teal'),
-          ] else if (a.result.startsWith('failed')) ...[
-            const SizedBox(width: 6),
-            Tooltip(
-              message: a.result,
-              child: const StoryChip('could not apply', tone: 'bad'),
-            ),
-          ],
+        ),
+        if (a.locked) ...[
+          const SizedBox(width: 6),
+          const StoryChip('locked — written', tone: 'bad'),
         ],
-      ),
+        if (a.result.startsWith('failed')) ...[
+          const SizedBox(width: 6),
+          Tooltip(
+            message: a.result,
+            child: const StoryChip('could not apply', tone: 'bad'),
+          ),
+        ],
+      ],
     );
+  }
+
+  Future<void> _discard() async {
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Discard this plan?',
+      body: 'The proposed changes are dropped. Nothing in the story changes.',
+      confirmLabel: 'Discard',
+      destructive: true,
+    );
+    if (!ok) return;
+    await _run(() => pipeline.discardDirectorPlan(p));
   }
 
   Future<void> _refine() async {
     final controller = TextEditingController();
-    final ok = await showWarmDialog<bool>(
+    final ok = await showStoryDialog<bool>(
       context,
       title: 'Refine the plan',
-      icon: Icons.tune,
       width: 420,
-      content: Column(
+      body: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const WarmDialogText(
-            'Say what to change about the plan, e.g. “keep him '
-            'sympathetic” or “do it in Sequence 4 instead”.',
+          Text(
+            'Say what to change about the plan, e.g. “keep him sympathetic” '
+            'or “do it in Sequence 4 instead”.',
+            style: StudioType.ui(
+              context,
+              size: 12.5,
+              color: StudioColors.mutedOf(context),
+            ),
           ),
           const SizedBox(height: 10),
           StoryTextArea(controller: controller, minLines: 3),
         ],
       ),
-      actions: [
-        warmDialogCancel(context, value: false),
-        warmDialogConfirm(
-          context,
-          label: 'Revise plan',
-          onPressed: () => Navigator.of(context).pop(true),
+      actions: (ctx) => [
+        StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx, false)),
+        StoryButton.primary(
+          'Revise plan',
+          onPressed: () => Navigator.pop(ctx, true),
         ),
       ],
     );
@@ -350,7 +343,7 @@ class _DirectorSectionState extends State<DirectorSection> {
       () => pipeline.runDirectorPlan(
         p,
         plan?.directive ?? _directive.text,
-        protectWrittenProse: _protect,
+        protectWrittenProse: p.directorProtect,
         refinement: controller.text,
       ),
     );

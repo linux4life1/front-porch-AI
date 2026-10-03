@@ -22,13 +22,15 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
-import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_buttons.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_cards.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_theme.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_widgets.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Who feels what about whom: a grid (a row reads "how this person sees
-/// that one"), a list on narrow screens, and the history of the pair you
-/// tap.
+/// Relationships (sketch S): the matrix stays the size of its cells; read a
+/// row as "how this person sees that one"; a tapped cell shows its history.
+/// Phones get a list of pairs instead of the grid.
 class RelationshipsSection extends StatefulWidget {
   final StoryProject project;
 
@@ -39,364 +41,371 @@ class RelationshipsSection extends StatefulWidget {
 }
 
 class _RelationshipsSectionState extends State<RelationshipsSection> {
-  String? _from;
-  String? _to;
+  (String, String)? _selected;
 
   StoryProject get p => widget.project;
 
-  /// People who appear in at least one relationship, cast order.
-  List<String> get _people {
-    final named = {
-      for (final r in p.relationships) ...[r.from, r.to],
-    };
-    return [
-      for (final c in p.cast)
-        if (named.contains(c.name)) c.name,
-    ];
+  List<String> get _names {
+    final names = <String>{for (final m in p.cast) m.name};
+    for (final r in p.relationships) {
+      if (p.castByName(r.from) != null) names.add(r.from);
+      if (p.castByName(r.to) != null) names.add(r.to);
+    }
+    return names.toList();
   }
-
-  Color _tone(BuildContext context, StoryRelationship r) =>
-      switch (StoryContinuity.tone(r.trust)) {
-        'warm' => AppColors.journalAccentOf(context),
-        'hot' => AppColors.negativeAccentOf(context),
-        _ => AppColors.porchHoneyOf(context),
-      };
 
   @override
   Widget build(BuildContext context) {
-    if (p.relationships.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            p.engineMode == StoryEngineMode.studio
-                ? 'Relationships appear once the story bible is built, and '
-                      'move as scenes are written.'
-                : 'The Quick engine does not track relationships. Switch the '
-                      'story to Studio to get this screen.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary(context)),
-          ),
-        ),
-      );
-    }
-    final people = _people;
-    final selected = _from != null && _to != null
-        ? p.relationship(_from!, _to!)
-        : null;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 620;
-        return ListView(
-          padding: const EdgeInsets.all(16),
+    final names = _names;
+    final muted = StudioColors.mutedOf(context);
+    final wide = MediaQuery.of(context).size.width >= 760;
+    final sel = _selected ?? _firstPair();
+    final rel = sel == null ? null : p.relationship(sel.$1, sel.$2);
+    final latest = p.relationships
+        .expand((r) => r.history)
+        .where((h) => h.sceneId.isNotEmpty)
+        .lastOrNull;
+    return ListView(
+      key: const ValueKey('studio-relationships'),
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
           children: [
-            WarmCard(
-              padding: const EdgeInsets.all(12),
-              child: narrow ? _list(context) : _matrix(context, people),
-            ),
-            if (selected != null) ...[
-              const SizedBox(height: 12),
-              _detail(context, selected),
-            ] else
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(
-                  narrow
-                      ? 'Tap a row for its history.'
-                      : 'Read a row as “how this person sees that one”. Tap '
-                            'a cell for its history.',
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 12,
-                  ),
-                ),
+            Expanded(
+              child: Text(
+                latest == null
+                    ? 'Nothing recorded yet'
+                    : 'After scene ${p.sceneLabelById(latest.sceneId)}',
+                style: StudioType.ui(context, size: 12.5, color: muted),
               ),
+            ),
+            StoryButton(
+              'Add pair',
+              key: const ValueKey('rel-add'),
+              icon: Icons.add,
+              onPressed: names.length < 2 ? null : () => _edit(null),
+            ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 12),
+        if (names.length < 2 || p.relationships.isEmpty)
+          StoryEmptyState(
+            title: 'No relationships yet',
+            detail: p.engineMode == StoryEngineMode.studio
+                ? 'Studio records who feels what about whom after every '
+                      'scene. Write a scene, or add a pair yourself.'
+                : 'The Quick engine does not track relationships. Switch the '
+                      'story to Studio under Setup, or add a pair yourself.',
+          )
+        else if (wide)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              StoryCard(
+                padding: const EdgeInsets.all(10),
+                children: [_matrix(names)],
+              ),
+              const SizedBox(width: 12),
+              if (rel != null) Expanded(child: _detail(rel)),
+            ],
+          )
+        else ...[
+          for (final r in p.relationships) ...[
+            _pairRow(r),
+            const SizedBox(height: 6),
+          ],
+          if (rel != null) ...[const SizedBox(height: 6), _detail(rel)],
+        ],
+      ],
     );
   }
 
-  Widget _matrix(BuildContext context, List<String> people) {
-    final head = TextStyle(
-      color: AppColors.textTertiary(context),
-      fontSize: 11.5,
-      fontWeight: FontWeight.w600,
+  (String, String)? _firstPair() {
+    final r = p.relationships.firstOrNull;
+    return r == null ? null : (r.from, r.to);
+  }
+
+  Widget _matrix(List<String> names) {
+    final muted = StudioColors.mutedOf(context);
+    Widget head(String s) => SizedBox(
+      width: 74,
+      child: Text(
+        s,
+        textAlign: TextAlign.center,
+        overflow: TextOverflow.ellipsis,
+        style: StudioType.ui(
+          context,
+          size: 11.5,
+          weight: FontWeight.w600,
+          color: muted,
+        ),
+      ),
     );
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Table(
-        defaultColumnWidth: const FixedColumnWidth(96),
-        columnWidths: const {0: FixedColumnWidth(90)},
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          TableRow(
+          Row(
             children: [
-              const SizedBox(),
-              for (final name in people)
-                Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Text(
-                    name.split(' ').first,
-                    textAlign: TextAlign.center,
-                    style: head,
-                  ),
-                ),
+              const SizedBox(width: 74),
+              for (final n in names) ...[const SizedBox(width: 4), head(n)],
             ],
           ),
-          for (final from in people)
-            TableRow(
+          for (final a in names) ...[
+            const SizedBox(height: 4),
+            Row(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Text(from.split(' ').first, style: head),
-                ),
-                for (final to in people)
-                  Padding(
-                    padding: const EdgeInsets.all(3),
-                    child: from == to
-                        ? _selfCell(context)
-                        : _cell(context, from, to),
-                  ),
+                head(a),
+                for (final b in names) ...[
+                  const SizedBox(width: 4),
+                  _cell(a, b),
+                ],
               ],
             ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _selfCell(BuildContext context) => Container(
-    height: 46,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(7),
-      border: Border.all(
-        color: AppColors.borderOf(context).withValues(alpha: 0.5),
-        style: BorderStyle.solid,
-      ),
-    ),
-  );
-
-  Widget _cell(BuildContext context, String from, String to) {
-    final r = p.relationship(from, to);
-    final on = _from == from && _to == to;
+  Widget _cell(String a, String b) {
+    if (a == b) {
+      return Container(
+        width: 74,
+        height: 46,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: StudioColors.lineOf(context)),
+        ),
+      );
+    }
+    final r = p.relationship(a, b);
+    final sel = _selected ?? _firstPair();
+    final on = sel != null && sel.$1 == a && sel.$2 == b;
+    final tone = r == null ? '' : StoryContinuity.tone(r.trust);
+    final color = switch (tone) {
+      'warm' => StudioColors.tealOf(context),
+      'hot' => StudioColors.badOf(context),
+      'mid' => StudioColors.honeyOf(context),
+      _ => StudioColors.faintOf(context),
+    };
     return InkWell(
+      key: ValueKey('rel-$a-$b'),
       borderRadius: BorderRadius.circular(7),
-      onTap: r == null
-          ? null
-          : () => setState(() {
-              _from = from;
-              _to = to;
-            }),
+      onTap: () => setState(() => _selected = (a, b)),
       child: Container(
+        width: 74,
         height: 46,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: AppColors.cardOf(context),
+          color: StudioColors.cardOf(context),
           borderRadius: BorderRadius.circular(7),
           border: Border.all(
             color: on
-                ? AppColors.porchAmberOf(context)
-                : AppColors.borderOf(context),
+                ? StudioColors.amberOf(context)
+                : StudioColors.lineOf(context),
             width: on ? 2 : 1,
           ),
         ),
-        child: r == null
-            ? Center(
-                child: Text(
-                  '—',
-                  style: TextStyle(color: AppColors.textTertiary(context)),
-                ),
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    r.feeling,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: _tone(context, r),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (r.note.isNotEmpty)
-                    Text(
-                      r.note,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.textTertiary(context),
-                        fontSize: 10.5,
-                      ),
-                    ),
-                ],
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              r == null || r.feeling.isEmpty ? '—' : r.feeling,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: StudioType.ui(
+                context,
+                size: 11.5,
+                weight: FontWeight.w600,
+                color: color,
               ),
+            ),
+            if (r != null && r.note.isNotEmpty)
+              Text(
+                r.note,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.ui(
+                  context,
+                  size: 10.5,
+                  color: StudioColors.mutedOf(context),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _list(BuildContext context) => Column(
-    children: [
-      for (final r in p.relationships)
-        ListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            '${r.from} → ${r.to}',
-            style: TextStyle(
-              color: AppColors.textPrimary(context),
-              fontSize: 13,
-            ),
-          ),
-          subtitle: Text(
-            r.note,
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 11.5,
-            ),
-          ),
-          trailing: Text(
-            r.feeling,
-            style: TextStyle(
-              color: _tone(context, r),
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-          onTap: () => setState(() {
-            _from = r.from;
-            _to = r.to;
-          }),
-        ),
-    ],
-  );
-
-  Widget _detail(BuildContext context, StoryRelationship r) {
-    return WarmCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
+  Widget _pairRow(StoryRelationship r) {
+    final tone = StoryContinuity.tone(r.trust);
+    return StoryCard(
+      onTap: () => setState(() => _selected = (r.from, r.to)),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
                 '${r.from} → ${r.to}',
-                style: TextStyle(
-                  color: AppColors.textPrimary(context),
-                  fontWeight: FontWeight.w700,
+                style: StudioType.ui(context, weight: FontWeight.w600),
+              ),
+            ),
+            StoryChip(
+              r.feeling.isEmpty ? '—' : r.feeling,
+              tone: tone == 'warm'
+                  ? 'teal'
+                  : tone == 'hot'
+                  ? 'bad'
+                  : 'honey',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _detail(StoryRelationship r) {
+    final muted = StudioColors.mutedOf(context);
+    final tone = StoryContinuity.tone(r.trust);
+    return StoryCard(
+      key: const ValueKey('rel-detail'),
+      children: [
+        Row(
+          children: [
+            Text(
+              '${r.from} → ${r.to}',
+              style: StudioType.ui(context, weight: FontWeight.w700),
+            ),
+            const SizedBox(width: 8),
+            StoryChip(
+              r.feeling.isEmpty ? '—' : r.feeling,
+              tone: tone == 'warm'
+                  ? 'teal'
+                  : tone == 'hot'
+                  ? 'bad'
+                  : 'honey',
+            ),
+            const SizedBox(width: 6),
+            StoryChip('trust ${r.trust}/10'),
+            const Spacer(),
+            StoryButton.ghost('Edit', onPressed: () => _edit(r)),
+            StoryMenuButton(
+              entries: [
+                StoryMenuEntry(
+                  'Remove pair…',
+                  danger: true,
+                  onSelect: () => _remove(r),
+                ),
+              ],
+            ),
+          ],
+        ),
+        if (r.subtext.isNotEmpty)
+          Text(
+            'Unspoken: ${r.subtext}',
+            style: StudioType.ui(context, size: 12, color: muted),
+          ),
+        if (r.history.isEmpty)
+          Text(
+            'No history yet.',
+            style: StudioType.ui(context, size: 12, color: muted),
+          ),
+        for (final h in r.history)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 40,
+                child: Text(
+                  h.sceneId.isEmpty ? '—' : p.sceneLabelById(h.sceneId),
+                  style: StudioType.mono(context),
                 ),
               ),
-              StoryChip(
-                r.feeling,
-                tone: switch (StoryContinuity.tone(r.trust)) {
-                  'warm' => 'teal',
-                  'hot' => 'bad',
-                  _ => 'honey',
-                },
-              ),
-              StoryChip('trust ${r.trust}/10'),
-              if (r.subtext.isNotEmpty)
-                Text(
-                  'Subtext: ${r.subtext}',
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 12,
+              Expanded(
+                child: Text(
+                  '${h.from} → ${h.to}${h.reason.isEmpty ? '' : ' · ${h.reason}'}',
+                  style: StudioType.ui(
+                    context,
+                    size: 12,
+                    color: identical(h, r.history.last)
+                        ? StudioColors.inkOf(context)
+                        : muted,
                   ),
                 ),
-              TextButton(
-                onPressed: () => _edit(context, r),
-                child: const Text('Edit'),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          if (r.history.isEmpty)
-            Text(
-              'No moves yet.',
-              style: TextStyle(
-                color: AppColors.textTertiary(context),
-                fontSize: 12,
-              ),
-            ),
-          for (final h in r.history)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 36,
-                    child: Text(
-                      h.sceneId.isEmpty ? '—' : p.sceneLabelById(h.sceneId),
-                      style: TextStyle(
-                        color: AppColors.textTertiary(context),
-                        fontSize: 12,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '${h.from} → ${h.to}'
-                      '${h.reason.isEmpty ? '' : ' · ${h.reason}'}',
-                      style: TextStyle(
-                        color: AppColors.textSecondary(context),
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 
-  Future<void> _edit(BuildContext context, StoryRelationship r) async {
-    final feeling = TextEditingController(text: r.feeling);
-    final note = TextEditingController(text: r.note);
-    final subtext = TextEditingController(text: r.subtext);
-    var trust = r.trust;
-    final ok = await showWarmDialog<bool>(
+  Future<void> _edit(StoryRelationship? r) async {
+    final names = _names;
+    var from = r?.from ?? names.first;
+    var to = r?.to ?? names.firstWhere((n) => n != from, orElse: () => from);
+    final feeling = TextEditingController(text: r?.feeling ?? '');
+    final note = TextEditingController(text: r?.note ?? '');
+    final subtext = TextEditingController(text: r?.subtext ?? '');
+    var trust = r?.trust ?? 5;
+    final ok = await showStoryDialog<bool>(
       context,
-      title: '${r.from} → ${r.to}',
-      width: 420,
-      content: StatefulBuilder(
-        builder: (context, setLocal) => Column(
+      title: r == null ? 'Add pair' : '${r.from} → ${r.to}',
+      width: 460,
+      body: StatefulBuilder(
+        builder: (ctx, setLocal) => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppTextField(
-              controller: feeling,
-              decoration: const InputDecoration(labelText: 'Feeling'),
-            ),
+            if (r == null) ...[
+              const StoryKeyLabel('Who'),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final n in names)
+                    StoryChip(
+                      n,
+                      selected: n == from,
+                      onTap: () => setLocal(() => from = n),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const StoryKeyLabel('Sees'),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final n in names)
+                    if (n != from)
+                      StoryChip(
+                        n,
+                        selected: n == to,
+                        onTap: () => setLocal(() => to = n),
+                      ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+            StoryField(controller: feeling, hint: 'Feeling (one or two words)'),
             const SizedBox(height: 8),
-            AppTextField(
-              controller: note,
-              decoration: const InputDecoration(labelText: 'Note'),
-            ),
+            StoryField(controller: note, hint: 'Note (two or three words)'),
             const SizedBox(height: 8),
-            AppTextField(
-              controller: subtext,
-              maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Unspoken'),
-            ),
-            const SizedBox(height: 8),
+            StoryField(controller: subtext, hint: 'Unspoken'),
+            const SizedBox(height: 10),
             Row(
               children: [
-                Text(
-                  'Trust $trust',
-                  style: TextStyle(color: AppColors.textSecondary(context)),
-                ),
+                Text('Trust $trust/10', style: StudioType.ui(ctx, size: 12)),
                 Expanded(
                   child: Slider(
                     value: trust.toDouble(),
                     min: 0,
                     max: 10,
                     divisions: 10,
-                    activeColor: AppColors.porchAmberOf(context),
                     onChanged: (v) => setLocal(() => trust = v.round()),
                   ),
                 ),
@@ -405,20 +414,21 @@ class _RelationshipsSectionState extends State<RelationshipsSection> {
           ],
         ),
       ),
-      actions: [
-        warmDialogCancel(context, value: false),
-        warmDialogConfirm(
-          context,
-          label: 'Save',
-          onPressed: () => Navigator.of(context).pop(true),
+      actions: (ctx) => [
+        StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx, false)),
+        StoryButton.primary(
+          r == null ? 'Add' : 'Save',
+          onPressed: () => Navigator.pop(ctx, true),
         ),
       ],
     );
-    if (ok != true || !context.mounted) return;
+    if (ok != true || !mounted || feeling.text.trim().isEmpty || from == to) {
+      return;
+    }
     StoryContinuity.shift(
       p,
-      from: r.from,
-      to: r.to,
+      from: from,
+      to: to,
       feeling: feeling.text,
       note: note.text,
       subtext: subtext.text,
@@ -426,6 +436,22 @@ class _RelationshipsSectionState extends State<RelationshipsSection> {
       reason: 'Edited by hand.',
     );
     await Provider.of<StoryRepository>(context, listen: false).saveProject(p);
-    setState(() {});
+    setState(() => _selected = (from, to));
+  }
+
+  Future<void> _remove(StoryRelationship r) async {
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Remove ${r.from} → ${r.to}?',
+      body:
+          'The feeling and its history are removed. The engine may record '
+          'it again after the next scene.',
+      confirmLabel: 'Remove',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    p.relationships.remove(r);
+    await Provider.of<StoryRepository>(context, listen: false).saveProject(p);
+    setState(() => _selected = null);
   }
 }

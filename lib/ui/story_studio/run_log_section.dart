@@ -22,14 +22,15 @@ import 'package:flutter/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
-import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_buttons.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_cards.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_theme.dart';
+import 'package:front_porch_ai/ui/story_studio/studio_widgets.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Every model call made for this story, newest first: what stage, which
-/// model, how long, and whether the check passed. Tap one to read the
-/// prompt and the reply.
-class RunLogSection extends StatelessWidget {
+/// Run log (sketch U): every model call, newest first, live while a run is
+/// on. A row opens the prompt and the reply. Clear asks first.
+class RunLogSection extends StatefulWidget {
   final StoryProject project;
   final StoryPipelineService pipeline;
 
@@ -39,10 +40,19 @@ class RunLogSection extends StatelessWidget {
     required this.pipeline,
   });
 
+  @override
+  State<RunLogSection> createState() => _RunLogSectionState();
+}
+
+class _RunLogSectionState extends State<RunLogSection> {
+  String _filter = 'all';
+  List<StoryRunEntry> _entries = const [];
+  int _seen = -1;
+
   static String verdictTone(String verdict) => switch (verdict) {
-    'PASS' => 'teal',
+    'PASS' || 'OK' => 'teal',
     'FAIL' || 'ERROR' => 'bad',
-    'INVALID' => 'honey',
+    'INVALID' || 'FIXED' => 'honey',
     _ => '',
   };
 
@@ -52,193 +62,219 @@ class RunLogSection extends StatelessWidget {
       '${t.second.toString().padLeft(2, '0')}';
 
   @override
+  void initState() {
+    super.initState();
+    widget.pipeline.addListener(_reload);
+    _reload();
+  }
+
+  @override
+  void dispose() {
+    widget.pipeline.removeListener(_reload);
+    super.dispose();
+  }
+
+  Future<void> _reload() async {
+    final id = widget.project.dbId;
+    if (id == null) return;
+    final list = await widget.pipeline.store.entries(id);
+    if (!mounted || list.length == _seen) return;
+    setState(() {
+      _entries = list.reversed.toList();
+      _seen = list.length;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final id = project.dbId;
-    if (id == null) return const SizedBox.shrink();
-    return FutureBuilder<List<StoryRunEntry>>(
-      future: pipeline.store.entries(id),
-      builder: (context, snapshot) {
-        final entries = (snapshot.data ?? const <StoryRunEntry>[]).reversed
-            .toList();
-        return ListView(
-          padding: const EdgeInsets.all(16),
+    final muted = StudioColors.mutedOf(context);
+    final shown = _filter == 'failures'
+        ? _entries
+              .where(
+                (e) =>
+                    verdictTone(e.verdict) == 'bad' || e.verdict == 'INVALID',
+              )
+              .toList()
+        : _entries;
+    final running = widget.pipeline.isRunning;
+    return ListView(
+      key: const ValueKey('studio-log'),
+      padding: const EdgeInsets.all(16),
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    entries.isEmpty
-                        ? 'No model calls yet. Every call this story makes '
-                              'will be listed here.'
-                        : '${entries.length} call${entries.length == 1 ? '' : 's'}'
-                              ' · newest first · tap one to read it',
-                    style: TextStyle(
-                      color: AppColors.textTertiary(context),
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ),
-                if (entries.isNotEmpty)
-                  TextButton(
-                    onPressed: () async {
-                      await pipeline.store.clearLog(id);
-                      (context as Element).markNeedsBuild();
-                    },
-                    child: const Text('Clear'),
-                  ),
-              ],
+            Text(
+              _entries.isEmpty
+                  ? 'No model calls yet. Every call this story makes is '
+                        'listed here.'
+                  : '${_entries.length} call${_entries.length == 1 ? '' : 's'} · newest first',
+              style: StudioType.ui(context, size: 12.5, color: muted),
             ),
-            const SizedBox(height: 8),
-            for (final e in entries) _row(context, e),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _row(BuildContext context, StoryRunEntry e) {
-    final seconds = (e.millis / 1000).toStringAsFixed(1);
-    return WarmCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      onTap: () => _open(context, e),
-      child: Row(
-        children: [
-          Text(
-            _clock(e.at),
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 11.5,
-              fontFeatures: const [FontFeature.tabularFigures()],
+            if (running) const StoryChip('● live', tone: 'amber'),
+            StorySegmented(
+              options: const {'all': 'All', 'failures': 'Failures'},
+              selected: _filter,
+              onSelect: (v) => setState(() => _filter = v),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              e.stage.isEmpty ? '(call)' : e.stage,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontSize: 13,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Wrap(
-            spacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              StoryChip(e.role),
-              if (e.attempt > 1) StoryChip('try ${e.attempt}', tone: 'honey'),
-              if (e.verdict.isNotEmpty)
-                StoryChip(e.verdict, tone: verdictTone(e.verdict)),
-              Text(
-                '${seconds}s · ${e.tokens} tok',
-                style: TextStyle(
-                  color: AppColors.textTertiary(context),
-                  fontSize: 11.5,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _open(BuildContext context, StoryRunEntry e) {
-    showWarmDialog<void>(
-      context,
-      title: e.stage.isEmpty ? 'Model call' : e.stage,
-      width: 720,
-      content: SizedBox(
-        height: 480,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 6,
-              children: [
-                StoryChip(e.backend),
-                StoryChip(e.role),
-                StoryChip('try ${e.attempt}'),
-                if (e.verdict.isNotEmpty)
-                  StoryChip(e.verdict, tone: verdictTone(e.verdict)),
-                StoryChip('${(e.millis / 1000).toStringAsFixed(1)}s'),
-                StoryChip('${e.tokens} tokens'),
-              ],
-            ),
-            if (e.note.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  e.note,
-                  style: TextStyle(
-                    color: AppColors.textSecondary(context),
-                    fontSize: 12.5,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: DefaultTabController(
-                length: 2,
-                child: Column(
-                  children: [
-                    TabBar(
-                      labelColor: AppColors.textPrimary(context),
-                      indicatorColor: AppColors.porchAmberOf(context),
-                      tabs: const [
-                        Tab(text: 'Prompt'),
-                        Tab(text: 'Reply'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          _text(context, e.prompt),
-                          _text(context, e.response),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            StoryButton.ghost(
+              'Clear…',
+              onPressed: _entries.isEmpty || running ? null : _clear,
             ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Clipboard.setData(
-              ClipboardData(
-                text: 'PROMPT\n${e.prompt}\n\nREPLY\n${e.response}',
-              ),
-            );
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Copied'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          },
-          child: const Text('Copy both'),
-        ),
-        warmDialogCancel(context, label: 'Close'),
+        const SizedBox(height: 10),
+        if (shown.isNotEmpty)
+          StoryCard(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+            children: [for (final e in shown) _row(e)],
+          ),
       ],
     );
   }
 
-  Widget _text(BuildContext context, String text) => SingleChildScrollView(
-    padding: const EdgeInsets.only(top: 8),
-    child: SelectableText(
-      text.isEmpty ? '(empty)' : text,
-      style: TextStyle(
-        color: AppColors.textSecondary(context),
-        fontSize: 12,
-        height: 1.5,
-        fontFamily: 'monospace',
+  Widget _row(StoryRunEntry e) {
+    final muted = StudioColors.mutedOf(context);
+    final seconds = (e.millis / 1000).toStringAsFixed(1);
+    final tone = verdictTone(e.verdict);
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: () => _open(e),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Text(_clock(e.at), style: StudioType.mono(context)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                e.attempt > 1 ? '${e.stage} · try ${e.attempt}' : e.stage,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.ui(context, size: 12.5),
+              ),
+            ),
+            const SizedBox(width: 8),
+            StoryChip(
+              e.role,
+              tone: e.role == 'prose'
+                  ? 'terra'
+                  : e.role == 'planning'
+                  ? 'honey'
+                  : '',
+            ),
+            if (e.verdict.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              StoryChip(e.verdict, tone: tone),
+            ],
+            const SizedBox(width: 10),
+            Text(
+              '${seconds}s · ${e.tokens} tok',
+              style: StudioType.mono(context, size: 11.5, color: muted),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
+
+  Future<void> _clear() async {
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Clear the run log?',
+      body:
+          '${_entries.length} call${_entries.length == 1 ? '' : 's'} with '
+          'their prompts and replies are removed. The story is not touched.',
+      confirmLabel: 'Clear',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    await widget.pipeline.store.clearLog(widget.project.dbId!);
+    _seen = -1;
+    await _reload();
+  }
+
+  void _open(StoryRunEntry e) {
+    showStoryDialog<void>(
+      context,
+      title: e.stage,
+      width: 720,
+      body: DefaultTabController(
+        length: 2,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                StoryChip(e.backend),
+                StoryChip(e.role),
+                if (e.attempt > 1) StoryChip('try ${e.attempt}'),
+                if (e.verdict.isNotEmpty)
+                  StoryChip(e.verdict, tone: verdictTone(e.verdict)),
+                StoryChip('${(e.millis / 1000).toStringAsFixed(1)}s'),
+                StoryChip('${e.tokens} tok'),
+              ],
+            ),
+            if (e.note.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                e.note,
+                style: StudioType.ui(
+                  context,
+                  size: 12.5,
+                  color: StudioColors.mutedOf(context),
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            TabBar(
+              labelColor: StudioColors.inkOf(context),
+              unselectedLabelColor: StudioColors.mutedOf(context),
+              indicatorColor: StudioColors.amberOf(context),
+              dividerColor: StudioColors.lineOf(context),
+              labelStyle: StudioType.ui(context, weight: FontWeight.w600),
+              tabs: const [
+                Tab(text: 'Prompt'),
+                Tab(text: 'Reply'),
+              ],
+            ),
+            SizedBox(
+              height: 380,
+              child: TabBarView(
+                children: [
+                  for (final text in [e.prompt, e.response])
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: SelectableText(
+                        text.isEmpty ? '(empty)' : text,
+                        style: StudioType.mono(
+                          context,
+                          size: 11.5,
+                          color: StudioColors.inkOf(context),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: (ctx) => [
+        StoryButton.ghost(
+          'Copy both',
+          onPressed: () => Clipboard.setData(
+            ClipboardData(
+              text: '### Prompt\n${e.prompt}\n\n### Reply\n${e.response}',
+            ),
+          ),
+        ),
+        StoryButton.primary('Close', onPressed: () => Navigator.pop(ctx)),
+      ],
+    );
+  }
 }

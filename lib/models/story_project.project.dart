@@ -99,6 +99,11 @@ class StoryProject {
   DirectorPlan? directorPlan;
   DirectorApplied? directorApplied;
 
+  /// What the Director's box holds and whether written prose is protected,
+  /// remembered when the user leaves the section.
+  String directorDraft;
+  bool directorProtect;
+
   /// Reader: 'book' (page flip) or 'scroll', and how far down the scroll is.
   String readerMode;
 
@@ -162,6 +167,8 @@ class StoryProject {
     List<StoryLens>? customLenses,
     this.directorPlan,
     this.directorApplied,
+    this.directorDraft = '',
+    this.directorProtect = true,
     this.readerMode = 'book',
     this.setupStep,
     this.readerScroll = 0,
@@ -251,6 +258,8 @@ class StoryProject {
     'custom_lenses': customLenses.map((l) => l.toJson()).toList(),
     if (directorPlan != null) 'director_plan': directorPlan!.toJson(),
     if (directorApplied != null) 'director_applied': directorApplied!.toJson(),
+    if (directorDraft.isNotEmpty) 'director_draft': directorDraft,
+    'director_protect': directorProtect,
     'reader_mode': readerMode,
     if (setupStep != null) 'setup_step': setupStep,
     'reader_scroll': readerScroll,
@@ -327,6 +336,8 @@ class StoryProject {
       directorApplied: json['director_applied'] is Map<String, dynamic>
           ? DirectorApplied.fromJson(json['director_applied'])
           : null,
+      directorDraft: json['director_draft']?.toString() ?? '',
+      directorProtect: json['director_protect'] != false,
       readerMode: json['reader_mode'] == 'scroll' ? 'scroll' : 'book',
       setupStep: (json['setup_step'] as num?)?.toInt(),
       readerScroll: ((json['reader_scroll'] as num?)?.toDouble() ?? 0)

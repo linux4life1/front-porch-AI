@@ -92,8 +92,8 @@ run status chip + `Stop` while running, `Setup`, `⋯` (Export eBook, Export
 audiobook, Export text, Rename, Delete story…).
 
 Structure toolbar: `Continue writing` (primary), `Autopilot…`.
-Scene ⋯ menu: Write this scene, Plan beats, Change lens…, Edit title &
-summary…, Insert scene after…, Rewrite prose…, Delete scene….
+Scene ⋯ menu: Write this scene, Plan beats, Edit title & summary…, Insert
+scene after…, Rewrite prose…, Delete scene…. (Change lens lives in Write.)
 Write bottom bar: `Rewrite beat <n> with a note…`, `Change lens`, `Write next
 beat`. Beat ⋯: Edit text by hand, Rewrite, Rewrite with a note…, Copy.
 Read bar: `Book | Scroll`, `Read aloud`, `Contents`, `⋯`.
