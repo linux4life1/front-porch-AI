@@ -65,6 +65,16 @@ describe('upNextFor', () => {
     expect(up.detail).toBe('4 beats planned · Mara');
   });
 
+  it('a bible still building stays "Building…" once the interviews have filled the cast', () => {
+    const midBuild = studioStory({ acts: [], scenes: {}, beats: {}, prose: {}, sequences: [] });
+    expect(upNextFor(midBuild, true, 'Reviewing the arc', lens)).toMatchObject({
+      title: 'Building the story bible…',
+      detail: 'Reviewing the arc',
+      action: 'bible',
+    });
+    expect(upNextFor(midBuild, false, '', lens).title).toBe('Bible ready');
+  });
+
   it('acts with no scenes yet are "Acts ready", not "written" — Continue outlines them', () => {
     const planned = studioStory({ scenes: {}, beats: {}, prose: {} });
     expect(upNextFor(planned, false, '', lens)).toMatchObject({

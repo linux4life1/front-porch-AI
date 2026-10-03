@@ -152,10 +152,19 @@ void main() {
 
       // ── Bible: world → interview (the lead only) → arc → review ─────────
       // The last Next builds the bible and lands on the studio Overview,
-      // whose Up next card then offers "Build acts".
+      // whose Up next card offers "Build acts" only once the engine is idle
+      // (the interviews fill the cast long before the arc review lands; CI
+      // caught the card — and this test — flipping early).
+      final pipeline = Provider.of<StoryPipelineService>(ctx, listen: false);
       await d.tapUntil(
         [find.byKey(const ValueKey('story-setup-next'))],
         find.byKey(const ValueKey('story-build-acts')),
+        timeout: const Duration(seconds: 90),
+      );
+      await pumpUntilTrue(
+        tester,
+        () => !pipeline.isRunning,
+        describe: () => 'the bible build to finish',
         timeout: const Duration(seconds: 90),
       );
       expect(backend.storyStagesServed, [

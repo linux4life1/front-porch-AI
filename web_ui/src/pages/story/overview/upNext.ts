@@ -37,7 +37,9 @@ export function upNextFor(
     autopilot: p.acts.length > 0 || p.cast.length > 0,
     autopilotIdle: next === undefined && p.acts.length > 0 && !hasUnoutlined(p),
   };
-  if (p.cast.length === 0 && p.acts.length === 0) {
+  // While the bible is building, the interviews fill the cast long before the
+  // arc and its review land — the card must not flip to "Bible ready" mid-run.
+  if (p.acts.length === 0 && (p.cast.length === 0 || running)) {
     return {
       ...common,
       title: running ? 'Building the story bible…' : 'The bible is not built',

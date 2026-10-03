@@ -84,7 +84,10 @@ extension _StoryDashboardOverview on _StoryDashboardPageState {
     final String title;
     final String detail;
     final Widget primary;
-    if (project.cast.isEmpty && project.acts.isEmpty) {
+    // While the bible is building, the interviews fill the cast long before
+    // the arc and its review land — the card must not flip to "Bible ready"
+    // in the middle of that.
+    if (project.acts.isEmpty && (project.cast.isEmpty || running)) {
       title = running ? 'Building the story bible…' : 'The bible is not built';
       detail = running
           ? pipeline.statusMessage
