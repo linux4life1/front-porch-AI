@@ -93,6 +93,7 @@ extension StoryPipelineLlm on StoryPipelineService {
     String label = '',
     int attempt = 1,
     bool escalate = false,
+    StoryToolSpec? tool,
   }) async {
     if (_stopRequested) throw StoryStoppedException();
     final lane = _laneFor(project, role, escalate: escalate);
@@ -140,11 +141,23 @@ extension StoryPipelineLlm on StoryPipelineService {
     }
 
     final started = DateTime.now();
-    final String text;
+    String text;
+    var viaTool = false;
     try {
       await _swapLaneHost(lane.host);
       final hold = lane.hold;
-      text = hold == null ? await stream() : await hold<String>(stream);
+      // Tools first for a structured stage; the tag prompt is the backup.
+      final toolText = tool == null || !_toolsWelcome(service)
+          ? null
+          : await (hold == null
+                ? _callTool(service, params, tool)
+                : hold<String?>(() => _callTool(service, params, tool)));
+      if (toolText != null) {
+        text = toolText;
+        viaTool = true;
+      } else {
+        text = hold == null ? await stream() : await hold<String>(stream);
+      }
     } catch (e) {
       // Stop aborts the HTTP client, which surfaces here as a socket error.
       if (_stopRequested) throw StoryStoppedException();
@@ -174,9 +187,59 @@ extension StoryPipelineLlm on StoryPipelineService {
         tokens: _tokenCount,
         prompt: prompt,
         response: text,
+        note: viaTool ? 'tool call' : '',
       ),
     );
   }
+
+  /// One native tool call. Null means the host refused the tool (or sent
+  /// nothing usable), and the caller falls back to the tag prompt; a refusal
+  /// is remembered per host so the run stops asking. Transport failures
+  /// (nothing listening, timeouts) throw like any other call.
+  Future<String?> _callTool(
+    LLMService service,
+    GenerationParams params,
+    StoryToolSpec tool,
+  ) async {
+    final resp = await service.generateWithTools(
+      GenerationParams(
+        prompt: params.prompt,
+        maxLength: params.maxLength,
+        temperature: params.temperature,
+        topP: params.topP,
+        minP: params.minP,
+        repeatPenalty: params.repeatPenalty,
+        toolChoice: tool.name,
+      ),
+      StoryTools.definitions,
+    );
+    if (resp == null) {
+      _toolsRefused.add(_serviceIdentity(service));
+      return null;
+    }
+    final call = resp.calls.where((c) => c.name == tool.name).firstOrNull;
+    if (call == null) {
+      // The model answered in prose instead; let the tag path read it if
+      // it carries tags, else retry as text.
+      final text = resp.text.trim();
+      if (text.isNotEmpty && StoryXml.has(text, 'response')) {
+        _tokenCount = resp.completionTokens ?? _tokenCount;
+        return text;
+      }
+      return null;
+    }
+    _tokenCount = resp.completionTokens ?? _tokenCount;
+    final text = StoryTools.toTags(tool, call.arguments);
+    _streamingText = text;
+    _notify();
+    return text;
+  }
+
+  bool _toolsWelcome(LLMService service) =>
+      !_toolsRefused.contains(_serviceIdentity(service));
+
+  String _serviceIdentity(LLMService service) =>
+      '${service.backendName}|${service.runtimeType}|${identityHashCode(service)}';
 
   Future<void> _log(StoryProject? project, StoryRunEntry entry) async {
     final id = project?.dbId;
@@ -191,6 +254,7 @@ extension StoryPipelineLlm on StoryPipelineService {
     StoryProject? project,
     StoryRole role = StoryRole.planning,
     String label = '',
+    StoryToolSpec? tool,
   }) async {
     final result = await _call(
       prompt,
@@ -199,6 +263,7 @@ extension StoryPipelineLlm on StoryPipelineService {
       project: project,
       role: role,
       label: label,
+      tool: tool,
     );
     await _log(project, result.entry);
     return result.text;

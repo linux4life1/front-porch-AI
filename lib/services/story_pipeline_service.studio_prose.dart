@@ -122,6 +122,7 @@ extension StoryPipelineStudioProse on StoryPipelineService {
           project: project,
           role: StoryRole.review,
           label: 'Continuity $label · beat ${beat + 1}',
+          tool: StoryTools.continuity,
         );
         final verdict = StoryReview.parse(check.text);
         check.entry
@@ -193,6 +194,7 @@ extension StoryPipelineStudioProse on StoryPipelineService {
       maxLength: 1536,
       stage: StoryStageParams.editing,
       project: project,
+      tool: StoryTools.edits,
       role: StoryRole.review,
       label: '$stage (continuity fix)',
     );
@@ -234,6 +236,7 @@ extension StoryPipelineStudioProse on StoryPipelineService {
       maxLength: 1536,
       stage: StoryStageParams.editing,
       project: project,
+      tool: StoryTools.edits,
       role: StoryRole.review,
       label: '$stage (phrase cleanup)',
     );

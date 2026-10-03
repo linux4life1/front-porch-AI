@@ -165,6 +165,7 @@ extension StoryPipelineDirectorApply on StoryPipelineService {
       project: project,
       role: StoryRole.prose,
       label: 'Director patch $label',
+      tool: StoryTools.edits,
     );
     final edits = StoryEdits.parse(call.text);
     var landed = 0;

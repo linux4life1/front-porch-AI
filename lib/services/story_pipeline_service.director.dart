@@ -39,6 +39,7 @@ extension StoryPipelineDirector on StoryPipelineService {
       final text = await _agent(
         project,
         stage: 'Director',
+        tool: StoryTools.director,
         status: refinement.trim().isEmpty
             ? 'Planning the change…'
             : 'Revising the plan…',
@@ -72,6 +73,7 @@ extension StoryPipelineDirector on StoryPipelineService {
           project: project,
           role: StoryRole.review,
           label: 'Director review',
+          tool: StoryTools.review,
         );
         final verdict = StoryReview.parse(check.text);
         check.entry

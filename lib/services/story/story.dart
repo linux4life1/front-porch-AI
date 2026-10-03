@@ -45,6 +45,7 @@ export 'story_review.dart';
 export 'story_shelf.dart';
 export 'story_structure.dart';
 export 'story_studio_store.dart';
+export 'story_tools.dart';
 export 'story_xml.dart';
 export 'studio_parse.dart';
 export 'studio_parse_prose.dart';

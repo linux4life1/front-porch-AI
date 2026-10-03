@@ -28,6 +28,7 @@ extension StoryPipelineStudioStructure on StoryPipelineService {
       final acts = await _agent(
         project,
         stage: 'Act Structure',
+        tool: StoryTools.acts,
         status: 'Dividing the story into three acts…',
         validate: StudioParse.checkActs,
         prompt: (previous, feedback) => StudioStructurePrompts.acts(
@@ -44,6 +45,7 @@ extension StoryPipelineStudioStructure on StoryPipelineService {
       final sequences = await _agent(
         project,
         stage: 'Sequences',
+        tool: StoryTools.sequences,
         status: 'Breaking the acts into eight sequences…',
         validate: StudioParse.checkSequences,
         prompt: (previous, feedback) => StudioStructurePrompts.sequences(
@@ -89,6 +91,7 @@ extension StoryPipelineStudioStructure on StoryPipelineService {
       final text = await _agent(
         project,
         stage: 'Scenes: Sequence $number',
+        tool: StoryTools.scenes,
         status: 'Outlining the scenes of "${sequence.title}"…',
         validate: (output) => StudioParse.checkScenes(output, min: budget.min),
         prompt: (previous, feedback) => StudioStructurePrompts.scenes(
@@ -144,6 +147,7 @@ extension StoryPipelineStudioStructure on StoryPipelineService {
         project,
         stage: stage,
         status: 'Choreographing "${scene.title}"…',
+        tool: StoryTools.beats,
         maxLength: 6144,
         validate: (output) =>
             StudioParseProse.checkBeats(output, min: pacing.beatsMin),

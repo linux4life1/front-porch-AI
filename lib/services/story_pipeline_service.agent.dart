@@ -43,6 +43,7 @@ extension StoryPipelineAgent on StoryPipelineService {
     int maxLength = 8192,
     StoryStageParams params = StoryStageParams.planning,
     int attempts = 3,
+    StoryToolSpec? tool,
   }) async {
     String? previous;
     String? feedback;
@@ -64,6 +65,7 @@ extension StoryPipelineAgent on StoryPipelineService {
         label: stage,
         attempt: attempt,
         escalate: attempt > 1 && attempt == attempts,
+        tool: tool,
       );
       final output = StoryXml.clean(call.text);
       final problem = validate?.call(output);
@@ -90,6 +92,7 @@ extension StoryPipelineAgent on StoryPipelineService {
         role: StoryRole.review,
         label: '$stage review',
         attempt: attempt,
+        tool: StoryTools.review,
       );
       final verdict = StoryReview.parse(check.text);
       check.entry

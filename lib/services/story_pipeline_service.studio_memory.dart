@@ -40,6 +40,7 @@ extension StoryPipelineStudioMemory on StoryPipelineService {
         project: project,
         role: StoryRole.review,
         label: stage,
+        tool: StoryTools.archive,
       );
       StudioParseProse.applyArchive(project, act, index, StoryXml.clean(reply));
       await _repository.saveProject(project);
@@ -87,6 +88,7 @@ extension StoryPipelineStudioMemory on StoryPipelineService {
         project: project,
         role: StoryRole.review,
         label: stage,
+        tool: StoryTools.sequenceSummary,
       );
       final cleaned = StoryXml.clean(reply);
       final summary = StoryXml.tag(cleaned, 'story_so_far');

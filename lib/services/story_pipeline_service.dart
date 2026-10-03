@@ -92,6 +92,9 @@ class StoryPipelineService extends ChangeNotifier {
   /// The lane host whose model is resident right now (local swaps only).
   LaneHost? _activeLaneHost;
 
+  /// Hosts that refused a native tool call this session; they get tags.
+  final Set<String> _toolsRefused = {};
+
   /// True for the whole of an outermost operation, including the gaps between
   /// its stages (each stage still clears `_isRunning` in its own `finally`).
   bool get isRunning => _isRunning || _depth > 0;
