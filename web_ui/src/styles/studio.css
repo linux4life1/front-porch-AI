@@ -5,13 +5,46 @@
    run log, scroll reader). Mirrors the desktop story_studio widgets.
 */
 
+/* The Porch Stories palette, transcribed from the approved mockups. Source of
+   truth: docs/design/porch-stories-ui-spec.md; the Dart twin is
+   lib/ui/theme/studio_colors.dart. Dark values are the default app look. */
 :root {
-  --studio-teal: #4db6ac;
-  --studio-bad: #e57373;
-  --studio-honey: var(--porch-honey);
-  --studio-amber: var(--porch-amber);
-  --studio-terra: var(--porch-terracotta);
-  --studio-ink: #2a1a08;
+  --studio-bg: #1B1611;
+  --studio-side: #1F1913;
+  --studio-card: #251E17;
+  --studio-raise: #30271E;
+  --studio-line: #3E3328;
+  --studio-ink: #EFE6DA;
+  --studio-muted: #A89A89;
+  --studio-faint: #7A6E62;
+  --studio-prose: #E8DDCF;
+  --studio-amber: #F4A259;
+  --studio-honey: #E9C46A;
+  --studio-terra: #E29578;
+  --studio-teal: #4DB6AC;
+  --studio-bad: #E57373;
+  --studio-amber-ink: #2A1A08;
+  --studio-diff-del-bg: #3A1E1C;
+  --studio-diff-del-fg: #F0B3AE;
+  --studio-diff-ins-bg: #16302D;
+  --studio-diff-ins-fg: #A6E3DB;
+}
+:root[data-theme="light"] {
+  --studio-bg: #F8F4ED;
+  --studio-side: #F0EBE3;
+  --studio-card: #FFFDF9;
+  --studio-raise: #E9E2D8;
+  --studio-line: #D4CFC6;
+  --studio-ink: #2A231C;
+  --studio-muted: #6E6357;
+  --studio-faint: #9A8E82;
+  --studio-prose: #2A231C;
+  --studio-amber: #B45309;
+  --studio-honey: #8F6400;
+  --studio-terra: #9C4B2F;
+  --studio-teal: #00695C;
+  --studio-bad: #B3261E;
+  --studio-amber-ink: #FFFDF9;
 }
 
 /* ── Shell ─────────────────────────────────────────────────────────── */
@@ -71,10 +104,10 @@
 .s-mono { font-variant-numeric: tabular-nums; font-size: 0.78rem; color: var(--faint); }
 .s-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .s-seg button { padding: 6px 12px; font-size: 0.8rem; color: var(--muted); background: none; border: 0; cursor: pointer; }
-.s-seg button.on { background: var(--studio-amber); color: var(--studio-ink); font-weight: 600; }
+.s-seg button.on { background: var(--studio-amber); color: var(--studio-amber-ink); font-weight: 600; }
 .s-tog { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .s-tog input { width: auto; accent-color: var(--studio-amber); }
-.s-btn-primary { background: var(--studio-amber); color: var(--studio-ink); border: 1px solid var(--studio-amber); border-radius: 8px; padding: 7px 12px; font-weight: 600; font-size: 0.82rem; cursor: pointer; }
+.s-btn-primary { background: var(--studio-amber); color: var(--studio-amber-ink); border: 1px solid var(--studio-amber); border-radius: 8px; padding: 7px 12px; font-weight: 600; font-size: 0.82rem; cursor: pointer; }
 .s-btn-primary:disabled { opacity: 0.5; cursor: default; }
 .s-btn-quiet { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; font-size: 0.82rem; cursor: pointer; }
 .s-btn-quiet:disabled { opacity: 0.5; cursor: default; }
