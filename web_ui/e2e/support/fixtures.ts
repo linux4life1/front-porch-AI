@@ -5,8 +5,8 @@
 // threw, logged a console error, hit a missing or failing /api endpoint, or
 // showed the crash screen — whether or not the spec was looking at that spot.
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import { test as base, expect, type Page } from '@playwright/test';
 
 export type Problem = string;
@@ -105,9 +105,15 @@ export const test = base.extend<{
   // pass after a crash is put on the run's page as a warning.
   crashRetry: [
     async ({}, use, testInfo) => {
-      const note = join(testInfo.project.outputDir, 'first-tries', `${testInfo.testId}.txt`);
+      const dir = join(testInfo.project.outputDir, 'first-tries', testInfo.project.name, basename(testInfo.file));
+      const note = join(dir, `${testInfo.testId}.txt`);
       if (testInfo.retry > 0) {
-        const first = await readFile(note, 'utf8').catch(() => '');
+        // A test of a serial group is retried with the group when another
+        // test of it failed: that failure is the reason.
+        const own = await readFile(note, 'utf8').catch(() => null);
+        const group = async () =>
+          (await Promise.all((await readdir(dir).catch(() => [])).map((f) => readFile(join(dir, f), 'utf8')))).join('\n');
+        const first = own ?? (await group());
         if (!BROWSER_CRASH.test(first)) {
           throw new Error(`retried only after a browser crash; the first try failed with: ${first || '(no error recorded)'}`);
         }
