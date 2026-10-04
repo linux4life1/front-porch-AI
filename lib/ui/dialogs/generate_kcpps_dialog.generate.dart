@@ -88,6 +88,7 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
         // the whole quantized model is modelled as GPU-resident there.
         moeExpertsOnCpu: !Platform.isMacOS,
         backend: _memoryBackend,
+        flashAttention: _preset(_selectedModelPath!).flashAttention,
       );
     } else if (_hardwareInfo?.vramMb != null && _hardwareInfo!.vramMb > 0) {
       final totalMb = VramEstimator.estimateVramNeeded(
@@ -139,6 +140,31 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
       availableVramMb: vramMb,
       autofitpaddingMb: padding,
       backend: _memoryBackend,
+      flashAttention: _preset(_selectedModelPath!).flashAttention,
+    );
+  }
+
+  /// The preset the dialog's choices make. The file written and the
+  /// estimate shown both come from it, so they cannot disagree on a
+  /// setting that changes memory (flash attention, for one).
+  KoboldLaunchConfig _preset(
+    String model, {
+    ({KoboldGpuBackend backend, int? gpuId})? gpu,
+    String mmprojPath = '',
+  }) {
+    final card = gpu ?? _gpu ?? _detectGpu();
+    return koboldGeneratedPreset(
+      modelPath: model,
+      contextSize: _contextSize,
+      batchSize: _batchSize,
+      threads: _threads,
+      greedyAllocation: _greedyAllocation,
+      kvQuant: _kvQuant,
+      backend: card.backend,
+      gpuId: card.gpuId,
+      contextMode: _contextMode,
+      smartCacheSlots: _smartCacheSlots,
+      mmprojPath: mmprojPath,
     );
   }
 
@@ -172,17 +198,9 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
       // preset loaded by a live swap still has it.
       final mmproj = storage.presetSettings.modelMmprojMap[model] ?? '';
       final version = await KoboldBinaryVersion.read(storage.binDir.path);
-      final config = koboldGeneratedPreset(
-        modelPath: model,
-        contextSize: _contextSize,
-        batchSize: _batchSize,
-        threads: _threads,
-        greedyAllocation: _greedyAllocation,
-        kvQuant: _kvQuant,
-        backend: gpu.backend,
-        gpuId: gpu.gpuId,
-        contextMode: _contextMode,
-        smartCacheSlots: _smartCacheSlots,
+      final config = _preset(
+        model,
+        gpu: gpu,
         mmprojPath: mmproj.isNotEmpty && await File(mmproj).exists()
             ? mmproj
             : '',

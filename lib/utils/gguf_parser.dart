@@ -211,11 +211,12 @@ class GGUFParser {
   /// Sliding-window layers for a model that has a window but lists no
   /// pattern, as KoboldCpp's engine sets them: of every N layers, all but
   /// the last slide. gpt-oss alternates (seen: 12 sliding layers of 24).
+  /// Gemma 4 files carry their pattern (five in six); this is the fallback.
   static bool _slidesByDefault(String arch, int layer) {
     final n = switch (arch) {
       'gemma2' || 'gpt-oss' => 2,
       'cohere2' => 4,
-      _ => arch.startsWith('gemma3') ? 6 : 0,
+      _ => arch.startsWith('gemma3') || arch == 'gemma4' ? 6 : 0,
     };
     return n > 0 && layer % n < n - 1;
   }
