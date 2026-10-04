@@ -21,7 +21,10 @@ extension KoboldServiceExit on KoboldService {
       wasReady: wasReady,
     );
     _lastFailure = failure;
-    _addLog(failure.message);
+    // Exit 2 has already been explained, naming the file.
+    if (failure.kind != KoboldFailureKind.unreadableModel) {
+      _addLog(failure.message);
+    }
 
     final b = _storageService.backendSettings;
     if (!koboldRetryWithoutFlashAttention(
@@ -33,11 +36,20 @@ extension KoboldServiceExit on KoboldService {
     }
     _addLog(
       'KoboldCpp stopped while answering with flash attention on. Starting '
-      'it again without; it stays off on this machine.',
+      'it again without; it stays off on this machine until Flash '
+      'Attention is switched back on in Settings.',
     );
     unawaited(() async {
-      await b.setRocmFlashAttentionFailed(true);
-      await launch(executablePath, port: port);
+      try {
+        await b.setRocmFlashAttentionFailed(true);
+        // Settings shows it off; switching it back on clears the mark.
+        await b.setFlashAttentionEnabled(false);
+        // The port is released a moment after the process ends.
+        await Future<void>.delayed(const Duration(seconds: 1));
+        await launch(executablePath, port: port);
+      } on Object catch (e) {
+        _addLog('KoboldCpp could not be started again: $e');
+      }
     }());
   }
 
@@ -45,7 +57,7 @@ extension KoboldServiceExit on KoboldService {
   bool _flashAttentionIn(String stagedJson) {
     try {
       final map = jsonDecode(stagedJson);
-      return map is Map && map['noflashattention'] == false;
+      return map is Map && kcppsRunsFlashAttention(map);
     } on FormatException catch (e) {
       debugPrint('[Kobold] staged config is not JSON: $e');
       return false;

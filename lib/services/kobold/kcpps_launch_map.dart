@@ -17,6 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'kcpps_codec.dart';
+import 'kobold_app_config.dart';
+import 'kobold_launch_config.dart';
+import 'kobold_launch_failure.dart';
 
 /// The config a launch runs for a user's preset: the file as it was written,
 /// with only what the app has to own laid over it.
@@ -26,6 +29,10 @@ import 'kcpps_codec.dart';
 /// exists), and sliding window switched off when the file has it on together
 /// with fast forward. [onNote] is told about that last one, and about a
 /// forced automatic fit that overrides the file's own layer count.
+///
+/// [flashAttentionOff]: the ROCm build died on this machine with flash
+/// attention on, so it is switched off here too (with a compressed cache
+/// back to full size, which needs it), and [onNote] is told.
 ///
 /// A file that does not mention sliding window is left as it is: KoboldCpp's
 /// own default then applies. The launch says so when the model has sliding
@@ -40,6 +47,7 @@ Map<String, dynamic> kcppsPresetLaunchMap(
   required String modelPath,
   required String mmprojPath,
   void Function(String note)? onNote,
+  bool flashAttentionOff = false,
 }) {
   final map = Map<String, dynamic>.of(preset);
   if (modelPath.isNotEmpty) map['model_param'] = modelPath;
@@ -53,5 +61,21 @@ Map<String, dynamic> kcppsPresetLaunchMap(
   }
   final forcedFit = kcppsForcedFitNote(map);
   if (forcedFit != null) onNote?.call(forcedFit);
+
+  // The ROCm build died on this machine with flash attention on. A
+  // compressed cache needs it, so that goes back to full size too.
+  if (flashAttentionOff && kcppsRunsFlashAttention(map)) {
+    map['noflashattention'] = true;
+    if (KvQuant.parse(map['quantkv']).needsFlashAttention) {
+      map['quantkv'] = KvQuant.f16.wire;
+    }
+    onNote?.call(
+      koboldFlashAttentionNote(
+        backend: KoboldGpuBackend.cuda,
+        rocm: true,
+        rocmFailedBefore: true,
+      )!,
+    );
+  }
   return map;
 }

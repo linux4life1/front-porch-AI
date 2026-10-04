@@ -42,6 +42,11 @@ mixin KoboldLaunchFields on SettingsBase {
     notify();
   }
 
+  /// Clears the mark, so the next ROCm launch has flash attention again.
+  Future<void> retryRocmFlashAttention() async {
+    if (_rocmFlashAttentionFailed) await setRocmFlashAttentionFailed(false);
+  }
+
   /// False (the default, for everyone): KoboldCpp fits the model to the
   /// card itself. True: the stored `gpu_layers` number is sent as typed.
   bool get gpuLayersManual => _gpuLayersManual;

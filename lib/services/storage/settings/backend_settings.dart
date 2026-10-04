@@ -454,6 +454,8 @@ class BackendSettings
   Future<void> setFlashAttentionEnabled(bool value) async {
     _flashAttentionEnabled = value;
     await prefs?.setBool(k('flash_attention_enabled'), value);
+    // Switching it back on is asking ROCm to try it again.
+    if (value) await retryRocmFlashAttention();
     notify();
   }
 

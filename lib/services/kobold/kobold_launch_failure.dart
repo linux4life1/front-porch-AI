@@ -91,6 +91,15 @@ bool _answering(List<String> log) {
   return false;
 }
 
+/// Whether a config runs flash attention: KoboldCpp has it on unless the
+/// config turns it off, by `noflashattention: true` or, in a file from
+/// before that name, `flashattention: false` (read as the preset reader
+/// reads it).
+bool kcppsRunsFlashAttention(Map<dynamic, dynamic> config) =>
+    config.containsKey('noflashattention')
+    ? config['noflashattention'] != true
+    : config['flashattention'] != false;
+
 /// Whether to start again with flash attention off: the ROCm build died
 /// mid-answer with it on, and this machine has not been marked yet.
 /// Running out of memory is not this: flash attention uses less.

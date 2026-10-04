@@ -189,6 +189,8 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       modelPath: modelPath,
       mmprojPath: mmproj,
       onNote: onNote,
+      flashAttentionOff:
+          useRocm && storage.backendSettings.rocmFlashAttentionFailed,
     );
   }
 
