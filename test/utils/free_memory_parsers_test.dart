@@ -54,6 +54,8 @@ void main() {
     expect(amdChosenFreeMb([1200, 15800], gpuId: 0), 1200);
     expect(amdChosenFreeMb([1200, 15800], gpuId: 1), 15800);
     expect(amdChosenFreeMb([1200, 15800]), 15800);
+    // An unreadable card keeps its place: card 2 is still card 2.
+    expect(amdChosenFreeMb([1200, null, 900], gpuId: 2), 900);
     expect(amdChosenFreeMb([1200, null, 15800], gpuId: 1), 15800);
     expect(amdChosenFreeMb([]), isNull);
   });
