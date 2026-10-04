@@ -87,6 +87,13 @@ void main() {
       kcppsPlainWords(vulkan),
       contains('Spread over graphics cards 0 and 1, split 3 to 1.'),
     );
+    expect(kcppsPlainWords(vulkan), contains('fit it to your cards.'));
+    final manual = _read({
+      'model_param': '/m/Big-70B-Q4_K_M.gguf',
+      'usevulkan': [0, 1],
+      'gpulayers': 60,
+    });
+    expect(kcppsPlainWords(manual), contains('with 60 layers on the cards.'));
     final cudaAll = _read({
       'model_param': '/m/Big-70B-Q4_K_M.gguf',
       'usecuda': ['normal'],
@@ -101,6 +108,10 @@ void main() {
       'usecuda': ['normal', '0'],
     });
     expect(kcppsPlainWords(one, machineCards: 2), isNot(contains('Spread')));
+    expect(
+      kcppsPlainWords(one, machineCards: 2),
+      contains('fit it to your card.'),
+    );
   });
 
   test("the editor's estimate counts both cards, and working memory on "

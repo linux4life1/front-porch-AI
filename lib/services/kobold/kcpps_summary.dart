@@ -119,10 +119,12 @@ String kcppsPlainWords(
       ? 'the model chosen in Settings'
       : koboldModelName(c.modelPath);
   final out = <String>[];
+  final cards = koboldCardsUsed(c, machineCards: machineCards);
+  final card = cards > 1 ? 'cards' : 'card';
   if (c.layersAreAutomatic) {
     final spare = c.autofitPaddingMb;
     out.add(
-      'Loads $model and lets KoboldCpp fit it to your card'
+      'Loads $model and lets KoboldCpp fit it to your $card'
       '${spare == null ? '' : ', keeping ${koboldMemoryWords(spare)} spare'}.',
     );
   } else {
@@ -131,7 +133,7 @@ String kcppsPlainWords(
               '${c.moeCpuLayers == null || c.moeCpuLayers! >= 999 ? 'every layer' : 'the first ${c.moeCpuLayers} layers'}'
               ' in system memory'
         : '';
-    out.add('Loads $model with ${c.gpuLayers} layers on the card$experts.');
+    out.add('Loads $model with ${c.gpuLayers} layers on the $card$experts.');
   }
   final swa = c.contextMode == ContextManagementMode.slidingWindowAttention;
   final size = switch (c.kvQuant) {
@@ -156,7 +158,6 @@ String kcppsPlainWords(
           : 'No smart cache slots${shortOfMemory ? ': this computer is short of memory' : ''}.',
     );
   }
-  final cards = koboldCardsUsed(c, machineCards: machineCards);
   if (cards > 1) out.add(koboldSpreadWords(c, cards));
   if (!c.flashAttention) out.add('Flash attention is off.');
   if (c.mmq == false) out.add('MMQ is off.');
