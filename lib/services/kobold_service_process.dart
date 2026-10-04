@@ -273,6 +273,7 @@ extension KoboldServiceProcess on KoboldService {
             _addLog(data);
             _parseLoadingStatus(data);
             _ingestLiveProgress(data);
+            _storageService.backendSettings.noteKoboldOutput(data);
           });
 
       _process!.stderr

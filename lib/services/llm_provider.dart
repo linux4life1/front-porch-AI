@@ -278,6 +278,9 @@ class LLMProvider extends ChangeNotifier {
     kcppsPath: kcppsPath,
   );
 
+  /// Chat's new preset or model into the running KoboldCpp, live.
+  Future<void> reloadChatKobold() => _reloadChatKobold();
+
   /// Convenience getters for the underlying services (for UI that needs specifics).
   KoboldService get koboldService => _koboldService;
   OpenRouterService get openRouterService => _openRouterService;

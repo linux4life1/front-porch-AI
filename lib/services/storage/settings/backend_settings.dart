@@ -70,6 +70,7 @@ class BackendSettings
   int _contextSize = 16384;
   int _kvQuantizationLevel = 0;
 
+  @override
   String get backendType => _backendType;
 
   /// Key for the *active* URL's vault slot. Image Studio, chat, and Check

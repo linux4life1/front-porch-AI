@@ -116,7 +116,13 @@ class BackendFacade {
     final known = _models.localModels.any((m) => m.path == path);
     if (!known) return false;
     await selectKoboldModel(_storage, path);
-    await restart();
+    // A running KoboldCpp loads the new model in place, as on the desktop;
+    // a stopped one is started.
+    if (_llm.koboldService.isProcessRunning) {
+      await _llm.reloadChatKobold();
+    } else {
+      await restart();
+    }
     return true;
   }
 

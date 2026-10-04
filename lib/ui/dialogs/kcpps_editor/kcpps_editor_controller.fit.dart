@@ -215,6 +215,8 @@ extension KcppsEditorMmq on KcppsEditorController {
       return;
     }
     mmqTiming = true;
+    // Auto mode's own learning would take these runs for its own.
+    storage.backendSettings.pauseMmqLearning();
     final best = <bool, Duration>{};
     try {
       var round = 0;

@@ -206,7 +206,7 @@ class KeBox extends StatelessWidget {
       child: Semantics(
         label: semanticLabel,
         child: TextField(
-          key: keyName == null ? null : ValueKey(keyName),
+          key: keyName == null ? null : ValueKey<String>(keyName!),
           controller: controller,
           keyboardType: number ? TextInputType.number : TextInputType.text,
           inputFormatters: number

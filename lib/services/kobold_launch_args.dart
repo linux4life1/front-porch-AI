@@ -130,6 +130,12 @@ Future<KoboldStagedRole> stageKoboldRole({
   );
   final adminDir = koboldAdminDirFor(storage);
   final json = encodeKcpps(config);
+  if (name == kStagedChatConfig) {
+    final context = config['contextsize'];
+    storage.backendSettings.setEngineContextSize(
+      context is num ? context.toInt() : null,
+    );
+  }
   final file = await stageKoboldConfig(
     adminDir.isNotEmpty ? adminDir : Directory.systemTemp.path,
     name,
@@ -252,7 +258,10 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       hardware: hardware,
       free: free,
       batchAutomatic: b.batchAutomatic,
-      mmq: hardware == null ? null : b.mmqFor(hardware.gpuName, engineVersion),
+      // MMQ only does anything with CUDA and the ROCm build.
+      mmq: hardware == null || gpu.backend != KoboldGpuBackend.cuda
+          ? null
+          : b.mmqForLaunch(hardware.gpuName, engineVersion),
     ),
     caps: caps,
   );
@@ -272,9 +281,7 @@ Future<KoboldLaunchConfig> _tunedForMachine(
   required bool batchAutomatic,
   required bool? mmq,
 }) async {
-  final withMmq = gpu.backend == KoboldGpuBackend.cuda && mmq != null
-      ? config.copyWith(mmq: mmq)
-      : config;
+  final withMmq = mmq == null ? config : config.copyWith(mmq: mmq);
   if (info == null || hardware == null) return withMmq;
   final int fileSize;
   try {
@@ -282,14 +289,15 @@ Future<KoboldLaunchConfig> _tunedForMachine(
   } on FileSystemException {
     return withMmq;
   }
-  final backend = Platform.isMacOS
+  // Apple hardware: one memory pool, every layer on the graphics side.
+  final backend = hardware.hasMetal
       ? KoboldMemoryBackend.metal
       : gpu.backend == KoboldGpuBackend.vulkan
       ? KoboldMemoryBackend.vulkan
       : gpu.rocm
       ? KoboldMemoryBackend.rocm
       : KoboldMemoryBackend.cuda;
-  final onCard = gpu.backend != KoboldGpuBackend.none || Platform.isMacOS;
+  final onCard = gpu.backend != KoboldGpuBackend.none || hardware.hasMetal;
   final tuning = koboldAutoTuning(
     KoboldFit(
       info: info,

@@ -22,6 +22,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
+import 'package:front_porch_ai/services/kobold/kobold_mmq_timing.dart';
 
 import 'settings_base.dart';
 
@@ -35,8 +36,40 @@ mixin KoboldLaunchFields on SettingsBase {
       ContextManagementMode.fastForwardSmartCache;
   bool _rocmFlashAttentionFailed = false;
   bool _batchAutomatic = true;
+  int? _engineContextSize;
+
+  /// The local backend type; prompts for other backends are not held to
+  /// the app's own KoboldCpp.
+  String get backendType;
+
+  /// The context chat's KoboldCpp config gives it, as last staged (a launch
+  /// or a swap back to chat). KoboldCpp runs with exactly that.
+  int? get engineContextSize => _engineContextSize;
+
+  void setEngineContextSize(int? value) {
+    if (value == _engineContextSize) return;
+    _engineContextSize = value;
+    notify();
+  }
+
+  /// [wanted] tokens of prompt, never more than the app's KoboldCpp holds:
+  /// a chat set to a longer context than the engine runs would otherwise
+  /// be cut from the start, card and all, by KoboldCpp.
+  int promptContext(int wanted) {
+    final engine = _engineContextSize;
+    if (backendType != 'kobold' || engine == null || engine >= wanted) {
+      return wanted;
+    }
+    return engine;
+  }
+
   bool _presetGateSkipped = false;
   Map<String, bool> _mmqTimed = const {};
+  Map<String, Map<String, List<KoboldSpeed>>> _mmqSamples = {};
+
+  /// The card and MMQ setting the engine runs with while auto mode learns
+  /// which is faster there; null when nothing is being learned.
+  ({String key, bool on})? _mmqTrial;
 
   /// Auto mode picks the batch for this machine (the default). False once
   /// a batch is chosen by hand in Settings.
@@ -71,6 +104,92 @@ mixin KoboldLaunchFields on SettingsBase {
 
   static String _mmqKey(String card, String? version) =>
       '${card.trim()}|${version ?? ''}';
+
+  /// MMQ for an auto-mode launch on [card]: as learned, or the setting
+  /// still to be timed there (on, KoboldCpp's default, then off). Replies
+  /// read their speeds into it until both have three (see
+  /// [noteKoboldOutput]).
+  bool mmqForLaunch(String card, String? engineVersion) {
+    final key = _mmqKey(card, engineVersion);
+    final learned = _mmqTimed[key];
+    if (learned != null) {
+      _mmqTrial = null;
+      return learned;
+    }
+    final on = (_mmqSamples[key]?['on']?.length ?? 0) < 3;
+    _mmqTrial = (key: key, on: on);
+    return on;
+  }
+
+  /// Stops learning MMQ until the next launch (the editor times it itself).
+  void pauseMmqLearning() => _mmqTrial = null;
+
+  /// KoboldCpp's output while MMQ is being learned: each reply's speeds go
+  /// to the setting it ran with; once both have enough, the faster is kept.
+  void noteKoboldOutput(String text) {
+    final trial = _mmqTrial;
+    if (trial == null) return;
+    final speeds = [
+      for (final line in text.split('\n')) ?parseKoboldSpeed(line),
+    ];
+    if (speeds.isEmpty) return;
+    final both = _mmqSamples[trial.key] ??= {};
+    final mine = both[trial.on ? 'on' : 'off'] ??= [];
+    mine.addAll(speeds);
+    if (mine.length > 8) mine.removeRange(0, mine.length - 8);
+    final faster = koboldMmqFaster(
+      on: both['on'] ?? const [],
+      off: both['off'] ?? const [],
+    );
+    if (faster != null) {
+      _mmqSamples.remove(trial.key);
+      _mmqTrial = null;
+      _mmqTimed = {..._mmqTimed, trial.key: faster};
+      unawaited(prefs?.setString(k('kobold_mmq_timed'), jsonEncode(_mmqTimed)));
+    }
+    unawaited(
+      prefs?.setString(
+        k('kobold_mmq_samples'),
+        jsonEncode({
+          for (final e in _mmqSamples.entries)
+            e.key: {
+              for (final s in e.value.entries)
+                s.key: [
+                  for (final r in s.value)
+                    [r.read, r.readSeconds, r.written, r.writeSeconds],
+                ],
+            },
+        }),
+      ),
+    );
+  }
+
+  static Map<String, Map<String, List<KoboldSpeed>>> _readMmqSamples(
+    String? text,
+  ) {
+    if (text == null) return {};
+    try {
+      final map = jsonDecode(text) as Map<String, dynamic>;
+      return {
+        for (final e in map.entries)
+          e.key: {
+            for (final s in (e.value as Map<String, dynamic>).entries)
+              s.key: [
+                for (final r in s.value as List)
+                  (
+                    read: (r as List)[0] as int,
+                    readSeconds: (r[1] as num).toDouble(),
+                    written: r[2] as int,
+                    writeSeconds: (r[3] as num).toDouble(),
+                  ),
+              ],
+          },
+      };
+    } on Object catch (e) {
+      debugPrint('Unreadable MMQ samples dropped: $e');
+      return {};
+    }
+  }
 
   /// KoboldCpp on ROCm died on this machine with flash attention on, so
   /// the app's own launches leave it off here.
@@ -136,6 +255,7 @@ mixin KoboldLaunchFields on SettingsBase {
     _presetGateSkipped =
         prefs?.getBool(k('kobold_preset_gate_skipped')) ?? false;
     _mmqTimed = _readMmqTimed(prefs?.getString(k('kobold_mmq_timed')));
+    _mmqSamples = _readMmqSamples(prefs?.getString(k('kobold_mmq_samples')));
   }
 
   static Map<String, bool> _readMmqTimed(String? text) {

@@ -97,7 +97,7 @@ extension LLMProviderKoboldHosts on LLMProvider {
   /// into the running KoboldCpp: a reload of the staged chat config by
   /// name, and a restart only when the reload is not acted on. Nothing
   /// happens when KoboldCpp is not running or chat's pair is loaded already.
-  Future<void> reloadChatKobold() async {
+  Future<void> _reloadChatKobold() async {
     if (!_koboldService.isProcessRunning) return;
     await _koboldSwapHost(
       role: kKoboldChatRole,

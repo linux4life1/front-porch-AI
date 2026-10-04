@@ -204,10 +204,10 @@ KoboldAutoTuning koboldAutoTuning(
   );
 }
 
-/// [l] keeps at least as much on the card as [base] and fits as well.
+/// [l] fits, and keeps at least as much on the card as [base]. A larger
+/// batch is never taken when it does not fit: that only makes it worse.
 bool _noWorse(KoboldLoad l, KoboldLoad base, int budget) {
-  final fits = l.cardMb <= budget;
-  if (fits != base.cardMb <= budget) return fits;
+  if (l.cardMb > budget) return false;
   if (l.gpuLayers != base.gpuLayers) return l.gpuLayers > base.gpuLayers;
   return l.expertBlocksOnCard >= base.expertBlocksOnCard;
 }

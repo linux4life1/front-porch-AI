@@ -119,8 +119,9 @@ class ChatGenerationSettings {
       maxLength ?? s.generationSettings.maxLength;
   int resolveMinLength(StorageService s) =>
       minLength ?? s.generationSettings.minLength;
-  int resolveContextSize(StorageService s) =>
-      contextSize ?? s.backendSettings.contextSize;
+  int resolveContextSize(StorageService s) => s.backendSettings.promptContext(
+    contextSize ?? s.backendSettings.contextSize,
+  );
   List<String> resolveStopSequences(StorageService s) =>
       stopSequences ?? s.generationSettings.stopSequences.toList();
   List<String> resolveBannedPhrases(StorageService s) =>
@@ -166,8 +167,9 @@ class ChatGenerationSettings {
       map['output_sanitizer_enabled'] = outputSanitizerEnabled;
     }
     if (outputSanitizerRules != null) {
-      map['output_sanitizer_rules'] =
-          outputSanitizerRules!.map((r) => r.toJson()).toList();
+      map['output_sanitizer_rules'] = outputSanitizerRules!
+          .map((r) => r.toJson())
+          .toList();
     }
     return map;
   }

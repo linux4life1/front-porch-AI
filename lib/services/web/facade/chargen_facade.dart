@@ -153,7 +153,10 @@ class ChargenFacade {
           isLocalKobold:
               _llm.activeBackend == BackendType.kobold &&
               _llm.koboldService.isReady,
-          contextSize: _storage?.backendSettings.contextSize ?? 8192,
+          contextSize: switch (_storage?.backendSettings) {
+            final b? => b.promptContext(b.contextSize),
+            null => 8192,
+          },
         ),
       );
       final gen = CharacterGenService(svc);

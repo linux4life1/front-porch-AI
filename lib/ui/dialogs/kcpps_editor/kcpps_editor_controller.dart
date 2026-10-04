@@ -370,7 +370,8 @@ class KcppsEditorController extends ChangeNotifier {
     }
   }
 
-  String _snapshot() => jsonEncode(_map());
+  /// The form as saved: the name is the file's, not in it, and counts too.
+  String _snapshot() => jsonEncode({'': draft.name.trim(), ..._map()});
 
   Map<String, dynamic> _map() => draft.toMap(
     recurrent: recurrent,

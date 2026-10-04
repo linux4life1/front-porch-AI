@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -215,6 +216,13 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  /// A new chat model or preset goes into a running KoboldCpp at once: a
+  /// reload by name, a restart only when that is not acted on.
+  void _reloadChatIfRunning() {
+    final llm = context.read<LLMProvider>();
+    if (llm.koboldService.isProcessRunning) unawaited(llm.reloadChatKobold());
+  }
+
   void _scanLocalPresets() {
     final storage = Provider.of<StorageService>(context, listen: false);
     final files = scanKcppsPresets(storage.binDir);
@@ -396,7 +404,10 @@ class _SettingsPageState extends State<SettingsPage> {
           setState(() {
             _selectedModelPath = val;
           });
-          selectKoboldModel(storageService, val);
+          selectKoboldModel(
+            storageService,
+            val,
+          ).then((_) => _reloadChatIfRunning());
 
           // Warm the model details so the memory gauge is accurate.
           modelManager.getModelArchitectureInfo(val); // fire-and-forget
@@ -404,8 +415,8 @@ class _SettingsPageState extends State<SettingsPage> {
       },
       onVisionChanged: () => setState(() {}),
       onScanPresets: _scanLocalPresets,
-      onKcppsChanged: (val) {
-        storageService.backendSettings.setActiveKcppsPath(val);
+      onKcppsChanged: (val) async {
+        await storageService.backendSettings.setActiveKcppsPath(val);
         if (_selectedModelPath != null && val != null) {
           storageService.presetSettings.setModelPreset(
             _selectedModelPath!,
@@ -421,6 +432,7 @@ class _SettingsPageState extends State<SettingsPage> {
         } else if (_selectedModelPath != null && val == null) {
           storageService.presetSettings.setModelPreset(_selectedModelPath!, '');
         }
+        _reloadChatIfRunning();
         if (val != null &&
             storageService.backendSettings.kcppsHasModel &&
             _kcppsModelExists.of(
@@ -431,11 +443,12 @@ class _SettingsPageState extends State<SettingsPage> {
           });
         }
       },
-      onKcppsExternalClear: () {
-        storageService.backendSettings.setActiveKcppsPath(null);
+      onKcppsExternalClear: () async {
+        await storageService.backendSettings.setActiveKcppsPath(null);
         if (_selectedModelPath != null) {
           storageService.presetSettings.setModelPreset(_selectedModelPath!, '');
         }
+        _reloadChatIfRunning();
       },
       onKcppsBrowsePicked: (path) {
         if (_selectedModelPath != null) {

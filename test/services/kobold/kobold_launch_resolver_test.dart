@@ -18,8 +18,23 @@ import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_services.dart';
 import '../../golden/support/fakes_storage.dart';
 
+class _Kobold extends FakeKoboldService {
+  bool running = false;
+
+  @override
+  bool get isProcessRunning => running;
+}
+
 class _Llm extends FakeLLMProvider {
   int restarts = 0;
+  int reloads = 0;
+  final kobold = _Kobold();
+
+  @override
+  KoboldService get koboldService => kobold;
+
+  @override
+  Future<void> reloadChatKobold() async => reloads++;
 
   @override
   Future<void> stopAllManagedProcesses() async {}
@@ -222,6 +237,13 @@ void main() {
       // A path the app does not know is refused and changes nothing.
       expect(await facade.switchModel('/etc/passwd'), isFalse);
       expect(storage.backendSettings.lastUsedModelPath, big);
+
+      // With KoboldCpp running, the new model is loaded in place.
+      llm.kobold.running = true;
+      expect(await facade.switchModel(small), isTrue);
+      expect(llm.reloads, 1);
+      expect(llm.restarts, 1, reason: 'no second restart');
+      expect(resolveKoboldLaunch(storage).modelPath, small);
     });
   });
 }
