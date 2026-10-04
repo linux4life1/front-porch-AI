@@ -75,6 +75,55 @@ and context shift.
    MoE model on a 6 GB card.
 3. The real out-of-memory text on each platform, for Stage 5's messages.
 
+**Status of these three (2026-10-04).** Item 1 is proven on macOS (below).
+Item 2 was measured on Linux with a 16 GB AMD card and in the original
+author's log from a 6 GB NVIDIA card (next section). Item 3 is partly
+captured: ROCm reports "ROCm error: out of memory" during the first prompt,
+after a load that succeeded; Vulkan with Gemma 4 dies on the first prompt
+without a message. Windows has not been run.
+
+**Measured on Linux, a 16 GB AMD card (RX 6900 XT), and in a 6 GB NVIDIA
+log (2026-10-04)**
+
+KoboldCpp 1.122.1 on Vulkan and the 1.121 ROCm build, with Qwen3-14B,
+Qwen3-30B-A3B and Gemma 4 12B; the original author's KoboldCpp log for
+Qwen3.6-35B-A3B on a GTX 1060. Full figures are pinned in
+`test/utils/vram_estimator_real_engine_test.dart`.
+
+- The memory KoboldCpp sets aside follows exact rules that can be read from
+  the model file: the weights on the card are the file's own tensor sizes
+  (the embedding stays in system memory; a model that ties its output to
+  its embedding gets a second copy on the card, 540 MB on Gemma 4 12B), and
+  the cache is per layer (context plus 128 cells rounded up to 256; a
+  sliding-window layer, with sliding window on, holds the window plus one
+  batch rounded up to 256, plus 128). Both matched the engine to the MiB.
+- The app's model reader looked for `<arch>.sliding_window`. Real files say
+  `<arch>.attention.sliding_window`, so sliding window was never detected,
+  and every check that depends on it (the context-mode note at launch, the
+  editor's choice) saw "no sliding window".
+- The working memory is the output scores for a batch (batch x vocabulary x
+  4 bytes) at small batches. On Vulkan, once those scores reach 1 GiB they
+  get their own block and add to the layers' working set: Gemma 4 took
+  1331 MB at batch 1024 and 2662 MB at 2048.
+- ROCm with flash attention off, as the app launched it, needs far more
+  working memory (1377 MB against 307 at 16k on Qwen3-14B, growing with the
+  context) and runs slower: 30.7 against 38.8 tokens/s with everything on
+  the card, and 12 against 32 at 32k, where it no longer fit. With flash
+  attention on, every model ran on this card. ROCm also uses about 250 to
+  300 MB its log does not list, plus up to 220 MB more during a reply, so
+  32 MB spare ("greedy") ran out of memory on the first prompt.
+- Gemma 4 on Vulkan with flash attention on: loaded, then died on the first
+  prompt, every time. With it off it ran at 37 tokens/s; ROCm ran it either
+  way.
+- Sliding-window mode on Gemma 4 cut the cache from 5.4 GB to 0.8 GB at 16k.
+- Smart cache keeps each slot (one conversation's cache, plus a hybrid
+  model's recurrent state) in system memory: 372 MB for a 2,388-token chat
+  on Qwen3-14B, up to the whole cache for a full context. Going back to a
+  saved conversation took about 0.2 s against 2.8 s to re-read it.
+  KoboldCpp gives a hybrid model one slot more than asked. The author's
+  machine had 9 to 11 GB free for a model keeping 17 GB in system memory;
+  there every slot takes memory from the model itself.
+
 **Measured on a real KoboldCpp (1.117.1, Apple Silicon, 2026-10-03)**
 
 These answer two of the three unknowns above for macOS. Windows and Linux
@@ -161,7 +210,9 @@ app-side memory estimate that is never given the model's real layer count.
 Decisions already made by the maintainer:
 
 1. One path: always launch from an app-written config.
-2. KoboldCpp decides memory placement; the estimate and Auto-Configure go.
+2. KoboldCpp decides memory placement; Auto-Configure goes. (Corrected
+   2026-10-03: the VRAM Usage Estimate stays, as a guess of how KoboldCpp
+   will load the model. See "The estimate is a guess" under Design.)
 3. Everyone moves to Automatic GPU layers once.
 4. Web gets pick, switch and summary. The preset editor is desktop-only
    (explicit deferral, as `docs/web-phone.md` already documents).
@@ -180,6 +231,18 @@ Decisions already made by the maintainer:
    1.112 stops at load on the staged config: it compares the cache type as
    a number, and a config file is not converted the way a command line is.
    No compatibility code or tests are added for those versions.
+9. Manual presets and the automatic path are both first class
+   (2026-10-04). Any rule worked out for the preset dialog (the memory
+   estimate, the smart cache suggestion, the context-mode pairing) also
+   drives the automatic path, which shows none of the machinery: one shared
+   rule, two surfaces.
+10. ROCm may use flash attention (2026-10-04), with a fallback: if the
+    engine dies on the first reply, the app restarts it with flash
+    attention off and remembers that for the machine. The app had forced
+    it off for every ROCm launch since before the rewrite. Built in Stage 5.
+11. Gemma 4 on Vulkan runs with flash attention off (2026-10-04): with it on,
+    KoboldCpp 1.122.1 dies on the first prompt. Built in Stage 5, lifted
+    once a fixed KoboldCpp is confirmed on a real card.
 
 ## Design
 
@@ -424,6 +487,19 @@ call ran on the chat config (4096 where 2048 was expected).
 
 The out-of-memory patterns ship only after real log text is captured.
 
+Added 2026-10-04:
+
+- A failure class for "loaded, then died on the first prompt". ROCm prints
+  `ROCm error: out of memory` there; Vulkan with Gemma 4 dies without a
+  message.
+- ROCm follows the Flash Attention setting (decision 10), with the restart
+  without it as the fallback for that failure. The two ship together.
+- Gemma 4 on Vulkan is written with flash attention off (decision 11), in
+  the automatic path and in generated presets, with a one-line note. Cache
+  compression is then unavailable for it, since it needs flash attention.
+- An engine too old to read the staged config gets one line: update
+  KoboldCpp (decision 8).
+
 ### Stage 6: the preset editor (items 4, 17, 18, 19, 20)
 
 - `lib/ui/dialogs/kcpps_editor_dialog.dart` (+ parts) replaces
@@ -458,6 +534,22 @@ The out-of-memory patterns ship only after real log text is captured.
   choice saves or costs, and the system memory the snapshot cache uses. A
   preset saved from the editor on automatic layers keeps forcing the fit
   with the padding the estimate assumed.
+
+Added 2026-10-04, from the measurements above:
+
+- The estimate is made exact first, in its own PR before this stage: the
+  rules above, the working memory by backend, flash attention on or off,
+  what the engine uses beyond its listed buffers, and the reader fix for
+  sliding window. The editor's sliding-window choice depends on that fix.
+- "Fits" is judged against the card's free memory with the spare memory
+  the fit keeps and the engine's extra memory included, never more
+  optimistically than KoboldCpp. A MoE model's figure says how much of the
+  experts also fits, not only the part that always sits on the card.
+- Smart cache: a suggested number of slots with its system memory cost.
+  One slot for each kind of prompt the app sends that engine, capped by the
+  system memory left after the model's own share; none extra on a machine
+  already short of memory, with the reason shown. The automatic path
+  applies the same number without showing it (decision 9).
 
 Tests: library operations on a temp folder; a widget test that edits,
 saves and reopens a preset; summary lines for three real files.
