@@ -336,8 +336,9 @@ extension _SettingsHardware on _SettingsPageState {
     try {
       final file = File(path);
       if (file.existsSync()) {
-        sizeMb = (file.lengthSync() / (1024 * 1024))
-            .round(); // io-ok: memoized per path — runs once per model selection, not per frame
+        // Memoized per path: runs once per model selection, not per frame.
+        final bytes = file.lengthSync(); // io-ok: memoized per path
+        sizeMb = (bytes / (1024 * 1024)).round();
       }
     } catch (_) {}
     _modelSizeMbForPath = path;
