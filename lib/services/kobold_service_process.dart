@@ -139,6 +139,23 @@ extension KoboldServiceProcess on KoboldService {
       return;
     }
 
+    // KoboldCpp before 1.112 stops at load on the staged config (it reads
+    // the cache type as a number). Not supported: say so instead of
+    // starting it to fail.
+    final version = (await KoboldBinaryVersion.read(
+      path.dirname(executablePath),
+    )).version;
+    if (!KoboldCapabilities.forVersion(version).quantKvAsText) {
+      final problem =
+          'This KoboldCpp ($version) is too old for the app. Update '
+          'KoboldCpp to 1.112 or newer, then start it again.';
+      _addLog(problem);
+      _lastStartProblem = problem;
+      _isStarting = false;
+      notify();
+      return;
+    }
+
     // Store the executable path for cleanup
     _executablePath = executablePath;
 
