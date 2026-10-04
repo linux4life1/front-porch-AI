@@ -58,6 +58,10 @@ class StoryFacade {
 
   bool _loaded = false;
 
+  /// The pipeline a run started here is on, until it ends: after a backend
+  /// switch its status and Stop still go to it, not to the new one.
+  StoryPipelineService? _inFlight;
+
   /// The pipeline the app uses now: it makes a new one when the chat backend
   /// switches (a pipeline binds its backend when it is made).
   set pipeline(StoryPipelineService value) => _pipeline = value;
@@ -189,7 +193,7 @@ class StoryFacade {
   /// Current pipeline progress (also pushed live over the hub during a run,
   /// from the pipeline the run started on, [of]).
   Map<String, dynamic> status([StoryPipelineService? of]) {
-    final p = of ?? _pipeline;
+    final p = of ?? _inFlight ?? _pipeline;
     return {
       'running': p.isRunning,
       'stopping': p.stopRequested,
@@ -224,7 +228,7 @@ class StoryFacade {
     // server restarts (the pipeline is a long-lived singleton; the hub is not).
     // The run reports from, and its listener comes off, the pipeline it
     // started on, even if the app has switched to a new one meanwhile.
-    final pipeline = _pipeline;
+    final pipeline = _inFlight = _pipeline;
     void onProgress() =>
         _hub?.broadcast({'event': 'story_status', ...status(pipeline)});
     pipeline.addListener(onProgress);
@@ -237,7 +241,10 @@ class StoryFacade {
           .catchError((Object e) {
             _hub?.broadcast({'event': 'story_error', 'id': id, 'error': '$e'});
           })
-          .whenComplete(() => pipeline.removeListener(onProgress)),
+          .whenComplete(() {
+            pipeline.removeListener(onProgress);
+            if (identical(_inFlight, pipeline)) _inFlight = null;
+          }),
     );
     return true;
   }

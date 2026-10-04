@@ -126,4 +126,35 @@ void main() {
     expect(statuses, isNotEmpty);
     expect(statuses.first['running'], isTrue);
   });
+
+  test('status and Stop still reach a run after the switch', () async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting(sameIsolate: true);
+    addTearDown(db.close);
+    final storage = StorageService();
+    await storage.initialized;
+    final repo = StoryRepository(db);
+    final held = _Held();
+    final running = StoryPipelineService(
+      repo,
+      held,
+      MemoryService(EmbeddingService(storage), storage, db),
+      db,
+    );
+    final facade = StoryFacade(repo, running, _Hub());
+    final id = (await facade.create('Porch Saga'))['id'] as String;
+    final project = (await facade.get(id))!;
+    project['concept'] = 'A lighthouse keeper waits for letters.';
+    expect(await facade.save(id, project), isTrue);
+
+    expect(await facade.runStage(id, 'story-architect'), isTrue);
+    await held.started.future;
+    facade.pipeline = _Idle(); // the app switched backends
+
+    expect(facade.status()['running'], isTrue);
+    facade.stop();
+    expect(running.stopRequested, isTrue);
+    held.gate.complete();
+    await pumpEventQueue();
+  });
 }

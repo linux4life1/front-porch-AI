@@ -25,7 +25,7 @@ part of 'story_facade.dart';
 extension StoryFacadeStudio on StoryFacade {
   /// Ask the running operation to stop at its next safe point.
   Map<String, dynamic> stop() {
-    _pipeline.requestStop();
+    (_inFlight ?? _pipeline).requestStop();
     return status();
   }
 
