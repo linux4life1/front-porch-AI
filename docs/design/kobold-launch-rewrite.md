@@ -42,11 +42,12 @@ fits the model itself.
 | 3 | One rule for "which model loads" | No more wrong model after a restart; phone model switch fixed | Medium |
 | 4 | Swaps by config name | Windows swaps work; no pointless reloads; honest wait and messages | Medium |
 | 5 | Failure messages and live reload | Plain reasons; changing model tries a live reload before a restart | Medium |
-| 6 | Preset editor | Edit, rename, duplicate, delete, summary, draft settings | Large |
+| 6 | Preset editor | Edit, rename, duplicate, delete, summary | Large |
 | 7 | Web | Chat preset picker and summary | Small |
 
-Stage 8 (optional, later): thinking defaults in presets, splitting across
-cards, unload when idle.
+Stage 8 (built): the draft settings left over from Stage 6, the thinking
+cap keyed on the model loaded, presets over several cards kept and
+explained, and unload when idle.
 
 **Context handling: the app must choose, not leave it to chance.**
 Sliding window on its own is fine. The problem is sliding window together
@@ -399,8 +400,11 @@ bundle.
 - New `kobold_launch_resolver.dart`: one function decides which model and
   config a launch loads. Rule: the preset's model if it names one and the
   file exists, otherwise the last-used model. The last-used model is always
-  updated to match, so the status card, vision lookup, thinking settings
-  and web "loaded" marker agree.
+  updated to match, so the status card, vision lookup and web "loaded"
+  marker agree. (Since Stage 8 the thinking cap and the system-message
+  check go by the model KoboldCpp has loaded, which after a swap is not
+  the last-used one. Step 9 found that a live reload does not update the
+  last-used model.)
 - All seven launch sites call it: `settings_page.controls.dart`,
   `settings_page.launch.dart` (two), `model_settings_dialog.local_actions.dart`,
   `setup_service.dart`, `llm_provider.worker.dart`,
@@ -535,7 +539,7 @@ using the engine's real context.
 - The batch field stops overwriting what the user typed. It stays a free
   number: sizes the launcher does not list (1536, 8192) work from a config,
   so the range check only refuses values the engine cannot use.
-- Draft settings (moved here from Stage 8): a draft model file, "use the
+- Draft settings (planned here, built in Stage 8): a draft model file, "use the
   model's built-in draft heads" (`usemtp`), and tokens drafted per step
   (`draftamount`, any whole number, KoboldCpp's default is 4). One number
   serves both kinds of drafting. The built-in switch is offered when the
@@ -634,6 +638,18 @@ Owed to Stage 7 (web, next): the chat-preset picker with the summary
 line, the "Local model" card with its context verdicts, and the preset
 summary card.
 
+### Stage 7: web (item 21)
+
+- Routes on the backend facade (`backend_facade.local_model.dart`, see
+  "Stage 7 as built" below): list presets with summaries, set the chat
+  preset (limited to the engine folder), set the context.
+- Web chat-preset picker and summary card. No editor (deferred).
+- A journey in `web_ui/e2e/journeys.spec.ts`.
+- Update `docs/web-phone.md` and `docs/user-guide.md`.
+  (`docs/moe-vram-estimation.md` was wrongly marked superseded in Stage 2.
+  Its estimation is live in the preset dialog; only its Auto-Configure
+  parts describe removed code, and the page now says so.)
+
 Stage 7 as built (2026-10-04): the phone's Models page has the "Local
 model" card (the same KoboldStatusFacts as the desktop card, moved to
 `lib/services/kobold_status_facts.dart`) and a separate "KoboldCpp preset"
@@ -644,6 +660,8 @@ from the internet) and `POST /api/backend/local-model/context` (512 to
 1,048,576 tokens; a running KoboldCpp reloads once the phone stops
 changing it). The browser suite seeds a real model header and a preset
 and walks the card.
+
+### Stage 8: the rest (as built)
 
 Stage 8 as built, the rest (2026-10-04):
 
@@ -658,14 +676,20 @@ Stage 8 as built, the rest (2026-10-04):
   the same from any launch or swap). The "stop thinking" cap
   (`thinking_budget: 0` for a template that forces thinking on) is keyed
   on the model KoboldCpp has loaded, not chat's, so a helper or story
-  model is judged by its own template.
+  model is judged by its own template. The system-message check (whether
+  the template drops a system message, so it is folded into the user turn)
+  follows the same model, `KoboldService.requestModel`.
 - Splitting across cards: keep and explain (the maintainer's choice; no
   two-card machine to test on). Every Vulkan card a preset names is kept;
   CUDA with no card named uses them all. The plain words say so, and the
   editor's estimate counts the chosen cards together (free memory is read
   for one card; each other counts all but half a GB) with one working-
   memory buffer per extra card. Detection counts the cards it sees
-  (HardwareInfo.cardCount). No control to make a split.
+  (HardwareInfo.cardCount): nvidia-smi lines, and for AMD the driver's
+  `cardN` entries only, since it lists each card again as `renderDN`
+  (`amdDrmCards`, shared with the free-memory read). A preset made on a
+  machine with more cards never counts more than this one has. No control
+  to make a split.
 
 Stage 8 as built, unload when idle (2026-10-04): a setting, off by
 default, `kobold_idle_unload_minutes` (off, 10, 30 or 60) in
@@ -691,14 +715,18 @@ the clock until the turn ends. While unloaded, `modelReady` is
 false and the status line says "The model was unloaded after N idle minutes
 to free graphics memory. It loads again with your next message."; `isReady`
 stays true so features that check it before asking still ask, and their
-request brings the model back. `isReady` is only that gate: every status
-(the AI engine card, the Local model card, the engine log, the character
-creator's setup step, and the phone's pill through `ready` and `unloaded`
-on `/api/backend/local-model`) shows Ready on `modelLoaded` (`isReady` with
-no unload record), Unloaded on `idleUnloaded`, and Loading while the model
-loads back. A reload KoboldCpp accepts while the model is unloaded (any
-swap, through `markModelLoading`) replaces the record, so it reads as an
-ordinary swap: Loading, then Ready. KoboldCpp's empty model process prints
+request brings the model back. `isReady` is only that gate. What every
+status shows comes from one rule, `KoboldPhase` (`KoboldService.phase`:
+stopped, starting, loading, unloaded or ready): the Local model card, the
+engine log, the character creator's setup step, the home screen's status
+line, and the phone (`phase` on `/api/backend/status`
+and `/api/backend/local-model`). A process that is not running is stopped
+whatever the unload record says, and an exit clears that record as a stop
+does. A reload KoboldCpp accepts while the model is unloaded (any swap,
+through `markModelLoading`) replaces the record, so it reads as an ordinary
+swap: Loading, then Ready. A token count loads the model back first, like a
+request: with no model, KoboldCpp's tokenizer has nothing to count with,
+and the chat budget keeps the answer. KoboldCpp's empty model process prints
 "Please connect…" like a model that came up, so the log's ready fast-path
 is ignored until the model is back. A load back that fails says so in plain
 words, as a transport failure (it never marks the backend as unable to call
@@ -706,18 +734,6 @@ tools), and requests in the next half minute fail at once instead of asking
 again. Proven on 1.117.1 and 1.122.1 (`test/live/kobold_idle_unload_live_test.dart`):
 `/api/v1/model` answers `inactive` after the unload; a reply and a tool
 call each reload `fpai-chat.kcpps` and are answered.
-
-### Stage 7: web (item 21)
-
-- Routes on the backend facade (`backend_facade.local_model.dart`, see
-  "Stage 7 as built" above): list presets with summaries, set the chat
-  preset (limited to the engine folder), set the context.
-- Web chat-preset picker and summary card. No editor (deferred).
-- A journey in `web_ui/e2e/journeys.spec.ts`.
-- Update `docs/web-phone.md` and `docs/user-guide.md`.
-  (`docs/moe-vram-estimation.md` was wrongly marked superseded in Stage 2.
-  Its estimation is live in the preset dialog; only its Auto-Configure
-  parts describe removed code, and the page now says so.)
 
 ## Migration for existing users
 

@@ -174,13 +174,13 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
   }
 
   Widget _header(BuildContext context, KoboldService kobold, String? model) {
-    final (label, color) = kobold.idleUnloaded
-        ? ('Unloaded', AppColors.slateFaintOf(context))
-        : kobold.modelLoaded
-        ? ('Ready', AppColors.journalAccentOf(context))
-        : kobold.isRunning || kobold.isStarting
-        ? ('Loading…', AppColors.porchHoneyOf(context))
-        : ('Stopped', AppColors.slateFaintOf(context));
+    final (label, color) = switch (kobold.phase) {
+      KoboldPhase.unloaded => ('Unloaded', AppColors.slateFaintOf(context)),
+      KoboldPhase.ready => ('Ready', AppColors.journalAccentOf(context)),
+      KoboldPhase.starting ||
+      KoboldPhase.loading => ('Loading…', AppColors.porchHoneyOf(context)),
+      KoboldPhase.stopped => ('Stopped', AppColors.slateFaintOf(context)),
+    };
     final name = model == null
         ? (_preset is KcppsOk
               ? koboldModelName((_preset as KcppsOk).config.modelPath)
@@ -243,8 +243,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
         'The preset "$name" cannot be read: $reason',
       KcppsOk(:final config) => kcppsPlainWords(
         config,
-        machineCards:
-            context.read<HardwareService>().hardwareInfo?.cardCount ?? 1,
+        machineCards: context.read<HardwareService>().hardwareInfo?.cardCount,
       ),
     };
     return [

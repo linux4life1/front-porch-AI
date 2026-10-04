@@ -78,21 +78,24 @@ String koboldMemoryWords(int mb) => mb >= 1024 && mb % 1024 == 0
     ? '${(mb / 1024).toStringAsFixed(1)} GB'
     : '$mb MB';
 
-/// The preset as a few plain sentences.
-///
-/// [recurrent]: the model has recurrent layers, so KoboldCpp may make more
-/// smart cache slots than asked. [shortOfMemory]: no slots because the
-/// computer has no room for them.
-/// Graphics cards [c] spreads its model over: the Vulkan cards it names,
-/// or for CUDA (no card named, or "all") every one of [machineCards].
-int koboldCardsUsed(KoboldLaunchConfig c, {int machineCards = 1}) =>
-    switch (c.backend) {
-      KoboldGpuBackend.vulkan => 1 + c.moreGpuIds.length,
-      KoboldGpuBackend.cuda
-          when c.gpuId == null || c.cudaOptions.contains('all') =>
-        machineCards < 1 ? 1 : machineCards,
-      _ => 1,
-    };
+/// Graphics cards [c] spreads its model over: the Vulkan cards it names, or
+/// for CUDA (no card named, or "all") every one of [machineCards], the cards
+/// this computer has. When that is known, a preset made on another computer
+/// never counts more cards than this one has.
+int koboldCardsUsed(KoboldLaunchConfig c, {int? machineCards}) {
+  final machine = machineCards == null || machineCards < 1
+      ? null
+      : machineCards;
+  final named = 1 + c.moreGpuIds.length;
+  return switch (c.backend) {
+    KoboldGpuBackend.vulkan =>
+      machine == null || named <= machine ? named : machine,
+    KoboldGpuBackend.cuda
+        when c.gpuId == null || c.cudaOptions.contains('all') =>
+      machine ?? 1,
+    _ => 1,
+  };
+}
 
 /// "Spread over graphics cards 0 and 1, split 3 to 1."
 String koboldSpreadWords(KoboldLaunchConfig c, int cards) {
@@ -109,11 +112,17 @@ String koboldSpreadWords(KoboldLaunchConfig c, int cards) {
   return 'Spread over $which$ratio.';
 }
 
+/// The preset as a few plain sentences.
+///
+/// [recurrent]: the model has recurrent layers, so KoboldCpp may make more
+/// smart cache slots than asked. [shortOfMemory]: no slots because the
+/// computer has no room for them. [machineCards]: the graphics cards this
+/// computer has, when known.
 String kcppsPlainWords(
   KoboldLaunchConfig c, {
   bool recurrent = false,
   bool shortOfMemory = false,
-  int machineCards = 1,
+  int? machineCards,
 }) {
   final model = c.modelPath.isEmpty
       ? 'the model chosen in Settings'

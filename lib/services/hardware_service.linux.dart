@@ -106,22 +106,14 @@ extension HardwareServiceLinux on HardwareService {
     } else if (vendor == 'AMD') {
       // Try sysfs for AMD VRAM (amdgpu driver exposes this)
       try {
-        final drmDir = Directory('/sys/class/drm');
-        if (await drmDir.exists()) {
-          final cards = await drmDir.list().toList();
-          for (final card in cards) {
-            final vramFile = File('${card.path}/device/mem_info_vram_total');
-            if (await vramFile.exists()) {
-              final vramBytes =
-                  int.tryParse((await vramFile.readAsString()).trim()) ?? 0;
-              final cardVramMb = (vramBytes / (1024 * 1024)).round();
-              if (cardVramMb > vramMb) vramMb = cardVramMb;
-              if (cardVramMb > 0) {
-                amdCards++;
-                if (smallestCardMb == null || cardVramMb < smallestCardMb) {
-                  smallestCardMb = cardVramMb;
-                }
-              }
+        for (final card in await amdDrmCards()) {
+          final vramBytes = int.tryParse(card.total) ?? 0;
+          final cardVramMb = (vramBytes / (1024 * 1024)).round();
+          if (cardVramMb > vramMb) vramMb = cardVramMb;
+          if (cardVramMb > 0) {
+            amdCards++;
+            if (smallestCardMb == null || cardVramMb < smallestCardMb) {
+              smallestCardMb = cardVramMb;
             }
           }
         }

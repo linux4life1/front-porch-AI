@@ -107,7 +107,7 @@ function BackendStatusCard({
         </p>
       )}
       <p className="muted small">
-        {status.running ? (status.modelReady ? 'Running · model ready' : `Running · ${status.statusMessage || 'loading…'}`) : 'Stopped'}
+        {status.running ? (status.phase === 'ready' ? 'Running · model ready' : `Running · ${status.statusMessage || 'loading…'}`) : 'Stopped'}
         {' · '}<strong>{status.loadedModel}</strong>
       </p>
       <div className="tool-row">

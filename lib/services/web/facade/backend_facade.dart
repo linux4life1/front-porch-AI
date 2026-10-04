@@ -58,7 +58,8 @@ class BackendFacade {
       'isLocal': _llm.isLocal,
       'running': k.isRunning,
       'starting': k.isStarting,
-      'modelReady': k.modelReady,
+      // What the status line shows, from the one rule the desktop uses.
+      'phase': k.phase.name,
       'statusMessage': k.modelLoadingStatus,
       'loadedModel': _loadedModelName(),
       // The active REMOTE model id (additive; '' on local). loadedModel above

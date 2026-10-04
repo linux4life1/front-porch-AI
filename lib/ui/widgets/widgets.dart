@@ -35,7 +35,7 @@ export 'kv_quant_picker.dart';
 export 'wardrobe_chip_section.dart';
 export 'work_row.dart';
 export 'birthday_row.dart';
-export 'ai_engine_status_card.dart';
+export 'ai_error_snack_bar.dart';
 export 'app_text_field.dart';
 export 'engine_status_chip.dart';
 export 'folder_character_picker.dart';

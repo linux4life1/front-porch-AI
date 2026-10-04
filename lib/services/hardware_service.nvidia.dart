@@ -91,12 +91,6 @@ extension HardwareServiceNvidia on HardwareService {
     return null;
   }
 
-  /// Parses `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,
-  /// nounits` output into a name + VRAM-in-MB pair.
-  ///
-  /// Handles multi-GPU systems by picking the entry with the largest VRAM.
-  /// Also tolerates older nvidia-smi versions that ignore `nounits` and emit
-  /// a "MiB" / "MB" suffix after the number.
   /// [_parseNvidiaSmi] for tests.
   @visibleForTesting
   ({String name, int vramMb, int cards, int smallestMb}) debugParseNvidiaSmi(
@@ -111,6 +105,12 @@ extension HardwareServiceNvidia on HardwareService {
     );
   }
 
+  /// Parses `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,
+  /// nounits` output: the name and memory (MB) of the card with the most,
+  /// how many cards there are, and the smallest card's memory.
+  ///
+  /// Tolerates older nvidia-smi versions that ignore `nounits` and emit a
+  /// "MiB" / "MB" suffix after the number.
   _NvidiaSmiResult _parseNvidiaSmi(String stdout) {
     final lines = stdout.trim().split('\n');
     String bestName = 'Unknown GPU';

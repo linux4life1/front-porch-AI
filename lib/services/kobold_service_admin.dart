@@ -70,6 +70,7 @@ extension KoboldServiceAdmin on KoboldService {
       baseUrl: _baseUrl,
       backendName: backendName,
       storage: _storageService,
+      modelPath: requestModel,
       runExclusive: _runSerialized,
       log: _addLog,
     );
@@ -146,8 +147,9 @@ extension KoboldServiceAdmin on KoboldService {
   }
 
   /// The model a request goes to: the one loaded (a helper or story model
-  /// after a swap), else chat's. Its template decides the thinking cap.
-  String? get thinkingModel =>
+  /// after a swap), else chat's. Its template decides the thinking cap and
+  /// whether system messages are folded into the user turn.
+  String? get requestModel =>
       _loadedModelPath ?? _storageService.backendSettings.lastUsedModelPath;
 
   /// A reload did not load what it asked for: the pair noted for it is not
@@ -328,11 +330,6 @@ extension KoboldServiceAdmin on KoboldService {
     } catch (_) {}
   }
 
-  /// Regex matching KoboldCPP per-token / per-batch progress messages.
-  /// These are purely informational counters that fire for every token and
-
-  bool get isProcessAlive => _process != null && _isRunning;
-
   /// Poll KoboldCPP's /api/extra/perf endpoint for real-time performance data.
   /// Returns a map with fields like last_process_speed, last_eval_speed,
   /// last_input_count, idle (0=busy, 1=idle), queue, etc.
@@ -357,9 +354,13 @@ extension KoboldServiceAdmin on KoboldService {
 
   /// Count tokens using the loaded model's actual tokenizer.
   /// Falls back to chars/4 estimate if the endpoint is unavailable.
+  /// A model unloaded for being idle is loaded back first: with no model,
+  /// KoboldCpp's tokenizer has nothing to count with, and callers keep the
+  /// answer.
   Future<int> countTokens(String text) async {
     if (text.isEmpty) return 0;
     try {
+      await _idleRequestStart();
       final uri = Uri.parse('$_baseUrl/api/extra/tokencount');
       final client = http.Client();
       try {
@@ -377,8 +378,10 @@ extension KoboldServiceAdmin on KoboldService {
       } finally {
         client.close();
       }
-    } catch (_) {
-      // Endpoint unavailable — fall back to estimate
+    } on Object catch (e) {
+      debugPrint('[Kobold] token count falls back to an estimate: $e');
+    } finally {
+      _idleRequestEnd();
     }
     return (text.length / 4).ceil();
   }

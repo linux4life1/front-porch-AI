@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
+import type { KoboldPhase } from './types';
 
 export type KoboldVerdict = { outcome: string; title: string; text: string };
 
@@ -16,11 +17,7 @@ export type LocalModel = {
   model: string;
   modelName: string | null;
   running: boolean;
-  /** A model is loaded now. */
-  ready: boolean;
-  /** Unloaded for being idle; the next request loads it back. */
-  unloaded?: boolean;
-  starting: boolean;
+  phase: KoboldPhase;
   preset: { path: string; name: string; words: string } | null;
   auto: {
     lines: string[];
@@ -33,6 +30,16 @@ export type LocalModel = {
 };
 
 const tokens = (n: number) => n.toLocaleString('en-US');
+
+// The desktop card's pill for each phase (unloaded: the model is out of
+// memory for being idle; the next request loads it back).
+const PILLS: Record<KoboldPhase, { cls: string; label: string }> = {
+  ready: { cls: 'ready', label: 'Ready' },
+  unloaded: { cls: 'unloaded', label: 'Unloaded' },
+  loading: { cls: 'loading', label: 'Loading…' },
+  starting: { cls: 'loading', label: 'Loading…' },
+  stopped: { cls: 'stopped', label: 'Stopped' },
+};
 
 function message(e: unknown) {
   return e instanceof ApiError || e instanceof Error ? e.message : String(e);
@@ -78,13 +85,7 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
   };
 
   if (!card) return null;
-  const pill = card.unloaded
-    ? { cls: 'unloaded', label: 'Unloaded' }
-    : card.ready
-      ? { cls: 'ready', label: 'Ready' }
-      : card.running || card.starting
-        ? { cls: 'loading', label: 'Loading…' }
-        : { cls: 'stopped', label: 'Stopped' };
+  const pill = PILLS[card.phase];
   const auto = card.auto;
   const picked = pending ?? auto?.context ?? 0;
   const verdict = auto?.verdicts[String(picked)];

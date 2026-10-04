@@ -59,10 +59,8 @@ extension KcppsEditorFit on KcppsEditorController {
   }
 
   /// Graphics cards the preset spreads the model over.
-  int get cards => koboldCardsUsed(
-    config,
-    machineCards: hardware.hardwareInfo?.cardCount ?? 1,
-  );
+  int get cards =>
+      koboldCardsUsed(config, machineCards: hardware.hardwareInfo?.cardCount);
 
   KoboldMachine? get machine {
     final hw = hardware.hardwareInfo;
@@ -161,7 +159,7 @@ extension KcppsEditorFit on KcppsEditorController {
     config,
     recurrent: recurrent,
     shortOfMemory: suggestedSlots?.limit == SmartCacheLimit.noRoom,
-    machineCards: hardware.hardwareInfo?.cardCount ?? 1,
+    machineCards: hardware.hardwareInfo?.cardCount,
   );
 
   List<String> get modelFacts =>

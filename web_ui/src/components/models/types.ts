@@ -4,11 +4,14 @@
 // Shared types + formatters for the Models page components (status, local
 // models, HuggingFace search/download, hardware).
 
+/** What the desktop's KoboldCpp status shows: one rule for every surface. */
+export type KoboldPhase = 'stopped' | 'starting' | 'loading' | 'unloaded' | 'ready';
+
 export interface BackendStatus {
   isLocal: boolean;
   running: boolean;
   starting: boolean;
-  modelReady: boolean;
+  phase: KoboldPhase;
   statusMessage: string;
   loadedModel: string;
   /** Host CPU lacks AVX2 and has no NVIDIA GPU → local AI runs CPU-only, slowly. */

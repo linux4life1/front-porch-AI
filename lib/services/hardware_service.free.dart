@@ -65,29 +65,41 @@ extension HardwareServiceFreeMemory on HardwareService {
       if (r != null) return nvidiaFreeMb('${r.stdout}', gpuId: gpuId);
     }
     if (Platform.isLinux && info.vendor == 'AMD') {
-      final drm = Directory('/sys/class/drm');
-      if (!await drm.exists()) return null;
-      final cards = <(int, int?)>[];
-      await for (final card in drm.list()) {
-        final n = RegExp(
-          r'^card(\d+)$',
-        ).firstMatch(card.uri.pathSegments.where((s) => s.isNotEmpty).last);
-        final total = File('${card.path}/device/mem_info_vram_total');
-        final used = File('${card.path}/device/mem_info_vram_used');
-        if (n == null || !await total.exists() || !await used.exists()) {
-          continue;
-        }
-        cards.add((
-          int.parse(n.group(1)!),
-          amdFreeMb(
-            totalBytes: await total.readAsString(),
-            usedBytes: await used.readAsString(),
-          ),
-        ));
-      }
-      cards.sort((a, b) => a.$1.compareTo(b.$1));
-      return amdChosenFreeMb([for (final c in cards) c.$2], gpuId: gpuId);
+      final cards = await amdDrmCards();
+      if (cards.isEmpty) return null;
+      return amdChosenFreeMb([
+        for (final c in cards)
+          if (c.used != null)
+            amdFreeMb(totalBytes: c.total, usedBytes: c.used!),
+      ], gpuId: gpuId);
     }
     return null;
   }
+}
+
+/// The AMD graphics cards the driver lists under [root], in card order, with
+/// their total and used memory in bytes as the driver writes them. Each card
+/// is listed twice there (`cardN` and its `renderDN` node, both with the
+/// card's memory files), so only `cardN` entries count.
+Future<List<({int id, String total, String? used})>> amdDrmCards([
+  String root = '/sys/class/drm',
+]) async {
+  final drm = Directory(root);
+  if (!await drm.exists()) return const [];
+  final cards = <({int id, String total, String? used})>[];
+  await for (final entry in drm.list()) {
+    final n = RegExp(
+      r'^card(\d+)$',
+    ).firstMatch(entry.uri.pathSegments.where((s) => s.isNotEmpty).last);
+    final total = File('${entry.path}/device/mem_info_vram_total');
+    if (n == null || !await total.exists()) continue;
+    final used = File('${entry.path}/device/mem_info_vram_used');
+    cards.add((
+      id: int.parse(n.group(1)!),
+      total: (await total.readAsString()).trim(),
+      used: await used.exists() ? (await used.readAsString()).trim() : null,
+    ));
+  }
+  cards.sort((a, b) => a.id.compareTo(b.id));
+  return cards;
 }

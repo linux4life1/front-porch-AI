@@ -309,6 +309,8 @@ extension KoboldServiceProcess on KoboldService {
         _process = null;
         _residentKey = null;
         _loadGeneration++;
+        _idleStop(); // as a stop does: nothing to unload or load back
+
         // Exit 2 is KoboldCpp's "Cannot find text model file" path. The
         // pre-flight above catches most causes, but KoboldCpp resolves the
         // path through Python and can still reject a file we read fine, so

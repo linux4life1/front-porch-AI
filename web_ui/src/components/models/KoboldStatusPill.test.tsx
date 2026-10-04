@@ -20,9 +20,7 @@ const RUNNING: LocalModel = {
   model: '/m/chat-model.gguf',
   modelName: 'chat model',
   running: true,
-  ready: true,
-  unloaded: false,
-  starting: false,
+  phase: 'ready',
   preset: null,
   auto: null,
   presets: [],
@@ -56,14 +54,14 @@ afterEach(() => {
 
 describe('the Local model pill when the model is unloaded for being idle', () => {
   it('says Unloaded while the model is unloaded', async () => {
-    await show({ ...RUNNING, ready: false, unloaded: true });
+    await show({ ...RUNNING, phase: 'unloaded' });
     expect(pill().textContent).toBe('Unloaded');
     expect(pill().classList.contains('unloaded')).toBe(true);
     expect(container.textContent).toContain('chat model · running');
   });
 
   it('says Loading while it loads back', async () => {
-    await show({ ...RUNNING, ready: false, unloaded: false });
+    await show({ ...RUNNING, phase: 'loading' });
     expect(pill().textContent).toBe('Loading…');
   });
 

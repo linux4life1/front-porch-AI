@@ -33,7 +33,6 @@ import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/kobold_status_card.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/gguf_parser.dart';
 
 import '../../golden/support/fakes_services.dart';
@@ -90,6 +89,11 @@ class _Engine {
         r.response.write(jsonEncode({'result': model}));
       case '/api/extra/version':
         r.response.write(jsonEncode({'result': 'KoboldCpp'}));
+      case '/api/extra/tokencount':
+        // With no model loaded there is no tokenizer to count with.
+        events.add('tokencount');
+        final words = '${body['prompt']}'.split(RegExp(r'\s+')).length;
+        r.response.write(jsonEncode({'value': _loaded ? words : 0}));
       case '/v1/chat/completions':
         if (body['tools'] == null && body['stream'] == true) {
           repliesAsked++;
@@ -178,6 +182,12 @@ class _Kobold extends KoboldService {
 
   @override
   Future<void> stopKobold() async {}
+
+  /// Stands for the engine's process having ended (or still running).
+  bool? running;
+
+  @override
+  bool get isRunning => running ?? super.isRunning;
 }
 
 /// Stands for the KoboldCpp process this app launched. The service keeps it
@@ -309,7 +319,9 @@ void main() {
 
   /// The idle unload has happened and the engine has acted on it.
   Future<void> unloaded() async {
-    await until(() => kobold.idleUnloaded && engine.model == 'inactive');
+    await until(
+      () => kobold.phase == KoboldPhase.unloaded && engine.model == 'inactive',
+    );
   }
 
   test('off by default: an idle engine is never unloaded', () async {
@@ -320,7 +332,7 @@ void main() {
 
     expect(engine.reloads, isEmpty);
     expect(kobold.modelReady, isTrue);
-    expect(kobold.idleUnloaded, isFalse);
+    expect(kobold.phase, KoboldPhase.ready);
   });
 
   test('after the idle time the model is unloaded once, the engine stays '
@@ -358,7 +370,7 @@ void main() {
     expect(load, isNonNegative);
     expect(load, lessThan(engine.events.indexOf('generate')));
     expect(kobold.modelReady, isTrue);
-    expect(kobold.idleUnloaded, isFalse);
+    expect(kobold.phase, KoboldPhase.ready);
     expect(kobold.isResident(stagedChat), isTrue);
     expect(kobold.loadedModelPath, chatModel);
     expect(kobold.modelLoadingStatus, isEmpty);
@@ -370,10 +382,17 @@ void main() {
     await ready(idleAfter: const Duration(milliseconds: 400));
     await unloaded();
     engine.fallBack = 'koboldcpp/startup-model';
+    final heard = <KoboldPhase>[];
+    kobold.addListener(() => heard.add(kobold.phase));
 
     await expectLater(reply(), throwsA(isA<LlmToolTransportException>()));
+    expect(
+      heard.last,
+      KoboldPhase.unloaded,
+      reason: 'the status settles on unloaded, not on loading',
+    );
     expect(kobold.modelReady, isFalse);
-    expect(kobold.idleUnloaded, isTrue, reason: 'the record stays');
+    expect(kobold.phase, KoboldPhase.unloaded, reason: 'the record stays');
     final sent = engine.reloads.length;
     await expectLater(reply(), throwsA(isA<LlmToolTransportException>()));
     expect(engine.reloads.length, sent, reason: 'nothing is sent in the pause');
@@ -392,7 +411,7 @@ void main() {
 
       expect(await reply(), 'Hello.');
       expect(engine.reloads, ['unload_model']);
-      expect(kobold.idleUnloaded, isFalse);
+      expect(kobold.phase, KoboldPhase.ready);
       expect(kobold.modelReady, isTrue);
     },
   );
@@ -510,6 +529,32 @@ void main() {
     expect(kobold.modelReady, isTrue);
   });
 
+  test('a token count after the unload loads the model back first and is '
+      'counted by its tokenizer', () async {
+    await storage.backendSettings.setIdleUnloadMinutes(30);
+    await ready(idleAfter: const Duration(milliseconds: 400));
+    await unloaded();
+    engine.events.clear();
+
+    expect(await kobold.countTokens('one two three four'), 4);
+
+    final load = engine.events.indexOf('reload:$kStagedChatConfig');
+    expect(load, isNonNegative);
+    expect(load, lessThan(engine.events.indexOf('tokencount')));
+    expect(kobold.phase, KoboldPhase.ready);
+  });
+
+  test('a KoboldCpp that stops while its model is unloaded says Stopped, '
+      'not Unloaded', () async {
+    await storage.backendSettings.setIdleUnloadMinutes(30);
+    await ready(idleAfter: const Duration(milliseconds: 400));
+    await unloaded();
+
+    kobold.running = false;
+
+    expect(kobold.phase, KoboldPhase.stopped);
+  });
+
   test('the clock stops with the service', () async {
     await storage.backendSettings.setIdleUnloadMinutes(10);
     await ready(idleAfter: const Duration(milliseconds: 300));
@@ -569,7 +614,6 @@ void main() {
           home: Scaffold(
             body: ListView(
               children: [
-                const AiEngineStatusCard(),
                 KoboldStatusCard(unified: false, reloadChat: () async {}),
                 const SizedBox(height: 640, child: KoboldLogDialog()),
                 SetupStep(state: creator),
@@ -585,16 +629,12 @@ void main() {
   Finder on<T>(String text) =>
       find.descendant(of: find.byType(T), matching: find.text(text));
 
-  Future<(Object?, Object?)> phone(
-    WidgetTester tester,
-    BackendFacade facade,
-  ) async {
+  Future<Object?> phone(WidgetTester tester, BackendFacade facade) async {
     final card = (await tester.runAsync(facade.localModel))!;
-    return (card['ready'], card['unloaded']);
+    return card['phase'];
   }
 
   void expectLoading() {
-    expect(on<AiEngineStatusCard>('Loading model…'), findsOneWidget);
     expect(on<KoboldStatusCard>('Loading…'), findsOneWidget);
     expect(on<KoboldLogDialog>('Loading…'), findsOneWidget);
     expect(on<SetupStep>('Loading model...'), findsOneWidget);
@@ -603,12 +643,7 @@ void main() {
   }
 
   void expectReady() {
-    for (final surface in [
-      AiEngineStatusCard,
-      KoboldStatusCard,
-      KoboldLogDialog,
-      SetupStep,
-    ]) {
+    for (final surface in [KoboldStatusCard, KoboldLogDialog, SetupStep]) {
       expect(
         find.descendant(of: find.byType(surface), matching: find.text('Ready')),
         findsOneWidget,
@@ -628,18 +663,16 @@ void main() {
     });
     final s = await showStatus(tester);
     // At each change, whether listeners were told a model is loaded.
-    final heard = <bool>[];
-    void hear() => heard.add(kobold.modelLoaded);
+    final heard = <KoboldPhase>[];
+    void hear() => heard.add(kobold.phase);
     kobold.addListener(hear);
     addTearDown(() => kobold.removeListener(hear));
 
-    expect(on<AiEngineStatusCard>('Unloaded while idle'), findsOneWidget);
-    expect(on<AiEngineStatusCard>('Change'), findsOneWidget);
     expect(on<KoboldStatusCard>('Unloaded'), findsOneWidget);
     expect(on<KoboldLogDialog>('Unloaded while idle'), findsOneWidget);
     expect(on<SetupStep>('Unloaded while idle'), findsOneWidget);
     expect(find.text('Ready'), findsNothing);
-    expect(await phone(tester, s.facade), (false, true));
+    expect(await phone(tester, s.facade), 'unloaded');
 
     // The next reply loads it back; the engine is still loading it.
     late Future<String> answer;
@@ -653,17 +686,21 @@ void main() {
     await tester.pump();
     expect(kobold.isReady, isTrue, reason: 'requests are still let through');
     expectLoading();
-    expect(await phone(tester, s.facade), (false, false));
+    expect(await phone(tester, s.facade), 'loading');
 
     // Loaded back; the reply is on its way to the engine.
     await tester.runAsync(() async {
       engine.hold!.complete();
       await until(() => engine.repliesAsked == 1);
     });
-    expect(heard.last, isTrue, reason: 'listeners are told it is back');
+    expect(
+      heard.last,
+      KoboldPhase.ready,
+      reason: 'listeners are told it is back',
+    );
     await tester.pump();
     expectReady();
-    expect(await phone(tester, s.facade), (true, false));
+    expect(await phone(tester, s.facade), 'ready');
 
     await tester.runAsync(() async {
       engine.replyHold!.complete();
@@ -692,7 +729,7 @@ void main() {
     });
     await tester.pump();
     expectLoading();
-    expect(await phone(tester, s.facade), (false, false));
+    expect(await phone(tester, s.facade), 'loading');
 
     await tester.runAsync(() async {
       engine.hold!.complete();
@@ -701,6 +738,6 @@ void main() {
     await tester.pump();
     expectReady();
     expect(engine.reloads, ['unload_model', kStagedChatConfig]);
-    expect(await phone(tester, s.facade), (true, false));
+    expect(await phone(tester, s.facade), 'ready');
   });
 }

@@ -18,10 +18,8 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/services/services.dart'
-    show kKoboldIdleUnloadChoices, koboldIdleUnloadLabel;
-import 'package:front_porch_ai/services/storage/storage.dart'
-    show BackendSettings;
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/storage.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// "Free graphics memory when idle", in Advanced Launch Options: off, or how

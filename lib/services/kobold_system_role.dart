@@ -71,17 +71,16 @@ class KoboldSystemRole {
     required String baseUrl,
     required String backendName,
     required StorageService storage,
+    required String? modelPath,
     required Future<int?> Function(Future<int?> Function()) runExclusive,
     required void Function(String message) log,
   }) {
-    // Preset (.kcpps) launches leave lastUsedModelPath empty — the preset owns
-    // the model — so fall through to the preset's own path.
+    // [modelPath] is the model loaded now (a helper or story model after a
+    // swap), so each model is judged by its own template.
     _identity = systemRoleIdentityFor(
       backendName: backendName,
       remoteModelName: storage.backendSettings.remoteModelName,
-      modelPath:
-          storage.backendSettings.lastUsedModelPath ??
-          storage.backendSettings.kcppsModelPath,
+      modelPath: modelPath ?? storage.backendSettings.kcppsModelPath,
     );
     return _probe.ensureProbed(
       baseUrl: baseUrl,

@@ -22,8 +22,7 @@ const AUTO: LocalModel = {
   model: '/m/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf',
   modelName: 'Qwen3.6 35B A3B',
   running: true,
-  ready: true,
-  starting: false,
+  phase: 'ready',
   preset: null,
   auto: {
     lines: [

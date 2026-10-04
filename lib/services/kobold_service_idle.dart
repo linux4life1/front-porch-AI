@@ -42,7 +42,16 @@ class _IdleState {
   ({DateTime at, String words})? failed;
 }
 
+// Held beside the service, not in a field: the test fakes implement
+// [KoboldService] through noSuchMethod, and [KoboldServiceIdle.phase] must
+// work on them too. All idle state lives in this one part.
 final Expando<_IdleState> _idleStates = Expando('fpai.koboldIdle');
+
+/// What a status shows for the KoboldCpp this app runs: one rule for every
+/// surface, desktop and phone. [KoboldService.isReady] is the gate for asking,
+/// not a status: it stays true while the model is unloaded for being idle or
+/// loading back, because the next request loads it first.
+enum KoboldPhase { stopped, starting, loading, unloaded, ready }
 
 /// Unload when idle. With a time chosen in Settings, the KoboldCpp this app
 /// started unloads its model (the process stays up) once it has had nothing
@@ -51,13 +60,15 @@ final Expando<_IdleState> _idleStates = Expando('fpai.koboldIdle');
 extension KoboldServiceIdle on KoboldService {
   _IdleState get _idle => _idleStates[this] ??= _IdleState();
 
-  /// Unloaded for being idle, and not being loaded back right now.
-  bool get idleUnloaded => _idle.unloaded != null && _idle.waking == null;
-
-  /// A model is loaded now: what a status shows as ready. [isReady] is the
-  /// gate for asking, and stays true while the model is unloaded for being
-  /// idle or loading back, because the next request loads it first.
-  bool get modelLoaded => isReady && _idle.unloaded == null;
+  KoboldPhase get phase {
+    if (!isRunning) {
+      return isStarting ? KoboldPhase.starting : KoboldPhase.stopped;
+    }
+    final i = _idle;
+    if (i.unloaded != null && i.waking == null) return KoboldPhase.unloaded;
+    if (isReady && i.unloaded == null) return KoboldPhase.ready;
+    return isStarting ? KoboldPhase.starting : KoboldPhase.loading;
+  }
 
   /// Test hook: a short idle time. Settings still turns it on and off.
   @visibleForTesting
@@ -271,7 +282,11 @@ extension KoboldServiceIdle on KoboldService {
       // The record stays, so the empty engine's "Please connect" line is not
       // taken for this model; after the pause the next request looks again
       // (a long load that finished is then simply checked, not restarted).
-      i.failed = (at: DateTime.now(), words: words);
+      // No longer loading back, before _clearReady notifies: the status
+      // then says unloaded, not loading.
+      i
+        ..failed = (at: DateTime.now(), words: words)
+        ..waking = null;
       _clearReady(words);
       throw LlmToolTransportException(words);
     }
@@ -281,7 +296,9 @@ extension KoboldServiceIdle on KoboldService {
     final engine = expected == null ? null : await koboldEngineModel(_baseUrl);
     if (expected != null && !koboldModelNameMatches(engine, expected)) {
       forgetAdminLoadedPair();
-      i.failed = (at: DateTime.now(), words: words);
+      i
+        ..failed = (at: DateTime.now(), words: words)
+        ..waking = null;
       _clearReady(words);
       _addLog('$words KoboldCpp runs ${engine ?? 'no model'} instead.');
       throw LlmToolTransportException(words);

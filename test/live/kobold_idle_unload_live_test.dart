@@ -85,7 +85,7 @@ void main() {
   /// Waits, with nothing asked of it, until the engine has unloaded.
   Future<void> idleUntilUnloaded() async {
     await waitForLiveUnload(port);
-    for (var i = 0; i < 100 && !kobold.idleUnloaded; i++) {
+    for (var i = 0; i < 100 && kobold.phase != KoboldPhase.unloaded; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
   }
@@ -99,7 +99,7 @@ void main() {
       expect(loaded, isNot('inactive'));
 
       await idleUntilUnloaded();
-      expect(kobold.idleUnloaded, isTrue);
+      expect(kobold.phase, KoboldPhase.unloaded);
       expect(kobold.modelReady, isFalse);
       expect(
         kobold.modelLoadingStatus,
@@ -112,7 +112,7 @@ void main() {
       await Future<void>.delayed(const Duration(seconds: 3));
       expect(await liveLoadedModel(port), 'inactive');
       expect(kobold.modelReady, isFalse);
-      expect(kobold.idleUnloaded, isTrue);
+      expect(kobold.phase, KoboldPhase.unloaded);
 
       final reply = await kobold
           .generateStream(
@@ -126,7 +126,7 @@ void main() {
       expect(reply.trim(), isNotEmpty);
       expect(await liveLoadedModel(port), loaded);
       expect(kobold.modelReady, isTrue);
-      expect(kobold.idleUnloaded, isFalse);
+      expect(kobold.phase, KoboldPhase.ready);
       expect(kobold.loadedModelPath, liveEngineModel);
       final staged = File(
         p.join(koboldAdminDirFor(storage), kStagedChatConfig),

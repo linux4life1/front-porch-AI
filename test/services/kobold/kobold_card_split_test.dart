@@ -114,6 +114,18 @@ void main() {
     );
   });
 
+  test('a preset made on a computer with more cards counts only the cards '
+      'this one has; with the count unknown, it counts what it names', () {
+    final two = _read({
+      'model_param': '/m/Big-70B-Q4_K_M.gguf',
+      'usevulkan': [0, 1],
+    });
+    expect(koboldCardsUsed(two), 2);
+    expect(koboldCardsUsed(two, machineCards: 2), 2);
+    expect(koboldCardsUsed(two, machineCards: 1), 1);
+    expect(kcppsPlainWords(two, machineCards: 1), isNot(contains('Spread')));
+  });
+
   test("the editor's estimate counts both cards, and working memory on "
       'each', () async {
     final bin = await Directory.systemTemp.createTemp('fpai card split');

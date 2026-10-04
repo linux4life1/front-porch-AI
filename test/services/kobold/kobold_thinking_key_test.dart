@@ -99,4 +99,15 @@ void main() {
 
     expect((await ask())['thinking_budget'], 0);
   });
+
+  test('the system-message check follows the loaded model too: a helper '
+      "model is judged by its own template, not by chat's", () async {
+    await kobold.noteAdminLoadedPair(modelPath: '/m/helper.gguf');
+
+    // The moment a model is ready arms the check for that model.
+    kobold.debugMarkModelReady().ignore();
+
+    expect(kobold.systemRoleIdentity, contains('/m/helper.gguf'));
+    expect(kobold.systemRoleIdentity, isNot(contains('/m/chat.gguf')));
+  });
 }
