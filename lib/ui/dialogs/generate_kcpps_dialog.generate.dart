@@ -8,25 +8,27 @@ part of 'generate_kcpps_dialog.dart';
 
 extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
   Future<void> _initDetection() async {
+    int? detected;
     try {
       final hardware = Provider.of<HardwareService>(context, listen: false);
       _hardwareInfo = hardware.hardwareInfo;
       _gpu = _detectGpu();
+      detected = await suggestKoboldThreads();
+    } catch (e) {
+      debugPrint('Preset dialog: hardware detection failed: $e');
+    }
+    // The dialog may have been closed while the cores were counted.
+    if (!mounted) return;
 
-      final detected = await suggestKoboldThreads();
-
-      rebuildState(() {
+    rebuildState(() {
+      if (detected != null) {
         _threads = detected;
         _threadsController.text = '$detected';
         _batchSize = _suggestBatchSize();
-        _detecting = false;
-      });
-      _computeVramEstimate();
-    } catch (_) {
-      rebuildState(() {
-        _detecting = false;
-      });
-    }
+      }
+      _detecting = false;
+    });
+    if (detected != null) _computeVramEstimate();
   }
 
   Future<void> _refreshModelInfo() async {

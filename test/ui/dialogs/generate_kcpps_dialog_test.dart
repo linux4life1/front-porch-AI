@@ -57,8 +57,29 @@ void main() {
   late Directory temp;
   late File model;
 
-  /// Opens the dialog with two model files to choose from and picks one.
-  Future<void> open(WidgetTester tester) async {
+  /// One step of real time (for a process or a file write) and of the
+  /// test's clock (for the timers and animations waiting on them).
+  Future<void> step(WidgetTester tester) async {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 25)),
+    );
+    await tester.pump(const Duration(milliseconds: 25));
+  }
+
+  /// Lets real work (counting cores, writing the preset) run until [done]
+  /// says it has finished.
+  Future<void> settle(WidgetTester tester, bool Function() done) async {
+    for (var i = 0; i < 400 && !done(); i++) {
+      await step(tester);
+    }
+    expect(done(), isTrue, reason: 'still not done after 10 seconds');
+  }
+
+  bool shown(Finder f) => f.evaluate().isNotEmpty;
+
+  /// Puts the dialog behind an "open" button, with two model files to
+  /// choose from.
+  Future<void> mount(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.runAsync(() async {
@@ -102,12 +123,19 @@ void main() {
         ),
       ),
     );
-    // Opening counts the processor's cores, which is real work.
-    await tester.runAsync(() async {
-      await tester.tap(find.text('open'));
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-    });
-    await tester.pumpAndSettle();
+  }
+
+  /// Opens the dialog, waits for it to count the processor's cores (real
+  /// work), and picks a model.
+  Future<void> open(WidgetTester tester) async {
+    await mount(tester);
+    await tester.tap(find.text('open'));
+    await settle(tester, () => shown(find.text('other.gguf')));
+    final threads = await tester.runAsync(suggestKoboldThreads);
+    await settle(
+      tester,
+      () => shown(find.widgetWithText(TextField, '$threads')),
+    );
 
     await tester.tap(find.text('other.gguf'));
     await tester.pumpAndSettle();
@@ -115,16 +143,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Presses "Generate & Apply" and returns the preset it wrote.
+  /// Presses "Generate & Apply" and returns the preset it wrote. The dialog
+  /// closes once the file is written and chosen.
   Future<Map<String, dynamic>> generate(WidgetTester tester) async {
     final button = find.text('Generate & Apply');
     await tester.ensureVisible(button);
     await tester.pump();
-    await tester.runAsync(() async {
-      await tester.tap(button);
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-    });
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(button);
+    await settle(tester, () => !shown(find.byType(GenerateKcppsDialog)));
     final written = File(p.join(temp.path, 'picked.kcpps'));
     return (jsonDecode(written.readAsStringSync()) as Map).cast();
   }
@@ -168,5 +194,21 @@ void main() {
       isTrue,
       reason: 'without it KoboldCpp puts the padding back to 1024 MB',
     );
+  });
+
+  testWidgets('closing the dialog before it has counted the cores is '
+      'harmless', (tester) async {
+    await mount(tester);
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GenerateKcppsDialog), findsNothing);
+
+    // The count finishes after the dialog has gone.
+    for (var i = 0; i < 40; i++) {
+      await step(tester);
+    }
+    expect(tester.takeException(), isNull);
   });
 }
