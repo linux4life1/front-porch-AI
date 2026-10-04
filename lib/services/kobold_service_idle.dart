@@ -54,6 +54,11 @@ extension KoboldServiceIdle on KoboldService {
   /// Unloaded for being idle, and not being loaded back right now.
   bool get idleUnloaded => _idle.unloaded != null && _idle.waking == null;
 
+  /// A model is loaded now: what a status shows as ready. [isReady] is the
+  /// gate for asking, and stays true while the model is unloaded for being
+  /// idle or loading back, because the next request loads it first.
+  bool get modelLoaded => isReady && _idle.unloaded == null;
+
   /// Test hook: a short idle time. Settings still turns it on and off.
   @visibleForTesting
   set debugIdleUnloadAfter(Duration? after) => _idle.after = after;

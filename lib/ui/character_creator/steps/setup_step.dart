@@ -156,17 +156,22 @@ class SetupStep extends StatelessWidget {
                 Builder(
                   builder: (ctx) {
                     final k = Provider.of<KoboldService>(ctx);
+                    final ready = k.modelLoaded;
                     // Unloaded for being idle, it loads with the next request.
-                    final ready = k.modelReady || k.idleUnloaded;
+                    final unloaded = k.idleUnloaded;
                     final isTransitioning =
-                        k.isStarting || (k.isRunning && !ready);
+                        k.isStarting || (k.isRunning && !ready && !unloaded);
                     final dotColor = ready
                         ? Colors.green.shade300
+                        : unloaded
+                        ? AppColors.slateFaintOf(ctx)
                         : isTransitioning
                         ? Colors.orange.shade300
                         : Colors.red.shade300;
                     final label = ready
                         ? 'Ready'
+                        : unloaded
+                        ? 'Unloaded while idle'
                         : k.isStarting
                         ? 'Starting...'
                         : k.isRunning

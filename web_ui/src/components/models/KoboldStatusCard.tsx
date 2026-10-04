@@ -16,7 +16,10 @@ export type LocalModel = {
   model: string;
   modelName: string | null;
   running: boolean;
+  /** A model is loaded now. */
   ready: boolean;
+  /** Unloaded for being idle; the next request loads it back. */
+  unloaded?: boolean;
   starting: boolean;
   preset: { path: string; name: string; words: string } | null;
   auto: {
@@ -75,11 +78,13 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
   };
 
   if (!card) return null;
-  const pill = card.ready
-    ? { cls: 'ready', label: 'Ready' }
-    : card.running || card.starting
-      ? { cls: 'loading', label: 'Loading…' }
-      : { cls: 'stopped', label: 'Stopped' };
+  const pill = card.unloaded
+    ? { cls: 'unloaded', label: 'Unloaded' }
+    : card.ready
+      ? { cls: 'ready', label: 'Ready' }
+      : card.running || card.starting
+        ? { cls: 'loading', label: 'Loading…' }
+        : { cls: 'stopped', label: 'Stopped' };
   const auto = card.auto;
   const picked = pending ?? auto?.context ?? 0;
   const verdict = auto?.verdicts[String(picked)];

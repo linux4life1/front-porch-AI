@@ -176,7 +176,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
   Widget _header(BuildContext context, KoboldService kobold, String? model) {
     final (label, color) = kobold.idleUnloaded
         ? ('Unloaded', AppColors.slateFaintOf(context))
-        : kobold.isReady
+        : kobold.modelLoaded
         ? ('Ready', AppColors.journalAccentOf(context))
         : kobold.isRunning || kobold.isStarting
         ? ('Loading…', AppColors.porchHoneyOf(context))

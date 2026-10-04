@@ -39,7 +39,7 @@ class _KoboldLogDialogState extends State<KoboldLogDialog> {
       builder: (context, llmProvider, kobold, _) {
         final logs = kobold.logs;
         final isRunning = kobold.isRunning;
-        final isReady = kobold.isReady;
+        final isReady = kobold.modelLoaded;
 
         final statusColor = isRunning
             ? Colors.greenAccent

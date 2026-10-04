@@ -75,7 +75,8 @@
 }
 .kc-pill.ready { background: var(--kc-teal); }
 .kc-pill.loading { background: var(--kc-honey); }
-.kc-pill.stopped { background: var(--kc-faint); }
+.kc-pill.stopped,
+.kc-pill.unloaded { background: var(--kc-faint); }
 .kc-lines {
   margin: 0;
   padding: 0;

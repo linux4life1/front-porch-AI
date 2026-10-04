@@ -17,16 +17,25 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/system_role_probe.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
+import 'package:front_porch_ai/services/web/facade/backend_facade.dart';
+import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/kobold_status_card.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
+
+import '../../golden/support/fakes_services.dart';
 
 class _Engine {
   _Engine._(this._server, this.adminDir, this.model);
@@ -50,6 +59,10 @@ class _Engine {
   /// When set, a reloaded config does not load and the engine goes back to
   /// this model, as KoboldCpp's fault recovery does.
   String? fallBack;
+
+  /// When set, a reload is acted on only once this completes: a load that
+  /// is still under way.
+  Completer<void>? hold;
 
   String get baseUrl => 'http://127.0.0.1:${_server.port}';
   bool get _loaded => model != 'inactive';
@@ -85,7 +98,8 @@ class _Engine {
     events.add('reload:$name');
     reloads.add(name);
     reloadedAt.add(DateTime.now());
-    Timer(const Duration(milliseconds: 500), () {
+    Timer(const Duration(milliseconds: 500), () async {
+      await hold?.future;
       _started = DateTime.now();
       if (name == 'unload_model') {
         model = 'inactive';
@@ -177,6 +191,12 @@ class _Launched implements Process {
 
   @override
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) => false;
+}
+
+/// The machine, with the free memory read before the engine started.
+class _Hardware extends FakeHardwareService {
+  @override
+  FreeMemoryMb? freeBeforeEngine = (graphics: 10240, system: 24576);
 }
 
 const _unloadedWords =
@@ -484,5 +504,118 @@ void main() {
     await b.setIdleUnloadMinutes(45);
     expect(b.idleUnloadMinutes, 30);
     expect(kKoboldIdleUnloadChoices, [0, 10, 30, 60]);
+  });
+
+  testWidgets('every status, and the phone, says Unloaded while the model is '
+      'unloaded and Loading while it loads back; Ready only once it is', (
+    tester,
+  ) async {
+    late LLMProvider provider;
+    late BackendFacade facade;
+    final creator = CreatorState();
+    await tester.runAsync(() async {
+      await storage.backendSettings.setIdleUnloadMinutes(30);
+      await ready(idleAfter: const Duration(milliseconds: 400));
+      final backend = BackendManager(storage);
+      provider = LLMProvider(
+        kobold,
+        OpenRouterService(apiUrl: '', apiKey: '', modelName: ''),
+        storage,
+        backend,
+      );
+      addTearDown(() {
+        provider.dispose();
+        backend.dispose();
+        creator.dispose();
+      });
+      facade = BackendFacade(
+        provider,
+        storage,
+        FakeModelManager(),
+        _Hardware(),
+      );
+      await unloaded();
+    });
+    await tester.binding.setSurfaceSize(const Size(1000, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<KoboldService>.value(value: kobold),
+          ChangeNotifierProvider<LLMProvider>.value(value: provider),
+          ChangeNotifierProvider<OpenRouterService>.value(
+            value: provider.openRouterService,
+          ),
+          ChangeNotifierProvider<HardwareService>.value(
+            value: _Hardware(),
+          ),
+          ChangeNotifierProvider<ModelManager>.value(value: FakeModelManager()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: ListView(
+              children: [
+                const AiEngineStatusCard(),
+                KoboldStatusCard(unified: false, reloadChat: () async {}),
+                const SizedBox(height: 640, child: KoboldLogDialog()),
+                SetupStep(state: creator),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    Finder on<T>(String text) =>
+        find.descendant(of: find.byType(T), matching: find.text(text));
+    Future<Map<String, dynamic>> phone() async =>
+        (await tester.runAsync(facade.localModel))!;
+
+    expect(on<AiEngineStatusCard>('Unloaded while idle'), findsOneWidget);
+    expect(on<AiEngineStatusCard>('Change'), findsOneWidget);
+    expect(on<KoboldStatusCard>('Unloaded'), findsOneWidget);
+    expect(on<KoboldLogDialog>('Unloaded while idle'), findsOneWidget);
+    expect(on<SetupStep>('Unloaded while idle'), findsOneWidget);
+    expect(find.text('Ready'), findsNothing);
+    var card = await phone();
+    expect((card['ready'], card['unloaded']), (false, true));
+
+    // The next reply loads it back; the engine is still loading it.
+    late Future<String> answer;
+    await tester.runAsync(() async {
+      engine.hold = Completer<void>();
+      answer = reply();
+      await until(() => engine.reloads.length == 2);
+    });
+    await tester.pump();
+    expect(kobold.isReady, isTrue, reason: 'requests are still let through');
+    expect(on<AiEngineStatusCard>('Loading model…'), findsOneWidget);
+    expect(on<KoboldStatusCard>('Loading…'), findsOneWidget);
+    expect(on<KoboldLogDialog>('Starting…'), findsOneWidget);
+    expect(on<SetupStep>('Loading model...'), findsOneWidget);
+    expect(find.text('Ready'), findsNothing);
+    expect(find.textContaining('Unloaded'), findsNothing);
+    card = await phone();
+    expect((card['ready'], card['unloaded']), (false, false));
+
+    await tester.runAsync(() async {
+      engine.hold!.complete();
+      expect(await answer, 'Hello.');
+    });
+    await tester.pump();
+    for (final surface in [
+      AiEngineStatusCard,
+      KoboldStatusCard,
+      KoboldLogDialog,
+      SetupStep,
+    ]) {
+      expect(
+        find.descendant(of: find.byType(surface), matching: find.text('Ready')),
+        findsOneWidget,
+        reason: '$surface',
+      );
+    }
+    card = await phone();
+    expect((card['ready'], card['unloaded']), (true, false));
   });
 }

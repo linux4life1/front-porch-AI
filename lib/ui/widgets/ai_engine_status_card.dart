@@ -48,9 +48,10 @@ class AiEngineStatusCard extends StatelessWidget {
     final storage = context.watch<StorageService>();
 
     final active = llm.activeService;
-    // Unloaded for being idle: safe to ask, but nothing is on the card.
-    final ready =
-        active.isReady && !(active is KoboldService && active.idleUnloaded);
+    final kobold = active is KoboldService ? active : null;
+    // Unloaded for being idle, or loading back: safe to ask, not loaded.
+    final ready = kobold?.modelLoaded ?? active.isReady;
+    final unloaded = kobold?.idleUnloaded ?? false;
     final remote = active is OpenRouterService ? active : null;
     // Green chrome is a successful ping, not "a key is saved".
     final liveReady = remote?.isReachable ?? ready;
@@ -86,10 +87,13 @@ class AiEngineStatusCard extends StatelessWidget {
         AppColors.logReady,
         AppColors.bondHighLight,
       );
+    } else if (unloaded) {
+      stateLabel = 'Unloaded while idle';
+      stateColor = AppColors.slateFaintOf(context);
     } else if (llm.hasManagedProcess) {
       final k = llm.koboldService;
       final starting = k.isStarting;
-      final loading = k.isRunning && !k.modelReady;
+      final loading = k.isRunning && !k.modelLoaded;
       busy = starting || loading;
       stateLabel = starting
           ? 'Starting…'
@@ -150,7 +154,9 @@ class AiEngineStatusCard extends StatelessWidget {
         visualDensity: VisualDensity.compact,
       ),
       child: Text(
-        liveReady || (remote?.isConfigured ?? false) ? 'Change' : 'Set Up',
+        liveReady || unloaded || (remote?.isConfigured ?? false)
+            ? 'Change'
+            : 'Set Up',
       ),
     );
 
