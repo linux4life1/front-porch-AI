@@ -92,6 +92,7 @@ extension KoboldServiceAdmin on KoboldService {
     _stopReadinessProbe();
     _modelReady = false;
     _loadedModelPath = null;
+    _loadGeneration++;
     _modelLoadingStatus = 'Unloading model...';
     notify();
   }
@@ -104,6 +105,7 @@ extension KoboldServiceAdmin on KoboldService {
     String? kcppsPath,
   }) async {
     final model = modelPath?.trim() ?? '';
+    _loadGeneration++;
     if (model.isNotEmpty) _loadedModelPath = model;
     if (kcppsPath != null) {
       final kcpps = kcppsPath.trim();

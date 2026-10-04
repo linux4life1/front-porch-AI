@@ -57,6 +57,11 @@ class KoboldService extends ChangeNotifier
   String? _loadedModelPath;
   String? _loadedKcppsPath;
 
+  /// Goes up every time what this process has loaded changes: a start, a
+  /// stop, an exit, an admin unload or reload. A caller that loaded a model
+  /// can tell later whether it is still the one in memory.
+  int _loadGeneration = 0;
+
   /// One-shot "load just finished" latch. Home drains it (no success toast —
   /// dual-local swaps would stack those). Unlike [_modelReady], reset after
   /// [consumeModelReady] so each load is seen once.
@@ -76,6 +81,9 @@ class KoboldService extends ChangeNotifier
   List<String> get logs => List.unmodifiable(_logs);
   String get modelLoadingStatus => _modelLoadingStatus;
   bool get modelReady => _modelReady;
+
+  /// See [_loadGeneration].
+  int get loadGeneration => _loadGeneration;
 
   /// GGUF last started or last admin-reloaded onto this process.
   String? get loadedModelPath => _loadedModelPath;

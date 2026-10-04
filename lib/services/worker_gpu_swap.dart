@@ -153,12 +153,22 @@ class GpuSwapOccupancy {
     required this.worker,
     this.sameResident = false,
     this.onStep,
+    this.residentGeneration,
   });
 
   final GpuSwapHost mouth;
   final GpuSwapHost worker;
   final bool sameResident;
   final void Function(String step)? onStep;
+
+  /// A counter the engine raises whenever what it has loaded changes. When
+  /// given, the worker model is only trusted to still be resident if the
+  /// counter has not moved since this occupancy loaded it. Without it, a
+  /// reload from outside (the engine restarting, Settings loading a model,
+  /// another swap putting the chat model back) left [mouthDown] true and
+  /// the worker's calls went to whatever was actually in memory.
+  final int Function()? residentGeneration;
+  int? _workerLoadedAt;
 
   /// Ordered steps for behavioral tests (unload-mouth → … → restore-mouth).
   final List<String> steps = [];
@@ -235,7 +245,12 @@ class GpuSwapOccupancy {
 
   Future<void> _acquireLocked() async {
     _depth++;
-    if (_mouthDown) return;
+    if (_mouthDown) {
+      final now = residentGeneration?.call();
+      if (now == null || now == _workerLoadedAt) return;
+      _record('stale-worker:${worker.label}');
+      _mouthDown = false;
+    }
     _busy = true;
     try {
       _record('unload-mouth:${mouth.label}');
@@ -243,6 +258,7 @@ class GpuSwapOccupancy {
       _mouthDown = true;
       _record('prepare-worker:${worker.label}');
       await worker.restore();
+      _workerLoadedAt = residentGeneration?.call();
     } catch (e) {
       _depth--;
       try {

@@ -56,11 +56,14 @@ Future<void> killOrphanedKoboldProcesses(
       await Process.run('taskkill', ['/F', '/IM', 'koboldcpp_nocuda.exe']);
       await Process.run('taskkill', ['/F', '/IM', 'koboldcpp-oldpc.exe']);
     } else {
-      if (binDir.isEmpty) {
+      final patterns = koboldOwnedPaths(binDir, isFolder: true);
+      if (patterns.isEmpty) {
         log('Engine folder unknown; left any other KoboldCPP alone.');
         return;
       }
-      await Process.run('pkill', koboldOwnedKillArgs(binDir));
+      for (final pattern in patterns) {
+        await Process.run('pkill', koboldOwnedKillArgs(pattern));
+      }
     }
     log('Killed orphaned KoboldCPP processes.');
   } catch (e) {
@@ -157,16 +160,49 @@ Future<void> _sweepByName(
   final exeName = path.basename(executablePath);
   try {
     log('Cleaning up any remaining $exeName processes...');
-    await Process.run('pkill', koboldOwnedKillArgs(executablePath));
+    for (final pattern in koboldOwnedPaths(executablePath, isFolder: false)) {
+      await Process.run('pkill', koboldOwnedKillArgs(pattern));
+    }
   } catch (_) {}
 }
 
-/// `pkill` arguments that hit only processes whose command line contains
-/// [ownedPath] literally (the app's engine folder, or its executable).
-/// `pkill -f` takes a regular expression, so the path is escaped.
+/// The spellings of [ownedPath] a running process may show: as given, and
+/// with symbolic links resolved (on macOS a temp or home path often runs
+/// under its `/private/...` name). A folder ends in a separator, so
+/// `koboldcpp_bin` cannot match `koboldcpp_bin_old/` beside it.
+///
+/// Empty for a path that is blank, relative, the root, or one folder below
+/// the root (`/tmp`, `/usr`): a pattern that short would match a large
+/// part of the machine.
+@visibleForTesting
+List<String> koboldOwnedPaths(String ownedPath, {required bool isFolder}) {
+  bool specific(String p) => path.isAbsolute(p) && path.split(p).length > 2;
+  String shape(String p) =>
+      isFolder && !p.endsWith(path.separator) ? '$p${path.separator}' : p;
+  if (!specific(ownedPath)) return const [];
+  final spellings = <String>{shape(ownedPath)};
+  try {
+    final resolved = isFolder
+        ? Directory(ownedPath).resolveSymbolicLinksSync()
+        : File(ownedPath).resolveSymbolicLinksSync();
+    if (specific(resolved)) spellings.add(shape(resolved));
+  } on FileSystemException {
+    // Not on disk (already removed): the given spelling is all there is.
+  }
+  return spellings.toList();
+}
+
+/// `pkill` arguments that hit only processes STARTED FROM [ownedPath] (the
+/// app's engine folder, ending in a separator, or its executable).
+///
+/// `pkill -f` takes a regular expression over the whole command line, so
+/// the path is escaped, and anchored to the start. Unanchored it also
+/// matched any process that merely names a file in that folder, such as a
+/// KoboldCpp the user started elsewhere with a model stored there.
 @visibleForTesting
 List<String> koboldOwnedKillArgs(String ownedPath) => [
   '-KILL',
   '-f',
-  RegExp.escape(ownedPath),
+  '^${RegExp.escape(ownedPath)}'
+      '${ownedPath.endsWith(path.separator) ? '' : r'( |$)'}',
 ];

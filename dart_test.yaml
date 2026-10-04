@@ -23,8 +23,15 @@
 # server. They skip when STOOP_TEST_EMAIL / STOOP_TEST_PASSWORD are absent —
 # never replace them with a stub. See CLAUDE.md ## Testing.
 #     STOOP_TEST_EMAIL=… STOOP_TEST_PASSWORD=… flutter test --tags stoop_live
+#
+# The `kobold_live` tag marks checks against a real KoboldCpp: a real engine is
+# started from a temp folder, asked what it has loaded, and stopped. They skip
+# unless both variables are set, so the default run and CI are unaffected.
+#     KOBOLD_LIVE_BIN=/path/to/koboldcpp KOBOLD_LIVE_MODEL=/path/to/small.gguf \
+#       flutter test --tags kobold_live
 tags:
   golden:
   perf:
   live:
   stoop_live:
+  kobold_live:

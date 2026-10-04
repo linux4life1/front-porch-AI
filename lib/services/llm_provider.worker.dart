@@ -410,6 +410,9 @@ extension LLMProviderWorker on LLMProvider {
         mouthKcpps: _koboldKcppsId(worker: false),
         workerKcpps: _koboldKcppsId(worker: true),
       ),
+      residentGeneration: worker is KoboldProcessHost
+          ? () => _koboldService.loadGeneration
+          : null,
     );
     _providerSwap[this] = occupancy;
     return occupancy;

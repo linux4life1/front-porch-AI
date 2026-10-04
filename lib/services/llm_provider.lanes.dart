@@ -138,7 +138,16 @@ extension LLMProviderLanes on LLMProvider {
         kcpps: kcpps,
         key: key,
       )!;
-      return GpuSwapOccupancy(mouth: mouth, worker: lane, sameResident: same);
+      return GpuSwapOccupancy(
+        mouth: mouth,
+        worker: lane,
+        sameResident: same,
+        // The lane's calls go to the one KoboldCpp process: only trust
+        // "my model is loaded" while nothing else has reloaded it.
+        residentGeneration: lane is KoboldProcessHost
+            ? () => _koboldService.loadGeneration
+            : null,
+      );
     });
     return LaneHost(
       id: id,

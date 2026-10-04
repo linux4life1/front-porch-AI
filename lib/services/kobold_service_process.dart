@@ -129,6 +129,7 @@ extension KoboldServiceProcess on KoboldService {
           ? modelPath
           : _storageService.backendSettings.kcppsModelPath;
       _loadedKcppsPath = kcppsPath;
+      _loadGeneration++;
       _addLog('Starting Koboldcpp...');
       _addLog('Command: $executablePath ${args.join(' ')}');
       notify();
@@ -174,6 +175,7 @@ extension KoboldServiceProcess on KoboldService {
         }
         _isRunning = false;
         _process = null;
+        _loadGeneration++;
         // Exit 2 is KoboldCpp's "Cannot find text model file" path. The
         // pre-flight above catches most causes, but KoboldCpp resolves the
         // path through Python and can still reject a file we read fine, so
@@ -266,6 +268,7 @@ extension KoboldServiceProcess on KoboldService {
     _modelReady = false;
     _loadedModelPath = null;
     _loadedKcppsPath = null;
+    _loadGeneration++;
     _stopReadinessProbe();
     notify();
   }
