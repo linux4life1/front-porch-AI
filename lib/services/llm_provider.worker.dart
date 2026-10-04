@@ -294,24 +294,26 @@ extension LLMProviderWorker on LLMProvider {
       }
       // A swap names its own model and preset.
       if (requested.isEmpty && kcpps.isEmpty) return;
-      final mouthModel = normalizeLocalModelPath(
-        _storageService.backendSettings.lastUsedModelPath ?? '',
-      );
-      final mouthKcpps = normalizeLocalModelPath(
+      // Putting chat back keeps vision; helper and story models never use
+      // it. Chat is what the launch rule gives now, which can be a model
+      // the active preset names rather than the last one picked.
+      // The preset may be the rule's (which drops one whose file is gone)
+      // or the one Settings has stored.
+      final chat = resolveKoboldLaunch(_storageService);
+      final chatKcpps = {
+        chat.kcppsPath ?? '',
         _storageService.backendSettings.activeKcppsPath?.trim() ?? '',
-      );
-      // Putting the chat pair back keeps vision. Worker/evals never do.
+      }.map(normalizeLocalModelPath);
       final mouthPair =
-          normalizeLocalModelPath(requested) == mouthModel &&
-          normalizeLocalModelPath(kcpps) == mouthKcpps;
+          normalizeLocalModelPath(requested) ==
+              normalizeLocalModelPath(chat.modelPath) &&
+          chatKcpps.contains(normalizeLocalModelPath(kcpps));
       await _koboldService.startKobold(
         _backendManager.backendPath!,
         requested,
         kcppsPath: kcpps.isEmpty ? null : kcpps,
         port: _koboldService.port,
-        mmprojPath: mouthPair && requested.isNotEmpty
-            ? _storageService.presetSettings.modelMmprojMap[requested]
-            : null,
+        mmprojPath: mouthPair && requested.isNotEmpty ? chat.mmprojPath : null,
         gpuLayers: _storageService.backendSettings.gpuLayers,
         contextSize: _storageService.backendSettings.contextSize,
         useVulkan: _storageService.backendSettings.useVulkan ?? false,
