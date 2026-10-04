@@ -54,6 +54,15 @@ class KoboldStagedRole {
 Future<File> stageKoboldConfig(String dir, String name, String json) async {
   await Directory(dir).create(recursive: true);
   final target = File(p.join(dir, name));
+  // A swap asks for its config before every call. When nothing changed,
+  // the file is already right and is left alone.
+  try {
+    if (await target.exists() && await target.readAsString() == json) {
+      return target;
+    }
+  } on FileSystemException {
+    // Unreadable: write it again below.
+  }
   final temp = File('${target.path}.tmp');
   await temp.writeAsString(json, flush: true);
   try {

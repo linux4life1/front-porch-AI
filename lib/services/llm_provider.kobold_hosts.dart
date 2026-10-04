@@ -21,6 +21,9 @@ part of 'llm_provider.dart';
 /// The role name of the chat model in a swap.
 const String kKoboldChatRole = 'chat';
 
+/// The role name of the helper model (Realism evals) in a swap.
+const String kKoboldWorkerRole = 'worker';
+
 /// Swap hosts for the app's own KoboldCpp. Every role (the chat model, the
 /// helper model, a story job) is loaded the same way a launch loads the
 /// chat model: its config is staged in the admin folder and the engine is
@@ -52,6 +55,11 @@ extension LLMProviderKoboldHosts on LLMProvider {
       isResident: _koboldService.isResident,
       noteResident: _koboldService.noteResident,
       onStep: _koboldService.showSwapStep,
+      purpose: role == kKoboldChatRole
+          ? 'chat'
+          : role == kKoboldWorkerRole
+          ? 'Realism checks'
+          : 'the story',
       swapLock: _koboldService.adminSwapLock,
       noteLoadedPair: (model, kcpps) => _koboldService.noteAdminLoadedPair(
         modelPath: model,

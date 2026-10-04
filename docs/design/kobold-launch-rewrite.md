@@ -391,6 +391,24 @@ needed swap; time limits for 4, 16 and 40 GB files. Cases in
 `kobold_admin_swap_test.dart` and `worker_gpu_hosts_test.dart` that pin the
 old linking behaviour change.
 
+As built: every role (chat, the helper model, a story job) gets its config
+from `stageKoboldRole`, the same function a launch uses, written into the
+admin folder as `fpai-<role>.kcpps`; the reload names that file. The key
+for "what is loaded" is the staged content itself, kept on `KoboldService`
+(`isResident`), so two roles with the same content never reload, and a role
+set to the chat model's own pair stages the chat config. `KoboldProcessHost`
+sends nothing when its content is resident, marks the engine not ready the
+moment a reload is accepted, and waits with `waitForKoboldReload`: first
+for a new model process (the engine's `uptime` restarts on every reload;
+the rule is `uptime < seconds since the request - 0.25`), then for it to
+generate. On a shared engine `GpuSwapOccupancy` does not unload first and
+asks each role every time. A reload the engine never acted on falls back
+to a process restart; one that restarted and is still loading is reported,
+not restarted again.
+
+Proven on the real engine: with the "new process" wait taken out, a job's
+call ran on the chat config (4096 where 2048 was expected).
+
 ### Stage 5: failure messages and live reload (items 12, 13, 14, 16)
 
 - New `kobold_launch_failure.dart`: classify an exit during load (out of

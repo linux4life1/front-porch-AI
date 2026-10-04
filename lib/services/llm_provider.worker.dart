@@ -380,7 +380,7 @@ extension LLMProviderWorker on LLMProvider {
       ),
     );
     final worker = _hostForLane(
-      role: 'worker',
+      role: kKoboldWorkerRole,
       type: _storageService.workerBackendType,
       url: _storageService.workerRemoteApiUrl,
       model: _workerSwapModelId(),

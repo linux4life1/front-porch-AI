@@ -237,6 +237,7 @@ class KoboldProcessHost implements GpuSwapHost {
     this.noteLoadedPair,
     this.noteResident,
     this.onStep,
+    this.purpose,
     this.adminRetryAttempts = kKoboldAdminRetryAttempts,
     this.adminRetryDelay = kKoboldAdminRetryDelay,
     KoboldAdminSwapLock? swapLock,
@@ -286,8 +287,11 @@ class KoboldProcessHost implements GpuSwapHost {
   /// Record the content key of what admin just loaded.
   final void Function(String key)? noteResident;
 
-  /// Plain words for the status line: which model is loading.
+  /// Plain words for the status line: which model is loading, and why.
   final void Function(String step)? onStep;
+
+  /// What this role's model is for ("chat", "the story"), for [onStep].
+  final String? purpose;
 
   final int adminRetryAttempts;
   final Duration adminRetryDelay;
@@ -362,7 +366,10 @@ class KoboldProcessHost implements GpuSwapHost {
       if (staged != null && isResident?.call(staged.key) == true) return;
 
       final model = (staged?.modelPath ?? requestedModelPath ?? '').trim();
-      if (model.isNotEmpty) onStep?.call('Loading ${p.basename(model)}...');
+      if (model.isNotEmpty) {
+        final why = purpose == null ? '' : ' for $purpose';
+        onStep?.call('Loading ${p.basename(model)}$why...');
+      }
 
       var reloaded = false;
       Object? lastError;

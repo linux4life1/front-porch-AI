@@ -113,8 +113,15 @@ void main() {
     'and the chat model is put back afterwards',
     () async {
       final lane = job();
+      final said = <String>{};
+      kobold.addListener(() => said.add(kobold.modelLoadingStatus));
 
       expect(await lane.hold(context), 2048);
+      expect(
+        said,
+        contains('Loading ${p.basename(liveEngineModel)} for the story...'),
+        reason: 'the status line says which model is loading and why',
+      );
 
       // Still the job's turn: the engine must not be reloaded again.
       final before = await liveUptime(port);
@@ -123,6 +130,10 @@ void main() {
 
       await lane.restore();
       expect(await context(), 4096);
+      expect(
+        said,
+        contains('Loading ${p.basename(liveEngineModel)} for chat...'),
+      );
       // No link was made for the swap: only staged configs are in the
       // admin folder.
       final staged = Directory(koboldAdminDirFor(storage)).listSync();
