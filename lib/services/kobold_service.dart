@@ -39,6 +39,7 @@ import 'package:front_porch_ai/services/system_role_probe.dart';
 import 'package:path/path.dart' as path;
 
 part 'kobold_service_admin.dart';
+part 'kobold_service_exit.dart';
 part 'kobold_service_process.dart';
 
 class KoboldService extends ChangeNotifier
@@ -57,6 +58,12 @@ class KoboldService extends ChangeNotifier
   /// Why the last start was refused before any process was spawned (a
   /// model or preset that cannot be read), or null.
   String? _lastStartProblem;
+
+  /// Why the engine last stopped on its own, or null.
+  KoboldFailure? get lastFailure => _lastFailure;
+  KoboldFailure? _lastFailure;
+  Process? _stoppingProcess;
+  bool _rocmFlashAttentionLaunch = false;
   final List<String> _logs = [];
   String _modelLoadingStatus = '';
   bool _modelReady = false;
