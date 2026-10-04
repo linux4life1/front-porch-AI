@@ -500,6 +500,25 @@ Added 2026-10-04:
 - An engine too old to read the staged config gets one line: update
   KoboldCpp (decision 8).
 
+As built (2026-10-04): `kobold_launch_failure.dart` tells an exit apart
+from what the engine printed and when: out of memory, a model file it
+cannot read (exit 2), stopping mid-answer without a word, and anything
+else (pointing at the log). The message goes to the engine log and
+`KoboldService.lastFailure`; a stop the app asked for is never taken for a
+failure. Proven on a real engine: killed mid-reply, the app says it
+stopped while answering. When the ROCm build dies mid-answer with flash
+attention on, a per-machine flag is set and the engine started again once
+without it (out of memory does not trigger it). `koboldFlashAttentionRuns`
+is the one rule for when flash attention is written (Gemma 4 on Vulkan:
+off; ROCm: on unless flagged); where it is off, a compressed cache falls
+back to full size and the launch log says why. An engine whose recorded
+version is below 1.112 is not started. Not built: a port-in-use message
+(on macOS KoboldCpp started on a taken port without any error, so there
+is no text to match) and an Apple Silicon out-of-memory message (Metal did
+not refuse a cache larger than memory up front). Moved to Stage 6: live
+reload first when chat's model or preset changes, and the prompt budget
+using the engine's real context.
+
 ### Stage 6: the preset editor (items 4, 17, 18, 19, 20)
 
 - `lib/ui/dialogs/kcpps_editor_dialog.dart` (+ parts) replaces
