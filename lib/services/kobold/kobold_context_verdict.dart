@@ -73,6 +73,7 @@ koboldContextVerdicts({
 }) {
   final now = koboldAutoTuning(fit, machine, paddingMb: paddingMb);
   final nowCost = _cost(now.load, fit, machine);
+  final nowSystem = _cost(now.load, fit, machine, systemOnly: true);
   final nowShort = _shortMb(now.load, machine);
   final verdicts = <KoboldContextVerdict>[];
   int? largestGood;
@@ -89,10 +90,15 @@ koboldContextVerdicts({
     final outOfMemory = machine.unified
         ? tuned.load.cardMb > machine.graphicsMb
         : tuned.load.ramCacheMb > machine.systemMb;
-    // Over a GB more of the model read from the disk again and again is
-    // very slow whatever the rest does.
+    // Very slow: three times the reading with more of it from system
+    // memory, or over a GB more of the model read from the disk again and
+    // again. More chat memory on the card, or in one shared pool, only
+    // makes long chats slower.
+    final moreFromSystem =
+        _cost(tuned.load, fit, machine, systemOnly: true) > nowSystem;
     final verySlow =
-        pace > 3 || _shortMb(tuned.load, machine) > nowShort + 1024;
+        (pace > 3 && moreFromSystem) ||
+        _shortMb(tuned.load, machine) > nowShort + 1024;
     final KoboldContextOutcome outcome;
     // Below the floor is said even for the size in use.
     if (c < kKoboldContextFloor) {
@@ -133,8 +139,14 @@ koboldContextVerdicts({
 /// context: the weights it uses (a MoE model only the experts a token
 /// uses) and the whole chat memory. What is read from system memory counts
 /// six times what is read from the card, a rough ratio of their speeds;
-/// where the two are one pool, everything counts once.
-double _cost(KoboldLoad l, KoboldFit fit, KoboldMachine machine) {
+/// where the two are one pool, everything counts once. [systemOnly]: just
+/// the system memory's part (none in one shared pool).
+double _cost(
+  KoboldLoad l,
+  KoboldFit fit,
+  KoboldMachine machine, {
+  bool systemOnly = false,
+}) {
   const mib = 1024 * 1024;
   final info = fit.info;
   final used = info.isMoe
@@ -143,6 +155,7 @@ double _cost(KoboldLoad l, KoboldFit fit, KoboldMachine machine) {
   final w = info.weights;
   final double cost;
   if (machine.unified) {
+    if (systemOnly) return 0;
     final weights = w == null
         ? l.modelMb.toDouble()
         : (w.total - w.tokenEmbedding - w.experts * (1 - used)) / mib;
@@ -155,6 +168,7 @@ double _cost(KoboldLoad l, KoboldFit fit, KoboldMachine machine) {
     );
     final card = l.modelMb + l.expertsMb * used + l.cacheMb;
     final ram = ramRest + l.ramExpertsMb * used + l.ramCacheMb;
+    if (systemOnly) return 6 * ram;
     cost = card + 6 * ram;
   }
   return cost <= 0 ? 1 : cost;

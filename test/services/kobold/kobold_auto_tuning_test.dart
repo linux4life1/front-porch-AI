@@ -203,6 +203,12 @@ void main() {
       expect(most, 65536);
     });
 
+    test('a small model whose long context still fits in a Mac\'s memory is '
+        'slower there, not too big', () {
+      final o = outcomes(_fit('Llama-3.2-3B', KoboldMemoryBackend.metal), _mac);
+      expect(o[131072], KoboldContextOutcome.slower);
+    });
+
     test('the words say what happens, never how', () {
       final big = koboldContextWords(
         const KoboldContextVerdict(
