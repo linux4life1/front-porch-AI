@@ -56,21 +56,28 @@ class _Hardware extends FakeHardwareService {
 }
 
 class _Kobold extends FakeKoboldService {
+  bool running = false;
+
   @override
-  bool get isProcessRunning => false;
+  bool get isProcessRunning => running;
 }
 
 class _Llm extends FakeLLMProvider {
   final kobold = _Kobold();
+  int reloads = 0;
 
   @override
   KoboldService get koboldService => kobold;
+
+  @override
+  Future<void> reloadChatKobold() async => reloads++;
 }
 
 void main() {
   late Directory dir;
   late _Storage storage;
   late BackendFacade facade;
+  late _Llm llm;
   late String preset;
 
   setUp(() async {
@@ -96,7 +103,8 @@ void main() {
     storage = _Storage(dir);
     await storage.backendSettings.setLastUsedModelPath(model);
     await storage.backendSettings.setContextSize(16384);
-    facade = BackendFacade(_Llm(), storage, _Models(), _Hardware());
+    llm = _Llm();
+    facade = BackendFacade(llm, storage, _Models(), _Hardware());
   });
 
   tearDown(() => dir.delete(recursive: true));
@@ -179,5 +187,22 @@ void main() {
     expect(await facade.setLocalContext(100), isFalse);
     expect(await facade.setLocalContext(5000000), isFalse);
     expect(storage.backendSettings.contextSize, 32768);
+  });
+
+  test('a context tapped just before a preset pick does not reload again '
+      'after it', () async {
+    llm.kobold.running = true;
+    expect(await facade.setLocalContext(32768), isTrue);
+    expect(await facade.setChatPreset(preset), isTrue);
+    await Future<void>.delayed(const Duration(seconds: 2));
+    expect(llm.reloads, 1);
+  });
+
+  test("while a preset is in use the context is the preset's, as on the "
+      'desktop', () async {
+    expect(await facade.setChatPreset(preset), isTrue);
+    final before = storage.backendSettings.contextSize;
+    expect(await facade.setLocalContext(65536), isFalse);
+    expect(storage.backendSettings.contextSize, before);
   });
 }

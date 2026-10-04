@@ -68,6 +68,8 @@ extension BackendFacadeLocalModel on BackendFacade {
         !kcppsPresetFiles(_storage.binDir.path).any((f) => f.path == path)) {
       return false;
     }
+    // A context tapped just before is superseded: this reloads at once.
+    _cardReload?.cancel();
     final b = _storage.backendSettings;
     await b.setActiveKcppsPath(path);
     // As a launch does: a preset's own model becomes the model, so every
@@ -89,6 +91,8 @@ extension BackendFacadeLocalModel on BackendFacade {
   /// phone stops changing it.
   Future<bool> setLocalContext(int context) async {
     if (context < 512 || context > 1048576) return false;
+    // A preset sets its own context; the desktop locks this field then too.
+    if (_storage.backendSettings.activeKcppsPath != null) return false;
     await _storage.backendSettings.setContextSize(context);
     if (_llm.koboldService.isProcessRunning) {
       _cardReload?.cancel();

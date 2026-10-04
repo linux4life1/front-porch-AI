@@ -144,7 +144,8 @@ class WebBackendRoutes {
     final context = body['context'];
     if (context is! int || !await _backend!.setLocalContext(context)) {
       return JsonResponse.badRequest(
-        'context must be a whole number of tokens from 512 to 1,048,576',
+        'context must be a whole number of tokens from 512 to 1,048,576, '
+        'and is set by the KoboldCpp preset while one is in use',
       );
     }
     return JsonResponse.ok(await _backend.localModel());
