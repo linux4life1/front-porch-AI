@@ -13,7 +13,10 @@ import { test as base, expect, type Page } from '@playwright/test';
 export type Problem = string;
 
 /** A browser that died under the test, as Playwright reports it first. */
-const BROWSER_CRASH = /Target crashed|Target page, context or browser has been closed/;
+const BROWSER_CRASH = /Target crashed|Target page, context or browser has been closed|[Pp]age crashed/;
+
+/** The tag a serial group carries so its tests are retried with it. */
+export const SERIAL = '@serial';
 
 /** Responses a spec expects (e.g. a deliberately wrong password). */
 export type AllowFn = (url: string, status: number) => boolean;
@@ -106,18 +109,20 @@ export const test = base.extend<{
   // pass after a crash is put on the run's page as a warning.
   crashRetry: [
     async ({}, use, testInfo) => {
-      // Kept per project and per group (a serial group is retried whole, its
-      // other tests judged by the failure that caused it). Only the first
-      // error is kept: a page closed after a timeout is not a crash.
+      // Kept per project and per group. A serial group (tagged SERIAL) is
+      // retried whole, its other tests judged by the failure that caused
+      // it; any other test retried without a failure of its own (an afterAll
+      // hook failed) is refused. Only the first error is kept: a page closed
+      // after a timeout is not a crash.
       const group = createHash('sha1').update(testInfo.titlePath.slice(0, -1).join(' › ')).digest('hex').slice(0, 12);
       const dir = join(testInfo.project.outputDir, 'first-tries', testInfo.project.name, group);
       const note = join(dir, `${testInfo.testId}.txt`);
       let crashed = false;
       if (testInfo.retry > 0) {
         const own = (await readFile(note, 'utf8').catch(() => '')).trim();
-        const first =
-          own ||
+        const group = async () =>
           (await Promise.all((await readdir(dir).catch(() => [])).map((f) => readFile(join(dir, f), 'utf8')))).join('\n');
+        const first = own || (testInfo.tags.includes(SERIAL) ? await group() : '');
         if (!BROWSER_CRASH.test(first)) {
           throw new Error(`retried only after a browser crash; the first try failed with: ${first || '(no error recorded)'}`);
         }

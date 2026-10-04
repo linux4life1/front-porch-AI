@@ -8,7 +8,7 @@
 // is FPAI_REPLY.
 
 import type { Locator, Page } from '@playwright/test';
-import { expect, openRoute, test } from './support/fixtures';
+import { expect, openRoute, SERIAL, test } from './support/fixtures';
 
 const REPLY = process.env.FPAI_REPLY ?? '';
 
@@ -63,7 +63,7 @@ test.describe('signing in', () => {
   });
 });
 
-test.describe.serial('a conversation', () => {
+test.describe.serial('a conversation', { tag: SERIAL }, () => {
   test('open a character, start a fresh chat, and get a reply', async ({ page }) => {
     await openPorchChat(page);
     await page.locator('.conversations-btn').click();
