@@ -1,0 +1,31 @@
+{
+ "source": "bartowski/google_gemma-3-12b-it-GGUF/google_gemma-3-12b-it-Q4_K_M.gguf (first 32 MB, 2026-10-04)",
+ "real_file_bytes": 7300575264,
+ "real_data_start": 6550560,
+ "fixture_file_bytes": 7294063872,
+ "truth": {
+  "arch": "gemma3",
+  "n_layer": 48,
+  "n_tensors": 626,
+  "bytes": {
+   "total": 7294024704,
+   "blocks": 6468255744,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 825753600,
+   "output": 0,
+   "other": 15360
+  },
+  "mb": {
+   "total": 6956,
+   "blocks": 6169,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 788,
+   "output": 0,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 6169,
+   "gpu_all_layers": 6169
+  }
+ }
+}

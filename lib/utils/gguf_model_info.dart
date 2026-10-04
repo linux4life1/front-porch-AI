@@ -63,6 +63,10 @@ class GGUFModelInfo {
   /// Qwen models). It does not grow with the context. 0 for other models.
   final int recurrentStateBytes;
 
+  /// Gemma's smaller models feed every layer a small embedding of its own
+  /// for each token (E4B: 256 numbers). Null for other models.
+  final int? perLayerInputDim;
+
   const GGUFModelInfo({
     required this.nLayers,
     required this.nHeads,
@@ -84,6 +88,7 @@ class GGUFModelInfo {
     this.weights,
     this.kvLayers,
     this.recurrentStateBytes = 0,
+    this.perLayerInputDim,
   });
 
   /// True when the model has sliding-window layers, so the sliding window

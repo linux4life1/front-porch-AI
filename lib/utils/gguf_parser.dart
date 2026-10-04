@@ -102,12 +102,21 @@ class GGUFParser {
     // Blocks that only predict draft tokens come last and keep no cache of
     // their own.
     final layers = blockCount - (number('nextn_predict_layers') ?? 0);
+    // Gemma 4's smaller models reuse earlier layers' cache in their last
+    // layers (E4B: the last 18 of 42), which keep none of their own.
+    final ownCache = layers - (number('attention.shared_kv_layers') ?? 0);
+    // A compressed-attention model (DeepSeek's MLA: Kimi, DeepSeek V2/V3)
+    // caches one latent row per layer; its values are read from the same
+    // row, so they take nothing. Kimi-VL-A3B: 576 x 2 bytes a cell, 27
+    // layers, 493.59 MiB at 16k.
+    final latentOnly = (number('attention.kv_lora_rank') ?? 0) > 0;
 
     bool flag(dynamic list, int i) =>
         list is List && i < list.length && (list[i] == true || list[i] == 1);
 
     final kvLayers = <GGUFKvLayer>[];
     var recurrentLayers = 0;
+    var convLayers = 0;
     for (var i = 0; i < layers; i++) {
       // A recurrent layer has no attention cache. Newer Qwen models say
       // which layers attend with an interval: every Nth one does.
@@ -122,13 +131,23 @@ class GGUFParser {
           ? (i < kvHeadsPerLayer.length ? kvHeadsPerLayer[i] : 0)
           : nKvHeads;
       // No heads: a layer without attention (LFM's convolution layers).
-      if (heads <= 0) continue;
+      if (heads <= 0) {
+        convLayers++;
+        continue;
+      }
+      if (i >= ownCache) continue;
       final sliding =
           (slidingWindow ?? 0) > 0 &&
           (pattern is List ? flag(pattern, i) : _slidesByDefault(arch, i));
       final k = sliding ? keyLengthSwa : keyLength;
       final v = sliding ? valueLengthSwa : valueLength;
-      kvLayers.add(GGUFKvLayer(k * heads * 2, v * heads * 2, sliding: sliding));
+      kvLayers.add(
+        GGUFKvLayer(
+          k * heads * 2,
+          latentOnly ? 0 : v * heads * 2,
+          sliding: sliding,
+        ),
+      );
     }
 
     final sizes = header.tensors.isEmpty ? null : header.tensorSizes(fileSize);
@@ -161,7 +180,10 @@ class GGUFParser {
       leadingDenseBlockCount: number('leading_dense_block_count'),
       weights: sizes == null ? null : GGUFWeights.fromTensorSizes(sizes),
       kvLayers: kvLayers,
-      recurrentStateBytes: recurrentLayers * _recurrentStateBytes(number),
+      recurrentStateBytes:
+          recurrentLayers * _recurrentStateBytes(number) +
+          convLayers * _convStateBytes(number, nEmbd),
+      perLayerInputDim: number('embedding_length_per_layer_input'),
     );
   }
 
@@ -178,8 +200,23 @@ class GGUFParser {
     return (inner * state + conv) * 4;
   }
 
+  /// What one short-convolution layer keeps between tokens (LFM): the last
+  /// few inputs, as 32-bit numbers. LFM2.5-8B-A1B's 18 such layers: 0.28
+  /// MiB.
+  static int _convStateBytes(int? Function(String key) number, int nEmbd) {
+    final cache = number('shortconv.l_cache') ?? 0;
+    return cache > 1 ? (cache - 1) * nEmbd * 4 : 0;
+  }
+
   /// Sliding-window layers for a model that has a window but lists no
-  /// pattern: Gemma 3 slides in five layers of every six.
-  static bool _slidesByDefault(String arch, int layer) =>
-      arch.startsWith('gemma3') && layer % 6 < 5;
+  /// pattern, as KoboldCpp's engine sets them: of every N layers, all but
+  /// the last slide. gpt-oss alternates (seen: 12 sliding layers of 24).
+  static bool _slidesByDefault(String arch, int layer) {
+    final n = switch (arch) {
+      'gemma2' || 'gpt-oss' => 2,
+      'cohere2' => 4,
+      _ => arch.startsWith('gemma3') ? 6 : 0,
+    };
+    return n > 0 && layer % n < n - 1;
+  }
 }

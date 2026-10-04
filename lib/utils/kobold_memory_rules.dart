@@ -98,7 +98,12 @@ double koboldComputeBytes({
   final vocab = info.nVocab ?? 262144; // the largest in common use
   final embd = info.nEmbd;
   final logits = 4.0 * vocab * b;
-  final output = logits + 8.0 * embd * b;
+  // A model that feeds each layer its own small embedding builds them all
+  // for a batch up front: Gemma 4 E4B, 2272.00 MiB at batch 2048 on Metal,
+  // which is the output part plus exactly this.
+  final perLayer = info.perLayerInputDim ?? 0;
+  final output =
+      logits + 8.0 * embd * b + 4.0 * perLayer * (2 * info.nLayers + 8) * b;
 
   final full = koboldContextCells(contextSize);
   final sliding = info.hasSlidingWindow;
@@ -121,6 +126,14 @@ double koboldComputeBytes({
   final perToken = masks + 4.0 * (_feedForwardFloats(info) + heads * headDim);
   var layers = perToken * b;
   if (!flashAttention) layers += 4.0 * heads * full * b;
+  // Metal's attention needs working room that grows with the context, on
+  // its own rather than beside the feed-forward block. It shows once it
+  // outgrows the output part: Phi-4 216.00 MiB up to 20k, 257.04 at 32k,
+  // 279.31 with an 8-bit cache (a smaller vocabulary than most, so its
+  // output part is small). Read from those, not from the engine's source.
+  final attention = backend == KoboldMemoryBackend.metal
+      ? 18.0 * full * b
+      : 0.0;
 
   final double bytes;
   if (backend == KoboldMemoryBackend.vulkan && logits >= 1024 * _mib) {
@@ -129,7 +142,14 @@ double koboldComputeBytes({
   } else {
     // The output part is exact on Vulkan and Metal; a CUDA log showed 6.8%
     // more (1053.07 against 986), so it carries that margin everywhere.
-    bytes = output * 1.08 > layers ? output * 1.08 : layers;
+    // With flash attention off a little more sits beside it (Gemma 4 E4B
+    // on Metal: 616.01 against 568).
+    final margin = flashAttention ? 1.08 : 1.15;
+    bytes = [
+      output * margin,
+      layers,
+      attention,
+    ].reduce((a, c) => a > c ? a : c);
   }
   return bytes;
 }

@@ -1,0 +1,31 @@
+{
+ "source": "bartowski/phi-4-GGUF/phi-4-Q4_K_M.gguf (first 32 MB, 2026-10-04)",
+ "real_file_bytes": 9053114816,
+ "real_data_start": 3555776,
+ "fixture_file_bytes": 9049575104,
+ "truth": {
+  "arch": "phi3",
+  "n_layer": 40,
+  "n_tensors": 243,
+  "bytes": {
+   "total": 9049559040,
+   "blocks": 8339046400,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 289013760,
+   "output": 421478400,
+   "other": 20480
+  },
+  "mb": {
+   "total": 8630,
+   "blocks": 7953,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 276,
+   "output": 402,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 8355,
+   "gpu_all_layers": 8355
+  }
+ }
+}

@@ -20,5 +20,13 @@ by hand in the tests, and those used a key name no real model has
 Nothing failed, and sliding window was never detected on a real Gemma model.
 These are the real thing.
 
-Families covered: Gemma 4 (dense, and the 26B MoE), Qwen 3.8, Qwen 3.6 (dense,
-MoE, and MoE with built-in draft heads), Qwen 3 (dense and MoE).
+Families covered: Gemma 4 (dense, the 26B MoE, and E4B with shared cache layers
+and per-layer inputs), Gemma 3, Qwen 3.8, Qwen 3.6 (dense, MoE, and MoE with
+built-in draft heads), Qwen 3 (dense and MoE), Llama 3.1 and 3.2 (tied output),
+Mistral Nemo and Mistral Small 3.2, Phi-4, GLM-4, gpt-oss (alternating sliding
+window), LFM 2.5 (convolution layers) and Kimi-VL (compressed attention, MLA).
+
+`../kobold_loads/` holds what a real KoboldCpp set aside for these models: one
+entry per start, with the settings it was started with and the cache and
+working memory it printed. The Metal file was made by loading each header
+followed by zeros up to the real file size.

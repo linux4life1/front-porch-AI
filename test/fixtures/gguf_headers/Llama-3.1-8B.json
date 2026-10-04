@@ -1,0 +1,31 @@
+{
+ "source": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf (first 32 MB, 2026-10-04)",
+ "real_file_bytes": 4920739232,
+ "real_data_start": 7840928,
+ "fixture_file_bytes": 4912917184,
+ "truth": {
+  "arch": "llama",
+  "n_layer": 32,
+  "n_tensors": 292,
+  "bytes": {
+   "total": 4912898304,
+   "blocks": 4186439680,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 295501824,
+   "output": 430940160,
+   "other": 16640
+  },
+  "mb": {
+   "total": 4685,
+   "blocks": 3992,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 282,
+   "output": 411,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 4403,
+   "gpu_all_layers": 4403
+  }
+ }
+}
