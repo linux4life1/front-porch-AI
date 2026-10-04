@@ -32,16 +32,10 @@ String koboldAdminDirFor(StorageService storage) {
 
 /// KoboldCpp `POST /api/admin/reload_config` body.
 ///
-/// Documented: `filename` is `unload_model`, `initial_model`, a GGUF, or a
-/// `.kcpps` inside `--admindir`. `overrideconfig` / `baseconfig` attaches a
-/// different `.kcpps` to a GGUF without killing our process.
-///
-/// Kobold does not retarget the parent argv `--config` from HTTP. The
-/// least-cache-destructive change it exposes is this reload: it tears
-/// down `kcpp_instance` inside the same parent (SWA slots on a full
-/// binary restart are gone). Empty GGUF + different `.kcpps` uses the
-/// `.kcpps` as `filename`. Worker `.kcpps` embedding mmproj via
-/// `--config` stays parked (no worker mmproj picker).
+/// The app names a config it staged in `--admindir` (`fpai-<role>.kcpps`),
+/// or `unload_model` / `initial_model`. The engine replaces its model
+/// process with one started from that file; the parent process, its port
+/// and its admin folder stay.
 Map<String, String> koboldAdminReloadBody({required String filename}) => {
   'filename': filename,
 };

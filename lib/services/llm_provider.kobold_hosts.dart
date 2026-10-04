@@ -39,10 +39,7 @@ extension LLMProviderKoboldHosts on LLMProvider {
     required String kcpps,
   }) {
     Duration limit() {
-      final path = role == kKoboldChatRole
-          ? resolveKoboldLaunch(_storageService).modelPath
-          : model;
-      final file = File(path);
+      final file = File(_koboldRolePair(role, model, kcpps).model);
       return koboldLoadTimeout(file.existsSync() ? file.lengthSync() : 0);
     }
 
@@ -66,13 +63,19 @@ extension LLMProviderKoboldHosts on LLMProvider {
         kcppsPath: kcpps,
       ),
       stopProcess: _koboldService.stopKobold,
-      startProcess: () => ensureManagedBackendIsRunning(
-        forGpuSwap: true,
-        modelPath: model,
-        kcppsPath: kcpps,
-      ),
+      // A restart after a reload that was not acted on loads the same pair
+      // the reload asked for: for chat, the one Settings has now.
+      startProcess: () {
+        final pair = _koboldRolePair(role, model, kcpps);
+        return ensureManagedBackendIsRunning(
+          forGpuSwap: true,
+          modelPath: pair.model,
+          kcppsPath: pair.kcpps,
+        );
+      },
       isProcessRunning: () => _koboldService.isProcessRunning,
       markNotReady: _koboldService.markModelNotReady,
+      markLoading: _koboldService.markModelLoading,
       waitForReload: () => _koboldService.waitForSwap(timeout: limit()),
       waitForUnload: _koboldService.waitForUnload,
       // After a restart there is no old model to tell apart: ready is
@@ -86,6 +89,18 @@ extension LLMProviderKoboldHosts on LLMProvider {
         modelId: model,
       ),
     );
+  }
+
+  /// The model and preset [role] loads. The chat role's pair is worked out
+  /// each time it is needed, never when its host was made.
+  ({String model, String kcpps}) _koboldRolePair(
+    String role,
+    String model,
+    String kcpps,
+  ) {
+    if (role != kKoboldChatRole) return (model: model, kcpps: kcpps);
+    final chat = resolveKoboldLaunch(_storageService);
+    return (model: chat.modelPath, kcpps: chat.kcppsPath ?? '');
   }
 
   Future<KoboldStagedRole> _stageKoboldRole({

@@ -230,6 +230,7 @@ class KoboldProcessHost implements GpuSwapHost {
     this.waitForReload,
     this.waitForUnload,
     this.markNotReady,
+    this.markLoading,
     this.requestedModelPath,
     this.requestedKcppsPath,
     this.stageConfig,
@@ -264,6 +265,10 @@ class KoboldProcessHost implements GpuSwapHost {
   final Future<void> Function()? waitForUnload;
 
   final void Function()? markNotReady;
+
+  /// Like [markNotReady] for a reload the engine accepted, with the status
+  /// line saying what is loading instead of "unloading".
+  final void Function(String step)? markLoading;
 
   /// GGUF this host must have resident after [restore].
   final String? requestedModelPath;
@@ -366,10 +371,11 @@ class KoboldProcessHost implements GpuSwapHost {
       if (staged != null && isResident?.call(staged.key) == true) return;
 
       final model = (staged?.modelPath ?? requestedModelPath ?? '').trim();
-      if (model.isNotEmpty) {
-        final why = purpose == null ? '' : ' for $purpose';
-        onStep?.call('Loading ${p.basename(model)}$why...');
-      }
+      final why = purpose == null ? '' : ' for $purpose';
+      final step = model.isEmpty
+          ? 'Loading model$why...'
+          : 'Loading ${p.basename(model)}$why...';
+      if (model.isNotEmpty) onStep?.call(step);
 
       var reloaded = false;
       Object? lastError;
@@ -399,14 +405,20 @@ class KoboldProcessHost implements GpuSwapHost {
       if (reloaded) {
         // The engine has only been ASKED. The old model keeps answering for
         // a moment, and must not be mistaken for the new one being ready.
-        if (staged != null) markNotReady?.call();
+        if (staged != null) {
+          final loading = markLoading;
+          loading != null ? loading(step) : markNotReady?.call();
+        }
+        // What the engine was told to load. Whether it has loaded it is
+        // the ready flag, set by the wait; listeners on that flag read
+        // these paths, so they are written first.
         await _noteLoaded(staged);
         try {
           await (waitForReload ?? waitUntilReady)?.call();
           return;
         } on KoboldSwapTimeout catch (e) {
-          // It restarted and is still loading: starting it again would
-          // only start the load again.
+          // It restarted on this config and is still loading it: starting
+          // it again would only start the load again.
           if (e.restarted) rethrow;
           // It never acted on the request. Last resort below.
           lastError = e;

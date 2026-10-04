@@ -136,6 +136,14 @@ class KoboldService extends ChangeNotifier
 
   String _baseUrl = 'http://127.0.0.1:5001';
   String get baseUrl => _baseUrl;
+
+  /// The port the app talks to the engine on. A start that names no port
+  /// uses it, so a restart comes back where the app is listening.
+  int get port {
+    final url = Uri.tryParse(_baseUrl);
+    return url != null && url.hasPort ? url.port : 5001;
+  }
+
   http.Client? _activeClient;
 
   /// Tracks the completion of the current generation stream.

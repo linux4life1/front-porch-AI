@@ -50,7 +50,8 @@ String friendlyGenerationError(String rawError) {
   } else if (errorMsg.contains('not generation-ready') ||
       errorMsg.contains('did not finish loading')) {
     // The engine restarted and the model had not come up when the wait
-    // ended. Nothing was put back: it may well still be loading.
+    // ended; it may well still be loading. The swap code may already have
+    // put chat back, so the advice holds either way.
     errorMsg =
         'The model was still loading when the app stopped waiting. '
         'Wait for the ready light, then send again.';

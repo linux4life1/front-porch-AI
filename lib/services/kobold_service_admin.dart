@@ -88,13 +88,20 @@ extension KoboldServiceAdmin on KoboldService {
   /// treat a stale [isReady] as a loaded model. Keep [_loadedKcppsPath]:
   /// last start or last [noteAdminLoadedPair] `--config`. Stop the probe
   /// so a late startKobold tick cannot flip ready during unload.
-  void markModelNotReady() {
+  void markModelNotReady() => _clearReady('Unloading model...');
+
+  /// A reload was accepted: the old model may answer for a moment longer,
+  /// so nothing is ready until the new one is. [status] says what is
+  /// loading; the unload wording would be wrong here.
+  void markModelLoading(String status) => _clearReady(status);
+
+  void _clearReady(String status) {
     _stopReadinessProbe();
     _modelReady = false;
     _loadedModelPath = null;
     _residentKey = null;
     _loadGeneration++;
-    _modelLoadingStatus = 'Unloading model...';
+    _modelLoadingStatus = status;
     notify();
   }
 

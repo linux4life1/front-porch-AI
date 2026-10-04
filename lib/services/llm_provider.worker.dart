@@ -286,7 +286,10 @@ extension LLMProviderWorker on LLMProvider {
       if (!forGpuSwap) {
         // Chat entry: the same rule as every other start.
         if (!resolveKoboldLaunch(_storageService).canLaunch) return;
-        await _koboldService.launch(_backendManager.backendPath!);
+        await _koboldService.launch(
+          _backendManager.backendPath!,
+          port: _koboldService.port,
+        );
         return;
       }
       // A swap names its own model and preset.
@@ -305,6 +308,7 @@ extension LLMProviderWorker on LLMProvider {
         _backendManager.backendPath!,
         requested,
         kcppsPath: kcpps.isEmpty ? null : kcpps,
+        port: _koboldService.port,
         mmprojPath: mouthPair && requested.isNotEmpty
             ? _storageService.presetSettings.modelMmprojMap[requested]
             : null,

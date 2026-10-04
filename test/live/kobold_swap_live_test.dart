@@ -134,6 +134,8 @@ void main() {
         said,
         contains('Loading ${p.basename(liveEngineModel)} for chat...'),
       );
+      // A swap loads; the status line never says it is unloading.
+      expect(said, isNot(contains('Unloading model...')));
       // No link was made for the swap: only staged configs are in the
       // admin folder.
       final staged = Directory(koboldAdminDirFor(storage)).listSync();
@@ -175,6 +177,32 @@ void main() {
       expect(await lane.hold(context), 4096);
       await lane.restore();
       expect(await liveUptime(port), greaterThan(before!));
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
+
+  test(
+    'when putting chat back has to start the engine again, it starts the '
+    'chat model Settings names now',
+    () async {
+      final lane = job();
+      expect(await lane.hold(context), 2048);
+
+      // Settings now names another chat model: the same file under another
+      // name, so the engine's answer shows which one was started.
+      final now = Link(p.join(root.path, 'chat-now.gguf'))
+        ..createSync(liveEngineModel);
+      await storage.backendSettings.setLastUsedModelPath(now.path);
+
+      // The engine goes away behind the app's back, so chat cannot come
+      // back by a reload: the engine has to be started.
+      await stopLiveEnginesUnder(root);
+      await lane.restore();
+      await waitForLiveModel(port);
+
+      expect(await liveLoadedModel(port), contains('chat-now'));
+      expect(await context(), 4096);
     },
     timeout: _slow,
     skip: liveEngineSkip,
