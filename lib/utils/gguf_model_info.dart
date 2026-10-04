@@ -8,10 +8,18 @@ export 'gguf_weights.dart';
 /// One layer that keeps an attention cache. A layer with no attention (a
 /// recurrent or convolution layer) keeps none and is not listed.
 class GGUFKvLayer {
-  const GGUFKvLayer(this.bytesPerCell, {this.sliding = false});
+  const GGUFKvLayer(
+    this.kBytesPerCell,
+    this.vBytesPerCell, {
+    this.sliding = false,
+  });
 
-  /// Bytes one cached token takes in this layer, uncompressed (f16).
-  final int bytesPerCell;
+  /// Bytes one cached token's keys and values take in this layer,
+  /// uncompressed (f16).
+  final int kBytesPerCell;
+  final int vBytesPerCell;
+
+  int get bytesPerCell => kBytesPerCell + vBytesPerCell;
 
   /// A sliding-window layer. With sliding window on it holds only the
   /// window, not the whole context.

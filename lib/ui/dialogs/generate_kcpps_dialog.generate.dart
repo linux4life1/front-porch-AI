@@ -87,6 +87,7 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
         // experts to "CPU" frees no memory and would only slow generation, so
         // the whole quantized model is modelled as GPU-resident there.
         moeExpertsOnCpu: !Platform.isMacOS,
+        backend: _memoryBackend,
       );
     } else if (_hardwareInfo?.vramMb != null && _hardwareInfo!.vramMb > 0) {
       final totalMb = VramEstimator.estimateVramNeeded(
@@ -137,7 +138,17 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
           !Platform.isMacOS, // unified memory; see _computeVramEstimate
       availableVramMb: vramMb,
       autofitpaddingMb: padding,
+      backend: _memoryBackend,
     );
+  }
+
+  /// Where the preset being made will run, for the estimate: the working
+  /// buffer and the engine's extra memory differ by backend.
+  KoboldMemoryBackend get _memoryBackend {
+    if (Platform.isMacOS) return KoboldMemoryBackend.metal;
+    return (_gpu ?? _detectGpu()).backend == KoboldGpuBackend.vulkan
+        ? KoboldMemoryBackend.vulkan
+        : KoboldMemoryBackend.cuda;
   }
 
   Future<void> _generate() async {

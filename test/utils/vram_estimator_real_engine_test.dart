@@ -9,9 +9,10 @@
 // match the engine's own figures, and the part that cannot be known exactly
 // (the compute buffer) must come out at or a little above them, never below.
 //
-// The figures are from real loads, with flash attention on:
-//  - an RX 6900 XT (16 GB) on Linux with Vulkan, KoboldCpp 1.122.1, for
-//    Qwen3-14B and the Qwen3-30B-A3B MoE;
+// The figures are from real loads:
+//  - an RX 6900 XT (16 GB) on Linux, KoboldCpp 1.122.1 on Vulkan and the
+//    1.121 ROCm build, for Qwen3-14B, the Qwen3-30B-A3B MoE and Gemma 4
+//    12B, with flash attention on unless a case says otherwise;
 //  - a GTX 1060 (6 GB) on Windows with CUDA, for the Qwen3.6-35B-A3B MoE.
 // The model headers are in test/fixtures/gguf_headers (see its README).
 
@@ -45,6 +46,8 @@ VramEstimateBreakdown _estimate(
   String quant = 'f16',
   bool slidingWindowOn = false,
   bool expertsInSystemMemory = true,
+  KoboldMemoryBackend backend = KoboldMemoryBackend.vulkan,
+  bool flashAttention = true,
 }) {
   final m = _model(name);
   return VramEstimator.estimateFromArchitecture(
@@ -55,6 +58,8 @@ VramEstimateBreakdown _estimate(
     kvQuant: quant,
     isSwa: slidingWindowOn,
     moeExpertsOnCpu: expertsInSystemMemory,
+    backend: backend,
+    flashAttention: flashAttention,
   );
 }
 
@@ -183,8 +188,145 @@ void main() {
           'Qwen3.6-35B-A3B-Q4_K_XL',
           context: 16384,
           batch: 1024,
+          backend: KoboldMemoryBackend.cuda,
         ).computeBufMb,
         _atLeastButClose(1053.07),
+      );
+    });
+  });
+
+  group('working memory at larger batches, Vulkan', () {
+    test('below 1 GiB of output scores it is the output part', () {
+      // Qwen3-14B, batch 1536: 950.25 MiB, the output part exactly.
+      expect(
+        _estimate('Qwen3-14B', context: 16384, batch: 1536).computeBufMb,
+        _atLeastButClose(950.25),
+      );
+    });
+
+    test('from 1 GiB of output scores the output and the layers add up', () {
+      expect(
+        _estimate('Qwen3-14B', context: 16384, batch: 2048).computeBufMb,
+        _atLeastButClose(1740.05),
+      );
+      expect(
+        _estimate('Qwen3-30B-A3B', context: 16384, batch: 2048).computeBufMb,
+        _atLeastButClose(1697.54),
+      );
+    });
+  });
+
+  group('flash attention off (the ROCm build, as the app launches it)', () {
+    test('the working memory holds a layer\'s attention scores', () {
+      expect(
+        _estimate(
+          'Qwen3-14B',
+          context: 16384,
+          backend: KoboldMemoryBackend.rocm,
+          flashAttention: false,
+        ).computeBufMb,
+        _atLeastButClose(1376.51),
+      );
+      expect(
+        _estimate(
+          'Qwen3-30B-A3B',
+          context: 16384,
+          backend: KoboldMemoryBackend.rocm,
+          flashAttention: false,
+        ).computeBufMb,
+        _atLeastButClose(1098.51),
+      );
+    });
+  });
+
+  group('Gemma 4 12B Q4_K_M (sliding window, tied output) on a 16 GB card', () {
+    const gemma = 'gemma-4-12b-it';
+
+    test('the card holds the blocks and a second copy of the embedding', () {
+      // load_tensors: Vulkan0 model buffer size = 6776.84 MiB
+      expect(_estimate(gemma, context: 16384).weightsMb, _exactly(6776.84));
+    });
+
+    test('sliding window off: every layer holds the whole context', () {
+      // 260.00 (8 full layers) + 5200.00 (40 sliding layers, full size)
+      expect(_estimate(gemma, context: 16384).kvCacheMb, _exactly(5460));
+      // 8-bit cache at 32k: 274.12 + 5482.50
+      expect(
+        _estimate(gemma, context: 32768, quant: 'q8_0').kvCacheMb,
+        _exactly(5756.62),
+      );
+    });
+
+    test('sliding window on: the sliding layers hold the window and one '
+        'batch', () {
+      // 260.00 + 520.00 (1664 cells); 260.00 + 680.00 at batch 1024 (2176)
+      expect(
+        _estimate(gemma, context: 16384, slidingWindowOn: true).kvCacheMb,
+        _exactly(780),
+      );
+      expect(
+        _estimate(
+          gemma,
+          context: 16384,
+          batch: 1024,
+          slidingWindowOn: true,
+        ).kvCacheMb,
+        _exactly(940),
+      );
+      // 32k: the full layers grow (516.00), the window does not (520.00)
+      expect(
+        _estimate(gemma, context: 32768, slidingWindowOn: true).kvCacheMb,
+        _exactly(1036),
+      );
+    });
+
+    test('flash attention off sizes every layer\'s values to the largest', () {
+      // 650.00 (K 130 + V 520) + 5200.00
+      expect(
+        _estimate(gemma, context: 16384, flashAttention: false).kvCacheMb,
+        _exactly(5850),
+      );
+    });
+
+    test('the working memory is never below what the engine reserved', () {
+      expect(
+        _estimate(gemma, context: 16384).computeBufMb,
+        _atLeastButClose(527.00),
+      );
+      expect(
+        _estimate(gemma, context: 16384, batch: 1024).computeBufMb,
+        _atLeastButClose(1331.04),
+      );
+      expect(
+        _estimate(gemma, context: 16384, batch: 2048).computeBufMb,
+        _atLeastButClose(2662.08),
+      );
+      expect(
+        _estimate(
+          gemma,
+          context: 16384,
+          batch: 1024,
+          slidingWindowOn: true,
+        ).computeBufMb,
+        _atLeastButClose(1302.79),
+      );
+      expect(
+        _estimate(
+          gemma,
+          context: 16384,
+          batch: 1536,
+          slidingWindowOn: true,
+        ).computeBufMb,
+        _atLeastButClose(1955.68),
+      );
+      expect(
+        _estimate(
+          gemma,
+          context: 16384,
+          backend: KoboldMemoryBackend.rocm,
+          flashAttention: false,
+        ).computeBufMb,
+        _atLeastButClose(648.01),
       );
     });
   });

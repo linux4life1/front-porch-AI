@@ -88,10 +88,19 @@ class GGUFWeights {
     );
   }
 
+  /// A model that uses its input embedding as its output layer too (Gemma,
+  /// small Qwen and Llama models) has no output tensor of its own.
+  bool get tiedOutput => output == 0 && tokenEmbedding > 0;
+
   /// What sits on the graphics card with every block offloaded: the blocks
   /// (without the expert weights when those stay in system memory), the
   /// output layer and the small tensors around them. The input embedding
-  /// is not counted: KoboldCpp keeps it in system memory.
+  /// stays in system memory, but a tied model's output layer is a second
+  /// copy of it on the card: Gemma 4 12B put 6776.84 MiB there, its blocks
+  /// plus the 540 MiB embedding again.
   int gpuBytes({required bool expertsOnCpu}) =>
-      blocks - (expertsOnCpu ? experts : 0) + output + other;
+      blocks -
+      (expertsOnCpu ? experts : 0) +
+      (tiedOutput ? tokenEmbedding : output) +
+      other;
 }

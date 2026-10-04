@@ -53,9 +53,16 @@ void main() {
       expect(weights.output, bytes['output']);
       expect(weights.other, bytes['other']);
       expect(weights.perBlock.length, truth['n_layer']);
+      // A tied model's output layer is a second copy of the embedding.
+      final outputOnCard = bytes['output'] == 0
+          ? bytes['token_embd'] as int
+          : bytes['output'] as int;
       expect(
-        weights.gpuBytes(expertsOnCpu: true) ~/ (1024 * 1024),
-        closeTo((truth['mb'] as Map)['gpu_when_experts_on_cpu'] as int, 1),
+        weights.gpuBytes(expertsOnCpu: true),
+        (bytes['blocks'] as int) -
+            (bytes['expert'] as int) +
+            outputOnCard +
+            (bytes['other'] as int),
       );
     });
   }

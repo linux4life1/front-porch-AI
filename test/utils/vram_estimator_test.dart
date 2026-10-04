@@ -7,6 +7,15 @@ import 'package:front_porch_ai/utils/gguf_parser.dart';
 import 'package:front_porch_ai/models/hf_model.dart';
 import 'package:front_porch_ai/models/download_task.dart';
 
+// Changed 2026-10-04: the five estimateFromArchitecture cache cases pinned
+// a formula KoboldCpp does not use (sliding layers at "context / 4 +
+// window / 8" cells, and Qwen's recurrent layers counted as sliding-window
+// layers with a 32,768 window). They now pin the engine's own rules, read
+// from its source and matched to the MiB on real loads (Gemma 4 12B on a
+// 16 GB card: 260 + 520 MiB with sliding window on at 16k, 260 + 5200 with
+// it off; a Qwen 3.6 MoE's 10 attention layers: 325.00 MiB). The real
+// models are pinned in vram_estimator_real_engine_test.dart.
+
 void main() {
   group('VramEstimator', () {
     group('estimateVramNeeded', () {
@@ -196,21 +205,23 @@ void main() {
         expect(info.activeWeightRatio, equals(1.0));
       });
 
-      test('returns < 1.0 for MoE models with expert_count > expert_used_count',
-          () {
-        final info = GGUFModelInfo(
-          nLayers: 28,
-          nHeads: 32,
-          nKvHeads: 8,
-          nEmbd: 4096,
-          kvBytesPerToken: 7168,
-          expertCount: 64,
-          expertUsedCount: 8,
-          expertFfnDim: 14336,
-        );
-        expect(info.activeWeightRatio, lessThan(1.0));
-        expect(info.activeWeightRatio, greaterThan(0.05));
-      });
+      test(
+        'returns < 1.0 for MoE models with expert_count > expert_used_count',
+        () {
+          final info = GGUFModelInfo(
+            nLayers: 28,
+            nHeads: 32,
+            nKvHeads: 8,
+            nEmbd: 4096,
+            kvBytesPerToken: 7168,
+            expertCount: 64,
+            expertUsedCount: 8,
+            expertFfnDim: 14336,
+          );
+          expect(info.activeWeightRatio, lessThan(1.0));
+          expect(info.activeWeightRatio, greaterThan(0.05));
+        },
+      );
 
       test('returns correct ratio for Mixtral-like 8x7B', () {
         final info = GGUFModelInfo(
@@ -337,185 +348,81 @@ void main() {
   });
 
   group('estimateFromArchitecture', () {
-    test('handles mixed kv heads per layer (Gemma 4, SWA mode)', () {
-      // Simulate Gemma 4 26B with per-layer kv heads, ISWA compression active.
-      // 25 layers with n_kv_heads=8 (SWA), 5 layers with n_kv_heads=2 (full)
-      // SWA: head_dim=256 (keyLength/2), cells=8192/4+1024/8=2176
-      // Full: head_dim=512 (keyLength), cells=8192+1024/4=8448
-      // Expected KV: 25*4*8*256*2176 + 5*4*2*512*8448 = 590 MB
-      final perLayer = [...List.filled(25, 8), ...List.filled(5, 2)];
-      final info = GGUFModelInfo(
-        nLayers: 30,
-        nHeads: 16,
-        nKvHeads: 8,
-        nEmbd: 2816,
-        kvBytesPerToken: 46080,
-        expertCount: 128,
-        expertUsedCount: 8,
-        expertFfnDim: 1792,
-        slidingWindow: 1024,
-        nKvHeadsPerLayer: perLayer,
-        keyLength: 512,
-        swaHeadDim: 256, // gemma4: SWA head_dim = key_length / 2
-      );
+    // A Gemma 4 26B-like layout: 25 sliding-window layers (8 cache heads of
+    // 256) and 5 full layers (2 heads of 512), window 1024.
+    final gemmaLayers = [
+      ...List.filled(25, const GGUFKvLayer(4096, 4096, sliding: true)),
+      ...List.filled(5, const GGUFKvLayer(2048, 2048)),
+    ];
+    GGUFModelInfo gemmaLike() => GGUFModelInfo(
+      nLayers: 30,
+      nHeads: 16,
+      nKvHeads: 8,
+      nEmbd: 2816,
+      kvBytesPerToken: 46080,
+      expertCount: 128,
+      expertUsedCount: 8,
+      expertFfnDim: 1792,
+      slidingWindow: 1024,
+      keyLength: 512,
+      swaHeadDim: 256,
+      kvLayers: gemmaLayers,
+    );
 
-      final result = VramEstimator.estimateFromArchitecture(
-        modelInfo: info,
-        fileSizeBytes: 17 * 1024 * 1024 * 1024, // ~17 GB
-        contextSize: 8192,
-        batchSize: 512,
-        kvQuant: 'f16',
-        isSwa: true, // ISWA compression active
-        moeExpertsOnCpu: false,
-      );
+    int kvMb(GGUFModelInfo info, {required int context, required bool swa}) =>
+        VramEstimator.estimateFromArchitecture(
+          modelInfo: info,
+          fileSizeBytes: 17 * 1024 * 1024 * 1024,
+          contextSize: context,
+          batchSize: 512,
+          kvQuant: 'f16',
+          isSwa: swa,
+          moeExpertsOnCpu: false,
+        ).kvCacheMb;
 
-      // KV cache should be exactly 590 MB (matches actual KoboldCPP SWA behavior)
-      expect(result.kvCacheMb, equals(590));
-      // With moeExpertsOnCpu=false, all weights go to GPU
-      expect(result.weightsMb, greaterThan(17000));
+    test('sliding window on: sliding layers hold the window plus one batch '
+        'and 128 cells; full layers hold the context plus 128, rounded up '
+        'to 256', () {
+      // 25 * 8192 B * 1664 cells + 5 * 4096 B * 8448 cells = 490.0 MiB.
+      expect(kvMb(gemmaLike(), context: 8192, swa: true), 490);
     });
 
-    test('handles mixed kv heads per layer (Gemma 4, FastForwarding mode)', () {
-      // FastForwarding mode: ISWA compression is disabled, all layers use
-      // full context cells = 8192 + 1024/4 = 8448
-      // Full-attn (5): 5 * 4 * 2 * 512 * 8448 / 1M = 165 MB
-      // SWA (25): 25 * 4 * 8 * 256 * 8448 / 1M = 1650 MB
-      // Total: 1815 MB
-      final perLayer = [...List.filled(25, 8), ...List.filled(5, 2)];
-      final info = GGUFModelInfo(
-        nLayers: 30,
-        nHeads: 16,
-        nKvHeads: 8,
-        nEmbd: 2816,
-        kvBytesPerToken: 46080,
-        expertCount: 128,
-        expertUsedCount: 8,
-        expertFfnDim: 1792,
-        slidingWindow: 1024,
-        nKvHeadsPerLayer: perLayer,
-        keyLength: 512,
-        swaHeadDim: 256,
-      );
-
-      final result = VramEstimator.estimateFromArchitecture(
-        modelInfo: info,
-        fileSizeBytes: 17 * 1024 * 1024 * 1024,
-        contextSize: 8192,
-        batchSize: 512,
-        kvQuant: 'f16',
-        isSwa: false, // FastForwarding — no compression
-        moeExpertsOnCpu: false,
-      );
-
-      expect(result.kvCacheMb, equals(1815));
+    test('sliding window off: every layer holds the whole context', () {
+      // 25 * 8192 B * 8448 + 5 * 4096 B * 8448 = 1815.0 MiB.
+      expect(kvMb(gemmaLike(), context: 8192, swa: false), 1815);
     });
 
-    test('mixed kv heads per layer capped SWA at large context (Gemma 4)', () {
-      // Context=24576 with sw=1024: SWA cells cap at 8×swWindow=8192 when ISWA active.
-      // nonSwaCells = 24576 + 1024/4 = 24832
-      // swaCells = min(24576, 8192)/4 + 1024/8 = 2048 + 128 = 2176
-      // Full (5): 5 * 4 * 2 * 512 * 24832 / 1M = 485 MB
-      // SWA (25): 25 * 4 * 8 * 256 * 2176 / 1M = 425 MB
-      // Total: 910 MB
-      final perLayer = [...List.filled(25, 8), ...List.filled(5, 2)];
-      final info = GGUFModelInfo(
-        nLayers: 30,
-        nHeads: 16,
-        nKvHeads: 8,
-        nEmbd: 2816,
-        kvBytesPerToken: 46080,
-        expertCount: 128,
-        expertUsedCount: 8,
-        expertFfnDim: 1792,
-        slidingWindow: 1024,
-        nKvHeadsPerLayer: perLayer,
-        keyLength: 512,
-        swaHeadDim: 256,
-      );
-
-      final result = VramEstimator.estimateFromArchitecture(
-        modelInfo: info,
-        fileSizeBytes: 17 * 1024 * 1024 * 1024,
-        contextSize: 24576,
-        batchSize: 512,
-        kvQuant: 'f16',
-        isSwa: true, // ISWA active — caps SWA cells at 8×swWindow
-        moeExpertsOnCpu: false,
-      );
-
-      expect(result.kvCacheMb, equals(910));
+    test('a longer context grows only the full layers when sliding window '
+        'is on', () {
+      // 25 * 8192 B * 1664 + 5 * 4096 B * 24832 = 810.0 MiB.
+      expect(kvMb(gemmaLike(), context: 24576, swa: true), 810);
     });
 
-    test('full_attention_interval pattern (Qwen family)', () {
-      // Simulate Qwen3 MoE with full_attention_interval=4, slidingWindow=32768
-      // Every 4th layer gets full context, others use SWA.
-      // With isSwa=false (FastForwarding), all layers use the same cells.
-      // nonSwaCells = 8192 + 32768/4 = 16384
-      // Full attn (6): 6 * 4 * 4 * 128 * 16384 / 1M = 192 MB
-      // SWA (18): 18 * 4 * 4 * 128 * 16384 / 1M = 576 MB
-      // Total: 768 MB
-      final info = GGUFModelInfo(
-        nLayers: 24,
-        nHeads: 16,
-        nKvHeads: 4,
-        nEmbd: 2560,
-        kvBytesPerToken: 6144,
-        expertCount: 64,
-        expertUsedCount: 4,
-        expertFfnDim: 5120,
-        nVocab: 151936,
-        slidingWindow: 32768,
-        keyLength: 128,
-        fullAttentionInterval: 4,
-      );
+    // A Qwen 3.6-like hybrid: of 24 layers, every 4th attends and keeps a
+    // cache (4 heads of 128); the others are recurrent and keep none.
+    GGUFModelInfo qwenHybrid() => GGUFModelInfo(
+      nLayers: 24,
+      nHeads: 16,
+      nKvHeads: 4,
+      nEmbd: 2560,
+      kvBytesPerToken: 6 * 2048,
+      expertCount: 64,
+      expertUsedCount: 4,
+      expertFfnDim: 5120,
+      nVocab: 151936,
+      keyLength: 128,
+      fullAttentionInterval: 4,
+      kvLayers: List.filled(6, const GGUFKvLayer(1024, 1024)),
+    );
 
-      final result = VramEstimator.estimateFromArchitecture(
-        modelInfo: info,
-        fileSizeBytes: 20 * 1024 * 1024 * 1024,
-        contextSize: 8192,
-        batchSize: 512,
-        kvQuant: 'f16',
-        isSwa: false, // FastForwarding — no compression
-        moeExpertsOnCpu: false,
-      );
-
-      // All layers use full cells in FastForwarding mode
-      expect(result.kvCacheMb, equals(768));
+    test('a hybrid model: only the attention layers keep a cache', () {
+      // 6 * 2048 B * 8448 cells = 99.0 MiB.
+      expect(kvMb(qwenHybrid(), context: 8192, swa: false), 99);
     });
 
-    test('full_attention_interval pattern (Qwen, SWA mode)', () {
-      // With isSwa=true, SWA layers get compressed cells.
-      // nonSwaCells = 8192 + 32768/4 = 16384
-      // swaCells = min(8192, 8*32768)/4 + 32768/8 = 2048 + 4096 = 6144
-      // Full attn (6): 6 * 4 * 4 * 128 * 16384 / 1M = 192 MB
-      // SWA (18): 18 * 4 * 4 * 128 * 6144 / 1M = 216 MB (swaHeadDim=null → keyLen=128)
-      // Total: 408 MB
-      final info = GGUFModelInfo(
-        nLayers: 24,
-        nHeads: 16,
-        nKvHeads: 4,
-        nEmbd: 2560,
-        kvBytesPerToken: 6144,
-        expertCount: 64,
-        expertUsedCount: 4,
-        expertFfnDim: 5120,
-        nVocab: 151936,
-        slidingWindow: 32768,
-        keyLength: 128,
-        fullAttentionInterval: 4,
-      );
-
-      final result = VramEstimator.estimateFromArchitecture(
-        modelInfo: info,
-        fileSizeBytes: 20 * 1024 * 1024 * 1024,
-        contextSize: 8192,
-        batchSize: 512,
-        kvQuant: 'f16',
-        isSwa: true, // ISWA compression active
-        moeExpertsOnCpu: false,
-      );
-
-      expect(result.kvCacheMb, equals(408));
+    test('a hybrid model has no sliding window, so the setting changes '
+        'nothing', () {
+      expect(kvMb(qwenHybrid(), context: 8192, swa: true), 99);
     });
 
     test('uses gpuWeightRatioWhenOffloadingExperts when moeExpertsOnCpu', () {
@@ -553,8 +460,10 @@ void main() {
 
       // With offloading, weights should be lower
       expect(resultWithOffload.weightsMb, lessThan(resultNoOffload.weightsMb));
-      expect(resultWithOffload.activeWeightRatio,
-          lessThan(resultNoOffload.activeWeightRatio));
+      expect(
+        resultWithOffload.activeWeightRatio,
+        lessThan(resultNoOffload.activeWeightRatio),
+      );
     });
   });
 

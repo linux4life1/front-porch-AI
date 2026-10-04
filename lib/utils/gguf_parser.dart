@@ -66,8 +66,16 @@ class GGUFParser {
       return v == null || v is List ? null : GGUFFileReader.toInt(v);
     }
 
+    // Some models give a value per layer; the largest is what sizes memory.
+    int? largest(String key) {
+      final v = meta['$arch.$key'];
+      if (v is! List) return number(key);
+      final values = GGUFFileReader.toIntList(v);
+      return values.isEmpty ? null : values.reduce((a, b) => a > b ? a : b);
+    }
+
     final blockCount = number('block_count');
-    final nHeads = number('attention.head_count');
+    final nHeads = largest('attention.head_count');
     final nEmbd = number('embedding_length');
     if (blockCount == null || nHeads == null || nEmbd == null || nHeads <= 0) {
       return null;
@@ -118,10 +126,9 @@ class GGUFParser {
       final sliding =
           (slidingWindow ?? 0) > 0 &&
           (pattern is List ? flag(pattern, i) : _slidesByDefault(arch, i));
-      final perHead = sliding
-          ? keyLengthSwa + valueLengthSwa
-          : keyLength + valueLength;
-      kvLayers.add(GGUFKvLayer(perHead * heads * 2, sliding: sliding));
+      final k = sliding ? keyLengthSwa : keyLength;
+      final v = sliding ? valueLengthSwa : valueLength;
+      kvLayers.add(GGUFKvLayer(k * heads * 2, v * heads * 2, sliding: sliding));
     }
 
     final sizes = header.tensors.isEmpty ? null : header.tensorSizes(fileSize);
@@ -140,7 +147,7 @@ class GGUFParser {
       expertUsedCount: number('expert_used_count'),
       expertFfnDim: number('expert_feed_forward_length'),
       expertSharedFfnDim: number('expert_shared_feed_forward_length'),
-      ffnDim: number('feed_forward_length'),
+      ffnDim: largest('feed_forward_length'),
       slidingWindow: slidingWindow,
       // The vocabulary is the embedding's second dimension; the tokenizer's
       // own list says the same when it was within the bytes read.
