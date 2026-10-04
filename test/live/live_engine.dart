@@ -133,6 +133,15 @@ Future<String?> liveLoadedModel(int port) async {
   return body is Map ? body['result']?.toString() : null;
 }
 
+/// Seconds the engine's model process has been running. It starts again
+/// from zero whenever the engine reloads, so a value that keeps growing
+/// means nothing was reloaded.
+Future<double?> liveUptime(int port) async {
+  final body = await liveGet(port, '/api/extra/perf');
+  final value = body is Map ? body['uptime'] : null;
+  return value is num ? value.toDouble() : null;
+}
+
 /// The context size the loaded model really has.
 Future<int?> liveContextSize(int port) async {
   final body = await liveGet(port, '/api/extra/true_max_context_length');

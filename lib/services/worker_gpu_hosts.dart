@@ -94,12 +94,8 @@ class HttpGpuSwapHost implements GpuSwapHost {
 
   /// In-process Kobold config/model swap. Process restart is the caller’s
   /// last resort when this throws.
-  Future<void> reloadConfig({
-    required String filename,
-    String overrideConfig = '',
-  }) => _koboldAdmin(
-    koboldAdminReloadBody(filename: filename, overrideConfig: overrideConfig),
-  );
+  Future<void> reloadConfig({required String filename}) =>
+      _koboldAdmin(koboldAdminReloadBody(filename: filename));
 
   Future<void> _omlx(String action) async {
     if (modelId.trim().isEmpty) {
@@ -379,21 +375,7 @@ class KoboldProcessHost implements GpuSwapHost {
             ),
             'restore',
           );
-          // The old model keeps answering for a moment after the request;
-          // it must not be mistaken for the new one being ready.
-          markNotReady?.call();
-          await (waitForReload ?? waitUntilReady)?.call();
-          await _noteLoaded(staged);
           reloaded = true;
-        } on KoboldSwapTimeout catch (e) {
-          // The engine restarted and is still loading: starting it again
-          // would only start the load again.
-          if (e.restarted) rethrow;
-          lastError = e;
-          debugPrint(
-            '[GpuSwap] Kobold did not act on the reload '
-            '(last-resort process restart): $e',
-          );
         } catch (e) {
           lastError = e;
           debugPrint(
@@ -407,19 +389,34 @@ class KoboldProcessHost implements GpuSwapHost {
           '[GpuSwap] Kobold admin unavailable — last-resort process restart',
         );
       }
-      if (!reloaded) {
-        final permanent =
-            lastError != null && !koboldAdminErrorIsTransient(lastError);
-        if (!_processAlive || permanent || admin == null) {
-          if (_processAlive) await stopProcess();
-          await startProcess();
-        } else {
-          throw lastError ??
-              StateError('Kobold admin restore missed, process still up');
-        }
-        await waitUntilReady?.call();
+      if (reloaded) {
+        // The engine has only been ASKED. The old model keeps answering for
+        // a moment, and must not be mistaken for the new one being ready.
+        if (staged != null) markNotReady?.call();
         await _noteLoaded(staged);
+        try {
+          await (waitForReload ?? waitUntilReady)?.call();
+          return;
+        } on KoboldSwapTimeout catch (e) {
+          // It restarted and is still loading: starting it again would
+          // only start the load again.
+          if (e.restarted) rethrow;
+          // It never acted on the request. Last resort below.
+          lastError = e;
+          debugPrint('[GpuSwap] Kobold did not act on the reload: $e');
+        }
       }
+      final permanent =
+          lastError != null && !koboldAdminErrorIsTransient(lastError);
+      if (!_processAlive || permanent || admin == null) {
+        if (_processAlive) await stopProcess();
+        await startProcess();
+      } else {
+        throw lastError ??
+            StateError('Kobold admin restore missed, process still up');
+      }
+      await waitUntilReady?.call();
+      await _noteLoaded(staged);
     });
   }
 

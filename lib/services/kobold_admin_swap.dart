@@ -42,16 +42,9 @@ String koboldAdminDirFor(StorageService storage) {
 /// binary restart are gone). Empty GGUF + different `.kcpps` uses the
 /// `.kcpps` as `filename`. Worker `.kcpps` embedding mmproj via
 /// `--config` stays parked (no worker mmproj picker).
-Map<String, String> koboldAdminReloadBody({
-  required String filename,
-  String overrideConfig = '',
-}) {
-  final body = <String, String>{'filename': filename};
-  if (overrideConfig.trim().isNotEmpty) {
-    body['overrideconfig'] = overrideConfig.trim();
-  }
-  return body;
-}
+Map<String, String> koboldAdminReloadBody({required String filename}) => {
+  'filename': filename,
+};
 
 bool koboldAdminReloadSucceeded(int statusCode, String body) {
   if (statusCode < 200 || statusCode >= 300) return false;

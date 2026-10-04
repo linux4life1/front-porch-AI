@@ -4,6 +4,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/services.dart';
 
+// Changed with the swap rewrite: a swap used to name the GGUF itself, with
+// the preset as an "override config", and both had to be linked into the
+// admin folder first (which stock Windows refuses). It now names one config
+// the app stages there. The three cases that pinned how the GGUF name, the
+// override and the link were chosen are gone with that code.
+
 void main() {
   test('HTTP 200 + success true / "true" / empty is accepted', () {
     expect(koboldAdminReloadSucceeded(200, '{"success":true}'), isTrue);
@@ -29,53 +35,6 @@ void main() {
   test('non-2xx is never success', () {
     expect(koboldAdminReloadSucceeded(500, '{"success":true}'), isFalse);
     expect(koboldAdminReloadSucceeded(404, ''), isFalse);
-  });
-
-  test('load filename prefers GGUF, else a different .kcpps, else initial', () {
-    expect(
-      koboldAdminLoadFilename(
-        requestedModel: '/tmp/worker.gguf',
-        requestedKcpps: '/tmp/worker.kcpps',
-      ),
-      'worker.gguf',
-    );
-    expect(
-      koboldAdminLoadFilename(
-        requestedModel: '',
-        requestedKcpps: '/tmp/worker.kcpps',
-        launchedKcpps: '/tmp/mouth.kcpps',
-      ),
-      'worker.kcpps',
-    );
-    expect(
-      koboldAdminLoadFilename(
-        requestedModel: '',
-        requestedKcpps: '/tmp/mouth.kcpps',
-        launchedKcpps: '/tmp/mouth.kcpps',
-      ),
-      'initial_model',
-    );
-  });
-
-  test('overrideconfig is the .kcpps basename only when a GGUF is named', () {
-    expect(
-      koboldAdminLoadOverride(
-        requestedModel: '/tmp/w.gguf',
-        requestedKcpps: '/cfg/w.kcpps',
-      ),
-      'w.kcpps',
-    );
-    expect(
-      koboldAdminLoadOverride(
-        requestedModel: '',
-        requestedKcpps: '/cfg/w.kcpps',
-      ),
-      '',
-    );
-  });
-
-  test('stage into admindir uses the basename when the dir is empty', () {
-    expect(stageKoboldAdminFile('', '/models/w.gguf'), 'w.gguf');
   });
 
   test('connection refused is a retryable admin blip', () {
@@ -119,16 +78,12 @@ void main() {
     expect(tries, 1);
   });
 
-  test('reload body includes overrideconfig when set', () {
+  test('the reload body is the staged file\'s name and nothing else', () {
     expect(koboldAdminReloadBody(filename: 'unload_model'), {
       'filename': 'unload_model',
     });
-    expect(
-      koboldAdminReloadBody(
-        filename: 'worker.gguf',
-        overrideConfig: 'worker.kcpps',
-      ),
-      {'filename': 'worker.gguf', 'overrideconfig': 'worker.kcpps'},
-    );
+    expect(koboldAdminReloadBody(filename: 'fpai-worker.kcpps'), {
+      'filename': 'fpai-worker.kcpps',
+    });
   });
 }

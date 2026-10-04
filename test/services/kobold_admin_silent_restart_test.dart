@@ -27,6 +27,14 @@ KoboldProcessHost _host({
     baseUrl: 'http://127.0.0.1:5001',
     requestedModelPath: model,
     requestedKcppsPath: '/tmp/worker.kcpps',
+    // The role's config, staged in the admin folder (see worker_gpu_hosts).
+    stageConfig: () async => KoboldStagedRole(
+      filename: 'fpai-worker.kcpps',
+      path: '/admin/fpai-worker.kcpps',
+      key: 'worker config',
+      modelPath: model,
+      kcppsPath: '/tmp/worker.kcpps',
+    ),
     adminRetryDelay: retryDelay,
     isProcessRunning: isProcessRunning,
     swapLock: swapLock,
@@ -52,7 +60,9 @@ void main() {
     await host.restore();
     expect(
       hits.single,
-      contains('"filename":"worker.gguf"'),
+      // Was "worker.gguf": the swap named the model file, linked into the
+      // admin folder. It now names the config staged there.
+      contains('"filename":"fpai-worker.kcpps"'),
       reason: 'prepare-worker is restore-only — must still hit admin',
     );
     expect(starts, 0, reason: 'admin configured: no silent process restart');
