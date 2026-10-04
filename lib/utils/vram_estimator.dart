@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/gguf_model_info.dart';
 
@@ -189,23 +190,16 @@ class VramEstimator {
   static const int defaultFixedOverheadMb = 600;
 
   /// KV cache quantization byte-size factor (relative to f16).
-  static double _kvQuantFactor(String kvQuant) {
-    switch (kvQuant) {
-      case 'q8_0':
-        return 0.5;
-      case 'q4_0':
-        return 0.25;
-      default:
-        return 1.0;
-    }
-  }
+  static double _kvQuantFactor(String kvQuant) =>
+      KvQuant.parse(kvQuant).sizeFactor;
 
   /// Effective FFN dimension for compute buffer estimation.
   static int _ffnDimEffective(GGUFModelInfo info) {
     if (info.isMoe && info.expertFfnDim != null) {
       return info.expertFfnDim!;
     }
-    return info.ffnDim ?? (4 * info.nEmbd); // fallback: 4× embd (typical gated FFN)
+    return info.ffnDim ??
+        (4 * info.nEmbd); // fallback: 4× embd (typical gated FFN)
   }
 
   /// Estimate VRAM usage from detailed architecture metadata.
@@ -233,7 +227,8 @@ class VramEstimator {
       weightRatio = 1.0;
     }
     const headerMb = 50; // conservative header / non-layer tensor allowance
-    final weightsMb = ((fileSizeMb - headerMb).clamp(0, fileSizeMb) * weightRatio).round();
+    final weightsMb =
+        ((fileSizeMb - headerMb).clamp(0, fileSizeMb) * weightRatio).round();
 
     // KV cache — handles mixed-attention models (e.g. Gemma 4 with per-layer kv heads)
     final kvFactor = _kvQuantFactor(kvQuant);
@@ -249,7 +244,8 @@ class VramEstimator {
     // (flash attention scratch, MoE routing buffers, K+V separate projections).
     final nVocab = modelInfo.nVocab ?? 131072; // 128K fallback
     final ffnDimEff = _ffnDimEffective(modelInfo);
-    final perTokenBatch = 2 * (nVocab * 2 + modelInfo.nEmbd * 8 + ffnDimEff * 4);
+    final perTokenBatch =
+        2 * (nVocab * 2 + modelInfo.nEmbd * 8 + ffnDimEff * 4);
     final computeBufMb = (batchSize * perTokenBatch) ~/ (1024 * 1024);
 
     final totalMb = weightsMb + kvCacheMb + computeBufMb + fixedOverheadMb;
@@ -285,10 +281,12 @@ class VramEstimator {
     final keyLen = modelInfo.keyLength ?? modelInfo.headDim;
 
     // ── Mixed-attention path (per-layer kv heads or full_attention_interval) ──
-    final bool hasMixedHeads = perLayer != null &&
+    final bool hasMixedHeads =
+        perLayer != null &&
         perLayer.length == modelInfo.nLayers &&
         perLayer.toSet().length > 1;
-    final bool hasInterval = modelInfo.fullAttentionInterval != null &&
+    final bool hasInterval =
+        modelInfo.fullAttentionInterval != null &&
         modelInfo.fullAttentionInterval! > 1 &&
         modelInfo.slidingWindow != null;
 
@@ -298,7 +296,8 @@ class VramEstimator {
       // In FastForwarding mode (isSwa=false), all layers use full context.
       final nonSwaCells = contextSize + swWindow ~/ 4;
       final swaCells = isSwa
-          ? (contextSize < 8 * swWindow ? contextSize : 8 * swWindow) ~/ 4 + swWindow ~/ 8
+          ? (contextSize < 8 * swWindow ? contextSize : 8 * swWindow) ~/ 4 +
+                swWindow ~/ 8
           : nonSwaCells;
       final swaHeadDim = modelInfo.swaHeadDim ?? keyLen; // null → same as full
 
@@ -338,10 +337,11 @@ class VramEstimator {
     // ── Uniform model: use the original formula ──
     final effectiveCtx = isSwa
         ? (modelInfo.slidingWindow != null
-            ? contextSize.clamp(0, modelInfo.slidingWindow!)
-            : contextSize.clamp(0, 4096))
+              ? contextSize.clamp(0, modelInfo.slidingWindow!)
+              : contextSize.clamp(0, 4096))
         : contextSize;
-    return ((modelInfo.kvBytesPerToken * effectiveCtx * kvFactor) ~/ (1024 * 1024));
+    return ((modelInfo.kvBytesPerToken * effectiveCtx * kvFactor) ~/
+        (1024 * 1024));
   }
 
   /// Suggest a batch size that fits within [availableVramMb] given the margin.

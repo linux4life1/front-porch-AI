@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/services/kcpps_generator_service.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 class ContextManagementSelector extends StatelessWidget {
@@ -56,8 +56,7 @@ class ContextManagementSelector extends StatelessWidget {
                     style: TextStyle(fontSize: 11),
                   ),
                   dense: true,
-                  value: ContextManagementMode
-                      .slidingWindowAttention,
+                  value: ContextManagementMode.slidingWindowAttention,
                 ),
                 RadioListTile<ContextManagementMode>(
                   title: const Text(
@@ -70,8 +69,7 @@ class ContextManagementSelector extends StatelessWidget {
                     style: TextStyle(fontSize: 11),
                   ),
                   dense: true,
-                  value: ContextManagementMode
-                      .fastForwardSmartCache,
+                  value: ContextManagementMode.fastForwardSmartCache,
                 ),
               ],
             ),

@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as path;
 
+import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/kcpps_generator_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/context_management_selector.dart';
 import 'package:front_porch_ai/ui/widgets/gpu_info_tile.dart';
@@ -26,7 +26,7 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
   String? _selectedModelPath;
   final _contextSizeController = TextEditingController(text: '16384');
   int _contextSize = 16384;
-  String _kvQuant = 'f16';
+  KvQuant _kvQuant = KvQuant.f16;
   int _threads = 4;
   final _threadsController = TextEditingController(text: '4');
   final _batchSizeController = TextEditingController(text: '512');
@@ -41,11 +41,10 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
   bool _generating = false;
   GGUFModelInfo? _modelInfo;
   HardwareInfo? _hardwareInfo;
-  Map<String, dynamic> _gpuConfig = {};
+  ({KoboldGpuBackend backend, int? gpuId})? _gpu;
   String? _errorMessage;
   VramEstimateBreakdown? _vramEstimate;
 
-  final _kvQuantOptions = ['f16', 'q8_0', 'q4_0'];
   Timer? _debounceTimer;
 
   @override
@@ -91,10 +90,10 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
     if (!mounted) return;
     final hw = Provider.of<HardwareService>(context, listen: false);
     if (hw.hardwareInfo == null) return;
-    if (_hardwareInfo == hw.hardwareInfo && _gpuConfig.isNotEmpty) return;
+    if (_hardwareInfo == hw.hardwareInfo && _gpu != null) return;
 
     _hardwareInfo = hw.hardwareInfo;
-    _gpuConfig = KcppsGeneratorService.detectGpuBackend(_hardwareInfo);
+    _gpu = _detectGpu();
     _computeVramEstimate();
     final newBatchSize = _suggestBatchSize();
     setState(() {
@@ -225,7 +224,6 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
                     const SizedBox(height: 6),
                     _buildDropdown(
                       value: _kvQuant,
-                      items: _kvQuantOptions,
                       onChanged: (val) {
                         setState(() => _kvQuant = val!);
                         _refreshDefaults();
@@ -369,7 +367,7 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
 
                     GpuInfoTile(
                       hardwareInfo: _hardwareInfo,
-                      gpuConfig: _gpuConfig,
+                      gpuConfig: _gpuKeys,
                     ),
 
                     const SizedBox(height: 16),
@@ -438,9 +436,8 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
   }
 
   Widget _buildDropdown({
-    required String value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
+    required KvQuant value,
+    required ValueChanged<KvQuant?> onChanged,
     required Color colors,
     required ThemeData theme,
   }) {
@@ -451,7 +448,8 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
+        child: DropdownButton<KvQuant>(
+          key: const ValueKey('kcpps-kv-quant'),
           value: value,
           isExpanded: true,
           dropdownColor: colors,
@@ -462,20 +460,13 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
             Icons.arrow_drop_down,
             color: AppColors.textSecondary(context),
           ),
-          items: items.map((v) {
-            String label;
-            if (v == 'f16') {
-              label = 'None (f16) — highest quality';
-            } else if (v == 'q8_0') {
-              label = '8-bit (q8_0) — ~50% savings';
-            } else {
-              label = '4-bit (q4_0) — ~75% savings';
-            }
-            return DropdownMenuItem<String>(
-              value: v,
-              child: Text(label, style: const TextStyle(fontSize: 13)),
-            );
-          }).toList(),
+          items: [
+            for (final q in KvQuant.values)
+              DropdownMenuItem<KvQuant>(
+                value: q,
+                child: Text(q.label, style: const TextStyle(fontSize: 13)),
+              ),
+          ],
           onChanged: onChanged,
         ),
       ),

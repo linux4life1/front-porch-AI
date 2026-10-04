@@ -11,9 +11,9 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
     try {
       final hardware = Provider.of<HardwareService>(context, listen: false);
       _hardwareInfo = hardware.hardwareInfo;
-      _gpuConfig = KcppsGeneratorService.detectGpuBackend(_hardwareInfo);
+      _gpu = _detectGpu();
 
-      final detected = await KcppsGeneratorService.suggestThreadCount();
+      final detected = await suggestKoboldThreads();
 
       rebuildState(() {
         _threads = detected;
@@ -79,7 +79,7 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
         fileSizeBytes: fileSizeBytes,
         contextSize: _contextSize,
         batchSize: _batchSize,
-        kvQuant: _kvQuant,
+        kvQuant: _kvQuant.wire,
         isSwa: _contextMode == ContextManagementMode.slidingWindowAttention,
         // On Apple Silicon, CPU and GPU share unified memory: offloading MoE
         // experts to "CPU" frees no memory and would only slow generation, so
@@ -129,7 +129,7 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
       modelInfo: modelInfo,
       fileSizeBytes: file.lengthSync(), // io-ok: model change / generate
       contextSize: _contextSize,
-      kvQuant: _kvQuant,
+      kvQuant: _kvQuant.wire,
       isSwa: _contextMode == ContextManagementMode.slidingWindowAttention,
       moeExpertsOnCpu:
           !Platform.isMacOS, // unified memory; see _computeVramEstimate
@@ -153,22 +153,38 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
       final storage = Provider.of<StorageService>(context, listen: false);
       final messenger = ScaffoldMessenger.of(context);
       final navigator = Navigator.of(context);
-      final content = KcppsGeneratorService.buildKcppsContent(
-        modelPath: _selectedModelPath!,
+      final model = _selectedModelPath!;
+      final gpu = _gpu ?? _detectGpu();
+      // The vision file chosen for this model travels in the preset, so a
+      // preset loaded by a live swap still has it.
+      final mmproj = storage.presetSettings.modelMmprojMap[model] ?? '';
+      final version = await KoboldBinaryVersion.read(storage.binDir.path);
+      final config = KoboldLaunchConfig(
+        modelPath: model,
         contextSize: _contextSize,
         batchSize: _batchSize,
         threads: _threads,
+        autofitPaddingMb: _greedyAllocation ? 32 : 1024,
         kvQuant: _kvQuant,
-        greedyAllocation: _greedyAllocation,
-        gpuConfig: _gpuConfig,
+        backend: gpu.backend,
+        gpuId: gpu.gpuId,
         contextMode: _contextMode,
         smartCacheSlots: _smartCacheSlots,
+        mmprojPath: mmproj.isNotEmpty && await File(mmproj).exists()
+            ? mmproj
+            : '',
       );
-
-      final kcppsFile = await KcppsGeneratorService.writeKcppsFile(
-        storage.binDir,
-        _selectedModelPath!,
-        content,
+      final kcppsFile = File(
+        path.join(
+          storage.binDir.path,
+          '${path.basenameWithoutExtension(model)}.kcpps',
+        ),
+      );
+      await kcppsFile.writeAsString(
+        writeKcpps(
+          config,
+          caps: KoboldCapabilities.forVersion(version.version),
+        ),
       );
 
       await storage.presetSettings.setModelPreset(
@@ -197,4 +213,19 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
       });
     }
   }
+
+  ({KoboldGpuBackend backend, int? gpuId}) _detectGpu() => koboldGpuFor(
+    _hardwareInfo,
+    gpuId: Provider.of<StorageService>(
+      context,
+      listen: false,
+    ).backendSettings.gpuId,
+  );
+
+  /// The backend setting the preset will carry, for the hardware tile.
+  Map<String, dynamic> get _gpuKeys => switch (_gpu?.backend) {
+    KoboldGpuBackend.cuda => const {'usecublas': true},
+    KoboldGpuBackend.vulkan => const {'usevulkan': true},
+    _ => const {},
+  };
 }

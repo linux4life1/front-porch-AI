@@ -61,6 +61,7 @@ export 'llm_provider.dart';
 export 'worker_backend.dart';
 export 'worker_gpu_swap.dart';
 export 'worker_gpu_hosts.dart';
+export 'kobold/kobold.dart';
 export 'kobold_admin_swap.dart';
 export 'llm_service.dart';
 export 'kobold_service.dart';
