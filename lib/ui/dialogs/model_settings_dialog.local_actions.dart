@@ -18,93 +18,10 @@
 
 part of 'model_settings_dialog.dart';
 
-/// Auto-configuration and backend restart/start actions for the local
-/// (KoboldCpp) backend. Split out of `model_settings_dialog.dart` — verbatim
+/// The backend restart/start action for the local (KoboldCpp) backend. Split out of `model_settings_dialog.dart` — verbatim
 /// except `setState` -> `rebuildState` (extensions can't call a State's
 /// protected members).
 extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
-  void _applyAutoConfiguration() {
-    final hardware = Provider.of<HardwareService>(
-      context,
-      listen: false,
-    ).hardwareInfo;
-    if (hardware == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hardware not detected yet.')),
-      );
-      return;
-    }
-
-    int modelSize = 5000;
-    if (_selectedModelPath != null) {
-      try {
-        final file = File(_selectedModelPath!);
-        if (file.existsSync()) {
-          modelSize = (file.lengthSync() / (1024 * 1024)).round();
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    final storage = Provider.of<StorageService>(context, listen: false);
-
-    // Respect whatever the user currently has in the context field (critical for
-    // the new accurate KoboldLayerSolver). Also try to get real kvBytesPerToken
-    // for the selected model so the solver can be precise.
-    final userContext = int.tryParse(_contextSizeController.text);
-    int? kvBytesPerToken;
-    if (_selectedModelPath != null) {
-      final modelManager = Provider.of<ModelManager>(context, listen: false);
-      kvBytesPerToken =
-          modelManager
-              .getCachedModelArchitectureInfo(_selectedModelPath!)
-              ?.kvBytesPerToken ??
-          modelManager.getCachedKvBytesPerToken(_selectedModelPath!);
-    }
-
-    final suggestion = OptimizationService.calculateSettings(
-      hardware,
-      modelSizeMb: modelSize,
-      requestedContextSize: userContext,
-      kvBytesPerToken: kvBytesPerToken,
-      kvQuantizationLevel: storage.backendSettings.kvQuantizationLevel,
-    );
-
-    rebuildState(() {
-      _gpuLayersController.text = suggestion.gpuLayers.toString();
-      _contextSizeController.text = suggestion.contextSize.toString();
-
-      if (Platform.isMacOS) {
-        _useMetal = true;
-        _useVulkan = false;
-        _useCublas = false;
-        _useRocm = false;
-      } else if (hardware.vendor == 'Nvidia') {
-        _useCublas = true;
-        _useVulkan = false;
-        _useMetal = false;
-        _useRocm = false;
-      } else if (hardware.vendor == 'AMD' &&
-          Platform.isLinux &&
-          hardware.hasRocm) {
-        _useRocm = true;
-        _useVulkan = false;
-        _useCublas = false;
-        _useMetal = false;
-      } else {
-        _useVulkan = suggestion.useVulkan;
-        _useCublas = false;
-        _useMetal = false;
-        _useRocm = false;
-      }
-    });
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(suggestion.reasoning)));
-  }
-
   Future<void> _restartBackend() async {
     final koboldService = Provider.of<KoboldService>(context, listen: false);
     final backendManager = Provider.of<BackendManager>(context, listen: false);
@@ -176,6 +93,19 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
       }
     }
 
+    // A preset that cannot be read stops the launch. Said here, because
+    // the launch itself only writes it to the engine log.
+    final presetProblem = await koboldPresetProblem(
+      storage.backendSettings.activeKcppsPath,
+    );
+    if (presetProblem != null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(presetProblem)));
+      return;
+    }
+
     // When the preset owns the model, pass empty string — KoboldCPP reads
     // it from the .kcpps config. Otherwise pass the Flutter-selected path.
     final effectiveModel = presetOwnsModel ? '' : _selectedModelPath!;
@@ -187,10 +117,6 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
     storage.backendSettings.setContextSize(
       int.tryParse(_contextSizeController.text) ?? 16384,
     );
-    storage.backendSettings.setUseCublas(_useCublas);
-    storage.backendSettings.setUseVulkan(_useVulkan);
-    storage.backendSettings.setUseMetal(_useMetal);
-    storage.backendSettings.setUseRocm(_useRocm);
 
     // Await the full stop so the process tree is terminated and the port is
     // released before we start a new instance. Without this, Windows can
@@ -214,10 +140,14 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
           : null,
       gpuLayers: int.tryParse(_gpuLayersController.text) ?? 0,
       contextSize: int.tryParse(_contextSizeController.text) ?? 16384,
-      useVulkan: _useVulkan,
-      useCublas: _useCublas,
-      useMetal: _useMetal,
-      useRocm: _useRocm,
+      // This dialog has no graphics-backend control, so it passes on what
+      // is stored and records nothing. A choice never made stays "let the
+      // app pick from the hardware"; writing it here as four offs used to
+      // turn that into a deliberate CPU-only.
+      useVulkan: storage.backendSettings.useVulkan == true,
+      useCublas: storage.backendSettings.useCublas == true,
+      useMetal: storage.backendSettings.useMetal == true,
+      useRocm: storage.backendSettings.useRocm == true,
     );
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(

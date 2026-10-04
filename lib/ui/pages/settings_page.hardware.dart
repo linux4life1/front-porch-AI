@@ -34,23 +34,7 @@ extension _SettingsHardware on _SettingsPageState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const SectionHeader('Hardware & GPU'),
-            TextButton.icon(
-              onPressed: _autoConfigure,
-              icon: Icon(
-                Icons.auto_fix_high,
-                color: AppColors.porchAmberOf(context),
-              ),
-              label: Text(
-                'Auto-Configure',
-                style: TextStyle(color: AppColors.porchAmberOf(context)),
-              ),
-            ),
-          ],
-        ),
+        const SectionHeader('Hardware & GPU'),
         const SizedBox(height: 16),
         // Hardware Info with VRAM Gauge (always shown).
         Container(
@@ -170,13 +154,13 @@ extension _SettingsHardware on _SettingsPageState {
             ? (contextSize * kvBytesPerToken / (1024 * 1024))
             : (contextSize / 1024 * 100.0);
 
-        if (storageService.backendSettings.kvQuantizationLevel == 1) {
-          contextVramMb *= 0.5;
-        } else if (storageService.backendSettings.kvQuantizationLevel == 2) {
-          contextVramMb *= 0.25;
-        }
+        contextVramMb *= storageService.backendSettings.kvQuant.sizeFactor;
 
-        final gpuLayers = int.tryParse(_gpuLayersController.text) ?? 0;
+        // On Automatic the gauge shows the whole model against the card;
+        // KoboldCpp moves what does not fit into system memory.
+        final gpuLayers = storageService.backendSettings.gpuLayersManual
+            ? (int.tryParse(_gpuLayersController.text) ?? 0)
+            : 99;
 
         // Improved model VRAM estimate using real architecture data when available.
         double modelVramMb;
@@ -352,7 +336,8 @@ extension _SettingsHardware on _SettingsPageState {
     try {
       final file = File(path);
       if (file.existsSync()) {
-        sizeMb = (file.lengthSync() / (1024 * 1024)).round(); // io-ok: memoized per path — runs once per model selection, not per frame
+        sizeMb = (file.lengthSync() / (1024 * 1024))
+            .round(); // io-ok: memoized per path — runs once per model selection, not per frame
       }
     } catch (_) {}
     _modelSizeMbForPath = path;

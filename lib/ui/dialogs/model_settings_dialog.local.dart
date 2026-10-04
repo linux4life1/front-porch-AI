@@ -20,7 +20,7 @@ part of 'model_settings_dialog.dart';
 
 /// The local (KoboldCpp) backend's settings panel: model dropdown, vision
 /// projector field, preset picker, hardware info, GPU/context fields, KV
-/// quantization, and the Auto-Configure / Start-Restart buttons. Split out of
+/// quantization, and the Start-Restart button. Split out of
 /// `model_settings_dialog.dart` — verbatim except `setState` -> `rebuildState`
 /// (extensions can't call a State's protected members) and the amber ->
 /// formMasterAccent retheme noted inline below.
@@ -30,7 +30,6 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
     final modelManager = Provider.of<ModelManager>(context);
     final hardwareService = Provider.of<HardwareService>(context);
     final koboldService = Provider.of<KoboldService>(context);
-
     // Auto-select first model if none selected and models exist.
     // Skip when a kcpps preset with a valid model is active (use "Managed by kcpps").
     // Gate the exists memo on kcppsHasModel — same short-circuit the old
@@ -73,7 +72,6 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
               } else {
                 storage.backendSettings.setActiveKcppsPath(null);
               }
-              _applyAutoConfiguration();
             }
           },
         ),
@@ -241,16 +239,25 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                         ),
                         const SizedBox(height: 16),
 
+                        GpuLayersField(
+                          dense: true,
+                          manual: storage.backendSettings.gpuLayersManual,
+                          retiredLayers:
+                              storage.backendSettings.retiredGpuLayers,
+                          onDismissRetired:
+                              storage.backendSettings.dismissGpuLayersNote,
+                          controller: _gpuLayersController,
+                          onManualChanged: (v) {
+                            Provider.of<StorageService>(
+                              context,
+                              listen: false,
+                            ).backendSettings.setGpuLayersManual(v);
+                            rebuildState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 12),
                         Row(
                           children: [
-                            Expanded(
-                              child: _buildTextField(
-                                label: 'GPU Layers',
-                                controller: _gpuLayersController,
-                                isNumber: true,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
                             Expanded(
                               child: IgnorePointer(
                                 ignoring: _isPresetActive(context),
@@ -288,86 +295,17 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  value: Provider.of<StorageService>(
+                              child: KvQuantPicker(
+                                value: Provider.of<StorageService>(
+                                  context,
+                                ).backendSettings.kvQuant,
+                                onChanged: (val) {
+                                  Provider.of<StorageService>(
                                     context,
-                                  ).backendSettings.kvQuantizationLevel,
-                                  isExpanded: true,
-                                  dropdownColor: AppColors.surfaceContainerOf(
-                                    context,
-                                  ),
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary(context),
-                                    fontSize: 13,
-                                  ),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      Provider.of<StorageService>(
-                                        context,
-                                        listen: false,
-                                      ).backendSettings.setKvQuantizationLevel(
-                                        val,
-                                      );
-                                      rebuildState(() {});
-                                    }
-                                  },
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 0,
-                                      child: Text('0 - None (FP16)'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 1,
-                                      child: Text('1 - 8-Bit Q8'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 2,
-                                      child: Text('2 - 4-Bit Q4'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Tooltip(
-                              message:
-                                  'Quantizes the context window to save significant VRAM with minimal quality loss. Note: KoboldCPP dynamically disables Context Shifting when this is active.',
-                              child: Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: AppColors.iconSecondary(context),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                IgnorePointer(
-                  ignoring: isPresetActive,
-                  child: Opacity(
-                    opacity: isPresetActive ? 0.4 : 1.0,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            TextButton.icon(
-                              onPressed: _applyAutoConfiguration,
-                              icon: const Icon(
-                                Icons.auto_fix_high,
-                                // Retheme: was Colors.amber.
-                                color: AppColors.formMasterAccent,
-                              ),
-                              label: const Text(
-                                'Auto-Configure',
-                                style: TextStyle(
-                                  color: AppColors.formMasterAccent,
-                                ),
+                                    listen: false,
+                                  ).backendSettings.setKvQuant(val);
+                                  rebuildState(() {});
+                                },
                               ),
                             ),
                           ],

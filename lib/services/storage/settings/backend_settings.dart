@@ -18,6 +18,7 @@
 
 import 'dart:io';
 
+import 'kobold_launch_fields.dart';
 import 'settings_base.dart';
 import 'preset_settings.dart'; // for parseKcppsFile (static)
 import 'remote_api_key_vault.dart';
@@ -28,7 +29,8 @@ import 'worker_backend_settings.dart';
 ///
 /// Lifted Stage 7. kcppsHasModel + context override from active preset logic
 /// preserved exactly.
-class BackendSettings with SettingsBase, WorkerBackendFields {
+class BackendSettings
+    with SettingsBase, WorkerBackendFields, KoboldLaunchFields {
   String _backendType = 'kobold'; // 'kobold' or 'openRouter'
   bool _backendChoiceDone = false; // first-launch engine choice answered
   String _remoteApiKey = '';
@@ -55,8 +57,7 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
   bool? _useMetal;
   bool? _useRocm;
   bool _flashAttentionEnabled = true;
-  bool _mlockEnabled =
-      !( /* platform default computed at load if needed, but we persist */ false);
+  bool _mlockEnabled = false; // was on everywhere; pins the model in RAM
   int _blasBatchSize = 512;
   int _gpuId = 0;
   int _gpuLayers = 0;
@@ -142,15 +143,6 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
   int get blasBatchSize => _blasBatchSize;
   int get gpuId => _gpuId;
   int get gpuLayers => _gpuLayers;
-
-  /// True once the gpu_layers pref has ever been written — i.e. the user (or
-  /// an explicit auto-configure) has made a GPU-offload choice. A VALUE of 0
-  /// is not that signal: 0 is a deliberate CPU-only choice, and the low-VRAM
-  /// layer solver legitimately recommends 0. The Settings page's silent
-  /// first-run auto-config gates on this instead of `gpuLayers == 0`, which
-  /// re-ran it on every visit for CPU users and clobbered their saved
-  /// context size.
-  bool get gpuLayersConfigured => prefs?.containsKey(k('gpu_layers')) ?? false;
 
   int get contextSize => _contextSize;
   int get kvQuantizationLevel => _kvQuantizationLevel;
@@ -243,6 +235,7 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
     _kvQuantizationLevel =
         prefs?.getInt(k('kv_quantization_level')) ?? _kvQuantizationLevel;
     loadWorkerBackend();
+    loadKoboldLaunch();
   }
 
   /// Write a key into [url]'s vault slot without changing the live mouth

@@ -40,11 +40,11 @@ fits the model itself.
 | 3 | One rule for "which model loads" | No more wrong model after a restart; phone model switch fixed | Medium |
 | 4 | Swaps by config name | Windows swaps work; no pointless reloads; honest wait and messages | Medium |
 | 5 | Failure messages and live reload | Plain reasons; changing model tries a live reload before a restart | Medium |
-| 6 | Preset editor | Edit, rename, duplicate, delete, summary | Large |
+| 6 | Preset editor | Edit, rename, duplicate, delete, summary, draft settings | Large |
 | 7 | Web | Chat preset picker and summary | Small |
 
 Stage 8 (optional, later): thinking defaults in presets, splitting across
-cards, draft model, unload when idle.
+cards, unload when idle.
 
 **Context handling: the app must choose, not leave it to chance.**
 Sliding window on its own is fine. The problem is sliding window together
@@ -72,6 +72,76 @@ and context shift.
 2. What automatic fitting picks for a 16 GB model on a 12 GB card, and for a
    MoE model on a 6 GB card.
 3. The real out-of-memory text on each platform, for Stage 5's messages.
+
+**Measured on a real KoboldCpp (1.117.1, Apple Silicon, 2026-10-03)**
+
+These answer two of the three unknowns above for macOS. Windows and Linux
+are still to be checked.
+
+- A config in the admin folder that points at a model elsewhere on disk
+  live-reloads correctly. No file links are needed.
+- The reload call answers `{"success": true}` at once, before anything has
+  happened. The old model keeps answering for about a second, the server
+  then goes away, and it comes back with the new config. So "the reload
+  returned" and even "the server answered" do not mean the new model is
+  ready. Stage 4 must wait for the server to go down, or for the reported
+  context size to change, and only then for it to be ready.
+- A second reload sent during that first second is lost. Swaps must be
+  one at a time.
+- The chat template and the vision file written in a config are active
+  after a reload, and a config without a vision file loads without one.
+- A config written by the new writer launches and generates, in both
+  context modes, with 8-bit and 5-bit caches.
+- A manual layer count is honoured (10 of 37 layers when 10 was set).
+- KoboldCpp's own exported config stores the card id as text
+  (`"usecuda": ["normal", "1"]`), which confirms the number form the old
+  generator wrote was ignored.
+- **An old key name survives a launch and is lost on a live reload.** A
+  config with only `blasbatchsize: 1024` ran at 1024 after a launch and at
+  the default 512 after a live reload of the same file. The reload fills in
+  every missing default before it converts old names, so the conversion is
+  skipped. The same code handles `usecublas`, so a config that names the
+  card only under that old key would keep the card at launch and lose it on
+  a reload. The writer therefore writes both spellings of a renamed key
+  (`usecuda` and `usecublas`, `batchsize` and `blasbatchsize`); with both
+  present the value held across a reload. `usehipblas` is not a config key
+  at all: it is a command-line alias, and a ROCm build picks its library
+  from `usecuda`.
+- **Unloading frees the memory with mmap on, off, or with memory lock.**
+  KoboldCpp ends the process that holds the model and starts a fresh one.
+  With mmap on and the model on the GPU, system wired memory went from
+  4.6 GB to 8.8 GB on load and back to 4.6 GB on unload; with memory lock
+  on the CPU, 4.6 to 7.8 and back to 4.6. What stays behind is the model
+  file in the operating system's file cache (3.3 GB here), which is given
+  up the moment anything needs it and is why a second load is quick. With
+  mmap on, the process's own footprint was 0.9 GB against 4.5 GB with it
+  off.
+- **Batch sizes outside the launcher's list work from a config.** The
+  command line refuses 1536 ("invalid choice"); a config with 1536 or 8192
+  loads and reads a 9,000-token prompt normally. The number set is the
+  physical batch; the engine reports a logical batch of twice that.
+- **Draft settings pass through a config and survive a reload.** A config
+  with a draft model and `draftamount: 6` drafted (67 of 80 tokens accepted,
+  none rejected), and still drafted after a live reload to `draftamount: 3`.
+  `usemtp: true` on a model with no built-in draft heads loads and
+  generates normally.
+- In admin mode the engine is five processes, each with a command line
+  that begins with the executable's path, so a stop pattern anchored to
+  the app's engine folder gets all of them. Unanchored, the same pattern
+  also matched another program that merely used a file kept in that folder.
+- **Why a swap can end with the wrong model or none (read from the 1.117.1
+  source, then seen on the engine).** A reload request is only a note left
+  for the engine's manager, which looks for one every 0.2 seconds. When it
+  finds one it clears the note, waits half a second, stops the old model
+  process, starts the new one, and clears the note again. Two things
+  follow. First, the old model keeps answering for up to about a second
+  after "success", so the app's readiness check can be answered by the old
+  model and the next request goes to it. Second, a request that arrives
+  while the manager is in that half second is accepted and then wiped.
+  The app sends "unload" and then "reload" back to back, so whether the
+  reload survives depends on where the 0.2-second tick falls. A real run
+  reproduced it: unload then reload, the app reported ready, and the
+  engine still had the old config.
 
 **Cost in test changes.** Stages 2, 3 and 4 each have to rewrite existing
 tests, because those tests pin behaviour that is being removed on purpose.
@@ -149,10 +219,11 @@ New, under `lib/services/kobold/` with a `kobold.dart` barrel:
   `KoboldBinaryVersion`. Older builds get the older forms.
 - `cpu_threads.dart`: thread detection moved out of the generator.
 
-Writer rules: GPU id as text under the current key name, using the app's
-GPU setting; `jinja: true`; automatic fit not written; cache level as text;
-sliding-window mode writes `noswa: false`, `nofastforward: true`,
-`noshift: true`.
+Writer rules: GPU id as text, using the app's GPU setting; both spellings
+of a renamed key (see the measured notes: an old name alone is lost on a
+live reload, a new name alone is unknown to an old engine); `jinja: true`;
+automatic fit not written; cache level as text; sliding-window mode writes
+`noswa: false`, `nofastforward: true`, `noshift: true`.
 
 The existing generate dialog switches to the codec.
 `lib/services/kcpps_generator_service.dart` is deleted.
@@ -227,6 +298,16 @@ text and is replaced with a behavioural test.
   flag.
 - `lib/services/kobold_admin_swap.dart` loses the file-linking and filename
   logic.
+- One request per swap, then wait for the real switch. A swap on the one
+  engine sends only the reload (the engine replaces its model process
+  anyway, so a separate unload first is what opens the window in which the
+  reload is lost). It then waits until the old process has stopped
+  answering, and only then for the new model to be ready. An unload that
+  is wanted on its own waits until the engine reports nothing loaded.
+- The lane's swap bookkeeping is cached by lane only, so the chat model it
+  will put back and "is the lane's model the chat model" are frozen at
+  first use and go stale when the chat model changes mid-run. Both are
+  read from the one "what is loaded" record at call time instead.
 - After a restart, wait on the real "model ready" signal with a time limit
   scaled to the model's size, not 40 quarter-second checks.
 - The existing unused `onStep` hook is connected to the status line.
@@ -266,7 +347,20 @@ The out-of-memory patterns ship only after real log text is captured.
   when `GGUFModelInfo.slidingWindow` is set, with its speed cost stated;
   vision file with "keep on CPU"; a note when a preset carries settings the
   app does not manage; "use the app's own settings".
-- The batch field stops overwriting what the user typed.
+- The batch field stops overwriting what the user typed. It stays a free
+  number: sizes the launcher does not list (1536, 8192) work from a config,
+  so the range check only refuses values the engine cannot use.
+- Draft settings (moved here from Stage 8): a draft model file, "use the
+  model's built-in draft heads" (`usemtp`), and tokens drafted per step
+  (`draftamount`, any whole number, KoboldCpp's default is 4). One number
+  serves both kinds of drafting. The built-in switch is offered when the
+  model file says it has draft heads (`<arch>.nextn_predict_layers` above
+  zero; confirm against a real model with heads before gating on it). The
+  summary says that drafting switches request batching off and should not
+  be combined with a vision file.
+- Turning on a manual layer count clears a forced automatic fit the preset
+  carried, since KoboldCpp otherwise ignores the count and the MoE setting.
+  The reader already notes this when it opens such a file.
 
 Tests: library operations on a temp folder; a widget test that edits,
 saves and reopens a preset; summary lines for three real files.
@@ -278,8 +372,9 @@ saves and reopens a preset; summary lines for three real files.
   and limited to the engine folder.
 - Web chat-preset picker and summary card. No editor (deferred).
 - A journey in `web_ui/e2e/journeys.spec.ts`.
-- Update `docs/web-phone.md` and `docs/user-guide.md`; mark
-  `docs/moe-vram-estimation.md` superseded.
+- Update `docs/web-phone.md` and `docs/user-guide.md`.
+  (`docs/moe-vram-estimation.md` was marked superseded in Stage 2, with the
+  code it described.)
 
 ## Migration for existing users
 

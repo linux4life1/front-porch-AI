@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/optimization_service.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/setup_backend_picker.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
@@ -428,59 +427,5 @@ class SetupStep extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  void _applyAutoConfigure(
-    BuildContext context,
-    CreatorState state,
-    StorageService storage,
-  ) {
-    final hardware = Provider.of<HardwareService>(
-      context,
-      listen: false,
-    ).hardwareInfo;
-    if (hardware == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hardware not detected yet.')),
-      );
-      return;
-    }
-
-    int modelSize = 5000;
-    if (state.selectedLocalModelPath.isNotEmpty) {
-      try {
-        final file = File(state.selectedLocalModelPath);
-        final exists = file.existsSync(); // io-ok: Auto-Configure tap
-        if (exists) {
-          final n = file.lengthSync(); // io-ok: Auto-Configure tap
-          modelSize = (n / (1024 * 1024)).round();
-        }
-      } catch (_) {}
-    }
-
-    final userContext = int.tryParse(state.contextSizeController.text);
-    final modelManager = Provider.of<ModelManager>(context, listen: false);
-    int? kvBytesPerToken;
-    if (state.selectedLocalModelPath.isNotEmpty) {
-      kvBytesPerToken =
-          modelManager
-              .getCachedModelArchitectureInfo(state.selectedLocalModelPath)
-              ?.kvBytesPerToken ??
-          modelManager.getCachedKvBytesPerToken(state.selectedLocalModelPath);
-    }
-
-    final suggestion = OptimizationService.calculateSettings(
-      hardware,
-      modelSizeMb: modelSize,
-      requestedContextSize: userContext,
-      kvBytesPerToken: kvBytesPerToken,
-      kvQuantizationLevel: storage.backendSettings.kvQuantizationLevel,
-    );
-
-    state.gpuLayersController.text = suggestion.gpuLayers.toString();
-    state.contextSizeController.text = suggestion.contextSize.toString();
-    storage.backendSettings.setGpuLayers(suggestion.gpuLayers);
-    storage.backendSettings.setContextSize(suggestion.contextSize);
-    state.notify();
   }
 }

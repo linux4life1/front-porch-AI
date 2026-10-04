@@ -356,6 +356,11 @@ class BackendFacade {
       'hasMetal': h.hasMetal,
       'isSharedMemory': h.isSharedMemory,
       'detecting': _hardware?.isDetecting ?? false,
+      // Automatic unless someone set a layer count on the computer.
+      'gpuLayersManual': _storage.backendSettings.gpuLayersManual,
+      'gpuLayers': _storage.backendSettings.gpuLayers,
+      // The count in use before the move to Automatic, until acknowledged.
+      'gpuLayersRetired': _storage.backendSettings.retiredGpuLayers,
     };
   }
 

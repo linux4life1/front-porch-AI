@@ -27,7 +27,6 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 // Not in barrels (internal or low-frequency)
 import 'package:front_porch_ai/services/model_file_check.dart';
-import 'package:front_porch_ai/services/optimization_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/worker_backend_section.dart';
@@ -62,10 +61,6 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   // Local backend fields
   final _gpuLayersController = TextEditingController(text: '0');
   final _contextSizeController = TextEditingController(text: '');
-  bool _useVulkan = false;
-  bool _useCublas = false;
-  bool _useMetal = false;
-  bool _useRocm = false;
   String? _selectedModelPath;
 
   // Remote API fields
@@ -87,10 +82,6 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     super.initState();
     final storage = Provider.of<StorageService>(context, listen: false);
     // Local settings
-    _useCublas = storage.backendSettings.useCublas == true;
-    _useVulkan = storage.backendSettings.useVulkan == true;
-    _useMetal = storage.backendSettings.useMetal == true;
-    _useRocm = storage.backendSettings.useRocm == true;
     _selectedModelPath = storage.backendSettings.lastUsedModelPath;
     _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
     _contextSizeController.text = storage.backendSettings.contextSize

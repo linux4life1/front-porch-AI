@@ -29,7 +29,9 @@
 // ```
 
 export 'chip_list_editor.dart';
+export 'gpu_layers_field.dart';
 export 'identity_chip_lists.dart';
+export 'kv_quant_picker.dart';
 export 'wardrobe_chip_section.dart';
 export 'work_row.dart';
 export 'birthday_row.dart';

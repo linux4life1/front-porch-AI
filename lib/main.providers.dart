@@ -157,7 +157,15 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
           update: (context, storage, previous) =>
               previous ?? KoboldService(storage),
         ),
-        ChangeNotifierProvider(create: (_) => HardwareService()),
+        ChangeNotifierProvider(
+          create: (context) {
+            final hardware = HardwareService();
+            context.read<KoboldService>()
+              ..hardwareInfo = (() => hardware.hardwareInfo)
+              ..hardwareWhenKnown = hardware.whenKnown;
+            return hardware;
+          },
+        ),
         // Anonymous, opt-out app analytics. Lazy like AuthState — only built
         // when the Stoop is first opened (RepositoryPage reads it), so users who
         // never touch the hub make no network calls. It listens to AuthState and

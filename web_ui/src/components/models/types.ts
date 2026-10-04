@@ -83,6 +83,25 @@ export interface Hardware {
   hasMetal: boolean;
   isSharedMemory: boolean;
   detecting: boolean;
+  /** False (or absent, on an older app): KoboldCpp fits the model to the card itself. */
+  gpuLayersManual?: boolean;
+  gpuLayers?: number;
+  /** The layer count in use before the move to Automatic, until acknowledged. */
+  gpuLayersRetired?: number | null;
+}
+
+/** What the Hardware panel says about how the model is placed in graphics memory. */
+export function graphicsMemoryLine(hw: Pick<Hardware, 'gpuLayersManual' | 'gpuLayers'>): string {
+  return hw.gpuLayersManual
+    ? `${hw.gpuLayers ?? 0} layers, set on the computer`
+    : 'Automatic (KoboldCpp fits the model)';
+}
+
+/** The one-time note about the move to Automatic, or null when there is nothing to say. */
+export function retiredLayersNote(hw: Pick<Hardware, 'gpuLayersRetired'>): string | null {
+  return typeof hw.gpuLayersRetired === 'number'
+    ? `Before this update GPU layers was set to ${hw.gpuLayersRetired}. KoboldCpp now works out the fit by itself, so that number is no longer sent. It is kept: switch on “Set layers myself” on the computer to use it again.`
+    : null;
 }
 
 export const fmtSize = (b: number): string =>

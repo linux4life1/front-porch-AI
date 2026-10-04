@@ -141,19 +141,6 @@ extension _SettingsLaunchControls on _SettingsPageState {
     _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
     _contextSizeController.text = storage.backendSettings.contextSize
         .toString();
-
-    // Trigger silent autoconfig on load ONLY when GPU offload has never been
-    // configured at all (the pref has never been written). The old guard was
-    // `gpuLayers == 0`, which is NOT that signal: 0 is a deliberate CPU-only
-    // choice, and the low-VRAM solver legitimately recommends 0 — so CPU and
-    // low-VRAM users got silently re-configured on every visit.
-    if (_selectedModelPath != null &&
-        !storage.backendSettings.gpuLayersConfigured) {
-      // Warm before the silent auto-config so the solver gets good data on first run
-      final modelManager = Provider.of<ModelManager>(context, listen: false);
-      modelManager.getModelArchitectureInfo(_selectedModelPath!);
-      _applyAutoConfiguration(silent: true);
-    }
   }
 
   Future<void> _pickStoragePath() async {
@@ -207,174 +194,6 @@ extension _SettingsLaunchControls on _SettingsPageState {
     }
   }
 
-  void _applyAutoConfiguration({bool silent = false}) {
-    final hardware = Provider.of<HardwareService>(
-      context,
-      listen: false,
-    ).hardwareInfo;
-    if (hardware == null) {
-      if (!silent) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Hardware not detected yet.')),
-        );
-      }
-      return;
-    }
-
-    if (silent) {
-      _runOptimization(hardware.vramMb, hardware, silent: true);
-    } else {
-      final vramController = TextEditingController(
-        text: hardware.vramMb.toString(),
-      );
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: AppColors.cardOf(context),
-          title: Text(
-            'Auto-Configuration',
-            style: TextStyle(color: AppColors.textPrimary(context)),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Confirm your System VRAM (MB):',
-                style: TextStyle(color: AppColors.textSecondary(context)),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: vramController,
-                keyboardType: TextInputType.number,
-                style: TextStyle(color: AppColors.textPrimary(context)),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColors.surfaceContainerOf(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Note: Some systems report incorrect VRAM (e.g. 4095MB for >4GB cards). Adjust if necessary.',
-                style: TextStyle(
-                  color: AppColors.textTertiary(context),
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final adjustedVram =
-                    int.tryParse(vramController.text) ?? hardware.vramMb;
-                Navigator.pop(context);
-                _runOptimization(adjustedVram, hardware, silent: false);
-              },
-              child: const Text('Apply'),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  void _runOptimization(
-    int vramMb,
-    HardwareInfo hardware, {
-    required bool silent,
-  }) {
-    // Create temp hardware info with adjusted VRAM
-    final adjustedHw = HardwareInfo(
-      gpuName: hardware.gpuName,
-      vramMb: vramMb,
-      ramMb: hardware.ramMb,
-      vendor: hardware.vendor,
-    );
-
-    // Attempt to estimate model size from selected model
-    int modelSize = 5000;
-    if (_selectedModelPath != null) {
-      try {
-        final file = File(_selectedModelPath!);
-        if (file.existsSync()) {
-          modelSize = (file.lengthSync() / (1024 * 1024)).round();
-        }
-      } catch (e) {
-        debugPrint('Error getting file size: $e');
-      }
-    }
-
-    // Respect user's context size — pass it to the optimizer so only GPU layers adjust
-    final userContext = int.tryParse(_contextSizeController.text);
-
-    int? kvBytesPerToken;
-    if (_selectedModelPath != null && mounted) {
-      final modelManager = Provider.of<ModelManager>(context, listen: false);
-      kvBytesPerToken = modelManager.getCachedKvBytesPerToken(
-        _selectedModelPath!,
-      );
-    }
-
-    final suggestion = OptimizationService.calculateSettings(
-      adjustedHw,
-      modelSizeMb: modelSize,
-      requestedContextSize: userContext,
-      kvBytesPerToken: kvBytesPerToken,
-      kvQuantizationLevel: Provider.of<StorageService>(
-        context,
-        listen: false,
-      ).backendSettings.kvQuantizationLevel,
-    );
-
-    // Persist settings to storage so they survive app restart
-    final storage = Provider.of<StorageService>(context, listen: false);
-    storage.backendSettings.setGpuLayers(suggestion.gpuLayers);
-    storage.backendSettings.setContextSize(suggestion.contextSize);
-
-    rebuildState(() {
-      _gpuLayersController.text = suggestion.gpuLayers.toString();
-      _contextSizeController.text = suggestion.contextSize.toString();
-      // If user has Mac, suggest Metal
-      if (Platform.isMacOS) {
-        _useMetal = true;
-        _useVulkan = false;
-        _useCublas = false;
-        storage.backendSettings.setUseMetal(true);
-        storage.backendSettings.setUseVulkan(false);
-        storage.backendSettings.setUseCublas(false);
-      }
-      // If user has Nvidia, suggest Cublas instead of Vulkan usually
-      else if (hardware.vendor == 'Nvidia') {
-        _useCublas = true;
-        _useVulkan = false;
-        _useMetal = false;
-        storage.backendSettings.setUseCublas(true);
-        storage.backendSettings.setUseVulkan(false);
-      } else {
-        _useCublas = false;
-        _useMetal = false;
-      }
-    });
-
-    if (!silent) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(suggestion.reasoning)));
-    }
-  }
-
-  void _autoConfigure() {
-    _applyAutoConfiguration(silent: false);
-  }
-
   Future<void> _toggleManagedBackend(BuildContext context) async {
     final koboldService = Provider.of<KoboldService>(context, listen: false);
     final backendManager = Provider.of<BackendManager>(context, listen: false);
@@ -423,6 +242,19 @@ extension _SettingsLaunchControls on _SettingsPageState {
         ).showSnackBar(SnackBar(content: Text(problem)));
         return;
       }
+    }
+
+    // A preset that cannot be read stops the launch. Said here, because
+    // the launch itself only writes it to the engine log.
+    final presetProblem = await koboldPresetProblem(
+      storage.backendSettings.activeKcppsPath,
+    );
+    if (presetProblem != null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(presetProblem)));
+      return;
     }
 
     final gpuLayers = int.tryParse(_gpuLayersController.text) ?? 0;

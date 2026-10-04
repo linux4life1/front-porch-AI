@@ -98,6 +98,8 @@ List<Map<String, String>> _localKcpps(StorageService storage) {
             .listSync()
             .whereType<File>()
             .where((f) => f.path.toLowerCase().endsWith('.kcpps'))
+            // Files the app wrote for itself are not presets.
+            .where((f) => !isAppOwnedKcpps(f.path))
             .toList()
           ..sort((a, b) => p.basename(a.path).compareTo(p.basename(b.path)));
     return [

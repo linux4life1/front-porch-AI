@@ -19,7 +19,7 @@ new, or jump straight to whatever you're stuck on.
 | [Characters](characters.md) | Creating and editing characters, the V2/V2.5 card spec, avatars and expressions, importing from Backyard `.byaf` |
 | [Keyboard Shortcuts](keyboard-shortcuts.md) | Every shortcut, by screen |
 | [Output Sanitizer Syntax](output-sanitizer-syntax.md) | The find/replace rules for cleaning up model output, with worked examples |
-| [MoE-Aware VRAM Estimation](moe-vram-estimation.md) | How GPU layer counts are chosen for mixture-of-experts models |
+| [MoE-Aware VRAM Estimation](moe-vram-estimation.md) | Superseded. How the app used to choose GPU layer counts for mixture-of-experts models; KoboldCpp now fits the model itself |
 
 ## When something goes wrong
 

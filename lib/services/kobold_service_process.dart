@@ -85,20 +85,47 @@ extension KoboldServiceProcess on KoboldService {
     // Store the executable path for cleanup
     _executablePath = executablePath;
 
-    final args = await buildKoboldLaunchArgs(
-      storage: _storageService,
-      executablePath: executablePath,
-      modelPath: modelPath,
-      kcppsPath: kcppsPath,
-      mmprojPath: mmprojPath,
-      port: port,
-      gpuLayers: gpuLayers,
-      contextSize: contextSize,
-      useVulkan: useVulkan,
-      useCublas: useCublas,
-      useMetal: useMetal,
-      useRocm: useRocm,
-    );
+    // Older versions left a one-setting batch file in the engine folder,
+    // where it showed up as a preset. If it was picked, forget the pick.
+    await removeLegacyBatchOverride(path.dirname(executablePath));
+    if (kcppsPath != null && isAppOwnedKcpps(kcppsPath)) {
+      await _storageService.backendSettings.setActiveKcppsPath(null);
+      kcppsPath = null;
+    }
+
+    final List<String> args;
+    try {
+      args = await buildKoboldLaunchArgs(
+        storage: _storageService,
+        executablePath: executablePath,
+        modelPath: modelPath,
+        kcppsPath: kcppsPath,
+        mmprojPath: mmprojPath,
+        port: port,
+        gpuLayers: gpuLayers,
+        contextSize: contextSize,
+        useVulkan: useVulkan,
+        useCublas: useCublas,
+        useMetal: useMetal,
+        useRocm: useRocm,
+        hardware: hardwareInfo?.call(),
+        // Only asked for on a first run with no backend chosen. It can
+        // take a while on Windows, so the status says what is happening.
+        awaitHardware: hardwareWhenKnown == null
+            ? null
+            : () {
+                _modelLoadingStatus = 'Checking your graphics card...';
+                notify();
+                return hardwareWhenKnown!();
+              },
+        onNote: _addLog,
+      );
+    } on KoboldPresetProblem catch (e) {
+      _addLog(e.message);
+      _isStarting = false;
+      notify();
+      return;
+    }
 
     try {
       print('AG_DEBUG: === STARTING KOBOLDCPP ===');

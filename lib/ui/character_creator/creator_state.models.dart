@@ -133,6 +133,18 @@ extension CreatorStateModels on CreatorState {
       }
       final execPath = backendManager.backendPath!;
 
+      // A preset that cannot be read stops the launch; the launch itself
+      // only writes that to the engine log.
+      final presetProblem = await koboldPresetProblem(
+        storage.backendSettings.activeKcppsPath,
+      );
+      if (presetProblem != null) {
+        isReloadingKobold = false;
+        koboldStatus = presetProblem;
+        notify();
+        return;
+      }
+
       koboldStatus = 'Starting KoboldCpp with new model...';
       notify();
 
@@ -198,6 +210,8 @@ List<File> scanKcppsPresets(Directory binDir) {
         .listSync() // io-ok: preset scan
         .whereType<File>()
         .where((f) => f.path.toLowerCase().endsWith('.kcpps'))
+        // Files the app wrote for itself are not presets.
+        .where((f) => !isAppOwnedKcpps(f.path))
         .toList();
   } catch (_) {
     return [];

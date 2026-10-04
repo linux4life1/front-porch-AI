@@ -32,7 +32,6 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/model_file_check.dart';
-import 'package:front_porch_ai/services/optimization_service.dart';
 import 'package:front_porch_ai/services/web/web_server_host.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 
@@ -408,13 +407,8 @@ class _SettingsPageState extends State<SettingsPage> {
             storageService.backendSettings.setActiveKcppsPath(null);
           }
 
-          // Eagerly warm the GGUF architecture + KV cache so that
-          // Auto-Configure (and the live VRAM gauge) get accurate
-          // nLayers / bytes-per-layer on the first click instead of
-          // falling back to weaker heuristics.
+          // Warm the model details so the memory gauge is accurate.
           modelManager.getModelArchitectureInfo(val); // fire-and-forget
-
-          _applyAutoConfiguration(silent: true);
         }
       },
       onVisionChanged: () => setState(() {}),

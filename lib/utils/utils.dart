@@ -34,7 +34,6 @@ export 'group_avatar_compositor.dart';
 export 'character_id.dart';
 export 'group_realism_blobs.dart';
 export 'json_sanitizer.dart';
-export 'kobold_layer_solver.dart';
 export 'output_sanitizer_regex.dart';
 export 'path_exists_memo.dart';
 export 'persona_colors.dart';

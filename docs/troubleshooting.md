@@ -153,7 +153,7 @@ Front Porch AI manages a local AI engine (a program called **KoboldCpp**) for yo
 
 Slow almost always means **the model doesn't fit in your GPU's memory**, so it's partly running on the much slower CPU:
 
-1. **Lower GPU Layers** (Settings → Advanced → Hardware & GPU) until it fits — speed often jumps from a crawl to fast in one step. The **Auto-Configure** button at the top of that section will pick a value for you.
+1. **Leave Graphics memory on Automatic** (Settings → Advanced → Hardware & GPU). KoboldCpp then works out how much of the model fits on your graphics card and puts the rest in system memory. If you switched on **Set layers myself**, the number you typed may be too high: lower it, or switch back to Automatic.
 2. **Use a smaller or more compressed model.** A Q4 version of a model needs roughly half the memory of a Q8 with barely any quality loss. **Manage Models → Search / Download** shows a size and VRAM estimate on every file, colour-coded as fits / tight / too large, before you download.
 3. **Lower the context size.** Big context windows (16k+) eat GPU memory even before the model writes a word. It's the **Context Window** card in the same section, with quick-pick chips.
 4. **Check the right GPU is being used** — on laptops and multi-GPU machines the app can be pointed at the wrong one. Settings → Advanced → **Advanced Launch Options** → **GPU ID**.

@@ -1,5 +1,13 @@
 # MoE-Aware VRAM Estimation and KoboldCPP Launch for Auto-Configure
 
+> **Superseded.** Front Porch AI no longer estimates GPU layers itself, and
+> the Auto-Configure button described here is gone. KoboldCpp now fits the
+> model to the graphics card (Settings → Hardware & GPU → Graphics memory:
+> Automatic), which also places MoE models correctly. The code this page
+> documents (`KoboldLayerSolver`, `OptimizationService`) has been removed.
+> The page is kept for the history of why. The current design is in
+> [design/kobold-launch-rewrite.md](design/kobold-launch-rewrite.md).
+
 ## Problem
 
 The current app has two interacting failures for MoE models:

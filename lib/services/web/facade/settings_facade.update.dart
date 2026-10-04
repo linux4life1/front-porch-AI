@@ -216,6 +216,7 @@ extension SettingsFacadeUpdate on SettingsFacade {
 
     final ctx = body['contextSize'];
     if (ctx is num) await b.setContextSize(ctx.toInt());
+    if (body['gpuLayersNoteSeen'] == true) await b.dismissGpuLayersNote();
 
     final reasoning = body['reasoningEnabled'];
     if (reasoning is bool) {

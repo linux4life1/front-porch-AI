@@ -167,7 +167,7 @@ Yes, through **OpenRouter** (one key, lots of models) or any OpenAI-compatible U
 Usually the model is too big and spilled into regular RAM.
 
 - Smaller model, or Q4 instead of Q8
-- Settings → Advanced → lower **GPU Layers**
+- Settings → Advanced → keep **Graphics memory** on Automatic (if you turned on **Set layers myself**, lower the number or switch it back off)
 - Check it actually sees your GPU: [GPU not detected](troubleshooting.md#gpu-not-detected)
 - Giant context (16k+) is slow even on a good card
 

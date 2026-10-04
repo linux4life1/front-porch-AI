@@ -109,21 +109,27 @@ extension SetupStepFields on SetupStep {
                   ),
           ),
           const SizedBox(height: 16),
+          GpuLayersField(
+            dense: true,
+            manual: storage.backendSettings.gpuLayersManual,
+            retiredLayers: storage.backendSettings.retiredGpuLayers,
+            onDismissRetired: () {
+              storage.backendSettings.dismissGpuLayersNote();
+              state.notify();
+            },
+            controller: state.gpuLayersController,
+            onManualChanged: (v) {
+              storage.backendSettings.setGpuLayersManual(v);
+              state.notify();
+            },
+            onLayersChanged: (v) {
+              final val = int.tryParse(v);
+              if (val != null) storage.backendSettings.setGpuLayers(val);
+            },
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildSettingsTextField(
-                  context,
-                  label: 'GPU Layers',
-                  controller: state.gpuLayersController,
-                  isNumber: true,
-                  onChanged: (v) {
-                    final val = int.tryParse(v);
-                    if (val != null) storage.backendSettings.setGpuLayers(val);
-                  },
-                ),
-              ),
-              const SizedBox(width: 16),
               Expanded(
                 child: _buildSettingsTextField(
                   context,
@@ -152,43 +158,12 @@ extension SetupStepFields on SetupStep {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: storage.backendSettings.kvQuantizationLevel,
-                    isExpanded: true,
-                    dropdownColor: AppColors.surfaceContainerOf(context),
-                    style: TextStyle(
-                      color: AppColors.textPrimary(context),
-                      fontSize: 13,
-                    ),
-                    onChanged: (val) {
-                      if (val != null) {
-                        storage.backendSettings.setKvQuantizationLevel(val);
-                        state.notify();
-                      }
-                    },
-                    items: const [
-                      DropdownMenuItem(
-                        value: 0,
-                        child: Text('0 - None (FP16)'),
-                      ),
-                      DropdownMenuItem(value: 1, child: Text('1 - 8-Bit Q8')),
-                      DropdownMenuItem(value: 2, child: Text('2 - 4-Bit Q4')),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: () => _applyAutoConfigure(context, state, storage),
-                icon: const Icon(Icons.auto_fix_high, color: Colors.amber),
-                label: const Text(
-                  'Auto-Configure',
-                  style: TextStyle(color: Colors.amber),
+                child: KvQuantPicker(
+                  value: storage.backendSettings.kvQuant,
+                  onChanged: (val) {
+                    storage.backendSettings.setKvQuant(val);
+                    state.notify();
+                  },
                 ),
               ),
             ],

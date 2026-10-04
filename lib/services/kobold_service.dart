@@ -22,7 +22,9 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
+import 'package:front_porch_ai/models/hardware_info.dart';
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_launch_args.dart';
@@ -67,6 +69,14 @@ class KoboldService extends ChangeNotifier
   /// [consumeModelReady] so each load is seen once.
   bool _modelJustLoaded = false;
   String? _executablePath;
+
+  /// The detected graphics hardware, when the app has it. A launch with no
+  /// backend ever chosen uses it instead of falling back to the CPU.
+  HardwareInfo? Function()? hardwareInfo;
+
+  /// The same, waiting for a first detection that is still running. Only
+  /// asked when no graphics backend was ever chosen.
+  Future<HardwareInfo?> Function()? hardwareWhenKnown;
   Timer? _readinessProbe;
 
   /// Ground-truth per-request progress parsed from the managed process's own

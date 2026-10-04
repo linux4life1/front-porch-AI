@@ -37,6 +37,51 @@ extension _SettingsLaunchOptions on _SettingsPageState {
     return _launchModelExistsCache;
   }
 
+  /// The Start/Restart button under Advanced Launch Options: applies the
+  /// launch settings above by starting the engine again.
+  Future<void> _restartFromLaunchOptions(BuildContext ctx) async {
+    final koboldService = Provider.of<KoboldService>(ctx, listen: false);
+    final backendManager = Provider.of<BackendManager>(ctx, listen: false);
+    final storage = Provider.of<StorageService>(ctx, listen: false);
+    final messenger = ScaffoldMessenger.of(ctx);
+    final b = storage.backendSettings;
+
+    // A preset that cannot be read stops the launch. Said here, because
+    // the launch itself only writes it to the engine log.
+    final presetProblem = await koboldPresetProblem(b.activeKcppsPath);
+    if (presetProblem != null) {
+      messenger.showSnackBar(SnackBar(content: Text(presetProblem)));
+      return;
+    }
+
+    final wasRunning = koboldService.isRunning;
+    if (wasRunning) {
+      await koboldService.stopKobold();
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    koboldService.startKobold(
+      backendManager.backendPath!,
+      b.lastUsedModelPath!,
+      kcppsPath: b.activeKcppsPath,
+      mmprojPath: storage.presetSettings.modelMmprojMap[b.lastUsedModelPath!],
+      gpuLayers: b.gpuLayers,
+      contextSize: b.contextSize,
+      useVulkan: b.useVulkan ?? false,
+      useCublas: b.useCublas ?? false,
+      useMetal: b.useMetal ?? false,
+      useRocm: b.useRocm ?? false,
+    );
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          wasRunning
+              ? 'Restarting backend with new settings…'
+              : 'Starting backend…',
+        ),
+      ),
+    );
+  }
+
   Widget _buildAdvancedLaunchOptions(
     BuildContext context,
     StorageService storage,
@@ -384,72 +429,7 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                     ),
                   if (canRestart)
                     ElevatedButton.icon(
-                      onPressed: koboldService.isRunning
-                          ? () async {
-                              await koboldService.stopKobold();
-                              await Future.delayed(const Duration(seconds: 1));
-                              if (!ctx.mounted) return;
-                              koboldService.startKobold(
-                                backendManager.backendPath!,
-                                storage.backendSettings.lastUsedModelPath!,
-                                kcppsPath:
-                                    storage.backendSettings.activeKcppsPath,
-                                mmprojPath:
-                                    storage
-                                        .presetSettings
-                                        .modelMmprojMap[storage
-                                        .backendSettings
-                                        .lastUsedModelPath!],
-                                gpuLayers: storage.backendSettings.gpuLayers,
-                                contextSize:
-                                    storage.backendSettings.contextSize,
-                                useVulkan:
-                                    storage.backendSettings.useVulkan ?? false,
-                                useCublas:
-                                    storage.backendSettings.useCublas ?? false,
-                                useMetal:
-                                    storage.backendSettings.useMetal ?? false,
-                                useRocm:
-                                    storage.backendSettings.useRocm ?? false,
-                              );
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Restarting backend with new settings…',
-                                  ),
-                                ),
-                              );
-                            }
-                          : () {
-                              koboldService.startKobold(
-                                backendManager.backendPath!,
-                                storage.backendSettings.lastUsedModelPath!,
-                                kcppsPath:
-                                    storage.backendSettings.activeKcppsPath,
-                                mmprojPath:
-                                    storage
-                                        .presetSettings
-                                        .modelMmprojMap[storage
-                                        .backendSettings
-                                        .lastUsedModelPath!],
-                                gpuLayers: storage.backendSettings.gpuLayers,
-                                contextSize:
-                                    storage.backendSettings.contextSize,
-                                useVulkan:
-                                    storage.backendSettings.useVulkan ?? false,
-                                useCublas:
-                                    storage.backendSettings.useCublas ?? false,
-                                useMetal:
-                                    storage.backendSettings.useMetal ?? false,
-                                useRocm:
-                                    storage.backendSettings.useRocm ?? false,
-                              );
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Starting backend…'),
-                                ),
-                              );
-                            },
+                      onPressed: () => _restartFromLaunchOptions(ctx),
                       icon: Icon(
                         koboldService.isRunning
                             ? Icons.restart_alt

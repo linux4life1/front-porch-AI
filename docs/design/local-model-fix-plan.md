@@ -384,9 +384,11 @@ what is left out.
   - **Automatic fit is forced on.** It is already switched on by "automatic
     layers". Forcing it makes KoboldCpp ignore any MoE or tensor placement
     setting, which blocks item 20 below.
-  - **Batch size can be set higher than KoboldCpp's own launcher allows**
-    (8192 against 4096), and the batch field overwrites what the user typed
-    whenever another field changes.
+  - **The batch field overwrites what the user typed** whenever another
+    field changes. (An earlier version of this item also called it wrong
+    that the field accepts sizes KoboldCpp's launcher does not list. That
+    was withdrawn: 1536 and 8192 were checked on a real KoboldCpp and work
+    from a config. Only the command line refuses them.)
 - **Size:** Small to medium, as one batch.
 
 ### 18. Edit, view and manage presets
