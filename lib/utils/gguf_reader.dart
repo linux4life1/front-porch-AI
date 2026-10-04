@@ -143,7 +143,14 @@ class GGUFFileReader {
               complete = false;
               break;
             }
-            offset += 8 + data.getUint64(offset, Endian.little).toInt();
+            // A length past the end, or one over 2^63 that reads back as
+            // negative and would never move the offset on.
+            final len = data.getUint64(offset, Endian.little);
+            if (len < 0 || len > bytes.length - offset - 8) {
+              complete = false;
+              break;
+            }
+            offset += 8 + len;
           }
           if (!complete || offset > bytes.length) break;
         } else {

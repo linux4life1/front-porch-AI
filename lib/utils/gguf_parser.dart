@@ -80,6 +80,9 @@ class GGUFParser {
     if (blockCount == null || nHeads == null || nEmbd == null || nHeads <= 0) {
       return null;
     }
+    // Real models have fewer than 200 blocks. A count far past that is a
+    // broken or hostile file, and every per-layer list below would follow it.
+    if (blockCount <= 0 || blockCount > 4096) return null;
 
     final kvHeadsRaw = meta['$arch.attention.head_count_kv'];
     final kvHeadsPerLayer = kvHeadsRaw is List
