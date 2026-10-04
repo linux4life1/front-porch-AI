@@ -61,6 +61,10 @@ class BackendManager extends ChangeNotifier {
   double get downloadProgress => _downloadProgress;
   String? get backendPath => _backendPath;
   String? get error => _error;
+
+  /// Where this machine's engine is downloaded from. A test serves its own.
+  @visibleForTesting
+  String get engineDownloadUrl => _getDownloadUrl();
   String get statusMessage => _statusMessage;
   String? get localVersion => _localVersion;
   int? get localSize => _localSize;

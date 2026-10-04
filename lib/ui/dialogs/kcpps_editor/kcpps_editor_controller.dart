@@ -29,6 +29,7 @@ class KcppsEditorController extends ChangeNotifier {
     this.reloadChat,
     this.loadTrial,
     this.models = const [],
+    this.enginePath,
     Future<int> Function()? threads,
     Future<FreeMemoryMb?> Function()? readFree,
     Future<({GGUFModelInfo? info, int bytes})> Function(String path)? readModel,
@@ -54,6 +55,9 @@ class KcppsEditorController extends ChangeNotifier {
 
   /// The model files the app knows.
   final List<String> models;
+
+  /// The KoboldCpp binary, whose version keys what is learned about it.
+  final String? enginePath;
 
   /// Their sizes in bytes, as read.
   Map<String, int> modelSizes = const {};
@@ -112,9 +116,10 @@ class KcppsEditorController extends ChangeNotifier {
   }
 
   Future<void> init() async {
-    engineVersion = (await KoboldBinaryVersion.read(
-      storage.binDir.path,
-    )).version;
+    final engine = enginePath;
+    engineVersion = engine == null
+        ? null
+        : await KoboldBinaryVersion.versionFor(engine);
     free = await _freeMemory();
     presets = await library.list();
     modelSizes = {for (final m in models) m: ?await _size(m)};

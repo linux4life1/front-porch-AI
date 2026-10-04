@@ -50,6 +50,8 @@ void main() {
 
   test('an engine older than 1.112 is not started, and the reason says to '
       'update it', () async {
+    // The record is trusted only for the binary it was written for.
+    File(engine).writeAsBytesSync([0]);
     await KoboldBinaryVersion.write(dir.path, version: '1.110', size: 1);
 
     final result = await kobold.launch(engine, pickedModel: model, port: 5998);

@@ -53,7 +53,7 @@ extension BackendManagerDownload on BackendManager {
       }
 
       final executableName = _getExecutableName();
-      final downloadUrl = _getDownloadUrl();
+      final downloadUrl = engineDownloadUrl;
       final savePath = path.join(binDir.path, executableName);
       // Stage into a sibling `.part` and swap it onto the live path only after
       // the size checks pass. Writing straight onto `savePath` meant a stream
@@ -193,6 +193,13 @@ extension BackendManagerDownload on BackendManager {
           version: _remoteVersion!,
           size: fileSize,
         );
+      } else {
+        // The lookup failed: no record beats the old engine's, which would
+        // refuse this one as too old.
+        final stale = File(
+          path.join(binDir.path, KoboldBinaryVersion.fileName),
+        );
+        if (await stale.exists()) await stale.delete();
       }
 
       _isDownloading = false;

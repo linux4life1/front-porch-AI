@@ -18,8 +18,6 @@
 
 import 'dart:io';
 
-import 'package:path/path.dart' as path;
-
 import 'package:front_porch_ai/models/hardware_info.dart';
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
@@ -109,10 +107,10 @@ Future<KoboldStagedRole> stageKoboldRole({
   FreeMemoryMb? free,
   void Function(String note)? onNote,
 }) async {
-  final version = await KoboldBinaryVersion.read(path.dirname(executablePath));
+  final version = await KoboldBinaryVersion.versionFor(executablePath);
   final config = await koboldLaunchMap(
     storage: storage,
-    caps: KoboldCapabilities.forVersion(version.version),
+    caps: KoboldCapabilities.forVersion(version),
     modelPath: modelPath,
     kcppsPath: kcppsPath,
     mmprojPath: mmprojPath,
@@ -125,7 +123,7 @@ Future<KoboldStagedRole> stageKoboldRole({
     hardware: hardware,
     awaitHardware: awaitHardware,
     free: free,
-    engineVersion: version.version,
+    engineVersion: version,
     onNote: onNote,
   );
   final adminDir = koboldAdminDirFor(storage);

@@ -50,6 +50,10 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
             for (final m in context.read<ModelManager>().models)
               if (m.path.toLowerCase().endsWith('.gguf')) m.path,
           ],
+          enginePath: Provider.of<BackendManager?>(
+            context,
+            listen: false,
+          )?.backendPath,
         );
     c.addListener(_follow);
     if (!c.ready) c.init();
