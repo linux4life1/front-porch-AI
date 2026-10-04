@@ -92,6 +92,7 @@ extension KoboldServiceAdmin on KoboldService {
     _stopReadinessProbe();
     _modelReady = false;
     _loadedModelPath = null;
+    _residentKey = null;
     _loadGeneration++;
     _modelLoadingStatus = 'Unloading model...';
     notify();
@@ -112,6 +113,42 @@ extension KoboldServiceAdmin on KoboldService {
       _loadedKcppsPath = kcpps.isEmpty ? null : kcpps;
     }
   }
+
+  /// Whether the config with this content is loaded and ready: the one
+  /// answer every swap asks for, so a swap that is not needed is not sent.
+  bool isResident(String key) => _modelReady && _residentKey == key;
+
+  /// A swap finished loading the config with this content.
+  void noteResident(String key) => _residentKey = key;
+
+  /// Says on the status line what a swap is doing.
+  void showSwapStep(String step) {
+    _modelLoadingStatus = step;
+    notify();
+  }
+
+  /// Waits for an admin reload that was just asked for to really happen: a
+  /// new model process, and that one generating. The reload call answers
+  /// before the engine acts, and the old model answers for a moment more,
+  /// so "ready" alone would be the old model.
+  Future<void> waitForSwap({required Duration timeout}) async {
+    await waitForKoboldReload(
+      uptime: () => koboldEngineUptime(_baseUrl),
+      ready: () => probeKoboldGenerationReady(baseUrl: _baseUrl),
+      timeout: timeout,
+    );
+    if (!_modelReady) _markModelReady();
+  }
+
+  /// Waits until an unload that was just asked for has happened: a new
+  /// model process that reports nothing loaded.
+  Future<void> waitForUnload({
+    Duration timeout = const Duration(seconds: 60),
+  }) => waitForKoboldReload(
+    uptime: () => koboldEngineUptime(_baseUrl),
+    ready: () async => await koboldEngineModel(_baseUrl) == 'inactive',
+    timeout: timeout,
+  );
 
   /// Poll a tiny `/v1/chat/completions` until the swapped GGUF generates.
   /// Version 200 alone is not enough (empty streams / 0-token pings).

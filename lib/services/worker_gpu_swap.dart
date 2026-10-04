@@ -152,6 +152,7 @@ class GpuSwapOccupancy {
     required this.mouth,
     required this.worker,
     this.sameResident = false,
+    this.sharedEngine = false,
     this.onStep,
     this.residentGeneration,
   });
@@ -159,6 +160,16 @@ class GpuSwapOccupancy {
   final GpuSwapHost mouth;
   final GpuSwapHost worker;
   final bool sameResident;
+
+  /// Both roles are configs of ONE engine process (the app's KoboldCpp).
+  /// Loading one replaces the other, so nothing is unloaded first: an
+  /// unload followed at once by a load is two requests, and the engine
+  /// drops the second when it arrives while it is acting on the first.
+  /// Each host also knows from the engine's own record whether its config
+  /// is the one loaded, so it is asked every time instead of trusting
+  /// [mouthDown] or [sameResident], which go stale when anything else
+  /// reloads the engine.
+  final bool sharedEngine;
   final void Function(String step)? onStep;
 
   /// A counter the engine raises whenever what it has loaded changes. When
@@ -206,8 +217,13 @@ class GpuSwapOccupancy {
     debugPrint('[GpuSwap] $step');
   }
 
+  /// The two roles were the same model on separate engines when this was
+  /// built, so there is nothing to swap. Never true on a shared engine,
+  /// where that is asked afresh each time.
+  bool get _noSwap => sameResident && !sharedEngine;
+
   Future<T> hold<T>(Future<T> Function() work) async {
-    if (sameResident) return work();
+    if (_noSwap) return work();
     await _acquire();
     try {
       return await work();
@@ -216,13 +232,13 @@ class GpuSwapOccupancy {
     }
   }
 
-  Future<void> open() => sameResident ? Future<void>.value() : _acquire();
+  Future<void> open() => _noSwap ? Future<void>.value() : _acquire();
 
-  Future<void> close() => sameResident ? Future<void>.value() : _release();
+  Future<void> close() => _noSwap ? Future<void>.value() : _release();
 
   /// Speech / idle: unload worker and put the mouth model back.
   Future<void> ensureMouth() {
-    if (sameResident) return Future<void>.value();
+    if (_noSwap) return Future<void>.value();
     final done = _tail.then((_) => _ensureMouthLocked());
     _tail = done.catchError((_) {});
     return done;
@@ -245,6 +261,29 @@ class GpuSwapOccupancy {
 
   Future<void> _acquireLocked() async {
     _depth++;
+    if (sharedEngine) {
+      _busy = true;
+      try {
+        if (!_mouthDown) _record('prepare-worker:${worker.label}');
+        _mouthDown = true;
+        await worker.restore();
+      } catch (e) {
+        _depth--;
+        try {
+          _record('restore-mouth:${mouth.label}');
+          await mouth.restore();
+        } catch (restoreErr) {
+          debugPrint(
+            '[GpuSwap] mouth restore after failed acquire: $restoreErr',
+          );
+        }
+        _mouthDown = false;
+        rethrow;
+      } finally {
+        _busy = false;
+      }
+      return;
+    }
     if (_mouthDown) {
       final now = residentGeneration?.call();
       if (now == null || now == _workerLoadedAt) return;
@@ -280,6 +319,17 @@ class GpuSwapOccupancy {
   }
 
   Future<void> _ensureMouthLocked() async {
+    if (sharedEngine) {
+      _busy = true;
+      try {
+        if (_mouthDown) _record('restore-mouth:${mouth.label}');
+        await mouth.restore();
+        _mouthDown = false;
+      } finally {
+        _busy = false;
+      }
+      return;
+    }
     if (!_mouthDown) return;
     _busy = true;
     try {

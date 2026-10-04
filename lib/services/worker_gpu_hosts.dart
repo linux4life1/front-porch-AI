@@ -21,8 +21,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/capability/capability.dart';
+import 'package:front_porch_ai/services/kobold/kobold_config_stage.dart';
+import 'package:front_porch_ai/services/kobold/kobold_swap_wait.dart';
 import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/worker_gpu_swap.dart';
 
@@ -228,12 +231,16 @@ class KoboldProcessHost implements GpuSwapHost {
     required this.startProcess,
     this.isProcessRunning,
     this.waitUntilReady,
+    this.waitForReload,
+    this.waitForUnload,
     this.markNotReady,
     this.requestedModelPath,
     this.requestedKcppsPath,
-    this.launchedKcppsPath,
-    this.adminDir,
+    this.stageConfig,
+    this.isResident,
     this.noteLoadedPair,
+    this.noteResident,
+    this.onStep,
     this.adminRetryAttempts = kKoboldAdminRetryAttempts,
     this.adminRetryDelay = kKoboldAdminRetryDelay,
     KoboldAdminSwapLock? swapLock,
@@ -245,24 +252,47 @@ class KoboldProcessHost implements GpuSwapHost {
   final Future<void> Function() stopProcess;
   final Future<void> Function() startProcess;
   final bool Function()? isProcessRunning;
+
+  /// Waits until the model generates. Used after a process restart, and
+  /// after an admin reload when [waitForReload] is not given.
   final Future<void> Function()? waitUntilReady;
+
+  /// Waits for an admin reload that was just asked for to really happen:
+  /// the engine starts a new model process, and that one is ready. The
+  /// reload call returns before anything has happened, and the old model
+  /// goes on answering for a moment.
+  final Future<void> Function()? waitForReload;
+
+  /// Waits until the engine reports that nothing is loaded.
+  final Future<void> Function()? waitForUnload;
+
   final void Function()? markNotReady;
 
   /// GGUF this host must have resident after [restore].
   final String? requestedModelPath;
 
-  /// `.kcpps` this host must start with (admin `overrideconfig` when set).
+  /// The `.kcpps` this host's role uses, if any.
   final String? requestedKcppsPath;
 
-  /// Last-start `.kcpps`. Empty GGUF + same file uses `initial_model`.
-  final String Function()? launchedKcppsPath;
+  /// Writes this role's ready-to-run config into the admin folder and
+  /// returns its file name there, plus a key for its content. The reload
+  /// is asked for by that name. Null: the engine is asked for the model it
+  /// was started with.
+  final Future<KoboldStagedRole> Function()? stageConfig;
 
-  /// `--admindir`. Requested GGUF/`.kcpps` are staged here so jail accepts them.
-  final String? adminDir;
+  /// Whether the config with this key is what the engine has loaded.
+  final bool Function(String key)? isResident;
 
   /// Stamp the pair admin just loaded and re-arm ready (process stays up).
   final FutureOr<void> Function(String modelPath, String kcppsPath)?
   noteLoadedPair;
+
+  /// Record the content key of what admin just loaded.
+  final void Function(String key)? noteResident;
+
+  /// Plain words for the status line: which model is loading.
+  final void Function(String step)? onStep;
+
   final int adminRetryAttempts;
   final Duration adminRetryDelay;
   final KoboldAdminSwapLock swapLock;
@@ -274,17 +304,6 @@ class KoboldProcessHost implements GpuSwapHost {
     if (model.isEmpty) return 'kobold:$baseUrl';
     return 'kobold:$model';
   }
-
-  String get _reloadFilename => koboldAdminLoadFilename(
-    requestedModel: requestedModelPath ?? '',
-    requestedKcpps: requestedKcppsPath ?? '',
-    launchedKcpps: launchedKcppsPath?.call() ?? '',
-  );
-
-  String get _reloadOverride => koboldAdminLoadOverride(
-    requestedModel: requestedModelPath ?? '',
-    requestedKcpps: requestedKcppsPath ?? '',
-  );
 
   bool get _processAlive => isProcessRunning?.call() == true;
 
@@ -306,6 +325,7 @@ class KoboldProcessHost implements GpuSwapHost {
         try {
           await _runAdmin(admin.unload, 'unload');
           markNotReady?.call();
+          await waitForUnload?.call();
           return;
         } catch (e) {
           if (koboldAdminErrorIsTimeout(e) && _processAlive) {
@@ -341,30 +361,39 @@ class KoboldProcessHost implements GpuSwapHost {
   @override
   Future<void> restore() async {
     await swapLock.enqueue(() async {
+      final staged = await stageConfig?.call();
+      // Already what the engine has loaded: nothing to send.
+      if (staged != null && isResident?.call(staged.key) == true) return;
+
+      final model = (staged?.modelPath ?? requestedModelPath ?? '').trim();
+      if (model.isNotEmpty) onStep?.call('Loading ${p.basename(model)}...');
+
       var reloaded = false;
       Object? lastError;
       final admin = _admin;
       if (admin != null) {
         try {
-          await _runAdmin(() async {
-            final staged = koboldAdminStagedReload(
-              filename: _reloadFilename,
-              overrideConfig: _reloadOverride,
-              adminDir: adminDir ?? '',
-              modelPath: requestedModelPath ?? '',
-              kcppsPath: requestedKcppsPath ?? '',
-            );
-            await admin.reloadConfig(
-              filename: staged.filename,
-              overrideConfig: staged.overrideConfig,
-            );
-          }, 'restore');
-          final noted = noteLoadedPair?.call(
-            requestedModelPath ?? '',
-            requestedKcppsPath ?? '',
+          await _runAdmin(
+            () => admin.reloadConfig(
+              filename: staged?.filename ?? 'initial_model',
+            ),
+            'restore',
           );
-          if (noted is Future<void>) await noted;
+          // The old model keeps answering for a moment after the request;
+          // it must not be mistaken for the new one being ready.
+          markNotReady?.call();
+          await (waitForReload ?? waitUntilReady)?.call();
+          await _noteLoaded(staged);
           reloaded = true;
+        } on KoboldSwapTimeout catch (e) {
+          // The engine restarted and is still loading: starting it again
+          // would only start the load again.
+          if (e.restarted) rethrow;
+          lastError = e;
+          debugPrint(
+            '[GpuSwap] Kobold did not act on the reload '
+            '(last-resort process restart): $e',
+          );
         } catch (e) {
           lastError = e;
           debugPrint(
@@ -388,8 +417,18 @@ class KoboldProcessHost implements GpuSwapHost {
           throw lastError ??
               StateError('Kobold admin restore missed, process still up');
         }
+        await waitUntilReady?.call();
+        await _noteLoaded(staged);
       }
-      await waitUntilReady?.call();
     });
+  }
+
+  Future<void> _noteLoaded(KoboldStagedRole? staged) async {
+    final noted = noteLoadedPair?.call(
+      staged?.modelPath ?? requestedModelPath ?? '',
+      staged?.kcppsPath ?? requestedKcppsPath ?? '',
+    );
+    if (noted is Future<void>) await noted;
+    if (staged != null) noteResident?.call(staged.key);
   }
 }

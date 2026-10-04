@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -28,7 +29,7 @@ import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/lmstudio_log_streamer.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
-import 'package:front_porch_ai/services/kobold_admin_swap.dart';
+import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/omlx_status_poller.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
@@ -42,6 +43,7 @@ import 'package:front_porch_ai/services/worker_gpu_swap.dart';
 import 'package:front_porch_ai/services/xai/xai.dart';
 
 part 'llm_provider.worker.dart';
+part 'llm_provider.kobold_hosts.dart';
 part 'llm_provider.lanes.dart';
 
 /// The available backend types. The former `pseudoRemote` (a local KoboldCpp

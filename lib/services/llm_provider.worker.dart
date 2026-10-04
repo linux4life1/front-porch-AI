@@ -367,6 +367,7 @@ extension LLMProviderWorker on LLMProvider {
       return null;
     }
     final mouth = _hostForLane(
+      role: kKoboldChatRole,
       type: _storageService.backendSettings.backendType,
       url: _storageService.backendSettings.remoteApiUrl,
       model: _mouthSwapModelId(),
@@ -379,6 +380,7 @@ extension LLMProviderWorker on LLMProvider {
       ),
     );
     final worker = _hostForLane(
+      role: 'worker',
       type: _storageService.workerBackendType,
       url: _storageService.workerRemoteApiUrl,
       model: _workerSwapModelId(),
@@ -407,6 +409,7 @@ extension LLMProviderWorker on LLMProvider {
         mouthKcpps: _koboldKcppsId(worker: false),
         workerKcpps: _koboldKcppsId(worker: true),
       ),
+      sharedEngine: mouth is KoboldProcessHost && worker is KoboldProcessHost,
       residentGeneration: worker is KoboldProcessHost
           ? () => _koboldService.loadGeneration
           : null,
@@ -415,7 +418,9 @@ extension LLMProviderWorker on LLMProvider {
     return occupancy;
   }
 
+  /// [role] names the staged config when the host is the app's own engine.
   GpuSwapHost? _hostForLane({
+    required String role,
     required String type,
     required String url,
     required String model,
@@ -425,32 +430,7 @@ extension LLMProviderWorker on LLMProvider {
     final kind = localSwapKindFor(backendType: type, apiUrl: url);
     if (kind == null) return null;
     if (kind == LocalSwapKind.koboldProcess) {
-      return KoboldProcessHost(
-        baseUrl: _koboldService.baseUrl,
-        requestedModelPath: model.trim().isEmpty ? null : model,
-        requestedKcppsPath: kcpps.trim().isEmpty ? null : kcpps,
-        launchedKcppsPath: () => _koboldService.loadedKcppsPath ?? '',
-        swapLock: _koboldService.adminSwapLock,
-        adminDir: koboldAdminDirFor(_storageService),
-        noteLoadedPair: (model, kcpps) => _koboldService.noteAdminLoadedPair(
-          modelPath: model,
-          kcppsPath: kcpps,
-        ),
-        stopProcess: _koboldService.stopKobold,
-        startProcess: () => ensureManagedBackendIsRunning(
-          forGpuSwap: true,
-          modelPath: model,
-          kcppsPath: kcpps,
-        ),
-        isProcessRunning: () => _koboldService.isProcessRunning,
-        markNotReady: _koboldService.markModelNotReady,
-        waitUntilReady: _koboldService.waitUntilReadyAfterSwap,
-        admin: HttpGpuSwapHost(
-          kind: LocalSwapKind.koboldProcess,
-          apiUrl: _koboldService.baseUrl,
-          modelId: model,
-        ),
-      );
+      return _koboldSwapHost(role: role, model: model, kcpps: kcpps);
     }
     final apiUrl = type == 'omlx' ? kOmlxApiV1 : resolvedLaneApiUrl(type, url);
     return HttpGpuSwapHost(

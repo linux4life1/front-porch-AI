@@ -53,6 +53,57 @@ Future<List<String>> buildKoboldLaunchArgs({
   HardwareInfo? hardware,
   Future<HardwareInfo?> Function()? awaitHardware,
   void Function(String note)? onNote,
+  void Function(KoboldStagedRole staged)? onStaged,
+}) async {
+  final staged = await stageKoboldRole(
+    storage: storage,
+    executablePath: executablePath,
+    name: kStagedChatConfig,
+    modelPath: modelPath,
+    kcppsPath: kcppsPath,
+    mmprojPath: mmprojPath,
+    gpuLayers: gpuLayers,
+    contextSize: contextSize,
+    useVulkan: useVulkan,
+    useCublas: useCublas,
+    useMetal: useMetal,
+    useRocm: useRocm,
+    hardware: hardware,
+    awaitHardware: awaitHardware,
+    onNote: onNote,
+  );
+  onStaged?.call(staged);
+  final adminDir = koboldAdminDirFor(storage);
+  return [
+    '--config',
+    staged.path,
+    '--port',
+    port.toString(),
+    // In-process model swaps need --admin and an existing --admindir.
+    if (adminDir.isNotEmpty) ...['--admin', '--admindir', adminDir],
+  ];
+}
+
+/// Writes the config a role will run into the admin folder as [name]: the
+/// chat model at launch, and each role (chat, the helper model, a story
+/// job) before a swap. The same function for all of them, so a swap loads
+/// exactly what a launch would.
+Future<KoboldStagedRole> stageKoboldRole({
+  required StorageService storage,
+  required String executablePath,
+  required String name,
+  required String modelPath,
+  required String? kcppsPath,
+  required String? mmprojPath,
+  required int gpuLayers,
+  required int contextSize,
+  required bool useVulkan,
+  required bool useCublas,
+  required bool useMetal,
+  required bool useRocm,
+  HardwareInfo? hardware,
+  Future<HardwareInfo?> Function()? awaitHardware,
+  void Function(String note)? onNote,
 }) async {
   final version = await KoboldBinaryVersion.read(path.dirname(executablePath));
   final config = await koboldLaunchMap(
@@ -72,19 +123,21 @@ Future<List<String>> buildKoboldLaunchArgs({
     onNote: onNote,
   );
   final adminDir = koboldAdminDirFor(storage);
-  final staged = await stageKoboldConfig(
+  final json = encodeKcpps(config);
+  final file = await stageKoboldConfig(
     adminDir.isNotEmpty ? adminDir : Directory.systemTemp.path,
-    kStagedChatConfig,
-    encodeKcpps(config),
+    name,
+    json,
   );
-  return [
-    '--config',
-    staged.path,
-    '--port',
-    port.toString(),
-    // In-process model swaps need --admin and an existing --admindir.
-    if (adminDir.isNotEmpty) ...['--admin', '--admindir', adminDir],
-  ];
+  return KoboldStagedRole(
+    filename: name,
+    path: file.path,
+    // The content, not the name: a helper model set to the chat model's
+    // own pair stages the same content and needs no reload.
+    key: json,
+    modelPath: kcppsModelOf(config),
+    kcppsPath: kcppsPath ?? '',
+  );
 }
 
 /// The config a launch will run: the user's preset as it was written (see

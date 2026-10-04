@@ -151,6 +151,7 @@ extension KoboldServiceProcess on KoboldService {
     }
 
     final List<String> args;
+    KoboldStagedRole? staged;
     try {
       args = await buildKoboldLaunchArgs(
         storage: _storageService,
@@ -176,6 +177,7 @@ extension KoboldServiceProcess on KoboldService {
                 return hardwareWhenKnown!();
               },
         onNote: _addLog,
+        onStaged: (s) => staged = s,
       );
     } on KoboldPresetProblem catch (e) {
       _addLog(e.message);
@@ -227,6 +229,7 @@ extension KoboldServiceProcess on KoboldService {
           ? modelPath
           : _storageService.backendSettings.kcppsModelPath;
       _loadedKcppsPath = kcppsPath;
+      _residentKey = staged?.key;
       _loadGeneration++;
       _addLog('Starting Koboldcpp...');
       _addLog('Command: $executablePath ${args.join(' ')}');
@@ -273,6 +276,7 @@ extension KoboldServiceProcess on KoboldService {
         }
         _isRunning = false;
         _process = null;
+        _residentKey = null;
         _loadGeneration++;
         // Exit 2 is KoboldCpp's "Cannot find text model file" path. The
         // pre-flight above catches most causes, but KoboldCpp resolves the
@@ -366,6 +370,7 @@ extension KoboldServiceProcess on KoboldService {
     _modelReady = false;
     _loadedModelPath = null;
     _loadedKcppsPath = null;
+    _residentKey = null;
     _loadGeneration++;
     _stopReadinessProbe();
     notify();

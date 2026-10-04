@@ -99,6 +99,10 @@ class KoboldService extends ChangeNotifier
   /// See [_loadGeneration].
   int get loadGeneration => _loadGeneration;
 
+  /// The content of the config the engine was last given, by launch or by
+  /// swap. Null when nothing is loaded. See `isResident`.
+  String? _residentKey;
+
   /// GGUF last started or last admin-reloaded onto this process.
   String? get loadedModelPath => _loadedModelPath;
 

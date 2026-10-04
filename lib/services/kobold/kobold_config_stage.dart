@@ -29,6 +29,25 @@ const String kStagedConfigPrefix = 'fpai-';
 /// The staged config for the chat model.
 const String kStagedChatConfig = '${kStagedConfigPrefix}chat.kcpps';
 
+/// A role's config as staged for the engine: the file name to reload by,
+/// a key for its content (two roles with the same content are the same
+/// thing to the engine), and what it loads.
+class KoboldStagedRole {
+  const KoboldStagedRole({
+    required this.filename,
+    required this.path,
+    required this.key,
+    required this.modelPath,
+    required this.kcppsPath,
+  });
+
+  final String filename;
+  final String path;
+  final String key;
+  final String modelPath;
+  final String kcppsPath;
+}
+
 /// Write [json] as `[dir]/[name]`, whole or not at all: a temp file is
 /// written first and renamed over the target, so KoboldCpp can never read a
 /// half-written config.

@@ -122,6 +122,7 @@ extension LLMProviderLanes on LLMProvider {
     final occupancy = swaps.putIfAbsent(id, () {
       final mouth =
           _hostForLane(
+            role: kKoboldChatRole,
             type: mouthType,
             url: mouthUrl,
             model: mouthModel,
@@ -132,6 +133,8 @@ extension LLMProviderLanes on LLMProvider {
           ) ??
           const _RemoteMouthHost();
       final lane = _hostForLane(
+        // One staged file per job, named from what the job runs on.
+        role: 'lane-${id.hashCode.toUnsigned(32).toRadixString(16)}',
         type: t,
         url: url,
         model: laneModel,
@@ -142,6 +145,7 @@ extension LLMProviderLanes on LLMProvider {
         mouth: mouth,
         worker: lane,
         sameResident: same,
+        sharedEngine: mouth is KoboldProcessHost && lane is KoboldProcessHost,
         // The lane's calls go to the one KoboldCpp process: only trust
         // "my model is loaded" while nothing else has reloaded it.
         residentGeneration: lane is KoboldProcessHost
