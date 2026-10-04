@@ -148,6 +148,21 @@ void main() {
     expect(storage.backendSettings.activeKcppsPath, isNull);
   });
 
+  test('a preset that names its own model makes it the model, so every '
+      'screen names what KoboldCpp loads', () async {
+    final other = p.join(dir.path, 'Other-7B-Q4_K_M.gguf');
+    File(other).writeAsBytesSync([0x47, 0x47, 0x55, 0x46]);
+    final owns = p.join(dir.path, 'Owns a model.kcpps');
+    File(owns).writeAsStringSync(
+      jsonEncode({'model_param': other, 'contextsize': 8192, 'noswa': true}),
+    );
+    expect(await facade.setChatPreset(owns), isTrue);
+    expect(storage.backendSettings.lastUsedModelPath, other);
+    expect(storage.presetSettings.modelPresetMap[other], owns);
+    final card = await facade.localModel();
+    expect(card['modelName'], 'Other 7B');
+  });
+
   test('no other path is taken: the server may be reachable from the '
       'internet', () async {
     final outside = File(p.join(Directory.systemTemp.path, 'x.kcpps'))

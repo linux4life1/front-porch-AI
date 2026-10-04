@@ -13,7 +13,8 @@ extension BackendFacadeLocalModel on BackendFacade {
   Future<Map<String, dynamic>> localModel() async {
     final b = _storage.backendSettings;
     final k = _llm.koboldService;
-    final model = b.lastUsedModelPath ?? '';
+    // What a launch loads: the preset's own model when it names one here.
+    final model = resolveKoboldLaunch(_storage).modelPath;
     final active = b.activeKcppsPath;
     final presets = [
       for (final f in kcppsPresetFiles(_storage.binDir.path))
@@ -69,6 +70,13 @@ extension BackendFacadeLocalModel on BackendFacade {
     }
     final b = _storage.backendSettings;
     await b.setActiveKcppsPath(path);
+    // As a launch does: a preset's own model becomes the model, so every
+    // screen names what KoboldCpp loads.
+    final launch = resolveKoboldLaunch(_storage);
+    if (launch.modelPath.isNotEmpty &&
+        launch.modelPath != b.lastUsedModelPath) {
+      await b.setLastUsedModelPath(launch.modelPath);
+    }
     final model = b.lastUsedModelPath;
     if (model != null && model.isNotEmpty) {
       await _storage.presetSettings.setModelPreset(model, path ?? '');

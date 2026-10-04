@@ -647,9 +647,9 @@ and walks the card.
 
 ### Stage 7: web (item 21)
 
-- `lib/services/web/facade/kcpps_facade.dart` and routes: list presets with
-  summaries, set the chat preset. Writes are gated like the worker preset
-  and limited to the engine folder.
+- Routes on the backend facade (`backend_facade.local_model.dart`, see
+  "Stage 7 as built" above): list presets with summaries, set the chat
+  preset (limited to the engine folder), set the context.
 - Web chat-preset picker and summary card. No editor (deferred).
 - A journey in `web_ui/e2e/journeys.spec.ts`.
 - Update `docs/web-phone.md` and `docs/user-guide.md`.
