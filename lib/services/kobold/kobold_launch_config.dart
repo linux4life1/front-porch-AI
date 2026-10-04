@@ -21,9 +21,9 @@
 enum KvQuant {
   f16('f16', '0', 1.0, 'None (f16): highest quality'),
   bf16('bf16', '3', 1.0, 'bf16: same size as f16, no saving'),
-  q8_0('q8_0', '1', 0.5, '8-bit (q8_0): about 50% smaller'),
+  q8_0('q8_0', '1', 0.53125, '8-bit (q8_0): about 50% smaller'),
   q5_1('q5_1', null, 0.375, '5-bit (q5_1): about 60% smaller'),
-  q4_0('q4_0', '2', 0.25, '4-bit (q4_0): about 75% smaller');
+  q4_0('q4_0', '2', 0.28125, '4-bit (q4_0): about 75% smaller');
 
   const KvQuant(this.wire, this.legacyIndex, this.sizeFactor, this.label);
 
@@ -33,7 +33,10 @@ enum KvQuant {
   /// The index older builds used ("0".."3"). `q5_1` has none.
   final String? legacyIndex;
 
-  /// Cache size relative to f16.
+  /// Cache size relative to f16, exactly: these types store 32 values in
+  /// 34, 24 and 18 bytes where f16 takes 64. Measured on a real engine:
+  /// a 10,280 MiB f16 cache came out at 5461.25 as q8_0 and 2891.25 as
+  /// q4_0.
   final double sizeFactor;
   final String label;
 

@@ -20,6 +20,11 @@ class GGUFParser {
     return info?.kvBytesPerToken;
   }
 
+  /// How much of the file is read for the header. The metadata and the
+  /// tensor table of current models take 5 to 16 MB; when the first read
+  /// does not reach the end of the tensor table, the larger one is tried.
+  static const List<int> _headerReads = [16 * 1024 * 1024, 64 * 1024 * 1024];
+
   /// Returns richer architectural metadata from the GGUF file.
   ///
   /// Returns null if the file cannot be read or is not a supported GGUF.
@@ -31,129 +36,15 @@ class GGUFParser {
 
     final raf = await file.open(mode: FileMode.read);
     try {
-      final bytes = await raf.read(16 * 1024 * 1024);
-
-      // Use shared reader to get raw metadata KV pairs
-      final meta = GGUFFileReader.parseMetadataBytes(bytes);
-      if (meta == null) return null;
-
-      final arch = meta['general.architecture'] as String? ?? 'llama';
-      final dynamic nLayersDyn = meta['$arch.block_count'];
-      final dynamic nHeadsDyn = meta['$arch.attention.head_count'];
-      final dynamic nKvHeadsDyn =
-          meta['$arch.attention.head_count_kv'] ?? nHeadsDyn;
-      final dynamic nEmbdDyn = meta['$arch.embedding_length'];
-      final dynamic expertCountDyn = meta['$arch.expert_count'];
-      final dynamic expertUsedDyn = meta['$arch.expert_used_count'];
-      final dynamic expertFfnDyn = meta['$arch.expert_feed_forward_length'];
-      final dynamic expertSharedFfnDyn =
-          meta['$arch.expert_shared_feed_forward_length'];
-      final dynamic ffnDimDyn = meta['$arch.feed_forward_length'];
-      final dynamic slidingWindowDyn = meta['$arch.sliding_window'];
-      final dynamic nVocabDyn = meta['tokenizer.ggml.tokens'];
-      final dynamic keyLengthDyn = meta['$arch.attention.key_length'];
-      final dynamic fullAttentionIntervalDyn =
-          meta['$arch.full_attention_interval'];
-      final dynamic leadingDenseBlockCountDyn =
-          meta['$arch.leading_dense_block_count'];
-
-      if (nLayersDyn != null && nHeadsDyn != null && nEmbdDyn != null) {
-        final int nLayers = GGUFFileReader.toInt(nLayersDyn);
-        final int nHeads = GGUFFileReader.toInt(nHeadsDyn);
-
-        final List<int>? nKvHeadsPerLayer;
-        final int nKvHeads;
-        if (nKvHeadsDyn is List) {
-          final list = GGUFFileReader.toIntList(nKvHeadsDyn);
-          if (list.length == nLayers) {
-            nKvHeadsPerLayer = list;
-            nKvHeads = list.reduce((a, b) => a > b ? a : b);
-          } else {
-            nKvHeadsPerLayer = null;
-            nKvHeads = GGUFFileReader.toInt(nKvHeadsDyn);
-          }
-        } else {
-          nKvHeadsPerLayer = null;
-          nKvHeads =
-              nKvHeadsDyn != null ? GGUFFileReader.toInt(nKvHeadsDyn) : nHeads;
-        }
-
-        final int nEmbd = GGUFFileReader.toInt(nEmbdDyn);
-
-        final int headDim;
-        final int keyLength;
-        if (keyLengthDyn != null) {
-          keyLength = GGUFFileReader.toInt(keyLengthDyn);
-          headDim = keyLength;
-        } else {
-          keyLength = nHeads > 0 ? (nEmbd / nHeads).round() : 0;
-          headDim = (nEmbd / nHeads).round();
-        }
-
-        final int kvBytesPerToken;
-        if (nKvHeadsPerLayer != null && nKvHeadsPerLayer.length == nLayers) {
-          int total = 0;
-          for (final kv in nKvHeadsPerLayer) {
-            final effectiveKv = kv > 0 ? kv : nHeads;
-            total += (4 * effectiveKv * headDim).round();
-          }
-          kvBytesPerToken = total;
-        } else {
-          kvBytesPerToken = (4 * nLayers * nKvHeads * headDim).round();
-        }
-
-        final int? expertCount =
-            expertCountDyn != null ? GGUFFileReader.toInt(expertCountDyn) : null;
-        final int? expertUsedCount =
-            expertUsedDyn != null ? GGUFFileReader.toInt(expertUsedDyn) : null;
-        final int? expertFfnDim =
-            expertFfnDyn != null ? GGUFFileReader.toInt(expertFfnDyn) : null;
-        final int? expertSharedFfnDim = expertSharedFfnDyn != null
-            ? GGUFFileReader.toInt(expertSharedFfnDyn)
-            : null;
-        final int? ffnDim =
-            ffnDimDyn != null ? GGUFFileReader.toInt(ffnDimDyn) : null;
-        final int? slidingWindow = slidingWindowDyn != null
-            ? GGUFFileReader.toInt(slidingWindowDyn)
-            : null;
-        final int? nVocab =
-            nVocabDyn != null ? GGUFFileReader.toInt(nVocabDyn) : null;
-        final int? fullAttentionInterval = fullAttentionIntervalDyn != null
-            ? GGUFFileReader.toInt(fullAttentionIntervalDyn)
-            : null;
-        final int? leadingDenseBlockCount = leadingDenseBlockCountDyn != null
-            ? GGUFFileReader.toInt(leadingDenseBlockCountDyn)
-            : null;
-
-        if (nHeads > 0) {
-          final int? swaHeadDim;
-          if (arch.toLowerCase().contains('gemma4') && headDim > 0) {
-            swaHeadDim = headDim ~/ 2;
-          } else {
-            swaHeadDim = null;
-          }
-
-          return GGUFModelInfo(
-            nLayers: nLayers,
-            nHeads: nHeads,
-            nKvHeads: nKvHeads,
-            nEmbd: nEmbd,
-            kvBytesPerToken: kvBytesPerToken,
-            expertCount: expertCount,
-            expertUsedCount: expertUsedCount,
-            expertFfnDim: expertFfnDim,
-            expertSharedFfnDim: expertSharedFfnDim,
-            ffnDim: ffnDim,
-            slidingWindow: slidingWindow,
-            nVocab: nVocab,
-            nKvHeadsPerLayer: nKvHeadsPerLayer,
-            keyLength: headDim > 0 ? headDim : null,
-            swaHeadDim: swaHeadDim,
-            fullAttentionInterval: fullAttentionInterval,
-            leadingDenseBlockCount: leadingDenseBlockCount,
-          );
-        }
+      final fileSize = await raf.length();
+      GGUFHeader? header;
+      for (final size in _headerReads) {
+        await raf.setPosition(0);
+        header = GGUFFileReader.parseHeaderBytes(await raf.read(size));
+        if (header == null) return null;
+        if (header.tensors.isNotEmpty || fileSize <= size) break;
       }
+      return modelInfoFromHeader(header!, fileSize: fileSize);
     } catch (e) {
       print('Failed to parse GGUF architecture info: $e');
     } finally {
@@ -161,4 +52,127 @@ class GGUFParser {
     }
     return null;
   }
+
+  /// The model info a parsed [header] gives. [fileSize] is the size of the
+  /// whole file; it closes the last tensor, so the weights add up exactly.
+  static GGUFModelInfo? modelInfoFromHeader(
+    GGUFHeader header, {
+    required int fileSize,
+  }) {
+    final meta = header.meta;
+    final arch = meta['general.architecture'] as String? ?? 'llama';
+    int? number(String key) {
+      final v = meta['$arch.$key'];
+      return v == null || v is List ? null : GGUFFileReader.toInt(v);
+    }
+
+    final blockCount = number('block_count');
+    final nHeads = number('attention.head_count');
+    final nEmbd = number('embedding_length');
+    if (blockCount == null || nHeads == null || nEmbd == null || nHeads <= 0) {
+      return null;
+    }
+
+    final kvHeadsRaw = meta['$arch.attention.head_count_kv'];
+    final kvHeadsPerLayer = kvHeadsRaw is List
+        ? GGUFFileReader.toIntList(kvHeadsRaw)
+        : null;
+    final nKvHeads = kvHeadsPerLayer != null
+        ? kvHeadsPerLayer.fold(0, (a, b) => a > b ? a : b)
+        : (number('attention.head_count_kv') ?? nHeads);
+
+    final keyLength = number('attention.key_length') ?? (nEmbd ~/ nHeads);
+    final valueLength = number('attention.value_length') ?? keyLength;
+    final keyLengthSwa = number('attention.key_length_swa') ?? keyLength;
+    final valueLengthSwa = number('attention.value_length_swa') ?? valueLength;
+    // The real key. `<arch>.sliding_window`, without "attention", is in no
+    // model file; reading that one meant sliding window was never seen.
+    final slidingWindow = number('attention.sliding_window');
+    final pattern = meta['$arch.attention.sliding_window_pattern'];
+    final interval = number('full_attention_interval') ?? 0;
+    final recurrent = meta['$arch.attention.recurrent_layers'];
+    // Blocks that only predict draft tokens come last and keep no cache of
+    // their own.
+    final layers = blockCount - (number('nextn_predict_layers') ?? 0);
+
+    bool flag(dynamic list, int i) =>
+        list is List && i < list.length && (list[i] == true || list[i] == 1);
+
+    final kvLayers = <GGUFKvLayer>[];
+    var recurrentLayers = 0;
+    for (var i = 0; i < layers; i++) {
+      // A recurrent layer has no attention cache. Newer Qwen models say
+      // which layers attend with an interval: every Nth one does.
+      final isRecurrent = recurrent is List
+          ? flag(recurrent, i)
+          : interval > 1 && (i + 1) % interval != 0;
+      if (isRecurrent) {
+        recurrentLayers++;
+        continue;
+      }
+      final heads = kvHeadsPerLayer != null
+          ? (i < kvHeadsPerLayer.length ? kvHeadsPerLayer[i] : 0)
+          : nKvHeads;
+      // No heads: a layer without attention (LFM's convolution layers).
+      if (heads <= 0) continue;
+      final sliding =
+          (slidingWindow ?? 0) > 0 &&
+          (pattern is List ? flag(pattern, i) : _slidesByDefault(arch, i));
+      final perHead = sliding
+          ? keyLengthSwa + valueLengthSwa
+          : keyLength + valueLength;
+      kvLayers.add(GGUFKvLayer(perHead * heads * 2, sliding: sliding));
+    }
+
+    final sizes = header.tensors.isEmpty ? null : header.tensorSizes(fileSize);
+    final embedding = header.tensors
+        .where((t) => t.name == 'token_embd.weight' && t.dims.length == 2)
+        .firstOrNull;
+    final tokens = meta['tokenizer.ggml.tokens'];
+
+    return GGUFModelInfo(
+      nLayers: blockCount,
+      nHeads: nHeads,
+      nKvHeads: nKvHeads,
+      nEmbd: nEmbd,
+      kvBytesPerToken: kvLayers.fold(0, (sum, l) => sum + l.bytesPerCell),
+      expertCount: number('expert_count'),
+      expertUsedCount: number('expert_used_count'),
+      expertFfnDim: number('expert_feed_forward_length'),
+      expertSharedFfnDim: number('expert_shared_feed_forward_length'),
+      ffnDim: number('feed_forward_length'),
+      slidingWindow: slidingWindow,
+      // The vocabulary is the embedding's second dimension; the tokenizer's
+      // own list says the same when it was within the bytes read.
+      nVocab: embedding != null
+          ? embedding.dims[1]
+          : (tokens == null ? null : GGUFFileReader.toInt(tokens)),
+      nKvHeadsPerLayer: kvHeadsPerLayer,
+      keyLength: keyLength > 0 ? keyLength : null,
+      swaHeadDim: keyLengthSwa != keyLength ? keyLengthSwa : null,
+      fullAttentionInterval: interval > 0 ? interval : null,
+      leadingDenseBlockCount: number('leading_dense_block_count'),
+      weights: sizes == null ? null : GGUFWeights.fromTensorSizes(sizes),
+      kvLayers: kvLayers,
+      recurrentStateBytes: recurrentLayers * _recurrentStateBytes(number),
+    );
+  }
+
+  /// What one recurrent layer keeps between tokens: its state (inner size x
+  /// state size) and the tail of its convolution, as 32-bit numbers. Seen
+  /// on a real engine: 30 such layers took 60.00 + 2.81 MiB, which is this.
+  static int _recurrentStateBytes(int? Function(String key) number) {
+    final inner = number('ssm.inner_size') ?? 0;
+    final state = number('ssm.state_size') ?? 0;
+    final kernel = number('ssm.conv_kernel') ?? 0;
+    final groups = number('ssm.group_count') ?? 0;
+    if (inner <= 0 || state <= 0) return 0;
+    final conv = kernel > 1 ? (kernel - 1) * (inner + 2 * groups * state) : 0;
+    return (inner * state + conv) * 4;
+  }
+
+  /// Sliding-window layers for a model that has a window but lists no
+  /// pattern: Gemma 3 slides in five layers of every six.
+  static bool _slidesByDefault(String arch, int layer) =>
+      arch.startsWith('gemma3') && layer % 6 < 5;
 }

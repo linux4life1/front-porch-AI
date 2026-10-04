@@ -1,6 +1,23 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'gguf_weights.dart';
+
+export 'gguf_weights.dart';
+
+/// One layer that keeps an attention cache. A layer with no attention (a
+/// recurrent or convolution layer) keeps none and is not listed.
+class GGUFKvLayer {
+  const GGUFKvLayer(this.bytesPerCell, {this.sliding = false});
+
+  /// Bytes one cached token takes in this layer, uncompressed (f16).
+  final int bytesPerCell;
+
+  /// A sliding-window layer. With sliding window on it holds only the
+  /// window, not the whole context.
+  final bool sliding;
+}
+
 /// Lightweight summary of key GGUF architecture values needed for VRAM/layer
 /// calculations. Returned by [GGUFParser.getModelArchitectureInfo].
 class GGUFModelInfo {
@@ -26,6 +43,18 @@ class GGUFModelInfo {
   final int? fullAttentionInterval;
   final int? leadingDenseBlockCount;
 
+  /// The exact size of the weights, from the file's tensor table. Null when
+  /// the table could not be read (or the info was built by hand).
+  final GGUFWeights? weights;
+
+  /// Every layer that keeps an attention cache, as KoboldCpp will build it.
+  /// Null when the info was built by hand.
+  final List<GGUFKvLayer>? kvLayers;
+
+  /// The fixed state the recurrent layers of a hybrid model keep (newer
+  /// Qwen models). It does not grow with the context. 0 for other models.
+  final int recurrentStateBytes;
+
   const GGUFModelInfo({
     required this.nLayers,
     required this.nHeads,
@@ -44,7 +73,15 @@ class GGUFModelInfo {
     this.swaHeadDim,
     this.fullAttentionInterval,
     this.leadingDenseBlockCount,
+    this.weights,
+    this.kvLayers,
+    this.recurrentStateBytes = 0,
   });
+
+  /// True when the model has sliding-window layers, so the sliding window
+  /// setting changes how much cache it needs.
+  bool get hasSlidingWindow =>
+      (slidingWindow ?? 0) > 0 && (kvLayers?.any((l) => l.sliding) ?? true);
 
   bool get isMoe => (expertCount ?? 0) > 1;
 
@@ -118,7 +155,10 @@ class GGUFModelInfo {
   int estimateBytesPerLayer(int fileSizeBytes) {
     if (nLayers <= 0) return 0;
     const int headerOverhead = 50 * 1024 * 1024;
-    final weightsSize = (fileSizeBytes - headerOverhead).clamp(0, fileSizeBytes);
+    final weightsSize = (fileSizeBytes - headerOverhead).clamp(
+      0,
+      fileSizeBytes,
+    );
     return (weightsSize / nLayers).round();
   }
 }

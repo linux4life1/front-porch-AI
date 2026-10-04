@@ -1,0 +1,31 @@
+{
+ "source": "https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF  Qwen3.6-35B-A3B-UD-Q4_K_M.gguf  (header fetched 2026-10-03)",
+ "real_file_bytes": 22134528992,
+ "real_data_start": 10990048,
+ "fixture_file_bytes": 22123587744,
+ "truth": {
+  "arch": "qwen35moe",
+  "n_layer": 40,
+  "n_tensors": 733,
+  "bytes": {
+   "total": 22123538944,
+   "blocks": 21166008832,
+   "expert": 19568525312,
+   "shared_expert": 134021120,
+   "token_embd": 540344320,
+   "output": 417177600,
+   "other": 8192
+  },
+  "mb": {
+   "total": 21099,
+   "blocks": 20185,
+   "expert": 18662,
+   "shared_expert": 128,
+   "token_embd": 515,
+   "output": 398,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 1921,
+   "gpu_all_layers": 20583
+  }
+ }
+}

@@ -1,0 +1,31 @@
+{
+ "source": "https://huggingface.co/ggml-org/Kimi-VL-A3B-Thinking-2506-GGUF  Kimi-VL-A3B-Thinking-2506-Q4_K_M.gguf  (header fetched 2026-10-03)",
+ "real_file_bytes": 10540747680,
+ "real_data_start": 6936992,
+ "fixture_file_bytes": 10533840480,
+ "truth": {
+  "arch": "deepseek2",
+  "n_layer": 27,
+  "n_tensors": 430,
+  "bytes": {
+   "total": 10533810688,
+   "blocks": 10069807616,
+   "expert": 9527361536,
+   "shared_expert": 270876672,
+   "token_embd": 188743680,
+   "output": 275251200,
+   "other": 8192
+  },
+  "mb": {
+   "total": 10046,
+   "blocks": 9603,
+   "expert": 9086,
+   "shared_expert": 258,
+   "token_embd": 180,
+   "output": 262,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 780,
+   "gpu_all_layers": 9866
+  }
+ }
+}

@@ -193,15 +193,6 @@ class VramEstimator {
   static double _kvQuantFactor(String kvQuant) =>
       KvQuant.parse(kvQuant).sizeFactor;
 
-  /// Effective FFN dimension for compute buffer estimation.
-  static int _ffnDimEffective(GGUFModelInfo info) {
-    if (info.isMoe && info.expertFfnDim != null) {
-      return info.expertFfnDim!;
-    }
-    return info.ffnDim ??
-        (4 * info.nEmbd); // fallback: 4× embd (typical gated FFN)
-  }
-
   /// Estimate VRAM usage from detailed architecture metadata.
   ///
   /// Returns a breakdown of weights, KV cache, compute buffers, and overhead.
@@ -218,35 +209,53 @@ class VramEstimator {
   }) {
     final fileSizeMb = fileSizeBytes ~/ (1024 * 1024);
 
-    // Weights on GPU
+    // Weights on the card. The file's own tensor table gives this exactly
+    // (seen on a real card: 784.42 MiB reported, 784 predicted). The ratio
+    // from the architecture numbers is the fallback for a file whose table
+    // could not be read.
+    final exact = modelInfo.weights;
+    final expertsOnCpu = modelInfo.isMoe && moeExpertsOnCpu;
     final double weightRatio;
-    if (modelInfo.isMoe && moeExpertsOnCpu) {
-      // Use the GPU-resident ratio that includes non-layer tensors (embeddings, lm_head)
-      weightRatio = modelInfo.gpuWeightRatioWhenOffloadingExperts;
+    final int weightsMb;
+    if (exact != null && exact.total > 0) {
+      final onCard = exact.gpuBytes(expertsOnCpu: expertsOnCpu);
+      weightsMb = (onCard / (1024 * 1024)).ceil();
+      weightRatio = onCard / exact.total;
     } else {
-      weightRatio = 1.0;
+      weightRatio = expertsOnCpu
+          ? modelInfo.gpuWeightRatioWhenOffloadingExperts
+          : 1.0;
+      const headerMb = 50; // header / non-layer tensor allowance
+      weightsMb = ((fileSizeMb - headerMb).clamp(0, fileSizeMb) * weightRatio)
+          .round();
     }
-    const headerMb = 50; // conservative header / non-layer tensor allowance
-    final weightsMb =
-        ((fileSizeMb - headerMb).clamp(0, fileSizeMb) * weightRatio).round();
 
     // KV cache — handles mixed-attention models (e.g. Gemma 4 with per-layer kv heads)
     final kvFactor = _kvQuantFactor(kvQuant);
-    final kvCacheMb = _estimateKvCache(
-      modelInfo: modelInfo,
-      contextSize: contextSize,
-      kvFactor: kvFactor,
-      isSwa: isSwa,
-    );
+    // The cache figure includes the small fixed state a hybrid model's
+    // recurrent layers keep; it sits on the card beside the cache.
+    final kvCacheMb =
+        _estimateKvCache(
+          modelInfo: modelInfo,
+          contextSize: contextSize,
+          batchSize: batchSize,
+          kvFactor: kvFactor,
+          isSwa: isSwa,
+        ) +
+        (modelInfo.recurrentStateBytes / (1024 * 1024)).ceil();
 
-    // Compute buffers (logits, attention intermediates, FFN intermediates, MoE routing)
-    // Empirically 2x the simple formula to match KoboldCPP's actual sched_reserve
-    // (flash attention scratch, MoE routing buffers, K+V separate projections).
-    final nVocab = modelInfo.nVocab ?? 131072; // 128K fallback
-    final ffnDimEff = _ffnDimEffective(modelInfo);
-    final perTokenBatch =
-        2 * (nVocab * 2 + modelInfo.nEmbd * 8 + ffnDimEff * 4);
-    final computeBufMb = (batchSize * perTokenBatch) ~/ (1024 * 1024);
+    // Compute buffers. What KoboldCpp reserves is close to the logits for
+    // a whole batch (batch x vocabulary x 4 bytes) plus a little per
+    // embedding width. Measured with flash attention on: 316.75 MiB where
+    // the plain sum is 316.75, 300.75 where it is 304.75, 1053.07 where it
+    // is 986. The margin keeps the figure from ever coming out low.
+    final nVocab = modelInfo.nVocab ?? 262144; // the largest in common use
+    final computeBufMb =
+        (batchSize *
+                (nVocab * 4 + modelInfo.nEmbd * 8) *
+                _computeMargin /
+                (1024 * 1024))
+            .ceil();
 
     final totalMb = weightsMb + kvCacheMb + computeBufMb + fixedOverheadMb;
 
@@ -274,9 +283,21 @@ class VramEstimator {
   static int _estimateKvCache({
     required GGUFModelInfo modelInfo,
     required int contextSize,
+    required int batchSize,
     required double kvFactor,
     required bool isSwa,
   }) {
+    final layers = modelInfo.kvLayers;
+    if (layers != null) {
+      return _exactKvCacheMb(
+        layers: layers,
+        slidingWindow: modelInfo.slidingWindow ?? 0,
+        contextSize: contextSize,
+        batchSize: batchSize,
+        kvFactor: kvFactor,
+        isSwa: isSwa,
+      );
+    }
     final perLayer = modelInfo.nKvHeadsPerLayer;
     final keyLen = modelInfo.keyLength ?? modelInfo.headDim;
 
@@ -342,6 +363,43 @@ class VramEstimator {
         : contextSize;
     return ((modelInfo.kvBytesPerToken * effectiveCtx * kvFactor) ~/
         (1024 * 1024));
+  }
+
+  /// Added to the compute figure so it never comes out below what the
+  /// engine reserves. The largest shortfall seen is 6.8% (1053.07 MiB
+  /// reserved for a Qwen 3.6 MoE at batch 1024 against 986 from the plain
+  /// formula).
+  static const double _computeMargin = 1.08;
+
+  static int _pad256(int n) => (n + 255) ~/ 256 * 256;
+
+  /// The attention cache as KoboldCpp builds it, layer by layer.
+  ///
+  /// Every caching layer holds the context plus KoboldCpp's 128 extra cells,
+  /// rounded up to 256 (16,384 becomes 16,640: measured 2600.00 MiB for a
+  /// model at 163,840 bytes a cell). A sliding-window layer, with sliding
+  /// window on, holds only the window plus one batch plus 128, rounded up
+  /// the same way. Layers that keep no cache are not in [layers].
+  static int _exactKvCacheMb({
+    required List<GGUFKvLayer> layers,
+    required int slidingWindow,
+    required int contextSize,
+    required int batchSize,
+    required double kvFactor,
+    required bool isSwa,
+  }) {
+    final fullCells = _pad256(contextSize + 128);
+    final windowCells = _pad256(
+      _pad256((slidingWindow + batchSize).clamp(0, fullCells)) + 128,
+    ).clamp(0, fullCells);
+    var bytes = 0.0;
+    for (final layer in layers) {
+      final cells = isSwa && layer.sliding && slidingWindow > 0
+          ? windowCells
+          : fullCells;
+      bytes += layer.bytesPerCell * cells * kvFactor;
+    }
+    return (bytes / (1024 * 1024)).ceil();
   }
 
   /// Suggest a batch size that fits within [availableVramMb] given the margin.

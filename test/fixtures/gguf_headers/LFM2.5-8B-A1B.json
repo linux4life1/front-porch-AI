@@ -1,0 +1,31 @@
+{
+ "source": "https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF  LFM2.5-8B-A1B-Q4_K_M.gguf  (header fetched 2026-10-03)",
+ "real_file_bytes": 5155564768,
+ "real_data_start": 8238560,
+ "fixture_file_bytes": 5147344608,
+ "truth": {
+  "arch": "lfm2moe",
+  "n_layer": 24,
+  "n_tensors": 256,
+  "bytes": {
+   "total": 5147326208,
+   "blocks": 4932278016,
+   "expert": 4662755328,
+   "shared_expert": 0,
+   "token_embd": 215048192,
+   "output": 0,
+   "other": 0
+  },
+  "mb": {
+   "total": 4909,
+   "blocks": 4704,
+   "expert": 4447,
+   "shared_expert": 0,
+   "token_embd": 205,
+   "output": 0,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 257,
+   "gpu_all_layers": 4704
+  }
+ }
+}

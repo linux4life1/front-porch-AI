@@ -5,10 +5,55 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+/// One entry of a GGUF file's tensor table: what the tensor is called, its
+/// shape and type, and where its data starts (counted from the start of the
+/// file's data section).
+class GGUFTensorInfo {
+  const GGUFTensorInfo(this.name, this.dims, this.type, this.offset);
+  final String name;
+  final List<int> dims;
+  final int type;
+  final int offset;
+}
+
+/// A GGUF file's header: its metadata and its tensor table.
+class GGUFHeader {
+  const GGUFHeader({
+    required this.meta,
+    required this.tensors,
+    required this.dataStart,
+  });
+
+  final Map<String, dynamic> meta;
+
+  /// Empty when the table did not fit in the bytes that were read.
+  final List<GGUFTensorInfo> tensors;
+
+  /// Where the tensor data begins in the file. 0 when [tensors] is empty.
+  final int dataStart;
+
+  /// The size in bytes of every tensor, exact, without reading any weights:
+  /// the data of each tensor runs up to where the next one starts, and
+  /// [fileSize] closes the last one.
+  Map<String, int> tensorSizes(int fileSize) {
+    final order = [...tensors]..sort((a, b) => a.offset.compareTo(b.offset));
+    final sizes = <String, int>{};
+    for (var i = 0; i < order.length; i++) {
+      final end = i + 1 < order.length
+          ? order[i + 1].offset
+          : fileSize - dataStart;
+      sizes[order[i].name] = (end - order[i].offset).clamp(0, fileSize);
+    }
+    return sizes;
+  }
+}
+
 /// Shared low-level GGUF binary reader.
 ///
-/// Validates the header, iterates KV pairs, and decodes values. Handles arrays
-/// of interest (vocab size, per-layer `head_count_kv`) and skips the rest.
+/// Validates the header, iterates KV pairs, and decodes values. Keeps short
+/// arrays of numbers and booleans (per-layer `head_count_kv`, the sliding
+/// window pattern), the vocabulary's size, and the tensor table; skips the
+/// tokenizer's long lists.
 /// Used by [GGUFParser] methods to avoid duplicating the byte-level loop.
 class GGUFFileReader {
   /// Opens [filePath], reads up to [readSize] bytes, and parses all metadata
@@ -31,7 +76,15 @@ class GGUFFileReader {
 
   /// Parse metadata from an in-memory byte buffer.
   /// Public for use by [GGUFParser] which already has the file open.
-  static Map<String, dynamic>? parseMetadataBytes(Uint8List bytes) {
+  static Map<String, dynamic>? parseMetadataBytes(Uint8List bytes) =>
+      parseHeaderBytes(bytes)?.meta;
+
+  /// Arrays of numbers or booleans up to this long are kept as lists.
+  static const int _keptArrayLength = 4096;
+
+  /// Parse the metadata and the tensor table from the start of a file.
+  /// Null when [bytes] is not the start of a GGUF file.
+  static GGUFHeader? parseHeaderBytes(Uint8List bytes) {
     final data = ByteData.sublistView(bytes);
     int offset = 0;
 
@@ -46,6 +99,7 @@ class GGUFFileReader {
     if (version > 3) return null;
 
     if (offset + 8 > bytes.length) return null;
+    final tensorCount = data.getUint64(offset, Endian.little);
     offset += 8;
 
     if (offset + 8 > bytes.length) return null;
@@ -53,6 +107,7 @@ class GGUFFileReader {
     offset += 8;
 
     final meta = <String, dynamic>{};
+    var keysRead = 0;
 
     for (var i = 0; i < kvCount; i++) {
       if (offset + 8 > bytes.length) break;
@@ -78,66 +133,115 @@ class GGUFFileReader {
         final arrLen = data.getUint64(offset, Endian.little).toInt();
         offset += 8;
 
-        if (key == 'tokenizer.ggml.tokens') {
-          meta[key] = arrLen;
+        if (arrType == 8) {
+          // A list of strings. Only its length is ever wanted (the
+          // vocabulary's size); the strings themselves are skipped.
+          if (key == 'tokenizer.ggml.tokens') meta[key] = arrLen;
+          var complete = true;
           for (var j = 0; j < arrLen; j++) {
-            if (offset + 8 > bytes.length) break;
-            final l = data.getUint64(offset, Endian.little).toInt();
-            offset += 8 + l;
+            if (offset + 8 > bytes.length) {
+              complete = false;
+              break;
+            }
+            offset += 8 + data.getUint64(offset, Endian.little).toInt();
           }
-        } else if (key.endsWith('.attention.head_count_kv') &&
-            arrType >= 0 && arrType <= 6) {
-          // Element size by arrType: 0/1 -> 1 byte, 2/3 -> 2, 4/5/6 -> 4.
-          final int elemSize = arrType <= 1 ? 1 : (arrType <= 3 ? 2 : 4);
-          final values = <int>[];
-          for (var j = 0; j < arrLen; j++) {
-            // Stop cleanly if the array runs past the loaded header buffer,
-            // matching the bounds-check pattern used for every other read here
-            // (preserves the RangeError fix from Rawhide's 82dccf5).
-            if (offset + elemSize > bytes.length) break;
-            int v;
-            if (arrType == 0) { v = data.getUint8(offset); offset += 1; }
-            else if (arrType == 1) { v = data.getInt8(offset); offset += 1; }
-            else if (arrType == 2) { v = data.getUint16(offset, Endian.little); offset += 2; }
-            else if (arrType == 3) { v = data.getInt16(offset, Endian.little); offset += 2; }
-            else if (arrType == 4) { v = data.getUint32(offset, Endian.little); offset += 4; }
-            else if (arrType == 5) { v = data.getInt32(offset, Endian.little); offset += 4; }
-            else { v = data.getFloat32(offset, Endian.little).toInt(); offset += 4; }
-            values.add(v);
-          }
-          meta[key] = values;
+          if (!complete || offset > bytes.length) break;
         } else {
-          if (arrType == 8) {
+          final elemSize = _scalarSize(arrType);
+          if (elemSize == 0) break;
+          if (offset + arrLen * elemSize > bytes.length) break;
+          if (arrLen <= _keptArrayLength) {
+            final values = <dynamic>[];
             for (var j = 0; j < arrLen; j++) {
-              if (offset + 8 > bytes.length) break;
-              final l = data.getUint64(offset, Endian.little).toInt();
-              offset += 8 + l;
+              values.add(
+                _readScalar(data, offset, bytes.length, arrType)!.value,
+              );
+              offset += elemSize;
             }
+            // Whole numbers come back as a list of int, as before.
+            meta[key] = values.every((v) => v is int)
+                ? List<int>.from(values)
+                : values.every((v) => v is double)
+                ? [for (final v in values) (v as double).toInt()]
+                : values;
           } else {
-            int size = 0;
-            if (arrType == 0 || arrType == 1 || arrType == 7) {
-              size = 1;
-            } else if (arrType == 2 || arrType == 3) {
-              size = 2;
-            } else if (arrType >= 4 && arrType <= 6) {
-              size = 4;
-            } else if (arrType >= 10 && arrType <= 12) {
-              size = 8;
-            }
-            offset += arrLen * size;
+            offset += arrLen * elemSize;
           }
         }
       } else {
         final result = _readScalar(data, offset, bytes.length, valType);
-        if (result != null) {
-          meta[key] = result.value;
-          offset = result.newOffset;
-        }
+        if (result == null) break;
+        meta[key] = result.value;
+        offset = result.newOffset;
       }
+      keysRead++;
     }
 
-    return meta;
+    // The tensor table follows the metadata. It is only read when every key
+    // before it was, since nothing says where it starts otherwise.
+    final tensors = <GGUFTensorInfo>[];
+    var tableComplete = keysRead == kvCount;
+    if (tableComplete) {
+      for (var i = 0; i < tensorCount; i++) {
+        if (offset + 8 > bytes.length) {
+          tableComplete = false;
+          break;
+        }
+        final nameLen = data.getUint64(offset, Endian.little).toInt();
+        offset += 8;
+        if (offset + nameLen + 4 > bytes.length) {
+          tableComplete = false;
+          break;
+        }
+        final name = utf8.decode(
+          bytes.sublist(offset, offset + nameLen),
+          allowMalformed: true,
+        );
+        offset += nameLen;
+        final nDims = data.getUint32(offset, Endian.little);
+        offset += 4;
+        if (offset + 8 * nDims + 12 > bytes.length) {
+          tableComplete = false;
+          break;
+        }
+        final dims = [
+          for (var d = 0; d < nDims; d++)
+            data.getUint64(offset + 8 * d, Endian.little),
+        ];
+        offset += 8 * nDims;
+        final type = data.getUint32(offset, Endian.little);
+        offset += 4;
+        tensors.add(
+          GGUFTensorInfo(
+            name,
+            dims,
+            type,
+            data.getUint64(offset, Endian.little),
+          ),
+        );
+        offset += 8;
+      }
+    }
+    if (!tableComplete) tensors.clear();
+
+    final alignment = toInt(meta['general.alignment'] ?? 32);
+    final align = alignment > 0 ? alignment : 32;
+    return GGUFHeader(
+      meta: meta,
+      tensors: tensors,
+      dataStart: tensors.isEmpty ? 0 : (offset + align - 1) ~/ align * align,
+    );
   }
+
+  /// Bytes one value of a GGUF scalar type takes; 0 for a type that is not
+  /// a scalar.
+  static int _scalarSize(int type) => switch (type) {
+    0 || 1 || 7 => 1,
+    2 || 3 => 2,
+    4 || 5 || 6 => 4,
+    10 || 11 || 12 => 8,
+    _ => 0,
+  };
 
   static _ScalarResult? _readScalar(
     ByteData data,
@@ -166,25 +270,29 @@ class GGUFFileReader {
         return _ScalarResult(data.getInt32(offset, Endian.little), offset + 4);
       case 6:
         if (offset + 4 > byteLength) return null;
-        return _ScalarResult(data.getFloat32(offset, Endian.little), offset + 4);
+        return _ScalarResult(
+          data.getFloat32(offset, Endian.little),
+          offset + 4,
+        );
       case 7:
         if (offset + 1 > byteLength) return null;
         return _ScalarResult(data.getUint8(offset) != 0, offset + 1);
-      case 8: {
-        if (offset + 8 > byteLength) return null;
-        final strLen = data.getUint64(offset, Endian.little).toInt();
-        offset += 8;
-        if (offset + strLen > byteLength) return null;
-        return _ScalarResult(
-          utf8.decode(
-            // offset is relative to the ByteData view, so add its base offset
-            // to address the underlying buffer correctly even for sub-views.
-            data.buffer.asUint8List(data.offsetInBytes + offset, strLen),
-            allowMalformed: true,
-          ),
-          offset + strLen,
-        );
-      }
+      case 8:
+        {
+          if (offset + 8 > byteLength) return null;
+          final strLen = data.getUint64(offset, Endian.little).toInt();
+          offset += 8;
+          if (offset + strLen > byteLength) return null;
+          return _ScalarResult(
+            utf8.decode(
+              // offset is relative to the ByteData view, so add its base offset
+              // to address the underlying buffer correctly even for sub-views.
+              data.buffer.asUint8List(data.offsetInBytes + offset, strLen),
+              allowMalformed: true,
+            ),
+            offset + strLen,
+          );
+        }
       case 10:
         if (offset + 8 > byteLength) return null;
         return _ScalarResult(data.getUint64(offset, Endian.little), offset + 8);
@@ -193,21 +301,25 @@ class GGUFFileReader {
         return _ScalarResult(data.getInt64(offset, Endian.little), offset + 8);
       case 12:
         if (offset + 8 > byteLength) return null;
-        return _ScalarResult(data.getFloat64(offset, Endian.little), offset + 8);
+        return _ScalarResult(
+          data.getFloat64(offset, Endian.little),
+          offset + 8,
+        );
     }
     return null;
   }
 
   /// Convert a dynamic GGUF value to [int].
-  static int toInt(dynamic v) =>
-      v is int ? v : int.tryParse(v.toString()) ?? 0;
+  static int toInt(dynamic v) => v is int ? v : int.tryParse(v.toString()) ?? 0;
 
   /// Convert a dynamic GGUF value to [List<int>].
   static List<int> toIntList(dynamic v) {
     if (v is List<int>) return v;
     if (v is List) {
       if (v.every((e) => e is int)) return List<int>.from(v);
-      return v.map((e) => e is int ? e : int.tryParse(e.toString()) ?? 0).toList();
+      return v
+          .map((e) => e is int ? e : int.tryParse(e.toString()) ?? 0)
+          .toList();
     }
     return [];
   }

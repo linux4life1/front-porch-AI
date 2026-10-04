@@ -52,7 +52,10 @@ List<int> _gguf({bool slidingWindow = false}) {
     'gemma3.block_count': '4',
     'gemma3.attention.head_count': '4',
     'gemma3.embedding_length': '64',
-    if (slidingWindow) 'gemma3.sliding_window': '1024',
+    // The key real model files use. An earlier version of this helper
+    // wrote `gemma3.sliding_window`, which no model has; the app read that
+    // same wrong key, so sliding window was never seen on a real model.
+    if (slidingWindow) 'gemma3.attention.sliding_window': '1024',
   };
   return [
     ...utf8.encode('GGUF'),

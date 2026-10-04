@@ -177,7 +177,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       final loading = modelPath.isNotEmpty
           ? modelPath
           : kcppsModelOf(read.raw, engineDir: storage.binDir.path);
-      if (((await _modelInfo(loading))?.slidingWindow ?? 0) > 0) {
+      if ((await _modelInfo(loading))?.hasSlidingWindow ?? false) {
         onNote(kSwaLeftToKoboldNote);
       }
     }
@@ -221,7 +221,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
     ),
     model: KoboldModelFacts(
       isMoe: info?.isMoe ?? false,
-      hasSlidingWindow: (info?.slidingWindow ?? 0) > 0,
+      hasSlidingWindow: info?.hasSlidingWindow ?? false,
       expertsShareGpuMemory: Platform.isMacOS,
     ),
   );
