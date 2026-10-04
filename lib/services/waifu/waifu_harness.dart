@@ -45,6 +45,7 @@ class WaifuHarness implements OpenCodeEventSink {
     String? sessionId,
     this.backend,
     this.backendOf,
+    this.keepLoaded,
     this.onChanged,
     this.onAsk,
     this.onQuestion,
@@ -60,6 +61,10 @@ class WaifuHarness implements OpenCodeEventSink {
   final OpenCodeManager? manager;
   final OpenCodePorchBackend? backend;
   final OpenCodePorchBackend? Function()? backendOf;
+
+  /// Runs a turn with the model loaded: OpenCode asks the app's KoboldCpp
+  /// itself, so a model unloaded for being idle is loaded back first.
+  final Future<void> Function(Future<void> Function() turn)? keepLoaded;
   final WaifuStore? store;
   void Function()? onChanged;
   WaifuAskFn? onAsk;
@@ -172,7 +177,14 @@ class WaifuHarness implements OpenCodeEventSink {
     if (session.title.isEmpty) session.title = waifuTitleFrom(text);
     _emit();
     try {
-      await _forward(text, imagePng: imagePng);
+      final hold = keepLoaded;
+      Future<void> turn() => _forward(text, imagePng: imagePng);
+      try {
+        await (hold == null ? turn() : hold(turn));
+      } on LlmToolTransportException catch (e) {
+        // The model could not be loaded back; the words say what to do.
+        session.transcript.add(WaifuMessage.assistant(e.message));
+      }
       await store?.saveLast(session);
     } finally {
       session.running = false;

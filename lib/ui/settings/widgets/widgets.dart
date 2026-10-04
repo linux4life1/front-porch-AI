@@ -13,6 +13,7 @@ export 'worker_kobold_kcpps_picker.dart';
 export 'color_row.dart';
 export 'feature_row.dart';
 export 'image_gen_enable_section.dart';
+export 'kobold_idle_unload_row.dart';
 export 'legacy_cleanup_card.dart';
 export 'photo_understanding_card.dart';
 export 'remote_ready_badge.dart';

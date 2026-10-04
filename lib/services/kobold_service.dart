@@ -36,10 +36,12 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/openai_chat_stream.dart';
 import 'package:front_porch_ai/services/system_role_probe.dart';
+import 'package:front_porch_ai/services/worker_gpu_swap.dart';
 import 'package:path/path.dart' as path;
 
 part 'kobold_service_admin.dart';
 part 'kobold_service_exit.dart';
+part 'kobold_service_idle.dart';
 part 'kobold_service_process.dart';
 
 class KoboldService extends ChangeNotifier
@@ -176,9 +178,9 @@ class KoboldService extends ChangeNotifier
 
   // LLMService interface
   @override
-  /// True only when the process is running AND the model is fully loaded.
-  /// Use [isProcessRunning] if you only need to know if the process is alive.
-  bool get isReady => _isRunning && _modelReady;
+  /// The process runs and its model is loaded, or was unloaded for being idle
+  /// and comes back with the next request. See [isProcessRunning].
+  bool get isReady => _isRunning && (_modelReady || _idle.unloaded != null);
 
   /// True if the KoboldCPP process has been started (model may still be loading).
   bool get isProcessRunning => _isRunning;
@@ -258,6 +260,7 @@ class KoboldService extends ChangeNotifier
   @override
   void dispose() {
     _stopReadinessProbe();
+    _idleStop();
     WidgetsBinding.instance.removeObserver(this);
     stopKobold();
     super.dispose();
@@ -308,17 +311,13 @@ class KoboldService extends ChangeNotifier
     }
   }
 
-  /// LLMService interface implementation.
-  ///
   /// Routes generation through KoboldCpp's OpenAI-compatible
   /// `/v1/chat/completions` endpoint (via [streamOpenAiChat]) instead of the
   /// legacy raw `/api/extra/generate/stream`. The chat endpoint applies the
   /// loaded model's instruct template server-side, so instruct GGUFs follow
   /// instructions and stop naturally via EOS — the raw endpoint did neither
   /// (immediate empty responses or runaway repetition on un-templated prompts).
-  /// This is the same transport the `.kcpps` pseudo-remote backend has always
-  /// used against the same server. KoboldCpp ignores the model name.
-  ///
+  /// KoboldCpp ignores the model name.
   // Local tool calling: recent KoboldCpp supports OpenAI tools with
   // template-aware models (Qwen3 family etc.). Models/servers that can't
   // simply yield no tool calls and the caller's negotiation falls back to
@@ -343,11 +342,8 @@ class KoboldService extends ChangeNotifier
           mine = client;
           _activeClient = client;
         },
-        // Same ownership rule the `_pendingRequest` slot two lines below
-        // already follows (and OpenRouterService already applies to this
-        // very field): a finishing call may only clear the abort handle if
-        // it is still ITS handle. Clearing a newer request's client left
-        // Stop/abort with nothing to close.
+        // A finishing call may clear the abort handle only while it is ITS
+        // handle: clearing a newer request's left Stop with nothing to close.
         onDone: () {
           if (identical(_activeClient, mine)) _activeClient = null;
         },
@@ -359,16 +355,16 @@ class KoboldService extends ChangeNotifier
   /// any in-flight request, then register on the SAME `_pendingRequest` slot
   /// [generateStream] uses, so other `waitForIdle` callers (text evals, the
   /// Scene Guest mint, the system-role probe) queue behind us instead of
-  /// racing. Extracted from [generateWithTools], which was the only thing
-  /// that did this dance — a second hand-rolled copy of a slot protocol is
-  /// how one of them ends up subtly different.
+  /// racing. One copy of this slot protocol, so no two drift apart.
   Future<T> _runSerialized<T>(Future<T> Function() body) async {
     await waitForIdle();
     final completer = Completer<void>();
     _pendingRequest = completer.future;
     try {
+      await _idleRequestStart();
       return await body();
     } finally {
+      _idleRequestEnd();
       if (!completer.isCompleted) completer.complete();
       // Only release the slot if it is still OURS — a stream that started
       // meanwhile (the main chat path doesn't waitForIdle) must not have its
@@ -385,6 +381,7 @@ class KoboldService extends ChangeNotifier
     _pendingRequest = completer.future;
     http.Client? mine;
     try {
+      await _idleRequestStart();
       yield* streamOpenAiChat(
         _baseUrl,
         params,
@@ -401,6 +398,7 @@ class KoboldService extends ChangeNotifier
         },
       );
     } finally {
+      _idleRequestEnd();
       if (!completer.isCompleted) completer.complete();
       // Same slot-ownership guard as generateWithTools: don't null a newer
       // request's registration from this one's late finally.
@@ -412,10 +410,8 @@ class KoboldService extends ChangeNotifier
   void abortGeneration() {
     _activeClient?.close();
     _activeClient = null;
-    // Fire the server-side abort asynchronously so KoboldCPP stops the
-    // current generation even after the socket is dropped. We don't await
-    // here to keep the call non-blocking for the UI, but the server will
-    // drain to idle before accepting the next request.
+    // Server-side abort, not awaited so the UI never blocks: KoboldCpp stops
+    // even with the socket gone, and drains before the next request.
     _postAbort();
   }
 

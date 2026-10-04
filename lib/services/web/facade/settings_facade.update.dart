@@ -216,6 +216,9 @@ extension SettingsFacadeUpdate on SettingsFacade {
 
     final ctx = body['contextSize'];
     if (ctx is num) await b.setContextSize(ctx.toInt());
+    // Read by the running engine's idle clock: writing it is the update.
+    final idle = body['koboldIdleUnloadMinutes'];
+    if (idle is num) await b.setIdleUnloadMinutes(idle.toInt());
     if (body['gpuLayersNoteSeen'] == true) await b.dismissGpuLayersNote();
 
     final reasoning = body['reasoningEnabled'];

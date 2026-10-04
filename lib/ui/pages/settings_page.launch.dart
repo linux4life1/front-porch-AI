@@ -383,6 +383,11 @@ extension _SettingsLaunchOptions on _SettingsPageState {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          KoboldIdleUnloadRow(
+            settings: storage.backendSettings,
+            accent: accent,
+          ),
           const SizedBox(height: 14),
           // Restart button — applies all Advanced Launch changes immediately.
           Builder(

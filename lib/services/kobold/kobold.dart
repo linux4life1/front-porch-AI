@@ -30,6 +30,7 @@ export 'kobold_fit.dart';
 export 'kobold_fit_view.dart';
 export 'kcpps_summary.dart';
 export 'kobold_hardware_defaults.dart';
+export 'kobold_idle_unload.dart';
 export 'kobold_launch_config.dart';
 export 'kobold_launch_failure.dart';
 export 'kobold_launch_resolver.dart';

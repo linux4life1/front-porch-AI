@@ -42,6 +42,10 @@ extension SettingsFacadeRead on SettingsFacade {
       'remoteConfigured': _llm.openRouterService.isConfigured,
       'remoteReachability': _llm.openRouterService.reachability.name,
       'contextSize': b.contextSize,
+      // KoboldCpp frees the graphics memory after this many idle minutes
+      // (0: never). Additive: an older PWA ignores both keys.
+      'koboldIdleUnloadMinutes': b.idleUnloadMinutes,
+      'koboldIdleUnloadChoices': kKoboldIdleUnloadChoices,
       // Reasoning / "thinking" — for reasoning models (GLM-*:thinking, etc.) this
       // must be on or the provider's reasoning tokens are discarded and no
       // <think> block is ever produced for the chat to show.

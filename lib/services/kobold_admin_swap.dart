@@ -207,10 +207,15 @@ Duration koboldAdminRetryWait(int retryIndex, Duration base) {
 /// One Kobold process: nested mouth/worker admin calls must not overlap.
 class KoboldAdminSwapLock {
   Future<void> _tail = Future<void>.value();
+  int _queued = 0;
+
+  /// A swap is waiting or running.
+  bool get busy => _queued > 0;
 
   Future<T> enqueue<T>(Future<T> Function() work) {
+    _queued++;
     final done = _tail.then((_) => work());
-    _tail = done.then((_) {}, onError: (_) {});
+    _tail = done.then((_) {}, onError: (_) {}).whenComplete(() => _queued--);
     return done;
   }
 }

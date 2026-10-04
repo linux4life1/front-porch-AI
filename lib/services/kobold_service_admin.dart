@@ -58,6 +58,7 @@ extension KoboldServiceAdmin on KoboldService {
     _modelReady = true;
     _modelJustLoaded = true;
     _stopReadinessProbe();
+    _idleTouch();
     // Resolve the probe key and arm the measurement in the idle window right
     // after load — the only place it is cheap. See [KoboldSystemRole].
     //
@@ -97,6 +98,7 @@ extension KoboldServiceAdmin on KoboldService {
 
   void _clearReady(String status) {
     _stopReadinessProbe();
+    _idleTouch();
     _modelReady = false;
     _loadedModelPath = null;
     _residentKey = null;
@@ -125,8 +127,13 @@ extension KoboldServiceAdmin on KoboldService {
   /// answer every swap asks for, so a swap that is not needed is not sent.
   bool isResident(String key) => _modelReady && _residentKey == key;
 
-  /// A swap finished loading the config with this content.
-  void noteResident(String key) => _residentKey = key;
+  /// A swap finished loading the config with this content ('' when what
+  /// loaded is not known). Either way something is loaded again.
+  void noteResident(String key) {
+    _residentKey = key;
+    _idle.unloaded = null;
+    _idleTouch();
+  }
 
   /// The model a request goes to: the one loaded (a helper or story model
   /// after a swap), else chat's. Its template decides the thinking cap.
@@ -268,6 +275,9 @@ extension KoboldServiceAdmin on KoboldService {
   /// Parse KoboldCPP process output to determine model loading status.
   /// Kept as a secondary fast-path alongside the periodic readiness probe.
   void _parseLoadingStatus(String data) {
+    // Unloaded for being idle, the engine's empty model process prints
+    // "Please connect…" too; and a load back owns the status line.
+    if (_idle.unloaded != null) return;
     // Model is ready when server starts listening (fast-path).
     if (_readyPattern.hasMatch(data)) {
       _markModelReady();

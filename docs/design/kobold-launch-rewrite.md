@@ -645,6 +645,39 @@ from the internet) and `POST /api/backend/local-model/context` (512 to
 changing it). The browser suite seeds a real model header and a preset
 and walks the card.
 
+Stage 8 as built, unload when idle (2026-10-04): a setting, off by
+default, `kobold_idle_unload_minutes` (off, 10, 30 or 60) in
+`kobold_launch_fields.dart`, set from a chip row in Advanced Launch Options
+and a card on the phone's Settings page (`koboldIdleUnloadMinutes` on
+`/api/settings`). The clock is `kobold_service_idle.dart`, a part of
+`KoboldService`: started by a launch, stopped by a stop or dispose, it
+checks every 30 seconds. Every request (the stream and `_runSerialized`,
+which carries tool calls and the system-role probe), a swap, a load and a
+launch reset it. When the engine is the app's own process, its model is
+loaded, nothing is in flight or queued on the swap lock, the idle time has
+passed and KoboldCpp's own `/api/extra/perf` says idle with an empty queue,
+it sends the same `unload_model` reload a swap's unload sends, inside the
+swap lock, and waits for "inactive". It remembers the staged config whose
+content is resident (chat's in the normal case, found by content in the
+admin folder) and the model and preset paths. The next request of any kind
+first reloads that file by name and waits for the real switch with
+`waitForSwap`, then checks the model KoboldCpp reports; a swap that loads
+anything first clears the record instead. Waifu Coder's OpenCode asks
+KoboldCpp itself, so each of its turns runs inside
+`KoboldService.keepLoadedFor`, which loads the model back first and holds
+the clock until the turn ends. While unloaded, `modelReady` is
+false and the status line says "The model was unloaded after N idle minutes
+to free graphics memory. It loads again with your next message."; `isReady`
+stays true so features that check it before asking still ask, and their
+request brings the model back. KoboldCpp's empty model process prints
+"Please connect…" like a model that came up, so the log's ready fast-path
+is ignored until the model is back. A load back that fails says so in plain
+words, as a transport failure (it never marks the backend as unable to call
+tools), and requests in the next half minute fail at once instead of asking
+again. Proven on 1.117.1 and 1.122.1 (`test/live/kobold_idle_unload_live_test.dart`):
+`/api/v1/model` answers `inactive` after the unload; a reply and a tool
+call each reload `fpai-chat.kcpps` and are answered.
+
 ### Stage 7: web (item 21)
 
 - Routes on the backend facade (`backend_facade.local_model.dart`, see

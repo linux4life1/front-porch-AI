@@ -21,6 +21,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:front_porch_ai/services/kobold/kobold_idle_unload.dart';
 import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
 import 'package:front_porch_ai/services/kobold/kobold_mmq_timing.dart';
 
@@ -36,6 +37,7 @@ mixin KoboldLaunchFields on SettingsBase {
       ContextManagementMode.fastForwardSmartCache;
   bool _rocmFlashAttentionFailed = false;
   bool _batchAutomatic = true;
+  int _idleUnloadMinutes = 0;
   int? _engineContextSize;
 
   /// The local backend type; prompts for other backends are not held to
@@ -78,6 +80,21 @@ mixin KoboldLaunchFields on SettingsBase {
   Future<void> setBatchAutomatic(bool value) async {
     _batchAutomatic = value;
     await prefs?.setBool(k('kobold_batch_automatic'), value);
+    notify();
+  }
+
+  /// Minutes the app's own KoboldCpp may sit idle before its model is
+  /// unloaded to free the graphics memory; 0 (the default) never does.
+  int get idleUnloadMinutes => _idleUnloadMinutes;
+
+  /// Takes one of [kKoboldIdleUnloadChoices]; anything else is refused.
+  Future<void> setIdleUnloadMinutes(int value) async {
+    if (!kKoboldIdleUnloadChoices.contains(value)) {
+      debugPrint('Idle unload of $value minutes is not a choice; ignored.');
+      return;
+    }
+    _idleUnloadMinutes = value;
+    await prefs?.setInt(k('kobold_idle_unload_minutes'), value);
     notify();
   }
 
@@ -258,6 +275,8 @@ mixin KoboldLaunchFields on SettingsBase {
         !(prefs?.containsKey(k('blas_batch_size')) ?? false);
     _presetGateSkipped =
         prefs?.getBool(k('kobold_preset_gate_skipped')) ?? false;
+    final idle = prefs?.getInt(k('kobold_idle_unload_minutes')) ?? 0;
+    _idleUnloadMinutes = kKoboldIdleUnloadChoices.contains(idle) ? idle : 0;
     _mmqTimed = _readMmqTimed(prefs?.getString(k('kobold_mmq_timed')));
     _mmqSamples = _readMmqSamples(prefs?.getString(k('kobold_mmq_samples')));
   }

@@ -61,9 +61,12 @@ extension _HomePageChrome on _HomePageState {
 
   Widget _wrapWithStatusBar(BuildContext context, Widget content) {
     String status = '';
+    var loading = true;
     try {
       final kobold = Provider.of<KoboldService>(context, listen: false);
       status = kobold.modelLoadingStatus;
+      // Unloaded for being idle: words only, nothing is loading.
+      loading = !kobold.idleUnloaded;
     } catch (_) {}
 
     if (status.isEmpty) return content;
@@ -89,17 +92,19 @@ extension _HomePageChrome on _HomePageState {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  minHeight: 4,
-                  backgroundColor: AppColors.surfaceContainerOf(context),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    AppColors.porchHoneyOf(context),
+              if (loading) ...[
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    minHeight: 4,
+                    backgroundColor: AppColors.surfaceContainerOf(context),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.porchHoneyOf(context),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
