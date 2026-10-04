@@ -29,6 +29,7 @@ import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/lmstudio_log_streamer.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
+import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/omlx_status_poller.dart';

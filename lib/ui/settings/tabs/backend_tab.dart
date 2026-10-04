@@ -69,6 +69,9 @@ class BackendTab extends StatelessWidget {
   final VoidCallback onKcppsExternalClear;
   final ValueChanged<String> onKcppsBrowsePicked;
   final ValueChanged<bool> onKcppsModelStatusChanged;
+
+  /// A preset was saved, renamed or deleted in the preset editor. (The
+  /// name is from the "Generate preset" dialog it replaced.)
   final VoidCallback onGenerateKcppsDone;
   final VoidCallback onToggleBackend;
   final bool kcppsModelExists;
@@ -111,7 +114,7 @@ class BackendTab extends StatelessWidget {
               onKcppsExternalClear: onKcppsExternalClear,
               onKcppsBrowsePicked: onKcppsBrowsePicked,
               onKcppsModelStatusChanged: onKcppsModelStatusChanged,
-              onGenerateKcppsDone: onGenerateKcppsDone,
+              onPresetsSaved: onGenerateKcppsDone,
               onToggleBackend: onToggleBackend,
               kcppsModelExists: kcppsModelExists,
             ),

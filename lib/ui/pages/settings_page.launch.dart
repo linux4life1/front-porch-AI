@@ -321,7 +321,7 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Tokens processed in parallel during prompt evaluation. Higher = faster context loading, more VRAM.',
+                      'Tokens processed in parallel during prompt evaluation. Higher = faster context loading, more VRAM. Auto picks the largest that keeps the model on the card.',
                       style: TextStyle(
                         fontSize: 11,
                         color: AppColors.textTertiary(context),
@@ -333,11 +333,17 @@ extension _SettingsLaunchOptions on _SettingsPageState {
               const SizedBox(width: 12),
               Wrap(
                 spacing: 6,
-                children: [256, 512, 1024, 2048, 4096, 8192].map((bs) {
-                  final isSelected =
-                      storage.backendSettings.blasBatchSize == bs;
+                // 0 is Auto: the launch picks the batch for this machine.
+                children: [0, 256, 512, 1024, 2048, 4096, 8192].map((bs) {
+                  final b = storage.backendSettings;
+                  final isSelected = bs == 0
+                      ? b.batchAutomatic
+                      : !b.batchAutomatic && b.blasBatchSize == bs;
                   return GestureDetector(
-                    onTap: () => storage.backendSettings.setBlasBatchSize(bs),
+                    onTap: () async {
+                      await b.setBatchAutomatic(bs == 0);
+                      if (bs != 0) await b.setBlasBatchSize(bs);
+                    },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(
@@ -358,7 +364,11 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                         ),
                       ),
                       child: Text(
-                        bs >= 1024 ? '${bs ~/ 1024}K' : '$bs',
+                        bs == 0
+                            ? 'Auto'
+                            : bs >= 1024
+                            ? '${bs ~/ 1024}K'
+                            : '$bs',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 12,

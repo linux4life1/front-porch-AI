@@ -37,6 +37,7 @@ extension LLMProviderKoboldHosts on LLMProvider {
     required String role,
     required String model,
     required String kcpps,
+    Future<KoboldStagedRole> Function()? stage,
   }) {
     Duration limit() {
       final file = File(_koboldRolePair(role, model, kcpps).model);
@@ -47,8 +48,9 @@ extension LLMProviderKoboldHosts on LLMProvider {
       baseUrl: _koboldService.baseUrl,
       requestedModelPath: model.trim().isEmpty ? null : model,
       requestedKcppsPath: kcpps.trim().isEmpty ? null : kcpps,
-      stageConfig: () =>
-          _stageKoboldRole(role: role, model: model, kcpps: kcpps),
+      stageConfig:
+          stage ??
+          () => _stageKoboldRole(role: role, model: model, kcpps: kcpps),
       isResident: _koboldService.isResident,
       noteResident: _koboldService.noteResident,
       onStep: _koboldService.showSwapStep,
@@ -89,6 +91,44 @@ extension LLMProviderKoboldHosts on LLMProvider {
         modelId: model,
       ),
     );
+  }
+
+  /// Puts what Settings now says chat runs (a new chat preset or model)
+  /// into the running KoboldCpp: a reload of the staged chat config by
+  /// name, and a restart only when the reload is not acted on. Nothing
+  /// happens when KoboldCpp is not running or chat's pair is loaded already.
+  Future<void> reloadChatKobold() async {
+    if (!_koboldService.isProcessRunning) return;
+    await _koboldSwapHost(
+      role: kKoboldChatRole,
+      model: '',
+      kcpps: '',
+    ).restore();
+  }
+
+  /// Loads [config], which belongs to no role (a timing trial), into the
+  /// running KoboldCpp the way a swap loads a role: staged in the admin
+  /// folder as [name], reloaded by name, waited for. True when it is what
+  /// runs afterwards.
+  Future<bool> loadKoboldTrial(String name, Map<String, dynamic> config) async {
+    final dir = koboldAdminDirFor(_storageService);
+    if (!_koboldService.isProcessRunning || dir.isEmpty) return false;
+    final json = encodeKcpps(config);
+    final file = await stageKoboldConfig(dir, name, json);
+    final staged = KoboldStagedRole(
+      filename: name,
+      path: file.path,
+      key: json,
+      modelPath: kcppsModelOf(config),
+      kcppsPath: '',
+    );
+    await _koboldSwapHost(
+      role: 'trial',
+      model: staged.modelPath,
+      kcpps: '',
+      stage: () async => staged,
+    ).restore();
+    return _koboldService.isResident(json);
   }
 
   /// The model and preset [role] loads. The chat role's pair is worked out

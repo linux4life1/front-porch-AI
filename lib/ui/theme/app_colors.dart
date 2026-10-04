@@ -355,6 +355,52 @@ class AppColors {
   static Color deepWellOf(BuildContext context) =>
       resolve(context, deepWell, deepWellLight);
 
+  // ── KoboldCpp presets and the local model card (approved sketch,
+  // 2026-10-04): slate text, an inset panel, and the memory bar's parts.
+  static const Color insetPanel = Color(0xFF172033);
+  static const Color insetPanelLight = Color(0xFFF3EEE6);
+  static Color insetPanelOf(BuildContext context) =>
+      resolve(context, insetPanel, insetPanelLight);
+  static const Color slateInk = Color(0xFFF3F4F6);
+  static const Color slateInkLight = Color(0xFF1F2937);
+  static Color slateInkOf(BuildContext context) =>
+      resolve(context, slateInk, slateInkLight);
+  static const Color slateMuted = Color(0xFFCBD5E1);
+  static const Color slateMutedLight = Color(0xFF475569);
+  static Color slateMutedOf(BuildContext context) =>
+      resolve(context, slateMuted, slateMutedLight);
+  static const Color slateFaint = Color(0xFF94A3B8);
+  static const Color slateFaintLight = Color(0xFF64748B);
+  static Color slateFaintOf(BuildContext context) =>
+      resolve(context, slateFaint, slateFaintLight);
+
+  /// A hairline at [alpha]: light on dark, dark on light.
+  static Color hairlineOf(BuildContext context, double alpha) => resolve(
+    context,
+    Colors.white.withValues(alpha: alpha),
+    Colors.black.withValues(alpha: alpha * 0.9),
+  );
+  static const Color alertRed = Color(0xFFF87171);
+  static const Color alertRedLight = Color(0xFFB91C1C);
+  static Color alertRedOf(BuildContext context) =>
+      resolve(context, alertRed, alertRedLight);
+
+  /// Text on solid [porchAmber] and on solid [journalAccent].
+  static const Color onPorchAmber = Color(0xFF241505);
+  static const Color onJournalAccent = Color(0xFF062B27);
+  static const Color loadExperts = Color(0xFFA9612B);
+  static const Color onLoadExperts = Color(0xFFFFF7EE);
+  static const Color loadWorking = Color(0xFF64748B);
+  static const Color loadEngine = Color(0xFF94A3B8);
+  static const Color onLoadEngine = Color(0xFF0F172A);
+  static const Color loadOver = Color(0xFF7F1D1D);
+  static const Color loadOverStripe = Color(0xFF991B1B);
+  static const Color onLoadOver = Color(0xFFFEE2E2);
+  static const Color loadUnusedStripe = Color(0xFF334155);
+  static const Color loadUnusedStripeLight = Color(0xFFD4CFC6);
+  static Color loadUnusedStripeOf(BuildContext context) =>
+      resolve(context, loadUnusedStripe, loadUnusedStripeLight);
+
   // ── The Stoop "porch at dusk" palette ─────────────────────────────────
   // Dark values mirror hub.frontporchai.app's site.css tokens EXACTLY so the
   // in-app Stoop matches the web hub pixel-for-pixel; light values are the

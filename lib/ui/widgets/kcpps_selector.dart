@@ -5,29 +5,8 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-/// Scans [binDir] for .kcpps files and returns them sorted by filename.
-List<File> scanKcppsPresets(Directory binDir) {
-  if (!binDir.existsSync()) return [];
-  try {
-    final files =
-        binDir
-            .listSync()
-            .whereType<File>()
-            .where((f) => f.path.toLowerCase().endsWith('.kcpps'))
-            // Files the app wrote for itself are not presets.
-            .where((f) => !isAppOwnedKcpps(f.path))
-            .toList()
-          ..sort(
-            (a, b) => p
-                .basename(a.path)
-                .toLowerCase()
-                .compareTo(p.basename(b.path).toLowerCase()),
-          );
-    return files;
-  } catch (_) {
-    return [];
-  }
-}
+/// The presets in [binDir], sorted by name.
+List<File> scanKcppsPresets(Directory binDir) => kcppsPresetFiles(binDir.path);
 
 /// A reusable .kcpps preset selector row with model status indicator.
 ///

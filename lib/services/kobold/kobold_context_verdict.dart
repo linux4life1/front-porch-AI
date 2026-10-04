@@ -94,10 +94,11 @@ koboldContextVerdicts({
     final verySlow =
         pace > 3 || _shortMb(tuned.load, machine) > nowShort + 1024;
     final KoboldContextOutcome outcome;
-    if (c == fit.contextSize) {
-      outcome = KoboldContextOutcome.likeNow;
-    } else if (c < kKoboldContextFloor) {
+    // Below the floor is said even for the size in use.
+    if (c < kKoboldContextFloor) {
       outcome = KoboldContextOutcome.tooSmall;
+    } else if (c == fit.contextSize) {
+      outcome = KoboldContextOutcome.likeNow;
     } else if (outOfMemory || verySlow) {
       outcome = KoboldContextOutcome.tooBig;
     } else if (pace < 0.92) {

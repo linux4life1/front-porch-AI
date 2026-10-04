@@ -92,7 +92,7 @@ extension CreatorStateModels on CreatorState {
   }
 
   void scanLocalPresets(StorageService storage) {
-    localPresets = scanKcppsPresets(storage.binDir);
+    localPresets = kcppsPresetFiles(storage.binDir.path);
     notify();
   }
 
@@ -178,21 +178,5 @@ extension CreatorStateModels on CreatorState {
       koboldStatus = 'Error: $e';
       notify();
     }
-  }
-}
-
-// Helper for kcpps scan (lifted if not in utils; assume or duplicate minimal)
-List<File> scanKcppsPresets(Directory binDir) {
-  if (!binDir.existsSync()) return []; // io-ok: preset scan
-  try {
-    return binDir
-        .listSync() // io-ok: preset scan
-        .whereType<File>()
-        .where((f) => f.path.toLowerCase().endsWith('.kcpps'))
-        // Files the app wrote for itself are not presets.
-        .where((f) => !isAppOwnedKcpps(f.path))
-        .toList();
-  } catch (_) {
-    return [];
   }
 }

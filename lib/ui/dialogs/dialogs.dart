@@ -14,7 +14,7 @@ export 'context_viewer_dialog.dart';
 export 'data_bank_dialog.dart';
 export 'database_cleanup_dialog.dart';
 export 'export_persona_dialog.dart';
-export 'generate_kcpps_dialog.dart';
+export 'kcpps_editor/kcpps_editor.dart';
 export 'group_objectives_dialog.dart';
 export 'group_settings_dialog.dart';
 export 'growth_review_dialog.dart';

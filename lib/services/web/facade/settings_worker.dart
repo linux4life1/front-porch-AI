@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
-
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/services.dart';
@@ -89,23 +87,7 @@ Future<void> updateWorkerSettings({
   }
 }
 
-List<Map<String, String>> _localKcpps(StorageService storage) {
-  try {
-    final dir = storage.binDir;
-    if (!dir.existsSync()) return const [];
-    final files =
-        dir
-            .listSync()
-            .whereType<File>()
-            .where((f) => f.path.toLowerCase().endsWith('.kcpps'))
-            // Files the app wrote for itself are not presets.
-            .where((f) => !isAppOwnedKcpps(f.path))
-            .toList()
-          ..sort((a, b) => p.basename(a.path).compareTo(p.basename(b.path)));
-    return [
-      for (final f in files) {'name': p.basename(f.path), 'path': f.path},
-    ];
-  } catch (_) {
-    return const [];
-  }
-}
+List<Map<String, String>> _localKcpps(StorageService storage) => [
+  for (final f in kcppsPresetFiles(storage.binDir.path))
+    {'name': p.basename(f.path), 'path': f.path},
+];

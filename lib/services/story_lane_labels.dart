@@ -21,6 +21,7 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/kobold/kcpps_library.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
@@ -85,7 +86,10 @@ Map<String, dynamic> storyLaneOptionsFor(
           },
     ],
     'koboldModels': _files(storage.modelsDir, const ['.gguf']),
-    'kcpps': _files(storage.binDir, const ['.kcpps']),
+    'kcpps': [
+      for (final f in kcppsPresetFiles(storage.binDir.path))
+        {'name': path.basename(f.path), 'path': f.path},
+    ],
   };
 }
 

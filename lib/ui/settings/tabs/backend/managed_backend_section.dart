@@ -25,7 +25,9 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/widgets/section_header.dart';
-import 'package:front_porch_ai/ui/dialogs/generate_kcpps_dialog.dart';
+import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor.dart';
+
+import 'local_model_card.dart';
 
 /// Local managed-KoboldCPP section: backend download/version, auto-start,
 /// model selection, vision projector, .kcpps preset selection, config
@@ -48,7 +50,7 @@ class ManagedBackendSection extends StatelessWidget {
     required this.onKcppsExternalClear,
     required this.onKcppsBrowsePicked,
     required this.onKcppsModelStatusChanged,
-    required this.onGenerateKcppsDone,
+    required this.onPresetsSaved,
     required this.onToggleBackend,
     required this.kcppsModelExists,
   });
@@ -62,7 +64,9 @@ class ManagedBackendSection extends StatelessWidget {
   final VoidCallback onKcppsExternalClear;
   final ValueChanged<String> onKcppsBrowsePicked;
   final ValueChanged<bool> onKcppsModelStatusChanged;
-  final VoidCallback onGenerateKcppsDone;
+
+  /// A preset was saved, renamed or deleted in the preset editor.
+  final VoidCallback onPresetsSaved;
   final VoidCallback onToggleBackend;
 
   /// Parent-memoized "does the .kcpps model file still exist?" so this
@@ -233,6 +237,8 @@ class ManagedBackendSection extends StatelessWidget {
           storage: storageService,
           onChanged: onVisionChanged,
         ),
+        const SizedBox(height: 16),
+        const LocalModelCard(),
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -266,14 +272,10 @@ class ManagedBackendSection extends StatelessWidget {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () async {
-              final result = await showDialog<bool>(
-                context: context,
-                builder: (_) => const GenerateKcppsDialog(),
-              );
-              if (result == true) onGenerateKcppsDone();
+              if (await showKcppsPresets(context)) onPresetsSaved();
             },
-            icon: const Icon(Icons.auto_fix_high, size: 18),
-            label: const Text('Generate KCPPS Config...'),
+            icon: const Icon(Icons.tune, size: 18),
+            label: const Text('KoboldCpp presets…'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textSecondary(context),
               side: BorderSide(color: AppColors.borderOf(context)),
