@@ -691,7 +691,14 @@ the clock until the turn ends. While unloaded, `modelReady` is
 false and the status line says "The model was unloaded after N idle minutes
 to free graphics memory. It loads again with your next message."; `isReady`
 stays true so features that check it before asking still ask, and their
-request brings the model back. KoboldCpp's empty model process prints
+request brings the model back. `isReady` is only that gate: every status
+(the AI engine card, the Local model card, the engine log, the character
+creator's setup step, and the phone's pill through `ready` and `unloaded`
+on `/api/backend/local-model`) shows Ready on `modelLoaded` (`isReady` with
+no unload record), Unloaded on `idleUnloaded`, and Loading while the model
+loads back. A reload KoboldCpp accepts while the model is unloaded (any
+swap, through `markModelLoading`) replaces the record, so it reads as an
+ordinary swap: Loading, then Ready. KoboldCpp's empty model process prints
 "Please connect…" like a model that came up, so the log's ready fast-path
 is ignored until the model is back. A load back that fails says so in plain
 words, as a transport failure (it never marks the backend as unable to call
