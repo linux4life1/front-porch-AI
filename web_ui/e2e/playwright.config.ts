@@ -36,8 +36,9 @@ export default defineConfig({
     // WebKit on the Linux CI runner crashes now and then partway through a
     // run ("Target crashed"), on a different screen each time, Rawhide's own
     // runs included. A test whose browser died runs once more in a fresh
-    // one: a real fault fails both times, and a pass on the second try is
-    // reported as flaky.
+    // one. The retry is for that only: support/fixtures.ts fails it at once
+    // when the first try failed for any other reason, and a pass after a
+    // crash shows as a warning on the run.
     {
       name: 'phone-webkit',
       retries: process.env.CI ? 1 : 0,

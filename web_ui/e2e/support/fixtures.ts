@@ -5,9 +5,14 @@
 // threw, logged a console error, hit a missing or failing /api endpoint, or
 // showed the crash screen — whether or not the spec was looking at that spot.
 
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { test as base, expect, type Page } from '@playwright/test';
 
 export type Problem = string;
+
+/** A browser that died under the test, as Playwright reports it. */
+const BROWSER_CRASH = /Target crashed|Target page, context or browser has been closed/;
 
 /** Responses a spec expects (e.g. a deliberately wrong password). */
 export type AllowFn = (url: string, status: number) => boolean;
@@ -89,10 +94,35 @@ async function serveBundle(page: Page, dir: string) {
 }
 
 export const test = base.extend<{
+  crashRetry: void;
   problems: Problem[];
   allowHttp: (fn: AllowFn) => void;
   acceptConfirms: (on: boolean) => void;
 }>({
+  // The phone project gets one retry on CI (playwright.config.ts) for one
+  // reason only: WebKit on the Linux runner crashes now and then. A retry
+  // after any other failure fails at once with the first try's error, and a
+  // pass after a crash is put on the run's page as a warning.
+  crashRetry: [
+    async ({}, use, testInfo) => {
+      const note = join(testInfo.project.outputDir, 'first-tries', `${testInfo.testId}.txt`);
+      if (testInfo.retry > 0) {
+        const first = await readFile(note, 'utf8').catch(() => '');
+        if (!BROWSER_CRASH.test(first)) {
+          throw new Error(`retried only after a browser crash; the first try failed with: ${first || '(no error recorded)'}`);
+        }
+      }
+      await use();
+      if (testInfo.retry === 0 && testInfo.status !== testInfo.expectedStatus) {
+        await mkdir(dirname(note), { recursive: true });
+        await writeFile(note, testInfo.errors.map((e) => e.message ?? '').join('\n'));
+      } else if (testInfo.retry > 0 && testInfo.status === testInfo.expectedStatus) {
+        const name = `${testInfo.titlePath.slice(1).join(' › ')} [${testInfo.project.name}]`;
+        console.log(`::warning title=Browser crash::${name} passed on a second try after the browser crashed`);
+      }
+    },
+    { auto: true },
+  ],
   problems: [
     async ({ page }, use, testInfo) => {
       if (process.env.FPAI_BUNDLE_DIR) await serveBundle(page, process.env.FPAI_BUNDLE_DIR);
