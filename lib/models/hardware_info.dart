@@ -16,6 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+/// Free memory in MB: graphics memory, and system memory. Null where the
+/// machine cannot say.
+typedef FreeMemoryMb = ({int? graphics, int? system});
+
 /// The machine's GPU/RAM profile as detected by HardwareService, and the
 /// shape persisted to SharedPreferences between launches.
 ///

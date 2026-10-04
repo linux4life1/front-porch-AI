@@ -53,7 +53,13 @@ const Set<String> _managedKeys = {
   'mmproj',
   'mmprojcpu',
   'moecpu',
+  'autofit',
+  'nommq',
+  'draftmodel',
 };
+
+/// What a `usecuda` list can hold besides the card: the mode, and MMQ.
+const Set<String> _cudaWords = {'normal', 'mmq', 'nommq', 'all'};
 
 /// What reading a `.kcpps` gave.
 sealed class KcppsRead {
@@ -123,9 +129,14 @@ KcppsRead _readKcpps(String text) {
   var backend = KoboldGpuBackend.none;
   int? gpuId;
   final cuda = map['usecuda'] ?? map['usecublas'] ?? map['usehipblas'];
+  var cudaOptions = const <String>[];
   if (cuda is List) {
     backend = KoboldGpuBackend.cuda;
     gpuId = cuda.map(_asInt).whereType<int>().firstOrNull;
+    cudaOptions = [
+      for (final o in cuda)
+        if (o is String && _asInt(o) == null && !_cudaWords.contains(o)) o,
+    ];
   } else if (map['usevulkan'] is List) {
     backend = KoboldGpuBackend.vulkan;
     gpuId = (map['usevulkan'] as List).map(_asInt).whereType<int>().firstOrNull;
@@ -162,6 +173,11 @@ KcppsRead _readKcpps(String text) {
   final moe = _asInt(map['moecpu']) ?? 0;
   final layers = _asInt(map['gpulayers']);
   final forcedFit = kcppsForcedFitNote(map);
+  final bool? mmq = map['nommq'] is bool
+      ? !(map['nommq'] as bool)
+      : cuda is List && cuda.contains('nommq')
+      ? false
+      : null;
   if (forcedFit != null) notes.add(forcedFit);
 
   return KcppsOk(
@@ -184,6 +200,14 @@ KcppsRead _readKcpps(String text) {
       mmprojPath: map['mmproj']?.toString() ?? '',
       mmprojOnCpu: map['mmprojcpu'] == true,
       moeExpertsOnCpu: moe > 0,
+      moeCpuLayers: moe > 0 ? moe : null,
+      forceFit: map['autofit'] is bool ? map['autofit'] as bool : null,
+      mmq: mmq,
+      draftModelPath: map['draftmodel'] is String
+          ? map['draftmodel'] as String
+          : '',
+      contextShift: map['noshift'] != true,
+      cudaOptions: cudaOptions,
       extras: {
         for (final e in map.entries)
           if (!_managedKeys.contains(e.key)) e.key: e.value,
@@ -290,19 +314,26 @@ Map<String, dynamic> kcppsMap(
     'jinja': config.jinja,
     if (config.mmprojPath.isNotEmpty) 'mmproj': config.mmprojPath,
     if (config.mmprojOnCpu) 'mmprojcpu': true,
+    'autofit': ?config.forceFit,
+    if (config.mmq != null) 'nommq': !config.mmq!,
+    if (config.draftModelPath.isNotEmpty) 'draftmodel': config.draftModelPath,
   };
 
   // Automatic fitting and `moecpu` cannot be combined; a manual layer
   // count is the only case where the app places MoE experts itself.
   if (config.moeExpertsOnCpu && !config.layersAreAutomatic && caps.moeCpu) {
-    map['moecpu'] = 999;
+    map['moecpu'] = config.moeCpuLayers ?? 999;
   }
 
   switch (config.backend) {
     case KoboldGpuBackend.cuda:
       // The id is TEXT: KoboldCpp tests `"0" in usecuda`, so a number is
       // ignored and every card is used.
-      final cuda = ['normal', if (config.gpuId != null) '${config.gpuId}'];
+      final cuda = [
+        'normal',
+        if (config.gpuId != null) '${config.gpuId}',
+        ...config.cudaOptions,
+      ];
       map['usecuda'] = cuda;
       map['usecublas'] = cuda;
     case KoboldGpuBackend.vulkan:
@@ -322,7 +353,7 @@ Map<String, dynamic> kcppsMap(
     case ContextManagementMode.fastForwardSmartCache:
       map['noswa'] = true;
       map['nofastforward'] = false;
-      map['noshift'] = false;
+      map['noshift'] = !config.contextShift;
       if (config.smartCacheSlots > 0 && caps.smartCache) {
         map['smartcache'] = config.smartCacheSlots.clamp(1, 20);
       }

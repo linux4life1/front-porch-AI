@@ -146,6 +146,7 @@ class GGUFParser {
           k * heads * 2,
           latentOnly ? 0 : v * heads * 2,
           sliding: sliding,
+          block: i,
         ),
       );
     }
@@ -185,6 +186,7 @@ class GGUFParser {
           convLayers * _convStateBytes(number, nEmbd),
       perLayerInputDim: number('embedding_length_per_layer_input'),
       architecture: arch,
+      contextLength: number('context_length'),
     );
   }
 

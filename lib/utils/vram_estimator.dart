@@ -20,6 +20,7 @@ import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/gguf_model_info.dart';
 import 'package:front_porch_ai/utils/kobold_memory_rules.dart';
+import 'package:front_porch_ai/utils/kobold_placement.dart';
 
 export 'package:front_porch_ai/utils/kobold_memory_rules.dart'
     show KoboldMemoryBackend;
@@ -215,80 +216,41 @@ class VramEstimator {
     KoboldMemoryBackend backend = KoboldMemoryBackend.cuda,
     bool flashAttention = true,
   }) {
-    final fileSizeMb = fileSizeBytes ~/ (1024 * 1024);
-
-    // Weights on the card. The file's own tensor table gives this exactly
-    // (seen on a real card: 784.42 MiB reported, 784 predicted). The ratio
-    // from the architecture numbers is the fallback for a file whose table
-    // could not be read. On Metal the whole file is mapped, so it all
-    // counts.
-    final exact = modelInfo.weights;
+    // Every layer on the card; the experts in system memory when asked.
+    // The file's own tensor table gives the weights exactly (seen on a real
+    // card: 784.42 MiB reported, 784 predicted). The cache includes the
+    // small fixed state of a hybrid model's recurrent layers.
     final expertsOnCpu = modelInfo.isMoe && moeExpertsOnCpu;
+    final load = koboldLoad(
+      info: modelInfo,
+      fileSizeBytes: fileSizeBytes,
+      contextSize: contextSize,
+      batchSize: batchSize,
+      cacheSizeFactor: _kvQuantFactor(kvQuant),
+      slidingWindowOn: isSwa,
+      flashAttention: flashAttention,
+      backend: backend,
+      moeCpuBlocks: expertsOnCpu ? modelInfo.nLayers : 0,
+    );
+    final exact = modelInfo.weights;
     final double weightRatio;
-    final int weightsMb;
     if (backend == KoboldMemoryBackend.metal) {
-      weightsMb = fileSizeMb;
       weightRatio = 1.0;
     } else if (exact != null && exact.total > 0) {
-      final onCard = exact.gpuBytes(expertsOnCpu: expertsOnCpu);
-      weightsMb = toMibCeil(onCard.toDouble());
-      weightRatio = onCard / exact.total;
+      weightRatio = exact.gpuBytes(expertsOnCpu: expertsOnCpu) / exact.total;
     } else {
       weightRatio = expertsOnCpu
           ? modelInfo.gpuWeightRatioWhenOffloadingExperts
           : 1.0;
-      const headerMb = 50; // header / non-layer tensor allowance
-      weightsMb = ((fileSizeMb - headerMb).clamp(0, fileSizeMb) * weightRatio)
-          .round();
     }
-
-    // The cache figure includes the small fixed state a hybrid model's
-    // recurrent layers keep; it sits on the card beside the cache.
-    final kvCacheMb = toMibCeil(
-      koboldKvCacheBytes(
-            layers: _cacheLayers(modelInfo),
-            contextSize: contextSize,
-            batchSize: batchSize,
-            sizeFactor: _kvQuantFactor(kvQuant),
-            slidingWindowOn: isSwa,
-            flashAttention: flashAttention,
-            slidingWindow: modelInfo.slidingWindow ?? 0,
-          ) +
-          modelInfo.recurrentStateBytes,
-    );
-
-    final computeBufMb = toMibCeil(
-      koboldComputeBytes(
-        info: modelInfo,
-        contextSize: contextSize,
-        batchSize: batchSize,
-        slidingWindowOn: isSwa,
-        flashAttention: flashAttention,
-        backend: backend,
-      ),
-    );
-    final overheadMb = koboldRuntimeOverheadMb(
-      backend,
-      flashAttention: flashAttention,
-    );
-
     return (
-      weightsMb: weightsMb,
-      kvCacheMb: kvCacheMb,
-      computeBufMb: computeBufMb,
-      overheadMb: overheadMb,
-      totalMb: weightsMb + kvCacheMb + computeBufMb + overheadMb,
+      weightsMb: load.modelMb + load.expertsMb,
+      kvCacheMb: load.cacheMb,
+      computeBufMb: load.computeMb,
+      overheadMb: load.overheadMb,
+      totalMb: load.cardMb,
       activeWeightRatio: weightRatio,
     );
-  }
-
-  /// The layers that keep a cache. A model read from a file lists them; one
-  /// built by hand is taken as a single uniform block, the cautious reading.
-  static List<GGUFKvLayer> _cacheLayers(GGUFModelInfo info) {
-    final layers = info.kvLayers;
-    if (layers != null) return layers;
-    final half = info.kvBytesPerToken ~/ 2;
-    return [GGUFKvLayer(half, info.kvBytesPerToken - half)];
   }
 
   /// Suggest a batch size that fits within [availableVramMb] given the margin.

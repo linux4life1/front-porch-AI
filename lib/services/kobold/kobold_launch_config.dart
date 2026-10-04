@@ -91,6 +91,12 @@ class KoboldLaunchConfig {
     this.mmprojPath = '',
     this.mmprojOnCpu = false,
     this.moeExpertsOnCpu = false,
+    this.moeCpuLayers,
+    this.forceFit,
+    this.mmq,
+    this.draftModelPath = '',
+    this.contextShift = true,
+    this.cudaOptions = const [],
     this.extras = const {},
   });
 
@@ -130,6 +136,30 @@ class KoboldLaunchConfig {
   /// a manual layer count: automatic fitting and this setting cannot be
   /// combined in KoboldCpp.
   final bool moeExpertsOnCpu;
+
+  /// With [moeExpertsOnCpu]: how many of the FIRST blocks keep their
+  /// experts in system memory. Null: all of them.
+  final int? moeCpuLayers;
+
+  /// `autofit` as written: true forces KoboldCpp's fit, which then keeps
+  /// [autofitPaddingMb] spare. Null when the file does not say.
+  final bool? forceFit;
+
+  /// CUDA and the ROCm build: MMQ's own kernels for reading the prompt.
+  /// Faster on some cards, slower on others. Null leaves it to KoboldCpp,
+  /// which turns it on.
+  final bool? mmq;
+
+  /// A small model that guesses ahead so the main one writes faster.
+  final String draftModelPath;
+
+  /// Context shift, with fast forward. Off for a model with recurrent
+  /// layers, where it does nothing but make KoboldCpp add smart cache slots
+  /// of its own.
+  final bool contextShift;
+
+  /// CUDA options besides the card ("rowsplit", "lowvram"), kept as written.
+  final List<String> cudaOptions;
   final Map<String, dynamic> extras;
 
   bool get layersAreAutomatic => gpuLayers < 0;
@@ -149,13 +179,21 @@ class KoboldLaunchConfig {
     bool? jinja,
     String? mmprojPath,
     bool? moeExpertsOnCpu,
+    int? moeCpuLayers,
+    int? threads,
+    int? autofitPaddingMb,
+    bool? forceFit,
+    bool? mmq,
+    String? draftModelPath,
+    bool? contextShift,
+    bool? mmprojOnCpu,
   }) => KoboldLaunchConfig(
     modelPath: modelPath ?? this.modelPath,
     contextSize: contextSize ?? this.contextSize,
     batchSize: batchSize ?? this.batchSize,
-    threads: threads,
+    threads: threads ?? this.threads,
     gpuLayers: gpuLayers ?? this.gpuLayers,
-    autofitPaddingMb: autofitPaddingMb,
+    autofitPaddingMb: autofitPaddingMb ?? this.autofitPaddingMb,
     useMmap: useMmap,
     useMlock: useMlock ?? this.useMlock,
     kvQuant: kvQuant ?? this.kvQuant,
@@ -166,8 +204,14 @@ class KoboldLaunchConfig {
     smartCacheSlots: smartCacheSlots ?? this.smartCacheSlots,
     jinja: jinja ?? this.jinja,
     mmprojPath: mmprojPath ?? this.mmprojPath,
-    mmprojOnCpu: mmprojOnCpu,
+    mmprojOnCpu: mmprojOnCpu ?? this.mmprojOnCpu,
     moeExpertsOnCpu: moeExpertsOnCpu ?? this.moeExpertsOnCpu,
+    moeCpuLayers: moeCpuLayers ?? this.moeCpuLayers,
+    forceFit: forceFit ?? this.forceFit,
+    mmq: mmq ?? this.mmq,
+    draftModelPath: draftModelPath ?? this.draftModelPath,
+    contextShift: contextShift ?? this.contextShift,
+    cudaOptions: cudaOptions,
     extras: extras,
   );
 }

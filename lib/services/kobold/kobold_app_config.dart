@@ -34,6 +34,9 @@ class KoboldAppSettings {
     required this.mlock,
     required this.contextMode,
     this.rocmFlashAttentionFailed = false,
+    this.smartCacheSlots = 0,
+    this.contextShift = true,
+    this.mmq,
   });
 
   final int contextSize;
@@ -54,6 +57,14 @@ class KoboldAppSettings {
 
   /// KoboldCpp on ROCm died on this machine with flash attention on.
   final bool rocmFlashAttentionFailed;
+
+  /// Smart cache slots, chosen for this machine's free memory, and context
+  /// shift to go with them (see [koboldSmartCacheSetting]).
+  final int smartCacheSlots;
+  final bool contextShift;
+
+  /// MMQ as timed on this card; null leaves it to KoboldCpp.
+  final bool? mmq;
 }
 
 /// What is known about the model being launched.
@@ -155,6 +166,9 @@ KoboldLaunchConfig koboldAppConfig({
         : ContextManagementMode.fastForwardSmartCache,
     mmprojPath: mmprojPath,
     moeExpertsOnCpu: manual && model.isMoe && !model.expertsShareGpuMemory,
+    smartCacheSlots: settings.smartCacheSlots,
+    mmq: settings.mmq,
+    contextShift: settings.contextShift,
   );
 }
 
@@ -163,20 +177,22 @@ KoboldLaunchConfig koboldAppConfig({
 /// otherwise. The dialog's guess of what fits uses the same figure.
 int koboldAutofitPaddingMb({required bool greedy}) => greedy ? 32 : 1024;
 
-/// The preset the "Generate preset" dialog writes.
+/// The preset the preset editor writes.
 ///
-/// The dialog never decides how a model is loaded. KoboldCpp fits it, and
-/// the dialog GUESSES how that fit will come out (for a MoE model: the
-/// active weights on the card, the experts in system memory) so the user
-/// can pick a context size, batch size and cache type that fit in what is
-/// left, and the model runs at full speed.
-///
+/// With automatic placement ([manualLayers] null) KoboldCpp fits the model
+/// itself, and the editor GUESSES how that fit comes out so the user can
+/// pick a context size, batch size and cache type that fit in what is left.
 /// The guess only holds while KoboldCpp fits with the spare memory the
-/// dialog assumed. KoboldCpp keeps a preset's `autofitpadding` only when
+/// editor assumed. KoboldCpp keeps a preset's `autofitpadding` only when
 /// the fit is FORCED (`autofit: true`). When it switches the fit on by
 /// itself it puts the padding back to its own default (seen on a real
 /// 1.117.1: a preset's 32 came back as 1024), and "greedy" then does
-/// nothing while the dialog still counts on it.
+/// nothing while the editor still counts on it.
+///
+/// With [manualLayers] the user places the model: that many layers on the
+/// card (the output layer and the last blocks) and, for a MoE model, the
+/// experts of the first [moeCpuLayers] blocks in system memory. The fit is
+/// then not forced: a forced fit ignores both.
 KoboldLaunchConfig koboldGeneratedPreset({
   required String modelPath,
   required int contextSize,
@@ -190,29 +206,50 @@ KoboldLaunchConfig koboldGeneratedPreset({
   required int smartCacheSlots,
   String mmprojPath = '',
   String? architecture,
-}) => KoboldLaunchConfig(
-  modelPath: modelPath,
-  contextSize: contextSize,
-  batchSize: batchSize,
-  threads: threads,
-  autofitPaddingMb: koboldAutofitPaddingMb(greedy: greedyAllocation),
-  flashAttention: koboldFlashAttentionRuns(
+  bool flashAttention = true,
+  bool rocm = false,
+  bool rocmFlashAttentionFailed = false,
+  int? manualLayers,
+  int moeCpuLayers = 0,
+  bool? mmq,
+  String draftModelPath = '',
+  bool contextShift = true,
+  List<String> cudaOptions = const [],
+  Map<String, dynamic> extras = const {},
+}) {
+  final runs = koboldFlashAttentionRuns(
     backend: backend,
-    rocm: false,
+    rocm: rocm,
     architecture: architecture,
-  ),
-  kvQuant: _cacheWhere(
-    koboldFlashAttentionRuns(
-      backend: backend,
-      rocm: false,
-      architecture: architecture,
-    ),
-    kvQuant,
-  ),
-  backend: backend,
-  gpuId: gpuId,
-  contextMode: contextMode,
-  smartCacheSlots: smartCacheSlots,
-  mmprojPath: mmprojPath,
-  extras: const {'autofit': true},
-);
+    rocmFailedBefore: rocmFlashAttentionFailed,
+  );
+  final fa = runs && flashAttention;
+  final manual = manualLayers != null;
+  final moeCpu = manual && moeCpuLayers > 0;
+  return KoboldLaunchConfig(
+    modelPath: modelPath,
+    contextSize: contextSize,
+    batchSize: batchSize,
+    threads: threads,
+    gpuLayers: manualLayers ?? KoboldLaunchConfig.autoLayers,
+    autofitPaddingMb: manual
+        ? null
+        : koboldAutofitPaddingMb(greedy: greedyAllocation),
+    forceFit: !manual,
+    flashAttention: fa,
+    kvQuant: _cacheWhere(fa, kvQuant),
+    backend: backend,
+    gpuId: gpuId,
+    contextMode: contextMode,
+    smartCacheSlots: smartCacheSlots,
+    mmprojPath: mmprojPath,
+    moeExpertsOnCpu: moeCpu,
+    moeCpuLayers: moeCpu ? moeCpuLayers : null,
+    mmq: mmq,
+    draftModelPath: draftModelPath,
+    contextShift: contextShift,
+    cudaOptions: cudaOptions,
+    // A file's own forced-fit word gives way to the placement chosen here.
+    extras: {...extras}..remove('autofit'),
+  );
+}

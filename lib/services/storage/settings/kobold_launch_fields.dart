@@ -17,6 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
 
@@ -31,6 +34,43 @@ mixin KoboldLaunchFields on SettingsBase {
   ContextManagementMode _koboldContextMode =
       ContextManagementMode.fastForwardSmartCache;
   bool _rocmFlashAttentionFailed = false;
+  bool _batchAutomatic = true;
+  bool _presetGateSkipped = false;
+  Map<String, bool> _mmqTimed = const {};
+
+  /// Auto mode picks the batch for this machine (the default). False once
+  /// a batch is chosen by hand in Settings.
+  bool get batchAutomatic => _batchAutomatic;
+
+  Future<void> setBatchAutomatic(bool value) async {
+    _batchAutomatic = value;
+    await prefs?.setBool(k('kobold_batch_automatic'), value);
+    notify();
+  }
+
+  /// "I know KoboldCpp: don't ask again" on the pop-up before the preset
+  /// editor.
+  bool get presetGateSkipped => _presetGateSkipped;
+
+  Future<void> setPresetGateSkipped(bool value) async {
+    _presetGateSkipped = value;
+    await prefs?.setBool(k('kobold_preset_gate_skipped'), value);
+    notify();
+  }
+
+  /// MMQ on (true) or off as timed faster on [card] with KoboldCpp
+  /// [engineVersion]; null when not timed there.
+  bool? mmqFor(String card, String? engineVersion) =>
+      _mmqTimed[_mmqKey(card, engineVersion)];
+
+  Future<void> setMmqFor(String card, String? engineVersion, bool on) async {
+    _mmqTimed = {..._mmqTimed, _mmqKey(card, engineVersion): on};
+    await prefs?.setString(k('kobold_mmq_timed'), jsonEncode(_mmqTimed));
+    notify();
+  }
+
+  static String _mmqKey(String card, String? version) =>
+      '${card.trim()}|${version ?? ''}';
 
   /// KoboldCpp on ROCm died on this machine with flash attention on, so
   /// the app's own launches leave it off here.
@@ -92,6 +132,25 @@ mixin KoboldLaunchFields on SettingsBase {
     _koboldContextMode = prefs?.getString(k('kobold_context_mode')) == 'swa'
         ? ContextManagementMode.slidingWindowAttention
         : ContextManagementMode.fastForwardSmartCache;
+    _batchAutomatic = prefs?.getBool(k('kobold_batch_automatic')) ?? true;
+    _presetGateSkipped =
+        prefs?.getBool(k('kobold_preset_gate_skipped')) ?? false;
+    _mmqTimed = _readMmqTimed(prefs?.getString(k('kobold_mmq_timed')));
+  }
+
+  static Map<String, bool> _readMmqTimed(String? text) {
+    if (text == null) return const {};
+    try {
+      final map = jsonDecode(text);
+      if (map is! Map) return const {};
+      return {
+        for (final e in map.entries)
+          if (e.value is bool) '${e.key}': e.value as bool,
+      };
+    } on FormatException catch (e) {
+      debugPrint('Unreadable MMQ timings dropped: $e');
+      return const {};
+    }
   }
 
   Future<void> setGpuLayersManual(bool value) async {

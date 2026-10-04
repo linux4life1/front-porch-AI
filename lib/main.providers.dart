@@ -162,7 +162,15 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
             final hardware = HardwareService();
             context.read<KoboldService>()
               ..hardwareInfo = (() => hardware.hardwareInfo)
-              ..hardwareWhenKnown = hardware.whenKnown;
+              ..hardwareWhenKnown = hardware.whenKnown
+              ..readFreeMemory = () async {
+                final storage = context.read<StorageService>();
+                final free = await hardware.readFreeMemory(
+                  gpuId: storage.backendSettings.gpuId,
+                );
+                hardware.freeBeforeEngine = free;
+                return free;
+              };
             return hardware;
           },
         ),

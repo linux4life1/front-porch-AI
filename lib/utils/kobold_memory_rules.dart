@@ -40,6 +40,9 @@ int koboldWindowCells({
 /// With flash attention off the engine stores the values transposed and
 /// sizes every layer's values to the largest layer's: Gemma 4's full
 /// layers then take 520 MiB of values beside 130 of keys at 16k.
+///
+/// [include] counts only some layers (those on the card, say); the largest
+/// layer is still taken from all of them.
 double koboldKvCacheBytes({
   required List<GGUFKvLayer> layers,
   required int contextSize,
@@ -48,6 +51,7 @@ double koboldKvCacheBytes({
   required bool slidingWindowOn,
   required bool flashAttention,
   int slidingWindow = 0,
+  bool Function(GGUFKvLayer layer)? include,
 }) {
   final full = koboldContextCells(contextSize);
   final window = koboldWindowCells(
@@ -61,6 +65,7 @@ double koboldKvCacheBytes({
   );
   var bytes = 0.0;
   for (final layer in layers) {
+    if (include != null && !include(layer)) continue;
     final cells = slidingWindowOn && layer.sliding && slidingWindow > 0
         ? window
         : full;
@@ -86,6 +91,11 @@ double koboldKvCacheBytes({
 /// With flash attention off, the layers also hold the full attention
 /// scores for one layer (`4 * heads * cells * b`): Qwen3-14B at 16k takes
 /// 1376.51 on ROCm against 306.75 with it on.
+///
+/// [split]: some blocks run from system memory. The work is then cut in
+/// pieces and the output and the layers keep their own space side by side,
+/// as on Vulkan's large outputs: Qwen3-14B at 64k with 19 or 29 of its 40
+/// blocks on the card took 479.75 on Vulkan, against 316.75 with all 40.
 double koboldComputeBytes({
   required GGUFModelInfo info,
   required int contextSize,
@@ -93,6 +103,7 @@ double koboldComputeBytes({
   required bool slidingWindowOn,
   required bool flashAttention,
   required KoboldMemoryBackend backend,
+  bool split = false,
 }) {
   final b = batchSize;
   final vocab = info.nVocab ?? 262144; // the largest in common use
@@ -135,23 +146,20 @@ double koboldComputeBytes({
       ? 18.0 * full * b
       : 0.0;
 
-  final double bytes;
-  if (backend == KoboldMemoryBackend.vulkan && logits >= 1024 * _mib) {
+  // The output part is exact on Vulkan and Metal; a CUDA log showed 6.8%
+  // more (1053.07 against 986), so it carries that margin elsewhere. With
+  // flash attention off a little more sits beside it (Gemma 4 E4B on
+  // Metal: 616.01 against 568).
+  final margin = flashAttention ? 1.08 : 1.15;
+  final vulkan = backend == KoboldMemoryBackend.vulkan;
+  double largest(List<double> parts) => parts.reduce((a, c) => a > c ? a : c);
+  if (vulkan && logits >= 1024 * _mib) {
     // Exact to 0.1 MiB on Gemma 4; 1% covers the engine's alignment.
-    bytes = (logits + layers) * 1.01;
-  } else {
-    // The output part is exact on Vulkan and Metal; a CUDA log showed 6.8%
-    // more (1053.07 against 986), so it carries that margin everywhere.
-    // With flash attention off a little more sits beside it (Gemma 4 E4B
-    // on Metal: 616.01 against 568).
-    final margin = flashAttention ? 1.08 : 1.15;
-    bytes = [
-      output * margin,
-      layers,
-      attention,
-    ].reduce((a, c) => a > c ? a : c);
+    return (logits + layers) * 1.01;
   }
-  return bytes;
+  final whole = largest([output * margin, layers, attention]);
+  if (!split) return whole;
+  return largest([whole, (logits + layers) * (vulkan ? 1.01 : margin)]);
 }
 
 /// Floats per token the feed-forward block keeps at its peak: the gate, up

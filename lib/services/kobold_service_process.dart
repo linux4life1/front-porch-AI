@@ -167,6 +167,14 @@ extension KoboldServiceProcess on KoboldService {
       kcppsPath = null;
     }
 
+    try {
+      freeBeforeLaunch =
+          await readFreeMemory?.call().timeout(const Duration(seconds: 5)) ??
+          freeBeforeLaunch;
+    } on Object catch (e) {
+      _addLog('Free memory unknown before this start: $e');
+    }
+
     final List<String> args;
     KoboldStagedRole? staged;
     try {
@@ -193,6 +201,7 @@ extension KoboldServiceProcess on KoboldService {
                 notify();
                 return hardwareWhenKnown!();
               },
+        free: freeBeforeLaunch,
         onNote: _addLog,
         onStaged: (s) => staged = s,
       );

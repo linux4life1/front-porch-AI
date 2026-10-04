@@ -138,6 +138,7 @@ extension LLMProviderKoboldHosts on LLMProvider {
       useMetal: b.useMetal ?? false,
       useRocm: b.useRocm ?? false,
       hardware: _koboldService.hardwareInfo?.call(),
+      free: _koboldService.freeBeforeLaunch,
     );
   }
 }

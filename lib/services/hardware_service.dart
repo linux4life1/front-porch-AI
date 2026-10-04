@@ -34,10 +34,16 @@ part 'hardware_service.nvidia.dart';
 part 'hardware_service.apple.dart';
 part 'hardware_service.linux.dart';
 part 'hardware_service.windows.dart';
+part 'hardware_service.free.dart';
 
 class HardwareService extends ChangeNotifier {
   HardwareInfo? _hardwareInfo;
   bool _isDetecting = false;
+
+  /// Free memory read the last time this app's KoboldCpp was not running:
+  /// what a model has to load into. Set by the launch and by the preset
+  /// editor; null until one of them has read it.
+  FreeMemoryMb? freeBeforeEngine;
 
   /// The detected hardware, with [testVramOverrideMb] applied when set.
   /// Applied at the READ because detection assigns `_hardwareInfo` several

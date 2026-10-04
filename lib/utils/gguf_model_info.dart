@@ -12,6 +12,7 @@ class GGUFKvLayer {
     this.kBytesPerCell,
     this.vBytesPerCell, {
     this.sliding = false,
+    this.block,
   });
 
   /// Bytes one cached token's keys and values take in this layer,
@@ -24,6 +25,10 @@ class GGUFKvLayer {
   /// A sliding-window layer. With sliding window on it holds only the
   /// window, not the whole context.
   final bool sliding;
+
+  /// The block this cache belongs to. A block KoboldCpp keeps in system
+  /// memory keeps its cache there too. Null for a layer built by hand.
+  final int? block;
 }
 
 /// Lightweight summary of key GGUF architecture values needed for VRAM/layer
@@ -70,6 +75,9 @@ class GGUFModelInfo {
   /// for each token (E4B: 256 numbers). Null for other models.
   final int? perLayerInputDim;
 
+  /// The longest context the model was made for (`context_length`).
+  final int? contextLength;
+
   const GGUFModelInfo({
     required this.nLayers,
     required this.nHeads,
@@ -93,6 +101,7 @@ class GGUFModelInfo {
     this.recurrentStateBytes = 0,
     this.perLayerInputDim,
     this.architecture,
+    this.contextLength,
   });
 
   /// True when the model has sliding-window layers, so the sliding window

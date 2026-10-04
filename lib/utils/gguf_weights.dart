@@ -27,6 +27,7 @@ class GGUFWeights {
     required this.tokenEmbedding,
     required this.output,
     required this.other,
+    this.perBlockExperts = const [],
   });
 
   /// Every tensor in the file.
@@ -39,6 +40,10 @@ class GGUFWeights {
   /// KoboldCpp keeps in system memory when experts stay off the card. 0 for
   /// a model that is not MoE.
   final int experts;
+
+  /// [experts] block by block, in the order of [perBlock]: 0 for a block
+  /// without experts (DeepSeek's leading dense blocks).
+  final List<int> perBlockExperts;
 
   /// The input embedding. KoboldCpp keeps it in system memory.
   final int tokenEmbedding;
@@ -61,6 +66,7 @@ class GGUFWeights {
   /// Sorts [sizes] (bytes per tensor name) into the groups above.
   factory GGUFWeights.fromTensorSizes(Map<String, int> sizes) {
     final blocks = <int, int>{};
+    final blockExperts = <int, int>{};
     var experts = 0, tokenEmbedding = 0, output = 0, other = 0, total = 0;
     sizes.forEach((name, size) {
       total += size;
@@ -68,7 +74,10 @@ class GGUFWeights {
       if (block != null) {
         final index = int.parse(block.group(1)!);
         blocks[index] = (blocks[index] ?? 0) + size;
-        if (_expert.hasMatch(name)) experts += size;
+        if (_expert.hasMatch(name)) {
+          experts += size;
+          blockExperts[index] = (blockExperts[index] ?? 0) + size;
+        }
       } else if (name.startsWith('token_embd')) {
         tokenEmbedding += size;
       } else if (name.startsWith('output.')) {
@@ -81,6 +90,7 @@ class GGUFWeights {
     return GGUFWeights(
       total: total,
       perBlock: [for (final i in order) blocks[i]!],
+      perBlockExperts: [for (final i in order) blockExperts[i] ?? 0],
       experts: experts,
       tokenEmbedding: tokenEmbedding,
       output: output,

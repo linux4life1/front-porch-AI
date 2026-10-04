@@ -88,6 +88,14 @@ class KoboldService extends ChangeNotifier
   /// The same, waiting for a first detection that is still running. Only
   /// asked when no graphics backend was ever chosen.
   Future<HardwareInfo?> Function()? hardwareWhenKnown;
+
+  /// Reads the free graphics and system memory, before a launch.
+  Future<FreeMemoryMb?> Function()? readFreeMemory;
+
+  /// What [readFreeMemory] said before the running engine started: what
+  /// the model loaded into. Swaps tune with it too, so a swap back to the
+  /// chat model stages the same config as the launch did.
+  FreeMemoryMb? freeBeforeLaunch;
   Timer? _readinessProbe;
 
   /// Ground-truth per-request progress parsed from the managed process's own
