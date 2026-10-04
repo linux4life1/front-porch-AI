@@ -105,3 +105,49 @@ KoboldLaunchConfig koboldAppConfig({
     moeExpertsOnCpu: manual && model.isMoe && !model.expertsShareGpuMemory,
   );
 }
+
+/// Spare graphics memory a generated preset tells KoboldCpp's fit to leave
+/// free: next to none when the user chose "greedy", KoboldCpp's own default
+/// otherwise. The dialog's guess of what fits uses the same figure.
+int koboldAutofitPaddingMb({required bool greedy}) => greedy ? 32 : 1024;
+
+/// The preset the "Generate preset" dialog writes.
+///
+/// The dialog never decides how a model is loaded. KoboldCpp fits it, and
+/// the dialog GUESSES how that fit will come out (for a MoE model: the
+/// active weights on the card, the experts in system memory) so the user
+/// can pick a context size, batch size and cache type that fit in what is
+/// left, and the model runs at full speed.
+///
+/// The guess only holds while KoboldCpp fits with the spare memory the
+/// dialog assumed. KoboldCpp keeps a preset's `autofitpadding` only when
+/// the fit is FORCED (`autofit: true`). When it switches the fit on by
+/// itself it puts the padding back to its own default (seen on a real
+/// 1.117.1: a preset's 32 came back as 1024), and "greedy" then does
+/// nothing while the dialog still counts on it.
+KoboldLaunchConfig koboldGeneratedPreset({
+  required String modelPath,
+  required int contextSize,
+  required int batchSize,
+  required int threads,
+  required bool greedyAllocation,
+  required KvQuant kvQuant,
+  required KoboldGpuBackend backend,
+  required int? gpuId,
+  required ContextManagementMode contextMode,
+  required int smartCacheSlots,
+  String mmprojPath = '',
+}) => KoboldLaunchConfig(
+  modelPath: modelPath,
+  contextSize: contextSize,
+  batchSize: batchSize,
+  threads: threads,
+  autofitPaddingMb: koboldAutofitPaddingMb(greedy: greedyAllocation),
+  kvQuant: kvQuant,
+  backend: backend,
+  gpuId: gpuId,
+  contextMode: contextMode,
+  smartCacheSlots: smartCacheSlots,
+  mmprojPath: mmprojPath,
+  extras: const {'autofit': true},
+);

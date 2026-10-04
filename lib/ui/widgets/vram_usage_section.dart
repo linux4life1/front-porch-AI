@@ -48,8 +48,11 @@ class VramUsageSection extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.memory, size: 16,
-                color: AppColors.textSecondary(context)),
+            Icon(
+              Icons.memory,
+              size: 16,
+              color: AppColors.textSecondary(context),
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -65,7 +68,9 @@ class VramUsageSection extends StatelessWidget {
     }
 
     final availableMb = hardwareInfo?.vramMb ?? 0;
-    final fraction = availableMb > 0 ? vramEstimate!.totalMb / availableMb : 0.0;
+    final fraction = availableMb > 0
+        ? vramEstimate!.totalMb / availableMb
+        : 0.0;
     final fits = fraction <= 1.0;
 
     final Color barColor;
@@ -79,7 +84,7 @@ class VramUsageSection extends StatelessWidget {
       barColor = AppColors.logReady;
     }
 
-    final paddingMb = isGreedyAllocation ? 32 : 1024;
+    final paddingMb = koboldAutofitPaddingMb(greedy: isGreedyAllocation);
 
     return Container(
       width: double.infinity,
@@ -93,8 +98,11 @@ class VramUsageSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.memory, size: 16,
-                  color: AppColors.textSecondary(context)),
+              Icon(
+                Icons.memory,
+                size: 16,
+                color: AppColors.textSecondary(context),
+              ),
               const SizedBox(width: 8),
               Text(
                 'VRAM Usage Estimate',
@@ -114,11 +122,11 @@ class VramUsageSection extends StatelessWidget {
                 const SizedBox(width: 6),
               ],
               Icon(
-                fits
-                    ? Icons.check_circle_outline
-                    : Icons.warning_amber_rounded,
+                fits ? Icons.check_circle_outline : Icons.warning_amber_rounded,
                 size: 16,
-                color: fits ? AppColors.logReady : Theme.of(context).colorScheme.error,
+                color: fits
+                    ? AppColors.logReady
+                    : Theme.of(context).colorScheme.error,
               ),
             ],
           ),
@@ -177,11 +185,11 @@ class VramUsageSection extends StatelessWidget {
             Text(
               modelInfo?.isMoe == true
                   ? 'macOS: CPU and GPU share unified memory, so the whole model '
-                      'loads into one pool — MoE experts are not offloaded to CPU '
-                      '(no memory saving, and it would slow generation). Estimate '
-                      'targets unified memory; budget against ~70% of total RAM.'
+                        'loads into one pool — MoE experts are not offloaded to CPU '
+                        '(no memory saving, and it would slow generation). Estimate '
+                        'targets unified memory; budget against ~70% of total RAM.'
                   : 'macOS: this estimates unified memory shared by CPU and GPU. '
-                      'Budget against ~70% of total RAM (the Metal allocation cap).',
+                        'Budget against ~70% of total RAM (the Metal allocation cap).',
               style: theme.textTheme.bodySmall?.copyWith(
                 fontSize: 11,
                 color: AppColors.textSecondary(context),

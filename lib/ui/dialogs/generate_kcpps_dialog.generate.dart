@@ -123,7 +123,7 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
           kvBytesPerToken: 2048,
         );
 
-    final padding = _greedyAllocation ? 32 : 1024;
+    final padding = koboldAutofitPaddingMb(greedy: _greedyAllocation);
 
     return VramEstimator.suggestBatchSize(
       modelInfo: modelInfo,
@@ -159,12 +159,12 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
       // preset loaded by a live swap still has it.
       final mmproj = storage.presetSettings.modelMmprojMap[model] ?? '';
       final version = await KoboldBinaryVersion.read(storage.binDir.path);
-      final config = KoboldLaunchConfig(
+      final config = koboldGeneratedPreset(
         modelPath: model,
         contextSize: _contextSize,
         batchSize: _batchSize,
         threads: _threads,
-        autofitPaddingMb: _greedyAllocation ? 32 : 1024,
+        greedyAllocation: _greedyAllocation,
         kvQuant: _kvQuant,
         backend: gpu.backend,
         gpuId: gpu.gpuId,

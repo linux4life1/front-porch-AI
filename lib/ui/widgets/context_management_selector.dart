@@ -33,11 +33,13 @@ class ContextManagementSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: colors,
-            borderRadius: BorderRadius.circular(8),
-          ),
+        // A Material, not a coloured box: the tiles paint their press and
+        // hover ink on the nearest Material, and a coloured box between
+        // them hides it (Flutter reports that as an error in debug runs).
+        Material(
+          color: colors,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
           child: RadioGroup<ContextManagementMode>(
             groupValue: currentMode,
             onChanged: (v) {

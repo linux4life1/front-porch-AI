@@ -1,11 +1,24 @@
 # MoE-Aware VRAM Estimation and KoboldCPP Launch for Auto-Configure
 
-> **Superseded.** Front Porch AI no longer estimates GPU layers itself, and
-> the Auto-Configure button described here is gone. KoboldCpp now fits the
-> model to the graphics card (Settings → Hardware & GPU → Graphics memory:
-> Automatic), which also places MoE models correctly. The code this page
-> documents (`KoboldLayerSolver`, `OptimizationService`) has been removed.
-> The page is kept for the history of why. The current design is in
+> **Status (2026-10-03).** The estimation on this page is live. The "VRAM
+> Usage Estimate" in the Generate preset dialog uses the MoE detection, the
+> active weight ratio and the batch-size overhead described below
+> (`GGUFModelInfo`, `VramEstimator.estimateFromArchitecture`).
+>
+> **What the estimate is for.** It does not decide how a model is loaded,
+> and never did: KoboldCpp fits the model. The estimate is a guess at how
+> that fit will come out, there so you can pick a context size, batch size
+> and cache type that fit in the graphics memory left over after a MoE
+> model's active weights, and the model runs at full speed. The preset the
+> dialog writes tells KoboldCpp to fit the model and to keep the spare
+> memory the guess counted on.
+>
+> **What is gone.** Only the Auto-Configure button and the code behind it
+> (`KoboldLayerSolver`, `OptimizationService`), which picked a GPU layer
+> count for launches that used no preset. Those launches now leave the fit
+> to KoboldCpp as well (Settings → Hardware & GPU → Graphics memory:
+> Automatic). Parts 3 to 6 of "Required Code Changes" below describe that
+> removed code and are kept for the history. The launch design is in
 > [design/kobold-launch-rewrite.md](design/kobold-launch-rewrite.md).
 
 ## Problem

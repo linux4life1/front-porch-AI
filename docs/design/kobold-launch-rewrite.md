@@ -25,7 +25,9 @@ fits the model itself.
 
 **What gets deleted**
 
-- The layer estimate and Auto-Configure code.
+- The Auto-Configure layer picker (the code that chose a GPU layer count
+  for launches without a preset). Not the VRAM usage estimate: see "The
+  estimate is a guess, not a setting" under Design.
 - The second launch path.
 - The internal batch-override file that shows up as a fake preset.
 - The file-linking trick that breaks model swaps on Windows.
@@ -228,6 +230,27 @@ it lands, a swap back to a user's preset still links the user's own file).
 **Only these stay on the command line:** port, admin, admin folder.
 KoboldCpp protects them from being set by a config.
 
+**The estimate is a guess, not a setting.** The "VRAM Usage Estimate" in
+the preset dialog has never decided how a model is loaded. KoboldCpp fits
+the model. The estimate guesses how that fit will come out (for a MoE
+model: the active weights on the card, the experts in system memory) so the
+user can pick a context size, batch size and cache type that fit in what is
+left, and the model runs at full speed. Nothing in this rewrite removes it,
+and the preset editor (Stage 6) keeps it.
+
+The guess and the preset have to agree on one figure: how much graphics
+memory the fit leaves spare (1024 MB, or 32 MB with "greedy"). KoboldCpp
+keeps a preset's `autofitpadding` only when the fit is forced
+(`autofit: true`). When it switches the fit on by itself (layers at -1 and
+nothing else in the way) it puts the padding back to its own default. That
+is in its source from 1.108 through 1.122, and was seen on a real 1.117.1:
+a preset with `autofitpadding: 32` and no `autofit` ran with 1024, and the
+same preset with `autofit: true` ran with 32. So a generated preset writes
+`autofit: true` with its padding, as it did before the rewrite. As first
+merged, Stage 1 stopped writing it, and "greedy" then did nothing while the
+dialog still counted on it. The app's own settings (no preset) do not force
+the fit: they carry no padding, and a manual layer count must be obeyed.
+
 **Memory placement written into every config:** `gpulayers: -1`, automatic
 fit not forced, mmap on, memory lock off. If the user sets a manual layer
 count, that number is written, with `moecpu` for a MoE model.
@@ -292,8 +315,8 @@ cache levels; version gating; a broken file.
   `lib/services/optimization_service.dart`, the three Auto-Configure blocks,
   the VRAM-confirm dialog, the batch-override file write. A startup cleanup
   removes that file and clears it if it is the active preset.
-- `VramEstimator` stays for display only and gains factors for bf16 and
-  q5_1.
+- `VramEstimator` stays and gains factors for bf16 and q5_1. It never set
+  anything; see "The estimate is a guess, not a setting" under Design.
 
 Tests (pure, real figures): default NVIDIA setup; manual 20 layers on a
 dense model; manual layers on Gemma-4-class MoE figures; ROCm; batch 8192;
@@ -410,6 +433,13 @@ The out-of-memory patterns ship only after real log text is captured.
 - Turning on a manual layer count clears a forced automatic fit the preset
   carried, since KoboldCpp otherwise ignores the count and the MoE setting.
   The reader already notes this when it opens such a file.
+- The VRAM Usage Estimate stays, with the batch suggestion, and stays a
+  guess of how KoboldCpp will load the model (see Design). It is what the
+  editor is for: choosing a context size, batch size and cache type that
+  fit beside a MoE model's active weights. Item 19 adds to it: what each
+  choice saves or costs, and the system memory the snapshot cache uses. A
+  preset saved from the editor on automatic layers keeps forcing the fit
+  with the padding the estimate assumed.
 
 Tests: library operations on a temp folder; a widget test that edits,
 saves and reopens a preset; summary lines for three real files.
@@ -422,8 +452,9 @@ saves and reopens a preset; summary lines for three real files.
 - Web chat-preset picker and summary card. No editor (deferred).
 - A journey in `web_ui/e2e/journeys.spec.ts`.
 - Update `docs/web-phone.md` and `docs/user-guide.md`.
-  (`docs/moe-vram-estimation.md` was marked superseded in Stage 2, with the
-  code it described.)
+  (`docs/moe-vram-estimation.md` was wrongly marked superseded in Stage 2.
+  Its estimation is live in the preset dialog; only its Auto-Configure
+  parts describe removed code, and the page now says so.)
 
 ## Migration for existing users
 
@@ -450,7 +481,7 @@ a ROCm user.
 - `ModelFileCheck` for the pre-launch file check.
 - `KoboldAdminSwapLock` and `KoboldProcessHost`, already injectable.
 - `WorkerBackendFields` as the pattern for a settings mixin.
-- `VramEstimator` for the display-only memory figure.
+- `VramEstimator` for the guess of how KoboldCpp will load the model.
 
 ## Verification
 

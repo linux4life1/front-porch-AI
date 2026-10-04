@@ -47,13 +47,15 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
 
   Timer? _debounceTimer;
 
+  // Kept for dispose, where looking it up through the context is no longer
+  // allowed.
+  late final HardwareService _hardware;
+
   @override
   void initState() {
     super.initState();
-    Provider.of<HardwareService>(
-      context,
-      listen: false,
-    ).addListener(_onHardwareChanged);
+    _hardware = Provider.of<HardwareService>(context, listen: false)
+      ..addListener(_onHardwareChanged);
     _batchSizeFocusNode.addListener(() {
       if (!_batchSizeFocusNode.hasFocus) {
         final clamped = _batchSize.clamp(64, 8192);
@@ -75,10 +77,7 @@ class _GenerateKcppsDialogState extends State<GenerateKcppsDialog> {
     _batchSizeFocusNode.dispose();
     _batchSizeController.dispose();
     _threadsController.dispose();
-    Provider.of<HardwareService>(
-      context,
-      listen: false,
-    ).removeListener(_onHardwareChanged);
+    _hardware.removeListener(_onHardwareChanged);
     _contextSizeController.dispose();
     _smartCacheSlotsController.dispose();
     super.dispose();
