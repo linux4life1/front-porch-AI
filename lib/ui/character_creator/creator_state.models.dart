@@ -147,6 +147,10 @@ extension CreatorStateModels on CreatorState {
         notify();
         return;
       }
+      // The model that loaded, which the launch records: the active
+      // preset's own model when it has one here, not always the one picked.
+      final loaded = storage.backendSettings.lastUsedModelPath ?? modelPath;
+      selectedLocalModelPath = loaded;
 
       // Poll for model readiness
       koboldStatus = 'Loading model...';
@@ -156,7 +160,7 @@ extension CreatorStateModels on CreatorState {
         if (kobold.modelReady) {
           isReloadingKobold = false;
           koboldStatus = 'Model loaded successfully!';
-          selectedLocalModelPath = modelPath;
+          selectedLocalModelPath = loaded;
           notify();
           return;
         }

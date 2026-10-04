@@ -165,6 +165,59 @@ void main() {
   );
 
   test(
+    'a preset\'s own settings reach the real engine as written, including '
+    'ones the app has no control for',
+    () async {
+      // A MoE layer count beside a layer count, a cache size past the app's
+      // own range, and context shift off with fast forward on. The launch
+      // used to turn these into "all layers", 20, and on.
+      final preset = File(p.join(storage.binDir.path, 'tuned.kcpps'))
+        ..writeAsStringSync(
+          jsonEncode({
+            'contextsize': 2048,
+            'gpulayers': 7,
+            'moecpu': 12,
+            'smartcache': 30,
+            'noswa': true,
+            'noshift': true,
+            'defaultgenamt': 300,
+          }),
+        );
+
+      await start(preset: preset.path);
+
+      // KoboldCpp lists the settings it was started with.
+      String? received(String name) => RegExp(
+        '\\b${RegExp.escape(name)}=([^,)]+)',
+      ).firstMatch(kobold.logs.join('\n'))?.group(1);
+      expect(received('moecpu'), '12');
+      expect(received('smartcache'), '30');
+      expect(received('noshift'), 'True');
+      expect(received('nofastforward'), 'False');
+      expect(received('gpulayers'), '7');
+      expect(received('defaultgenamt'), '300');
+      expect(printed(RegExp(r'offloaded 7/\d+ layers')), isTrue);
+      expect(await liveContextSize(port), 2048);
+
+      // Staged beside the app's own files: the author's file plus the model
+      // and the chat template, and nothing else.
+      expect(staged(), {
+        'contextsize': 2048,
+        'gpulayers': 7,
+        'moecpu': 12,
+        'smartcache': 30,
+        'noswa': true,
+        'noshift': true,
+        'defaultgenamt': 300,
+        'model_param': liveEngineModel,
+        'jinja': true,
+      });
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
+
+  test(
     'a preset that owns its model: the real engine loads that model, and '
     'the app records it as the one in use',
     () async {

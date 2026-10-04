@@ -5,6 +5,14 @@
 // behind every case: KoboldCpp places the model in memory unless the user
 // took that over, and the app never asks for a pairing or a lock that is
 // known to hurt.
+//
+// Changed 2026-10-03: the case for `koboldPresetConfig` is gone with the
+// function. It rebuilt a user's preset from the app's typed settings, which
+// is how a launch came to drop a second graphics card and a MoE layer
+// count. A preset is now launched from the file as written; what that case
+// pinned (the resolved model, the chat template, the vision file, and
+// everything else kept) is pinned on the real thing in
+// kcpps_launch_map_test.dart.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
@@ -156,39 +164,5 @@ void main() {
       _map(_settings(rocm: true, kvQuant: KvQuant.q4_0))['noflashattention'],
       isTrue,
     );
-  });
-
-  test('a preset made ready to launch gets the resolved model, the chat '
-      'template and the vision file, and keeps everything else', () {
-    const preset = KoboldLaunchConfig(
-      modelPath: '/old/place.gguf',
-      contextSize: 12288,
-      gpuLayers: 20,
-      jinja: false,
-      extras: {'defaultgenamt': 999},
-    );
-    final ready = koboldPresetConfig(
-      preset,
-      modelPath: '/models/picked.gguf',
-      mmprojPath: '/models/proj.gguf',
-    );
-    expect(ready.modelPath, '/models/picked.gguf');
-    expect(ready.jinja, isTrue);
-    expect(ready.mmprojPath, '/models/proj.gguf');
-    expect(ready.contextSize, 12288);
-    expect(ready.gpuLayers, 20);
-    expect(ready.extras['defaultgenamt'], 999);
-
-    // No model or vision file resolved: the preset's own are kept.
-    final own = koboldPresetConfig(
-      const KoboldLaunchConfig(
-        modelPath: '/p/own.gguf',
-        mmprojPath: '/p/own-proj.gguf',
-      ),
-      modelPath: '',
-      mmprojPath: '',
-    );
-    expect(own.modelPath, '/p/own.gguf');
-    expect(own.mmprojPath, '/p/own-proj.gguf');
   });
 }

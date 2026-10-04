@@ -18,6 +18,7 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
 import 'kcpps_codec.dart';
@@ -30,13 +31,16 @@ class KoboldPresetProblem implements Exception {
   String toString() => message;
 }
 
-/// Reads the preset at [kcppsPath], or throws [KoboldPresetProblem].
+/// Reads the preset at [kcppsPath], or throws [KoboldPresetProblem] and
+/// nothing else: a file that cannot be opened, is not text, is not a
+/// config, or holds a number too large to use.
 Future<KcppsOk> readKoboldPreset(String kcppsPath) async {
   final name = path.basename(kcppsPath);
   final String text;
   try {
     text = await File(kcppsPath).readAsString();
-  } on FileSystemException {
+  } on Object catch (e) {
+    debugPrint('[Kobold] could not open the preset $kcppsPath: $e');
     throw KoboldPresetProblem(
       'The preset "$name" could not be opened. Pick another preset, or '
       'none, in Settings.',
@@ -63,5 +67,11 @@ Future<String?> koboldPresetProblem(String? kcppsPath) async {
     return null;
   } on KoboldPresetProblem catch (e) {
     return e.message;
+  } on Object catch (e) {
+    // Nothing above should get here. If it does, it is still an answer
+    // for the screen, never an error thrown at it.
+    debugPrint('[Kobold] could not check the preset $kcppsPath: $e');
+    return 'The preset "${path.basename(kcppsPath)}" can\'t be read. Pick '
+        'another preset, or none, in Settings.';
   }
 }

@@ -105,15 +105,3 @@ KoboldLaunchConfig koboldAppConfig({
     moeExpertsOnCpu: manual && model.isMoe && !model.expertsShareGpuMemory,
   );
 }
-
-/// A user preset made ready to launch: the model the app resolved, the chat
-/// template on, and the vision file, whatever the file itself said.
-KoboldLaunchConfig koboldPresetConfig(
-  KoboldLaunchConfig preset, {
-  required String modelPath,
-  required String mmprojPath,
-}) => preset.copyWith(
-  modelPath: modelPath.isNotEmpty ? modelPath : null,
-  jinja: true,
-  mmprojPath: mmprojPath.isNotEmpty ? mmprojPath : null,
-);

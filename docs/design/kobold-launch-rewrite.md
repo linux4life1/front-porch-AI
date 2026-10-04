@@ -167,8 +167,17 @@ Decisions already made by the maintainer:
    `noshift: true`). Not to be changed.
 6. Cache quantisation offers f16, bf16, q8_0, q5_1, q4_0.
 7. Sliding window alone is fine; only sliding window with fast forward is
-   bad. Every config writes one of the two safe pairings. The default is
-   sliding window off with fast forward and context shift on.
+   bad. Every config the app writes from its own settings has one of the
+   two safe pairings. The default is sliding window off with fast forward
+   and context shift on. A user's preset is run as written (2026-10-03):
+   the app switches sliding window off only when the file itself has it on
+   with fast forward on. A preset that does not mention sliding window is
+   left to KoboldCpp's default, and the engine log says what that default
+   does when the model has sliding window.
+8. Old KoboldCpp versions are not supported (2026-10-03). An engine before
+   1.112 stops at load on the staged config: it compares the cache type as
+   a number, and a config file is not converted the way a command line is.
+   No compatibility code or tests are added for those versions.
 
 ## Design
 
@@ -176,14 +185,45 @@ Decisions already made by the maintainer:
 simple settings (context size, GPU, cache level) are read all over the app,
 including the web facade and the prompt budget, so they stay where they
 are. At launch a pure function turns them into a `KoboldLaunchConfig`.
-User presets are the same type, read and written by the same code.
+A user's preset is read into the same type for what the app shows and
+edits, but that type is a summary and is never what a launch runs.
+
+**A user's preset is launched as it was written.** The staged config for a
+preset is the file's own content with a few settings laid over it: the
+model the app resolved, `jinja: true`, the vision file (when one was chosen
+for the model and exists), and `noswa: true` when the file has sliding
+window on (`noswa: false`, or `useswa: true` in a file from before that
+name existed) with fast forward on. Nothing else is added, changed or
+dropped. As first merged, the launch rebuilt the preset from the typed
+config: a second graphics card, the CUDA options and a MoE layer count were
+dropped, a cache size was clamped, context shift was switched back on, and
+every setting the file had left to KoboldCpp got the app's default (a 16384
+context for a file that named none).
+
+**One rule for the model a preset names.** `kcppsModelOf` reads it the way
+KoboldCpp does: `model_param` when it is a non-empty string, else `model`
+when it is one, else the first entry of `model` when it is a list. Settings
+and the launch both use it, so what Settings shows is what loads. A relative
+path is resolved against the engine folder, which is the folder KoboldCpp
+runs in. Settings, the vision check and the launch all get the full path,
+and the staged config carries it.
+
+**A start that cannot go ahead leaves the next one possible.** The service
+marks itself "starting" before it prepares a launch. As first merged, a
+failure in that preparation that was not the one expected kind (a preset
+with a number too large to hold, a config folder that could not be written)
+left the mark set: every later start was turned away and Stop did not clear
+it, until the app was restarted. Reading a preset now never throws, a
+non-finite number makes the file a broken preset, and any failure to
+prepare a launch is a refusal with a reason.
 
 **Every launch and swap uses a staged "effective config".** The app never
 launches or edits a user's `.kcpps` directly. For each role (chat, worker,
 story job) it writes a config into the admin folder: the source (preset or
 app settings) plus the absolute model path, `jinja: true`, and the resolved
 vision file. Launch is `--config <staged> --port N --admin --admindir D`.
-A swap reloads the staged file by name. No file links.
+A swap reloads the staged file by name, with no file links (Stage 4; until
+it lands, a swap back to a user's preset still links the user's own file).
 
 **Only these stay on the command line:** port, admin, admin folder.
 KoboldCpp protects them from being set by a config.

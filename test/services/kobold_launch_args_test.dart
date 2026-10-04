@@ -15,9 +15,13 @@
 // `--blasbatchsize`, a one-setting batch file); those flags are no longer
 // sent, on purpose, so those assertions became false. Each rule that still
 // holds has a case here in its new form.
+//
+// 2026-10-03: two cases added (a preset is staged as it was written; a
+// preset that leaves sliding window to KoboldCpp). No existing case changed.
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/hardware_info.dart';
@@ -37,6 +41,33 @@ final _nvidia = HardwareInfo(
   vendor: 'Nvidia',
   hasCuda: true,
 );
+
+/// The header of a model file. With [slidingWindow], its metadata says the
+/// model has sliding window.
+List<int> _gguf({bool slidingWindow = false}) {
+  List<int> u32(int v) => Uint8List(4)..buffer.asUint32List()[0] = v;
+  List<int> u64(int v) => Uint8List(8)..buffer.asUint64List()[0] = v;
+  final meta = {
+    'general.architecture': 'gemma3',
+    'gemma3.block_count': '4',
+    'gemma3.attention.head_count': '4',
+    'gemma3.embedding_length': '64',
+    if (slidingWindow) 'gemma3.sliding_window': '1024',
+  };
+  return [
+    ...utf8.encode('GGUF'),
+    ...u32(3),
+    ...u64(0),
+    ...u64(meta.length),
+    for (final e in meta.entries) ...[
+      ...u64(utf8.encode(e.key).length),
+      ...utf8.encode(e.key),
+      ...u32(8), // a string value
+      ...u64(utf8.encode(e.value).length),
+      ...utf8.encode(e.value),
+    ],
+  ];
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -186,6 +217,115 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('a preset is staged as it was written: the staged file equals the '
+      'original apart from the few settings the app lays over it', () async {
+    // What the app may differ in: the model it resolved, the chat template,
+    // the vision file, and sliding window when the file has it on together
+    // with fast forward.
+    const overlay = {'model_param', 'jinja', 'mmproj', 'noswa'};
+    final proj = File('${binDir.path}/proj.gguf')..writeAsStringSync('x');
+
+    for (final written in <Map<String, dynamic>>[
+      // CUDA with its options.
+      {
+        'usecuda': ['normal', '1', 'nommq', 'rowsplit'],
+      },
+      {
+        'usecuda': ['lowvram', '0', 'mmq'],
+      },
+      // Two graphics cards with a split between them.
+      {
+        'usevulkan': [0, 1],
+        'tensor_split': [1, 1],
+      },
+      // A layer count with the MoE experts of 12 layers on the CPU.
+      {'gpulayers': 48, 'moecpu': 12},
+      // Sliding window with fast forward off, and sizes past the range the
+      // app's own settings offer.
+      {
+        'noswa': false,
+        'nofastforward': true,
+        'swapadding': 512,
+        'smartcache': 40,
+      },
+      // No context size: KoboldCpp's default must stay KoboldCpp's.
+      {'model_param': '/m/own.gguf', 'batchsize': 1536},
+    ]) {
+      final config = staged(
+        await build(
+          modelPath: '/models/picked.gguf',
+          kcppsPath: preset(written).path,
+          mmprojPath: proj.path,
+          contextSize: 8192,
+        ),
+      );
+      expect(
+        {...config}..removeWhere((key, _) => overlay.contains(key)),
+        {...written}..removeWhere((key, _) => overlay.contains(key)),
+        reason: 'nothing dropped, changed or filled in for $written',
+      );
+      expect(config['model_param'], '/models/picked.gguf');
+      expect(config['jinja'], isTrue);
+      expect(config['mmproj'], proj.path);
+      // The file's own answer on sliding window stands whenever it is not
+      // "on, with fast forward on".
+      expect(config['noswa'], written['noswa'], reason: '$written');
+      expect(config.containsKey('contextsize'), isFalse, reason: '$written');
+    }
+
+    // The one pairing the app changes: on in the file, with fast forward on.
+    final unsafe = staged(
+      await build(
+        modelPath: '',
+        kcppsPath: preset({'noswa': false, 'smartcache': 40}).path,
+      ),
+    );
+    expect(unsafe, {'noswa': true, 'smartcache': 40, 'jinja': true});
+  });
+
+  test('a preset that leaves sliding window to KoboldCpp is run as written, '
+      'and the log says what that means for a model that has it', () async {
+    final withSwa = File('${binDir.path}/swa.gguf')
+      ..writeAsBytesSync(_gguf(slidingWindow: true));
+    final without = File('${binDir.path}/plain.gguf')
+      ..writeAsBytesSync(_gguf());
+    final silent = preset({'contextsize': 4096});
+
+    final notes = <String>[];
+    final config = staged(
+      await build(
+        modelPath: withSwa.path,
+        kcppsPath: silent.path,
+        onNote: notes.add,
+      ),
+    );
+    expect(config.containsKey('noswa'), isFalse, reason: 'nothing changed');
+    expect(notes.single, contains('does not say how to handle sliding'));
+    expect(notes.single, contains('"noswa": true'));
+
+    // A model without sliding window: nothing to say.
+    notes.clear();
+    await build(
+      modelPath: without.path,
+      kcppsPath: silent.path,
+      onNote: notes.add,
+    );
+    expect(notes, isEmpty);
+
+    // A preset that settles it, or has fast forward off: nothing to say.
+    for (final settled in [
+      {'noswa': true},
+      {'nofastforward': true},
+    ]) {
+      await build(
+        modelPath: withSwa.path,
+        kcppsPath: preset(settled).path,
+        onNote: notes.add,
+      );
+      expect(notes, isEmpty, reason: '$settled');
+    }
   });
 
   test('CUDA names the chosen card, as text', () async {

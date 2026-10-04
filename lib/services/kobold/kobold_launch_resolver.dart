@@ -63,9 +63,18 @@ class KoboldLaunch {
 /// last-used model. A preset whose model is not here (made on another
 /// computer, or the file was moved) keeps its settings and runs that
 /// fallback model. A preset whose file is gone is dropped.
+///
+/// A preset may name its model by a relative path. KoboldCpp runs in the
+/// engine folder, so that is what the path is relative to: [engineDir], the
+/// folder of the executable. Left out, it is the app's engine folder, which
+/// is where the app keeps the executable and what Settings uses. The model
+/// comes back as a full path either way.
+///
+/// Never throws, whatever is in the preset file.
 KoboldLaunch resolveKoboldLaunch(
   StorageService storage, {
   String? pickedModel,
+  String? engineDir,
 }) {
   final b = storage.backendSettings;
   final active = b.activeKcppsPath?.trim() ?? '';
@@ -82,10 +91,14 @@ KoboldLaunch resolveKoboldLaunch(
       preset = null;
     } else {
       final read = _read(file);
-      final named = read is KcppsOk ? read.config.modelPath.trim() : '';
-      if (named.isNotEmpty) {
-        if (File(named).existsSync()) {
-          owned = named;
+      final named = read is KcppsOk ? read.config.modelPath : '';
+      if (read is KcppsOk && named.isNotEmpty) {
+        final full = kcppsModelOf(
+          read.raw,
+          engineDir: engineDir ?? storage.binDir.path,
+        );
+        if (File(full).existsSync()) {
+          owned = full;
         } else {
           note =
               'The preset "${p.basename(preset)}" names a model that is not '
@@ -142,8 +155,10 @@ class KoboldLaunchResult {
 KcppsRead _read(File file) {
   try {
     return readKcpps(file.readAsStringSync());
-  } on FileSystemException catch (e) {
-    return KcppsBroken(e.message);
+  } on Object catch (e) {
+    // Whatever went wrong, it is "this preset names no model", never an
+    // error thrown at the screen that asked.
+    return KcppsBroken('$e');
   }
 }
 

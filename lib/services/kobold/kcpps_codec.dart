@@ -18,6 +18,8 @@
 
 import 'dart:convert';
 
+import 'package:path/path.dart' as p;
+
 import 'kobold_capabilities.dart';
 import 'kobold_launch_config.dart';
 
@@ -59,11 +61,20 @@ sealed class KcppsRead {
 }
 
 class KcppsOk extends KcppsRead {
-  const KcppsOk(this.config, {this.notes = const []});
+  const KcppsOk(this.config, {this.notes = const [], this.raw = const {}});
+
+  /// The settings the app can show and edit. It is a summary: a second
+  /// graphics card, the CUDA options or a MoE layer count do not fit in it.
+  /// A launch therefore runs [raw], not this.
   final KoboldLaunchConfig config;
 
-  /// Plain-words remarks about what was changed on the way in.
+  /// Plain-words remarks about what [config] changed on the way in, for a
+  /// screen that shows or edits it. A launch does not use them: it runs
+  /// [raw] and reports what it changes itself.
   final List<String> notes;
+
+  /// The file exactly as it was written.
+  final Map<String, dynamic> raw;
 
   /// Settings in the file that this app does not manage.
   List<String> get unmanagedKeys => config.extras.keys.toList()..sort();
@@ -77,17 +88,36 @@ class KcppsBroken extends KcppsRead {
 
 /// Read any `.kcpps`: this app's own, or one saved from KoboldCpp's
 /// launcher. Old key names are understood.
+///
+/// Never throws. Whatever is wrong with the text comes back as
+/// [KcppsBroken]: every caller treats the result as the whole answer, and a
+/// start that died in here left the app unable to start KoboldCpp again
+/// until it was restarted.
 KcppsRead readKcpps(String text) {
-  final Object? decoded;
   try {
-    decoded = jsonDecode(text);
+    return _readKcpps(text);
   } on FormatException catch (e) {
     return KcppsBroken('This preset file is not valid: ${e.message}');
+  } on Object catch (e) {
+    return KcppsBroken('This preset file could not be understood ($e).');
   }
+}
+
+KcppsRead _readKcpps(String text) {
+  final decoded = jsonDecode(text);
   if (decoded is! Map) {
     return const KcppsBroken('This preset file is not a KoboldCpp config.');
   }
   final map = decoded.cast<String, dynamic>();
+  // A number too large to hold reads as infinity. It cannot be written back
+  // out, and KoboldCpp could do nothing sensible with it either.
+  try {
+    jsonEncode(map);
+  } on JsonUnsupportedObjectError {
+    return const KcppsBroken(
+      'This preset file has a number in it that is too large to use.',
+    );
+  }
   final notes = <String>[];
 
   var backend = KoboldGpuBackend.none;
@@ -113,20 +143,17 @@ KcppsRead readKcpps(String text) {
   } else {
     mode = ContextManagementMode.fastForwardSmartCache;
     if (noSwa == false) {
-      notes.add(
-        'Sliding window was left on together with fast forward. That '
-        'pairing degrades output, so sliding window is switched off here.',
-      );
+      notes.add(kSwaWithFastForwardNote);
     } else if (noSwa == null) {
       notes.add(
-        'This preset does not say how to handle sliding window. Current '
-        'KoboldCpp would switch it on together with fast forward, a pairing '
-        'that degrades output, so sliding window is switched off here.',
+        'This preset does not say how to handle sliding window. On a model '
+        'that has it, current KoboldCpp switches it on together with fast '
+        'forward, a pairing that degrades output. Add "noswa": true to the '
+        'preset to switch it off.',
       );
     }
   }
 
-  final model = map['model_param'] ?? map['model'];
   final flashOff = map.containsKey('noflashattention')
       ? map['noflashattention'] == true
       : map.containsKey('flashattention')
@@ -134,20 +161,12 @@ KcppsRead readKcpps(String text) {
       : false;
   final moe = _asInt(map['moecpu']) ?? 0;
   final layers = _asInt(map['gpulayers']);
-  if (map['autofit'] == true &&
-      (moe > 0 ||
-          (layers != null && layers != KoboldLaunchConfig.autoLayers))) {
-    notes.add(
-      'This preset forces automatic fit, so KoboldCpp ignores its layer '
-      'count and its MoE setting.',
-    );
-  }
+  final forcedFit = kcppsForcedFitNote(map);
+  if (forcedFit != null) notes.add(forcedFit);
 
   return KcppsOk(
     KoboldLaunchConfig(
-      modelPath: model is List
-          ? (model.isEmpty ? '' : model.first.toString())
-          : model?.toString() ?? '',
+      modelPath: kcppsModelOf(map),
       contextSize: _asInt(map['contextsize']) ?? 16384,
       batchSize: _asInt(map['batchsize'] ?? map['blasbatchsize']) ?? 512,
       threads: _asInt(map['threads']),
@@ -171,8 +190,74 @@ KcppsRead readKcpps(String text) {
       },
     ),
     notes: notes,
+    raw: map,
   );
 }
+
+/// Said when a preset has sliding window on together with fast forward.
+const String kSwaWithFastForwardNote =
+    'Sliding window was left on together with fast forward. That '
+    'pairing degrades output, so sliding window is switched off here.';
+
+/// Said when a preset forces automatic fit over a layer count or a MoE
+/// setting of its own; null when it does not.
+String? kcppsForcedFitNote(Map<String, dynamic> map) {
+  final moe = _asInt(map['moecpu']) ?? 0;
+  final layers = _asInt(map['gpulayers']);
+  final overridden =
+      moe > 0 || (layers != null && layers != KoboldLaunchConfig.autoLayers);
+  return map['autofit'] == true && overridden
+      ? 'This preset forces automatic fit, so KoboldCpp ignores its layer '
+            'count and its MoE setting.'
+      : null;
+}
+
+/// The model a config names, found the way KoboldCpp finds it: `model_param`
+/// when it is a non-empty string, else `model` when it is one, else the
+/// first entry of `model` when it is a list. Empty when it names none.
+///
+/// A relative path is relative to the folder KoboldCpp runs in. Given that
+/// folder as [engineDir], the model comes back as a full path; without it,
+/// as the file has it.
+///
+/// The one place this is worked out. Settings shows what it returns and a
+/// launch loads what it returns, so the two cannot disagree.
+String kcppsModelOf(Map<String, dynamic> map, {String? engineDir}) {
+  String text(Object? v) => v is String ? v.trim() : '';
+  var named = text(map['model_param']);
+  if (named.isEmpty) {
+    final model = map['model'];
+    named = model is List
+        ? (model.isEmpty ? '' : text(model.first))
+        : text(model);
+  }
+  return kcppsPathIn(named, engineDir);
+}
+
+/// [path] from a config as a full path: a relative one is relative to
+/// [engineDir], the folder KoboldCpp runs in. Unchanged when it is already
+/// full, empty, or no folder is given.
+String kcppsPathIn(String path, String? engineDir) =>
+    path.isEmpty || p.isAbsolute(path) || engineDir == null || engineDir.isEmpty
+    ? path
+    : p.normalize(p.join(engineDir, path));
+
+/// True when a config has sliding window on: `noswa: false`, or, in a file
+/// from before that name existed, `useswa: true`.
+bool kcppsHasSwaOn(Map<String, dynamic> map) =>
+    map.containsKey('noswa') ? map['noswa'] == false : map['useswa'] == true;
+
+/// True when a config says nothing either way about sliding window, so
+/// KoboldCpp's own default decides.
+bool kcppsLeavesSwaToKobold(Map<String, dynamic> map) =>
+    !map.containsKey('noswa') && !map.containsKey('useswa');
+
+/// Said when a preset leaves sliding window to KoboldCpp, with fast forward
+/// on, for a model that has it. Nothing is changed; the user is told.
+const String kSwaLeftToKoboldNote =
+    'This preset does not say how to handle sliding window, and this model '
+    'has it. KoboldCpp switches it on together with fast forward, a pairing '
+    'that degrades output. Add "noswa": true to the preset to switch it off.';
 
 /// The `.kcpps` map for [config], in the forms [caps] says the installed
 /// KoboldCpp accepts.
@@ -248,11 +333,15 @@ Map<String, dynamic> kcppsMap(
 String writeKcpps(
   KoboldLaunchConfig config, {
   KoboldCapabilities caps = KoboldCapabilities.current,
-}) => const JsonEncoder.withIndent('  ').convert(kcppsMap(config, caps: caps));
+}) => encodeKcpps(kcppsMap(config, caps: caps));
+
+/// [map] as the text of a `.kcpps` file.
+String encodeKcpps(Map<String, dynamic> map) =>
+    const JsonEncoder.withIndent('  ').convert(map);
 
 int? _asInt(Object? v) => switch (v) {
   int n => n,
-  num n => n.toInt(),
+  num n => n.isFinite ? n.toInt() : null,
   String s => int.tryParse(s.trim()),
   _ => null,
 };

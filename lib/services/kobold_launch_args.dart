@@ -54,8 +54,10 @@ Future<List<String>> buildKoboldLaunchArgs({
   Future<HardwareInfo?> Function()? awaitHardware,
   void Function(String note)? onNote,
 }) async {
-  final config = await koboldEffectiveConfig(
+  final version = await KoboldBinaryVersion.read(path.dirname(executablePath));
+  final config = await koboldLaunchMap(
     storage: storage,
+    caps: KoboldCapabilities.forVersion(version.version),
     modelPath: modelPath,
     kcppsPath: kcppsPath,
     mmprojPath: mmprojPath,
@@ -69,12 +71,11 @@ Future<List<String>> buildKoboldLaunchArgs({
     awaitHardware: awaitHardware,
     onNote: onNote,
   );
-  final version = await KoboldBinaryVersion.read(path.dirname(executablePath));
   final adminDir = koboldAdminDirFor(storage);
   final staged = await stageKoboldConfig(
     adminDir.isNotEmpty ? adminDir : Directory.systemTemp.path,
     kStagedChatConfig,
-    writeKcpps(config, caps: KoboldCapabilities.forVersion(version.version)),
+    encodeKcpps(config),
   );
   return [
     '--config',
@@ -86,9 +87,12 @@ Future<List<String>> buildKoboldLaunchArgs({
   ];
 }
 
-/// The config a launch will run: a preset made ready, or the app's settings.
-Future<KoboldLaunchConfig> koboldEffectiveConfig({
+/// The config a launch will run: the user's preset as it was written (see
+/// [kcppsPresetLaunchMap]), or the app's own settings in the forms [caps]
+/// says the installed KoboldCpp accepts.
+Future<Map<String, dynamic>> koboldLaunchMap({
   required StorageService storage,
+  KoboldCapabilities caps = KoboldCapabilities.current,
   required String modelPath,
   required String? kcppsPath,
   required String? mmprojPath,
@@ -112,13 +116,26 @@ Future<KoboldLaunchConfig> koboldEffectiveConfig({
 
   if (kcppsPath != null) {
     final read = await readKoboldPreset(kcppsPath);
-    // What the reader changed or noticed (a pairing made safe, a forced
-    // fit that overrides the preset's own layer count) goes to the log.
-    read.notes.forEach(onNote ?? (_) {});
-    return koboldPresetConfig(
-      read.config,
+    // Sliding window left to KoboldCpp's default is run as written. When
+    // the model has it, the log says what that default does.
+    if (onNote != null &&
+        kcppsLeavesSwaToKobold(read.raw) &&
+        read.raw['nofastforward'] != true) {
+      final loading = modelPath.isNotEmpty
+          ? modelPath
+          : kcppsModelOf(read.raw, engineDir: storage.binDir.path);
+      if (((await _modelInfo(loading))?.slidingWindow ?? 0) > 0) {
+        onNote(kSwaLeftToKoboldNote);
+      }
+    }
+    // The file as written, not the typed summary of it. What the launch
+    // changes or notices (a pairing made safe, a forced fit that overrides
+    // the preset's own layer count) goes to the log.
+    return kcppsPresetLaunchMap(
+      read.raw,
       modelPath: modelPath,
       mmprojPath: mmproj,
+      onNote: onNote,
     );
   }
 
@@ -133,7 +150,7 @@ Future<KoboldLaunchConfig> koboldEffectiveConfig({
     awaitHardware: awaitHardware,
   );
   final info = await _modelInfo(modelPath);
-  return koboldAppConfig(
+  final config = koboldAppConfig(
     modelPath: modelPath,
     mmprojPath: mmproj,
     settings: KoboldAppSettings(
@@ -155,6 +172,7 @@ Future<KoboldLaunchConfig> koboldEffectiveConfig({
       expertsShareGpuMemory: Platform.isMacOS,
     ),
   );
+  return kcppsMap(config, caps: caps);
 }
 
 /// The caller's backend switches, or the detected card when none was ever

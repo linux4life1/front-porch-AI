@@ -19,6 +19,7 @@
 // Barrel for the KoboldCpp launch-config domain: the typed config, its
 // `.kcpps` reader and writer, and what the installed engine supports.
 export 'kcpps_codec.dart';
+export 'kcpps_launch_map.dart';
 export 'kobold_app_config.dart';
 export 'kobold_capabilities.dart';
 export 'kobold_config_stage.dart';

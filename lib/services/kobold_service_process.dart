@@ -29,6 +29,7 @@ extension KoboldServiceProcess on KoboldService {
     final launch = resolveKoboldLaunch(
       _storageService,
       pickedModel: pickedModel,
+      engineDir: path.dirname(executablePath),
     );
     if (launch.note != null) _addLog(launch.note!);
     // A preset whose file is gone must not stay selected.
@@ -47,7 +48,9 @@ extension KoboldServiceProcess on KoboldService {
     }
     // Through the class member, not the body: test doubles override it.
     // The start is the one place a model or preset is checked, and it
-    // says why when it refuses.
+    // says why when it refuses. Cleared first, so what is read back below
+    // is this start's answer and never an earlier one's.
+    _lastStartProblem = null;
     await startKobold(
       executablePath,
       launch.modelPath,
@@ -177,6 +180,19 @@ extension KoboldServiceProcess on KoboldService {
     } on KoboldPresetProblem catch (e) {
       _addLog(e.message);
       _lastStartProblem = e.message;
+      _isStarting = false;
+      notify();
+      return;
+    } on Object catch (e) {
+      // Anything else that stops the launch being prepared (the config
+      // could not be written, a file changed under the read). The slot was
+      // claimed above: left claimed, every later start returns at the top,
+      // and nothing starts again until the app is restarted.
+      final problem =
+          'KoboldCpp was not started: its launch settings could '
+          'not be prepared ($e).';
+      _addLog(problem);
+      _lastStartProblem = problem;
       _isStarting = false;
       notify();
       return;

@@ -18,6 +18,8 @@
 
 import 'dart:io';
 
+import 'package:front_porch_ai/services/kobold/kcpps_codec.dart';
+
 import 'kobold_launch_fields.dart';
 import 'settings_base.dart';
 import 'preset_settings.dart'; // for parseKcppsFile (static)
@@ -98,33 +100,38 @@ class BackendSettings
   String? get activeKcppsPath => _activeKcppsPath;
   bool get kcppsHasModel => _kcppsHasModel;
 
-  /// Model path referenced by parsed .kcpps JSON — `model_param` preferred,
-  /// `model` fallback. Null when neither is a non-empty string. Single source
-  /// for the extraction that load(), setActiveKcppsPath(), and the getters
-  /// below all previously duplicated inline.
-  static String? _kcppsModelPathOf(Map<String, dynamic>? parsed) {
-    if (parsed == null) return null;
-    final param = parsed['model_param'];
-    if (param is String && param.trim().isNotEmpty) return param.trim();
-    final model = parsed['model'];
-    if (model is String && model.trim().isNotEmpty) return model.trim();
-    return null;
+  /// Model path referenced by parsed .kcpps JSON, or null when it names
+  /// none. The rule is [kcppsModelOf], the one a launch uses, so what
+  /// Settings shows is what loads.
+  static String? _kcppsModelPathOf(
+    Map<String, dynamic>? parsed, [
+    String? dir,
+  ]) {
+    final model = parsed == null ? '' : kcppsModelOf(parsed, engineDir: dir);
+    return model.isEmpty ? null : model;
   }
+
+  /// The folder KoboldCpp runs in: a preset's relative model path is
+  /// relative to it. Set by the storage service.
+  String Function()? engineFolder;
 
   /// Model path referenced by the ACTIVE .kcpps preset, or null when no
   /// preset is active / the preset carries no model key. Lets callers (e.g.
   /// the vision-capability resolver) interrogate the GGUF a preset owns even
   /// though lastUsedModelPath stays empty in preset mode.
-  String? get kcppsModelPath =>
-      _kcppsModelPathOf(PresetSettings.parseKcppsFile(_activeKcppsPath));
+  String? get kcppsModelPath => _kcppsModelPathOf(
+    PresetSettings.parseKcppsFile(_activeKcppsPath),
+    engineFolder?.call(),
+  );
 
   /// Vision projector (mmproj) path referenced by the ACTIVE .kcpps preset,
   /// or null. KoboldCpp loads this itself from --config, so the app never
   /// passes it on the command line — but capability detection must honor it.
   String? get kcppsMmprojPath {
-    final parsed = PresetSettings.parseKcppsFile(_activeKcppsPath);
-    final v = parsed?['mmproj'];
-    return v is String && v.trim().isNotEmpty ? v.trim() : null;
+    final v = PresetSettings.parseKcppsFile(_activeKcppsPath)?['mmproj'];
+    return v is String && v.trim().isNotEmpty
+        ? kcppsPathIn(v.trim(), engineFolder?.call())
+        : null;
   }
 
   /// Returns whether the model file referenced in the active .kcpps preset exists on disk.

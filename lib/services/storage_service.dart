@@ -51,7 +51,8 @@ class StorageService extends ChangeNotifier {
 
   // Stage 7: domain settings (plain classes + base mixin; single Storage ChangeNotifier surface)
   late final GenerationSettings _generationSettings = GenerationSettings();
-  late final BackendSettings _backendSettings = BackendSettings();
+  late final BackendSettings _backendSettings = BackendSettings()
+    ..engineFolder = () => binDir.path;
   late final UiSettings _uiSettings = UiSettings();
   late final TtsSettings _ttsSettings = TtsSettings();
   late final SttSettings _sttSettings = SttSettings();
