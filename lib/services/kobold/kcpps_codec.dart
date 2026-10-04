@@ -373,6 +373,49 @@ String writeKcpps(
 String encodeKcpps(Map<String, dynamic> map) =>
     const JsonEncoder.withIndent('  ').convert(map);
 
+/// [raw] with only the settings that changed between [before] and [after]
+/// (two maps the editor's form produced) written over it. Everything else,
+/// including keys and values the form cannot hold, stays as written.
+Map<String, dynamic> kcppsMergeEdits(
+  Map<String, dynamic> raw,
+  Map<String, dynamic> before,
+  Map<String, dynamic> after,
+) {
+  const groups = <Set<String>>[
+    {'usecuda', 'usecublas', 'usehipblas', 'usevulkan'},
+    {'model', 'model_param'},
+    {'flashattention', 'noflashattention'},
+    {'batchsize', 'blasbatchsize'},
+    {'noswa', 'useswa', 'nofastforward', 'noshift', 'swapadding', 'smartcache'},
+    {'gpulayers', 'autofit', 'autofitpadding', 'moecpu'},
+  ];
+  bool same(Object? a, Object? b) => jsonEncode(a) == jsonEncode(b);
+  final changed = {
+    for (final k in {...before.keys, ...after.keys})
+      if (!same(before[k], after[k])) k,
+  };
+  final out = Map<String, dynamic>.of(raw);
+  for (final g in groups) {
+    if (g.any(changed.contains)) {
+      for (final k in g) {
+        out.remove(k);
+      }
+      for (final k in g) {
+        if (after.containsKey(k)) out[k] = after[k];
+      }
+    }
+  }
+  for (final k in changed) {
+    if (groups.any((g) => g.contains(k))) continue;
+    if (after.containsKey(k)) {
+      out[k] = after[k];
+    } else {
+      out.remove(k);
+    }
+  }
+  return out;
+}
+
 int? _asInt(Object? v) => switch (v) {
   int n => n,
   num n => n.isFinite ? n.toInt() : null,

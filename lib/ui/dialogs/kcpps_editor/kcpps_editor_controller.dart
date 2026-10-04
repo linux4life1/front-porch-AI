@@ -77,6 +77,11 @@ class KcppsEditorController extends ChangeNotifier {
   KcppsDraft draft = const KcppsDraft(name: '');
   String _saved = '';
 
+  /// The file as written, and the form's map when it was opened: a save
+  /// writes only what was edited over the file. Null for a new preset.
+  Map<String, dynamic>? _raw;
+  Map<String, dynamic>? _opened;
+
   /// The model's header and size; null while read or when unreadable.
   GGUFModelInfo? info;
   int? fileBytes;
@@ -165,6 +170,8 @@ class KcppsEditorController extends ChangeNotifier {
       recurrent: recurrent,
     );
     await _readDraftModel();
+    _raw = Map<String, dynamic>.of(read.raw);
+    _opened = _map();
     _saved = _snapshot();
     _notify();
   }
@@ -177,6 +184,7 @@ class KcppsEditorController extends ChangeNotifier {
     path = null;
     problem = null;
     unmanaged = const [];
+    _raw = null;
     await _setModel(model);
     var name = model.isEmpty ? 'New preset' : koboldModelName(model);
     for (var n = 2; await library.exists(name); n++) {
@@ -218,6 +226,8 @@ class KcppsEditorController extends ChangeNotifier {
       recurrent: recurrent,
     );
     await _readDraftModel();
+    _raw = Map<String, dynamic>.of(read.raw);
+    _opened = _map();
     _saved = '';
     _notify();
   }
@@ -317,7 +327,11 @@ class KcppsEditorController extends ChangeNotifier {
           to: target,
         );
       }
-      path = await library.write(name, _map());
+      final now = _map();
+      final out = _raw == null ? now : kcppsMergeEdits(_raw!, _opened!, now);
+      path = await library.write(name, out);
+      _raw = out;
+      _opened = now;
       problem = null;
       _saved = _snapshot();
       presets = await library.list();
