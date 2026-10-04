@@ -645,6 +645,28 @@ from the internet) and `POST /api/backend/local-model/context` (512 to
 changing it). The browser suite seeds a real model header and a preset
 and walks the card.
 
+Stage 8 as built, the rest (2026-10-04):
+
+- Draft settings left over from Stage 6: `draftamount` (tokens guessed
+  each step; empty leaves KoboldCpp's 4) and `usemtp` (the model's own
+  draft heads) are managed. The heads are offered only for a model whose
+  file has them: GGUFModelInfo.draftHeads is `<arch>.nextn_predict_layers`
+  (1 in the real Qwen3.6 35B A3B MTP header). Live: an editor-made preset
+  with a draft model and 3 tokens a step launches and writes on 1.117.1
+  and 1.122.1; `usemtp` on a model without heads still loads and writes.
+- Thinking stays per request (every request carries the user's setting,
+  the same from any launch or swap). The "stop thinking" cap
+  (`thinking_budget: 0` for a template that forces thinking on) is keyed
+  on the model KoboldCpp has loaded, not chat's, so a helper or story
+  model is judged by its own template.
+- Splitting across cards: keep and explain (the maintainer's choice; no
+  two-card machine to test on). Every Vulkan card a preset names is kept;
+  CUDA with no card named uses them all. The plain words say so, and the
+  editor's estimate counts the chosen cards together (free memory is read
+  for one card; each other counts all but half a GB) with one working-
+  memory buffer per extra card. Detection counts the cards it sees
+  (HardwareInfo.cardCount). No control to make a split.
+
 Stage 8 as built, unload when idle (2026-10-04): a setting, off by
 default, `kobold_idle_unload_minutes` (off, 10, 30 or 60) in
 `kobold_launch_fields.dart`, set from a chip row in Advanced Launch Options
