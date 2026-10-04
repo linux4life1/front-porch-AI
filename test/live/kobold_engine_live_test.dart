@@ -62,9 +62,7 @@ void main() {
   });
 
   tearDown(() async {
-    // Only what was started from this test's own folder.
-    await Process.run('pkill', koboldOwnedKillArgs('${root.path}/'));
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await stopLiveEnginesUnder(root);
     await root.delete(recursive: true);
   });
 

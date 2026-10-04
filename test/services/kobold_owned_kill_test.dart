@@ -14,29 +14,36 @@ import 'package:front_porch_ai/services/kobold_process_control.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
-  test('the pattern is the full owned path, escaped for pkill and anchored '
-      'to the start of the command line', () {
-    final args = koboldOwnedKillArgs(
+  test('an executable\'s pattern is its full path, escaped for pkill and '
+      'anchored so it must be the whole first word', () {
+    final patterns = koboldOwnedPatterns(
       '/Users/me/Documents/FrontPorchAI/koboldcpp_bin/koboldcpp-mac-arm64',
+      isFolder: false,
     );
-    expect(args.take(2), ['-KILL', '-f']);
-    expect(args.last, contains('koboldcpp_bin/koboldcpp-mac-arm64'));
-    // A dot is a wildcard to pkill unless escaped. An executable must be
-    // the whole first word, so `b.c-old` beside it is not matched.
-    expect(koboldOwnedKillArgs('/a/b.c').last, r'^/a/b\.c( |$)');
+    expect(patterns.single, contains('koboldcpp_bin/koboldcpp-mac-arm64'));
     // Never the bare name.
-    expect(args.last, isNot('koboldcpp'));
+    expect(patterns.single, isNot('koboldcpp'));
+    // A dot is a wildcard to pkill unless escaped.
+    expect(koboldOwnedPatterns('/a/b.c', isFolder: false), [r'^/a/b\.c( |$)']);
+    final exe = RegExp(patterns.single);
+    const path =
+        '/Users/me/Documents/FrontPorchAI/koboldcpp_bin/koboldcpp-mac-arm64';
+    expect(exe.hasMatch('$path --port 5001'), isTrue);
+    expect(exe.hasMatch(path), isTrue);
+    expect(exe.hasMatch('$path-old --port 5001'), isFalse);
   }, skip: Platform.isWindows ? 'pkill is not used on Windows' : false);
 
-  test('a folder pattern ends in a separator, so a sibling folder with a '
-      'longer name is not matched', () {
-    final paths = koboldOwnedPaths('/data/koboldcpp_bin', isFolder: true);
-    expect(paths.first, '/data/koboldcpp_bin/');
-    final pattern = RegExp(koboldOwnedKillArgs(paths.first).last);
+  test('a folder\'s pattern matches an engine started from it, and nothing '
+      'that only sits beside it, uses a file in it, or is another program '
+      'kept in it', () {
+    final patterns = koboldOwnedPatterns('/data/koboldcpp_bin', isFolder: true);
+    expect(patterns, [r'^/data/koboldcpp_bin/koboldcpp']);
+    final pattern = RegExp(patterns.single);
     expect(
-      pattern.hasMatch('/data/koboldcpp_bin/koboldcpp --port 5001'),
+      pattern.hasMatch('/data/koboldcpp_bin/koboldcpp-linux-x64 --port 5001'),
       isTrue,
     );
+    // A sibling folder with a longer name.
     expect(
       pattern.hasMatch('/data/koboldcpp_bin_old/koboldcpp --port 5001'),
       isFalse,
@@ -46,17 +53,23 @@ void main() {
       pattern.hasMatch('/usr/bin/koboldcpp --model /data/koboldcpp_bin/m.gguf'),
       isFalse,
     );
-    // An executable is matched as it stands.
-    expect(koboldOwnedPaths('/data/bin/koboldcpp', isFolder: false), [
-      '/data/bin/koboldcpp',
-    ]);
+    // Something else the user keeps in that folder.
+    expect(
+      pattern.hasMatch('/data/koboldcpp_bin/llama-server --port 8080'),
+      isFalse,
+    );
+    // A trailing separator on the folder changes nothing.
+    expect(
+      koboldOwnedPatterns('/data/koboldcpp_bin/', isFolder: true),
+      patterns,
+    );
   }, skip: Platform.isWindows ? 'pkill is not used on Windows' : false);
 
   test('a blank, relative, root or top-level path gives no pattern at all, '
       'so nothing can be matched by accident', () {
     for (final path in ['', '/', 'koboldcpp_bin', '.', '/tmp', '/usr/']) {
-      expect(koboldOwnedPaths(path, isFolder: true), isEmpty, reason: path);
-      expect(koboldOwnedPaths(path, isFolder: false), isEmpty, reason: path);
+      expect(koboldOwnedPatterns(path, isFolder: true), isEmpty, reason: path);
+      expect(koboldOwnedPatterns(path, isFolder: false), isEmpty, reason: path);
     }
   });
 
@@ -111,14 +124,28 @@ void main() {
       final mine = await fakeEngine(owned);
       final link = Link(p.join(root.path, 'linked'))..createSync(owned.path);
 
-      final patterns = koboldOwnedPaths(link.path, isFolder: true);
+      final patterns = koboldOwnedPatterns(link.path, isFolder: true);
       expect(patterns, hasLength(2));
       // The spelling the app has does not appear in the process at all.
-      expect(await matching(koboldOwnedKillArgs(patterns.first).last), isEmpty);
-      expect(
-        await matching(koboldOwnedKillArgs(patterns.last).last),
-        contains(mine.pid),
-      );
+      expect(await matching(patterns.first), isEmpty);
+      expect(await matching(patterns.last), contains(mine.pid));
+    });
+
+    test('stopping an engine whose executable is a link leaves other copies '
+        'of the program it points at running', () async {
+      // The stand-in engine IS a link to a shared system tool.
+      final mine = await fakeEngine(owned);
+      final exe = p.join(owned.path, 'koboldcpp');
+      final unrelated = await Process.start('/bin/sleep', const ['30']);
+      started.add(unrelated);
+
+      final patterns = koboldOwnedPatterns(exe, isFolder: false);
+      expect(patterns, everyElement(endsWith(r'/koboldcpp( |$)')));
+
+      await terminateKoboldTree(mine, executablePath: exe, log: (_) {});
+
+      expect(await matching(r'^/bin/sleep 30$'), contains(unrelated.pid));
+      expect(await matching(patterns.first), isEmpty);
     });
 
     test('cleaning up orphans stops the engine in the app\'s folder and '

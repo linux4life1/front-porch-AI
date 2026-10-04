@@ -101,6 +101,12 @@ Future<void> waitForLiveUnload(
   throw StateError('the engine on port $port never finished unloading');
 }
 
+/// Stops everything that was started from under [root], and nothing else.
+Future<void> stopLiveEnginesUnder(Directory root) async {
+  await Process.run('pkill', ['-KILL', '-f', '^${RegExp.escape(root.path)}/']);
+  await Future<void>.delayed(const Duration(milliseconds: 500));
+}
+
 /// Process ids whose command line begins with [text] literally: what was
 /// started from that folder or executable.
 Future<Set<int>> livePidsStartedFrom(String text) async {
