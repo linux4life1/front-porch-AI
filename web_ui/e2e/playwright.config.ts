@@ -33,7 +33,17 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'phone-webkit', use: { ...devices['iPhone 15'] } },
+    // WebKit on the Linux CI runner crashes now and then partway through a
+    // run ("Target crashed"), on a different screen each time, Rawhide's own
+    // runs included. A test whose browser died runs once more in a fresh
+    // one. The retry is for that only: support/fixtures.ts fails it at once
+    // when the first try failed for any other reason, and a pass after a
+    // crash shows as a warning on the run.
+    {
+      name: 'phone-webkit',
+      retries: process.env.CI ? 1 : 0,
+      use: { ...devices['iPhone 15'] },
+    },
     {
       name: 'desktop-chromium',
       use: {

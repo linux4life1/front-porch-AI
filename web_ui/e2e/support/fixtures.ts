@@ -5,9 +5,24 @@
 // threw, logged a console error, hit a missing or failing /api endpoint, or
 // showed the crash screen — whether or not the spec was looking at that spot.
 
+import { createHash } from 'node:crypto';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { test as base, expect, type Page } from '@playwright/test';
 
 export type Problem = string;
+
+/**
+ * A browser that died under the test: Playwright's own crash words, or its
+ * crash events seen during the test (a closed page alone is not a crash).
+ */
+const BROWSER_CRASH = /Target crashed|[Pp]age crashed|\[the page or browser crashed\]/;
+
+/** Tests whose page crashed or whose browser disconnected under them. */
+const crashedUnder = new Set<string>();
+
+/** The tag a serial group carries so its tests are retried with it. */
+export const SERIAL = '@serial';
 
 /** Responses a spec expects (e.g. a deliberately wrong password). */
 export type AllowFn = (url: string, status: number) => boolean;
@@ -89,10 +104,48 @@ async function serveBundle(page: Page, dir: string) {
 }
 
 export const test = base.extend<{
+  crashRetry: void;
   problems: Problem[];
   allowHttp: (fn: AllowFn) => void;
   acceptConfirms: (on: boolean) => void;
 }>({
+  // The phone project gets one retry on CI (playwright.config.ts) for one
+  // reason only: WebKit on the Linux runner crashes now and then. A retry
+  // after any other failure fails at once with the first try's error, and a
+  // pass after a crash is put on the run's page as a warning.
+  crashRetry: [
+    async ({}, use, testInfo) => {
+      // Kept per project and per group. A serial group (tagged SERIAL) is
+      // retried whole, its other tests judged by the failure that caused
+      // it; any other test retried without a failure of its own (an afterAll
+      // hook failed) is refused. Only the first error is kept, with the crash
+      // events seen: a page closed after a timeout is not a crash.
+      const group = createHash('sha1').update(testInfo.titlePath.slice(0, -1).join(' › ')).digest('hex').slice(0, 12);
+      const dir = join(testInfo.project.outputDir, 'first-tries', testInfo.project.name, group);
+      const note = join(dir, `${testInfo.testId}.txt`);
+      let crashed = false;
+      if (testInfo.retry > 0) {
+        const own = (await readFile(note, 'utf8').catch(() => '')).trim();
+        const groupNotes = async () =>
+          (await Promise.all((await readdir(dir).catch(() => [])).map((f) => readFile(join(dir, f), 'utf8')))).join('\n');
+        const first = own || (testInfo.tags.includes(SERIAL) ? await groupNotes() : '');
+        if (!BROWSER_CRASH.test(first)) {
+          throw new Error(`retried only after a browser crash; the first try failed with: ${first || '(no error recorded)'}`);
+        }
+        crashed = BROWSER_CRASH.test(own);
+      }
+      await use();
+      if (testInfo.retry === 0 && testInfo.status !== testInfo.expectedStatus) {
+        await mkdir(dir, { recursive: true });
+        const events = crashedUnder.has(testInfo.testId) ? '\n[the page or browser crashed]' : '';
+        await writeFile(note, (testInfo.error?.message ?? '') + events);
+      } else if (crashed && testInfo.status === testInfo.expectedStatus) {
+        const name = `${testInfo.titlePath.slice(1).join(' › ')} [${testInfo.project.name}]`;
+        console.log(`::warning title=Browser crash::${name} passed on a second try after the browser crashed`);
+      }
+    },
+    { auto: true },
+  ],
   problems: [
     async ({ page }, use, testInfo) => {
       if (process.env.FPAI_BUNDLE_DIR) await serveBundle(page, process.env.FPAI_BUNDLE_DIR);
@@ -100,7 +153,13 @@ export const test = base.extend<{
       const allow: Hooks = { fn: () => false, acceptConfirms: false };
       (page as Page & { __hooks?: Hooks }).__hooks = allow;
       watch(page, problems, allow);
+      // Evidence for crashRetry: the page crashed, or the browser went away.
+      const died = () => crashedUnder.add(testInfo.testId);
+      const browser = page.context().browser();
+      page.on('crash', died);
+      browser?.on('disconnected', died);
       await use(problems);
+      browser?.off('disconnected', died);
       if (await page.getByText(CRASH_TEXT).isVisible().catch(() => false)) {
         problems.push(`crash screen visible at the end of the test (${page.url()})`);
       }
