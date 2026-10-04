@@ -25,12 +25,14 @@ class _NvidiaSmiResult {
   final String name;
   final int vramMb;
 
-  /// Cards listed.
+  /// Cards listed, and the smallest one's memory.
   final int cards;
+  final int smallestMb;
   _NvidiaSmiResult({
     required this.name,
     required this.vramMb,
     required this.cards,
+    required this.smallestMb,
   });
 }
 
@@ -97,9 +99,16 @@ extension HardwareServiceNvidia on HardwareService {
   /// a "MiB" / "MB" suffix after the number.
   /// [_parseNvidiaSmi] for tests.
   @visibleForTesting
-  ({String name, int vramMb, int cards}) debugParseNvidiaSmi(String stdout) {
+  ({String name, int vramMb, int cards, int smallestMb}) debugParseNvidiaSmi(
+    String stdout,
+  ) {
     final r = _parseNvidiaSmi(stdout);
-    return (name: r.name, vramMb: r.vramMb, cards: r.cards);
+    return (
+      name: r.name,
+      vramMb: r.vramMb,
+      cards: r.cards,
+      smallestMb: r.smallestMb,
+    );
   }
 
   _NvidiaSmiResult _parseNvidiaSmi(String stdout) {
@@ -107,6 +116,7 @@ extension HardwareServiceNvidia on HardwareService {
     String bestName = 'Unknown GPU';
     int bestVram = 0;
     var cards = 0;
+    var smallest = 0;
     for (final line in lines) {
       if (line.trim().isEmpty) continue;
       // CSV split — but only on the first comma, in case the GPU name itself
@@ -124,6 +134,9 @@ extension HardwareServiceNvidia on HardwareService {
           ? 0
           : int.tryParse(vramDigits.group(1)!) ?? 0;
 
+      if (smiVram > 0 && (smallest == 0 || smiVram < smallest)) {
+        smallest = smiVram;
+      }
       if (smiVram > bestVram) {
         bestVram = smiVram;
         bestName = namePart;
@@ -133,6 +146,11 @@ extension HardwareServiceNvidia on HardwareService {
         if (smiVram > 0) bestVram = smiVram;
       }
     }
-    return _NvidiaSmiResult(name: bestName, vramMb: bestVram, cards: cards);
+    return _NvidiaSmiResult(
+      name: bestName,
+      vramMb: bestVram,
+      cards: cards,
+      smallestMb: smallest == 0 ? bestVram : smallest,
+    );
   }
 }

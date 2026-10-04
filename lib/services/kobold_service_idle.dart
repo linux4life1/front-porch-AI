@@ -245,6 +245,17 @@ extension KoboldServiceIdle on KoboldService {
     showSwapStep(koboldIdleLoadingWords(name ?? 'the model'));
     _addLog('Loading ${r.file} again; it was unloaded for being idle.');
     final key = await _idleStaged(r.file);
+    final expected = _idleExpectedModel(key);
+    // A load that ran long may have finished meanwhile: asking again would
+    // only start it over.
+    if (expected != null &&
+        koboldModelNameMatches(await koboldEngineModel(_baseUrl), expected) &&
+        await probeKoboldGenerationReady(baseUrl: _baseUrl)) {
+      _markModelReady();
+      noteResident(key ?? '');
+      i.failed = null;
+      return;
+    }
     try {
       await koboldAdminRetry(() => _idleAdmin.reloadConfig(filename: r.file));
       await noteAdminLoadedPair(modelPath: model, kcppsPath: r.kcpps ?? '');
@@ -252,22 +263,21 @@ extension KoboldServiceIdle on KoboldService {
     } on Object catch (e) {
       forgetAdminLoadedPair();
       _addLog('$words ($e)');
-      if (e is KoboldSwapTimeout && e.restarted) {
-        // It is loading it: asking again would only start the load again.
-        i.unloaded = null;
-      } else {
-        i.failed = (at: DateTime.now(), words: words);
-        showSwapStep(words);
-      }
+      // The record stays, so the empty engine's "Please connect" line is not
+      // taken for this model; after the pause the next request looks again
+      // (a long load that finished is then simply checked, not restarted).
+      i.failed = (at: DateTime.now(), words: words);
+      _clearReady(words);
       throw LlmToolTransportException(words);
     }
     // Checked, not assumed: a config KoboldCpp cannot load sends it back to
-    // the one it was started with.
-    final expected = _idleExpectedModel(key);
+    // the one it was started with. The model it runs then is not the one to
+    // use: nothing is ready, and the record stays to load back later.
     final engine = expected == null ? null : await koboldEngineModel(_baseUrl);
     if (expected != null && !koboldModelNameMatches(engine, expected)) {
-      noteResident('');
       forgetAdminLoadedPair();
+      i.failed = (at: DateTime.now(), words: words);
+      _clearReady(words);
       _addLog('$words KoboldCpp runs ${engine ?? 'no model'} instead.');
       throw LlmToolTransportException(words);
     }

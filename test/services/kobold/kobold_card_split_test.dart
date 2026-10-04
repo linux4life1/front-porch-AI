@@ -41,6 +41,7 @@ void main() {
     );
     expect(two.cards, 2);
     expect(two.vramMb, 24576);
+    expect(two.smallestMb, 12288);
     expect(
       hw.debugParseNvidiaSmi('NVIDIA GeForce GTX 1060 6GB, 6144').cards,
       1,
@@ -144,5 +145,48 @@ void main() {
     final fit = c.fit!;
     expect(fit.extraCardMb, fit.load().computeMb);
     expect(c.freeLine, '32 GB on 2 cards');
+  });
+
+  test('mixed cards: each card past the first counts as the smallest, so '
+      'the estimate never looks bigger', () async {
+    final bin = await Directory.systemTemp.createTemp('fpai card mixed');
+    addTearDown(() => bin.delete(recursive: true));
+    final info = await GGUFParser.getModelArchitectureInfo(
+      'test/fixtures/gguf_headers/Qwen3-14B.gguf',
+    );
+    final c = KcppsEditorController(
+      storage: _Storage(bin),
+      hardware: FakeHardwareService(
+        hardwareInfo: HardwareInfo(
+          gpuName: 'NVIDIA GeForce RTX 3090',
+          vramMb: 24576,
+          ramMb: 65536,
+          vendor: 'Nvidia',
+          hasCuda: true,
+          cardCount: 2,
+          smallestCardMb: 12288,
+        ),
+      ),
+      kobold: FakeKoboldService(),
+      readFree: () async => (graphics: 23000, system: 60000),
+      readModel: (_) async => (info: info, bytes: 9000000000),
+      unified: false,
+      threads: () async => 8,
+    );
+    addTearDown(c.dispose);
+    await c.init();
+    final file = File(p.join(bin.path, 'Every card.kcpps'))
+      ..writeAsStringSync(
+        jsonEncode({
+          'model_param': '/m/Qwen3-14B.gguf',
+          'usecuda': ['normal'],
+          'contextsize': 16384,
+        }),
+      );
+    await c.select(file.path);
+
+    expect(c.cards, 2);
+    expect(c.machine!.totalGraphicsMb, 24576 + 12288);
+    expect(c.machine!.freeGraphicsMb, 23000 + 12288 - 512);
   });
 }

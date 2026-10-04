@@ -47,6 +47,10 @@ class _Engine {
   String model;
   DateTime _started = DateTime.now();
 
+  /// When set, a reloaded config does not load and the engine goes back to
+  /// this model, as KoboldCpp's fault recovery does.
+  String? fallBack;
+
   String get baseUrl => 'http://127.0.0.1:${_server.port}';
   bool get _loaded => model != 'inactive';
 
@@ -90,6 +94,7 @@ class _Engine {
       final config =
           jsonDecode(File(p.join(adminDir, name)).readAsStringSync()) as Map;
       model =
+          fallBack ??
           'koboldcpp/${p.basenameWithoutExtension('${config['model_param']}')}';
     });
   }
@@ -316,6 +321,39 @@ void main() {
     expect(kobold.loadedModelPath, chatModel);
     expect(kobold.modelLoadingStatus, isEmpty);
   });
+
+  test('a config that does not load back: nothing is ready, the record '
+      'stays, and requests in the pause after are refused at once', () async {
+    await storage.backendSettings.setIdleUnloadMinutes(30);
+    await ready(idleAfter: const Duration(milliseconds: 400));
+    await unloaded();
+    engine.fallBack = 'koboldcpp/startup-model';
+
+    await expectLater(reply(), throwsA(isA<LlmToolTransportException>()));
+    expect(kobold.modelReady, isFalse);
+    expect(kobold.idleUnloaded, isTrue, reason: 'the record stays');
+    final sent = engine.reloads.length;
+    await expectLater(reply(), throwsA(isA<LlmToolTransportException>()));
+    expect(engine.reloads.length, sent, reason: 'nothing is sent in the pause');
+  });
+
+  test(
+    'a model already back on the engine is checked, not loaded again',
+    () async {
+      await storage.backendSettings.setIdleUnloadMinutes(30);
+      await ready(idleAfter: const Duration(milliseconds: 400));
+      await unloaded();
+      // Once the unload is done with the engine, something else loads the
+      // model back (a long load that finished, say).
+      await until(() => !kobold.adminSwapLock.busy);
+      engine.model = 'koboldcpp/${p.basenameWithoutExtension(chatModel)}';
+
+      expect(await reply(), 'Hello.');
+      expect(engine.reloads, ['unload_model']);
+      expect(kobold.idleUnloaded, isFalse);
+      expect(kobold.modelReady, isTrue);
+    },
+  );
 
   test('a tool call after the unload loads the model back first too', () async {
     await storage.backendSettings.setIdleUnloadMinutes(30);

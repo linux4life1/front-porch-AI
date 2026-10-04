@@ -26,6 +26,7 @@ extension HardwareServiceLinux on HardwareService {
     int vramMb = 0;
     var cardCount = 1;
     var amdCards = 0;
+    int? smallestCardMb;
     int ramMb = 0;
     String vendor = 'Unknown';
 
@@ -100,6 +101,7 @@ extension HardwareServiceLinux on HardwareService {
         }
         if (parsed.vramMb > 0) vramMb = parsed.vramMb;
         if (parsed.cards > 0) cardCount = parsed.cards;
+        smallestCardMb = parsed.smallestMb;
       }
     } else if (vendor == 'AMD') {
       // Try sysfs for AMD VRAM (amdgpu driver exposes this)
@@ -114,7 +116,12 @@ extension HardwareServiceLinux on HardwareService {
                   int.tryParse((await vramFile.readAsString()).trim()) ?? 0;
               final cardVramMb = (vramBytes / (1024 * 1024)).round();
               if (cardVramMb > vramMb) vramMb = cardVramMb;
-              if (cardVramMb > 0) amdCards++;
+              if (cardVramMb > 0) {
+                amdCards++;
+                if (smallestCardMb == null || cardVramMb < smallestCardMb) {
+                  smallestCardMb = cardVramMb;
+                }
+              }
             }
           }
         }
@@ -134,6 +141,7 @@ extension HardwareServiceLinux on HardwareService {
       hasMetal: false,
       linuxDistro: distro,
       cardCount: cardCount,
+      smallestCardMb: smallestCardMb,
     );
   }
 

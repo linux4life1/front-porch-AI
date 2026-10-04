@@ -67,13 +67,15 @@ extension KcppsEditorFit on KcppsEditorController {
   KoboldMachine? get machine {
     final hw = hardware.hardwareInfo;
     if (hw == null) return null;
-    // Free memory is read for one card; each other card counts all but
-    // the half a GB a card is assumed to keep for itself.
-    final others = (cards - 1) * (hw.vramMb - 512).clamp(0, hw.vramMb);
+    // Free memory is read for one card; each other card counts as the
+    // smallest card seen (mixed cards never look bigger), less the half a GB
+    // a card is assumed to keep for itself.
+    final small = hw.smallestCardMb;
+    final others = (cards - 1) * (small - 512).clamp(0, small);
     final free = this.free?.graphics;
     return KoboldMachine(
       backend: memoryBackend,
-      totalGraphicsMb: hasCard ? hw.vramMb * cards : 0,
+      totalGraphicsMb: hasCard ? hw.vramMb + (cards - 1) * small : 0,
       totalSystemMb: hw.ramMb,
       freeGraphicsMb: hasCard ? (free == null ? null : free + others) : 0,
       freeSystemMb: this.free?.system,
@@ -189,7 +191,10 @@ extension KcppsEditorFit on KcppsEditorController {
       return '${gb(freeMb ?? hw.vramMb)} GB the graphics may use, of '
           '${gb(hw.ramMb)} GB';
     }
-    if (cards > 1) return '${gb(hw.vramMb * cards)} GB on $cards cards';
+    if (cards > 1) {
+      return '${gb(hw.vramMb + (cards - 1) * hw.smallestCardMb)} GB on $cards '
+          'cards';
+    }
     return freeMb == null
         ? '${gb(hw.vramMb)} GB on the card'
         : '${gb(freeMb)} GB free of ${gb(hw.vramMb)} GB (the rest is your '

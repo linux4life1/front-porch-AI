@@ -48,7 +48,9 @@ class AiEngineStatusCard extends StatelessWidget {
     final storage = context.watch<StorageService>();
 
     final active = llm.activeService;
-    final ready = active.isReady;
+    // Unloaded for being idle: safe to ask, but nothing is on the card.
+    final ready =
+        active.isReady && !(active is KoboldService && active.idleUnloaded);
     final remote = active is OpenRouterService ? active : null;
     // Green chrome is a successful ping, not "a key is saved".
     final liveReady = remote?.isReachable ?? ready;
