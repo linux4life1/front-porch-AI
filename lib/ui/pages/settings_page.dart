@@ -31,7 +31,6 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 // Modules and dialogs not in the barrels (internal, low-frequency, or single-use)
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/services/model_file_check.dart';
 import 'package:front_porch_ai/services/web/web_server_host.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 
@@ -397,15 +396,7 @@ class _SettingsPageState extends State<SettingsPage> {
           setState(() {
             _selectedModelPath = val;
           });
-          storageService.backendSettings.setLastUsedModelPath(val);
-          final savedPreset = storageService.presetSettings.modelPresetMap[val];
-          if (savedPreset != null &&
-              savedPreset.isNotEmpty &&
-              File(savedPreset).existsSync()) {
-            storageService.backendSettings.setActiveKcppsPath(savedPreset);
-          } else {
-            storageService.backendSettings.setActiveKcppsPath(null);
-          }
+          selectKoboldModel(storageService, val);
 
           // Warm the model details so the memory gauge is accurate.
           modelManager.getModelArchitectureInfo(val); // fire-and-forget

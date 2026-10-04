@@ -24,4 +24,5 @@ export 'kobold_capabilities.dart';
 export 'kobold_config_stage.dart';
 export 'kobold_hardware_defaults.dart';
 export 'kobold_launch_config.dart';
+export 'kobold_launch_resolver.dart';
 export 'kobold_preset_read.dart';

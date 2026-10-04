@@ -288,6 +288,15 @@ Tests: resolver table with real temp files; facade switch between two
 models. `test/ui/pages/settings_launch_records_model_test.dart` reads source
 text and is replaced with a behavioural test.
 
+As built: `resolveKoboldLaunch` and `selectKoboldModel` in
+`lib/services/kobold/kobold_launch_resolver.dart`, and one entry,
+`KoboldService.launch`, which resolves, records the model that loads as the
+last-used one, and starts it from the stored settings. The only remaining
+direct start is a swap, which names its own model and preset. A preset
+whose file is gone is cleared and the launch goes ahead on the app's own
+settings; one whose model is not on this computer runs the chosen model
+with the preset's settings. Both are said in the engine log.
+
 ### Stage 4: swaps by staged name; one "what is loaded" record (items 7, 8, 10, 15)
 
 - `lib/services/worker_gpu_hosts.dart`: `KoboldProcessHost.restore` stages

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
@@ -105,30 +106,12 @@ class SetupService extends ChangeNotifier {
       //    .kcpps preset that owns the model — the preset used to be its own
       //    "pseudoRemote" backend, but it is now just a launch option of the
       //    local backend, so a single autostart branch handles both.
-      final modelPath = _storageService.backendSettings.lastUsedModelPath;
-      final presetOwnsModel =
-          _storageService.backendSettings.kcppsHasModel &&
-          _storageService.backendSettings.kcppsModelFileExists;
-
       if (_storageService.backendSettings.autostartBackend &&
-          (modelPath != null || presetOwnsModel)) {
+          resolveKoboldLaunch(_storageService).canLaunch) {
         _currentStep = SetupStep.startingBackend;
         notifyListeners();
 
-        await _koboldService.startKobold(
-          _backendManager.backendPath!,
-          modelPath ?? '',
-          kcppsPath: _storageService.backendSettings.activeKcppsPath,
-          mmprojPath: modelPath != null
-              ? _storageService.presetSettings.modelMmprojMap[modelPath]
-              : null,
-          gpuLayers: _storageService.backendSettings.gpuLayers,
-          contextSize: _storageService.backendSettings.contextSize,
-          useVulkan: _storageService.backendSettings.useVulkan ?? false,
-          useCublas: _storageService.backendSettings.useCublas ?? false,
-          useMetal: _storageService.backendSettings.useMetal ?? false,
-          useRocm: _storageService.backendSettings.useRocm ?? false,
-        );
+        await _koboldService.launch(_backendManager.backendPath!);
 
         _currentStep = SetupStep.complete;
         notifyListeners();

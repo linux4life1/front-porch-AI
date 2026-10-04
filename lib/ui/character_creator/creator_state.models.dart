@@ -133,45 +133,20 @@ extension CreatorStateModels on CreatorState {
       }
       final execPath = backendManager.backendPath!;
 
-      // A preset that cannot be read stops the launch; the launch itself
-      // only writes that to the engine log.
-      final presetProblem = await koboldPresetProblem(
-        storage.backendSettings.activeKcppsPath,
-      );
-      if (presetProblem != null) {
-        isReloadingKobold = false;
-        koboldStatus = presetProblem;
-        notify();
-        return;
-      }
-
       koboldStatus = 'Starting KoboldCpp with new model...';
       notify();
 
-      // If the .kcpps preset owns the model, let it handle model loading
-      final hasValidKcppsModel =
-          storage.backendSettings.kcppsHasModel &&
-          storage.backendSettings.kcppsModelFileExists;
-      final effectiveModel = hasValidKcppsModel ? '' : modelPath;
-
-      await kobold.startKobold(
-        execPath,
-        effectiveModel,
-        kcppsPath: storage.backendSettings.activeKcppsPath,
-        mmprojPath: modelPath.isNotEmpty
-            ? storage.presetSettings.modelMmprojMap[modelPath]
-            : null,
-        port: 5001,
-        gpuLayers: storage.backendSettings.gpuLayers,
-        contextSize: storage.backendSettings.contextSize,
-        useVulkan: storage.backendSettings.useVulkan ?? false,
-        useCublas: storage.backendSettings.useCublas ?? false,
-        useMetal: storage.backendSettings.useMetal ?? false,
-        useRocm: storage.backendSettings.useRocm ?? false,
-      );
-
-      // Save as last used model
-      await storage.backendSettings.setLastUsedModelPath(modelPath);
+      // Same rule as every other start: the active preset's own model when
+      // it has one on this disk, otherwise the model picked here. The
+      // launch records whichever loads as the last-used model, and refuses
+      // (saying why) a model or preset that cannot be read.
+      final result = await kobold.launch(execPath, pickedModel: modelPath);
+      if (!result.started) {
+        isReloadingKobold = false;
+        koboldStatus = result.message ?? 'KoboldCpp could not be started.';
+        notify();
+        return;
+      }
 
       // Poll for model readiness
       koboldStatus = 'Loading model...';

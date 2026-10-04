@@ -167,28 +167,4 @@ extension _SettingsAdvancedTab on _SettingsPageState {
       ],
     );
   }
-
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required BuildContext context,
-    bool isNumber = false,
-  }) {
-    final theme = Theme.of(context);
-    return TextField(
-      controller: controller,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      style: theme.textTheme.bodyMedium,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: theme.textTheme.bodySmall?.color),
-        filled: true,
-        fillColor: AppColors.cardOf(context),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
-        ),
-      ),
-    );
-  }
 }

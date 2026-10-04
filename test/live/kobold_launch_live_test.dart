@@ -163,4 +163,69 @@ void main() {
     timeout: _slow,
     skip: liveEngineSkip,
   );
+
+  test(
+    'a preset that owns its model: the real engine loads that model, and '
+    'the app records it as the one in use',
+    () async {
+      // The same model under another name, so the engine's answer shows
+      // which path it was given.
+      final owned = Link(p.join(root.path, 'owned-by-preset.gguf'))
+        ..createSync(liveEngineModel);
+      final b = storage.backendSettings;
+      await b.setLastUsedModelPath(liveEngineModel);
+      await b.setActiveKcppsPath(
+        (File(p.join(storage.binDir.path, 'owner.kcpps'))..writeAsStringSync(
+              jsonEncode({
+                'model_param': owned.path,
+                'contextsize': 2048,
+                'noswa': true,
+              }),
+            ))
+            .path,
+      );
+
+      final result = await kobold.launch(exe, port: port);
+      expect(result.started, isTrue);
+      expect(result.message, isNull);
+      await waitForLiveModel(port);
+
+      expect(await liveLoadedModel(port), contains('owned-by-preset'));
+      expect(await liveContextSize(port), 2048);
+      expect(b.lastUsedModelPath, owned.path);
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
+
+  test(
+    'a preset made on another computer: the real engine loads the model '
+    'chosen here with the preset\'s settings, and the app says why',
+    () async {
+      final b = storage.backendSettings;
+      await b.setActiveKcppsPath(
+        (File(p.join(storage.binDir.path, 'theirs.kcpps'))..writeAsStringSync(
+              jsonEncode({
+                'model_param': '/another/computer/big.gguf',
+                'contextsize': 2048,
+                'noswa': true,
+              }),
+            ))
+            .path,
+      );
+
+      final result = await kobold.launch(
+        exe,
+        pickedModel: liveEngineModel,
+        port: port,
+      );
+      await waitForLiveModel(port);
+
+      expect(result.message, contains('big.gguf'));
+      expect(await liveContextSize(port), 2048);
+      expect(b.lastUsedModelPath, liveEngineModel);
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
 }

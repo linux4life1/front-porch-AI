@@ -53,6 +53,10 @@ class KoboldService extends ChangeNotifier
   Process? _process;
   bool _isRunning = false;
   bool _isStarting = false;
+
+  /// Why the last start was refused before any process was spawned (a
+  /// model or preset that cannot be read), or null.
+  String? _lastStartProblem;
   final List<String> _logs = [];
   String _modelLoadingStatus = '';
   bool _modelReady = false;
@@ -426,6 +430,16 @@ class KoboldService extends ChangeNotifier
   void _postAbort() {
     ensureServerIdle().catchError((_) {});
   }
+
+  /// The one way to start the engine for chat. See [resolveKoboldLaunch]
+  /// for which model and preset load. Nothing is started, and the result
+  /// says why, when no model is chosen or the model or preset cannot be
+  /// read.
+  Future<KoboldLaunchResult> launch(
+    String executablePath, {
+    String? pickedModel,
+    int port = 5001,
+  }) => _launch(executablePath, pickedModel: pickedModel, port: port);
 
   // Class members so `import … show KoboldService` still resolves them.
   Future<void> startKobold(

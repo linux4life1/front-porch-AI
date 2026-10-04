@@ -108,12 +108,14 @@ class BackendFacade {
   }
 
   /// Switch the loaded local model and restart the backend so it takes effect.
-  /// Reuses the stored launch flags (no GPU config is exposed). Returns false if
-  /// the path isn't a known local model.
+  /// Like the desktop picker, the model brings its own preset or none: the
+  /// previous model's preset used to stay active, so a bigger model started
+  /// with the smaller one's context and layers. Returns false if the path
+  /// isn't a known local model.
   Future<bool> switchModel(String path) async {
     final known = _models.localModels.any((m) => m.path == path);
     if (!known) return false;
-    await _storage.backendSettings.setLastUsedModelPath(path);
+    await selectKoboldModel(_storage, path);
     await restart();
     return true;
   }

@@ -50,29 +50,16 @@ class _Engine extends ChangeNotifier implements BackendManager {
 
 /// Records how the dialog asked for the engine to be started.
 class _Kobold extends FakeKoboldService {
-  final List<Map<String, Object?>> starts = [];
+  final List<String?> launches = [];
 
   @override
-  Future<void> startKobold(
-    String executablePath,
-    String modelPath, {
-    String? kcppsPath,
-    String? mmprojPath,
+  Future<KoboldLaunchResult> launch(
+    String executablePath, {
+    String? pickedModel,
     int port = 5001,
-    int gpuLayers = 0,
-    int contextSize = 4096,
-    bool useVulkan = false,
-    bool useCublas = false,
-    bool useMetal = false,
-    bool useRocm = false,
   }) async {
-    starts.add({
-      'model': modelPath,
-      'cuda': useCublas,
-      'vulkan': useVulkan,
-      'metal': useMetal,
-      'rocm': useRocm,
-    });
+    launches.add(pickedModel);
+    return const KoboldLaunchResult.started();
   }
 }
 
@@ -84,6 +71,7 @@ void main() {
   Future<({FakeStorageService storage, _Kobold kobold, File model})> open(
     WidgetTester tester, {
     String? presetText,
+    bool presetFileGone = false,
   }) async {
     await tester.binding.setSurfaceSize(const Size(900, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -107,6 +95,11 @@ void main() {
     storage.backendSettings.setBackendType('local');
     if (preset != null) {
       storage.backendSettings.setActiveKcppsPath(preset!.path);
+    }
+    if (presetFileGone) {
+      storage.backendSettings.setActiveKcppsPath(
+        p.join(temp.path, 'deleted.kcpps'),
+      );
     }
     final llm = FakeLLMProvider(activeBackend: BackendType.kobold);
     final models = _Models([model]);
@@ -177,8 +170,7 @@ void main() {
 
     await pressStart(tester, 'Start Backend');
 
-    expect(it.kobold.starts, hasLength(1));
-    expect(it.kobold.starts.single['model'], it.model.path);
+    expect(it.kobold.launches, [it.model.path]);
     expect(
       automatic(),
       isTrue,
@@ -192,8 +184,17 @@ void main() {
 
     await pressStart(tester, 'Start with Preset');
 
-    expect(it.kobold.starts, isEmpty);
+    expect(it.kobold.launches, isEmpty);
     expect(find.textContaining('mine.kcpps'), findsWidgets);
     expect(find.textContaining('can\'t be read'), findsOneWidget);
+  });
+
+  testWidgets('a preset whose file is gone does not block the start: the '
+      'launch is still asked for', (tester) async {
+    final it = await open(tester, presetFileGone: true);
+
+    await pressStart(tester, 'Start with Preset');
+
+    expect(it.kobold.launches, [it.model.path]);
   });
 }

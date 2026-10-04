@@ -63,15 +63,7 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
               rebuildState(() {
                 _selectedModelPath = val;
               });
-              storage.backendSettings.setLastUsedModelPath(val);
-              final savedPreset = storage.presetSettings.modelPresetMap[val];
-              if (savedPreset != null &&
-                  savedPreset.isNotEmpty &&
-                  _presetFileExists.of(savedPreset)) {
-                storage.backendSettings.setActiveKcppsPath(savedPreset);
-              } else {
-                storage.backendSettings.setActiveKcppsPath(null);
-              }
+              selectKoboldModel(storage, val);
             }
           },
         ),

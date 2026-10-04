@@ -44,13 +44,12 @@ extension _SettingsLaunchOptions on _SettingsPageState {
     final backendManager = Provider.of<BackendManager>(ctx, listen: false);
     final storage = Provider.of<StorageService>(ctx, listen: false);
     final messenger = ScaffoldMessenger.of(ctx);
-    final b = storage.backendSettings;
 
-    // A preset that cannot be read stops the launch. Said here, because
-    // the launch itself only writes it to the engine log.
-    final presetProblem = await koboldPresetProblem(b.activeKcppsPath);
-    if (presetProblem != null) {
-      messenger.showSnackBar(SnackBar(content: Text(presetProblem)));
+    // Checked before anything is stopped, so a model or preset that cannot
+    // be used leaves the running engine alone.
+    final problem = await koboldLaunchProblem(storage);
+    if (problem != null) {
+      messenger.showSnackBar(SnackBar(content: Text(problem)));
       return;
     }
 
@@ -59,24 +58,14 @@ extension _SettingsLaunchOptions on _SettingsPageState {
       await koboldService.stopKobold();
       await Future.delayed(const Duration(seconds: 1));
     }
-    koboldService.startKobold(
-      backendManager.backendPath!,
-      b.lastUsedModelPath!,
-      kcppsPath: b.activeKcppsPath,
-      mmprojPath: storage.presetSettings.modelMmprojMap[b.lastUsedModelPath!],
-      gpuLayers: b.gpuLayers,
-      contextSize: b.contextSize,
-      useVulkan: b.useVulkan ?? false,
-      useCublas: b.useCublas ?? false,
-      useMetal: b.useMetal ?? false,
-      useRocm: b.useRocm ?? false,
-    );
+    final result = await koboldService.launch(backendManager.backendPath!);
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          wasRunning
-              ? 'Restarting backend with new settings…'
-              : 'Starting backend…',
+          result.message ??
+              (wasRunning
+                  ? 'Restarting backend with new settings…'
+                  : 'Starting backend…'),
         ),
       ),
     );

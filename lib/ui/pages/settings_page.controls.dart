@@ -220,40 +220,20 @@ extension _SettingsLaunchControls on _SettingsPageState {
     }
     final storage = Provider.of<StorageService>(context, listen: false);
 
-    final presetOwnsModel = storage.backendSettings.kcppsHasModel;
-
-    if (!presetOwnsModel) {
-      if (_selectedModelPath == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Please select a model.')));
-        return;
-      }
-      // Same validation KoboldService runs before spawning the process — used
-      // here purely so the reason lands in a snackbar the moment the user hits
-      // the button, instead of only in the backend log. A bare existsSync()
-      // used to guard this spot, which is exactly the check that says "yes"
-      // for a OneDrive placeholder KoboldCpp then cannot open (issue #137).
-      final problem = await ModelFileCheck.validate(_selectedModelPath!);
-      if (problem != null) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(problem)));
-        return;
-      }
-    }
-
-    // A preset that cannot be read stops the launch. Said here, because
-    // the launch itself only writes it to the engine log.
-    final presetProblem = await koboldPresetProblem(
-      storage.backendSettings.activeKcppsPath,
+    // The same check the launch runs (model chosen, model readable, preset
+    // readable), done here so the reason lands in a snackbar the moment the
+    // button is pressed. It reads the model file rather than asking whether
+    // it exists: a OneDrive placeholder "exists" and KoboldCpp still cannot
+    // open it (issue #137).
+    final problem = await koboldLaunchProblem(
+      storage,
+      pickedModel: _selectedModelPath,
     );
-    if (presetProblem != null) {
+    if (problem != null) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(presetProblem)));
+      ).showSnackBar(SnackBar(content: Text(problem)));
       return;
     }
 
@@ -267,31 +247,18 @@ extension _SettingsLaunchControls on _SettingsPageState {
     storage.backendSettings.setUseMetal(_useMetal);
     storage.backendSettings.setUseRocm(_useRocm);
 
-    final effectiveModel = presetOwnsModel ? '' : _selectedModelPath!;
-    // Record the GGUF we are actually launching. This scalar is the app's only
-    // memory of the running model — the system-role probe's cache key, the
-    // auto-restart path, "Restart Backend" and the web UI's "loaded" marker all
-    // read it. The Backend tab auto-picks the first model when nothing was
-    // chosen, so without this the user launches model A while every consumer
-    // still points at model B. (A preset that owns its model supplies the path
-    // itself, so that branch leaves the scalar alone — same as the twin in
-    // model_settings_dialog.local_actions.dart.)
-    if (!presetOwnsModel) {
-      await storage.backendSettings.setLastUsedModelPath(_selectedModelPath);
-    }
-    await koboldService.startKobold(
+    // Saved above first: the launch reads its settings from storage, and
+    // records the model it resolves as the one in use.
+    final result = await koboldService.launch(
       backendManager.backendPath!,
-      effectiveModel,
-      kcppsPath: storage.backendSettings.activeKcppsPath,
-      mmprojPath: _selectedModelPath != null
-          ? storage.presetSettings.modelMmprojMap[_selectedModelPath!]
-          : null,
-      gpuLayers: gpuLayers,
-      contextSize: contextSize,
-      useVulkan: _useVulkan,
-      useCublas: _useCublas,
-      useMetal: _useMetal,
-      useRocm: _useRocm,
+      pickedModel: _selectedModelPath,
     );
+    // Why nothing started, or how the model was chosen when that needs
+    // saying (a preset from another computer, a preset whose file is gone).
+    if (result.message != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message!)));
+    }
   }
 }

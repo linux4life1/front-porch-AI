@@ -93,7 +93,10 @@ class SetupStep extends StatelessWidget {
                         getSubtitle: (f) => f.path,
                         onSelected: (f) {
                           state.selectedLocalModelPath = f.path;
-                          storage.backendSettings.setLastUsedModelPath(f.path);
+                          // Like the other pickers: the model brings its
+                          // own preset or none, so a preset that owns a
+                          // different model does not load that one instead.
+                          selectKoboldModel(storage, f.path);
                           state.notify();
                         },
                       );

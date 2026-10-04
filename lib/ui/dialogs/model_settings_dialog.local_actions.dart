@@ -44,79 +44,34 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
 
     final storage = Provider.of<StorageService>(context, listen: false);
 
-    // Case A — preset owns a valid model file: skip model-path checks.
-    // Case B — no preset / preset has no model / model file missing: user must pick one.
-    final presetOwnsModel =
-        storage.backendSettings.kcppsHasModel &&
-        _kcppsModelExists.of(storage.backendSettings.kcppsModelPath);
-
-    if (!presetOwnsModel) {
-      if (_selectedModelPath == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Valid model not selected.')),
-        );
-        return;
-      }
-      // Same pre-flight KoboldService runs before spawning the process,
-      // surfaced here so the specific reason reaches a snackbar immediately
-      // instead of only the backend log. A bare existsSync() guarded this
-      // spot before, and that is exactly the check a OneDrive placeholder
-      // passes on its way to an unexplained exit 2 (issue #137).
-      final problem = await ModelFileCheck.validate(_selectedModelPath!);
-      if (problem != null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(problem)));
-        return;
-      }
-    }
-
-    // Validate preset file exists if one is active
-    if (storage.backendSettings.activeKcppsPath != null &&
-        storage.backendSettings.activeKcppsPath!.isNotEmpty) {
-      if (!_presetFileExists.of(storage.backendSettings.activeKcppsPath)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Selected preset not found. It may have been deleted or moved.\n'
-              'Clearing the preset and falling back to app settings.',
-            ),
-            backgroundColor: Colors.redAccent, // theme-keep: error snackbar
-          ),
-        );
-        storage.backendSettings.setActiveKcppsPath(null);
-        if (_selectedModelPath != null) {
-          storage.presetSettings.setModelPreset(_selectedModelPath!, '');
-        }
-        return;
-      }
-    }
-
-    // A preset that cannot be read stops the launch. Said here, because
-    // the launch itself only writes it to the engine log.
-    final presetProblem = await koboldPresetProblem(
-      storage.backendSettings.activeKcppsPath,
+    // The same check the launch runs (model chosen, model readable, preset
+    // readable), surfaced here so the specific reason reaches a snackbar at
+    // once instead of only the engine log. It reads the model file rather
+    // than asking whether it exists: a OneDrive placeholder "exists" and
+    // still ends in an unexplained exit 2 (issue #137).
+    final problem = await koboldLaunchProblem(
+      storage,
+      pickedModel: _selectedModelPath,
     );
-    if (presetProblem != null) {
+    if (problem != null) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(presetProblem)));
+      ).showSnackBar(SnackBar(content: Text(problem)));
       return;
     }
 
-    // When the preset owns the model, pass empty string — KoboldCPP reads
-    // it from the .kcpps config. Otherwise pass the Flutter-selected path.
-    final effectiveModel = presetOwnsModel ? '' : _selectedModelPath!;
-
-    storage.backendSettings.setLastUsedModelPath(_selectedModelPath);
     storage.backendSettings.setGpuLayers(
       int.tryParse(_gpuLayersController.text) ?? 0,
     );
     storage.backendSettings.setContextSize(
       int.tryParse(_contextSizeController.text) ?? 16384,
     );
+
+    // Taken now: the dialog can be closed while the engine stops and starts,
+    // and the launch below must still happen.
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
 
     // Await the full stop so the process tree is terminated and the port is
     // released before we start a new instance. Without this, Windows can
@@ -127,31 +82,23 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
 
     // Give the OS a moment to fully release the port after process termination.
     await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
 
-    koboldService.startKobold(
+    // This dialog has no graphics-backend control, so it records none: a
+    // choice never made stays "let the app pick from the hardware". The
+    // launch reads everything else from the settings saved above. A preset
+    // whose file is gone is cleared by the launch, which then goes ahead
+    // and says so.
+    final result = await koboldService.launch(
       backendManager.backendPath!,
-      effectiveModel,
-      kcppsPath: storage.backendSettings.activeKcppsPath,
-      // Vision projector is keyed by the concrete GGUF the user picked; when a
-      // preset owns the model there is no Flutter-side path to key on.
-      mmprojPath: _selectedModelPath != null
-          ? storage.presetSettings.modelMmprojMap[_selectedModelPath!]
-          : null,
-      gpuLayers: int.tryParse(_gpuLayersController.text) ?? 0,
-      contextSize: int.tryParse(_contextSizeController.text) ?? 16384,
-      // This dialog has no graphics-backend control, so it passes on what
-      // is stored and records nothing. A choice never made stays "let the
-      // app pick from the hardware"; writing it here as four offs used to
-      // turn that into a deliberate CPU-only.
-      useVulkan: storage.backendSettings.useVulkan == true,
-      useCublas: storage.backendSettings.useCublas == true,
-      useMetal: storage.backendSettings.useMetal == true,
-      useRocm: storage.backendSettings.useRocm == true,
+      pickedModel: _selectedModelPath,
     );
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Restarting backend with new settings...')),
+    if (mounted) navigator.pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result.message ?? 'Restarting backend with new settings...',
+        ),
+      ),
     );
   }
 }

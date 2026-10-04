@@ -283,32 +283,29 @@ extension LLMProviderWorker on LLMProvider {
     }
 
     try {
-      final hasPresetWithModel =
-          _storageService.backendSettings.kcppsHasModel &&
-          _storageService.backendSettings.kcppsModelFileExists;
-      if (requested.isEmpty) {
-        if (forGpuSwap) {
-          if (kcpps.isEmpty) return;
-        } else if (!hasPresetWithModel) {
-          return;
-        }
+      if (!forGpuSwap) {
+        // Chat entry: the same rule as every other start.
+        if (!resolveKoboldLaunch(_storageService).canLaunch) return;
+        await _koboldService.launch(_backendManager.backendPath!);
+        return;
       }
+      // A swap names its own model and preset.
+      if (requested.isEmpty && kcpps.isEmpty) return;
       final mouthModel = normalizeLocalModelPath(
         _storageService.backendSettings.lastUsedModelPath ?? '',
       );
       final mouthKcpps = normalizeLocalModelPath(
         _storageService.backendSettings.activeKcppsPath?.trim() ?? '',
       );
+      // Putting the chat pair back keeps vision. Worker/evals never do.
       final mouthPair =
           normalizeLocalModelPath(requested) == mouthModel &&
           normalizeLocalModelPath(kcpps) == mouthKcpps;
-      // Chat-entry and mouth restore keep vision. Worker/evals never do.
-      final attachMmproj = !forGpuSwap || mouthPair;
       await _koboldService.startKobold(
         _backendManager.backendPath!,
         requested,
         kcppsPath: kcpps.isEmpty ? null : kcpps,
-        mmprojPath: attachMmproj && requested.isNotEmpty
+        mmprojPath: mouthPair && requested.isNotEmpty
             ? _storageService.presetSettings.modelMmprojMap[requested]
             : null,
         gpuLayers: _storageService.backendSettings.gpuLayers,

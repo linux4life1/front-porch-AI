@@ -20,6 +20,58 @@ part of 'kobold_service.dart';
 
 /// Process start/stop and console log ingest.
 extension KoboldServiceProcess on KoboldService {
+  Future<KoboldLaunchResult> _launch(
+    String executablePath, {
+    String? pickedModel,
+    required int port,
+  }) async {
+    final b = _storageService.backendSettings;
+    final launch = resolveKoboldLaunch(
+      _storageService,
+      pickedModel: pickedModel,
+    );
+    if (launch.note != null) _addLog(launch.note!);
+    // A preset whose file is gone must not stay selected.
+    if (launch.kcppsPath == null && (b.activeKcppsPath ?? '').isNotEmpty) {
+      await b.setActiveKcppsPath(null);
+    }
+    if (!launch.canLaunch) {
+      return KoboldLaunchResult.refused(
+        launch.note ??
+            'No model is chosen yet. Pick one in Settings, on the Backend tab.',
+      );
+    }
+    // A start already under way would swallow this one without a word.
+    if (_isStarting) {
+      return const KoboldLaunchResult.refused('KoboldCpp is already starting.');
+    }
+    // Through the class member, not the body: test doubles override it.
+    // The start is the one place a model or preset is checked, and it
+    // says why when it refuses.
+    await startKobold(
+      executablePath,
+      launch.modelPath,
+      kcppsPath: launch.kcppsPath,
+      mmprojPath: launch.mmprojPath,
+      port: port,
+      gpuLayers: b.gpuLayers,
+      contextSize: b.contextSize,
+      useVulkan: b.useVulkan ?? false,
+      useCublas: b.useCublas ?? false,
+      useMetal: b.useMetal ?? false,
+      useRocm: b.useRocm ?? false,
+    );
+    final refused = _lastStartProblem;
+    if (refused != null) return KoboldLaunchResult.refused(refused);
+    // The model that really started is the app's one record of "which
+    // model": the status card, the vision lookup, the thinking settings,
+    // an automatic restart and the web "loaded" marker all read it.
+    if (b.lastUsedModelPath != launch.modelPath) {
+      await b.setLastUsedModelPath(launch.modelPath);
+    }
+    return KoboldLaunchResult.started(launch.note);
+  }
+
   Future<void> _startKobold(
     String executablePath,
     String modelPath, {
@@ -41,6 +93,7 @@ extension KoboldServiceProcess on KoboldService {
     // resuming — one KoboldCpp process left with no owner, holding the port
     // and the VRAM. Every early return below must clear it again.
     _isStarting = true;
+    _lastStartProblem = null;
     // If the previous process is still alive (e.g. stopKobold was not awaited
     // or the stop is racing with start), kill it first to prevent zombie
     // processes from accumulating — especially on Windows where port reuse
@@ -77,6 +130,7 @@ extension KoboldServiceProcess on KoboldService {
     final modelProblem = await ModelFileCheck.validate(modelPath);
     if (modelProblem != null) {
       _addLog(modelProblem);
+      _lastStartProblem = modelProblem;
       _isStarting = false;
       notify();
       return;
@@ -122,6 +176,7 @@ extension KoboldServiceProcess on KoboldService {
       );
     } on KoboldPresetProblem catch (e) {
       _addLog(e.message);
+      _lastStartProblem = e.message;
       _isStarting = false;
       notify();
       return;
