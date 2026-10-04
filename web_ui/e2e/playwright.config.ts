@@ -33,7 +33,16 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'phone-webkit', use: { ...devices['iPhone 15'] } },
+    // WebKit on the Linux CI runner crashes now and then partway through a
+    // run ("Target crashed"), on a different screen each time, Rawhide's own
+    // runs included. A test whose browser died runs once more in a fresh
+    // one: a real fault fails both times, and a pass on the second try is
+    // reported as flaky.
+    {
+      name: 'phone-webkit',
+      retries: process.env.CI ? 1 : 0,
+      use: { ...devices['iPhone 15'] },
+    },
     {
       name: 'desktop-chromium',
       use: {
