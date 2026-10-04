@@ -93,8 +93,14 @@ extension KoboldServiceAdmin on KoboldService {
 
   /// A reload was accepted: the old model may answer for a moment longer,
   /// so nothing is ready until the new one is. [status] says what is
-  /// loading; the unload wording would be wrong here.
-  void markModelLoading(String status) => _clearReady(status);
+  /// loading; the unload wording would be wrong here. A model unloaded for
+  /// being idle is not loaded back after it: this load replaces it.
+  void markModelLoading(String status) {
+    _idle
+      ..unloaded = null
+      ..failed = null;
+    _clearReady(status);
+  }
 
   void _clearReady(String status) {
     _stopReadinessProbe();
@@ -131,8 +137,12 @@ extension KoboldServiceAdmin on KoboldService {
   /// loaded is not known). Either way something is loaded again.
   void noteResident(String key) {
     _residentKey = key;
-    _idle.unloaded = null;
     _idleTouch();
+    // Loaded again after an idle unload: every status shows it now.
+    if (_idle.unloaded != null) {
+      _idle.unloaded = null;
+      notify();
+    }
   }
 
   /// The model a request goes to: the one loaded (a helper or story model

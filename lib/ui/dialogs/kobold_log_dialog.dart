@@ -50,7 +50,7 @@ class _KoboldLogDialogState extends State<KoboldLogDialog> {
             ? 'Unloaded while idle'
             : isReady
             ? 'Ready'
-            : 'Starting…';
+            : 'Loading…';
 
         return Dialog(
           backgroundColor: AppColors.backgroundOf(context),

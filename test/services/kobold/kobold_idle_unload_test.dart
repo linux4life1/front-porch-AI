@@ -34,6 +34,7 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/kobold_status_card.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/gguf_parser.dart';
 
 import '../../golden/support/fakes_services.dart';
 
@@ -64,6 +65,11 @@ class _Engine {
   /// is still under way.
   Completer<void>? hold;
 
+  /// Streamed replies asked for so far; with [replyHold] set, each waits
+  /// for it before it is answered.
+  int repliesAsked = 0;
+  Completer<void>? replyHold;
+
   String get baseUrl => 'http://127.0.0.1:${_server.port}';
   bool get _loaded => model != 'inactive';
 
@@ -85,6 +91,10 @@ class _Engine {
       case '/api/extra/version':
         r.response.write(jsonEncode({'result': 'KoboldCpp'}));
       case '/v1/chat/completions':
+        if (body['tools'] == null && body['stream'] == true) {
+          repliesAsked++;
+          await replyHold?.future;
+        }
         _complete(r.response, body);
       default:
         r.response
@@ -193,10 +203,22 @@ class _Launched implements Process {
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) => false;
 }
 
+/// Model files are read for real.
+class _Models extends FakeModelManager {
+  @override
+  Future<GGUFModelInfo?> getModelArchitectureInfo(String filePath) =>
+      GGUFParser.getModelArchitectureInfo(filePath);
+}
+
 /// The machine, with the free memory read before the engine started.
 class _Hardware extends FakeHardwareService {
+  FreeMemoryMb? _free = (graphics: 10240, system: 24576);
+
   @override
-  FreeMemoryMb? freeBeforeEngine = (graphics: 10240, system: 24576);
+  FreeMemoryMb? get freeBeforeEngine => _free;
+
+  @override
+  set freeBeforeEngine(FreeMemoryMb? value) => _free = value;
 }
 
 const _unloadedWords =
@@ -506,16 +528,15 @@ void main() {
     expect(kKoboldIdleUnloadChoices, [0, 10, 30, 60]);
   });
 
-  testWidgets('every status, and the phone, says Unloaded while the model is '
-      'unloaded and Loading while it loads back; Ready only once it is', (
-    tester,
+  /// Every place that shows the local engine's state, at once, on the real
+  /// service; and the web server's answer for the phone.
+  Future<({LLMProvider provider, BackendFacade facade})> showStatus(
+    WidgetTester tester,
   ) async {
     late LLMProvider provider;
     late BackendFacade facade;
     final creator = CreatorState();
     await tester.runAsync(() async {
-      await storage.backendSettings.setIdleUnloadMinutes(30);
-      await ready(idleAfter: const Duration(milliseconds: 400));
       final backend = BackendManager(storage);
       provider = LLMProvider(
         kobold,
@@ -528,13 +549,7 @@ void main() {
         backend.dispose();
         creator.dispose();
       });
-      facade = BackendFacade(
-        provider,
-        storage,
-        FakeModelManager(),
-        _Hardware(),
-      );
-      await unloaded();
+      facade = BackendFacade(provider, storage, _Models(), _Hardware());
     });
     await tester.binding.setSurfaceSize(const Size(1000, 2400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -547,10 +562,8 @@ void main() {
           ChangeNotifierProvider<OpenRouterService>.value(
             value: provider.openRouterService,
           ),
-          ChangeNotifierProvider<HardwareService>.value(
-            value: _Hardware(),
-          ),
-          ChangeNotifierProvider<ModelManager>.value(value: FakeModelManager()),
+          ChangeNotifierProvider<HardwareService>.value(value: _Hardware()),
+          ChangeNotifierProvider<ModelManager>.value(value: _Models()),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -566,43 +579,30 @@ void main() {
         ),
       ),
     );
-    Finder on<T>(String text) =>
-        find.descendant(of: find.byType(T), matching: find.text(text));
-    Future<Map<String, dynamic>> phone() async =>
-        (await tester.runAsync(facade.localModel))!;
+    return (provider: provider, facade: facade);
+  }
 
-    expect(on<AiEngineStatusCard>('Unloaded while idle'), findsOneWidget);
-    expect(on<AiEngineStatusCard>('Change'), findsOneWidget);
-    expect(on<KoboldStatusCard>('Unloaded'), findsOneWidget);
-    expect(on<KoboldLogDialog>('Unloaded while idle'), findsOneWidget);
-    expect(on<SetupStep>('Unloaded while idle'), findsOneWidget);
-    expect(find.text('Ready'), findsNothing);
-    var card = await phone();
-    expect((card['ready'], card['unloaded']), (false, true));
+  Finder on<T>(String text) =>
+      find.descendant(of: find.byType(T), matching: find.text(text));
 
-    // The next reply loads it back; the engine is still loading it.
-    late Future<String> answer;
-    await tester.runAsync(() async {
-      engine.hold = Completer<void>();
-      answer = reply();
-      await until(() => engine.reloads.length == 2);
-    });
-    await tester.pump();
-    expect(kobold.isReady, isTrue, reason: 'requests are still let through');
+  Future<(Object?, Object?)> phone(
+    WidgetTester tester,
+    BackendFacade facade,
+  ) async {
+    final card = (await tester.runAsync(facade.localModel))!;
+    return (card['ready'], card['unloaded']);
+  }
+
+  void expectLoading() {
     expect(on<AiEngineStatusCard>('Loading model…'), findsOneWidget);
     expect(on<KoboldStatusCard>('Loading…'), findsOneWidget);
-    expect(on<KoboldLogDialog>('Starting…'), findsOneWidget);
+    expect(on<KoboldLogDialog>('Loading…'), findsOneWidget);
     expect(on<SetupStep>('Loading model...'), findsOneWidget);
     expect(find.text('Ready'), findsNothing);
     expect(find.textContaining('Unloaded'), findsNothing);
-    card = await phone();
-    expect((card['ready'], card['unloaded']), (false, false));
+  }
 
-    await tester.runAsync(() async {
-      engine.hold!.complete();
-      expect(await answer, 'Hello.');
-    });
-    await tester.pump();
+  void expectReady() {
     for (final surface in [
       AiEngineStatusCard,
       KoboldStatusCard,
@@ -615,7 +615,92 @@ void main() {
         reason: '$surface',
       );
     }
-    card = await phone();
-    expect((card['ready'], card['unloaded']), (true, false));
+  }
+
+  testWidgets('every status, and the phone, says Unloaded while the model is '
+      'unloaded and Loading while it loads back; Ready as soon as it is', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      await storage.backendSettings.setIdleUnloadMinutes(30);
+      await ready(idleAfter: const Duration(milliseconds: 400));
+      await unloaded();
+    });
+    final s = await showStatus(tester);
+    // At each change, whether listeners were told a model is loaded.
+    final heard = <bool>[];
+    void hear() => heard.add(kobold.modelLoaded);
+    kobold.addListener(hear);
+    addTearDown(() => kobold.removeListener(hear));
+
+    expect(on<AiEngineStatusCard>('Unloaded while idle'), findsOneWidget);
+    expect(on<AiEngineStatusCard>('Change'), findsOneWidget);
+    expect(on<KoboldStatusCard>('Unloaded'), findsOneWidget);
+    expect(on<KoboldLogDialog>('Unloaded while idle'), findsOneWidget);
+    expect(on<SetupStep>('Unloaded while idle'), findsOneWidget);
+    expect(find.text('Ready'), findsNothing);
+    expect(await phone(tester, s.facade), (false, true));
+
+    // The next reply loads it back; the engine is still loading it.
+    late Future<String> answer;
+    await tester.runAsync(() async {
+      engine
+        ..hold = Completer<void>()
+        ..replyHold = Completer<void>();
+      answer = reply();
+      await until(() => engine.reloads.length == 2);
+    });
+    await tester.pump();
+    expect(kobold.isReady, isTrue, reason: 'requests are still let through');
+    expectLoading();
+    expect(await phone(tester, s.facade), (false, false));
+
+    // Loaded back; the reply is on its way to the engine.
+    await tester.runAsync(() async {
+      engine.hold!.complete();
+      await until(() => engine.repliesAsked == 1);
+    });
+    expect(heard.last, isTrue, reason: 'listeners are told it is back');
+    await tester.pump();
+    expectReady();
+    expect(await phone(tester, s.facade), (true, false));
+
+    await tester.runAsync(() async {
+      engine.replyHold!.complete();
+      expect(await answer, 'Hello.');
+    });
+  });
+
+  testWidgets('a swap while the model is unloaded for being idle shows '
+      'Loading for the whole load, not Unloaded; then Ready', (tester) async {
+    await tester.runAsync(() async {
+      await storage.backendSettings.setLastUsedModelPath(chatModel);
+      await storage.backendSettings.setIdleUnloadMinutes(30);
+      await ready(idleAfter: const Duration(milliseconds: 400));
+      await unloaded();
+    });
+    final s = await showStatus(tester);
+    expect(on<KoboldStatusCard>('Unloaded'), findsOneWidget);
+
+    // A new chat preset or model reloads chat's config in place.
+    late Future<void> swap;
+    await tester.runAsync(() async {
+      engine.hold = Completer<void>();
+      swap = s.provider.reloadChatKobold();
+      // Accepted: what the engine was told to load is noted.
+      await until(() => kobold.loadedModelPath == chatModel);
+    });
+    await tester.pump();
+    expectLoading();
+    expect(await phone(tester, s.facade), (false, false));
+
+    await tester.runAsync(() async {
+      engine.hold!.complete();
+      await swap;
+    });
+    await tester.pump();
+    expectReady();
+    expect(engine.reloads, ['unload_model', kStagedChatConfig]);
+    expect(await phone(tester, s.facade), (true, false));
   });
 }

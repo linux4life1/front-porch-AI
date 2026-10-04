@@ -109,10 +109,11 @@ void main() {
         'draftamount': 6,
       });
       final read = readKcpps(theirs) as KcppsOk;
-      // The draft model is the preset editor's; how many tokens it drafts
-      // is kept as written.
+      // The draft model and how many tokens it drafts are the preset
+      // editor's, kept as written.
       expect(read.config.draftModelPath, liveEngineModel);
-      expect(read.unmanagedKeys, contains('draftamount'));
+      expect(read.config.draftAmount, 6);
+      expect(kcppsMap(read.config)['draftamount'], 6);
 
       await launch('fpai-draft.kcpps', read.config);
       final reply = await livePost(port, '/api/v1/generate', {
