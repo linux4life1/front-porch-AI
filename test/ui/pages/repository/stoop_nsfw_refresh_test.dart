@@ -134,7 +134,7 @@ void main() {
       );
       await _pumpUntilTiles(tester);
     });
-    await tester.pumpAndSettle();
+    await _settleFrames(tester);
 
     final before = _tileNames(tester);
     expect(
@@ -144,7 +144,7 @@ void main() {
     );
 
     await tester.tap(find.byTooltip('Account'));
-    await tester.pumpAndSettle();
+    await _settleFrames(tester);
     expect(find.text('Show NSFW content'), findsOneWidget);
 
     await tester.runAsync(() async {
@@ -156,9 +156,9 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 800));
       await _pumpUntilTiles(tester);
     });
-    await tester.pumpAndSettle();
+    await _settleFrames(tester);
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
-    await tester.pumpAndSettle();
+    await _settleFrames(tester);
 
     expect(auth.user?.nsfwEnabled, isTrue);
     final after = _tileNames(tester);
@@ -177,6 +177,16 @@ Set<String> _tileNames(WidgetTester tester) {
       .widgetList<StoopCardTile>(find.byType(StoopCardTile))
       .map((t) => t.card.name)
       .toSet();
+}
+
+/// Let route and sheet animations finish without waiting for the whole
+/// screen to go still. Each tile shows a spinner until its thumbnail has
+/// downloaded, and those downloads only advance inside `runAsync`, so
+/// `pumpAndSettle` never returns here.
+Future<void> _settleFrames(WidgetTester tester) async {
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }
 
 Future<void> _pumpUntilTiles(WidgetTester tester) async {
