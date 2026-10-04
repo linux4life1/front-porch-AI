@@ -128,6 +128,11 @@ extension KoboldServiceAdmin on KoboldService {
   /// A swap finished loading the config with this content.
   void noteResident(String key) => _residentKey = key;
 
+  /// The model a request goes to: the one loaded (a helper or story model
+  /// after a swap), else chat's. Its template decides the thinking cap.
+  String? get thinkingModel =>
+      _loadedModelPath ?? _storageService.backendSettings.lastUsedModelPath;
+
   /// A reload did not load what it asked for: the pair noted for it is not
   /// what runs.
   void forgetAdminLoadedPair() {
