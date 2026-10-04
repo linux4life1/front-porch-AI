@@ -136,7 +136,16 @@ String kcppsPlainWords(
       '${koboldModelName(c.draftModelPath)} guesses ahead to write faster.',
     );
   }
-  if (c.mmprojPath.isNotEmpty) out.add('It can see pictures.');
+  if (c.mmprojPath.isNotEmpty) {
+    out.add(
+      c.mmprojOnCpu
+          ? 'It can see pictures, with the vision file in system memory.'
+          : 'It can see pictures.',
+    );
+  }
+  if (c.draftModelPath.isNotEmpty && c.mmprojPath.isNotEmpty) {
+    out.add('A draft model and a vision file should not be used together.');
+  }
   return out.join(' ');
 }
 

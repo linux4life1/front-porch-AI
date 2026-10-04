@@ -240,6 +240,13 @@ class KcppsExtrasSection extends StatelessWidget {
           c.draft.mmprojPath,
           (v) => c.edit((d) => d.copyWith(mmprojPath: v)),
         ),
+        if (c.draft.mmprojPath.isNotEmpty)
+          KeCheck(
+            value: c.draft.mmprojOnCpu,
+            label:
+                'Keep the vision file in system memory (more room on the card)',
+            onChanged: (v) => c.edit((d) => d.copyWith(mmprojOnCpu: v)),
+          ),
         _row(
           context,
           'Draft model (guesses ahead to write faster)',

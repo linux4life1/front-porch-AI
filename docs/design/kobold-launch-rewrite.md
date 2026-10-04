@@ -573,6 +573,67 @@ Added 2026-10-04, from the measurements above:
 Tests: library operations on a temp folder; a widget test that edits,
 saves and reopens a preset; summary lines for three real files.
 
+As built (2026-10-04), to the sketch the maintainer approved:
+
+- Placement by hand follows the engine and was checked on the 16 GB card:
+  N layers puts the output layer and the LAST N - 1 blocks on the card
+  (Qwen3-14B at 20 of 41: 4843.57 MiB, the file's sizes for blocks 21 to
+  39 and the output exactly); `moecpu M` keeps the experts of the FIRST M
+  blocks in system memory (KoboldCpp: "the MoE weights of the first N
+  layers"); a block in system memory keeps its cache there (4883 and 5397
+  MiB at 64k); a split adds working memory (479.75 against 316.75). The
+  same search reproduces KoboldCpp's own fit: 30 of 41 layers at 64k, every
+  layer at 32k, MoE experts never above what the engine placed.
+- The editor writes `autofit: true` with its padding for automatic
+  placement and `autofit: false` with `gpulayers` and `moecpu` by hand. A
+  placement that does not fit says by how much, and "Use the largest that
+  fits" takes the most that does. Numbers past the model are refused.
+- The display name is the file name. Renaming moves the file and every
+  setting that points at it (chat, each model's preset, the helper model,
+  Porch Stories jobs); deleting lets go of them. One listing
+  (`kcppsPresetFiles`) serves every picker.
+- Free memory is read before each launch (nvidia-smi, the AMD driver,
+  vm_stat, /proc/meminfo, FreePhysicalMemory) and kept as "free before the
+  engine": a reading taken while the app's KoboldCpp runs would count the
+  model against itself.
+- Auto mode tunes silently: the largest batch of 512/1024/2048 that keeps
+  as much of the model on the card as 512 does (an "Auto" chip, the
+  default, in Advanced; a chosen batch is kept); smart cache slots that fit
+  in free system memory (3, or KoboldCpp's 7 for a recurrent model).
+  Context shift (decision 12): KoboldCpp's source keeps a slot for a
+  regenerated reply and a checkpoint part way into a long prompt for a
+  recurrent model, since its state cannot be rewound; so context shift
+  stays on for such a model and is switched off only where memory has no
+  room for KoboldCpp's smallest count (three).
+- MMQ: the editor times both ("Time both on this card": the preset loaded
+  each way as a trial, a fresh 2,000-token prompt twice, the faster kept);
+  auto mode learns it from KoboldCpp's per-reply speed line ("Processed: N
+  in Ts", "Generated: N/M in Ts"), on for three replies then off for three,
+  and keeps the faster per card and engine version.
+- The "Local model" card on the KoboldCpp settings page is auto mode's
+  only surface: how the model runs, in plain words, and the context, with
+  a verdict per size from a read-cost model (weights a token uses plus the
+  whole chat memory; system memory counted six times the card; extra
+  reading from the disk over a GB is "very slow"). Below 16,384 is always
+  "not recommended or supported", even for the size in use.
+- Live reload first (moved from Stage 5): a new chat preset or model in
+  Settings, "Save and use now", and the phone's model switch reload the
+  staged chat config by name and restart only when that is not acted on.
+- Prompt budget (moved from Stage 5): KoboldCpp runs with the context its
+  config gives (`maxctx = args.contextsize`), so the context in chat's
+  staged config is recorded and every prompt budget is held to it: a chat
+  set longer than the engine no longer has its start, card first, cut.
+
+Path-complete (prompt budget): generation, Continue and regenerate share
+the generation plan; group chats the same; impersonate, lorebook blocks,
+RAG memory, the creator's lore, enhance (desktop and web) and Waifu Coder
+read the held value. Realism and Needs evals, Journal, Growth Rings and
+pockets do not read the context size.
+
+Owed to Stage 7 (web, next): the chat-preset picker with the summary
+line, the "Local model" card with its context verdicts, and the preset
+summary card.
+
 ### Stage 7: web (item 21)
 
 - `lib/services/web/facade/kcpps_facade.dart` and routes: list presets with

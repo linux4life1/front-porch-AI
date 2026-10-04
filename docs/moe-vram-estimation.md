@@ -1,7 +1,7 @@
 # MoE-Aware VRAM Estimation and KoboldCPP Launch for Auto-Configure
 
 > **Status (2026-10-03).** The estimation on this page is live. The "VRAM
-> Usage Estimate" in the Generate preset dialog uses the MoE detection, the
+> Usage Estimate" in the preset editor uses the MoE detection, the
 > active weight ratio and the batch-size overhead described below
 > (`GGUFModelInfo`, `VramEstimator.estimateFromArchitecture`).
 >
