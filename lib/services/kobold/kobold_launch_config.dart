@@ -85,6 +85,7 @@ class KoboldLaunchConfig {
     this.flashAttention = true,
     this.backend = KoboldGpuBackend.none,
     this.gpuId,
+    this.moreGpuIds = const [],
     this.contextMode = ContextManagementMode.fastForwardSmartCache,
     this.smartCacheSlots = 0,
     this.jinja = true,
@@ -125,6 +126,10 @@ class KoboldLaunchConfig {
 
   /// Which card. Null lets KoboldCpp choose.
   final int? gpuId;
+
+  /// Vulkan: the cards after [gpuId] a preset spreads the model over, kept
+  /// as written (the editor has no control for them).
+  final List<int> moreGpuIds;
   final ContextManagementMode contextMode;
 
   /// Chat snapshots kept in system memory. Only used with fast forward;
@@ -183,6 +188,7 @@ class KoboldLaunchConfig {
     bool? flashAttention,
     KoboldGpuBackend? backend,
     int? gpuId,
+    List<int>? moreGpuIds,
     ContextManagementMode? contextMode,
     int? smartCacheSlots,
     bool? jinja,
@@ -211,6 +217,7 @@ class KoboldLaunchConfig {
     flashAttention: flashAttention ?? this.flashAttention,
     backend: backend ?? this.backend,
     gpuId: gpuId ?? this.gpuId,
+    moreGpuIds: moreGpuIds ?? this.moreGpuIds,
     contextMode: contextMode ?? this.contextMode,
     smartCacheSlots: smartCacheSlots ?? this.smartCacheSlots,
     jinja: jinja ?? this.jinja,

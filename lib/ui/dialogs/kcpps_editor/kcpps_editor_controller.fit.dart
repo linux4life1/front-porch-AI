@@ -58,15 +58,25 @@ extension KcppsEditorFit on KcppsEditorController {
     return made > draft.contextSize ? made : draft.contextSize;
   }
 
+  /// Graphics cards the preset spreads the model over.
+  int get cards => koboldCardsUsed(
+    config,
+    machineCards: hardware.hardwareInfo?.cardCount ?? 1,
+  );
+
   KoboldMachine? get machine {
     final hw = hardware.hardwareInfo;
     if (hw == null) return null;
+    // Free memory is read for one card; each other card counts all but
+    // the half a GB a card is assumed to keep for itself.
+    final others = (cards - 1) * (hw.vramMb - 512).clamp(0, hw.vramMb);
+    final free = this.free?.graphics;
     return KoboldMachine(
       backend: memoryBackend,
-      totalGraphicsMb: hasCard ? hw.vramMb : 0,
+      totalGraphicsMb: hasCard ? hw.vramMb * cards : 0,
       totalSystemMb: hw.ramMb,
-      freeGraphicsMb: hasCard ? free?.graphics : 0,
-      freeSystemMb: free?.system,
+      freeGraphicsMb: hasCard ? (free == null ? null : free + others) : 0,
+      freeSystemMb: this.free?.system,
     );
   }
 
@@ -86,9 +96,13 @@ extension KcppsEditorFit on KcppsEditorController {
           c.contextMode == ContextManagementMode.slidingWindowAttention,
       flashAttention: c.flashAttention,
     );
+    // Each further card holds working memory of its own.
+    final spread = (cards - 1) * base.load().computeMb;
     final helper = draftModelInfo;
     final helperBytes = draftModelBytes;
-    if (helper == null || helperBytes == null) return base;
+    if (helper == null || helperBytes == null) {
+      return spread > 0 ? base.copyWith(extraCardMb: spread) : base;
+    }
     // KoboldCpp puts the whole draft model on the card, with its own
     // cache at the same length.
     final extra = KoboldFit(
@@ -100,7 +114,7 @@ extension KcppsEditorFit on KcppsEditorController {
       kvQuant: c.kvQuant,
       flashAttention: c.flashAttention,
     ).load();
-    return base.copyWith(extraCardMb: extra.cardMb - extra.overheadMb);
+    return base.copyWith(extraCardMb: spread + extra.cardMb - extra.overheadMb);
   }
 
   KoboldPlacement get placement => draft.manual
@@ -145,6 +159,7 @@ extension KcppsEditorFit on KcppsEditorController {
     config,
     recurrent: recurrent,
     shortOfMemory: suggestedSlots?.limit == SmartCacheLimit.noRoom,
+    machineCards: hardware.hardwareInfo?.cardCount ?? 1,
   );
 
   List<String> get modelFacts =>
@@ -174,6 +189,7 @@ extension KcppsEditorFit on KcppsEditorController {
       return '${gb(freeMb ?? hw.vramMb)} GB the graphics may use, of '
           '${gb(hw.ramMb)} GB';
     }
+    if (cards > 1) return '${gb(hw.vramMb * cards)} GB on $cards cards';
     return freeMb == null
         ? '${gb(hw.vramMb)} GB on the card'
         : '${gb(freeMb)} GB free of ${gb(hw.vramMb)} GB (the rest is your '

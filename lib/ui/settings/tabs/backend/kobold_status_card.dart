@@ -239,7 +239,11 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
       null => 'Reading the preset…',
       KcppsBroken(:final reason) =>
         'The preset "$name" cannot be read: $reason',
-      KcppsOk(:final config) => kcppsPlainWords(config),
+      KcppsOk(:final config) => kcppsPlainWords(
+        config,
+        machineCards:
+            context.read<HardwareService>().hardwareInfo?.cardCount ?? 1,
+      ),
     };
     return [
       _line(context, 'Uses your preset "$name".'),

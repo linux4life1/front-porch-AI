@@ -32,6 +32,7 @@ class KcppsDraft {
     this.threads,
     this.backend = KoboldGpuBackend.none,
     this.gpuId,
+    this.moreGpuIds = const [],
     this.cudaOptions = const [],
     this.extras = const {},
   });
@@ -70,6 +71,9 @@ class KcppsDraft {
   final int? threads;
   final KoboldGpuBackend backend;
   final int? gpuId;
+
+  /// Vulkan cards after [gpuId], kept as the preset has them.
+  final List<int> moreGpuIds;
   final List<String> cudaOptions;
   final Map<String, dynamic> extras;
 
@@ -110,6 +114,7 @@ class KcppsDraft {
       threads: c.threads,
       backend: c.backend,
       gpuId: c.gpuId,
+      moreGpuIds: c.moreGpuIds,
       cudaOptions: c.cudaOptions,
       extras: c.extras,
     );
@@ -152,7 +157,11 @@ class KcppsDraft {
       useMtp: useMtp,
       cudaOptions: cudaOptions,
       extras: extras,
-    ).copyWith(mmprojOnCpu: mmprojOnCpu, threads: threads);
+    ).copyWith(
+      mmprojOnCpu: mmprojOnCpu,
+      threads: threads,
+      moreGpuIds: moreGpuIds,
+    );
   }
 
   /// The `.kcpps` map, ready to save.
@@ -219,6 +228,7 @@ class KcppsDraft {
     threads: threads,
     backend: backend ?? this.backend,
     gpuId: gpuId ?? this.gpuId,
+    moreGpuIds: moreGpuIds,
     cudaOptions: cudaOptions,
     extras: extras,
   );

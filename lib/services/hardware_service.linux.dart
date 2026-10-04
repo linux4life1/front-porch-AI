@@ -24,6 +24,8 @@ extension HardwareServiceLinux on HardwareService {
   Future<void> _detectLinux() async {
     String gpuName = 'Unknown GPU';
     int vramMb = 0;
+    var cardCount = 1;
+    var amdCards = 0;
     int ramMb = 0;
     String vendor = 'Unknown';
 
@@ -97,6 +99,7 @@ extension HardwareServiceLinux on HardwareService {
           gpuName = parsed.name;
         }
         if (parsed.vramMb > 0) vramMb = parsed.vramMb;
+        if (parsed.cards > 0) cardCount = parsed.cards;
       }
     } else if (vendor == 'AMD') {
       // Try sysfs for AMD VRAM (amdgpu driver exposes this)
@@ -111,6 +114,7 @@ extension HardwareServiceLinux on HardwareService {
                   int.tryParse((await vramFile.readAsString()).trim()) ?? 0;
               final cardVramMb = (vramBytes / (1024 * 1024)).round();
               if (cardVramMb > vramMb) vramMb = cardVramMb;
+              if (cardVramMb > 0) amdCards++;
             }
           }
         }
@@ -119,6 +123,7 @@ extension HardwareServiceLinux on HardwareService {
       }
     }
 
+    if (amdCards > 0) cardCount = amdCards;
     _hardwareInfo = HardwareInfo(
       gpuName: gpuName,
       vramMb: vramMb,
@@ -128,6 +133,7 @@ extension HardwareServiceLinux on HardwareService {
       hasRocm: _hasRocm,
       hasMetal: false,
       linuxDistro: distro,
+      cardCount: cardCount,
     );
   }
 

@@ -131,6 +131,7 @@ KcppsRead _readKcpps(String text) {
 
   var backend = KoboldGpuBackend.none;
   int? gpuId;
+  var moreGpuIds = const <int>[];
   final cuda = map['usecuda'] ?? map['usecublas'] ?? map['usehipblas'];
   var cudaOptions = const <String>[];
   if (cuda is List) {
@@ -142,7 +143,9 @@ KcppsRead _readKcpps(String text) {
     ];
   } else if (map['usevulkan'] is List) {
     backend = KoboldGpuBackend.vulkan;
-    gpuId = (map['usevulkan'] as List).map(_asInt).whereType<int>().firstOrNull;
+    final ids = (map['usevulkan'] as List).map(_asInt).whereType<int>();
+    gpuId = ids.firstOrNull;
+    moreGpuIds = ids.skip(1).toList();
   }
 
   final noSwa = map.containsKey('noswa')
@@ -199,6 +202,7 @@ KcppsRead _readKcpps(String text) {
       flashAttention: !flashOff,
       backend: backend,
       gpuId: gpuId,
+      moreGpuIds: moreGpuIds,
       contextMode: mode,
       smartCacheSlots: _asInt(map['smartcache']) ?? 0,
       jinja: map['jinja'] == true,
@@ -346,7 +350,7 @@ Map<String, dynamic> kcppsMap(
       map['usecuda'] = cuda;
       map['usecublas'] = cuda;
     case KoboldGpuBackend.vulkan:
-      map['usevulkan'] = [?config.gpuId];
+      map['usevulkan'] = [?config.gpuId, ...config.moreGpuIds];
     case KoboldGpuBackend.none:
       break;
   }

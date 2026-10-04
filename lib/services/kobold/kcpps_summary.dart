@@ -83,10 +83,37 @@ String koboldMemoryWords(int mb) => mb >= 1024 && mb % 1024 == 0
 /// [recurrent]: the model has recurrent layers, so KoboldCpp may make more
 /// smart cache slots than asked. [shortOfMemory]: no slots because the
 /// computer has no room for them.
+/// Graphics cards [c] spreads its model over: the Vulkan cards it names,
+/// or for CUDA (no card named, or "all") every one of [machineCards].
+int koboldCardsUsed(KoboldLaunchConfig c, {int machineCards = 1}) =>
+    switch (c.backend) {
+      KoboldGpuBackend.vulkan => 1 + c.moreGpuIds.length,
+      KoboldGpuBackend.cuda
+          when c.gpuId == null || c.cudaOptions.contains('all') =>
+        machineCards < 1 ? 1 : machineCards,
+      _ => 1,
+    };
+
+/// "Spread over graphics cards 0 and 1, split 3 to 1."
+String koboldSpreadWords(KoboldLaunchConfig c, int cards) {
+  final ids = [?c.gpuId, ...c.moreGpuIds];
+  final which = c.backend == KoboldGpuBackend.vulkan && ids.length > 1
+      ? 'graphics cards ${ids.take(ids.length - 1).join(', ')} and ${ids.last}'
+      : 'all $cards graphics cards';
+  final split = c.extras['tensor_split'];
+  String n(Object? v) =>
+      v is num && v == v.roundToDouble() ? '${v.toInt()}' : '$v';
+  final ratio = split is List && split.length > 1
+      ? ', split ${split.map(n).join(' to ')}'
+      : '';
+  return 'Spread over $which$ratio.';
+}
+
 String kcppsPlainWords(
   KoboldLaunchConfig c, {
   bool recurrent = false,
   bool shortOfMemory = false,
+  int machineCards = 1,
 }) {
   final model = c.modelPath.isEmpty
       ? 'the model chosen in Settings'
@@ -129,6 +156,8 @@ String kcppsPlainWords(
           : 'No smart cache slots${shortOfMemory ? ': this computer is short of memory' : ''}.',
     );
   }
+  final cards = koboldCardsUsed(c, machineCards: machineCards);
+  if (cards > 1) out.add(koboldSpreadWords(c, cards));
   if (!c.flashAttention) out.add('Flash attention is off.');
   if (c.mmq == false) out.add('MMQ is off.');
   final drafts = c.draftModelPath.isNotEmpty || c.useMtp;

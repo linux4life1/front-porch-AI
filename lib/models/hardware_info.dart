@@ -50,7 +50,12 @@ class HardwareInfo {
     this.hasMetal = false,
     this.isSharedMemory = false,
     this.linuxDistro = 'unknown',
+    this.cardCount = 1,
   });
+
+  /// Graphics cards of the detected vendor: KoboldCpp spreads a model over
+  /// all of them when a preset names no card.
+  final int cardCount;
 
   @override
   String toString() =>
@@ -66,6 +71,7 @@ class HardwareInfo {
     'hasMetal': hasMetal,
     'isSharedMemory': isSharedMemory,
     'linuxDistro': linuxDistro,
+    'cardCount': cardCount,
   };
 
   /// Rebuilds from [toJson]. Every field is read defensively — a cache written
@@ -84,6 +90,7 @@ class HardwareInfo {
       hasMetal: json['hasMetal'] as bool? ?? false,
       isSharedMemory: json['isSharedMemory'] as bool? ?? false,
       linuxDistro: json['linuxDistro'] as String? ?? 'unknown',
+      cardCount: (json['cardCount'] as num?)?.toInt() ?? 1,
     );
   }
 }

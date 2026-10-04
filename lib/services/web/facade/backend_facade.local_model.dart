@@ -27,7 +27,10 @@ extension BackendFacadeLocalModel on BackendFacade {
         'path': active,
         'name': kcppsPresetName(active),
         'words': switch (read) {
-          KcppsOk(:final config) => kcppsPlainWords(config),
+          KcppsOk(:final config) => kcppsPlainWords(
+            config,
+            machineCards: _hardware?.hardwareInfo?.cardCount ?? 1,
+          ),
           KcppsBroken(:final reason) => 'This preset cannot be read: $reason',
         },
       };
