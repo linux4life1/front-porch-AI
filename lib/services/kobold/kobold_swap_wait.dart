@@ -32,6 +32,17 @@ class KoboldSwapTimeout implements Exception {
       : 'KoboldCpp did not act on the reload within ${waited.inSeconds}s';
 }
 
+/// A reload KoboldCpp answered but did not load: it went back to the config
+/// it was started with.
+class KoboldSwapFailed implements Exception {
+  const KoboldSwapFailed(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// How long a model file of [sizeBytes] may take to load before the app
 /// gives up: a minute, plus eight seconds for every gigabyte (a slow disk
 /// reads about that much), capped at fifteen minutes.

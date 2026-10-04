@@ -237,13 +237,19 @@ class KoboldProcessHost implements GpuSwapHost {
     this.isResident,
     this.noteLoadedPair,
     this.noteResident,
+    this.onEngineContext,
+    this.forgetLoadedPair,
     this.onStep,
     this.purpose,
     this.adminRetryAttempts = kKoboldAdminRetryAttempts,
     this.adminRetryDelay = kKoboldAdminRetryDelay,
     KoboldAdminSwapLock? swapLock,
     HttpGpuSwapHost? admin,
+    Future<String?> Function()? engineModel,
+    Future<int?> Function()? engineContext,
   }) : _admin = admin,
+       _engineModel = engineModel ?? (() => koboldEngineModel(baseUrl)),
+       _engineContext = engineContext ?? (() => koboldEngineContext(baseUrl)),
        swapLock = swapLock ?? KoboldAdminSwapLock();
 
   final String baseUrl;
@@ -291,6 +297,18 @@ class KoboldProcessHost implements GpuSwapHost {
 
   /// Record the content key of what admin just loaded.
   final void Function(String key)? noteResident;
+
+  /// The context the engine runs after a reload: chat's prompts are held
+  /// to it.
+  final void Function(int? context)? onEngineContext;
+
+  /// A reload did not load what it asked for: the pair noted for it is not
+  /// what runs.
+  final void Function()? forgetLoadedPair;
+
+  /// What the engine says it has loaded, and its context.
+  final Future<String?> Function() _engineModel;
+  final Future<int?> Function() _engineContext;
 
   /// Plain words for the status line: which model is loading, and why.
   final void Function(String step)? onStep;
@@ -410,11 +428,13 @@ class KoboldProcessHost implements GpuSwapHost {
           loading != null ? loading(step) : markNotReady?.call();
         }
         // What the engine was told to load. Whether it has loaded it is
-        // the ready flag, set by the wait; listeners on that flag read
-        // these paths, so they are written first.
-        await _noteLoaded(staged);
+        // the ready flag, set by the wait, and the check after it;
+        // listeners on that flag read these paths, so they are written
+        // first.
+        await _notePair(staged);
         try {
           await (waitForReload ?? waitUntilReady)?.call();
+          await _checkLoaded(staged);
           return;
         } on KoboldSwapTimeout catch (e) {
           // It restarted on this config and is still loading it: starting
@@ -440,11 +460,39 @@ class KoboldProcessHost implements GpuSwapHost {
   }
 
   Future<void> _noteLoaded(KoboldStagedRole? staged) async {
+    await _notePair(staged);
+    if (staged != null) noteResident?.call(staged.key);
+  }
+
+  Future<void> _notePair(KoboldStagedRole? staged) async {
     final noted = noteLoadedPair?.call(
       staged?.modelPath ?? requestedModelPath ?? '',
       staged?.kcppsPath ?? requestedKcppsPath ?? '',
     );
     if (noted is Future<void>) await noted;
-    if (staged != null) noteResident?.call(staged.key);
+  }
+
+  /// A reload is checked, not assumed: KoboldCpp answers a config it cannot
+  /// load by going back to the one it was started with, and says nothing.
+  Future<void> _checkLoaded(KoboldStagedRole? staged) async {
+    if (staged == null) return;
+    final model = await _engineModel();
+    final ctx = await _engineContext();
+    final wanted = staged.contextSize;
+    if (!koboldModelNameMatches(model, staged.expectedModel) ||
+        (ctx != null && wanted != null && ctx != wanted)) {
+      noteResident?.call(''); // nothing is known to be resident
+      forgetLoadedPair?.call();
+      onEngineContext?.call(ctx);
+      throw KoboldSwapFailed(
+        'KoboldCpp could not load ${p.basename(staged.modelPath)}; '
+        'it went back to ${model ?? 'its startup model'}.',
+      );
+    }
+    noteResident?.call(staged.key);
+    // Chat's prompts are held to the context the engine really runs.
+    if (staged.filename == kStagedChatConfig && ctx != null) {
+      onEngineContext?.call(ctx);
+    }
   }
 }

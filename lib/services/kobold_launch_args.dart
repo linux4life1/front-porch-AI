@@ -149,6 +149,8 @@ Future<KoboldStagedRole> stageKoboldRole({
     key: json,
     modelPath: kcppsModelOf(config),
     kcppsPath: kcppsPath ?? '',
+    expectedModel: koboldExpectedModelName(config),
+    contextSize: koboldExpectedContext(config),
   );
 }
 

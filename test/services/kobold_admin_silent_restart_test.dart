@@ -34,7 +34,12 @@ KoboldProcessHost _host({
       key: 'worker config',
       modelPath: model,
       kcppsPath: '/tmp/worker.kcpps',
+      expectedModel: 'worker',
+      contextSize: 16384,
     ),
+    // What the engine says once it has loaded the worker config.
+    engineModel: () async => 'koboldcpp/worker',
+    engineContext: () async => 16384,
     adminRetryDelay: retryDelay,
     isProcessRunning: isProcessRunning,
     swapLock: swapLock,

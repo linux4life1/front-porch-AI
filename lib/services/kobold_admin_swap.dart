@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/services/kobold/kcpps_codec.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// App-owned `--admindir` so reload_config can see GGUF + `.kcpps` names.
@@ -255,6 +256,40 @@ Future<double?> koboldEngineUptime(String baseUrl) async {
 /// nothing is, or null when nothing answers.
 Future<String?> koboldEngineModel(String baseUrl) async =>
     (await _engineJson(baseUrl, 'api/v1/model'))?['result']?.toString();
+
+/// The context the loaded model really has, or null when nothing answers.
+Future<int?> koboldEngineContext(String baseUrl) async {
+  final v = (await _engineJson(
+    baseUrl,
+    'api/extra/true_max_context_length',
+  ))?['value'];
+  return v is num ? v.toInt() : null;
+}
+
+/// KoboldCpp's model name for [config]: hordemodelname, else the
+/// model file's stem with re.sub(r'[^\w\d\.\-_]', '', s) applied.
+String koboldExpectedModelName(Map<String, dynamic> config) {
+  final horde = config['hordemodelname']?.toString().trim() ?? '';
+  final name = horde.isNotEmpty
+      ? horde
+      : p.basenameWithoutExtension(kcppsModelOf(config));
+  return name.replaceAll(RegExp(r'[^\w\d\.\-_]'), '');
+}
+
+/// The context KoboldCpp runs for [config]: its contextsize. Null when it
+/// sets none, as KoboldCpp's default differs by version.
+int? koboldExpectedContext(Map<String, dynamic> config) {
+  final v = config['contextsize'];
+  return v is num ? v.toInt() : int.tryParse('${v ?? ''}');
+}
+
+bool koboldModelNameMatches(String? engine, String expected) {
+  String n(String s) => s
+      .replaceFirst(RegExp(r'^koboldcpp/'), '')
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]'), '');
+  return engine != null && n(engine) == n(expected);
+}
 
 Future<Map<dynamic, dynamic>?> _engineJson(String baseUrl, String path) async {
   final root = baseUrl.endsWith('/')

@@ -39,6 +39,8 @@ class KoboldStagedRole {
     required this.key,
     required this.modelPath,
     required this.kcppsPath,
+    required this.expectedModel,
+    required this.contextSize,
   });
 
   final String filename;
@@ -46,6 +48,14 @@ class KoboldStagedRole {
   final String key;
   final String modelPath;
   final String kcppsPath;
+
+  /// The model name KoboldCpp reports once this config is loaded.
+  final String expectedModel;
+
+  /// The context KoboldCpp runs once this config is loaded. Null when the
+  /// config sets none: KoboldCpp's own default differs by version (1.117.1
+  /// runs 12,288, 1.122.1 runs 16,384).
+  final int? contextSize;
 }
 
 /// Write [json] as `[dir]/[name]`, whole or not at all: a temp file is

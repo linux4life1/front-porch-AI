@@ -260,6 +260,7 @@ extension KoboldServiceProcess on KoboldService {
       _loadedKcppsPath = kcppsPath;
       _residentKey = staged?.key;
       _loadGeneration++;
+      _followLaunchContext(_loadGeneration);
       _addLog('Starting Koboldcpp...');
       _addLog('Command: $executablePath ${args.join(' ')}');
       notify();

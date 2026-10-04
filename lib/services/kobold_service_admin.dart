@@ -128,6 +128,44 @@ extension KoboldServiceAdmin on KoboldService {
   /// A swap finished loading the config with this content.
   void noteResident(String key) => _residentKey = key;
 
+  /// A reload did not load what it asked for: the pair noted for it is not
+  /// what runs.
+  void forgetAdminLoadedPair() {
+    _loadedModelPath = null;
+    _loadedKcppsPath = null;
+    _loadGeneration++;
+  }
+
+  /// Says in the engine log and on the status line that a reload did not
+  /// load what it asked for.
+  void noteReloadFailed(String message) {
+    _addLog(message);
+    showSwapStep(message);
+  }
+
+  /// Once the launch of [generation] is ready, chat's prompts are held to
+  /// the context the engine really runs: a preset may set none, and then
+  /// KoboldCpp runs its own default. A swap or stop before then cancels it.
+  void _followLaunchContext(int generation) {
+    late final VoidCallback check;
+    check = () {
+      if (generation != _loadGeneration || !_isRunning) {
+        removeListener(check);
+      } else if (_modelReady) {
+        removeListener(check);
+        unawaited(_readLaunchContext(generation));
+      }
+    };
+    addListener(check);
+  }
+
+  Future<void> _readLaunchContext(int generation) async {
+    final context = await koboldEngineContext(_baseUrl);
+    if (context != null && generation == _loadGeneration) {
+      _storageService.backendSettings.setEngineContextSize(context);
+    }
+  }
+
   /// Says on the status line what a swap is doing.
   void showSwapStep(String step) {
     _modelLoadingStatus = step;

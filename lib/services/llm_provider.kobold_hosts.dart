@@ -53,6 +53,8 @@ extension LLMProviderKoboldHosts on LLMProvider {
           () => _stageKoboldRole(role: role, model: model, kcpps: kcpps),
       isResident: _koboldService.isResident,
       noteResident: _koboldService.noteResident,
+      onEngineContext: _storageService.backendSettings.setEngineContextSize,
+      forgetLoadedPair: _koboldService.forgetAdminLoadedPair,
       onStep: _koboldService.showSwapStep,
       purpose: role == kKoboldChatRole
           ? 'chat'
@@ -95,15 +97,23 @@ extension LLMProviderKoboldHosts on LLMProvider {
 
   /// Puts what Settings now says chat runs (a new chat preset or model)
   /// into the running KoboldCpp: a reload of the staged chat config by
-  /// name, and a restart only when the reload is not acted on. Nothing
-  /// happens when KoboldCpp is not running or chat's pair is loaded already.
+  /// name, and a restart when the reload is not acted on or KoboldCpp
+  /// could not load it. Nothing happens when KoboldCpp is not running or
+  /// chat's pair is loaded already.
   Future<void> _reloadChatKobold() async {
     if (!_koboldService.isProcessRunning) return;
-    await _koboldSwapHost(
-      role: kKoboldChatRole,
-      model: '',
-      kcpps: '',
-    ).restore();
+    try {
+      await _koboldSwapHost(
+        role: kKoboldChatRole,
+        model: '',
+        kcpps: '',
+      ).restore();
+    } on KoboldSwapFailed catch (e) {
+      // A fresh start loads the new config, or says in plain words why not.
+      _koboldService.noteReloadFailed(e.message);
+      await _koboldService.stopKobold();
+      await ensureManagedBackendIsRunning();
+    }
   }
 
   /// Loads [config], which belongs to no role (a timing trial), into the
@@ -121,13 +131,20 @@ extension LLMProviderKoboldHosts on LLMProvider {
       key: json,
       modelPath: kcppsModelOf(config),
       kcppsPath: '',
+      expectedModel: koboldExpectedModelName(config),
+      contextSize: koboldExpectedContext(config),
     );
-    await _koboldSwapHost(
-      role: 'trial',
-      model: staged.modelPath,
-      kcpps: '',
-      stage: () async => staged,
-    ).restore();
+    try {
+      await _koboldSwapHost(
+        role: 'trial',
+        model: staged.modelPath,
+        kcpps: '',
+        stage: () async => staged,
+      ).restore();
+    } on KoboldSwapFailed catch (e) {
+      debugPrint('[Presets] the trial $name did not load: $e');
+      return false;
+    }
     return _koboldService.isResident(json);
   }
 

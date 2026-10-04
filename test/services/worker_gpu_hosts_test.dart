@@ -263,7 +263,12 @@ void main() {
         key: 'worker config',
         modelPath: '/tmp/worker.gguf',
         kcppsPath: '/tmp/worker.kcpps',
+        expectedModel: 'worker',
+        contextSize: 16384,
       ),
+      // What the engine says once it has loaded the worker config.
+      engineModel: () async => 'koboldcpp/worker',
+      engineContext: () async => 16384,
       noteLoadedPair: (model, kcpps) {
         notedModel = model;
         notedKcpps = kcpps;
@@ -310,6 +315,8 @@ void main() {
         key: 'worker config',
         modelPath: '/tmp/worker.gguf',
         kcppsPath: '',
+        expectedModel: 'worker',
+        contextSize: 16384,
       ),
       isResident: (key) => key == 'worker config',
       waitUntilReady: () async => readyWaits++,
