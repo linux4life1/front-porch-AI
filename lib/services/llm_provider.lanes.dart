@@ -23,12 +23,16 @@ part of 'llm_provider.dart';
 /// back afterwards. Remote hosts need no hold; [restore] is a no-op there.
 class LaneHost {
   const LaneHost({
+    required this.id,
     required this.service,
     required this.hold,
     required this.restore,
     required this.label,
   });
 
+  /// Backend, address, model and preset. Two hosts with the same id are the
+  /// same resident model, however many times the host was built.
+  final String id;
   final LLMService service;
   final Future<T> Function<T>(Future<T> Function() work) hold;
   final Future<void> Function() restore;
@@ -92,6 +96,7 @@ extension LLMProviderLanes on LLMProvider {
 
     if (localSwapKindFor(backendType: t, apiUrl: url) == null) {
       return LaneHost(
+        id: id,
         service: service,
         hold: <T>(work) => work(),
         restore: () => Future<void>.value(),
@@ -136,6 +141,7 @@ extension LLMProviderLanes on LLMProvider {
       return GpuSwapOccupancy(mouth: mouth, worker: lane, sameResident: same);
     });
     return LaneHost(
+      id: id,
       service: service,
       hold: occupancy.hold,
       restore: occupancy.ensureMouth,

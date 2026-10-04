@@ -193,7 +193,10 @@ class KoboldService extends ChangeNotifier
           debugPrint(
             '[KoboldService] Found orphaned KoboldCPP on $_baseUrl — killing it.',
           );
-          await killOrphanedKoboldProcesses(_addLog);
+          await killOrphanedKoboldProcesses(
+            _addLog,
+            binDir: _storageService.binDir.path,
+          );
         }
       }
     } catch (_) {

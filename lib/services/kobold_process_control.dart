@@ -37,17 +37,30 @@ import 'package:path/path.dart' as path;
 /// holding port 5001 that this run has no `Process` handle for and therefore
 /// cannot stop any other way.
 ///
-/// By image name rather than by PID for exactly that reason. On Windows all
-/// three shipped executable names are swept, including the non-AVX2 `oldpc`
-/// build, which is a distinct image and was the one that used to survive.
-Future<void> killOrphanedKoboldProcesses(void Function(String) log) async {
+/// Not by PID for exactly that reason. On Windows all three shipped
+/// executable names are swept, including the non-AVX2 `oldpc` build, which is
+/// a distinct image and was the one that used to survive. `taskkill` cannot
+/// filter by folder, so on Windows a KoboldCpp the user started themselves
+/// under one of those names is still caught.
+///
+/// Elsewhere only processes launched from [binDir], the app's own engine
+/// folder, are killed. The old `pkill -f koboldcpp` took down any KoboldCpp
+/// on the machine, including one the user was running for something else.
+Future<void> killOrphanedKoboldProcesses(
+  void Function(String) log, {
+  required String binDir,
+}) async {
   try {
     if (Platform.isWindows) {
       await Process.run('taskkill', ['/F', '/IM', 'koboldcpp.exe']);
       await Process.run('taskkill', ['/F', '/IM', 'koboldcpp_nocuda.exe']);
       await Process.run('taskkill', ['/F', '/IM', 'koboldcpp-oldpc.exe']);
     } else {
-      await Process.run('pkill', ['-KILL', '-f', 'koboldcpp']);
+      if (binDir.isEmpty) {
+        log('Engine folder unknown; left any other KoboldCPP alone.');
+        return;
+      }
+      await Process.run('pkill', koboldOwnedKillArgs(binDir));
     }
     log('Killed orphaned KoboldCPP processes.');
   } catch (e) {
@@ -133,6 +146,9 @@ Future<void> terminateKoboldTree(
 /// Catches deeply nested children and processes that reparented to init (PID
 /// 1) after their parent was killed. Reached from both the normal path and
 /// the failure path, which is why it is a function rather than two copies.
+///
+/// Matched on the executable's FULL path, not its bare name: the name alone
+/// also matches a KoboldCpp the user started from somewhere else.
 Future<void> _sweepByName(
   String? executablePath,
   void Function(String) log,
@@ -141,6 +157,16 @@ Future<void> _sweepByName(
   final exeName = path.basename(executablePath);
   try {
     log('Cleaning up any remaining $exeName processes...');
-    await Process.run('pkill', ['-KILL', '-f', exeName]);
+    await Process.run('pkill', koboldOwnedKillArgs(executablePath));
   } catch (_) {}
 }
+
+/// `pkill` arguments that hit only processes whose command line contains
+/// [ownedPath] literally (the app's engine folder, or its executable).
+/// `pkill -f` takes a regular expression, so the path is escaped.
+@visibleForTesting
+List<String> koboldOwnedKillArgs(String ownedPath) => [
+  '-KILL',
+  '-f',
+  RegExp.escape(ownedPath),
+];

@@ -60,9 +60,13 @@ extension StoryPipelineLlm on StoryPipelineService {
 
   /// A local lane model that is not the one about to run is put back
   /// first, so two local engines never fight for the GPU.
+  ///
+  /// Compared by id: a host object is built fresh for every call, so an
+  /// identity check never matched and the same job's model was unloaded
+  /// and reloaded on every single call.
   Future<void> _swapLaneHost(LaneHost? next) async {
     final prev = _activeLaneHost;
-    if (prev != null && !identical(prev, next)) {
+    if (prev != null && prev.id != next?.id) {
       await prev.restore();
     }
     _activeLaneHost = next;
