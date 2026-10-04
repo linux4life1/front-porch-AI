@@ -184,6 +184,7 @@ class GGUFParser {
           recurrentLayers * _recurrentStateBytes(number) +
           convLayers * _convStateBytes(number, nEmbd),
       perLayerInputDim: number('embedding_length_per_layer_input'),
+      architecture: arch,
     );
   }
 

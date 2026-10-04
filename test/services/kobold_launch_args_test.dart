@@ -337,12 +337,17 @@ void main() {
     expect(config['usecublas'], ['normal', '1']);
   });
 
-  test('ROCm names the card and always switches flash attention off, even '
-      'with a compressed cache', () async {
+  // Changed 2026-10-04: this case pinned "ROCm always switches flash
+  // attention off", which also left a compressed cache that could not
+  // shrink. The maintainer ruled that ROCm follows the setting like any
+  // other card (the ROCm build ran every model tested with it on, on a real
+  // RX 6900 XT), with a fallback to off on a machine where it died.
+  test('ROCm names the card and has flash attention like any other card, '
+      'so a compressed cache shrinks', () async {
     await storage.backendSettings.setKvQuant(KvQuant.q8_0);
     final config = staged(await build(useRocm: true));
     expect(config['usecublas'], ['normal', '0']);
-    expect(config['noflashattention'], isTrue);
+    expect(config['noflashattention'], isFalse);
     expect(config['quantkv'], 'q8_0');
   });
 

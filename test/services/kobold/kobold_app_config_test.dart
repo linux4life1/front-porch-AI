@@ -28,6 +28,7 @@ KoboldAppSettings _settings({
   int contextSize = 16384,
   ContextManagementMode contextMode =
       ContextManagementMode.fastForwardSmartCache,
+  bool rocmFailed = false,
 }) => KoboldAppSettings(
   contextSize: contextSize,
   batchSize: 512,
@@ -40,6 +41,7 @@ KoboldAppSettings _settings({
   kvQuant: kvQuant,
   mlock: mlock,
   contextMode: contextMode,
+  rocmFlashAttentionFailed: rocmFailed,
 );
 
 Map<String, dynamic> _map(
@@ -145,7 +147,14 @@ void main() {
     expect(map['noshift'], isFalse);
   });
 
-  test('a compressed cache turns flash attention on; ROCm never has it', () {
+  // Changed 2026-10-04: this case pinned "ROCm never has flash attention",
+  // a rule from before the rewrite. On a real RX 6900 XT the ROCm build ran
+  // every model tested with it on, faster and in less memory, and the
+  // maintainer ruled that ROCm follows the setting like any other card,
+  // falling back to off on a machine where it already died. Both halves
+  // are pinned below.
+  test('a compressed cache turns flash attention on, on ROCm too, unless it '
+      'already died there', () {
     expect(_map(_settings(flashAttention: false))['noflashattention'], isTrue);
     expect(
       _map(
@@ -162,7 +171,12 @@ void main() {
     );
     expect(
       _map(_settings(rocm: true, kvQuant: KvQuant.q4_0))['noflashattention'],
-      isTrue,
+      isFalse,
     );
+    final failed = _map(
+      _settings(rocm: true, kvQuant: KvQuant.q4_0, rocmFailed: true),
+    );
+    expect(failed['noflashattention'], isTrue);
+    expect(failed['quantkv'], 'f16', reason: 'compression needs it');
   });
 }

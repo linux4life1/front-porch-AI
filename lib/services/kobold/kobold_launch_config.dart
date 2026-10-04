@@ -40,6 +40,9 @@ enum KvQuant {
   final double sizeFactor;
   final String label;
 
+  /// A compressed cache only shrinks with flash attention on.
+  bool get needsFlashAttention => this != f16 && this != bf16;
+
   /// Reads either form: "q8_0", "1", or the number 1.
   static KvQuant parse(Object? raw) {
     final s = raw?.toString().trim().toLowerCase() ?? '';

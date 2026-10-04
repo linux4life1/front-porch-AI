@@ -33,6 +33,7 @@ class KoboldAppSettings {
     required this.kvQuant,
     required this.mlock,
     required this.contextMode,
+    this.rocmFlashAttentionFailed = false,
   });
 
   final int contextSize;
@@ -44,13 +45,15 @@ class KoboldAppSettings {
   final KoboldGpuBackend backend;
   final int? gpuId;
 
-  /// The ROCm fork: same backend setting as CUDA, but its flash attention
-  /// kernel crashes on many AMD cards.
+  /// The ROCm build: same backend setting as CUDA.
   final bool rocm;
   final bool flashAttention;
   final KvQuant kvQuant;
   final bool mlock;
   final ContextManagementMode contextMode;
+
+  /// KoboldCpp on ROCm died on this machine with flash attention on.
+  final bool rocmFlashAttentionFailed;
 }
 
 /// What is known about the model being launched.
@@ -59,15 +62,58 @@ class KoboldModelFacts {
     this.isMoe = false,
     this.hasSlidingWindow = false,
     this.expertsShareGpuMemory = false,
+    this.architecture,
   });
 
   final bool isMoe;
   final bool hasSlidingWindow;
 
+  /// The model file's `general.architecture` ("gemma4", "qwen3"...).
+  final String? architecture;
+
   /// Apple Silicon: system and graphics memory are one pool, so keeping MoE
   /// experts "on the CPU" frees nothing and only slows generation.
   final bool expertsShareGpuMemory;
 }
+
+/// Whether KoboldCpp can run flash attention for this model here. Two
+/// exceptions, both seen on real engines (2026-10-04): on Vulkan, KoboldCpp
+/// 1.122.1 loads Gemma 4 and dies on its first prompt with it on (off, it
+/// runs); and a ROCm machine where it already died with it on is not asked
+/// again. ROCm is otherwise allowed: on an RX 6900 XT it ran every model
+/// tested, faster and in less memory.
+bool koboldFlashAttentionRuns({
+  required KoboldGpuBackend backend,
+  required bool rocm,
+  String? architecture,
+  bool rocmFailedBefore = false,
+}) =>
+    !(backend == KoboldGpuBackend.vulkan && architecture == 'gemma4') &&
+    !(rocm && rocmFailedBefore);
+
+/// Why [koboldFlashAttentionRuns] said no, in plain words, or null.
+String? koboldFlashAttentionNote({
+  required KoboldGpuBackend backend,
+  required bool rocm,
+  String? architecture,
+  bool rocmFailedBefore = false,
+}) {
+  if (backend == KoboldGpuBackend.vulkan && architecture == 'gemma4') {
+    return 'Flash attention is off for Gemma 4 on Vulkan: KoboldCpp stops on '
+        'its first reply with it on. Cache compression needs it, so the '
+        'cache is full size.';
+  }
+  if (rocm && rocmFailedBefore) {
+    return 'Flash attention is off: KoboldCpp stopped on this machine with it '
+        'on. Cache compression needs it, so the cache is full size.';
+  }
+  return null;
+}
+
+/// A compressed cache needs flash attention; without it the cache is full
+/// size (f16). bf16 is not compression and is kept.
+KvQuant _cacheWhere(bool flashAttentionRuns, KvQuant wanted) =>
+    flashAttentionRuns || !wanted.needsFlashAttention ? wanted : KvQuant.f16;
 
 /// The launch config for the app's own settings ("no preset").
 ///
@@ -80,8 +126,13 @@ KoboldLaunchConfig koboldAppConfig({
   String mmprojPath = '',
 }) {
   final manual = settings.layersManual;
-  final quantised =
-      settings.kvQuant != KvQuant.f16 && settings.kvQuant != KvQuant.bf16;
+  final runs = koboldFlashAttentionRuns(
+    backend: settings.backend,
+    rocm: settings.rocm,
+    architecture: model.architecture,
+    rocmFailedBefore: settings.rocmFlashAttentionFailed,
+  );
+  final kvQuant = _cacheWhere(runs, settings.kvQuant);
   return KoboldLaunchConfig(
     modelPath: modelPath,
     contextSize: settings.contextSize,
@@ -91,9 +142,10 @@ KoboldLaunchConfig koboldAppConfig({
     // fitting, or a MoE model whose experts stay off the card, that is the
     // "memory doubled, 0.2 tokens a second" case.
     useMlock: settings.mlock && manual && !model.isMoe,
-    kvQuant: settings.kvQuant,
+    kvQuant: kvQuant,
     // A quantised cache needs flash attention to shrink both halves.
-    flashAttention: !settings.rocm && (settings.flashAttention || quantised),
+    flashAttention:
+        runs && (settings.flashAttention || kvQuant.needsFlashAttention),
     backend: settings.backend,
     gpuId: settings.gpuId,
     // Sliding window only where the model has it; elsewhere the setting
@@ -137,13 +189,26 @@ KoboldLaunchConfig koboldGeneratedPreset({
   required ContextManagementMode contextMode,
   required int smartCacheSlots,
   String mmprojPath = '',
+  String? architecture,
 }) => KoboldLaunchConfig(
   modelPath: modelPath,
   contextSize: contextSize,
   batchSize: batchSize,
   threads: threads,
   autofitPaddingMb: koboldAutofitPaddingMb(greedy: greedyAllocation),
-  kvQuant: kvQuant,
+  flashAttention: koboldFlashAttentionRuns(
+    backend: backend,
+    rocm: false,
+    architecture: architecture,
+  ),
+  kvQuant: _cacheWhere(
+    koboldFlashAttentionRuns(
+      backend: backend,
+      rocm: false,
+      architecture: architecture,
+    ),
+    kvQuant,
+  ),
   backend: backend,
   gpuId: gpuId,
   contextMode: contextMode,

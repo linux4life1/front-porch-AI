@@ -81,7 +81,7 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
         fileSizeBytes: fileSizeBytes,
         contextSize: _contextSize,
         batchSize: _batchSize,
-        kvQuant: _kvQuant.wire,
+        kvQuant: _preset(_selectedModelPath!).kvQuant.wire,
         isSwa: _contextMode == ContextManagementMode.slidingWindowAttention,
         // On Apple Silicon, CPU and GPU share unified memory: offloading MoE
         // experts to "CPU" frees no memory and would only slow generation, so
@@ -133,7 +133,7 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
       modelInfo: modelInfo,
       fileSizeBytes: file.lengthSync(), // io-ok: model change / generate
       contextSize: _contextSize,
-      kvQuant: _kvQuant.wire,
+      kvQuant: _preset(_selectedModelPath!).kvQuant.wire,
       isSwa: _contextMode == ContextManagementMode.slidingWindowAttention,
       moeExpertsOnCpu:
           !Platform.isMacOS, // unified memory; see _computeVramEstimate
@@ -165,6 +165,7 @@ extension _GenerateKcppsDialogGenerate on _GenerateKcppsDialogState {
       contextMode: _contextMode,
       smartCacheSlots: _smartCacheSlots,
       mmprojPath: mmprojPath,
+      architecture: _modelInfo?.architecture,
     );
   }
 
