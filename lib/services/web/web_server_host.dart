@@ -63,6 +63,8 @@ class WebServerHost extends ChangeNotifier {
   SttService? _sttService;
   StoryRepository? _storyRepository;
   StoryPipelineService? _storyPipelineService;
+  // The running server's story routes, re-pointed when the pipeline is.
+  StoryFacade? _storyFacade;
 
   HttpServer? _server;
   AuthService? _auth;
@@ -254,8 +256,13 @@ class WebServerHost extends ChangeNotifier {
   void setTtsService(TtsService service) => _ttsService = service;
   void setSttService(SttService service) => _sttService = service;
   void setStoryRepository(StoryRepository repo) => _storyRepository = repo;
-  void setStoryPipelineService(StoryPipelineService service) =>
-      _storyPipelineService = service;
+
+  /// The app makes a new pipeline when the chat backend switches and disposes
+  /// the old one, so a running server's story routes move to the new one.
+  void setStoryPipelineService(StoryPipelineService service) {
+    _storyPipelineService = service;
+    _storyFacade?.pipeline = service;
+  }
 
   /// The auth service (lazily built once a database is available) — exposed so
   /// the desktop settings UI can surface the account and offer the local
@@ -385,6 +392,7 @@ class WebServerHost extends ChangeNotifier {
         _libraryDebounce != null;
     if (server == null && !wired) return;
     _server = null;
+    _storyFacade = null;
     if (_realismListener != null) {
       _chatService?.removeListener(_realismListener!);
       _realismListener = null;

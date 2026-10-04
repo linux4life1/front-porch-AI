@@ -192,6 +192,7 @@ extension WebServerHostWiring on WebServerHost {
             imageGen: _imageGenService,
           )
         : null;
+    _storyFacade = storyFacade;
 
     final storyExportFacade = (_storyRepository != null && _ttsService != null)
         ? StoryExportFacade(

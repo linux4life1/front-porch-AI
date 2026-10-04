@@ -48,7 +48,7 @@ class StoryFacade {
        _imageGen = imageGen;
 
   final StoryRepository _repo;
-  final StoryPipelineService _pipeline;
+  StoryPipelineService _pipeline;
   final StreamHub? _hub;
   final StorySnapshotBuilder? _snapshotBuilder;
   final TtsService? _tts;
@@ -57,6 +57,10 @@ class StoryFacade {
   final ImageGenService? _imageGen;
 
   bool _loaded = false;
+
+  /// The pipeline the app uses now: it makes a new one when the chat backend
+  /// switches (a pipeline binds its backend when it is made).
+  set pipeline(StoryPipelineService value) => _pipeline = value;
 
   Future<void> _ensureLoaded() async {
     if (_loaded) return;
@@ -214,9 +218,11 @@ class StoryFacade {
 
     // Scope the progress listener to this job's lifetime so nothing leaks across
     // server restarts (the pipeline is a long-lived singleton; the hub is not).
+    // The listener comes off the pipeline it went on, even if the app has
+    // switched to a new one meanwhile.
     void onProgress() =>
         _hub?.broadcast({'event': 'story_status', ...status()});
-    _pipeline.addListener(onProgress);
+    final pipeline = _pipeline..addListener(onProgress);
     unawaited(
       job
           .then((_) async {
@@ -226,7 +232,7 @@ class StoryFacade {
           .catchError((Object e) {
             _hub?.broadcast({'event': 'story_error', 'id': id, 'error': '$e'});
           })
-          .whenComplete(() => _pipeline.removeListener(onProgress)),
+          .whenComplete(() => pipeline.removeListener(onProgress)),
     );
     return true;
   }
