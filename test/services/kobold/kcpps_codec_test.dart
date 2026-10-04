@@ -56,7 +56,7 @@ void main() {
         read.config.contextMode,
         ContextManagementMode.fastForwardSmartCache,
       );
-      expect(read.notes.single, contains('degrades output'));
+      expect(read.notes.single, contains('was left on'));
       expect(kcppsMap(read.config)['noswa'], isTrue);
     });
   });
@@ -95,14 +95,64 @@ void main() {
     final map = kcppsMap(
       const KoboldLaunchConfig(backend: KoboldGpuBackend.cuda, gpuId: 1),
     );
-    expect(map['usecublas'], ['normal', '1']);
-    expect((map['usecublas'] as List)[1], isA<String>());
+    expect(map['usecuda'], ['normal', '1']);
+    expect((map['usecuda'] as List)[1], isA<String>());
 
     // What this app's generator used to write: a number KoboldCpp ignores.
     final old = readKcpps('{"usecublas": ["normal", 0]}') as KcppsOk;
     expect(old.config.backend, KoboldGpuBackend.cuda);
     expect(old.config.gpuId, 0);
-    expect(kcppsMap(old.config)['usecublas'], ['normal', '0']);
+    expect(kcppsMap(old.config)['usecuda'], ['normal', '0']);
+  });
+
+  test('a renamed key is written under both names, so the setting holds on '
+      'an old engine and across a live reload of a current one', () {
+    final map = kcppsMap(
+      const KoboldLaunchConfig(
+        backend: KoboldGpuBackend.cuda,
+        gpuId: 1,
+        batchSize: 1536,
+      ),
+    );
+    expect(map['usecuda'], ['normal', '1']);
+    expect(map['usecublas'], map['usecuda']);
+    expect(map['batchsize'], 1536);
+    expect(map['blasbatchsize'], 1536);
+
+    // `usehipblas` is a command-line alias, not a config key: a ROCm
+    // preset that used it is read, and written back under the real names.
+    final rocm = readKcpps('{"usehipblas": ["normal", "0"]}') as KcppsOk;
+    final back = kcppsMap(rocm.config);
+    expect(back['usecuda'], ['normal', '0']);
+    expect(back.containsKey('usehipblas'), isFalse);
+
+    // No card chosen: neither name is written, so nothing claims a GPU.
+    final cpu = kcppsMap(const KoboldLaunchConfig());
+    expect(cpu.containsKey('usecuda'), isFalse);
+    expect(cpu.containsKey('usecublas'), isFalse);
+  });
+
+  test('a preset that does not mention sliding window says what current '
+      'KoboldCpp would do with it', () {
+    final read = readKcpps('{"contextsize": 4096}') as KcppsOk;
+    expect(read.notes.single, contains('does not say'));
+    expect(kcppsMap(read.config)['noswa'], isTrue);
+    // One that settles it either way has nothing to say.
+    expect((readKcpps('{"noswa": true}') as KcppsOk).notes, isEmpty);
+  });
+
+  test('a forced automatic fit that overrides the preset\'s own layer count '
+      'or MoE setting is pointed out', () {
+    String? note(String json) => (readKcpps(json) as KcppsOk).notes
+        .where((n) => n.contains('automatic fit'))
+        .firstOrNull;
+    expect(
+      note('{"noswa": true, "autofit": true, "gpulayers": 30}'),
+      isNotNull,
+    );
+    expect(note('{"noswa": true, "autofit": true, "moecpu": 999}'), isNotNull);
+    expect(note('{"noswa": true, "autofit": true, "gpulayers": -1}'), isNull);
+    expect(note('{"noswa": true, "autofit": false, "gpulayers": 30}'), isNull);
   });
 
   test('Vulkan with no card named lets KoboldCpp choose', () {

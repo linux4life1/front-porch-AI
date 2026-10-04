@@ -112,10 +112,16 @@ KcppsRead readKcpps(String text) {
     mode = ContextManagementMode.slidingWindowAttention;
   } else {
     mode = ContextManagementMode.fastForwardSmartCache;
-    if (noSwa != true) {
+    if (noSwa == false) {
       notes.add(
         'Sliding window was left on together with fast forward. That '
         'pairing degrades output, so sliding window is switched off here.',
+      );
+    } else if (noSwa == null) {
+      notes.add(
+        'This preset does not say how to handle sliding window. Current '
+        'KoboldCpp would switch it on together with fast forward, a pairing '
+        'that degrades output, so sliding window is switched off here.',
       );
     }
   }
@@ -127,6 +133,15 @@ KcppsRead readKcpps(String text) {
       ? map['flashattention'] != true
       : false;
   final moe = _asInt(map['moecpu']) ?? 0;
+  final layers = _asInt(map['gpulayers']);
+  if (map['autofit'] == true &&
+      (moe > 0 ||
+          (layers != null && layers != KoboldLaunchConfig.autoLayers))) {
+    notes.add(
+      'This preset forces automatic fit, so KoboldCpp ignores its layer '
+      'count and its MoE setting.',
+    );
+  }
 
   return KcppsOk(
     KoboldLaunchConfig(
@@ -136,7 +151,7 @@ KcppsRead readKcpps(String text) {
       contextSize: _asInt(map['contextsize']) ?? 16384,
       batchSize: _asInt(map['batchsize'] ?? map['blasbatchsize']) ?? 512,
       threads: _asInt(map['threads']),
-      gpuLayers: _asInt(map['gpulayers']) ?? KoboldLaunchConfig.autoLayers,
+      gpuLayers: layers ?? KoboldLaunchConfig.autoLayers,
       autofitPaddingMb: _asInt(map['autofitpadding']),
       useMmap: map['usemmap'] == true,
       useMlock: map['usemlock'] == true,
@@ -161,6 +176,13 @@ KcppsRead readKcpps(String text) {
 
 /// The `.kcpps` map for [config], in the forms [caps] says the installed
 /// KoboldCpp accepts.
+///
+/// A key KoboldCpp renamed is written under BOTH names (`usecuda` and
+/// `usecublas`, `batchsize` and `blasbatchsize`). An old engine knows only
+/// the old name. A current one converts the old name at launch but not on
+/// a live reload, which fills in every missing default first and then
+/// finds nothing to convert: measured, a file with only `blasbatchsize`
+/// ran at its value after a launch and at the default after a reload.
 Map<String, dynamic> kcppsMap(
   KoboldLaunchConfig config, {
   KoboldCapabilities caps = KoboldCapabilities.current,
@@ -170,6 +192,7 @@ Map<String, dynamic> kcppsMap(
     if (config.modelPath.isNotEmpty) 'model_param': config.modelPath,
     'contextsize': config.contextSize,
     'batchsize': config.batchSize,
+    'blasbatchsize': config.batchSize,
     'gpulayers': config.gpuLayers,
     'autofitpadding': ?config.autofitPaddingMb,
     'usemmap': config.useMmap,
@@ -193,12 +216,10 @@ Map<String, dynamic> kcppsMap(
   switch (config.backend) {
     case KoboldGpuBackend.cuda:
       // The id is TEXT: KoboldCpp tests `"0" in usecuda`, so a number is
-      // ignored and every card is used. The old key name is written on
-      // purpose: old builds know only it, new builds convert it.
-      map['usecublas'] = [
-        'normal',
-        if (config.gpuId != null) '${config.gpuId}',
-      ];
+      // ignored and every card is used.
+      final cuda = ['normal', if (config.gpuId != null) '${config.gpuId}'];
+      map['usecuda'] = cuda;
+      map['usecublas'] = cuda;
     case KoboldGpuBackend.vulkan:
       map['usevulkan'] = [?config.gpuId];
     case KoboldGpuBackend.none:
