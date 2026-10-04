@@ -8,8 +8,8 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 /// What the local model card says in auto mode, worked out once for each
 /// change of model, settings or machine: never on a rebuild.
-class LocalModelFacts {
-  const LocalModelFacts({
+class KoboldStatusFacts {
+  const KoboldStatusFacts({
     required this.lines,
     required this.choices,
     required this.verdicts,
@@ -24,7 +24,7 @@ class LocalModelFacts {
 
   /// For the app's own settings, the model at [model] read as [info] of
   /// [bytes], on this machine.
-  static LocalModelFacts? of({
+  static KoboldStatusFacts? of({
     required StorageService storage,
     required HardwareInfo? hardware,
     required FreeMemoryMb? free,
@@ -105,7 +105,7 @@ class LocalModelFacts {
       fastForward: !swa,
       contextShift: tuning.smartCache.contextShift,
     );
-    return LocalModelFacts(
+    return KoboldStatusFacts(
       lines: [
         'Set up for this computer automatically. '
             '${_pace(tuning.load, machine, onCard)}',

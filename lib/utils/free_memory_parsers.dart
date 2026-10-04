@@ -59,6 +59,16 @@ int? amdFreeMb({required String totalBytes, required String usedBytes}) {
   return (total - used).clamp(0, total) ~/ (1024 * 1024);
 }
 
+/// The free memory of the AMD card KoboldCpp will use, from each card's
+/// free memory in the driver's order (card0, card1...): the chosen card
+/// [gpuId] when there is one, else the card with the most free.
+int? amdChosenFreeMb(List<int?> cardsFree, {int? gpuId}) {
+  final cards = cardsFree.whereType<int>().toList();
+  if (cards.isEmpty) return null;
+  if (gpuId != null && gpuId >= 0 && gpuId < cards.length) return cards[gpuId];
+  return cards.reduce((a, b) => a > b ? a : b);
+}
+
 /// Windows: `(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory`,
 /// in kB.
 int? windowsFreeMb(String out) {

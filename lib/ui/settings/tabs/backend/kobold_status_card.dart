@@ -14,13 +14,13 @@ import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor_style.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-import 'local_model_facts.dart';
+import 'kobold_status_facts.dart';
 
 /// "Local model": how the model runs here, in plain words, and the one
 /// thing a user sets in auto mode, the context. With a preset in use it
 /// says what the preset does instead.
-class LocalModelCard extends StatefulWidget {
-  const LocalModelCard({super.key, this.reloadChat, this.unified});
+class KoboldStatusCard extends StatefulWidget {
+  const KoboldStatusCard({super.key, this.reloadChat, this.unified});
 
   /// Puts a changed context into the running KoboldCpp. The app's own
   /// when null.
@@ -30,16 +30,16 @@ class LocalModelCard extends StatefulWidget {
   final bool? unified;
 
   @override
-  State<LocalModelCard> createState() => _LocalModelCardState();
+  State<KoboldStatusCard> createState() => _KoboldStatusCardState();
 }
 
-class _LocalModelCardState extends State<LocalModelCard> {
+class _KoboldStatusCardState extends State<KoboldStatusCard> {
   String? _model;
   GGUFModelInfo? _info;
   int? _bytes;
   String? _presetPath;
   KcppsRead? _preset;
-  LocalModelFacts? _facts;
+  KoboldStatusFacts? _facts;
   String _factsKey = '';
   bool _readingFree = false;
 
@@ -95,7 +95,12 @@ class _LocalModelCardState extends State<LocalModelCard> {
         widget.reloadChat ?? this.context.read<LLMProvider>().reloadChatKobold;
     // A few taps in a row reload once.
     _reload?.cancel();
-    _reload = Timer(const Duration(milliseconds: 1500), reload);
+    _reload = Timer(
+      const Duration(milliseconds: 1500),
+      () => reload().catchError(
+        (Object e) => debugPrint('[Local model] reload failed: $e'),
+      ),
+    );
   }
 
   @override
@@ -136,7 +141,7 @@ class _LocalModelCardState extends State<LocalModelCard> {
     ].join('|');
     if (key != _factsKey) {
       _factsKey = key;
-      _facts = LocalModelFacts.of(
+      _facts = KoboldStatusFacts.of(
         storage: storage,
         hardware: hardware.hardwareInfo,
         free: free,
@@ -289,7 +294,7 @@ class _LocalModelCardState extends State<LocalModelCard> {
 
   Widget _contextControl(
     BuildContext context,
-    LocalModelFacts facts,
+    KoboldStatusFacts facts,
     BackendSettings b,
     KoboldService kobold,
   ) {

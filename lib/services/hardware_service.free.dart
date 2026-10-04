@@ -65,20 +65,28 @@ extension HardwareServiceFreeMemory on HardwareService {
       if (r != null) return nvidiaFreeMb('${r.stdout}', gpuId: gpuId);
     }
     if (Platform.isLinux && info.vendor == 'AMD') {
-      int? best;
       final drm = Directory('/sys/class/drm');
       if (!await drm.exists()) return null;
+      final cards = <(int, int?)>[];
       await for (final card in drm.list()) {
+        final n = RegExp(
+          r'^card(\d+)$',
+        ).firstMatch(card.uri.pathSegments.where((s) => s.isNotEmpty).last);
         final total = File('${card.path}/device/mem_info_vram_total');
         final used = File('${card.path}/device/mem_info_vram_used');
-        if (!await total.exists() || !await used.exists()) continue;
-        final free = amdFreeMb(
-          totalBytes: await total.readAsString(),
-          usedBytes: await used.readAsString(),
-        );
-        if (free != null && (best == null || free > best)) best = free;
+        if (n == null || !await total.exists() || !await used.exists()) {
+          continue;
+        }
+        cards.add((
+          int.parse(n.group(1)!),
+          amdFreeMb(
+            totalBytes: await total.readAsString(),
+            usedBytes: await used.readAsString(),
+          ),
+        ));
       }
-      return best;
+      cards.sort((a, b) => a.$1.compareTo(b.$1));
+      return amdChosenFreeMb([for (final c in cards) c.$2], gpuId: gpuId);
     }
     return null;
   }

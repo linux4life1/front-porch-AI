@@ -27,7 +27,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/widgets/section_header.dart';
 import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor.dart';
 
-import 'local_model_card.dart';
+import 'kobold_status_card.dart';
 
 /// Local managed-KoboldCPP section: backend download/version, auto-start,
 /// model selection, vision projector, .kcpps preset selection, config
@@ -238,7 +238,7 @@ class ManagedBackendSection extends StatelessWidget {
           onChanged: onVisionChanged,
         ),
         const SizedBox(height: 16),
-        const LocalModelCard(),
+        const KoboldStatusCard(),
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

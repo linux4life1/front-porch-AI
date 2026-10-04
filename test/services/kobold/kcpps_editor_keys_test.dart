@@ -48,6 +48,18 @@ void main() {
     expect(kcppsMap(_read({'noswa': true})).containsKey('nommq'), isFalse);
   });
 
+  test('"all" cards and an explicit MMQ survive the editor', () {
+    final all = _read({
+      'usecuda': ['all'],
+    });
+    expect(kcppsMap(all)['usecuda'], contains('all'));
+    final on = _read({
+      'usecuda': ['normal', '0', 'mmq'],
+    });
+    expect(on.mmq, isTrue);
+    expect(kcppsMap(on)['nommq'], isFalse);
+  });
+
   test('CUDA options beside the card survive a round trip', () {
     final c = _read({
       'usecuda': ['normal', '1', 'nommq', 'rowsplit'],

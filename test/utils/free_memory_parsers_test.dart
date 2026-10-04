@@ -50,6 +50,14 @@ void main() {
     expect(amdFreeMb(totalBytes: 'x', usedBytes: '1'), isNull);
   });
 
+  test('two AMD cards: the chosen one, else the one with the most free', () {
+    expect(amdChosenFreeMb([1200, 15800], gpuId: 0), 1200);
+    expect(amdChosenFreeMb([1200, 15800], gpuId: 1), 15800);
+    expect(amdChosenFreeMb([1200, 15800]), 15800);
+    expect(amdChosenFreeMb([1200, null, 15800], gpuId: 1), 15800);
+    expect(amdChosenFreeMb([]), isNull);
+  });
+
   test('Windows: FreePhysicalMemory in kB', () {
     expect(windowsFreeMb('11328512\r\n'), 11063);
     expect(windowsFreeMb(''), isNull);

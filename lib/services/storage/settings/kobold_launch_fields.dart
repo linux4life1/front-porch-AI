@@ -251,7 +251,11 @@ mixin KoboldLaunchFields on SettingsBase {
     _koboldContextMode = prefs?.getString(k('kobold_context_mode')) == 'swa'
         ? ContextManagementMode.slidingWindowAttention
         : ContextManagementMode.fastForwardSmartCache;
-    _batchAutomatic = prefs?.getBool(k('kobold_batch_automatic')) ?? true;
+    // Auto for everyone who never chose a batch; a batch chosen before Auto
+    // existed is kept.
+    _batchAutomatic =
+        prefs?.getBool(k('kobold_batch_automatic')) ??
+        !(prefs?.containsKey(k('blas_batch_size')) ?? false);
     _presetGateSkipped =
         prefs?.getBool(k('kobold_preset_gate_skipped')) ?? false;
     _mmqTimed = _readMmqTimed(prefs?.getString(k('kobold_mmq_timed')));

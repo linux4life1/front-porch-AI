@@ -59,8 +59,10 @@ void main() {
     await b.setContextSize(4096);
     await b.setLastUsedModelPath(liveEngineModel);
 
+    // Detection waits for the app's first frame, which a test never has.
     hardware = HardwareService();
-    await hardware.whenKnown();
+    await hardware.detectHardware();
+    expect(hardware.hardwareInfo, isNotNull);
     kobold = KoboldService(storage)
       ..hardwareInfo = (() => hardware.hardwareInfo)
       ..readFreeMemory = (() => hardware.readFreeMemory());
@@ -114,7 +116,9 @@ void main() {
     () async {
       await start();
       final staged = stagedChat();
-      expect(staged['batchsize'], isIn([512, 1024, 2048]));
+      // A small model on this Mac fits with plenty of room.
+      expect(staged['batchsize'], 2048);
+      expect(staged['smartcache'], 3);
       expect(await liveContextSize(port), 4096);
       expect(storage.backendSettings.engineContextSize, 4096);
       expect(storage.backendSettings.promptContext(32768), 4096);
@@ -170,9 +174,11 @@ void main() {
       );
       expect(await c.saveAndUse(), KcppsSaveResult.saved);
       expect(await liveContextSize(port), 2048);
+      // A reload replaces KoboldCpp's model process; the process the app
+      // started stays. A restart would replace it too.
       expect(
         await livePidsStartedFrom(root.path),
-        containsAll(engines),
+        contains(engines.reduce((a, b) => a < b ? a : b)),
         reason: 'a reload, not a new engine',
       );
       expect(storage.backendSettings.engineContextSize, 2048);
@@ -223,14 +229,18 @@ void main() {
         'prompt': koboldTimingPrompt(1),
         'max_length': 24,
       });
-      await Future<void>.delayed(const Duration(seconds: 1));
-      final speeds = [
+      // The app's own small checks print speed lines too; the timing
+      // prompt's is the long one, printed once the reply is done.
+      List<KoboldSpeed> long() => [
         for (final line in kobold.logs.join('\n').split('\n'))
-          ?parseKoboldSpeed(line),
+          if (parseKoboldSpeed(line) case final s? when s.read > 1024) s,
       ];
-      expect(speeds, isNotEmpty);
-      expect(speeds.last.read, greaterThan(512));
-      expect(speeds.last.written, greaterThan(0));
+      for (var i = 0; i < 60 && long().isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+      expect(long(), isNotEmpty);
+      expect(long().last.readSeconds, greaterThan(0));
+      expect(long().last.written, greaterThan(0));
     },
     timeout: _slow,
     skip: liveEngineSkip,

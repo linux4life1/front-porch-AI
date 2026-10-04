@@ -14,7 +14,7 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/local_model_card.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/kobold_status_card.dart';
 
 import '../../golden/support/fakes_services.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -108,7 +108,7 @@ void main() {
         child: MaterialApp(
           home: Scaffold(
             body: SingleChildScrollView(
-              child: LocalModelCard(
+              child: KoboldStatusCard(
                 unified: false,
                 reloadChat: () async => reloads++,
               ),

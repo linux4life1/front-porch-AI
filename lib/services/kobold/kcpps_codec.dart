@@ -58,8 +58,9 @@ const Set<String> _managedKeys = {
   'draftmodel',
 };
 
-/// What a `usecuda` list can hold besides the card: the mode, and MMQ.
-const Set<String> _cudaWords = {'normal', 'mmq', 'nommq', 'all'};
+/// Words in a `usecuda` list the codec reads into fields of its own: the
+/// mode the writer always gives, and MMQ.
+const Set<String> _cudaWords = {'normal', 'mmq', 'nommq'};
 
 /// What reading a `.kcpps` gave.
 sealed class KcppsRead {
@@ -177,6 +178,8 @@ KcppsRead _readKcpps(String text) {
       ? !(map['nommq'] as bool)
       : cuda is List && cuda.contains('nommq')
       ? false
+      : cuda is List && cuda.contains('mmq')
+      ? true
       : null;
   if (forcedFit != null) notes.add(forcedFit);
 

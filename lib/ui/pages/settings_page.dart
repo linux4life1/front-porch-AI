@@ -220,7 +220,12 @@ class _SettingsPageState extends State<SettingsPage> {
   /// reload by name, a restart only when that is not acted on.
   void _reloadChatIfRunning() {
     final llm = context.read<LLMProvider>();
-    if (llm.koboldService.isProcessRunning) unawaited(llm.reloadChatKobold());
+    if (!llm.koboldService.isProcessRunning) return;
+    unawaited(
+      llm.reloadChatKobold().catchError(
+        (Object e) => debugPrint('[Settings] chat reload failed: $e'),
+      ),
+    );
   }
 
   void _scanLocalPresets() {
