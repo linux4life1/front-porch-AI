@@ -11,6 +11,7 @@ import { HardwarePanel } from '../components/models/HardwarePanel';
 import { LocalModels } from '../components/models/LocalModels';
 import { ModelDownloads } from '../components/models/ModelDownloads';
 import { ImageGen } from '../components/models/ImageGen';
+import { KoboldStatusCard } from '../components/models/KoboldStatusCard';
 import { type BackendStatus } from '../components/models/types';
 
 export function ModelsPage() {
@@ -49,6 +50,7 @@ export function ModelsPage() {
       <h2>Models &amp; backends</h2>
       {error && <p className="error">{error}</p>}
       {status?.isLocal && <BackendStatusCard status={status} reload={loadStatus} onError={setError} />}
+      <KoboldStatusCard onError={setError} />
       <HardwarePanel onPickQuery={pickQuery} />
       <LocalModels isLocal={status?.isLocal ?? false} reloadStatus={loadStatus} onError={setError} />
       <ModelDownloads query={query} setQuery={setQuery} searchNonce={searchNonce} onError={setError} />

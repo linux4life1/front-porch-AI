@@ -31,6 +31,8 @@ Chats (including groups), library and editors, AI create, models (the Image Stud
 
 Push-to-talk mic over HTTPS. Impersonate, fork, swipes, `/image`, attach a photo.
 
+On the Models page, the **Local model** card says how the computer's local model runs, in plain words, and lets you pick how much chat history the character remembers, with the same verdicts as the desktop (works like now, slower, too big with the most that works). Below it, **KoboldCpp preset** picks which of the computer's presets chat uses, or the app's own settings, and says what the preset does. Switching model from the phone loads it straight away when KoboldCpp is running.
+
 ---
 
 ## Desktop only
@@ -47,7 +49,7 @@ Do these on the Mac/PC app:
 - Turn Into a Story from chat
 - Director auto-play + response delay (toggle exists; pacing is desktop)
 - Custom Piper voice importer
-- GPU launch, Flash Attention, `.kcpps`, six-tab Settings layout
+- GPU launch, Flash Attention, editing `.kcpps` presets (the preset editor), six-tab Settings layout
 
 ---
 

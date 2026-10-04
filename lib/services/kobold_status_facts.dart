@@ -1,8 +1,6 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
-
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -34,7 +32,7 @@ class KoboldStatusFacts {
   }) {
     if (info == null || bytes == null || hardware == null) return null;
     final b = storage.backendSettings;
-    final mac = unified ?? Platform.isMacOS;
+    final mac = unified ?? hardware.hasMetal;
     final gpu = koboldGpuFor(hardware, gpuId: b.gpuId);
     final rocm = b.useRocm ?? false;
     final config = koboldAppConfig(
@@ -122,6 +120,31 @@ class KoboldStatusFacts {
       largestGood: verdicts.largestGood,
     );
   }
+
+  /// For the web card: the lines, the choices and, for each, its verdict in
+  /// words, against the context in use ([current]).
+  Map<String, dynamic> toJson(int current) => {
+    'lines': lines,
+    'context': current,
+    'choices': choices,
+    'largestGood': largestGood,
+    'verdicts': {
+      for (final c in choices)
+        if (verdicts[c] case final v?)
+          '$c': () {
+            final words = koboldContextWords(
+              v,
+              largestGood: largestGood,
+              isCurrent: c == current,
+            );
+            return {
+              'outcome': v.outcome.name,
+              'title': words.title,
+              'text': words.text,
+            };
+          }(),
+    },
+  };
 
   static String _pace(KoboldLoad l, KoboldMachine m, bool onCard) {
     if (!onCard) {

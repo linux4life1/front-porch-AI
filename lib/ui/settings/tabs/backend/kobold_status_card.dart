@@ -14,7 +14,7 @@ import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor_style.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-import 'kobold_status_facts.dart';
+import 'package:front_porch_ai/services/kobold_status_facts.dart';
 
 /// "Local model": how the model runs here, in plain words, and the one
 /// thing a user sets in auto mode, the context. With a preset in use it

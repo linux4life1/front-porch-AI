@@ -290,3 +290,26 @@ test('New Story walks four steps, keeps the draft when you leave, and the shelf 
   const book = page.locator('[data-testid^="story-book-"]', { hasText: 'Draft Journey' }).first();
   await expect(book).toContainText('Stopped at step 4 · Engine');
 });
+
+test('the Local model card: a context and its verdict, then a KoboldCpp preset', async ({ page }) => {
+  // The host has a local model and one preset (seeded by browser_test.dart);
+  // chat itself runs on the stand-in backend, so nothing here loads a model.
+  await openRoute(page, '/models');
+  const card = page.getByTestId('local-model-card');
+  await expect(card).toContainText('Set up for this computer automatically.');
+  const verdict = page.getByTestId('local-model-verdict');
+
+  await card.getByRole('button', { name: '8,192', exact: true }).click();
+  await expect(verdict).toContainText('Not recommended or supported.');
+  await card.getByRole('button', { name: '16,384', exact: true }).click();
+  await expect(verdict).toContainText('Works like now.');
+
+  const presets = page.getByLabel('Chat uses');
+  await presets.selectOption({ label: 'Long chats — 32k chat · fitted to the card · smart cache off' });
+  await expect(card).toContainText('Uses your preset “Long chats”.');
+  await expect(page.getByTestId('kobold-preset-card')).toContainText('lets KoboldCpp fit it to your card');
+
+  // Back to automatic, as it was.
+  await presets.selectOption({ label: "The app's own settings (automatic)" });
+  await expect(card).toContainText('Set up for this computer automatically.');
+});

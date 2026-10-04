@@ -32,6 +32,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/web_server_host.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart';
 
+import '../support/e2e_local_model.dart';
 import '../support/e2e_sandbox.dart';
 import '../support/fake_backend.dart';
 
@@ -332,6 +333,9 @@ void main() {
       await storage.backendSettings.setRemoteApiUrl('${backend.baseUrl}/v1');
       await storage.backendSettings.setRemoteModelName('smoke-model');
       await storage.backendSettings.setBackendType('openRouter');
+      // A local model and a preset for the "Local model" journey; chat stays
+      // on the stand-in backend.
+      await seedLocalModel(storage, _repoRoot());
       // ignore: use_build_context_synchronously — root MainLayout element.
       final llm = Provider.of<LLMProvider>(ctx, listen: false);
       await pumpUntilTrue(

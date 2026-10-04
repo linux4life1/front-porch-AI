@@ -634,6 +634,17 @@ Owed to Stage 7 (web, next): the chat-preset picker with the summary
 line, the "Local model" card with its context verdicts, and the preset
 summary card.
 
+Stage 7 as built (2026-10-04): the phone's Models page has the "Local
+model" card (the same KoboldStatusFacts as the desktop card, moved to
+`lib/services/kobold_status_facts.dart`) and a separate "KoboldCpp preset"
+card (auto mode never shows a door to presets). Routes:
+`GET /api/backend/local-model`, `POST /api/backend/local-model/preset`
+(only a preset in the engine folder, or none: the server may be reachable
+from the internet) and `POST /api/backend/local-model/context` (512 to
+1,048,576 tokens; a running KoboldCpp reloads once the phone stops
+changing it). The browser suite seeds a real model header and a preset
+and walks the card.
+
 ### Stage 7: web (item 21)
 
 - `lib/services/web/facade/kcpps_facade.dart` and routes: list presets with

@@ -17,11 +17,17 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/xai/xai.dart';
+import 'package:front_porch_ai/services/kobold_status_facts.dart';
+
+part 'backend_facade.local_model.dart';
 
 /// Web adapter for local-backend lifecycle, local-model switching, and the
 /// HuggingFace model browser/downloader. Reuses [LLMProvider]'s managed-backend
@@ -34,6 +40,11 @@ class BackendFacade {
   final StorageService _storage;
   final ModelManager _models;
   final HardwareService? _hardware;
+
+  // The local model card: the model's header as last read, and a pending
+  // reload after the context changed.
+  ({String path, GGUFModelInfo? info, int? bytes})? _cardModel;
+  Timer? _cardReload;
 
   /// Unofficial SuperGrok sign-in, relayed by `XaiRoutes`.
   SuperGrokAuth get superGrok => _llm.superGrok;

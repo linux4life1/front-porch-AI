@@ -45,6 +45,9 @@ class WebBackendRoutes {
       router.post('/api/backend/engine/install', _installEngine);
       router.get('/api/backend/models', _models);
       router.post('/api/backend/models/switch', _switchModel);
+      router.get('/api/backend/local-model', _localModel);
+      router.post('/api/backend/local-model/preset', _setChatPreset);
+      router.post('/api/backend/local-model/context', _setLocalContext);
       router.post('/api/backend/models/delete', _deleteModel);
       router.get('/api/backend/models-folder', _modelsFolder);
       router.get('/api/backend/hf/search', _hfSearch);
@@ -115,6 +118,37 @@ class WebBackendRoutes {
 
   Future<shelf.Response> _models(shelf.Request r) async =>
       JsonResponse.ok({'models': await _backend!.localModels()});
+
+  /// The "Local model" card and the chat-preset picker.
+  Future<shelf.Response> _localModel(shelf.Request r) async =>
+      JsonResponse.ok(await _backend!.localModel());
+
+  /// `{path}`: a preset in the engine folder, or null for the app's own
+  /// settings. Anything else is refused.
+  Future<shelf.Response> _setChatPreset(shelf.Request r) async {
+    final body = await _json(r);
+    final raw = body['path'];
+    if (raw != null && raw is! String) {
+      return JsonResponse.badRequest('path must be text or null');
+    }
+    final path = raw is String && raw.isNotEmpty ? raw : null;
+    if (!await _backend!.setChatPreset(path)) {
+      return JsonResponse.error(404, 'Preset not found');
+    }
+    return JsonResponse.ok(await _backend.localModel());
+  }
+
+  /// `{context}`: tokens, 512 to 1,048,576.
+  Future<shelf.Response> _setLocalContext(shelf.Request r) async {
+    final body = await _json(r);
+    final context = body['context'];
+    if (context is! int || !await _backend!.setLocalContext(context)) {
+      return JsonResponse.badRequest(
+        'context must be a whole number of tokens from 512 to 1,048,576',
+      );
+    }
+    return JsonResponse.ok(await _backend.localModel());
+  }
 
   Future<shelf.Response> _switchModel(shelf.Request r) async {
     final body = await _json(r);
