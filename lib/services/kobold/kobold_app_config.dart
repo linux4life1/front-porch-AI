@@ -213,6 +213,8 @@ KoboldLaunchConfig koboldGeneratedPreset({
   int moeCpuLayers = 0,
   bool? mmq,
   String draftModelPath = '',
+  int? draftAmount,
+  bool useMtp = false,
   bool contextShift = true,
   List<String> cudaOptions = const [],
   Map<String, dynamic> extras = const {},
@@ -247,6 +249,8 @@ KoboldLaunchConfig koboldGeneratedPreset({
     moeCpuLayers: moeCpu ? moeCpuLayers : null,
     mmq: mmq,
     draftModelPath: draftModelPath,
+    draftAmount: draftAmount,
+    useMtp: useMtp,
     contextShift: contextShift,
     cudaOptions: cudaOptions,
     // A file's own forced-fit word gives way to the placement chosen here.

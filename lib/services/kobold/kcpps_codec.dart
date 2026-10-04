@@ -56,6 +56,8 @@ const Set<String> _managedKeys = {
   'autofit',
   'nommq',
   'draftmodel',
+  'draftamount',
+  'usemtp',
 };
 
 /// Words in a `usecuda` list the codec reads into fields of its own: the
@@ -209,6 +211,8 @@ KcppsRead _readKcpps(String text) {
       draftModelPath: map['draftmodel'] is String
           ? map['draftmodel'] as String
           : '',
+      draftAmount: _asInt(map['draftamount']),
+      useMtp: map['usemtp'] == true,
       contextShift: map['noshift'] != true,
       cudaOptions: cudaOptions,
       extras: {
@@ -320,6 +324,8 @@ Map<String, dynamic> kcppsMap(
     'autofit': ?config.forceFit,
     if (config.mmq != null) 'nommq': !config.mmq!,
     if (config.draftModelPath.isNotEmpty) 'draftmodel': config.draftModelPath,
+    'draftamount': ?config.draftAmount,
+    if (config.useMtp) 'usemtp': true,
   };
 
   // Automatic fitting and `moecpu` cannot be combined; a manual layer

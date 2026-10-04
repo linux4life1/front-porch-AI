@@ -49,6 +49,10 @@ class GGUFModelInfo {
   final int? nVocab;
   final int? slidingWindow;
 
+  /// Built-in draft heads (`nextn_predict_layers`): the last blocks, which
+  /// guess ahead when KoboldCpp's `usemtp` is on. 0 for most models.
+  final int draftHeads;
+
   // Per-layer attention fields (for mixed-attention models like Gemma 4)
   final List<int>? nKvHeadsPerLayer;
   final int? keyLength;
@@ -91,6 +95,7 @@ class GGUFModelInfo {
     this.ffnDim,
     this.nVocab,
     this.slidingWindow,
+    this.draftHeads = 0,
     this.nKvHeadsPerLayer,
     this.keyLength,
     this.swaHeadDim,

@@ -27,6 +27,8 @@ class KcppsDraft {
     this.mmprojPath = '',
     this.mmprojOnCpu = false,
     this.draftModelPath = '',
+    this.draftAmount,
+    this.useMtp = false,
     this.threads,
     this.backend = KoboldGpuBackend.none,
     this.gpuId,
@@ -59,6 +61,12 @@ class KcppsDraft {
   final String mmprojPath;
   final bool mmprojOnCpu;
   final String draftModelPath;
+
+  /// Tokens drafted each step; null leaves it to KoboldCpp (4).
+  final int? draftAmount;
+
+  /// Draft with the model's own built-in draft heads.
+  final bool useMtp;
   final int? threads;
   final KoboldGpuBackend backend;
   final int? gpuId;
@@ -97,6 +105,8 @@ class KcppsDraft {
       mmprojPath: c.mmprojPath,
       mmprojOnCpu: c.mmprojOnCpu,
       draftModelPath: c.draftModelPath,
+      draftAmount: c.draftAmount,
+      useMtp: c.useMtp,
       threads: c.threads,
       backend: c.backend,
       gpuId: c.gpuId,
@@ -138,6 +148,8 @@ class KcppsDraft {
       moeCpuLayers: manual ? moeCpuLayers : 0,
       mmq: mmq,
       draftModelPath: draftModelPath,
+      draftAmount: draftAmount,
+      useMtp: useMtp,
       cudaOptions: cudaOptions,
       extras: extras,
     ).copyWith(mmprojOnCpu: mmprojOnCpu, threads: threads);
@@ -180,6 +192,9 @@ class KcppsDraft {
     String? mmprojPath,
     bool? mmprojOnCpu,
     String? draftModelPath,
+    int? draftAmount,
+    bool clearDraftAmount = false,
+    bool? useMtp,
     KoboldGpuBackend? backend,
     int? gpuId,
   }) => KcppsDraft(
@@ -199,6 +214,8 @@ class KcppsDraft {
     mmprojPath: mmprojPath ?? this.mmprojPath,
     mmprojOnCpu: mmprojOnCpu ?? this.mmprojOnCpu,
     draftModelPath: draftModelPath ?? this.draftModelPath,
+    draftAmount: clearDraftAmount ? null : draftAmount ?? this.draftAmount,
+    useMtp: useMtp ?? this.useMtp,
     threads: threads,
     backend: backend ?? this.backend,
     gpuId: gpuId ?? this.gpuId,

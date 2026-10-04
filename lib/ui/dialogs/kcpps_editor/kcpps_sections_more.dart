@@ -253,6 +253,18 @@ class KcppsExtrasSection extends StatelessWidget {
           c.draft.draftModelPath,
           c.setDraftModel,
         ),
+        // Offered for a model whose file has draft heads, or a preset that
+        // already turned them on.
+        if ((c.info?.draftHeads ?? 0) > 0 || c.draft.useMtp)
+          KeCheck(
+            value: c.draft.useMtp,
+            label:
+                "Use the model's own draft heads (guesses ahead to write "
+                'faster)',
+            onChanged: (v) => c.edit((d) => d.copyWith(useMtp: v)),
+          ),
+        if (c.draft.draftModelPath.isNotEmpty || c.draft.useMtp)
+          KcppsDraftAmount(key: ValueKey('draft-amount ${c.path}'), c: c),
         if (kept.isNotEmpty)
           Text(
             'Kept as written: ${kept.length} '
@@ -304,5 +316,71 @@ class KcppsPlainWords extends StatelessWidget {
         ),
       ],
     ),
+  );
+}
+
+/// Tokens guessed each step. Empty leaves it to KoboldCpp (4).
+class KcppsDraftAmount extends StatefulWidget {
+  const KcppsDraftAmount({super.key, required this.c});
+
+  final KcppsEditorController c;
+
+  @override
+  State<KcppsDraftAmount> createState() => _KcppsDraftAmountState();
+}
+
+class _KcppsDraftAmountState extends State<KcppsDraftAmount> {
+  late final TextEditingController _amount = TextEditingController(
+    text: widget.c.draft.draftAmount?.toString() ?? '',
+  );
+  String? _problem;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  void _typed(String text) {
+    final value = int.tryParse(text.trim());
+    final empty = text.trim().isEmpty;
+    setState(
+      () => _problem = empty || (value != null && value >= 1 && value <= 16)
+          ? null
+          : 'A whole number from 1 to 16.',
+    );
+    if (_problem != null) return;
+    widget.c.edit(
+      (d) => d.copyWith(draftAmount: value, clearDraftAmount: empty),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 10,
+    runSpacing: 6,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      const KeLabel('Tokens guessed each step', size: 13),
+      KeBox(
+        controller: _amount,
+        keyName: 'kcpps-draft-amount',
+        width: 72,
+        number: true,
+        error: _problem != null,
+        semanticLabel: 'Tokens guessed each step',
+        onChanged: _typed,
+      ),
+      Text(
+        _problem ?? 'Empty: KoboldCpp guesses 4.',
+        style: keText(
+          context,
+          size: 12,
+          color: _problem != null
+              ? AppColors.alertRedOf(context)
+              : AppColors.slateFaintOf(context),
+        ),
+      ),
+    ],
   );
 }

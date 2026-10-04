@@ -131,9 +131,19 @@ String kcppsPlainWords(
   }
   if (!c.flashAttention) out.add('Flash attention is off.');
   if (c.mmq == false) out.add('MMQ is off.');
+  final drafts = c.draftModelPath.isNotEmpty || c.useMtp;
   if (c.draftModelPath.isNotEmpty) {
     out.add(
       '${koboldModelName(c.draftModelPath)} guesses ahead to write faster.',
+    );
+  }
+  if (c.useMtp) {
+    out.add("The model's own draft heads guess ahead to write faster.");
+  }
+  if (drafts) {
+    out.add(
+      'It guesses ${c.draftAmount ?? 4} tokens at a time, and answers one '
+      'request at a time while it does.',
     );
   }
   if (c.mmprojPath.isNotEmpty) {
@@ -143,8 +153,8 @@ String kcppsPlainWords(
           : 'It can see pictures.',
     );
   }
-  if (c.draftModelPath.isNotEmpty && c.mmprojPath.isNotEmpty) {
-    out.add('A draft model and a vision file should not be used together.');
+  if (drafts && c.mmprojPath.isNotEmpty) {
+    out.add('Guessing ahead and a vision file should not be used together.');
   }
   return out.join(' ');
 }

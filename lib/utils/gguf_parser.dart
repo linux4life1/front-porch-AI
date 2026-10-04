@@ -104,7 +104,8 @@ class GGUFParser {
     final recurrent = meta['$arch.attention.recurrent_layers'];
     // Blocks that only predict draft tokens come last and keep no cache of
     // their own.
-    final layers = blockCount - (number('nextn_predict_layers') ?? 0);
+    final draftHeads = number('nextn_predict_layers') ?? 0;
+    final layers = blockCount - draftHeads;
     // Gemma 4's smaller models reuse earlier layers' cache in their last
     // layers (E4B: the last 18 of 42), which keep none of their own.
     final ownCache = layers - (number('attention.shared_kv_layers') ?? 0);
@@ -172,6 +173,7 @@ class GGUFParser {
       expertSharedFfnDim: number('expert_shared_feed_forward_length'),
       ffnDim: largest('feed_forward_length'),
       slidingWindow: slidingWindow,
+      draftHeads: draftHeads,
       // The vocabulary is the embedding's second dimension; the tokenizer's
       // own list says the same when it was within the bytes read.
       nVocab: embedding != null

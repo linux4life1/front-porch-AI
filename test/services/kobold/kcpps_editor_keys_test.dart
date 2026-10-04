@@ -72,13 +72,15 @@ void main() {
   test('the draft model is the editor\'s; its other draft settings ride '
       'along', () {
     final read =
-        readKcpps(jsonEncode({'draftmodel': '/m/small.gguf', 'draftamount': 6}))
+        readKcpps(
+              jsonEncode({'draftmodel': '/m/small.gguf', 'draftgpulayers': 99}),
+            )
             as KcppsOk;
     expect(read.config.draftModelPath, '/m/small.gguf');
-    expect(read.unmanagedKeys, ['draftamount']);
+    expect(read.unmanagedKeys, ['draftgpulayers']);
     final back = kcppsMap(read.config);
     expect(back['draftmodel'], '/m/small.gguf');
-    expect(back['draftamount'], 6);
+    expect(back['draftgpulayers'], 99);
   });
 
   test('context shift off is kept with fast forward', () {
