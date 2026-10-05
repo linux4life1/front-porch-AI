@@ -97,6 +97,15 @@ void main() {
     await root.delete(recursive: true);
   });
 
+  /// Waits up to a minute for [done].
+  Future<void> until(Future<bool> Function() done, String what) async {
+    for (var i = 0; i < 120; i++) {
+      if (await done()) return;
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    fail('$what: not within a minute');
+  }
+
   Future<void> start() async {
     expect((await kobold.launch(exe, port: port)).started, isTrue);
     await waitForLiveModel(port);
@@ -115,18 +124,26 @@ void main() {
           jsonEncode({'model_param': liveEngineModel, 'contextsize': 8192}),
         );
 
+      // The pick answers at once; KoboldCpp loads the preset behind it.
       expect(await facade.setChatPreset(preset.path), isTrue);
-
-      expect(await liveContextSize(port), 8192);
-      expect(storage.backendSettings.engineContextSize, 8192);
       final card = await facade.localModel();
       expect((card['preset'] as Map)['name'], 'Long chats');
       expect(card['auto'], isNull);
+      await until(
+        () async =>
+            await liveContextSize(port) == 8192 &&
+            storage.backendSettings.engineContextSize == 8192,
+        'KoboldCpp running the preset, and the app knowing it',
+      );
 
       // Back to the app's own settings, loaded in place too.
       expect(await facade.setChatPreset(null), isTrue);
-      expect(await liveContextSize(port), storage.backendSettings.contextSize);
       expect((await facade.localModel())['preset'], isNull);
+      await until(
+        () async =>
+            await liveContextSize(port) == storage.backendSettings.contextSize,
+        'KoboldCpp running the app\'s own settings again',
+      );
     },
     timeout: _slow,
     skip: liveEngineSkip,
