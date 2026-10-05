@@ -312,6 +312,7 @@ Decisions already made by the maintainer:
     KoboldCpp applies `host` from `--config` at launch and ignores it on an
     admin reload, so a swap cannot change it. The app reaches the engine at
     `http://127.0.0.1:<port>` and nothing else (`kKoboldHost`).
+    `adminunloadtimeout: 0` is laid on the same way (decision 18).
 15. Stop while a start is still being prepared calls that start off
     (2026-10-04). Pressing Stop after the start slot is claimed and before
     KoboldCpp is spawned (the free-memory read, the model file check, the
@@ -353,6 +354,23 @@ Decisions already made by the maintainer:
     launch, the failure is remembered for that model on that engine version
     and the next start writes the smart cache auto mode wrote before, so the
     user is never worse off than before the keeper. Details under "Stage 9".
+18. KoboldCpp's own idle unload never runs (2026-10-05). The app keeps its
+    own timer (Stage 8, "unload when idle"), which unloads the model and loads
+    chat's setup back before the next request. KoboldCpp's timer
+    (`adminunloadtimeout`) cannot do that: its wake-up exists only in router
+    mode, and the app's requests name "koboldcpp", which the router does not
+    wake. A preset that carries the key above 0 (KoboldCpp's own launcher
+    exports it) would unload the model behind the app's back and the next
+    reply would reach an engine with no model. So `adminunloadtimeout: 0` is
+    written into the config the app stages for every launch and swap, over a
+    preset's own value or none, the way `host` is (decision 14): the command
+    line is frozen, KoboldCpp reads every key of `--config` at launch (1.112
+    to 1.122.1 all have the key), and ignores this one on an admin reload, so
+    the staged 0 is what a launch applies. `kKoboldAdminUnloadTimeout`; pinned
+    by `test/services/kobold/kobold_admin_unload_off_test.dart` and, on a real
+    engine, `test/live/kobold_launch_live_test.dart` (the engine reports
+    `adminunloadtimeout=0` for a preset that asked for 300). The preset file
+    is never edited.
 
 ## Design
 
@@ -366,7 +384,8 @@ edits, but that type is a summary and is never what a launch runs.
 **A user's preset is launched as it was written.** The staged config for a
 preset is the file's own content with a few settings laid over it: the
 model the app resolved, `jinja: true`, the vision file (when one was chosen
-for the model and exists), `host: 127.0.0.1` (decision 14), and
+for the model and exists), `host: 127.0.0.1` (decision 14),
+`adminunloadtimeout: 0` (decision 18), and
 `noswa: true` when the file has sliding window on (`noswa: false`, or
 `useswa: true` in a file from before that name existed) with fast forward
 on. Nothing else is added, changed or dropped. As first merged, the launch
@@ -397,7 +416,7 @@ prepare a launch is a refusal with a reason.
 launches or edits a user's `.kcpps` directly. For each role (chat, worker,
 story job) it writes a config into the admin folder: the source (preset or
 app settings) plus the absolute model path, `jinja: true`, the resolved
-vision file, and `host: 127.0.0.1`. Launch is
+vision file, `host: 127.0.0.1`, and `adminunloadtimeout: 0`. Launch is
 `--config <staged> --port N --admin --admindir D`.
 A swap reloads the staged file by name, with no file links (Stage 4; until
 it lands, a swap back to a user's preset still links the user's own file).
@@ -838,9 +857,10 @@ default, `kobold_idle_unload_minutes` (off, 10, 30 or 60) in
 and a card on the phone's Settings page (`koboldIdleUnloadMinutes` on
 `/api/settings`). The clock is `kobold_service_idle.dart`, a part of
 `KoboldService`: started by a launch, stopped by a stop or dispose, it
-checks every 30 seconds. Every request (the stream and `_runSerialized`,
-which carries tool calls and the system-role probe), a swap, a load and a
-launch reset it. When the engine is the app's own process, its model is
+checks every 30 seconds. KoboldCpp's own idle unload is never used and is
+held off in every staged config (decision 18). Every request (the stream
+and `_runSerialized`, which carries tool calls and the system-role probe),
+a swap, a load and a launch reset it. When the engine is the app's own process, its model is
 loaded, nothing is in flight or queued on the swap lock, the idle time has
 passed and KoboldCpp's own `/api/extra/perf` says idle with an empty queue,
 it sends the same `unload_model` reload a swap's unload sends, inside the

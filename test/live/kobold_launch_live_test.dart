@@ -200,7 +200,8 @@ void main() {
       expect(await liveContextSize(port), 2048);
 
       // Staged beside the app's own files: the author's file plus the model,
-      // the chat template and the listen address, and nothing else.
+      // the chat template, the listen address and KoboldCpp's own idle unload
+      // switched off, and nothing else.
       expect(staged(), {
         'contextsize': 2048,
         'gpulayers': 7,
@@ -212,7 +213,38 @@ void main() {
         'model_param': liveEngineModel,
         'jinja': true,
         'host': '127.0.0.1',
+        'adminunloadtimeout': 0,
       });
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
+
+  test(
+    'a preset that asks for KoboldCpp\'s own idle unload is launched with it '
+    'off: the staged config starts the real engine, which reports 0',
+    () async {
+      // 300 would unload the model behind the app's back after five idle
+      // minutes, and nothing would load it again.
+      final body = jsonEncode({
+        'contextsize': 2048,
+        'noswa': true,
+        'adminunloadtimeout': 300,
+      });
+      final preset = File(p.join(storage.binDir.path, 'sleepy.kcpps'))
+        ..writeAsStringSync(body);
+
+      await start(preset: preset.path);
+
+      expect(staged()['adminunloadtimeout'], 0);
+      expect(
+        printed(RegExp(r'\badminunloadtimeout=0\b')),
+        isTrue,
+        reason: 'the engine lists the settings it started with',
+      );
+      expect(printed(RegExp(r'\badminunloadtimeout=300\b')), isFalse);
+      expect(await liveContextSize(port), 2048, reason: 'it loaded and ran');
+      expect(preset.readAsStringSync(), body);
     },
     timeout: _slow,
     skip: liveEngineSkip,

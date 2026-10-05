@@ -26,6 +26,14 @@
 // address is now one more setting the app lays over a preset. The case lists
 // it in the overlay and in the one pairing it spells out; nothing else in it
 // changed.
+//
+// Changed 2026-10-05: every staged config now also says
+// `adminunloadtimeout: 0`, so KoboldCpp's own idle unload never runs (the app
+// keeps its own timer, which can load chat back; see
+// kobold/kobold_admin_unload_off_test.dart). The same kind of change as the
+// listen address: one more setting the app lays over a preset. "A preset is
+// staged as it was written" lists it in the overlay and in the one pairing it
+// spells out; nothing else in it changed.
 
 import 'dart:convert';
 import 'dart:io';
@@ -234,9 +242,16 @@ void main() {
   test('a preset is staged as it was written: the staged file equals the '
       'original apart from the few settings the app lays over it', () async {
     // What the app may differ in: the model it resolved, the chat template,
-    // the vision file, the listen address, and sliding window when the file
-    // has it on together with fast forward.
-    const overlay = {'model_param', 'jinja', 'mmproj', 'host', 'noswa'};
+    // the vision file, the listen address, KoboldCpp's own idle unload (off),
+    // and sliding window when the file has it on together with fast forward.
+    const overlay = {
+      'model_param',
+      'jinja',
+      'mmproj',
+      'host',
+      'adminunloadtimeout',
+      'noswa',
+    };
     final proj = File('${binDir.path}/proj.gguf')..writeAsStringSync('x');
 
     for (final written in <Map<String, dynamic>>[
@@ -299,6 +314,7 @@ void main() {
       'smartcache': 40,
       'jinja': true,
       'host': '127.0.0.1',
+      'adminunloadtimeout': 0,
     });
   });
 

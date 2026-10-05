@@ -90,7 +90,8 @@ Future<List<String>> buildKoboldLaunchArgs({
 /// chat model at launch, and each role (chat, the helper model, a story
 /// job) before a swap. The same function for all of them, so a swap loads
 /// exactly what a launch would. Every one names [kKoboldHost] as its
-/// address, over whatever a preset said.
+/// address and [kKoboldAdminUnloadTimeout] as its idle unload, over whatever
+/// a preset said.
 Future<KoboldStagedRole> stageKoboldRole({
   required StorageService storage,
   required String executablePath,
@@ -128,6 +129,7 @@ Future<KoboldStagedRole> stageKoboldRole({
     onNote: onNote,
   );
   config['host'] = kKoboldHost;
+  config['adminunloadtimeout'] = kKoboldAdminUnloadTimeout;
   final adminDir = koboldAdminDirFor(storage);
   final json = encodeKcpps(config);
   // Chat's prompts are held to the context its config names from the moment

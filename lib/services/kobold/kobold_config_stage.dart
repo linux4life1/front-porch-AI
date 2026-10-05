@@ -36,6 +36,14 @@ const String kStagedChatConfig = '${kStagedConfigPrefix}chat.kcpps';
 /// `--config` at launch and never changes it on a live reload.
 const String kKoboldHost = '127.0.0.1';
 
+/// KoboldCpp's own idle unload, off. The app runs the unload itself, and
+/// loads chat's setup back before the next request; KoboldCpp's timer has no
+/// way to do that, so a preset's own value would leave an engine with no
+/// model behind the app's back. Like [kKoboldHost] it rides in the staged
+/// config, over whatever a preset said: KoboldCpp reads it from `--config` at
+/// launch and ignores it on a live reload.
+const int kKoboldAdminUnloadTimeout = 0;
+
 /// A role's config as staged for the engine: the file name to reload by,
 /// a key for its content (two roles with the same content are the same
 /// thing to the engine), and what it loads.
