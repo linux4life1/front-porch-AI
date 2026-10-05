@@ -203,6 +203,9 @@ void main() {
 
   test("while a preset is in use the context is the preset's, as on the "
       'desktop', () async {
+    // In use: KoboldCpp is the backend (the fake storage starts on a remote
+    // one, where a chosen preset is not read and the context is the user's).
+    await storage.backendSettings.setBackendType('kobold');
     expect(await facade.setChatPreset(preset), isTrue);
     final before = storage.backendSettings.contextSize;
     expect(await facade.setLocalContext(65536), isFalse);

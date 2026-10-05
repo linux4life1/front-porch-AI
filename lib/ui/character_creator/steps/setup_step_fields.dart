@@ -128,17 +128,20 @@ extension SetupStepFields on SetupStep {
           Row(
             children: [
               Expanded(
-                child: _buildSettingsTextField(
-                  context,
-                  label: 'Context Size',
-                  controller: state.contextSizeController,
-                  isNumber: true,
-                  onChanged: (v) {
-                    final val = int.tryParse(v);
-                    if (val != null) {
-                      storage.backendSettings.setContextSize(val);
-                    }
-                  },
+                child: PresetContextLock(
+                  locked: storage.backendSettings.presetOwnsContext,
+                  child: _buildSettingsTextField(
+                    context,
+                    label: 'Context Size',
+                    controller: state.contextSizeController,
+                    isNumber: true,
+                    onChanged: (v) {
+                      final val = int.tryParse(v);
+                      if (val != null) {
+                        storage.backendSettings.setContextSize(val);
+                      }
+                    },
+                  ),
                 ),
               ),
             ],

@@ -86,9 +86,9 @@ extension BackendFacadeLocalModel on BackendFacade {
   /// load: the card is returned at once and shows the progress.
   ///
   /// Throws [KoboldPresetProblem], in plain words, for a preset the app will
-  /// not start KoboldCpp from (one that cannot be read, or that asks it to
-  /// run a program or open itself to the internet): it does not become
-  /// chat's preset, and nothing is loaded.
+  /// not start KoboldCpp from (one that cannot be read, or that
+  /// [kcppsPresetProblem] refuses): it does not become chat's preset, and
+  /// nothing is loaded.
   Future<bool> setChatPreset(String? path) async {
     if (path != null &&
         !kcppsPresetFiles(_storage.binDir.path).any((f) => f.path == path)) {
@@ -116,8 +116,9 @@ extension BackendFacadeLocalModel on BackendFacade {
     if (context < kKoboldContextMin || context > kKoboldContextMax) {
       return false;
     }
-    // A preset sets its own context; the desktop locks this field then too.
-    if (_storage.backendSettings.activeKcppsPath != null) return false;
+    // A preset KoboldCpp runs sets its own context: every place that sets it
+    // is locked then ([koboldPresetOwnsContext]).
+    if (_storage.backendSettings.presetOwnsContext) return false;
     await _storage.backendSettings.setContextSize(context);
     if (_llm.koboldService.isProcessRunning) {
       _cardReload?.cancel();

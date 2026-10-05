@@ -200,39 +200,23 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             },
           ),
         ],
-        IgnorePointer(
-          ignoring:
-              storage.backendSettings.activeKcppsPath != null &&
-              storage.backendSettings.activeKcppsPath!.isNotEmpty,
-          child: Opacity(
-            opacity:
-                storage.backendSettings.activeKcppsPath != null &&
-                    storage.backendSettings.activeKcppsPath!.isNotEmpty
-                ? 0.5
-                : 1.0,
-            child: Tooltip(
-              message:
-                  storage.backendSettings.activeKcppsPath != null &&
-                      storage.backendSettings.activeKcppsPath!.isNotEmpty
-                  ? 'Context size is controlled by the active .kcpps preset and cannot be edited here.'
-                  : '',
-              child: SliderWithInput(
-                label: 'Context Size',
-                value: gen
-                    .resolveContextSize(storage)
-                    .toDouble()
-                    .clamp(512, isRemote ? 500000 : 131072),
-                min: 512,
-                max: isRemote ? 500000.0 : 131072.0,
-                isInteger: true,
-                divisions: ((isRemote ? 500000.0 : 131072.0) - 512) ~/ 512,
-                context: context,
-                onChanged: (val) {
-                  gen.contextSize = val.toInt();
-                  onChanged();
-                },
-              ),
-            ),
+        PresetContextLock(
+          locked: storage.backendSettings.presetOwnsContext,
+          child: SliderWithInput(
+            label: 'Context Size',
+            value: gen
+                .resolveContextSize(storage)
+                .toDouble()
+                .clamp(512, isRemote ? 500000 : 131072),
+            min: 512,
+            max: isRemote ? 500000.0 : 131072.0,
+            isInteger: true,
+            divisions: ((isRemote ? 500000.0 : 131072.0) - 512) ~/ 512,
+            context: context,
+            onChanged: (val) {
+              gen.contextSize = val.toInt();
+              onChanged();
+            },
           ),
         ),
         const SizedBox(height: 16),

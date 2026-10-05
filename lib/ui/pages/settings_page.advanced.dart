@@ -26,9 +26,8 @@ extension _SettingsAdvancedTab on _SettingsPageState {
     final hardwareService = Provider.of<HardwareService>(context);
     final llmProvider = Provider.of<LLMProvider>(context);
     final theme = Theme.of(context);
-    final isPresetActive =
-        storageService.backendSettings.activeKcppsPath != null &&
-        storageService.backendSettings.activeKcppsPath!.isNotEmpty;
+    // The one rule every place that sets the context follows.
+    final presetOwnsContext = storageService.backendSettings.presetOwnsContext;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -79,7 +78,7 @@ extension _SettingsAdvancedTab on _SettingsPageState {
             storageService,
             hardwareService,
             llmProvider,
-            isPresetActive,
+            presetOwnsContext,
           ),
           const SizedBox(height: 24),
           _buildAdvancedLaunchOptions(context, storageService),

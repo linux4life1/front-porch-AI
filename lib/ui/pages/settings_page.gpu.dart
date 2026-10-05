@@ -27,7 +27,7 @@ extension _SettingsGpuControls on _SettingsPageState {
     BuildContext context,
     StorageService storageService,
     HardwareService hardwareService,
-    bool isPresetActive,
+    bool presetOwnsContext,
   ) {
     final theme = Theme.of(context);
     final accent = AppColors.porchAmberOf(context);
@@ -35,7 +35,7 @@ extension _SettingsGpuControls on _SettingsPageState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isPresetActive) ...[
+        if (presetOwnsContext) ...[
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -49,8 +49,8 @@ extension _SettingsGpuControls on _SettingsPageState {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'A configuration preset is active. Advanced settings are '
-                    'managed by the preset and cannot be edited here.',
+                    kPresetOwnsContext,
+                    key: const ValueKey('preset-owns-context'),
                     style: theme.textTheme.bodySmall?.copyWith(color: accent),
                   ),
                 ),
@@ -60,13 +60,11 @@ extension _SettingsGpuControls on _SettingsPageState {
           const SizedBox(height: 16),
         ],
         IgnorePointer(
-          ignoring: isPresetActive,
+          ignoring: presetOwnsContext,
           child: Opacity(
-            opacity: isPresetActive ? 0.4 : 1.0,
+            opacity: presetOwnsContext ? 0.4 : 1.0,
             child: Tooltip(
-              message: isPresetActive
-                  ? 'Context size is controlled by the active .kcpps preset and cannot be edited here.'
-                  : '',
+              message: presetOwnsContext ? kPresetOwnsContext : '',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -23,28 +23,28 @@
 
 part of 'settings_facade.dart';
 
-/// Said where a preset in use sets the context: the desktop's own words.
-const kPresetOwnsContext =
-    'Context size is controlled by the active .kcpps preset and cannot be '
-    'edited here.';
-
 extension SettingsFacadeUpdate on SettingsFacade {
   /// Why [body] must not be stored, in plain words, or null. Asked before
   /// anything is written, so a refused save changes nothing.
   ///
   /// While KoboldCpp runs a preset, the preset's context is the context and
-  /// the desktop locks the control. The page sends the whole form with every
-  /// save, so the context it read coming back is not a change. A preset is
-  /// only read by the local engine, and the same save may be switching it.
+  /// every place that sets it is locked ([koboldPresetOwnsContext], in the
+  /// desktop's words). The page sends the whole form with every save, so the
+  /// context it read coming back is not a change. The same save may be
+  /// switching the backend, and the rule is asked for the one it switches to.
   String? refusal(Map<String, dynamic> body) {
     final b = _storage.backendSettings;
     final ctx = body['contextSize'];
     if (ctx is! num || ctx.toInt() == b.contextSize) return null;
-    if (b.activeKcppsPath == null) return null;
     final next =
         SettingsFacade._parse(body['backend']?.toString() ?? '') ??
         _llm.activeBackend;
-    return next == BackendType.kobold ? kPresetOwnsContext : null;
+    return koboldPresetOwnsContext(
+          backend: next.name,
+          kcppsPath: b.activeKcppsPath,
+        )
+        ? kPresetOwnsContext
+        : null;
   }
 
   Future<void> update(Map<String, dynamic> body) async {

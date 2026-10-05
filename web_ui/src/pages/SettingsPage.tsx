@@ -28,6 +28,7 @@ import { WorkerBackendCard } from '../components/WorkerBackendCard';
 import { SuperGrokCard } from '../components/SuperGrokCard';
 import { urlHasStoredApiKey } from '../remoteApiKeys';
 import { BACKEND_OPTIONS, backendOptionId } from '../backendOptions';
+import { presetOwnsContext } from '../presetOwnsContext';
 
 
 type Gen = GenSettings;
@@ -480,7 +481,7 @@ export function SettingsPage() {
         isLocal={s.isLocal}
         remoteModelName={s.remoteModelName}
         contextSize={s.contextSize}
-        contextLocked={isManagedLocal && Boolean(s.activeKcppsPath)}
+        contextLocked={presetOwnsContext(s.backend, s.activeKcppsPath)}
         generation={s.generation}
         systemPrompt={s.systemPrompt}
         bannedPhrases={s.bannedPhrases}

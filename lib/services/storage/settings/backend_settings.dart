@@ -18,8 +18,9 @@
 
 import 'dart:io';
 
-// A leaf, not kobold.dart: the barrel loops back through storage_service.dart.
+// Leaves, not kobold.dart: the barrel loops back through storage_service.dart.
 import 'package:front_porch_ai/services/kobold/kcpps_codec.dart';
+import 'package:front_porch_ai/services/kobold/kobold_context_owner.dart';
 
 import 'kobold_launch_fields.dart';
 import 'settings_base.dart';
@@ -100,6 +101,12 @@ class BackendSettings
   String? get lastUsedModelPath => _lastUsedModelPath;
   String? get activeKcppsPath => _activeKcppsPath;
   bool get kcppsHasModel => _kcppsHasModel;
+
+  /// The chosen preset sets chat's context ([koboldPresetOwnsContext]).
+  bool get presetOwnsContext => koboldPresetOwnsContext(
+    backend: _backendType,
+    kcppsPath: _activeKcppsPath,
+  );
 
   /// Model path referenced by parsed .kcpps JSON, or null when it names
   /// none. The rule is [kcppsModelOf], the one a launch uses, so what

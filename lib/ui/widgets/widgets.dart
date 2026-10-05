@@ -46,6 +46,7 @@ export 'styled_text_controller.dart';
 export 'sidebar.dart';
 export 'model_selector.dart';
 export 'kcpps_selector.dart';
+export 'preset_context_lock.dart';
 export 'low_perf_cpu_warning.dart';
 export 'log_view.dart';
 export 'slider_with_input.dart';

@@ -463,6 +463,18 @@ Decisions already made by the maintainer:
     that names no model, a preset whose file is gone and a preset naming a
     model that is not here are kept, and nothing else is touched. That it
     ran is recorded (`kobold_preset_links_repaired`, beta-aware).
+22. One rule for who sets the context (2026-10-05): the chosen preset does
+    while KoboldCpp is the backend and a preset is chosen
+    (`koboldPresetOwnsContext`, `BackendSettings.presetOwnsContext`); on
+    another backend a preset left chosen is not read and the context is the
+    user's. Every place that sets the context follows it and says why in
+    the same words (`kPresetOwnsContext`), on the page rather than only in a
+    tooltip (`PresetContextLock`): Settings → Advanced and → Generation, the
+    Model Settings dialog, the creator's setup step, a chat's own settings,
+    and on the phone the Settings save, the Local model card's context
+    route and the Settings page (`presetOwnsContext` in `web_ui`). The
+    Generation tab and the creator had no lock; Advanced, the dialog and a
+    chat's settings locked on any backend.
 
 ## Design
 

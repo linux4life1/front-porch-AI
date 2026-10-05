@@ -220,27 +220,14 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                         Row(
                           children: [
                             Expanded(
-                              child: IgnorePointer(
-                                ignoring: _isPresetActive(context),
-                                child: Opacity(
-                                  opacity: _isPresetActive(context) ? 0.5 : 1.0,
-                                  child: _isPresetActive(context)
-                                      ? Tooltip(
-                                          message:
-                                              'Context size is controlled by the active .kcpps preset and cannot be edited here.',
-                                          child: _buildTextField(
-                                            label: 'Context Size',
-                                            controller: _contextSizeController,
-                                            isNumber: true,
-                                            onChanged: _saveContextSize,
-                                          ),
-                                        )
-                                      : _buildTextField(
-                                          label: 'Context Size',
-                                          controller: _contextSizeController,
-                                          isNumber: true,
-                                          onChanged: _saveContextSize,
-                                        ),
+                              child: PresetContextLock(
+                                locked:
+                                    storage.backendSettings.presetOwnsContext,
+                                child: _buildTextField(
+                                  label: 'Context Size',
+                                  controller: _contextSizeController,
+                                  isNumber: true,
+                                  onChanged: _saveContextSize,
                                 ),
                               ),
                             ),
