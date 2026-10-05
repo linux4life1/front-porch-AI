@@ -137,8 +137,7 @@ void main() {
     expect(
       kobold.isStarting,
       isFalse,
-      reason:
-          'the pre-flight bail must release the slot it claimed, or no '
+      reason: 'the pre-flight bail must release the slot it claimed, or no '
           'launch is possible again this session',
     );
     expect(kobold.logs.any((l) => l.contains('Model file not found')), isTrue);
