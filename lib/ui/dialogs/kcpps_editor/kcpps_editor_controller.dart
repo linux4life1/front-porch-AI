@@ -385,26 +385,41 @@ class KcppsEditorController extends ChangeNotifier {
     return result;
   }
 
-  Future<void> duplicate() async {
+  /// Copies the preset being edited and opens the copy. False when there was
+  /// nothing to copy or it could not be (why in [problem]).
+  Future<bool> duplicate() async {
     final from = path;
-    if (from == null) return;
-    final copy = await library.duplicate(from);
+    if (from == null) return false;
+    final String copy;
+    try {
+      copy = await library.duplicate(from);
+    } on FileSystemException catch (e) {
+      problem = 'The preset could not be copied: ${e.message}.';
+      _notify();
+      return false;
+    }
     presets = await library.list();
     await select(copy);
+    return true;
   }
 
-  Future<void> delete() async {
+  /// Deletes the preset being edited and opens the first one left (a new one
+  /// when there is none). False when there was nothing to delete or it could
+  /// not be (why in [problem]).
+  Future<bool> delete() async {
     final file = path;
-    if (file == null) return;
-    await library.delete(file);
+    if (file == null) return false;
+    try {
+      await library.delete(file);
+    } on FileSystemException catch (e) {
+      problem = 'The preset could not be deleted: ${e.message}.';
+      _notify();
+      return false;
+    }
     await repointKcppsPreset(storage: storage, stories: stories, from: file);
     presets = await library.list();
-    final next = presets.firstOrNull;
-    if (next == null) {
-      await newFromSettings();
-    } else {
-      await select(next.path);
-    }
+    await _load(presets.firstOrNull?.path);
+    return true;
   }
 
   /// The form as saved: the name is the file's, not in it, and counts too.

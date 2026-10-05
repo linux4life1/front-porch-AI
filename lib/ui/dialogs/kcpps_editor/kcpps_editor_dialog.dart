@@ -111,6 +111,13 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
     if (use) Navigator.of(context).pop(true);
   }
 
+  /// The copy is a file on disk the list must show, but the form's edits
+  /// are not in it: they are asked about first, as when switching presets.
+  Future<void> _duplicate() async {
+    if (!await _mayLeave()) return;
+    if (await c.duplicate()) _saved = true;
+  }
+
   Future<void> _delete() async {
     final path = c.path;
     if (path == null) return;
@@ -120,8 +127,7 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
       inUse: c.isChatPreset(path),
     );
     if (!ok) return;
-    await c.delete();
-    _saved = true;
+    if (await c.delete()) _saved = true;
   }
 
   Future<void> _close() async {
@@ -318,7 +324,7 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
       KeButton(
         'Duplicate',
         padding: 14,
-        onPressed: c.path == null ? null : c.duplicate,
+        onPressed: c.path == null ? null : _duplicate,
       ),
       const SizedBox(width: 8),
       KeButton(
