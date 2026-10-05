@@ -28,6 +28,7 @@ import 'package:front_porch_ai/app_version.dart';
 
 // Stage 7: directories + domain settings. Do not grow this file.
 import 'desktop_spell_check_service.dart';
+import 'kobold/kobold_preset_link_repair.dart';
 import 'reasoning_effort_store.dart';
 import 'storage/storage.dart';
 
@@ -336,6 +337,7 @@ class StorageService extends ChangeNotifier {
       _presetSettings.load();
       _lorebookSettings.load();
       _toolVerdictSettings.load();
+      await repairKoboldPresetLinks(_presetSettings, engineDir: binDir.path);
       attachReasoningEffortMenuStore(_prefs);
 
       if (!_presetSettings.savedPrompts.any(

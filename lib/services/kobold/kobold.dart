@@ -42,6 +42,7 @@ export 'kobold_launch_config.dart';
 export 'kobold_launch_failure.dart';
 export 'kobold_launch_resolver.dart';
 export 'kobold_mmq_timing.dart';
+export 'kobold_preset_link_repair.dart';
 export 'kobold_preset_read.dart';
 export 'kobold_request_queue.dart';
 export 'kobold_slot_api.dart';

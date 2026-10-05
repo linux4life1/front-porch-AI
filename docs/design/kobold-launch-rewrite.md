@@ -452,6 +452,17 @@ Decisions already made by the maintainer:
     line). They used to stop the working engine and then have the start
     refused, leaving chat with no engine. The start's own stop order is
     unchanged.
+21. Old wrong links from a model to a preset are cleaned up once
+    (2026-10-05, "Clean up once"; Phase 9 MF3 part 3c). Before Phase 9 a
+    preset was kept under whichever model a screen showed, so a preset that
+    loads model B could sit under model A and choosing A started B. When
+    the app starts, once (`repairKoboldPresetLinks`, run by the storage
+    service after the settings load), a link is removed only when its
+    preset names a different model and that model's file is on this
+    computer; each removal is logged in plain words. A right link, a preset
+    that names no model, a preset whose file is gone and a preset naming a
+    model that is not here are kept, and nothing else is touched. That it
+    ran is recorded (`kobold_preset_links_repaired`, beta-aware).
 
 ## Design
 
