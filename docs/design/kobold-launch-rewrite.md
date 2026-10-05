@@ -674,8 +674,13 @@ card (auto mode never shows a door to presets). Routes:
 (only a preset in the engine folder, or none: the server may be reachable
 from the internet) and `POST /api/backend/local-model/context` (512 to
 1,048,576 tokens; a running KoboldCpp reloads once the phone stops
-changing it). The browser suite seeds a real model header and a preset
-and walks the card.
+changing it). Both cards show only when KoboldCpp is the backend, as the
+desktop's section does. The browser suite seeds a real model header and a
+preset, switches the host to KoboldCpp for that journey only, and walks the
+card. While a preset runs, the settings save refuses a context that differs
+from the stored one (the page sends the whole form with every save, so the
+stored value coming back is not a change) and the Settings slider is locked,
+as on the desktop.
 
 ### Stage 8: the rest (as built)
 

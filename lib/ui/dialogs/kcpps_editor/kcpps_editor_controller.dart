@@ -242,6 +242,7 @@ class KcppsEditorController extends ChangeNotifier {
       // Sized on this form, with this model, not the one before.
       draft = draft.copyWith(slots: suggestedSlots?.slots ?? 0);
       _raw = null;
+      _opened = null;
       _saved = '';
     } else {
       draft = KcppsDraft.fromConfig(name, ok.config, recurrent: recurrent);

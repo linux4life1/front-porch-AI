@@ -31,7 +31,7 @@ Chats (including groups), library and editors, AI create, models (the Image Stud
 
 Push-to-talk mic over HTTPS. Impersonate, fork, swipes, `/image`, attach a photo.
 
-On the Models page, the **Local model** card says how the computer's local model runs, in plain words, and lets you pick how much chat history the character remembers, with the same verdicts as the desktop (works like now, slower, too big with the most that works). Below it, **KoboldCpp preset** picks which of the computer's presets chat uses, or the app's own settings, and says what the preset does. Switching model from the phone loads it straight away when KoboldCpp is running.
+When the computer runs KoboldCpp, the Models page has the **Local model** card: it says how the local model runs, in plain words, and lets you pick how much chat history the character remembers, with the same verdicts as the desktop (works like now, slower, too big with the most that works). Below it, **KoboldCpp preset** picks which of the computer's presets chat uses, or the app's own settings, and says what the preset does. With a preset in use, the preset sets the context, so Settings locks the Context size slider (and the computer refuses a new one), as the desktop does. Switching model from the phone loads it straight away when KoboldCpp is running.
 
 ---
 
