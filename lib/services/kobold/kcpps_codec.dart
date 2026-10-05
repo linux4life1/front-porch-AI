@@ -179,10 +179,12 @@ KcppsRead _readKcpps(String text) {
   final moe = _asInt(map['moecpu']) ?? 0;
   final layers = _asInt(map['gpulayers']);
   final forcedFit = kcppsForcedFitNote(map);
-  final bool? mmq = map['nommq'] is bool
-      ? !(map['nommq'] as bool)
-      : cuda is List && cuda.contains('nommq')
+  // KoboldCpp reads the `nommq` word in the CUDA list first and turns MMQ
+  // off whatever the `nommq` setting says.
+  final bool? mmq = cuda is List && cuda.contains('nommq')
       ? false
+      : map['nommq'] is bool
+      ? !(map['nommq'] as bool)
       : cuda is List && cuda.contains('mmq')
       ? true
       : null;
@@ -391,8 +393,11 @@ Map<String, dynamic> kcppsMergeEdits(
   Map<String, dynamic> before,
   Map<String, dynamic> after,
 ) {
+  // `nommq` is with the card because the CUDA list can say it too, as a
+  // word, and KoboldCpp reads the word first: the two are written together
+  // or MMQ keeps what the word says.
   const groups = <Set<String>>[
-    {'usecuda', 'usecublas', 'usehipblas', 'usevulkan'},
+    {'usecuda', 'usecublas', 'usehipblas', 'usevulkan', 'nommq'},
     {'model', 'model_param'},
     {'flashattention', 'noflashattention'},
     {'batchsize', 'blasbatchsize'},
