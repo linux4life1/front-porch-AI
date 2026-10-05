@@ -16,11 +16,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
 import 'package:front_porch_ai/services/services.dart';
+
+/// How long a model that answered nothing waits before it is asked again:
+/// the first retry follows at once (the notification that comes next), the
+/// later ones are spaced, and after the last the model is left alone until a
+/// tap on the pill or another model. The engine's own log lines notify all
+/// day long, so without the gaps a model that never answers was asked on every
+/// one of them.
+const List<Duration> kToolTestRetryGaps = [
+  Duration.zero,
+  Duration(seconds: 5),
+  Duration(seconds: 15),
+];
 
 /// Actively answers "does the current model speak the tools protocol?" for
 /// the chat sidebar's tool-calling pill — instead of the user only finding
@@ -33,6 +47,11 @@ import 'package:front_porch_ai/services/services.dart';
 /// ready (the "retest on model switch" contract), and on demand from the
 /// pill. Skips while a chat generation is streaming — local engines serve
 /// one request at a time.
+///
+/// A model that was meant to be tested is tested: nothing marks a model as
+/// done until a question about it has been asked, a test that ends under
+/// another identity (the model record moved while it ran) looks again at the
+/// new one, and a test that settled nothing frees the model for another try.
 class ToolSupportTester {
   ToolSupportTester({
     required this.probe,
@@ -43,6 +62,8 @@ class ToolSupportTester {
     required this.onNotify,
     this.workerLaneReadyForPing,
     this.fetchMetadataToolVerdict,
+    this.retryGaps = kToolTestRetryGaps,
+    this.now = DateTime.now,
   });
 
   final ToolTransportProbe probe;
@@ -69,10 +90,20 @@ class ToolSupportTester {
   /// overrule stale metadata).
   final Future<bool?> Function()? fetchMetadataToolVerdict;
 
+  /// See [kToolTestRetryGaps]. A seam so a test can shorten them.
+  final List<Duration> retryGaps;
+  final DateTime Function() now;
+
   bool _testing = false;
+  bool _disposed = false;
   bool _checkedThisRun = false;
   String _lastAutoTestedIdentity = '';
-  String? _inFlightIdentity;
+
+  /// The identity whose tests came back without an answer, how many did, and
+  /// when the next one may go.
+  String _unansweredIdentity = '';
+  int _unanswered = 0;
+  DateTime _askAgainAfter = DateTime.fromMillisecondsSinceEpoch(0);
 
   bool get isTesting => _testing;
 
@@ -82,6 +113,8 @@ class ToolSupportTester {
       probe.supportFor(getBackendIdentity()) != ToolCallSupport.untested;
 
   ToolCallSupport get current => probe.supportFor(getBackendIdentity());
+
+  void dispose() => _disposed = true;
 
   static const _pingTools = [
     {
@@ -104,23 +137,30 @@ class ToolSupportTester {
       'Call the report_ping tool with ok set to true. Respond ONLY with the '
       'tool call — no other text.';
 
+  bool _canAsk({bool force = false}) =>
+      !_testing &&
+      !isBusy() &&
+      isBackendReady() &&
+      (force || workerLaneReadyForPing == null || workerLaneReadyForPing!());
+
   /// Probe the current backend+model once and record the verdict.
   /// [force] forgets any existing verdict first (the pill's tap-to-retest).
   Future<void> test({bool force = false}) async {
-    if (_testing || isBusy() || !isBackendReady()) return;
-    if (!force &&
-        workerLaneReadyForPing != null &&
-        !workerLaneReadyForPing!()) {
-      return;
-    }
+    if (!_canAsk(force: force)) return;
     final identity = getBackendIdentity();
-    if (_inFlightIdentity == identity) return;
-    if (force) probe.reset(identity);
+    if (force) {
+      _unansweredIdentity = '';
+      probe.reset(identity);
+    }
     if (probe.supportFor(identity) != ToolCallSupport.untested) return;
+    await _ask(identity);
+  }
 
+  /// One question to the model, and what to do with every way it can end.
+  Future<void> _ask(String identity) async {
     _testing = true;
-    _inFlightIdentity = identity;
     onNotify();
+    var settled = false;
     try {
       final resp = await invokeToolEval(
         fireToolEval,
@@ -138,51 +178,80 @@ class ToolSupportTester {
         _checkedThisRun = true;
         if (resp != null && resp.calls.isNotEmpty) {
           probe.markSupported(identity);
+          settled = true;
         } else if (resp != null && resp.text.trim().isNotEmpty) {
           // Prose instead of a call — the model answered and chose words:
           // real capability evidence.
           probe.markXmlOnly(identity);
+          settled = true;
         } else {
           // Null/empty answer: the clean-200 shape a KoboldCpp server-side
           // abort produces when it cuts down an in-flight call (the Scene
           // Guest "pill falls off" bug) — inconclusive, never a verdict.
-          // Leave untested and re-arm the auto-test so the next
-          // backend-changed notify (or a pill tap) retries.
           _checkedThisRun = false;
-          _lastAutoTestedIdentity = '';
         }
       }
     } catch (e) {
       debugPrint('[ToolSupport] Probe failed: $e');
       // Transport failure (unreachable, torn-down client, timeout, busy
-      // server) → leave untested: connectivity, not capability — and re-arm
-      // the auto-test so a later backend notify retries.
+      // server) → leave untested: connectivity, not capability.
       if (getBackendIdentity() == identity && !isToolTransportFailure(e)) {
         _checkedThisRun = true;
         probe.markXmlOnly(identity);
-      } else if (getBackendIdentity() == identity) {
-        _lastAutoTestedIdentity = '';
+        settled = true;
       }
     } finally {
-      if (_inFlightIdentity == identity) _inFlightIdentity = null;
       _testing = false;
+      if (!settled) _leftUntested(identity);
       onNotify();
+      // The model moved on while this ran: its answer was dropped, and the
+      // model it moved to has not been asked yet.
+      if (getBackendIdentity() != identity) Timer.run(onBackendMaybeChanged);
     }
+  }
+
+  /// A test for [identity] ended without a verdict: it may be tried again.
+  void _leftUntested(String identity) {
+    if (_lastAutoTestedIdentity == identity) _lastAutoTestedIdentity = '';
+    // A test cut short because the model moved on says nothing about the
+    // model it was for.
+    if (getBackendIdentity() != identity) return;
+    if (_unansweredIdentity != identity) {
+      _unansweredIdentity = identity;
+      _unanswered = 0;
+    }
+    _unanswered++;
+    if (_unanswered <= retryGaps.length) {
+      _askAgainAfter = now().add(retryGaps[_unanswered - 1]);
+    }
+  }
+
+  bool _mayAsk(String identity) {
+    if (identity != _unansweredIdentity) return true;
+    if (_unanswered > retryGaps.length) return false;
+    return !now().isBefore(_askAgainAfter);
   }
 
   /// Backend/model may have changed (LLMProvider or settings notified) —
   /// auto-test the new identity once it is ready. Idempotent and cheap:
   /// re-entering with the same identity is a no-op.
   void onBackendMaybeChanged() {
+    if (_disposed) return;
     final identity = getBackendIdentity();
     if (identity == _lastAutoTestedIdentity) return;
-    if (_inFlightIdentity == identity) return;
+    // One question at a time. One that ends under another identity looks
+    // again by itself (see [_ask]).
+    if (_testing) return;
     if (!isBackendReady() || isBusy()) return;
     if (workerLaneReadyForPing != null && !workerLaneReadyForPing!()) return;
     if (probe.supportFor(identity) != ToolCallSupport.untested) {
       _lastAutoTestedIdentity = identity;
       return;
     }
+    if (!_mayAsk(identity)) return;
+    // Marked only so the notifications that arrive during a metadata fetch do
+    // not start a second test. [_seedOrTest] clears it on every way out that
+    // leaves the model untested.
     _lastAutoTestedIdentity = identity;
     // Fire-and-forget; verdict lands on the shared probe and notifies the UI.
     _seedOrTest(identity);
@@ -204,7 +273,11 @@ class ToolSupportTester {
       }
       // The model may have switched while the metadata fetch ran; a verdict
       // may also have landed from a pass or a manual test in the meantime.
-      if (getBackendIdentity() != identity) return;
+      if (getBackendIdentity() != identity) {
+        if (_lastAutoTestedIdentity == identity) _lastAutoTestedIdentity = '';
+        Timer.run(onBackendMaybeChanged);
+        return;
+      }
       if (verdict != null &&
           probe.supportFor(identity) == ToolCallSupport.untested) {
         verdict ? probe.markSupported(identity) : probe.markXmlOnly(identity);
@@ -212,6 +285,13 @@ class ToolSupportTester {
       }
       if (verdict != null) return;
     }
-    await test();
+    // Nothing was tried when the engine got busy meanwhile: nothing is held
+    // against the model, and the next notification asks again.
+    if (!_canAsk()) {
+      if (_lastAutoTestedIdentity == identity) _lastAutoTestedIdentity = '';
+      return;
+    }
+    if (probe.supportFor(identity) != ToolCallSupport.untested) return;
+    await _ask(identity);
   }
 }

@@ -454,6 +454,7 @@ extension ChatServiceAccessors on ChatService {
     _storageService.removeListener(_onBackendIdentity);
     _llmProvider?.removeListener(_onBackendIdentity);
     _toolProbe.removeListener(notifyListeners);
+    _toolSupportTester.dispose();
   }
 
   /// Everything the [ChatService] constructor does. Called as the
