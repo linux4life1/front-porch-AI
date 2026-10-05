@@ -4,8 +4,9 @@
 // The sidebar's tool-calling pill on a REAL KoboldCpp, through the app's own
 // KoboldService, LLMProvider and ChatService (nothing in the chain is a
 // stand-in): once Start has the model ready the app asks it for a tool call
-// by itself, keeps the answer for the next run, and a model record that moves
-// while that first question is out does not lose the question. Run:
+// by itself, keeps the answer for the next run, a model record that moves
+// while that first question is out does not lose the question, and a reload
+// KoboldCpp cannot load, which keeps the running model, leaves it known. Run:
 //   KOBOLD_LIVE_BIN=… KOBOLD_LIVE_MODEL=… flutter test --tags kobold_live \
 //     test/live/kobold_tool_test_live_test.dart
 
@@ -410,6 +411,41 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 100));
       }
       expect(await _storedVerdicts(), {modelKey(liveEngineModel): true});
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
+
+  test(
+    'a reload KoboldCpp cannot load, which keeps the running model, leaves '
+    'that model known: the pill still names it and keeps its answer',
+    () async {
+      final app = await _App.open();
+      addTearDown(app.close);
+      // Not a model: KoboldCpp cannot load it, and the app would refuse to
+      // start a fresh engine on it, so the running one is kept.
+      Directory(app.storage.modelsDir.path).createSync(recursive: true);
+      final broken = p.join(app.storage.modelsDir.path, 'broken-model.gguf');
+      File(broken).writeAsBytesSync('XXXX'.codeUnits + List.filled(32, 0));
+
+      await app.start();
+      await app.waitForModel();
+      await app.waitForVerdict();
+      final named = app.chat.debugEvalBackendIdentity;
+      final asked = app.questionsAnswered;
+
+      await selectKoboldModel(app.storage, broken);
+      final result = await app.provider.reloadChatKobold();
+
+      expect(result?.refusal, contains('The previous one is still running'));
+      expect(app.storage.backendSettings.lastUsedModelPath, liveEngineModel);
+      expect(
+        app.chat.debugEvalBackendIdentity,
+        named,
+        reason: 'KoboldCpp runs the first model again, and it is known',
+      );
+      expect(app.chat.toolCallSupport, ToolCallSupport.supported);
+      expect(app.questionsAnswered, asked, reason: 'nobody was asked again');
     },
     timeout: _slow,
     skip: liveEngineSkip,
