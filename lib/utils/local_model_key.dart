@@ -31,30 +31,45 @@ import 'package:path/path.dart' as p;
 /// the preset, the context size and the engine's settings are not properties
 /// of the model and are left out.
 ///
-/// [sizeOf] is a seam for tests; by default the size is read from the file,
-/// at most once every two seconds per path, because the sidebar's pill asks
-/// while it paints. A file that cannot be read is still named, by its name.
+/// [sizeOf] is a seam for tests. A file that cannot be read is still named, by
+/// its name. Ask through [LocalModelKeys] anywhere that runs often.
 String localModelKey(String? modelPath, {int? Function(String path)? sizeOf}) {
   final path = modelPath?.trim() ?? '';
   if (path.isEmpty) return '';
   return '${p.basename(path)}#${(sizeOf ?? _fileSize)(path) ?? '?'}';
 }
 
-final Map<String, ({int? size, DateTime at})> _sizes = {};
-
 int? _fileSize(String path) {
-  final now = DateTime.now();
-  final seen = _sizes[path];
-  if (seen != null && now.difference(seen.at) < const Duration(seconds: 2)) {
-    return seen.size;
-  }
-  int? size;
   try {
-    size = File(path).lengthSync();
+    return File(path).lengthSync();
   } on FileSystemException {
-    size = null;
+    return null;
   }
-  if (_sizes.length > 32) _sizes.clear();
-  _sizes[path] = (size: size, at: now);
-  return size;
+}
+
+/// [localModelKey] read from the file once per model and per load of the
+/// engine, not on a timer and not on every paint: the sidebar's pill asks for
+/// it while it builds, and a multi-GB file is not stat-ed per frame (cheap on
+/// APFS, a Defender round-trip on Windows).
+///
+/// [stamp] says when the file may have changed under what is asked about: the
+/// engine's load generation, which goes up on every start, swap and reload. A
+/// file replaced on disk while another one runs is not the running model, so
+/// nothing changes until the engine loads what is at the path.
+class LocalModelKeys {
+  String? _path;
+  Object? _stamp;
+  String _key = '';
+
+  String of(
+    String? modelPath, {
+    required Object stamp,
+    int? Function(String path)? sizeOf,
+  }) {
+    final path = modelPath?.trim() ?? '';
+    if (_path == path && _stamp == stamp) return _key;
+    _path = path;
+    _stamp = stamp;
+    return _key = localModelKey(path, sizeOf: sizeOf);
+  }
 }

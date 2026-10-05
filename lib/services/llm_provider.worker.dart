@@ -18,6 +18,13 @@
 
 part of 'llm_provider.dart';
 
+/// The worker model's key in the eval identity, read from its file once per
+/// model and per engine load. Held beside the provider, like the rest of this
+/// part's state.
+final Expando<LocalModelKeys> _workerModelKeys = Expando(
+  'LLMProvider worker model keys',
+);
+
 extension LLMProviderWorker on LLMProvider {
   OpenRouterService get workerRemoteService => _workerRemote;
 
@@ -46,7 +53,10 @@ extension LLMProviderWorker on LLMProvider {
       remoteApiUrl: url,
       remoteModelName: local ? '' : _storageService.workerRemoteModelName,
       modelPath: local
-          ? localModelKey(_storageService.resolvedWorkerKoboldModelPath())
+          ? (_workerModelKeys[this] ??= LocalModelKeys()).of(
+              _storageService.resolvedWorkerKoboldModelPath(),
+              stamp: _koboldService.loadGeneration,
+            )
           : null,
     );
   }

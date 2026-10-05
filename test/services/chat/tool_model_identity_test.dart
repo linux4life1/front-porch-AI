@@ -67,6 +67,7 @@ void main() {
   late Directory dir;
   late AppDatabase db;
   late StorageService storage;
+  late KoboldService kobold;
   late ChatService chat;
 
   setUp(() async {
@@ -83,8 +84,9 @@ void main() {
     db = AppDatabase.forTesting();
     storage = StorageService();
     await storage.initialized;
+    kobold = KoboldService(storage);
     chat = ChatService(
-      KoboldService(storage),
+      kobold,
       UserPersonaService(db),
       storage,
       WorldRepository(storage, db),
@@ -211,5 +213,30 @@ void main() {
 
     expect(chat.toolCallSupport, ToolCallSupport.supported);
     expect(second.asked, 0, reason: 'the same model: it is not asked again');
+  });
+
+  test('a file replaced under the same path is a new model once the engine '
+      'loads, not before, and not on a timer', () async {
+    chat
+      ..testLlmServiceOverride = _Backend()
+      ..testIsLocalOverride = true;
+    final file = model('a', 'gemma.gguf', 2048);
+    await storage.backendSettings.setLastUsedModelPath(file.path);
+    final loaded = chat.debugEvalBackendIdentity;
+
+    // Another quant is put at the same path while the first one is what runs.
+    file.writeAsBytesSync(List.filled(4096, 1));
+    for (var i = 0; i < 25; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    expect(
+      chat.debugEvalBackendIdentity,
+      loaded,
+      reason: 'what runs is still the old file, however long ago it changed',
+    );
+
+    // The engine loads what is at the path now.
+    kobold.noteAdminLoadedPair(modelPath: file.path);
+    expect(chat.debugEvalBackendIdentity, isNot(loaded));
   });
 }

@@ -293,7 +293,10 @@ extension ChatServiceWiringEvals on ChatService {
           ? ''
           : _storageService.backendSettings.remoteModelName,
       modelPath: local
-          ? localModelKey(_storageService.backendSettings.lastUsedModelPath)
+          ? _modelKeys.of(
+              _storageService.backendSettings.lastUsedModelPath,
+              stamp: _koboldService.loadGeneration,
+            )
           : null,
     );
   }

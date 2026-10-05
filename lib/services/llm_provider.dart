@@ -42,7 +42,7 @@ import 'package:front_porch_ai/services/story_lane_labels.dart';
 import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/services/worker_gpu_swap.dart';
 import 'package:front_porch_ai/services/xai/xai.dart';
-import 'package:front_porch_ai/utils/local_model_key.dart';
+import 'package:front_porch_ai/utils/utils.dart' show LocalModelKeys;
 
 part 'llm_provider.worker.dart';
 part 'llm_provider.kobold_hosts.dart';

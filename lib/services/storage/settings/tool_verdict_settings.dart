@@ -28,10 +28,10 @@ import 'settings_base.dart';
 ///
 /// Keys are the eval identity of the model (`evalBackendIdentityFor`): the
 /// engine and host, and the model by name (a local file by its name and size,
-/// see `localModelKey`). Only settled answers are kept, true when the model
-/// called a tool and false when it chose words; an answer that settled nothing
-/// never reaches here. Stored as one JSON map under `tool_verdicts` (the
-/// beta-prefixed key on pre-release builds).
+/// see `localModelKey`, read once per load by `LocalModelKeys`). Only settled
+/// answers are kept, true when the model called a tool and false when it chose
+/// words; an answer that settled nothing never reaches here. Stored as one JSON
+/// map under `tool_verdicts` (the beta-prefixed key on pre-release builds).
 ///
 /// No [notify]: a verdict is not a setting anything repaints for, and the
 /// probe that writes it notifies its own listeners.

@@ -25,7 +25,8 @@ import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
 import 'package:front_porch_ai/services/services.dart'
     show LlmToolCall, LlmToolResponse, OneShotMode, isToolTransportFailure;
-import 'package:front_porch_ai/services/storage/settings/tool_verdict_settings.dart';
+import 'package:front_porch_ai/services/storage/storage.dart'
+    show ToolVerdictSettings;
 
 part 'pass_support_fire.dart';
 

@@ -22,6 +22,10 @@ part of '../chat_service.dart';
 /// Extensions in this library can still read them; a Dart extension cannot
 /// *declare* instance state, so this mixin is the legal home.
 mixin ChatServiceFieldBag {
+  /// The chat model's key in the eval identity, read from its file once per
+  /// model and per engine load.
+  final _modelKeys = LocalModelKeys();
+
   /// Named lookup for the next reply only. Cleared when that reply starts.
   String? _pendingForcedWebQuery;
   String? _pendingForcedWikiQuery;
