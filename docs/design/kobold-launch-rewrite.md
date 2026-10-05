@@ -634,8 +634,15 @@ As built (2026-10-04), to the sketch the maintainer approved:
   staged chat config by name and restart only when that is not acted on.
 - Prompt budget (moved from Stage 5): KoboldCpp runs with the context its
   config gives (`maxctx = args.contextsize`), so the context in chat's
-  staged config is recorded and every prompt budget is held to it: a chat
-  set longer than the engine no longer has its start, card first, cut.
+  staged config is recorded when it names one, and every prompt budget is
+  held to it: a chat set longer than the engine no longer has its start,
+  card first, cut. A config that names none runs KoboldCpp's own default,
+  which differs by version (12,288 on 1.117.1, 16,384 on 1.122.1): staging
+  records nothing then, because staging is not a load (a swap back to chat
+  stages this config before every reply) and must not forget what the
+  engine said. The engine is asked (`/api/extra/true_max_context_length`)
+  when a launch is ready and when a reload is checked, and that is held
+  until the next one.
 
 Path-complete (prompt budget): generation, Continue and regenerate share
 the generation plan; group chats the same; impersonate, lorebook blocks,

@@ -44,8 +44,11 @@ mixin KoboldLaunchFields on SettingsBase {
   /// the app's own KoboldCpp.
   String get backendType;
 
-  /// The context chat's KoboldCpp config gives it, as last staged (a launch
-  /// or a swap back to chat). KoboldCpp runs with exactly that.
+  /// The context chat's KoboldCpp runs with: what chat's config names when
+  /// it is staged, and what the engine says once a launch or a reload is
+  /// confirmed (the only way to know when the config names none, as its
+  /// default differs by version). Staging a config that names none leaves
+  /// what was learned.
   int? get engineContextSize => _engineContextSize;
 
   void setEngineContextSize(int? value) {

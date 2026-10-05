@@ -128,11 +128,15 @@ Future<KoboldStagedRole> stageKoboldRole({
   );
   final adminDir = koboldAdminDirFor(storage);
   final json = encodeKcpps(config);
-  if (name == kStagedChatConfig) {
-    final context = config['contextsize'];
-    storage.backendSettings.setEngineContextSize(
-      context is num ? context.toInt() : null,
-    );
+  // Chat's prompts are held to the context its config names from the moment
+  // it is staged. A config that names none runs the engine's own default,
+  // which only the engine can say, so nothing is recorded then: the engine
+  // is asked when a launch or a reload is confirmed, and staging, which is
+  // not a load (a swap back to chat stages this config before every reply),
+  // must not forget what it said.
+  final context = koboldExpectedContext(config);
+  if (name == kStagedChatConfig && context != null) {
+    storage.backendSettings.setEngineContextSize(context);
   }
   final file = await stageKoboldConfig(
     adminDir.isNotEmpty ? adminDir : Directory.systemTemp.path,
