@@ -47,3 +47,4 @@ export 'kobold_slot_api.dart';
 export 'kobold_slot_keeper.dart';
 export 'kobold_status_facts.dart';
 export 'kobold_swap_wait.dart';
+export 'kobold_wire.dart';

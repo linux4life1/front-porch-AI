@@ -1023,13 +1023,18 @@ service against `test/helpers/fake_kobold_engine.dart`, a KoboldCpp
 stand-in on a loopback socket that copies its lock, its slots, its fast
 forward and its disconnect behaviour), `chat_slot_keeper_paths_test` (which
 requests name a chat, and one run of `ChatService` through the real service
-on the stand-in), `kobold_auto_keeper_test` (what auto mode writes and the
-way back), and `test/live/kobold_slot_keeper_live_test.dart` (below). The
+on the stand-in), `chat_stop_while_waiting_test` (the real Stop button on a
+reply that waits behind another request), `kobold_keeper_idle_test` (the idle
+clock counts from the end of a slow save), `kobold_wire_test` (the abort
+handle, over real sockets), `kobold_auto_keeper_test` (what auto mode writes
+and the way back), and `test/live/kobold_slot_keeper_live_test.dart`
+(below). The
 existing live suites (launch, swap, reload check, web card, presets) pass on
 1.117.1 and 1.122.1 with the keeper in. Existing tests changed because the
 behaviour they pinned is
 the thing replaced: `kobold_abort_ownership_test` (two requests can no
-longer be open at once), `kobold_auto_launch_test`,
+longer be open at once; the rule that a finished request lets go only of its
+own hold is pinned in `kobold_wire_test`), `kobold_auto_launch_test`,
 `kobold_awaited_hardware_test`, `kobold_stage_header_cache_test` and
 `test/live/kobold_presets_live_test.dart` (auto mode no longer writes
 `smartcache: 3` for an ordinary model).

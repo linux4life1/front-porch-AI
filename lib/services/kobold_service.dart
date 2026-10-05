@@ -161,8 +161,6 @@ class KoboldService extends ChangeNotifier
     return url != null && url.hasPort ? url.port : 5001;
   }
 
-  http.Client? _activeClient;
-
   /// The measurement armed by the last [_markModelReady]. Production never
   /// waits on it (see [KoboldSystemRole.arm]); [debugMarkModelReady] does,
   /// because the alternative for a test is guessing when the probe finished —

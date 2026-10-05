@@ -14,6 +14,9 @@ class _RequestState {
   /// system-role check. Stop, perf, token counts and swaps do not.
   final KoboldRequestQueue queue = KoboldRequestQueue();
 
+  /// The call that is open to the engine now, for Stop to cut.
+  final KoboldWire wire = KoboldWire();
+
   /// Saves a chat's cache after its reply and loads it before the next one.
   KoboldSlotKeeper? keeper;
   Future<KoboldKeeperPlan> Function()? debugPlan;
@@ -74,13 +77,9 @@ extension KoboldServiceRequests on KoboldService {
         toolChoice: params.toolChoice,
         registerClient: (client) {
           mine = client;
-          _activeClient = client;
+          _requests.wire.hold(client);
         },
-        // A finishing call may clear the abort handle only while it is ITS
-        // handle: clearing a newer request's left Stop with nothing to close.
-        onDone: () {
-          if (identical(_activeClient, mine)) _activeClient = null;
-        },
+        onDone: () => _requests.wire.release(mine),
       );
     });
   }
@@ -170,13 +169,9 @@ extension KoboldServiceRequests on KoboldService {
         registerClient: (client) {
           sent = true;
           mine = client;
-          _activeClient = client;
+          _requests.wire.hold(client);
         },
-        // Ownership guard — see generateWithTools: this stream's late
-        // teardown must not null a newer request's abort handle.
-        onDone: () {
-          if (identical(_activeClient, mine)) _activeClient = null;
-        },
+        onDone: () => _requests.wire.release(mine),
       ).handleError((Object error, StackTrace stack) {
         // A Stop closes the call and so ends the stream with an error: the
         // cache is as the reply left it, which is worth keeping.
@@ -214,8 +209,7 @@ extension KoboldServiceRequests on KoboldService {
   void _abortGeneration() {
     if (_requests.dropStoppedReplies()) return;
     _requests.aborts++;
-    _activeClient?.close();
-    _activeClient = null;
+    _requests.wire.cut();
     // Server-side abort, not awaited so the UI never blocks: KoboldCpp stops
     // even with the socket gone, and drains before the next request.
     _postAbort();

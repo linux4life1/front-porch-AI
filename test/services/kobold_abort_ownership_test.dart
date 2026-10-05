@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// KoboldService keeps ONE abort handle (`_activeClient`) for the whole
+// KoboldService keeps ONE abort handle (its KoboldWire) for the whole
 // backend. The request that finished first used to null that handle
 // unconditionally, so a later Stop closed nothing and the still-running
 // generation kept streaming.
@@ -9,8 +9,9 @@
 // Requests now go to the engine one at a time (see KoboldRequestQueue), so
 // the next request can no longer be open while the one before it finishes:
 // the first test pins what is left of that rule, that Stop still reaches a
-// request that started right after another one ended. The ownership check
-// on `onDone` stays as it was.
+// request that started right after another one ended. The rule that a
+// finished request lets go only of its own hold can no longer be reached
+// through the service; kobold_wire_test.dart pins it on the wire itself.
 //
 // The second test pins the other half of the startKobold work: the
 // re-entrancy slot is now claimed BEFORE the stop ladder, so every early
