@@ -41,7 +41,6 @@ class KoboldPlacement {
 class KoboldFitView {
   const KoboldFitView({
     required this.load,
-    required this.freeMb,
     required this.segments,
     required this.kind,
     required this.title,
@@ -51,9 +50,6 @@ class KoboldFitView {
   });
 
   final KoboldLoad load;
-
-  /// Graphics memory the model can have.
-  final int freeMb;
   final List<KoboldBarSegment> segments;
   final KoboldFitKind kind;
   final String title;
@@ -142,7 +138,6 @@ KoboldFitView koboldFitView(
 
   return KoboldFitView(
     load: load,
-    freeMb: free,
     segments: segments,
     kind: kind,
     title: title,

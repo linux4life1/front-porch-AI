@@ -40,30 +40,4 @@ void main() {
       expect(shown, runs, reason: '$map');
     }
   });
-
-  test('the reader says sliding window is switched off only where a launch '
-      'switches it off', () {
-    for (final map in <Map<String, dynamic>>[
-      {'noswa': false},
-      {'noswa': 'yes'},
-      {'noswa': null},
-      {'useswa': true},
-      {'useswa': 'yes'},
-      {'noswa': true},
-    ]) {
-      final said = _read(map).notes.any((n) => n.contains('switched off'));
-      final notes = <String>[];
-      kcppsPresetLaunchMap(
-        map,
-        modelPath: '',
-        mmprojPath: '',
-        onNote: notes.add,
-      );
-      expect(
-        said,
-        notes.any((n) => n.contains('switched off')),
-        reason: '$map',
-      );
-    }
-  });
 }

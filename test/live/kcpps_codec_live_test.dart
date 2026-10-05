@@ -44,7 +44,7 @@ void main() {
   /// the engine from it, the way the app launches.
   Future<LiveEngine> launch(String name, KoboldLaunchConfig config) async {
     final staged = File(p.join(adminDir.path, name))
-      ..writeAsStringSync(writeKcpps(config));
+      ..writeAsStringSync(encodeKcpps(kcppsMap(config)));
     final engine = await LiveEngine.start(exe, [
       '--config',
       staged.path,

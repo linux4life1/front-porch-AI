@@ -32,7 +32,6 @@ class KoboldLaunch {
     required this.modelPath,
     this.kcppsPath,
     this.mmprojPath,
-    this.presetOwnsModel = false,
     this.note,
   });
 
@@ -44,9 +43,6 @@ class KoboldLaunch {
 
   /// The vision file kept for [modelPath], if any.
   final String? mmprojPath;
-
-  /// True when [modelPath] is the one the preset itself names.
-  final bool presetOwnsModel;
 
   /// Something the user should be told about how this was decided.
   final String? note;
@@ -118,7 +114,6 @@ KoboldLaunch resolveKoboldLaunch(
     mmprojPath: model.isEmpty
         ? null
         : storage.presetSettings.modelMmprojMap[model],
-    presetOwnsModel: owned != null,
     note: note,
   );
 }

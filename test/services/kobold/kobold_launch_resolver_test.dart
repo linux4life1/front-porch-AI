@@ -76,7 +76,6 @@ void main() {
       final launch = resolveKoboldLaunch(storage);
       expect(launch.modelPath, a);
       expect(launch.kcppsPath, isNull);
-      expect(launch.presetOwnsModel, isFalse);
       expect(launch.note, isNull);
     });
 
@@ -98,7 +97,6 @@ void main() {
       final launch = resolveKoboldLaunch(storage, pickedModel: a);
       expect(launch.modelPath, b);
       expect(launch.kcppsPath, owned);
-      expect(launch.presetOwnsModel, isTrue);
     });
 
     test('a preset from another computer keeps its settings and runs the '
@@ -114,7 +112,6 @@ void main() {
       final launch = resolveKoboldLaunch(storage);
       expect(launch.modelPath, a);
       expect(launch.kcppsPath, foreign);
-      expect(launch.presetOwnsModel, isFalse);
       expect(launch.note, contains('big-model.gguf'));
     });
 

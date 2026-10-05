@@ -70,18 +70,20 @@ void main() {
   Future<void> launchGenerated({required bool greedy}) async {
     final preset = File(p.join(storage.binDir.path, 'generated.kcpps'))
       ..writeAsStringSync(
-        writeKcpps(
-          koboldGeneratedPreset(
-            modelPath: liveEngineModel,
-            contextSize: 4096,
-            batchSize: 512,
-            threads: 4,
-            greedyAllocation: greedy,
-            kvQuant: KvQuant.f16,
-            backend: KoboldGpuBackend.none,
-            gpuId: null,
-            contextMode: ContextManagementMode.fastForwardSmartCache,
-            smartCacheSlots: 0,
+        encodeKcpps(
+          kcppsMap(
+            koboldGeneratedPreset(
+              modelPath: liveEngineModel,
+              contextSize: 4096,
+              batchSize: 512,
+              threads: 4,
+              greedyAllocation: greedy,
+              kvQuant: KvQuant.f16,
+              backend: KoboldGpuBackend.none,
+              gpuId: null,
+              contextMode: ContextManagementMode.fastForwardSmartCache,
+              smartCacheSlots: 0,
+            ),
           ),
         ),
       );

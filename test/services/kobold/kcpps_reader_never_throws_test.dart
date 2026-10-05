@@ -65,7 +65,11 @@ void main() {
         expect(read, isA<KcppsOk>(), reason: text);
         read as KcppsOk;
         expect(read.raw, jsonDecode(text), reason: text);
-        expect(() => writeKcpps(read.config), returnsNormally, reason: text);
+        expect(
+          () => encodeKcpps(kcppsMap(read.config)),
+          returnsNormally,
+          reason: text,
+        );
         expect(
           () => encodeKcpps(
             kcppsPresetLaunchMap(read.raw, modelPath: '', mmprojPath: ''),

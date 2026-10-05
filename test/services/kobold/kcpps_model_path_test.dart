@@ -140,7 +140,6 @@ void main() {
 
       final launch = resolveKoboldLaunch(storage);
       expect(launch.modelPath, x);
-      expect(launch.presetOwnsModel, isTrue);
     });
   }
 
@@ -153,7 +152,6 @@ void main() {
         await activate({'model_param': 'rel.gguf'});
 
         final launch = resolveKoboldLaunch(storage, engineDir: engineDir.path);
-        expect(launch.presetOwnsModel, isTrue);
         expect(launch.modelPath, rel);
         expect(p.isAbsolute(launch.modelPath), isTrue);
       },
@@ -165,7 +163,6 @@ void main() {
       await activate({'model_param': 'rel.gguf'});
 
       final launch = resolveKoboldLaunch(storage);
-      expect(launch.presetOwnsModel, isTrue);
       expect(launch.modelPath, rel);
 
       // Settings, the vision check and the thinking settings all read this.
@@ -216,7 +213,6 @@ void main() {
           pickedModel: picked,
           engineDir: dir.path,
         );
-        expect(launch.presetOwnsModel, isFalse);
         expect(launch.modelPath, picked);
         expect(launch.kcppsPath, preset);
         expect(launch.note, contains('gone.gguf'));
