@@ -179,7 +179,19 @@ extension ChatServiceWiringEvals on ChatService {
   /// KoboldCpp included (Qwen3 etc. call tools fine); incapable models fall
   /// back to the XML floor.
   Future<LlmToolResponse?> _fireToolEval(ToolEvalSpec spec) async {
-    return _withWorkerLane(() => _fireToolEvalUnheld(spec));
+    var reached = false;
+    try {
+      return await _withWorkerLane(() {
+        reached = true;
+        return _fireToolEvalUnheld(spec);
+      });
+    } catch (e) {
+      // A lane that could not be prepared (the helper model did not load)
+      // never asked the model. That says nothing about its tool calls, and
+      // read as an answer it would brand the model text-only and be kept.
+      if (reached || isToolTransportFailure(e)) rethrow;
+      throw LlmToolTransportException('$e');
+    }
   }
 
   Future<LlmToolResponse?> _fireToolEvalUnheld(ToolEvalSpec spec) async {
