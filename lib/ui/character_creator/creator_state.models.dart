@@ -114,24 +114,29 @@ extension CreatorStateModels on CreatorState {
     final kobold = llmProvider.koboldService;
 
     isReloadingKobold = true;
-    koboldStatus = 'Stopping KoboldCpp...';
     notify();
 
     try {
-      // Stop if running
+      // Checked before anything is stopped, as the desktop's buttons do: a
+      // missing engine, or a model or preset that cannot be used, leaves the
+      // running one alone.
+      final execPath = backendManager.backendPath;
+      final problem = execPath == null
+          ? 'Error: Backend executable not found'
+          : await koboldLaunchProblem(storage, pickedModel: modelPath);
+      if (execPath == null || problem != null) {
+        isReloadingKobold = false;
+        koboldStatus = problem!;
+        notify();
+        return;
+      }
+
+      koboldStatus = 'Stopping KoboldCpp...';
+      notify();
       if (kobold.isRunning) {
         await kobold.stopKobold();
         await Future.delayed(const Duration(seconds: 1));
       }
-
-      // Use BackendManager to find the executable (same pattern as model_settings_dialog & settings_page)
-      if (backendManager.backendPath == null) {
-        isReloadingKobold = false;
-        koboldStatus = 'Error: Backend executable not found';
-        notify();
-        return;
-      }
-      final execPath = backendManager.backendPath!;
 
       koboldStatus = 'Starting KoboldCpp with new model...';
       notify();

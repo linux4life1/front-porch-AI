@@ -439,6 +439,15 @@ Decisions already made by the maintainer:
     refusal is shown by the editor, the desktop's Local model card and the
     phone's Models page, which this change leaves alone, so the editor's
     Save is the route.
+20. The phone's Restart and the character creator's model change check
+    before they stop anything (2026-10-05), as the desktop's Start and
+    Restart buttons do: `koboldLaunchProblem` first, and on a problem (a
+    model file that has gone, a preset the app will not start from) the
+    running engine is left alone and the reason is said where each says how
+    a start went (`refused` beside the phone's buttons, the creator's status
+    line). They used to stop the working engine and then have the start
+    refused, leaving chat with no engine. The start's own stop order is
+    unchanged.
 
 ## Design
 

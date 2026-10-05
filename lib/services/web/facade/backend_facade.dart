@@ -97,8 +97,14 @@ class BackendFacade {
   }
 
   /// Restart the managed local backend with the current model + stored flags.
-  /// Why it was not started, in plain words, or null.
+  /// Why it was not started, in plain words, or null. Asked before anything
+  /// is stopped, as the desktop's buttons do: a model or preset that cannot
+  /// be used leaves the running engine alone.
   Future<String?> restart() async {
+    if (_llm.hasManagedProcess) {
+      final problem = await koboldLaunchProblem(_storage);
+      if (problem != null) return problem;
+    }
     await _llm.stopAllManagedProcesses();
     return (await _llm.ensureManagedBackendIsRunning())?.refusal;
   }
