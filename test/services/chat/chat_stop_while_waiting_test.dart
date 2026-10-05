@@ -236,7 +236,8 @@ void main() {
     final sending = h.chat.sendMessage('Did the rain stop?');
     await _until(() => h.kobold.debugRepliesWaiting == 1);
 
-    h.chat.stopGeneration(); // aborts the mouth, then the second lane
+    // Takes the waiting reply out of the line; neither lane is aborted.
+    h.chat.stopGeneration();
     await sending.timeout(const Duration(seconds: 5));
     await _aWhile(); // time for an abort that was sent to arrive
 
