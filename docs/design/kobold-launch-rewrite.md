@@ -973,6 +973,10 @@ each load of the model (`KoboldService.loadGeneration`).
   waiting. The engine counts as busy for the idle unload until then too: the
   idle time runs from the end of the save, not from the end of the reply. A save the engine cannot make steps the keeper aside and clears
   the slots to give the memory back.
+- A reply that carries pictures (`GenerationParams.images`) is a helper to
+  the keeper: no load before it and no save after it, because a load does not
+  restore the engine's record of which pictures are in the cache. The next
+  plain reply loads the chat as it was saved before the picture.
 - A helper, and a coding session on the engine (`keepLoadedFor`), clear "the
   engine still holds the chat". The keeper waits out a coding session.
 - Every call runs in the swap lock and is skipped when the model changed

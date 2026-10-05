@@ -312,6 +312,38 @@ void main() {
     ], reason: 'the tool call changed the cache, so the chat is loaded back');
   });
 
+  test(
+    'a reply that carries a picture is neither loaded for nor saved '
+    'after: KoboldCpp does not bring a saved chat\'s pictures back',
+    () async {
+      final history = _words('h', 100);
+      await run(_reply(history, 'tail1'));
+      await run(_helper('a judge')); // the chat is no longer in the engine
+      engine.forgetLog();
+
+      await run(
+        GenerationParams(
+          prompt: '$history tail2',
+          systemPrompt: 'RULES',
+          maxLength: 16,
+          kvChat: 'A',
+          images: const ['iVBORw0KGgo='],
+        ),
+      );
+      expect(engine.kinds, [
+        'chat',
+      ], reason: 'no load before the reply with the picture, no save after it');
+      engine.forgetLog();
+
+      await run(_reply(history, 'tail3'));
+      expect(
+        engine.kinds,
+        ['load', 'chat', 'save'],
+        reason: 'the next plain reply loads the chat saved before the picture',
+      );
+    },
+  );
+
   test('a coding session on the engine makes the keeper wait', () async {
     final history = _words('h', 100);
     await run(_reply(history, 'tail1'));

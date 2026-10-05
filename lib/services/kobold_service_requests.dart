@@ -119,11 +119,17 @@ extension KoboldServiceRequests on KoboldService {
   /// only tells the keeper that it changes the cache.
   Stream<String> _generateStream(GenerationParams params) async* {
     final ticket = _requests.queue.enter();
-    final chat = params.kvChat;
+    // A chat reply is stoppable while it waits. One that carries pictures is
+    // also neither loaded for nor saved after (it is a helper to the keeper):
+    // KoboldCpp does not bring a saved chat's pictures back with the chat.
+    final reply = params.kvChat != null;
+    final chat = reply && params.images?.isNotEmpty != true
+        ? params.kvChat
+        : null;
     bool wanted() => params.stillWant?.call() ?? true;
-    // _idleRequestStart began, and has an _idleRequestEnd to match.
-    final waiting = chat == null ? null : _Waiting(params.stillWant);
+    final waiting = reply ? _Waiting(params.stillWant) : null;
     if (waiting != null) _requests.waiting.add(waiting);
+    // _idleRequestStart began, and has an _idleRequestEnd to match.
     var counted = false;
     // The keeper was told about this request, so it has to be told it ended.
     var touched = false;
