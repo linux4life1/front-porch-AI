@@ -197,7 +197,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       final loading = modelPath.isNotEmpty
           ? modelPath
           : kcppsModelOf(read.raw, engineDir: storage.binDir.path);
-      if ((await _modelInfo(loading))?.hasSlidingWindow ?? false) {
+      if ((await koboldModelHeader(loading))?.hasSlidingWindow ?? false) {
         onNote(kSwaLeftToKoboldNote);
       }
     }
@@ -235,7 +235,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
   } else {
     mmq = b.mmqForLaunch(machine.gpuName, engineVersion);
   }
-  final info = await _modelInfo(modelPath);
+  final info = await koboldModelHeader(modelPath);
   final note = koboldFlashAttentionNote(
     backend: gpu.backend,
     rocm: gpu.rocm,
@@ -370,7 +370,10 @@ Future<({KoboldBackendChoice gpu, HardwareInfo? machine})> _backendFor({
 final Map<String, ({int size, DateTime modified, GGUFModelInfo? info})>
 _headersRead = {};
 
-Future<GGUFModelInfo?> _modelInfo(String modelPath) async {
+/// The header of the model at [modelPath], read once for each version of the
+/// file. Null when it cannot be read, which callers treat as an ordinary
+/// model.
+Future<GGUFModelInfo?> koboldModelHeader(String modelPath) async {
   if (modelPath.isEmpty) return null;
   try {
     final stat = await File(modelPath).stat();

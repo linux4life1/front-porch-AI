@@ -89,11 +89,14 @@ extension KoboldServiceIdle on KoboldService {
   /// model is loaded back first if it was unloaded for being idle, and is
   /// not unloaded while [work] runs.
   Future<T> keepLoadedFor<T>(Future<T> Function() work) async {
+    // Its requests change the engine's cache unseen: the slot keeper waits.
+    _keeper.outsideStart();
     try {
       await _idleRequestStart();
       return await work();
     } finally {
       _idleRequestEnd();
+      _keeper.outsideEnd();
     }
   }
 

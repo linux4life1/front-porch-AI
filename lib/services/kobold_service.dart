@@ -36,11 +36,13 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/openai_chat_stream.dart';
 import 'package:front_porch_ai/services/system_role_probe.dart';
 import 'package:front_porch_ai/services/worker_gpu_swap.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 import 'package:path/path.dart' as path;
 
 part 'kobold_service_admin.dart';
 part 'kobold_service_exit.dart';
 part 'kobold_service_idle.dart';
+part 'kobold_service_keeper.dart';
 part 'kobold_service_process.dart';
 part 'kobold_service_requests.dart';
 
