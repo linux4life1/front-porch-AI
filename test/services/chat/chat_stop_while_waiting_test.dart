@@ -3,12 +3,15 @@
 // turn). The Stop button sets the turn's cancel flag and aborts the lanes; it
 // does not cancel the reader's subscription, so the reply has to look at the
 // flag itself, and the abort must not take the earlier turn's pass down with
-// it. Each test presses the real Stop on a real ChatService.
+// it. A character or group switch sets the same flag without aborting, and
+// waits for the turn to end: the reply has to leave the line for it too. Each
+// test presses the real Stop, or makes the real switch, on a real ChatService.
 
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 import '../../helpers/kobold_chat_harness.dart';
@@ -222,6 +225,83 @@ void main() {
       reason: 'nothing waited, so Stop had a reply on the wire to cut',
     );
     expect(h.chat.isGenerating, isFalse);
+  });
+
+  test('a character switch while a reply waits does not wait for the pass '
+      'ahead of it', () async {
+    final earlier = h.kobold
+        .generateStream(
+          const GenerationParams(prompt: 'EARLIER pass words', maxLength: 16),
+        )
+        .toList()
+        .then((_) => 'ended', onError: (_) => 'ended');
+    await _until(() => h.engine.arrived.length == 1);
+    final sending = h.chat.sendMessage('Did the rain stop?');
+    await _until(() => h.kobold.debugRepliesWaiting == 1);
+    final bea = CharacterCard(
+      name: 'Bea',
+      description: 'Lives next door.',
+      firstMessage: 'Hello.',
+      imagePath: '/tmp/Bea-kobold-chat.png',
+      frontPorchExtensions: FrontPorchExtensions(
+        realismEnabled: false,
+        needsSimEnabled: false,
+      ),
+    );
+    await CharacterRepository(h.db, h.base.storage).addCharacter(bea);
+
+    await h.chat
+        .setActiveCharacter(bea)
+        .timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => fail('the switch waited for the pass ahead'),
+        );
+
+    expect(h.chat.activeCharacter?.name, 'Bea');
+    expect(h.kobold.debugRepliesWaiting, 0);
+    hold.complete();
+    await earlier;
+    await sending.timeout(const Duration(seconds: 5));
+    expect(repliesSent(), isEmpty, reason: 'the reply was given up on');
+  });
+
+  test('opening the same chat again while a reply waits leaves the pass '
+      'ahead alone', () async {
+    // The switch to another character tears the lanes down afterwards, as it
+    // always did; this way in stops after the wait, so what is left on the
+    // wire is the drop's doing alone.
+    final earlier = h.kobold
+        .generateStream(
+          const GenerationParams(prompt: 'EARLIER pass words', maxLength: 16),
+        )
+        .toList();
+    await _until(() => h.engine.arrived.length == 1);
+    final sending = h.chat.sendMessage('Did the rain stop?');
+    await _until(() => h.kobold.debugRepliesWaiting == 1);
+
+    await h.chat
+        .setActiveCharacter(h.chat.activeCharacter)
+        .timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => fail('opening the chat waited for the pass ahead'),
+        );
+
+    expect(
+      hold.isCompleted,
+      isFalse,
+      reason: 'the pass still holds the engine',
+    );
+    expect(h.kobold.debugRepliesWaiting, 0);
+    await _aWhile(); // time for an abort that was sent to arrive
+    expect(h.engine.aborts, 0, reason: 'a pass of an earlier turn was cut');
+    hold.complete();
+    expect(
+      await earlier,
+      isNotEmpty,
+      reason: 'the pass was cut off: its caller never got its answer',
+    );
+    await sending.timeout(const Duration(seconds: 5));
+    expect(repliesSent(), isEmpty, reason: 'the reply was given up on');
   });
 
   test('an abort that is not the Stop button cuts the wire even when a reply '

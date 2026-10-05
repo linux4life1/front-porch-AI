@@ -384,6 +384,7 @@ extension ChatServiceMessageOps on ChatService {
     _needsSimulation.consumePendingCatastrophe();
     if (!_isGenerating) return;
     _cancelRequested = true;
+    _dropWaitingReplies(); // not held up by the pass ahead; nothing is aborted
     // Spin until _generateResponse finishes its cleanup
     while (_isGenerating) {
       await Future.delayed(const Duration(milliseconds: 10));

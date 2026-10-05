@@ -935,15 +935,19 @@ and not saved. Who an abort belongs to: an abort closes the call on the wire
 and tells the engine to stop, always, whoever asks (an eval that has its
 answer, a tool call that timed out, a creator, the Stop button). Taking a
 waiting reply out of the line is a separate call, `dropStoppedReplies`, made
-only by the Stop button: a chat reply that still waits and whose turn was
-cancelled leaves at once, which gets the chat back without waiting for the
-engine, and the wire is left alone, because whoever is on it is ahead of the
-reply and may be a pass of an earlier turn (journal, growth) that cancelling
-this turn does not cancel. Stop aborts nothing when it took a reply out of the
-line, whatever the lanes are: in the app a worker on the same engine is the
-same service, and a test also has a second object over the engine ask for the
-abort. Stop with nothing waiting aborts both lanes as it always did. Perf,
-token counts and swaps stay outside the line.
+only by the Stop button and by the cancel-and-wait of a character or group
+switch: a chat reply that still waits and whose turn was cancelled leaves at
+once, which gets the chat back without waiting for the engine (a switch used
+to sit behind the whole line), and the wire is left alone, because whoever is
+on it is ahead of the reply and may be a pass of an earlier turn (journal,
+growth) that cancelling this turn does not cancel. Stop aborts nothing when it
+took a reply out of the line, whatever the lanes are: in the app a worker on
+the same engine is the same service, and a test also has a second object over
+the engine ask for the abort. Stop with nothing waiting aborts both lanes as
+it always did, and the wait of a switch never aborts. A switch to another
+chat still tears both lanes down once the wait is over (the greeting check
+calls `cancelRealismEval`), as it always did, so that is where a pass of the
+chat being left is cut. Perf, token counts and swaps stay outside the line.
 `waitForIdle` means "what is in line at this moment". The line comes first,
 the swap lock second; a swap never takes the line. No count of aborts decides
 whether a waiting reply is dropped: many callers abort on purpose (the eval
