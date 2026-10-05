@@ -154,7 +154,6 @@ class GpuSwapOccupancy {
     required this.worker,
     this.sameResident = false,
     this.sharedEngine = false,
-    this.onStep,
     this.residentGeneration,
   });
 
@@ -171,7 +170,6 @@ class GpuSwapOccupancy {
   /// [mouthDown] or [sameResident], which go stale when anything else
   /// reloads the engine.
   final bool sharedEngine;
-  final void Function(String step)? onStep;
 
   /// A counter the engine raises whenever what it has loaded changes. When
   /// given, the worker model is only trusted to still be resident if the
@@ -214,7 +212,6 @@ class GpuSwapOccupancy {
 
   void _record(String step) {
     steps.add(step);
-    onStep?.call(step);
     debugPrint('[GpuSwap] $step');
   }
 

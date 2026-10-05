@@ -230,7 +230,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _scanLocalPresets() {
     final storage = Provider.of<StorageService>(context, listen: false);
-    final files = scanKcppsPresets(storage.binDir);
+    final files = kcppsPresetFiles(storage.binDir.path);
     setState(() {
       _localPresets = files;
     });

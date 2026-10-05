@@ -62,6 +62,9 @@ Duration koboldLoadTimeout(int sizeBytes) {
 bool koboldIsNewProcess(double uptimeSeconds, Duration sinceRequest) =>
     uptimeSeconds < sinceRequest.inMilliseconds / 1000 - 0.25;
 
+/// How often [waitForKoboldReload] asks the engine.
+const Duration _pollEvery = Duration(milliseconds: 150);
+
 /// Waits for a reload that was just asked for to really take effect: first
 /// for the engine to start a new model process ([uptime], null while
 /// nothing answers), then for [ready]. "The request returned" and "the
@@ -72,7 +75,6 @@ Future<void> waitForKoboldReload({
   required Future<double?> Function() uptime,
   required Future<bool> Function() ready,
   required Duration timeout,
-  Duration poll = const Duration(milliseconds: 150),
   DateTime Function() now = DateTime.now,
   Future<void> Function(Duration)? pause,
 }) async {
@@ -89,6 +91,6 @@ Future<void> waitForKoboldReload({
     if (since >= timeout) {
       throw KoboldSwapTimeout(restarted: restarted, waited: since);
     }
-    await wait(poll);
+    await wait(_pollEvery);
   }
 }

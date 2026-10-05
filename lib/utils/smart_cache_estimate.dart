@@ -70,19 +70,21 @@ enum SmartCacheLimit {
   noRoom,
 }
 
+/// System memory kept for everything but the model and its slots.
+const int _reserveMb = 2048;
+
 /// How many slots to ask for: one for each kind of prompt the app sends
 /// this engine ([promptKinds]: chat, the judges, a story job...), so
 /// switching between them restores instead of re-reading; but only as many
 /// as fit in the system memory left once the model's own share
-/// ([modelRamMb]) and [reserveMb] for everything else are set aside.
+/// ([modelRamMb]) and 2 GB for everything else are set aside.
 ({int slots, SmartCacheLimit limit}) suggestSmartCacheSlots({
   required int promptKinds,
   required int slotMb,
   required int freeRamMb,
   required int modelRamMb,
-  int reserveMb = 2048,
 }) {
-  final room = freeRamMb - modelRamMb - reserveMb;
+  final room = freeRamMb - modelRamMb - _reserveMb;
   final wanted = promptKinds.clamp(0, 20);
   // A slot of unknown size is only allowed while there is room at all.
   final fit = room <= 0 ? 0 : (slotMb <= 0 ? wanted : room ~/ slotMb);

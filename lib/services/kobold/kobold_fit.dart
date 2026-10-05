@@ -105,8 +105,6 @@ class KoboldFit {
     int? contextSize,
     int? batchSize,
     KvQuant? kvQuant,
-    bool? slidingWindowOn,
-    bool? flashAttention,
     int? extraCardMb,
   }) => KoboldFit(
     info: info,
@@ -115,8 +113,8 @@ class KoboldFit {
     batchSize: batchSize ?? this.batchSize,
     backend: backend,
     kvQuant: kvQuant ?? this.kvQuant,
-    slidingWindowOn: slidingWindowOn ?? this.slidingWindowOn,
-    flashAttention: flashAttention ?? this.flashAttention,
+    slidingWindowOn: slidingWindowOn,
+    flashAttention: flashAttention,
     extraCardMb: extraCardMb ?? this.extraCardMb,
   );
 }

@@ -56,7 +56,6 @@ extension KoboldServiceAdmin on KoboldService {
   void _markModelReady() {
     _modelLoadingStatus = '';
     _modelReady = true;
-    _modelJustLoaded = true;
     _stopReadinessProbe();
     _idleTouch();
     // Resolve the probe key and arm the measurement in the idle window right
@@ -117,10 +116,7 @@ extension KoboldServiceAdmin on KoboldService {
   /// In-process `reload_config` loaded this pair. Stamp paths only.
   /// Version 200 is HTTP-up, not generation-ready — [waitUntilReadyAfterSwap]
   /// probes a tiny completion before [isReady] / evals / mouth generate.
-  Future<void> noteAdminLoadedPair({
-    String? modelPath,
-    String? kcppsPath,
-  }) async {
+  void noteAdminLoadedPair({String? modelPath, String? kcppsPath}) {
     final model = modelPath?.trim() ?? '';
     _loadGeneration++;
     if (model.isNotEmpty) _loadedModelPath = model;
@@ -211,18 +207,16 @@ extension KoboldServiceAdmin on KoboldService {
 
   /// Waits until an unload that was just asked for has happened: a new
   /// model process that reports nothing loaded.
-  Future<void> waitForUnload({
-    Duration timeout = const Duration(seconds: 60),
-  }) => waitForKoboldReload(
+  Future<void> waitForUnload() => waitForKoboldReload(
     uptime: () => koboldEngineUptime(_baseUrl),
     ready: () async => await koboldEngineModel(_baseUrl) == 'inactive',
-    timeout: timeout,
+    timeout: const Duration(seconds: 60),
   );
 
   /// Poll a tiny `/v1/chat/completions` until the swapped GGUF generates.
   /// Version 200 alone is not enough (empty streams / 0-token pings).
   Future<void> waitUntilReadyAfterSwap({
-    int attempts = 40,
+    required int attempts,
     Duration delay = const Duration(milliseconds: 250),
   }) async {
     final n = attempts < 1 ? 1 : attempts;

@@ -238,7 +238,7 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _nameRow(context),
+          _nameRow(),
           const SizedBox(height: 18),
           KcppsModelField(c: c),
           const SizedBox(height: 18),
@@ -297,7 +297,7 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
     },
   );
 
-  Widget _nameRow(BuildContext context) => Row(
+  Widget _nameRow() => Row(
     crossAxisAlignment: CrossAxisAlignment.end,
     children: [
       Expanded(

@@ -283,7 +283,7 @@ extension KoboldServiceIdle on KoboldService {
     }
     try {
       await koboldAdminRetry(() => _idleAdmin.reloadConfig(filename: r.file));
-      await noteAdminLoadedPair(modelPath: model, kcppsPath: r.kcpps ?? '');
+      noteAdminLoadedPair(modelPath: model, kcppsPath: r.kcpps ?? '');
       await waitForSwap(timeout: koboldLoadTimeout(await _idleSize(model)));
     } on Object catch (e) {
       forgetAdminLoadedPair();

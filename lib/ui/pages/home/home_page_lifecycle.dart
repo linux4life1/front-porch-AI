@@ -54,15 +54,11 @@ extension _HomePageLifecycle on _HomePageState {
     _maybeOpenChatFromEnv();
   }
 
+  // No toast when a model finishes loading: dual-local mouth/worker swaps
+  // mark ready on every GGUF load, and the success SnackBars stacked.
   void _onKoboldUpdate() {
     if (!mounted) return;
-    try {
-      final kobold = Provider.of<KoboldService>(context, listen: false);
-      // Drain the one-shot. Do not toast — dual-local mouth/worker swaps
-      // mark ready on every GGUF load and the success SnackBar stacked.
-      kobold.consumeModelReady();
-      applyState(() {}); // Rebuild to update status bar
-    } catch (_) {}
+    applyState(() {}); // Rebuild to update status bar
   }
 
   /// Query the DB to build caches for last activity time and message count per character.

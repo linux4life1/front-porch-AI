@@ -73,10 +73,6 @@ class KoboldService extends ChangeNotifier
   /// can tell later whether it is still the one in memory.
   int _loadGeneration = 0;
 
-  /// One-shot "load just finished" latch. Home drains it (no success toast —
-  /// dual-local swaps would stack those). Unlike [_modelReady], reset after
-  /// [consumeModelReady] so each load is seen once.
-  bool _modelJustLoaded = false;
   String? _executablePath;
 
   /// The detected graphics hardware, when the app has it. A launch with no
@@ -134,17 +130,6 @@ class KoboldService extends ChangeNotifier
       _lastLiveNotify = now;
       notifyListeners();
     }
-  }
-
-  /// Consume the one-shot "model just loaded" latch.
-  /// Returns true exactly once after each model load. Does NOT affect
-  /// [isReady] or [modelReady]. Home drains this without a success toast.
-  bool consumeModelReady() {
-    if (_modelJustLoaded) {
-      _modelJustLoaded = false;
-      return true;
-    }
-    return false;
   }
 
   String _baseUrl = 'http://127.0.0.1:5001';

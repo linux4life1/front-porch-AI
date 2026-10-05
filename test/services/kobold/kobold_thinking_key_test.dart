@@ -81,7 +81,7 @@ void main() {
   test('a helper model whose template forces thinking is capped while it '
       'is loaded', () async {
     kHardOnThinkingModels.add('/m/helper.gguf');
-    await kobold.noteAdminLoadedPair(modelPath: '/m/helper.gguf');
+    kobold.noteAdminLoadedPair(modelPath: '/m/helper.gguf');
 
     expect((await ask())['thinking_budget'], 0);
   });
@@ -89,7 +89,7 @@ void main() {
   test("chat's forced template does not cap a helper model that does not "
       'force it', () async {
     kHardOnThinkingModels.add('/m/chat.gguf');
-    await kobold.noteAdminLoadedPair(modelPath: '/m/helper.gguf');
+    kobold.noteAdminLoadedPair(modelPath: '/m/helper.gguf');
 
     expect((await ask()).containsKey('thinking_budget'), isFalse);
   });
@@ -102,7 +102,7 @@ void main() {
 
   test('the system-message check follows the loaded model too: a helper '
       "model is judged by its own template, not by chat's", () async {
-    await kobold.noteAdminLoadedPair(modelPath: '/m/helper.gguf');
+    kobold.noteAdminLoadedPair(modelPath: '/m/helper.gguf');
 
     // The moment a model is ready arms the check for that model.
     kobold.debugMarkModelReady().ignore();

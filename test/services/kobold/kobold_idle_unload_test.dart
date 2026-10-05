@@ -297,7 +297,7 @@ void main() {
         ..debugMarkProcessRunning()
         ..debugStartIdleClock();
     }
-    await kobold.noteAdminLoadedPair(modelPath: chatModel, kcppsPath: '');
+    kobold.noteAdminLoadedPair(modelPath: chatModel, kcppsPath: '');
     kobold.noteResident(stagedChat);
     await kobold.debugMarkModelReady();
     engine.events.clear();
@@ -482,7 +482,7 @@ void main() {
       p.join(koboldAdminDirFor(storage), 'fpai-worker.kcpps'),
     ).readAsStringSync();
     final helperModel = p.join(root.path, 'helper.gguf');
-    await kobold.noteAdminLoadedPair(modelPath: helperModel, kcppsPath: '');
+    kobold.noteAdminLoadedPair(modelPath: helperModel, kcppsPath: '');
     kobold.noteResident(helper);
     await unloaded();
 

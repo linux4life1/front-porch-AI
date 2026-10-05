@@ -5,9 +5,6 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-/// The presets in [binDir], sorted by name.
-List<File> scanKcppsPresets(Directory binDir) => kcppsPresetFiles(binDir.path);
-
 /// A reusable .kcpps preset selector row with model status indicator.
 ///
 /// Shows a full-path chip with a [X] close button when the active preset
@@ -24,11 +21,7 @@ class KcppsSelector extends StatefulWidget {
     required this.onChanged,
     required this.onExternalClear,
     required this.onBrowsePicked,
-    this.browseLabel,
-    this.backgroundColor,
     this.onModelStatusChanged,
-    this.nullLabel = 'None (Use App Settings)',
-    this.required = false,
   });
 
   final StorageService storage;
@@ -37,19 +30,10 @@ class KcppsSelector extends StatefulWidget {
   final ValueChanged<String?> onChanged;
   final VoidCallback onExternalClear;
   final ValueChanged<String> onBrowsePicked;
-  final String? browseLabel;
-  final Color? backgroundColor;
 
   /// Called when the "model defined + file exists" status changes for the
   /// currently selected preset. [true] = valid model ready, [false] = otherwise.
   final ValueChanged<bool>? onModelStatusChanged;
-
-  /// Text shown for the "no selection" dropdown item.
-  final String nullLabel;
-
-  /// When true, shows a "Required" status line below the picker even when
-  /// no preset is selected.
-  final bool required;
 
   @override
   State<KcppsSelector> createState() => _KcppsSelectorState();
@@ -95,8 +79,7 @@ class _KcppsSelectorState extends State<KcppsSelector> {
   @override
   Widget build(BuildContext context) {
     final activePath = widget.storage.backendSettings.activeKcppsPath;
-    final bgColor =
-        widget.backgroundColor ?? AppColors.surfaceContainerOf(context);
+    final bgColor = AppColors.surfaceContainerOf(context);
     final isExternal =
         activePath != null &&
         activePath.isNotEmpty &&
@@ -117,8 +100,7 @@ class _KcppsSelectorState extends State<KcppsSelector> {
             _buildBrowseButton(),
           ],
         ),
-        if (widget.required ||
-            (activePath != null && activePath.isNotEmpty)) ...[
+        if (activePath != null && activePath.isNotEmpty) ...[
           const SizedBox(height: 6),
           _buildModelStatus(),
         ],
@@ -127,25 +109,6 @@ class _KcppsSelectorState extends State<KcppsSelector> {
   }
 
   Widget _buildModelStatus() {
-    if (widget.required &&
-        (widget.storage.backendSettings.activeKcppsPath == null ||
-            widget.storage.backendSettings.activeKcppsPath!.isEmpty)) {
-      return Row(
-        children: [
-          Icon(
-            Icons.remove_circle_outline,
-            size: 14,
-            color: Colors.red.shade300,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'Required',
-            style: TextStyle(fontSize: 11, color: Colors.red.shade300),
-          ),
-        ],
-      );
-    }
-
     final hasModel = widget.storage.backendSettings.kcppsHasModel;
     // ONE parse per build for the path; existsSync is memoized so Kobold
     // log-line rebuilds do not re-stat a multi-GB GGUF.
@@ -260,7 +223,7 @@ class _KcppsSelectorState extends State<KcppsSelector> {
             DropdownMenuItem<String>(
               value: null,
               child: Text(
-                widget.nullLabel,
+                'None (Use App Settings)',
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.textPrimary(context),
@@ -287,16 +250,6 @@ class _KcppsSelectorState extends State<KcppsSelector> {
   }
 
   Widget _buildBrowseButton() {
-    if (widget.browseLabel != null) {
-      return ElevatedButton.icon(
-        onPressed: _onBrowse,
-        icon: const Icon(Icons.folder_open, size: 16),
-        label: Text(widget.browseLabel!),
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        ),
-      );
-    }
     return IconButton(
       onPressed: _onBrowse,
       icon: const Icon(Icons.folder_open, size: 20),

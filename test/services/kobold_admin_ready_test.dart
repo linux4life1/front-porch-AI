@@ -45,7 +45,7 @@ void main() {
     () async {
       expect(kobold.isReady, isFalse);
       kobold.markModelNotReady();
-      await kobold.noteAdminLoadedPair(
+      kobold.noteAdminLoadedPair(
         modelPath: '/tmp/worker.gguf',
         kcppsPath: '/tmp/worker.kcpps',
       );

@@ -98,7 +98,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   void _scanLocalPresets() {
     final storage = Provider.of<StorageService>(context, listen: false);
     setState(() {
-      _localPresets = scanKcppsPresets(storage.binDir);
+      _localPresets = kcppsPresetFiles(storage.binDir.path);
     });
   }
 

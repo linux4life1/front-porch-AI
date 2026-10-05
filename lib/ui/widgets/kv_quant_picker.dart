@@ -27,12 +27,10 @@ class KvQuantPicker extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
-    this.fontSize = 13,
   });
 
   final KvQuant value;
   final ValueChanged<KvQuant> onChanged;
-  final double fontSize;
 
   @override
   Widget build(BuildContext context) => DropdownButtonHideUnderline(
@@ -45,7 +43,7 @@ class KvQuantPicker extends StatelessWidget {
       // app's font for the platform default.
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
         color: AppColors.textPrimary(context),
-        fontSize: fontSize,
+        fontSize: 13,
       ),
       onChanged: (v) {
         if (v != null) onChanged(v);

@@ -177,7 +177,6 @@ class KeBox extends StatelessWidget {
     this.fontSize = 14,
     this.semanticLabel,
     this.onChanged,
-    this.onSubmitted,
     this.keyName,
   });
 
@@ -189,7 +188,6 @@ class KeBox extends StatelessWidget {
   final double fontSize;
   final String? semanticLabel;
   final ValueChanged<String>? onChanged;
-  final ValueChanged<String>? onSubmitted;
   final String? keyName;
 
   @override
@@ -215,7 +213,6 @@ class KeBox extends StatelessWidget {
           style: keText(context, size: fontSize),
           cursorColor: AppColors.porchAmberOf(context),
           onChanged: onChanged,
-          onSubmitted: onSubmitted,
           decoration: InputDecoration(
             isDense: true,
             filled: true,
