@@ -130,6 +130,12 @@ class KcppsEditorController extends ChangeNotifier {
       !modelReading &&
       (info == null || fileBytes == null);
 
+  /// The form can be written: no model file is still being read. A save or a
+  /// timing run writes the sliding window, the flash attention rule for the
+  /// model's architecture and the smart cache from the model's header, which
+  /// is not there during a read.
+  bool get canWrite => !modelReading;
+
   /// The preset the chat runs on.
   String? get chatPreset => storage.backendSettings.activeKcppsPath;
 
@@ -322,8 +328,10 @@ class KcppsEditorController extends ChangeNotifier {
     bytes: await File(path).length(),
   );
 
-  /// Saves the form. A name another preset has needs [overwrite].
+  /// Saves the form. A name another preset has needs [overwrite]. Nothing is
+  /// written until [canWrite].
   Future<KcppsSaveResult> save({bool overwrite = false}) async {
+    if (!canWrite) return KcppsSaveResult.invalid;
     final name = draft.name.trim();
     final wrong = kcppsNameProblem(name);
     if (wrong != null) {

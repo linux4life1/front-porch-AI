@@ -213,7 +213,8 @@ class KcppsSpeedSection extends StatelessWidget {
                     height: 36,
                     padding: 12,
                     fontSize: 13,
-                    onPressed: c.mmqTiming || c.draft.modelPath.isEmpty
+                    onPressed:
+                        c.mmqTiming || c.draft.modelPath.isEmpty || !c.canWrite
                         ? null
                         : c.timeMmq,
                   ),

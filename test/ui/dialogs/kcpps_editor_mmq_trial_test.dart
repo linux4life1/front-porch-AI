@@ -7,6 +7,7 @@
 // flash attention on, that is flash attention off, not the setting that
 // killed it.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -102,5 +103,54 @@ void main() {
     final trial = await firstTrial();
     expect(trial['noflashattention'], isFalse);
     expect(trial['quantkv'], 'q8_0');
+  });
+
+  test('a timing asked for while the model file is still read loads '
+      'nothing: the trial is built from its header', () async {
+    final file = File(p.join(bin.path, 'Mine.kcpps'));
+    await file.writeAsString(
+      jsonEncode({
+        'contextsize': 16384,
+        'usecuda': ['normal', '0'],
+      }),
+    );
+    final slow = p.join(bin.path, 'slow.gguf');
+    final reading = Completer<void>();
+    var trials = 0;
+    final c = KcppsEditorController(
+      storage: storage,
+      hardware: FakeHardwareService(
+        hardwareInfo: HardwareInfo(
+          gpuName: 'NVIDIA GeForce RTX 4090',
+          vramMb: 24564,
+          ramMb: 65536,
+          vendor: 'Nvidia',
+          hasCuda: true,
+        ),
+      ),
+      kobold: _Running(),
+      loadTrial: (name, config) async {
+        trials++;
+        return false;
+      },
+      readFree: () async => (graphics: 23000, system: 60000),
+      readModel: (path) async {
+        if (path == slow) await reading.future;
+        return (info: null, bytes: 0);
+      },
+      unified: false,
+      threads: () async => 4,
+    );
+    addTearDown(c.dispose);
+    await c.select(file.path);
+
+    final picking = c.setModel(slow);
+    await c.timeMmq();
+    expect(trials, 0);
+
+    reading.complete();
+    await picking;
+    await c.timeMmq();
+    expect(trials, 1, reason: 'once the file is read, the timing runs');
   });
 }

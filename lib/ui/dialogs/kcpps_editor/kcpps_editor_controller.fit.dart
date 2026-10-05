@@ -217,7 +217,7 @@ extension KcppsEditorMmq on KcppsEditorController {
   /// off; keeps the faster, remembers it for this card, and puts chat back.
   Future<void> timeMmq() async {
     final load = loadTrial;
-    if (load == null || mmqTiming) return;
+    if (load == null || mmqTiming || !canWrite) return;
     if (!kobold.isRunning) {
       mmqStatus = 'Start the model first, then time it here.';
       _notify();
