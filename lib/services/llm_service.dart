@@ -349,6 +349,11 @@ abstract class LLMService extends ChangeNotifier {
   /// Abort the current in-flight generation request (closes the HTTP client).
   void abortGeneration() {}
 
+  /// The caller's turn was cancelled: replies of it that still wait for this
+  /// backend's line leave it, and whatever is on the wire is left alone.
+  /// True when one left. Only a backend with a line has any.
+  bool dropStoppedReplies() => false;
+
   /// Whether the backend is ready to accept requests.
   bool get isReady;
 

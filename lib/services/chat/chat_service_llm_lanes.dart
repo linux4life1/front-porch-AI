@@ -97,7 +97,20 @@ extension ChatServiceLlmLanes on ChatService {
     return p.closeWorkerLane();
   }
 
-  /// Stop mouth speech and side-lane evals/clerk/journal together.
+  /// The turn was cancelled: its replies that still wait for the engine's
+  /// line leave it, and nothing on the wire is touched. True when one left.
+  /// Chat replies go out through the mouth, so only the mouth has any.
+  bool _dropWaitingReplies() {
+    try {
+      return _mouthLlm.dropStoppedReplies();
+    } catch (e) {
+      debugPrint('[Chat] taking a stopped reply out of the line failed: $e');
+      return false;
+    }
+  }
+
+  /// Abort mouth speech and side-lane evals/clerk/journal together: whatever
+  /// is on the wire, whoever's it is.
   void _abortAllLanes() {
     final mouth = _mouthLlm;
     final side = _sideLaneLlm;

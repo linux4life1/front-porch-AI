@@ -321,6 +321,9 @@ class KoboldService extends ChangeNotifier
   @override
   void abortGeneration() => _abortGeneration();
 
+  @override
+  bool dropStoppedReplies() => _dropStoppedReplies();
+
   /// POST /api/extra/abort — KoboldCPP blocks until the active generation
   /// is fully stopped, then returns HTTP 200. Call this (and await it) before
   /// starting any new generation to guarantee the server is idle.

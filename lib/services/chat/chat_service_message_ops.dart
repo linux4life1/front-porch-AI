@@ -373,8 +373,9 @@ extension ChatServiceMessageOps on ChatService {
     _needsSimulation.consumePendingCatastrophe();
     if (_isGenerating) {
       _cancelRequested = true;
-      // Abort mouth speech and any in-flight side-lane eval/clerk.
-      _abortAllLanes();
+      // A waiting reply leaves the line, and nothing of this turn is on the
+      // wire to cut. Otherwise abort mouth speech and side-lane evals/clerk.
+      if (!_dropWaitingReplies()) _abortAllLanes();
     }
   }
 

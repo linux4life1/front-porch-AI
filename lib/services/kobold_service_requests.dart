@@ -29,8 +29,7 @@ class _RequestState {
   final Set<_Waiting> waiting = {};
 
   /// Takes out of the line every waiting reply whose caller no longer wants
-  /// it (Stop was pressed). True when there was one: that abort was meant
-  /// for the reply, not for whoever is on the wire ahead of it.
+  /// it (the turn was cancelled). True when there was one.
   bool dropStoppedReplies() {
     var any = false;
     for (final w in waiting.toList()) {
@@ -202,18 +201,22 @@ extension KoboldServiceRequests on KoboldService {
     }
   }
 
-  /// Closes the call on the wire and tells the engine to stop. Not when the
-  /// abort is a Stop for a reply that is still waiting: whoever is on the
-  /// wire is ahead of that reply and may be a pass of an earlier turn, which
-  /// a Stop of this turn does not cancel. Every other abort is as it was.
+  /// Closes the call on the wire and tells the engine to stop. Always, for
+  /// whoever asks: an eval that has its answer, a tool call that timed out,
+  /// a creator, the Stop button.
   void _abortGeneration() {
-    if (_requests.dropStoppedReplies()) return;
     _requests.aborts++;
     _requests.wire.cut();
     // Server-side abort, not awaited so the UI never blocks: KoboldCpp stops
     // even with the socket gone, and drains before the next request.
     _postAbort();
   }
+
+  /// A cancelled turn's replies that still wait leave the line at once. The
+  /// wire is left alone: whoever is on it is ahead of those replies and may
+  /// be a pass of an earlier turn, which cancelling this turn does not
+  /// cancel. Only the Stop button and a chat switch ask for this.
+  bool _dropStoppedReplies() => _requests.dropStoppedReplies();
 
   Future<void> _waitForIdle() => _requests.queue.waitForIdle();
 }

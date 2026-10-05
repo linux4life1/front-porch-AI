@@ -25,6 +25,28 @@ Future<void> _until(bool Function() done) async {
 Future<void> _aWhile() =>
     Future<void>.delayed(const Duration(milliseconds: 250));
 
+/// A second lane whose abort reaches the same engine. The app wires a worker
+/// on the same engine as the same service, so this is not how it runs; Stop
+/// must not depend on that.
+class _SameEngine extends LLMService {
+  _SameEngine(this._kobold);
+
+  final KoboldService _kobold;
+
+  @override
+  Stream<String> generateStream(GenerationParams params) =>
+      _kobold.generateStream(params);
+
+  @override
+  void abortGeneration() => _kobold.abortGeneration();
+
+  @override
+  bool get isReady => _kobold.isReady;
+
+  @override
+  String get backendName => _kobold.backendName;
+}
+
 void main() {
   late KoboldChatHarness h;
   late Completer<void> hold;
@@ -148,6 +170,101 @@ void main() {
       reason: 'the pass was cut off: its caller never got its answer',
     );
     expect(h.engine.arrived.map((r) => r.kind), ['chat']);
+  });
+
+  test('Stop leaves the request ahead alone through a second lane over the '
+      'same engine too', () async {
+    h.chat.testWorkerLlmServiceOverride = _SameEngine(h.kobold);
+    final earlier = h.kobold
+        .generateStream(
+          const GenerationParams(prompt: 'EARLIER pass words', maxLength: 16),
+        )
+        .toList();
+    await _until(() => h.engine.arrived.length == 1);
+    final sending = h.chat.sendMessage('Did the rain stop?');
+    await _until(() => h.kobold.debugRepliesWaiting == 1);
+
+    h.chat.stopGeneration(); // aborts the mouth, then the second lane
+    await sending.timeout(const Duration(seconds: 5));
+    await _aWhile(); // time for an abort that was sent to arrive
+
+    expect(
+      h.engine.aborts,
+      0,
+      reason: 'the second lane cut the pass of an earlier turn',
+    );
+    hold.complete();
+    expect(
+      await earlier,
+      isNotEmpty,
+      reason: 'the pass was cut off: its caller never got its answer',
+    );
+  });
+
+  test('Stop while the reply is on the wire still cuts it and tells the '
+      'engine', () async {
+    final onTheWire = Completer<void>();
+    h.engine.beforeReply = (r) =>
+        r.promptText.contains('rain') ? onTheWire.future : Future<void>.value();
+    addTearDown(() {
+      if (!onTheWire.isCompleted) onTheWire.complete();
+    });
+    final sending = h.chat.sendMessage('Did the rain stop?');
+    await _until(() => h.engine.arrived.any((r) => r.kind == 'chat'));
+
+    h.chat.stopGeneration();
+    await sending.timeout(const Duration(seconds: 5));
+    await _aWhile();
+
+    expect(
+      h.engine.aborts,
+      greaterThan(0),
+      reason: 'nothing waited, so Stop had a reply on the wire to cut',
+    );
+    expect(h.chat.isGenerating, isFalse);
+  });
+
+  test('an abort that is not the Stop button cuts the wire even when a reply '
+      'behind it has been given up on', () async {
+    // What an eval does after an early answer, or a tool call after its
+    // timeout: nobody pressed Stop, but the cancel flag of a character switch
+    // may be set for the reply waiting behind.
+    final earlier = h.kobold
+        .generateStream(
+          const GenerationParams(prompt: 'EARLIER pass words', maxLength: 16),
+        )
+        .toList()
+        .then((_) => 'finished', onError: (_) => 'cut');
+    await _until(() => h.engine.arrived.length == 1);
+    var wanted = true;
+    final reply = h.kobold
+        .generateStream(
+          GenerationParams(
+            prompt: 'the reply words',
+            maxLength: 16,
+            kvChat: 'A',
+            stillWant: () => wanted,
+          ),
+        )
+        .toList();
+    await _until(() => h.kobold.debugRepliesWaiting == 1);
+    wanted = false;
+
+    h.kobold.abortGeneration(); // the pass ends itself
+
+    expect(
+      await earlier.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => 'still running',
+      ),
+      'cut',
+      reason: 'the abort was taken for the reply behind and the pass went on',
+    );
+    await _aWhile();
+    expect(h.engine.aborts, 1, reason: 'the engine is told, as it always was');
+    hold.complete();
+    expect(await reply, isEmpty, reason: 'a reply given up on is never sent');
+    expect(repliesSent(), isEmpty);
   });
 
   test('an abort that is not a Stop is as it was: it cuts the wire, and a '

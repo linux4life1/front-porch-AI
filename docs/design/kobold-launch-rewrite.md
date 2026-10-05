@@ -932,21 +932,25 @@ reply carries `GenerationParams.stillWant` (false once Stop is pressed),
 asked when its turn comes, before the model is woken or its chat loaded, and
 again after the chat is loaded back; a reply the user stopped is not sent
 and not saved. Who an abort belongs to: an abort closes the call on the wire
-and tells the engine to stop, as it always did, except when it is a Stop for
-a chat reply that still waits (a waiting reply that no longer wants to be
-sent). That reply leaves the line at once, which gets the chat back without
-waiting for the engine, and the wire is left alone: whoever is on it is
-ahead of the reply and may be a pass of an earlier turn (journal, growth),
-which a Stop of this turn does not cancel. A turn's own helper on the wire is
-cut as before (nothing of the turn waits then), and so is any abort that is
-not a Stop. Stop, perf, token counts and swaps stay outside the line.
+and tells the engine to stop, always, whoever asks (an eval that has its
+answer, a tool call that timed out, a creator, the Stop button). Taking a
+waiting reply out of the line is a separate call, `dropStoppedReplies`, made
+only by the Stop button: a chat reply that still waits and whose turn was
+cancelled leaves at once, which gets the chat back without waiting for the
+engine, and the wire is left alone, because whoever is on it is ahead of the
+reply and may be a pass of an earlier turn (journal, growth) that cancelling
+this turn does not cancel. Stop aborts nothing when it took a reply out of the
+line, whatever the lanes are: in the app a worker on the same engine is the
+same service, and a test also has a second object over the engine ask for the
+abort. Stop with nothing waiting aborts both lanes as it always did. Perf,
+token counts and swaps stay outside the line.
 `waitForIdle` means "what is in line at this moment". The line comes first,
 the swap lock second; a swap never takes the line. No count of aborts decides
 whether a waiting reply is dropped: many callers abort on purpose (the eval
-engine after an early JSON, tool timeouts), so counting aborts would drop a
-reply that is only waiting. The count is only used after the fact, to tell a
-reply that an abort closed (its cache is as it left it, worth keeping) from
-one that broke.
+engine after an early JSON, tool timeouts), and an abort that is not the Stop
+button must cut the wire even while a reply behind it has been given up on.
+The count is only used after the fact, to tell a reply that an abort closed
+(its cache is as it left it, worth keeping) from one that broke.
 
 **Who is a chat.** `GenerationParams.kvChat` is the chat's session id. Only
 `paramsOf` (send, Continue, regenerate, every group speaker, Scene Guest and
