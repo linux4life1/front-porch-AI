@@ -116,7 +116,7 @@ class KcppsChatLengthSection extends StatelessWidget {
                 'the whole chat again',
             onChanged: (v) => c.edit((d) => d.copyWith(slidingWindow: v)),
           )
-        else
+        else if (c.info != null)
           Text(
             'This model has no sliding window, so replies start fast on '
             'long chats (fast forward stays on).',

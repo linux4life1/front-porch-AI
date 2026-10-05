@@ -293,7 +293,9 @@ void main() {
     });
 
     testWidgets('the panel says whether the model file is being read, '
-        'cannot be, or is fine', (tester) async {
+        'cannot be, or is fine, and nothing is said about a model not read', (
+      tester,
+    ) async {
       final gate = Completer<_Read>();
       final c = controller(
         readModel: (path) {
@@ -315,17 +317,25 @@ void main() {
             body: SingleChildScrollView(
               child: ListenableBuilder(
                 listenable: c,
-                builder: (_, _) => KcppsFitPanel(c: c),
+                builder: (_, _) => Column(
+                  children: [
+                    KcppsFitPanel(c: c),
+                    KcppsChatLengthSection(c: c),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       );
+      final noWindow = find.textContaining('has no sliding window');
       expect(find.byKey(const ValueKey('kcpps-verdict')), findsOneWidget);
+      expect(noWindow, findsOneWidget, reason: 'Llama 3.2 has none');
 
       unawaited(c.setModel(p.join(bin.path, 'gone.gguf')));
       await tester.pump();
       expect(find.text('Reading the model file…'), findsOneWidget);
+      expect(noWindow, findsNothing, reason: 'not known yet');
 
       gate.completeError(FileSystemException('No such file', 'gone.gguf'));
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
@@ -335,6 +345,7 @@ void main() {
         find.textContaining('The model file could not be read'),
         findsOneWidget,
       );
+      expect(noWindow, findsNothing, reason: 'a file not read says nothing');
     });
   });
 }
