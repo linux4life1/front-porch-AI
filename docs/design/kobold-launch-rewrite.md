@@ -475,6 +475,17 @@ Decisions already made by the maintainer:
     route and the Settings page (`presetOwnsContext` in `web_ui`). The
     Generation tab and the creator had no lock; Advanced, the dialog and a
     chat's settings locked on any backend.
+23. The user's own chat length comes back (2026-10-05). Choosing a preset
+    still copies its context in as the context in use (the prompt budget,
+    the cards and the phone read that one number), but the user's own is
+    kept when a preset is first chosen (`context_size_before_preset`,
+    beta-aware) and comes back when the preset is cleared or a model with
+    no preset of its own is picked; going from one preset to another keeps
+    it, and so does a restart. Every pick on both surfaces goes through
+    `setActiveKcppsPath` (`ChatContextFields.followPresetContext`). A
+    different number the user sets while a preset is chosen (possible only
+    on another backend, decision 22) becomes their own; the unchanged
+    context the phone sends back with every save does not.
 
 ## Design
 

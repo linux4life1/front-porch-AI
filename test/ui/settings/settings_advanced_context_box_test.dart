@@ -30,8 +30,8 @@ void main() {
   String boxText(WidgetTester tester) =>
       tester.widget<TextField>(contextBox()).controller!.text;
 
-  testWidgets('a preset chosen and cleared on the Backend tab leaves the box '
-      'on the context the preset set', (tester) async {
+  testWidgets('a preset chosen on the Backend tab shows its context in the '
+      'box, and clearing it shows the user\'s own again', (tester) async {
     final rig = await mountSettings(
       tester,
       lastUsedIsB: false,
@@ -41,13 +41,13 @@ void main() {
         ).writeAsStringSync(jsonEncode({'contextsize': 32768}));
       },
     );
+    final own = rig.store.backendSettings.contextSize;
     await openTab(tester, 'Backend');
     final presets = find.descendant(
       of: find.byType(KcppsSelector),
       matching: find.byType(DropdownButton<String>),
     );
     await pickFromDropdown(tester, presets, 'long.kcpps');
-    await pickFromDropdown(tester, presets, 'None (Use App Settings)');
     expect(rig.store.backendSettings.contextSize, 32768);
 
     await openTab(tester, 'Advanced');
@@ -57,6 +57,14 @@ void main() {
       '32768',
       reason: 'the box shows the context the page opened with',
     );
+
+    await openTab(tester, 'Backend');
+    await pickFromDropdown(tester, presets, 'None (Use App Settings)');
+    // The user's own context comes back with the preset cleared.
+    expect(rig.store.backendSettings.contextSize, own);
+    await openTab(tester, 'Advanced');
+
+    expect(boxText(tester), '$own');
   });
 
   testWidgets('a context chosen on the Local model card shows in the box', (

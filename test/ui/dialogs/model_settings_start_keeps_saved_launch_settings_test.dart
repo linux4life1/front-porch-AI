@@ -141,21 +141,28 @@ void main() {
     );
   });
 
-  testWidgets('the context box shows the context a chosen preset set, also '
-      'after the preset is cleared', (tester) async {
+  testWidgets('the context box shows the context a chosen preset set, and '
+      'the user\'s own again after the preset is cleared', (tester) async {
     final rig = await openModelSettings(
       tester,
       lastUsedIsB: false,
       before: longChatsPreset,
     );
+    final own = rig.store.backendSettings.contextSize;
+    String box() => tester.widget<TextField>(contextBox()).controller!.text;
     await pickFromDropdown(tester, presetDropdown(), 'long.kcpps');
-    await pickFromDropdown(tester, presetDropdown(), 'None (Use App Settings)');
 
     expect(rig.store.backendSettings.contextSize, 32768);
     expect(
-      tester.widget<TextField>(contextBox()).controller!.text,
+      box(),
       '32768',
       reason: 'the box still shows the context the dialog opened with',
     );
+
+    await pickFromDropdown(tester, presetDropdown(), 'None (Use App Settings)');
+
+    // The user's own context comes back with the preset cleared.
+    expect(rig.store.backendSettings.contextSize, own);
+    expect(box(), '$own');
   });
 }

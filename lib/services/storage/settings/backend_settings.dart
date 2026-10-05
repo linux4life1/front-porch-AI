@@ -18,10 +18,10 @@
 
 import 'dart:io';
 
-// Leaves, not kobold.dart: the barrel loops back through storage_service.dart.
+// A leaf, not kobold.dart: the barrel loops back through storage_service.dart.
 import 'package:front_porch_ai/services/kobold/kcpps_codec.dart';
-import 'package:front_porch_ai/services/kobold/kobold_context_owner.dart';
 
+import 'chat_context_fields.dart';
 import 'kobold_launch_fields.dart';
 import 'settings_base.dart';
 import 'preset_settings.dart'; // for parseKcppsFile (static)
@@ -34,7 +34,11 @@ import 'worker_backend_settings.dart';
 /// Lifted Stage 7. kcppsHasModel + context override from active preset logic
 /// preserved exactly.
 class BackendSettings
-    with SettingsBase, WorkerBackendFields, KoboldLaunchFields {
+    with
+        SettingsBase,
+        WorkerBackendFields,
+        KoboldLaunchFields,
+        ChatContextFields {
   String _backendType = 'kobold'; // 'kobold' or 'openRouter'
   bool _backendChoiceDone = false; // first-launch engine choice answered
   String _remoteApiKey = '';
@@ -65,11 +69,6 @@ class BackendSettings
   int _blasBatchSize = 512;
   int _gpuId = 0;
   int _gpuLayers = 0;
-  // 16384 (was 8192): modern models all serve 16k+, and the 2048-token
-  // generation reserve (generation_settings.dart) plus lorebooks/journal
-  // left an 8k window tight on chat history. Users with a saved value
-  // keep theirs; this only seeds fresh installs.
-  int _contextSize = 16384;
 
   @override
   String get backendType => _backendType;
@@ -99,14 +98,9 @@ class BackendSettings
   bool get autostartBackend => _autostartBackend;
   bool get autostartOnChatOpen => _autostartOnChatOpen;
   String? get lastUsedModelPath => _lastUsedModelPath;
+  @override
   String? get activeKcppsPath => _activeKcppsPath;
   bool get kcppsHasModel => _kcppsHasModel;
-
-  /// The chosen preset sets chat's context ([koboldPresetOwnsContext]).
-  bool get presetOwnsContext => koboldPresetOwnsContext(
-    backend: _backendType,
-    kcppsPath: _activeKcppsPath,
-  );
 
   /// Model path referenced by parsed .kcpps JSON, or null when it names
   /// none. The rule is [kcppsModelOf], the one a launch uses, so what
@@ -158,8 +152,6 @@ class BackendSettings
   int get blasBatchSize => _blasBatchSize;
   int get gpuId => _gpuId;
   int get gpuLayers => _gpuLayers;
-
-  int get contextSize => _contextSize;
 
   void load() {
     _backendType = prefs?.getString(k('backend_type')) ?? 'kobold';
@@ -227,9 +219,6 @@ class BackendSettings
     // Restore the kcppsHasModel flag and context size from the persisted preset path
     final parsed = PresetSettings.parseKcppsFile(_activeKcppsPath);
     _kcppsHasModel = _kcppsModelPathOf(parsed) != null;
-    if (parsed != null && parsed['contextsize'] is int) {
-      _contextSize = parsed['contextsize'] as int;
-    }
 
     _backendChoiceDone = prefs?.getBool(k('backend_choice_done')) ?? false;
 
@@ -245,7 +234,7 @@ class BackendSettings
     _blasBatchSize = prefs?.getInt(k('blas_batch_size')) ?? _blasBatchSize;
     _gpuId = prefs?.getInt(k('gpu_id')) ?? _gpuId;
     _gpuLayers = prefs?.getInt(k('gpu_layers')) ?? _gpuLayers;
-    _contextSize = prefs?.getInt(k('context_size')) ?? _contextSize;
+    loadChatContext(_contextOf(parsed));
     loadWorkerBackend();
     loadKoboldLaunch();
   }
@@ -399,15 +388,19 @@ class BackendSettings
     notify();
   }
 
+  /// The one way chat's preset changes, on the desktop and on the phone; the
+  /// context follows it ([followPresetContext]).
   Future<void> setActiveKcppsPath(String? value) async {
+    final hadPreset = _activeKcppsPath?.trim().isNotEmpty ?? false;
     _activeKcppsPath = value;
-    // Parse synchronously so _kcppsHasModel and _contextSize are accurate in the same notifyListeners call.
+    // Parse synchronously so _kcppsHasModel and the context are accurate in the same notifyListeners call.
     final parsed = PresetSettings.parseKcppsFile(value);
     _kcppsHasModel = _kcppsModelPathOf(parsed) != null;
-    if (parsed != null && parsed['contextsize'] is int) {
-      _contextSize = parsed['contextsize'] as int;
-      await prefs?.setInt(k('context_size'), _contextSize);
-    }
+    await followPresetContext(
+      hadPreset: hadPreset,
+      hasPreset: value?.trim().isNotEmpty ?? false,
+      presetContext: _contextOf(parsed),
+    );
     if (value != null) {
       await prefs?.setString(k('active_kcpps_path'), value);
     } else {
@@ -488,9 +481,9 @@ class BackendSettings
     notify();
   }
 
-  Future<void> setContextSize(int value) async {
-    _contextSize = value;
-    await prefs?.setInt(k('context_size'), value);
-    notify();
+  /// The context a parsed preset sets, or null when it sets none.
+  static int? _contextOf(Map<String, dynamic>? preset) {
+    final context = preset?['contextsize'];
+    return context is int ? context : null;
   }
 }
