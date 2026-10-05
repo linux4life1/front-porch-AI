@@ -10,18 +10,20 @@ extension KcppsEditorFit on KcppsEditorController {
 
   bool get unified => unifiedMemory;
 
-  bool get rocm => storage.backendSettings.useRocm ?? false;
+  /// The backend the form's preset names on this machine. Settings only
+  /// says whether the engine is the ROCm build.
+  KoboldBackendChoice get backendChoice => koboldBackendFor(
+    hardware: hardware.hardwareInfo,
+    rocm: storage.backendSettings.useRocm,
+    unified: unified,
+    preset: draft.backend,
+    presetGpuId: draft.gpuId,
+  );
 
-  KoboldMemoryBackend get memoryBackend => unified
-      ? KoboldMemoryBackend.metal
-      : draft.backend == KoboldGpuBackend.vulkan
-      ? KoboldMemoryBackend.vulkan
-      : rocm
-      ? KoboldMemoryBackend.rocm
-      : KoboldMemoryBackend.cuda;
+  bool get rocm => backendChoice.rocm;
 
   /// A card the model can go on (Apple Silicon counts).
-  bool get hasCard => unified || draft.backend != KoboldGpuBackend.none;
+  bool get hasCard => backendChoice.onCard;
 
   /// MMQ only does anything on CUDA and the ROCm build.
   bool get mmqApplies => draft.backend == KoboldGpuBackend.cuda;
@@ -64,20 +66,7 @@ extension KcppsEditorFit on KcppsEditorController {
 
   KoboldMachine? get machine {
     final hw = hardware.hardwareInfo;
-    if (hw == null) return null;
-    // Free memory is read for one card; each other card counts as the
-    // smallest card seen (mixed cards never look bigger), less the half a GB
-    // a card is assumed to keep for itself.
-    final small = hw.smallestCardMb;
-    final others = (cards - 1) * (small - 512).clamp(0, small);
-    final free = this.free?.graphics;
-    return KoboldMachine(
-      backend: memoryBackend,
-      totalGraphicsMb: hasCard ? hw.vramMb + (cards - 1) * small : 0,
-      totalSystemMb: hw.ramMb,
-      freeGraphicsMb: hasCard ? (free == null ? null : free + others) : 0,
-      freeSystemMb: this.free?.system,
-    );
+    return hw == null ? null : backendChoice.machineFor(hw, free, cards: cards);
   }
 
   KoboldFit? get fit {
@@ -90,7 +79,7 @@ extension KcppsEditorFit on KcppsEditorController {
       fileSizeBytes: bytes,
       contextSize: c.contextSize,
       batchSize: c.batchSize,
-      backend: memoryBackend,
+      backend: backendChoice.memory,
       kvQuant: c.kvQuant,
       slidingWindowOn:
           c.contextMode == ContextManagementMode.slidingWindowAttention,
@@ -110,7 +99,7 @@ extension KcppsEditorFit on KcppsEditorController {
       fileSizeBytes: helperBytes,
       contextSize: c.contextSize,
       batchSize: c.batchSize,
-      backend: memoryBackend,
+      backend: backendChoice.memory,
       kvQuant: c.kvQuant,
       flashAttention: c.flashAttention,
     ).load();

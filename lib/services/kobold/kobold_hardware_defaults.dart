@@ -68,7 +68,11 @@ Future<int> suggestKoboldThreads() async {
   return (logical - 1).clamp(1, logical);
 }
 
-/// The graphics backend a preset should name for this machine.
+/// The graphics backend a brand-new preset should name for this machine.
+///
+/// A default to start the editor from, not what a launch runs and not what
+/// the Local model card judges: those honour the user's own switches (see
+/// [koboldBackendFor]). A preset is a file, so this one never names ROCm.
 ///
 /// [gpuId] is the card the user chose in Settings; it is used for CUDA so a
 /// laptop with an integrated chip and a discrete card lands on the right one.

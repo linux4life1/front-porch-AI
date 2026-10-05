@@ -63,15 +63,22 @@ List<int> koboldContextChoices({required int current, int? modelMax}) {
 
 /// The verdict for each of [choices] against the context [fit] has now,
 /// and the largest that works well (never below the floor). Auto mode's
-/// fit: KoboldCpp keeps [paddingMb] spare.
+/// fit: KoboldCpp keeps [paddingMb] spare. [batchSize] is the batch the
+/// launch holds, when it does (see [koboldAutoTuning]).
 ({List<KoboldContextVerdict> verdicts, int? largestGood})
 koboldContextVerdicts({
   required KoboldFit fit,
   required KoboldMachine machine,
   required List<int> choices,
   int paddingMb = 1024,
+  int? batchSize,
 }) {
-  final now = koboldAutoTuning(fit, machine, paddingMb: paddingMb);
+  final now = koboldAutoTuning(
+    fit,
+    machine,
+    paddingMb: paddingMb,
+    batchSize: batchSize,
+  );
   final nowCost = _cost(now.load, fit, machine);
   final nowSystem = _cost(now.load, fit, machine, systemOnly: true);
   final nowShort = _shortMb(now.load, machine);
@@ -82,6 +89,7 @@ koboldContextVerdicts({
       fit.copyWith(contextSize: c),
       machine,
       paddingMb: paddingMb,
+      batchSize: batchSize,
     );
     final pace = _cost(tuned.load, fit, machine) / nowCost;
     // The chat memory kept in system memory has to fit there; weights are

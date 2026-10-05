@@ -39,7 +39,9 @@ enum GpuBackend { cuda, rocm, vulkan, metal, cpu }
 ///   override automatically.
 class GpuBackendResolver {
   /// Resolves the active backend from user prefs (null = not set = auto)
-  /// and detected hardware facts.
+  /// and detected hardware facts. [onMac] says whether the machine is Apple
+  /// hardware when the caller knows better than the platform this runs on
+  /// (null: this platform).
   static GpuBackend resolve({
     required bool? userCublas,
     required bool? userVulkan,
@@ -47,6 +49,7 @@ class GpuBackendResolver {
     required bool? userMetal,
     required bool hasCuda,
     required String vendor,
+    bool? onMac,
   }) {
     // Explicit choices win, most specific first.
     if (userRocm == true) return GpuBackend.rocm;
@@ -60,7 +63,11 @@ class GpuBackendResolver {
         userMetal == false) {
       return GpuBackend.cpu;
     }
-    return _auto(hasCuda: hasCuda, vendor: vendor);
+    return _auto(
+      hasCuda: hasCuda,
+      vendor: vendor,
+      onMac: onMac ?? Platform.isMacOS,
+    );
   }
 
   /// True when no acceleration pref has ever been touched.
@@ -75,8 +82,12 @@ class GpuBackendResolver {
       userRocm == null &&
       userMetal == null;
 
-  static GpuBackend _auto({required bool hasCuda, required String vendor}) {
-    if (Platform.isMacOS) return GpuBackend.metal;
+  static GpuBackend _auto({
+    required bool hasCuda,
+    required String vendor,
+    required bool onMac,
+  }) {
+    if (onMac) return GpuBackend.metal;
     if (hasCuda) return GpuBackend.cuda;
     if (vendor == 'AMD' || vendor == 'Intel') return GpuBackend.vulkan;
     return GpuBackend.cpu;

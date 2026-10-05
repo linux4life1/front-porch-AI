@@ -25,7 +25,6 @@ import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/gguf_parser.dart';
-import 'package:front_porch_ai/utils/kobold_memory_rules.dart';
 
 /// One way to launch KoboldCpp: from a config file the app writes.
 ///
@@ -258,7 +257,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
     model: KoboldModelFacts(
       isMoe: info?.isMoe ?? false,
       hasSlidingWindow: info?.hasSlidingWindow ?? false,
-      expertsShareGpuMemory: Platform.isMacOS,
+      expertsShareGpuMemory: gpu.unified,
       architecture: info?.architecture,
     ),
   );
@@ -284,7 +283,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
 Future<KoboldLaunchConfig> _tunedForMachine(
   KoboldLaunchConfig config, {
   required GGUFModelInfo? info,
-  required ({KoboldGpuBackend backend, int? gpuId, bool rocm}) gpu,
+  required KoboldBackendChoice gpu,
   required HardwareInfo? hardware,
   required FreeMemoryMb? free,
   required bool batchAutomatic,
@@ -298,40 +297,23 @@ Future<KoboldLaunchConfig> _tunedForMachine(
   } on FileSystemException {
     return withMmq;
   }
-  // Apple hardware: one memory pool, every layer on the graphics side.
-  final backend = hardware.hasMetal
-      ? KoboldMemoryBackend.metal
-      : gpu.backend == KoboldGpuBackend.vulkan
-      ? KoboldMemoryBackend.vulkan
-      : gpu.rocm
-      ? KoboldMemoryBackend.rocm
-      : KoboldMemoryBackend.cuda;
-  final onCard = gpu.backend != KoboldGpuBackend.none || hardware.hasMetal;
   final tuning = koboldAutoTuning(
     KoboldFit(
       info: info,
       fileSizeBytes: fileSize,
       contextSize: config.contextSize,
       batchSize: config.batchSize,
-      backend: backend,
+      backend: gpu.memory,
       kvQuant: config.kvQuant,
       slidingWindowOn:
           config.contextMode == ContextManagementMode.slidingWindowAttention,
       flashAttention: config.flashAttention,
     ),
-    KoboldMachine(
-      backend: backend,
-      totalGraphicsMb: onCard ? hardware.vramMb : 0,
-      totalSystemMb: hardware.ramMb,
-      freeGraphicsMb: onCard ? free?.graphics : 0,
-      freeSystemMb: free?.system,
+    gpu.machineFor(hardware, free),
+    batchSize: gpu.fixedBatch(
+      automatic: batchAutomatic,
+      chosen: config.batchSize,
     ),
-    // Nothing goes on a card without one: KoboldCpp's own batch.
-    batchSize: !onCard
-        ? kKoboldAutoBatches.first
-        : batchAutomatic
-        ? null
-        : config.batchSize,
   );
   return withMmq.copyWith(
     batchSize: tuning.batchSize,
@@ -340,10 +322,11 @@ Future<KoboldLaunchConfig> _tunedForMachine(
   );
 }
 
-/// The caller's backend switches, or the detected card when none was ever
-/// chosen. Launch sites that read stored preferences pass all-false for a
-/// user who never opened Settings; that used to mean CPU only.
-Future<({KoboldGpuBackend backend, int? gpuId, bool rocm})> _backendFor({
+/// The backend this launch runs, by the rule every caller shares
+/// ([koboldBackendFor]). A switch the caller passes as on counts as chosen;
+/// one passed as off is as Settings has it, which is what tells "never
+/// chosen" from "chosen off" (the callers collapse both to false).
+Future<KoboldBackendChoice> _backendFor({
   required bool useVulkan,
   required bool useCublas,
   required bool useMetal,
@@ -353,58 +336,27 @@ Future<({KoboldGpuBackend backend, int? gpuId, bool rocm})> _backendFor({
   required Future<HardwareInfo?> Function()? awaitHardware,
 }) async {
   final b = storage.backendSettings;
-  var choice = useRocm
-      ? GpuBackend.rocm
-      : useCublas
-      ? GpuBackend.cuda
-      : useVulkan
-      ? GpuBackend.vulkan
-      : useMetal
-      ? GpuBackend.metal
-      : GpuBackend.cpu;
-  if (choice == GpuBackend.cpu &&
-      GpuBackendResolver.isAutomatic(
-        userCublas: b.useCublas,
-        userVulkan: b.useVulkan,
-        userRocm: b.useRocm,
-        userMetal: b.useMetal,
-      )) {
-    // Only this case needs to know the card. On a first run detection may
-    // still be going; without the wait this launch would be CPU only.
-    final hw = hardware ?? await awaitHardware?.call();
-    choice = GpuBackendResolver.resolve(
-      userCublas: null,
-      userVulkan: null,
-      userRocm: null,
-      userMetal: null,
-      hasCuda: hw?.hasCuda ?? false,
-      vendor: hw?.vendor ?? 'Unknown',
-    );
-  }
-  return switch (choice) {
-    // An explicit card id: card 0 can be the integrated chip on a laptop.
-    GpuBackend.cuda => (
-      backend: KoboldGpuBackend.cuda,
-      gpuId: b.gpuId,
-      rocm: false,
-    ),
-    GpuBackend.rocm => (
-      backend: KoboldGpuBackend.cuda,
-      gpuId: b.gpuId,
-      rocm: true,
-    ),
-    GpuBackend.vulkan => (
-      backend: KoboldGpuBackend.vulkan,
-      gpuId: null,
-      rocm: false,
-    ),
-    // Metal is automatic on Apple hardware; CPU needs no setting either.
-    GpuBackend.metal || GpuBackend.cpu => (
-      backend: KoboldGpuBackend.none,
-      gpuId: null,
-      rocm: false,
-    ),
-  };
+  final cublas = useCublas ? true : b.useCublas;
+  final vulkan = useVulkan ? true : b.useVulkan;
+  final rocm = useRocm ? true : b.useRocm;
+  final metal = useMetal ? true : b.useMetal;
+  // Only the automatic choice needs to know the card. On a first run
+  // detection may still be going; without the wait this launch would be CPU
+  // only.
+  final automatic = GpuBackendResolver.isAutomatic(
+    userCublas: cublas,
+    userVulkan: vulkan,
+    userRocm: rocm,
+    userMetal: metal,
+  );
+  return koboldBackendFor(
+    hardware: hardware ?? (automatic ? await awaitHardware?.call() : null),
+    cublas: cublas,
+    vulkan: vulkan,
+    rocm: rocm,
+    metal: metal,
+    gpuId: b.gpuId,
+  );
 }
 
 Future<GGUFModelInfo?> _modelInfo(String modelPath) async {

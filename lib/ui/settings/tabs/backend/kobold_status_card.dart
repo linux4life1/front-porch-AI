@@ -126,6 +126,9 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
     if (free == null && !kobold.isRunning && !_readingFree) {
       _readFree(hardware);
     }
+    // Everything KoboldStatusFacts.of reads: a change to any of it works the
+    // facts out again, and a rebuild alone does not.
+    final hw = hardware.hardwareInfo;
     final key = [
       model,
       b.contextSize,
@@ -135,9 +138,18 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
       b.batchAutomatic,
       b.blasBatchSize,
       b.gpuId,
+      b.useCublas,
+      b.useVulkan,
+      b.useRocm,
+      b.useMetal,
+      b.rocmFlashAttentionFailed,
       _bytes,
       free,
-      hardware.hardwareInfo?.vramMb,
+      hw?.vramMb,
+      hw?.ramMb,
+      hw?.vendor,
+      hw?.hasCuda,
+      hw?.hasMetal,
     ].join('|');
     if (key != _factsKey) {
       _factsKey = key;
