@@ -34,6 +34,10 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
   final _nameFocus = FocusNode();
   bool _saved = false;
 
+  /// The preset (by [KcppsEditorController.loads]) whose own MoE setting
+  /// the user agreed to replace.
+  int? _moeAgreed;
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +103,12 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
   }
 
   Future<void> _save({required bool use}) async {
+    // Once for each preset put in the form: placement is written as a
+    // whole, and the file's own MoE setting goes with it.
+    if (c.saveReplacesOwnMoe && _moeAgreed != c.loads) {
+      if (!await askReplaceOwnMoeKcpps(context) || !mounted) return;
+      _moeAgreed = c.loads;
+    }
     Future<KcppsSaveResult> run(bool overwrite) =>
         use ? c.saveAndUse(overwrite: overwrite) : c.save(overwrite: overwrite);
     var result = await run(false);

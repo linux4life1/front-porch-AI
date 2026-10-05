@@ -51,6 +51,17 @@ Future<bool> askReplaceKcpps(BuildContext context, String name) => askKcpps(
   yes: 'Replace',
 );
 
+/// Asked once before a placement edit replaces a preset's own MoE setting.
+Future<bool> askReplaceOwnMoeKcpps(BuildContext context) => askKcpps(
+  context,
+  title: "Replace this preset's MoE setting?",
+  text:
+      'This preset keeps some of the model\'s experts in system memory with '
+      'a MoE (experts on CPU) setting of its own. Changing how the model is '
+      'placed replaces that setting with the placement chosen here.',
+  yes: 'Replace and save',
+);
+
 Future<bool> askDeleteKcpps(
   BuildContext context,
   String name, {

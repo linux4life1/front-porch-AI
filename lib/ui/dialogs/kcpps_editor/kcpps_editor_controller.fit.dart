@@ -219,6 +219,25 @@ extension KcppsEditorFit on KcppsEditorController {
   }
 }
 
+/// A preset's own MoE setting (`moecpu`, experts kept in system memory)
+/// that the form does not hold, such as one beside automatic layers: the
+/// form writes placement as one group, so a placement edit replaces it.
+extension KcppsEditorOwnMoe on KcppsEditorController {
+  /// Saving now drops or replaces the file's own `moecpu`, which the form
+  /// did not hold when the preset was opened. False for a new preset, an
+  /// edit that leaves placement alone, and a `moecpu` the form shows.
+  bool get saveReplacesOwnMoe {
+    final raw = _raw;
+    final opened = _opened;
+    if (raw == null || opened == null) return false;
+    int layers(Object? v) =>
+        (v is num ? v.toInt() : int.tryParse('${v ?? ''}'.trim())) ?? 0;
+    final own = layers(raw['moecpu']);
+    if (own <= 0 || layers(opened['moecpu']) == own) return false;
+    return layers(kcppsMergeEdits(raw, opened, _map())['moecpu']) != own;
+  }
+}
+
 /// Timing MMQ on and off on this card, from the editor.
 extension KcppsEditorMmq on KcppsEditorController {
   /// The chat memory at [q], in MB, wherever it sits.

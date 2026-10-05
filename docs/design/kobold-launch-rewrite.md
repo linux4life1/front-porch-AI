@@ -775,6 +775,14 @@ As built (2026-10-04), to the sketch the maintainer approved:
   placement and `autofit: false` with `gpulayers` and `moecpu` by hand. A
   placement that does not fit says by how much, and "Use the largest that
   fits" takes the most that does. Numbers past the model are refused.
+  A save writes only what was edited, a group at a time, and placement
+  (`gpulayers`, `autofit`, `autofitpadding`, `moecpu`) is one group, so a
+  file's own `moecpu` that the form does not hold (beside automatic layers,
+  where the form's forced fit writes none) goes when placement is edited.
+  The editor says so once before that save (2026-10-05, review row 360-8):
+  "Replace this preset's MoE setting?", with Cancel keeping the file as it
+  was (`saveReplacesOwnMoe`). A `moecpu` the form shows (placement by hand)
+  is the user's own edit and is not asked about.
 - The display name is the file name. Renaming moves the file and every
   setting that points at it (chat, each model's preset, the helper model,
   Porch Stories jobs); deleting lets go of them. One listing
@@ -907,7 +915,11 @@ Stage 8 as built, the rest (2026-10-04):
   `cardN` entries only, since it lists each card again as `renderDN`
   (`amdDrmCards`, shared with the free-memory read). A preset made on a
   machine with more cards never counts more than this one has. No control
-  to make a split.
+  to make a split. A preset's own split (`tensor_split`) is kept as
+  written, except when an edit switches a CUDA preset from every card to
+  one named card (2026-10-05): the split goes with it, since KoboldCpp
+  pins the named card only when there is no split (1.122.1 and 1.117.1
+  alike); `kcppsMergeEdits`.
 
 Stage 8 as built, unload when idle (2026-10-04): a setting, off by
 default, `kobold_idle_unload_minutes` (off, 10, 30 or 60) in
