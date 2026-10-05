@@ -119,11 +119,14 @@ class RecordingKobold extends KoboldService {
 }
 
 /// Counts the live reloads of a running KoboldCpp instead of running them.
+/// [answer] is what a reload says (null: nothing to report): a refusal, for
+/// a model KoboldCpp could not load.
 class ReloadCountingLlm extends FakeLLMProvider {
   ReloadCountingLlm(this.kobold);
 
   final KoboldService kobold;
   int reloads = 0;
+  Future<KoboldLaunchResult?> Function()? answer;
 
   @override
   KoboldService get koboldService => kobold;
@@ -131,7 +134,7 @@ class ReloadCountingLlm extends FakeLLMProvider {
   @override
   Future<KoboldLaunchResult?> reloadChatKobold() async {
     reloads++;
-    return null;
+    return answer?.call();
   }
 }
 
