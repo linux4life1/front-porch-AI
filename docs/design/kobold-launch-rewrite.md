@@ -931,7 +931,15 @@ aborts the lanes, and the reader only notices at its next token. So a chat
 reply carries `GenerationParams.stillWant` (false once Stop is pressed),
 asked when its turn comes, before the model is woken or its chat loaded, and
 again after the chat is loaded back; a reply the user stopped is not sent
-and not saved. Stop, perf, token counts and swaps stay outside the line.
+and not saved. Who an abort belongs to: an abort closes the call on the wire
+and tells the engine to stop, as it always did, except when it is a Stop for
+a chat reply that still waits (a waiting reply that no longer wants to be
+sent). That reply leaves the line at once, which gets the chat back without
+waiting for the engine, and the wire is left alone: whoever is on it is
+ahead of the reply and may be a pass of an earlier turn (journal, growth),
+which a Stop of this turn does not cancel. A turn's own helper on the wire is
+cut as before (nothing of the turn waits then), and so is any abort that is
+not a Stop. Stop, perf, token counts and swaps stay outside the line.
 `waitForIdle` means "what is in line at this moment". The line comes first,
 the swap lock second; a swap never takes the line. No abort counter decides
 anything: many callers abort on purpose (the eval engine after an early

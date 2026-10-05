@@ -94,6 +94,9 @@ class FakeKoboldEngine {
   /// the generation lock. [log] is the order the lock served them.
   final List<FakeEngineRequest> arrived = [];
 
+  /// Aborts the engine was asked for.
+  int aborts = 0;
+
   /// Requests that have reached the socket and not been answered yet.
   int inFlight = 0;
   int maxInFlight = 0;
@@ -106,6 +109,7 @@ class FakeKoboldEngine {
   void forgetLog() {
     log.clear();
     arrived.clear();
+    aborts = 0;
   }
 
   Future<void> _lock = Future<void>.value();
@@ -165,6 +169,7 @@ class FakeKoboldEngine {
         case '/api/admin/clear_state':
           await _admin(req, path.split('/').last.split('_').first, json);
         case '/api/extra/abort':
+          aborts++;
           await _reply(req, {'success': 'true', 'done': 'true'});
         case '/api/extra/version':
           await _reply(req, {'result': 'KoboldCpp', 'version': '1.122.1'});

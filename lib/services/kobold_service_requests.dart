@@ -21,6 +21,31 @@ class _RequestState {
   /// Goes up with every [KoboldService.abortGeneration]: a reply that fails
   /// while it goes up was stopped, not broken.
   int aborts = 0;
+
+  /// Chat replies still waiting for their turn.
+  final Set<_Waiting> waiting = {};
+
+  /// Takes out of the line every waiting reply whose caller no longer wants
+  /// it (Stop was pressed). True when there was one: that abort was meant
+  /// for the reply, not for whoever is on the wire ahead of it.
+  bool dropStoppedReplies() {
+    var any = false;
+    for (final w in waiting.toList()) {
+      if (w.stillWant?.call() != false) continue;
+      waiting.remove(w);
+      w.left.complete();
+      any = true;
+    }
+    return any;
+  }
+}
+
+/// One chat reply in the line that has not had its turn. [left] completes
+/// when the reply is to leave the line without waiting for it.
+class _Waiting {
+  _Waiting(this.stillWant);
+  final bool Function()? stillWant;
+  final Completer<void> left = Completer<void>();
 }
 
 final Expando<_RequestState> _requestStates = Expando('fpai.koboldRequests');
@@ -97,6 +122,8 @@ extension KoboldServiceRequests on KoboldService {
     final chat = params.kvChat;
     bool wanted() => params.stillWant?.call() ?? true;
     // _idleRequestStart began, and has an _idleRequestEnd to match.
+    final waiting = chat == null ? null : _Waiting(params.stillWant);
+    if (waiting != null) _requests.waiting.add(waiting);
     var counted = false;
     // The keeper was told about this request, so it has to be told it ended.
     var touched = false;
@@ -105,7 +132,13 @@ extension KoboldServiceRequests on KoboldService {
     var aborts = 0;
     http.Client? mine;
     try {
-      await ticket.turn;
+      if (waiting == null) {
+        await ticket.turn;
+      } else {
+        // A Stop for this reply takes it out of the line at once.
+        await Future.any([ticket.turn, waiting.left.future]);
+        _requests.waiting.remove(waiting);
+      }
       // Before the model is woken, if it was unloaded, and before a load.
       if (!wanted()) return;
       counted = true;
@@ -145,6 +178,7 @@ extension KoboldServiceRequests on KoboldService {
         Error.throwWithStackTrace(error, stack);
       });
     } finally {
+      _requests.waiting.remove(waiting);
       if (counted) _idleRequestEnd();
       if (!touched || chat == null) {
         ticket.release();
@@ -161,7 +195,12 @@ extension KoboldServiceRequests on KoboldService {
     }
   }
 
+  /// Closes the call on the wire and tells the engine to stop. Not when the
+  /// abort is a Stop for a reply that is still waiting: whoever is on the
+  /// wire is ahead of that reply and may be a pass of an earlier turn, which
+  /// a Stop of this turn does not cancel. Every other abort is as it was.
   void _abortGeneration() {
+    if (_requests.dropStoppedReplies()) return;
     _requests.aborts++;
     _activeClient?.close();
     _activeClient = null;

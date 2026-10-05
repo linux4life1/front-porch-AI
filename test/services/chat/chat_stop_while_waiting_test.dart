@@ -2,7 +2,8 @@
 // request of an earlier turn (a journal or growth pass that outlived its
 // turn). The Stop button sets the turn's cancel flag and aborts the lanes; it
 // does not cancel the reader's subscription, so the reply has to look at the
-// flag itself. Each test presses the real Stop on a real ChatService.
+// flag itself, and the abort must not take the earlier turn's pass down with
+// it. Each test presses the real Stop on a real ChatService.
 
 import 'dart:async';
 
@@ -113,5 +114,62 @@ void main() {
     );
     expect(h.engine.arrived.map((r) => r.kind), isNot(contains('save')));
     expect(h.chat.isGenerating, isFalse);
+  });
+
+  test('Stop leaves the earlier turn\'s pass alone, and the chat is free at '
+      'once', () async {
+    // Kept, not swallowed: a pass that Stop killed throws here.
+    final earlier = h.kobold
+        .generateStream(
+          const GenerationParams(prompt: 'EARLIER pass words', maxLength: 16),
+        )
+        .toList();
+    await _until(() => h.engine.arrived.length == 1);
+    final sending = h.chat.sendMessage('Did the rain stop?');
+    await _until(() => h.kobold.debugRepliesWaiting == 1);
+
+    h.chat.stopGeneration(); // the Stop button
+    // The chat does not wait for the pass: it still holds the engine.
+    await sending.timeout(const Duration(seconds: 5));
+    expect(hold.isCompleted, isFalse);
+    expect(h.chat.isGenerating, isFalse);
+    expect(h.kobold.debugRepliesWaiting, 0);
+    await _aWhile(); // time for an abort that was sent to arrive
+    expect(
+      h.engine.aborts,
+      0,
+      reason: 'Stop told the engine to abort a pass of an earlier turn',
+    );
+
+    hold.complete();
+    expect(
+      await earlier,
+      isNotEmpty,
+      reason: 'the pass was cut off: its caller never got its answer',
+    );
+    expect(h.engine.arrived.map((r) => r.kind), ['chat']);
+  });
+
+  test('an abort that is not a Stop is as it was: it cuts the wire, and a '
+      'reply waiting behind keeps its place', () async {
+    final earlier = h.kobold
+        .generateStream(
+          const GenerationParams(prompt: 'EARLIER pass words', maxLength: 16),
+        )
+        .toList()
+        .then((_) => 'finished', onError: (_) => 'cut');
+    await _until(() => h.engine.arrived.length == 1);
+    final sending = h.chat.sendMessage('Did the rain stop?');
+    await _until(() => h.kobold.debugRepliesWaiting == 1);
+
+    // What an eval does after an early answer: not the Stop button, so the
+    // reply has not been given up on.
+    h.kobold.abortGeneration();
+
+    expect(await earlier, 'cut');
+    hold.complete();
+    await sending.timeout(const Duration(seconds: 10));
+    await h.settle();
+    expect(repliesSent(), hasLength(1), reason: 'the reply kept its place');
   });
 }

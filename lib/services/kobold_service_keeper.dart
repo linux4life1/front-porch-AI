@@ -138,6 +138,10 @@ extension KoboldServiceKeeper on KoboldService {
   set debugKeeperPlan(Future<KoboldKeeperPlan> Function()? plan) =>
       _requests.debugPlan = plan;
 
+  /// Test hook: chat replies still waiting for their turn at the engine.
+  @visibleForTesting
+  int get debugRepliesWaiting => _requests.waiting.length;
+
   /// Test hook: the keeper, to read what it holds.
   @visibleForTesting
   KoboldSlotKeeper get debugKeeper => _keeper;
