@@ -1140,8 +1140,12 @@ system-role check used to be sent at the same moment; only KoboldCpp's own
 lock put them in order, and the app could not say which chat the cache held.
 `KoboldRequestQueue` (`kobold/kobold_request_queue.dart`) is a first-come
 first-served line. `KoboldService` takes a place when a stream is listened
-to, a tool call is made or a system-role arm starts, and gives it back when
-the stream ends, fails or is cancelled, or the call returns. A reader that
+to, a tool call is made, a system-role arm starts or the editor's MMQ timing
+sends a prompt (`timePrompt`, a fresh 2,000-token prompt that changes the
+cache like any other, so it never overlaps the save of a chat or a reply),
+and gives it back when the stream ends, fails or is cancelled, or the call
+returns. Auto mode's MMQ learning sends nothing of its own: it reads the
+speed line of each reply. A reader that
 cancels its subscription while the request still waits means it is never
 sent. The Stop button does not do that: it sets the turn's cancel flag and
 aborts the lanes, and the reader only notices at its next token. So a chat
@@ -1267,8 +1271,9 @@ on the stand-in), `chat_stop_while_waiting_test` (the real Stop button and a
 character switch on a reply that waits behind another request, and the chat
 they leave), `chat_deleted_chat_slot_test` (a chat, a character's chats and a
 group deleted for real, and the phone's delete; the slot is let go and taken
-by the next chat) and `kobold_slot_keeper_forget_test` (a delete while the
-chat's save is running), `kobold_keeper_idle_test` (the idle
+by the next chat), `kobold_slot_keeper_forget_test` (a delete while the
+chat's save is running) and `kcpps_editor_mmq_line_test` (the editor's real
+timing waits for a save that is running, and a reply waits for it), `kobold_keeper_idle_test` (the idle
 clock counts from the end of a slow save), `kobold_wire_test` (the abort
 handle, over real sockets), `kobold_auto_keeper_test` (what auto mode writes
 and the way back), and `test/live/kobold_slot_keeper_live_test.dart`
@@ -1436,7 +1441,7 @@ real chat with Realism on, koboldcpp-mac-arm64-1.117.1
 **Not done, on purpose.**
 
 - The editor's MMQ timing runs after a swap that already empties the slots,
-  so it needs no `keepLoadedFor`.
+  so it needs no `keepLoadedFor`; only its prompts go through the line.
 - A helper model that swaps in on the same engine before every reply empties
   the slots each time; a hint from the provider could put the keeper to
   sleep then.

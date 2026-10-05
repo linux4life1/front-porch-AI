@@ -335,6 +335,9 @@ class KoboldService extends ChangeNotifier
   /// A chat was deleted: the keeper lets go of its saved cache.
   void forgetChat(String chat) => _forgetChat(chat);
 
+  /// One prompt for the editor's MMQ timing, sent in the line.
+  Future<Duration> timePrompt(int round) => _timePrompt(round);
+
   /// POST /api/extra/abort — KoboldCPP blocks until the active generation
   /// is fully stopped, then returns HTTP 200. Call this (and await it) before
   /// starting any new generation to guarantee the server is idle.

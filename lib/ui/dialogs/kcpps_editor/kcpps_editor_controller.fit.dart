@@ -285,7 +285,7 @@ extension KcppsEditorMmq on KcppsEditorController {
         // The better of two: the first read after a load can be slowed by
         // the disk.
         for (var i = 0; i < 2; i++) {
-          final t = await timeKoboldPrompt(kobold.baseUrl, ++round);
+          final t = await kobold.timePrompt(++round);
           if (best[on] == null || t < best[on]!) best[on] = t;
         }
       }

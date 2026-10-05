@@ -12,7 +12,8 @@ import 'dart:io';
 class FakeEngineRequest {
   FakeEngineRequest(this.kind, {this.slot});
 
-  /// `chat`, `save`, `load`, `check` or `clear`.
+  /// `chat`, `generate` (the older call, what the MMQ timing sends), `save`,
+  /// `load`, `check` or `clear`.
   final String kind;
   final int? slot;
 
@@ -167,6 +168,8 @@ class FakeKoboldEngine {
       switch (path) {
         case '/v1/chat/completions':
           await _chat(req, json);
+        case '/api/v1/generate':
+          await _generate(req, json);
         case '/api/admin/check_state':
         case '/api/admin/load_state':
         case '/api/admin/save_state':
@@ -297,6 +300,33 @@ class FakeKoboldEngine {
     } on Object {
       return false;
     }
+  }
+
+  /// The older generate call: one prompt, one answer, no stream.
+  Future<void> _generate(HttpRequest req, Map<String, dynamic> json) async {
+    final prompt = words(json['prompt']?.toString() ?? '');
+    final entry = FakeEngineRequest('generate')..prompt = prompt;
+    arrived.add(entry);
+    await _locked(() async {
+      log.add(entry);
+      var common = 0;
+      while (common < live.length &&
+          common < prompt.length &&
+          live[common] == prompt[common]) {
+        common++;
+      }
+      entry.processed = prompt.length - common;
+      live = [...prompt];
+      await beforeReply?.call(entry);
+      final reply = [for (var i = 0; i < replyWords; i++) 'g${log.length}_$i'];
+      live.addAll(reply);
+      entry.replyTokens = reply.length;
+      await _reply(req, {
+        'results': [
+          {'text': reply.join(' ')},
+        ],
+      });
+    });
   }
 
   Future<void> _chat(HttpRequest req, Map<String, dynamic> json) async {
