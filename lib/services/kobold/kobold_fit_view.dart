@@ -5,7 +5,7 @@
 // card, what each is, and a verdict with its one-tap fix. Pure, so every
 // sentence can be pinned by a test.
 
-import 'package:front_porch_ai/utils/kobold_placement.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kobold_app_config.dart';
 import 'kobold_fit.dart';

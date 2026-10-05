@@ -3,8 +3,6 @@
 
 import 'gguf_weights.dart';
 
-export 'gguf_weights.dart';
-
 /// One layer that keeps an attention cache. A layer with no attention (a
 /// recurrent or convolution layer) keeps none and is not listed.
 class GGUFKvLayer {

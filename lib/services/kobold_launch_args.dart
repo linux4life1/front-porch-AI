@@ -19,12 +19,12 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:front_porch_ai/models/hardware_info.dart';
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/utils/gguf_parser.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// One way to launch KoboldCpp: from a config file the app writes.
 ///

@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/utils/vram_estimator.dart';
-import 'package:front_porch_ai/utils/gguf_parser.dart';
-import 'package:front_porch_ai/models/hf_model.dart';
-import 'package:front_porch_ai/models/download_task.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 // Changed 2026-10-04: the five estimateFromArchitecture cache cases pinned
 // a formula KoboldCpp does not use (sliding layers at "context / 4 +

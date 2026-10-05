@@ -21,6 +21,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+// The leaves, not kobold.dart: the barrel reaches storage_service.dart, which
+// imports this file.
 import 'package:front_porch_ai/services/kobold/kobold_idle_unload.dart';
 import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
 import 'package:front_porch_ai/services/kobold/kobold_mmq_timing.dart';

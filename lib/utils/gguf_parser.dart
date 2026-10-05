@@ -5,9 +5,7 @@ import 'dart:io';
 
 import 'package:front_porch_ai/utils/gguf_model_info.dart';
 import 'package:front_porch_ai/utils/gguf_reader.dart';
-
-// Re-export so existing consumers importing gguf_parser.dart still resolve GGUFModelInfo.
-export 'gguf_model_info.dart';
+import 'package:front_porch_ai/utils/gguf_weights.dart';
 
 /// A lightweight parser to extract architectural parameters from GGUF files
 /// without loading the full model tensors into memory.

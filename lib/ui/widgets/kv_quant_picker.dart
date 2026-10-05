@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The five attention-cache types KoboldCpp accepts, with what each saves.

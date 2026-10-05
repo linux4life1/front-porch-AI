@@ -6,8 +6,7 @@
 
 import 'package:path/path.dart' as p;
 
-import 'package:front_porch_ai/utils/gguf_model_info.dart';
-import 'package:front_porch_ai/utils/smart_cache_estimate.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kcpps_codec.dart';
 import 'kobold_context_verdict.dart';

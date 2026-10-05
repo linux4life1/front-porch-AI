@@ -23,7 +23,7 @@ import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor.dart';
 import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor_controller.dart';
 import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_fit_panel.dart';
 import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_preset_list.dart';
-import 'package:front_porch_ai/utils/gguf_parser.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 import '../../golden/support/fakes_services.dart';
 import '../../golden/support/fakes_storage.dart';

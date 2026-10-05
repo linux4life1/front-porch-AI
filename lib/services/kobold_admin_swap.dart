@@ -21,7 +21,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
-import 'package:front_porch_ai/services/kobold/kcpps_codec.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// App-owned `--admindir` so reload_config can see GGUF + `.kcpps` names.

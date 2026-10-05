@@ -33,7 +33,7 @@ import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/kobold_status_card.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
-import 'package:front_porch_ai/utils/gguf_parser.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 import '../../golden/support/fakes_services.dart';
 

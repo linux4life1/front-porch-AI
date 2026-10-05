@@ -24,9 +24,6 @@ import 'package:front_porch_ai/utils/gguf_model_info.dart';
 import 'package:front_porch_ai/utils/kobold_memory_rules.dart';
 import 'package:front_porch_ai/utils/kobold_placement.dart';
 
-export 'package:front_porch_ai/utils/kobold_memory_rules.dart'
-    show KoboldMemoryBackend;
-
 /// Return type for [VramEstimator.estimateFromArchitecture].
 typedef VramEstimateBreakdown = ({
   int weightsMb,

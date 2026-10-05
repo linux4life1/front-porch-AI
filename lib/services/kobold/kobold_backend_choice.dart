@@ -20,7 +20,7 @@ import 'dart:io';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
-import 'package:front_porch_ai/utils/kobold_memory_rules.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kobold_fit.dart';
 import 'kobold_launch_config.dart';

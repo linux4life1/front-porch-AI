@@ -5,7 +5,7 @@
 // slower, too big. Auto mode shows only this; the reasons (layers, experts,
 // batch) stay in the preset editor.
 
-import 'package:front_porch_ai/utils/kobold_placement.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kobold_fit.dart';
 

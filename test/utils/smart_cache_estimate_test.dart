@@ -14,9 +14,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/utils/gguf_parser.dart';
-import 'package:front_porch_ai/utils/gguf_reader.dart';
-import 'package:front_porch_ai/utils/smart_cache_estimate.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 const _dir = 'test/fixtures/gguf_headers';
 
