@@ -219,7 +219,7 @@ extension _SettingsLaunchOptions on _SettingsPageState {
           toggle(
             label: 'Flash Attention',
             tooltip:
-                'Faster attention math. ~20–40% speed boost on RTX/Apple Silicon. Disabled automatically for ROCm.',
+                'Faster attention math, and less memory. ~20–40% speed boost on RTX/Apple Silicon. AMD (ROCm) follows this switch too: if KoboldCpp stops while answering with it on, the app turns it off and starts again. Gemma 4 on Vulkan always runs without it.',
             value: storage.backendSettings.flashAttentionEnabled,
             recommended: true,
             onChanged: (v) =>
