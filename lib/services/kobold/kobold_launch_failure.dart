@@ -100,14 +100,22 @@ bool kcppsRunsFlashAttention(Map<dynamic, dynamic> config) =>
     ? config['noflashattention'] != true
     : config['flashattention'] != false;
 
+/// Whether [output] from the engine says a reply was finished.
+bool koboldReplyFinishedIn(String output) => _done.hasMatch(output);
+
 /// Whether to start again with flash attention off: the ROCm build died
-/// mid-answer with it on, and this machine has not been marked yet.
-/// Running out of memory is not this: flash attention uses less.
+/// mid-answer with it on, on its first reply ([replyFinished]: no reply has
+/// finished since this KoboldCpp process started), and this machine has not
+/// been marked yet. A crash after a reply worked is something else and
+/// only stops, with its reason. Running out of memory is not this either:
+/// flash attention uses less.
 bool koboldRetryWithoutFlashAttention({
   required KoboldFailure failure,
   required bool rocmWithFlashAttention,
   required bool alreadyMarked,
+  bool replyFinished = false,
 }) =>
     failure.kind == KoboldFailureKind.diedWhileAnswering &&
     rocmWithFlashAttention &&
-    !alreadyMarked;
+    !alreadyMarked &&
+    !replyFinished;

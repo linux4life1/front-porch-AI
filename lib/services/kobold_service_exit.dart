@@ -34,6 +34,7 @@ extension KoboldServiceExit on KoboldService {
       failure: failure,
       rocmWithFlashAttention: _rocmFlashAttentionLaunch,
       alreadyMarked: b.rocmFlashAttentionFailed,
+      replyFinished: _replyFinished,
     )) {
       return;
     }

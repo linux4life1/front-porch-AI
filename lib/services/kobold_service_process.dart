@@ -256,6 +256,7 @@ extension KoboldServiceProcess on KoboldService {
       // can still call the start off.
       if (generation != _startGeneration) return _refuse(_stopPressed);
       _lastFailure = null;
+      _replyFinished = false;
       _rocmFlashAttentionLaunch =
           useRocm && staged != null && _flashAttentionIn(staged.key);
       _process = await Process.start(
@@ -284,6 +285,7 @@ extension KoboldServiceProcess on KoboldService {
       // Start periodic readiness probe — more reliable than log-watching.
       _startReadinessProbe();
 
+      final launched = _process!;
       _process!.stdout
           .transform(const Utf8Decoder(allowMalformed: true))
           .listen((data) {
@@ -291,6 +293,7 @@ extension KoboldServiceProcess on KoboldService {
             _parseLoadingStatus(data);
             _ingestLiveProgress(data);
             _storageService.backendSettings.noteKoboldOutput(data);
+            _noteReplyFinished(launched, data);
           });
 
       _process!.stderr
@@ -307,11 +310,11 @@ extension KoboldServiceProcess on KoboldService {
                 _addLog(cleanData);
                 _parseLoadingStatus(cleanData);
                 _ingestLiveProgress(cleanData);
+                _noteReplyFinished(launched, cleanData);
               }
             }
           });
 
-      final launched = _process!;
       launched.exitCode.then((code) {
         _addLog('Process exited with code $code');
         // Only the process we are still tracking may clear the state — a
@@ -366,6 +369,14 @@ extension KoboldServiceProcess on KoboldService {
     r'^(Generating \(|Processing Prompt(?: \[BATCH\])? \()',
     caseSensitive: false,
   );
+
+  /// [output] from [from] finishing a reply, while [from] is still the
+  /// process the app runs: from then on a crash is not a first-reply crash.
+  void _noteReplyFinished(Process from, String output) {
+    if (identical(from, _process) && koboldReplyFinishedIn(output)) {
+      _replyFinished = true;
+    }
+  }
 
   void _addLog(String data) {
     if (data.trim().isEmpty) return;

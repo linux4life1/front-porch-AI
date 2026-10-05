@@ -72,6 +72,10 @@ class KoboldService extends ChangeNotifier
   KoboldFailure? _lastFailure;
   Process? _stoppingProcess;
   bool _rocmFlashAttentionLaunch = false;
+
+  /// A reply has finished since this process started (its first "CtxLimit:"
+  /// line). Only a crash before that falls back to no flash attention.
+  bool _replyFinished = false;
   final List<String> _logs = [];
   String _modelLoadingStatus = '';
   bool _modelReady = false;

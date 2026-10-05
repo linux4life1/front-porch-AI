@@ -294,6 +294,10 @@ Decisions already made by the maintainer:
     engine dies on the first reply, the app restarts it with flash
     attention off and remembers that for the machine. The app had forced
     it off for every ROCm launch since before the rewrite. Built in Stage 5.
+    "The first reply" (2026-10-05): no reply has finished since that
+    KoboldCpp process started, that is no "CtxLimit:" line from it yet. A
+    crash after one only stops, with its reason; nothing is marked or
+    switched off.
 11. Gemma 4 on Vulkan runs with flash attention off (2026-10-04): with it on,
     KoboldCpp 1.122.1 dies on the first prompt. Built in Stage 5, lifted
     once a fixed KoboldCpp is confirmed on a real card.
@@ -754,9 +758,13 @@ started: after an exit, anything that answers on the port (a leftover
 KoboldCpp, another program) no longer marks the dead engine ready, which
 had wiped the sentence; stop and exit handling are unchanged. Proven on a
 real engine: killed mid-reply, the app says it stopped while answering.
-When the ROCm build dies mid-answer with flash attention on, a per-machine
-flag is set and the engine started again once
-without it (out of memory does not trigger it). `koboldFlashAttentionRuns`
+When the ROCm build dies on its first reply with
+flash attention on (mid-answer, with no reply finished since that process
+started: a per-process flag set by its first "CtxLimit:" line, as decision
+10 says; built 2026-10-05), a per-machine flag is set, Flash Attention is
+switched off in Settings and the engine started again once without it (out
+of memory does not trigger it); a later crash only stops, with its reason.
+`koboldFlashAttentionRuns`
 is the one rule for when flash attention is written (Gemma 4 on Vulkan:
 off; ROCm: on unless flagged); where it is off, a compressed cache falls
 back to full size and the launch log says why. An engine whose recorded
