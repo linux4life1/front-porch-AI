@@ -1247,7 +1247,9 @@ each load of the model (`KoboldService.loadGeneration`).
 - A save that takes longer than three seconds (`kKoboldSlowSave`) lets
   that chat go for the rest of the load: no load before its replies and no
   save after them, so the line is not held for it; the other chats are
-  still kept. A save that never answers in the call's 45 seconds lets every
+  still kept, but for the least recently used one when every slot was in
+  use: the save took its slot and wrote over its cache (as for a delete
+  during a save, below). A save that never answers in the call's 45 seconds lets every
   chat go for the load instead: what its slot holds is not known, and an
   engine that cannot save in time is short of something. Either way the
   engine log says so once, in plain words, and it is not a failure: the
@@ -1270,7 +1272,13 @@ each load of the model (`KoboldService.loadGeneration`).
   drops the chat, so its slot is the first free one for the next chat and it
   is not kept over a live one; a save that was already running when the chat
   went does not bring it back, and a reply that ends after the chat went is
-  not saved at all, so it pushes no live chat out. KoboldCpp cannot empty
+  not saved at all, so it pushes no live chat out. The one loss left: with
+  every slot in use, a save that was already running took the least
+  recently used chat's slot before the delete came, and wrote over that
+  chat's cache, so both chats leave the table (the others stay). No order
+  avoids it without guessing: a save needs its slot before anything is known
+  about how it ends, and putting the old chat back in the table would claim
+  a cache that is gone. KoboldCpp cannot empty
   one slot (clearing is all of them, which would lose the other chats), so
   the engine is not called: what it holds there stays until that next save
   writes over it, and the memory was counted for every slot full anyway.

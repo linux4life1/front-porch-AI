@@ -168,8 +168,9 @@ class KoboldSlotKeeper {
 
   /// [key]'s save took longer than [kKoboldSlowSave]: the chat is not kept
   /// for the rest of this load, so its replies are neither held up by a load
-  /// nor followed by a save. The other chats still are. The engine did what
-  /// it was asked, so this is not a failure to remember.
+  /// nor followed by a save. The other chats still are, but for the oldest
+  /// one when every slot was in use: this save wrote over its cache. The
+  /// engine did what it was asked, so this is not a failure to remember.
   void _tooSlow(String key, Duration took) {
     _saved.remove(key);
     _notKept.add(key);
