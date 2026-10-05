@@ -190,6 +190,8 @@ extension LLMProviderKoboldHosts on LLMProvider {
   /// engine that went back to another, is not what the record says) and the
   /// choice is still the one this reload was for (one made meanwhile is the
   /// user's newer one). Otherwise nothing is guessed and nothing changes.
+  /// What runs is known again too: the staged config is noted as the one
+  /// resident.
   Future<void> _putChoiceBack(
     ({String? model, String? kcpps, KoboldLaunch asked, String? staged}) was,
   ) async {
@@ -225,6 +227,11 @@ extension LLMProviderKoboldHosts on LLMProvider {
     if (staged != null && dir.isNotEmpty) {
       await stageKoboldConfig(dir, kStagedChatConfig, staged);
     }
+    // The failed check left what runs unknown, which keeps the tool-calling
+    // check from naming the model. KoboldCpp has said it runs this one, under
+    // the config that was staged for it. With no config to name, nothing is
+    // guessed.
+    if (staged != null) _koboldService.noteResident(staged);
   }
 
   /// Loads [config], which belongs to no role (a timing trial), into the
