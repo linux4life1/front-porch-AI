@@ -23,10 +23,10 @@ typedef KoboldUnderSwapLock = Future<T> Function<T>(Future<T> Function() work);
 /// A chat whose save takes longer than this is no longer kept. Measured on
 /// an Apple Silicon Mac with KoboldCpp 1.117.1 and 1.122.1, a save held the
 /// line about 0.2 s for a 0.5B model and 0.2 to 0.4 s for an 8B one, up to
-/// 13,448 tokens of chat (2 GB of cache). Seven times the slowest of those
-/// is not a big chat being copied but a machine that cannot copy it in time,
-/// and a wait that long after every reply holds back the next request (the
-/// next speaker in a group).
+/// 13,448 tokens of chat (2 GB of cache), and 0.7 s with the Mac busy with
+/// other work. Over four times that is not a big chat being copied but a
+/// machine that cannot copy it in time, and a wait that long after every
+/// reply holds back the next request (the next speaker in a group).
 const Duration kKoboldSlowSave = Duration(seconds: 3);
 
 enum _Mode { undecided, off, unprobed, on, aside }

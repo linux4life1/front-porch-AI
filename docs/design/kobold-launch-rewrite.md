@@ -1215,10 +1215,11 @@ each load of the model (`KoboldService.loadGeneration`).
   engine did not refuse, so nothing is remembered and the next load tries
   again. Measured
   here a save takes about 0.2 s for the 0.5B model and 0.2 to 0.4 s for the
-  8B one up to 13,448 tokens (2 GB of cache; table below): seven times the
-  slowest is not a big chat being copied but a machine that cannot copy it
-  in time, and a wait that long after every reply holds back the next
-  request, the next speaker in a group first.
+  8B one up to 13,448 tokens (2 GB of cache; table below), and 0.7 s with
+  the Mac busy with other work: over four times the slowest is not a big
+  chat being copied but a machine that cannot copy it in time, and a wait
+  that long after every reply holds back the next request, the next speaker
+  in a group first.
 - A reply that carries pictures (`GenerationParams.images`) is a helper to
   the keeper: no load before it and no save after it, because a load does not
   restore the engine's record of which pictures are in the cache. The next
@@ -1480,10 +1481,12 @@ long chat, Qwen3-VL-8B-Instruct-Q2_K.gguf on koboldcpp-mac-arm64-1.122.1
    7862   1162 MB    6577 ms    214 ms    129 ms  7883 restored  (a new chat)
 ```
 
-The same chat on 1.117.1: saves 201 to 395 ms, loads 72 to 105 ms. The
-0.5B model on either engine: saves 185 to 215 ms whatever the length (its
-cache is 12 KB a token, so the copy is small beside a fixed cost), loads 26
-to 59 ms. Reading the new 7,862-token chat took the 8B model 5.4 to 6.6 s,
+The same chat on 1.117.1: saves 201 to 395 ms, loads 72 to 105 ms; in a
+second run, with the Mac busy with other work (its replies took three to
+five times as long), saves 260 to 702 ms and loads up to 204 ms. The 0.5B
+model on either engine: saves 183 to 215 ms whatever the length (its cache
+is 12 KB a token, so the copy is small beside a fixed cost), loads 26 to 97
+ms. Reading the new 7,862-token chat took the 8B model 5.4 to 6.6 s,
 which is what a reply after a helper would cost without the keeper.
 
 **Not done, on purpose.**
