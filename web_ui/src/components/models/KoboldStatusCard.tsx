@@ -27,6 +27,8 @@ export type LocalModel = {
     verdicts: Record<string, KoboldVerdict>;
   } | null;
   presets: { path: string; name: string; line: string }[];
+  /** A model is chosen and its file could not be read (additive). */
+  modelUnreadable?: boolean;
 };
 
 const tokens = (n: number) => n.toLocaleString('en-US');
@@ -120,7 +122,11 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
             <li>
               <span className="kc-dot" aria-hidden="true" />
               <span>
-                {card.model ? 'Reading the model file…' : 'Choose a model below to see how it runs here.'}
+                {!card.model
+                  ? 'Choose a model below to see how it runs here.'
+                  : card.modelUnreadable
+                    ? 'The model file could not be read. Is it still in its folder? You can choose another model below.'
+                    : 'Still finding out what this computer can do…'}
               </span>
             </li>
           </ul>

@@ -37,6 +37,9 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
   String? _model;
   GGUFModelInfo? _info;
   int? _bytes;
+
+  /// The model file has been looked at: read, or not readable.
+  bool _modelRead = false;
   String? _presetPath;
   KcppsRead? _preset;
   KoboldStatusFacts? _facts;
@@ -84,6 +87,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
     setState(() {
       _info = info;
       _bytes = bytes;
+      _modelRead = true;
     });
   }
 
@@ -127,6 +131,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
       _model = model;
       _info = null;
       _bytes = null;
+      _modelRead = false;
       _readModel(model);
     }
     final preset = b.activeKcppsPath;
@@ -294,7 +299,12 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
           context,
           (_model ?? '').isEmpty
               ? 'Choose a model above to see how it runs here.'
-              : 'Reading the model file…',
+              : !_modelRead
+              ? 'Reading the model file…'
+              : _info == null || _bytes == null
+              ? 'The model file could not be read. Is it still in its folder? '
+                    'You can choose another model above.'
+              : 'Still finding out what this computer can do…',
         ),
       ];
     }

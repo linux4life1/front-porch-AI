@@ -36,8 +36,10 @@ extension BackendFacadeLocalModel on BackendFacade {
       };
     }
     Map<String, dynamic>? auto;
+    var unreadable = false;
     if (active == null && model.isNotEmpty) {
       final read = await _cardModelFor(model);
+      unreadable = read.info == null || read.bytes == null;
       final facts = KoboldStatusFacts.of(
         storage: _storage,
         hardware: _hardware?.hardwareInfo,
@@ -54,6 +56,9 @@ extension BackendFacadeLocalModel on BackendFacade {
       'phase': k.phase.name,
       'preset': preset,
       'auto': auto,
+      // Why a chosen model has no `auto`: its file could not be read (else
+      // this computer is not known yet). Additive.
+      'modelUnreadable': unreadable,
       'presets': [
         for (final e in presets)
           {'path': e.path, 'name': e.name, 'line': kcppsShortLine(e.read)},
@@ -124,7 +129,10 @@ extension BackendFacadeLocalModel on BackendFacade {
     } on FileSystemException catch (e) {
       debugPrint('[web] local model unreadable: $e');
     }
-    return _cardModel = (path: model, info: info, bytes: bytes);
+    final read = (path: model, info: info, bytes: bytes);
+    // Only a read that worked is kept, so a file back in its folder is read.
+    if (info != null && bytes != null) _cardModel = read;
+    return read;
   }
 
   /// Free memory before the app's KoboldCpp took any: read now when it is
