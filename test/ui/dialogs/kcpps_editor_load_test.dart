@@ -6,8 +6,8 @@
 // everything first and puts it in the form in one step, so two loads in a
 // row never leave a mixture (the path of one with the form of the other,
 // which a save then wrote into the wrong file), and a new preset is sized on
-// its own form. Real model headers (Qwen3 14B on a 6 GB GTX 1060 with 11 GB
-// of system memory free); the model files themselves are not read.
+// its own form. Llama 3.2 3B (its real header, grown to its real size as a
+// sparse file) on a 6 GB GTX 1060 with 11 GB of system memory free.
 
 import 'dart:async';
 import 'dart:convert';
@@ -57,13 +57,18 @@ void main() {
   setUp(() async {
     bin = await Directory.systemTemp.createTemp('fpai editor load');
     storage = _Storage(bin);
-    const fx = 'test/fixtures/gguf_headers/Qwen3-14B';
+    const fx = 'test/fixtures/gguf_headers/Llama-3.2-3B';
     final side = jsonDecode(await File('$fx.json').readAsString()) as Map;
+    model = p.join(bin.path, 'Llama-3.2-3B-Instruct-Q4_K_M.gguf');
+    final raf = await File(model).open(mode: FileMode.write);
+    await raf.writeFrom(await File('$fx.gguf').readAsBytes());
+    await raf.setPosition((side['fixture_file_bytes'] as int) - 1);
+    await raf.writeByte(0);
+    await raf.close();
     read = (
-      info: await GGUFParser.getModelArchitectureInfo('$fx.gguf'),
-      bytes: side['fixture_file_bytes'] as int,
+      info: await GGUFParser.getModelArchitectureInfo(model),
+      bytes: await File(model).length(),
     );
-    model = p.join(bin.path, 'Qwen3-14B-Q4_K_M.gguf');
     await storage.backendSettings.setLastUsedModelPath(model);
     await storage.backendSettings.setContextSize(16384);
   });

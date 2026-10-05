@@ -9,80 +9,14 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'kcpps_editor_controller.dart';
 import 'kcpps_editor_style.dart';
 import 'kcpps_memory_bar.dart';
+import 'kcpps_number_field.dart';
 
 /// "How this loads on your card": where the model goes, what that takes,
 /// and whether it fits, with the one-tap fix when it does not.
-class KcppsFitPanel extends StatefulWidget {
+class KcppsFitPanel extends StatelessWidget {
   const KcppsFitPanel({super.key, required this.c});
 
   final KcppsEditorController c;
-
-  @override
-  State<KcppsFitPanel> createState() => _KcppsFitPanelState();
-}
-
-class _KcppsFitPanelState extends State<KcppsFitPanel> {
-  final _layers = TextEditingController();
-  final _moeCpu = TextEditingController();
-  String? _layersProblem;
-  String? _moeProblem;
-
-  KcppsEditorController get c => widget.c;
-
-  @override
-  void didUpdateWidget(KcppsFitPanel old) {
-    super.didUpdateWidget(old);
-    _sync();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _sync();
-  }
-
-  /// The boxes follow the form unless they hold what was typed.
-  void _sync() {
-    void put(TextEditingController t, int v) {
-      if (int.tryParse(t.text) != v) t.text = '$v';
-    }
-
-    if (_layersProblem == null) put(_layers, c.draft.gpuLayers);
-    if (_moeProblem == null) put(_moeCpu, c.draft.moeCpuLayers);
-  }
-
-  @override
-  void dispose() {
-    _layers.dispose();
-    _moeCpu.dispose();
-    super.dispose();
-  }
-
-  void _typedLayers(String text) {
-    final n = int.tryParse(text);
-    final most = c.layerCount;
-    setState(() {
-      _layersProblem = n == null
-          ? 'Type a number.'
-          : n > most
-          ? 'This model has $most layers.'
-          : null;
-    });
-    if (_layersProblem == null) c.edit((d) => d.copyWith(gpuLayers: n));
-  }
-
-  void _typedMoe(String text) {
-    final n = int.tryParse(text);
-    final blocks = c.layerCount - 1;
-    setState(() {
-      _moeProblem = n == null
-          ? 'Type a number.'
-          : n > blocks
-          ? 'This model has $blocks layers.'
-          : null;
-    });
-    if (_moeProblem == null) c.edit((d) => d.copyWith(moeCpuLayers: n));
-  }
 
   void _place(bool manual) {
     if (manual && !c.draft.manual) {
@@ -98,8 +32,6 @@ class _KcppsFitPanelState extends State<KcppsFitPanel> {
     } else {
       c.edit((d) => d.copyWith(manual: manual));
     }
-    setState(() => _layersProblem = _moeProblem = null);
-    _sync();
   }
 
   @override
@@ -217,25 +149,25 @@ class _KcppsFitPanelState extends State<KcppsFitPanel> {
             _field(
               context,
               label: 'Layers on the card',
-              controller: _layers,
+              value: c.draft.gpuLayers,
+              most: c.layerCount,
               keyName: 'kcpps-layers',
               trailing: 'of ${c.layerCount}',
-              problem: _layersProblem,
-              error: _layersProblem != null || (view.fix != null && !moe),
-              onChanged: _typedLayers,
+              error: view.fix != null && !moe,
+              onValid: (n) => c.edit((d) => d.copyWith(gpuLayers: n)),
             ),
             if (moe)
               _field(
                 context,
                 label: 'Experts kept in system memory for the first',
-                controller: _moeCpu,
+                value: c.draft.moeCpuLayers,
+                most: c.layerCount - 1,
                 keyName: 'kcpps-moecpu',
                 trailing:
                     'layers (the other '
                     '${(view.load.expertBlocks - c.draft.moeCpuLayers).clamp(0, view.load.expertBlocks)} on the card)',
-                problem: _moeProblem,
-                error: _moeProblem != null || view.fix != null,
-                onChanged: _typedMoe,
+                error: view.fix != null,
+                onValid: (n) => c.edit((d) => d.copyWith(moeCpuLayers: n)),
               ),
           ],
         ),
@@ -247,56 +179,65 @@ class _KcppsFitPanelState extends State<KcppsFitPanel> {
     ];
   }
 
+  /// A number of layers, at most [most].
   Widget _field(
     BuildContext context, {
     required String label,
-    required TextEditingController controller,
+    required int value,
+    required int most,
     required String keyName,
     required String trailing,
-    required String? problem,
     required bool error,
-    required ValueChanged<String> onChanged,
-  }) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      KeLabel(label, size: 13),
-      const SizedBox(height: 6),
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          KeBox(
-            controller: controller,
-            keyName: keyName,
-            width: 72,
-            number: true,
-            error: error,
-            semanticLabel: label,
-            onChanged: onChanged,
-          ),
-          const SizedBox(width: 8),
+    required ValueChanged<int> onValid,
+  }) => KeNumberField(
+    value: value,
+    keyName: keyName,
+    width: 72,
+    semanticLabel: label,
+    error: error,
+    check: (text) {
+      final n = int.tryParse(text);
+      return n == null
+          ? 'Type a number.'
+          : n > most
+          ? 'This model has $most layers.'
+          : null;
+    },
+    onValid: (text) => onValid(int.parse(text)),
+    builder: (context, box, problem) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        KeLabel(label, size: 13),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            box,
+            const SizedBox(width: 8),
+            Text(
+              trailing,
+              style: keText(
+                context,
+                size: 13,
+                color: AppColors.slateFaintOf(context),
+              ),
+            ),
+          ],
+        ),
+        if (problem != null) ...[
+          const SizedBox(height: 4),
           Text(
-            trailing,
+            problem,
             style: keText(
               context,
-              size: 13,
-              color: AppColors.slateFaintOf(context),
+              size: 12,
+              color: AppColors.alertRedOf(context),
             ),
           ),
         ],
-      ),
-      if (problem != null) ...[
-        const SizedBox(height: 4),
-        Text(
-          problem,
-          style: keText(
-            context,
-            size: 12,
-            color: AppColors.alertRedOf(context),
-          ),
-        ),
       ],
-    ],
+    ),
   );
 
   Widget _note(BuildContext context, String text) => Text(
@@ -354,11 +295,7 @@ class _KcppsFitPanelState extends State<KcppsFitPanel> {
               'Use the largest that fits',
               kind: KeButtonKind.amber,
               padding: 14,
-              onPressed: () {
-                c.useLargestThatFits();
-                setState(() => _layersProblem = _moeProblem = null);
-                _sync();
-              },
+              onPressed: c.useLargestThatFits,
             ),
           ],
         ],

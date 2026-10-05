@@ -10,52 +10,15 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kcpps_editor_controller.dart';
 import 'kcpps_editor_style.dart';
+import 'kcpps_number_field.dart';
 
 String _gb(int mb) => '${(mb / 1024).toStringAsFixed(1)} GB';
 
 /// Smart cache: the suggestion, why, and the number of slots.
-class KcppsSmartCacheSection extends StatefulWidget {
+class KcppsSmartCacheSection extends StatelessWidget {
   const KcppsSmartCacheSection({super.key, required this.c});
 
   final KcppsEditorController c;
-
-  @override
-  State<KcppsSmartCacheSection> createState() => _KcppsSmartCacheState();
-}
-
-class _KcppsSmartCacheState extends State<KcppsSmartCacheSection> {
-  final _slots = TextEditingController();
-  String? _problem;
-
-  KcppsEditorController get c => widget.c;
-
-  @override
-  void initState() {
-    super.initState();
-    _slots.text = '${c.draft.slots}';
-  }
-
-  @override
-  void didUpdateWidget(KcppsSmartCacheSection old) {
-    super.didUpdateWidget(old);
-    if (_problem == null && int.tryParse(_slots.text) != c.draft.slots) {
-      _slots.text = '${c.draft.slots}';
-    }
-  }
-
-  @override
-  void dispose() {
-    _slots.dispose();
-    super.dispose();
-  }
-
-  void _typed(String text) {
-    final n = int.tryParse(text);
-    setState(
-      () => _problem = n == null || n > 20 ? 'From 0 to 20 slots.' : null,
-    );
-    if (_problem == null) c.edit((d) => d.copyWith(slots: n));
-  }
 
   String _why(({int slots, SmartCacheLimit limit}) s) {
     final free = c.machine?.systemMb;
@@ -136,33 +99,36 @@ class _KcppsSmartCacheState extends State<KcppsSmartCacheSection> {
           ),
           style: keText(context, size: 13, color: muted, height: 1.45),
         ),
-        Wrap(
-          spacing: 10,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            const KeLabel('Slots', size: 13),
-            KeBox(
-              controller: _slots,
-              keyName: 'kcpps-slots',
-              width: 72,
-              number: true,
-              error: _problem != null,
-              semanticLabel: 'Smart cache slots',
-              onChanged: _typed,
-            ),
-            if (_problem ?? hint case final note?)
-              Text(
-                note,
-                style: keText(
-                  context,
-                  size: 12,
-                  color: _problem != null
-                      ? AppColors.alertRedOf(context)
-                      : faint,
+        KeNumberField(
+          value: c.draft.slots,
+          keyName: 'kcpps-slots',
+          width: 72,
+          semanticLabel: 'Smart cache slots',
+          check: (text) {
+            final n = int.tryParse(text);
+            return n == null || n > 20 ? 'From 0 to 20 slots.' : null;
+          },
+          onValid: (text) => c.edit((d) => d.copyWith(slots: int.parse(text))),
+          builder: (context, box, problem) => Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const KeLabel('Slots', size: 13),
+              box,
+              if (problem ?? hint case final note?)
+                Text(
+                  note,
+                  style: keText(
+                    context,
+                    size: 12,
+                    color: problem != null
+                        ? AppColors.alertRedOf(context)
+                        : faint,
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -227,6 +193,48 @@ class KcppsExtrasSection extends StatelessWidget {
     ],
   );
 
+  /// Tokens guessed each step. Empty leaves it to KoboldCpp (4).
+  Widget _draftAmount(BuildContext context) => KeNumberField(
+    value: c.draft.draftAmount,
+    keyName: 'kcpps-draft-amount',
+    width: 72,
+    semanticLabel: 'Tokens guessed each step',
+    check: (text) {
+      final n = int.tryParse(text.trim());
+      return text.trim().isEmpty || (n != null && n >= 1 && n <= 16)
+          ? null
+          : 'A whole number from 1 to 16.';
+    },
+    onValid: (text) {
+      final empty = text.trim().isEmpty;
+      c.edit(
+        (d) => d.copyWith(
+          draftAmount: int.tryParse(text.trim()),
+          clearDraftAmount: empty,
+        ),
+      );
+    },
+    builder: (context, box, problem) => Wrap(
+      spacing: 10,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const KeLabel('Tokens guessed each step', size: 13),
+        box,
+        Text(
+          problem ?? 'Empty: KoboldCpp guesses 4.',
+          style: keText(
+            context,
+            size: 12,
+            color: problem != null
+                ? AppColors.alertRedOf(context)
+                : AppColors.slateFaintOf(context),
+          ),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final kept = c.unmanaged;
@@ -264,7 +272,7 @@ class KcppsExtrasSection extends StatelessWidget {
             onChanged: (v) => c.edit((d) => d.copyWith(useMtp: v)),
           ),
         if (c.draft.draftModelPath.isNotEmpty || c.draft.useMtp)
-          KcppsDraftAmount(key: ValueKey('draft-amount ${c.path}'), c: c),
+          _draftAmount(context),
         if (kept.isNotEmpty)
           Text(
             'Kept as written: ${kept.length} '
@@ -316,71 +324,5 @@ class KcppsPlainWords extends StatelessWidget {
         ),
       ],
     ),
-  );
-}
-
-/// Tokens guessed each step. Empty leaves it to KoboldCpp (4).
-class KcppsDraftAmount extends StatefulWidget {
-  const KcppsDraftAmount({super.key, required this.c});
-
-  final KcppsEditorController c;
-
-  @override
-  State<KcppsDraftAmount> createState() => _KcppsDraftAmountState();
-}
-
-class _KcppsDraftAmountState extends State<KcppsDraftAmount> {
-  late final TextEditingController _amount = TextEditingController(
-    text: widget.c.draft.draftAmount?.toString() ?? '',
-  );
-  String? _problem;
-
-  @override
-  void dispose() {
-    _amount.dispose();
-    super.dispose();
-  }
-
-  void _typed(String text) {
-    final value = int.tryParse(text.trim());
-    final empty = text.trim().isEmpty;
-    setState(
-      () => _problem = empty || (value != null && value >= 1 && value <= 16)
-          ? null
-          : 'A whole number from 1 to 16.',
-    );
-    if (_problem != null) return;
-    widget.c.edit(
-      (d) => d.copyWith(draftAmount: value, clearDraftAmount: empty),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: 10,
-    runSpacing: 6,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: [
-      const KeLabel('Tokens guessed each step', size: 13),
-      KeBox(
-        controller: _amount,
-        keyName: 'kcpps-draft-amount',
-        width: 72,
-        number: true,
-        error: _problem != null,
-        semanticLabel: 'Tokens guessed each step',
-        onChanged: _typed,
-      ),
-      Text(
-        _problem ?? 'Empty: KoboldCpp guesses 4.',
-        style: keText(
-          context,
-          size: 12,
-          color: _problem != null
-              ? AppColors.alertRedOf(context)
-              : AppColors.slateFaintOf(context),
-        ),
-      ),
-    ],
   );
 }
