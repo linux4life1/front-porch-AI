@@ -86,7 +86,7 @@ class _KcppsSmartCacheState extends State<KcppsSmartCacheSection> {
   Widget build(BuildContext context) {
     final faint = AppColors.slateFaintOf(context);
     final muted = AppColors.slateMutedOf(context);
-    if (c.draft.slidingWindow) {
+    if (c.slidingWindowOn) {
       return KeSection(
         title: 'Switching between chats (smart cache)',
         gap: 10,

@@ -28,7 +28,7 @@ class KcppsChatLengthSection extends StatelessWidget {
         if (c.cacheMbFor(q) case final mb?)
           '${kvQuantWords(q)} ${(mb / 1024).toStringAsFixed(1)} GB',
     ];
-    final swa = c.info?.hasSlidingWindow ?? false;
+    final swa = c.hasSlidingWindow;
     final faint = AppColors.slateFaintOf(context);
     return KeSection(
       title: 'Chat length',

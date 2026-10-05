@@ -107,6 +107,13 @@ class KcppsEditorController extends ChangeNotifier {
 
   bool get dirty => _saved != _snapshot();
 
+  /// The model has a sliding window. Where it has none, the sliding-window
+  /// choice does nothing and is not written (see [KcppsDraft.toConfig]).
+  bool get hasSlidingWindow => info?.hasSlidingWindow ?? false;
+
+  /// Sliding window is on: asked for, on a model that has one.
+  bool get slidingWindowOn => draft.slidingWindow && hasSlidingWindow;
+
   /// The preset the chat runs on.
   String? get chatPreset => storage.backendSettings.activeKcppsPath;
 
@@ -251,14 +258,7 @@ class KcppsEditorController extends ChangeNotifier {
     await _setModel(model);
     // A placement by hand is for the model it was set for.
     if (draft.manual) {
-      draft = draft.copyWith(
-        manual: false,
-        gpuLayers: 0,
-        moeCpuLayers: 0,
-        slidingWindow: info?.hasSlidingWindow ?? false
-            ? draft.slidingWindow
-            : false,
-      );
+      draft = draft.copyWith(manual: false, gpuLayers: 0, moeCpuLayers: 0);
     }
     _notify();
   }
@@ -400,6 +400,7 @@ class KcppsEditorController extends ChangeNotifier {
     rocm: storage.backendSettings.useRocm ?? false,
     rocmFlashAttentionFailed: storage.backendSettings.rocmFlashAttentionFailed,
     architecture: info?.architecture,
+    hasSlidingWindow: hasSlidingWindow,
   );
 
   void _notify() {

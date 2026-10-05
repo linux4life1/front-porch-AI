@@ -48,6 +48,7 @@ extension KcppsEditorFit on KcppsEditorController {
     rocm: rocm,
     rocmFlashAttentionFailed: storage.backendSettings.rocmFlashAttentionFailed,
     architecture: info?.architecture,
+    hasSlidingWindow: hasSlidingWindow,
   );
 
   int get paddingMb => koboldAutofitPaddingMb(greedy: draft.greedy);
@@ -139,7 +140,7 @@ extension KcppsEditorFit on KcppsEditorController {
     return koboldSmartCacheSlots(
       asked: w.asked,
       recurrent: recurrent,
-      fastForward: !draft.slidingWindow,
+      fastForward: !slidingWindowOn,
       contextShift: w.contextShift,
     );
   }

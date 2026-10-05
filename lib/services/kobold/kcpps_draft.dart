@@ -123,12 +123,17 @@ class KcppsDraft {
   /// The preset this form writes. [recurrent]: the model has recurrent
   /// layers (see [koboldSmartCacheSetting]); [rocm] and
   /// [rocmFlashAttentionFailed] as in Settings; [architecture] the model's.
+  /// [hasSlidingWindow]: the model has one. Elsewhere [slidingWindow] does
+  /// nothing and would still cost fast forward, so it is not written (as
+  /// the app's own settings do, see [koboldAppConfig]).
   KoboldLaunchConfig toConfig({
     bool recurrent = false,
     bool rocm = false,
     bool rocmFlashAttentionFailed = false,
     String? architecture,
+    bool hasSlidingWindow = false,
   }) {
+    final swa = slidingWindow && hasSlidingWindow;
     final cache = koboldSmartCacheSetting(slots: slots, recurrent: recurrent);
     return koboldGeneratedPreset(
       modelPath: modelPath,
@@ -139,11 +144,11 @@ class KcppsDraft {
       kvQuant: kvQuant,
       backend: backend,
       gpuId: gpuId,
-      contextMode: slidingWindow
+      contextMode: swa
           ? ContextManagementMode.slidingWindowAttention
           : ContextManagementMode.fastForwardSmartCache,
-      smartCacheSlots: slidingWindow ? 0 : cache.asked,
-      contextShift: slidingWindow || cache.contextShift,
+      smartCacheSlots: swa ? 0 : cache.asked,
+      contextShift: swa || cache.contextShift,
       mmprojPath: mmprojPath,
       architecture: architecture,
       flashAttention: flashAttention,
@@ -170,6 +175,7 @@ class KcppsDraft {
     bool rocm = false,
     bool rocmFlashAttentionFailed = false,
     String? architecture,
+    bool hasSlidingWindow = false,
   }) {
     final map = kcppsMap(
       toConfig(
@@ -177,6 +183,7 @@ class KcppsDraft {
         rocm: rocm,
         rocmFlashAttentionFailed: rocmFlashAttentionFailed,
         architecture: architecture,
+        hasSlidingWindow: hasSlidingWindow,
       ),
     );
     // No thread count leaves it to KoboldCpp.
