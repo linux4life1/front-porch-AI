@@ -23,7 +23,8 @@ import 'package:path/path.dart' as p;
 import '../kobold_service_test.dart'
     show createStorageService, setupPathProviderMock;
 
-const _stopPressed = 'KoboldCpp was not started: Stop was pressed.';
+const _stopPressed =
+    'KoboldCpp was not started: it was stopped while it was getting ready.';
 
 /// Process ids whose command line mentions [engine]: the script, run by its
 /// interpreter, which is why this is not anchored to the start of the line.
@@ -81,7 +82,7 @@ void main() {
       : false;
 
   test('Stop pressed while the free memory is being read: nothing is spawned, '
-      'and the start says Stop was pressed', () async {
+      'and the start says it was stopped', () async {
     final gate = Completer<FreeMemoryMb?>();
     var reads = 0;
     kobold.readFreeMemory = () {

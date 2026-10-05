@@ -301,8 +301,11 @@ Decisions already made by the maintainer:
     (2026-10-04). Pressing Stop after the start slot is claimed and before
     KoboldCpp is spawned (the free-memory read, the model file check, the
     first-run graphics card check) means KoboldCpp is not started, and the
-    start says "KoboldCpp was not started: Stop was pressed." Quitting the
-    app, and the update shutdown, stop a preparing start the same way. Only
+    start says "KoboldCpp was not started: it was stopped while it was
+    getting ready." A swap that frees the graphics card for another engine
+    stops a preparing start the same way (before, it spawned afterwards,
+    next to the other engine). Quitting the app, and the update shutdown,
+    stop a preparing start too. Only
     the "nothing spawned yet" case changed: the kill ladder for a running
     process is as it was, and the stop a start makes of the engine it
     replaces does not call that start off. The start checks for a Stop

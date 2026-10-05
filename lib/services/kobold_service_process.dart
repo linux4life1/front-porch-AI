@@ -19,7 +19,8 @@
 part of 'kobold_service.dart';
 
 const String _alreadyStarting = 'KoboldCpp is already starting.';
-const String _stopPressed = 'KoboldCpp was not started: Stop was pressed.';
+const String _stopPressed =
+    'KoboldCpp was not started: it was stopped while it was getting ready.';
 
 /// Process start/stop and console log ingest.
 extension KoboldServiceProcess on KoboldService {
