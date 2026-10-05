@@ -223,13 +223,6 @@ extension KoboldServiceProcess on KoboldService {
     required bool useRocm,
   }) async {
     try {
-      print('AG_DEBUG: === STARTING KOBOLDCPP ===');
-      print('AG_DEBUG: Executable: $executablePath');
-      print('AG_DEBUG: Args: ${args.join(' ')}');
-      print('AG_DEBUG: Working dir: ${path.dirname(executablePath)}');
-      print('AG_DEBUG: File exists: ${File(executablePath).existsSync()}');
-      print('AG_DEBUG: Model exists: ${File(modelPath).existsSync()}');
-
       // ROCm: consumer RDNA cards need HSA_OVERRIDE_GFX_VERSION or the
       // hipblas kernels abort at load — resolver detects the gfx arch and
       // supplies it (no-op when unnecessary or already exported).
@@ -246,7 +239,6 @@ extension KoboldServiceProcess on KoboldService {
         environment: extraEnv.isEmpty ? null : extraEnv,
         includeParentEnvironment: true,
       );
-      print('AG_DEBUG: Process started successfully! PID: ${_process!.pid}');
       _isRunning = true;
       _modelLoadingStatus = 'Initializing model...';
       _modelReady = false;
@@ -258,7 +250,7 @@ extension KoboldServiceProcess on KoboldService {
       _idleRestart();
       _loadGeneration++;
       _followLaunchContext(_loadGeneration);
-      _addLog('Starting Koboldcpp...');
+      _addLog('Starting Koboldcpp (PID: ${_process!.pid})...');
       _addLog('Command: $executablePath ${args.join(' ')}');
       notify();
 
@@ -327,9 +319,10 @@ extension KoboldServiceProcess on KoboldService {
       });
       return const KoboldLaunchResult.started();
     } catch (e, stack) {
-      print('AG_DEBUG: === KOBOLDCPP START FAILED ===');
-      print('AG_DEBUG: Error: $e');
-      print('AG_DEBUG: Stack: $stack');
+      debugPrint(
+        '[KoboldService] start failed: $e (program present: '
+        '${File(executablePath).existsSync()})\n$stack',
+      );
       _addLog('Failed to start process: $e');
       _isRunning = false;
       return KoboldLaunchResult.refused(
