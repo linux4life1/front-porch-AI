@@ -414,5 +414,6 @@ extension ChatServiceWiringEvals on ChatService {
     'preferText': _storageService.realismSettings.preferTextEvals,
     'paused': toolCallingPaused,
     'checked': _toolSupportTester.checkedThisRun,
+    'saved': _toolProbe.isKept(_evalBackendIdentity),
   };
 }

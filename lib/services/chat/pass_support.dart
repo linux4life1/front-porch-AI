@@ -198,6 +198,13 @@ class ToolTransportProbe extends ChangeNotifier {
   bool isXmlOnly(String backendIdentity) =>
       _verdictFor(backendIdentity) == false;
 
+  /// True when the answer for [backendIdentity] was kept from an earlier run
+  /// and nothing this run has settled it since (the sidebar pill says so, and
+  /// that a tap asks again).
+  bool isKept(String backendIdentity) =>
+      !_verdicts.containsKey(backendIdentity) &&
+      _verdictFor(backendIdentity) != null;
+
   bool isPausedUntilPing(String backendIdentity) =>
       _pausedUntilPing.contains(backendIdentity);
 

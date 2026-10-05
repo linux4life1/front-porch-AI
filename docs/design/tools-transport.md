@@ -561,6 +561,8 @@ Existing `one_shot_mode_test.dart` / `call_mode_one_shot_test.dart` keep their t
 | `unsupported` | Tool calling: not supported | This model uses the text fallback — still works | `taskAccentOf` (existing amber) |
 | `untested` | Tool calling: not tested | Tap to test the current model | `textTertiary` |
 
+A settled answer that was kept from an earlier run (`ToolTransportProbe.isKept`, sent as `saved` in `toolSupportJson`, so the phone gets it from the chat state and from `POST /api/chat/tool-test`) shows "Saved from an earlier test. Tap to ask again." (web: "Click") in place of the supported / not supported detail; one settled in this run shows the usual line. The prefer-JSON, paused and testing lines come first.
+
 Tap still retests (`testToolCalling`). Do not overload tap into toggling the override — that is how people "reset the pill" today and we would recreate the lie. The Porch Life switch is the override. The pill is the glanceable status. Tooltip mentions both.
 
 **Web parity (mandatory).**

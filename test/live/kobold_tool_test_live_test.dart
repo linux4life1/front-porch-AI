@@ -209,6 +209,11 @@ void main() {
         reason: 'the engine really answered the tool-calling question',
       );
       expect(app.chat.toolSupportJson['state'], 'supported');
+      expect(
+        app.chat.toolSupportJson['saved'],
+        isFalse,
+        reason: 'the engine was just asked: not a saved answer',
+      );
       // Kept for the next run, under the model's name.
       await _waitForStoredVerdict();
       expect(await _storedVerdicts(), {modelKey(liveEngineModel): true});
@@ -237,6 +242,11 @@ void main() {
         ToolCallSupport.supported,
         reason: 'known before the engine is even started',
       );
+      expect(
+        second.chat.toolSupportJson['saved'],
+        isTrue,
+        reason: 'the pill says it is the answer kept from the first run',
+      );
       await second.start();
       await second.waitForModel();
       // Room for a question to be asked and answered, if one were going to be.
@@ -244,6 +254,7 @@ void main() {
 
       expect(second.chat.toolCallSupport, ToolCallSupport.supported);
       expect(second.chat.toolSupportJson['state'], 'supported');
+      expect(second.chat.toolSupportJson['saved'], isTrue);
       expect(second.sawTesting, isFalse, reason: 'no "testing…" this run');
       expect(
         second.questionsAnswered,

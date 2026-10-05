@@ -5,6 +5,7 @@
 // share one type without importing ChatPage.
 
 import { type CastMember } from '../../components/CastBar';
+import { type ToolSupport } from '../../components/ToolCallingPill';
 import {
   type ChatThemeOverrides,
   type LoreEntry,
@@ -56,13 +57,7 @@ export interface ChatState {
   imagePromptReview?: string;
   // Current model's tool-calling verdict (desktop sidebar pill parity);
   // retest via POST /api/chat/tool-test.
-  toolSupport?: {
-    state: string;
-    testing: boolean;
-    preferText?: boolean;
-    paused?: boolean;
-    checked?: boolean;
-  };
+  toolSupport?: ToolSupport;
   // Per-chat theme overrides (preset + font/color/background/border).
   themeOverrides?: ChatThemeOverrides;
   // Host LLM connection (additive — older desktops omit it).
