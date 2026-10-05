@@ -109,13 +109,12 @@ String storyLaneLabel(
           ? 'Same as chat · ${storyShortModelName(options['chat']['model'])}'
           : 'Worker model · ${storyShortModelName(worker['model'])}';
     case StoryModelLane.host:
-      final host = llm.laneHost(
-        type: choice.backendType,
-        url: choice.apiUrl,
-        model: choice.model,
-        kcpps: choice.kcpps,
-      );
-      return host?.label ?? 'Another host · no model picked';
+      return llm.laneLabel(
+            type: choice.backendType,
+            url: choice.apiUrl,
+            model: choice.model,
+          ) ??
+          'Another host · no model picked';
   }
 }
 

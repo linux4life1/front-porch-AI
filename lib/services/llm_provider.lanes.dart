@@ -52,12 +52,53 @@ class _RemoteMouthHost implements GpuSwapHost {
 
 final Expando<Map<String, OpenRouterService>> _laneRemotes =
     Expando<Map<String, OpenRouterService>>('fpai.laneRemotes');
-final Expando<Map<String, GpuSwapOccupancy>> _laneSwaps =
-    Expando<Map<String, GpuSwapOccupancy>>('fpai.laneSwaps');
+
+/// The chat host a lane's swap was built for: what is unloaded for the job
+/// and put back after it.
+typedef _ChatHostId = ({
+  String type,
+  String url,
+  String model,
+  String kcpps,
+  String key,
+});
+
+/// A lane's swap and the chat host it was built for. One swap per lane, kept
+/// for as long as the chat host is the same: it is rebuilt when chat changes
+/// (a new model, another host), or a job would unload and put back the chat
+/// model that was picked before.
+final Expando<Map<String, ({_ChatHostId chat, GpuSwapOccupancy occupancy})>>
+_laneSwaps =
+    Expando<Map<String, ({_ChatHostId chat, GpuSwapOccupancy occupancy})>>(
+      'fpai.laneSwaps',
+    );
 
 /// Per-lane hosts for Porch Stories: any host + model for any job, on the
 /// same unload / load swap the chat ↔ worker pair uses.
 extension LLMProviderLanes on LLMProvider {
+  /// The model a story lane runs: a local lane with none picked runs the
+  /// one Settings has.
+  String _laneModel(String type, String model) => type.trim() == 'kobold'
+      ? _effectiveKoboldLaunchPath(model)
+      : model.trim();
+
+  /// "KoboldCpp · Qwen3", "OpenRouter · Opus": what a lane runs on and which
+  /// model, or null when it has none. Builds no host, so a screen can ask on
+  /// every frame.
+  String? laneLabel({
+    required String type,
+    required String url,
+    required String model,
+  }) {
+    final t = type.trim();
+    final laneModel = _laneModel(t, model);
+    if (laneModel.isEmpty) return null;
+    final provider = t == 'kobold'
+        ? 'KoboldCpp'
+        : remoteProviderLabel(t, storyLaneResolvedUrl(t, url));
+    return '$provider · ${storyShortModelName(laneModel)}';
+  }
+
   /// The host for a story lane, or null when it cannot be built (no model).
   LaneHost? laneHost({
     required String type,
@@ -67,12 +108,10 @@ extension LLMProviderLanes on LLMProvider {
   }) {
     final t = type.trim();
     final isKobold = t == 'kobold';
-    final laneModel = isKobold
-        ? _effectiveKoboldLaunchPath(model)
-        : model.trim();
+    final laneModel = _laneModel(t, model);
     if (laneModel.isEmpty) return null;
 
-    final resolvedUrl = t == 'omlx' ? kOmlxApiV1 : resolvedLaneApiUrl(t, url);
+    final resolvedUrl = storyLaneResolvedUrl(t, url);
     final key = isKobold ? '' : _storageService.remoteApiKeyFor(resolvedUrl);
     final id = '$t|$resolvedUrl|$laneModel|$kcpps';
 
@@ -90,9 +129,7 @@ extension LLMProviderLanes on LLMProvider {
         ),
       )..configure(apiKey: key);
     }
-    final label = isKobold
-        ? 'KoboldCpp · ${storyShortModelName(laneModel)}'
-        : '${remoteProviderLabel(t, resolvedUrl)} · ${storyShortModelName(laneModel)}';
+    final label = laneLabel(type: type, url: url, model: model)!;
 
     if (localSwapKindFor(backendType: t, apiUrl: url) == null) {
       return LaneHost(
@@ -104,32 +141,29 @@ extension LLMProviderLanes on LLMProvider {
       );
     }
 
-    final mouthType = _storageService.backendSettings.backendType;
-    final mouthUrl = _storageService.backendSettings.remoteApiUrl;
-    final mouthModel = _mouthSwapModelId();
-    final mouthKcpps = _koboldKcppsId(worker: false);
-    final same = workerLanesShareResident(
-      mouthType: mouthType,
-      mouthUrl: mouthUrl,
-      mouthModel: mouthModel,
-      workerType: t,
-      workerUrl: url,
-      workerModel: laneModel,
-      mouthKcpps: mouthKcpps,
-      workerKcpps: kcpps,
+    final chat = (
+      type: _storageService.backendSettings.backendType,
+      url: _storageService.backendSettings.remoteApiUrl,
+      model: _mouthSwapModelId(),
+      kcpps: _koboldKcppsId(worker: false),
+      key: _storageService.remoteApiKeyFor(
+        resolvedLaneApiUrl(
+          _storageService.backendSettings.backendType,
+          _storageService.backendSettings.remoteApiUrl,
+        ),
+      ),
     );
     final swaps = _laneSwaps[this] ??= {};
-    final occupancy = swaps.putIfAbsent(id, () {
+    var swap = swaps[id];
+    if (swap == null || swap.chat != chat) {
       final mouth =
           _hostForLane(
             role: kKoboldChatRole,
-            type: mouthType,
-            url: mouthUrl,
-            model: mouthModel,
-            kcpps: mouthKcpps,
-            key: _storageService.remoteApiKeyFor(
-              resolvedLaneApiUrl(mouthType, mouthUrl),
-            ),
+            type: chat.type,
+            url: chat.url,
+            model: chat.model,
+            kcpps: chat.kcpps,
+            key: chat.key,
           ) ??
           const _RemoteMouthHost();
       final lane = _hostForLane(
@@ -141,23 +175,35 @@ extension LLMProviderLanes on LLMProvider {
         kcpps: kcpps,
         key: key,
       )!;
-      return GpuSwapOccupancy(
-        mouth: mouth,
-        worker: lane,
-        sameResident: same,
-        sharedEngine: mouth is KoboldProcessHost && lane is KoboldProcessHost,
-        // The lane's calls go to the one KoboldCpp process: only trust
-        // "my model is loaded" while nothing else has reloaded it.
-        residentGeneration: lane is KoboldProcessHost
-            ? () => _koboldService.loadGeneration
-            : null,
+      swap = swaps[id] = (
+        chat: chat,
+        occupancy: GpuSwapOccupancy(
+          mouth: mouth,
+          worker: lane,
+          sameResident: workerLanesShareResident(
+            mouthType: chat.type,
+            mouthUrl: chat.url,
+            mouthModel: chat.model,
+            workerType: t,
+            workerUrl: url,
+            workerModel: laneModel,
+            mouthKcpps: chat.kcpps,
+            workerKcpps: kcpps,
+          ),
+          sharedEngine: mouth is KoboldProcessHost && lane is KoboldProcessHost,
+          // The lane's calls go to the one KoboldCpp process: only trust
+          // "my model is loaded" while nothing else has reloaded it.
+          residentGeneration: lane is KoboldProcessHost
+              ? () => _koboldService.loadGeneration
+              : null,
+        ),
       );
-    });
+    }
     return LaneHost(
       id: id,
       service: service,
-      hold: occupancy.hold,
-      restore: occupancy.ensureMouth,
+      hold: swap.occupancy.hold,
+      restore: swap.occupancy.ensureMouth,
       label: label,
     );
   }
