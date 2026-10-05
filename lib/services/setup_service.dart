@@ -33,6 +33,9 @@ class SetupService extends ChangeNotifier {
   SetupService(this._storageService, this._backendManager, this._koboldService);
 
   Future<void> runAutoSetup() async {
+    // Until the processor is known no Mac counts as an Intel one, so wait for
+    // it first (nothing awaits between the step check and the step set).
+    await _backendManager.architectureKnown;
     if (_currentStep != SetupStep.idle && _currentStep != SetupStep.error) {
       return;
     }

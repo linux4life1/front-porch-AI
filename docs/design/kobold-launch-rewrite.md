@@ -896,9 +896,14 @@ cards and says the desktop's sentence instead (`kIntelMacLocalUnsupported`,
 the same words in `web_ui/src/backendOptions.ts`), whatever the backend, as
 the desktop's Backend tab does. Installed models lose their "Use" there,
 and the Side jobs host picker greys out KoboldCpp with the same sentence, as
-the desktop's does. The phone Settings' chat backend picker
-(`SettingsPage.tsx`) still offers KoboldCpp on an Intel Mac: not changed
-here.
+the desktop's does. A Mac counts as an Intel one only once `uname -m`
+has answered (`BackendManager.architectureKnown`): before, every Mac was
+"Intel" for the moment after start-up. The first-run setup and the engine
+download wait for the answer, the desktop redraws when it comes, and the
+phone's Models page and host picker keep asking while it says
+`localUnsupported`, so they follow the answer rather than the first one.
+The phone Settings' chat backend picker (`SettingsPage.tsx`) still offers
+KoboldCpp on an Intel Mac: not changed here.
 
 ### Stage 8: the rest (as built)
 

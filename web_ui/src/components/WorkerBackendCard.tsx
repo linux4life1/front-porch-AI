@@ -125,16 +125,25 @@ export function WorkerBackendCard({
   }, [id]);
 
   // An Intel Mac host cannot run KoboldCpp: greyed out, as the desktop's
-  // Realism evals host bar does, with its sentence. Asked once the host
-  // picker shows; an older app does not say, and nothing changes.
+  // Realism evals host bar does, with its sentence. Asked while the host
+  // picker shows, and every answer is followed: the host is only sure once
+  // it knows its processor. An older app does not say, and nothing changes.
   const [localUnsupported, setLocalUnsupported] = useState(false);
   useEffect(() => {
     if (!different) return;
-    void api.get<{ localUnsupported?: boolean }>('/api/backend/status')
-      .then((r) => {
-        if (r?.localUnsupported === true) setLocalUnsupported(true);
-      })
-      .catch(() => {});
+    let open = true;
+    const ask = () =>
+      api.get<{ localUnsupported?: boolean }>('/api/backend/status')
+        .then((r) => {
+          if (open) setLocalUnsupported(r?.localUnsupported === true);
+        })
+        .catch(() => {});
+    void ask();
+    const t = setInterval(() => void ask(), 5000);
+    return () => {
+      open = false;
+      clearInterval(t);
+    };
   }, [different]);
 
   const onHostChange = (nextId: string) => {

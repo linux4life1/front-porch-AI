@@ -35,8 +35,14 @@ export function ModelsPage() {
 
   // While the managed engine is downloading (or absent — a download can be
   // kicked off from the desktop at any moment), poll so the progress line
-  // stays live without a manual refresh.
-  const engineBusy = status ? status.engineInstalled === false || status.engineDownloading === true : false;
+  // stays live without a manual refresh. Also while the host says it cannot
+  // run local models: it can only be sure once it knows its processor, so
+  // the page follows the answer rather than keeping the first one.
+  const engineBusy = status
+    ? status.engineInstalled === false ||
+      status.engineDownloading === true ||
+      status.localUnsupported === true
+    : false;
   useEffect(() => {
     if (!engineBusy) return;
     const t = setInterval(() => void loadStatus(), 2000);
