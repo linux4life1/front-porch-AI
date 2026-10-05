@@ -690,9 +690,10 @@ failure. Since 2026-10-05 it also goes on the status line
 (`modelLoadingStatus`, in place of the loading step it stopped in) until
 the next Start or Stop, so every screen that shows that line says why:
 the desktop Local model card under its header while stopped, the home
-screen's status bar (which moves only while starting or loading), and the
-phone's Local model card and Local backend card through `statusMessage`
-(no new field). A start's readiness poll listens only for the process it
+screen's status bar (which moves only while starting or loading, and says
+why only while chat runs on KoboldCpp, `KoboldHomeStatus`, as the phone
+shows its local cards only then), and the phone's Local model card and
+Local backend card through `statusMessage` (no new field). A start's readiness poll listens only for the process it
 started: after an exit, anything that answers on the port (a leftover
 KoboldCpp, another program) no longer marks the dead engine ready, which
 had wiped the sentence; stop and exit handling are unchanged. Proven on a

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -53,6 +54,44 @@ class KoboldStatusBar extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The home screen's [child] with [KoboldStatusBar] under it while the
+/// local engine's status line has something to say. Why it stopped on its
+/// own is said only while chat runs on it, as on the phone; what a load is
+/// doing is said either way (a helper model may run on it).
+class KoboldHomeStatus extends StatelessWidget {
+  const KoboldHomeStatus({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    var status = '';
+    var phase = KoboldPhase.stopped;
+    try {
+      final kobold = context.watch<KoboldService>();
+      status = kobold.modelLoadingStatus;
+      phase = kobold.phase;
+    } on ProviderNotFoundException {
+      return child;
+    }
+    var localChat = true;
+    try {
+      localChat = context.watch<LLMProvider>().isLocal;
+    } on ProviderNotFoundException {
+      // No chat backend to ask: the engine's line is said as it was.
+    }
+    if (status.isEmpty || (phase == KoboldPhase.stopped && !localChat)) {
+      return child;
+    }
+    return Column(
+      children: [
+        Expanded(child: child),
+        KoboldStatusBar(status: status, phase: phase),
+      ],
     );
   }
 }

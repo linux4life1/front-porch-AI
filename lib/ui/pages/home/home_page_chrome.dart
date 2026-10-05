@@ -59,22 +59,6 @@ extension _HomePageChrome on _HomePageState {
     );
   }
 
-  Widget _wrapWithStatusBar(BuildContext context, Widget content) {
-    String status = '';
-    var phase = KoboldPhase.stopped;
-    try {
-      final kobold = Provider.of<KoboldService>(context, listen: false);
-      status = kobold.modelLoadingStatus;
-      phase = kobold.phase;
-    } catch (_) {}
-
-    if (status.isEmpty) return content;
-
-    return Column(
-      children: [
-        Expanded(child: content),
-        KoboldStatusBar(status: status, phase: phase),
-      ],
-    );
-  }
+  Widget _wrapWithStatusBar(BuildContext context, Widget content) =>
+      KoboldHomeStatus(child: content);
 }
