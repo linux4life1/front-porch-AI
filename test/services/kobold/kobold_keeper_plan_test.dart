@@ -79,6 +79,25 @@ void main() {
     expect(plan.why, contains('smart cache'));
   });
 
+  test('a hybrid model says why even though auto mode wrote smart cache for '
+      'it', () {
+    const hybrid = GGUFModelInfo(
+      nLayers: 32,
+      nHeads: 32,
+      nKvHeads: 8,
+      nEmbd: 4096,
+      kvBytesPerToken: 65536,
+      recurrentStateBytes: 40000000,
+    );
+    final plan = _plan(info: hybrid, config: _config({'smartcache': 5}));
+    expect(plan.keeps, isFalse);
+    expect(
+      plan.why,
+      contains('earlier point'),
+      reason: 'the log must not say a preset chose it: nobody did',
+    );
+  });
+
   test('sliding window left to KoboldCpp for a model that has it', () {
     const windowed = GGUFModelInfo(
       nLayers: 32,

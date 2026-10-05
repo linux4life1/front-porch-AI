@@ -62,17 +62,6 @@ KoboldKeeperPlan koboldKeeperPlan({
     );
   }
   if (config == null) return const KoboldKeeperPlan.later();
-  if (_number(config['smartcache']) > 0) {
-    return const KoboldKeeperPlan.off(
-      "This preset uses KoboldCpp's own smart cache, so chats are left to it.",
-    );
-  }
-  if (config['nofastforward'] == true) {
-    return const KoboldKeeperPlan.off(
-      'Fast forward is off here, so a saved chat could not be picked up '
-      'again.',
-    );
-  }
   if (info == null) {
     return const KoboldKeeperPlan.off(
       'The model could not be read, so no chats are kept ready for it.',
@@ -82,6 +71,18 @@ KoboldKeeperPlan koboldKeeperPlan({
     return const KoboldKeeperPlan.off(
       'This model cannot go back to an earlier point in a chat, so '
       "KoboldCpp's own smart cache looks after its chats.",
+    );
+  }
+  if (_number(config['smartcache']) > 0) {
+    return const KoboldKeeperPlan.off(
+      "KoboldCpp's own smart cache is on for this model, so chats are left "
+      'to it.',
+    );
+  }
+  if (config['nofastforward'] == true) {
+    return const KoboldKeeperPlan.off(
+      'Fast forward is off here, so a saved chat could not be picked up '
+      'again.',
     );
   }
   if (kcppsLeavesSwaToKobold(config) && info.hasSlidingWindow) {
