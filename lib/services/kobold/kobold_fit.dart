@@ -243,3 +243,18 @@ bool _noWorse(KoboldLoad l, KoboldLoad base, int budget) {
   if (l.gpuLayers != base.gpuLayers) return l.gpuLayers > base.gpuLayers;
   return l.expertBlocksOnCard >= base.expertBlocksOnCard;
 }
+
+/// How the model lands as a launch places it: KoboldCpp's own fit as
+/// [tuning] found it, or, with layers set by hand, [gpuLayers] on the card
+/// and the experts of the first [moeCpuBlocks] blocks in system memory, at
+/// the batch [tuning] chose (the launch tunes the batch either way).
+KoboldLoad koboldPlacedLoad(
+  KoboldFit fit,
+  KoboldAutoTuning tuning, {
+  int? gpuLayers,
+  int moeCpuBlocks = 0,
+}) => gpuLayers == null
+    ? tuning.load
+    : fit
+          .copyWith(batchSize: tuning.batchSize)
+          .load(gpuLayers: gpuLayers, moeCpuBlocks: moeCpuBlocks);

@@ -807,7 +807,15 @@ As built (2026-10-04), to the sketch the maintainer approved:
   editor's slider): past 131,072 for a model made for 262,144, and no
   further than 8,192 for a model made for 8,192, which also gets a plain
   warning (`koboldShortModelWarning`, `auto.warning` on the phone). The
-  size in use is always offered. The card, the
+  size in use is always offered. With "Set layers myself" on (2026-10-05)
+  the card's facts use the real settings (the layer count, the memory lock,
+  the experts a MoE model keeps in system memory, as the launch writes
+  them), its speed line and verdicts come from that fixed layer count
+  (`koboldPlacedLoad`) at the batch the launch tunes, and it says "Set up
+  by hand in Advanced settings." with no layer numbers; a context that does
+  not fit on the card that way is too big, the size in use included, since
+  KoboldCpp does not fit layers set by hand. The phone reads the same facts.
+  The figures do not model the memory lock itself. The card, the
   phone's, and the editor's fit take the graphics backend from the one rule
   the launch uses (`koboldBackendFor`, honouring the switches in Settings),
   and the card assumes the batch the launch runs: the one chosen in
