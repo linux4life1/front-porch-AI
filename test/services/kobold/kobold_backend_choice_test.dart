@@ -7,7 +7,7 @@
 // machine and a set of switches and what the answer must be for all of them.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/models/hardware_info.dart';
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/utils/kobold_memory_rules.dart';
