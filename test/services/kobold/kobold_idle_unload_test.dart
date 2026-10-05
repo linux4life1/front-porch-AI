@@ -303,9 +303,11 @@ void main() {
     engine.events.clear();
   }
 
+  /// Waits for [done]; the ceiling only matters on a loaded machine (the
+  /// Linux CI image runs emulated), since it returns as soon as [done] holds.
   Future<void> until(
     bool Function() done, {
-    Duration timeout = const Duration(seconds: 10),
+    Duration timeout = const Duration(seconds: 30),
   }) async {
     final end = DateTime.now().add(timeout);
     while (!done()) {
