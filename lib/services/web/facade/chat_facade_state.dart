@@ -221,6 +221,10 @@ extension ChatFacadeState on ChatFacade {
       // PWAs ignore it and keep the normal composer placeholder. Local
       // GGUF-ready is ignored so mouth/worker swaps do not flash the box.
       'llmReady': _llm?.composerConnectionReady ?? true,
+      // Why the app's start of KoboldCpp was refused, for the composer's
+      // placeholder in place of "No API connection". Additive; omitted when
+      // there is nothing to say.
+      'llmHint': ?_llm?.composerConnectionHint,
       // Which named lookups the regenerate dialog may offer. Web is omitted
       // on the client when false. Wiki stays visible but disabled.
       'lookupSources': {

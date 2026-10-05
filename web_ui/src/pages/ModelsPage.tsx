@@ -12,7 +12,7 @@ import { LocalModels } from '../components/models/LocalModels';
 import { ModelDownloads } from '../components/models/ModelDownloads';
 import { ImageGen } from '../components/models/ImageGen';
 import { KoboldStatusCard } from '../components/models/KoboldStatusCard';
-import { type BackendStatus } from '../components/models/types';
+import { type BackendStatus, type ModelSwitch } from '../components/models/types';
 
 export function ModelsPage() {
   const [status, setStatus] = useState<BackendStatus | null>(null);
@@ -75,10 +75,16 @@ function BackendStatusCard({
   onError: (s: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  // Why a Restart did not start KoboldCpp, beside the buttons.
+  const [refused, setRefused] = useState('');
   const act = (path: string) => {
     setBusy(true);
-    api.post(path)
-      .then(() => reload())
+    setRefused('');
+    api.post<ModelSwitch>(path)
+      .then((r) => {
+        setRefused(r?.refused ?? '');
+        return reload();
+      })
       .catch((e) => onError(e instanceof ApiError ? e.message : 'Failed'))
       .finally(() => setBusy(false));
   };
@@ -122,6 +128,11 @@ function BackendStatusCard({
         </button>
         <button disabled={busy || !status.running} onClick={() => act('/api/backend/stop')}>Stop</button>
       </div>
+      {refused && (
+        <p className="error" role="alert" data-testid="backend-refused" style={{ whiteSpace: 'pre-line' }}>
+          {refused}
+        </p>
+      )}
     </section>
   );
 }

@@ -181,18 +181,22 @@ extension WebServerHostStreams on WebServerHost {
     }
 
     // Composer "No API connection" placeholder — push chat_updated only when
-    // the connection flag flips (not on one-off request failures).
+    // the connection flag or the reason it gives flips (not on one-off request
+    // failures).
     final llm = _llmProvider;
     if (streamHub != null && llm != null) {
       void onLlmReady() {
         final ready = llm.composerConnectionReady;
-        if (_lastLlmReady == ready) return;
+        final hint = llm.composerConnectionHint;
+        if (_lastLlmReady == ready && _lastLlmHint == hint) return;
         _lastLlmReady = ready;
+        _lastLlmHint = hint;
         streamHub.broadcastChatUpdate();
       }
 
       _llmReadyListener = onLlmReady;
       _lastLlmReady = llm.composerConnectionReady;
+      _lastLlmHint = llm.composerConnectionHint;
       llm.addListener(onLlmReady);
       llm.openRouterService.addListener(onLlmReady);
     }

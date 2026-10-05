@@ -251,8 +251,9 @@ extension LLMProviderWorker on LLMProvider {
 
   /// Starts the app's KoboldCpp for chat entry or for a swap. Null when
   /// nothing needed starting; otherwise what the start said. A swap needs
-  /// the answer: a restart that was refused is not waited for.
-  Future<KoboldLaunchResult?> _ensureManagedKobold({
+  /// the answer: a restart that was refused is not waited for. Every start
+  /// goes through [_ensureManagedKobold], which keeps what it said.
+  Future<KoboldLaunchResult?> _startManagedKobold({
     bool forGpuSwap = false,
     String? modelPath,
     String? kcppsPath,

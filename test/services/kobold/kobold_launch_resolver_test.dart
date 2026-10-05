@@ -43,11 +43,14 @@ class _Llm extends FakeLLMProvider {
   Future<void> stopAllManagedProcesses() async {}
 
   @override
-  Future<void> ensureManagedBackendIsRunning({
+  Future<KoboldLaunchResult?> ensureManagedBackendIsRunning({
     bool forGpuSwap = false,
     String? modelPath,
     String? kcppsPath,
-  }) async => restarts++;
+  }) async {
+    restarts++;
+    return null;
+  }
 }
 
 void main() {

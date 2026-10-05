@@ -66,6 +66,7 @@ export function ChatComposer({
   impersonateFill,
   onImpersonate,
   apiReady = true,
+  apiHint,
 }: {
   onSend: (text: string, imageBase64?: string) => void;
   onStop: () => void;
@@ -84,6 +85,9 @@ export function ChatComposer({
   onImpersonate?: (prefix: string) => void;
   /** Host LLM connection (not a one-off HTTP 500). False → "No API connection". */
   apiReady?: boolean;
+  /** Why the host's start of KoboldCpp was refused: said above the box while
+   *  there is no connection (additive; the host may not send it). */
+  apiHint?: string | null;
 }) {
   const [draft, setDraftState] = useState('');
   const setDraft = useCallback(
@@ -230,6 +234,11 @@ export function ChatComposer({
     {held && (
       <div className="send-held-banner" role="status">
         Got it — sending when the last reply is fully wrapped up.
+      </div>
+    )}
+    {!apiReady && apiHint && (
+      <div className="api-hint-banner" role="status" data-testid="composer-api-hint">
+        {apiHint}
       </div>
     )}
     <div className="chat-input">

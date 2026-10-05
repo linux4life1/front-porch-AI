@@ -46,6 +46,7 @@ import 'package:front_porch_ai/services/xai/xai.dart';
 part 'llm_provider.worker.dart';
 part 'llm_provider.kobold_hosts.dart';
 part 'llm_provider.lanes.dart';
+part 'llm_provider.connection.dart';
 
 /// The available backend types. The former `pseudoRemote` (a local KoboldCpp
 /// launched from a .kcpps preset) was folded into [kobold]: the local backend
@@ -267,8 +268,9 @@ class LLMProvider extends ChangeNotifier {
   /// Start Kobold on chat entry, or inside a GPU swap (`forGpuSwap`).
   /// [modelPath] / [kcppsPath] are the GGUF + `.kcpps` pair to load on swap;
   /// omitted = Models-tab mouth pair. Mouth restore keeps the Models-tab
-  /// `--mmproj`; a worker/evals pair never gets a projector.
-  Future<void> ensureManagedBackendIsRunning({
+  /// `--mmproj`; a worker/evals pair never gets a projector. Says why when
+  /// the start was refused; null when nothing needed starting.
+  Future<KoboldLaunchResult?> ensureManagedBackendIsRunning({
     bool forGpuSwap = false,
     String? modelPath,
     String? kcppsPath,

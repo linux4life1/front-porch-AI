@@ -117,6 +117,7 @@ class WebServerHost extends ChangeNotifier {
   VoidCallback? _genStatusListener;
   VoidCallback? _llmReadyListener;
   bool? _lastLlmReady;
+  String? _lastLlmHint;
   Timer? _genStatusTicker;
   bool _wasBroadcastingGenStatus = false;
   DateTime _lastGenStatusSent = DateTime.fromMillisecondsSinceEpoch(0);
@@ -413,6 +414,7 @@ class WebServerHost extends ChangeNotifier {
       _llmReadyListener = null;
     }
     _lastLlmReady = null;
+    _lastLlmHint = null;
     if (_imageProgressListener != null) {
       _imageGenService?.removeListener(_imageProgressListener!);
       _imageProgressListener = null;

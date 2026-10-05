@@ -67,6 +67,9 @@ export interface ChatState {
   themeOverrides?: ChatThemeOverrides;
   // Host LLM connection (additive — older desktops omit it).
   llmReady?: boolean;
+  // Why the host's start of KoboldCpp was refused, in place of "No API
+  // connection" (additive; omitted when there is nothing to say).
+  llmHint?: string | null;
   // Named lookups the regenerate dialog may offer.
   lookupSources?: { web?: boolean; wiki?: boolean };
 }

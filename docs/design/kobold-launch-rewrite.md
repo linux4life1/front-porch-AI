@@ -317,6 +317,17 @@ Decisions already made by the maintainer:
     process is as it was, and the stop a start makes of the engine it
     replaces does not call that start off. The start checks for a Stop
     right before it spawns, after its last wait.
+16. A start the app asked for that is refused says why where it used to be
+    dropped (2026-10-05). The phone's Restart, and its model switch while
+    KoboldCpp is stopped, answer with the same `refused` field a refused
+    reload uses, and the Models page says it beside the buttons. Opening a
+    chat starts the engine ("Auto-start on chat open"); that start's refusal
+    is kept by the provider and said in place of "No API connection": in the
+    desktop composer's hint, and on the phone as `llmHint` in the chat state
+    (above the box), until something runs or what the engine has loaded has
+    changed (`LLMProvider.composerConnectionHint`). `ensureManagedBackendIsRunning`
+    returns the start's answer. A refusal is not a dialog: nothing new
+    interrupts the chat.
 
 ## Design
 

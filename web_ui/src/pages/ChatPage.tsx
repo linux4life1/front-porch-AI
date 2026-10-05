@@ -372,6 +372,7 @@ export function ChatPage() {
               .catch((e) => reportActionFailure('write your line for you', e));
           }}
           apiReady={state.llmReady !== false}
+          apiHint={state.llmHint}
         />
       </div>
 

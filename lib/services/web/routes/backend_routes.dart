@@ -103,8 +103,9 @@ class WebBackendRoutes {
       JsonResponse.ok(_backend!.status());
 
   Future<shelf.Response> _restart(shelf.Request r) async {
-    await _backend!.restart();
-    return JsonResponse.ok(_backend.status());
+    final refused = await _backend!.restart();
+    // Additive: why it was not started, or null.
+    return JsonResponse.ok({..._backend.status(), 'refused': refused});
   }
 
   Future<shelf.Response> _stop(shelf.Request r) async {
