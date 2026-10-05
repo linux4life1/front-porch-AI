@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { isLmStudioUrl, urlHasStoredApiKey } from '../remoteApiKeys';
 import { ModelPicker } from './ModelPicker';
-import { type LocalModel } from './models/types';
+import { type LocalModelFile } from './models/types';
 import {
   kWorkerDualLocalMessage,
   workerBackendIsOff,
@@ -79,7 +79,7 @@ export function WorkerBackendCard({
 }) {
   const off = workerBackendIsOff(s.workerBackend ?? '');
   const [pickingDifferent, setPickingDifferent] = useState(!off);
-  const [localModels, setLocalModels] = useState<LocalModel[]>([]);
+  const [localModels, setLocalModels] = useState<LocalModelFile[]>([]);
   const different = !off || pickingDifferent;
   const id = selectedId(s);
   const visible = HOSTS.filter((o) => o.id !== 'omlx' || s.omlxAvailable === true);
@@ -118,7 +118,7 @@ export function WorkerBackendCard({
 
   useEffect(() => {
     if (id !== 'kobold') return;
-    void api.get<{ models: LocalModel[] }>('/api/backend/models')
+    void api.get<{ models: LocalModelFile[] }>('/api/backend/models')
       .then((r) => setLocalModels(r.models ?? []))
       .catch(() => setLocalModels([]));
   }, [id]);

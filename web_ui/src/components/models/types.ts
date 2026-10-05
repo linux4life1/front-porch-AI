@@ -30,7 +30,7 @@ export interface BackendStatus {
   remoteReachability?: 'unknown' | 'checking' | 'reachable' | 'unreachable';
 }
 
-export interface LocalModel {
+export interface LocalModelFile {
   name: string;
   path: string;
   sizeBytes: number;
