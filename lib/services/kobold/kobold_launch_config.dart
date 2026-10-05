@@ -27,10 +27,11 @@ enum KvQuant {
 
   const KvQuant(this.wire, this.legacyIndex, this.sizeFactor, this.label);
 
-  /// The value KoboldCpp 1.112 and newer accept.
+  /// The name KoboldCpp reads and the app writes.
   final String wire;
 
-  /// The index older builds used ("0".."3"). `q5_1` has none.
+  /// The index an older preset or this app's old setting holds ("0".."3").
+  /// Read, never written. `q5_1` has none.
   final String? legacyIndex;
 
   /// Cache size relative to f16, exactly: these types store 32 values in

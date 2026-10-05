@@ -109,7 +109,6 @@ Future<KoboldStagedRole> stageKoboldRole({
   final version = await KoboldBinaryVersion.versionFor(executablePath);
   final config = await koboldLaunchMap(
     storage: storage,
-    caps: KoboldCapabilities.forVersion(version),
     modelPath: modelPath,
     kcppsPath: kcppsPath,
     mmprojPath: mmprojPath,
@@ -156,11 +155,9 @@ Future<KoboldStagedRole> stageKoboldRole({
 }
 
 /// The config a launch will run: the user's preset as it was written (see
-/// [kcppsPresetLaunchMap]), or the app's own settings in the forms [caps]
-/// says the installed KoboldCpp accepts.
+/// [kcppsPresetLaunchMap]), or the app's own settings.
 Future<Map<String, dynamic>> koboldLaunchMap({
   required StorageService storage,
-  KoboldCapabilities caps = KoboldCapabilities.current,
   required String modelPath,
   required String? kcppsPath,
   required String? mmprojPath,
@@ -273,7 +270,6 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       batchAutomatic: b.batchAutomatic,
       mmq: mmq,
     ),
-    caps: caps,
   );
 }
 

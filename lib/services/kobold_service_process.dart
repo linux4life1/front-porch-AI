@@ -204,15 +204,11 @@ extension KoboldServiceProcess on KoboldService {
   ) async {
     final modelProblem = await ModelFileCheck.validate(modelPath);
     if (modelProblem != null) return modelProblem;
-    // KoboldCpp before 1.112 stops at load on the staged config (it reads
-    // the cache type as a number). Not supported: say so instead of
-    // starting it to fail.
-    final version = await KoboldBinaryVersion.versionFor(executablePath);
-    if (!KoboldCapabilities.forVersion(version).quantKvAsText) {
-      return 'This KoboldCpp ($version) is too old for the app. Update '
-          'KoboldCpp to 1.112 or newer, then start it again.';
-    }
-    return null;
+    // An engine too old for the staged config is refused with a sentence
+    // instead of being started to fail.
+    return KoboldBinaryVersion.tooOldProblem(
+      await KoboldBinaryVersion.versionFor(executablePath),
+    );
   }
 
   /// Spawns the process and wires its output, readiness and exit. A program

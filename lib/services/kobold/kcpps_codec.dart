@@ -20,7 +20,6 @@ import 'dart:convert';
 
 import 'package:path/path.dart' as p;
 
-import 'kobold_capabilities.dart';
 import 'kobold_launch_config.dart';
 
 /// Every key this app reads or writes. Anything else in a file is kept as
@@ -269,19 +268,15 @@ const String kSwaLeftToKoboldNote =
     'has it. KoboldCpp switches it on together with fast forward, a pairing '
     'that degrades output. Add "noswa": true to the preset to switch it off.';
 
-/// The `.kcpps` map for [config], in the forms [caps] says the installed
-/// KoboldCpp accepts.
+/// The `.kcpps` map for [config].
 ///
 /// A key KoboldCpp renamed is written under BOTH names (`usecuda` and
-/// `usecublas`, `batchsize` and `blasbatchsize`). An old engine knows only
-/// the old name. A current one converts the old name at launch but not on
-/// a live reload, which fills in every missing default first and then
-/// finds nothing to convert: measured, a file with only `blasbatchsize`
-/// ran at its value after a launch and at the default after a reload.
-Map<String, dynamic> kcppsMap(
-  KoboldLaunchConfig config, {
-  KoboldCapabilities caps = KoboldCapabilities.current,
-}) {
+/// `usecublas`, `batchsize` and `blasbatchsize`). A current engine converts
+/// the old name at launch but not on a live reload, which fills in every
+/// missing default first and then finds nothing to convert: measured, a
+/// file with only `blasbatchsize` ran at its value after a launch and at the
+/// default after a reload.
+Map<String, dynamic> kcppsMap(KoboldLaunchConfig config) {
   final map = <String, dynamic>{
     ...config.extras,
     if (config.modelPath.isNotEmpty) 'model_param': config.modelPath,
@@ -292,9 +287,7 @@ Map<String, dynamic> kcppsMap(
     'autofitpadding': ?config.autofitPaddingMb,
     'usemmap': config.useMmap,
     'usemlock': config.useMlock,
-    'quantkv': caps.quantKvAsText
-        ? config.kvQuant.wire
-        : (config.kvQuant.legacyIndex ?? KvQuant.q4_0.legacyIndex),
+    'quantkv': config.kvQuant.wire,
     'threads': ?config.threads,
     'noflashattention': !config.flashAttention,
     'jinja': config.jinja,
@@ -309,7 +302,7 @@ Map<String, dynamic> kcppsMap(
 
   // Automatic fitting and `moecpu` cannot be combined; a manual layer
   // count is the only case where the app places MoE experts itself.
-  if (config.moeExpertsOnCpu && !config.layersAreAutomatic && caps.moeCpu) {
+  if (config.moeExpertsOnCpu && !config.layersAreAutomatic) {
     map['moecpu'] = config.moeCpuLayers ?? 999;
   }
 
@@ -342,7 +335,7 @@ Map<String, dynamic> kcppsMap(
       map['noswa'] = true;
       map['nofastforward'] = false;
       map['noshift'] = !config.contextShift;
-      if (config.smartCacheSlots > 0 && caps.smartCache) {
+      if (config.smartCacheSlots > 0) {
         map['smartcache'] = config.smartCacheSlots.clamp(1, 20);
       }
   }

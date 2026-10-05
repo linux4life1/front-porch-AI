@@ -171,21 +171,6 @@ void main() {
     expect(KvQuant.parse('3'), KvQuant.bf16);
   });
 
-  test('an engine older than 1.112 gets the index, not the name', () {
-    final old = KoboldCapabilities.forVersion('1.111.2');
-    expect(old.quantKvAsText, isFalse);
-    final map = kcppsMap(
-      const KoboldLaunchConfig(kvQuant: KvQuant.q8_0),
-      caps: old,
-    );
-    expect(map['quantkv'], '1');
-    expect(KoboldCapabilities.forVersion('1.117.1').quantKvAsText, isTrue);
-    expect(KoboldCapabilities.forVersion('1.111.0').moeCpu, isFalse);
-    expect(KoboldCapabilities.forVersion('1.111.1').moeCpu, isTrue);
-    // No version file yet: the app downloads the newest engine.
-    expect(KoboldCapabilities.forVersion(null).quantKvAsText, isTrue);
-  });
-
   test('automatic layers by default, with no forced automatic fit', () {
     final map = kcppsMap(const KoboldLaunchConfig(modelPath: '/m/a.gguf'));
     expect(map['gpulayers'], -1);
@@ -200,11 +185,6 @@ void main() {
     const moe = KoboldLaunchConfig(moeExpertsOnCpu: true);
     expect(kcppsMap(moe).containsKey('moecpu'), isFalse);
     expect(kcppsMap(moe.copyWith(gpuLayers: 30))['moecpu'], 999);
-    final old = kcppsMap(
-      moe.copyWith(gpuLayers: 30),
-      caps: KoboldCapabilities.forVersion('1.110'),
-    );
-    expect(old.containsKey('moecpu'), isFalse);
   });
 
   test('the vision file travels in the preset', () {
