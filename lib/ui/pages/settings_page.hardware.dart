@@ -31,6 +31,16 @@ extension _SettingsHardware on _SettingsPageState {
     LLMProvider llmProvider,
     bool isPresetActive,
   ) {
+    // The box shows what is saved: a preset, the Local model card and the
+    // phone change the context without it. What is typed in it is saved as it
+    // is typed, so only a different number is put in.
+    final saved = storageService.backendSettings.contextSize;
+    if (saved != _savedContext) {
+      _savedContext = saved;
+      if (int.tryParse(_contextSizeController.text) != saved) {
+        _contextSizeController.text = saved.toString();
+      }
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

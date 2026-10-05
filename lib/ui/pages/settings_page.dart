@@ -85,6 +85,9 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _gpuLayersController = TextEditingController(text: '0');
   final _contextSizeController = TextEditingController(text: '16384');
+
+  /// The context the Context Window box was last brought in step with.
+  int? _savedContext;
   double? _dragContextSize;
   double? _dragCallBuffer;
   final _apiController = TextEditingController();
@@ -179,6 +182,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
     _contextSizeController.text = storage.backendSettings.contextSize
         .toString();
+    _savedContext = storage.backendSettings.contextSize;
     // Apply hardware-based defaults once hardware info is available.
     // HardwareService.detectHardware() is already called in its constructor,
     // so we just use the cached result. If detection is still in progress,

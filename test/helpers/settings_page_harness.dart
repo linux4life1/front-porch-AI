@@ -176,6 +176,9 @@ class ListedModels extends FakeModelManager {
 
   @override
   GGUFModelInfo? getCachedModelArchitectureInfo(String filePath) => null;
+
+  @override
+  Future<int?> getKvCacheBytesPerToken(String filePath) async => null;
 }
 
 class IdleClassifier extends ChangeNotifier
