@@ -18,6 +18,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 import '../../helpers/chat_db_teardown.dart';
+import '../../helpers/kobold_engine_harness.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -272,4 +273,77 @@ void main() {
       );
     },
   );
+
+  test('through the real service: a reply, a helper, then the next reply loads '
+      'the chat back and reads only what is new', () async {
+    // The service below talks to an engine stand-in on a loopback socket, so
+    // what the keeper does shows in the order of the engine's own requests.
+    final h = await KoboldEngineHarness.start();
+    addTearDown(h.dispose);
+    h.kobold.debugKeeperPlan = () async => const KoboldKeeperPlan.keep(3);
+    final realDb = AppDatabase.forTesting();
+    final real =
+        ChatService(
+            h.kobold,
+            UserPersonaService(realDb),
+            h.storage,
+            WorldRepository(h.storage, realDb),
+          )
+          ..setDatabase(realDb)
+          ..setCharacterRepository(CharacterRepository(realDb, h.storage));
+    addTearDown(() => disposeChatThenCloseDb(real, realDb));
+    final ada = CharacterCard(
+      name: 'Ada',
+      description: 'Keeps the porch.',
+      firstMessage: 'Evening.',
+      imagePath: '/tmp/ada-kv-paths.png',
+      frontPorchExtensions: FrontPorchExtensions(
+        realismEnabled: false,
+        needsSimEnabled: false,
+      ),
+    );
+    await CharacterRepository(realDb, h.storage).addCharacter(ada);
+    await real.setActiveCharacter(ada);
+    h.engine.forgetLog();
+    h.engine.live = [];
+
+    Future<void> settle() async {
+      for (
+        var i = 0;
+        i < 400 && (real.isGenerating || real.isSettlingTurn);
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      await h.kobold.waitForIdle();
+    }
+
+    await real.sendMessage('Good evening, Ada.');
+    await settle();
+    await real.generateActions(); // a helper, asked for by a tap
+    await settle();
+    await real.sendMessage('Did the rain stop?');
+    await settle();
+
+    final replies = h.engine
+        .of('chat')
+        .where((r) => r.prompt.first == '<system>')
+        .toList();
+    expect(replies, hasLength(2));
+    expect(
+      h.engine.kinds,
+      containsAllInOrder(['chat', 'save', 'chat', 'load', 'chat']),
+    );
+    final second = h.engine.log.indexOf(replies.last);
+    expect(
+      h.engine.log[second - 1].kind,
+      'load',
+      reason: 'loaded just before the reply',
+    );
+    expect(
+      replies.last.processed,
+      lessThan(replies.last.promptTokens ~/ 2),
+      reason: 'the reply read only what the chat added since the last one',
+    );
+  });
 }
