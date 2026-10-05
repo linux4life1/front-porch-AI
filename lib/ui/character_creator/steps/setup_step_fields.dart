@@ -47,6 +47,9 @@ extension SetupStepFields on SetupStep {
     // owns the choice of model.
     Future<void> choosePreset(String? path) async {
       await chooseKoboldPreset(storage, path);
+      // The preset's context, or the user's own back: the box shows it.
+      state.contextSizeController.text = storage.backendSettings.contextSize
+          .toString();
       if (storage.backendSettings.kcppsHasModel &&
           storage.backendSettings.kcppsModelFileExists) {
         state.selectedLocalModelPath = '';
