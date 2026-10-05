@@ -246,6 +246,17 @@ class KcppsEditorController extends ChangeNotifier {
         gpuId: gpu.gpuId,
         mmprojPath: storage.presetSettings.modelMmprojMap[model] ?? '',
       );
+      // Flash attention and the cache as a launch from these settings runs
+      // them: a compressed cache turns flash attention on where it can run.
+      final pair = koboldFlashAndCache(
+        runs: flashAttentionRuns,
+        flashAttention: draft.flashAttention,
+        kvQuant: draft.kvQuant,
+      );
+      draft = draft.copyWith(
+        flashAttention: pair.flashAttention,
+        kvQuant: pair.kvQuant,
+      );
       // Sized on this form, with this model, not the one before.
       draft = draft.copyWith(slots: suggestedSlots?.slots ?? 0);
       _raw = null;
@@ -260,6 +271,12 @@ class KcppsEditorController extends ChangeNotifier {
       );
       _raw = Map<String, dynamic>.of(ok.raw);
       _opened = _map();
+      // A file that pairs a compressed cache with flash attention off is in
+      // the form by the rule every writer follows, flash attention on: the
+      // first save writes that too, not only what was edited.
+      if (!ok.config.flashAttention && config.flashAttention) {
+        _opened = {..._opened!, 'noflashattention': true};
+      }
       _saved = path == null ? '' : _snapshot();
     }
     loads++;

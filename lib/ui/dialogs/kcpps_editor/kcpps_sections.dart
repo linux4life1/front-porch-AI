@@ -23,7 +23,8 @@ class KcppsChatLengthSection extends StatelessWidget {
     final d = c.draft;
     final max = c.maxContext;
     final low = d.contextSize < kKoboldContextFloor;
-    final compressible = c.flashAttentionRuns && d.flashAttention;
+    // A compressed size turns flash attention on, where it can run.
+    final compressible = c.flashAttentionRuns;
     final sizes = [
       for (final q in [KvQuant.f16, KvQuant.q8_0, KvQuant.q4_0])
         if (c.cacheMbFor(q) case final mb?)
@@ -158,6 +159,7 @@ class KcppsSpeedSection extends StatelessWidget {
     final hint = c.view?.batchHint;
     final faint = AppColors.slateFaintOf(context);
     final note = c.flashAttentionNote;
+    final compressed = d.kvQuant.needsFlashAttention;
     return KeSection(
       title: 'Speed',
       children: [
@@ -202,14 +204,20 @@ class KcppsSpeedSection extends StatelessWidget {
           ],
         ),
         KeCheck(
-          value: c.flashAttentionRuns && d.flashAttention,
+          key: const ValueKey('kcpps-flash-attention'),
+          value: c.config.flashAttention,
           label: 'Flash attention (faster, less memory)',
-          onChanged: c.flashAttentionRuns
+          onChanged: c.flashAttentionRuns && !compressed
               ? (v) => c.edit((d) => d.copyWith(flashAttention: v))
               : null,
         ),
         if (note != null)
-          Text(note, style: keText(context, size: 12, color: faint)),
+          Text(note, style: keText(context, size: 12, color: faint))
+        else if (compressed)
+          Text(
+            kKoboldCompressedTurnsFlashOn,
+            style: keText(context, size: 12, color: faint),
+          ),
         if (c.mmqApplies)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,

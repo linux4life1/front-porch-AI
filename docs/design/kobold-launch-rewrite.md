@@ -273,7 +273,21 @@ Decisions already made by the maintainer:
    (2026-10-04). Any rule worked out for the preset dialog (the memory
    estimate, the smart cache suggestion, the context-mode pairing) also
    drives the automatic path, which shows none of the machinery: one shared
-   rule, two surfaces.
+   rule, two surfaces. Flash attention and a compressed cache are one such
+   rule (2026-10-05): a compressed cache turns flash attention on wherever
+   it can run, as auto mode always did, and where it cannot (decisions 10
+   and 11) flash attention is off and the cache full size. One helper,
+   `koboldFlashAndCache`, gives the pair to auto mode's config, the preset
+   the editor writes and the editor's "New from my settings" starting
+   values; before, the editor did the opposite (flash attention off meant a
+   full-size cache). In the editor a compressed size can be picked whenever
+   flash attention can run, and the flash attention box then shows on,
+   greyed, with "A compressed chat memory turns this on."; Full gives the
+   switch back. A file that pairs a compressed cache with flash attention
+   off (KoboldCpp's own launcher allows it, compressing half the cache) is
+   launched as written; the editor shows it by the rule and its next save
+   writes flash attention on. Settings' Flash Attention switch says the
+   same line when it is off and the cache is compressed.
 10. ROCm may use flash attention (2026-10-04), with a fallback: if the
     engine dies on the first reply, the app restarts it with flash
     attention off and remembers that for the machine. The app had forced

@@ -106,10 +106,28 @@ String? koboldFlashAttentionNote({
   return null;
 }
 
-/// A compressed cache needs flash attention; without it the cache is full
-/// size (f16). bf16 is not compression and is kept.
-KvQuant _cacheWhere(bool flashAttentionRuns, KvQuant wanted) =>
-    flashAttentionRuns || !wanted.needsFlashAttention ? wanted : KvQuant.f16;
+/// The flash attention and chat memory pair a config runs, by auto mode's
+/// rule, which every config the app writes follows: a compressed cache needs
+/// flash attention, so it turns flash attention on wherever it can run
+/// ([runs], see [koboldFlashAttentionRuns]). Where it cannot, flash
+/// attention is off and the cache full size (f16). A full-size cache keeps
+/// the [flashAttention] asked for; bf16 is not compression.
+({bool flashAttention, KvQuant kvQuant}) koboldFlashAndCache({
+  required bool runs,
+  required bool flashAttention,
+  required KvQuant kvQuant,
+}) {
+  final cache = runs || !kvQuant.needsFlashAttention ? kvQuant : KvQuant.f16;
+  return (
+    flashAttention: runs && (flashAttention || cache.needsFlashAttention),
+    kvQuant: cache,
+  );
+}
+
+/// Said under a flash attention switch that a compressed cache overrides
+/// ([koboldFlashAndCache]).
+const String kKoboldCompressedTurnsFlashOn =
+    'A compressed chat memory turns this on.';
 
 /// The launch config for the app's own settings ("no preset").
 ///
@@ -131,7 +149,11 @@ KoboldLaunchConfig koboldAppConfig({
     architecture: model.architecture,
     rocmFailedBefore: settings.rocmFlashAttentionFailed,
   );
-  final kvQuant = _cacheWhere(runs, settings.kvQuant);
+  final pair = koboldFlashAndCache(
+    runs: runs,
+    flashAttention: settings.flashAttention,
+    kvQuant: settings.kvQuant,
+  );
   return KoboldLaunchConfig(
     modelPath: modelPath,
     contextSize: settings.contextSize,
@@ -141,10 +163,8 @@ KoboldLaunchConfig koboldAppConfig({
     // fitting, or a MoE model whose experts stay off the card, that is the
     // "memory doubled, 0.2 tokens a second" case.
     useMlock: settings.mlock && manual && !model.isMoe,
-    kvQuant: kvQuant,
-    // A quantised cache needs flash attention to shrink both halves.
-    flashAttention:
-        runs && (settings.flashAttention || kvQuant.needsFlashAttention),
+    kvQuant: pair.kvQuant,
+    flashAttention: pair.flashAttention,
     backend: settings.backend,
     gpuId: settings.gpuId,
     mmprojPath: mmprojPath,
@@ -217,13 +237,16 @@ KoboldLaunchConfig koboldGeneratedPreset({
   List<String> cudaOptions = const [],
   Map<String, dynamic> extras = const {},
 }) {
-  final runs = koboldFlashAttentionRuns(
-    backend: backend,
-    rocm: rocm,
-    architecture: architecture,
-    rocmFailedBefore: rocmFlashAttentionFailed,
+  final pair = koboldFlashAndCache(
+    runs: koboldFlashAttentionRuns(
+      backend: backend,
+      rocm: rocm,
+      architecture: architecture,
+      rocmFailedBefore: rocmFlashAttentionFailed,
+    ),
+    flashAttention: flashAttention,
+    kvQuant: kvQuant,
   );
-  final fa = runs && flashAttention;
   final manual = manualLayers != null;
   final moeCpu = manual && moeCpuLayers > 0;
   return KoboldLaunchConfig(
@@ -236,8 +259,8 @@ KoboldLaunchConfig koboldGeneratedPreset({
         ? null
         : koboldAutofitPaddingMb(greedy: greedyAllocation),
     forceFit: !manual,
-    flashAttention: fa,
-    kvQuant: _cacheWhere(fa, kvQuant),
+    flashAttention: pair.flashAttention,
+    kvQuant: pair.kvQuant,
     backend: backend,
     gpuId: gpuId,
     contextMode: contextMode,

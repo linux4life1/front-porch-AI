@@ -225,6 +225,21 @@ extension _SettingsLaunchOptions on _SettingsPageState {
             onChanged: (v) =>
                 storage.backendSettings.setFlashAttentionEnabled(v),
           ),
+          // Switched off, it still runs with a compressed cache.
+          if (!storage.backendSettings.flashAttentionEnabled &&
+              storage.backendSettings.kvQuant.needsFlashAttention)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                kKoboldCompressedTurnsFlashOn,
+                key: const ValueKey('flash-attention-compressed-note'),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: accent,
+                ),
+              ),
+            ),
           toggle(
             label: 'Lock Weights in RAM (mlock)',
             tooltip: Platform.isLinux
