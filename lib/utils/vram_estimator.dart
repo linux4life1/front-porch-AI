@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+// The leaf, not kobold.dart: the barrel pulls in the launch services, which
+// import utils.dart back.
 import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/gguf_model_info.dart';
@@ -32,7 +34,6 @@ typedef VramEstimateBreakdown = ({
   int computeBufMb,
   int overheadMb,
   int totalMb,
-  double activeWeightRatio,
 });
 
 /// Default context size used for VRAM estimation when none is specified.
@@ -44,12 +45,17 @@ const int tightThresholdMb = 2048; // 2 GB
 
 /// Utility class for estimating VRAM requirements and fit status.
 ///
-/// VRAM estimation formula:
+/// The rough estimate (for a model in a list, before there is a file to
+/// read):
 /// - Model weights: file size (GGUF files are already quantized)
 /// - KV cache: kvBytesPerToken * contextSize
 /// - Overhead: ~5% for runtime buffers
 ///
 /// Total = fileSize + kvCache + overhead
+///
+/// What the preset editor, the Local model card and a launch use is
+/// `KoboldFit`, over the model file's own header. [estimateFromArchitecture]
+/// is that same figure, kept for the tests that check it against real loads.
 class VramEstimator {
   /// Estimates total VRAM needed (in MB) to run a model.
   ///
@@ -118,47 +124,12 @@ class VramEstimator {
     );
   }
 
-  /// Gets fit status for a specific HuggingFace model file.
-  static VramFitStatus getFitForHfFile({
-    required HFModelFile file,
-    required int availableVramMb,
-    int contextSize = defaultContextSize,
-    int? kvBytesPerToken,
-  }) {
-    final needed = estimateForHfFile(
-      file: file,
-      contextSize: contextSize,
-      kvBytesPerToken: kvBytesPerToken,
-    );
-    return getFitStatus(neededMb: needed, availableMb: availableVramMb);
-  }
-
   /// Returns a human-readable VRAM estimate string.
   static String formatVramEstimate(int mb) {
     if (mb >= 1024) {
       return '${(mb / 1024).toStringAsFixed(2)} GB';
     }
     return '$mb MB';
-  }
-
-  /// Returns a detailed breakdown string for debugging/display.
-  static String estimateBreakdown({
-    required int fileSizeBytes,
-    int contextSize = defaultContextSize,
-    int? kvBytesPerToken,
-    double? paramCountB,
-  }) {
-    final weightsMb = fileSizeBytes ~/ (1024 * 1024);
-    final kvBytes = kvBytesPerToken ?? _estimateKvBytesPerToken(paramCountB);
-    final kvCacheMb = (kvBytes * contextSize) ~/ (1024 * 1024);
-    final total = estimateVramNeeded(
-      fileSizeBytes: fileSizeBytes,
-      contextSize: contextSize,
-      kvBytesPerToken: kvBytesPerToken,
-      paramCountB: paramCountB,
-    );
-
-    return 'Weights: ${weightsMb}MB | KV Cache: ${kvCacheMb}MB | Total: ${formatVramEstimate(total)}';
   }
 
   /// Estimates KV cache bytes per token based on model parameter count.
@@ -189,10 +160,7 @@ class VramEstimator {
   /// Based on a typical 7B-class model (Llama/Mistral architecture).
   static const int _defaultKvBytes = 1024;
 
-  /// ── Architecture-based estimation (uses GGUFModelInfo) ──
-
-  /// Result of a full architecture-based VRAM estimate.
-  static const int defaultFixedOverheadMb = 600;
+  // ── Architecture-based estimation (uses GGUFModelInfo) ──
 
   /// KV cache quantization byte-size factor (relative to f16).
   static double _kvQuantFactor(String kvQuant) =>
@@ -232,69 +200,12 @@ class VramEstimator {
       backend: backend,
       moeCpuBlocks: expertsOnCpu ? modelInfo.nLayers : 0,
     );
-    final exact = modelInfo.weights;
-    final double weightRatio;
-    if (backend == KoboldMemoryBackend.metal) {
-      weightRatio = 1.0;
-    } else if (exact != null && exact.total > 0) {
-      weightRatio = exact.gpuBytes(expertsOnCpu: expertsOnCpu) / exact.total;
-    } else {
-      weightRatio = expertsOnCpu
-          ? modelInfo.gpuWeightRatioWhenOffloadingExperts
-          : 1.0;
-    }
     return (
       weightsMb: load.modelMb + load.expertsMb,
       kvCacheMb: load.cacheMb,
       computeBufMb: load.computeMb,
       overheadMb: load.overheadMb,
       totalMb: load.cardMb,
-      activeWeightRatio: weightRatio,
     );
-  }
-
-  /// Suggest a batch size that fits within [availableVramMb] given the margin.
-  ///
-  /// Picks the largest batch from a safe set of common values, falling back
-  /// to 512 (KoboldCPP's own default) if nothing larger fits.
-  static int suggestBatchSize({
-    required GGUFModelInfo modelInfo,
-    required int fileSizeBytes,
-    required int contextSize,
-    required String kvQuant,
-    required bool isSwa,
-    required bool moeExpertsOnCpu,
-    required int availableVramMb,
-    required int autofitpaddingMb,
-    KoboldMemoryBackend backend = KoboldMemoryBackend.cuda,
-    bool flashAttention = true,
-    int minBatch = 512,
-    int maxBatch = 8192,
-  }) {
-    // Candidate batch sizes: double until max, then clamp
-    final candidates = <int>[];
-    for (var b = minBatch; b <= maxBatch; b *= 2) {
-      candidates.add(b);
-    }
-    if (candidates.last != maxBatch) candidates.add(maxBatch);
-
-    // Try largest first, pick the first that fits
-    for (final batch in candidates.reversed) {
-      final est = estimateFromArchitecture(
-        modelInfo: modelInfo,
-        fileSizeBytes: fileSizeBytes,
-        contextSize: contextSize,
-        batchSize: batch,
-        kvQuant: kvQuant,
-        isSwa: isSwa,
-        moeExpertsOnCpu: moeExpertsOnCpu,
-        backend: backend,
-        flashAttention: flashAttention,
-      );
-      if (est.totalMb + autofitpaddingMb <= availableVramMb) {
-        return batch;
-      }
-    }
-    return minBatch; // safe fallback
   }
 }

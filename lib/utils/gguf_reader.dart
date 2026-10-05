@@ -2,17 +2,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 /// One entry of a GGUF file's tensor table: what the tensor is called, its
-/// shape and type, and where its data starts (counted from the start of the
-/// file's data section).
+/// shape, and where its data starts (counted from the start of the file's
+/// data section).
 class GGUFTensorInfo {
-  const GGUFTensorInfo(this.name, this.dims, this.type, this.offset);
+  const GGUFTensorInfo(this.name, this.dims, this.offset);
   final String name;
   final List<int> dims;
-  final int type;
   final int offset;
 }
 
@@ -56,26 +54,8 @@ class GGUFHeader {
 /// tokenizer's long lists.
 /// Used by [GGUFParser] methods to avoid duplicating the byte-level loop.
 class GGUFFileReader {
-  /// Opens [filePath], reads up to [readSize] bytes, and parses all metadata
-  /// KV pairs. Returns null if the file is invalid or truncated.
-  static Future<Map<String, dynamic>?> readMetadata(
-    String filePath, {
-    int readSize = 16 * 1024 * 1024,
-  }) async {
-    final file = File(filePath);
-    if (!await file.exists()) return null;
-
-    final raf = await file.open(mode: FileMode.read);
-    try {
-      final bytes = await raf.read(readSize);
-      return parseMetadataBytes(bytes);
-    } finally {
-      await raf.close();
-    }
-  }
-
-  /// Parse metadata from an in-memory byte buffer.
-  /// Public for use by [GGUFParser] which already has the file open.
+  /// Parse metadata from an in-memory byte buffer: for a caller that has
+  /// the start of the file open already.
   static Map<String, dynamic>? parseMetadataBytes(Uint8List bytes) =>
       parseHeaderBytes(bytes)?.meta;
 
@@ -220,15 +200,11 @@ class GGUFFileReader {
             data.getUint64(offset + 8 * d, Endian.little),
         ];
         offset += 8 * nDims;
-        final type = data.getUint32(offset, Endian.little);
+        // The tensor's type is not needed: its size is the gap to the next
+        // tensor's offset.
         offset += 4;
         tensors.add(
-          GGUFTensorInfo(
-            name,
-            dims,
-            type,
-            data.getUint64(offset, Endian.little),
-          ),
+          GGUFTensorInfo(name, dims, data.getUint64(offset, Endian.little)),
         );
         offset += 8;
       }

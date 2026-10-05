@@ -47,23 +47,15 @@ void main() {
         header.tensorSizes(side['fixture_file_bytes'] as int),
       );
       expect(weights.total, bytes['total']);
-      expect(weights.blocks, bytes['blocks']);
+      expect(
+        weights.perBlock.fold<int>(0, (sum, b) => sum + b),
+        bytes['blocks'],
+      );
       expect(weights.experts, bytes['expert']);
       expect(weights.tokenEmbedding, bytes['token_embd']);
       expect(weights.output, bytes['output']);
       expect(weights.other, bytes['other']);
       expect(weights.perBlock.length, truth['n_layer']);
-      // A tied model's output layer is a second copy of the embedding.
-      final outputOnCard = bytes['output'] == 0
-          ? bytes['token_embd'] as int
-          : bytes['output'] as int;
-      expect(
-        weights.gpuBytes(expertsOnCpu: true),
-        (bytes['blocks'] as int) -
-            (bytes['expert'] as int) +
-            outputOnCard +
-            (bytes['other'] as int),
-      );
     });
   }
 

@@ -21,18 +21,17 @@ int _pad256(int n) => (n + 255) ~/ 256 * 256;
 int koboldContextCells(int contextSize) => _pad256(contextSize + 128);
 
 /// Cache cells of a sliding-window layer with sliding window on: the window
-/// plus one batch rounded up to 256, then 128 more and KoboldCpp's extra
-/// padding, never more than the whole context. Gemma 4 (window 1024):
-/// 1,664 cells at batch 512, 2,176 at 1024.
+/// plus one batch rounded up to 256, then 128 more, never more than the
+/// whole context. Gemma 4 (window 1024): 1,664 cells at batch 512, 2,176 at
+/// 1024.
 int koboldWindowCells({
   required int contextSize,
   required int slidingWindow,
   required int batchSize,
-  int swaPadding = 0,
 }) {
   final full = koboldContextCells(contextSize);
   final window = _pad256((slidingWindow + batchSize).clamp(0, full));
-  return (window + 128 + swaPadding).clamp(0, full);
+  return (window + 128).clamp(0, full);
 }
 
 /// The attention cache in bytes, layer by layer.

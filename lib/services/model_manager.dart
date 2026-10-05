@@ -136,11 +136,6 @@ class ModelManager extends ChangeNotifier {
     }
   }
 
-  /// Synchronous fetch for KV bytes from cache.
-  int? getCachedKvBytesPerToken(String filePath) {
-    return _kvBytesCache[filePath];
-  }
-
   /// Cache for full GGUF architecture info (nLayers + kv bytes + helpers).
   final Map<String, GGUFModelInfo> _ggufInfoCache = {};
 
@@ -150,7 +145,7 @@ class ModelManager extends ChangeNotifier {
 
   /// Retrieves full architectural info (including real `nLayers` / block_count)
   /// by parsing the GGUF file. Populates an internal cache for fast subsequent
-  /// calls (used by the layer solver / Auto-Configure).
+  /// calls.
   Future<GGUFModelInfo?> getModelArchitectureInfo(String filePath) async {
     if (_ggufInfoCache.containsKey(filePath)) {
       return _ggufInfoCache[filePath];

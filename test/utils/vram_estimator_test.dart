@@ -144,19 +144,6 @@ void main() {
         expect(VramEstimator.formatVramEstimate(4096), equals('4.00 GB'));
       });
     });
-
-    group('estimateBreakdown', () {
-      test('returns readable breakdown string', () {
-        final breakdown = VramEstimator.estimateBreakdown(
-          fileSizeBytes: 4 * 1024 * 1024 * 1024,
-          paramCountB: 8.0,
-        );
-
-        expect(breakdown, contains('Weights'));
-        expect(breakdown, contains('KV Cache'));
-        expect(breakdown, contains('Total'));
-      });
-    });
   });
 
   group('QuantType', () {
@@ -193,54 +180,6 @@ void main() {
   });
 
   group('GGUFModelInfo', () {
-    group('activeWeightRatio', () {
-      test('returns 1.0 for non-MoE models', () {
-        final info = GGUFModelInfo(
-          nLayers: 32,
-          nHeads: 32,
-          nKvHeads: 8,
-          nEmbd: 4096,
-          kvBytesPerToken: 8192,
-        );
-        expect(info.activeWeightRatio, equals(1.0));
-      });
-
-      test(
-        'returns < 1.0 for MoE models with expert_count > expert_used_count',
-        () {
-          final info = GGUFModelInfo(
-            nLayers: 28,
-            nHeads: 32,
-            nKvHeads: 8,
-            nEmbd: 4096,
-            kvBytesPerToken: 7168,
-            expertCount: 64,
-            expertUsedCount: 8,
-            expertFfnDim: 14336,
-          );
-          expect(info.activeWeightRatio, lessThan(1.0));
-          expect(info.activeWeightRatio, greaterThan(0.05));
-        },
-      );
-
-      test('returns correct ratio for Mixtral-like 8x7B', () {
-        final info = GGUFModelInfo(
-          nLayers: 32,
-          nHeads: 32,
-          nKvHeads: 8,
-          nEmbd: 4096,
-          kvBytesPerToken: 8192,
-          expertCount: 8,
-          expertUsedCount: 2,
-          expertFfnDim: 14336,
-        );
-        // 8 experts, 2 active: ~25% of expert params active
-        // plus attention + router + shared expert (always active)
-        expect(info.activeWeightRatio, greaterThan(0.20));
-        expect(info.activeWeightRatio, lessThan(0.40));
-      });
-    });
-
     group('gpuWeightRatioWhenOffloadingExperts', () {
       test('returns 1.0 for non-MoE models', () {
         final info = GGUFModelInfo(
@@ -253,29 +192,31 @@ void main() {
         expect(info.gpuWeightRatioWhenOffloadingExperts, equals(1.0));
       });
 
-      test('is higher than activeWeightRatio when nVocab is large', () {
+      GGUFModelInfo moe({int? nVocab}) => GGUFModelInfo(
+        nLayers: 28,
+        nHeads: 16,
+        nKvHeads: 4,
+        nEmbd: 2560,
+        kvBytesPerToken: 3584,
+        expertCount: 64,
+        expertUsedCount: 4,
+        expertFfnDim: 6912,
+        nVocab: nVocab,
+      );
+
+      test('is higher when nVocab is large than with no vocabulary at all', () {
         // MoE model with large vocab — embeddings + lm_head add significant
         // always-on-GPU weight that lifts the ratio above the per-layer ratio
-        final info = GGUFModelInfo(
-          nLayers: 28,
-          nHeads: 16,
-          nKvHeads: 4,
-          nEmbd: 2560,
-          kvBytesPerToken: 3584,
-          expertCount: 64,
-          expertUsedCount: 4,
-          expertFfnDim: 6912,
-          nVocab: 32768,
-        );
-        final activeRatio = info.activeWeightRatio;
-        final gpuRatio = info.gpuWeightRatioWhenOffloadingExperts;
-        expect(gpuRatio, greaterThan(activeRatio));
+        // (the ratio with no vocabulary counted).
+        final perLayer = moe().gpuWeightRatioWhenOffloadingExperts;
+        final gpuRatio = moe(nVocab: 32768).gpuWeightRatioWhenOffloadingExperts;
+        expect(gpuRatio, greaterThan(perLayer));
         expect(gpuRatio, greaterThan(0.06));
       });
 
-      test('approaches activeWeightRatio when nVocab is small', () {
+      test('approaches the per-layer ratio when nVocab is small', () {
         // Tiny vocab means embeddings contribute negligibly
-        final info = GGUFModelInfo(
+        GGUFModelInfo mixtral({int? nVocab}) => GGUFModelInfo(
           nLayers: 32,
           nHeads: 32,
           nKvHeads: 8,
@@ -284,65 +225,17 @@ void main() {
           expertCount: 8,
           expertUsedCount: 2,
           expertFfnDim: 14336,
+          nVocab: nVocab,
+        );
+        final perLayer = mixtral().gpuWeightRatioWhenOffloadingExperts;
+        final gpuRatio = mixtral(
           nVocab: 100,
-        );
-        final activeRatio = info.activeWeightRatio;
-        final gpuRatio = info.gpuWeightRatioWhenOffloadingExperts;
+        ).gpuWeightRatioWhenOffloadingExperts;
+        // 8 experts, 2 active: about a quarter of the expert params, plus the
+        // attention and router that are always active.
+        expect(perLayer, closeTo(0.272, 0.001));
         // Should be very close since embedding params are tiny relative to total
-        expect(gpuRatio, closeTo(activeRatio, 0.01));
-      });
-    });
-
-    group('hasMixedKvHeads', () {
-      test('returns false when nKvHeadsPerLayer is null', () {
-        final info = GGUFModelInfo(
-          nLayers: 30,
-          nHeads: 16,
-          nKvHeads: 8,
-          nEmbd: 2816,
-          kvBytesPerToken: 46080,
-        );
-        expect(info.hasMixedKvHeads, isFalse);
-      });
-
-      test('returns true for Gemma 4 style (25×8 + 5×2)', () {
-        final perLayer = [...List.filled(25, 8), ...List.filled(5, 2)];
-        final info = GGUFModelInfo(
-          nLayers: 30,
-          nHeads: 16,
-          nKvHeads: 8,
-          nEmbd: 2816,
-          kvBytesPerToken: 46080,
-          nKvHeadsPerLayer: perLayer,
-        );
-        expect(info.hasMixedKvHeads, isTrue);
-      });
-
-      test('returns false when all layers have same kv heads', () {
-        final perLayer = List.filled(32, 8);
-        final info = GGUFModelInfo(
-          nLayers: 32,
-          nHeads: 32,
-          nKvHeads: 8,
-          nEmbd: 4096,
-          kvBytesPerToken: 8192,
-          nKvHeadsPerLayer: perLayer,
-        );
-        expect(info.hasMixedKvHeads, isFalse);
-      });
-
-      test('handles LFM-style per-layer with 0 = default', () {
-        // LFM: per-layer array with 0 meaning "use head_count"
-        final perLayer = [0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        final info = GGUFModelInfo(
-          nLayers: 16,
-          nHeads: 32,
-          nKvHeads: 32,
-          nEmbd: 2560,
-          kvBytesPerToken: 20480,
-          nKvHeadsPerLayer: perLayer,
-        );
-        expect(info.hasMixedKvHeads, isTrue);
+        expect(gpuRatio, closeTo(perLayer, 0.01));
       });
     });
   });
@@ -411,7 +304,6 @@ void main() {
       expertFfnDim: 5120,
       nVocab: 151936,
       keyLength: 128,
-      fullAttentionInterval: 4,
       kvLayers: List.filled(6, const GGUFKvLayer(1024, 1024)),
     );
 
@@ -460,10 +352,7 @@ void main() {
 
       // With offloading, weights should be lower
       expect(resultWithOffload.weightsMb, lessThan(resultNoOffload.weightsMb));
-      expect(
-        resultWithOffload.activeWeightRatio,
-        lessThan(resultNoOffload.activeWeightRatio),
-      );
+      expect(resultWithOffload.totalMb, lessThan(resultNoOffload.totalMb));
     });
   });
 

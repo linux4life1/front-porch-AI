@@ -67,8 +67,6 @@ class KoboldLoad {
   /// The expert weights among [ramWeightsMb].
   final int ramExpertsMb;
 
-  int get blockCount => layerCount - 1;
-  int get blocksOnCard => (gpuLayers - 1).clamp(0, blockCount);
   int get cardMb => modelMb + expertsMb + cacheMb + computeMb + overheadMb;
   int get ramMb => ramWeightsMb + ramCacheMb;
 

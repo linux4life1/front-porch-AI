@@ -54,8 +54,6 @@ class GGUFWeights {
   /// Everything else outside the blocks (norms, frequency tables).
   final int other;
 
-  int get blocks => perBlock.fold(0, (sum, b) => sum + b);
-
   /// The tensors KoboldCpp's own rule moves to system memory for a MoE
   /// model: `blk.N.ffn_(up|down|gate|gate_up)_(ch|)exps`.
   static final RegExp _expert = RegExp(
@@ -99,18 +97,9 @@ class GGUFWeights {
   }
 
   /// A model that uses its input embedding as its output layer too (Gemma,
-  /// small Qwen and Llama models) has no output tensor of its own.
-  bool get tiedOutput => output == 0 && tokenEmbedding > 0;
-
-  /// What sits on the graphics card with every block offloaded: the blocks
-  /// (without the expert weights when those stay in system memory), the
-  /// output layer and the small tensors around them. The input embedding
-  /// stays in system memory, but a tied model's output layer is a second
-  /// copy of it on the card: Gemma 4 12B put 6776.84 MiB there, its blocks
+  /// small Qwen and Llama models) has no output tensor of its own. The
+  /// embedding stays in system memory, but the output layer on the card is
+  /// a second copy of it: Gemma 4 12B put 6776.84 MiB there, its blocks
   /// plus the 540 MiB embedding again.
-  int gpuBytes({required bool expertsOnCpu}) =>
-      blocks -
-      (expertsOnCpu ? experts : 0) +
-      (tiedOutput ? tokenEmbedding : output) +
-      other;
+  bool get tiedOutput => output == 0 && tokenEmbedding > 0;
 }

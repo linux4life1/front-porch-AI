@@ -83,7 +83,6 @@ void main() {
       expect(l.cacheMb, 4883);
       expect(l.ramCacheMb, 5397);
       expect(l.ramWeightsMb, closeTo(5178, 1));
-      expect(l.blocksOnCard, 19);
     });
 
     test('with blocks in system memory the working buffer grows, and the '

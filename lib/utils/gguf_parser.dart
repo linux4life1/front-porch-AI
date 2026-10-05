@@ -184,10 +184,8 @@ class GGUFParser {
       nVocab: embedding != null
           ? embedding.dims[1]
           : (tokens == null ? null : GGUFFileReader.toInt(tokens)),
-      nKvHeadsPerLayer: kvHeadsPerLayer,
       keyLength: keyLength > 0 ? keyLength : null,
       swaHeadDim: keyLengthSwa != keyLength ? keyLengthSwa : null,
-      fullAttentionInterval: interval > 0 ? interval : null,
       leadingDenseBlockCount: number('leading_dense_block_count'),
       weights: sizes == null ? null : GGUFWeights.fromTensorSizes(sizes),
       kvLayers: kvLayers,
