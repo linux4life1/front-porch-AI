@@ -42,6 +42,18 @@ extension SetupStepFields on SetupStep {
       listen: false,
     );
 
+    // Kept the way Settings keeps it, for the model a launch will load, and
+    // shown from what is kept. A preset that names a model on this computer
+    // owns the choice of model.
+    Future<void> choosePreset(String? path) async {
+      await chooseKoboldPreset(storage, path);
+      if (storage.backendSettings.kcppsHasModel &&
+          storage.backendSettings.kcppsModelFileExists) {
+        state.selectedLocalModelPath = '';
+      }
+      state.notify();
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -51,24 +63,9 @@ extension SetupStepFields on SetupStep {
             storage: storage,
             localPresets: state.localPresets,
             hint: 'Optional \u2014 select a .kcpps preset',
-            onChanged: (val) {
-              storage.backendSettings.setActiveKcppsPath(val);
-              if (val != null &&
-                  storage.backendSettings.kcppsHasModel &&
-                  storage.backendSettings.kcppsModelFileExists) {
-                state.selectedLocalModelPath = '';
-                state.notify();
-              }
-            },
-            onExternalClear: () =>
-                storage.backendSettings.setActiveKcppsPath(null),
-            onBrowsePicked: (_) {
-              if (storage.backendSettings.kcppsHasModel &&
-                  storage.backendSettings.kcppsModelFileExists) {
-                state.selectedLocalModelPath = '';
-                state.notify();
-              }
-            },
+            onChanged: choosePreset,
+            onExternalClear: () => choosePreset(null),
+            onBrowsePicked: choosePreset,
             onModelStatusChanged: (_) => state.notify(),
           ),
           const SizedBox(height: 16),
