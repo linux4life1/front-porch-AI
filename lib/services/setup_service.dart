@@ -106,7 +106,11 @@ class SetupService extends ChangeNotifier {
       //    .kcpps preset that owns the model — the preset used to be its own
       //    "pseudoRemote" backend, but it is now just a launch option of the
       //    local backend, so a single autostart branch handles both.
+      //    An engine the user started meanwhile is left alone: a launch
+      //    would stop it and start it again. (One still starting already
+      //    refuses a second launch.)
       if (_storageService.backendSettings.autostartBackend &&
+          !_koboldService.isRunning &&
           resolveKoboldLaunch(_storageService).canLaunch) {
         _currentStep = SetupStep.startingBackend;
         notifyListeners();
