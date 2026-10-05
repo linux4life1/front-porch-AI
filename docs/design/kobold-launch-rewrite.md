@@ -941,10 +941,12 @@ which a Stop of this turn does not cancel. A turn's own helper on the wire is
 cut as before (nothing of the turn waits then), and so is any abort that is
 not a Stop. Stop, perf, token counts and swaps stay outside the line.
 `waitForIdle` means "what is in line at this moment". The line comes first,
-the swap lock second; a swap never takes the line. No abort counter decides
-anything: many callers abort on purpose (the eval engine after an early
-JSON, tool timeouts), so counting aborts would drop a reply that is only
-waiting.
+the swap lock second; a swap never takes the line. No count of aborts decides
+whether a waiting reply is dropped: many callers abort on purpose (the eval
+engine after an early JSON, tool timeouts), so counting aborts would drop a
+reply that is only waiting. The count is only used after the fact, to tell a
+reply that an abort closed (its cache is as it left it, worth keeping) from
+one that broke.
 
 **Who is a chat.** `GenerationParams.kvChat` is the chat's session id. Only
 `paramsOf` (send, Continue, regenerate, every group speaker, Scene Guest and
@@ -971,8 +973,9 @@ each load of the model (`KoboldService.loadGeneration`).
   least recently used chat's. The line is held until the save is done, so a
   helper asked meanwhile goes out after it, and the reader is not kept
   waiting. The engine counts as busy for the idle unload until then too: the
-  idle time runs from the end of the save, not from the end of the reply. A save the engine cannot make steps the keeper aside and clears
-  the slots to give the memory back.
+  idle time runs from the end of the save, not from the end of the reply. A
+  save the engine cannot make steps the keeper aside and clears the slots to
+  give the memory back.
 - A reply that carries pictures (`GenerationParams.images`) is a helper to
   the keeper: no load before it and no save after it, because a load does not
   restore the engine's record of which pictures are in the cache. The next
