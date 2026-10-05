@@ -156,6 +156,14 @@ void main() {
       while (engine.arrived.where((r) => r.kind == 'chat').isEmpty) {
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
+      // A swap holds the lock the save runs in, so the save is slow to
+      // reach the engine: a helper that was let through early would be
+      // first.
+      unawaited(
+        kobold.adminSwapLock.enqueue(
+          () => Future<void>.delayed(const Duration(milliseconds: 400)),
+        ),
+      );
       final helper = kobold
           .generateStream(_helper('judge words here'))
           .toList();

@@ -85,7 +85,7 @@ extension KoboldServiceRequests on KoboldService {
   ///
   /// The request waits for its turn when the stream is listened to, and gives
   /// the place back when the stream ends, fails or is cancelled. A reader
-  /// that leaves while it still waits makes it stop at the first chunk.
+  /// that leaves while the request still waits means it is never sent.
   ///
   /// A chat reply ([GenerationParams.kvChat]) has its chat's saved cache
   /// loaded before it goes out and saved after it, with the place held
@@ -140,6 +140,9 @@ extension KoboldServiceRequests on KoboldService {
         unawaited(
           _keeper
               .chatEnd(chat, ok: sent && !broken)
+              .catchError(
+                (Object e) => debugPrint('[Kobold] saving the chat failed: $e'),
+              )
               .whenComplete(ticket.release),
         );
       }
