@@ -19,7 +19,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:front_porch_ai/services/hardware_service.dart';
+import 'package:front_porch_ai/models/models.dart';
 
 import 'kobold_launch_config.dart';
 

@@ -25,7 +25,6 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/xai/xai.dart';
-import 'package:front_porch_ai/services/kobold_status_facts.dart';
 
 part 'backend_facade.local_model.dart';
 

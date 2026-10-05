@@ -25,7 +25,6 @@ import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/models/hardware_info.dart';
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
-import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/kobold_process_control.dart';

@@ -1,8 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+import 'kobold_app_config.dart';
+import 'kobold_backend_choice.dart';
+import 'kobold_context_verdict.dart';
+import 'kobold_fit.dart';
 
 /// What the local model card says in auto mode, worked out once for each
 /// change of model, settings or machine: never on a rebuild.
