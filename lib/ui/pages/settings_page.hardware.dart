@@ -18,8 +18,8 @@
 
 part of 'settings_page.dart';
 
-/// Hardware & GPU block of the Advanced tab: the VRAM gauge card plus the
-/// Auto-Configure action. The GPU/context controls (context window, GPU
+/// Hardware & GPU block of the Advanced tab: the VRAM gauge card. The
+/// GPU/context controls (context window, GPU
 /// layers, backend chips) live in settings_page.gpu.dart. Extracted from the
 /// inline _buildAdvancedTab; direct state access preserves behavior.
 /// Warm-porch: model=amber, context=honey, status green/amber/red.

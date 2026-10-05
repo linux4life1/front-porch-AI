@@ -23,8 +23,8 @@ import 'dart:typed_data';
 /// Vision-relevant facts distilled from a single GGUF file's metadata header.
 ///
 /// This is deliberately kept separate from [GGUFParser] in `gguf_parser.dart`:
-/// that file is at the 500-line cap and its KV-byte math feeds VRAM/layer
-/// solving, which we must not risk regressing. Vision detection is a distinct
+/// that one reads the architecture the memory estimate is worked out from, and
+/// must not be put at risk by this one. Vision detection is a distinct
 /// concern with its own (small, self-contained) header walk.
 class GgufVisionInfo {
   /// `general.architecture` as reported by the file (lower-cased), or ''.

@@ -388,7 +388,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _selectedModelPath = modelManager.models.first.path;
     }
     // Warm architecture info for the (possibly just auto-selected) model so
-    // the first Auto-Configure or gauge update is accurate.
+    // the first gauge update is accurate.
     if (_selectedModelPath != null) {
       modelManager.getModelArchitectureInfo(_selectedModelPath!);
     }

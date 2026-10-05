@@ -64,8 +64,10 @@ safe pairings:
 
 **Default, chosen by the maintainer: sliding window off, fast forward and
 context shift on.** The other pairing stays available as a choice for
-models that have sliding window. Models without it always get fast forward
-and context shift.
+models that have sliding window, in the preset editor. Auto mode (the app's
+own settings, no preset) always writes the default: it once kept a stored
+switch for the other pairing, but nothing ever set it, so it was removed.
+Models without sliding window always get fast forward and context shift.
 
 **What I can't prove without a real machine**
 
@@ -342,9 +344,13 @@ New, under `lib/services/kobold/` with a `kobold.dart` barrel:
 - `kcpps_codec.dart`: pure read and write. Reads any `.kcpps`, including
   ones from KoboldCpp's own launcher, and normalises old key names. A file
   that will not parse returns "broken", not "no model".
-- `kobold_capabilities.dart`: version to feature flags, from the existing
-  `KoboldBinaryVersion`. Older builds get the older forms.
-- `cpu_threads.dart`: thread detection moved out of the generator.
+- A version check, from the existing `KoboldBinaryVersion`. This was planned
+  as `kobold_capabilities.dart` (version to feature flags, older builds
+  getting the older forms); decision 8 made that unnecessary, and as built it
+  is `KoboldBinaryVersion.tooOldProblem`: one minimum (1.112), one sentence,
+  and an engine below it is refused, not written an older config.
+- Thread detection moved out of the generator, into
+  `kobold_hardware_defaults.dart`.
 
 Writer rules: GPU id as text, using the app's GPU setting; both spellings
 of a renamed key (see the measured notes: an old name alone is lost on a
@@ -358,11 +364,12 @@ The existing generate dialog switches to the codec.
 Tests: round-trip a real launcher-made file with unknown keys intact; the
 old numeric GPU id reads back and re-writes as text; a pinned test that
 sliding-window mode always has fast forward and context shift off; all five
-cache levels; version gating; a broken file.
+cache levels; the minimum engine version; a broken file.
 
 ### Stage 2: launch from a staged config; delete the estimate (items 3, 4, 5, 6, 17, 22)
 
-- `lib/services/kobold_launch_args.dart` shrinks to four flag groups.
+- `lib/services/kobold_launch_args.dart` shrinks to the port and the admin
+  folder: everything else is in the staged config.
 - New `kobold_app_config.dart` (settings to config, pure) and
   `kobold_config_stage.dart` (write temp file then rename; prune old staged
   files).
@@ -668,7 +675,7 @@ summary card.
 
 Stage 7 as built (2026-10-04): the phone's Models page has the "Local
 model" card (the same KoboldStatusFacts as the desktop card, moved to
-`lib/services/kobold_status_facts.dart`) and a separate "KoboldCpp preset"
+`lib/services/kobold/kobold_status_facts.dart`) and a separate "KoboldCpp preset"
 card (auto mode never shows a door to presets). Routes:
 `GET /api/backend/local-model`, `POST /api/backend/local-model/preset`
 (only a preset in the engine folder, or none: the server may be reachable
@@ -769,15 +776,16 @@ No stored setting is deleted. New ones are added beside the old.
 | Cache level 0 / 1 / 2 | Read as f16 / q8_0 / q4_0. |
 | Active preset, model-to-preset map, vision map, worker paths | Unchanged. |
 
-The migration is one pure function over a key-value map, tested with real
-snapshots: fresh install, an Auto-Configured NVIDIA user, a CPU-only user,
-a ROCm user.
+The migration is not one function: each setting is read where it is used
+(the cache level in `KoboldLaunchFields.kvQuant`, the layer count and its
+one-time note in `loadKoboldLaunch`), over the stored preferences. It is
+tested with the old preferences seeded as an upgrade finds them.
 
 ## Reuse (already in the repo)
 
 - `GpuBackendResolver` for choosing a backend when none is stored.
 - `GGUFModelInfo.isMoe` and `.slidingWindow` (`lib/utils/gguf_model_info.dart`).
-- `KoboldBinaryVersion` (`lib/services/kobold_binary_version.dart`).
+- `KoboldBinaryVersion` (`lib/services/kobold/kobold_binary_version.dart`).
 - `ModelFileCheck` for the pre-launch file check.
 - `KoboldAdminSwapLock` and `KoboldProcessHost`, already injectable.
 - `WorkerBackendFields` as the pattern for a settings mixin.

@@ -5,8 +5,8 @@
 //
 // The regression these lock down: shared-memory detection compared WMI's
 // adapter name to the registry/nvidia-smi name with `==`. On AMD APUs the two
-// spellings differ, the match failed, VRAM stayed 0, and KoboldLayerSolver
-// turned that into `--gpulayers 0` — a silent CPU-only launch.
+// spellings differ, the match failed, VRAM stayed 0, and the layer picker the
+// app had then turned that into `--gpulayers 0` — a silent CPU-only launch.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/hardware_service.dart';

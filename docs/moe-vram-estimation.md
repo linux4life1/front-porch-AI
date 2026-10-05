@@ -1,9 +1,16 @@
 # MoE-Aware VRAM Estimation and KoboldCPP Launch for Auto-Configure
 
-> **Status (2026-10-03).** The estimation on this page is live. The "VRAM
-> Usage Estimate" in the preset editor uses the MoE detection, the
-> active weight ratio and the batch-size overhead described below
-> (`GGUFModelInfo`, `VramEstimator.estimateFromArchitecture`).
+> **Status (2026-10-04).** The estimation on this page is live, in the form
+> "How the estimate is worked out now" describes. The preset editor, the
+> Local model card and every launch fit the model with `KoboldFit`, which
+> runs `koboldLoad` (`lib/utils/kobold_placement.dart`) over the model file's
+> own header (`GGUFModelInfo`, `GGUFWeights`).
+> `VramEstimator.estimateFromArchitecture` is kept for the tests that check
+> those figures against real KoboldCpp loads. What the rest of this page
+> calls the active weight ratio (the `activeWeightRatio` getter), the batch
+> suggestion (`suggestBatchSize`) and the fixed overhead are gone; the one
+> piece of the ratio still used is the fallback for a file whose tensor
+> table cannot be read (`gpuWeightRatioWhenOffloadingExperts`).
 >
 > **What the estimate is for.** It does not decide how a model is loaded,
 > and never did: KoboldCpp fits the model. The estimate is a guess at how
@@ -18,7 +25,8 @@
 > count for launches that used no preset. Those launches now leave the fit
 > to KoboldCpp as well (Settings → Hardware & GPU → Graphics memory:
 > Automatic). Parts 3 to 6 of "Required Code Changes" below describe that
-> removed code and are kept for the history. The launch design is in
+> removed code, and the `activeWeightRatio` getter of part 1 is removed
+> too; they are kept for the history. The launch design is in
 > [design/kobold-launch-rewrite.md](design/kobold-launch-rewrite.md).
 
 ## How the estimate is worked out now (2026-10-04)
