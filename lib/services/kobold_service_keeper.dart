@@ -15,7 +15,38 @@ extension KoboldServiceKeeper on KoboldService {
     plan: _keeperPlan,
     underSwapLock: adminSwapLock.enqueue,
     log: _addLog,
+    onFailure: _keeperFailed,
   );
+
+  /// The engine could not do what the keeper asked. In auto mode that is
+  /// remembered for this model on this engine version, and the next start
+  /// leaves the chats to KoboldCpp's own smart cache, so the user is never
+  /// worse off than before the keeper. A preset runs as its owner wrote it,
+  /// and a keeper that only chose to stay out is not a failure.
+  void _keeperFailed(String why) {
+    if ((_loadedKcppsPath ?? '').isNotEmpty) return;
+    unawaited(_rememberKeeperFailure());
+  }
+
+  Future<void> _rememberKeeperFailure() async {
+    try {
+      final model = path.basename(_loadedModelPath ?? '');
+      final exe = _executablePath;
+      if (model.isEmpty) return;
+      final version = exe == null
+          ? null
+          : await KoboldBinaryVersion.versionFor(exe);
+      final settings = _storageService.backendSettings;
+      if (settings.keeperFailedFor(version, model)) return;
+      await settings.noteKeeperFailed(version, model);
+      _addLog(
+        'The next time KoboldCpp starts with $model, its own smart cache will '
+        'look after chats instead.',
+      );
+    } on Object catch (e) {
+      debugPrint('[Kobold] the keeper failure could not be remembered: $e');
+    }
+  }
 
   /// Whether the keeper may act for the config the engine runs, from what it
   /// was given. See [koboldKeeperPlan].
@@ -97,6 +128,10 @@ extension KoboldServiceKeeper on KoboldService {
       modelRamMb: koboldModelSystemMb(load, machine),
     );
   }
+
+  /// Test hook: the engine program the service says it started.
+  @visibleForTesting
+  set debugEngineFile(String path) => _executablePath = path;
 
   /// Test hook: decides for the keeper in place of the real rules.
   @visibleForTesting

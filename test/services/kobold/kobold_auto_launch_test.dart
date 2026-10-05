@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // What auto mode writes for the machine it launches on: the batch, smart
-// cache slots with context shift to match, MMQ while it is being learned,
-// and the context chat's prompts are held to. The models are real headers
+// cache slots with context shift to match (for a model the app does not
+// keep the chats of itself), MMQ while it is being learned, and the context
+// chat's prompts are held to. The models are real headers
 // grown to their real size (sparse files, so nothing is written).
 
 import 'dart:convert';
@@ -82,15 +83,15 @@ void main() {
         .cast<String, dynamic>();
   }
 
-  test('a model that fits with room gets the largest batch and three slots, '
-      'and MMQ is timed on first', () async {
+  test('a model that fits with room gets the largest batch and no smart '
+      'cache (the app keeps its chats), and MMQ is timed on first', () async {
     final config = await launch(
       await _model(dir, 'Qwen3-14B'),
       hardware: _nvidia(16384, 32768),
       free: (graphics: 16000, system: 28000),
     );
     expect(config['batchsize'], 2048);
-    expect(config['smartcache'], 3);
+    expect(config.containsKey('smartcache'), isFalse);
     expect(config['noshift'], isFalse);
     expect(
       config['nommq'],

@@ -3,8 +3,10 @@
 // of each prompt it has to read again. A word is a token.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/services.dart';
 
@@ -343,4 +345,82 @@ void main() {
       reason: 'said once for the load, not at every reply',
     );
   });
+
+  group('when the keeper fails', () {
+    late Directory folder;
+
+    setUp(() async {
+      folder = Directory.systemTemp.createTempSync('fpai keeper failure');
+      addTearDown(() => folder.delete(recursive: true));
+      // The engine as a start leaves it: a program with a version record.
+      final exe = File(p.join(folder.path, 'koboldcpp'))
+        ..writeAsBytesSync([1, 2, 3]);
+      await KoboldBinaryVersion.write(folder.path, version: '1.117.1', size: 3);
+      kobold.debugEngineFile = exe.path;
+    });
+
+    Future<void> failASave() async {
+      engine.failSaves = true;
+      await run(_reply(_words('h', 50), 'tail'));
+      // The remembering runs on its own after the step aside.
+      for (var i = 0; i < 50 && !_remembered(h); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    }
+
+    test('in auto mode the next start of this model on this engine is told to '
+        'use the smart cache, and the log says so once', () async {
+      kobold.noteAdminLoadedPair(
+        modelPath: '/models/Qwen3-14B.gguf',
+        kcppsPath: '',
+      );
+
+      await failASave();
+
+      expect(
+        h.storage.backendSettings.keeperFailedFor('1.117.1', 'Qwen3-14B.gguf'),
+        isTrue,
+      );
+      expect(
+        kobold.logs.where((l) => l.contains('smart cache will look after')),
+        hasLength(1),
+      );
+    });
+
+    test('a preset is left as its owner wrote it', () async {
+      kobold.noteAdminLoadedPair(
+        modelPath: '/models/Qwen3-14B.gguf',
+        kcppsPath: '/presets/mine.kcpps',
+      );
+
+      await failASave();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(
+        h.storage.backendSettings.keeperFailedFor('1.117.1', 'Qwen3-14B.gguf'),
+        isFalse,
+      );
+    });
+
+    test('an engine that only refused to be asked is not remembered as a '
+        'failure of the keeper', () async {
+      kobold.noteAdminLoadedPair(
+        modelPath: '/models/Qwen3-14B.gguf',
+        kcppsPath: '',
+      );
+      // Chats somebody else already holds are left alone: not a failure.
+      engine.slots[2].tokens = ['x'];
+
+      await run(_reply(_words('h', 50), 'tail'));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(
+        h.storage.backendSettings.keeperFailedFor('1.117.1', 'Qwen3-14B.gguf'),
+        isFalse,
+      );
+    });
+  });
 }
+
+bool _remembered(KoboldEngineHarness h) =>
+    h.storage.backendSettings.keeperFailedFor('1.117.1', 'Qwen3-14B.gguf');

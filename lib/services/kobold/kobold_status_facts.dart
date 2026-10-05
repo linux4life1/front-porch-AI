@@ -102,7 +102,9 @@ class KoboldStatusFacts {
         'Set up for this computer automatically. '
             '${_pace(tuning.load, machine, gpu.onCard)}',
         'Replies on long chats start fast.',
-        slots > 0
+        // The keeper's chats for an ordinary model, KoboldCpp's own slots
+        // for a hybrid one.
+        (tuning.chats > 0 ? tuning.chats >= 2 : slots > 0)
             ? 'Going back to another chat is quick.'
             : 'Going back to another chat takes a moment to catch up.',
       ],

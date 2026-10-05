@@ -111,14 +111,15 @@ void main() {
   ).let((r) => (r as KcppsOk).raw);
 
   test(
-    'auto mode: the batch and slots it picks for this Mac run, and chat\'s '
-    'prompts are held to the context the engine really has',
+    'auto mode: the batch it picks for this Mac runs, no smart cache is '
+    'asked for (the app keeps its chats), and chat\'s prompts are held to '
+    'the context the engine really has',
     () async {
       await start();
       final staged = stagedChat();
       // A small model on this Mac fits with plenty of room.
       expect(staged['batchsize'], 2048);
-      expect(staged['smartcache'], 3);
+      expect(staged.containsKey('smartcache'), isFalse);
       expect(await liveContextSize(port), 4096);
       expect(storage.backendSettings.engineContextSize, 4096);
       expect(storage.backendSettings.promptContext(32768), 4096);

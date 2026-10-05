@@ -83,8 +83,8 @@ void main() {
     final long = DateTime.utc(2026, 1, 1);
     file.setLastModifiedSync(long);
 
-    // What the header says: this machine has room for smart cache slots.
-    expect((await stage(file.path))['smartcache'], 3);
+    // What the header says: this machine has room for the largest batch.
+    expect((await stage(file.path))['batchsize'], 2048);
 
     // The same size and time, with a header that cannot be read. Read
     // again, the model would be taken for an ordinary one and the tuning
@@ -92,10 +92,10 @@ void main() {
     file.deleteSync();
     write(file, size, const []);
     file.setLastModifiedSync(long);
-    expect((await stage(file.path))['smartcache'], 3);
+    expect((await stage(file.path))['batchsize'], 2048);
 
     // A file that changed is read afresh.
     file.setLastModifiedSync(DateTime.utc(2026, 1, 2));
-    expect((await stage(file.path)).containsKey('smartcache'), isFalse);
+    expect((await stage(file.path))['batchsize'], 512);
   });
 }

@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import 'package:path/path.dart' as p;
 
 /// One way to launch KoboldCpp: from a config file the app writes.
 ///
@@ -274,15 +275,22 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       free: free,
       batchAutomatic: b.batchAutomatic,
       mmq: mmq,
+      // The slot keeper looks after the chats unless it failed for this
+      // model with this engine before.
+      keeper: !b.keeperFailedFor(engineVersion, p.basename(modelPath)),
+      onNote: onNote,
     ),
   );
 }
 
 /// Auto mode's own choices for this machine, made without asking: the
-/// batch (unless one was chosen in Settings), smart cache slots that fit in
-/// the free system memory with context shift to match, and MMQ as timed on
-/// this card. Without the model's header or the machine's figures the
-/// config is left as it was.
+/// batch (unless one was chosen in Settings), the chat cache, and MMQ as
+/// timed on this card. For an ordinary model the app keeps the chats itself
+/// (the slot keeper), so no smart cache is written and context shift stays
+/// on; a model with recurrent layers, and one the keeper failed for, gets
+/// smart cache slots that fit in the free system memory with context shift
+/// to match. Without the model's header or the machine's figures the config
+/// is left as it was.
 Future<KoboldLaunchConfig> _tunedForMachine(
   KoboldLaunchConfig config, {
   required GGUFModelInfo? info,
@@ -291,6 +299,8 @@ Future<KoboldLaunchConfig> _tunedForMachine(
   required FreeMemoryMb? free,
   required bool batchAutomatic,
   required bool? mmq,
+  required bool keeper,
+  void Function(String note)? onNote,
 }) async {
   final withMmq = mmq == null ? config : config.copyWith(mmq: mmq);
   if (info == null || hardware == null) return withMmq;
@@ -316,10 +326,12 @@ Future<KoboldLaunchConfig> _tunedForMachine(
       chosen: config.batchSize,
     ),
   );
+  if (!keeper && tuning.chats > 0) onNote?.call(kKeeperFailedNote);
+  final cache = tuning.cacheSetting(keeper: keeper);
   return withMmq.copyWith(
     batchSize: tuning.batchSize,
-    smartCacheSlots: tuning.smartCache.asked,
-    contextShift: tuning.smartCache.contextShift,
+    smartCacheSlots: cache.asked,
+    contextShift: cache.contextShift,
   );
 }
 

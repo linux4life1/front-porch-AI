@@ -76,6 +76,10 @@ const int _reserveMb = 2048;
 /// The most smart cache slots KoboldCpp takes.
 const int kKoboldSmartCacheMaxSlots = 20;
 
+/// The chats KoboldCpp's admin calls can save when smart cache is off: its
+/// default of five slots.
+const int kKoboldSaveSlots = 5;
+
 /// How many slots to ask for: one for each kind of prompt the app sends
 /// this engine ([promptKinds]: chat, the judges, a story job...), so
 /// switching between them restores instead of re-reading; but only as many

@@ -90,9 +90,10 @@ void main() {
     final model = await _model(dir, 'Qwen3-14B');
     final known = await launch(model, hardware: _nvidia);
     // The tuning is real here: a model that fits with room gets the
-    // largest batch, three slots, and MMQ timed first.
+    // largest batch, no smart cache (the app keeps its chats), and MMQ
+    // timed first.
     expect(known['batchsize'], 2048);
-    expect(known['smartcache'], 3);
+    expect(known.containsKey('smartcache'), isFalse);
     expect(known['nommq'], isFalse);
 
     final waited = await launch(model, awaitHardware: () async => _nvidia);

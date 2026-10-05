@@ -36,6 +36,7 @@ mixin KoboldLaunchFields on SettingsBase {
   KvQuant? _kvQuantNamed;
   bool _rocmFlashAttentionFailed = false;
   bool _batchAutomatic = true;
+  Set<String> _keeperFailed = const {};
   int _idleUnloadMinutes = 0;
   int? _engineContextSize;
 
@@ -99,6 +100,27 @@ mixin KoboldLaunchFields on SettingsBase {
     await prefs?.setInt(k('kobold_idle_unload_minutes'), value);
     notify();
   }
+
+  /// Whether keeping chats ready in KoboldCpp's memory failed for [model]
+  /// with this [engineVersion] before. Auto mode then uses KoboldCpp's own
+  /// smart cache for it, as it did before the keeper; a new engine version
+  /// is tried afresh.
+  bool keeperFailedFor(String? engineVersion, String model) =>
+      _keeperFailed.contains(_keeperKey(engineVersion, model));
+
+  Future<void> noteKeeperFailed(String? engineVersion, String model) async {
+    final key = _keeperKey(engineVersion, model);
+    if (_keeperFailed.contains(key)) return;
+    _keeperFailed = {..._keeperFailed, key};
+    await prefs?.setStringList(
+      k('kobold_keeper_failed'),
+      _keeperFailed.toList(),
+    );
+    notify();
+  }
+
+  static String _keeperKey(String? version, String model) =>
+      '${version ?? ''}|${model.trim()}';
 
   /// "I know KoboldCpp: don't ask again" on the pop-up before the preset
   /// editor.
@@ -274,6 +296,7 @@ mixin KoboldLaunchFields on SettingsBase {
         prefs?.getBool(k('kobold_preset_gate_skipped')) ?? false;
     final idle = prefs?.getInt(k('kobold_idle_unload_minutes')) ?? 0;
     _idleUnloadMinutes = kKoboldIdleUnloadChoices.contains(idle) ? idle : 0;
+    _keeperFailed = {...?prefs?.getStringList(k('kobold_keeper_failed'))};
     _mmqTimed = _readMmqTimed(prefs?.getString(k('kobold_mmq_timed')));
     _mmqSamples = _readMmqSamples(prefs?.getString(k('kobold_mmq_samples')));
   }

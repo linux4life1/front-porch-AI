@@ -27,13 +27,18 @@ class KoboldKeeperPlan {
   bool get keeps => chats > 0;
 }
 
+/// Said at the start when auto mode leaves the chats to KoboldCpp's own
+/// smart cache because keeping them from the app failed for this model with
+/// this KoboldCpp before.
+const String kKeeperFailedNote =
+    "KoboldCpp's own smart cache looks after chats for this model: keeping "
+    'them ready from Front Porch AI did not work with this version of '
+    'KoboldCpp before.';
+
 /// The memory the saved chats may use, in MB: the biggest one can be (a chat
 /// that fills the context), what the system has free, and what the model
 /// itself takes of it.
 typedef KoboldKeeperMemory = ({int slotMb, int freeRamMb, int modelRamMb});
-
-/// KoboldCpp keeps five saved chats unless smart cache says otherwise.
-const int kKoboldSaveSlots = 5;
 
 /// The keeper's plan for the config the engine was given.
 ///
