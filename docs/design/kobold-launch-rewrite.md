@@ -995,8 +995,10 @@ smart cache and context shift on; a model with recurrent layers is as it
 was (KoboldCpp's own smart cache). The preset editor, its suggestion and a
 preset's own settings are untouched. A failure at run time in an auto-mode
 launch (a save the engine cannot make, a call that errors, a chat that comes
-back changed; not the keeper choosing to stay out, and not a preset) is
-remembered in `kobold_keeper_failed` beside the other KoboldCpp preferences
+back changed, all after a first look showed the engine can keep chats; not
+the keeper choosing to stay out, not a first look that finds nothing or fails,
+which may be an engine still starting or a blip and only steps aside for that
+load, and not a preset) is remembered in `kobold_keeper_failed` beside the other KoboldCpp preferences
 (engine version and model file), under the same prefix, so a beta never
 reads a stable library's. The next start of that model on that engine
 version writes the smart cache auto mode wrote before and says so in the

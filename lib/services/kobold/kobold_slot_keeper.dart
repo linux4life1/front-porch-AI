@@ -184,10 +184,11 @@ class KoboldSlotKeeper {
     final check = await _call(_generation!, _api.check);
     if (check == null) return false;
     if (!check.ok || check.slotTokens.isEmpty) {
+      // Not a failure to remember: the engine may still be starting, or an
+      // admin call blipped, and the next load looks again.
       _stepAside(
         'KoboldCpp does not keep saved chats here (it needs admin mode and a '
         'model loaded).',
-        failure: true,
       );
       return false;
     }
@@ -241,14 +242,19 @@ class KoboldSlotKeeper {
   }
 
   /// A keeper that goes wrong must never take a reply down with it: any
-  /// failure is a step aside, and a busy engine is only skipped.
+  /// failure is a step aside, and a busy engine is only skipped. It is a
+  /// failure to remember only once the engine has shown it can keep chats:
+  /// before that, an error is as likely to be an engine that is not ready.
   Future<void> _guarded(Future<void> Function() body) async {
     try {
       await body();
     } on KoboldSlotException catch (e) {
-      if (!e.busy) _stepAside(e.message, failure: true);
+      if (!e.busy) _stepAside(e.message, failure: _mode == _Mode.on);
     } on Object catch (e) {
-      _stepAside('Something unexpected happened ($e).', failure: true);
+      _stepAside(
+        'Something unexpected happened ($e).',
+        failure: _mode == _Mode.on,
+      );
     }
   }
 

@@ -427,6 +427,28 @@ void main() {
         isFalse,
       );
     });
+
+    test('a first look that finds admin off is not remembered either: it may '
+        'be a blip, and the next load looks again', () async {
+      kobold.noteAdminLoadedPair(
+        modelPath: '/models/Qwen3-14B.gguf',
+        kcppsPath: '',
+      );
+      engine.adminOn = false;
+
+      await run(_reply(_words('h', 50), 'tail'));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(
+        h.storage.backendSettings.keeperFailedFor('1.117.1', 'Qwen3-14B.gguf'),
+        isFalse,
+      );
+      expect(
+        kobold.logs.where((l) => l.contains('smart cache will look after')),
+        isEmpty,
+        reason: 'no word about the next start: nothing was decided',
+      );
+    });
   });
 }
 

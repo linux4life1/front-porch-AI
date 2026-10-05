@@ -338,13 +338,35 @@ void main() {
     expect(failures, isEmpty, reason: 'not the engine failing');
   });
 
-  test('an engine that will not keep chats steps aside and says so', () async {
+  test('an engine that will not keep chats steps aside and says so, but a '
+      'first look that finds nothing is not a failure', () async {
+    // The engine may still be starting, or an admin call blipped: the next
+    // load looks again, and nothing is remembered against the model.
     api.checkOk = false;
 
     await reply('A', 500);
 
     expect(api.calls, ['check']);
-    expect(failures, hasLength(1));
+    expect(log.last, contains('no longer kept'));
+    expect(failures, isEmpty);
+  });
+
+  test('an error on the very first look is not a failure either; the same '
+      'error after a working look is', () async {
+    api.failNext = const KoboldSlotException('connection refused');
+    await reply('A', 500);
+    expect(log.last, contains('no longer kept'));
+    expect(failures, isEmpty);
+
+    // A new load, and this time the look works and a chat is saved.
+    generation = 2;
+    keeper = build();
+    await reply('A', 500);
+    keeper.helperStart();
+    api.failNext = const KoboldSlotException('connection lost');
+    await keeper.chatStart('A');
+
+    expect(failures, ['connection lost']);
   });
 
   test(
@@ -420,8 +442,25 @@ void main() {
 
       await reply('A', 500);
 
-      expect(failures, hasLength(1));
       expect(log.last, contains('no longer kept'));
+      expect(
+        failures,
+        isEmpty,
+        reason: 'before a working look: not remembered',
+      );
+    },
+  );
+
+  test(
+    'something unexpected after a working look is a failure to remember',
+    () async {
+      await reply('A', 500);
+      keeper.helperStart();
+      api.failNext = StateError('a bug');
+
+      await keeper.chatStart('A');
+
+      expect(failures, hasLength(1));
     },
   );
 }
