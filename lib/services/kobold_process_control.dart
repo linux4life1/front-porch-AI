@@ -46,15 +46,25 @@ import 'package:path/path.dart' as path;
 /// Elsewhere only processes launched from [binDir], the app's own engine
 /// folder, are killed. The old `pkill -f koboldcpp` took down any KoboldCpp
 /// on the machine, including one the user was running for something else.
+///
+/// The log says a process was killed only when one was: `pkill` and
+/// `taskkill` answer 0 when they stopped something, and anything else when
+/// they found nothing to stop.
 Future<void> killOrphanedKoboldProcesses(
   void Function(String) log, {
   required String binDir,
 }) async {
   try {
+    var killed = false;
+    Future<void> run(String command, List<String> args) async {
+      final result = await Process.run(command, args);
+      killed = killed || result.exitCode == 0;
+    }
+
     if (Platform.isWindows) {
-      await Process.run('taskkill', ['/F', '/IM', 'koboldcpp.exe']);
-      await Process.run('taskkill', ['/F', '/IM', 'koboldcpp_nocuda.exe']);
-      await Process.run('taskkill', ['/F', '/IM', 'koboldcpp-oldpc.exe']);
+      await run('taskkill', ['/F', '/IM', 'koboldcpp.exe']);
+      await run('taskkill', ['/F', '/IM', 'koboldcpp_nocuda.exe']);
+      await run('taskkill', ['/F', '/IM', 'koboldcpp-oldpc.exe']);
     } else {
       final patterns = koboldOwnedPatterns(binDir, isFolder: true);
       if (patterns.isEmpty) {
@@ -62,10 +72,14 @@ Future<void> killOrphanedKoboldProcesses(
         return;
       }
       for (final pattern in patterns) {
-        await Process.run('pkill', ['-KILL', '-f', pattern]);
+        await run('pkill', ['-KILL', '-f', pattern]);
       }
     }
-    log('Killed orphaned KoboldCPP processes.');
+    log(
+      killed
+          ? 'Killed orphaned KoboldCPP processes.'
+          : 'No orphaned KoboldCPP process was running; nothing was stopped.',
+    );
   } catch (e) {
     debugPrint('[KoboldService] killOrphanedBackend failed (OK): $e');
   }
