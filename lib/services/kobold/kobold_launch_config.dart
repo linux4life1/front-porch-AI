@@ -168,9 +168,10 @@ class KoboldLaunchConfig {
   /// Draft with the model's own built-in draft heads (`usemtp`).
   final bool useMtp;
 
-  /// Context shift, with fast forward. Off for a model with recurrent
-  /// layers, where it does nothing but make KoboldCpp add smart cache slots
-  /// of its own.
+  /// Context shift, with fast forward. For a model with recurrent layers it
+  /// shifts nothing, but with it on KoboldCpp keeps smart cache slots of its
+  /// own that a regenerated reply comes back from, so it is off only where
+  /// memory has no room for them (see [koboldSmartCacheSetting]).
   final bool contextShift;
 
   /// CUDA options besides the card ("rowsplit", "lowvram"), kept as written.
