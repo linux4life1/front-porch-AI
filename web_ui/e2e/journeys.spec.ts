@@ -300,7 +300,8 @@ test.describe('the Local model card', () => {
 
   // Whatever happened, the next spec finds the stand-in backend and no preset.
   test.afterEach(async ({ request }) => {
-    await request.post('/api/settings', { data: { backend: 'openRouter' } });
+    const back = await request.post('/api/settings', { data: { backend: 'openRouter' } });
+    expect(back.ok(), `putting the stand-in backend back: ${back.status()}`).toBe(true);
     await request.post('/api/backend/local-model/preset', { data: { path: null } });
   });
 
