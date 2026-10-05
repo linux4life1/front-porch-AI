@@ -20,6 +20,7 @@ import 'package:flutter/widgets.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/worker_backend.dart';
 
+export 'http_gpu_swap_host.dart';
 export 'worker_gpu_hosts.dart';
 
 /// True inside `flutter test` widget bindings. `FLUTTER_TEST` via
