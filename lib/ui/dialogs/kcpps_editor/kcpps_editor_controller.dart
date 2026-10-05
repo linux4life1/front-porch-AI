@@ -14,8 +14,8 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 part 'kcpps_editor_controller.fit.dart';
 
-/// What saving said. [notLoaded]: saved and made chat's preset, but the
-/// running KoboldCpp was not given it (why is in the problem line).
+/// What saving said. [notLoaded]: saved, but the running KoboldCpp was not
+/// given it (why is in the problem line); chat's choice is back on what runs.
 enum KcppsSaveResult { saved, nameTaken, invalid, failed, notLoaded }
 
 /// The preset editor's state: the presets, the one being edited, the model

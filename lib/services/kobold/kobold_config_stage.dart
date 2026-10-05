@@ -91,6 +91,18 @@ Future<File> stageKoboldConfig(String dir, String name, String json) async {
   }
 }
 
+/// The config staged as [name] in [dir], or null when there is none or it
+/// cannot be read.
+Future<String?> readStagedKoboldConfig(String dir, String name) async {
+  final file = File(p.join(dir, name));
+  try {
+    return await file.readAsString();
+  } on FileSystemException catch (e) {
+    debugPrint('[Kobold] ${file.path} could not be read: $e');
+    return null;
+  }
+}
+
 /// True for a file the app wrote for its own use: a staged config, or the
 /// one-setting batch file older versions left in the engine folder.
 bool isAppOwnedKcpps(String path) {

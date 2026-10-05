@@ -120,11 +120,27 @@ extension LLMProviderKoboldHosts on LLMProvider {
   /// had, which still works. The reason is noted first, on the status line
   /// and in the log. If a fresh start would be refused (the new model file
   /// cannot be read, the preset is one the app will not start) nothing is
-  /// stopped, and the answer is a refusal saying why. Otherwise the engine
-  /// is stopped and started, and the start's answer is the answer. Null:
-  /// nothing to report.
+  /// stopped, the stored choice goes back to what runs ([_putChoiceBack]),
+  /// and the answer is a refusal saying why. Otherwise the engine is stopped
+  /// and started, and the start's answer is the answer. Null: nothing to
+  /// report.
   Future<KoboldLaunchResult?> _reloadChatKobold() async {
     if (!_koboldService.isProcessRunning) return null;
+    // Before the engine is touched, and before the first wait: the choice
+    // this reload is for, what the service recorded as loaded, and the
+    // config staged for it.
+    final asked = resolveKoboldLaunch(_storageService);
+    final model = _koboldService.loadedModelPath;
+    final kcpps = _koboldService.loadedKcppsPath;
+    final was = (
+      model: model,
+      kcpps: kcpps,
+      asked: asked,
+      staged: await readStagedKoboldConfig(
+        koboldAdminDirFor(_storageService),
+        kStagedChatConfig,
+      ),
+    );
     try {
       await _koboldSwapHost(
         role: kKoboldChatRole,
@@ -136,6 +152,7 @@ extension LLMProviderKoboldHosts on LLMProvider {
     } on KoboldPresetProblem catch (e) {
       // Refused before anything was sent: the engine runs what it ran.
       _koboldService.noteReloadFailed(e.message);
+      await _putChoiceBack(was);
       return _refusedKeepingEngine(e.message);
     } on KoboldSwapFailed catch (e) {
       _koboldService.noteReloadFailed(e.message);
@@ -145,7 +162,10 @@ extension LLMProviderKoboldHosts on LLMProvider {
         return KoboldLaunchResult.refused(e.message);
       }
       final problem = await koboldLaunchProblem(_storageService);
-      if (problem != null) return _refusedKeepingEngine(problem);
+      if (problem != null) {
+        await _putChoiceBack(was);
+        return _refusedKeepingEngine(problem);
+      }
       await _koboldService.stopKobold();
       return _ensureManagedKobold();
     }
@@ -156,6 +176,50 @@ extension LLMProviderKoboldHosts on LLMProvider {
         'The new model was not loaded. The previous one is still running. '
         '$why',
       );
+
+  /// The old model is kept running: chat's stored choice (the model in use,
+  /// the preset, and the link between them) goes back to the pair the service
+  /// recorded as loaded before the reload, so every screen names what runs,
+  /// and the staged chat config is the one that was there, which an idle
+  /// unload loads back. The record is put back too, so the next refused
+  /// reload can do the same.
+  ///
+  /// Only the record is trusted, and only when KoboldCpp itself says that
+  /// model is the one running (a helper model loaded at the time, or an
+  /// engine that went back to another, is not what the record says) and the
+  /// choice is still the one this reload was for (one made meanwhile is the
+  /// user's newer one). Otherwise nothing is guessed and nothing changes.
+  Future<void> _putChoiceBack(
+    ({String? model, String? kcpps, KoboldLaunch asked, String? staged}) was,
+  ) async {
+    final model = was.model;
+    if (model == null || model.isEmpty) return;
+    final runs = await koboldEngineModel(_koboldService.baseUrl);
+    if (!koboldModelNameMatches(
+      runs,
+      koboldExpectedModelName({'model_param': model}),
+    )) {
+      return;
+    }
+    final now = resolveKoboldLaunch(_storageService);
+    if (now.modelPath != was.asked.modelPath ||
+        now.kcppsPath != was.asked.kcppsPath) {
+      return;
+    }
+    final kcpps = was.kcpps ?? '';
+    final usable = kcpps.isNotEmpty && await File(kcpps).exists();
+    await _storageService.backendSettings.setLastUsedModelPath(model);
+    await chooseKoboldPreset(_storageService, usable ? kcpps : null);
+    _koboldService.noteAdminLoadedPair(
+      modelPath: model,
+      kcppsPath: usable ? kcpps : '',
+    );
+    final staged = was.staged;
+    final dir = koboldAdminDirFor(_storageService);
+    if (staged != null && dir.isNotEmpty) {
+      await stageKoboldConfig(dir, kStagedChatConfig, staged);
+    }
+  }
 
   /// Loads [config], which belongs to no role (a timing trial), into the
   /// running KoboldCpp the way a swap loads a role: staged in the admin

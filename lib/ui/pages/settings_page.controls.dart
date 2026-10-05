@@ -26,7 +26,8 @@ part of 'settings_page.dart';
 extension _SettingsLaunchControls on _SettingsPageState {
   /// A new chat model or preset goes into a running KoboldCpp at once: a
   /// reload by name, a restart only when that is not acted on. When it was
-  /// not loaded, the reason is said the way a Start says its own.
+  /// not loaded, the reason is said the way a Start says its own, and the
+  /// model dropdown follows the stored choice again.
   void _reloadChatIfRunning() {
     final llm = context.read<LLMProvider>();
     if (!llm.koboldService.isProcessRunning) return;
@@ -39,6 +40,11 @@ extension _SettingsLaunchControls on _SettingsPageState {
             final words = result?.message;
             if (words != null) {
               messenger.showSnackBar(SnackBar(content: Text(words)));
+            }
+            // A model that was not loaded was not kept either: the stored
+            // choice is back on what runs, and the dropdown names it again.
+            if (result?.refusal != null && mounted) {
+              rebuildState(() => _selectedModelPath = null);
             }
           })
           .catchError(

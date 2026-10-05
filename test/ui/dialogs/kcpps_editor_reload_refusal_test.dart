@@ -3,10 +3,11 @@
 
 // "Save and use now" puts the saved preset into the running KoboldCpp. When
 // the engine could not take it (it went back to the model it had, and a fresh
-// start would be refused), the preset is still saved and chat's, but the
-// editor says so where it shows problems, and the dialog stays open for it to
-// be read. The same goes for the reload that puts chat back after an MMQ
-// timing.
+// start would be refused), the preset is still saved, but the editor says so
+// where it shows problems, and the dialog stays open for it to be read. (The
+// reload itself puts chat's choice back on what runs; the editor's double
+// here does not.) The same goes for the reload that puts chat back after an
+// MMQ timing.
 
 import 'dart:convert';
 import 'dart:io';
@@ -93,8 +94,8 @@ void main() {
     return (c, asked);
   }
 
-  test('a reload KoboldCpp refused: the preset is saved and chat\'s, the '
-      'reason is shown, and the result says it was not loaded', () async {
+  test('a reload KoboldCpp refused: the preset is saved, the reason is '
+      'shown, and the result says it was not loaded', () async {
     final (c, asked) = await editor(const KoboldLaunchResult.refused(_refusal));
 
     final result = await c.saveAndUse();
