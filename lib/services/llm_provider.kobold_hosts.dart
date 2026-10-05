@@ -24,6 +24,18 @@ const String kKoboldChatRole = 'chat';
 /// The role name of the helper model (Realism evals) in a swap.
 const String kKoboldWorkerRole = 'worker';
 
+/// The role name of the preset editor's speed test in a swap.
+const String kKoboldTrialRole = 'trial';
+
+/// What [role]'s model is loaded for, as the status line says it. Every
+/// other role is a story job.
+String _koboldRolePurpose(String role) => switch (role) {
+  kKoboldChatRole => 'chat',
+  kKoboldWorkerRole => 'Realism checks',
+  kKoboldTrialRole => 'the speed test',
+  _ => 'the story',
+};
+
 /// Swap hosts for the app's own KoboldCpp. Every role (the chat model, the
 /// helper model, a story job) is loaded the same way a launch loads the
 /// chat model: its config is staged in the admin folder and the engine is
@@ -56,11 +68,7 @@ extension LLMProviderKoboldHosts on LLMProvider {
       onEngineContext: _storageService.backendSettings.setEngineContextSize,
       forgetLoadedPair: _koboldService.forgetAdminLoadedPair,
       onStep: _koboldService.showSwapStep,
-      purpose: role == kKoboldChatRole
-          ? 'chat'
-          : role == kKoboldWorkerRole
-          ? 'Realism checks'
-          : 'the story',
+      purpose: _koboldRolePurpose(role),
       swapLock: _koboldService.adminSwapLock,
       noteLoadedPair: (model, kcpps) => _koboldService.noteAdminLoadedPair(
         modelPath: model,
@@ -145,7 +153,7 @@ extension LLMProviderKoboldHosts on LLMProvider {
     );
     try {
       await _koboldSwapHost(
-        role: 'trial',
+        role: kKoboldTrialRole,
         model: staged.modelPath,
         kcpps: '',
         stage: () async => staged,

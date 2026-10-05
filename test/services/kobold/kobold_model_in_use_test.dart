@@ -13,10 +13,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor_controller.dart';
@@ -24,46 +22,6 @@ import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor_controller.d
 import '../../golden/support/fakes_services.dart';
 import '../../golden/support/fakes_storage.dart';
 import 'loopback_kobold.dart';
-
-class _Backend extends BackendManager {
-  _Backend(super.storage, this.exe);
-  final String exe;
-
-  @override
-  String? get backendPath => exe;
-}
-
-/// The app's KoboldCpp service with the process left out. A fresh start
-/// (what chat falls back to when a reload fails) is counted, not run.
-class _Kobold extends KoboldService {
-  _Kobold(super.storage);
-
-  bool running = true;
-  int launches = 0;
-
-  @override
-  Future<void> reconnectIfAlive() async {}
-
-  @override
-  bool get isRunning => running;
-
-  @override
-  bool get isProcessRunning => running;
-
-  @override
-  Future<void> stopKobold() async => running = false;
-
-  @override
-  Future<KoboldLaunchResult> launch(
-    String executablePath, {
-    String? pickedModel,
-    int port = 5001,
-  }) async {
-    launches++;
-    running = true;
-    return const KoboldLaunchResult.started();
-  }
-}
 
 class _Storage extends FakeStorageService {
   _Storage(this._bin);
@@ -90,83 +48,55 @@ void main() {
   tearDown(() => root.deleteSync(recursive: true));
 
   group('a live reload of chat', () {
-    late StorageService storage;
-    late LoopbackKobold engine;
-    late _Kobold kobold;
-    late LLMProvider provider;
+    late KoboldRig rig;
     late String oldModel;
     late String newModel;
 
     setUp(() async {
-      const channel = MethodChannel('plugins.flutter.io/path_provider');
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            return call.method == 'getApplicationDocumentsDirectory'
-                ? root.path
-                : null;
-          });
-      SharedPreferences.setMockInitialValues({});
-      storage = StorageService();
-      await storage.initialized;
-      await storage.backendSettings.setBackendType('kobold');
-      await storage.binDir.create(recursive: true);
-      oldModel = gguf('old-model.gguf');
-      newModel = gguf('new-model.gguf');
-      await storage.backendSettings.setLastUsedModelPath(oldModel);
-
-      final adminDir = koboldAdminDirFor(storage);
-      await Directory(adminDir).create(recursive: true);
-      engine = await LoopbackKobold.start(adminDir);
-      kobold = _Kobold(storage)..setBaseUrl(engine.baseUrl);
-      provider = LLMProvider(
-        kobold,
-        OpenRouterService(apiUrl: '', apiKey: '', modelName: ''),
-        storage,
-        _Backend(storage, p.join(storage.binDir.path, 'koboldcpp')),
-      );
+      rig = await KoboldRig.start(root);
+      oldModel = rig.gguf('old-model.gguf');
+      newModel = rig.gguf('new-model.gguf');
+      await rig.storage.backendSettings.setLastUsedModelPath(oldModel);
     });
 
-    tearDown(() async {
-      provider.dispose();
-      await engine.close();
-    });
+    tearDown(() => rig.close());
 
     /// A preset that names [newModel], written in the engine folder and
     /// chosen.
     Future<void> presetOwningTheNewModel() async {
-      final file = File(p.join(storage.binDir.path, 'Owns.kcpps'))
-        ..writeAsStringSync(
-          jsonEncode({'model_param': newModel, 'contextsize': 8192}),
-        );
-      await storage.backendSettings.setActiveKcppsPath(file.path);
+      final file = rig.preset('Owns.kcpps', {
+        'model_param': newModel,
+        'contextsize': 8192,
+      });
+      await rig.storage.backendSettings.setActiveKcppsPath(file.path);
     }
 
     test('that loads a preset naming another model makes it the model in '
         'use', () async {
       await presetOwningTheNewModel();
-      expect(storage.backendSettings.lastUsedModelPath, oldModel);
+      expect(rig.storage.backendSettings.lastUsedModelPath, oldModel);
 
-      await provider.reloadChatKobold();
+      await rig.provider.reloadChatKobold();
 
-      expect(engine.model, 'koboldcpp/new-model');
-      expect(storage.backendSettings.lastUsedModelPath, newModel);
-      expect(kobold.requestModel, newModel);
+      expect(rig.engine.model, 'koboldcpp/new-model');
+      expect(rig.storage.backendSettings.lastUsedModelPath, newModel);
+      expect(rig.kobold.requestModel, newModel);
     });
 
     test('that KoboldCpp could not load leaves the model in use as it '
         'was', () async {
       await presetOwningTheNewModel();
-      engine.failing.add(kStagedChatConfig);
+      rig.engine.failing.add(kStagedChatConfig);
 
-      await provider.reloadChatKobold();
+      await rig.provider.reloadChatKobold();
 
-      expect(engine.model, 'koboldcpp/startup-model');
+      expect(rig.engine.model, 'koboldcpp/startup-model');
       expect(
-        kobold.launches,
+        rig.kobold.launches,
         1,
         reason: 'a failed reload falls back to a start',
       );
-      expect(storage.backendSettings.lastUsedModelPath, oldModel);
+      expect(rig.storage.backendSettings.lastUsedModelPath, oldModel);
     });
   });
 
