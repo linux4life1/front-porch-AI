@@ -29,6 +29,7 @@ import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // The path_provider mock + in-memory StorageService factory.
 import 'kobold_service_test.dart'
@@ -368,7 +369,9 @@ void main() {
 
   test('the older stored cache level still counts until a level is picked '
       'by name', () async {
-    await storage.backendSettings.setKvQuantizationLevel(2);
+    // What an earlier version stored: 0 / 1 / 2 for f16, q8_0, q4_0.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('kv_quantization_level', 2);
     expect(staged(await build())['quantkv'], 'q4_0');
     await storage.backendSettings.setKvQuant(KvQuant.q5_1);
     expect(staged(await build())['quantkv'], 'q5_1');
@@ -433,20 +436,6 @@ void main() {
     expect(config.containsKey('usecublas'), isFalse);
     expect(config.containsKey('usevulkan'), isFalse);
   });
-
-  test(
-    'sliding window is not applied to a model that does not have it',
-    () async {
-      await storage.backendSettings.setKoboldContextMode(
-        ContextManagementMode.slidingWindowAttention,
-      );
-      // The model path does not exist, so nothing says it has sliding window.
-      final config = staged(await build());
-      expect(config['noswa'], isTrue);
-      expect(config['nofastforward'], isFalse);
-      expect(config['noshift'], isFalse);
-    },
-  );
 
   group('a first run, before the hardware is known', () {
     test('with no backend ever chosen, the launch waits for detection and '

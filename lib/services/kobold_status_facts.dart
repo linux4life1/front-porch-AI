@@ -55,16 +55,10 @@ class KoboldStatusFacts {
         flashAttention: b.flashAttentionEnabled,
         kvQuant: b.kvQuant,
         mlock: false,
-        contextMode: b.koboldContextMode,
         rocmFlashAttentionFailed: b.rocmFlashAttentionFailed,
       ),
-      model: KoboldModelFacts(
-        hasSlidingWindow: info.hasSlidingWindow,
-        architecture: info.architecture,
-      ),
+      model: KoboldModelFacts(architecture: info.architecture),
     );
-    final swa =
-        config.contextMode == ContextManagementMode.slidingWindowAttention;
     final fit = KoboldFit(
       info: info,
       fileSizeBytes: bytes,
@@ -72,7 +66,6 @@ class KoboldStatusFacts {
       batchSize: config.batchSize,
       backend: gpu.memory,
       kvQuant: config.kvQuant,
-      slidingWindowOn: swa,
       flashAttention: config.flashAttention,
     );
     final machine = gpu.machineFor(hardware, free);
@@ -95,17 +88,14 @@ class KoboldStatusFacts {
     final slots = koboldSmartCacheSlots(
       asked: tuning.smartCache.asked,
       recurrent: fit.recurrent,
-      fastForward: !swa,
+      fastForward: true,
       contextShift: tuning.smartCache.contextShift,
     );
     return KoboldStatusFacts(
       lines: [
         'Set up for this computer automatically. '
             '${_pace(tuning.load, machine, gpu.onCard)}',
-        swa
-            ? 'Every reply reads the whole chat again, so long chats start '
-                  'slowly.'
-            : 'Replies on long chats start fast.',
+        'Replies on long chats start fast.',
         slots > 0
             ? 'Going back to another chat is quick.'
             : 'Going back to another chat takes a moment to catch up.',

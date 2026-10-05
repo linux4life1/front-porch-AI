@@ -33,8 +33,6 @@ mixin KoboldLaunchFields on SettingsBase {
   bool _gpuLayersManual = false;
   bool _gpuLayersNoteSeen = false;
   KvQuant? _kvQuantNamed;
-  ContextManagementMode _koboldContextMode =
-      ContextManagementMode.fastForwardSmartCache;
   bool _rocmFlashAttentionFailed = false;
   bool _batchAutomatic = true;
   int _idleUnloadMinutes = 0;
@@ -131,7 +129,7 @@ mixin KoboldLaunchFields on SettingsBase {
   /// [noteKoboldOutput] and [koboldTurnSeconds]).
   bool mmqForLaunch(String card, String? engineVersion) {
     final key = _mmqKey(card, engineVersion);
-    final learned = _mmqTimed[key];
+    final learned = mmqFor(card, engineVersion);
     if (learned != null) {
       _mmqTrial = null;
       return learned;
@@ -250,10 +248,6 @@ mixin KoboldLaunchFields on SettingsBase {
       _kvQuantNamed ??
       KvQuant.parse(prefs?.getInt(k('kv_quantization_level')) ?? 0);
 
-  /// How a chat longer than the context is handled when no preset is in
-  /// use. Sliding window is only applied to models that have it.
-  ContextManagementMode get koboldContextMode => _koboldContextMode;
-
   void loadKoboldLaunch() {
     _gpuLayersManual = prefs?.getBool(k('gpu_layers_manual')) ?? false;
     final seen = prefs?.getBool(k('gpu_layers_note_seen'));
@@ -270,9 +264,6 @@ mixin KoboldLaunchFields on SettingsBase {
     _kvQuantNamed = named == null ? null : KvQuant.parse(named);
     _rocmFlashAttentionFailed =
         prefs?.getBool(k('rocm_flash_attention_failed')) ?? false;
-    _koboldContextMode = prefs?.getString(k('kobold_context_mode')) == 'swa'
-        ? ContextManagementMode.slidingWindowAttention
-        : ContextManagementMode.fastForwardSmartCache;
     // Auto for everyone who never chose a batch; a batch chosen before Auto
     // existed is kept.
     _batchAutomatic =
@@ -318,15 +309,6 @@ mixin KoboldLaunchFields on SettingsBase {
   Future<void> setKvQuant(KvQuant value) async {
     _kvQuantNamed = value;
     await prefs?.setString(k('kv_quant'), value.wire);
-    notify();
-  }
-
-  Future<void> setKoboldContextMode(ContextManagementMode value) async {
-    _koboldContextMode = value;
-    await prefs?.setString(
-      k('kobold_context_mode'),
-      value == ContextManagementMode.slidingWindowAttention ? 'swa' : 'ff',
-    );
     notify();
   }
 }

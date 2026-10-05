@@ -152,7 +152,6 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
       b.contextSize,
       b.kvQuant,
       b.flashAttentionEnabled,
-      b.koboldContextMode,
       b.batchAutomatic,
       b.blasBatchSize,
       b.gpuId,

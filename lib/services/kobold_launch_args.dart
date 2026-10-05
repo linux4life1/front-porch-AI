@@ -256,12 +256,10 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       flashAttention: b.flashAttentionEnabled,
       kvQuant: b.kvQuant,
       mlock: b.mlockEnabled,
-      contextMode: b.koboldContextMode,
       rocmFlashAttentionFailed: b.rocmFlashAttentionFailed,
     ),
     model: KoboldModelFacts(
       isMoe: info?.isMoe ?? false,
-      hasSlidingWindow: info?.hasSlidingWindow ?? false,
       expertsShareGpuMemory: gpu.unified,
       architecture: info?.architecture,
     ),
@@ -310,8 +308,6 @@ Future<KoboldLaunchConfig> _tunedForMachine(
       batchSize: config.batchSize,
       backend: gpu.memory,
       kvQuant: config.kvQuant,
-      slidingWindowOn:
-          config.contextMode == ContextManagementMode.slidingWindowAttention,
       flashAttention: config.flashAttention,
     ),
     gpu.machineFor(hardware, free),

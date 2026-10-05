@@ -26,8 +26,6 @@ KoboldAppSettings _settings({
   KvQuant kvQuant = KvQuant.f16,
   bool mlock = false,
   int contextSize = 16384,
-  ContextManagementMode contextMode =
-      ContextManagementMode.fastForwardSmartCache,
   bool rocmFailed = false,
 }) => KoboldAppSettings(
   contextSize: contextSize,
@@ -40,7 +38,6 @@ KoboldAppSettings _settings({
   flashAttention: flashAttention,
   kvQuant: kvQuant,
   mlock: mlock,
-  contextMode: contextMode,
   rocmFlashAttentionFailed: rocmFailed,
 );
 
@@ -118,33 +115,23 @@ void main() {
     expect(_map(_settings(layersManual: true))['usemlock'], isFalse);
   });
 
-  test('sliding window is applied only to a model that has it, and then '
-      'always with fast forward off', () {
-    final wanted = _settings(
-      contextMode: ContextManagementMode.slidingWindowAttention,
-    );
-    final without = _map(wanted);
-    expect(without['noswa'], isTrue);
-    expect(without['nofastforward'], isFalse);
-
-    final has = _map(
-      wanted,
-      model: const KoboldModelFacts(hasSlidingWindow: true),
-    );
-    expect(has['noswa'], isFalse);
-    expect(has['nofastforward'], isTrue);
-    expect(has['noshift'], isTrue);
-  });
-
-  test('a model with sliding window still defaults to it off, with fast '
-      'forward on', () {
-    final map = _map(
-      _settings(),
-      model: const KoboldModelFacts(hasSlidingWindow: true),
-    );
-    expect(map['noswa'], isTrue);
-    expect(map['nofastforward'], isFalse);
-    expect(map['noshift'], isFalse);
+  // Changed 2026-10-04: auto mode's stored sliding-window switch is gone.
+  // Nothing in the app ever set it, so it could only read "off"; the two
+  // cases that set it (applied only to a model that has it, then with fast
+  // forward off) tested a branch nothing reached. Sliding window is a
+  // choice in the preset editor, pinned in
+  // kcpps_editor_sliding_window_test.dart.
+  test('the app\'s own settings always write sliding window off with fast '
+      'forward on, whatever the model', () {
+    for (final model in const [
+      KoboldModelFacts(),
+      KoboldModelFacts(architecture: 'gemma4'),
+    ]) {
+      final map = _map(_settings(), model: model);
+      expect(map['noswa'], isTrue);
+      expect(map['nofastforward'], isFalse);
+      expect(map['noshift'], isFalse);
+    }
   });
 
   // Changed 2026-10-04: this case pinned "ROCm never has flash attention",

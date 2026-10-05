@@ -162,13 +162,6 @@ void main() {
       expect(prefs.getString('chat_background'), 'forest.jpg');
     });
 
-    test('setKvQuantizationLevel persists to SharedPreferences', () async {
-      final svc = await createStorageService();
-      await svc.backendSettings.setKvQuantizationLevel(2);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('kv_quantization_level'), 2);
-    });
-
     test(
       'loadSavedPrompt applies the preset into generationSettings',
       () async {
@@ -179,10 +172,7 @@ void main() {
           svc.generationSettings.setSystemPrompt(p);
         });
         expect(svc.generationSettings.systemPrompt, contains('Hello {{char}}'));
-        expect(svc.backendSettings.kvQuantizationLevel, isA<int>());
         expect(svc.sttSettings.callBufferSentences, isA<int>());
-        await svc.backendSettings.setKvQuantizationLevel(3);
-        expect(svc.backendSettings.kvQuantizationLevel, 3);
       },
     );
   });

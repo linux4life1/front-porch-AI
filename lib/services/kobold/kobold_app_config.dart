@@ -32,11 +32,7 @@ class KoboldAppSettings {
     required this.flashAttention,
     required this.kvQuant,
     required this.mlock,
-    required this.contextMode,
     this.rocmFlashAttentionFailed = false,
-    this.smartCacheSlots = 0,
-    this.contextShift = true,
-    this.mmq,
   });
 
   final int contextSize;
@@ -53,31 +49,20 @@ class KoboldAppSettings {
   final bool flashAttention;
   final KvQuant kvQuant;
   final bool mlock;
-  final ContextManagementMode contextMode;
 
   /// KoboldCpp on ROCm died on this machine with flash attention on.
   final bool rocmFlashAttentionFailed;
-
-  /// Smart cache slots, chosen for this machine's free memory, and context
-  /// shift to go with them (see [koboldSmartCacheSetting]).
-  final int smartCacheSlots;
-  final bool contextShift;
-
-  /// MMQ as timed on this card; null leaves it to KoboldCpp.
-  final bool? mmq;
 }
 
 /// What is known about the model being launched.
 class KoboldModelFacts {
   const KoboldModelFacts({
     this.isMoe = false,
-    this.hasSlidingWindow = false,
     this.expertsShareGpuMemory = false,
     this.architecture,
   });
 
   final bool isMoe;
-  final bool hasSlidingWindow;
 
   /// The model file's `general.architecture` ("gemma4", "qwen3"...).
   final String? architecture;
@@ -129,7 +114,10 @@ KvQuant _cacheWhere(bool flashAttentionRuns, KvQuant wanted) =>
 /// The launch config for the app's own settings ("no preset").
 ///
 /// Memory placement is KoboldCpp's unless the user set a layer count:
-/// automatic layers, mmap on, memory lock off.
+/// automatic layers, mmap on, memory lock off. Always the fast-forward
+/// pairing, sliding window off: the other one is a choice in the preset
+/// editor. What auto mode tunes for the machine (the batch, smart cache
+/// slots, MMQ) is laid over this by the launch.
 KoboldLaunchConfig koboldAppConfig({
   required String modelPath,
   required KoboldAppSettings settings,
@@ -159,16 +147,8 @@ KoboldLaunchConfig koboldAppConfig({
         runs && (settings.flashAttention || kvQuant.needsFlashAttention),
     backend: settings.backend,
     gpuId: settings.gpuId,
-    // Sliding window only where the model has it; elsewhere the setting
-    // does nothing and would still cost fast forward.
-    contextMode: model.hasSlidingWindow
-        ? settings.contextMode
-        : ContextManagementMode.fastForwardSmartCache,
     mmprojPath: mmprojPath,
     moeExpertsOnCpu: manual && model.isMoe && !model.expertsShareGpuMemory,
-    smartCacheSlots: settings.smartCacheSlots,
-    mmq: settings.mmq,
-    contextShift: settings.contextShift,
   );
 }
 

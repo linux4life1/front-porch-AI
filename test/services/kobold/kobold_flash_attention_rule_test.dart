@@ -28,7 +28,6 @@ KoboldLaunchConfig _auto({
     flashAttention: true,
     kvQuant: kvQuant,
     mlock: false,
-    contextMode: ContextManagementMode.fastForwardSmartCache,
   ),
   model: KoboldModelFacts(architecture: architecture),
 );
