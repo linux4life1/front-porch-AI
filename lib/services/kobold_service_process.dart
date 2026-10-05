@@ -18,6 +18,8 @@
 
 part of 'kobold_service.dart';
 
+const String _alreadyStarting = 'KoboldCpp is already starting.';
+
 /// Process start/stop and console log ingest.
 extension KoboldServiceProcess on KoboldService {
   Future<KoboldLaunchResult> _launch(
@@ -43,15 +45,11 @@ extension KoboldServiceProcess on KoboldService {
       );
     }
     // A start already under way would swallow this one without a word.
-    if (_isStarting) {
-      return const KoboldLaunchResult.refused('KoboldCpp is already starting.');
-    }
+    if (_isStarting) return const KoboldLaunchResult.refused(_alreadyStarting);
     // Through the class member, not the body: test doubles override it.
     // The start is the one place a model or preset is checked, and it
-    // says why when it refuses. Cleared first, so what is read back below
-    // is this start's answer and never an earlier one's.
-    _lastStartProblem = null;
-    await startKobold(
+    // says why when it refuses.
+    final started = await startKobold(
       executablePath,
       launch.modelPath,
       kcppsPath: launch.kcppsPath,
@@ -64,8 +62,7 @@ extension KoboldServiceProcess on KoboldService {
       useMetal: b.useMetal ?? false,
       useRocm: b.useRocm ?? false,
     );
-    final refused = _lastStartProblem;
-    if (refused != null) return KoboldLaunchResult.refused(refused);
+    if (!started.started) return started;
     // The model that really started is the app's one record of "which
     // model": the status card, the vision lookup, the thinking settings,
     // an automatic restart and the web "loaded" marker all read it.
@@ -75,7 +72,10 @@ extension KoboldServiceProcess on KoboldService {
     return KoboldLaunchResult.started(launch.note);
   }
 
-  Future<void> _startKobold(
+  /// Starts the engine, or says why it was not: a refusal for a model, preset
+  /// or engine that cannot be used and for a program that cannot be run.
+  /// Only a failing stop of the engine this replaces throws.
+  Future<KoboldLaunchResult> _startKobold(
     String executablePath,
     String modelPath, {
     String? kcppsPath,
@@ -88,142 +88,152 @@ extension KoboldServiceProcess on KoboldService {
     bool useMetal = false,
     bool useRocm = false,
   }) async {
-    if (_isStarting) return;
+    if (_isStarting) return const KoboldLaunchResult.refused(_alreadyStarting);
     // Claim the slot BEFORE the stop ladder below, not after it. That ladder
     // awaits for 1–6s with `_isRunning` already false, and a second caller
     // arriving in that window used to see both flags clear, walk straight to
     // Process.start, and have its handle overwritten by the first caller
     // resuming — one KoboldCpp process left with no owner, holding the port
-    // and the VRAM. Every early return below must clear it again.
+    // and the VRAM. However this start ends, the finally releases it.
     _isStarting = true;
-    _lastStartProblem = null;
-    // If the previous process is still alive (e.g. stopKobold was not awaited
-    // or the stop is racing with start), kill it first to prevent zombie
-    // processes from accumulating — especially on Windows where port reuse
-    // isn't immediate.
-    if (_isRunning || _process != null) {
-      debugPrint(
-        '[KoboldService] startKobold called while still running — stopping first.',
-      );
-      try {
-        await stopKobold();
-        // Give the OS a moment to release the port
-        await Future<void>.delayed(const Duration(seconds: 1));
-      } catch (e) {
-        // The slot is claimed above, so a throwing stop must release it or
-        // no launch would ever be possible again this session.
-        _isStarting = false;
-        _addLog('Could not stop the previous backend: $e');
-        notify();
-        rethrow;
-      }
-    }
+    try {
+      await _stopForRestart();
+      final unusable = await _unusableStart(executablePath, modelPath);
+      if (unusable != null) return _refuse(unusable);
 
-    // ── Model file pre-flight ────────────────────────────────────────────────
-    // Verify the .gguf is genuinely readable BEFORE spawning KoboldCpp, so a
-    // missing/placeholder/corrupt file produces a sentence the user can act on
-    // instead of a bare "Process exited with code 2" (issue #137). Skipped when
-    // modelPath is empty, which is preset mode — there the .kcpps owns the
-    // model and KoboldCpp resolves it itself.
-    //
-    // This is the single choke point for every launch path: two of them
-    // (LLMProvider.ensureManagedBackendIsRunning and the SetupService
-    // autostart) previously did no existence check at all and would launch
-    // straight into the same unexplained exit 2.
-    final modelProblem = await ModelFileCheck.validate(modelPath);
-    if (modelProblem != null) {
-      _addLog(modelProblem);
-      _lastStartProblem = modelProblem;
+      // Store the executable path for cleanup
+      _executablePath = executablePath;
+
+      // Older versions left a one-setting batch file in the engine folder,
+      // where it showed up as a preset. If it was picked, forget the pick.
+      await removeLegacyBatchOverride(path.dirname(executablePath));
+      if (kcppsPath != null && isAppOwnedKcpps(kcppsPath)) {
+        await _storageService.backendSettings.setActiveKcppsPath(null);
+        kcppsPath = null;
+      }
+
+      try {
+        freeBeforeLaunch =
+            await readFreeMemory?.call().timeout(const Duration(seconds: 5)) ??
+            freeBeforeLaunch;
+      } on Object catch (e) {
+        _addLog('Free memory unknown before this start: $e');
+      }
+
+      final List<String> args;
+      KoboldStagedRole? staged;
+      try {
+        args = await buildKoboldLaunchArgs(
+          storage: _storageService,
+          executablePath: executablePath,
+          modelPath: modelPath,
+          kcppsPath: kcppsPath,
+          mmprojPath: mmprojPath,
+          port: port,
+          gpuLayers: gpuLayers,
+          contextSize: contextSize,
+          useVulkan: useVulkan,
+          useCublas: useCublas,
+          useMetal: useMetal,
+          useRocm: useRocm,
+          hardware: hardwareInfo?.call(),
+          // Only asked for on a first run with no backend chosen. It can
+          // take a while on Windows, so the status says what is happening.
+          awaitHardware: hardwareWhenKnown == null
+              ? null
+              : () {
+                  _modelLoadingStatus = 'Checking your graphics card...';
+                  notify();
+                  return hardwareWhenKnown!();
+                },
+          free: freeBeforeLaunch,
+          onNote: _addLog,
+          onStaged: (s) => staged = s,
+        );
+      } on KoboldPresetProblem catch (e) {
+        return _refuse(e.message);
+      } on Object catch (e) {
+        // Anything else that stops the launch being prepared (the config
+        // could not be written, a file changed under the read).
+        return _refuse(
+          'KoboldCpp was not started: its launch settings could '
+          'not be prepared ($e).',
+        );
+      }
+      return await _spawn(
+        executablePath,
+        modelPath,
+        kcppsPath,
+        args,
+        staged,
+        port: port,
+        useRocm: useRocm,
+      );
+    } finally {
       _isStarting = false;
       notify();
-      return;
     }
+  }
 
+  KoboldLaunchResult _refuse(String problem) {
+    _addLog(problem);
+    return KoboldLaunchResult.refused(problem);
+  }
+
+  /// If the previous process is still alive (e.g. stopKobold was not awaited
+  /// or the stop is racing with start), kill it first to prevent zombie
+  /// processes from accumulating — especially on Windows where port reuse
+  /// isn't immediate.
+  Future<void> _stopForRestart() async {
+    if (!_isRunning && _process == null) return;
+    debugPrint(
+      '[KoboldService] startKobold called while still running — stopping first.',
+    );
+    try {
+      await stopKobold();
+      // Give the OS a moment to release the port
+      await Future<void>.delayed(const Duration(seconds: 1));
+    } catch (e) {
+      _addLog('Could not stop the previous backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Why a start cannot go ahead, in words the user can act on, or null.
+  ///
+  /// The model file is read, not just looked up, so a missing, placeholder
+  /// or corrupt one produces a sentence instead of a bare "Process exited
+  /// with code 2" (issue #137). Skipped when [modelPath] is empty, which is
+  /// preset mode — there the .kcpps owns the model and KoboldCpp resolves it
+  /// itself. This is the single choke point for every launch path.
+  Future<String?> _unusableStart(
+    String executablePath,
+    String modelPath,
+  ) async {
+    final modelProblem = await ModelFileCheck.validate(modelPath);
+    if (modelProblem != null) return modelProblem;
     // KoboldCpp before 1.112 stops at load on the staged config (it reads
     // the cache type as a number). Not supported: say so instead of
     // starting it to fail.
     final version = await KoboldBinaryVersion.versionFor(executablePath);
     if (!KoboldCapabilities.forVersion(version).quantKvAsText) {
-      final problem =
-          'This KoboldCpp ($version) is too old for the app. Update '
+      return 'This KoboldCpp ($version) is too old for the app. Update '
           'KoboldCpp to 1.112 or newer, then start it again.';
-      _addLog(problem);
-      _lastStartProblem = problem;
-      _isStarting = false;
-      notify();
-      return;
     }
+    return null;
+  }
 
-    // Store the executable path for cleanup
-    _executablePath = executablePath;
-
-    // Older versions left a one-setting batch file in the engine folder,
-    // where it showed up as a preset. If it was picked, forget the pick.
-    await removeLegacyBatchOverride(path.dirname(executablePath));
-    if (kcppsPath != null && isAppOwnedKcpps(kcppsPath)) {
-      await _storageService.backendSettings.setActiveKcppsPath(null);
-      kcppsPath = null;
-    }
-
-    try {
-      freeBeforeLaunch =
-          await readFreeMemory?.call().timeout(const Duration(seconds: 5)) ??
-          freeBeforeLaunch;
-    } on Object catch (e) {
-      _addLog('Free memory unknown before this start: $e');
-    }
-
-    final List<String> args;
-    KoboldStagedRole? staged;
-    try {
-      args = await buildKoboldLaunchArgs(
-        storage: _storageService,
-        executablePath: executablePath,
-        modelPath: modelPath,
-        kcppsPath: kcppsPath,
-        mmprojPath: mmprojPath,
-        port: port,
-        gpuLayers: gpuLayers,
-        contextSize: contextSize,
-        useVulkan: useVulkan,
-        useCublas: useCublas,
-        useMetal: useMetal,
-        useRocm: useRocm,
-        hardware: hardwareInfo?.call(),
-        // Only asked for on a first run with no backend chosen. It can
-        // take a while on Windows, so the status says what is happening.
-        awaitHardware: hardwareWhenKnown == null
-            ? null
-            : () {
-                _modelLoadingStatus = 'Checking your graphics card...';
-                notify();
-                return hardwareWhenKnown!();
-              },
-        free: freeBeforeLaunch,
-        onNote: _addLog,
-        onStaged: (s) => staged = s,
-      );
-    } on KoboldPresetProblem catch (e) {
-      _addLog(e.message);
-      _lastStartProblem = e.message;
-      _isStarting = false;
-      notify();
-      return;
-    } on Object catch (e) {
-      // Anything else that stops the launch being prepared (the config
-      // could not be written, a file changed under the read). The slot was
-      // claimed above: left claimed, every later start returns at the top,
-      // and nothing starts again until the app is restarted.
-      final problem =
-          'KoboldCpp was not started: its launch settings could '
-          'not be prepared ($e).';
-      _addLog(problem);
-      _lastStartProblem = problem;
-      _isStarting = false;
-      notify();
-      return;
-    }
-
+  /// Spawns the process and wires its output, readiness and exit. A program
+  /// that cannot be run is a refusal, not a throw.
+  Future<KoboldLaunchResult> _spawn(
+    String executablePath,
+    String modelPath,
+    String? kcppsPath,
+    List<String> args,
+    KoboldStagedRole? staged, {
+    required int port,
+    required bool useRocm,
+  }) async {
     try {
       print('AG_DEBUG: === STARTING KOBOLDCPP ===');
       print('AG_DEBUG: Executable: $executablePath');
@@ -240,7 +250,7 @@ extension KoboldServiceProcess on KoboldService {
           : const <String, String>{};
       _lastFailure = null;
       _rocmFlashAttentionLaunch =
-          useRocm && staged != null && _flashAttentionIn(staged!.key);
+          useRocm && staged != null && _flashAttentionIn(staged.key);
       _process = await Process.start(
         executablePath,
         args,
@@ -327,16 +337,17 @@ extension KoboldServiceProcess on KoboldService {
         );
         notify();
       });
+      return const KoboldLaunchResult.started();
     } catch (e, stack) {
       print('AG_DEBUG: === KOBOLDCPP START FAILED ===');
       print('AG_DEBUG: Error: $e');
       print('AG_DEBUG: Stack: $stack');
       _addLog('Failed to start process: $e');
       _isRunning = false;
-      notify();
-      rethrow;
-    } finally {
-      _isStarting = false;
+      return KoboldLaunchResult.refused(
+        'KoboldCpp could not be started: its program could not be run '
+        '(${e is ProcessException ? e.message : e}).',
+      );
     }
   }
 

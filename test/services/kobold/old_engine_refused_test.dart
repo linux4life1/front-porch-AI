@@ -8,11 +8,13 @@
 // engine whose version the app never recorded is still started.
 //
 // No engine is started: the refusal comes before anything is spawned, and
-// a start that goes ahead fails at the spawn on a missing engine file.
+// a start that goes ahead is refused at the spawn, in other words, on a
+// missing engine file.
 
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_binary_version.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
@@ -63,19 +65,24 @@ void main() {
   });
 
   // Past the check, the start reaches the spawn, which fails here on the
-  // missing engine file: that failure is how the test knows it got there.
+  // missing engine file: that refusal, and not the "too old" one, is how the
+  // test knows it got there.
+  void expectReachedTheSpawn(KoboldLaunchResult result) {
+    expect(result.started, isFalse);
+    expect(result.message, contains('could not be started'));
+    expect(result.message, isNot(contains('too old')));
+  }
+
   test('1.112 goes on to start', () async {
     await KoboldBinaryVersion.write(dir.path, version: '1.112', size: 1);
-    await expectLater(
-      kobold.launch(engine, pickedModel: model, port: 5998),
-      throwsA(isA<ProcessException>()),
+    expectReachedTheSpawn(
+      await kobold.launch(engine, pickedModel: model, port: 5998),
     );
   });
 
   test('an engine of unknown version goes on to start', () async {
-    await expectLater(
-      kobold.launch(engine, pickedModel: model, port: 5998),
-      throwsA(isA<ProcessException>()),
+    expectReachedTheSpawn(
+      await kobold.launch(engine, pickedModel: model, port: 5998),
     );
   });
 }

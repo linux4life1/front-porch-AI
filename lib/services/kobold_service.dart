@@ -57,10 +57,6 @@ class KoboldService extends ChangeNotifier
   bool _isRunning = false;
   bool _isStarting = false;
 
-  /// Why the last start was refused before any process was spawned (a
-  /// model or preset that cannot be read), or null.
-  String? _lastStartProblem;
-
   /// Why the engine last stopped on its own, or null.
   KoboldFailure? get lastFailure => _lastFailure;
   KoboldFailure? _lastFailure;
@@ -465,7 +461,9 @@ class KoboldService extends ChangeNotifier
   }) => _launch(executablePath, pickedModel: pickedModel, port: port);
 
   // Class members so `import … show KoboldService` still resolves them.
-  Future<void> startKobold(
+  /// Starts the engine for [modelPath] (empty when [kcppsPath] owns the
+  /// model). The result says why nothing was started.
+  Future<KoboldLaunchResult> startKobold(
     String executablePath,
     String modelPath, {
     String? kcppsPath,

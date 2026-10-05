@@ -23,7 +23,7 @@ class _Service extends KoboldService {
   final List<({String model, String? mmproj})> starts = [];
 
   @override
-  Future<void> startKobold(
+  Future<KoboldLaunchResult> startKobold(
     String executablePath,
     String modelPath, {
     String? kcppsPath,
@@ -35,7 +35,10 @@ class _Service extends KoboldService {
     bool useCublas = false,
     bool useMetal = false,
     bool useRocm = false,
-  }) async => starts.add((model: modelPath, mmproj: mmprojPath));
+  }) async {
+    starts.add((model: modelPath, mmproj: mmprojPath));
+    return const KoboldLaunchResult.started();
+  }
 }
 
 class _Engine extends BackendManager {

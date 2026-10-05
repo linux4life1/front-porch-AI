@@ -34,7 +34,7 @@ class _Service extends KoboldService {
   int starts = 0;
 
   @override
-  Future<void> startKobold(
+  Future<KoboldLaunchResult> startKobold(
     String executablePath,
     String modelPath, {
     String? kcppsPath,
@@ -63,7 +63,7 @@ class _Service extends KoboldService {
       );
     }
     starts++;
-    return Future.value();
+    return Future.value(const KoboldLaunchResult.started());
   }
 }
 
@@ -221,8 +221,11 @@ void main() {
     final second = await kobold.launch(engine, pickedModel: model, port: 5999);
     expect(second.started, isFalse);
     expect(second.message, 'KoboldCpp is already starting.');
-    // The first goes on to run an engine file that is not there.
-    await expectLater(first, throwsA(isA<ProcessException>()));
+    // The first goes on to run an engine file that is not there: refused
+    // in words, not thrown at the button that asked.
+    final ran = await first;
+    expect(ran.started, isFalse);
+    expect(ran.message, contains('could not be started'));
     expect(kobold.isStarting, isFalse);
   });
 }

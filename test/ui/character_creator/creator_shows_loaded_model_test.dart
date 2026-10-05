@@ -31,7 +31,7 @@ class _Kobold extends KoboldService {
   bool get modelReady => startedModels.isNotEmpty;
 
   @override
-  Future<void> startKobold(
+  Future<KoboldLaunchResult> startKobold(
     String executablePath,
     String modelPath, {
     String? kcppsPath,
@@ -43,7 +43,10 @@ class _Kobold extends KoboldService {
     bool useCublas = false,
     bool useMetal = false,
     bool useRocm = false,
-  }) async => startedModels.add(modelPath);
+  }) async {
+    startedModels.add(modelPath);
+    return const KoboldLaunchResult.started();
+  }
 }
 
 class _Llm extends FakeLLMProvider {
