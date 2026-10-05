@@ -241,7 +241,16 @@ extension KoboldServiceIdle on KoboldService {
         DateTime.now().difference(failed.at) < const Duration(seconds: 30)) {
       throw LlmToolTransportException(failed.words);
     }
-    await (i.waking ??= _idleWake().whenComplete(() => i.waking = null));
+    var wake = i.waking;
+    if (wake == null) {
+      // A load back clears only its own record, never a newer one.
+      late final Future<void> mine;
+      mine = _idleWake().whenComplete(() {
+        if (identical(i.waking, mine)) i.waking = null;
+      });
+      wake = i.waking = mine;
+    }
+    await wake;
   }
 
   void _idleRequestEnd() {
