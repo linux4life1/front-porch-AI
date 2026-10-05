@@ -286,6 +286,9 @@ extension KoboldServiceProcess on KoboldService {
       _startReadinessProbe();
 
       final launched = _process!;
+      // Lines, not reads, for a reply's end: it can arrive in two reads.
+      final outLines = KoboldOutputLines();
+      final errLines = KoboldOutputLines();
       _process!.stdout
           .transform(const Utf8Decoder(allowMalformed: true))
           .listen((data) {
@@ -293,12 +296,13 @@ extension KoboldServiceProcess on KoboldService {
             _parseLoadingStatus(data);
             _ingestLiveProgress(data);
             _storageService.backendSettings.noteKoboldOutput(data);
-            _noteReplyFinished(launched, data);
+            _noteReplyFinished(launched, outLines.add(data));
           });
 
       _process!.stderr
           .transform(const Utf8Decoder(allowMalformed: true))
           .listen((data) {
+            _noteReplyFinished(launched, errLines.add(data));
             // Many backends log everything to stderr even if not an error.
             var cleanData = data.trim();
             if (cleanData.isNotEmpty) {
@@ -310,7 +314,6 @@ extension KoboldServiceProcess on KoboldService {
                 _addLog(cleanData);
                 _parseLoadingStatus(cleanData);
                 _ingestLiveProgress(cleanData);
-                _noteReplyFinished(launched, cleanData);
               }
             }
           });
@@ -370,10 +373,10 @@ extension KoboldServiceProcess on KoboldService {
     caseSensitive: false,
   );
 
-  /// [output] from [from] finishing a reply, while [from] is still the
+  /// [lines] from [from] finishing a reply, while [from] is still the
   /// process the app runs: from then on a crash is not a first-reply crash.
-  void _noteReplyFinished(Process from, String output) {
-    if (identical(from, _process) && koboldReplyFinishedIn(output)) {
+  void _noteReplyFinished(Process from, List<String> lines) {
+    if (identical(from, _process) && lines.any(koboldReplyFinishedIn)) {
       _replyFinished = true;
     }
   }

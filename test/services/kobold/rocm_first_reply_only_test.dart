@@ -50,8 +50,9 @@ void main() {
       kobold = KoboldService(storage);
       dir = Directory.systemTemp.createTempSync('fpai_rocm_first_reply_');
       engine = p.join(dir.path, 'koboldcpp');
-      // Loads, says it is ready, says it finished a reply when told to, and
-      // dies in the middle of the next prompt once told to.
+      // Loads, says it is ready, says it finished a reply when told to (in
+      // one write, or in two with a pause, so the line arrives in two
+      // reads), and dies in the middle of the next prompt once told to.
       File(engine).writeAsStringSync('''
 #!/bin/sh
 trap 'exit 0' TERM
@@ -59,6 +60,9 @@ here=\$(dirname "\$0")
 echo "Load Text Model OK: True"
 echo "Please connect to custom endpoint at http://localhost:5999"
 if [ -f "\$here/replied" ]; then echo "$_replyDone"; fi
+if [ -f "\$here/replied-split" ]; then
+  printf '%s' "[09:59:50] Ctx"; sleep 0.4; printf '%s\\n' "Limit:290/16384, Init:0.15s"
+fi
 while [ ! -f "\$here/crash" ]; do sleep 0.2; done
 echo "Processing Prompt [BATCH] (512 / 2156 tokens)"
 sleep 0.5
@@ -137,6 +141,24 @@ exit 1
 
       expect(kobold.lastFailure?.kind, KoboldFailureKind.diedWhileAnswering);
       expect(count('stopped while answering, without saying why'), 1);
+      expect(storage.backendSettings.rocmFlashAttentionFailed, isFalse);
+      expect(storage.backendSettings.flashAttentionEnabled, isTrue);
+      expect(count('Starting Koboldcpp (PID'), 1, reason: 'not started again');
+    }, skip: skipOnWindows);
+
+    test('a finished reply whose line arrives in two reads counts: a later '
+        'crash only stops', () async {
+      File(p.join(dir.path, 'replied-split')).createSync();
+      await start();
+
+      crash();
+      await until(
+        () => count('Process exited with code') == 1,
+        'the engine to end',
+      );
+      // The retry, had there been one, waits a second before it starts.
+      await Future<void>.delayed(const Duration(seconds: 2));
+
       expect(storage.backendSettings.rocmFlashAttentionFailed, isFalse);
       expect(storage.backendSettings.flashAttentionEnabled, isTrue);
       expect(count('Starting Koboldcpp (PID'), 1, reason: 'not started again');

@@ -103,6 +103,24 @@ bool kcppsRunsFlashAttention(Map<dynamic, dynamic> config) =>
 /// Whether [output] from the engine says a reply was finished.
 bool koboldReplyFinishedIn(String output) => _done.hasMatch(output);
 
+/// The engine's output put back into lines across reads: a pipe hands it
+/// over in pieces, and a line can arrive in two of them.
+class KoboldOutputLines {
+  String _pending = '';
+
+  /// The lines [chunk] completes, then the line still being written, as it
+  /// stands: KoboldCpp ends a reply's last line only when it next prints.
+  List<String> add(String chunk) {
+    final lines = (_pending + chunk).split(RegExp(r'\r\n|\r|\n'));
+    _pending = lines.removeLast();
+    // A line with no end in sight keeps only its last part.
+    if (_pending.length > 4096) {
+      _pending = _pending.substring(_pending.length - 4096);
+    }
+    return [...lines, if (_pending.isNotEmpty) _pending];
+  }
+}
+
 /// Whether to start again with flash attention off: the ROCm build died
 /// mid-answer with it on, on its first reply ([replyFinished]: no reply has
 /// finished since this KoboldCpp process started), and this machine has not

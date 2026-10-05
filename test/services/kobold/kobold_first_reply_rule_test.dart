@@ -30,6 +30,28 @@ void main() {
     }
   });
 
+  test('a reply\'s last line that arrives in two reads is seen whole', () {
+    final lines = KoboldOutputLines();
+    bool finished(String read) => lines.add(read).any(koboldReplyFinishedIn);
+
+    expect(finished('Generating (50 / 64 tokens)\n[09:59:50] Ctx'), isFalse);
+    expect(finished('Limit:290/16384, Init:0.15s'), isTrue);
+    // The next print ends that line, and starts another.
+    expect(lines.add('\nProcessing Prompt [BATCH] (512 / 2156 tokens)'), [
+      '[09:59:50] CtxLimit:290/16384, Init:0.15s',
+      'Processing Prompt [BATCH] (512 / 2156 tokens)',
+    ]);
+  });
+
+  test('the line still being written is read as it stands, since KoboldCpp '
+      'ends it only when it next prints', () {
+    final lines = KoboldOutputLines();
+
+    expect(lines.add('\n[09:59:50] CtxLimit:2'), ['', '[09:59:50] CtxLimit:2']);
+    expect(lines.add('90/16384'), ['[09:59:50] CtxLimit:290/16384']);
+    expect(lines.add('\nnext'), ['[09:59:50] CtxLimit:290/16384', 'next']);
+  });
+
   test('only a crash before any reply finished starts again without flash '
       'attention', () {
     const died = KoboldFailure(KoboldFailureKind.diedWhileAnswering, '');

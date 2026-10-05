@@ -803,8 +803,9 @@ had wiped the sentence; stop and exit handling are unchanged. Proven on a
 real engine: killed mid-reply, the app says it stopped while answering.
 When the ROCm build dies on its first reply with
 flash attention on (mid-answer, with no reply finished since that process
-started: a per-process flag set by its first "CtxLimit:" line, as decision
-10 says; built 2026-10-05), a per-machine flag is set, Flash Attention is
+started: a per-process flag set by its first "CtxLimit:" line, read as
+whole lines so one that arrives in two reads still counts, as decision 10
+says; built 2026-10-05), a per-machine flag is set, Flash Attention is
 switched off in Settings and the engine started again once without it (out
 of memory does not trigger it); a later crash only stops, with its reason.
 `koboldFlashAttentionRuns`
