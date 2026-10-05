@@ -289,7 +289,11 @@ class KoboldService extends ChangeNotifier
   }
 
   // Public notify for same-library extensions (avoids protected member warnings).
-  void notify() => notifyListeners();
+  // A stop that dispose() started finishes later, and its last log lines must
+  // not notify a disposed service (dispose leaves no listeners).
+  void notify() {
+    if (hasListeners) notifyListeners();
+  }
 
   File get _logFile => File(
     path.join(_storageService.rootPath!, 'characters', 'session_log.txt'),
