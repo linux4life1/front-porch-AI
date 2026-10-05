@@ -49,8 +49,14 @@ export function ModelsPage() {
     <div className="page">
       <h2>Models &amp; backends</h2>
       {error && <p className="error">{error}</p>}
-      {status?.isLocal && <BackendStatusCard status={status} reload={loadStatus} onError={setError} />}
-      <KoboldStatusCard onError={setError} />
+      {/* Both belong to the local backend, as on the desktop, where they sit
+          in the section only KoboldCpp has. */}
+      {status?.isLocal && (
+        <>
+          <BackendStatusCard status={status} reload={loadStatus} onError={setError} />
+          <KoboldStatusCard onError={setError} />
+        </>
+      )}
       <HardwarePanel onPickQuery={pickQuery} />
       <LocalModels isLocal={status?.isLocal ?? false} reloadStatus={loadStatus} onError={setError} />
       <ModelDownloads query={query} setQuery={setQuery} searchNonce={searchNonce} onError={setError} />

@@ -291,25 +291,51 @@ test('New Story walks four steps, keeps the draft when you leave, and the shelf 
   await expect(book).toContainText('Stopped at step 4 · Engine');
 });
 
-test('the Local model card: a context and its verdict, then a KoboldCpp preset', async ({ page }) => {
-  // The host has a local model and one preset (seeded by browser_test.dart);
-  // chat itself runs on the stand-in backend, so nothing here loads a model.
-  await openRoute(page, '/models');
-  const card = page.getByTestId('local-model-card');
-  await expect(card).toContainText('Set up for this computer automatically.');
-  const verdict = page.getByTestId('local-model-verdict');
+// Chat and the rest of the suite run on the stand-in backend. The Local model
+// and preset cards are the local backend's (as on the desktop), so the host is
+// switched to KoboldCpp for this journey only; nothing in it loads a model.
+test.describe('the Local model card', () => {
+  const setBackend = (page: Page, backend: 'kobold' | 'openRouter') =>
+    page.request.post('/api/settings', { data: { backend } });
 
-  await card.getByRole('button', { name: '8,192', exact: true }).click();
-  await expect(verdict).toContainText('Not recommended or supported.');
-  await card.getByRole('button', { name: '16,384', exact: true }).click();
-  await expect(verdict).toContainText('Works like now.');
+  // Whatever happened, the next spec finds the stand-in backend and no preset.
+  test.afterEach(async ({ request }) => {
+    await request.post('/api/settings', { data: { backend: 'openRouter' } });
+    await request.post('/api/backend/local-model/preset', { data: { path: null } });
+  });
 
-  const presets = page.getByLabel('Chat uses');
-  await presets.selectOption({ label: 'Long chats — 32k chat · fitted to the card · smart cache off' });
-  await expect(card).toContainText('Uses your preset “Long chats”.');
-  await expect(page.getByTestId('kobold-preset-card')).toContainText('lets KoboldCpp fit it to your card');
+  test('is for a local backend only; there, a context and its verdict, then a KoboldCpp preset', async ({ page }) => {
+    // The stand-in is a remote backend: no card, and no poll for one.
+    const asked: string[] = [];
+    page.on('request', (r) => asked.push(new URL(r.url()).pathname));
+    await openRoute(page, '/models');
+    await expect(page.getByRole('heading', { name: 'Models & backends' })).toBeVisible();
+    await expect(page.getByTestId('local-model-card')).toHaveCount(0);
+    await expect(page.getByTestId('kobold-preset-card')).toHaveCount(0);
+    expect(asked).toContain('/api/backend/status');
+    expect(asked).not.toContain('/api/backend/local-model');
 
-  // Back to automatic, as it was.
-  await presets.selectOption({ label: "The app's own settings (automatic)" });
-  await expect(card).toContainText('Set up for this computer automatically.');
+    // The host switches to KoboldCpp (seeded by browser_test.dart with a local
+    // model and one preset): the cards are there.
+    const switched = await setBackend(page, 'kobold');
+    expect(switched.ok(), `POST /api/settings backend=kobold: ${switched.status()}`).toBe(true);
+    await openRoute(page, '/models');
+    const card = page.getByTestId('local-model-card');
+    await expect(card).toContainText('Set up for this computer automatically.');
+    const verdict = page.getByTestId('local-model-verdict');
+
+    await card.getByRole('button', { name: '8,192', exact: true }).click();
+    await expect(verdict).toContainText('Not recommended or supported.');
+    await card.getByRole('button', { name: '16,384', exact: true }).click();
+    await expect(verdict).toContainText('Works like now.');
+
+    const presets = page.getByLabel('Chat uses');
+    await presets.selectOption({ label: 'Long chats — 32k chat · fitted to the card · smart cache off' });
+    await expect(card).toContainText('Uses your preset “Long chats”.');
+    await expect(page.getByTestId('kobold-preset-card')).toContainText('lets KoboldCpp fit it to your card');
+
+    // Back to automatic, as it was.
+    await presets.selectOption({ label: "The app's own settings (automatic)" });
+    await expect(card).toContainText('Set up for this computer automatically.');
+  });
 });
