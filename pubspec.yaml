@@ -54,12 +54,12 @@ dependencies:
   window_manager: ^0.5.1
   url_launcher: ^6.2.5
   qr_flutter: ^4.1.0
-  package_info_plus: ^10.2.1
+  package_info_plus: ^10.2.2
   audioplayers: ^6.5.1
   webdav_client: ^1.2.2
   googleapis: ^17.0.0
   googleapis_auth: ^2.3.4
-  drift: ^2.35.0
+  drift: ^2.35.1
   # PAIRS WITH `sqlite3` 3.x, which bundles SQLite itself via native assets.
   # 0.6.0+eol is the correct marker pin here: it contains no code, and exists
   # to guarantee the old 0.5.x Flutter build scripts are NOT also used.
@@ -78,7 +78,7 @@ dependencies:
   shelf_web_socket: ^3.0.0
   web_socket_channel: ^3.0.1 # WS channel abstraction (server + client/tests)
   hashlib: ^1.21.0
-  otp: ^3.1.4 # RFC 6238 TOTP for optional web-login 2FA
+  otp: ^3.2.1 # RFC 6238 TOTP for optional web-login 2FA
   page_flip: ^0.2.5+1
   html: ^0.15.7
   syncfusion_flutter_pdf: ^33.1.46
@@ -98,7 +98,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  drift_dev: ^2.34.5
+  drift_dev: ^2.35.1
   build_runner: ^2.16.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
