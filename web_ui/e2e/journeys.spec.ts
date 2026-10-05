@@ -298,11 +298,23 @@ test.describe('the Local model card', () => {
   const setBackend = (page: Page, backend: 'kobold' | 'openRouter') =>
     page.request.post('/api/settings', { data: { backend } });
 
-  // Whatever happened, the next spec finds the stand-in backend and no preset.
+  // The stand-in backend as the suite set it up. The Settings page this journey
+  // visits saves its whole form, which clears the remote model name while
+  // KoboldCpp is the engine, so the backend alone is not enough to put back.
+  let standIn: { backend: string; remoteApiUrl: string; remoteModelName: string };
+  test.beforeEach(async ({ request }) => {
+    const s = await (await request.get('/api/settings')).json();
+    standIn = { backend: s.backend, remoteApiUrl: s.remoteApiUrl, remoteModelName: s.remoteModelName };
+  });
+
+  // Whatever happened, the next spec finds the stand-in backend, working, and
+  // no preset.
   test.afterEach(async ({ request }) => {
-    const back = await request.post('/api/settings', { data: { backend: 'openRouter' } });
+    const back = await request.post('/api/settings', { data: standIn });
     expect(back.ok(), `putting the stand-in backend back: ${back.status()}`).toBe(true);
     await request.post('/api/backend/local-model/preset', { data: { path: null } });
+    const after = await (await request.get('/api/settings')).json();
+    expect(after.remoteConfigured, 'the stand-in backend answers chat again').toBe(true);
   });
 
   test('is for a local backend only; there, a context and its verdict, then a KoboldCpp preset', async ({ page }) => {
