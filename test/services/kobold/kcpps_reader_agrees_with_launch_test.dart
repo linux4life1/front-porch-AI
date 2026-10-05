@@ -1,0 +1,69 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+// The editor shows a preset through `readKcpps`; a launch runs the same file
+// through `kcppsPresetLaunchMap` and the helpers beside it. For any value a
+// file holds (a hand-edited preset can hold a text or a null where
+// KoboldCpp's launcher writes true and false) what the editor shows must be
+// what the launch runs.
+
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
+
+KcppsOk _read(Map<String, dynamic> map) =>
+    readKcpps(jsonEncode(map)) as KcppsOk;
+
+void main() {
+  test('sliding window is shown when the launch leaves it on with fast '
+      'forward off, and only then', () {
+    for (final map in <Map<String, dynamic>>[
+      {'noswa': false, 'nofastforward': true},
+      {'noswa': true, 'nofastforward': true},
+      {'noswa': 'yes', 'nofastforward': true},
+      {'noswa': null, 'nofastforward': true},
+      {'noswa': 0, 'nofastforward': true},
+      {'useswa': true, 'nofastforward': true},
+      {'useswa': 'yes', 'nofastforward': true},
+      {'useswa': false, 'nofastforward': true},
+      {'nofastforward': true},
+      {'noswa': false},
+      {'noswa': false, 'nofastforward': 'yes'},
+      <String, dynamic>{},
+    ]) {
+      final shown =
+          _read(map).config.contextMode ==
+          ContextManagementMode.slidingWindowAttention;
+      final launch = kcppsPresetLaunchMap(map, modelPath: '', mmprojPath: '');
+      final runs = kcppsHasSwaOn(launch) && launch['nofastforward'] == true;
+      expect(shown, runs, reason: '$map');
+    }
+  });
+
+  test('the reader says sliding window is switched off only where a launch '
+      'switches it off', () {
+    for (final map in <Map<String, dynamic>>[
+      {'noswa': false},
+      {'noswa': 'yes'},
+      {'noswa': null},
+      {'useswa': true},
+      {'useswa': 'yes'},
+      {'noswa': true},
+    ]) {
+      final said = _read(map).notes.any((n) => n.contains('switched off'));
+      final notes = <String>[];
+      kcppsPresetLaunchMap(
+        map,
+        modelPath: '',
+        mmprojPath: '',
+        onNote: notes.add,
+      );
+      expect(
+        said,
+        notes.any((n) => n.contains('switched off')),
+        reason: '$map',
+      );
+    }
+  });
+}

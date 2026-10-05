@@ -148,20 +148,17 @@ KcppsRead _readKcpps(String text) {
     moreGpuIds = ids.skip(1).toList();
   }
 
-  final noSwa = map.containsKey('noswa')
-      ? map['noswa'] == true
-      : map.containsKey('useswa')
-      ? map['useswa'] != true
-      : null;
-  final noFastForward = map['nofastforward'] == true;
+  // Decided by the helpers a launch uses, so what the editor shows is what
+  // runs for any value the file holds, not only for true and false.
+  final swaOn = kcppsHasSwaOn(map);
   final ContextManagementMode mode;
-  if (noSwa == false && noFastForward) {
+  if (swaOn && map['nofastforward'] == true) {
     mode = ContextManagementMode.slidingWindowAttention;
   } else {
     mode = ContextManagementMode.fastForwardSmartCache;
-    if (noSwa == false) {
+    if (swaOn) {
       notes.add(kSwaWithFastForwardNote);
-    } else if (noSwa == null) {
+    } else if (kcppsLeavesSwaToKobold(map)) {
       notes.add(
         'This preset does not say how to handle sliding window. On a model '
         'that has it, current KoboldCpp switches it on together with fast '
