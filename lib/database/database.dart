@@ -92,6 +92,13 @@ class AppDatabase extends _$AppDatabase {
   /// goes when the chat does.
   Stream<String> get deletedSessions => _deletedSessions.stream;
 
+  /// Closing the database ends [deletedSessions] too; a listener gets done.
+  @override
+  Future<void> close() {
+    unawaited(_deletedSessions.close());
+    return super.close();
+  }
+
   static AppDatabase? _instance;
   static String? _dbPath;
   static String? _dbDir;
