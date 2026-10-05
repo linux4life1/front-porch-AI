@@ -61,6 +61,9 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   final _contextSizeController = TextEditingController(text: '');
   String? _selectedModelPath;
 
+  /// The preset the context box was last brought in step with.
+  String? _contextPreset;
+
   // Remote API fields
   final _apiUrlController = TextEditingController();
   final _apiKeyController = TextEditingController();
@@ -83,6 +86,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
     _contextSizeController.text = storage.backendSettings.contextSize
         .toString();
+    _contextPreset = storage.backendSettings.activeKcppsPath;
     // Remote settings
     _apiUrlController.text = storage.backendSettings.remoteApiUrl;
     _apiKeyController.text = typedRemoteApiKey(storage.backendSettings);
@@ -226,12 +230,14 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     bool isNumber = false,
     bool isObscured = false,
     VoidCallback? onEditingComplete,
+    ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
       obscureText: isObscured,
       onEditingComplete: onEditingComplete,
+      onChanged: onChanged,
       style: TextStyle(color: AppColors.textPrimary(context)),
       decoration: InputDecoration(
         labelText: label,

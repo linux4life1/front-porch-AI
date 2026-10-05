@@ -43,6 +43,14 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
         !kcppsModelExists) {
       _selectedModelPath = modelManager.models.first.path;
     }
+    // A preset sets its own context, so the box follows the preset that is
+    // active instead of showing what it held when the dialog opened.
+    final activePreset = storage.backendSettings.activeKcppsPath;
+    if (activePreset != _contextPreset) {
+      _contextPreset = activePreset;
+      _contextSizeController.text = storage.backendSettings.contextSize
+          .toString();
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -203,6 +211,7 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                             ).backendSettings.setGpuLayersManual(v);
                             rebuildState(() {});
                           },
+                          onLayersChanged: _saveGpuLayers,
                         ),
                         const SizedBox(height: 12),
                         Row(
@@ -220,12 +229,14 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                                             label: 'Context Size',
                                             controller: _contextSizeController,
                                             isNumber: true,
+                                            onChanged: _saveContextSize,
                                           ),
                                         )
                                       : _buildTextField(
                                           label: 'Context Size',
                                           controller: _contextSizeController,
                                           isNumber: true,
+                                          onChanged: _saveContextSize,
                                         ),
                                 ),
                               ),
