@@ -448,10 +448,8 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       },
       onKcppsExternalClear: () async {
-        await storageService.backendSettings.setActiveKcppsPath(null);
-        if (_selectedModelPath != null) {
-          storageService.presetSettings.setModelPreset(_selectedModelPath!, '');
-        }
+        await chooseKoboldPreset(storageService, null);
+        if (!mounted) return;
         _reloadChatIfRunning();
       },
       onKcppsBrowsePicked: (path) async {

@@ -4,7 +4,8 @@
 // Choosing a preset on Settings -> Backend, from the list or with Browse: a
 // preset that names its own model is kept for that model, not for the model
 // the dropdown happened to show. Kept for the model on show, picking that
-// model later turns the preset on and loads the other model instead.
+// model later turns the preset on and loads the other model instead. Clearing
+// a preset clears it for the model it loaded, from the list or with its X.
 //
 // The real Settings page and the real launch; only the engine start is
 // recorded, and the OS file dialog answers with a real file (see
@@ -145,6 +146,60 @@ void main() {
       final start = rig.kobold.starts.single;
       expect(start.model, rig.a, reason: 'picking A loads A');
       expect(start.kcpps, isNull);
+    });
+
+    testWidgets('browsed to, then cleared with its X, stays cleared for B', (
+      tester,
+    ) async {
+      late String browsed;
+      final rig = await mountSettings(
+        tester,
+        lastUsedIsB: false,
+        before: (rig) async {
+          browsed = presetNaming(
+            p.join(rig.dir.path, 'downloads'),
+            'b-browsed.kcpps',
+            rig.b,
+          );
+        },
+      );
+      PickerPrefs.testPickFilesOverride =
+          ({required String category, List<String>? allowedExtensions}) async =>
+              FilePickerResult([PickedFile(browsed)]);
+      addTearDown(() => PickerPrefs.testPickFilesOverride = null);
+      await openTab(tester, 'Backend');
+      await tapVisible(tester, find.byTooltip('Browse'));
+      await settle(tester);
+      expect(rig.store.backendSettings.activeKcppsPath, browsed);
+
+      // A preset outside the engine folder shows as a chip with an X.
+      await tapVisible(
+        tester,
+        find.descendant(
+          of: find.byType(KcppsSelector),
+          matching: find.byIcon(Icons.close),
+        ),
+      );
+      await settle(tester);
+
+      expect(rig.store.backendSettings.activeKcppsPath, isNull);
+      expect(
+        rig.store.presetSettings.modelPresetMap[rig.b] ?? '',
+        isEmpty,
+        reason: 'cleared for the model the preset loaded',
+      );
+
+      await pickFromDropdown(tester, modelDropdown(), p.basename(rig.b));
+      await tapVisible(tester, find.text('Start Backend'));
+      await settle(tester, () => rig.kobold.starts.isNotEmpty);
+
+      final start = rig.kobold.starts.single;
+      expect(start.model, rig.b);
+      expect(
+        start.kcpps,
+        isNull,
+        reason: 'picking B turned the cleared preset back on',
+      );
     });
   });
 }
