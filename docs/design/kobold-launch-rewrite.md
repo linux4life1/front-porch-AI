@@ -1267,8 +1267,11 @@ each load of the model (`KoboldService.loadGeneration`).
   plain reply loads the chat as it was saved before the picture.
 - A deleted chat is let go at once. Every way of deleting one (a chat from the
   app or the phone, a character with its chats, a group) ends in
-  `AppDatabase.deleteSessionById`, which tells `ChatService` (it follows the
-  database it is given, also after a swap), which tells the keeper. The table
+  `AppDatabase.deleteSessionById`, and the Settings cleanup, which removes
+  chats no character or group owns any more with its own query, says the
+  same of each (`noteSessionsDeleted`). The word goes to `ChatService` (it
+  follows the database it is given, also after a swap; closing a database
+  ends it), which tells the keeper. The table
   drops the chat, so its slot is the first free one for the next chat and it
   is not kept over a live one; a save that was already running when the chat
   went does not bring it back, and a reply that ends after the chat went is
@@ -1378,7 +1381,7 @@ it keeps is a table of saved caches by session id.
 | Regenerate | the judges re-run (helpers), then the reply loads the chat's slot (prompt and old reply) and reads only what differs | yes (live: 1 token) |
 | Swipe | navigation; past the last alternate it is a regenerate | n/a |
 | Delete, edit history | nothing is recorded per message; KoboldCpp compares the tokens and reads from the first one that changed | n/a |
-| Delete a chat (app or phone), a character with its chats, a group | the keeper lets go of each chat's saved cache; its slot is the next one used | yes (a test each) |
+| Delete a chat (app or phone), a character with its chats, a group, the Settings cleanup of chats nobody owns | the keeper lets go of each chat's saved cache; its slot is the next one used | yes (a test each) |
 | A save over three seconds, after any reply above | every reply path ends in the same save (`chatEnd`), so that chat is let go for the load whichever path it came from; not a failure | yes (a test) |
 | Scene Guest turn | the guest's line is a reply like any other (`paramsOf`), named with the host's chat | yes (a test) |
 | Voice call message | the same send path in call mode: a reply naming the chat | yes (a test) |

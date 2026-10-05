@@ -87,10 +87,17 @@ class AppDatabase extends _$AppDatabase {
       StreamController<String>.broadcast(sync: true);
 
   /// The id of each chat [deleteSessionById] has removed, which every way of
-  /// deleting a chat ends in (one chat, a character's, a group's). What lives
+  /// deleting a chat ends in (one chat, a character's, a group's), and of
+  /// each the Settings cleanup removes with its own query. What lives
   /// outside the database for a chat, like KoboldCpp's saved cache of it,
   /// goes when the chat does.
   Stream<String> get deletedSessions => _deletedSessions.stream;
+
+  /// Tells [deletedSessions] about chats a query removed.
+  void noteSessionsDeleted(Iterable<String> ids) {
+    if (_deletedSessions.isClosed) return;
+    ids.forEach(_deletedSessions.add);
+  }
 
   /// Closing the database ends [deletedSessions] too; a listener gets done.
   @override
