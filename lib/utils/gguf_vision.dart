@@ -202,8 +202,10 @@ class GgufVisionParser {
         offset += 8;
         if (nameLen < 0 || offset + nameLen > bytes.length) break;
         final name = utf8
-            .decode(bytes.sublist(offset, offset + nameLen),
-                allowMalformed: true)
+            .decode(
+              bytes.sublist(offset, offset + nameLen),
+              allowMalformed: true,
+            )
             .toLowerCase();
         offset += nameLen;
 
@@ -224,7 +226,8 @@ class GgufVisionParser {
     }
 
     final hasEmbeddedProjector = hasClipKey || hasVisionTensor;
-    final isMultimodal = hasEmbeddedProjector ||
+    final isMultimodal =
+        hasEmbeddedProjector ||
         hasVisionKey ||
         alwaysMultimodalArches.contains(arch);
 
@@ -239,6 +242,11 @@ class GgufVisionParser {
   /// returning the new offset and, for string values, the decoded string.
   /// Throws (via ByteData range errors) when a value runs past the buffer; the
   /// caller treats that as a clean stop.
+  ///
+  /// The file is not trusted: a list's count or a string's length that reads
+  /// back as negative, or whose bytes pass the end of the buffer, would stop
+  /// the walk moving on or send it backwards, and the loop over the
+  /// entries would never end. Each of those is a stop too.
   static (int, String?) _skipValue(
     ByteData data,
     Uint8List bytes,
@@ -277,6 +285,9 @@ class GgufVisionParser {
         if (arrType == 8) {
           for (var j = 0; j < arrLen; j++) {
             final l = data.getUint64(offset, Endian.little).toInt();
+            if (l < 0 || l > bytes.length - offset - 8) {
+              throw const FormatException('GGUF string length out of range');
+            }
             offset += 8 + l;
           }
         } else {
@@ -289,6 +300,12 @@ class GgufVisionParser {
             size = 4;
           } else if (arrType >= 10 && arrType <= 12) {
             size = 8;
+          }
+          // Compared by division: the product of a huge count and its width
+          // wraps around, and can read back as a small step backwards.
+          if (arrLen < 0 ||
+              (size > 0 && arrLen > (bytes.length - offset) ~/ size)) {
+            throw const FormatException('GGUF list length out of range');
           }
           offset += arrLen * size;
         }
