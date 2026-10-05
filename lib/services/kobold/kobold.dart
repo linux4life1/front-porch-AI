@@ -25,6 +25,7 @@ export 'kcpps_codec.dart';
 export 'kcpps_draft.dart';
 export 'kcpps_launch_map.dart';
 export 'kcpps_library.dart';
+export 'kcpps_old_names.dart';
 export 'kcpps_risky_keys.dart';
 export 'kcpps_summary.dart';
 export 'kobold_app_config.dart';

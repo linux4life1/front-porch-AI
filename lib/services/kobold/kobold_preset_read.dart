@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
 import 'kcpps_codec.dart';
+import 'kcpps_old_names.dart';
 import 'kcpps_risky_keys.dart';
 
 /// A preset that cannot be launched from, with the reason in plain words.
@@ -57,16 +58,26 @@ Future<KcppsOk> readKoboldPreset(String kcppsPath) async {
   return read;
 }
 
+/// Why a launch from [preset] must not go ahead, in plain words, or null:
+/// it asks KoboldCpp to run a program or open itself to the internet (see
+/// [kcppsRiskyPresetProblem]), or it was saved by an older KoboldCpp and
+/// names settings the old way (see [kcppsOldNamesProblem]). The one gate a
+/// preset passes wherever it reaches the engine: the check before a start,
+/// the config every start, swap and trial is built from, and a trial loaded
+/// by name all ask it, so what the user is told and what is refused cannot
+/// disagree.
+String? kcppsPresetProblem(Map<String, dynamic> preset) =>
+    kcppsRiskyPresetProblem(preset) ?? kcppsOldNamesProblem(preset);
+
 /// Why a launch from [kcppsPath] cannot go ahead, in plain words, or null
-/// when it can (or there is no preset): the file cannot be read, or it asks
-/// KoboldCpp to run a program or open itself to the internet (see
-/// [kcppsRiskyPresetProblem]). For the screens that start the engine: the
-/// launch itself only logs this, so without the check a broken preset makes
-/// Start look like it did nothing.
+/// when it can (or there is no preset): the file cannot be read, or it is
+/// refused by [kcppsPresetProblem]. For the screens that start the engine:
+/// the launch itself only logs this, so without the check a broken preset
+/// makes Start look like it did nothing.
 Future<String?> koboldPresetProblem(String? kcppsPath) async {
   if (kcppsPath == null || kcppsPath.isEmpty) return null;
   try {
-    return kcppsRiskyPresetProblem((await readKoboldPreset(kcppsPath)).raw);
+    return kcppsPresetProblem((await readKoboldPreset(kcppsPath)).raw);
   } on KoboldPresetProblem catch (e) {
     return e.message;
   } on Object catch (e) {

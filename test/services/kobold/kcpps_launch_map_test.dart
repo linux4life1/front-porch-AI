@@ -121,9 +121,10 @@ void main() {
       for (final unsafe in <Map<String, dynamic>>[
         {'noswa': false},
         {'noswa': false, 'nofastforward': false},
-        // The name KoboldCpp's launcher used before `noswa` existed. A
-        // current engine reads it as "on" when the file has no `noswa`.
-        {'useswa': true},
+        // The name KoboldCpp's launcher used before `noswa` existed, beside
+        // the current one. (With the old name alone the preset is refused
+        // before this: see kcpps_old_names_test.)
+        {'useswa': true, 'noswa': false},
       ]) {
         final notes = <String>[];
         final ready = _launch(Map.of(unsafe), onNote: notes.add);
@@ -145,10 +146,8 @@ void main() {
         // Not mentioned: nothing is added for it.
         {'contextsize': 4096},
         {'nofastforward': true},
-        // The older name: on with fast forward off, off, or overruled by
-        // the newer name the engine reads first.
-        {'useswa': true, 'nofastforward': true},
-        {'useswa': false},
+        // The older name overruled by the newer name the engine reads first.
+        // (The older name alone is refused: see kcpps_old_names_test.)
         {'noswa': true, 'useswa': true},
       ]) {
         final notes = <String>[];

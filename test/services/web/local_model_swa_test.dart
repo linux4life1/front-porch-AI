@@ -130,7 +130,9 @@ void main() {
     for (final answered in <Map<String, dynamic>>[
       {'noswa': true},
       {'noswa': false, 'nofastforward': true},
-      {'useswa': true, 'nofastforward': true},
+      // The old name beside the current one, as KoboldCpp's own exports
+      // carry it. The old name alone is refused (kcpps_old_names_test).
+      {'useswa': true, 'noswa': false, 'nofastforward': true},
     ]) {
       expect(
         await wordsFor('gemma-3-12b-it', answered),

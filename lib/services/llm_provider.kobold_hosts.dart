@@ -245,11 +245,11 @@ extension LLMProviderKoboldHosts on LLMProvider {
   /// running KoboldCpp the way a swap loads a role: staged in the admin
   /// folder as [name], reloaded by name, waited for. True when it is what
   /// runs afterwards. Throws [KoboldPresetProblem], in plain words, for a
-  /// config that asks KoboldCpp to run a program or open itself to the
-  /// internet, as every other way a config reaches the engine does.
+  /// config [kcppsPresetProblem] refuses, as every other way a config
+  /// reaches the engine does.
   Future<bool> loadKoboldTrial(String name, Map<String, dynamic> config) async {
-    final risky = kcppsRiskyPresetProblem(config);
-    if (risky != null) throw KoboldPresetProblem(risky);
+    final refused = kcppsPresetProblem(config);
+    if (refused != null) throw KoboldPresetProblem(refused);
     final dir = koboldAdminDirFor(_storageService);
     if (!_koboldService.isProcessRunning || dir.isEmpty) return false;
     final json = encodeKcpps(config);

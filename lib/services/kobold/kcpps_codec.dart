@@ -22,6 +22,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/utils/utils.dart';
 
+import 'kcpps_old_names.dart';
 import 'kobold_launch_config.dart';
 
 /// Every key this app reads or writes. Anything else in a file is kept as
@@ -359,7 +360,10 @@ String encodeKcpps(Map<String, dynamic> map) =>
 
 /// [raw] with only the settings that changed between [before] and [after]
 /// (two maps the editor's form produced) written over it. Everything else,
-/// including keys and values the form cannot hold, stays as written.
+/// including keys and values the form cannot hold, stays as written, except
+/// that an old setting name the file still uses becomes its current name
+/// ([kcppsWithCurrentNames]): saving a preset an older KoboldCpp wrote is
+/// what makes the app willing to launch from it, with or without an edit.
 Map<String, dynamic> kcppsMergeEdits(
   Map<String, dynamic> raw,
   Map<String, dynamic> before,
@@ -406,7 +410,7 @@ Map<String, dynamic> kcppsMergeEdits(
   if (_namesCudaCard(before) == false && _namesCudaCard(after) == true) {
     out.remove('tensor_split');
   }
-  return out;
+  return kcppsWithCurrentNames(out);
 }
 
 /// Whether [map]'s CUDA list names a card. KoboldCpp looks for the card as

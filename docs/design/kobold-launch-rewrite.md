@@ -301,7 +301,9 @@ Decisions already made by the maintainer:
     internet is refused, not rewritten (2026-10-04). A preset still launches
     exactly as written. The exception is `mcpfile`, `onready`, `remotetunnel`,
     `hordekey`, `preloadstory` and `baseconfig` when set (any value Python
-    reads as true: the text "false" counts) and `rpcmode` when it is `host`.
+    reads as true: the text "false" counts), `rpcmode` when it is `host`, and
+    `hordeconfig`, the old name of the Horde settings, when it holds a Horde
+    key (KoboldCpp takes `hordekey` from it on every load).
     KoboldCpp's own exports carry all of them switched off and pass. The
     reason is said in plain words, naming the settings, wherever a preset can
     reach the engine: Start, a live reload of chat, a helper or story swap,
@@ -400,6 +402,43 @@ Decisions already made by the maintainer:
     engine, `test/live/kobold_launch_live_test.dart` (the engine reports
     `adminunloadtimeout=0` for a preset that asked for 300). The preset file
     is never edited.
+19. A preset an older KoboldCpp saved is refused until it is updated
+    (2026-10-05; "Don't even let it load the old style kcpps from the
+    outset"). KoboldCpp turns an old setting name into the current setting
+    when it starts, and only when the file lacks the current name
+    (`convert_invalid_args`). A live reload first fills in every setting the
+    file leaves out from the engine that is running, so the old name is not
+    turned into anything and its setting is dropped without a word: the
+    preset runs one way after Start and another after the first swap. So a
+    preset with an old name and not the current one is refused wherever a
+    preset reaches the engine, in the same places and the same way as
+    decision 12 (`kcppsPresetProblem` is the one gate): Start, a live reload
+    of chat, a helper or story swap, the editor's MMQ timing, and the
+    phone's pick and model switch. The words say the preset was saved by an
+    older KoboldCpp and has to be updated once, name the old settings, and
+    say what to do: open it from "KoboldCpp presets…" and press Save.
+    The list is every old name in 1.122.1's `convert_invalid_args`, refused
+    when KoboldCpp would act on it (its own test: `usecublas`,
+    `blasbatchsize`, `noblas`, `sdconfig` and `hordeconfig` when on; the
+    rest whatever they hold): `usecublas` (`usecuda`), `blasbatchsize`
+    (`batchsize`), `flashattention` and `useswa` (inverted, `noflashattention`
+    and `noswa`), `noblas` (`usecpu`), the old combined `sdconfig` and
+    `hordeconfig`, and the image settings `sdnotile`, `sdclipl`, `sdclipg`,
+    `sdgendefaults`, `sdclipgpu` (a null `sdclipdevice` counts as missing)
+    and `sdvaecpu`. Not `sdt5xxl`: it became `sdllm` only in 1.122.1, and
+    1.117.1 still writes it alone as the setting itself. Save writes the
+    current names whether or not anything was edited (`kcppsWithCurrentNames`,
+    applied by `kcppsMergeEdits`), each with what KoboldCpp gives it at
+    Start; the card and the batch stay under both spellings, as the writer
+    writes them. A file that has the current name too is not refused:
+    everything the app writes, and KoboldCpp's own export (the 1.117.1 export
+    in `test/fixtures/kcpps/` passes), carry both. `hordeconfig` with a Horde
+    key in it (a list of more than four) is refused as risky under decision
+    12, even beside the current names, since KoboldCpp takes the key from it
+    on every load. There is no one-tap "Update" beside the refusal: the
+    refusal is shown by the editor, the desktop's Local model card and the
+    phone's Models page, which this change leaves alone, so the editor's
+    Save is the route.
 
 ## Design
 

@@ -18,7 +18,7 @@ KcppsOk _read(Map<String, dynamic> map) =>
 void main() {
   test('sliding window is shown when the launch leaves it on with fast '
       'forward off, and only then', () {
-    for (final map in <Map<String, dynamic>>[
+    for (var map in <Map<String, dynamic>>[
       {'noswa': false, 'nofastforward': true},
       {'noswa': true, 'nofastforward': true},
       {'noswa': 'yes', 'nofastforward': true},
@@ -32,6 +32,17 @@ void main() {
       {'noswa': false, 'nofastforward': 'yes'},
       <String, dynamic>{},
     ]) {
+      // A file that has only an old name is refused until the editor has
+      // saved it (kcpps_old_names_test); what the editor shows for the
+      // saved file is what the launch runs.
+      if (kcppsOldNames(map).isNotEmpty) {
+        expect(
+          () => kcppsPresetLaunchMap(map, modelPath: '', mmprojPath: ''),
+          throwsA(isA<KoboldPresetProblem>()),
+          reason: '$map',
+        );
+        map = kcppsWithCurrentNames(map);
+      }
       final shown =
           _read(map).config.contextMode ==
           ContextManagementMode.slidingWindowAttention;

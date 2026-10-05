@@ -43,13 +43,16 @@ const List<String> _kRiskyKeys = [
 /// KoboldCpp reads each setting as Python reads a value: anything but null,
 /// false, 0, empty text, an empty list or an empty map is on, so the text
 /// "false" is on. `rpcmode` is risky only as `host`, which makes the engine
-/// a network service; `connect` only sends work out. A KoboldCpp export
-/// carries all of these, switched off, and passes.
+/// a network service; `connect` only sends work out. `hordeconfig`, the old
+/// name of the Horde settings, is risky when KoboldCpp takes a Horde key
+/// from it, which it does on every load. A KoboldCpp export carries all of
+/// these, switched off, and passes.
 String? kcppsRiskyPresetProblem(Map<String, dynamic> preset) {
   final keys = [
     for (final key in _kRiskyKeys)
-      if (_isOn(preset[key])) key,
+      if (kcppsIsOn(preset[key])) key,
     if (preset['rpcmode'] == 'host') 'rpcmode',
+    if (_hordeKeyIn(preset['hordeconfig'])) 'hordeconfig',
   ];
   if (keys.isEmpty) return null;
   return 'This preset asks KoboldCpp to run a program or open itself to the '
@@ -57,9 +60,19 @@ String? kcppsRiskyPresetProblem(Map<String, dynamic> preset) {
       'that: remove those settings from the file, or pick another preset.';
 }
 
+/// Whether KoboldCpp takes a Horde key from `hordeconfig`: the fourth entry
+/// of a list of more than four whose first entry, the model name, is not
+/// empty. A text it reads by its letters, none of them empty.
+bool _hordeKeyIn(Object? value) => switch (value) {
+  final List<dynamic> list =>
+    list.length > 4 && list.first != '' && kcppsIsOn(list[3]),
+  final String text => text.length > 4,
+  _ => false,
+};
+
 /// [value] as Python reads it: on unless null, false, zero, empty text, an
-/// empty list or an empty map.
-bool _isOn(Object? value) => switch (value) {
+/// empty list or an empty map. KoboldCpp reads every setting that way.
+bool kcppsIsOn(Object? value) => switch (value) {
   null => false,
   final bool flag => flag,
   final num n => n != 0,
