@@ -1,12 +1,25 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The requests the app sends to the engine, and the one place they wait
-// their turn.
+// The requests the app sends to the engine, and the one line they wait in.
 
 part of 'kobold_service.dart';
 
+/// What one [KoboldService] keeps for sending requests. Held beside the
+/// service, not in a field, like [_idleStates]: the test fakes implement
+/// [KoboldService] through noSuchMethod and still reach the extensions.
+class _RequestState {
+  /// Every request that can change what KoboldCpp keeps in its cache waits
+  /// here for its turn: replies, tool calls, helper streams, the
+  /// system-role check. Stop, perf, token counts and swaps do not.
+  final KoboldRequestQueue queue = KoboldRequestQueue();
+}
+
+final Expando<_RequestState> _requestStates = Expando('fpai.koboldRequests');
+
 extension KoboldServiceRequests on KoboldService {
+  _RequestState get _requests => _requestStates[this] ??= _RequestState();
+
   /// Local tool calling: recent KoboldCpp supports OpenAI tools with
   /// template-aware models (Qwen3 family etc.). Models/servers that can't
   /// simply yield no tool calls and the caller's negotiation falls back to
@@ -39,27 +52,18 @@ extension KoboldServiceRequests on KoboldService {
     });
   }
 
-  /// Run [body] with exclusive use of the single-slot local engine: wait for
-  /// any in-flight request, then register on the SAME `_pendingRequest` slot
-  /// [generateStream] uses, so other `waitForIdle` callers (text evals, the
-  /// Scene Guest mint, the system-role probe) queue behind us instead of
-  /// racing. One copy of this slot protocol, so no two drift apart.
-  Future<T> _runSerialized<T>(Future<T> Function() body) async {
-    await waitForIdle();
-    final completer = Completer<void>();
-    _pendingRequest = completer.future;
-    try {
-      await _idleRequestStart();
-      return await body();
-    } finally {
-      _idleRequestEnd();
-      if (!completer.isCompleted) completer.complete();
-      // Only release the slot if it is still OURS — a stream that started
-      // meanwhile (the main chat path doesn't waitForIdle) must not have its
-      // registration nulled by this call's late finally.
-      if (identical(_pendingRequest, completer.future)) _pendingRequest = null;
-    }
-  }
+  /// Run [body] when its turn comes, with the engine to itself. The one
+  /// copy of the protocol every request that is not a reply follows, so no
+  /// two drift apart.
+  Future<T> _runSerialized<T>(Future<T> Function() body) =>
+      _requests.queue.run(() async {
+        try {
+          await _idleRequestStart();
+          return await body();
+        } finally {
+          _idleRequestEnd();
+        }
+      });
 
   /// Routes generation through KoboldCpp's OpenAI-compatible
   /// `/v1/chat/completions` endpoint (via [streamOpenAiChat]) instead of the
@@ -69,13 +73,14 @@ extension KoboldServiceRequests on KoboldService {
   /// (immediate empty responses or runaway repetition on un-templated prompts).
   /// KoboldCpp ignores the model name.
   ///
-  /// `_activeClient` is registered for [abortGeneration]; `_pendingRequest`
-  /// (a completer future) is tracked so [waitForIdle] still unblocks on close.
+  /// The request waits for its turn when the stream is listened to, and gives
+  /// the place back when the stream ends, fails or is cancelled. A reader
+  /// that leaves while it still waits makes it stop at the first chunk.
   Stream<String> _generateStream(GenerationParams params) async* {
-    final completer = Completer<void>();
-    _pendingRequest = completer.future;
+    final ticket = _requests.queue.enter();
     http.Client? mine;
     try {
+      await ticket.turn;
       await _idleRequestStart();
       yield* streamOpenAiChat(
         _baseUrl,
@@ -94,10 +99,7 @@ extension KoboldServiceRequests on KoboldService {
       );
     } finally {
       _idleRequestEnd();
-      if (!completer.isCompleted) completer.complete();
-      // Same slot-ownership guard as generateWithTools: don't null a newer
-      // request's registration from this one's late finally.
-      if (identical(_pendingRequest, completer.future)) _pendingRequest = null;
+      ticket.release();
     }
   }
 
@@ -109,10 +111,5 @@ extension KoboldServiceRequests on KoboldService {
     _postAbort();
   }
 
-  Future<void> _waitForIdle() async {
-    final pending = _pendingRequest;
-    if (pending != null) {
-      await pending;
-    }
-  }
+  Future<void> _waitForIdle() => _requests.queue.waitForIdle();
 }

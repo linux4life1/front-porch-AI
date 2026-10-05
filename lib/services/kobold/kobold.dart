@@ -19,7 +19,8 @@
 // Barrel for the KoboldCpp launch domain: the typed config and its `.kcpps`
 // reader and writer, the preset library, which model and preset a launch
 // loads and how it fails, the memory fit and what the cards say about it,
-// swaps and idle unload, and the engine's version record.
+// swaps and idle unload, the engine's version record, and the line to the
+// engine.
 export 'kcpps_codec.dart';
 export 'kcpps_draft.dart';
 export 'kcpps_launch_map.dart';
@@ -40,5 +41,6 @@ export 'kobold_launch_failure.dart';
 export 'kobold_launch_resolver.dart';
 export 'kobold_mmq_timing.dart';
 export 'kobold_preset_read.dart';
+export 'kobold_request_queue.dart';
 export 'kobold_status_facts.dart';
 export 'kobold_swap_wait.dart';

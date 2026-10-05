@@ -161,10 +161,6 @@ class KoboldService extends ChangeNotifier
 
   http.Client? _activeClient;
 
-  /// Tracks the completion of the current generation stream.
-  /// Used by waitForIdle() to serialize requests without aborting in-flight ones.
-  Future<void>? _pendingRequest;
-
   /// The measurement armed by the last [_markModelReady]. Production never
   /// waits on it (see [KoboldSystemRole.arm]); [debugMarkModelReady] does,
   /// because the alternative for a test is guessing when the probe finished —

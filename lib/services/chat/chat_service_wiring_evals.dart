@@ -256,10 +256,10 @@ extension ChatServiceWiringEvals on ChatService {
       return resp;
     } on TimeoutException {
       // The deadline abandoned an in-flight call. On the single-slot local
-      // backend that orphan holds the shared idle slot (_pendingRequest), so
-      // waitForIdle callers — text evals, the Scene Guest mint — would hang
-      // behind it indefinitely; tear it down. (If the server is hung on the
-      // orphan, the server-side abort also frees anything queued behind it.)
+      // backend that orphan holds the line to the engine, so everything
+      // queued — text evals, the Scene Guest mint — would hang behind it
+      // indefinitely; tear it down. (If the server is hung on the orphan,
+      // the server-side abort also frees anything queued behind it.)
       // Remote backends don't serialize on the slot — nothing to release.
       if (service is KoboldService) service.abortGeneration();
       // The wall time was spent whether or not an answer came back.
