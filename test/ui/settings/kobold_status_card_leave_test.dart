@@ -15,7 +15,7 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/kobold_status_card.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/backend.dart';
 
 import '../../golden/support/fakes_services.dart';
 import '../../golden/support/fakes_storage.dart';

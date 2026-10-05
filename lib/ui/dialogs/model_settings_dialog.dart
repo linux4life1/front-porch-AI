@@ -28,8 +28,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 // Not in barrels (internal or low-frequency)
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/worker_backend_section.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/super_grok_card.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/backend.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 

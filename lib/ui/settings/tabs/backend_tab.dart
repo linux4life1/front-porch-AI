@@ -22,12 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/backend_mode_selector.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/remote_api_section.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/omlx_section.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/managed_backend_section.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/opencode_managed_section.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/worker_backend_section.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/backend.dart';
 
 /// Backend tab: one Chat speech stack (chips + URL/key/check/model, then
 /// host extras), then OpenCode, then subordinate Side jobs.

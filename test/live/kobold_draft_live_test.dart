@@ -16,7 +16,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor_controller.dart';
+import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 

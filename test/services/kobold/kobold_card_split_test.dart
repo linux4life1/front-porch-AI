@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor_controller.dart';
+import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor.dart';
 import 'package:front_porch_ai/utils/gguf_parser.dart';
 
 import '../../golden/support/fakes_services.dart';
