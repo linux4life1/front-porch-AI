@@ -190,6 +190,7 @@ extension ChatServiceGenerationRequest on ChatService {
             : null,
         images: turnImages,
         kvChat: _kvChatKey,
+        stillWant: () => !_cancelRequested,
       );
     }
 

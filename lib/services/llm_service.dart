@@ -107,6 +107,13 @@ class GenerationParams {
   /// prefer-text (the ping shares this door).
   final bool Function()? stillWantTools;
 
+  /// Asked when a request's turn comes at KoboldCpp and again just before it
+  /// is sent: false means the caller no longer wants the reply (Stop was
+  /// pressed while it waited), and the request is not sent. Null always
+  /// wants. Set on chat replies; the Stop button cancels the turn, not the
+  /// reader's subscription, so a reply that waits has to ask.
+  final bool Function()? stillWant;
+
   /// Probe identity (`backend|endpoint|model|path`). Style retry and skip/pause
   /// key on the same string [ChatService] uses.
   final String backendIdentity;
@@ -150,6 +157,7 @@ class GenerationParams {
     this.toolChoice,
     this.onChunk,
     this.stillWantTools,
+    this.stillWant,
     this.backendIdentity = '',
     this.chatMessages,
     this.kvChat,

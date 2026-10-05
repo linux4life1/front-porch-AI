@@ -95,18 +95,30 @@ extension KoboldServiceRequests on KoboldService {
   Stream<String> _generateStream(GenerationParams params) async* {
     final ticket = _requests.queue.enter();
     final chat = params.kvChat;
+    bool wanted() => params.stillWant?.call() ?? true;
+    // _idleRequestStart began, and has an _idleRequestEnd to match.
+    var counted = false;
+    // The keeper was told about this request, so it has to be told it ended.
+    var touched = false;
     var sent = false;
     var broken = false;
     var aborts = 0;
     http.Client? mine;
     try {
       await ticket.turn;
+      // Before the model is woken, if it was unloaded, and before a load.
+      if (!wanted()) return;
+      counted = true;
       await _idleRequestStart();
+      touched = true;
       if (chat == null) {
         _keeper.helperStart();
       } else {
         await _keeper.chatStart(chat);
       }
+      // The Stop button cancels the turn, not the reader's subscription, so
+      // a reply that waited or loaded for a while asks before it is sent.
+      if (!wanted()) return;
       aborts = _requests.aborts;
       // `yield*`, so a reader that left while this waited never starts the
       // request. The errors pass through to the reader, and this body notes
@@ -133,8 +145,8 @@ extension KoboldServiceRequests on KoboldService {
         Error.throwWithStackTrace(error, stack);
       });
     } finally {
-      _idleRequestEnd();
-      if (chat == null) {
+      if (counted) _idleRequestEnd();
+      if (!touched || chat == null) {
         ticket.release();
       } else {
         unawaited(

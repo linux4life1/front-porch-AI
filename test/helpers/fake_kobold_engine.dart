@@ -74,6 +74,10 @@ class FakeKoboldEngine {
   /// can hold a request mid-way. The request is already in [log].
   Future<void> Function(FakeEngineRequest request)? beforeReply;
 
+  /// The same for the admin calls: held inside the lock before the call is
+  /// carried out, as a slow copy of a big cache would be.
+  Future<void> Function(FakeEngineRequest request)? beforeAdmin;
+
   Duration tokenDelay = Duration.zero;
 
   /// A chat with this HTTP status as its answer, before any reading.
@@ -205,6 +209,7 @@ class FakeKoboldEngine {
     late Map<String, Object?> answer;
     await _locked(() async {
       log.add(entry);
+      await beforeAdmin?.call(entry);
       answer = _adminAnswer(verb, slot, entry);
     });
     return _reply(req, answer);
