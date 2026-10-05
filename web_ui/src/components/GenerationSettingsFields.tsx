@@ -44,6 +44,10 @@ export interface GenSettings {
   stopSequences?: string[];
 }
 
+/** Said where a preset in use sets the context: the desktop's own words. */
+export const CONTEXT_LOCKED =
+  'Context size is controlled by the active .kcpps preset and cannot be edited here.';
+
 export function SliderField({
   label,
   value,
@@ -51,6 +55,7 @@ export function SliderField({
   min,
   max,
   onChange,
+  disabled,
 }: {
   label: string;
   value: number;
@@ -58,6 +63,7 @@ export function SliderField({
   min: number;
   max: number;
   onChange: (v: number) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="slider-field">
@@ -70,6 +76,7 @@ export function SliderField({
           step={step}
           min={min}
           max={max}
+          disabled={disabled}
           onChange={(e) => {
             const n = Number(e.target.value);
             if (Number.isFinite(n)) onChange(n);
@@ -82,6 +89,7 @@ export function SliderField({
         step={step}
         min={min}
         max={max}
+        disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
       />
     </div>
@@ -93,6 +101,7 @@ export function GenerationSettingsFields({
   isLocal,
   remoteModelName,
   contextSize,
+  contextLocked,
   generation,
   systemPrompt,
   bannedPhrases,
@@ -110,6 +119,8 @@ export function GenerationSettingsFields({
   isLocal: boolean;
   remoteModelName?: string;
   contextSize: number;
+  /** A preset in use sets the context (KoboldCpp only): the slider is locked. */
+  contextLocked?: boolean;
   generation: GenSettings;
   systemPrompt?: string;
   bannedPhrases?: string[];
@@ -170,7 +181,9 @@ export function GenerationSettingsFields({
       <SliderField label="Min output tokens" value={g.minLength} min={0} max={512} step={1}
         onChange={(v) => patchGen({ minLength: Math.round(v) })} />
       <SliderField label="Context size" value={contextSize} min={512} max={500000} step={512}
+        disabled={contextLocked}
         onChange={(v) => patch({ contextSize: Math.round(v) })} />
+      {contextLocked && <p className="muted small">{CONTEXT_LOCKED}</p>}
       <label className="row-label">
         <span>Dynamic temperature</span>
         <input

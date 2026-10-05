@@ -23,7 +23,30 @@
 
 part of 'settings_facade.dart';
 
+/// Said where a preset in use sets the context: the desktop's own words.
+const kPresetOwnsContext =
+    'Context size is controlled by the active .kcpps preset and cannot be '
+    'edited here.';
+
 extension SettingsFacadeUpdate on SettingsFacade {
+  /// Why [body] must not be stored, in plain words, or null. Asked before
+  /// anything is written, so a refused save changes nothing.
+  ///
+  /// While KoboldCpp runs a preset, the preset's context is the context and
+  /// the desktop locks the control. The page sends the whole form with every
+  /// save, so the context it read coming back is not a change. A preset is
+  /// only read by the local engine, and the same save may be switching it.
+  String? refusal(Map<String, dynamic> body) {
+    final b = _storage.backendSettings;
+    final ctx = body['contextSize'];
+    if (ctx is! num || ctx.toInt() == b.contextSize) return null;
+    if (b.activeKcppsPath == null) return null;
+    final next =
+        SettingsFacade._parse(body['backend']?.toString() ?? '') ??
+        _llm.activeBackend;
+    return next == BackendType.kobold ? kPresetOwnsContext : null;
+  }
+
   Future<void> update(Map<String, dynamic> body) async {
     final g = _storage.generationSettings;
     final b = _storage.backendSettings;
@@ -215,7 +238,9 @@ extension SettingsFacadeUpdate on SettingsFacade {
     }
 
     final ctx = body['contextSize'];
-    if (ctx is num) await b.setContextSize(ctx.toInt());
+    if (ctx is num && refusal(body) == null) {
+      await b.setContextSize(ctx.toInt());
+    }
     // Read by the running engine's idle clock: writing it is the update.
     final idle = body['koboldIdleUnloadMinutes'];
     if (idle is num) await b.setIdleUnloadMinutes(idle.toInt());

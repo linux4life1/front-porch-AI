@@ -54,6 +54,8 @@ class WebSettingsRoutes {
     } catch (_) {
       return JsonResponse.badRequest('Invalid JSON body');
     }
+    final refused = _facade.refusal(body);
+    if (refused != null) return JsonResponse.badRequest(refused);
     // Redirecting generation (URL) or overwriting the API key is
     // credential-grade — same password (+ TOTP) step-up as tunnel enable.
     // Mouth remote AND worker lane. Samplers and Porch Life stay session-only.

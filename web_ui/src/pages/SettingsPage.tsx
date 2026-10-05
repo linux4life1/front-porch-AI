@@ -480,6 +480,7 @@ export function SettingsPage() {
         isLocal={s.isLocal}
         remoteModelName={s.remoteModelName}
         contextSize={s.contextSize}
+        contextLocked={isManagedLocal && Boolean(s.activeKcppsPath)}
         generation={s.generation}
         systemPrompt={s.systemPrompt}
         bannedPhrases={s.bannedPhrases}

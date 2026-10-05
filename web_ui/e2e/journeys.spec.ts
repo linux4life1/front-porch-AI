@@ -334,7 +334,19 @@ test.describe('the Local model card', () => {
     await expect(card).toContainText('Uses your preset “Long chats”.');
     await expect(page.getByTestId('kobold-preset-card')).toContainText('lets KoboldCpp fit it to your card');
 
+    // The preset sets the context: Settings locks the slider, in the desktop's
+    // words, and the host refuses another one however it is asked.
+    await openRoute(page, '/settings');
+    const slider = page.locator('.slider-field', { hasText: 'Context size' });
+    await expect(slider.locator('input[type="range"]')).toBeDisabled();
+    await expect(
+      page.getByText('Context size is controlled by the active .kcpps preset and cannot be edited here.'),
+    ).toBeVisible();
+    const refused = await page.request.post('/api/settings', { data: { contextSize: 8192 } });
+    expect(refused.status()).toBe(400);
+
     // Back to automatic, as it was.
+    await openRoute(page, '/models');
     await presets.selectOption({ label: "The app's own settings (automatic)" });
     await expect(card).toContainText('Set up for this computer automatically.');
   });

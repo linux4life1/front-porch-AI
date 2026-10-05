@@ -58,6 +58,7 @@
 .slider-field input[type='range'] {
   width: 100%; accent-color: var(--accent); cursor: pointer; padding: 0; background: none; border: none;
 }
+.slider-field input:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Group creation member picker ──────────────────────────────────────── */
 .grp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
