@@ -1205,6 +1205,17 @@ each load of the model (`KoboldService.loadGeneration`).
   idle time runs from the end of the save, not from the end of the reply. A
   save the engine cannot make steps the keeper aside and clears the slots to
   give the memory back.
+- A save that takes longer than three seconds (`kKoboldSlowSave`), or never
+  answers in the call's 45 seconds, lets that chat go for the rest of the
+  load: no load before its replies and no save after them, so the line is
+  not held for it; the other chats are still kept. The engine log says so
+  once, in plain words. It is not a failure: the engine did what it was
+  asked, so nothing is remembered and the next load tries again. Measured
+  here a save takes about 0.2 s for the 0.5B model and 0.2 to 0.4 s for the
+  8B one up to 13,448 tokens (2 GB of cache; table below): seven times the
+  slowest is not a big chat being copied but a machine that cannot copy it
+  in time, and a wait that long after every reply holds back the next
+  request, the next speaker in a group first.
 - A reply that carries pictures (`GenerationParams.images`) is a helper to
   the keeper: no load before it and no save after it, because a load does not
   restore the engine's record of which pictures are in the cache. The next
@@ -1224,8 +1235,8 @@ each load of the model (`KoboldService.loadGeneration`).
   engine still holds the chat". The keeper waits out a coding session.
 - Every call runs in the swap lock and is skipped when the model changed
   first, has one try and 45 seconds. The keeper never throws into a reply:
-  any failure is a step aside for that load, and the engine log says so
-  once, in plain words.
+  any failure is a step aside for that load (a save that runs out of time is
+  a slow save, above), and the engine log says so once, in plain words.
 
 **The plan** (`kobold/kobold_keeper_budget.dart`). The keeper stays out of:
 an engine the app did not start, a config with smart cache on, fast forward
@@ -1243,7 +1254,8 @@ was (KoboldCpp's own smart cache). The preset editor, its suggestion and a
 preset's own settings are untouched. A failure at run time in an auto-mode
 launch (a save the engine cannot make, a call that errors, a chat that comes
 back changed, all after a first look showed the engine can keep chats; not
-the keeper choosing to stay out, not a first look that finds nothing or fails,
+the keeper choosing to stay out, not a save that only took too long, not a
+first look that finds nothing or fails,
 which may be an engine still starting or a blip and only steps aside for that
 load, and not a preset) is remembered in `kobold_keeper_failed` beside the other KoboldCpp preferences
 (engine version and model file), under the same prefix, so a beta never
@@ -1274,7 +1286,10 @@ they leave), `chat_deleted_chat_slot_test` (a chat, a character's chats and a
 group deleted for real, and the phone's delete; the slot is let go and taken
 by the next chat), `kobold_slot_keeper_forget_test` (a delete while the
 chat's save or its reply is running) and `kcpps_editor_mmq_line_test` (the editor's real
-timing waits for a save that is running, and a reply waits for it), `kobold_keeper_idle_test` (the idle
+timing waits for a save that is running, and a reply waits for it),
+`kobold_slot_keeper_slow_save_test` (a save held past the limit through the
+real service lets that chat go, keeps the next one and is not remembered; a
+save that runs out of time, over real HTTP, the same), `kobold_keeper_idle_test` (the idle
 clock counts from the end of a slow save), `kobold_wire_test` (the abort
 handle, over real sockets), `kobold_auto_keeper_test` (what auto mode writes
 and the way back), and `test/live/kobold_slot_keeper_live_test.dart`
@@ -1303,6 +1318,7 @@ it keeps is a table of saved caches by session id.
 | Swipe | navigation; past the last alternate it is a regenerate | n/a |
 | Delete, edit history | nothing is recorded per message; KoboldCpp compares the tokens and reads from the first one that changed | n/a |
 | Delete a chat (app or phone), a character with its chats, a group | the keeper lets go of each chat's saved cache; its slot is the next one used | yes (a test each) |
+| A save over three seconds, after any reply above | every reply path ends in the same save (`chatEnd`), so that chat is let go for the load whichever path it came from; not a failure | yes (a test) |
 | Scene Guest turn | the guest's line is a reply like any other (`paramsOf`), named with the host's chat | yes (a test) |
 | Voice call message | the same send path in call mode: a reply naming the chat | yes (a test) |
 | Prompt paths (full, Continue partial, overflow, impersonate) | no prompt text changes; impersonate is a chat request | n/a |
@@ -1438,6 +1454,32 @@ real chat with Realism on, koboldcpp-mac-arm64-1.117.1
 1148 restored, 601 read
 ```
 
+What a save and a load cost as one chat grows toward the 16,384 context
+(the slow-save limit was set from these): the save is timed as the line the
+keeper holds after the reply, the load is asked of the engine for the same
+slot, and "cache" is the slot's size as KoboldCpp reports it. A second chat
+that is long from its first reply saves into a slot never used before.
+
+```
+long chat, Qwen3-VL-8B-Instruct-Q2_K.gguf on koboldcpp-mac-arm64-1.122.1
+ tokens  cache  reply (read and written)  save  load
+   2252    334 MB    1154 ms    211 ms    124 ms  2271 restored
+   3646    540 MB     853 ms    214 ms     84 ms  3665 restored
+   5052    747 MB    1084 ms    227 ms     84 ms  5071 restored
+   6462    955 MB    1187 ms    240 ms    100 ms  6481 restored
+   7858   1161 MB    1315 ms    253 ms     93 ms  7877 restored
+   9259   1368 MB    1632 ms    276 ms    113 ms  9278 restored
+  10654   1573 MB    1753 ms    317 ms    111 ms  10673 restored
+  12044   1778 MB    1961 ms    320 ms    142 ms  12063 restored
+  13448   1985 MB    2365 ms    337 ms    129 ms  13467 restored
+   7862   1162 MB    6577 ms    214 ms    129 ms  7883 restored  (a new chat)
+```
+
+The same chat on 1.117.1: saves 201 to 395 ms, loads 72 to 105 ms. The
+0.5B model on either engine: saves 185 to 215 ms whatever the length (its
+cache is 12 KB a token, so the copy is small beside a fixed cost), loads 26
+to 59 ms. Reading the new 7,862-token chat took the 8B model 5.4 to 6.6 s,
+which is what a reply after a helper would cost without the keeper.
 
 **Not done, on purpose.**
 
@@ -1452,9 +1494,14 @@ real chat with Realism on, koboldcpp-mac-arm64-1.117.1
 - A helper model that swaps in on the same engine before every reply empties
   the slots each time; a hint from the provider could put the keeper to
   sleep then.
-- A cost guard: a load takes longer as the chat grows (it copies the cache),
-  so for a model whose prompt reads faster than its cache copies, skipping
-  the load would be quicker. Nothing measured here needs it.
+- A cost guard against the model's reading speed. The slow-save limit is a
+  fixed three seconds, set on a Mac, where a copy is quick. A discrete card
+  copies its cache back over its bus, and a big model with a long context
+  has the biggest cache and gains the most from keeping it; the AMD card's
+  runs (Vulkan and ROCm) will show whether three seconds holds there. A
+  guard that weighs a chat's save against reading it again would also catch
+  a small model on a slow copy. Nothing measured here needs it: the 0.5B
+  model reads 13,000 tokens in about a second and saves them in 0.2 s.
 - Saving older chats to disk instead of dropping them needs a KoboldCpp call
   that does not exist yet (LostRuins/koboldcpp#2520).
 - A Stop pressed on a reply sends KoboldCpp an abort at the same moment the

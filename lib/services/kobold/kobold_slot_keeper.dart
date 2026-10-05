@@ -20,6 +20,15 @@ import 'kobold_slot_api.dart';
 /// unload and a load back wait for it.
 typedef KoboldUnderSwapLock = Future<T> Function<T>(Future<T> Function() work);
 
+/// A chat whose save takes longer than this is no longer kept. Measured on
+/// an Apple Silicon Mac with KoboldCpp 1.117.1 and 1.122.1, a save held the
+/// line about 0.2 s for a 0.5B model and 0.2 to 0.4 s for an 8B one, up to
+/// 13,448 tokens of chat (2 GB of cache). Seven times the slowest of those
+/// is not a big chat being copied but a machine that cannot copy it in time,
+/// and a wait that long after every reply holds back the next request (the
+/// next speaker in a group).
+const Duration kKoboldSlowSave = Duration(seconds: 3);
+
 enum _Mode { undecided, off, unprobed, on, aside }
 
 class _Saved {
@@ -61,9 +70,10 @@ class KoboldSlotKeeper {
   int _chats = 0;
   final Map<String, _Saved> _saved = {};
 
-  /// Chats that were deleted. A save that was already running when one went
-  /// must not bring it back into the table.
-  final Set<String> _gone = {};
+  /// Chats not kept for the rest of this load: deleted ones, and ones whose
+  /// save took too long. A save that was already running when one went must
+  /// not bring it back into the table.
+  final Set<String> _notKept = {};
 
   /// The chat whose cache the engine holds right now, or null when anything
   /// else may have changed it.
@@ -116,13 +126,24 @@ class KoboldSlotKeeper {
     if (!ok) return Future<void>.value();
     return _guarded(() async {
       if (!await _ready()) return;
-      // Deleted while its reply was written: no slot, so no live chat is
-      // pushed out for it.
-      if (_gone.contains(key)) return;
+      // Deleted while its reply was written, or too slow to save: no slot,
+      // so no live chat is pushed out for it.
+      if (_notKept.contains(key)) return;
       final generation = _generation!;
       final slot = _slotFor(key);
       if (slot == null) return;
-      final saved = await _call(generation, () => _api.save(slot));
+      final took = Stopwatch();
+      final KoboldSlotSave? saved;
+      try {
+        saved = await _call(generation, () {
+          took.start();
+          return _api.save(slot);
+        });
+      } on KoboldSlotException catch (e) {
+        // One that never answered took too long, whatever it did.
+        if (!e.timedOut) rethrow;
+        return _tooSlow(key, took.elapsed);
+      }
       if (saved == null) return;
       if (!saved.ok) {
         // An empty cache has nothing to keep; anything else not saving is
@@ -136,10 +157,25 @@ class KoboldSlotKeeper {
         }
         return;
       }
-      if (_gone.contains(key)) return;
+      if (_notKept.contains(key)) return;
+      if (took.elapsed > kKoboldSlowSave) return _tooSlow(key, took.elapsed);
       _saved[key] = _Saved(slot, saved.tokens, ++_clock);
       _live = key;
     });
+  }
+
+  /// [key]'s save took longer than [kKoboldSlowSave]: the chat is not kept
+  /// for the rest of this load, so its replies are neither held up by a load
+  /// nor followed by a save. The other chats still are. The engine did what
+  /// it was asked, so this is not a failure to remember.
+  void _tooSlow(String key, Duration took) {
+    _saved.remove(key);
+    _notKept.add(key);
+    final seconds = (took.inMilliseconds / 1000).toStringAsFixed(1);
+    _log(
+      'Saving a chat took $seconds seconds, too long to do after every reply, '
+      'so that chat is no longer kept ready until the model is loaded again.',
+    );
   }
 
   /// Something that is not the app asks the engine (a coding session): its
@@ -160,7 +196,7 @@ class KoboldSlotKeeper {
   /// next save writes over it.
   void forget(String key) {
     _saved.remove(key);
-    _gone.add(key);
+    _notKept.add(key);
   }
 
   /// The first thing every call does: a new load empties the table, and the
@@ -173,7 +209,7 @@ class KoboldSlotKeeper {
       if (plan.undecided || generation != _loadGeneration()) return false;
       _generation = generation;
       _saved.clear();
-      _gone.clear();
+      _notKept.clear();
       _live = null;
       if (plan.keeps) {
         _mode = _Mode.unprobed;

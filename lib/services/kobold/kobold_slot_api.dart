@@ -53,10 +53,17 @@ class KoboldSlotSave {
 /// The engine could not be asked. [busy] means it answered that it was busy
 /// (HTTP 429 or 503): the call may be made again another time.
 class KoboldSlotException implements Exception {
-  const KoboldSlotException(this.message, {this.busy = false});
+  const KoboldSlotException(
+    this.message, {
+    this.busy = false,
+    this.timedOut = false,
+  });
 
   final String message;
   final bool busy;
+
+  /// No answer in time: the engine may still be doing what it was asked.
+  final bool timedOut;
 
   @override
   String toString() => message;
@@ -158,7 +165,10 @@ class KoboldHttpSlotApi implements KoboldSlotApi {
     } on KoboldSlotException {
       rethrow;
     } on TimeoutException {
-      throw KoboldSlotException('KoboldCpp did not answer $call in time.');
+      throw KoboldSlotException(
+        'KoboldCpp did not answer $call in time.',
+        timedOut: true,
+      );
     } on FormatException catch (e) {
       throw KoboldSlotException('KoboldCpp gave a broken answer to $call: $e');
     } on Object catch (e) {
