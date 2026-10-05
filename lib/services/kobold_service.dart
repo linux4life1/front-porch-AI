@@ -42,6 +42,7 @@ part 'kobold_service_admin.dart';
 part 'kobold_service_exit.dart';
 part 'kobold_service_idle.dart';
 part 'kobold_service_process.dart';
+part 'kobold_service_requests.dart';
 
 class KoboldService extends ChangeNotifier
     with WidgetsBindingObserver
@@ -309,109 +310,20 @@ class KoboldService extends ChangeNotifier
     }
   }
 
-  /// Routes generation through KoboldCpp's OpenAI-compatible
-  /// `/v1/chat/completions` endpoint (via [streamOpenAiChat]) instead of the
-  /// legacy raw `/api/extra/generate/stream`. The chat endpoint applies the
-  /// loaded model's instruct template server-side, so instruct GGUFs follow
-  /// instructions and stop naturally via EOS — the raw endpoint did neither
-  /// (immediate empty responses or runaway repetition on un-templated prompts).
-  /// KoboldCpp ignores the model name.
-  // Local tool calling: recent KoboldCpp supports OpenAI tools with
-  // template-aware models (Qwen3 family etc.). Models/servers that can't
-  // simply yield no tool calls and the caller's negotiation falls back to
-  // its text transport (the Journal's XML floor).
+  // The request bodies live in kobold_service_requests.dart. They stay class
+  // members so test doubles can override them.
   @override
   Future<LlmToolResponse?> generateWithTools(
     GenerationParams params,
     List<Map<String, dynamic>> tools,
-  ) async {
-    if (!isReady) return null;
-    http.Client? mine;
-    return _runSerialized<LlmToolResponse?>(() async {
-      if (params.stillWantTools?.call() == false) return null;
-      return postOpenAiChatWithTools(
-        _baseUrl,
-        params,
-        tools,
-        thinkingModelKey: requestModel,
-        foldSystemIntoUser: _systemRole.foldSystemIntoUser,
-        toolChoice: params.toolChoice,
-        registerClient: (client) {
-          mine = client;
-          _activeClient = client;
-        },
-        // A finishing call may clear the abort handle only while it is ITS
-        // handle: clearing a newer request's left Stop with nothing to close.
-        onDone: () {
-          if (identical(_activeClient, mine)) _activeClient = null;
-        },
-      );
-    });
-  }
-
-  /// Run [body] with exclusive use of the single-slot local engine: wait for
-  /// any in-flight request, then register on the SAME `_pendingRequest` slot
-  /// [generateStream] uses, so other `waitForIdle` callers (text evals, the
-  /// Scene Guest mint, the system-role probe) queue behind us instead of
-  /// racing. One copy of this slot protocol, so no two drift apart.
-  Future<T> _runSerialized<T>(Future<T> Function() body) async {
-    await waitForIdle();
-    final completer = Completer<void>();
-    _pendingRequest = completer.future;
-    try {
-      await _idleRequestStart();
-      return await body();
-    } finally {
-      _idleRequestEnd();
-      if (!completer.isCompleted) completer.complete();
-      // Only release the slot if it is still OURS — a stream that started
-      // meanwhile (the main chat path doesn't waitForIdle) must not have its
-      // registration nulled by this call's late finally.
-      if (identical(_pendingRequest, completer.future)) _pendingRequest = null;
-    }
-  }
-
-  /// `_activeClient` is registered for [abortGeneration]; `_pendingRequest`
-  /// (a completer future) is tracked so [waitForIdle] still unblocks on close.
-  @override
-  Stream<String> generateStream(GenerationParams params) async* {
-    final completer = Completer<void>();
-    _pendingRequest = completer.future;
-    http.Client? mine;
-    try {
-      await _idleRequestStart();
-      yield* streamOpenAiChat(
-        _baseUrl,
-        params,
-        thinkingModelKey: requestModel,
-        foldSystemIntoUser: _systemRole.foldSystemIntoUser,
-        registerClient: (client) {
-          mine = client;
-          _activeClient = client;
-        },
-        // Ownership guard — see generateWithTools: this stream's late
-        // teardown must not null a newer request's abort handle.
-        onDone: () {
-          if (identical(_activeClient, mine)) _activeClient = null;
-        },
-      );
-    } finally {
-      _idleRequestEnd();
-      if (!completer.isCompleted) completer.complete();
-      // Same slot-ownership guard as generateWithTools: don't null a newer
-      // request's registration from this one's late finally.
-      if (identical(_pendingRequest, completer.future)) _pendingRequest = null;
-    }
-  }
+  ) => _generateWithTools(params, tools);
 
   @override
-  void abortGeneration() {
-    _activeClient?.close();
-    _activeClient = null;
-    // Server-side abort, not awaited so the UI never blocks: KoboldCpp stops
-    // even with the socket gone, and drains before the next request.
-    _postAbort();
-  }
+  Stream<String> generateStream(GenerationParams params) =>
+      _generateStream(params);
+
+  @override
+  void abortGeneration() => _abortGeneration();
 
   /// POST /api/extra/abort — KoboldCPP blocks until the active generation
   /// is fully stopped, then returns HTTP 200. Call this (and await it) before
@@ -440,12 +352,7 @@ class KoboldService extends ChangeNotifier
   /// Wait for any in-flight generation to complete naturally.
   /// Unlike [ensureServerIdle], this does NOT abort the active request —
   /// it simply awaits the stream to close. Returns immediately if idle.
-  Future<void> waitForIdle() async {
-    final pending = _pendingRequest;
-    if (pending != null) {
-      await pending;
-    }
-  }
+  Future<void> waitForIdle() => _waitForIdle();
 
   /// Fire-and-forget server-side abort (used by abortGeneration).
   void _postAbort() {
