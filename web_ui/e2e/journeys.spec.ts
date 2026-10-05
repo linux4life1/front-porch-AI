@@ -364,4 +364,54 @@ test.describe('the Local model card', () => {
     await presets.selectOption({ label: "The app's own settings (automatic)" });
     await expect(card).toContainText('Set up for this computer automatically.');
   });
+
+  // The host seeds "Risky" (browser_test.dart) beside "Long chats": a list of
+  // programs to run and a public tunnel. The host will not start KoboldCpp
+  // from a preset like that, so the pick is refused with the reason, which
+  // the phone says beside the picker. Whatever happens, afterEach puts the
+  // host back on no preset.
+  test('a preset that would run a program is refused beside the picker, and is not turned on', async ({
+    page,
+    allowHttp,
+  }) => {
+    // The refused pick is the host's answer (422), not a fault.
+    allowHttp((url, status) => status === 422 && /\/api\/backend\/local-model\/preset$/.test(url));
+    const switched = await setBackend(page, 'kobold');
+    expect(switched.ok(), `POST /api/settings backend=kobold: ${switched.status()}`).toBe(true);
+    await openRoute(page, '/models');
+    const card = page.getByTestId('local-model-card');
+    await expect(card).toContainText('Set up for this computer automatically.');
+
+    const listed = (await (await page.request.get('/api/backend/local-model')).json()) as {
+      presets: { path: string; name: string }[];
+    };
+    const risky = listed.presets.find((p) => p.name === 'Risky');
+    expect(risky, 'the host seeded a Risky preset in the engine folder').toBeTruthy();
+
+    const picker = page.getByLabel('Chat uses');
+    await picker.selectOption(risky!.path);
+    const refused = page.getByTestId('kobold-preset-card').getByTestId('preset-refused');
+    await expect(refused).toBeVisible();
+    await expect(refused).toContainText('mcpfile');
+    await expect(refused).toContainText('remotetunnel');
+    await expect(refused).toContainText('pick another preset');
+
+    // Not turned on: the picker is where it was, the card still says
+    // automatic, and the host has no preset.
+    await expect(picker).toHaveValue('');
+    await expect(card).toContainText('Set up for this computer automatically.');
+    await expect(card).not.toContainText('Uses your preset');
+    const after = (await (await page.request.get('/api/backend/local-model')).json()) as { preset: unknown };
+    expect(after.preset, 'the host did not turn it on').toBeNull();
+
+    // The host says no to whoever asks, not only to this page.
+    const direct = await page.request.post('/api/backend/local-model/preset', { data: { path: risky!.path } });
+    expect(direct.status()).toBe(422);
+    expect(((await direct.json()) as { error: string }).error).toContain('mcpfile');
+
+    // A preset that is fine is picked as before, and the reason goes.
+    await picker.selectOption({ label: 'Long chats — 32k chat · fitted to the card · smart cache off' });
+    await expect(card).toContainText('Uses your preset “Long chats”.');
+    await expect(refused).toHaveCount(0);
+  });
 });

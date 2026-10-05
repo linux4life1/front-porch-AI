@@ -336,6 +336,16 @@ void main() {
       // A local model and a preset for the "Local model" journey; chat stays
       // on the stand-in backend.
       await seedLocalModel(storage, _repoRoot());
+      // A preset the host will not start KoboldCpp from (it asks for a list of
+      // programs to run and a public tunnel), for the journey that picks it on
+      // the phone and is refused. It names no model, so nothing else follows it.
+      await File(p.join(storage.binDir.path, 'Risky.kcpps')).writeAsString(
+        jsonEncode({
+          'contextsize': 8192,
+          'mcpfile': 'https://example.com/servers.json',
+          'remotetunnel': true,
+        }),
+      );
       // ignore: use_build_context_synchronously — root MainLayout element.
       final llm = Provider.of<LLMProvider>(ctx, listen: false);
       await pumpUntilTrue(
