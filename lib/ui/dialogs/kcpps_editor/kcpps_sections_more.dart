@@ -106,7 +106,9 @@ class KcppsSmartCacheSection extends StatelessWidget {
           semanticLabel: 'Smart cache slots',
           check: (text) {
             final n = int.tryParse(text);
-            return n == null || n > 20 ? 'From 0 to 20 slots.' : null;
+            return n == null || n > kKoboldSmartCacheMaxSlots
+                ? 'From 0 to $kKoboldSmartCacheMaxSlots slots.'
+                : null;
           },
           onValid: (text) => c.edit((d) => d.copyWith(slots: int.parse(text))),
           builder: (context, box, problem) => Wrap(

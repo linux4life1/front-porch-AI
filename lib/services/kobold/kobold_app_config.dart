@@ -152,10 +152,28 @@ KoboldLaunchConfig koboldAppConfig({
   );
 }
 
+/// Graphics memory KoboldCpp's own fit leaves spare unless a preset forces
+/// the fit with a figure of its own: 1 GB, its default `autofitpadding`.
+/// Auto mode's guess of what fits counts on it, and so does the preset
+/// editor's.
+const int kKoboldFitPaddingMb = 1024;
+
+/// What "greedy" asks a forced fit to leave spare instead: next to nothing.
+const int kKoboldGreedyPaddingMb = 32;
+
+/// A padding below this is greedy; this much or more is the usual spare.
+const int kKoboldGreedyBelowMb = 512;
+
+/// Whether a preset's `autofitpadding` ([paddingMb], null when it names
+/// none) is the greedy kind.
+bool koboldPaddingIsGreedy(int? paddingMb) =>
+    (paddingMb ?? kKoboldFitPaddingMb) < kKoboldGreedyBelowMb;
+
 /// Spare graphics memory a generated preset tells KoboldCpp's fit to leave
 /// free: next to none when the user chose "greedy", KoboldCpp's own default
-/// otherwise. The dialog's guess of what fits uses the same figure.
-int koboldAutofitPaddingMb({required bool greedy}) => greedy ? 32 : 1024;
+/// otherwise. The editor's guess of what fits uses the same figure.
+int koboldAutofitPaddingMb({required bool greedy}) =>
+    greedy ? kKoboldGreedyPaddingMb : kKoboldFitPaddingMb;
 
 /// The preset the preset editor writes.
 ///

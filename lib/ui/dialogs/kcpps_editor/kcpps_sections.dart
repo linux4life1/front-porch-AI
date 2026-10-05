@@ -228,7 +228,9 @@ class KcppsSpeedSection extends StatelessWidget {
           ),
         KeCheck(
           value: d.greedy,
-          label: 'Greedy: keep 32 MB spare instead of 1 GB',
+          label:
+              'Greedy: keep ${koboldMemoryWords(kKoboldGreedyPaddingMb)} spare '
+              'instead of ${koboldMemoryWords(kKoboldFitPaddingMb)}',
           // Only KoboldCpp's own fit keeps memory spare.
           onChanged: d.manual
               ? null

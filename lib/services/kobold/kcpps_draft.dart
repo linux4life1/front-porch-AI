@@ -93,7 +93,7 @@ class KcppsDraft {
       batchSize: c.batchSize,
       flashAttention: c.flashAttention,
       mmq: c.mmq,
-      greedy: (c.autofitPaddingMb ?? 1024) < 512,
+      greedy: koboldPaddingIsGreedy(c.autofitPaddingMb),
       manual: !c.layersAreAutomatic,
       gpuLayers: c.layersAreAutomatic ? 0 : c.gpuLayers,
       moeCpuLayers: c.moeExpertsOnCpu ? c.moeCpuLayers ?? 999 : 0,

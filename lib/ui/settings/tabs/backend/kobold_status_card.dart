@@ -115,7 +115,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
     // A few taps in a row reload once.
     _reload?.cancel();
     _reloadNow = reload;
-    _reload = Timer(const Duration(milliseconds: 1500), _runReload);
+    _reload = Timer(kKoboldContextReloadDelay, _runReload);
   }
 
   @override

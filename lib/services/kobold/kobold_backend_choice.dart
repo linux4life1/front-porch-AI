@@ -68,15 +68,16 @@ class KoboldBackendChoice {
   /// The machine a model is fitted to: [hardware] with [free] memory
   /// (graphics memory is read for one card). [cards] is how many cards the
   /// model is spread over: each past the first counts as the smallest card
-  /// seen (mixed cards never look bigger), less the half a GB a card is
-  /// assumed to keep for itself.
+  /// seen (mixed cards never look bigger), less the [kKoboldDesktopReserveMb]
+  /// a card is assumed to keep for itself.
   KoboldMachine machineFor(
     HardwareInfo hardware,
     FreeMemoryMb? free, {
     int cards = 1,
   }) {
     final small = hardware.smallestCardMb;
-    final others = (cards - 1) * (small - 512).clamp(0, small);
+    final others =
+        (cards - 1) * (small - kKoboldDesktopReserveMb).clamp(0, small);
     final freeGraphics = free?.graphics;
     return KoboldMachine(
       backend: memory,

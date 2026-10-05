@@ -20,6 +20,7 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
 import 'package:front_porch_ai/services/web/routes/expression_pack_routes.dart';
@@ -138,13 +139,15 @@ class WebBackendRoutes {
     return JsonResponse.ok(await _backend.localModel());
   }
 
-  /// `{context}`: tokens, 512 to 1,048,576.
+  /// `{context}`: tokens, [kKoboldContextMin] to [kKoboldContextMax].
   Future<shelf.Response> _setLocalContext(shelf.Request r) async {
     final body = await _json(r);
     final context = body['context'];
     if (context is! int || !await _backend!.setLocalContext(context)) {
       return JsonResponse.badRequest(
-        'context must be a whole number of tokens from 512 to 1,048,576, '
+        'context must be a whole number of tokens from '
+        '${koboldTokens(kKoboldContextMin)} to '
+        '${koboldTokens(kKoboldContextMax)}, '
         'and is set by the KoboldCpp preset while one is in use',
       );
     }

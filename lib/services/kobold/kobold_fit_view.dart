@@ -7,6 +7,7 @@
 
 import 'package:front_porch_ai/utils/kobold_placement.dart';
 
+import 'kobold_app_config.dart';
 import 'kobold_fit.dart';
 
 enum KoboldFitKind { fits, reduced, over }
@@ -282,7 +283,7 @@ List<KoboldBarSegment> _segments(
 
 String _unusedWhy(KoboldLoad l, KoboldPlacement placement, int paddingMb) {
   if (l.allOnCard || placement.manual) return '';
-  return paddingMb >= 512
-      ? ' (KoboldCpp keeps ${_gb(paddingMb)} GB spare)'
-      : ' (too little for another layer)';
+  return koboldPaddingIsGreedy(paddingMb)
+      ? ' (too little for another layer)'
+      : ' (KoboldCpp keeps ${_gb(paddingMb)} GB spare)';
 }

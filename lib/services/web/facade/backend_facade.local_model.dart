@@ -103,14 +103,16 @@ extension BackendFacadeLocalModel on BackendFacade {
   /// Sets the context in auto mode. A running KoboldCpp loads it once the
   /// phone stops changing it.
   Future<bool> setLocalContext(int context) async {
-    if (context < 512 || context > 1048576) return false;
+    if (context < kKoboldContextMin || context > kKoboldContextMax) {
+      return false;
+    }
     // A preset sets its own context; the desktop locks this field then too.
     if (_storage.backendSettings.activeKcppsPath != null) return false;
     await _storage.backendSettings.setContextSize(context);
     if (_llm.koboldService.isProcessRunning) {
       _cardReload?.cancel();
       _cardReload = Timer(
-        const Duration(milliseconds: 1500),
+        kKoboldContextReloadDelay,
         () => _llm.reloadChatKobold().catchError(
           (Object e) => debugPrint('[web] chat reload failed: $e'),
         ),

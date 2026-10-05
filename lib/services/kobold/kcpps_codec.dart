@@ -20,6 +20,8 @@ import 'dart:convert';
 
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/utils/utils.dart';
+
 import 'kobold_launch_config.dart';
 
 /// Every key this app reads or writes. Anything else in a file is kept as
@@ -336,7 +338,10 @@ Map<String, dynamic> kcppsMap(KoboldLaunchConfig config) {
       map['nofastforward'] = false;
       map['noshift'] = !config.contextShift;
       if (config.smartCacheSlots > 0) {
-        map['smartcache'] = config.smartCacheSlots.clamp(1, 20);
+        map['smartcache'] = config.smartCacheSlots.clamp(
+          1,
+          kKoboldSmartCacheMaxSlots,
+        );
       }
   }
   return map;

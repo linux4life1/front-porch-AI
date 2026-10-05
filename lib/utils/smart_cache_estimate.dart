@@ -73,6 +73,9 @@ enum SmartCacheLimit {
 /// System memory kept for everything but the model and its slots.
 const int _reserveMb = 2048;
 
+/// The most smart cache slots KoboldCpp takes.
+const int kKoboldSmartCacheMaxSlots = 20;
+
 /// How many slots to ask for: one for each kind of prompt the app sends
 /// this engine ([promptKinds]: chat, the judges, a story job...), so
 /// switching between them restores instead of re-reading; but only as many
@@ -85,7 +88,7 @@ const int _reserveMb = 2048;
   required int modelRamMb,
 }) {
   final room = freeRamMb - modelRamMb - _reserveMb;
-  final wanted = promptKinds.clamp(0, 20);
+  final wanted = promptKinds.clamp(0, kKoboldSmartCacheMaxSlots);
   // A slot of unknown size is only allowed while there is room at all.
   final fit = room <= 0 ? 0 : (slotMb <= 0 ? wanted : room ~/ slotMb);
   if (fit <= 0) return (slots: 0, limit: SmartCacheLimit.noRoom);
@@ -120,7 +123,7 @@ const int _reserveMb = 2048;
     return (asked: slots < 2 ? 0 : 2, contextShift: false);
   }
   var asked = 2;
-  while (asked < 20 && total(asked + 1) <= slots) {
+  while (asked < kKoboldSmartCacheMaxSlots && total(asked + 1) <= slots) {
     asked++;
   }
   return (asked: asked, contextShift: true);
