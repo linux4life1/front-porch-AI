@@ -18,8 +18,7 @@
 
 import 'dart:io';
 
-// The leaf, not kobold.dart: the barrel reaches storage_service.dart, which
-// imports this file.
+// A leaf, not kobold.dart: the barrel loops back through storage_service.dart.
 import 'package:front_porch_ai/services/kobold/kcpps_codec.dart';
 
 import 'kobold_launch_fields.dart';

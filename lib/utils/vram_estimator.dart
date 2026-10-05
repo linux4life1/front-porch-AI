@@ -16,8 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// The leaf, not kobold.dart: the barrel pulls in the launch services, which
-// import utils.dart back.
+// A leaf, not kobold.dart: the barrel imports utils.dart back (a real loop).
 import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/gguf_model_info.dart';
