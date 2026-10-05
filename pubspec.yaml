@@ -41,7 +41,7 @@ dependencies:
   cross_file: ^0.3.5
   path_provider: ^2.1.5
   archive: ^4.3.0
-  google_fonts: ^8.2.1
+  google_fonts: ^9.0.0
   image: ^4.10.1
   # Pure-Dart Draw Things gRPC client (replaces the Python dt_grpc_client
   # sidecar; the sidecar remains as automatic fallback for one release cycle).
