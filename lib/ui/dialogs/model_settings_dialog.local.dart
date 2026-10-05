@@ -100,54 +100,11 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                   storage: storage,
                   localPresets: _localPresets,
                   hint: 'None (Use App Settings)',
-                  onChanged: (val) {
-                    storage.backendSettings.setActiveKcppsPath(val);
-                    if (_selectedModelPath != null && val != null) {
-                      storage.presetSettings.setModelPreset(
-                        _selectedModelPath!,
-                        val,
-                      );
-                    } else if (_selectedModelPath != null && val == null) {
-                      storage.presetSettings.setModelPreset(
-                        _selectedModelPath!,
-                        '',
-                      );
-                    }
-                    if (val != null &&
-                        storage.backendSettings.kcppsHasModel &&
-                        _kcppsModelExists.of(
-                          storage.backendSettings.kcppsModelPath,
-                        )) {
-                      rebuildState(() {
-                        _selectedModelPath = null;
-                      });
-                    }
-                  },
-                  onExternalClear: () {
-                    storage.backendSettings.setActiveKcppsPath(null);
-                    if (_selectedModelPath != null) {
-                      storage.presetSettings.setModelPreset(
-                        _selectedModelPath!,
-                        '',
-                      );
-                    }
-                  },
-                  onBrowsePicked: (path) {
-                    if (_selectedModelPath != null) {
-                      storage.presetSettings.setModelPreset(
-                        _selectedModelPath!,
-                        path,
-                      );
-                    }
-                    _scanLocalPresets();
-                    if (storage.backendSettings.kcppsHasModel &&
-                        _kcppsModelExists.of(
-                          storage.backendSettings.kcppsModelPath,
-                        )) {
-                      rebuildState(() {
-                        _selectedModelPath = null;
-                      });
-                    }
+                  onChanged: _choosePreset,
+                  onExternalClear: () => _choosePreset(null),
+                  onBrowsePicked: (path) async {
+                    await _choosePreset(path);
+                    if (mounted) _scanLocalPresets();
                   },
                   onModelStatusChanged: (_) {
                     rebuildState(() {});

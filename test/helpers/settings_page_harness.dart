@@ -60,6 +60,9 @@ class SettingsPageHardware extends FakeHardwareService {
   FreeMemoryMb? _free = (graphics: 5222, system: 11063);
 
   @override
+  bool get cpuOnlyLowPerf => false;
+
+  @override
   FreeMemoryMb? get freeBeforeEngine => _free;
 
   @override
@@ -280,18 +283,15 @@ Future<void> settle(WidgetTester tester, [bool Function()? done]) async {
   fail('still not done after 6 seconds');
 }
 
-/// Mounts the real Settings page over two models in one folder, [SettingsPageRig.a]
-/// first and [SettingsPageRig.b] second. [lastUsedIsB] picks the last-used
-/// one. [before] runs once the files exist, ahead of the first frame.
-Future<SettingsPageRig> mountSettings(
+/// Two models in one folder, [SettingsPageRig.a] first and [SettingsPageRig.b]
+/// second, with the engine folder and every double the Settings page and the
+/// Model Settings dialog read, and nothing mounted. [lastUsedIsB] picks the
+/// last-used model. [before] runs once the files exist.
+Future<SettingsPageRig> buildRig(
   WidgetTester tester, {
   required bool lastUsedIsB,
-  int context = 16384,
-  HardwareInfo? hardware,
   Future<void> Function(SettingsPageRig rig)? before,
 }) async {
-  await tester.binding.setSurfaceSize(const Size(1400, 2600));
-  addTearDown(() => tester.binding.setSurfaceSize(null));
   SharedPreferences.setMockInitialValues({});
   late SettingsPageRig rig;
   await tester.runAsync(() async {
@@ -308,7 +308,6 @@ Future<SettingsPageRig> mountSettings(
     final store = SettingsPageStorage(bin);
     await store.backendSettings.setBackendType('kobold');
     await store.backendSettings.setLastUsedModelPath(lastUsedIsB ? b : a);
-    await store.backendSettings.setContextSize(context);
     final kobold = RecordingKobold(store);
     rig = SettingsPageRig(
       dir: dir,
@@ -326,31 +325,52 @@ Future<SettingsPageRig> mountSettings(
     rig.kobold.dispose();
     rig.dir.deleteSync(recursive: true);
   });
+  return rig;
+}
 
+/// [child] under the providers the rig's doubles stand in for.
+Widget withRigProviders(
+  SettingsPageRig rig, {
+  HardwareInfo? hardware,
+  required Widget child,
+}) => MultiProvider(
+  providers: [
+    ChangeNotifierProvider<StorageService>.value(value: rig.store),
+    ChangeNotifierProvider<KoboldService>.value(value: rig.kobold),
+    ChangeNotifierProvider<LLMProvider>.value(value: rig.llm),
+    ChangeNotifierProvider<HardwareService>.value(
+      value: SettingsPageHardware(hardware ?? nvidiaGtx1060),
+    ),
+    ChangeNotifierProvider<ModelManager>.value(value: rig.models),
+    ChangeNotifierProvider<BackendManager>.value(value: rig.backend),
+    ChangeNotifierProvider<OpenRouterService>.value(value: OpenRouterService()),
+    ChangeNotifierProvider(
+      create: (_) =>
+          OpenCodeManager(rootPath: '', remoteLookup: () async => null),
+    ),
+    ChangeNotifierProvider<UpdateService>.value(value: FakeUpdateService()),
+    ChangeNotifierProvider<ExpressionClassifierService>.value(
+      value: IdleClassifier(),
+    ),
+    ChangeNotifierProvider<WebServerHost>.value(value: IdleWebServer()),
+  ],
+  child: child,
+);
+
+/// Mounts the real Settings page over [buildRig]'s two models.
+Future<SettingsPageRig> mountSettings(
+  WidgetTester tester, {
+  required bool lastUsedIsB,
+  HardwareInfo? hardware,
+  Future<void> Function(SettingsPageRig rig)? before,
+}) async {
+  await tester.binding.setSurfaceSize(const Size(1400, 2600));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  final rig = await buildRig(tester, lastUsedIsB: lastUsedIsB, before: before);
   await tester.pumpWidget(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<StorageService>.value(value: rig.store),
-        ChangeNotifierProvider<KoboldService>.value(value: rig.kobold),
-        ChangeNotifierProvider<LLMProvider>.value(value: rig.llm),
-        ChangeNotifierProvider<HardwareService>.value(
-          value: SettingsPageHardware(hardware ?? nvidiaGtx1060),
-        ),
-        ChangeNotifierProvider<ModelManager>.value(value: rig.models),
-        ChangeNotifierProvider<BackendManager>.value(value: rig.backend),
-        ChangeNotifierProvider<OpenRouterService>.value(
-          value: OpenRouterService(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) =>
-              OpenCodeManager(rootPath: '', remoteLookup: () async => null),
-        ),
-        ChangeNotifierProvider<UpdateService>.value(value: FakeUpdateService()),
-        ChangeNotifierProvider<ExpressionClassifierService>.value(
-          value: IdleClassifier(),
-        ),
-        ChangeNotifierProvider<WebServerHost>.value(value: IdleWebServer()),
-      ],
+    withRigProviders(
+      rig,
+      hardware: hardware,
       child: const MaterialApp(home: SettingsPage()),
     ),
   );

@@ -22,6 +22,24 @@ part of 'model_settings_dialog.dart';
 /// except `setState` -> `rebuildState` (extensions can't call a State's
 /// protected members).
 extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
+  /// The user chose [path] as the preset, from the list or with Browse, or
+  /// none when it is null. It is kept for the model it loads
+  /// ([chooseKoboldPreset]). A running engine is left alone: the start button
+  /// below applies it.
+  Future<void> _choosePreset(String? path) async {
+    final storage = Provider.of<StorageService>(context, listen: false);
+    await chooseKoboldPreset(storage, path);
+    if (!mounted) return;
+    // A preset that names its model on this computer owns the choice.
+    if (path != null &&
+        storage.backendSettings.kcppsHasModel &&
+        _kcppsModelExists.of(storage.backendSettings.kcppsModelPath)) {
+      rebuildState(() {
+        _selectedModelPath = null;
+      });
+    }
+  }
+
   Future<void> _restartBackend() async {
     final koboldService = Provider.of<KoboldService>(context, listen: false);
     final backendManager = Provider.of<BackendManager>(context, listen: false);
