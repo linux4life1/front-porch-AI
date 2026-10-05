@@ -3,6 +3,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 // Changed 2026-10-04: the five estimateFromArchitecture cache cases pinned
@@ -13,6 +14,13 @@ import 'package:front_porch_ai/utils/utils.dart';
 // 16 GB card: 260 + 520 MiB with sliding window on at 16k, 260 + 5200 with
 // it off; a Qwen 3.6 MoE's 10 attention layers: 325.00 MiB). The real
 // models are pinned in vram_estimator_real_engine_test.dart.
+//
+// Changed 2026-10-05: VramEstimator.estimateFromArchitecture, a wrapper
+// that only these tests called, is gone. The same cases now call the
+// estimate it wrapped, koboldLoad, with the same inputs (an f16 cache is a
+// size factor of 1, the experts in system memory are those of every
+// block), and assert the same figures: the cache is koboldLoad's cacheMb,
+// the weights on the card its modelMb plus expertsMb, the total its cardMb.
 
 void main() {
   group('VramEstimator', () {
@@ -238,7 +246,7 @@ void main() {
     });
   });
 
-  group('estimateFromArchitecture', () {
+  group('koboldLoad', () {
     // A Gemma 4 26B-like layout: 25 sliding-window layers (8 cache heads of
     // 256) and 5 full layers (2 heads of 512), window 1024.
     final gemmaLayers = [
@@ -261,15 +269,16 @@ void main() {
     );
 
     int kvMb(GGUFModelInfo info, {required int context, required bool swa}) =>
-        VramEstimator.estimateFromArchitecture(
-          modelInfo: info,
+        koboldLoad(
+          info: info,
           fileSizeBytes: 17 * 1024 * 1024 * 1024,
           contextSize: context,
           batchSize: 512,
-          kvQuant: 'f16',
-          isSwa: swa,
-          moeExpertsOnCpu: false,
-        ).kvCacheMb;
+          cacheSizeFactor: KvQuant.f16.sizeFactor,
+          slidingWindowOn: swa,
+          flashAttention: true,
+          backend: KoboldMemoryBackend.cuda,
+        ).cacheMb;
 
     test('sliding window on: sliding layers hold the window plus one batch '
         'and 128 cells; full layers hold the context plus 128, rounded up '
@@ -328,29 +337,28 @@ void main() {
         nVocab: 32768,
       );
 
-      final resultWithOffload = VramEstimator.estimateFromArchitecture(
-        modelInfo: info,
+      KoboldLoad load({required bool expertsOnCpu}) => koboldLoad(
+        info: info,
         fileSizeBytes: 12 * 1024 * 1024 * 1024,
         contextSize: 8192,
         batchSize: 512,
-        kvQuant: 'f16',
-        isSwa: false,
-        moeExpertsOnCpu: true,
+        cacheSizeFactor: KvQuant.f16.sizeFactor,
+        slidingWindowOn: false,
+        flashAttention: true,
+        backend: KoboldMemoryBackend.cuda,
+        moeCpuBlocks: expertsOnCpu ? info.nLayers : 0,
       );
+      int weightsOnCard(KoboldLoad l) => l.modelMb + l.expertsMb;
 
-      final resultNoOffload = VramEstimator.estimateFromArchitecture(
-        modelInfo: info,
-        fileSizeBytes: 12 * 1024 * 1024 * 1024,
-        contextSize: 8192,
-        batchSize: 512,
-        kvQuant: 'f16',
-        isSwa: false,
-        moeExpertsOnCpu: false,
-      );
+      final resultWithOffload = load(expertsOnCpu: true);
+      final resultNoOffload = load(expertsOnCpu: false);
 
       // With offloading, weights should be lower
-      expect(resultWithOffload.weightsMb, lessThan(resultNoOffload.weightsMb));
-      expect(resultWithOffload.totalMb, lessThan(resultNoOffload.totalMb));
+      expect(
+        weightsOnCard(resultWithOffload),
+        lessThan(weightsOnCard(resultNoOffload)),
+      );
+      expect(resultWithOffload.cardMb, lessThan(resultNoOffload.cardMb));
     });
   });
 

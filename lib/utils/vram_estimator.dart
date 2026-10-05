@@ -16,21 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// A leaf, not kobold.dart: the barrel imports utils.dart back (a real loop).
-import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/utils/gguf_model_info.dart';
-import 'package:front_porch_ai/utils/kobold_memory_rules.dart';
-import 'package:front_porch_ai/utils/kobold_placement.dart';
-
-/// Return type for [VramEstimator.estimateFromArchitecture].
-typedef VramEstimateBreakdown = ({
-  int weightsMb,
-  int kvCacheMb,
-  int computeBufMb,
-  int overheadMb,
-  int totalMb,
-});
 
 /// Default context size used for VRAM estimation when none is specified.
 const int defaultContextSize = 16384;
@@ -50,8 +36,7 @@ const int tightThresholdMb = 2048; // 2 GB
 /// Total = fileSize + kvCache + overhead
 ///
 /// What the preset editor, the Local model card and a launch use is
-/// `KoboldFit`, over the model file's own header. [estimateFromArchitecture]
-/// is that same figure, kept for the tests that check it against real loads.
+/// `KoboldFit`, over the model file's own header (`koboldLoad`).
 class VramEstimator {
   /// Estimates total VRAM needed (in MB) to run a model.
   ///
@@ -155,53 +140,4 @@ class VramEstimator {
   /// Default KV bytes per token estimate for unknown models.
   /// Based on a typical 7B-class model (Llama/Mistral architecture).
   static const int _defaultKvBytes = 1024;
-
-  // ── Architecture-based estimation (uses GGUFModelInfo) ──
-
-  /// KV cache quantization byte-size factor (relative to f16).
-  static double _kvQuantFactor(String kvQuant) =>
-      KvQuant.parse(kvQuant).sizeFactor;
-
-  /// Estimate VRAM usage from detailed architecture metadata.
-  ///
-  /// A guess of how KoboldCpp will load the model, never a setting: the
-  /// weights on the card, the attention cache, the working buffer and what
-  /// the engine uses beyond its listed buffers, each by the engine's own
-  /// rules (see kobold_memory_rules.dart). [backend] and [flashAttention]
-  /// change the working buffer and the extra memory.
-  static VramEstimateBreakdown estimateFromArchitecture({
-    required GGUFModelInfo modelInfo,
-    required int fileSizeBytes,
-    required int contextSize,
-    required int batchSize,
-    required String kvQuant,
-    required bool isSwa,
-    required bool moeExpertsOnCpu,
-    KoboldMemoryBackend backend = KoboldMemoryBackend.cuda,
-    bool flashAttention = true,
-  }) {
-    // Every layer on the card; the experts in system memory when asked.
-    // The file's own tensor table gives the weights exactly (seen on a real
-    // card: 784.42 MiB reported, 784 predicted). The cache includes the
-    // small fixed state of a hybrid model's recurrent layers.
-    final expertsOnCpu = modelInfo.isMoe && moeExpertsOnCpu;
-    final load = koboldLoad(
-      info: modelInfo,
-      fileSizeBytes: fileSizeBytes,
-      contextSize: contextSize,
-      batchSize: batchSize,
-      cacheSizeFactor: _kvQuantFactor(kvQuant),
-      slidingWindowOn: isSwa,
-      flashAttention: flashAttention,
-      backend: backend,
-      moeCpuBlocks: expertsOnCpu ? modelInfo.nLayers : 0,
-    );
-    return (
-      weightsMb: load.modelMb + load.expertsMb,
-      kvCacheMb: load.cacheMb,
-      computeBufMb: load.computeMb,
-      overheadMb: load.overheadMb,
-      totalMb: load.cardMb,
-    );
-  }
 }

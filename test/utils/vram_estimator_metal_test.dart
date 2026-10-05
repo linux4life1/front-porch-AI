@@ -21,7 +21,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+// Changed 2026-10-05: each case called VramEstimator.estimateFromArchitecture,
+// a wrapper that only tests used and that is now gone. It now calls the
+// estimate it wrapped, koboldLoad, with the same inputs (the cache type read
+// the same way, KvQuant.parse), and asserts the same figures, read under
+// koboldLoad's names: the cache is cacheMb, the working memory computeMb.
 
 const _dir = 'test/fixtures/gguf_headers';
 
@@ -66,20 +73,19 @@ void main() {
         '${swa ? ', sliding window on' : ''}'
         '${fa ? '' : ', flash attention off'}', () {
       final m = _model(model);
-      final e = VramEstimator.estimateFromArchitecture(
-        modelInfo: m.info,
+      final e = koboldLoad(
+        info: m.info,
         fileSizeBytes: m.bytes,
         contextSize: context,
         batchSize: batch,
-        kvQuant: cache,
-        isSwa: swa,
-        moeExpertsOnCpu: false,
-        backend: KoboldMemoryBackend.metal,
+        cacheSizeFactor: KvQuant.parse(cache).sizeFactor,
+        slidingWindowOn: swa,
         flashAttention: fa,
+        backend: KoboldMemoryBackend.metal,
       );
-      expect(e.kvCacheMb, kv.ceil(), reason: 'the cache');
+      expect(e.cacheMb, kv.ceil(), reason: 'the cache');
       expect(
-        e.computeBufMb,
+        e.computeMb,
         allOf(
           greaterThanOrEqualTo(compute.ceil()),
           lessThanOrEqualTo((compute * 1.20).ceil()),

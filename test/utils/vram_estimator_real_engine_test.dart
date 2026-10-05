@@ -20,7 +20,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+// Changed 2026-10-05: the cases called VramEstimator.estimateFromArchitecture,
+// a wrapper that only tests used and that is now gone. [_estimate] calls the
+// estimate it wrapped, koboldLoad, with the same inputs: the cache type read
+// the same way (KvQuant.parse), and with the experts in system memory those
+// of every block. The assertions are unchanged but for the names of what
+// they read: the cache is cacheMb, the working memory computeMb, and the
+// weights on the card modelMb plus expertsMb ([_OnCard.weightsMb]).
 
 const _dir = 'test/fixtures/gguf_headers';
 
@@ -37,7 +46,7 @@ const _dir = 'test/fixtures/gguf_headers';
   );
 }
 
-VramEstimateBreakdown _estimate(
+KoboldLoad _estimate(
   String name, {
   required int context,
   int batch = 512,
@@ -48,17 +57,22 @@ VramEstimateBreakdown _estimate(
   bool flashAttention = true,
 }) {
   final m = _model(name);
-  return VramEstimator.estimateFromArchitecture(
-    modelInfo: m.info,
+  return koboldLoad(
+    info: m.info,
     fileSizeBytes: m.fileBytes,
     contextSize: context,
     batchSize: batch,
-    kvQuant: quant,
-    isSwa: slidingWindowOn,
-    moeExpertsOnCpu: expertsInSystemMemory,
-    backend: backend,
+    cacheSizeFactor: KvQuant.parse(quant).sizeFactor,
+    slidingWindowOn: slidingWindowOn,
     flashAttention: flashAttention,
+    backend: backend,
+    moeCpuBlocks: m.info.isMoe && expertsInSystemMemory ? m.info.nLayers : 0,
   );
+}
+
+extension _OnCard on KoboldLoad {
+  /// The weights on the card: the expert weights there and the rest.
+  int get weightsMb => modelMb + expertsMb;
 }
 
 /// The engine reports MiB to two decimals; the estimate is whole MiB,
@@ -85,15 +99,15 @@ void main() {
     test('the attention cache matches at every context size and cache '
         'type that was loaded', () {
       // llama_kv_cache: Vulkan0 KV buffer size
-      expect(_estimate('Qwen3-14B', context: 16384).kvCacheMb, _exactly(2600));
-      expect(_estimate('Qwen3-14B', context: 32768).kvCacheMb, _exactly(5160));
-      expect(_estimate('Qwen3-14B', context: 40960).kvCacheMb, _exactly(6440));
+      expect(_estimate('Qwen3-14B', context: 16384).cacheMb, _exactly(2600));
+      expect(_estimate('Qwen3-14B', context: 32768).cacheMb, _exactly(5160));
+      expect(_estimate('Qwen3-14B', context: 40960).cacheMb, _exactly(6440));
       expect(
-        _estimate('Qwen3-14B', context: 65536, quant: 'q8_0').kvCacheMb,
+        _estimate('Qwen3-14B', context: 65536, quant: 'q8_0').cacheMb,
         _exactly(5461.25),
       );
       expect(
-        _estimate('Qwen3-14B', context: 65536, quant: 'q4_0').kvCacheMb,
+        _estimate('Qwen3-14B', context: 65536, quant: 'q4_0').cacheMb,
         _exactly(2891.25),
       );
     });
@@ -101,7 +115,7 @@ void main() {
     test('the compute buffer is never below what the engine reserved', () {
       // sched_reserve: Vulkan0 compute buffer size = 316.75 MiB
       expect(
-        _estimate('Qwen3-14B', context: 16384).computeBufMb,
+        _estimate('Qwen3-14B', context: 16384).computeMb,
         _atLeastButClose(316.75),
       );
     });
@@ -120,22 +134,22 @@ void main() {
 
     test('the attention cache matches', () {
       expect(
-        _estimate('Qwen3-30B-A3B', context: 16384).kvCacheMb,
+        _estimate('Qwen3-30B-A3B', context: 16384).cacheMb,
         _exactly(1560),
       );
       expect(
-        _estimate('Qwen3-30B-A3B', context: 32768, quant: 'q8_0').kvCacheMb,
+        _estimate('Qwen3-30B-A3B', context: 32768, quant: 'q8_0').cacheMb,
         _exactly(1644.75),
       );
       expect(
-        _estimate('Qwen3-30B-A3B', context: 65536, quant: 'q4_0').kvCacheMb,
+        _estimate('Qwen3-30B-A3B', context: 65536, quant: 'q4_0').cacheMb,
         _exactly(1734.75),
       );
     });
 
     test('the compute buffer is never below what the engine reserved', () {
       expect(
-        _estimate('Qwen3-30B-A3B', context: 16384).computeBufMb,
+        _estimate('Qwen3-30B-A3B', context: 16384).computeMb,
         _atLeastButClose(300.75),
       );
     });
@@ -160,7 +174,7 @@ void main() {
       expect(info.kvLayers, hasLength(10));
       expect(info.recurrentStateBytes / (1024 * 1024), closeTo(62.81, 0.01));
       expect(
-        _estimate('Qwen3.6-35B-A3B-Q4_K_XL', context: 16384).kvCacheMb,
+        _estimate('Qwen3.6-35B-A3B-Q4_K_XL', context: 16384).cacheMb,
         325 + 63,
       );
     });
@@ -174,8 +188,8 @@ void main() {
           'Qwen3.6-35B-A3B-Q4_K_XL',
           context: 16384,
           slidingWindowOn: true,
-        ).kvCacheMb,
-        _estimate('Qwen3.6-35B-A3B-Q4_K_XL', context: 16384).kvCacheMb,
+        ).cacheMb,
+        _estimate('Qwen3.6-35B-A3B-Q4_K_XL', context: 16384).cacheMb,
       );
     });
 
@@ -187,7 +201,7 @@ void main() {
           context: 16384,
           batch: 1024,
           backend: KoboldMemoryBackend.cuda,
-        ).computeBufMb,
+        ).computeMb,
         _atLeastButClose(1053.07),
       );
     });
@@ -197,18 +211,18 @@ void main() {
     test('below 1 GiB of output scores it is the output part', () {
       // Qwen3-14B, batch 1536: 950.25 MiB, the output part exactly.
       expect(
-        _estimate('Qwen3-14B', context: 16384, batch: 1536).computeBufMb,
+        _estimate('Qwen3-14B', context: 16384, batch: 1536).computeMb,
         _atLeastButClose(950.25),
       );
     });
 
     test('from 1 GiB of output scores the output and the layers add up', () {
       expect(
-        _estimate('Qwen3-14B', context: 16384, batch: 2048).computeBufMb,
+        _estimate('Qwen3-14B', context: 16384, batch: 2048).computeMb,
         _atLeastButClose(1740.05),
       );
       expect(
-        _estimate('Qwen3-30B-A3B', context: 16384, batch: 2048).computeBufMb,
+        _estimate('Qwen3-30B-A3B', context: 16384, batch: 2048).computeMb,
         _atLeastButClose(1697.54),
       );
     });
@@ -222,7 +236,7 @@ void main() {
           context: 16384,
           backend: KoboldMemoryBackend.rocm,
           flashAttention: false,
-        ).computeBufMb,
+        ).computeMb,
         _atLeastButClose(1376.51),
       );
       expect(
@@ -231,7 +245,7 @@ void main() {
           context: 16384,
           backend: KoboldMemoryBackend.rocm,
           flashAttention: false,
-        ).computeBufMb,
+        ).computeMb,
         _atLeastButClose(1098.51),
       );
     });
@@ -247,10 +261,10 @@ void main() {
 
     test('sliding window off: every layer holds the whole context', () {
       // 260.00 (8 full layers) + 5200.00 (40 sliding layers, full size)
-      expect(_estimate(gemma, context: 16384).kvCacheMb, _exactly(5460));
+      expect(_estimate(gemma, context: 16384).cacheMb, _exactly(5460));
       // 8-bit cache at 32k: 274.12 + 5482.50
       expect(
-        _estimate(gemma, context: 32768, quant: 'q8_0').kvCacheMb,
+        _estimate(gemma, context: 32768, quant: 'q8_0').cacheMb,
         _exactly(5756.62),
       );
     });
@@ -259,7 +273,7 @@ void main() {
         'batch', () {
       // 260.00 + 520.00 (1664 cells); 260.00 + 680.00 at batch 1024 (2176)
       expect(
-        _estimate(gemma, context: 16384, slidingWindowOn: true).kvCacheMb,
+        _estimate(gemma, context: 16384, slidingWindowOn: true).cacheMb,
         _exactly(780),
       );
       expect(
@@ -268,12 +282,12 @@ void main() {
           context: 16384,
           batch: 1024,
           slidingWindowOn: true,
-        ).kvCacheMb,
+        ).cacheMb,
         _exactly(940),
       );
       // 32k: the full layers grow (516.00), the window does not (520.00)
       expect(
-        _estimate(gemma, context: 32768, slidingWindowOn: true).kvCacheMb,
+        _estimate(gemma, context: 32768, slidingWindowOn: true).cacheMb,
         _exactly(1036),
       );
     });
@@ -281,22 +295,22 @@ void main() {
     test('flash attention off sizes every layer\'s values to the largest', () {
       // 650.00 (K 130 + V 520) + 5200.00
       expect(
-        _estimate(gemma, context: 16384, flashAttention: false).kvCacheMb,
+        _estimate(gemma, context: 16384, flashAttention: false).cacheMb,
         _exactly(5850),
       );
     });
 
     test('the working memory is never below what the engine reserved', () {
       expect(
-        _estimate(gemma, context: 16384).computeBufMb,
+        _estimate(gemma, context: 16384).computeMb,
         _atLeastButClose(527.00),
       );
       expect(
-        _estimate(gemma, context: 16384, batch: 1024).computeBufMb,
+        _estimate(gemma, context: 16384, batch: 1024).computeMb,
         _atLeastButClose(1331.04),
       );
       expect(
-        _estimate(gemma, context: 16384, batch: 2048).computeBufMb,
+        _estimate(gemma, context: 16384, batch: 2048).computeMb,
         _atLeastButClose(2662.08),
       );
       expect(
@@ -305,7 +319,7 @@ void main() {
           context: 16384,
           batch: 1024,
           slidingWindowOn: true,
-        ).computeBufMb,
+        ).computeMb,
         _atLeastButClose(1302.79),
       );
       expect(
@@ -314,7 +328,7 @@ void main() {
           context: 16384,
           batch: 1536,
           slidingWindowOn: true,
-        ).computeBufMb,
+        ).computeMb,
         _atLeastButClose(1955.68),
       );
       expect(
@@ -323,7 +337,7 @@ void main() {
           context: 16384,
           backend: KoboldMemoryBackend.rocm,
           flashAttention: false,
-        ).computeBufMb,
+        ).computeMb,
         _atLeastButClose(648.01),
       );
     });
