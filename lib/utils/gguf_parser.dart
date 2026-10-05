@@ -10,14 +10,6 @@ import 'package:front_porch_ai/utils/gguf_weights.dart';
 /// A lightweight parser to extract architectural parameters from GGUF files
 /// without loading the full model tensors into memory.
 class GGUFParser {
-  /// Extracts the exact number of bytes required per token for KV cache.
-  ///
-  /// Delegates to [getModelArchitectureInfo] and returns [GGUFModelInfo.kvBytesPerToken].
-  static Future<int?> getKvCacheBytesPerToken(String filePath) async {
-    final info = await getModelArchitectureInfo(filePath);
-    return info?.kvBytesPerToken;
-  }
-
   /// How much of the file is read for the header. The metadata and the
   /// tensor table of current models take 5 to 16 MB; when the first read
   /// does not reach the end of the tensor table, the larger one is tried.

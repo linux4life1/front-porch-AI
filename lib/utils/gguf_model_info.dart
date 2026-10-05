@@ -145,15 +145,4 @@ class GGUFModelInfo {
     if (total <= 0) return 1.0;
     return gpuResident / total;
   }
-
-  /// Pragmatic approximation of bytes per layer for the model weights.
-  int estimateBytesPerLayer(int fileSizeBytes) {
-    if (nLayers <= 0) return 0;
-    const int headerOverhead = 50 * 1024 * 1024;
-    final weightsSize = (fileSizeBytes - headerOverhead).clamp(
-      0,
-      fileSizeBytes,
-    );
-    return (weightsSize / nLayers).round();
-  }
 }

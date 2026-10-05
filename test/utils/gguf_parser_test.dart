@@ -1,5 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Changed 2026-10-05: GGUFParser.getKvCacheBytesPerToken is gone. It was a
+// two-line door to getModelArchitectureInfo(...).kvBytesPerToken kept for the
+// old memory bar in Settings → Advanced → Hardware & GPU, which was retired.
+// Every case reads the same figure through [_kvBytesPerToken], which is that
+// one line; no file, input or expected number changed.
 
 import 'dart:convert';
 import 'dart:io';
@@ -48,19 +54,22 @@ Uint8List _uint64(int value) {
   return Uint8List(8)..buffer.asUint64List()[0] = value;
 }
 
+/// The cache bytes one token takes, as the header gives them; null when the
+/// file is not a model the parser can read.
+Future<int?> _kvBytesPerToken(String path) async =>
+    (await GGUFParser.getModelArchitectureInfo(path))?.kvBytesPerToken;
+
 void main() {
   group('GGUFParser', () {
     test('returns null for non-existent file', () async {
-      final result = await GGUFParser.getKvCacheBytesPerToken(
-        '/nonexistent/path/model.gguf',
-      );
+      final result = await _kvBytesPerToken('/nonexistent/path/model.gguf');
       expect(result, isNull);
     });
 
     test('returns null for empty file', () async {
       final file = File('${Directory.systemTemp.path}/gguf_empty_test.gguf');
       await file.writeAsBytes([]);
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
       expect(result, isNull);
       if (await file.exists()) await file.delete();
     });
@@ -68,7 +77,7 @@ void main() {
     test('returns null for file without GGUF magic', () async {
       final file = File('${Directory.systemTemp.path}/gguf_nomagic_test.gguf');
       await file.writeAsBytes(utf8.encode('not a gguf file'));
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
       expect(result, isNull);
       if (await file.exists()) await file.delete();
     });
@@ -78,7 +87,7 @@ void main() {
         '${Directory.systemTemp.path}/gguf_truncated_test.gguf',
       );
       await file.writeAsBytes(Uint8List(2));
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
       expect(result, isNull);
       if (await file.exists()) await file.delete();
     });
@@ -95,7 +104,7 @@ void main() {
       final file = File('${Directory.systemTemp.path}/gguf_llama_test.gguf');
       await file.writeAsBytes(data);
 
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
 
       // head_dim = 4096/32 = 128
       // bytesPerToken = 4 * 32 * 8 * 128 = 131072
@@ -116,7 +125,7 @@ void main() {
       final file = File('${Directory.systemTemp.path}/gguf_mistral_test.gguf');
       await file.writeAsBytes(data);
 
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
 
       expect(result, equals(131072));
 
@@ -135,7 +144,7 @@ void main() {
       final file = File('${Directory.systemTemp.path}/gguf_qwen_test.gguf');
       await file.writeAsBytes(data);
 
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
 
       // head_dim = 2048/24 = 85.333...
       // bytesPerToken = 4 * 24 * 8 * 85.333 = 65536 (rounded)
@@ -159,7 +168,7 @@ void main() {
       );
       await file.writeAsBytes(data);
 
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
       expect(result, isNull);
 
       if (await file.exists()) await file.delete();
@@ -179,7 +188,7 @@ void main() {
         final file = File('${Directory.systemTemp.path}/gguf_noarch_test.gguf');
         await file.writeAsBytes(data);
 
-        final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+        final result = await _kvBytesPerToken(file.path);
 
         // head_count_kv defaults to head_count = 32
         // head_dim = 4096/32 = 128
@@ -200,7 +209,7 @@ void main() {
       final file = File('${Directory.systemTemp.path}/gguf_trunc_kv_test.gguf');
       await file.writeAsBytes(truncated);
 
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
       expect(result, isNull);
 
       if (await file.exists()) await file.delete();
@@ -216,7 +225,7 @@ void main() {
       final file = File('${Directory.systemTemp.path}/gguf_zero_kv_test.gguf');
       await file.writeAsBytes(Uint8List.fromList(builder.takeBytes()));
 
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
       expect(result, isNull);
 
       if (await file.exists()) await file.delete();
@@ -234,7 +243,7 @@ void main() {
       final file = File('${Directory.systemTemp.path}/gguf_large_test.gguf');
       await file.writeAsBytes(data);
 
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
 
       // head_dim = 12288/96 = 128
       // bytesPerToken = 4 * 96 * 8 * 128 = 393216
@@ -256,7 +265,7 @@ void main() {
       );
       await file.writeAsBytes(data);
 
-      final result = await GGUFParser.getKvCacheBytesPerToken(file.path);
+      final result = await _kvBytesPerToken(file.path);
 
       // head_count_kv defaults to head_count = 32
       // head_dim = 4096/32 = 128

@@ -113,19 +113,6 @@ class _SettingsPageState extends State<SettingsPage> {
   static List<RemoteModelInfo>? _modelsCache;
   static String? _modelsCacheKey;
 
-  // Memoized model file size for the VRAM gauge (settings_page.hardware.dart):
-  // the gauge is rebuilt PER FRAME while dragging the context slider, and it
-  // used to existsSync + lengthSync a multi-GB GGUF on every one of those
-  // frames. Resolved once per selected path instead.
-  int _modelSizeMbCache = 0;
-  String? _modelSizeMbForPath;
-
-  // Memoized KV-cost future for the same gauge (a fresh Future per rebuild
-  // made the FutureBuilder flip between exact and heuristic estimates every
-  // frame mid-drag).
-  Future<int?>? _kvBytesFuture;
-  String? _kvBytesFuturePath;
-
   // Latest text typed into the Web Server port field (settings_page.advanced):
   // it commits on focus loss too, and this has to outlive the rebuilds that
   // storage/web-server notifications trigger while the field is being edited.
@@ -382,12 +369,6 @@ class _SettingsPageState extends State<SettingsPage> {
         storageService.backendSettings.lastUsedModelPath,
       );
     }
-    // Warm architecture info for the (possibly just auto-selected) model so
-    // the first gauge update is accurate.
-    if (_selectedModelPath != null) {
-      modelManager.getModelArchitectureInfo(_selectedModelPath!);
-    }
-
     return BackendTab(
       apiUrlController: _remoteApiUrlController,
       apiKeyController: _remoteApiKeyController,
@@ -408,9 +389,6 @@ class _SettingsPageState extends State<SettingsPage> {
             storageService,
             val,
           ).then((_) => _reloadChatIfRunning());
-
-          // Warm the model details so the memory gauge is accurate.
-          modelManager.getModelArchitectureInfo(val); // fire-and-forget
         }
       },
       onVisionChanged: () => setState(() {}),

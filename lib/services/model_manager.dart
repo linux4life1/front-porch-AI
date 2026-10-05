@@ -34,16 +34,13 @@ import 'package:front_porch_ai/models/models.dart';
 /// - Local model scanning and metadata
 /// - HuggingFace search and file listing
 /// - Download queue management via DownloadManager
-/// - KV cache parsing for VRAM estimation
+/// - GGUF header reading, cached per file
 class ModelManager extends ChangeNotifier {
   final StorageService _storageService;
   final DownloadManager _downloadManager;
 
   /// Raw list of local model file entities.
   List<FileSystemEntity> _models = [];
-
-  /// Cached KV bytes per token for rapid UI rendering.
-  final Map<String, int> _kvBytesCache = {};
 
   /// Status message for import operations.
   String _statusMessage = '';
@@ -118,24 +115,6 @@ class ModelManager extends ChangeNotifier {
     }
   }
 
-  /// Retrieves the exact Bytes Per Token required for KV Cache
-  /// by parsing the GGUF file headers natively.
-  Future<int?> getKvCacheBytesPerToken(String filePath) async {
-    if (_kvBytesCache.containsKey(filePath)) {
-      return _kvBytesCache[filePath];
-    }
-
-    try {
-      final bytes = await GGUFParser.getKvCacheBytesPerToken(filePath);
-      if (bytes != null) {
-        _kvBytesCache[filePath] = bytes;
-      }
-      return bytes;
-    } catch (_) {
-      return null;
-    }
-  }
-
   /// Cache for full GGUF architecture info (nLayers + kv bytes + helpers).
   final Map<String, GGUFModelInfo> _ggufInfoCache = {};
 
@@ -166,11 +145,6 @@ class ModelManager extends ChangeNotifier {
       _ggufInfoUnparseable.add(filePath);
       return null;
     }
-  }
-
-  /// Synchronous fetch for full GGUF architecture info from cache.
-  GGUFModelInfo? getCachedModelArchitectureInfo(String filePath) {
-    return _ggufInfoCache[filePath];
   }
 
   @override

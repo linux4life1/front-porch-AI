@@ -449,6 +449,17 @@ user can pick a context size, batch size and cache type that fit in what is
 left, and the model runs at full speed. Nothing in this rewrite removes it,
 and the preset editor (Stage 6) keeps it.
 
+The older memory bar in Settings → Advanced → Hardware & GPU is retired
+(2026-10-05). It added the whole model file to a rough cost for each token
+of chat, leaving out sliding window, flash attention, the working memory
+and the engine's own share, so the same model showed one figure there and
+another on the Local model card. The section keeps the card's name and its
+memory and points to the Local model card, which judges the model with the
+same estimate as the editor (`KoboldFit`). Its helpers went with it
+(`GGUFParser.getKvCacheBytesPerToken`, `ModelManager.getKvCacheBytesPerToken`
+and `getCachedModelArchitectureInfo`, `GGUFModelInfo.estimateBytesPerLayer`).
+The phone never had the bar.
+
 The guess and the preset have to agree on one figure: how much graphics
 memory the fit leaves spare (1024 MB, or 32 MB with "greedy"). KoboldCpp
 keeps a preset's `autofitpadding` only when the fit is forced
