@@ -199,8 +199,8 @@ void main() {
       expect(printed(RegExp(r'offloaded 7/\d+ layers')), isTrue);
       expect(await liveContextSize(port), 2048);
 
-      // Staged beside the app's own files: the author's file plus the model
-      // and the chat template, and nothing else.
+      // Staged beside the app's own files: the author's file plus the model,
+      // the chat template and the listen address, and nothing else.
       expect(staged(), {
         'contextsize': 2048,
         'gpulayers': 7,
@@ -211,6 +211,7 @@ void main() {
         'defaultgenamt': 300,
         'model_param': liveEngineModel,
         'jinja': true,
+        'host': '127.0.0.1',
       });
     },
     timeout: _slow,

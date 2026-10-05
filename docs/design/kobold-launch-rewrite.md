@@ -22,6 +22,8 @@ fits the model itself.
 - Failures say **what actually went wrong** in plain words.
 - Web can **pick a chat preset and see its summary**, and switching model
   from the phone uses the right settings. Editing presets stays on desktop.
+- The app's KoboldCpp **answers this computer only**. It used to listen on
+  every network the computer was on.
 
 **What gets deleted**
 
@@ -197,6 +199,21 @@ are still to be checked.
   reproduced it: unload then reload, the app reported ready, and the
   engine still had the old config.
 
+**Measured on 1.117.1 and 1.122.1, Apple Silicon (2026-10-04): the listen
+address**
+
+- `host` is applied from the staged config at launch. With
+  `host: 127.0.0.1` there and nothing about the address on the command
+  line, both engines answered on 127.0.0.1 and refused this computer's own
+  network addresses (Wi-Fi and VPN). With the line removed, both answered
+  on the Wi-Fi address with the admin endpoints on.
+- A live reload leaves it alone: a config with no `host` in it, loaded by
+  reload, did not reopen the engine to the network, and neither did the
+  reload back to chat's own config.
+- Pinned by `test/live/kobold_host_live_test.dart` (the real engine) and
+  `test/services/kobold/kobold_listen_address_test.dart` (every staged
+  config).
+
 **Cost in test changes.** Stages 2, 3 and 4 each have to rewrite existing
 tests, because those tests pin behaviour that is being removed on purpose.
 
@@ -269,6 +286,17 @@ Decisions already made by the maintainer:
     Settings shows it in a snackbar, the preset editor in its problem line,
     the phone's model switch in the response's `refused` field, and the
     phone's Local model card through the status line it now carries.
+14. The app's KoboldCpp answers this computer only, with no admin password
+    (2026-10-04). Before this it listened on every network the computer was
+    on, so any device on the same Wi-Fi could call its admin endpoints (drop
+    the model mid-chat) and read the latest reply. The command line is
+    frozen for this work, so `host: 127.0.0.1` is written into the config
+    the app stages for every launch and swap, over a preset's own `host`
+    (the app owns the address, and a preset naming a network address
+    already cut the app off).
+    KoboldCpp applies `host` from `--config` at launch and ignores it on an
+    admin reload, so a swap cannot change it. The app reaches the engine at
+    `http://127.0.0.1:<port>` and nothing else (`kKoboldHost`).
 
 ## Design
 
@@ -282,14 +310,15 @@ edits, but that type is a summary and is never what a launch runs.
 **A user's preset is launched as it was written.** The staged config for a
 preset is the file's own content with a few settings laid over it: the
 model the app resolved, `jinja: true`, the vision file (when one was chosen
-for the model and exists), and `noswa: true` when the file has sliding
-window on (`noswa: false`, or `useswa: true` in a file from before that
-name existed) with fast forward on. Nothing else is added, changed or
-dropped. As first merged, the launch rebuilt the preset from the typed
-config: a second graphics card, the CUDA options and a MoE layer count were
-dropped, a cache size was clamped, context shift was switched back on, and
-every setting the file had left to KoboldCpp got the app's default (a 16384
-context for a file that named none).
+for the model and exists), `host: 127.0.0.1` (decision 12), and
+`noswa: true` when the file has sliding window on (`noswa: false`, or
+`useswa: true` in a file from before that name existed) with fast forward
+on. Nothing else is added, changed or dropped. As first merged, the launch
+rebuilt the preset from the typed config: a second graphics card, the CUDA
+options and a MoE layer count were dropped, a cache size was clamped,
+context shift was switched back on, and every setting the file had left to
+KoboldCpp got the app's default (a 16384 context for a file that named
+none).
 
 **One rule for the model a preset names.** `kcppsModelOf` reads it the way
 KoboldCpp does: `model_param` when it is a non-empty string, else `model`
@@ -311,13 +340,18 @@ prepare a launch is a refusal with a reason.
 **Every launch and swap uses a staged "effective config".** The app never
 launches or edits a user's `.kcpps` directly. For each role (chat, worker,
 story job) it writes a config into the admin folder: the source (preset or
-app settings) plus the absolute model path, `jinja: true`, and the resolved
-vision file. Launch is `--config <staged> --port N --admin --admindir D`.
+app settings) plus the absolute model path, `jinja: true`, the resolved
+vision file, and `host: 127.0.0.1`. Launch is
+`--config <staged> --port N --admin --admindir D`.
 A swap reloads the staged file by name, with no file links (Stage 4; until
 it lands, a swap back to a user's preset still links the user's own file).
 
 **Only these stay on the command line:** port, admin, admin folder.
-KoboldCpp protects them from being set by a config.
+KoboldCpp protects them from being set by a config. The listen address is
+protected on a reload too, but a launch reads it from the config, which is
+why it rides in the staged config and not on the command line (decision 12).
+The one config the app stages without it is the preset editor's speed
+trial, which is only ever live-loaded.
 
 **The estimate is a guess, not a setting.** The "VRAM Usage Estimate" in
 the preset dialog has never decided how a model is loaded. KoboldCpp fits

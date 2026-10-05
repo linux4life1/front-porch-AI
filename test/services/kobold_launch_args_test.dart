@@ -18,6 +18,14 @@
 //
 // 2026-10-03: two cases added (a preset is staged as it was written; a
 // preset that leaves sliding window to KoboldCpp). No existing case changed.
+//
+// Changed 2026-10-04: every staged config now names `host: 127.0.0.1`, so
+// the app's KoboldCpp answers this computer only (the command line is
+// frozen; see kobold/kobold_listen_address_test.dart). "A preset is staged
+// as it was written" counted every key outside its overlay, and the listen
+// address is now one more setting the app lays over a preset. The case lists
+// it in the overlay and in the one pairing it spells out; nothing else in it
+// changed.
 
 import 'dart:convert';
 import 'dart:io';
@@ -226,9 +234,9 @@ void main() {
   test('a preset is staged as it was written: the staged file equals the '
       'original apart from the few settings the app lays over it', () async {
     // What the app may differ in: the model it resolved, the chat template,
-    // the vision file, and sliding window when the file has it on together
-    // with fast forward.
-    const overlay = {'model_param', 'jinja', 'mmproj', 'noswa'};
+    // the vision file, the listen address, and sliding window when the file
+    // has it on together with fast forward.
+    const overlay = {'model_param', 'jinja', 'mmproj', 'host', 'noswa'};
     final proj = File('${binDir.path}/proj.gguf')..writeAsStringSync('x');
 
     for (final written in <Map<String, dynamic>>[
@@ -286,7 +294,12 @@ void main() {
         kcppsPath: preset({'noswa': false, 'smartcache': 40}).path,
       ),
     );
-    expect(unsafe, {'noswa': true, 'smartcache': 40, 'jinja': true});
+    expect(unsafe, {
+      'noswa': true,
+      'smartcache': 40,
+      'jinja': true,
+      'host': '127.0.0.1',
+    });
   });
 
   test('a preset that leaves sliding window to KoboldCpp is run as written, '

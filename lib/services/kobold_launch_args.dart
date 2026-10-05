@@ -29,10 +29,11 @@ import 'package:front_porch_ai/utils/utils.dart';
 /// One way to launch KoboldCpp: from a config file the app writes.
 ///
 /// The config is the user's preset or the app's own settings, made ready to
-/// run (the model's full path, the chat template on, the vision file) and
-/// written into the admin folder. KoboldCpp decides memory placement itself
-/// unless the user chose a layer count. The command line carries only what
-/// KoboldCpp will not take from a config: the port and the admin folder.
+/// run (the model's full path, the chat template on, the vision file, the
+/// listen address) and written into the admin folder. KoboldCpp decides
+/// memory placement itself unless the user chose a layer count. The command
+/// line carries only what KoboldCpp will not take from a config: the port
+/// and the admin folder.
 ///
 /// [gpuLayers] is used only when Settings has "set layers myself" on.
 Future<List<String>> buildKoboldLaunchArgs({
@@ -87,7 +88,8 @@ Future<List<String>> buildKoboldLaunchArgs({
 /// Writes the config a role will run into the admin folder as [name]: the
 /// chat model at launch, and each role (chat, the helper model, a story
 /// job) before a swap. The same function for all of them, so a swap loads
-/// exactly what a launch would.
+/// exactly what a launch would. Every one names [kKoboldHost] as its
+/// address, over whatever a preset said.
 Future<KoboldStagedRole> stageKoboldRole({
   required StorageService storage,
   required String executablePath,
@@ -124,6 +126,7 @@ Future<KoboldStagedRole> stageKoboldRole({
     engineVersion: version,
     onNote: onNote,
   );
+  config['host'] = kKoboldHost;
   final adminDir = koboldAdminDirFor(storage);
   final json = encodeKcpps(config);
   // Chat's prompts are held to the context its config names from the moment

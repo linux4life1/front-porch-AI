@@ -131,7 +131,7 @@ class KoboldService extends ChangeNotifier
     }
   }
 
-  String _baseUrl = 'http://127.0.0.1:5001';
+  String _baseUrl = 'http://$kKoboldHost:5001';
   String get baseUrl => _baseUrl;
 
   /// The port the app talks to the engine on. A start that names no port

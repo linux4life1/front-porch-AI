@@ -29,6 +29,13 @@ const String kStagedConfigPrefix = 'fpai-';
 /// The staged config for the chat model.
 const String kStagedChatConfig = '${kStagedConfigPrefix}chat.kcpps';
 
+/// The one address the app's KoboldCpp listens on and the app talks to: this
+/// computer only. KoboldCpp's own default is every network the computer is
+/// on. The command line stays as it is, so the address rides in the config
+/// the app stages for a launch or a swap: KoboldCpp applies `host` from
+/// `--config` at launch and never changes it on a live reload.
+const String kKoboldHost = '127.0.0.1';
+
 /// A role's config as staged for the engine: the file name to reload by,
 /// a key for its content (two roles with the same content are the same
 /// thing to the engine), and what it loads.

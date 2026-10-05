@@ -549,6 +549,8 @@ Settings → **Advanced**:
 3. First visit: create a web login. Away from home / not localhost: also type the **setup code** from that Settings page.
 4. Desktop must stay on. It is the brain.
 
+The AI engine itself (KoboldCpp) answers only this computer, so a phone, or a program on another computer such as SillyTavern, can't connect to it directly. The phone goes through the app, as above.
+
 Add to Home Screen: Android may pop a banner; iPhone is Share → Add to Home Screen.
 
 Away from home: Tailscale (phone has a **Remote** page: HTTPS, optional ngrok, QR).

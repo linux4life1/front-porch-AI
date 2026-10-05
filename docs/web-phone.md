@@ -19,6 +19,8 @@ QR code is on that page. **Remote** on the phone is its own screen: Tailscale lo
 
 **Security:** optional 2FA (QR + recovery codes). Turning 2FA on or off asks for the web password. Desktop can **sign out all devices** or **reset the web login** (clears web user/pass/2FA only — not characters). Dangerous Account actions re-ask the web password.
 
+**The engine stays on the computer.** The app's KoboldCpp answers only this computer (`127.0.0.1`). The phone talks to the app on port 8085 and the app talks to the engine; no other device can reach the engine directly.
+
 Mic / push-to-talk on a phone needs **HTTPS** (Tailscale HTTPS or similar). Plain `http://192.168…` will **refuse** the microphone.
 
 Add to Home Screen: Android may show a banner. iPhone: Share → Add to Home Screen.
