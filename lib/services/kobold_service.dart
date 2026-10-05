@@ -80,6 +80,12 @@ class KoboldService extends ChangeNotifier
   /// can tell later whether it is still the one in memory.
   int _loadGeneration = 0;
 
+  /// Goes up when a load is CONFIRMED: a start, or a swap read back as
+  /// running what it was asked for. A reload that was only asked for does not
+  /// raise it: it can still fail, and the engine then goes back to the model
+  /// it had. What a model is called is read from its file against this.
+  int _residentGeneration = 0;
+
   String? _executablePath;
 
   /// The detected graphics hardware, when the app has it. A launch with no
@@ -114,6 +120,9 @@ class KoboldService extends ChangeNotifier
 
   /// See [_loadGeneration].
   int get loadGeneration => _loadGeneration;
+
+  /// See [_residentGeneration].
+  int get residentGeneration => _residentGeneration;
 
   /// The content of the config the engine was last given, by launch or by
   /// swap. Null when nothing is loaded. See `isResident`.

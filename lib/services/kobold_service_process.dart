@@ -264,6 +264,7 @@ extension KoboldServiceProcess on KoboldService {
       _residentKey = staged?.key;
       _idleRestart();
       _loadGeneration++;
+      _residentGeneration++; // a new process reads the file as it is now
       _followLaunchContext(_loadGeneration);
       _addLog('Starting Koboldcpp (PID: ${_process!.pid})...');
       _addLog('Command: $executablePath ${args.join(' ')}');

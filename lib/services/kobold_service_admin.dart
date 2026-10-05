@@ -73,6 +73,9 @@ extension KoboldServiceAdmin on KoboldService {
       runExclusive: _runSerialized,
       log: _addLog,
     );
+    // A start comes up with its config noted; a swap is confirmed later, by
+    // [noteResident].
+    if ((_residentKey ?? '').isNotEmpty) _residentGeneration++;
     notify();
   }
 
@@ -149,6 +152,7 @@ extension KoboldServiceAdmin on KoboldService {
   void noteResident(String key) {
     final changed = _residentKey != key;
     _residentKey = key;
+    if (key.isNotEmpty && _modelReady) _residentGeneration++;
     _idleTouch();
     // Loaded again after an idle unload: every status shows it now.
     final loadedBack = _idle.unloaded != null;

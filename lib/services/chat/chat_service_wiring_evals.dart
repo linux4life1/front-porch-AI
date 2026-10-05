@@ -325,7 +325,7 @@ extension ChatServiceWiringEvals on ChatService {
           ? unknownLocalModelKey(kobold.loadGeneration)
           : '';
     }
-    return _modelKeys.of(path, stamp: kobold.loadGeneration);
+    return _modelKeys.of(path, stamp: kobold.residentGeneration);
   }
 
   /// True while the local engine is ready on a model nobody has confirmed.

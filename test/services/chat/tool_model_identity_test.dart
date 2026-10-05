@@ -19,6 +19,7 @@ import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/system_role_probe.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:path/path.dart' as p;
@@ -84,7 +85,10 @@ void main() {
     db = AppDatabase.forTesting();
     storage = StorageService();
     await storage.initialized;
-    kobold = KoboldService(storage);
+    kobold = KoboldService(
+      storage,
+      systemRoleProbe: SystemRoleProbe(retryBackoff: Duration.zero),
+    )..setBaseUrl('http://127.0.0.1:1');
     chat = ChatService(
       kobold,
       UserPersonaService(db),
@@ -235,8 +239,11 @@ void main() {
       reason: 'what runs is still the old file, however long ago it changed',
     );
 
-    // The engine loads what is at the path now.
+    // The engine loads what is at the path now, and the load is read back.
+    kobold.debugMarkProcessRunning();
     kobold.noteAdminLoadedPair(modelPath: file.path);
+    kobold.noteResident('config of gemma.gguf');
+    await kobold.debugMarkModelReady();
     expect(chat.debugEvalBackendIdentity, isNot(loaded));
   });
 }

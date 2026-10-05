@@ -248,4 +248,26 @@ void main() {
       expect(chat.debugEvalBackendIdentity, keyOf(beta));
     },
   );
+
+  test('a reload that was asked for and not read back leaves the running '
+      "model's name alone; the read-back is what renames it", () async {
+    final alpha = model('alpha.gguf', 2048);
+    await startWith(alpha);
+    final named = chat.debugEvalBackendIdentity;
+    expect(named, keyOf(alpha));
+
+    // Another quant is put at the same path while the first one runs.
+    alpha.writeAsBytesSync(List.filled(4096, 1));
+    // The engine is asked to load it; nothing has read the answer back, and
+    // what runs is still the old weights.
+    kobold.noteAdminLoadedPair(modelPath: alpha.path, kcppsPath: '');
+    await _settle();
+    expect(chat.debugEvalBackendIdentity, named);
+
+    // Read back as running what is at the path now: it is the new file.
+    kobold.noteResident('config of the new alpha.gguf');
+    await _settle();
+    expect(chat.debugEvalBackendIdentity, isNot(named));
+    expect(chat.debugEvalBackendIdentity, keyOf(alpha));
+  });
 }

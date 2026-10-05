@@ -55,7 +55,7 @@ extension LLMProviderWorker on LLMProvider {
       modelPath: local
           ? (_workerModelKeys[this] ??= LocalModelKeys()).of(
               _storageService.resolvedWorkerKoboldModelPath(),
-              stamp: _koboldService.loadGeneration,
+              stamp: _koboldService.residentGeneration,
             )
           : null,
     );
