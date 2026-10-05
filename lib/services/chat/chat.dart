@@ -115,6 +115,7 @@ export 'variant_snippet.dart';
 export 'today_line_tag.dart';
 export 'token_count_memo.dart';
 export 'tool_support_tester.dart';
+export 'tool_verdict_stamp.dart';
 export 'weather_biomes.dart';
 export 'weather_engine.dart';
 export 'weather_providers.dart';

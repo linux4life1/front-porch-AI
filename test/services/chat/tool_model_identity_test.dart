@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
+import 'package:front_porch_ai/services/chat/tool_verdict_stamp.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -161,7 +162,11 @@ void main() {
     expect(chat.toolCallSupport, ToolCallSupport.untested);
 
     // What an earlier run kept for this model.
-    storage.toolVerdictSettings.remember(chat.debugEvalBackendIdentity, false);
+    storage.toolVerdictSettings.remember(
+      chat.debugEvalBackendIdentity,
+      false,
+      stamp: toolVerdictStamp(),
+    );
 
     expect(chat.toolCallSupport, ToolCallSupport.unsupported);
     // The phone reads the same answer the sidebar does.

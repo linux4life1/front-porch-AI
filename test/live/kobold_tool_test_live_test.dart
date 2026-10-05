@@ -367,4 +367,40 @@ void main() {
     timeout: _slow,
     skip: liveEngineSkip,
   );
+
+  test(
+    'a kept "no" from before stamps is asked again once, and the real '
+    'answer replaces it',
+    () async {
+      // What an earlier version kept for this model: a bare "no".
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        isPreRelease ? 'beta_tool_verdicts' : 'tool_verdicts',
+        jsonEncode({modelKey(liveEngineModel): false}),
+      );
+
+      final app = await _App.open();
+      addTearDown(app.close);
+      expect(
+        app.chat.toolCallSupport,
+        ToolCallSupport.untested,
+        reason: 'a "no" of unknown engine is asked again, not trusted for good',
+      );
+
+      await app.start();
+      await app.waitForModel();
+      await app.waitForVerdict();
+
+      expect(app.sawTesting, isTrue);
+      expect(app.questionsAnswered, greaterThan(0));
+      expect(app.chat.toolCallSupport, ToolCallSupport.supported);
+      for (var i = 0; i < 50; i++) {
+        if ((await _storedVerdicts())[modelKey(liveEngineModel)] == true) break;
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      expect(await _storedVerdicts(), {modelKey(liveEngineModel): true});
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
 }

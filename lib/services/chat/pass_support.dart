@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
+import 'package:front_porch_ai/services/chat/tool_verdict_stamp.dart';
 import 'package:front_porch_ai/services/services.dart'
     show LlmToolCall, LlmToolResponse, OneShotMode, isToolTransportFailure;
 import 'package:front_porch_ai/services/storage/storage.dart'
@@ -169,7 +170,26 @@ class ToolTransportProbe extends ChangeNotifier {
   final Set<String> _pausedUntilPing = {};
   bool _inUserSend = false;
 
-  bool? _verdictFor(String id) => _verdicts[id] ?? store?.verdictFor(id);
+  /// The stamp that holds now for [identity] (app, and engine for a local
+  /// model), set by the owner. Null: kept answers are not stamped.
+  String Function(String identity)? stampFor;
+
+  /// This run's verdict, else the kept one. A kept "no" given under another
+  /// engine or app is unknown again, so tools are tried and the model asked
+  /// once more; a kept "yes" stands.
+  bool? _verdictFor(String id) {
+    final run = _verdicts[id];
+    if (run != null) return run;
+    final kept = store?.verdictFor(id);
+    if (kept == false && !_keptNoStands(id)) return null;
+    return kept;
+  }
+
+  bool _keptNoStands(String id) {
+    final now = stampFor?.call(id);
+    if (now == null) return true;
+    return toolVerdictStampHolds(store?.stampFor(id) ?? '', now);
+  }
 
   /// A verdict is kept for a model that can be named; one given while the
   /// engine ran a model nobody had confirmed belongs to none.
@@ -187,7 +207,13 @@ class ToolTransportProbe extends ChangeNotifier {
   void markXmlOnly(String backendIdentity) {
     if (_verdictFor(backendIdentity) == false) return;
     _verdicts[backendIdentity] = false;
-    if (_keepable(backendIdentity)) store?.remember(backendIdentity, false);
+    if (_keepable(backendIdentity)) {
+      store?.remember(
+        backendIdentity,
+        false,
+        stamp: stampFor?.call(backendIdentity) ?? '',
+      );
+    }
     notifyListeners();
   }
 

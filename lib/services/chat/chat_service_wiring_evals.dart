@@ -335,6 +335,24 @@ extension ChatServiceWiringEvals on ChatService {
       _koboldService.isProcessRunning &&
       (_localModelPath ?? '').isEmpty;
 
+  /// Settled tool-calling verdicts outlive the run, each "no" stamped with the
+  /// app and (for the local engine) the KoboldCpp version it was given under.
+  void _wireToolVerdicts() {
+    _toolProbe
+      ..store = _storageService.toolVerdictSettings
+      ..stampFor = (identity) => toolVerdictStamp(
+        engineVersion: _identityIsLocalEngine(identity)
+            ? _llmProvider?.backendManager.localVersion
+            : null,
+      );
+  }
+
+  /// Whether [identity] is one whose answers come from the local engine: the
+  /// chat model's when the chat backend is local, the worker's when it is.
+  bool _identityIsLocalEngine(String identity) => identity.startsWith('worker|')
+      ? _llmProvider?.workerBackend == BackendType.kobold
+      : _mouthIsLocal;
+
   /// Active tool-support prober behind the sidebar's tool-calling pill:
   /// verdicts land on the same [_toolProbe] the passes use, auto-retests on
   /// backend/model switches, and backs the pill's tap-to-retest.

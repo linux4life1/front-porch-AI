@@ -470,7 +470,7 @@ extension ChatServiceAccessors on ChatService {
     // rebroadcast so the sidebar's tool-calling pill repaints live.
     _toolProbe.addListener(notifyListeners);
     // Settled verdicts outlive the run (a known model is not asked again).
-    _toolProbe.store = _storageService.toolVerdictSettings;
+    _wireToolVerdicts();
     // Local model path / remote model name changes alter the eval identity —
     // retest tool support for the new model (sidebar pill contract).
     _storageService.addListener(_onBackendIdentity);

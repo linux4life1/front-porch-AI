@@ -105,7 +105,7 @@ void main() {
       await prefs.setString(key, 'not json at all');
       expect((await _Run.open()).store.verdictFor(_model), isNull);
 
-      await prefs.setString(key, '{"a": true, "b": "yes", "c": false}');
+      await prefs.setString(key, '{"a": true, "b": 7, "c": false}');
       final run = await _Run.open();
       expect(run.store.verdictFor('a'), isTrue);
       expect(run.store.verdictFor('b'), isNull);

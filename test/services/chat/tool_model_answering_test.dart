@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
+import 'package:front_porch_ai/services/chat/tool_verdict_stamp.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/system_role_probe.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -229,7 +230,11 @@ void main() {
     final beta = model('beta.gguf', 4096);
     await startWith(alpha);
     // What an earlier run kept for beta.
-    storage.toolVerdictSettings.remember(keyOf(beta), false);
+    storage.toolVerdictSettings.remember(
+      keyOf(beta),
+      false,
+      stamp: toolVerdictStamp(),
+    );
 
     kobold.markModelLoading('Loading beta.gguf...');
     kobold.noteAdminLoadedPair(modelPath: beta.path, kcppsPath: '');
