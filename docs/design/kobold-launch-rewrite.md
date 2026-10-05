@@ -1022,7 +1022,9 @@ fail), `kobold_slot_api_test` and `kobold_slot_keeper_engine_test` (the
 service against `test/helpers/fake_kobold_engine.dart`, a KoboldCpp
 stand-in on a loopback socket that copies its lock, its slots, its fast
 forward and its disconnect behaviour), `chat_slot_keeper_paths_test` (which
-requests name a chat, and one run of `ChatService` through the real service
+requests name a chat: send, Continue, regenerate, impersonate, a group
+speaker, a Scene Guest and a voice call do, the judges, the suggestions and
+the doorbell do not; and two runs of `ChatService` through the real service
 on the stand-in), `chat_stop_while_waiting_test` (the real Stop button on a
 reply that waits behind another request), `kobold_keeper_idle_test` (the idle
 clock counts from the end of a slow save), `kobold_wire_test` (the abort
@@ -1052,12 +1054,16 @@ it keeps is a table of saved caches by session id.
 | Regenerate | the judges re-run (helpers), then the reply loads the chat's slot (prompt and old reply) and reads only what differs | yes (live: 1 token) |
 | Swipe | navigation; past the last alternate it is a regenerate | n/a |
 | Delete, edit history | nothing is recorded per message; KoboldCpp compares the tokens and reads from the first one that changed | n/a |
+| Scene Guest turn | the guest's line is a reply like any other (`paramsOf`), named with the host's chat | yes (a test) |
+| Voice call message | the same send path in call mode: a reply naming the chat | yes (a test) |
 | Prompt paths (full, Continue partial, overflow, impersonate) | no prompt text changes; impersonate is a chat request | n/a |
 
 Twins checked: the judges, trust repair, one-shot and the post-reply fusion
-(all helpers through the same line); the doorbell's recipe cards, which reuse
-the mouth's parameters, against `generateWithTools`, which ignores `kvChat`
-(a test); `paramsOf` against impersonate (both set it; a test); 1:1 against
+(all helpers through the same line); the doorbell's recipe cards, whose round
+is built from the mouth's prompt but whose parameters are rebuilt for the side
+lane (`clerkSideLaneParams`) and carry no chat, and `generateWithTools`, which
+would ignore one anyway (a test on each side); `paramsOf` against impersonate,
+Scene Guest and the voice call (all name the chat; a test each); 1:1 against
 group (one session id each; a test); desktop against web (no setting, no
 screen; the words are built in Dart).
 

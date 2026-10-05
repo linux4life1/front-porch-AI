@@ -3,9 +3,15 @@
 // a reply and loads it before the next one: a judge, a needs check or a
 // suggestion that named the chat would be saved and loaded like a reply and
 // push the real ones out. The twins are walked together: send, Continue,
-// regenerate, a group speaker and impersonate are replies; the judges and
-// the passes after a reply, suggested actions and the doorbell are not.
+// regenerate, a group speaker, a Scene Guest, a voice call and impersonate
+// are replies; the judges and the passes after a reply, suggested actions
+// and the doorbell are not.
+//
+// Nothing here tells a reply from a helper by the shape of its request. The
+// one request that names the chat must be the one whose answer is on screen,
+// and the tests with the real service read it from the keeper's own saves.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -18,7 +24,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 import '../../helpers/chat_db_teardown.dart';
-import '../../helpers/kobold_engine_harness.dart';
+import '../../helpers/kobold_chat_harness.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -31,38 +37,49 @@ void _setupPathProviderMock() {
       });
 }
 
-typedef _Request = ({String kind, bool hasSystem, String? kvChat});
+/// One request as the chat service made it, and what the model answered.
+class _Request {
+  _Request(this.params, [this.tools = const []]);
 
-/// Answers like a model and writes down what each request said about itself.
+  final GenerationParams params;
+
+  /// The names of the tools offered, for a tool round.
+  final List<String> tools;
+  String answer = '';
+
+  String? get kvChat => params.kvChat;
+}
+
+/// Answers like a model and keeps every request whole. Each reply says which
+/// answer it is, so the one on screen leads back to the request behind it.
 class _Recorder extends LLMService {
   final List<_Request> requests = [];
+  int _replies = 0;
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
-    requests.add((
-      kind: 'stream',
-      hasSystem: params.systemPrompt != null,
-      kvChat: params.kvChat,
-    ));
-    if (params.systemPrompt != null) {
-      yield ' and stays on the rail.';
-      return;
-    }
+    final request = _Request(params);
+    requests.add(request);
     final p = params.prompt;
-    if (p.contains('relationship_delta')) {
-      yield '{"relationship_delta":0,"trust_delta":0,'
+    if (params.systemPrompt != null) {
+      request.answer = 'The rail holds, take ${++_replies}.';
+    } else if (p.contains('relationship_delta')) {
+      request.answer =
+          '{"relationship_delta":0,"trust_delta":0,'
           '"bond_reason":"steady","trust_reason":"steady"}';
     } else if (p.contains('hunger_delta')) {
-      yield '{"hunger_delta": 0, "bladder_delta": 0, "energy_delta": 0, '
+      request.answer =
+          '{"hunger_delta": 0, "bladder_delta": 0, "energy_delta": 0, '
           '"social_delta": 0, "fun_delta": 0, "hygiene_delta": 0, '
           '"comfort_delta": 0, "reason": "none"}';
     } else if (p.contains('emotion_intensity')) {
-      yield '{"emotion":"neutral","emotion_intensity":"mild"}';
+      request.answer = '{"emotion":"neutral","emotion_intensity":"mild"}';
     } else if (p.contains('Suggest 4 short actions')) {
-      yield '1. Smile\n2. Wave\n3. Nod\n4. Sit down';
+      request.answer = '1. Smile\n2. Wave\n3. Nod\n4. Sit down';
     } else {
-      yield '{}';
+      request.answer = '{}';
     }
+    yield request.answer;
   }
 
   @override
@@ -70,11 +87,7 @@ class _Recorder extends LLMService {
     GenerationParams params,
     List<Map<String, dynamic>> tools,
   ) async {
-    requests.add((
-      kind: 'tools',
-      hasSystem: params.systemPrompt != null,
-      kvChat: params.kvChat,
-    ));
+    requests.add(_Request(params, [for (final t in tools) _toolName(t)]));
     return const LlmToolResponse(calls: [], text: '');
   }
 
@@ -85,9 +98,43 @@ class _Recorder extends LLMService {
   String get backendName => 'Recorder';
 }
 
+CharacterCard _card(String name, String line) => CharacterCard(
+  name: name,
+  description: line,
+  firstMessage: 'Evening.',
+  imagePath: '/tmp/$name-kv-paths.png',
+  frontPorchExtensions: FrontPorchExtensions(
+    realismEnabled: true,
+    needsSimEnabled: true,
+  ),
+);
+
+String _toolName(Map<String, dynamic> tool) =>
+    ((tool['function'] ?? tool) as Map)['name'].toString();
+
+/// One recipe card on the shelf is enough to send the doorbell round before
+/// a reply: the catalog advertises it and the round goes out.
+void _putCardOnShelf(Directory shelf) {
+  shelf.createSync(recursive: true);
+  File('${shelf.path}/rail.json').writeAsStringSync(
+    jsonEncode({
+      'name': 'check_rail',
+      'description': 'Look up what the rail is doing.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'query': {'type': 'string'},
+        },
+        'required': ['query'],
+      },
+      'method': 'POST',
+      'url': 'https://example.invalid/rail',
+    }),
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  _setupPathProviderMock();
 
   late AppDatabase db;
   late StorageService storage;
@@ -108,6 +155,7 @@ void main() {
   }
 
   setUp(() async {
+    _setupPathProviderMock();
     HttpOverrides.global = null;
     SharedPreferences.setMockInitialValues({
       'update_auto_check': false,
@@ -133,34 +181,35 @@ void main() {
   tearDown(() => disposeChatThenCloseDb(chat, db));
 
   Future<void> openNia() async {
-    final nia = CharacterCard(
-      name: 'Nia',
-      description: 'Keeps the porch.',
-      firstMessage: 'Evening.',
-      imagePath: '/tmp/nia-kv-paths.png',
-      frontPorchExtensions: FrontPorchExtensions(
-        realismEnabled: true,
-        needsSimEnabled: true,
-      ),
-    );
+    final nia = _card('Nia', 'Keeps the porch.');
     await CharacterRepository(db, storage).addCharacter(nia);
     await chat.setActiveCharacter(nia);
     await drain();
     llm.requests.clear();
   }
 
-  Iterable<_Request> replies() => llm.requests.where((r) => r.hasSystem);
-  Iterable<_Request> helpers() => llm.requests.where((r) => !r.hasSystem);
+  /// The last thing a character said, as the chat shows it.
+  ChatMessage lastSaid() =>
+      chat.messages.lastWhere((m) => !m.isUser && !m.isStatusBanner);
 
-  void expectOneReplyNamingTheChat() {
+  /// One request names the chat, it names the chat that is open, and it is
+  /// the reply: its answer is the one on screen ([shown] when the reply does
+  /// not land in the chat, like impersonate's).
+  void expectOneReplyNamingTheChat({String? shown}) {
     final sid = chat.currentSessionId;
     expect(sid, isNotNull);
-    expect(replies(), hasLength(1));
-    expect(replies().single.kvChat, sid);
+    final named = llm.requests.where((r) => r.kvChat != null).toList();
     expect(
-      helpers().where((r) => r.kvChat != null),
-      isEmpty,
-      reason: 'a helper named the chat, so it would be saved like a reply',
+      named.map((r) => r.kvChat),
+      [sid],
+      reason:
+          'exactly one request names the chat, and this one: a helper that '
+          'named it would be saved like a reply',
+    );
+    expect(
+      shown ?? lastSaid().text,
+      contains(named.single.answer),
+      reason: 'the request that names the chat is not the reply on screen',
     );
   }
 
@@ -171,7 +220,11 @@ void main() {
     await drain();
 
     expectOneReplyNamingTheChat();
-    expect(helpers(), isNotEmpty, reason: 'the judges and passes ran');
+    expect(
+      llm.requests.length,
+      greaterThan(1),
+      reason: 'the judges and passes ran',
+    );
   });
 
   test('Continue: the continued reply names the chat', () async {
@@ -204,9 +257,46 @@ void main() {
     await drain();
     llm.requests.clear();
 
-    await chat.impersonateUser(onToken: (_) {});
+    var said = '';
+    await chat.impersonateUser(onToken: (text) => said = text);
     await drain();
 
+    expectOneReplyNamingTheChat(shown: said);
+  });
+
+  test('a Scene Guest\'s turn names the chat it speaks in', () async {
+    await openNia();
+    await chat.sendMessage('Hello there.');
+    await drain();
+    llm.requests.clear();
+
+    await chat.generateGuestTurn(_card('Rue', 'Drops by.'));
+    await drain();
+
+    expect(lastSaid().sender, 'Rue', reason: 'the guest spoke');
+    expectOneReplyNamingTheChat();
+  });
+
+  test('a voice call\'s message: the reply names the chat', () async {
+    await openNia();
+    chat.callMode = true;
+
+    await chat.sendMessage('Can you hear me?');
+    await drain();
+
+    expectOneReplyNamingTheChat();
+  });
+
+  test('a recipe card\'s doorbell round is a helper: only the reply names '
+      'the chat', () async {
+    _putCardOnShelf(storage.toolsDir);
+    await openNia();
+
+    await chat.sendMessage('Hello there.');
+    await drain();
+
+    final doorbell = llm.requests.where((r) => r.tools.contains('check_rail'));
+    expect(doorbell, hasLength(1), reason: 'the card was offered to the model');
     expectOneReplyNamingTheChat();
   });
 
@@ -274,76 +364,74 @@ void main() {
     },
   );
 
+  // The two tests below run the real service against an engine stand-in on a
+  // loopback socket, so what the keeper does shows in the order of the
+  // engine's own requests: a reply is a chat request that a save follows.
+
   test('through the real service: a reply, a helper, then the next reply loads '
       'the chat back and reads only what is new', () async {
-    // The service below talks to an engine stand-in on a loopback socket, so
-    // what the keeper does shows in the order of the engine's own requests.
-    final h = await KoboldEngineHarness.start();
-    addTearDown(h.dispose);
-    h.kobold.debugKeeperPlan = () async => const KoboldKeeperPlan.keep(3);
-    final realDb = AppDatabase.forTesting();
-    final real =
-        ChatService(
-            h.kobold,
-            UserPersonaService(realDb),
-            h.storage,
-            WorldRepository(h.storage, realDb),
-          )
-          ..setDatabase(realDb)
-          ..setCharacterRepository(CharacterRepository(realDb, h.storage));
-    addTearDown(() => disposeChatThenCloseDb(real, realDb));
-    final ada = CharacterCard(
-      name: 'Ada',
-      description: 'Keeps the porch.',
-      firstMessage: 'Evening.',
-      imagePath: '/tmp/ada-kv-paths.png',
-      frontPorchExtensions: FrontPorchExtensions(
-        realismEnabled: false,
-        needsSimEnabled: false,
-      ),
-    );
-    await CharacterRepository(realDb, h.storage).addCharacter(ada);
-    await real.setActiveCharacter(ada);
-    h.engine.forgetLog();
-    h.engine.live = [];
+    final h = await KoboldChatHarness.start();
 
-    Future<void> settle() async {
-      for (
-        var i = 0;
-        i < 400 && (real.isGenerating || real.isSettlingTurn);
-        i++
-      ) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-      await h.kobold.waitForIdle();
-    }
+    await h.chat.sendMessage('Good evening, Ada.');
+    await h.settle();
+    await h.chat.generateActions(); // a helper, asked for by a tap
+    await h.settle();
+    await h.chat.sendMessage('Did the rain stop?');
+    await h.settle();
 
-    await real.sendMessage('Good evening, Ada.');
-    await settle();
-    await real.generateActions(); // a helper, asked for by a tap
-    await settle();
-    await real.sendMessage('Did the rain stop?');
-    await settle();
-
-    final replies = h.engine
-        .of('chat')
-        .where((r) => r.prompt.first == '<system>')
-        .toList();
-    expect(replies, hasLength(2));
+    final log = h.engine.log;
+    final saved = [
+      for (var i = 0; i < log.length - 1; i++)
+        if (log[i].kind == 'chat' && log[i + 1].kind == 'save') log[i],
+    ];
     expect(
-      h.engine.kinds,
-      containsAllInOrder(['chat', 'save', 'chat', 'load', 'chat']),
+      saved,
+      hasLength(2),
+      reason:
+          'a save follows each of the two replies and nothing else: not the '
+          'clock passes, not the suggestions',
     );
-    final second = h.engine.log.indexOf(replies.last);
     expect(
-      h.engine.log[second - 1].kind,
+      log.where((r) => r.kind == 'chat'),
+      hasLength(greaterThan(2)),
+      reason: 'the helpers ran too',
+    );
+    final second = log.indexOf(saved.last);
+    expect(
+      log[second - 1].kind,
       'load',
-      reason: 'loaded just before the reply',
+      reason: 'the second reply came after helpers, so it was loaded for',
+    );
+    expect(log.where((r) => r.kind == 'load'), hasLength(1));
+    expect(
+      saved.last.processed,
+      lessThan(saved.last.promptTokens ~/ 2),
+      reason: 'the reply read only what the chat added since the last one',
+    );
+  });
+
+  test('through the real service, a recipe card\'s doorbell round is only a '
+      'helper: the reply after it loads its chat back, and is saved', () async {
+    final h = await KoboldChatHarness.start();
+    _putCardOnShelf(h.base.storage.toolsDir);
+    await h.chat.sendMessage('Good evening, Ada.');
+    await h.settle();
+    h.engine.forgetLog();
+
+    await h.chat.sendMessage('Did the rain stop?');
+    await h.settle();
+
+    expect(
+      h.engine.log.first.hadTools,
+      isTrue,
+      reason: 'the card was offered: the doorbell goes out before the reply',
     );
     expect(
-      replies.last.processed,
-      lessThan(replies.last.promptTokens ~/ 2),
-      reason: 'the reply read only what the chat added since the last one',
+      h.engine.kinds.take(4),
+      ['chat', 'load', 'chat', 'save'],
+      reason:
+          'the doorbell is not loaded for and not saved after; the reply '
+          'that follows brings its chat back, and is saved',
     );
   });
 }
