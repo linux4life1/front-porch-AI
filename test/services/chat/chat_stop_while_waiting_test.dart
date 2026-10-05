@@ -114,6 +114,55 @@ void main() {
     expect(h.chat.isGenerating, isFalse);
   });
 
+  test('after a Stop for a waiting reply the chat ends as it does after a '
+      'Stop before the first token', () async {
+    // What the chat shows: the message and the character's empty bubble, so
+    // Continue and regenerate still have a reply to work on.
+    List<(String, String)> tail(int from) => [
+      for (final m in h.chat.messages.skip(from))
+        (m.isUser ? 'user' : m.sender, m.text),
+    ];
+    final onTheWire = Completer<void>();
+    h.engine.beforeReply = (r) => r.promptText.contains('EARLIER')
+        ? hold.future
+        : r.promptText.contains('rain')
+        ? onTheWire.future
+        : Future<void>.value();
+    addTearDown(() {
+      if (!onTheWire.isCompleted) onTheWire.complete();
+    });
+
+    // The reply was sent and is stopped before it says anything.
+    var from = h.chat.messages.length;
+    final sentReply = h.chat.sendMessage('Did the rain stop?');
+    await _until(() => h.engine.arrived.any((r) => r.kind == 'chat'));
+    h.chat.stopGeneration();
+    await sentReply.timeout(const Duration(seconds: 5));
+    final afterTokenless = tail(from);
+    onTheWire.complete();
+    await h.settle();
+    h.engine.forgetLog();
+
+    // The reply waits behind a pass and is stopped there.
+    await startEarlierPass();
+    from = h.chat.messages.length;
+    final waitingReply = h.chat.sendMessage('Did the rain stop?');
+    await _until(() => h.kobold.debugRepliesWaiting == 1);
+    h.chat.stopGeneration();
+    await waitingReply.timeout(const Duration(seconds: 5));
+    final afterWaiting = tail(from);
+
+    expect(afterTokenless, [
+      ('user', 'Did the rain stop?'),
+      ('Ada', ''),
+    ], reason: 'the existing shape: the message, then an empty reply');
+    expect(
+      afterWaiting,
+      afterTokenless,
+      reason: 'giving up on a waiting reply left the chat in another shape',
+    );
+  });
+
   test('Stop while the chat is being loaded back: the reply is not sent, '
       'and not saved', () async {
     // Something else ran in between, so the reply has to load its chat.

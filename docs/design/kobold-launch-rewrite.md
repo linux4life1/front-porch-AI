@@ -1036,8 +1036,9 @@ forward and its disconnect behaviour), `chat_slot_keeper_paths_test` (which
 requests name a chat: send, Continue, regenerate, impersonate, a group
 speaker, a Scene Guest and a voice call do, the judges, the suggestions and
 the doorbell do not; and two runs of `ChatService` through the real service
-on the stand-in), `chat_stop_while_waiting_test` (the real Stop button on a
-reply that waits behind another request), `kobold_keeper_idle_test` (the idle
+on the stand-in), `chat_stop_while_waiting_test` (the real Stop button and a
+character switch on a reply that waits behind another request, and the chat
+they leave), `kobold_keeper_idle_test` (the idle
 clock counts from the end of a slow save), `kobold_wire_test` (the abort
 handle, over real sockets), `kobold_auto_keeper_test` (what auto mode writes
 and the way back), and `test/live/kobold_slot_keeper_live_test.dart`
