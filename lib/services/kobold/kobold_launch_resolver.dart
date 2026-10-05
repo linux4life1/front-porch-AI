@@ -180,8 +180,9 @@ Future<void> selectKoboldModel(StorageService storage, String modelPath) async {
 /// The model KoboldCpp was given becomes the app's one record of "which
 /// model": the status card, the vision lookup, the thinking settings, an
 /// automatic restart and the phone's "loaded" marker all read it. A launch
-/// records it; so does a live reload of chat, and choosing a preset that
-/// names its own model (as a launch does, that model is the one in use).
+/// records it, and so does a live reload of chat. So does choosing a preset
+/// that names its own model, which a launch would load: from then on every
+/// screen names that model.
 ///
 /// [launch] is what a launch resolved; left out, what one would load now.
 Future<void> recordKoboldModelInUse(

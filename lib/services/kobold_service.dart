@@ -460,9 +460,10 @@ class KoboldService extends ChangeNotifier
     int port = 5001,
   }) => _launch(executablePath, pickedModel: pickedModel, port: port);
 
-  // Class members so `import … show KoboldService` still resolves them.
   /// Starts the engine for [modelPath] (empty when [kcppsPath] owns the
-  /// model). The result says why nothing was started.
+  /// model). The result says why nothing was started. A class member, so
+  /// `import … show KoboldService` still resolves it and test doubles can
+  /// override it.
   Future<KoboldLaunchResult> startKobold(
     String executablePath,
     String modelPath, {

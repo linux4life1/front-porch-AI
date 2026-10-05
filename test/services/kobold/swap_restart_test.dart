@@ -47,6 +47,22 @@ class _Backend extends BackendManager {
   String? get backendPath => exe;
 }
 
+/// No engine installed. Asked to install one, it only counts the ask.
+class _NoEngine extends BackendManager {
+  _NoEngine(super.storage);
+
+  int installs = 0;
+
+  @override
+  String? get backendPath => null;
+
+  @override
+  Future<void> checkBackendAvailability() async {}
+
+  @override
+  Future<void> ensureEngineInstalled() async => installs++;
+}
+
 /// The app's KoboldCpp service with no process, which refuses every start.
 class _Refusing extends KoboldService {
   _Refusing(super.storage);
@@ -162,22 +178,10 @@ void main() {
       storage = StorageService();
       await storage.initialized;
       await storage.backendSettings.setBackendType('kobold');
-      File(
-        p.join(root.path, 'chat.gguf'),
-      ).writeAsBytesSync([...'GGUF'.codeUnits, 0, 0]);
-      await storage.backendSettings.setLastUsedModelPath(
-        p.join(root.path, 'chat.gguf'),
-      );
       laneModel = p.join(root.path, 'lane.gguf');
       File(laneModel).writeAsBytesSync([...'GGUF'.codeUnits, 0, 0]);
       // Nothing answers here: a wait for the engine would run to its limit.
       kobold = _Refusing(storage)..setBaseUrl('http://127.0.0.1:1');
-      provider = LLMProvider(
-        kobold,
-        OpenRouterService(apiUrl: '', apiKey: '', modelName: ''),
-        storage,
-        _Backend(storage, p.join(root.path, 'koboldcpp')),
-      );
     });
 
     tearDown(() {
@@ -185,30 +189,75 @@ void main() {
       root.deleteSync(recursive: true);
     });
 
+    LLMProvider providerWith(BackendManager backend) => provider = LLMProvider(
+      kobold,
+      OpenRouterService(apiUrl: '', apiKey: '', modelName: ''),
+      storage,
+      backend,
+    );
+
+    /// The refusal [swap] fails with, within a few seconds: the wait it
+    /// replaces is a minute at least.
+    Future<void> expectFailsAtOnce(Future<void> swap, String words) =>
+        expectLater(
+          swap.timeout(const Duration(seconds: 5)),
+          throwsA(
+            isA<KoboldSwapFailed>().having((e) => e.message, 'message', words),
+          ),
+        );
+
     test('fails the job at once, with the refusal\'s words', () async {
+      File(
+        p.join(root.path, 'chat.gguf'),
+      ).writeAsBytesSync([...'GGUF'.codeUnits, 0, 0]);
+      await storage.backendSettings.setLastUsedModelPath(
+        p.join(root.path, 'chat.gguf'),
+      );
+      providerWith(_Backend(storage, p.join(root.path, 'koboldcpp')));
       final lane = provider.laneHost(
         type: 'kobold',
         url: '',
         model: laneModel,
       )!;
 
-      await expectLater(
-        lane
-            .hold(
-              () async =>
-                  fail('the job must not run on a model that did not load'),
-            )
-            // The wait it replaces is a minute at least.
-            .timeout(const Duration(seconds: 5)),
-        throwsA(
-          isA<KoboldSwapFailed>().having(
-            (e) => e.message,
-            'message',
-            'The model file cannot be read.',
-          ),
+      await expectFailsAtOnce(
+        lane.hold(
+          () async => fail('the job must not run on a model that did not load'),
         ),
+        'The model file cannot be read.',
       );
       expect(kobold.starts, greaterThanOrEqualTo(1));
+    });
+
+    test('with no model chosen for chat, putting it back fails at once and '
+        'says to pick one', () async {
+      providerWith(_Backend(storage, p.join(root.path, 'koboldcpp')));
+      final lane = provider.laneHost(
+        type: 'kobold',
+        url: '',
+        model: laneModel,
+      )!;
+
+      await expectFailsAtOnce(lane.restore(), kKoboldNoModelWords);
+      expect(kobold.starts, 0, reason: 'there was nothing to start');
+    });
+
+    test('with no engine installed, it fails at once and has the install '
+        'started', () async {
+      final backend = _NoEngine(storage);
+      providerWith(backend);
+      final lane = provider.laneHost(
+        type: 'kobold',
+        url: '',
+        model: laneModel,
+      )!;
+
+      await expectFailsAtOnce(
+        lane.hold(() async => fail('the job must not run without an engine')),
+        'The AI engine is not installed yet.',
+      );
+      expect(backend.installs, greaterThanOrEqualTo(1));
+      expect(kobold.starts, 0);
     });
   });
 }
