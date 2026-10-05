@@ -26,6 +26,9 @@ extension BackendFacadeLocalModel on BackendFacade {
       preset = {
         'path': active,
         'name': kcppsPresetName(active),
+        // As the picker lists a preset in the engine folder: one picked
+        // from elsewhere on the desktop is in use but not in that list.
+        'line': kcppsShortLine(read),
         'words': switch (read) {
           KcppsOk(:final config) => kcppsPlainWords(
             config,

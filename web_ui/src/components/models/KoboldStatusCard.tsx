@@ -18,7 +18,7 @@ export type LocalModel = {
   modelName: string | null;
   running: boolean;
   phase: KoboldPhase;
-  preset: { path: string; name: string; words: string } | null;
+  preset: { path: string; name: string; words: string; line?: string } | null;
   auto: {
     lines: string[];
     context: number;
@@ -214,6 +214,15 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
           onChange={(e) => void setPreset(e.target.value || null)}
         >
           <option value="">The app's own settings (automatic)</option>
+          {/* A preset picked on the desktop can live outside the engine folder.
+              It is in use, so it is an option, or this would say "automatic"
+              beside a card that says otherwise. */}
+          {card.preset && !card.presets.some((p) => p.path === card.preset?.path) && (
+            <option value={card.preset.path}>
+              {card.preset.name}
+              {card.preset.line ? ` — ${card.preset.line}` : ''}
+            </option>
+          )}
           {card.presets.map((p) => (
             <option key={p.path} value={p.path}>
               {p.name} — {p.line}
