@@ -5,6 +5,13 @@
 // plain verdict on each context size, for real model headers on the
 // machines they were measured on: a 16 GB AMD card, the original author's
 // 6 GB GTX 1060 (about 5.1 GB and 11 GB free), and Apple Silicon.
+//
+// Changed 2026-10-05: auto mode now offers context up to the length the
+// model was made for, past 131,072 too (the maintainer's ruling; see
+// kobold_context_ceiling_test.dart). Qwen3.6 35B is made for 262,144, so
+// "the author's machine" is offered 262,144 as well, and on that 6 GB card
+// it is too big, like 131,072. Its expected verdicts gain that one entry;
+// the other five and the most that works well (65,536) are unchanged.
 
 import 'dart:convert';
 import 'dart:io';
@@ -181,6 +188,7 @@ void main() {
         32768: KoboldContextOutcome.likeNow,
         65536: KoboldContextOutcome.slower,
         131072: KoboldContextOutcome.tooBig,
+        262144: KoboldContextOutcome.tooBig,
       });
       expect(most, 65536);
     });

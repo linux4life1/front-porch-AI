@@ -3,6 +3,9 @@
 
 part of 'kcpps_editor_controller.dart';
 
+/// The least context the editor's slider offers.
+const int kKcppsContextMin = 2048;
+
 /// What the form adds up to on this machine: the load panel, the smart
 /// cache suggestion and the plain words.
 extension KcppsEditorFit on KcppsEditorController {
@@ -65,10 +68,14 @@ extension KcppsEditorFit on KcppsEditorController {
   /// Blocks plus the output layer: the most layers that go on a card.
   int get layerCount => (info?.nLayers ?? 0) + 1;
 
-  int get maxContext {
-    final made = (info?.contextLength ?? 131072).clamp(16384, 262144);
-    return made > draft.contextSize ? made : draft.contextSize;
-  }
+  /// The slider's top: what the model was made for ([koboldContextMost]),
+  /// or the size in use when that is more, and never below the slider's
+  /// bottom.
+  int get maxContext => [
+    koboldContextMost(info?.contextLength),
+    draft.contextSize,
+    kKcppsContextMin,
+  ].reduce((a, b) => a > b ? a : b);
 
   /// Graphics cards the preset spreads the model over.
   int get cards =>

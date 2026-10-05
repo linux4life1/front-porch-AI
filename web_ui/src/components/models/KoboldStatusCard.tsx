@@ -28,6 +28,9 @@ export type LocalModel = {
     choices: number[];
     largestGood: number | null;
     verdicts: Record<string, KoboldVerdict>;
+    /** The model was made for less chat than the app needs (additive;
+     *  null or absent when it was not). */
+    warning?: string | null;
   } | null;
   presets: { path: string; name: string; line: string }[];
   /** A model is chosen and its file could not be read (additive). */
@@ -151,6 +154,12 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
                 </li>
               ))}
             </ul>
+            {auto.warning && (
+              <div className="kc-verdict warn" data-testid="local-model-short-model">
+                <span className="kc-mark" aria-hidden="true" />
+                <p>{auto.warning}</p>
+              </div>
+            )}
             <div className="kc-context">
               <span className="kc-context-label" id="kc-ctx-l">
                 Context: how much chat history the character remembers

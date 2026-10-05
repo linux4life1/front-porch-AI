@@ -51,15 +51,24 @@ class KcppsChatLengthSection extends StatelessWidget {
                     ),
                     child: Slider(
                       key: const ValueKey('kcpps-context'),
-                      min: 2048,
+                      min: kKcppsContextMin.toDouble(),
                       max: max.toDouble(),
-                      divisions: (max - 2048) ~/ 2048,
-                      value: d.contextSize.clamp(2048, max).toDouble(),
+                      divisions: ((max - kKcppsContextMin) ~/ 2048).clamp(
+                        1,
+                        1 << 20,
+                      ),
+                      value: d.contextSize
+                          .clamp(kKcppsContextMin, max)
+                          .toDouble(),
                       semanticFormatterCallback: (v) =>
                           '${koboldTokens(v.round())} tokens',
                       onChanged: (v) => c.edit(
-                        (d) =>
-                            d.copyWith(contextSize: (v / 2048).round() * 2048),
+                        (d) => d.copyWith(
+                          contextSize: ((v / 2048).round() * 2048).clamp(
+                            kKcppsContextMin,
+                            max,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -84,6 +93,20 @@ class KcppsChatLengthSection extends StatelessWidget {
                 weight: low ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
+            if (koboldShortModelWarning(c.info?.contextLength)
+                case final short?) ...[
+              const SizedBox(height: 6),
+              Text(
+                short,
+                key: const ValueKey('kcpps-short-model'),
+                style: keText(
+                  context,
+                  size: 12,
+                  color: AppColors.porchHoneyOf(context),
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
         ),
         Column(

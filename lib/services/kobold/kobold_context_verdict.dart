@@ -55,19 +55,35 @@ class KoboldContextVerdict {
   final bool faster;
 }
 
+/// The most context to offer for a model made for [modelMax] tokens: its
+/// own length, whatever it is, above the usual sizes or below the floor.
+/// The largest usual size when the model does not say. The one ceiling for
+/// the Local model card (desktop and phone) and the preset editor.
+int koboldContextMost(int? modelMax) =>
+    modelMax != null && modelMax > 0 ? modelMax : kKoboldContextChoices.last;
+
 /// The choices to offer: the usual sizes up to what the model was made for
-/// (that length itself when it is not one of them), and the size in use.
+/// ([koboldContextMost], that length itself when it is not one of them),
+/// and the size in use, always.
 List<int> koboldContextChoices({required int current, int? modelMax}) {
-  final cap = modelMax != null && modelMax >= kKoboldContextFloor
-      ? modelMax
-      : null;
+  final most = koboldContextMost(modelMax);
   return {
     for (final c in kKoboldContextChoices)
-      if (cap == null || c <= cap) c,
-    if (cap != null && cap < kKoboldContextChoices.last) cap,
+      if (c <= most) c,
+    most,
     current,
   }.toList()..sort();
 }
+
+/// Said when a model was made for less chat than the app needs: null for
+/// one made for [kKoboldContextFloor] or more, or that does not say.
+String? koboldShortModelWarning(int? modelMax) =>
+    modelMax == null || modelMax <= 0 || modelMax >= kKoboldContextFloor
+    ? null
+    : 'This model was made for ${koboldTokens(modelMax)} tokens of chat. '
+          'Front Porch needs at least ${koboldTokens(kKoboldContextFloor)}, so '
+          'it may not work well here. A model made for longer chats is '
+          'recommended.';
 
 /// The verdict for each of [choices] against the context [fit] has now,
 /// and the largest that works well (never below the floor). Auto mode's

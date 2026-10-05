@@ -18,6 +18,7 @@ class KoboldStatusFacts {
     required this.choices,
     required this.verdicts,
     required this.largestGood,
+    this.warning,
   });
 
   /// The plain sentences: how it is set up, long chats, other chats.
@@ -25,6 +26,10 @@ class KoboldStatusFacts {
   final List<int> choices;
   final Map<int, KoboldContextVerdict> verdicts;
   final int? largestGood;
+
+  /// The model was made for less chat than the app needs
+  /// ([koboldShortModelWarning]); null when it was not.
+  final String? warning;
 
   /// For the app's own settings, the model at [model] read as [info] of
   /// [bytes], on this machine.
@@ -111,6 +116,7 @@ class KoboldStatusFacts {
       choices: choices,
       verdicts: {for (final v in verdicts.verdicts) v.contextSize: v},
       largestGood: verdicts.largestGood,
+      warning: koboldShortModelWarning(info.contextLength),
     );
   }
 
@@ -121,6 +127,8 @@ class KoboldStatusFacts {
     'context': current,
     'choices': choices,
     'largestGood': largestGood,
+    // Additive: null unless the model was made for too little chat.
+    'warning': warning,
     'verdicts': {
       for (final c in choices)
         if (verdicts[c] case final v?)

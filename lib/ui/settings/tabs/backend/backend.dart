@@ -5,6 +5,7 @@
 // Local model card and managed section, oMLX, remote APIs, OpenCode and the
 // side-job (worker) backend.
 export 'backend_mode_selector.dart';
+export 'kobold_card_note.dart';
 export 'kobold_status_card.dart';
 export 'managed_backend_section.dart';
 export 'omlx_section.dart';

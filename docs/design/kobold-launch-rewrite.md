@@ -801,7 +801,13 @@ As built (2026-10-04), to the sketch the maintainer approved:
   a verdict per size from a read-cost model (weights a token uses plus the
   whole chat memory; system memory counted six times the card; extra
   reading from the disk over a GB is "very slow"). Below 16,384 is always
-  "not recommended or supported", even for the size in use. The card, the
+  "not recommended or supported", even for the size in use. The sizes
+  offered go up to the length the model was made for, whatever it is
+  (2026-10-05, `koboldContextMost`, the same ceiling as the preset
+  editor's slider): past 131,072 for a model made for 262,144, and no
+  further than 8,192 for a model made for 8,192, which also gets a plain
+  warning (`koboldShortModelWarning`, `auto.warning` on the phone). The
+  size in use is always offered. The card, the
   phone's, and the editor's fit take the graphics backend from the one rule
   the launch uses (`koboldBackendFor`, honouring the switches in Settings),
   and the card assumes the batch the launch runs: the one chosen in
