@@ -1205,6 +1205,16 @@ each load of the model (`KoboldService.loadGeneration`).
   the keeper: no load before it and no save after it, because a load does not
   restore the engine's record of which pictures are in the cache. The next
   plain reply loads the chat as it was saved before the picture.
+- A deleted chat is let go at once. Every way of deleting one (a chat from the
+  app or the phone, a character with its chats, a group) ends in
+  `AppDatabase.deleteSessionById`, which tells `ChatService` (it follows the
+  database it is given, also after a swap), which tells the keeper. The table
+  drops the chat, so its slot is the first free one for the next chat and it
+  is not kept over a live one; a save that was already running when the chat
+  went does not bring it back. KoboldCpp cannot empty one slot (clearing is
+  all of them, which would lose the other chats), so the engine is not called:
+  what it holds there stays until that next save writes over it, and the
+  memory was counted for every slot full anyway.
 - A helper, and a coding session on the engine (`keepLoadedFor`), clear "the
   engine still holds the chat". The keeper waits out a coding session.
 - Every call runs in the swap lock and is skipped when the model changed
@@ -1255,7 +1265,10 @@ speaker, a Scene Guest and a voice call do, the judges, the suggestions and
 the doorbell do not; and two runs of `ChatService` through the real service
 on the stand-in), `chat_stop_while_waiting_test` (the real Stop button and a
 character switch on a reply that waits behind another request, and the chat
-they leave), `kobold_keeper_idle_test` (the idle
+they leave), `chat_deleted_chat_slot_test` (a chat, a character's chats and a
+group deleted for real, and the phone's delete; the slot is let go and taken
+by the next chat) and `kobold_slot_keeper_forget_test` (a delete while the
+chat's save is running), `kobold_keeper_idle_test` (the idle
 clock counts from the end of a slow save), `kobold_wire_test` (the abort
 handle, over real sockets), `kobold_auto_keeper_test` (what auto mode writes
 and the way back), and `test/live/kobold_slot_keeper_live_test.dart`
@@ -1283,6 +1296,7 @@ it keeps is a table of saved caches by session id.
 | Regenerate | the judges re-run (helpers), then the reply loads the chat's slot (prompt and old reply) and reads only what differs | yes (live: 1 token) |
 | Swipe | navigation; past the last alternate it is a regenerate | n/a |
 | Delete, edit history | nothing is recorded per message; KoboldCpp compares the tokens and reads from the first one that changed | n/a |
+| Delete a chat (app or phone), a character with its chats, a group | the keeper lets go of each chat's saved cache; its slot is the next one used | yes (a test each) |
 | Scene Guest turn | the guest's line is a reply like any other (`paramsOf`), named with the host's chat | yes (a test) |
 | Voice call message | the same send path in call mode: a reply naming the chat | yes (a test) |
 | Prompt paths (full, Continue partial, overflow, impersonate) | no prompt text changes; impersonate is a chat request | n/a |
@@ -1423,9 +1437,6 @@ real chat with Realism on, koboldcpp-mac-arm64-1.117.1
 
 - The editor's MMQ timing runs after a swap that already empties the slots,
   so it needs no `keepLoadedFor`.
-- A deleted chat keeps its slot until another chat takes it or the engine
-  restarts (the keeper has a `forget`, nothing calls it from
-  `deleteSession`).
 - A helper model that swaps in on the same engine before every reply empties
   the slots each time; a hint from the provider could put the keeper to
   sleep then.

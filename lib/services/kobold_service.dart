@@ -332,6 +332,9 @@ class KoboldService extends ChangeNotifier
   @override
   bool dropStoppedReplies() => _dropStoppedReplies();
 
+  /// A chat was deleted: the keeper lets go of its saved cache.
+  void forgetChat(String chat) => _forgetChat(chat);
+
   /// POST /api/extra/abort — KoboldCPP blocks until the active generation
   /// is fully stopped, then returns HTTP 200. Call this (and await it) before
   /// starting any new generation to guarantee the server is idle.

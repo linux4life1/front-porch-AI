@@ -61,6 +61,10 @@ class KoboldSlotKeeper {
   int _chats = 0;
   final Map<String, _Saved> _saved = {};
 
+  /// Chats that were deleted. A save that was already running when one went
+  /// must not bring it back into the table.
+  final Set<String> _gone = {};
+
   /// The chat whose cache the engine holds right now, or null when anything
   /// else may have changed it.
   String? _live;
@@ -129,6 +133,7 @@ class KoboldSlotKeeper {
         }
         return;
       }
+      if (_gone.contains(key)) return;
       _saved[key] = _Saved(slot, saved.tokens, ++_clock);
       _live = key;
     });
@@ -146,8 +151,14 @@ class KoboldSlotKeeper {
     _live = null;
   }
 
-  /// The chat is gone; its slot may be used for another.
-  void forget(String key) => _saved.remove(key);
+  /// The chat was deleted: its slot is the first free one for the next chat.
+  /// KoboldCpp cannot empty one slot (clearing is all of them, which would
+  /// lose the other chats), so what the engine holds there stays until that
+  /// next save writes over it.
+  void forget(String key) {
+    _saved.remove(key);
+    _gone.add(key);
+  }
 
   /// The first thing every call does: a new load empties the table, and the
   /// engine is looked at once before anything is saved. True when saved
@@ -159,6 +170,7 @@ class KoboldSlotKeeper {
       if (plan.undecided || generation != _loadGeneration()) return false;
       _generation = generation;
       _saved.clear();
+      _gone.clear();
       _live = null;
       if (plan.keeps) {
         _mode = _Mode.unprobed;

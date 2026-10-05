@@ -60,6 +60,8 @@ extension ChatServiceAccessors on ChatService {
   void updateDatabase(AppDatabase db) {
     _db = db;
     _memoryService?.updateDatabase(db);
+    unawaited(_deletedChats?.cancel());
+    _deletedChats = db.deletedSessions.listen(_koboldService.forgetChat);
   }
 
   /// Set the database instance after construction. Alias of [updateDatabase]
@@ -453,6 +455,7 @@ extension ChatServiceAccessors on ChatService {
     _llmProvider?.removeListener(_onBackendIdentity);
     _toolProbe.removeListener(notifyListeners);
     _toolSupportTester.dispose();
+    unawaited(_deletedChats?.cancel());
   }
 
   /// Everything the [ChatService] constructor does. Called as the

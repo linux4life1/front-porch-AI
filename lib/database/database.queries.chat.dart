@@ -239,6 +239,7 @@ extension AppDatabaseChatQueries on AppDatabase {
     await (delete(chatBiomeSpans)..where((c) => c.chatId.equals(id))).go();
     final count = await (delete(sessions)..where((s) => s.id.equals(id))).go();
     await bumpSyncVersion();
+    _deletedSessions.add(id);
     return count;
   }
 

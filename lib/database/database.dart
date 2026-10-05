@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -81,6 +82,15 @@ const _uuid = Uuid();
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase._internal(super.e);
+
+  final StreamController<String> _deletedSessions =
+      StreamController<String>.broadcast(sync: true);
+
+  /// The id of each chat [deleteSessionById] has removed, which every way of
+  /// deleting a chat ends in (one chat, a character's, a group's). What lives
+  /// outside the database for a chat, like KoboldCpp's saved cache of it,
+  /// goes when the chat does.
+  Stream<String> get deletedSessions => _deletedSessions.stream;
 
   static AppDatabase? _instance;
   static String? _dbPath;

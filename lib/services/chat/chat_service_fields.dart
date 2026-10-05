@@ -22,6 +22,10 @@ part of '../chat_service.dart';
 /// Extensions in this library can still read them; a Dart extension cannot
 /// *declare* instance state, so this mixin is the legal home.
 mixin ChatServiceFieldBag {
+  /// The database's word of every chat it deletes, for KoboldCpp's saved
+  /// cache of it. Moves with the database, so it is re-made on a swap.
+  StreamSubscription<String>? _deletedChats;
+
   /// The chat model's key in the eval identity, read from its file once per
   /// model and per engine load.
   final _modelKeys = LocalModelKeys();
