@@ -147,6 +147,17 @@ class _KcppsFitPanelState extends State<KcppsFitPanel> {
   }
 
   List<Widget> _body(BuildContext context, KoboldFitView? view) {
+    // What the user can act on comes first, on any machine.
+    if (c.modelUnreadable) {
+      return [
+        _note(
+          context,
+          'The model file could not be read, so there is nothing to show '
+          'here yet. Is it still in its folder? You can choose another '
+          'model above.',
+        ),
+      ];
+    }
     if (!c.hasCard) {
       return [
         _note(
@@ -162,7 +173,9 @@ class _KcppsFitPanelState extends State<KcppsFitPanel> {
           context,
           c.draft.modelPath.isEmpty
               ? 'Choose a model to see how it loads.'
-              : 'Reading the model file…',
+              : c.modelReading
+              ? 'Reading the model file…'
+              : 'Still finding out what this computer can do…',
         ),
       ];
     }
