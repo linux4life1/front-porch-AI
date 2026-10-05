@@ -7,6 +7,7 @@ import { isLmStudioUrl, urlHasStoredApiKey } from '../remoteApiKeys';
 import { ModelPicker } from './ModelPicker';
 import { type LocalModelFile } from './models/types';
 import { INTEL_MAC_LOCAL_UNSUPPORTED } from '../backendOptions';
+import { useLocalUnsupported } from '../hooks/useLocalUnsupported';
 import {
   kWorkerDualLocalMessage,
   workerBackendIsOff,
@@ -126,25 +127,8 @@ export function WorkerBackendCard({
 
   // An Intel Mac host cannot run KoboldCpp: greyed out, as the desktop's
   // Realism evals host bar does, with its sentence. Asked while the host
-  // picker shows, and every answer is followed: the host is only sure once
-  // it knows its processor. An older app does not say, and nothing changes.
-  const [localUnsupported, setLocalUnsupported] = useState(false);
-  useEffect(() => {
-    if (!different) return;
-    let open = true;
-    const ask = () =>
-      api.get<{ localUnsupported?: boolean }>('/api/backend/status')
-        .then((r) => {
-          if (open) setLocalUnsupported(r?.localUnsupported === true);
-        })
-        .catch(() => {});
-    void ask();
-    const t = setInterval(() => void ask(), 5000);
-    return () => {
-      open = false;
-      clearInterval(t);
-    };
-  }, [different]);
+  // picker shows.
+  const localUnsupported = useLocalUnsupported(different);
 
   const onHostChange = (nextId: string) => {
     const opt = HOSTS.find((o) => o.id === nextId);
