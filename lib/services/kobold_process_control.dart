@@ -92,8 +92,8 @@ Future<void> killOrphanedKoboldProcesses(
 /// it inherits ours and `kill(-pid)` would take the app down with it. The
 /// ladder instead is: children by parent PID, then the parent, then — only if
 /// it is still alive after 3 seconds — SIGKILL for both, and finally a sweep
-/// by executable name for anything that reparented to init when its parent
-/// died. That last step is what catches KoboldCpp's own worker processes,
+/// of anything started from the same executable that reparented to init when
+/// its parent died. That last step is what catches KoboldCpp's own worker processes,
 /// which outlive their parent and keep the GPU and the port.
 ///
 /// Windows has no process groups to fight, so `taskkill /T` does the whole
@@ -159,7 +159,7 @@ Future<void> terminateKoboldTree(
   } catch (_) {}
 }
 
-/// Final safety net: kill anything still matching the executable's own name.
+/// Final safety net: kill anything still started from the executable.
 /// Catches deeply nested children and processes that reparented to init (PID
 /// 1) after their parent was killed. Reached from both the normal path and
 /// the failure path, which is why it is a function rather than two copies.
