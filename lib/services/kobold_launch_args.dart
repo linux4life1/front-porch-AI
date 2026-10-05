@@ -212,7 +212,9 @@ Future<Map<String, dynamic>> koboldLaunchMap({
   }
 
   final b = storage.backendSettings;
-  final gpu = await _backendFor(
+  // The machine is what the backend was worked out from, which may be a card
+  // the launch had to wait for: MMQ and the tuning below are for that one.
+  final (:gpu, :machine) = await _backendFor(
     useVulkan: useVulkan,
     useCublas: useCublas,
     useMetal: useMetal,
@@ -224,11 +226,11 @@ Future<Map<String, dynamic>> koboldLaunchMap({
   // MMQ only does anything with CUDA and the ROCm build. A launch without it
   // ends the trial an earlier one began, so its replies are not counted.
   final bool? mmq;
-  if (hardware == null || gpu.backend != KoboldGpuBackend.cuda) {
+  if (machine == null || gpu.backend != KoboldGpuBackend.cuda) {
     b.pauseMmqLearning();
     mmq = null;
   } else {
-    mmq = b.mmqForLaunch(hardware.gpuName, engineVersion);
+    mmq = b.mmqForLaunch(machine.gpuName, engineVersion);
   }
   final info = await _modelInfo(modelPath);
   final note = koboldFlashAttentionNote(
@@ -265,7 +267,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       config,
       info: info,
       gpu: gpu,
-      hardware: hardware,
+      hardware: machine,
       free: free,
       batchAutomatic: b.batchAutomatic,
       mmq: mmq,
@@ -319,10 +321,12 @@ Future<KoboldLaunchConfig> _tunedForMachine(
 }
 
 /// The backend this launch runs, by the rule every caller shares
-/// ([koboldBackendFor]). A switch the caller passes as on counts as chosen;
-/// one passed as off is as Settings has it, which is what tells "never
-/// chosen" from "chosen off" (the callers collapse both to false).
-Future<KoboldBackendChoice> _backendFor({
+/// ([koboldBackendFor]), and the machine it was worked out from: [hardware],
+/// or the detection the launch waited for when only the automatic choice
+/// needs it. A switch the caller passes as on counts as chosen; one passed
+/// as off is as Settings has it, which is what tells "never chosen" from
+/// "chosen off" (the callers collapse both to false).
+Future<({KoboldBackendChoice gpu, HardwareInfo? machine})> _backendFor({
   required bool useVulkan,
   required bool useCublas,
   required bool useMetal,
@@ -345,14 +349,16 @@ Future<KoboldBackendChoice> _backendFor({
     userRocm: rocm,
     userMetal: metal,
   );
-  return koboldBackendFor(
-    hardware: hardware ?? (automatic ? await awaitHardware?.call() : null),
+  final machine = hardware ?? (automatic ? await awaitHardware?.call() : null);
+  final gpu = koboldBackendFor(
+    hardware: machine,
     cublas: cublas,
     vulkan: vulkan,
     rocm: rocm,
     metal: metal,
     gpuId: b.gpuId,
   );
+  return (gpu: gpu, machine: machine);
 }
 
 /// Model headers read for staging, with the size and time of the file each
