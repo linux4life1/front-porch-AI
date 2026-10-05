@@ -156,7 +156,11 @@ class GGUFFileReader {
         } else {
           final elemSize = _scalarSize(arrType);
           if (elemSize == 0) break;
-          if (offset + arrLen * elemSize > bytes.length) break;
+          // By division: a huge count times its width wraps around, and can
+          // read back as a small step backwards that never ends the loop.
+          if (arrLen < 0 || arrLen > (bytes.length - offset) ~/ elemSize) {
+            break;
+          }
           if (arrLen <= _keptArrayLength) {
             final values = <dynamic>[];
             for (var j = 0; j < arrLen; j++) {
