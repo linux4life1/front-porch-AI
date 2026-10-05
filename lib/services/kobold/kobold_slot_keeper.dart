@@ -20,22 +20,28 @@ import 'kobold_slot_api.dart';
 /// unload and a load back wait for it.
 typedef KoboldUnderSwapLock = Future<T> Function<T>(Future<T> Function() work);
 
-/// A chat whose save takes longer than this is no longer kept. Measured on
-/// an Apple Silicon Mac with KoboldCpp 1.117.1 and 1.122.1, a save held the
-/// line about 0.2 s for a 0.5B model and 0.2 to 0.4 s for an 8B one, up to
-/// 13,448 tokens of chat (2 GB of cache), and 0.7 s with the Mac busy with
-/// other work. Over four times that is not a big chat being copied but a
-/// machine that cannot copy it in time, and a wait that long after every
-/// reply holds back the next request (the next speaker in a group).
-const Duration kKoboldSlowSave = Duration(seconds: 3);
+/// How long the engine would take to read [tokens] of chat from scratch,
+/// measured on the model loaded now; null before it is known.
+typedef KoboldReadTime = Duration? Function(int tokens);
 
 enum _Mode { undecided, off, unprobed, on, aside }
 
 class _Saved {
   _Saved(this.slot, this.tokens, this.used);
   final int slot;
-  final int tokens;
+  int tokens;
   int used;
+
+  /// How long its last load back took, once it has been loaded.
+  Duration? load;
+}
+
+/// A chat that cost more to keep than to read again. A chat grows, and
+/// reading it again with it, so a save is tried again after [wait] more of
+/// its replies; [wait] doubles each time it still does not pay.
+class _LetGo {
+  int replies = 0;
+  int wait = 2;
 }
 
 class KoboldSlotKeeper {
@@ -46,18 +52,21 @@ class KoboldSlotKeeper {
     required KoboldUnderSwapLock underSwapLock,
     required void Function(String words) log,
     void Function(String why)? onFailure,
+    KoboldReadTime? readTime,
   }) : _api = api,
        _loadGeneration = loadGeneration,
        _plan = plan,
        _underSwapLock = underSwapLock,
        _log = log,
-       _onFailure = onFailure;
+       _onFailure = onFailure,
+       _readTime = readTime;
 
   final KoboldSlotApi _api;
   final int Function() _loadGeneration;
   final Future<KoboldKeeperPlan> Function() _plan;
   final KoboldUnderSwapLock _underSwapLock;
   final void Function(String) _log;
+  final KoboldReadTime? _readTime;
 
   /// Told when the engine could not do what the keeper asked, so a start
   /// can remember it. Not told when the keeper chooses to stay out.
@@ -70,10 +79,16 @@ class KoboldSlotKeeper {
   int _chats = 0;
   final Map<String, _Saved> _saved = {};
 
-  /// Chats not kept for the rest of this load: deleted ones, and ones whose
-  /// save took too long. A save that was already running when one went must
-  /// not bring it back into the table.
-  final Set<String> _notKept = {};
+  /// Deleted chats: never saved again on this load. A save that was already
+  /// running when one went must not bring it back into the table.
+  final Set<String> _deleted = {};
+
+  /// Chats that cost more to keep than to read again (see [_LetGo]).
+  final Map<String, _LetGo> _letGo = {};
+
+  /// Slots written on this load. The first save into a slot also makes its
+  /// buffer, so that save says nothing about what keeping the chat costs.
+  final Set<int> _written = {};
 
   /// The chat whose cache the engine holds right now, or null when anything
   /// else may have changed it.
@@ -96,7 +111,11 @@ class KoboldSlotKeeper {
     final saved = _saved[key];
     if (saved == null) return;
     final generation = _generation!;
-    final loaded = await _call(generation, () => _api.load(saved.slot));
+    final took = Stopwatch();
+    final loaded = await _call(generation, () {
+      took.start();
+      return _api.load(saved.slot);
+    });
     if (loaded == null) return;
     if (!loaded.ok) {
       // The slot is empty: whatever was there is gone. Only this chat.
@@ -110,7 +129,9 @@ class KoboldSlotKeeper {
         failure: true,
       );
     }
-    saved.used = ++_clock;
+    saved
+      ..used = ++_clock
+      ..load = took.elapsed;
     _live = key;
   });
 
@@ -126,9 +147,12 @@ class KoboldSlotKeeper {
     if (!ok) return Future<void>.value();
     return _guarded(() async {
       if (!await _ready()) return;
-      // Deleted while its reply was written, or too slow to save: no slot,
-      // so no live chat is pushed out for it.
-      if (_notKept.contains(key)) return;
+      // Deleted while its reply was written: no slot, so no live chat is
+      // pushed out for it.
+      if (_deleted.contains(key)) return;
+      // Let go: tried again only once it has had time to grow.
+      final letGo = _letGo[key];
+      if (letGo != null && ++letGo.replies < letGo.wait) return;
       final generation = _generation!;
       final slot = _slotFor(key);
       if (slot == null) return;
@@ -159,25 +183,46 @@ class KoboldSlotKeeper {
         }
         return;
       }
-      if (_notKept.contains(key)) return;
-      if (took.elapsed > kKoboldSlowSave) return _tooSlow(key, took.elapsed);
-      _saved[key] = _Saved(slot, saved.tokens, ++_clock);
+      final newSlot = _written.add(slot);
+      if (_deleted.contains(key)) return;
+      final entry = _saved[key];
+      // What keeping costs: this save, which holds the line after each
+      // reply, and the load before the next one (as long as the save until
+      // one is measured). What it spares: reading the chat again.
+      final cost = took.elapsed + (entry?.load ?? took.elapsed);
+      final reread = newSlot ? null : _readTime?.call(saved.tokens);
+      if (reread != null && cost >= reread) {
+        return _letGoOf(key, cost, reread);
+      }
+      _letGo.remove(key);
+      (_saved[key] ??= _Saved(slot, saved.tokens, 0))
+        ..tokens = saved.tokens
+        ..used = ++_clock;
       _live = key;
     });
   }
 
-  /// [key]'s save took longer than [kKoboldSlowSave]: the chat is not kept
-  /// for the rest of this load, so its replies are neither held up by a load
-  /// nor followed by a save. The other chats still are, but for the oldest
-  /// one when every slot was in use: this save wrote over its cache. The
-  /// engine did what it was asked, so this is not a failure to remember.
-  void _tooSlow(String key, Duration took) {
+  /// Keeping [key] costs more than reading it again: it is not kept, so its
+  /// replies are neither held up by a load nor followed by a save, and it is
+  /// tried again as it grows ([_LetGo]). The other chats still are, but for
+  /// the oldest one when every slot was in use: this save wrote over its
+  /// cache. Said once in the engine log; not a failure to remember.
+  void _letGoOf(String key, Duration cost, Duration reread) {
     _saved.remove(key);
-    _notKept.add(key);
-    final seconds = (took.inMilliseconds / 1000).toStringAsFixed(1);
+    final again = _letGo[key];
+    if (again != null) {
+      again
+        ..replies = 0
+        ..wait *= 2;
+      return;
+    }
+    _letGo[key] = _LetGo();
+    String s(Duration d) =>
+        (d.inMilliseconds / 1000).toStringAsFixed(d.inSeconds < 1 ? 2 : 1);
     _log(
-      'Saving a chat took $seconds seconds, too long to do after every reply, '
-      'so that chat is no longer kept ready until the model is loaded again.',
+      'A chat is not kept ready: saving it and loading it back takes about '
+      '${s(cost)} s, more than the ${s(reread)} s KoboldCpp needs to read it '
+      'again. It is tried again as it grows.',
     );
   }
 
@@ -199,7 +244,8 @@ class KoboldSlotKeeper {
   /// next save writes over it.
   void forget(String key) {
     _saved.remove(key);
-    _notKept.add(key);
+    _letGo.remove(key);
+    _deleted.add(key);
     if (_live == key) _live = null;
   }
 
@@ -213,7 +259,9 @@ class KoboldSlotKeeper {
       if (plan.undecided || generation != _loadGeneration()) return false;
       _generation = generation;
       _saved.clear();
-      _notKept.clear();
+      _deleted.clear();
+      _letGo.clear();
+      _written.clear();
       _live = null;
       if (plan.keeps) {
         _mode = _Mode.unprobed;

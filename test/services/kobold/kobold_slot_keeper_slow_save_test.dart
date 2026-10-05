@@ -1,7 +1,9 @@
-// A chat whose save takes too long is no longer kept: its replies are not
-// followed by a save that holds every other request back, nor preceded by a
-// load. The engine did what it was asked, so it is not a failure of the
-// keeper: nothing is remembered, and the other chats are still kept.
+// A chat that costs more to keep than to read again is not kept: its replies
+// are not followed by a save that holds every other request back, nor
+// preceded by a load. What decides is the speed the engine itself says it
+// reads at, through the real service. Not a failure of the keeper: nothing is
+// remembered, and the other chats are still kept. A save that never answers
+// lets every chat go for the load, also without being remembered.
 
 import 'dart:async';
 import 'dart:io';
@@ -48,34 +50,36 @@ void main() {
   bool remembered() =>
       h.storage.backendSettings.keeperFailedFor('1.117.1', 'Qwen3-14B.gguf');
 
-  test('a chat whose save takes too long is let go: its next reply loads '
-      'nothing and is not saved, another chat is still kept, and nothing is '
-      'remembered', () async {
-    var slow = true;
-    h.engine.beforeAdmin = (r) => r.kind == 'save' && slow
-        ? Future<void>.delayed(
-            kKoboldSlowSave + const Duration(milliseconds: 500),
-          )
+  test('the engine\'s own speed decides: the same slow saves let a short chat '
+      'go and keep a long one, and nothing is remembered', () async {
+    // What KoboldCpp prints after a request: 2,000 tokens read in 2 s.
+    h.kobold.debugEngineSaid(
+      'Processed:2000 in 2.00s (1000.00T/s), '
+      'Generated:16/16 in 0.50s (32.00T/s)\n',
+    );
+    h.engine.beforeAdmin = (r) => r.kind == 'save'
+        ? Future<void>.delayed(const Duration(milliseconds: 400))
         : Future<void>.value();
+    final long = [for (var i = 0; i < 5000; i++) 'w$i'].join(' ');
 
-    await run(_reply('A', 'a long chat so far'));
-    slow = false;
+    // The first saves only make the slots; the second ones decide.
+    for (var turn = 0; turn < 2; turn++) {
+      await run(_reply('short', 'a short chat, turn $turn'));
+      await run(_reply('long', '$long turn $turn'));
+      await run(const GenerationParams(prompt: 'a judge', maxLength: 8));
+    }
 
-    expect(h.kobold.debugKeeper.kept, 0, reason: 'the slow chat is kept');
+    expect(h.kobold.debugKeeper.kept, 1);
     expect(
-      h.kobold.logs.where((l) => l.contains('too long to do after every')),
+      h.kobold.logs.where((l) => l.contains('to read it again')),
       hasLength(1),
       reason: 'the log says why, once',
     );
-
-    // A helper, then the same chat again: no load before, no save after.
-    await run(const GenerationParams(prompt: 'a judge', maxLength: 8));
+    // The long chat loads back and is saved; the short one is neither.
     h.engine.forgetLog();
-    await run(_reply('A', 'a long chat so far and one line more'));
-    expect(h.engine.kinds, ['chat']);
-
-    await run(_reply('B', 'a short chat'));
-    expect(h.kobold.debugKeeper.kept, 1, reason: 'a chat quick to save');
+    await run(_reply('long', '$long turn 2'));
+    await run(_reply('short', 'a short chat, turn 2'));
+    expect(h.engine.kinds, ['load', 'chat', 'save', 'chat']);
 
     await Future<void>.delayed(const Duration(milliseconds: 100));
     expect(remembered(), isFalse);

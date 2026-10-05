@@ -268,7 +268,11 @@ void main() {
   Future<_Run> script(_Rig rig, {required int turns}) async {
     final kobold = rig.kobold;
     final r = Random(7);
-    final rules = _text(r, 1100);
+    // Long enough that keeping the chat clearly pays on a small model on an
+    // idle machine too: the 0.5B model reads about 13,000 tokens a second
+    // there, so a chat of 5,000 is read again as fast as it is saved and
+    // loaded back, and the keeper rightly lets it go. About 11,000 here.
+    final rules = _text(r, 10000);
     final run = _Run()
       ..staged = stagedChat(rig)
       ..log = '';
@@ -522,7 +526,9 @@ void main() {
         return tokens;
       }
 
-      var history = '';
+      // Long from its first save that decides (the first only makes the
+      // slot): a short chat on a small model is rightly let go.
+      var history = _text(r, 7000);
       for (var tokens = 0; tokens < 13000 && rows.length < 10;) {
         history = '$history\n${_text(r, 1300)}';
         tokens = await step('long', history, 0);
@@ -538,7 +544,7 @@ void main() {
       final kept = kobold.debugKeeper.kept;
       final tooSlow = [
         for (final l in kobold.logs)
-          if (l.contains('too long to do after every reply')) l.trim(),
+          if (l.contains('to read it again')) l.trim(),
       ];
       final said = engineSaid(kobold);
       await stopRig(rig);
@@ -553,8 +559,8 @@ void main() {
         tooSlow,
         isEmpty,
         reason:
-            'a real long chat took longer to save than the '
-            '${kKoboldSlowSave.inSeconds} s the keeper allows',
+            'a long chat was let go: keeping it cost more than reading it '
+            'again here',
       );
       expect(kept, 2, reason: 'both chats are kept');
     },
@@ -612,7 +618,8 @@ void main() {
       addTearDown(() => disposeChatThenCloseDb(chat, db));
       final ada = CharacterCard(
         name: 'Ada',
-        description: 'Keeps the porch. ' * 60,
+        // A long card: a short chat on a small model is rightly let go.
+        description: 'Keeps the porch. ' * 2600,
         firstMessage: 'Evening.',
         imagePath: '/tmp/ada-keeper-live.png',
         frontPorchExtensions: FrontPorchExtensions(

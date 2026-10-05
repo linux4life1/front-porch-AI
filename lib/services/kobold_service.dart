@@ -151,6 +151,7 @@ class KoboldService extends ChangeNotifier
   /// Feed a console chunk to [liveProgress]; notify at most every 150ms
   /// (Generating lines arrive once per token).
   void _ingestLiveProgress(String data) {
+    _requests.readSpeed.note(data, _loadGeneration);
     if (!liveProgress.ingest(data)) return;
     final now = DateTime.now();
     if (now.difference(_lastLiveNotify).inMilliseconds >= 150) {

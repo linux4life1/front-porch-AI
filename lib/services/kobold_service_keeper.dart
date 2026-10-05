@@ -16,6 +16,8 @@ extension KoboldServiceKeeper on KoboldService {
     underSwapLock: adminSwapLock.enqueue,
     log: _addLog,
     onFailure: _keeperFailed,
+    readTime: (tokens) =>
+        _requests.readSpeed.timeToRead(tokens, _loadGeneration),
   );
 
   /// A deleted chat's saved cache is let go. Not a request to the engine, so
@@ -150,4 +152,8 @@ extension KoboldServiceKeeper on KoboldService {
   /// Test hook: the keeper, to read what it holds.
   @visibleForTesting
   KoboldSlotKeeper get debugKeeper => _keeper;
+
+  /// Test hook: [output] as if the engine had printed it.
+  @visibleForTesting
+  void debugEngineSaid(String output) => _ingestLiveProgress(output);
 }
