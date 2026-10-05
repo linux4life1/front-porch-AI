@@ -237,18 +237,10 @@ extension _SettingsLaunchControls on _SettingsPageState {
       return;
     }
 
-    final gpuLayers = int.tryParse(_gpuLayersController.text) ?? 0;
-    final contextSize = int.tryParse(_contextSizeController.text) ?? 16384;
-
-    storage.backendSettings.setGpuLayers(gpuLayers);
-    storage.backendSettings.setContextSize(contextSize);
-    storage.backendSettings.setUseCublas(_useCublas);
-    storage.backendSettings.setUseVulkan(_useVulkan);
-    storage.backendSettings.setUseMetal(_useMetal);
-    storage.backendSettings.setUseRocm(_useRocm);
-
-    // Saved above first: the launch reads its settings from storage, and
-    // records the model it resolves as the one in use.
+    // Nothing is written here: every control saves as it changes, and the
+    // launch reads storage. This page's copy of the context, layers and
+    // switches can be older than storage (the Local model card, the phone and
+    // "Reset to Automatic" write it directly), so writing it back undoes them.
     final result = await koboldService.launch(
       backendManager.backendPath!,
       pickedModel: _selectedModelPath,

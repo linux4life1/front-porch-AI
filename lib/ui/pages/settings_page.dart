@@ -173,11 +173,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _useRocm = storage.backendSettings.useRocm == true;
     // Mirror the persisted launch values into the controllers HERE, not only
     // inside _applyHardwareDefaults: that runs only once HardwareService has
-    // detected a GPU, and detection failures leave hardwareInfo null forever.
-    // Start Backend persists whatever the controllers hold, so on a box where
-    // probing fails the construction placeholders ('0' / '16384') — and a
-    // ROCm user's unmirrored acceleration flag — were written over the user's
-    // saved settings the moment they pressed the button.
+    // detected a GPU, and detection failures leave hardwareInfo null forever,
+    // which would leave the Advanced tab showing the construction
+    // placeholders ('0' / '16384') instead of the user's saved settings.
     _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
     _contextSizeController.text = storage.backendSettings.contextSize
         .toString();

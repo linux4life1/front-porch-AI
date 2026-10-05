@@ -197,7 +197,13 @@ extension _SettingsGpuControls on _SettingsPageState {
             storageService.backendSettings.setGpuLayersManual(v);
             rebuildState(() {});
           },
-          onLayersChanged: (_) => rebuildState(() {}),
+          onLayersChanged: (v) {
+            final layers = int.tryParse(v);
+            if (layers != null) {
+              storageService.backendSettings.setGpuLayers(layers);
+            }
+            rebuildState(() {});
+          },
         ),
         const SizedBox(height: 16),
         _buildAccelerationSection(context, hardwareService),
