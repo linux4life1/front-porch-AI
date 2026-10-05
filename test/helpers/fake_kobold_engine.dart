@@ -273,7 +273,7 @@ class FakeKoboldEngine {
   Future<bool> _push(HttpResponse response, String data) async {
     try {
       response.write(data);
-      await response.flush().timeout(const Duration(milliseconds: 150));
+      await response.flush().timeout(const Duration(milliseconds: 400));
       return true;
     } on Object {
       return false;

@@ -126,7 +126,9 @@ void main() {
           );
           return r.close();
         });
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    while (engine.arrived.isEmpty) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
 
     await expectLater(slow.check(), throwsA(isA<KoboldSlotException>()));
     await holding;
