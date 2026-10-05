@@ -231,7 +231,7 @@ class ToolSupportTester {
       // The first retry rides the next notification (the engine's own log
       // lines are one). The later ones go by themselves: an engine that has
       // gone quiet sends nothing to wake them.
-      if (gap > Duration.zero) {
+      if (gap > Duration.zero && !_disposed) {
         _retryTimer?.cancel();
         _retryTimer = Timer(gap, onBackendMaybeChanged);
       }
