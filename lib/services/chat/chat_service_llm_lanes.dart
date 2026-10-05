@@ -41,6 +41,10 @@ extension ChatServiceLlmLanes on ChatService {
     return _llmProvider?.sideLaneIsKobold ?? false;
   }
 
+  /// The chat a reply belongs to, for KoboldCpp's cache. Only a chat reply
+  /// carries it ([GenerationParams.kvChat]).
+  String? get _kvChatKey => _currentSessionId;
+
   bool get _workerLaneActive =>
       testWorkerLlmServiceOverride != null ||
       (testLlmServiceOverride == null && (_llmProvider?.workerService != null));

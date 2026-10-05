@@ -115,6 +115,12 @@ class GenerationParams {
   /// system). Null keeps the single user blob chat uses.
   final List<Map<String, Object>>? chatMessages;
 
+  /// The chat this reply belongs to, so KoboldCpp's cache for it can be kept
+  /// while helper prompts run in between. Set on a chat reply and nowhere
+  /// else; only [KoboldService.generateStream] reads it. A helper that
+  /// carries it by mistake only costs speed.
+  final String? kvChat;
+
   const GenerationParams({
     required this.prompt,
     this.maxLength = 200,
@@ -146,6 +152,7 @@ class GenerationParams {
     this.stillWantTools,
     this.backendIdentity = '',
     this.chatMessages,
+    this.kvChat,
   });
 
   /// Chat-completions `messages`. Null [chatMessages] is the historical
