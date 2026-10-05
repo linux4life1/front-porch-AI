@@ -482,10 +482,15 @@ Decisions already made by the maintainer:
     beta-aware) and comes back when the preset is cleared or a model with
     no preset of its own is picked; going from one preset to another keeps
     it, and so does a restart. Every pick on both surfaces goes through
-    `setActiveKcppsPath` (`ChatContextFields.followPresetContext`). A
-    different number the user sets while a preset is chosen (possible only
-    on another backend, decision 22) becomes their own; the unchanged
-    context the phone sends back with every save does not.
+    `setActiveKcppsPath` (`ChatContextFields.followPresetContext`), and so
+    does a launch that drops a preset whose file is gone or that the app
+    wrote itself. A kept number comes back exactly, under 16,384 too (it is
+    the user's, and the below-16K warning says what that means). With none
+    kept (a preset chosen before the app kept it, an upgrade), clearing
+    keeps the number in use but never leaves it under 16,384. A different
+    number the user sets while a preset is chosen (possible only on another
+    backend, decision 22) becomes their own; the unchanged context the phone
+    sends back with every save does not.
 
 ## Design
 

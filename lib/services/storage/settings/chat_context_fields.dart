@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// A leaf, not kobold.dart: the barrel loops back through storage_service.dart.
+// Leaves, not kobold.dart: the barrel loops back through storage_service.dart.
 import 'package:front_porch_ai/services/kobold/kobold_context_owner.dart';
+import 'package:front_porch_ai/services/kobold/kobold_context_verdict.dart'
+    show kKoboldContextFloor;
 
 import 'settings_base.dart';
 
@@ -31,8 +33,10 @@ const String _kContextBeforePreset = 'context_size_before_preset';
 /// prompt budget, the cards and the phone read this one number). The user's
 /// own is kept when a preset is first chosen and comes back when the preset
 /// is cleared, or a model without one is picked; going from one preset to
-/// another keeps it. Every choice of preset comes through
-/// [followPresetContext], on the desktop and on the phone.
+/// another keeps it. With none kept (a preset chosen before the app kept
+/// it), clearing keeps the number in use, but never under 16,384. Every way
+/// a preset is chosen or cleared comes through [followPresetContext], on
+/// the desktop and on the phone, and so does a launch dropping one.
 mixin ChatContextFields on SettingsBase {
   // 16384 (was 8192): modern models all serve 16k+, and the 2048-token
   // generation reserve (generation_settings.dart) plus lorebooks/journal
@@ -85,10 +89,17 @@ mixin ChatContextFields on SettingsBase {
       if (presetContext != null) await _storeContext(presetContext);
       return;
     }
+    if (!hadPreset) return;
     final own = _contextBeforePreset;
-    if (own == null) return;
-    await _keepOwnContext(null);
-    await _storeContext(own);
+    if (own != null) {
+      // Exactly as the user had it, under 16,384 too: it is theirs.
+      await _keepOwnContext(null);
+      await _storeContext(own);
+    } else if (_contextSize < kKoboldContextFloor) {
+      // Chosen before the app kept the user's own (an upgrade): the number in
+      // use stays, but a small preset's is not left behind.
+      await _storeContext(kKoboldContextFloor);
+    }
   }
 
   Future<void> _storeContext(int value) async {
