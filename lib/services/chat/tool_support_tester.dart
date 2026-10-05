@@ -94,6 +94,7 @@ class ToolSupportTester {
   final List<Duration> retryGaps;
   final DateTime Function() now;
 
+  Timer? _retryTimer;
   bool _testing = false;
   bool _disposed = false;
   bool _checkedThisRun = false;
@@ -114,7 +115,10 @@ class ToolSupportTester {
 
   ToolCallSupport get current => probe.supportFor(getBackendIdentity());
 
-  void dispose() => _disposed = true;
+  void dispose() {
+    _disposed = true;
+    _retryTimer?.cancel();
+  }
 
   static const _pingTools = [
     {
@@ -203,7 +207,7 @@ class ToolSupportTester {
     } finally {
       _testing = false;
       if (!settled) _leftUntested(identity);
-      onNotify();
+      if (!_disposed) onNotify();
       // The model moved on while this ran: its answer was dropped, and the
       // model it moved to has not been asked yet.
       if (getBackendIdentity() != identity) Timer.run(onBackendMaybeChanged);
@@ -222,7 +226,15 @@ class ToolSupportTester {
     }
     _unanswered++;
     if (_unanswered <= retryGaps.length) {
-      _askAgainAfter = now().add(retryGaps[_unanswered - 1]);
+      final gap = retryGaps[_unanswered - 1];
+      _askAgainAfter = now().add(gap);
+      // The first retry rides the next notification (the engine's own log
+      // lines are one). The later ones go by themselves: an engine that has
+      // gone quiet sends nothing to wake them.
+      if (gap > Duration.zero) {
+        _retryTimer?.cancel();
+        _retryTimer = Timer(gap, onBackendMaybeChanged);
+      }
     }
   }
 
@@ -278,7 +290,10 @@ class ToolSupportTester {
         Timer.run(onBackendMaybeChanged);
         return;
       }
+      // A live question in flight (the user's tap) is the stronger answer: a
+      // late catalogue verdict must not stand in for it, or be kept.
       if (verdict != null &&
+          !_testing &&
           probe.supportFor(identity) == ToolCallSupport.untested) {
         verdict ? probe.markSupported(identity) : probe.markXmlOnly(identity);
         return;

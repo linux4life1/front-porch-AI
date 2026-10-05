@@ -7,6 +7,8 @@
 // notification. The real-engine twin of the first case is
 // test/live/kobold_tool_test_live_test.dart.
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/tool_support_tester.dart';
@@ -89,4 +91,108 @@ void main() {
     expect(asked, 2);
     expect(probe.supportFor('Kobold|m1'), ToolCallSupport.untested);
   });
+
+  test('a model that answered nothing is asked again after its gap, with no '
+      'notification to wake it', () async {
+    final probe = ToolTransportProbe();
+    var asked = 0;
+    final tester = ToolSupportTester(
+      probe: probe,
+      fireToolEval: (_, _) async {
+        asked++;
+        return const LlmToolResponse(calls: [], text: '');
+      },
+      getBackendIdentity: () => 'Kobold|m1',
+      isBackendReady: () => true,
+      isBusy: () => false,
+      onNotify: () {},
+      retryGaps: const [
+        Duration.zero,
+        Duration(milliseconds: 40),
+        Duration(milliseconds: 40),
+      ],
+    );
+    addTearDown(tester.dispose);
+
+    // The first retry rides the next notification...
+    tester.onBackendMaybeChanged();
+    await Future<void>.delayed(Duration.zero);
+    tester.onBackendMaybeChanged();
+    await Future<void>.delayed(Duration.zero);
+    expect(asked, 2);
+
+    // ...the later ones wait their gap and then go by themselves, on an
+    // engine that has gone quiet.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(asked, 4);
+
+    // After the last gap the model is left alone.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(asked, 4);
+  });
+
+  test('a provider-metadata answer that arrives during a retest does not stand '
+      'in for it', () async {
+    final probe = ToolTransportProbe();
+    final metadata = Completer<bool?>();
+    final ping = Completer<LlmToolResponse?>();
+    const identity = 'Remote API|https://x/v1|some/model|';
+    final tester = ToolSupportTester(
+      probe: probe,
+      fireToolEval: (_, _) => ping.future,
+      getBackendIdentity: () => identity,
+      isBackendReady: () => true,
+      isBusy: () => false,
+      onNotify: () {},
+      fetchMetadataToolVerdict: () => metadata.future,
+    );
+    addTearDown(tester.dispose);
+
+    tester.onBackendMaybeChanged(); // asks the provider's list; slow
+    unawaited(tester.test(force: true)); // the user's tap: a live question
+    await _settle();
+    expect(tester.isTesting, isTrue);
+
+    metadata.complete(true); // the list answers while the question is out
+    await _settle();
+    expect(
+      probe.supportFor(identity),
+      ToolCallSupport.untested,
+      reason: 'the live question is the one that decides',
+    );
+
+    // And when that question settles nothing, the list's answer is not
+    // kept either.
+    ping.complete(const LlmToolResponse(calls: [], text: ''));
+    await _settle();
+    expect(probe.supportFor(identity), ToolCallSupport.untested);
+  });
+
+  test(
+    'a question that ends after the tester is disposed does not notify',
+    () async {
+      final probe = ToolTransportProbe();
+      final answer = Completer<LlmToolResponse?>();
+      var notifies = 0;
+      final tester = ToolSupportTester(
+        probe: probe,
+        fireToolEval: (_, _) => answer.future,
+        getBackendIdentity: () => 'Kobold|m1',
+        isBackendReady: () => true,
+        isBusy: () => false,
+        onNotify: () => notifies++,
+      );
+
+      tester.onBackendMaybeChanged();
+      await _settle();
+      expect(tester.isTesting, isTrue);
+      final before = notifies;
+
+      tester.dispose();
+      answer.complete(_calls);
+      await _settle();
+
+      expect(notifies, before, reason: 'nobody is left to be told');
+    },
+  );
 }
