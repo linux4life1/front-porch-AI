@@ -66,9 +66,11 @@ const String _unknown = '(unknown)';
 /// APFS, a Defender round-trip on Windows).
 ///
 /// [stamp] says when the file may have changed under what is asked about: the
-/// engine's load generation, which goes up on every start, swap and reload. A
-/// file replaced on disk while another one runs is not the running model, so
-/// nothing changes until the engine loads what is at the path.
+/// engine's resident generation, which goes up when a start comes up or a swap
+/// is read back as running what it was asked for, not when a reload is only
+/// asked for (it can still fail). A file replaced on disk while another one
+/// runs is not the running model, so nothing changes until the engine loads
+/// what is at the path.
 class LocalModelKeys {
   String? _path;
   Object? _stamp;
