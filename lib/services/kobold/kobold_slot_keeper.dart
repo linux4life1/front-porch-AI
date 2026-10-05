@@ -116,6 +116,9 @@ class KoboldSlotKeeper {
     if (!ok) return Future<void>.value();
     return _guarded(() async {
       if (!await _ready()) return;
+      // Deleted while its reply was written: no slot, so no live chat is
+      // pushed out for it.
+      if (_gone.contains(key)) return;
       final generation = _generation!;
       final slot = _slotFor(key);
       if (slot == null) return;

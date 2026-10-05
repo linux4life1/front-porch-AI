@@ -70,4 +70,30 @@ void main() {
     expect(api.saved, [0, 0], reason: 'the next chat took the same slot');
     expect(keeper.kept, 1);
   });
+
+  test('a reply that ends after its chat was deleted is not saved, so no live '
+      'chat is pushed out for it', () async {
+    final api = _Api();
+    final keeper = KoboldSlotKeeper(
+      api: api,
+      loadGeneration: () => 1,
+      plan: () async => const KoboldKeeperPlan.keep(2),
+      underSwapLock: <T>(work) => work(),
+      log: (_) {},
+    );
+    for (final (chat, tokens) in [('A', 500), ('B', 300)]) {
+      await keeper.chatStart(chat);
+      api.live = tokens;
+      await keeper.chatEnd(chat, ok: true);
+    }
+    expect(api.saved, [0, 1]);
+
+    await keeper.chatStart('C');
+    api.live = 700;
+    keeper.forget('C'); // deleted while its reply was being written
+    await keeper.chatEnd('C', ok: true);
+
+    expect(api.saved, [0, 1], reason: 'the deleted chat was saved');
+    expect(keeper.kept, 2, reason: 'a live chat was pushed out for it');
+  });
 }

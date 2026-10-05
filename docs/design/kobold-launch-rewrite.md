@@ -1215,10 +1215,11 @@ each load of the model (`KoboldService.loadGeneration`).
   database it is given, also after a swap), which tells the keeper. The table
   drops the chat, so its slot is the first free one for the next chat and it
   is not kept over a live one; a save that was already running when the chat
-  went does not bring it back. KoboldCpp cannot empty one slot (clearing is
-  all of them, which would lose the other chats), so the engine is not called:
-  what it holds there stays until that next save writes over it, and the
-  memory was counted for every slot full anyway.
+  went does not bring it back, and a reply that ends after the chat went is
+  not saved at all, so it pushes no live chat out. KoboldCpp cannot empty
+  one slot (clearing is all of them, which would lose the other chats), so
+  the engine is not called: what it holds there stays until that next save
+  writes over it, and the memory was counted for every slot full anyway.
 - A helper, and a coding session on the engine (`keepLoadedFor`), clear "the
   engine still holds the chat". The keeper waits out a coding session.
 - Every call runs in the swap lock and is skipped when the model changed
@@ -1272,7 +1273,7 @@ character switch on a reply that waits behind another request, and the chat
 they leave), `chat_deleted_chat_slot_test` (a chat, a character's chats and a
 group deleted for real, and the phone's delete; the slot is let go and taken
 by the next chat), `kobold_slot_keeper_forget_test` (a delete while the
-chat's save is running) and `kcpps_editor_mmq_line_test` (the editor's real
+chat's save or its reply is running) and `kcpps_editor_mmq_line_test` (the editor's real
 timing waits for a save that is running, and a reply waits for it), `kobold_keeper_idle_test` (the idle
 clock counts from the end of a slow save), `kobold_wire_test` (the abort
 handle, over real sockets), `kobold_auto_keeper_test` (what auto mode writes
