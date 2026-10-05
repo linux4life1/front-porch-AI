@@ -145,7 +145,14 @@ class KoboldProcessHost implements GpuSwapHost {
   /// host that cannot tell (no [isProcessRunning]) asks the admin first.
   bool get _knownDown => isProcessRunning != null && !_processAlive;
 
+  /// When the latest admin request (an unload or a reload) was asked for,
+  /// taken before it was sent: what the wait for it counts from (see
+  /// [waitForKoboldReload]), so an answer read late cannot hide a restart.
+  DateTime? get adminAskedAt => _adminAskedAt;
+  DateTime? _adminAskedAt;
+
   Future<void> _runAdmin(Future<void> Function() action, String op) {
+    _adminAskedAt = DateTime.now();
     return koboldAdminRetry(
       action,
       attempts: adminRetryAttempts,

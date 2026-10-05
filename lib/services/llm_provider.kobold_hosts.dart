@@ -56,7 +56,8 @@ extension LLMProviderKoboldHosts on LLMProvider {
       return koboldLoadTimeout(file.existsSync() ? file.lengthSync() : 0);
     }
 
-    return KoboldProcessHost(
+    late final KoboldProcessHost host;
+    return host = KoboldProcessHost(
       baseUrl: _koboldService.baseUrl,
       requestedModelPath: model.trim().isEmpty ? null : model,
       requestedKcppsPath: kcpps.trim().isEmpty ? null : kcpps,
@@ -95,8 +96,14 @@ extension LLMProviderKoboldHosts on LLMProvider {
       isProcessRunning: () => _koboldService.isProcessRunning,
       markNotReady: _koboldService.markModelNotReady,
       markLoading: _koboldService.markModelLoading,
-      waitForReload: () => _koboldService.waitForSwap(timeout: limit()),
-      waitForUnload: _koboldService.waitForUnload,
+      // Counted from when the engine was asked, not from when the answer
+      // was read.
+      waitForReload: () => _koboldService.waitForSwap(
+        timeout: limit(),
+        since: host.adminAskedAt,
+      ),
+      waitForUnload: () =>
+          _koboldService.waitForUnload(since: host.adminAskedAt),
       // After a restart there is no old model to tell apart: ready is
       // ready. The limit still grows with the model.
       waitUntilReady: () => _koboldService.waitUntilReadyAfterSwap(

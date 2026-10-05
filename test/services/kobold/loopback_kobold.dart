@@ -54,6 +54,11 @@ class LoopbackKobold {
 
   /// What it runs for a config with no contextsize.
   int defaultContext = 16384;
+
+  /// When set, a reload is answered this long after it arrives, while it is
+  /// still acted on half a second after it arrives: the app reads the
+  /// answer after the engine has restarted (a busy moment).
+  Duration? answerAdminAfter;
   DateTime _started = DateTime.now();
 
   String get baseUrl => 'http://127.0.0.1:${_server.port}';
@@ -98,6 +103,8 @@ class LoopbackKobold {
         (jsonDecode(await utf8.decodeStream(r)) as Map)['filename'] as String;
     reloads.add(name);
     Timer(const Duration(milliseconds: 500), () => _act(name));
+    final late = answerAdminAfter;
+    if (late != null) await Future<void>.delayed(late);
     return {'success': true};
   }
 

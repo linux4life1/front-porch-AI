@@ -215,22 +215,26 @@ extension KoboldServiceAdmin on KoboldService {
   /// Waits for an admin reload that was just asked for to really happen: a
   /// new model process, and that one generating. The reload call answers
   /// before the engine acts, and the old model answers for a moment more,
-  /// so "ready" alone would be the old model.
-  Future<void> waitForSwap({required Duration timeout}) async {
+  /// so "ready" alone would be the old model. [since]: when the reload was
+  /// asked for (see [waitForKoboldReload]).
+  Future<void> waitForSwap({required Duration timeout, DateTime? since}) async {
     await waitForKoboldReload(
       uptime: () => koboldEngineUptime(_baseUrl),
       ready: () => probeKoboldGenerationReady(baseUrl: _baseUrl),
       timeout: timeout,
+      since: since,
     );
     if (!_modelReady) _markModelReady();
   }
 
   /// Waits until an unload that was just asked for has happened: a new
-  /// model process that reports nothing loaded.
-  Future<void> waitForUnload() => waitForKoboldReload(
+  /// model process that reports nothing loaded. [since]: when the unload
+  /// was asked for (see [waitForKoboldReload]).
+  Future<void> waitForUnload({DateTime? since}) => waitForKoboldReload(
     uptime: () => koboldEngineUptime(_baseUrl),
     ready: () async => await koboldEngineModel(_baseUrl) == 'inactive',
     timeout: const Duration(seconds: 60),
+    since: since,
   );
 
   /// Poll a tiny `/v1/chat/completions` until the swapped GGUF generates.

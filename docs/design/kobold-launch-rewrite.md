@@ -647,7 +647,13 @@ sends nothing when its content is resident, marks the engine not ready the
 moment a reload is accepted, and waits with `waitForKoboldReload`: first
 for a new model process (the engine's `uptime` restarts on every reload;
 the rule is `uptime < seconds since the request - 0.25`), then for it to
-generate. On a shared engine `GpuSwapOccupancy` does not unload first and
+generate. "Since the request" counts from before the request is sent
+(2026-10-05; `since` on `waitForSwap` and `waitForUnload`, noted by the
+host as `adminAskedAt` and by the idle unload and load back): counted from
+when the answer was read, an app busy for longer than the engine's half
+second to restart saw a new process no younger than its wait, never
+counted it, and waited out the whole limit; a reply after an idle load
+back hung. On a shared engine `GpuSwapOccupancy` does not unload first and
 asks each role every time. A reload the engine never acted on falls back
 to a process restart; one that restarted and is still loading is reported,
 not restarted again.

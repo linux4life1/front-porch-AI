@@ -168,13 +168,14 @@ extension KoboldServiceIdle on KoboldService {
         final restore = await _idleRestorePoint();
         // A request or a swap may have come in meanwhile.
         if (!_idleDue) return;
+        final asked = DateTime.now();
         await koboldAdminRetry(_idleAdmin.unload);
         _idle.unloaded = restore;
         final words = koboldIdleUnloadedWords(minutes);
         _addLog(words);
         _clearReady(words);
         try {
-          await waitForUnload();
+          await waitForUnload(since: asked);
         } on KoboldSwapTimeout catch (e) {
           _addLog('KoboldCpp has not confirmed the unload: $e');
         }
@@ -284,10 +285,16 @@ extension KoboldServiceIdle on KoboldService {
       i.failed = null;
       return;
     }
+    // The wait counts from before the request: an answer read late must not
+    // hide a restart that already happened.
+    final asked = DateTime.now();
     try {
       await koboldAdminRetry(() => _idleAdmin.reloadConfig(filename: r.file));
       noteAdminLoadedPair(modelPath: model, kcppsPath: r.kcpps ?? '');
-      await waitForSwap(timeout: koboldLoadTimeout(await _idleSize(model)));
+      await waitForSwap(
+        timeout: koboldLoadTimeout(await _idleSize(model)),
+        since: asked,
+      );
     } on Object catch (e) {
       forgetAdminLoadedPair();
       _addLog('$words ($e)');

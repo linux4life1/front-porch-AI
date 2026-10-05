@@ -64,6 +64,11 @@ class _Engine {
   /// is still under way.
   Completer<void>? hold;
 
+  /// When set, a reload or unload is answered this long after it arrives,
+  /// while it is still acted on half a second after it arrives: the app
+  /// reads the answer after the engine has restarted (a busy moment).
+  Duration? answerAdminAfter;
+
   /// Streamed replies asked for so far; with [replyHold] set, each waits
   /// for it before it is answered.
   int repliesAsked = 0;
@@ -81,6 +86,8 @@ class _Engine {
     switch (r.uri.path) {
       case '/api/admin/reload_config':
         _reload(body['filename'] as String);
+        final late = answerAdminAfter;
+        if (late != null) await Future<void>.delayed(late);
         r.response.write(jsonEncode({'success': true}));
       case '/api/extra/perf':
         final up = DateTime.now().difference(_started).inMilliseconds / 1000;
@@ -376,6 +383,40 @@ void main() {
     expect(kobold.isResident(stagedChat), isTrue);
     expect(kobold.loadedModelPath, chatModel);
     expect(kobold.modelLoadingStatus, isEmpty);
+  });
+
+  // Added 2026-10-05. The wait for a reload or an unload counted from when
+  // the app read the engine's answer. KoboldCpp acts on the request about
+  // half a second after it arrives; an app busy for longer (in the Linux CI
+  // image, the moment the card was drawn) read the answer after the engine
+  // had restarted, so the new process looked no younger than the wait,
+  // never counted, and the wait ran to its 60 s limit: the reply after an
+  // idle load back hung. Here the engine answers late on purpose.
+  test('a load back whose answer is read after the engine restarted still '
+      'sees it, and the reply goes out', () async {
+    await storage.backendSettings.setIdleUnloadMinutes(30);
+    await ready(idleAfter: const Duration(milliseconds: 400));
+    await unloaded();
+    engine.answerAdminAfter = const Duration(milliseconds: 1200);
+
+    expect(await reply().timeout(const Duration(seconds: 10)), 'Hello.');
+    expect(kobold.phase, KoboldPhase.ready);
+    expect(engine.reloads, ['unload_model', kStagedChatConfig]);
+  });
+
+  test('an unload whose answer is read after the engine restarted is still '
+      'confirmed, so the next reply loads back at once', () async {
+    await storage.backendSettings.setIdleUnloadMinutes(30);
+    engine.answerAdminAfter = const Duration(milliseconds: 1200);
+    await ready(idleAfter: const Duration(milliseconds: 400));
+    await unloaded();
+    engine.answerAdminAfter = null;
+
+    expect(await reply().timeout(const Duration(seconds: 10)), 'Hello.');
+    expect(
+      kobold.logs.join('\n'),
+      isNot(contains('has not confirmed the unload')),
+    );
   });
 
   test('a config that does not load back: nothing is ready, the record '

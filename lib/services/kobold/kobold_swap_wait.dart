@@ -70,15 +70,22 @@ const Duration _pollEvery = Duration(milliseconds: 150);
 /// nothing answers), then for [ready]. "The request returned" and "the
 /// server answers" mean neither.
 ///
+/// [since] is when the reload was asked for: the time before the request
+/// was sent. Without it the wait counts from when it starts, and an app
+/// that read the answer late (a busy moment) may start after the engine has
+/// already restarted; that new process would then look no younger than the
+/// wait and never count, and the wait would last until [timeout].
+///
 /// Throws [KoboldSwapTimeout] after [timeout].
 Future<void> waitForKoboldReload({
   required Future<double?> Function() uptime,
   required Future<bool> Function() ready,
   required Duration timeout,
+  DateTime? since,
   DateTime Function() now = DateTime.now,
   Future<void> Function(Duration)? pause,
 }) async {
-  final asked = now();
+  final asked = since ?? now();
   final wait = pause ?? (d) => Future<void>.delayed(d);
   var restarted = false;
   while (true) {
