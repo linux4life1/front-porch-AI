@@ -200,6 +200,7 @@ class KoboldSlotKeeper {
   void forget(String key) {
     _saved.remove(key);
     _notKept.add(key);
+    if (_live == key) _live = null;
   }
 
   /// The first thing every call does: a new load empties the table, and the
