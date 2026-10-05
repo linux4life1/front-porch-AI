@@ -1442,7 +1442,13 @@ real chat with Realism on, koboldcpp-mac-arm64-1.117.1
 **Not done, on purpose.**
 
 - The editor's MMQ timing runs after a swap that already empties the slots,
-  so it needs no `keepLoadedFor`; only its prompts go through the line.
+  so it needs no `keepLoadedFor`; only its prompts go through the line. Its
+  two loads of the preset stay outside it, as every swap does: they wait in
+  the swap lock for a chat's save or load that is running, but a reply asked
+  while the trial loads is answered by the preset's model, as it was before
+  the keeper. Holding the line across the whole trial would also hold back
+  what a load starts, the system-role check, until chat is back, and that
+  check would then measure chat's model under the trial model's name.
 - A helper model that swaps in on the same engine before every reply empties
   the slots each time; a hint from the provider could put the keeper to
   sleep then.
