@@ -9,6 +9,8 @@
 // reads only what is new. Run with:
 //   KOBOLD_LIVE_BIN=… KOBOLD_LIVE_MODEL=… flutter test --concurrency=1 \
 //     --tags kobold_live test/live/kobold_slot_keeper_live_test.dart
+// KOBOLD_LIVE_BACKEND (vulkan or rocm) picks the graphics path; the AMD card
+// is run once for each, with the Linux build that goes with it.
 // KOBOLD_LIVE_REPORT names a file the tables are also written to: tokens read,
 // time to the first token, and how long the save after each reply held the
 // line. The hybrid test needs KOBOLD_LIVE_HYBRID_MODEL, a small model with
@@ -181,6 +183,15 @@ void main() {
     await b.setBackendType('kobold');
     await b.setContextSize(16384);
     await b.setLastUsedModelPath(model);
+    // The graphics path a run asks for: on the AMD card, Vulkan with the
+    // plain Linux build and ROCm with the ROCm build. Left to the app when
+    // not named.
+    switch (Platform.environment['KOBOLD_LIVE_BACKEND']) {
+      case 'vulkan':
+        await b.setUseVulkan(true);
+      case 'rocm':
+        await b.setUseRocm(true);
+    }
     // Detection waits for the app's first frame, which a test never has.
     final hardware = HardwareService();
     await hardware.detectHardware();
