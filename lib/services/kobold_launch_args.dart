@@ -18,6 +18,7 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/hardware_info.dart';
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
@@ -359,13 +360,33 @@ Future<KoboldBackendChoice> _backendFor({
   );
 }
 
+/// Model headers read for staging, with the size and time of the file each
+/// came from. A swap stages its config before every call, and the header
+/// (up to 16 MB, read and parsed) only changes when the file does.
+final Map<String, ({int size, DateTime modified, GGUFModelInfo? info})>
+_headersRead = {};
+
 Future<GGUFModelInfo?> _modelInfo(String modelPath) async {
   if (modelPath.isEmpty) return null;
   try {
-    return await GGUFParser.getModelArchitectureInfo(modelPath);
-  } catch (_) {
+    final stat = await File(modelPath).stat();
+    final known = _headersRead[modelPath];
+    if (known != null &&
+        known.size == stat.size &&
+        known.modified == stat.modified) {
+      return known.info;
+    }
+    final info = await GGUFParser.getModelArchitectureInfo(modelPath);
+    _headersRead[modelPath] = (
+      size: stat.size,
+      modified: stat.modified,
+      info: info,
+    );
+    return info;
+  } catch (e) {
     // An unreadable header is reported by the model file check; here it
     // only means "treat as an ordinary model".
+    debugPrint('[Kobold] the model header could not be read: $e');
     return null;
   }
 }
