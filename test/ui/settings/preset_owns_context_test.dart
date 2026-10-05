@@ -82,12 +82,16 @@ void main() {
     });
   });
 
+  // The card holds the cache setting too. A preset launch runs the file as
+  // written and never reads the app's cache setting, so the card is locked
+  // whole, and its words name both.
   group('Settings → Advanced', () {
     Finder card() => find.text('Context Window');
+    Finder cache() => find.byType(KvQuantPicker);
+    Finder banner() => find.byKey(const ValueKey('preset-owns-context'));
 
-    testWidgets('KoboldCpp with a preset: locked, and says why', (
-      tester,
-    ) async {
+    testWidgets('KoboldCpp with a preset: the context and the cache are '
+        'locked, and the words say both', (tester) async {
       await mountSettings(
         tester,
         lastUsedIsB: false,
@@ -95,8 +99,11 @@ void main() {
       );
       await openTab(tester, 'Advanced');
 
-      expect(_words, findsOneWidget);
+      final words = tester.widget<Text>(banner()).data!;
+      expect(words, contains('Context size'));
+      expect(words.toLowerCase(), contains('kv cache'));
       expect(_closed(tester, card()), isTrue);
+      expect(_closed(tester, cache()), isTrue);
     });
 
     testWidgets('a preset left chosen on a remote backend: the context is '
@@ -108,8 +115,9 @@ void main() {
       );
       await openTab(tester, 'Advanced');
 
-      expect(_words, findsNothing);
+      expect(banner(), findsNothing);
       expect(_closed(tester, card()), isFalse);
+      expect(_closed(tester, cache()), isFalse);
     });
   });
 

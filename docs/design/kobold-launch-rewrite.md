@@ -474,7 +474,11 @@ Decisions already made by the maintainer:
     and on the phone the Settings save, the Local model card's context
     route and the Settings page (`presetOwnsContext` in `web_ui`). The
     Generation tab and the creator had no lock; Advanced, the dialog and a
-    chat's settings locked on any backend.
+    chat's settings locked on any backend. The Advanced tab's context card
+    holds the cache setting too: a preset is launched as written and the
+    app's cache setting is never read for it, so that card is locked whole
+    and says both (`kPresetOwnsContextAndCache`). The phone has no cache
+    setting.
 23. The user's own chat length comes back (2026-10-05). Choosing a preset
     still copies its context in as the context in use (the prompt budget,
     the cards and the phone read that one number), but the user's own is

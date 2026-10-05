@@ -22,6 +22,13 @@ const String kPresetOwnsContext =
     'Context size is controlled by the active .kcpps preset and cannot be '
     'edited here.';
 
+/// Said on the Advanced tab's context card, which holds the cache setting
+/// too. A preset is launched as it was written and the app's own cache
+/// setting is not read for it, so the preset sets both.
+const String kPresetOwnsContextAndCache =
+    'Context size and KV cache quantization are controlled by the active '
+    '.kcpps preset and cannot be edited here.';
+
 /// Whether the chosen preset sets chat's context: KoboldCpp is the backend
 /// ([backend], as stored: anything but `openRouter` and `omlx` is KoboldCpp)
 /// and a preset is chosen ([kcppsPath]). The one rule for every place the

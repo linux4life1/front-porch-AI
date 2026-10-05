@@ -49,7 +49,8 @@ extension _SettingsGpuControls on _SettingsPageState {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    kPresetOwnsContext,
+                    // The card holds the cache setting too, locked with it.
+                    kPresetOwnsContextAndCache,
                     key: const ValueKey('preset-owns-context'),
                     style: theme.textTheme.bodySmall?.copyWith(color: accent),
                   ),
@@ -64,7 +65,7 @@ extension _SettingsGpuControls on _SettingsPageState {
           child: Opacity(
             opacity: presetOwnsContext ? 0.4 : 1.0,
             child: Tooltip(
-              message: presetOwnsContext ? kPresetOwnsContext : '',
+              message: presetOwnsContext ? kPresetOwnsContextAndCache : '',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
