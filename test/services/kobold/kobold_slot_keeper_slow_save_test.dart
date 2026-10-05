@@ -85,8 +85,8 @@ void main() {
     );
   });
 
-  test('a save that does not answer in time took too long as well: that chat '
-      'is let go and it is not a failure', () async {
+  test('a save that does not answer in time lets every chat go for the load, '
+      'since what its slot holds is not known; it is not a failure', () async {
     final failures = <String>[];
     final logs = <String>[];
     final keeper = KoboldSlotKeeper(
@@ -114,17 +114,20 @@ void main() {
 
     expect(failures, isEmpty, reason: 'remembered as a failure');
     expect(keeper.kept, 0);
-    expect(logs.last, contains('too long to do after every'));
+    expect(keeper.chats, 0, reason: 'still keeping the other chats');
+    expect(logs.last, contains('did not finish saving a chat in time'));
 
-    // The engine finishes the save it was asked for; the next chat is kept.
+    // The engine finishes the save it was asked for in the end; nothing more
+    // is asked of it for this load.
     held.complete();
     for (var i = 0; i < 200 && h.engine.of('save').first.endedAt == null; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
+    h.engine.forgetLog();
     await keeper.chatStart('B');
     h.engine.live = ['a', 'short', 'one'];
     await keeper.chatEnd('B', ok: true);
-    expect(keeper.kept, 1);
+    expect(h.engine.arrived, isEmpty);
     expect(failures, isEmpty);
   });
 }

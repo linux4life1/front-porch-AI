@@ -140,9 +140,11 @@ class KoboldSlotKeeper {
           return _api.save(slot);
         });
       } on KoboldSlotException catch (e) {
-        // One that never answered took too long, whatever it did.
         if (!e.timedOut) rethrow;
-        return _tooSlow(key, took.elapsed);
+        // Never answered: what that slot holds is not known, and an engine
+        // that cannot save in time is short of something, so every chat is
+        // let go for this load. It did not refuse: not a failure either.
+        return _stepAside('KoboldCpp did not finish saving a chat in time.');
       }
       if (saved == null) return;
       if (!saved.ok) {

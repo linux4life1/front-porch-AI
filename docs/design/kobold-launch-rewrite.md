@@ -1205,12 +1205,15 @@ each load of the model (`KoboldService.loadGeneration`).
   idle time runs from the end of the save, not from the end of the reply. A
   save the engine cannot make steps the keeper aside and clears the slots to
   give the memory back.
-- A save that takes longer than three seconds (`kKoboldSlowSave`), or never
-  answers in the call's 45 seconds, lets that chat go for the rest of the
-  load: no load before its replies and no save after them, so the line is
-  not held for it; the other chats are still kept. The engine log says so
-  once, in plain words. It is not a failure: the engine did what it was
-  asked, so nothing is remembered and the next load tries again. Measured
+- A save that takes longer than three seconds (`kKoboldSlowSave`) lets
+  that chat go for the rest of the load: no load before its replies and no
+  save after them, so the line is not held for it; the other chats are
+  still kept. A save that never answers in the call's 45 seconds lets every
+  chat go for the load instead: what its slot holds is not known, and an
+  engine that cannot save in time is short of something. Either way the
+  engine log says so once, in plain words, and it is not a failure: the
+  engine did not refuse, so nothing is remembered and the next load tries
+  again. Measured
   here a save takes about 0.2 s for the 0.5B model and 0.2 to 0.4 s for the
   8B one up to 13,448 tokens (2 GB of cache; table below): seven times the
   slowest is not a big chat being copied but a machine that cannot copy it
@@ -1236,7 +1239,8 @@ each load of the model (`KoboldService.loadGeneration`).
 - Every call runs in the swap lock and is skipped when the model changed
   first, has one try and 45 seconds. The keeper never throws into a reply:
   any failure is a step aside for that load (a save that runs out of time is
-  a slow save, above), and the engine log says so once, in plain words.
+  one too, without being remembered, above), and the engine log says so
+  once, in plain words.
 
 **The plan** (`kobold/kobold_keeper_budget.dart`). The keeper stays out of:
 an engine the app did not start, a config with smart cache on, fast forward
@@ -1289,7 +1293,8 @@ chat's save or its reply is running) and `kcpps_editor_mmq_line_test` (the edito
 timing waits for a save that is running, and a reply waits for it),
 `kobold_slot_keeper_slow_save_test` (a save held past the limit through the
 real service lets that chat go, keeps the next one and is not remembered; a
-save that runs out of time, over real HTTP, the same), `kobold_keeper_idle_test` (the idle
+save that runs out of time, over real HTTP, lets every chat go for the load,
+also without being remembered), `kobold_keeper_idle_test` (the idle
 clock counts from the end of a slow save), `kobold_wire_test` (the abort
 handle, over real sockets), `kobold_auto_keeper_test` (what auto mode writes
 and the way back), and `test/live/kobold_slot_keeper_live_test.dart`
