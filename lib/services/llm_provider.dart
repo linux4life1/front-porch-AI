@@ -488,9 +488,10 @@ class LLMProvider extends ChangeNotifier {
     unawaited(_openRouterService.refreshReachability());
   }
 
-  /// Stop the managed KoboldCpp process if it is running.
+  /// Stop the managed KoboldCpp process if it is running, or call off a start
+  /// that is still being prepared (nothing is spawned then).
   Future<void> stopAllManagedProcesses() async {
-    if (_koboldService.isRunning) {
+    if (_koboldService.isRunning || _koboldService.isStarting) {
       await _koboldService.stopKobold();
     }
   }
