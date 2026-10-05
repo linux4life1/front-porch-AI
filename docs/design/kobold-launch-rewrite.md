@@ -51,6 +51,11 @@ Stage 8 (built): the draft settings left over from Stage 6, the thinking
 cap keyed on the model loaded, presets over several cards kept and
 explained, and unload when idle.
 
+Stage 9 (built, 2026-10-05): the slot keeper. The app saves each chat's
+cache in one of KoboldCpp's memory slots after a reply and loads it back
+before the chat's next reply, so a quick Realism check between replies no
+longer costs a re-read of the whole chat. See decision 17 and "Stage 9".
+
 **Context handling: the app must choose, not leave it to chance.**
 Sliding window on its own is fine. The problem is sliding window together
 with fast forward. Today's normal launch sends no context-handling settings,
@@ -331,6 +336,23 @@ Decisions already made by the maintainer:
     changed (`LLMProvider.composerConnectionHint`). `ensureManagedBackendIsRunning`
     returns the start's answer. A refusal is not a dialog: nothing new
     interrupts the chat.
+17. The app keeps the chats' cache itself, with the slot keeper
+    (2026-10-05). KoboldCpp holds one chat's cache at a time and every
+    helper prompt (a Realism judge, a needs check, a journal pass) replaces
+    it, so the next reply read the whole chat again. Its smart cache saves
+    at every switch between prompts, helpers included, and writes over the
+    least recently used slot, so the helpers pushed the chats out. For an
+    ordinary model auto mode now writes no smart cache (context shift stays
+    on) and the app saves a chat's cache in one of KoboldCpp's five admin
+    slots when a reply ends and loads it back before that chat's next reply.
+    The maintainer's answers: a model with recurrent layers keeps
+    KoboldCpp's own smart cache and the keeper stays out of it (a saved state
+    only matches a prompt that starts with all of it); the preset editor and
+    its smart cache suggestion are unchanged, and a preset with smart cache
+    on keeps the keeper out; if the keeper fails at run time in an auto-mode
+    launch, the failure is remembered for that model on that engine version
+    and the next start writes the smart cache auto mode wrote before, so the
+    user is never worse off than before the keeper. Details under "Stage 9".
 
 ## Design
 
@@ -853,6 +875,308 @@ tools), and requests in the next half minute fail at once instead of asking
 again. Proven on 1.117.1 and 1.122.1 (`test/live/kobold_idle_unload_live_test.dart`):
 `/api/v1/model` answers `inactive` after the unload; a reply and a tool
 call each reload `fpai-chat.kcpps` and are answered.
+
+### Stage 9: the slot keeper (as built)
+
+Decision 17, in detail (2026-10-05). KoboldCpp 1.112 to 1.122.1 have the
+same four admin calls, the same default of five slots and the same lock.
+
+**What KoboldCpp does** (read from its source, and checked live on 1.117.1
+and 1.122.1)
+
+- `POST /api/admin/check_state`, `load_state`, `save_state` and
+  `clear_state`, body `{"slot": n}`. They need `--admin`, an existing
+  `--admindir` and the admin password; the app's engine has the first two
+  and no password (decision 14). With any missing, or no model loaded, the
+  answer is HTTP 200 `{"success": false}`: the reasons cannot be told apart.
+- Five slots when smart cache is off; a slot number past the limit becomes
+  slot 0. `check_state` lists each slot's tokens and size and the tokens in
+  the cache now.
+- The calls wait in the generation lock, as a generation does, and block
+  under the default `--multiuser 10`. A client that disconnects aborts its
+  generation and releases the lock. Token counts, perf and abort run
+  outside it and never touch the cache.
+- A save copies the whole llama state (the cache cells in use and the
+  recurrent state) into system memory, never graphics memory and never disk,
+  and keeps the token list. It answers `success: false` when the copy
+  cannot be allocated. A slot's buffer never shrinks, and there is no call
+  to clear one slot: `clear_state` frees all of them. A load clears the cache
+  and restores the slot; it compares nothing and fails only for an empty
+  slot.
+- What follows a load is an ordinary request. An attention model keeps the
+  longest common start of the tokens (fast forward) and drops the rest of
+  the cache, so a prompt that shares a long start with the slot reads only
+  the rest, and a slot that does not fit only costs time. A model with
+  recurrent layers needs the saved tokens to be a full start of the new
+  prompt. KoboldCpp makes its own smart cache for it when fast forward and
+  context shift are on (seven slots by default), and takes the snapshots
+  that make it useful in the middle of a generation, which the admin calls
+  cannot. The app can only save between requests, and the next chat prompt
+  carries the reply inside the user message after a tail that changes every
+  turn, so a saved state is never a start of it: the keeper stays out of
+  those models.
+- A reload, an idle unload and a swap replace the model process in admin
+  mode, and every slot goes with it. So do Stop and exit.
+
+**The line to the engine.** Replies, helper streams, tool calls and the
+system-role check used to be sent at the same moment; only KoboldCpp's own
+lock put them in order, and the app could not say which chat the cache held.
+`KoboldRequestQueue` (`kobold/kobold_request_queue.dart`) is a first-come
+first-served line. `KoboldService` takes a place when a stream is listened
+to, a tool call is made or a system-role arm starts, and gives it back when
+the stream ends, fails or is cancelled, or the call returns. A reader that
+leaves while the request still waits means it is never sent. Stop, perf,
+token counts and swaps stay outside it. `waitForIdle` means "what is in line
+at this moment". The line comes first, the swap lock second; a swap never
+takes the line. No abort counter decides anything: many callers abort on
+purpose (the eval engine after an early JSON, tool timeouts), so counting
+aborts would drop a reply that is only waiting.
+
+**Who is a chat.** `GenerationParams.kvChat` is the chat's session id. Only
+`paramsOf` (send, Continue, regenerate, every group speaker, Scene Guest and
+cast turns, all of which build their request there) and impersonate set it.
+Every other request is a helper, and the tool call ignores the field. A
+helper that carries it by mistake costs speed and nothing else.
+
+**The keeper** (`kobold/kobold_slot_keeper.dart`), one for each service and
+each load of the model (`KoboldService.loadGeneration`).
+
+- A new load empties its table without any call: the slots died with the
+  model process. What the engine is given decides, once, whether it acts
+  (below).
+- The first chat reply looks at the engine once (`check_state`). It stays
+  out when admin is off, when a slot is already used (someone else's), or
+  when the engine fails. Chats kept are the plan's, never more than the
+  engine's slots.
+- Before a reply it loads the chat's slot unless the engine still holds the
+  chat. An empty slot drops that chat only. A chat that comes back with a
+  token count more than two off means something else uses the slots, and
+  the keeper steps aside. A busy answer (429 or 503) is skipped for now.
+- After a reply (finished, the reader left, or Stop closed the call; not one
+  that failed) it saves into the chat's own slot, else a free one, else the
+  least recently used chat's. The line is held until the save is done, so a
+  helper asked meanwhile goes out after it, and the reader is not kept
+  waiting. A save the engine cannot make steps the keeper aside and clears
+  the slots to give the memory back.
+- A helper, and a coding session on the engine (`keepLoadedFor`), clear "the
+  engine still holds the chat". The keeper waits out a coding session.
+- Every call runs in the swap lock and is skipped when the model changed
+  first, has one try and 45 seconds. The keeper never throws into a reply:
+  any failure is a step aside for that load, and the engine log says so
+  once, in plain words.
+
+**The plan** (`kobold/kobold_keeper_budget.dart`). The keeper stays out of:
+an engine the app did not start, a config with smart cache on, fast forward
+off, a model that could not be read, a model with recurrent layers, sliding
+window left to KoboldCpp for a model that has it, and parallel requests
+above one. Chats kept: the smart cache slot arithmetic with KoboldCpp's five
+as the wish, a full context counted for each (slot buffers never shrink),
+the model's own system memory and 2 GB set aside; unknown figures keep one.
+On a Mac graphics and system memory are one pool.
+
+**Auto mode and the way back.** `KoboldAutoTuning.chats` is that count for
+the fit, `cacheSetting(keeper:)` what to write. An ordinary model gets no
+smart cache and context shift on; a model with recurrent layers is as it
+was (KoboldCpp's own smart cache). The preset editor, its suggestion and a
+preset's own settings are untouched. A failure at run time in an auto-mode
+launch (a save the engine cannot make, a call that errors, a chat that comes
+back changed; not the keeper choosing to stay out, and not a preset) is
+remembered in `kobold_keeper_failed` beside the other KoboldCpp preferences
+(engine version and model file), under the same prefix, so a beta never
+reads a stable library's. The next start of that model on that engine
+version writes the smart cache auto mode wrote before and says so in the
+engine log. A new engine version tries the keeper again.
+
+**Words.** The Local model card says "Going back to another chat is quick."
+for an ordinary model when two or more chats are kept. Today that is the
+same answer as the smart cache's own count (the same memory arithmetic), so
+the card's tests are regression pins, not proof of the change. The words are
+built in Dart (`KoboldStatusFacts`) and reach the phone through the facade:
+nothing to add in `web_ui/`. There is no new setting and no new screen.
+
+**Tests.** `kobold_request_queue_test` and `kobold_requests_wait_test` (the
+line, over real HTTP), `kobold_slot_keeper_test` and
+`kobold_keeper_plan_test` (the rules; each rule was broken once to see it
+fail), `kobold_slot_api_test` and `kobold_slot_keeper_engine_test` (the
+service against `test/helpers/fake_kobold_engine.dart`, a KoboldCpp
+stand-in on a loopback socket that copies its lock, its slots, its fast
+forward and its disconnect behaviour), `chat_slot_keeper_paths_test` (which
+requests name a chat, and one run of `ChatService` through the real service
+on the stand-in), `kobold_auto_keeper_test` (what auto mode writes and the
+way back), and `test/live/kobold_slot_keeper_live_test.dart` (below). The
+existing live suites (launch, swap, reload check, web card, presets) pass on
+1.117.1 and 1.122.1 with the keeper in. Existing tests changed because the
+behaviour they pinned is
+the thing replaced: `kobold_abort_ownership_test` (two requests can no
+longer be open at once), `kobold_auto_launch_test`,
+`kobold_awaited_hardware_test`, `kobold_stage_header_cache_test` and
+`test/live/kobold_presets_live_test.dart` (auto mode no longer writes
+`smartcache: 3` for an ordinary model).
+
+**Path-complete** (`docs/design/path-complete-chat-work.md`). The keeper is
+transport only: it reads and writes no message, metadata, Realism, Needs,
+Journal, Growth or Pockets state and changes no prompt text. The one thing
+it keeps is a table of saved caches by session id.
+
+| Event | What happens | Done |
+|---|---|---|
+| Normal send, 1:1 | the pre-reply judges are helpers; the reply loads the chat's slot, then saves | yes |
+| Normal send, group, per speaker | one slot for the group's session; each speaker's dance is helpers; load and save around each speaker's reply | yes |
+| Continue | a chat reply like any other (it builds its request in `paramsOf`): load, reply, save | yes |
+| Regenerate | the judges re-run (helpers), then the reply loads the chat's slot (prompt and old reply) and reads only what differs | yes (live: 1 token) |
+| Swipe | navigation; past the last alternate it is a regenerate | n/a |
+| Delete, edit history | nothing is recorded per message; KoboldCpp compares the tokens and reads from the first one that changed | n/a |
+| Prompt paths (full, Continue partial, overflow, impersonate) | no prompt text changes; impersonate is a chat request | n/a |
+
+Twins checked: the judges, trust repair, one-shot and the post-reply fusion
+(all helpers through the same line); the doorbell's recipe cards, which reuse
+the mouth's parameters, against `generateWithTools`, which ignores `kvChat`
+(a test); `paramsOf` against impersonate (both set it; a test); 1:1 against
+group (one session id each; a test); desktop against web (no setting, no
+screen; the words are built in Dart).
+
+**Live** (`test/live/kobold_slot_keeper_live_test.dart`): ten chat turns,
+about 1,500 tokens of rules and 200 more of history each turn plus a changing
+tail of 300, three helpers of 600 to 1,200 tokens after each turn (two
+streams and a tool call), then a regenerated reply; once with the keeper off
+and once on. What the engine says it read (`Processed:` in its own log) is
+the measure.
+
+Measured on Apple Silicon (a Mac with 128 GB, busy with other test runs at
+the time, so the times are rough). "read" is what the engine says it
+processed for each reply, "first token" is the time from asking to the first
+word, the keeper's load included. Two models (Qwen2.5-0.5B at Q8, Qwen3-VL-8B
+at Q2_K) on two engines (1.122.1 and 1.117.1):
+
+```
+koboldcpp-mac-arm64-1.122.1 with Qwen2.5-0.5B-Instruct-Q8_0.gguf
+turn   prompt  keeper off read   first token    keeper on read   first token
+1        1521        1533        366 ms         1533        414 ms
+2        1701        1713        406 ms          424        469 ms
+3        1874        1886        406 ms          420        473 ms
+4        2045        2057        409 ms          416        454 ms
+5        2228        2240        408 ms          426        468 ms
+6        2401        2413        400 ms          425        461 ms
+7        2579        2591        402 ms          425        463 ms
+8        2751        2763        399 ms          419        457 ms
+9        2923        2935        400 ms          416        456 ms
+10       3104        3116        398 ms          425        458 ms
+regen    3104        3116        403 ms            1        466 ms
+
+koboldcpp-mac-arm64-1.122.1 with Qwen3-VL-8B-Instruct-Q2_K.gguf
+turn   prompt  keeper off read   first token    keeper on read   first token
+1        1521        1533        660 ms         1533        695 ms
+2        1701        1713       2258 ms          424        491 ms
+3        1874        1886       2047 ms          419        750 ms
+4        2045        2057       2122 ms          416       1360 ms
+5        2228        2240       1979 ms          426       1316 ms
+6        2401        2413       2078 ms          425       1323 ms
+7        2579        2591       2551 ms          425       1637 ms
+8        2751        2763       2716 ms          419       1497 ms
+9        2923        2935       2722 ms          416       1483 ms
+10       3104        3116       2862 ms          425       1554 ms
+regen    3104        3116       3250 ms            1        509 ms
+
+koboldcpp-mac-arm64-1.117.1 with Qwen2.5-0.5B-Instruct-Q8_0.gguf
+turn   prompt  keeper off read   first token    keeper on read   first token
+1        1521        1533        577 ms         1533        601 ms
+2        1701        1713        592 ms          424        460 ms
+3        1874        1886        655 ms          420        472 ms
+4        2045        2057        828 ms          416        475 ms
+5        2228        2240        825 ms          426        468 ms
+6        2401        2413        861 ms          425        471 ms
+7        2579        2591        839 ms          425        464 ms
+8        2751        2763        906 ms          419        456 ms
+9        2923        2935        996 ms          416        454 ms
+10       3104        3116       1019 ms          425        474 ms
+regen    3104        3116        671 ms            1        477 ms
+
+koboldcpp-mac-arm64-1.117.1 with Qwen3-VL-8B-Instruct-Q2_K.gguf
+turn   prompt  keeper off read   first token    keeper on read   first token
+1        1521        1533       2709 ms         1533       2113 ms
+2        1701        1713       3214 ms          424        905 ms
+3        1874        1886       3163 ms          420        551 ms
+4        2045        2057       4036 ms          416        578 ms
+5        2228        2240       4321 ms          426        617 ms
+6        2401        2413       4608 ms          425        635 ms
+7        2579        2591       5018 ms          425        615 ms
+8        2751        2763       5223 ms          419        614 ms
+9        2923        2935       5355 ms          416        570 ms
+10       3104        3116       3441 ms          425        597 ms
+regen    3104        3116       3123 ms            1        525 ms
+```
+
+With the keeper off every reply after a helper reads the whole chat again
+(the prompt and about a dozen tokens of template: 1,713 to 3,116); with it on
+a reply reads the new lines and the changing tail (416 to 426), and a
+regenerated reply reads one token. The time follows the model. With the 0.5B
+model reading is nearly free: on 1.122.1 the first token comes no sooner (it
+is about 60 ms later, the load being a call of its own), on 1.117.1 it comes
+at 454 to 475 ms instead of 592 to 1,019. With the 8B model it comes at 0.5
+to 1.6 s instead of 2.0 to 2.9 s on 1.122.1 (a regenerated reply 0.5 s
+instead of 3.3), and at 0.55 to 0.9 s instead of 3.2 to 5.4 s on 1.117.1
+(regenerated: 0.5 s instead of 3.1). A load costs about 50 ms for the small
+model and up to about a second for the 8B model at 3,000 tokens of chat (its
+cache is about 150 KB for each token), so a machine that reads a prompt
+faster than it copies its cache gains less.
+
+A model with recurrent layers (LFM2-350M) on both engines: the keeper stays
+out, `smartcache` is in the staged config with context shift on, the engine
+log says once why, and KoboldCpp's own cache brings nothing here: every
+turn, and the regenerated reply, reads the whole prompt.
+
+```
+hybrid LFM2-350M-Q8_0.gguf on koboldcpp-mac-arm64-1.122.1
+turn   prompt      hybrid read   first token
+1        1737        1750        360 ms
+2        1929        1942        399 ms
+3        2125        2138        409 ms
+regen    2125        2138        407 ms
+
+hybrid LFM2-350M-Q8_0.gguf on koboldcpp-mac-arm64-1.117.1
+turn   prompt      hybrid read   first token
+1        1737        1750        362 ms
+2        1929        1942        408 ms
+3        2125        2138        408 ms
+regen    2125        2138        409 ms
+```
+
+A real chat through `ChatService` with Realism and Needs on (judges and
+passes between the replies), on the 0.5B model: each reply after the first
+found its chat's cache loaded (826 to 1,428 tokens) and read 460 to 683 of
+its prompt, the new lines and the state zone that changes every turn.
+
+```
+real chat with Realism on, koboldcpp-mac-arm64-1.122.1
+861 restored, 528 read
+1223 restored, 683 read
+1428 restored, 590 read
+real chat with Realism on, koboldcpp-mac-arm64-1.117.1
+826 restored, 460 read
+955 restored, 583 read
+1148 restored, 601 read
+```
+
+
+**Not done, on purpose.**
+
+- The editor's MMQ timing runs after a swap that already empties the slots,
+  so it needs no `keepLoadedFor`.
+- A deleted chat keeps its slot until another chat takes it or the engine
+  restarts (the keeper has a `forget`, nothing calls it from
+  `deleteSession`).
+- A helper model that swaps in on the same engine before every reply empties
+  the slots each time; a hint from the provider could put the keeper to
+  sleep then.
+- A cost guard: a load takes longer as the chat grows (it copies the cache),
+  so for a model whose prompt reads faster than its cache copies, skipping
+  the load would be quicker. Nothing measured here needs it.
+- Saving older chats to disk instead of dropping them needs a KoboldCpp call
+  that does not exist yet (LostRuins/koboldcpp#2520).
+- A Stop pressed on a reply sends KoboldCpp an abort at the same moment the
+  next request in the line may go out. That race was there before the line
+  existed (an eval's early stop, the retry hygiene call); the line does not
+  widen it, and KoboldCpp ignores an abort that finds anything waiting.
 
 ## Migration for existing users
 
