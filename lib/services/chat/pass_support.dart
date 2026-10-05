@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/services.dart'
     show LlmToolCall, LlmToolResponse, OneShotMode, isToolTransportFailure;
 import 'package:front_porch_ai/services/storage/storage.dart'
     show ToolVerdictSettings;
+import 'package:front_porch_ai/utils/utils.dart' show namesUnknownLocalModel;
 
 part 'pass_support_fire.dart';
 
@@ -170,6 +171,10 @@ class ToolTransportProbe extends ChangeNotifier {
 
   bool? _verdictFor(String id) => _verdicts[id] ?? store?.verdictFor(id);
 
+  /// A verdict is kept for a model that can be named; one given while the
+  /// engine ran a model nobody had confirmed belongs to none.
+  bool _keepable(String id) => !namesUnknownLocalModel(id);
+
   bool isXmlOnly(String backendIdentity) =>
       _verdictFor(backendIdentity) == false;
 
@@ -182,7 +187,7 @@ class ToolTransportProbe extends ChangeNotifier {
   void markXmlOnly(String backendIdentity) {
     if (_verdictFor(backendIdentity) == false) return;
     _verdicts[backendIdentity] = false;
-    store?.remember(backendIdentity, false);
+    if (_keepable(backendIdentity)) store?.remember(backendIdentity, false);
     notifyListeners();
   }
 
@@ -245,7 +250,7 @@ class ToolTransportProbe extends ChangeNotifier {
     _skipThisSend.remove(backendIdentity);
     if (_verdictFor(backendIdentity) == true) return;
     _verdicts[backendIdentity] = true;
-    store?.remember(backendIdentity, true);
+    if (_keepable(backendIdentity)) store?.remember(backendIdentity, true);
     notifyListeners();
   }
 

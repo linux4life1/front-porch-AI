@@ -292,14 +292,48 @@ extension ChatServiceWiringEvals on ChatService {
       remoteModelName: local
           ? ''
           : _storageService.backendSettings.remoteModelName,
-      modelPath: local
-          ? _modelKeys.of(
-              _storageService.backendSettings.lastUsedModelPath,
-              stamp: _koboldService.loadGeneration,
-            )
-          : null,
+      modelPath: local ? _localModelKeyNow : null,
     );
   }
+
+  /// The local model the eval identity names: the one whose answers the
+  /// engine gives. With nothing running, the one the next start loads. The
+  /// app's record of the picked model is not it while an engine runs: a pick
+  /// changes the record at once and the engine answers with the old weights
+  /// until a reload has been asked for, done and read back, so an answer filed
+  /// under the record would belong to another model. While the engine is
+  /// still loading nothing can be asked, so it names the model it was asked to
+  /// load (the pill shows what is known of it). Null for a running engine
+  /// that is ready on a model nobody has confirmed: its load has not been read
+  /// back, or it went back to another after a reload that did not take.
+  String? get _localModelPath {
+    final kobold = _koboldService;
+    if (!kobold.isProcessRunning) {
+      return _storageService.backendSettings.lastUsedModelPath;
+    }
+    return kobold.answeringModelPath ??
+        (kobold.modelReady ? null : kobold.loadedModelPath);
+  }
+
+  /// The local model's key in the eval identity; see [_localModelPath]. An
+  /// unknown is its own key, never kept and never asked on its own.
+  String get _localModelKeyNow {
+    final kobold = _koboldService;
+    final path = _localModelPath;
+    if (path == null || path.isEmpty) {
+      return kobold.isProcessRunning
+          ? unknownLocalModelKey(kobold.loadGeneration)
+          : '';
+    }
+    return _modelKeys.of(path, stamp: kobold.loadGeneration);
+  }
+
+  /// True while the local engine is ready on a model nobody has confirmed.
+  bool get _localModelUnknown =>
+      _mouthIsLocal &&
+      !_workerLaneActive &&
+      _koboldService.isProcessRunning &&
+      (_localModelPath ?? '').isEmpty;
 
   /// Active tool-support prober behind the sidebar's tool-calling pill:
   /// verdicts land on the same [_toolProbe] the passes use, auto-retests on
@@ -310,6 +344,7 @@ extension ChatServiceWiringEvals on ChatService {
       fireToolEval: _fireToolEval,
       getBackendIdentity: () => _evalBackendIdentity,
       isBackendReady: () => _sideLaneLlm.isReady,
+      modelKnown: () => !_localModelUnknown,
       isBusy: () => _isGenerating || (_llmProvider?.gpuSwapBusy ?? false),
       workerLaneReadyForPing: () =>
           _llmProvider?.workerLaneReadyForAutoPing ?? true,

@@ -47,6 +47,19 @@ int? _fileSize(String path) {
   }
 }
 
+/// What an identity says in the place of a model's key while the engine runs
+/// a model nobody has confirmed (it is loading, or went back to another after
+/// a reload that did not take): it names no model, so nothing is kept under it
+/// and nobody is asked on its own. [episode] tells one such stretch from the
+/// next, so a verdict given in one is not read in another.
+String unknownLocalModelKey(Object episode) => '$_unknown#$episode';
+
+/// Whether [identity] carries [unknownLocalModelKey].
+bool namesUnknownLocalModel(String identity) =>
+    identity.contains('|$_unknown#');
+
+const String _unknown = '(unknown)';
+
 /// [localModelKey] read from the file once per model and per load of the
 /// engine, not on a timer and not on every paint: the sidebar's pill asks for
 /// it while it builds, and a multi-GB file is not stat-ed per frame (cheap on

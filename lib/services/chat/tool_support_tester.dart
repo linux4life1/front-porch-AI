@@ -64,6 +64,7 @@ class ToolSupportTester {
     this.fetchMetadataToolVerdict,
     this.retryGaps = kToolTestRetryGaps,
     this.now = DateTime.now,
+    this.modelKnown = _always,
   });
 
   final ToolTransportProbe probe;
@@ -93,6 +94,15 @@ class ToolSupportTester {
   /// See [kToolTestRetryGaps]. A seam so a test can shorten them.
   final List<Duration> retryGaps;
   final DateTime Function() now;
+
+  /// False while the engine is ready but nobody can say which model answers:
+  /// its load has not been read back, or it went back to another after a
+  /// reload that did not take. Asking then would file the answer of some
+  /// other model under this one, so nothing is asked on its own. A tap on
+  /// the pill still asks.
+  final bool Function() modelKnown;
+
+  static bool _always() => true;
 
   Timer? _retryTimer;
   bool _testing = false;
@@ -145,7 +155,9 @@ class ToolSupportTester {
       !_testing &&
       !isBusy() &&
       isBackendReady() &&
-      (force || workerLaneReadyForPing == null || workerLaneReadyForPing!());
+      (force ||
+          (modelKnown() &&
+              (workerLaneReadyForPing == null || workerLaneReadyForPing!())));
 
   /// Probe the current backend+model once and record the verdict.
   /// [force] forgets any existing verdict first (the pill's tap-to-retest).
@@ -254,7 +266,7 @@ class ToolSupportTester {
     // One question at a time. One that ends under another identity looks
     // again by itself (see [_ask]).
     if (_testing) return;
-    if (!isBackendReady() || isBusy()) return;
+    if (!isBackendReady() || isBusy() || !modelKnown()) return;
     if (workerLaneReadyForPing != null && !workerLaneReadyForPing!()) return;
     if (probe.supportFor(identity) != ToolCallSupport.untested) {
       _lastAutoTestedIdentity = identity;

@@ -107,6 +107,22 @@ class _App {
     }
   }
 
+  /// Until [done] holds (the app's own state moves on its own clock).
+  Future<void> waitFor(bool Function() done, {int seconds = 90}) async {
+    final deadline = DateTime.now().add(Duration(seconds: seconds));
+    while (DateTime.now().isBefore(deadline) && !done()) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+  }
+
+  /// Another path to the same model file, so picking it costs no memory.
+  String aliasOfModel() {
+    final alias = p.join(storage.modelsDir.path, 'alias-model.gguf');
+    Directory(storage.modelsDir.path).createSync(recursive: true);
+    Link(alias).createSync(liveEngineModel);
+    return alias;
+  }
+
   /// Times the engine itself finished a 64-token answer: the size of the
   /// tool-calling question (the system-message check asks for one token).
   int get questionsAnswered => kobold.logs
@@ -240,35 +256,113 @@ void main() {
   );
 
   test(
-    'a model record that moves while the first test runs does not lose the '
+    'a reload to another model while the first test runs does not lose the '
     'test: the model it moved to is tested too',
     () async {
       final app = await _App.open();
       addTearDown(app.close);
-      // Another path to the same file, so picking it costs no memory.
-      final alias = p.join(app.storage.modelsDir.path, 'alias-model.gguf');
-      Directory(app.storage.modelsDir.path).createSync(recursive: true);
-      Link(alias).createSync(liveEngineModel);
+      final alias = app.aliasOfModel();
 
-      var moved = false;
+      var reloading = false;
       app.chat.addListener(() {
-        if (app.chat.isTestingToolSupport && !moved) {
-          moved = true;
-          // What a pick, a preset choice or a reload's record does.
-          unawaited(selectKoboldModel(app.storage, alias));
+        if (app.chat.isTestingToolSupport && !reloading) {
+          reloading = true;
+          // What a pick in Settings and the reload that follows it do.
+          unawaited(() async {
+            await selectKoboldModel(app.storage, alias);
+            await app.provider.reloadChatKobold();
+          }());
         }
       });
       await app.start();
       await app.waitForModel();
       await app.waitForVerdict();
+      await app.waitFor(
+        () =>
+            app.chat.debugEvalBackendIdentity.contains('alias-model.gguf') &&
+            app.chat.toolCallSupport != ToolCallSupport.untested &&
+            !app.chat.isTestingToolSupport,
+      );
 
-      expect(moved, isTrue, reason: 'the record moved during the test');
+      expect(reloading, isTrue, reason: 'the reload began during the test');
+      expect(app.kobold.loadedModelPath, alias);
       expect(app.chat.debugEvalBackendIdentity, contains('alias-model.gguf'));
       expect(
         app.chat.toolCallSupport,
         ToolCallSupport.supported,
         reason: 'the model it moved to was tested',
       );
+      await _waitForStoredVerdict();
+      expect(await _storedVerdicts(), contains(modelKey(alias)));
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
+
+  test(
+    'a model picked while another is loaded has nothing filed under it: the '
+    'engine still answers with the first',
+    () async {
+      final app = await _App.open();
+      addTearDown(app.close);
+      final alias = app.aliasOfModel();
+
+      await app.start();
+      await app.waitForModel();
+      await app.waitForVerdict();
+      await _waitForStoredVerdict();
+      final named = app.chat.debugEvalBackendIdentity;
+      final asked = app.questionsAnswered;
+
+      // The pick changes the app's record at once; the engine still runs the
+      // first model until a reload has been asked for and read back.
+      await selectKoboldModel(app.storage, alias);
+      await Future<void>.delayed(const Duration(seconds: 6));
+      expect(
+        app.chat.debugEvalBackendIdentity,
+        named,
+        reason: 'the model that answers has not changed',
+      );
+      expect(app.questionsAnswered, asked, reason: 'nobody was asked again');
+
+      // A tap on the pill asks the model that answers, and keeps its answer
+      // under that model's name.
+      await app.chat.testToolCalling();
+      expect(app.questionsAnswered, asked + 1);
+      expect(await _storedVerdicts(), {modelKey(liveEngineModel): true});
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
+
+  test(
+    'a model the engine unloaded for being idle keeps its name and its '
+    'answer, and loading it back asks nothing',
+    () async {
+      final app = await _App.open();
+      addTearDown(app.close);
+      app.kobold.debugIdleUnloadAfter = const Duration(seconds: 3);
+      await app.storage.backendSettings.setIdleUnloadMinutes(10);
+
+      await app.start();
+      await app.waitForModel();
+      await app.waitForVerdict();
+      final named = app.chat.debugEvalBackendIdentity;
+      final asked = app.questionsAnswered;
+
+      await app.waitFor(() => app.kobold.phase == KoboldPhase.unloaded);
+      expect(app.kobold.phase, KoboldPhase.unloaded);
+      expect(app.chat.debugEvalBackendIdentity, named);
+      expect(app.chat.toolCallSupport, ToolCallSupport.supported);
+
+      // The next request loads it back; still the same model, still known.
+      final reply = await app.kobold
+          .generateStream(GenerationParams(prompt: 'Say hi.', maxLength: 16))
+          .join();
+      expect(reply.trim(), isNotEmpty);
+      expect(app.kobold.phase, KoboldPhase.ready);
+      expect(app.chat.debugEvalBackendIdentity, named);
+      expect(app.questionsAnswered, asked, reason: 'nobody was asked again');
     },
     timeout: _slow,
     skip: liveEngineSkip,

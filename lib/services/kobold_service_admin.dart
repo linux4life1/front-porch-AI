@@ -130,16 +130,32 @@ extension KoboldServiceAdmin on KoboldService {
   /// answer every swap asks for, so a swap that is not needed is not sent.
   bool isResident(String key) => _modelReady && _residentKey == key;
 
+  /// The model file this engine's answers come from, when that is known: the
+  /// one a start loaded or a swap was read back as running, or the one an
+  /// idle unload will load back. [loadedModelPath] is only what the engine
+  /// was told to load; this is what it is known to run. Null while the engine
+  /// is not running, is loading, or went back to a model nobody has named
+  /// after a reload that did not load what it asked for.
+  String? get answeringModelPath {
+    if (!_isRunning) return null;
+    final unloaded = _idle.unloaded;
+    if (unloaded != null) return unloaded.model;
+    if (!_modelReady || (_residentKey ?? '').isEmpty) return null;
+    return _loadedModelPath;
+  }
+
   /// A swap finished loading the config with this content ('' when what
   /// loaded is not known). Either way something is loaded again.
   void noteResident(String key) {
+    final changed = _residentKey != key;
     _residentKey = key;
     _idleTouch();
     // Loaded again after an idle unload: every status shows it now.
-    if (_idle.unloaded != null) {
-      _idle.unloaded = null;
-      notify();
-    }
+    final loadedBack = _idle.unloaded != null;
+    _idle.unloaded = null;
+    // What the engine is known to run changed: everything that names the
+    // model (the tool-calling pill's identity) answers differently now.
+    if (loadedBack || changed) notify();
   }
 
   /// The model a request goes to: the one loaded (a helper or story model
