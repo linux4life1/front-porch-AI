@@ -3,8 +3,9 @@
 
 // A preset that would make KoboldCpp run a program or open itself to the
 // internet must not reach a RUNNING engine either: not when chat's preset is
-// changed (a live reload by name), and not when a helper or story model
-// swaps in with such a preset. The engine here is a real HTTP server on
+// changed (a live reload by name), not when a helper or story model swaps in
+// with such a preset, and not when the preset editor times one. The engine
+// here is a real HTTP server on
 // loopback that records what it is asked to reload; the app's own swap code
 // runs against it end to end.
 
@@ -94,5 +95,40 @@ void main() {
       reason: 'the engine was never asked for the helper\'s config',
     );
     expect(staged().where((name) => name.contains('lane')), isEmpty);
+  });
+
+  test('a timing trial of a config that would run a program is refused '
+      'where it is loaded, whoever built the config', () async {
+    // The editor builds its trial through the launch map, which refuses such
+    // a config; loadKoboldTrial is public and stages what it is given.
+    final config = {
+      'model_param': chatModel,
+      'contextsize': 8192,
+      'mcpfile': 'https://example.com/servers.json',
+    };
+
+    await expectLater(
+      rig.provider.loadKoboldTrial('fpai-trial.kcpps', config),
+      throwsA(
+        isA<KoboldPresetProblem>().having(
+          (e) => e.message,
+          'message',
+          allOf(contains('mcpfile'), contains('pick another preset')),
+        ),
+      ),
+    );
+
+    expect(rig.engine.reloads, isEmpty, reason: 'KoboldCpp was never asked');
+    expect(staged(), isNot(contains('fpai-trial.kcpps')));
+  });
+
+  test('a timing trial of a fine config still loads', () async {
+    final config = {'model_param': chatModel, 'contextsize': 8192};
+
+    expect(
+      await rig.provider.loadKoboldTrial('fpai-trial.kcpps', config),
+      isTrue,
+    );
+    expect(rig.engine.reloads, ['fpai-trial.kcpps']);
   });
 }
