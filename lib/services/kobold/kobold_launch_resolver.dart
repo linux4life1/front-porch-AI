@@ -138,6 +138,10 @@ Future<String?> koboldLaunchProblem(
       await koboldPresetProblem(launch.kcppsPath);
 }
 
+/// Said when nothing is chosen to load.
+const String kKoboldNoModelWords =
+    'No model is chosen yet. Pick one in Settings, on the Backend tab.';
+
 /// What a launch did.
 class KoboldLaunchResult {
   /// The engine was started. [message] says how the model was chosen when

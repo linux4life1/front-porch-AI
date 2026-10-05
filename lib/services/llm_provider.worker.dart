@@ -249,7 +249,10 @@ extension LLMProviderWorker on LLMProvider {
     return _storageService.workerRemoteModelName;
   }
 
-  Future<void> _ensureManagedKobold({
+  /// Starts the app's KoboldCpp for chat entry or for a swap. Null when
+  /// nothing needed starting; otherwise what the start said. A swap needs
+  /// the answer: a restart that was refused is not waited for.
+  Future<KoboldLaunchResult?> _ensureManagedKobold({
     bool forGpuSwap = false,
     String? modelPath,
     String? kcppsPath,
@@ -259,8 +262,8 @@ extension LLMProviderWorker on LLMProvider {
         ? (kcppsPath?.trim() ?? '')
         : (_storageService.backendSettings.activeKcppsPath?.trim() ?? '');
     if (hasAnyManagedProcessRunning) {
-      if (!forGpuSwap) return;
-      if (_managedKoboldAlreadyHas(requested, kcpps)) return;
+      if (!forGpuSwap) return null;
+      if (_managedKoboldAlreadyHas(requested, kcpps)) return null;
     } else if (!forGpuSwap &&
         !shouldEnsureKoboldProcess(
           mouthType: _storageService.backendSettings.backendType,
@@ -271,29 +274,32 @@ extension LLMProviderWorker on LLMProvider {
             _storageService.backendSettings.remoteApiUrl,
           ),
         )) {
-      return;
+      return null;
     }
 
     if (_backendManager.backendPath == null) {
       await _backendManager.checkBackendAvailability();
       if (_backendManager.backendPath == null) {
         unawaited(_backendManager.ensureEngineInstalled());
-        return;
+        return const KoboldLaunchResult.refused(
+          'The AI engine is not installed yet.',
+        );
       }
     }
 
     try {
       if (!forGpuSwap) {
         // Chat entry: the same rule as every other start.
-        if (!resolveKoboldLaunch(_storageService).canLaunch) return;
-        await _koboldService.launch(
+        if (!resolveKoboldLaunch(_storageService).canLaunch) return null;
+        return await _koboldService.launch(
           _backendManager.backendPath!,
           port: _koboldService.port,
         );
-        return;
       }
       // A swap names its own model and preset.
-      if (requested.isEmpty && kcpps.isEmpty) return;
+      if (requested.isEmpty && kcpps.isEmpty) {
+        return const KoboldLaunchResult.refused(kKoboldNoModelWords);
+      }
       // Putting chat back keeps vision; helper and story models never use
       // it. Chat is what the launch rule gives now, which can be a model
       // the active preset names rather than the last one picked.
@@ -308,7 +314,7 @@ extension LLMProviderWorker on LLMProvider {
           normalizeLocalModelPath(requested) ==
               normalizeLocalModelPath(chat.modelPath) &&
           chatKcpps.contains(normalizeLocalModelPath(kcpps));
-      await _koboldService.startKobold(
+      return await _koboldService.startKobold(
         _backendManager.backendPath!,
         requested,
         kcppsPath: kcpps.isEmpty ? null : kcpps,
@@ -323,6 +329,7 @@ extension LLMProviderWorker on LLMProvider {
       );
     } catch (e) {
       debugPrint('[LLMProvider] ensureManagedBackendIsRunning failed: $e');
+      return KoboldLaunchResult.refused('KoboldCpp could not be started ($e).');
     }
   }
 

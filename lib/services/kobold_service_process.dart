@@ -39,10 +39,7 @@ extension KoboldServiceProcess on KoboldService {
       await b.setActiveKcppsPath(null);
     }
     if (!launch.canLaunch) {
-      return KoboldLaunchResult.refused(
-        launch.note ??
-            'No model is chosen yet. Pick one in Settings, on the Backend tab.',
-      );
+      return KoboldLaunchResult.refused(launch.note ?? kKoboldNoModelWords);
     }
     // A start already under way would swallow this one without a word.
     if (_isStarting) return const KoboldLaunchResult.refused(_alreadyStarting);

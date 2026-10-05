@@ -62,6 +62,10 @@ class KoboldProcessHost implements GpuSwapHost {
 
   final String baseUrl;
   final Future<void> Function() stopProcess;
+
+  /// Starts the engine process again, the last resort of [restore]. Throws,
+  /// in plain words, when it cannot be started: a restart that was refused
+  /// is not waited for.
   final Future<void> Function() startProcess;
   final bool Function()? isProcessRunning;
 
@@ -138,6 +142,10 @@ class KoboldProcessHost implements GpuSwapHost {
 
   bool get _processAlive => isProcessRunning?.call() == true;
 
+  /// The process is known not to run, so no admin call can be answered. A
+  /// host that cannot tell (no [isProcessRunning]) asks the admin first.
+  bool get _knownDown => isProcessRunning != null && !_processAlive;
+
   Future<void> _runAdmin(Future<void> Function() action, String op) {
     return koboldAdminRetry(
       action,
@@ -152,7 +160,7 @@ class KoboldProcessHost implements GpuSwapHost {
   Future<void> unload() async {
     await swapLock.enqueue(() async {
       final admin = _admin;
-      if (admin != null) {
+      if (admin != null && !_knownDown) {
         try {
           await _runAdmin(admin.unload, 'unload');
           markNotReady?.call();
@@ -182,7 +190,8 @@ class KoboldProcessHost implements GpuSwapHost {
         }
       } else {
         debugPrint(
-          '[GpuSwap] Kobold admin unavailable — last-resort process stop',
+          '[GpuSwap] Kobold ${admin == null ? 'admin unavailable' : 'not running'}'
+          ' — last-resort process stop',
         );
       }
       await stopProcess();
@@ -206,7 +215,9 @@ class KoboldProcessHost implements GpuSwapHost {
       var reloaded = false;
       Object? lastError;
       final admin = _admin;
-      if (admin != null) {
+      // A process known not to run cannot answer: it is restarted at once
+      // instead of after the admin retries have run out.
+      if (admin != null && !_knownDown) {
         try {
           await _runAdmin(
             () => admin.reloadConfig(
@@ -225,7 +236,8 @@ class KoboldProcessHost implements GpuSwapHost {
         }
       } else {
         debugPrint(
-          '[GpuSwap] Kobold admin unavailable — last-resort process restart',
+          '[GpuSwap] Kobold ${admin == null ? 'admin unavailable' : 'not running'}'
+          ' — last-resort process restart',
         );
       }
       if (reloaded) {
@@ -253,8 +265,11 @@ class KoboldProcessHost implements GpuSwapHost {
           debugPrint('[GpuSwap] Kobold did not act on the reload: $e');
         }
       }
+      // A reload the engine never acted on is decided by what it is, not by
+      // the words in its message.
       final permanent =
-          lastError != null && !koboldAdminErrorIsTransient(lastError);
+          lastError is KoboldSwapTimeout ||
+          (lastError != null && !koboldAdminErrorIsTransient(lastError));
       if (!_processAlive || permanent || admin == null) {
         if (_processAlive) await stopProcess();
         await startProcess();

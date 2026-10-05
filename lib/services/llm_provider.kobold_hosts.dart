@@ -68,14 +68,21 @@ extension LLMProviderKoboldHosts on LLMProvider {
       ),
       stopProcess: _koboldService.stopKobold,
       // A restart after a reload that was not acted on loads the same pair
-      // the reload asked for: for chat, the one Settings has now.
-      startProcess: () {
+      // the reload asked for: for chat, the one Settings has now. One that
+      // is refused fails the swap here, in words, instead of leaving it to
+      // wait for an engine that was never started.
+      startProcess: () async {
         final pair = _koboldRolePair(role, model, kcpps);
-        return ensureManagedBackendIsRunning(
+        final started = await _ensureManagedKobold(
           forGpuSwap: true,
           modelPath: pair.model,
           kcppsPath: pair.kcpps,
         );
+        if (started != null && !started.started) {
+          throw KoboldSwapFailed(
+            started.message ?? 'KoboldCpp could not be started.',
+          );
+        }
       },
       isProcessRunning: () => _koboldService.isProcessRunning,
       markNotReady: _koboldService.markModelNotReady,
