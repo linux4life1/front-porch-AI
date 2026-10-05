@@ -458,6 +458,7 @@ class _SettingsPageState extends State<SettingsPage> {
         await chooseKoboldPreset(storageService, path);
         if (!mounted) return;
         _scanLocalPresets();
+        _reloadChatIfRunning();
         if (storageService.backendSettings.kcppsHasModel &&
             _kcppsModelExists.of(
               storageService.backendSettings.kcppsModelPath,
