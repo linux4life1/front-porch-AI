@@ -172,6 +172,25 @@ Future<void> selectKoboldModel(StorageService storage, String modelPath) async {
   await storage.backendSettings.setActiveKcppsPath(usable ? saved : null);
 }
 
+/// The user chose [path] as the active preset, or none (the app's own
+/// settings) when it is null: from Settings, with Browse, or on the phone.
+///
+/// The preset is kept for the model a launch will load, not for whichever
+/// model a screen shows. A preset that names its own model makes it the model
+/// in use ([recordKoboldModelInUse]); kept under another model, picking that
+/// one later would turn the preset on and load the preset's model instead.
+/// Choosing none clears the link of the model in use. Returns that model, or
+/// null when none is chosen yet, in which case nothing is kept.
+Future<String?> chooseKoboldPreset(StorageService storage, String? path) async {
+  final b = storage.backendSettings;
+  await b.setActiveKcppsPath(path);
+  await recordKoboldModelInUse(storage);
+  final model = b.lastUsedModelPath;
+  if (model == null || model.isEmpty) return null;
+  await storage.presetSettings.setModelPreset(model, path ?? '');
+  return model;
+}
+
 /// The model KoboldCpp was given becomes the app's one record of "which
 /// model": the status card, the vision lookup, the thinking settings, an
 /// automatic restart and the phone's "loaded" marker all read it. A launch

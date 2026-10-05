@@ -81,15 +81,7 @@ extension BackendFacadeLocalModel on BackendFacade {
     }
     // A context tapped just before is superseded: this reloads at once.
     _cardReload?.cancel();
-    final b = _storage.backendSettings;
-    await b.setActiveKcppsPath(path);
-    // As a launch does: a preset's own model becomes the model, so every
-    // screen names what KoboldCpp loads.
-    await recordKoboldModelInUse(_storage);
-    final model = b.lastUsedModelPath;
-    if (model != null && model.isNotEmpty) {
-      await _storage.presetSettings.setModelPreset(model, path ?? '');
-    }
+    await chooseKoboldPreset(_storage, path);
     if (_llm.koboldService.isProcessRunning) {
       unawaited(
         _llm.reloadChatKobold().catchError(

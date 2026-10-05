@@ -427,21 +427,14 @@ class _SettingsPageState extends State<SettingsPage> {
       onVisionChanged: () => setState(() {}),
       onScanPresets: _scanLocalPresets,
       onKcppsChanged: (val) async {
-        await storageService.backendSettings.setActiveKcppsPath(val);
-        if (_selectedModelPath != null && val != null) {
-          storageService.presetSettings.setModelPreset(
-            _selectedModelPath!,
-            val,
-          );
+        final model = await chooseKoboldPreset(storageService, val);
+        if (!mounted) return;
+        if (val != null && model != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                'Preset saved for model: ${p.basename(_selectedModelPath!)}',
-              ),
+              content: Text('Preset saved for model: ${p.basename(model)}'),
             ),
           );
-        } else if (_selectedModelPath != null && val == null) {
-          storageService.presetSettings.setModelPreset(_selectedModelPath!, '');
         }
         _reloadChatIfRunning();
         if (val != null &&
@@ -461,13 +454,9 @@ class _SettingsPageState extends State<SettingsPage> {
         }
         _reloadChatIfRunning();
       },
-      onKcppsBrowsePicked: (path) {
-        if (_selectedModelPath != null) {
-          storageService.presetSettings.setModelPreset(
-            _selectedModelPath!,
-            path,
-          );
-        }
+      onKcppsBrowsePicked: (path) async {
+        await chooseKoboldPreset(storageService, path);
+        if (!mounted) return;
         _scanLocalPresets();
         if (storageService.backendSettings.kcppsHasModel &&
             _kcppsModelExists.of(
