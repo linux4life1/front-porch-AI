@@ -28,6 +28,13 @@ class _RequestState {
   /// Chat replies still waiting for their turn.
   final Set<_Waiting> waiting = {};
 
+  /// Set while the preset editor's speed test has the engine; completes when
+  /// chat's model is back. The app's own requests wait for it.
+  Completer<void>? speedTest;
+
+  /// The speed test has the engine and nothing of the app's is left on it.
+  bool speedTestHasEngine = false;
+
   /// Takes out of the line every waiting reply whose caller no longer wants
   /// it (the turn was cancelled). True when there was one.
   bool dropStoppedReplies() {
@@ -63,6 +70,9 @@ extension KoboldServiceRequests on KoboldService {
     GenerationParams params,
     List<Map<String, dynamic>> tools,
   ) async {
+    // Before the readiness check: the speed test's load is not a model gone.
+    final speedTest = _requests.speedTest;
+    if (speedTest != null) await speedTest.future;
     if (!isReady) return null;
     http.Client? mine;
     return _runSerialized<LlmToolResponse?>(() async {
@@ -81,6 +91,33 @@ extension KoboldServiceRequests on KoboldService {
         onDone: () => _requests.wire.release(mine),
       );
     });
+  }
+
+  /// The preset editor's speed test is about to load its own preset. Until
+  /// the returned [_endSpeedTestHold] is called the app's own requests
+  /// (replies, the turn's judges and passes, tool calls) wait for chat's
+  /// model to be back, in front of the line; what the test sends and what a
+  /// load starts by itself (the system-role check) still go through it.
+  /// Completes when what was already in the line is done, on chat's model,
+  /// saves included.
+  Future<void Function()> _holdForSpeedTest() async {
+    _requests.speedTest ??= Completer<void>();
+    liveProgress.heldBy = 'the speed test';
+    notify();
+    await _waitForIdle();
+    if (_requests.speedTest != null) _requests.speedTestHasEngine = true;
+    return _endSpeedTestHold;
+  }
+
+  /// Chat's model is back (or could not be put back: the hold never
+  /// outlives the test).
+  void _endSpeedTestHold() {
+    final held = _requests.speedTest;
+    _requests.speedTest = null;
+    _requests.speedTestHasEngine = false;
+    liveProgress.heldBy = null;
+    held?.complete();
+    notify();
   }
 
   /// One fresh timing prompt for the MMQ trial ([timeKoboldPrompt]). It
@@ -123,7 +160,10 @@ extension KoboldServiceRequests on KoboldService {
   /// engine. The reader is not kept waiting for the save. Any other request
   /// only tells the keeper that it changes the cache.
   Stream<String> _generateStream(GenerationParams params) async* {
-    final ticket = _requests.queue.enter();
+    // While the editor's speed test has the engine, the request waits for
+    // chat's model in front of the line and takes its place after it.
+    final speedTest = _requests.speedTest;
+    var ticket = speedTest == null ? _requests.queue.enter() : null;
     // A chat reply is stoppable while it waits. One that carries pictures is
     // also neither loaded for nor saved after (it is a helper to the keeper):
     // KoboldCpp does not bring a saved chat's pictures back with the chat.
@@ -143,11 +183,17 @@ extension KoboldServiceRequests on KoboldService {
     var aborts = 0;
     http.Client? mine;
     try {
+      if (speedTest != null) {
+        // A Stop for this reply takes it out of this wait at once too.
+        await Future.any([speedTest.future, ?waiting?.left.future]);
+        if (!wanted()) return;
+      }
+      final place = ticket ??= _requests.queue.enter();
       if (waiting == null) {
-        await ticket.turn;
+        await place.turn;
       } else {
         // A Stop for this reply takes it out of the line at once.
-        await Future.any([ticket.turn, waiting.left.future]);
+        await Future.any([place.turn, waiting.left.future]);
         _requests.waiting.remove(waiting);
       }
       // Before the model is woken, if it was unloaded, and before a load.
@@ -188,7 +234,7 @@ extension KoboldServiceRequests on KoboldService {
       _requests.waiting.remove(waiting);
       void done() {
         if (counted) _idleRequestEnd();
-        ticket.release();
+        ticket?.release();
       }
 
       if (!touched || chat == null) {
@@ -214,6 +260,9 @@ extension KoboldServiceRequests on KoboldService {
   void _abortGeneration() {
     _requests.aborts++;
     _requests.wire.cut();
+    // While the speed test has the engine nothing of the app's is on it:
+    // telling KoboldCpp to stop would stop the test's prompt.
+    if (_requests.speedTestHasEngine) return;
     // Server-side abort, not awaited so the UI never blocks: KoboldCpp stops
     // even with the socket gone, and drains before the next request.
     _postAbort();

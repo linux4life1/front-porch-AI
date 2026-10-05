@@ -495,6 +495,14 @@ Decisions already made by the maintainer:
     number the user sets while a preset is chosen (possible only on another
     backend, decision 22) becomes their own; the unchanged context the phone
     sends back with every save does not.
+24. While the preset editor's speed test runs, the app's own requests wait
+    for chat's model (2026-10-05). The MMQ timing loads its own preset for
+    about a minute, and a reply asked meanwhile, from the desktop or the
+    phone, was answered by that preset. Chat replies, and the turn's judges,
+    passes and tool calls, now wait in front of the line until chat's model
+    is back; the test's own prompts and the system-role check of its model
+    go through. Details under "Stage 9", "The speed test holds the app's
+    requests".
 
 ## Design
 
@@ -1154,7 +1162,8 @@ asked when its turn comes, before the model is woken or its chat loaded, and
 again after the chat is loaded back; a reply the user stopped is not sent
 and not saved. Who an abort belongs to: an abort closes the call on the wire
 and tells the engine to stop, always, whoever asks (an eval that has its
-answer, a tool call that timed out, a creator, the Stop button). Taking a
+answer, a tool call that timed out, a creator, the Stop button), except
+while the editor's speed test has the engine (below). Taking a
 waiting reply out of the line is a separate call, `dropStoppedReplies`, made
 only by the Stop button and by the cancel-and-wait of a character or group
 switch: a chat reply that still waits and whose turn was cancelled leaves at
@@ -1176,6 +1185,36 @@ engine after an early JSON, tool timeouts), and an abort that is not the Stop
 button must cut the wire even while a reply behind it has been given up on.
 The count is only used after the fact, to tell a reply that an abort closed
 (its cache is as it left it, worth keeping) from one that broke.
+
+**The speed test holds the app's requests** (maintainer ruling, 2026-10-05).
+The preset editor's MMQ timing loads its own preset for about a minute and
+puts chat's model back after. While it runs (`holdForSpeedTest` to
+`endSpeedTestHold`, in `timeMmq`), every request the app makes waits for
+chat's model in front of the line: chat replies (impersonate included), and
+the turn's other work, its judges and passes, other streams and every tool
+call, the sidebar's tool test included. Answered by the test's preset, a
+judge would score the turn with another model than the reply's, and it is
+asked before the reply, which waits anyway; the waits are well inside an
+eval's own (180 s to the first chunk, 6 minutes for a named tool call; only
+a forced one-shot pass, at 75 s, could give up and fall back as on any slow
+engine). The tool test only keeps an answer for the model that is loaded
+when it ends, so held, it tests chat's model. What goes through is what is
+the test's: its timing prompts, and what a load of its preset starts by
+itself, the system-role check, which has to measure the model loaded under
+that model's name (holding the whole line would make it measure chat's
+model under the test's name). Waiting in front of the line, not in it, is
+what lets those through: a held request with a place in the line would keep
+the test's own prompts behind it. The hold first waits for what is already
+in the line, saves included, so the test's load never cuts a reply. A held
+reply is a waiting reply: Stop takes it out at once (`stillWant`,
+`dropStoppedReplies`) and it is never sent. Once the line is drained,
+nothing of the app's is on the engine, so an abort (Stop, a check that timed
+out while it waited) cuts the wire but does not tell KoboldCpp to stop: that
+would stop the test's prompt. The status under the chat says "Waiting — the
+speed test is using the model", on the desktop and the phone
+(`LiveGenProgress.heldBy`, sent in words as `busyWith`). The hold ends also
+when chat could not be put back (the refusal is said as for any reload), so
+chat never waits for good.
 
 **Who is a chat.** `GenerationParams.kvChat` is the chat's session id. Only
 `paramsOf` (send, Continue, regenerate, every group speaker, Scene Guest and
@@ -1292,7 +1331,15 @@ group deleted for real, and the phone's delete; the slot is let go and taken
 by the next chat), `kobold_slot_keeper_forget_test` (a delete while the
 chat's save or its reply is running) and `kcpps_editor_mmq_line_test` (the editor's real
 timing waits for a save that is running, and a reply waits for it),
-`kobold_slot_keeper_slow_save_test` (a save held past the limit through the
+`kobold_speed_test_hold_test` (the editor's real timing and a real chat on
+the stand-in, which knows the model answering each request: a reply sent
+meanwhile is answered after by chat's model, a reply already running and
+its save finish before the test loads its preset, the turn's judge and tool
+call wait too, the system-role check of the test's model goes through, Stop
+takes a held reply out without stopping anything, and an abort meanwhile
+leaves the test's prompt alone), `generation_status_held_test` and
+`ChatMessageList.genStatus.test.tsx` (the words on the desktop and the
+phone), `kobold_slot_keeper_slow_save_test` (a save held past the limit through the
 real service lets that chat go, keeps the next one and is not remembered; a
 save that runs out of time, over real HTTP, lets every chat go for the load,
 also without being remembered), `kobold_keeper_idle_test` (the idle
@@ -1327,6 +1374,7 @@ it keeps is a table of saved caches by session id.
 | A save over three seconds, after any reply above | every reply path ends in the same save (`chatEnd`), so that chat is let go for the load whichever path it came from; not a failure | yes (a test) |
 | Scene Guest turn | the guest's line is a reply like any other (`paramsOf`), named with the host's chat | yes (a test) |
 | Voice call message | the same send path in call mode: a reply naming the chat | yes (a test) |
+| Any of the above while the editor's speed test runs (desktop or phone) | the reply and the turn's judges, passes and tool calls wait in front of the line until chat's model is back, then go as they would have; Stop takes a held reply out | yes (tests) |
 | Prompt paths (full, Continue partial, overflow, impersonate) | no prompt text changes; impersonate is a chat request | n/a |
 
 Twins checked: the judges, trust repair, one-shot and the post-reply fusion
@@ -1492,13 +1540,9 @@ which is what a reply after a helper would cost without the keeper.
 **Not done, on purpose.**
 
 - The editor's MMQ timing runs after a swap that already empties the slots,
-  so it needs no `keepLoadedFor`; only its prompts go through the line. Its
-  two loads of the preset stay outside it, as every swap does: they wait in
-  the swap lock for a chat's save or load that is running, but a reply asked
-  while the trial loads is answered by the preset's model, as it was before
-  the keeper. Holding the line across the whole trial would also hold back
-  what a load starts, the system-role check, until chat is back, and that
-  check would then measure chat's model under the trial model's name.
+  so it needs no `keepLoadedFor`. It does not take the whole line either:
+  the app's requests wait for it in front of the line instead (above), and
+  its own prompts and the system-role check go through.
 - A helper model that swaps in on the same engine before every reply empties
   the slots each time; a hint from the provider could put the keeper to
   sleep then.

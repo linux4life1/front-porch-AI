@@ -66,7 +66,14 @@ function genStatusLabel(s: GenStatus): { label: string; fraction: number | null 
     ? `${fmtExact(estTokens)} / ${fmtExact(s.promptTotal as number)} tokens`
     : '';
   if (s.busyWith) {
-    const pass = s.busyWith === 'journal' ? 'journal pass' : 'growth pass';
+    // The chat's own passes come as names; what has the engine (the speed
+    // test in the preset editor) comes already in words.
+    const pass =
+      s.busyWith === 'journal'
+        ? 'journal pass'
+        : s.busyWith === 'growth'
+          ? 'growth pass'
+          : s.busyWith;
     if (hasLive) {
       const stage =
         (s.genTotal ?? 0) > 0

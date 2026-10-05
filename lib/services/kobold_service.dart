@@ -338,6 +338,11 @@ class KoboldService extends ChangeNotifier
   /// One prompt for the editor's MMQ timing, sent in the line.
   Future<Duration> timePrompt(int round) => _timePrompt(round);
 
+  /// The editor's speed test is about to load its own preset: the app's own
+  /// requests wait for chat's model until the function this returns is
+  /// called. Completes once what was already in the line is done.
+  Future<void Function()> holdForSpeedTest() => _holdForSpeedTest();
+
   /// POST /api/extra/abort — KoboldCPP blocks until the active generation
   /// is fully stopped, then returns HTTP 200. Call this (and await it) before
   /// starting any new generation to guarantee the server is idle.

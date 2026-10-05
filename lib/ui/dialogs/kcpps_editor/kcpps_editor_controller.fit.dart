@@ -263,7 +263,16 @@ extension KcppsEditorMmq on KcppsEditorController {
     // Auto mode's own learning would take these runs for its own.
     storage.backendSettings.pauseMmqLearning();
     final best = <bool, Duration>{};
+    void Function()? letChatGo;
     try {
+      // Chat waits for its own model until it is back below; what is running
+      // now finishes on it first.
+      final hold = holdForSpeedTest;
+      if (hold != null) {
+        mmqStatus = 'Waiting for KoboldCpp to finish what it is doing…';
+        _notify();
+        letChatGo = await hold();
+      }
       var round = 0;
       for (final on in [true, false]) {
         mmqStatus = 'Loading with MMQ ${on ? 'on' : 'off'}…';
@@ -309,7 +318,12 @@ extension KcppsEditorMmq on KcppsEditorController {
     } finally {
       mmqTiming = false;
       _notify();
-      await _reloadChat();
+      try {
+        await _reloadChat();
+      } finally {
+        // Also when chat could not be put back: chat never waits for good.
+        letChatGo?.call();
+      }
     }
   }
 }

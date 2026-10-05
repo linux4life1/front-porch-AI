@@ -261,9 +261,10 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
     // attributable (it may be someone waiting on us), so it is stated as a
     // neutral fact instead (review finding: attributing it was invertible).
     final live = cs.activeLiveProgress;
+    // The reply may also wait for what has the engine (the speed test).
     final String? busyWith = cs.isSummaryGenerating
         ? 'journal pass'
-        : (cs.isGrowthPassRunning ? 'growth pass' : null);
+        : (cs.isGrowthPassRunning ? 'growth pass' : live?.heldBy);
     final queueNote = (live != null && live.isFresh && live.waitingCount > 0)
         ? ' — ${live.waitingCount} request${live.waitingCount == 1 ? '' : 's'} queued'
         : '';

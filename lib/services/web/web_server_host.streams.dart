@@ -152,9 +152,11 @@ extension WebServerHostStreams on WebServerHost {
           'active': true,
           'phase': chatService.generationPhase.name,
           'elapsed': chatService.prefillElapsedSeconds,
+          // 'journal' and 'growth' are named by the client; what has the
+          // engine (the speed test) is sent in words.
           'busyWith': chatService.isSummaryGenerating
               ? 'journal'
-              : (chatService.isGrowthPassRunning ? 'growth' : null),
+              : (chatService.isGrowthPassRunning ? 'growth' : live?.heldBy),
           // Backend-reported queue depth — NOT attributable (may be someone
           // waiting on us), so clients state it neutrally (review finding).
           'queued': fresh ? live.waitingCount : 0,

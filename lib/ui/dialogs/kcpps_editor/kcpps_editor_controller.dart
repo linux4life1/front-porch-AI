@@ -28,6 +28,7 @@ class KcppsEditorController extends ChangeNotifier {
     this.stories,
     this.reloadChat,
     this.loadTrial,
+    this.holdForSpeedTest,
     this.models = const [],
     this.enginePath,
     Future<int> Function()? threads,
@@ -53,6 +54,10 @@ class KcppsEditorController extends ChangeNotifier {
   /// runs afterwards.
   final Future<bool> Function(String name, Map<String, dynamic> config)?
   loadTrial;
+
+  /// Holds the app's own requests while the speed test has the engine
+  /// ([KoboldService.holdForSpeedTest]); returns how to let them go.
+  final Future<void Function()> Function()? holdForSpeedTest;
 
   /// The model files the app knows.
   final List<String> models;

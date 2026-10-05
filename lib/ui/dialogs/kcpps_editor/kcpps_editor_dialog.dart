@@ -50,6 +50,7 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
           stories: Provider.of<StoryRepository?>(context, listen: false),
           reloadChat: context.read<LLMProvider>().reloadChatKobold,
           loadTrial: context.read<LLMProvider>().loadKoboldTrial,
+          holdForSpeedTest: context.read<KoboldService>().holdForSpeedTest,
           models: [
             for (final m in context.read<ModelManager>().models)
               if (m.path.toLowerCase().endsWith('.gguf')) m.path,
