@@ -21,6 +21,9 @@ extension KoboldServiceExit on KoboldService {
       wasReady: wasReady,
     );
     _lastFailure = failure;
+    // Said on the status line every screen reads, in place of the loading
+    // step it stopped in, until the next Start or Stop.
+    _modelLoadingStatus = failure.message;
     // Exit 2 has already been explained, naming the file.
     if (failure.kind != KoboldFailureKind.unreadableModel) {
       _addLog(failure.message);

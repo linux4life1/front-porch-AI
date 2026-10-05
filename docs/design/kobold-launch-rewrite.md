@@ -686,7 +686,13 @@ from what the engine printed and when: out of memory, a model file it
 cannot read (exit 2), stopping mid-answer without a word, and anything
 else (pointing at the log). The message goes to the engine log and
 `KoboldService.lastFailure`; a stop the app asked for is never taken for a
-failure. Proven on a real engine: killed mid-reply, the app says it
+failure. Since 2026-10-05 it also goes on the status line
+(`modelLoadingStatus`, in place of the loading step it stopped in) until
+the next Start or Stop, so every screen that shows that line says why:
+the desktop Local model card under its header while stopped, the home
+screen's status bar (which moves only while starting or loading), and the
+phone's Local model card and Local backend card through `statusMessage`
+(no new field). Proven on a real engine: killed mid-reply, the app says it
 stopped while answering. When the ROCm build dies mid-answer with flash
 attention on, a per-machine flag is set and the engine started again once
 without it (out of memory does not trigger it). `koboldFlashAttentionRuns`

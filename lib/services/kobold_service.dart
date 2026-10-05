@@ -118,6 +118,10 @@ class KoboldService extends ChangeNotifier
   bool get isRunning => _isRunning;
   bool get isStarting => _isStarting;
   List<String> get logs => List.unmodifiable(_logs);
+
+  /// The status line: what a start or a load is doing, a note such as why a
+  /// model change was not made, or, while stopped, why KoboldCpp stopped on
+  /// its own ([lastFailure]), until the next Start or Stop.
   String get modelLoadingStatus => _modelLoadingStatus;
   bool get modelReady => _modelReady;
 

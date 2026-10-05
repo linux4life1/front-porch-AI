@@ -61,15 +61,11 @@ extension _HomePageChrome on _HomePageState {
 
   Widget _wrapWithStatusBar(BuildContext context, Widget content) {
     String status = '';
-    var loading = true;
+    var phase = KoboldPhase.stopped;
     try {
       final kobold = Provider.of<KoboldService>(context, listen: false);
       status = kobold.modelLoadingStatus;
-      // Unloaded for being idle, or ready with a note (a model change that
-      // was refused): words only, nothing is loading.
-      loading =
-          kobold.phase != KoboldPhase.unloaded &&
-          kobold.phase != KoboldPhase.ready;
+      phase = kobold.phase;
     } catch (_) {}
 
     if (status.isEmpty) return content;
@@ -77,40 +73,7 @@ extension _HomePageChrome on _HomePageState {
     return Column(
       children: [
         Expanded(child: content),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerOf(context),
-            border: Border(top: BorderSide(color: AppColors.borderOf(context))),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                status,
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 13,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (loading) ...[
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    minHeight: 4,
-                    backgroundColor: AppColors.surfaceContainerOf(context),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.porchHoneyOf(context),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+        KoboldStatusBar(status: status, phase: phase),
       ],
     );
   }

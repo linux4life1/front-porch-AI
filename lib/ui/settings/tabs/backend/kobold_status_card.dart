@@ -195,6 +195,23 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _header(context, kobold, preset == null ? model : null),
+          // Why it stopped on its own, from the status line, until the next
+          // Start or Stop.
+          if (kobold.phase == KoboldPhase.stopped &&
+              kobold.modelLoadingStatus.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              kobold.modelLoadingStatus,
+              key: const ValueKey('local-model-stopped-why'),
+              style: keText(
+                context,
+                size: 14,
+                height: 1.45,
+                color: AppColors.porchHoneyOf(context),
+                weight: FontWeight.w600,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           ...preset != null
               ? _presetBody(context)

@@ -38,6 +38,7 @@ export 'birthday_row.dart';
 export 'ai_error_snack_bar.dart';
 export 'app_text_field.dart';
 export 'engine_status_chip.dart';
+export 'kobold_status_bar.dart';
 export 'folder_character_picker.dart';
 export 'realism_form_section.dart';
 export 'styled_dropdown.dart';

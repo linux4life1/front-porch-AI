@@ -91,6 +91,8 @@ extension KoboldServiceProcess on KoboldService {
     // and the VRAM. However this start ends, the finally releases it.
     _isStarting = true;
     final generation = ++_startGeneration;
+    // Why the last engine stopped on its own is not news to this start.
+    _clearStatusWhileStopped();
     try {
       await _stopForRestart();
       final unusable = await _unusableStart(executablePath, modelPath);
@@ -174,6 +176,15 @@ extension KoboldServiceProcess on KoboldService {
   KoboldLaunchResult _refuse(String problem) {
     _addLog(problem);
     return KoboldLaunchResult.refused(problem);
+  }
+
+  /// Takes why the engine stopped on its own off the status line, once a
+  /// Start or a Stop comes after it. Only while nothing runs: a running
+  /// engine's status line belongs to its load.
+  void _clearStatusWhileStopped() {
+    if (_isRunning || _process != null || _modelLoadingStatus.isEmpty) return;
+    _modelLoadingStatus = '';
+    notify();
   }
 
   /// If the previous process is still alive (e.g. stopKobold was not awaited
@@ -413,6 +424,8 @@ extension KoboldServiceProcess on KoboldService {
         _startGeneration++;
         _modelLoadingStatus = '';
         notify();
+      } else if (!_isStarting) {
+        _clearStatusWhileStopped();
       }
       return;
     }

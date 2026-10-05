@@ -128,6 +128,13 @@ function BackendStatusCard({
             : 'Stopped'}
         {' · '}<strong>{status.loadedModel}</strong>
       </p>
+      {/* Why it stopped on its own: the host keeps it on the status line
+          until the next Start or Stop. */}
+      {!status.running && !status.starting && status.statusMessage && (
+        <p className="muted small" data-testid="backend-stopped-why" style={{ whiteSpace: 'pre-line' }}>
+          {status.statusMessage}
+        </p>
+      )}
       <div className="tool-row">
         <button disabled={busy || status.starting || status.engineInstalled === false} onClick={() => act('/api/backend/restart')}>
           {status.starting ? 'Starting…' : 'Restart'}
