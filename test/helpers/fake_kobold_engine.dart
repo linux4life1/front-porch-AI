@@ -28,6 +28,9 @@ class FakeEngineRequest {
   bool stream = false;
   bool hadTools = false;
 
+  /// When the engine finished an admin call (after any hold on it).
+  DateTime? endedAt;
+
   int get promptTokens => prompt.length;
   String get promptText => prompt.join(' ');
 
@@ -94,8 +97,9 @@ class FakeKoboldEngine {
   /// the generation lock. [log] is the order the lock served them.
   final List<FakeEngineRequest> arrived = [];
 
-  /// Aborts the engine was asked for.
+  /// Aborts the engine was asked for, and when it was asked how busy it is.
   int aborts = 0;
+  final List<DateTime> perfAsks = [];
 
   /// Requests that have reached the socket and not been answered yet.
   int inFlight = 0;
@@ -168,6 +172,10 @@ class FakeKoboldEngine {
         case '/api/admin/save_state':
         case '/api/admin/clear_state':
           await _admin(req, path.split('/').last.split('_').first, json);
+        case '/api/extra/perf':
+          // Busy: an idle unload that asks stops there.
+          perfAsks.add(DateTime.now());
+          await _reply(req, {'uptime': 5.0, 'idle': 0, 'queue': 0});
         case '/api/extra/abort':
           aborts++;
           await _reply(req, {'success': 'true', 'done': 'true'});
@@ -216,6 +224,7 @@ class FakeKoboldEngine {
       log.add(entry);
       await beforeAdmin?.call(entry);
       answer = _adminAnswer(verb, slot, entry);
+      entry.endedAt = DateTime.now();
     });
     return _reply(req, answer);
   }

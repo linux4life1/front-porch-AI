@@ -179,17 +179,23 @@ extension KoboldServiceRequests on KoboldService {
       });
     } finally {
       _requests.waiting.remove(waiting);
-      if (counted) _idleRequestEnd();
-      if (!touched || chat == null) {
+      void done() {
+        if (counted) _idleRequestEnd();
         ticket.release();
+      }
+
+      if (!touched || chat == null) {
+        done();
       } else {
+        // The save is still the engine's work: it counts as busy, for the
+        // idle unload, until the save is done.
         unawaited(
           _keeper
               .chatEnd(chat, ok: sent && !broken)
               .catchError(
                 (Object e) => debugPrint('[Kobold] saving the chat failed: $e'),
               )
-              .whenComplete(ticket.release),
+              .whenComplete(done),
         );
       }
     }

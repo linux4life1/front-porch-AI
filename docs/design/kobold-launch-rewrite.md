@@ -970,7 +970,8 @@ each load of the model (`KoboldService.loadGeneration`).
   that failed) it saves into the chat's own slot, else a free one, else the
   least recently used chat's. The line is held until the save is done, so a
   helper asked meanwhile goes out after it, and the reader is not kept
-  waiting. A save the engine cannot make steps the keeper aside and clears
+  waiting. The engine counts as busy for the idle unload until then too: the
+  idle time runs from the end of the save, not from the end of the reply. A save the engine cannot make steps the keeper aside and clears
   the slots to give the memory back.
 - A helper, and a coding session on the engine (`keepLoadedFor`), clear "the
   engine still holds the chat". The keeper waits out a coding session.
