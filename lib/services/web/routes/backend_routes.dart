@@ -125,7 +125,8 @@ class WebBackendRoutes {
       JsonResponse.ok(await _backend!.localModel());
 
   /// `{path}`: a preset in the engine folder, or null for the app's own
-  /// settings. Anything else is refused.
+  /// settings. Anything else is refused, and so is a preset the app will not
+  /// start KoboldCpp from (422, with the reason in `error`).
   Future<shelf.Response> _setChatPreset(shelf.Request r) async {
     final body = await _json(r);
     final raw = body['path'];
@@ -133,8 +134,12 @@ class WebBackendRoutes {
       return JsonResponse.badRequest('path must be text or null');
     }
     final path = raw is String && raw.isNotEmpty ? raw : null;
-    if (!await _backend!.setChatPreset(path)) {
-      return JsonResponse.error(404, 'Preset not found');
+    try {
+      if (!await _backend!.setChatPreset(path)) {
+        return JsonResponse.error(404, 'Preset not found');
+      }
+    } on KoboldPresetProblem catch (e) {
+      return JsonResponse.error(422, e.message);
     }
     return JsonResponse.ok(await _backend.localModel());
   }

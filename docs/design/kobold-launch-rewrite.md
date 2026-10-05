@@ -246,6 +246,16 @@ Decisions already made by the maintainer:
 11. Gemma 4 on Vulkan runs with flash attention off (2026-10-04): with it on,
     KoboldCpp 1.122.1 dies on the first prompt. Built in Stage 5, lifted
     once a fixed KoboldCpp is confirmed on a real card.
+12. A preset that asks KoboldCpp to run a program or open itself to the
+    internet is refused, not rewritten (2026-10-04). A preset still launches
+    exactly as written. The exception is `mcpfile`, `onready`, `remotetunnel`,
+    `hordekey`, `preloadstory` and `baseconfig` when set (any value Python
+    reads as true: the text "false" counts) and `rpcmode` when it is `host`.
+    KoboldCpp's own exports carry all of them switched off and pass. The
+    reason is said in plain words, naming the settings, wherever a preset can
+    reach the engine: Start, a live reload of chat, a helper or story swap,
+    the editor's MMQ timing, and the phone's preset pick.
+    `kcppsRiskyPresetProblem` is the one place it is decided.
 
 ## Design
 

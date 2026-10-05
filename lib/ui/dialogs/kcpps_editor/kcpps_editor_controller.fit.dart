@@ -263,6 +263,10 @@ extension KcppsEditorMmq on KcppsEditorController {
       mmqStatus =
           'On: ${s(best[true]!)}, off: ${s(best[false]!)}. '
           '${onFaster ? 'On' : 'Off'} is faster here, so it is set.';
+    } on KoboldPresetProblem catch (e) {
+      // A preset that asks KoboldCpp to run a program or open itself to the
+      // internet is not loaded to be timed.
+      mmqStatus = e.message;
     } on Object catch (e) {
       mmqStatus = 'Timing stopped: $e';
     } finally {

@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
 import 'kcpps_codec.dart';
+import 'kcpps_risky_keys.dart';
 
 /// A preset that cannot be launched from, with the reason in plain words.
 class KoboldPresetProblem implements Exception {
@@ -57,14 +58,15 @@ Future<KcppsOk> readKoboldPreset(String kcppsPath) async {
 }
 
 /// Why a launch from [kcppsPath] cannot go ahead, in plain words, or null
-/// when it can (or there is no preset). For the screens that start the
-/// engine: the launch itself only logs this, so without the check a broken
-/// preset makes Start look like it did nothing.
+/// when it can (or there is no preset): the file cannot be read, or it asks
+/// KoboldCpp to run a program or open itself to the internet (see
+/// [kcppsRiskyPresetProblem]). For the screens that start the engine: the
+/// launch itself only logs this, so without the check a broken preset makes
+/// Start look like it did nothing.
 Future<String?> koboldPresetProblem(String? kcppsPath) async {
   if (kcppsPath == null || kcppsPath.isEmpty) return null;
   try {
-    await readKoboldPreset(kcppsPath);
-    return null;
+    return kcppsRiskyPresetProblem((await readKoboldPreset(kcppsPath)).raw);
   } on KoboldPresetProblem catch (e) {
     return e.message;
   } on Object catch (e) {

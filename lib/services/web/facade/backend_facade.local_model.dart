@@ -74,11 +74,18 @@ extension BackendFacadeLocalModel on BackendFacade {
   /// reachable from the internet, so no other path is accepted. A running
   /// KoboldCpp loads it in place, which takes as long as a model takes to
   /// load: the card is returned at once and shows the progress.
+  ///
+  /// Throws [KoboldPresetProblem], in plain words, for a preset the app will
+  /// not start KoboldCpp from (one that cannot be read, or that asks it to
+  /// run a program or open itself to the internet): it does not become
+  /// chat's preset, and nothing is loaded.
   Future<bool> setChatPreset(String? path) async {
     if (path != null &&
         !kcppsPresetFiles(_storage.binDir.path).any((f) => f.path == path)) {
       return false;
     }
+    final problem = await koboldPresetProblem(path);
+    if (problem != null) throw KoboldPresetProblem(problem);
     // A context tapped just before is superseded: this reloads at once.
     _cardReload?.cancel();
     await chooseKoboldPreset(_storage, path);
