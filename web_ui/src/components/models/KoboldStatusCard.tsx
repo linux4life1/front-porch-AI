@@ -18,6 +18,9 @@ export type LocalModel = {
   modelName: string | null;
   running: boolean;
   phase: KoboldPhase;
+  /** What the desktop's status line says: a load in progress, or why a model
+   *  change was not made (additive; '' or absent when there is nothing). */
+  statusMessage?: string;
   preset: { path: string; name: string; words: string; line?: string } | null;
   auto: {
     lines: string[];
@@ -52,6 +55,8 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
   // A context too big for the host, waiting for "keep anyway".
   const [pending, setPending] = useState<number | null>(null);
   const [asking, setAsking] = useState(false);
+  // Why the preset just picked was refused, shown beside the picker.
+  const [presetProblem, setPresetProblem] = useState('');
 
   const load = useCallback(
     () =>
@@ -79,10 +84,11 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
   };
 
   const setPreset = async (path: string | null) => {
+    setPresetProblem('');
     try {
       setCard(await api.post<LocalModel>('/api/backend/local-model/preset', { path }));
     } catch (e) {
-      onError(message(e));
+      setPresetProblem(message(e));
     }
   };
 
@@ -103,6 +109,11 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
             <div className="kc-sub">
               {card.modelName ?? 'No model chosen'} · {card.running ? 'running' : 'not running'}
             </div>
+            {card.statusMessage && (
+              <div className="kc-sub" data-testid="local-model-status" style={{ whiteSpace: 'pre-line' }}>
+                {card.statusMessage}
+              </div>
+            )}
           </div>
           <span className={`kc-pill ${pill.cls}`}>{pill.label}</span>
         </div>
@@ -229,6 +240,12 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
             </option>
           ))}
         </select>
+        {presetProblem && (
+          <div className="kc-verdict bad" role="alert" data-testid="preset-refused">
+            <span className="kc-mark" aria-hidden="true" />
+            <p>{presetProblem}</p>
+          </div>
+        )}
         {card.preset && (
           <div className="kc-plain">
             <span className="kc-plain-head">In plain words</span>

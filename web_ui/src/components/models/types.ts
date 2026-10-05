@@ -30,6 +30,10 @@ export interface BackendStatus {
   remoteReachability?: 'unknown' | 'checking' | 'reachable' | 'unreachable';
 }
 
+/** What switching model answers: the status, and why the running KoboldCpp
+ *  could not load the model (additive; null or absent when it did). */
+export type ModelSwitch = BackendStatus & { refused?: string | null };
+
 export interface LocalModelFile {
   name: string;
   path: string;
