@@ -612,14 +612,23 @@ As built (2026-10-04), to the sketch the maintainer approved:
 - MMQ: the editor times both ("Time both on this card": the preset loaded
   each way as a trial, a fresh 2,000-token prompt twice, the faster kept);
   auto mode learns it from KoboldCpp's per-reply speed line ("Processed: N
-  in Ts", "Generated: N/M in Ts"), on for three replies then off for three,
-  and keeps the faster per card and engine version.
+  in Ts", "Generated: N/M in Ts"): on until three replies that read 512 or
+  more tokens and three that wrote 16 or more can be timed, then off until
+  the same, and keeps the faster per card and engine version. Replies that
+  cannot be timed do not count towards either (counting them left the
+  trial on "off" for good after three short replies), the newest eight of
+  each kind are kept, and a launch that is not auto mode on CUDA (a preset,
+  another backend) ends a trial that is open.
 - The "Local model" card on the KoboldCpp settings page is auto mode's
   only surface: how the model runs, in plain words, and the context, with
   a verdict per size from a read-cost model (weights a token uses plus the
   whole chat memory; system memory counted six times the card; extra
   reading from the disk over a GB is "very slow"). Below 16,384 is always
-  "not recommended or supported", even for the size in use.
+  "not recommended or supported", even for the size in use. The card, the
+  phone's, and the editor's fit take the graphics backend from the one rule
+  the launch uses (`koboldBackendFor`, honouring the switches in Settings),
+  and the card assumes the batch the launch runs: the one chosen in
+  Settings, or KoboldCpp's own when nothing goes on a card.
 - Live reload first (moved from Stage 5): a new chat preset or model in
   Settings, "Save and use now", and the phone's model switch reload the
   staged chat config by name and restart only when that is not acted on.
