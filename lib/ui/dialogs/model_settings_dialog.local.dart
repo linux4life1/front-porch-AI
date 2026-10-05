@@ -41,7 +41,10 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
     if (_selectedModelPath == null &&
         modelManager.models.isNotEmpty &&
         !kcppsModelExists) {
-      _selectedModelPath = modelManager.models.first.path;
+      _selectedModelPath = modelListStart(
+        modelManager.models,
+        storage.backendSettings.lastUsedModelPath,
+      );
     }
     // A preset sets its own context, so the box follows the preset that is
     // active instead of showing what it held when the dialog opened.

@@ -3,6 +3,18 @@ import 'package:path/path.dart' as path_lib;
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+/// The model a model list starts on when none is chosen yet: the last-used one
+/// when [models] has it (the Local model card names that one), otherwise the
+/// first. Null when there are no models.
+String? modelListStart(List<FileSystemEntity> models, String? lastUsed) {
+  final paths = [for (final m in models) m.path];
+  if (paths.isEmpty) return null;
+  return paths.firstWhere(
+    (m) => lastUsed != null && path_lib.equals(m, lastUsed),
+    orElse: () => paths.first,
+  );
+}
+
 /// A dropdown for selecting a model file with "Managed by kcpps" support.
 class ModelSelector extends StatelessWidget {
   const ModelSelector({

@@ -385,13 +385,10 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_selectedModelPath == null &&
         modelManager.models.isNotEmpty &&
         !(storageService.backendSettings.kcppsHasModel && kcppsModelExists)) {
-      final last = storageService.backendSettings.lastUsedModelPath;
-      _selectedModelPath = modelManager.models
-          .map((m) => m.path)
-          .firstWhere(
-            (m) => last != null && p.equals(m, last),
-            orElse: () => modelManager.models.first.path,
-          );
+      _selectedModelPath = modelListStart(
+        modelManager.models,
+        storageService.backendSettings.lastUsedModelPath,
+      );
     }
     // Warm architecture info for the (possibly just auto-selected) model so
     // the first gauge update is accurate.
