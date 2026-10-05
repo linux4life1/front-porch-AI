@@ -29,6 +29,13 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 part 'backend_manager.download.dart';
 
+/// Said wherever the app would offer KoboldCpp on an Intel Mac, which cannot
+/// run it: the desktop's Backend tab and the phone's Models page (its own
+/// copy in web_ui/src/backendOptions.ts says the same).
+const String kIntelMacLocalUnsupported =
+    'Local inference is not supported on Intel Macs. Only Remote API mode is '
+    'available.';
+
 class BackendManager extends ChangeNotifier {
   final StorageService _storageService;
   bool _isDownloading = false;
@@ -91,6 +98,7 @@ class BackendManager extends ChangeNotifier {
     return 'v$_localVersion, ${_formatFileSize(_localSize!)}';
   }
 
+  /// KoboldCpp cannot run here: the app says [kIntelMacLocalUnsupported].
   bool get isIntelMac => Platform.isMacOS && _arch != 'arm64';
 
   BackendManager(this._storageService) {

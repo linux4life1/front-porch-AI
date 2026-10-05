@@ -85,8 +85,7 @@ class BackendModeSelector extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Local inference is not supported on Intel Macs. Only '
-                    'Remote API mode is available.',
+                    kIntelMacLocalUnsupported,
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.taskAccentOf(context),

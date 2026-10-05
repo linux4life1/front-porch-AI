@@ -885,7 +885,16 @@ preset, switches the host to KoboldCpp for that journey only, and walks the
 card. While a preset runs, the settings save refuses a context that differs
 from the stored one (the page sends the whole form with every save, so the
 stored value coming back is not a change) and the Settings slider is locked,
-as on the desktop.
+as on the desktop. On an Intel Mac host, which cannot run KoboldCpp
+(2026-10-05), `/api/backend/status` says `localUnsupported: true`
+(additive), and the phone hides the Local backend, Local model and preset
+cards and says the desktop's sentence instead (`kIntelMacLocalUnsupported`,
+the same words in `web_ui/src/backendOptions.ts`), whatever the backend, as
+the desktop's Backend tab does. Installed models lose their "Use" there,
+and the Side jobs host picker greys out KoboldCpp with the same sentence, as
+the desktop's does. The phone Settings' chat backend picker
+(`SettingsPage.tsx`) still offers KoboldCpp on an Intel Mac: not changed
+here.
 
 ### Stage 8: the rest (as built)
 

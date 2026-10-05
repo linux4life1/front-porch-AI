@@ -20,6 +20,10 @@ export interface BackendOption {
   kind: 'local' | 'api';
 }
 
+/** The desktop's own sentence (kIntelMacLocalUnsupported) for a host that is
+ *  an Intel Mac, which cannot run KoboldCpp. */
+export const INTEL_MAC_LOCAL_UNSUPPORTED = 'Local inference is not supported on Intel Macs. Only Remote API mode is available.';
+
 export const BACKEND_OPTIONS: BackendOption[] = [
   { id: 'kobold', label: 'KoboldCpp', backend: 'kobold', kind: 'local' },
   { id: 'openrouter', label: 'OpenRouter', backend: 'openRouter', url: 'https://openrouter.ai/api/v1', kind: 'api' },

@@ -77,6 +77,10 @@ class BackendFacade {
       'engineProgress': engine.downloadProgress,
       'engineStatusMessage': engine.isDownloading ? engine.statusMessage : '',
       'engineError': engine.error ?? '',
+      // An Intel Mac cannot run KoboldCpp (additive). The phone hides its
+      // KoboldCpp cards and says kIntelMacLocalUnsupported, as the desktop
+      // hides its KoboldCpp section.
+      'localUnsupported': engine.isIntelMac,
       // Remote live ping (additive). Green "Ready" on the web strip is
       // isReachable, not "a key is saved".
       'isReady': _llm.activeService.isReady,

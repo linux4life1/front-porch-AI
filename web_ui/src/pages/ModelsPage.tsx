@@ -4,6 +4,8 @@
 // Models & backends page. Thin orchestrator over focused components:
 // local backend status, hardware + recommendations, installed models
 // (switch/delete), the HuggingFace browser + download queue, and image gen.
+// On an Intel Mac host the KoboldCpp cards give way to the desktop's
+// sentence (`localUnsupported` on the status).
 
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
@@ -13,6 +15,7 @@ import { ModelDownloads } from '../components/models/ModelDownloads';
 import { ImageGen } from '../components/models/ImageGen';
 import { KoboldStatusCard } from '../components/models/KoboldStatusCard';
 import { type BackendStatus, type ModelSwitch } from '../components/models/types';
+import { INTEL_MAC_LOCAL_UNSUPPORTED } from '../backendOptions';
 
 export function ModelsPage() {
   const [status, setStatus] = useState<BackendStatus | null>(null);
@@ -45,20 +48,33 @@ export function ModelsPage() {
     setSearchNonce((n) => n + 1);
   };
 
+  // An Intel Mac cannot run KoboldCpp: the desktop hides its KoboldCpp
+  // section there and says why, whatever the backend.
+  const unsupported = status?.localUnsupported === true;
+  const local = (status?.isLocal ?? false) && !unsupported;
+
   return (
     <div className="page">
       <h2>Models &amp; backends</h2>
       {error && <p className="error">{error}</p>}
+      {unsupported && (
+        <section className="card">
+          <h3>Local backend</h3>
+          <div className="cpu-warn" data-testid="local-unsupported">
+            {INTEL_MAC_LOCAL_UNSUPPORTED}
+          </div>
+        </section>
+      )}
       {/* Both belong to the local backend, as on the desktop, where they sit
           in the section only KoboldCpp has. */}
-      {status?.isLocal && (
+      {status && local && (
         <>
           <BackendStatusCard status={status} reload={loadStatus} onError={setError} />
           <KoboldStatusCard onError={setError} />
         </>
       )}
       <HardwarePanel onPickQuery={pickQuery} />
-      <LocalModels isLocal={status?.isLocal ?? false} reloadStatus={loadStatus} onError={setError} />
+      <LocalModels isLocal={local} reloadStatus={loadStatus} onError={setError} />
       <ModelDownloads query={query} setQuery={setQuery} searchNonce={searchNonce} onError={setError} />
       <ImageGen onError={setError} />
     </div>

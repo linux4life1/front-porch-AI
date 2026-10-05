@@ -23,6 +23,8 @@ export interface BackendStatus {
   engineProgress?: number;
   engineStatusMessage?: string;
   engineError?: string;
+  /** The host is an Intel Mac, which cannot run KoboldCpp (additive). */
+  localUnsupported?: boolean;
   /** Remote live ping (additive). Green Ready is remoteReachable, not a saved key. */
   isReady?: boolean;
   remoteConfigured?: boolean;
