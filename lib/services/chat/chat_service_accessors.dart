@@ -61,7 +61,7 @@ extension ChatServiceAccessors on ChatService {
     _db = db;
     _memoryService?.updateDatabase(db);
     unawaited(_deletedChats?.cancel());
-    _deletedChats = db.deletedSessions.listen(_koboldService.forgetChat);
+    _deletedChats = db.deletedSessions.listen(_letGoOfDeletedChat);
   }
 
   /// Set the database instance after construction. Alias of [updateDatabase]

@@ -45,6 +45,16 @@ extension ChatServiceLlmLanes on ChatService {
   /// carries it ([GenerationParams.kvChat]).
   String? get _kvChatKey => _currentSessionId;
 
+  /// A deleted chat's saved cache is let go. This runs inside the database's
+  /// delete: what goes wrong is said in the log and goes no further.
+  void _letGoOfDeletedChat(String chat) {
+    try {
+      _koboldService.forgetChat(chat);
+    } on Object catch (e) {
+      debugPrint('[Chat] letting go of a deleted chat\'s cache failed: $e');
+    }
+  }
+
   bool get _workerLaneActive =>
       testWorkerLlmServiceOverride != null ||
       (testLlmServiceOverride == null && (_llmProvider?.workerService != null));
