@@ -44,19 +44,28 @@ Future<int> detectPhysicalCpuCores() async {
     } else if (Platform.isLinux) {
       final r = await Process.run('lscpu', ['-p=core']);
       if (r.exitCode == 0) {
-        final coreIds = <String>{};
-        for (final line in r.stdout.toString().split('\n')) {
-          if (line.startsWith('#') || line.trim().isEmpty) continue;
-          final parts = line.trim().split(',');
-          if (parts.length >= 2) coreIds.add(parts[1]);
-        }
-        if (coreIds.isNotEmpty) return coreIds.length;
+        final cores = physicalCoresFromLscpu(r.stdout.toString());
+        if (cores != null) return cores;
       }
     }
   } catch (e) {
     debugPrint('[Kobold] physical core detection failed: $e');
   }
   return Platform.numberOfProcessors;
+}
+
+/// The physical cores in the output of `lscpu -p=core`: after comment lines
+/// that start with `#`, one line for each logical processor holding the
+/// number of the core it belongs to, so a core that runs two threads is
+/// listed twice. Null when the text lists none.
+int? physicalCoresFromLscpu(String output) {
+  final cores = <String>{};
+  for (final line in output.split('\n')) {
+    final core = line.trim();
+    if (core.isEmpty || core.startsWith('#')) continue;
+    cores.add(core.split(',').first);
+  }
+  return cores.isEmpty ? null : cores.length;
 }
 
 /// Threads to give KoboldCpp: the physical cores on a machine with
