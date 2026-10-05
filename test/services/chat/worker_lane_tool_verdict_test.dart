@@ -2,10 +2,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The tool-calling check on the helper (worker) model, which Realism, the
-// Journal and Growth use, and whose answer is kept across runs. A swap that
-// fails before the helper model is reached asked nothing. It was read as "this
-// model cannot do tools", the same as an answer in prose, because only network
-// errors were left out, and the "no" was kept.
+// Journal and Growth use, and whose answer is kept across runs. Two ways an
+// answer used to be filed under a model that never gave it:
+//
+// - A swap that fails before the helper model is reached asked nothing. It was
+//   read as "this model cannot do tools", the same as an answer in prose,
+//   because only network errors were left out.
+// - A local helper that the lane does not swap in (the chat model is a cloud
+//   one) answers with whatever the engine runs, which is not the file the
+//   helper setting names. It is named like the chat model, by what the engine
+//   is known to run, and not asked while that is unknown. One the lane swaps
+//   in is named by its own model, which the swap puts there and checks.
 //
 // The real chat service, provider, swap occupancy, tester, probe and verdict
 // store run; only the helper model that answers, and the swap's failure, are
@@ -163,6 +170,14 @@ void main() {
     );
   }
 
+  /// KoboldCpp running [file], as a start leaves it.
+  Future<void> startEngineOn(File file) async {
+    kobold.debugMarkProcessRunning();
+    kobold.noteAdminLoadedPair(modelPath: file.path, kcppsPath: '');
+    kobold.noteResident('config of ${p.basename(file.path)}');
+    await kobold.debugMarkModelReady();
+  }
+
   group('a swap that fails before the helper model is reached', () {
     final failures = <String, Object>{
       'the load did not take': const KoboldSwapFailed(
@@ -225,6 +240,59 @@ void main() {
       expect(worker.asked, 1);
       expect(chat.toolCallSupport, ToolCallSupport.unsupported);
       expect(storage.toolVerdictSettings.verdictFor(keyOf(helper)), isFalse);
+    });
+  });
+
+  group('a local helper the lane does not swap in', () {
+    // The chat model is a cloud one: nothing is swapped, and the helper's
+    // calls go to the engine as it is.
+    setUp(() async {
+      await storage.backendSettings.setBackendType('openRouter');
+      await storage.backendSettings.setRemoteApiUrl(
+        'https://openrouter.ai/api/v1',
+      );
+    });
+
+    test('is named by what the engine runs, not by the file the helper '
+        'setting names', () async {
+      await startEngineOn(running);
+
+      expect(chat.debugEvalBackendIdentity, keyOf(running));
+    });
+
+    test('is not asked while the engine runs a model nobody has confirmed, '
+        'and is asked, under what runs, once that is known', () async {
+      await startEngineOn(running);
+      // A reload that did not load what it asked for: what runs is unknown.
+      kobold.noteResident('');
+      kobold.forgetAdminLoadedPair();
+      worker.ready = true;
+      await storage.backendSettings.setRemoteModelName('some/model');
+      await _settle();
+
+      expect(chat.debugEvalBackendIdentity, contains('(unknown)'));
+      expect(worker.asked, 0, reason: 'unknown weights are not asked');
+
+      // KoboldCpp is read back as running the model again.
+      kobold.noteAdminLoadedPair(modelPath: running.path, kcppsPath: '');
+      kobold.noteResident('config of running.gguf');
+      await _settle();
+
+      expect(chat.debugEvalBackendIdentity, keyOf(running));
+      expect(worker.asked, 1);
+      expect(storage.toolVerdictSettings.verdictFor(keyOf(running)), isTrue);
+      expect(
+        storage.toolVerdictSettings.verdictFor(keyOf(helper)),
+        isNull,
+        reason: 'the helper file was never loaded',
+      );
+    });
+
+    test('one that is swapped in is named by its own model', () async {
+      await startEngineOn(running);
+      swapInHelper();
+
+      expect(chat.debugEvalBackendIdentity, keyOf(helper));
     });
   });
 }

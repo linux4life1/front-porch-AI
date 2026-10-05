@@ -285,7 +285,11 @@ extension ChatServiceWiringEvals on ChatService {
           modelPath: null,
         );
       }
-      return _llmProvider?.workerEvalIdentity ?? '';
+      final provider = _llmProvider;
+      if (provider == null) return '';
+      return provider.workerEvalIdentityNamed(
+        modelKey: _workerNamedByEngine ? _localModelKeyNow : null,
+      );
     }
     final service = _mouthLlm;
     final remoteApiUrl = service is LlmApiEndpoint
@@ -340,10 +344,23 @@ extension ChatServiceWiringEvals on ChatService {
     return _modelKeys.of(path, stamp: kobold.residentGeneration);
   }
 
+  /// A local helper the lane does not swap in (the chat model is not a local
+  /// one, so nothing is unloaded to make room) answers with whatever the
+  /// engine runs, not with the file the helper setting names. It is named,
+  /// and held back while unknown, the way the chat model is. One the lane
+  /// swaps in is named by its own model, which the swap puts there and checks.
+  bool get _workerNamedByEngine {
+    final provider = _llmProvider;
+    return _workerLaneActive &&
+        testWorkerLlmServiceOverride == null &&
+        provider != null &&
+        provider.workerBackend == BackendType.kobold &&
+        !provider.workerGpuSwapAvailable;
+  }
+
   /// True while the local engine is ready on a model nobody has confirmed.
   bool get _localModelUnknown =>
-      _mouthIsLocal &&
-      !_workerLaneActive &&
+      (_workerLaneActive ? _workerNamedByEngine : _mouthIsLocal) &&
       _koboldService.isProcessRunning &&
       (_localModelPath ?? '').isEmpty;
 

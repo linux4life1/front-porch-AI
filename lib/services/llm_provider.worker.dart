@@ -41,7 +41,12 @@ extension LLMProviderWorker on LLMProvider {
   @visibleForTesting
   bool get debugOmlxPollerStarted => _omlxPoller.isStarted;
 
-  String get workerEvalIdentity {
+  String get workerEvalIdentity => workerEvalIdentityNamed();
+
+  /// [workerEvalIdentity] with a local helper's model named by [modelKey]
+  /// (what the engine runs, for a helper the lane does not swap in) instead of
+  /// by the file the helper setting names.
+  String workerEvalIdentityNamed({String? modelKey}) {
     final type = _storageService.workerBackendType;
     final url = resolvedLaneApiUrl(type, _storageService.workerRemoteApiUrl);
     final svc = workerService ?? _workerRemote;
@@ -53,10 +58,11 @@ extension LLMProviderWorker on LLMProvider {
       remoteApiUrl: url,
       remoteModelName: local ? '' : _storageService.workerRemoteModelName,
       modelPath: local
-          ? (_workerModelKeys[this] ??= LocalModelKeys()).of(
-              _storageService.resolvedWorkerKoboldModelPath(),
-              stamp: _koboldService.residentGeneration,
-            )
+          ? modelKey ??
+                (_workerModelKeys[this] ??= LocalModelKeys()).of(
+                  _storageService.resolvedWorkerKoboldModelPath(),
+                  stamp: _koboldService.residentGeneration,
+                )
           : null,
     );
   }
