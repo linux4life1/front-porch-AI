@@ -692,9 +692,13 @@ the next Start or Stop, so every screen that shows that line says why:
 the desktop Local model card under its header while stopped, the home
 screen's status bar (which moves only while starting or loading), and the
 phone's Local model card and Local backend card through `statusMessage`
-(no new field). Proven on a real engine: killed mid-reply, the app says it
-stopped while answering. When the ROCm build dies mid-answer with flash
-attention on, a per-machine flag is set and the engine started again once
+(no new field). A start's readiness poll listens only for the process it
+started: after an exit, anything that answers on the port (a leftover
+KoboldCpp, another program) no longer marks the dead engine ready, which
+had wiped the sentence; stop and exit handling are unchanged. Proven on a
+real engine: killed mid-reply, the app says it stopped while answering.
+When the ROCm build dies mid-answer with flash attention on, a per-machine
+flag is set and the engine started again once
 without it (out of memory does not trigger it). `koboldFlashAttentionRuns`
 is the one rule for when flash attention is written (Gemma 4 on Vulkan:
 off; ROCm: on unless flagged); where it is off, a compressed cache falls

@@ -276,7 +276,11 @@ extension KoboldServiceAdmin on KoboldService {
   }
 
   Future<void> _probeVersion() async {
-    if (_modelReady) {
+    // Only the process this service runs is waited for. One that exited on
+    // its own leaves why on the status line until the next Start or Stop,
+    // and whatever answers on its port now is not it.
+    final engine = _process;
+    if (_modelReady || engine == null) {
       _stopReadinessProbe();
       return;
     }
@@ -287,6 +291,8 @@ extension KoboldServiceAdmin on KoboldService {
           .get(uri)
           .timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
+        // It may have exited, or been replaced, while the answer was coming.
+        if (!identical(_process, engine)) return;
         debugPrint('[KoboldService] Readiness probe: 200 OK — model ready.');
         _markModelReady();
         await _syncVersionFromResponse(response);
