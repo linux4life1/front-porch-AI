@@ -260,7 +260,8 @@ Decisions already made by the maintainer:
    answered, a save keeps the file's own word: nothing about sliding window,
    and fast forward and the window's padding as written
    (`KcppsDraft.swaLeftAsWritten`), even when another edit rewrites that
-   group of settings. The phone's cards print the preset's plain words as
+   group of settings, and whatever model the form has (a model without a
+   sliding window shows no switch, so its silent file stays silent). The phone's cards print the preset's plain words as
    the server sends them (`preset.words`), so they need no change of their
    own. Wording only: the launch runs the file as written, and the editor's
    MMQ timing still loads the form with sliding window answered "off", as

@@ -66,7 +66,7 @@ class KcppsDraft {
   /// [slidingWindow]). It holds what the file says about the settings that go
   /// with sliding window (fast forward, the window's padding), which [toMap]
   /// writes back as they were: saving other edits leaves the file's own
-  /// answer alone. Only for a model that has a sliding window.
+  /// answer alone, whatever model the form has.
   final Map<String, dynamic>? swaLeftAsWritten;
 
   /// Sliding window is left to KoboldCpp ([swaLeftAsWritten]).
@@ -209,9 +209,11 @@ class KcppsDraft {
     // No thread count leaves it to KoboldCpp.
     if (threads == null) map.remove('threads');
     // Left to KoboldCpp: sliding window is not written either way, and the
-    // settings that go with it stay as the file has them.
+    // settings that go with it stay as the file has them, on any model, until
+    // the switch is answered. (A model without one shows no switch; the file
+    // stays silent there too.)
     final left = swaLeftAsWritten;
-    if (left != null && hasSlidingWindow) {
+    if (left != null) {
       for (final k in ['noswa', 'useswa', ..._swaCompanions]) {
         map.remove(k);
       }
