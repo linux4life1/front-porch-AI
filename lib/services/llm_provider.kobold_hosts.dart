@@ -178,8 +178,9 @@ extension LLMProviderKoboldHosts on LLMProvider {
       );
 
   /// The old model is kept running: chat's stored choice (the model in use,
-  /// the preset, and the link between them) goes back to the pair the service
-  /// recorded as loaded before the reload, so every screen names what runs,
+  /// the preset, and the link between them) goes back to exactly the pair the
+  /// service recorded as loaded before the reload, so every screen names what
+  /// runs,
   /// and the staged chat config is the one that was there, which an idle
   /// unload loads back. The record is put back too, so the next refused
   /// reload can do the same.
@@ -206,14 +207,19 @@ extension LLMProviderKoboldHosts on LLMProvider {
         now.kcppsPath != was.asked.kcppsPath) {
       return;
     }
-    final kcpps = was.kcpps ?? '';
-    final usable = kcpps.isNotEmpty && await File(kcpps).exists();
-    await _storageService.backendSettings.setLastUsedModelPath(model);
-    await chooseKoboldPreset(_storageService, usable ? kcpps : null);
-    _koboldService.noteAdminLoadedPair(
-      modelPath: model,
-      kcppsPath: usable ? kcpps : '',
-    );
+    final recorded = was.kcpps ?? '';
+    final kcpps = recorded.isNotEmpty && await File(recorded).exists()
+        ? recorded
+        : '';
+    // Exactly the recorded pair, written as it is. Not through
+    // chooseKoboldPreset, which works out the model in use again and, for a
+    // preset whose model has appeared on disk since the launch, would name
+    // that one while KoboldCpp runs the model it was given.
+    final b = _storageService.backendSettings;
+    await b.setLastUsedModelPath(model);
+    await b.setActiveKcppsPath(kcpps.isEmpty ? null : kcpps);
+    await _storageService.presetSettings.setModelPreset(model, kcpps);
+    _koboldService.noteAdminLoadedPair(modelPath: model, kcppsPath: kcpps);
     final staged = was.staged;
     final dir = koboldAdminDirFor(_storageService);
     if (staged != null && dir.isNotEmpty) {

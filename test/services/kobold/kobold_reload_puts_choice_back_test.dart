@@ -154,6 +154,46 @@ void main() {
       );
     });
 
+    test('exactly the recorded pair goes back, not what the preset would '
+        'resolve to now: a preset whose model was missing at launch', () async {
+      // The engine was started on this preset while its model was missing, so
+      // it ran the last-used model with the preset's settings: the record
+      // says (old model, preset).
+      final missing = p.join(root.path, 'named-by-preset.gguf');
+      final preset = rig.preset('Names a model.kcpps', {
+        'model_param': missing,
+        'contextsize': 8192,
+      });
+      await backend().setActiveKcppsPath(preset.path);
+      await rig.storage.presetSettings.setModelPreset(oldModel, preset.path);
+      rig.kobold.noteAdminLoadedPair(
+        modelPath: oldModel,
+        kcppsPath: preset.path,
+      );
+      // It has appeared on disk since, so the rule for which model a launch
+      // loads would now pick it.
+      rig.gguf('named-by-preset.gguf');
+      rig.engine.failing.add(kStagedChatConfig);
+      await selectKoboldModel(rig.storage, broken('new.gguf'));
+
+      final result = await rig.provider.reloadChatKobold();
+
+      expect(result?.refusal, contains('The previous one is still running'));
+      expect(rig.engine.model, 'koboldcpp/old');
+      expect(
+        backend().lastUsedModelPath,
+        oldModel,
+        reason: 'KoboldCpp runs the old model, whatever the preset names',
+      );
+      expect(backend().activeKcppsPath, preset.path);
+      expect(links()[oldModel], preset.path);
+      expect(
+        links()[missing],
+        isNull,
+        reason: 'no link is made for a model that is not the one running',
+      );
+    });
+
     test('a second model that does not load goes back too: the record was '
         'put back with the choice', () async {
       rig.engine.failing.add(kStagedChatConfig);

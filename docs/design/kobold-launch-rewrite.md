@@ -291,8 +291,11 @@ Decisions already made by the maintainer:
     (2026-10-05), so every screen names the running model. What runs is what
     the service recorded as loaded before the reload, put back only when the
     engine itself says that model is the one running and the choice has not
-    been changed meanwhile; otherwise nothing is guessed. The staged chat
-    config and the service's record go back with it.
+    been changed meanwhile; otherwise nothing is guessed. It is written back
+    as it was recorded, not worked out again: a preset whose model was
+    missing at launch and has appeared since must not turn the model in use
+    into that one while KoboldCpp runs the other. The staged chat config and
+    the service's record go back with it.
 14. The app's KoboldCpp answers this computer only, with no admin password
     (2026-10-04). Before this it listened on every network the computer was
     on, so any device on the same Wi-Fi could call its admin endpoints (drop
