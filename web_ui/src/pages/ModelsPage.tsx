@@ -119,14 +119,23 @@ function BackendStatusCard({
         </p>
       )}
       <p className="muted small">
-        {status.running ? (status.phase === 'ready' ? 'Running · model ready' : `Running · ${status.statusMessage || 'loading…'}`) : 'Stopped'}
+        {status.running
+          ? status.phase === 'ready'
+            ? 'Running · model ready'
+            : `Running · ${status.statusMessage || 'loading…'}`
+          : status.starting
+            ? `Starting · ${status.statusMessage || 'getting ready…'}`
+            : 'Stopped'}
         {' · '}<strong>{status.loadedModel}</strong>
       </p>
       <div className="tool-row">
         <button disabled={busy || status.starting || status.engineInstalled === false} onClick={() => act('/api/backend/restart')}>
           {status.starting ? 'Starting…' : 'Restart'}
         </button>
-        <button disabled={busy || !status.running} onClick={() => act('/api/backend/stop')}>Stop</button>
+        {/* A start still getting ready is called off by Stop, as on the desktop. */}
+        <button disabled={busy || !(status.running || status.starting)} onClick={() => act('/api/backend/stop')}>
+          Stop
+        </button>
       </div>
       {refused && (
         <p className="error" role="alert" data-testid="backend-refused" style={{ whiteSpace: 'pre-line' }}>
