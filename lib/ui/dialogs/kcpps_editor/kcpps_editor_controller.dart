@@ -392,7 +392,9 @@ class KcppsEditorController extends ChangeNotifier {
   /// The form as saved: the name is the file's, not in it, and counts too.
   String _snapshot() => jsonEncode({'': draft.name.trim(), ..._map()});
 
-  Map<String, dynamic> _map() => draft.toMap(
+  /// The `.kcpps` map of the form, or of [form]: the form with something
+  /// changed, for a trial.
+  Map<String, dynamic> _map([KcppsDraft? form]) => (form ?? draft).toMap(
     recurrent: recurrent,
     rocm: storage.backendSettings.useRocm ?? false,
     rocmFlashAttentionFailed: storage.backendSettings.rocmFlashAttentionFailed,

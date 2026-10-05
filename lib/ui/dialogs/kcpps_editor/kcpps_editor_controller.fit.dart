@@ -231,14 +231,11 @@ extension KcppsEditorMmq on KcppsEditorController {
       for (final on in [true, false]) {
         mmqStatus = 'Loading with MMQ ${on ? 'on' : 'off'}…';
         _notify();
+        // Built as the form is saved, so what the machine has already shown
+        // it cannot run (flash attention on a ROCm build that died with it)
+        // is not loaded to be timed.
         final map = kcppsPresetLaunchMap(
-          draft
-              .copyWith(mmq: on)
-              .toMap(
-                recurrent: recurrent,
-                rocm: rocm,
-                architecture: info?.architecture,
-              ),
+          _map(draft.copyWith(mmq: on)),
           modelPath: draft.modelPath,
           mmprojPath: '',
         );
