@@ -29,6 +29,12 @@ extension ChatServiceLlmLanes on ChatService {
       _llmProvider?.sideLaneService ??
       _koboldService;
 
+  /// Whether the spoken-reply backend is the local KoboldCpp (a test double
+  /// says so through [testIsLocalOverride]).
+  bool get _mouthIsLocal => testLlmServiceOverride != null
+      ? testIsLocalOverride
+      : (_llmProvider?.isLocal ?? true);
+
   bool get _sideLaneIsKobold {
     if (testWorkerLlmServiceOverride != null) return false;
     if (testLlmServiceOverride != null) return testIsLocalOverride;

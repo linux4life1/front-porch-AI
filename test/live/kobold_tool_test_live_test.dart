@@ -4,8 +4,8 @@
 // The sidebar's tool-calling pill on a REAL KoboldCpp, through the app's own
 // KoboldService, LLMProvider and ChatService (nothing in the chain is a
 // stand-in): once Start has the model ready the app asks it for a tool call
-// by itself, and a model record that moves while that first question is out
-// does not lose the question. Run:
+// by itself, keeps the answer for the next run, and a model record that moves
+// while that first question is out does not lose the question. Run:
 //   KOBOLD_LIVE_BIN=… KOBOLD_LIVE_MODEL=… flutter test --tags kobold_live \
 //     test/live/kobold_tool_test_live_test.dart
 
@@ -13,10 +13,12 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -118,6 +120,23 @@ class _App {
   }
 }
 
+/// The verdicts the app has written to its preferences, as stored.
+Future<Map<String, dynamic>> _storedVerdicts() async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getString(
+    isPreRelease ? 'beta_tool_verdicts' : 'tool_verdicts',
+  );
+  if (raw == null || raw.isEmpty) return {};
+  return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+}
+
+/// Waits for the app's write of a verdict to reach the preferences.
+Future<void> _waitForStoredVerdict() async {
+  for (var i = 0; i < 50 && (await _storedVerdicts()).isEmpty; i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+}
+
 void main() {
   late Directory root;
 
@@ -151,8 +170,13 @@ void main() {
     await root.delete(recursive: true);
   });
 
+  /// What the app calls the model in the verdicts it keeps.
+  String modelKey(String path) =>
+      'KoboldCPP|||${p.basename(path)}#${File(path).lengthSync()}';
+
   test(
-    'after Start the model is tested for tool calling by itself',
+    'after Start the model is tested for tool calling by itself, and the '
+    'answer is kept',
     () async {
       final app = await _App.open();
       addTearDown(app.close);
@@ -169,6 +193,47 @@ void main() {
         reason: 'the engine really answered the tool-calling question',
       );
       expect(app.chat.toolSupportJson['state'], 'supported');
+      // Kept for the next run, under the model's name.
+      await _waitForStoredVerdict();
+      expect(await _storedVerdicts(), {modelKey(liveEngineModel): true});
+    },
+    timeout: _slow,
+    skip: liveEngineSkip,
+  );
+
+  test(
+    'a second run knows the model and does not ask it again',
+    () async {
+      final first = await _App.open();
+      await first.start();
+      await first.waitForModel();
+      await first.waitForVerdict();
+      expect(first.chat.toolCallSupport, ToolCallSupport.supported);
+      expect(first.questionsAnswered, greaterThan(0));
+      await _waitForStoredVerdict();
+      await first.close();
+
+      // The app is opened again over the same data and preferences.
+      final second = await _App.open();
+      addTearDown(second.close);
+      expect(
+        second.chat.toolCallSupport,
+        ToolCallSupport.supported,
+        reason: 'known before the engine is even started',
+      );
+      await second.start();
+      await second.waitForModel();
+      // Room for a question to be asked and answered, if one were going to be.
+      await Future<void>.delayed(const Duration(seconds: 8));
+
+      expect(second.chat.toolCallSupport, ToolCallSupport.supported);
+      expect(second.chat.toolSupportJson['state'], 'supported');
+      expect(second.sawTesting, isFalse, reason: 'no "testing…" this run');
+      expect(
+        second.questionsAnswered,
+        0,
+        reason: 'the engine was not asked for a tool call',
+      );
     },
     timeout: _slow,
     skip: liveEngineSkip,

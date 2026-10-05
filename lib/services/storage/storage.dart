@@ -17,6 +17,7 @@ export 'settings/preset_settings.dart';
 export 'settings/realism_settings.dart';
 export 'settings/settings_base.dart';
 export 'settings/stt_settings.dart';
+export 'settings/tool_verdict_settings.dart';
 export 'settings/tts_settings.dart';
 export 'settings/ui_settings.dart';
 export 'settings/web_search_settings.dart';

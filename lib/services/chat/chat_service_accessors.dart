@@ -168,9 +168,7 @@ extension ChatServiceAccessors on ChatService {
   /// retroactive baseline scan, so all three paths flip together.
   bool get _oneShotActive => resolveOneShotMode(
     mode: _storageService.realismSettings.oneShotMode,
-    isLocal: testLlmServiceOverride != null
-        ? testIsLocalOverride
-        : (_llmProvider?.isLocal ?? true),
+    isLocal: _mouthIsLocal,
     toolSupport: _toolProbe.supportFor(_evalBackendIdentity),
     // A live voice call upgrades Off to Auto's fuse-where-safe rule — one
     // eval call instead of three before the character can speak.
@@ -471,6 +469,8 @@ extension ChatServiceAccessors on ChatService {
     // Probe verdicts land from background passes and the manual test alike —
     // rebroadcast so the sidebar's tool-calling pill repaints live.
     _toolProbe.addListener(notifyListeners);
+    // Settled verdicts outlive the run (a known model is not asked again).
+    _toolProbe.store = _storageService.toolVerdictSettings;
     // Local model path / remote model name changes alter the eval identity —
     // retest tool support for the new model (sidebar pill contract).
     _storageService.addListener(_onBackendIdentity);

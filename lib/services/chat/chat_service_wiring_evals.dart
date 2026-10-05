@@ -281,11 +281,20 @@ extension ChatServiceWiringEvals on ChatService {
         : (testLlmServiceOverride != null && !testIsLocalOverride
               ? _storageService.backendSettings.remoteApiUrl
               : '');
+    // The model is named by what names it: a local one by its file (name and
+    // size, not folder), a remote one by its host and name. Each leaves out
+    // the other's leftovers (the remote name typed last week, the local file
+    // picked last month); they would send a known model to be tested again.
+    final local = _mouthIsLocal;
     return evalBackendIdentityFor(
       backendName: service.backendName,
       remoteApiUrl: remoteApiUrl,
-      remoteModelName: _storageService.backendSettings.remoteModelName,
-      modelPath: _storageService.backendSettings.lastUsedModelPath,
+      remoteModelName: local
+          ? ''
+          : _storageService.backendSettings.remoteModelName,
+      modelPath: local
+          ? localModelKey(_storageService.backendSettings.lastUsedModelPath)
+          : null,
     );
   }
 

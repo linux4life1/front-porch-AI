@@ -38,12 +38,15 @@ extension LLMProviderWorker on LLMProvider {
     final type = _storageService.workerBackendType;
     final url = resolvedLaneApiUrl(type, _storageService.workerRemoteApiUrl);
     final svc = workerService ?? _workerRemote;
+    // Named the way the chat model is: a local one by its file, a remote one
+    // by its host and name (see ChatService._evalBackendIdentity).
+    final local = type == 'kobold';
     return workerEvalIdentityFor(
       backendName: svc.backendName,
       remoteApiUrl: url,
-      remoteModelName: _storageService.workerRemoteModelName,
-      modelPath: type == 'kobold'
-          ? _storageService.resolvedWorkerKoboldModelPath()
+      remoteModelName: local ? '' : _storageService.workerRemoteModelName,
+      modelPath: local
+          ? localModelKey(_storageService.resolvedWorkerKoboldModelPath())
           : null,
     );
   }
