@@ -356,7 +356,9 @@ class AppColors {
       resolve(context, deepWell, deepWellLight);
 
   // ── KoboldCpp presets and the local model card (approved sketch,
-  // 2026-10-04): slate text, an inset panel, and the memory bar's parts.
+  // 2026-10-04): slate text, an inset panel, and the parts of the preset
+  // editor's memory bar (kcpps_memory_bar.dart; the old one in Settings →
+  // Hardware & GPU is gone).
   static const Color insetPanel = Color(0xFF172033);
   static const Color insetPanelLight = Color(0xFFF3EEE6);
   static Color insetPanelOf(BuildContext context) =>

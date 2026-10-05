@@ -231,8 +231,9 @@ Add computed getters:
 
 ### 2. `GGUFParser` (`lib/utils/gguf_parser.dart`)
 
-Add these to the KV whitelist in both `getKvCacheBytesPerToken` and
-`getModelArchitectureInfo`:
+Add these to the KV whitelist in `getModelArchitectureInfo` (this plan also
+named `getKvCacheBytesPerToken`, which went with the old Settings memory
+bar on 2026-10-05):
 - `{arch}.expert_count`
 - `{arch}.expert_used_count`
 - `{arch}.expert_feed_forward_length`
