@@ -344,7 +344,7 @@ edits, but that type is a summary and is never what a launch runs.
 **A user's preset is launched as it was written.** The staged config for a
 preset is the file's own content with a few settings laid over it: the
 model the app resolved, `jinja: true`, the vision file (when one was chosen
-for the model and exists), `host: 127.0.0.1` (decision 12), and
+for the model and exists), `host: 127.0.0.1` (decision 14), and
 `noswa: true` when the file has sliding window on (`noswa: false`, or
 `useswa: true` in a file from before that name existed) with fast forward
 on. Nothing else is added, changed or dropped. As first merged, the launch
@@ -383,7 +383,7 @@ it lands, a swap back to a user's preset still links the user's own file).
 **Only these stay on the command line:** port, admin, admin folder.
 KoboldCpp protects them from being set by a config. The listen address is
 protected on a reload too, but a launch reads it from the config, which is
-why it rides in the staged config and not on the command line (decision 12).
+why it rides in the staged config and not on the command line (decision 14).
 The one config the app stages without it is the preset editor's speed
 trial, which is only ever live-loaded.
 
@@ -702,8 +702,8 @@ As built (2026-10-04), to the sketch the maintainer approved:
   as much of the model on the card as 512 does (an "Auto" chip, the
   default, in Advanced; a chosen batch is kept); smart cache slots that fit
   in free system memory (3, or KoboldCpp's 7 for a recurrent model).
-  Context shift (decision 12): KoboldCpp's source keeps a slot for a
-  regenerated reply and a checkpoint part way into a long prompt for a
+  Context shift (decisions 7 and 9): KoboldCpp's source keeps a slot for
+  a regenerated reply and a checkpoint part way into a long prompt for a
   recurrent model, since its state cannot be rewound; so context shift
   stays on for such a model and is switched off only where memory has no
   room for KoboldCpp's smallest count (three).
